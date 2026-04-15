@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import prisma from "@/lib/prisma";
 import { getAuthContext, buildContactWhere } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { formatKSTDate, formatKSTDateCompact } from "@/lib/utils/dateUtils";
 
 // GET /api/contacts/export?type=LEAD
 export async function GET(req: Request) {
@@ -41,9 +42,9 @@ export async function GET(req: Request) {
       관심크루즈:  c.cruiseInterest ?? "",
       예산:        BUDGET_KO[c.budgetRange ?? ""] ?? "",
       메모:        c.adminMemo ?? "",
-      마지막연락:  c.lastContactedAt?.toLocaleDateString("ko-KR") ?? "",
-      구매일:      c.purchasedAt?.toLocaleDateString("ko-KR") ?? "",
-      등록일:      c.createdAt.toLocaleDateString("ko-KR"),
+      마지막연락:  c.lastContactedAt ? formatKSTDate(c.lastContactedAt) : "",
+      구매일:      c.purchasedAt    ? formatKSTDate(c.purchasedAt)    : "",
+      등록일:      formatKSTDate(c.createdAt),
     }));
 
     const wb   = XLSX.utils.book_new();
@@ -51,7 +52,7 @@ export async function GET(req: Request) {
     XLSX.utils.book_append_sheet(wb, ws, "고객목록");
 
     const buf      = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
-    const fileName = `고객목록_${new Date().toLocaleDateString("ko-KR").replace(/\./g, "")}.xlsx`;
+    const fileName = `고객목록_${formatKSTDateCompact(new Date())}.xlsx`;
 
     logger.log("[GET /api/contacts/export]", { count: contacts.length });
 

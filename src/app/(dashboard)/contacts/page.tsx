@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Search, Plus, Filter, Phone, MessageSquare } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Search, Plus, Filter, Phone, MessageSquare, CheckCircle, Clock, XCircle } from "lucide-react";
 
 type Contact = {
   id: string;
@@ -15,13 +16,35 @@ type Contact = {
   _count: { callLogs: number };
 };
 
+type QuickCallResult = "INTERESTED" | "PENDING" | "REJECTED";
+
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   LEAD:         { label: "잠재", color: "bg-blue-100 text-blue-700" },
   CUSTOMER:     { label: "구매완료", color: "bg-green-100 text-green-700" },
   UNSUBSCRIBED: { label: "수신거부", color: "bg-gray-100 text-gray-500" },
 };
 
+const QUICK_CALL_OPTIONS: { result: QuickCallResult; label: string; icon: React.ReactNode; color: string }[] = [
+  { result: "INTERESTED", label: "관심", icon: <CheckCircle className="w-3.5 h-3.5" />, color: "bg-green-100 text-green-700 hover:bg-green-200" },
+  { result: "PENDING",    label: "보류", icon: <Clock className="w-3.5 h-3.5" />,        color: "bg-yellow-100 text-yellow-700 hover:bg-yellow-200" },
+  { result: "REJECTED",   label: "거절", icon: <XCircle className="w-3.5 h-3.5" />,      color: "bg-red-100 text-red-700 hover:bg-red-200" },
+];
+
+function getDaysSince(dateStr: string | null): number | null {
+  if (!dateStr) return null;
+  return (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24);
+}
+
+function formatDaysSince(dateStr: string | null): string {
+  const days = getDaysSince(dateStr);
+  if (days === null) return "처음 연락";
+  const d = Math.floor(days);
+  if (d === 0) return "오늘 연락";
+  return `${d}일 전 연락`;
+}
+
 export default function ContactsPage() {
+  const router = useRouter();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
@@ -31,6 +54,11 @@ export default function ContactsPage() {
   const [groups, setGroups] = useState<{ id: string; name: string; funnelId: string | null }[]>([]);
   const [bulkGroupId, setBulkGroupId] = useState<string>("");
   const [assigning, setAssigning] = useState<string | null>(null);
+
+  // 퀵 콜 상태
+  const [quickCallId, setQuickCallId] = useState<string | null>(null);
+  const [quickCallLoading, setQuickCallLoading] = useState(false);
+  const [quickCallError, setQuickCallError] = useState<string | null>(null);
 
   const fetchContacts = useCallback(async () => {
     setLoading(true);
@@ -73,6 +101,45 @@ export default function ContactsPage() {
     fetchContacts();
   };
 
+  const handleQuickCall = async (contactId: string, result: QuickCallResult) => {
+    setQuickCallLoading(true);
+    setQuickCallError(null);
+    const resultLabel = result === "INTERESTED" ? "관심" : result === "PENDING" ? "보류" : "거절";
+    const convictionScore = result === "INTERESTED" ? "8" : result === "PENDING" ? "5" : "2";
+    try {
+      const res = await fetch(`/api/contacts/${contactId}/call-logs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: `[퀵기록] ${resultLabel}`,
+          result,
+          convictionScore,
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setQuickCallError("콜 기록 저장에 실패했습니다.");
+      } else {
+        setQuickCallId(null);
+        fetchContacts();
+      }
+    } catch {
+      setQuickCallError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setQuickCallLoading(false);
+    }
+  };
+
+  // 오늘 콜할 사람: LEAD + (연락 없음 OR 3일 이상 연락 없음)
+  const todayCallList = contacts
+    .filter((c) => {
+      if (c.type !== "LEAD") return false;
+      const days = getDaysSince(c.lastContactedAt);
+      if (days === null) return true;
+      return days >= 3;
+    })
+    .slice(0, 5);
+
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       {/* 헤더 */}
@@ -114,6 +181,37 @@ export default function ContactsPage() {
           </select>
         </div>
       </div>
+
+      {/* 오늘 콜할 사람 */}
+      {todayCallList.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+          <p className="text-sm font-semibold text-amber-800 mb-2">
+            📞 오늘 콜할 사람 ({todayCallList.length}명)
+          </p>
+          <div className="space-y-1.5">
+            {todayCallList.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => router.push(`/contacts/${c.id}`)}
+                className="w-full text-left flex items-center justify-between px-3 py-2 bg-white rounded-lg border border-amber-100 hover:border-amber-300 hover:shadow-sm transition-all text-sm"
+              >
+                <span className="font-medium text-gray-900">{c.name}</span>
+                <span className="text-gray-500 flex items-center gap-3">
+                  <a
+                    href={`tel:${c.phone}`}
+                    className="text-blue-600 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {c.phone}
+                  </a>
+                  <span className="text-xs text-amber-600">{formatDaysSince(c.lastContactedAt)}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 미배정 고객 일괄 배정 */}
       {groups.length > 0 && (
@@ -158,80 +256,117 @@ export default function ContactsPage() {
         <div className="space-y-2">
           {contacts.map((c) => {
             const typeInfo = TYPE_LABELS[c.type] ?? { label: c.type, color: "bg-gray-100 text-gray-600" };
+            const isQuickCallOpen = quickCallId === c.id;
             return (
-              <Link
-                key={c.id}
-                href={`/contacts/${c.id}`}
-                className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 px-4 py-3 hover:border-gold-300 hover:shadow-sm transition-all group"
-              >
-                {/* 아바타 */}
-                <div className="w-10 h-10 rounded-full bg-navy-900 text-white flex items-center justify-center text-sm font-bold shrink-0">
-                  {c.name[0]}
-                </div>
-
-                {/* 정보 */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-900">{c.name}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${typeInfo.color}`}>
-                      {typeInfo.label}
-                    </span>
-                    {c.groups.slice(0, 2).map((g) => (
-                      <span
-                        key={g.group.id}
-                        className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
-                      >
-                        {g.group.name}
-                      </span>
-                    ))}
+              <div key={c.id} className="bg-white rounded-xl border border-gray-200 hover:border-gold-300 hover:shadow-sm transition-all">
+                <Link
+                  href={`/contacts/${c.id}`}
+                  className="flex items-center gap-3 px-4 py-3 group"
+                >
+                  {/* 아바타 */}
+                  <div className="w-10 h-10 rounded-full bg-navy-900 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                    {c.name[0]}
                   </div>
-                  <div className="text-sm text-gray-500 mt-0.5 flex items-center gap-3">
-                    <span>{c.phone}</span>
-                    {c.cruiseInterest && <span className="text-gold-500">{c.cruiseInterest}</span>}
-                    {c._count.callLogs > 0 && (
-                      <span className="flex items-center gap-1">
-                        <Phone className="w-3 h-3" /> {c._count.callLogs}회
+
+                  {/* 정보 */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">{c.name}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${typeInfo.color}`}>
+                        {typeInfo.label}
                       </span>
+                      {c.groups.slice(0, 2).map((g) => (
+                        <span
+                          key={g.group.id}
+                          className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
+                        >
+                          {g.group.name}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="text-sm text-gray-500 mt-0.5 flex items-center gap-3">
+                      <span>{c.phone}</span>
+                      {c.cruiseInterest && <span className="text-gold-500">{c.cruiseInterest}</span>}
+                      {c._count.callLogs > 0 && (
+                        <span className="flex items-center gap-1">
+                          <Phone className="w-3 h-3" /> {c._count.callLogs}회
+                        </span>
+                      )}
+                    </div>
+                    {/* 빠른 그룹 배정 */}
+                    {groups.length > 0 && (
+                      <div className="flex items-center gap-1 mt-2" onClick={(e) => e.preventDefault()}>
+                        <select
+                          className="text-xs border border-gray-200 rounded px-1.5 py-1 flex-1 max-w-[180px] bg-white focus:outline-none"
+                          defaultValue=""
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            if (e.target.value) quickAssign(c.id, e.target.value);
+                            e.target.value = "";
+                          }}
+                        >
+                          <option value="">그룹 배정...</option>
+                          {groups.map((g) => (
+                            <option key={g.id} value={g.id}>{g.name} {g.funnelId ? "🔄" : ""}</option>
+                          ))}
+                        </select>
+                        {assigning === c.id && <span className="text-xs text-gray-400">배정 중...</span>}
+                      </div>
                     )}
                   </div>
-                  {/* 빠른 그룹 배정 */}
-                  {groups.length > 0 && (
-                    <div className="flex items-center gap-1 mt-2" onClick={(e) => e.preventDefault()}>
-                      <select
-                        className="text-xs border border-gray-200 rounded px-1.5 py-1 flex-1 max-w-[180px] bg-white focus:outline-none"
-                        defaultValue=""
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          if (e.target.value) quickAssign(c.id, e.target.value);
-                          e.target.value = "";
-                        }}
-                      >
-                        <option value="">그룹 배정...</option>
-                        {groups.map((g) => (
-                          <option key={g.id} value={g.id}>{g.name} {g.funnelId ? "🔄" : ""}</option>
-                        ))}
-                      </select>
-                      {assigning === c.id && <span className="text-xs text-gray-400">배정 중...</span>}
-                    </div>
-                  )}
-                </div>
 
-                {/* 빠른 액션 (PC hover) */}
-                <div className="hidden md:flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={(e) => { e.preventDefault(); window.location.href = `tel:${c.phone}`; }}
-                    className="p-2 rounded-lg hover:bg-blue-50 text-blue-600"
-                  >
-                    <Phone className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={(e) => { e.preventDefault(); }}
-                    className="p-2 rounded-lg hover:bg-green-50 text-green-600"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                  </button>
-                </div>
-              </Link>
+                  {/* 빠른 액션 (PC hover) */}
+                  <div className="hidden md:flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); window.location.href = `tel:${c.phone}`; }}
+                      className="p-2 rounded-lg hover:bg-blue-50 text-blue-600"
+                    >
+                      <Phone className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setQuickCallId(isQuickCallOpen ? null : c.id);
+                        setQuickCallError(null);
+                      }}
+                      className={`p-2 rounded-lg transition-colors ${isQuickCallOpen ? "bg-green-100 text-green-700" : "hover:bg-green-50 text-green-600"}`}
+                      title="빠른 콜 기록"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                    </button>
+                  </div>
+                </Link>
+
+                {/* 퀵 콜 기록 인라인 폼 */}
+                {isQuickCallOpen && (
+                  <div className="px-4 pb-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <span className="text-xs text-gray-500 shrink-0">콜 결과:</span>
+                    {QUICK_CALL_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.result}
+                        type="button"
+                        disabled={quickCallLoading}
+                        onClick={() => handleQuickCall(c.id, opt.result)}
+                        className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${opt.color}`}
+                      >
+                        {opt.icon}
+                        {opt.label}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => { setQuickCallId(null); setQuickCallError(null); }}
+                      className="text-xs text-gray-400 hover:text-gray-600 ml-1"
+                    >
+                      취소
+                    </button>
+                    {quickCallLoading && <span className="text-xs text-gray-400">저장 중...</span>}
+                    {quickCallError && <span className="text-xs text-red-500">{quickCallError}</span>}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
