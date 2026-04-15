@@ -309,6 +309,25 @@ model SalesPlaybook {
   @@index([type])
 }
 
+// ─── 콜 녹음 자동저장 + AI 피드백 ───────────────────────────────
+model CallRecording {
+  id             String   @id @default(cuid())
+  callLogId      String?  // 연결된 콜기록 (선택)
+  contactId      String
+  userId         String
+  fileName       String
+  fileUrl        String?  // 업로드된 파일 URL
+  durationSec    Int?
+  transcriptText String?  @db.Text  // 녹음 텍스트 변환본
+  aiFeedback     String?  @db.Text  // Claude AI 피드백
+  aiScore        Int?     // 0-100 점수
+
+  createdAt      DateTime @default(now())
+
+  @@index([contactId])
+  @@index([userId])
+}
+
 // ─── PayApp 결제 ──────────────────────────────────────────────
 model PayAppPayment {
   id            String    @id @default(cuid())
