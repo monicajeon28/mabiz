@@ -94,6 +94,10 @@ model Contact {
 
   // 담당 판매원 (AGENT에게 배당된 고객)
   assignedUserId String?   // Clerk userId of the assigned AGENT
+  // 크루즈 출발 정보 (VIP 케어 D-day 기준)
+  departureDate  DateTime? // 출발 예정일 → D-150, D-90... 자동 계산
+  productName    String?   // 상품명 (예: 지중해 7박 MSC)
+  bookingRef     String?   // 예약 번호 (PNR 등)
 
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   groups         ContactGroupMember[]

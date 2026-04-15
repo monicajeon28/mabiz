@@ -1,10 +1,12 @@
 /**
- * 퍼널 트리거 — 그룹 배정 시 자동 실행
+ * 퍼널 트리거
  *
- * 흐름:
- *   고객 → 그룹 배정
- *   └─ 그룹에 funnelId 있으면 → VipCareSequence + VipCareLog 자동 생성
- *   └─ 즉시 발송 옵션 있으면 → 첫 번째 스테이지 즉시 발송
+ * 동작 방식:
+ *   - triggerType = "DDAY"       → contact.departureDate 기준으로 D-150, D-90... 계산
+ *   - triggerType = "DAYS_AFTER" → 오늘부터 N일 후
+ *
+ * 판매원이 할 것: 출발일 입력 + 그룹 배정
+ * 자동으로 되는 것: 발송 날짜 계산 + Cron 자동 발송
  */
 
 import prisma from "@/lib/prisma";
@@ -15,88 +17,110 @@ interface TriggerOptions {
   contactId:      string;
   groupId:        string;
   organizationId: string;
-  sendFirst?:     boolean; // 첫 번째 메시지 즉시 발송 여부
+  sendFirst?:     boolean;
 }
 
 export async function triggerGroupFunnel(opts: TriggerOptions): Promise<boolean> {
   const { contactId, groupId, organizationId, sendFirst = false } = opts;
 
-  // 그룹에 퍼널 연결 여부 확인
   const group = await prisma.contactGroup.findFirst({
     where: { id: groupId, organizationId },
     select: { funnelId: true, name: true },
   });
+  if (!group?.funnelId) return false;
 
-  if (!group?.funnelId) return false; // 퍼널 없으면 스킵
-
-  // 이미 이 퍼널로 진행 중인지 체크 (중복 방지)
+  // 중복 방지
   const existing = await prisma.vipCareSequence.findFirst({
     where: { contactId, funnelId: group.funnelId, status: "ACTIVE" },
   });
-  if (existing) {
-    logger.log("[FunnelTrigger] 이미 진행 중", { contactId, funnelId: group.funnelId });
-    return false;
-  }
+  if (existing) return false;
 
-  // 퍼널 + 스테이지 조회
   const funnel = await prisma.funnel.findFirst({
     where: { id: group.funnelId, isActive: true },
     include: { stages: { orderBy: { order: "asc" } } },
   });
   if (!funnel || funnel.stages.length === 0) return false;
 
-  // 고객 정보
   const contact = await prisma.contact.findFirst({
     where: { id: contactId, organizationId },
-    select: { name: true, phone: true, optOutAt: true },
+    select: { name: true, phone: true, optOutAt: true, departureDate: true, productName: true },
   });
   if (!contact || contact.optOutAt) return false;
 
-  const baseDate = new Date();
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
 
-  // VipCareSequence + Log 생성
+  // 스테이지별 발송 날짜 계산
+  const logData = funnel.stages.map((stage) => {
+    let scheduledAt: Date;
+
+    if (stage.triggerType === "DDAY") {
+      // D-day 기준: contact.departureDate 사용
+      // 출발일이 없으면 오늘 기준 계산 (임시)
+      const baseDate = contact.departureDate
+        ? new Date(contact.departureDate)
+        : new Date();
+      baseDate.setUTCHours(0, 0, 0, 0);
+
+      scheduledAt = new Date(baseDate);
+      scheduledAt.setUTCDate(scheduledAt.getUTCDate() + stage.triggerOffset);
+    } else {
+      // DAYS_AFTER: 오늘부터 N일 후
+      scheduledAt = new Date(today);
+      scheduledAt.setUTCDate(scheduledAt.getUTCDate() + stage.triggerOffset);
+    }
+
+    scheduledAt.setUTCHours(10, 0, 0, 0); // 오전 10시
+
+    // 과거 날짜면 스킵 표시
+    const isPast = scheduledAt < today;
+
+    // 개인화 치환
+    const content = stage.messageContent
+      ? stage.messageContent
+          .replace(/\[고객명\]/g, contact.name)
+          .replace(/\[이름\]/g,   contact.name)
+          .replace(/\[상품명\]/g, contact.productName ?? "크루즈")
+      : null;
+
+    return {
+      stageOrder:  stage.order,
+      scheduledAt,
+      status:      isPast ? "SKIPPED" : "PENDING",
+      content,
+    };
+  });
+
   const sequence = await prisma.vipCareSequence.create({
     data: {
       contactId,
-      funnelId: funnel.id,
-      startDate: baseDate,
-      status: "ACTIVE",
-      logs: {
-        create: funnel.stages.map((stage) => {
-          const scheduledAt = new Date(baseDate);
-          scheduledAt.setUTCDate(scheduledAt.getUTCDate() + stage.triggerOffset);
-          scheduledAt.setUTCHours(10, 0, 0, 0); // 오전 10시
-
-          const content = stage.messageContent
-            ? stage.messageContent
-                .replace(/\[고객명\]/g, contact.name)
-                .replace(/\[이름\]/g, contact.name)
-            : null;
-
-          return {
-            stageOrder:  stage.order,
-            scheduledAt,
-            status:      "PENDING",
-            content,
-          };
-        }),
-      },
+      funnelId:    funnel.id,
+      startDate:   today,
+      status:      "ACTIVE",
+      logs:        { create: logData },
     },
     include: { logs: true },
   });
 
   logger.log("[FunnelTrigger] 퍼널 시작", {
-    contactId, funnelId: funnel.id, group: group.name, stages: funnel.stages.length,
+    contactId,
+    funnelId:   funnel.id,
+    group:      group.name,
+    stages:     funnel.stages.length,
+    departure:  contact.departureDate?.toISOString().split("T")[0] ?? "미지정",
   });
 
-  // 즉시 첫 번째 메시지 발송
+  // 즉시 첫 번째 메시지 발송 (PENDING 상태인 것만)
   if (sendFirst) {
-    const firstLog = sequence.logs.find((l) => l.stageOrder === 0);
-    if (firstLog?.content) {
+    const firstPending = sequence.logs
+      .filter((l) => l.status === "PENDING")
+      .sort((a, b) => a.stageOrder - b.stageOrder)[0];
+
+    if (firstPending?.content) {
       const smsConfig = await getOrgSmsConfig(organizationId);
       if (smsConfig?.isActive) {
         const updated = await prisma.vipCareLog.updateMany({
-          where: { id: firstLog.id, status: "PENDING" },
+          where: { id: firstPending.id, status: "PENDING" },
           data:  { status: "SENDING" },
         });
         if (updated.count > 0) {
@@ -107,16 +131,12 @@ export async function triggerGroupFunnel(opts: TriggerOptions): Promise<boolean>
               sender: smsConfig.senderPhone,
             },
             receiver: contact.phone,
-            msg:      firstLog.content,
-            msgType:  firstLog.content.length > 90 ? "LMS" : "SMS",
+            msg:      firstPending.content,
+            msgType:  firstPending.content.length > 90 ? "LMS" : "SMS",
           });
           await prisma.vipCareLog.update({
-            where: { id: firstLog.id },
-            data: { status: result.result_code === 1 ? "SENT" : "FAILED", sentAt: new Date() },
-          });
-          logger.log("[FunnelTrigger] 즉시 발송", {
-            phone: contact.phone.substring(0, 4) + "***",
-            code: result.result_code,
+            where: { id: firstPending.id },
+            data:  { status: result.result_code === 1 ? "SENT" : "FAILED", sentAt: new Date() },
           });
         }
       }
