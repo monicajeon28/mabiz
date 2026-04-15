@@ -28,6 +28,9 @@ export default function ContactsPage() {
   const [type, setType] = useState("");
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [groups, setGroups] = useState<{ id: string; name: string; funnelId: string | null }[]>([]);
+  const [bulkGroupId, setBulkGroupId] = useState<string>("");
+  const [assigning, setAssigning] = useState<string | null>(null);
 
   const fetchContacts = useCallback(async () => {
     setLoading(true);
@@ -45,6 +48,30 @@ export default function ContactsPage() {
   }, [q, type, page]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
+
+  useEffect(() => {
+    fetch("/api/groups").then(r => r.json()).then(d => { if (d.ok) setGroups(d.groups ?? []); });
+  }, []);
+
+  const quickAssign = async (contactId: string, groupId: string) => {
+    if (!groupId) return;
+    setAssigning(contactId);
+    await fetch(`/api/groups/${groupId}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactId }),
+    });
+    setAssigning(null);
+  };
+
+  const bulkAssignUnassigned = async () => {
+    if (!bulkGroupId) return;
+    const unassigned = contacts.filter((c) => c.groups.length === 0);
+    for (const c of unassigned) {
+      await quickAssign(c.id, bulkGroupId);
+    }
+    fetchContacts();
+  };
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -87,6 +114,32 @@ export default function ContactsPage() {
           </select>
         </div>
       </div>
+
+      {/* 미배정 고객 일괄 배정 */}
+      {groups.length > 0 && (
+        <div className="flex items-center gap-2 mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+          <span className="text-sm text-amber-800 font-medium shrink-0">
+            미배정 일괄 배정
+          </span>
+          <select
+            value={bulkGroupId}
+            onChange={(e) => setBulkGroupId(e.target.value)}
+            className="text-sm border border-amber-300 rounded-lg px-2 py-1.5 flex-1 max-w-[200px] bg-white focus:outline-none focus:border-amber-500"
+          >
+            <option value="">그룹 선택...</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>{g.name} {g.funnelId ? "🔄" : ""}</option>
+            ))}
+          </select>
+          <button
+            onClick={bulkAssignUnassigned}
+            disabled={!bulkGroupId}
+            className="text-sm px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-40 transition-colors shrink-0"
+          >
+            배정 ({contacts.filter((c) => c.groups.length === 0).length}명)
+          </button>
+        </div>
+      )}
 
       {/* 고객 목록 */}
       {loading ? (
@@ -141,6 +194,26 @@ export default function ContactsPage() {
                       </span>
                     )}
                   </div>
+                  {/* 빠른 그룹 배정 */}
+                  {groups.length > 0 && (
+                    <div className="flex items-center gap-1 mt-2" onClick={(e) => e.preventDefault()}>
+                      <select
+                        className="text-xs border border-gray-200 rounded px-1.5 py-1 flex-1 max-w-[180px] bg-white focus:outline-none"
+                        defaultValue=""
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          if (e.target.value) quickAssign(c.id, e.target.value);
+                          e.target.value = "";
+                        }}
+                      >
+                        <option value="">그룹 배정...</option>
+                        {groups.map((g) => (
+                          <option key={g.id} value={g.id}>{g.name} {g.funnelId ? "🔄" : ""}</option>
+                        ))}
+                      </select>
+                      {assigning === c.id && <span className="text-xs text-gray-400">배정 중...</span>}
+                    </div>
+                  )}
                 </div>
 
                 {/* 빠른 액션 (PC hover) */}

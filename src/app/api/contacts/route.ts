@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, buildContactWhere, requireOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { triggerGroupFunnel } from "@/lib/funnel-trigger";
 
 // GET /api/contacts — 고객 목록 (역할 기반)
 export async function GET(req: Request) {
@@ -80,6 +81,19 @@ export async function POST(req: Request) {
     });
 
     logger.log("[POST /api/contacts] 고객 생성", { id: contact.id });
+
+    // 그룹 배정 시 퍼널 자동 시작 (fire-and-forget)
+    if (groupIds?.length && contact.id) {
+      for (const gid of groupIds as string[]) {
+        triggerGroupFunnel({
+          contactId:      contact.id,
+          groupId:        gid,
+          organizationId: orgId,
+          sendFirst:      true,
+        }).catch(() => {});
+      }
+    }
+
     return NextResponse.json({ ok: true, contact }, { status: 201 });
   } catch (err: unknown) {
     if ((err as { code?: string }).code === "P2002") {

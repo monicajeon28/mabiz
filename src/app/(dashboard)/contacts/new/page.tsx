@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
@@ -17,6 +17,14 @@ export default function NewContactPage() {
     adminMemo: "",
   });
   const [error, setError] = useState("");
+  const [groups, setGroups] = useState<{ id: string; name: string; funnelId: string | null }[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
+
+  useEffect(() => {
+    fetch("/api/groups").then((r) => r.json()).then((data) => {
+      if (data.ok) setGroups(data.groups ?? []);
+    });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +34,7 @@ export default function NewContactPage() {
       const res = await fetch("/api/contacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, groupIds: selectedGroupId ? [selectedGroupId] : undefined }),
       });
       const data = await res.json();
       if (data.ok) {
@@ -151,6 +159,24 @@ export default function NewContactPage() {
               rows={3}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gold-500 resize-none"
             />
+          </div>
+
+          {/* 그룹 배정 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">그룹 배정</label>
+            <select
+              value={selectedGroupId}
+              onChange={(e) => setSelectedGroupId(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-navy-500"
+            >
+              <option value="">그룹 미지정</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name} {g.funnelId ? "🔄" : ""}
+                </option>
+              ))}
+            </select>
+            {selectedGroupId && <p className="text-xs text-gray-400 mt-1">🔄 퍼널 연결 시 등록 즉시 자동 문자 발송</p>}
           </div>
         </div>
 
