@@ -34,12 +34,16 @@ export async function POST(req: Request, { params }: Params) {
         });
 
         // ★ 핵심: 그룹에 퍼널이 연결되어 있으면 자동 시작
+        // 그룹 배정 후 퍼널 자동 시작 (sendFirst: true → 즉시 첫 SMS)
+        // fire-and-forget: 퍼널 실패해도 그룹 배정은 성공으로 응답
         if (group.funnelId) {
-          await triggerGroupFunnel({
+          triggerGroupFunnel({
             contactId,
             groupId,
             organizationId: orgId,
-            sendFirst: true, // 첫 번째 문자 즉시 발송
+            sendFirst: true,
+          }).catch((err) => {
+            logger.error('[GroupMember] 퍼널 트리거 실패', { err });
           });
         }
 

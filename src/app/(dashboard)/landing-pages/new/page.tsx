@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -63,6 +63,14 @@ export default function NewLandingPage() {
   const [preview, setPreview]   = useState(false);
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState("");
+  const [groups, setGroups]     = useState<{ id: string; name: string; funnelId: string | null }[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
+
+  useEffect(() => {
+    fetch("/api/groups").then((r) => r.json()).then((data) => {
+      if (data.ok) setGroups(data.groups ?? []);
+    });
+  }, []);
 
   const handleTitleChange = (t: string) => {
     setTitle(t);
@@ -81,7 +89,7 @@ export default function NewLandingPage() {
     const res  = await fetch("/api/landing-pages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, slug, htmlContent: html }),
+      body: JSON.stringify({ title, slug, htmlContent: html, groupId: selectedGroupId || null }),
     });
     const data = await res.json();
     if (data.ok) {
@@ -137,6 +145,28 @@ export default function NewLandingPage() {
       </div>
 
       {error && <p className="text-red-500 text-sm px-4 py-2 bg-red-50">{error}</p>}
+
+      {/* 설정 패널 */}
+      <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 shrink-0">
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
+            등록 고객 자동 배정 그룹
+          </label>
+          <select
+            value={selectedGroupId}
+            onChange={(e) => setSelectedGroupId(e.target.value)}
+            className="flex-1 max-w-sm border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gold-500 bg-white"
+          >
+            <option value="">그룹 미지정 (자동 배정 없음)</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name} {g.funnelId ? "🔄" : ""}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-400">🔄 = 퍼널 연결됨 — 등록 즉시 자동 문자 발송</p>
+        </div>
+      </div>
 
       {/* 에디터 / 미리보기 */}
       <div className="flex-1 overflow-hidden">

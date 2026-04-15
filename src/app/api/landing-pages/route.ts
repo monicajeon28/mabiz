@@ -27,14 +27,14 @@ export async function POST(req: Request) {
   try {
     const ctx   = await getAuthContext();
     const orgId = requireOrgId(ctx);
-    const { title, slug, htmlContent } = await req.json();
+    const { title, slug, htmlContent, groupId } = await req.json();
 
     if (!title?.trim() || !slug?.trim()) {
       return NextResponse.json({ ok: false, message: "제목과 슬러그는 필수입니다." }, { status: 400 });
     }
 
     const page = await prisma.crmLandingPage.create({
-      data: { organizationId: orgId, title, slug, htmlContent: htmlContent ?? "" },
+      data: { organizationId: orgId, title, slug, htmlContent: htmlContent ?? "", groupId: groupId ?? null },
     });
 
     logger.log("[POST /api/landing-pages] 생성", { id: page.id });

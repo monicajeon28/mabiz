@@ -33,7 +33,7 @@ export async function PATCH(req: Request, { params }: Params) {
     const existing = await prisma.crmLandingPage.findFirst({ where: { id, organizationId: orgId } });
     if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
 
-    const { title, slug, htmlContent, isActive } = body;
+    const { title, slug, htmlContent, isActive, groupId } = body;
     const page = await prisma.crmLandingPage.update({
       where: { id },
       data: {
@@ -41,6 +41,7 @@ export async function PATCH(req: Request, { params }: Params) {
         ...(slug        !== undefined ? { slug }        : {}),
         ...(htmlContent !== undefined ? { htmlContent } : {}),
         ...(isActive    !== undefined ? { isActive }    : {}),
+        ...(groupId     !== undefined ? { groupId: groupId ?? null } : {}),
       },
     });
     return NextResponse.json({ ok: true, page });
