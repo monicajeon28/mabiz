@@ -309,6 +309,28 @@ model SalesPlaybook {
   @@index([type])
 }
 
+// ─── 이미지 캐시 (크루즈닷몰 공유 테이블, 읽기 전용) ─────────────
+model ImageCache {
+  id           Int      @id @default(autoincrement())
+  driveFileId  String   @unique
+  path         String
+  fileName     String
+  folder       String
+  title        String
+  tags         String[]
+  mimeType     String?
+  fileSize     Int?
+  driveUrl     String?
+  thumbnailUrl String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  syncedAt     DateTime @default(now())
+
+  @@index([folder])
+  @@index([title])
+  @@index([syncedAt])
+}
+
 // ─── 콜 녹음 자동저장 + AI 피드백 ───────────────────────────────
 model CallRecording {
   id             String   @id @default(cuid())
