@@ -20,21 +20,60 @@ model Organization {
   landingPages  LandingPage[]
   funnels       Funnel[]
   smsTemplates  SmsTemplate[]
+  smsConfig     OrgSmsConfig?
+  emailConfig   OrgEmailConfig?
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
 
+// ─── 조직별 Aligo SMS 설정 ────────────────────────────────────
+model OrgSmsConfig {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  aligoKey       String       // Aligo API Key
+  aligoUserId    String       // Aligo User ID
+  senderPhone    String       // 발신번호 (등록된 번호)
+  isActive       Boolean      @default(true)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  updatedAt      DateTime     @updatedAt
+}
+
+// ─── 조직별 이메일 설정 ────────────────────────────────────────
+model OrgEmailConfig {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  senderName     String       // 발신자 이름
+  senderEmail    String       // 발신 이메일
+  smtpHost       String       // SMTP 호스트 (smtp.gmail.com 등)
+  smtpPort       Int          @default(587)
+  smtpUser       String       // SMTP 계정
+  smtpPassEncrypted String    // 암호화된 비밀번호
+  isActive       Boolean      @default(true)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  updatedAt      DateTime     @updatedAt
+}
+
 model OrganizationMember {
   id             String       @id @default(cuid())
   organizationId String
-  userId         String
-  role           String       @default("MEMBER")
+  userId         String       // Clerk user ID
+  // OWNER=대리점장 | AGENT=정식판매원(330만계약) | VIEWER=조회만
+  role           String       @default("AGENT")
+  displayName    String?      // 이름
+  isActive       Boolean      @default(true)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, userId])
   @@index([organizationId])
   @@index([userId])
+}
+
+// ─── 글로벌 관리자 (모든 조직 DB 접근 + 삭제 권한) ────────────
+model GlobalAdmin {
+  id        String   @id @default(cuid())
+  userId    String   @unique  // Clerk user ID
+  createdAt DateTime @default(now())
 }
 
 // ─── 고객 ────────────────────────────────────────────────────
@@ -53,6 +92,9 @@ model Contact {
   optOutAt       DateTime?
   adminMemo      String?
 
+  // 담당 판매원 (AGENT에게 배당된 고객)
+  assignedUserId String?   // Clerk userId of the assigned AGENT
+
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   groups         ContactGroupMember[]
   callLogs       CallLog[]
@@ -65,6 +107,7 @@ model Contact {
   @@unique([phone, organizationId])
   @@index([organizationId])
   @@index([type])
+  @@index([assignedUserId])
 }
 
 // ─── 고객 그룹 ────────────────────────────────────────────────
