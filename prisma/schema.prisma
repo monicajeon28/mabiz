@@ -117,6 +117,8 @@ model ContactGroup {
   name           String
   description    String?
   color          String?  @default("#6B7280")
+  // 이 그룹에 배정되면 자동으로 시작할 퍼널
+  funnelId       String?
 
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   members        ContactGroupMember[]
@@ -180,6 +182,9 @@ model CrmLandingPage {
   isPublic       Boolean  @default(true)
   viewCount      Int      @default(0)
   autoFunnelId   String?
+
+  // 신청자를 자동으로 배정할 그룹
+  groupId        String?
 
   organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   registrations  CrmLandingRegistration[]
