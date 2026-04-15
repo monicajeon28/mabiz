@@ -75,12 +75,27 @@ export default function LandingPagesPage() {
                   <h3 className="font-semibold text-gray-900">{page.title}</h3>
                   <p className="text-xs text-gray-400 mt-0.5">/p/{page.slug}</p>
 
-                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                  <div className="flex items-center gap-3 mt-2 text-xs text-gray-500 flex-wrap">
                     <span className="flex items-center gap-1">
-                      <Eye className="w-3 h-3" /> {page.viewCount.toLocaleString()}회 조회
+                      <Eye className="w-3 h-3" /> {page.viewCount.toLocaleString()}명 방문
                     </span>
                     {page._count && (
-                      <span>신청 {page._count.registrations}명</span>
+                      <>
+                        <span>📋 등록 {page._count.registrations}명</span>
+                        {page.viewCount > 0 ? (
+                          <span className={`font-semibold px-1.5 py-0.5 rounded ${
+                            (page._count.registrations / page.viewCount) >= 0.05
+                              ? "bg-green-100 text-green-700"
+                              : (page._count.registrations / page.viewCount) >= 0.02
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-red-100 text-red-700"
+                          }`}>
+                            전환율 {(page._count.registrations / page.viewCount * 100).toFixed(1)}%
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">방문 없음</span>
+                        )}
+                      </>
                     )}
                     <span>{new Date(page.createdAt).toLocaleDateString("ko-KR")}</span>
                   </div>

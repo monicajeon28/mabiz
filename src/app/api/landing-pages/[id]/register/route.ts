@@ -10,7 +10,13 @@ type Params = { params: Promise<{ id: string }> };
 export async function POST(req: Request, { params }: Params) {
   try {
     const { id: landingPageId } = await params;
-    const { name, phone, email, utmSource } = await req.json();
+    const body = await req.json();
+    const { name, phone, email } = body;
+    // utm 파라미터: body 우선, 없으면 URL query에서 폴백 (양쪽 지원)
+    const sp = new URL(req.url).searchParams;
+    const utmSource   = body.utmSource   ?? sp.get('utm_source')   ?? null;
+    const utmMedium   = body.utmMedium   ?? sp.get('utm_medium')   ?? null;
+    const utmCampaign = body.utmCampaign ?? sp.get('utm_campaign') ?? null;
 
     if (!name?.trim() || !phone?.trim()) {
       return NextResponse.json({ ok: false, message: "이름과 전화번호는 필수입니다." }, { status: 400 });
@@ -37,16 +43,12 @@ export async function POST(req: Request, { params }: Params) {
         landingPageId,
         name,
         phone:     normalizedPhone,
-        email:     email     ?? null,
-        utmSource: utmSource ?? null,
+        email:      email      ?? null,
+        utmSource:  utmSource  ?? null,
+        utmMedium,
+        utmCampaign,
       },
     });
-
-    // 조회수 증가
-    await prisma.crmLandingPage.update({
-      where: { id: landingPageId },
-      data:  { viewCount: { increment: 1 } },
-    }).catch(() => {}); // 실패해도 신청은 완료
 
     // ★ 핵심: Contact upsert → 그룹 자동 배정 → 퍼널 자동 시작
     let contactId: string | null = null;

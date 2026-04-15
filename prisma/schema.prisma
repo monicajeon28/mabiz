@@ -208,10 +208,13 @@ model CrmLandingRegistration {
   phone         String
   email         String?
   utmSource     String?
+  utmMedium     String?   // utm_medium (예: cpc, social, email)
+  utmCampaign   String?   // utm_campaign (예: spring_sale)
   landingPage   CrmLandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
   createdAt     DateTime       @default(now())
 
   @@index([landingPageId])
+  @@index([utmSource, utmMedium])
   @@map("CrmLandingRegistration")
 }
 
