@@ -35,7 +35,9 @@ export default function LandingPagesPage() {
   const [loadingStats, setLoadingStats] = useState<string | null>(null);
 
   const loadStats = async (pageId: string) => {
-    if (statsMap[pageId] || loadingStats === pageId) return;
+    if (loadingStats === pageId) return;
+    // statsMap에서 제거 후 재로딩 (새로고침 지원)
+    setStatsMap(prev => { const n = { ...prev }; delete n[pageId]; return n; });
     setLoadingStats(pageId);
     try {
       const res  = await fetch(`/api/landing-pages/${pageId}/stats`);

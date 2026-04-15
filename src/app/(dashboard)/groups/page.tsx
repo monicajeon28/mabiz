@@ -17,6 +17,7 @@ export default function GroupsPage() {
   const [showNew, setShowNew] = useState(false);
   const [form, setForm]       = useState({ name: "", description: "", color: "#6B7280", funnelId: "" });
   const [saving, setSaving]   = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // 일괄 발송 상태
   const [blastGroupId,  setBlastGroupId]  = useState<string | null>(null);
@@ -24,22 +25,34 @@ export default function GroupsPage() {
   const [blastPreview,  setBlastPreview]  = useState<{ willSend: number; isOverLimit: boolean; overLimitMsg: string | null } | null>(null);
   const [blasting,      setBlasting]      = useState(false);
   const [blastResult,   setBlastResult]   = useState<{ sentCount: number; blockedCount: number; failedCount: number } | null>(null);
+  const [checkingBlast, setCheckingBlast] = useState(false);
+  const [blastError,    setBlastError]    = useState<string | null>(null);
 
   const openBlast = (groupId: string) => {
     setBlastGroupId(groupId);
     setBlastMsg("");
     setBlastPreview(null);
     setBlastResult(null);
+    setBlastError(null);
   };
 
   const checkBlast = async () => {
-    if (!blastGroupId || !blastMsg.trim()) return;
-    const res  = await fetch(`/api/groups/${blastGroupId}/blast`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: blastMsg, dryRun: true }),
-    });
-    const data = await res.json();
-    if (data.ok) setBlastPreview(data);
+    if (!blastGroupId || !blastMsg.trim() || checkingBlast) return;
+    setCheckingBlast(true);
+    setBlastError(null);
+    try {
+      const res  = await fetch(`/api/groups/${blastGroupId}/blast`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: blastMsg, dryRun: true }),
+      });
+      const data = await res.json();
+      if (data.ok) setBlastPreview(data);
+      else setBlastError(data.error ?? "대상 확인에 실패했습니다.");
+    } catch {
+      setBlastError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setCheckingBlast(false);
+    }
   };
 
   const sendBlast = async () => {
@@ -73,24 +86,32 @@ export default function GroupsPage() {
   const createGroup = async () => {
     if (!form.name.trim()) return;
     setSaving(true);
-    const res  = await fetch("/api/groups", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({
-        name:        form.name,
-        description: form.description || null,
-        color:       form.color,
-        funnelId:    form.funnelId || null,
-      }),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      const funnelName = funnels.find((f) => f.id === form.funnelId)?.name ?? null;
-      setGroups((prev) => [...prev, { ...data.group, funnelName, _count: { members: 0 } }]);
-      setShowNew(false);
-      setForm({ name: "", description: "", color: "#6B7280", funnelId: "" });
+    setFormError(null);
+    try {
+      const res  = await fetch("/api/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          name:        form.name,
+          description: form.description || null,
+          color:       form.color,
+          funnelId:    form.funnelId || null,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        const funnelName = funnels.find((f) => f.id === form.funnelId)?.name ?? null;
+        setGroups((prev) => [...prev, { ...data.group, funnelName, _count: { members: 0 } }]);
+        setShowNew(false);
+        setForm({ name: "", description: "", color: "#6B7280", funnelId: "" });
+      } else {
+        setFormError(data.error ?? "그룹 생성에 실패했습니다.");
+      }
+    } catch {
+      setFormError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const COLOR_OPTIONS = [
@@ -192,6 +213,10 @@ export default function GroupsPage() {
               )}
             </div>
           </div>
+
+          {formError && (
+            <p className="text-sm text-red-600 mt-3">{formError}</p>
+          )}
 
           <div className="flex gap-2 mt-4">
             <button
@@ -299,6 +324,10 @@ export default function GroupsPage() {
                       />
                       <p className="text-xs text-gray-400">[고객명] 자동 치환됩니다</p>
 
+                      {blastError && (
+                        <p className="text-sm text-red-600">{blastError}</p>
+                      )}
+
                       {blastPreview && (
                         <div className="bg-blue-50 rounded-lg p-3 text-sm">
                           <p className="font-medium text-blue-800">발송 예정: {blastPreview.willSend}명</p>
@@ -312,10 +341,10 @@ export default function GroupsPage() {
                         {!blastPreview ? (
                           <button
                             onClick={checkBlast}
-                            disabled={!blastMsg.trim()}
+                            disabled={!blastMsg.trim() || checkingBlast}
                             className="flex-1 border border-blue-300 text-blue-700 py-1.5 rounded-lg text-sm hover:bg-blue-50 disabled:opacity-50"
                           >
-                            대상 확인
+                            {checkingBlast ? "확인 중..." : "대상 확인"}
                           </button>
                         ) : (
                           <button
