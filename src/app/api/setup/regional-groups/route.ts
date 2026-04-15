@@ -6,19 +6,18 @@ import { logger } from '@/lib/logger';
 
 // 8개 지역 정의
 const REGIONS = [
-  { key: 'japan',       name: '🇯🇵 일본 크루즈 관심',    color: '#FF6B6B', emoji: '🌸' },
-  { key: 'taiwan_hk',  name: '🇹🇼 대만·홍콩 관심',       color: '#4ECDC4', emoji: '🏙' },
-  { key: 'europe',     name: '🇪🇺 유럽 크루즈 관심',     color: '#45B7D1', emoji: '⛵' },
-  { key: 'caribbean',  name: '🌊 카리브해 관심',           color: '#96CEB4', emoji: '🏝' },
-  { key: 'usa',        name: '🇺🇸 미국 크루즈 관심',      color: '#4B9CD3', emoji: '🗽' },
-  { key: 'alaska',     name: '🏔 알래스카 관심',           color: '#6C5CE7', emoji: '🧊' },
-  { key: 'sea_asia',   name: '🌏 동남아 크루즈 관심',     color: '#FFEAA7', emoji: '🌺' },
-  { key: 'general',    name: '🚢 크루즈 전반 관심',        color: '#DFE6E9', emoji: '🌍' },
+  { key: 'japan',       name: '🇯🇵 일본 크루즈 관심',    color: '#FF6B6B', emoji: '🌸', shortName: '일본' },
+  { key: 'taiwan_hk',  name: '🇹🇼 대만·홍콩 관심',       color: '#4ECDC4', emoji: '🏙', shortName: '대만·홍콩' },
+  { key: 'europe',     name: '🇪🇺 유럽 크루즈 관심',     color: '#45B7D1', emoji: '⛵', shortName: '유럽' },
+  { key: 'caribbean',  name: '🌊 카리브해 관심',           color: '#96CEB4', emoji: '🏝', shortName: '카리브해' },
+  { key: 'usa',        name: '🇺🇸 미국 크루즈 관심',      color: '#4B9CD3', emoji: '🗽', shortName: '미국' },
+  { key: 'alaska',     name: '🏔 알래스카 관심',           color: '#6C5CE7', emoji: '🧊', shortName: '알래스카' },
+  { key: 'sea_asia',   name: '🌏 동남아 크루즈 관심',     color: '#FFEAA7', emoji: '🌺', shortName: '동남아' },
+  { key: 'general',    name: '🚢 크루즈 전반 관심',        color: '#DFE6E9', emoji: '🌍', shortName: '크루즈' },
 ];
 
 // 지역별 주 1회 12스테이지 메시지 생성
-function makeRegionalStages(regionName: string, regionEmoji: string) {
-  const shortName = regionName.replace(/[🇯🇵🇹🇼🇪🇺🌊🇺🇸🏔🌏🚢 관심크루즈전반]/g, '').trim();
+function makeRegionalStages(shortName: string, regionEmoji: string) {
 
   return [
     { order: 0,  name: `1주: 소식 시작`,     triggerOffset: 0,  msg: `크루즈닷 입니다 ${regionEmoji}\n[고객명]님, ${shortName} 크루즈 소식 시작이에요!\n이번 주 특가 일정 확인해 보세요 → [링크]` },
@@ -62,34 +61,34 @@ export async function POST() {
       continue;
     }
 
-    // 퍼널 생성
-    const funnel = await prisma.funnel.create({
-      data: {
-        organizationId,
-        name:        `${region.name} — 주간 뉴스`,
-        description: `${region.name} 관심 고객에게 주 1회 크루즈 소식 발송 (12주)`,
-        isActive:    true,
-      },
-      select: { id: true },
-    });
+    // 퍼널 + 스테이지 + 그룹 생성 (3개 write → $transaction으로 원자성 보장)
+    await prisma.$transaction(async (tx) => {
+      const funnel = await tx.funnel.create({
+        data: {
+          organizationId,
+          name:        `${region.name} — 주간 뉴스`,
+          description: `${region.name} 관심 고객에게 주 1회 크루즈 소식 발송 (12주)`,
+          isActive:    true,
+        },
+        select: { id: true },
+      });
 
-    // 스테이지 일괄 생성
-    await prisma.funnelStage.createMany({
-      data: makeRegionalStages(region.name, region.emoji).map((s) => ({
-        ...s,
-        funnelId: funnel.id,
-      })),
-    });
+      await tx.funnelStage.createMany({
+        data: makeRegionalStages(region.shortName, region.emoji).map((s) => ({
+          ...s,
+          funnelId: funnel.id,
+        })),
+      });
 
-    // 그룹 생성 + 퍼널 연결
-    await prisma.contactGroup.create({
-      data: {
-        organizationId,
-        name:        region.name,
-        description: `${region.name} — 주 1회 크루즈 뉴스 자동 발송`,
-        color:       region.color,
-        funnelId:    funnel.id,
-      },
+      await tx.contactGroup.create({
+        data: {
+          organizationId,
+          name:        region.name,
+          description: `${region.name} — 주 1회 크루즈 뉴스 자동 발송`,
+          color:       region.color,
+          funnelId:    funnel.id,
+        },
+      });
     });
 
     created.push(region.name);
