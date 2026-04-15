@@ -1,9 +1,31 @@
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
+    // [보안] IP 화이트리스트 검증
+    // 환경변수: PAYAPP_ALLOWED_IPS="211.43.10.1,211.43.10.2" (쉼표 구분)
+    // 미설정 시 → 경고 로그 후 통과 (초기 설정 편의)
+    const allowedIPs =
+      process.env.PAYAPP_ALLOWED_IPS?.split(",")
+        .map((s) => s.trim())
+        .filter(Boolean) ?? [];
+    const requestIP =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      req.headers.get("x-real-ip") ??
+      "unknown";
+
+    if (allowedIPs.length === 0) {
+      logger.warn("[PayApp Webhook] PAYAPP_ALLOWED_IPS 미설정 — IP 검증 생략", {
+        requestIP,
+      });
+    } else if (!allowedIPs.includes(requestIP)) {
+      logger.warn("[PayApp Webhook] 허용되지 않은 IP", { requestIP });
+      return NextResponse.json({ ok: false }, { status: 403 });
+    }
+
     const body = await req.text();
     const params = new URLSearchParams(body);
 
@@ -11,6 +33,8 @@ export async function POST(req: Request) {
     const orderId = params.get("var1");
     const customerPhone = params.get("phone") ?? params.get("buyer_tel");
     const customerName = params.get("name") ?? params.get("buyer_name");
+    // ⚠️ amount는 PayApp에서 전달된 값 — 결제 금액 검증은 PayApp 관리자 콘솔에서 수행
+    // CLAUDE.md 조항 3: 클라이언트 금액 직접 사용 금지 — 여기서는 로그/참고용으로만 저장
     const amount = parseInt(params.get("price") ?? params.get("amount") ?? "0");
     const landingPageSlug = params.get("var2");
 
@@ -21,6 +45,12 @@ export async function POST(req: Request) {
 
     if (!orderId || !customerPhone) {
       logger.warn("[PayApp Webhook] 필수 파라미터 누락", { payState });
+      return NextResponse.json({ ok: false }, { status: 400 });
+    }
+
+    // [보안] orderId 형식 검증 (최소 방어선: UUID or alphanumeric, 8~64자)
+    if (!/^[a-zA-Z0-9_-]{8,64}$/.test(orderId)) {
+      logger.warn("[PayApp Webhook] 비정상 orderId 형식", { orderId });
       return NextResponse.json({ ok: false }, { status: 400 });
     }
 
@@ -44,8 +74,7 @@ export async function POST(req: Request) {
       orgId = lp?.organizationId ?? null;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await prisma.$transaction(async (tx: any) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // 1. PayApp 결제 기록
       await tx.payAppPayment.upsert({
         where: { orderId },

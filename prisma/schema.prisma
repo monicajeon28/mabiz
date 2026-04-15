@@ -388,6 +388,18 @@ model CallRecording {
   @@index([userId])
 }
 
+// ─── 랜딩페이지 조회 중복 방지 (IP 해시 기반 24h dedup) ─────────────
+model CrmLandingView {
+  id            String   @id @default(cuid())
+  landingPageId String
+  ipHash        String   // SHA-256(IP + LANDING_VIEW_SALT) — raw IP 저장 금지
+  viewedAt      DateTime @default(now())
+
+  @@unique([landingPageId, ipHash])
+  @@index([viewedAt])
+  @@map("CrmLandingView")
+}
+
 // ─── PayApp 결제 ──────────────────────────────────────────────
 model PayAppPayment {
   id            String    @id @default(cuid())

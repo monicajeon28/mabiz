@@ -193,7 +193,7 @@ export default function SmsSettingsPage() {
         <div className="bg-white rounded-xl border border-yellow-200 p-5 mt-4 space-y-3">
           <h2 className="text-sm font-semibold text-gray-700">📞 발신번호 인증 (필수)</h2>
           <p className="text-xs text-gray-500">
-            미인증 번호로 발송하면 통신사에서 차단됩니다. Aligo ARS 인증을 완료하세요.
+            미인증 번호로 발송하면 통신사에서 차단됩니다. Aligo 콘솔에서 ARS 인증을 완료하세요.
           </p>
           {verifyStep === "idle" && (
             <button
@@ -202,21 +202,29 @@ export default function SmsSettingsPage() {
               className="w-full border border-yellow-400 text-yellow-800 py-2 rounded-lg text-sm font-medium hover:bg-yellow-50 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {verifying && <Loader2 className="w-4 h-4 animate-spin" />}
-              인증 전화 요청하기
+              Aligo 콘솔에서 인증 완료 안내
             </button>
           )}
           {verifyStep === "requested" && (
             <div className="space-y-2">
-              <p className="text-xs text-green-700 font-medium">
-                ✅ 인증 전화가 발송됩니다. ARS 안내에 따라 인증번호를 입력한 후 아래 버튼을 누르세요.
+              <p className="text-xs text-blue-700 font-medium">
+                Aligo 콘솔에서 발신번호 등록 → ARS 인증 완료 후 아래 버튼을 클릭하세요.
               </p>
+              <a
+                href="https://smartsms.aligo.in"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full border border-blue-400 text-blue-700 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 flex items-center justify-center gap-2"
+              >
+                Aligo 콘솔 열기
+              </a>
               <button
                 onClick={confirmVerify}
                 disabled={verifying}
                 className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {verifying && <Loader2 className="w-4 h-4 animate-spin" />}
-                ARS 입력 완료 — 인증 확인
+                인증 완료 확인
               </button>
             </div>
           )}
