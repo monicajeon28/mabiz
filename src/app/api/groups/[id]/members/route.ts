@@ -24,8 +24,20 @@ export async function POST(req: Request, { params }: Params) {
     });
     if (!group) return NextResponse.json({ ok: false }, { status: 404 });
 
+    // ★ contactId 소유권 검증 — 타 조직 고객을 이 그룹에 끼워넣기 방지
+    const validContacts = await prisma.contact.findMany({
+      where: { id: { in: contactIds }, organizationId: orgId },
+      select: { id: true },
+    });
+    const validIds = new Set(validContacts.map((c) => c.id));
+    const filteredIds = contactIds.filter((id: string) => validIds.has(id));
+
+    if (filteredIds.length === 0) {
+      return NextResponse.json({ ok: false, message: "유효한 고객이 없습니다." }, { status: 400 });
+    }
+
     const results = await Promise.allSettled(
-      contactIds.map(async (contactId: string) => {
+      filteredIds.map(async (contactId: string) => {
         // 그룹에 추가 (이미 있으면 upsert)
         await prisma.contactGroupMember.upsert({
           where: { groupId_contactId: { groupId, contactId } },

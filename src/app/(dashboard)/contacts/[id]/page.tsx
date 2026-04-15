@@ -6,6 +6,7 @@ import {
   ArrowLeft, Phone, MessageSquare, Edit2,
   Plus, Clock, FileText, Star, GitBranch, Calendar, Package
 } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 type CallLog = {
   id: string; content: string | null; result: string | null;
@@ -27,6 +28,14 @@ type Contact = {
 const RESULT_LABELS: Record<string, string> = {
   INTERESTED: "✅ 관심있음", PENDING: "⏳ 보류",
   REJECTED: "❌ 거절", RESCHEDULED: "📅 재콜예약",
+};
+
+type TimelineItem = {
+  id: string;
+  type: "call" | "memo" | "sms";
+  createdAt: string;
+  summary: string;
+  badge?: string;
 };
 
 export default function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -287,6 +296,71 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         )}
       </div>
 
+      {/* 최근 활동 타임라인 */}
+      {(() => {
+        const items: TimelineItem[] = [
+          ...contact.callLogs.map((log): TimelineItem => ({
+            id: log.id,
+            type: "call",
+            createdAt: log.createdAt,
+            summary: ((log.result ? (RESULT_LABELS[log.result] ?? log.result) + " " : "") + (log.content ?? "")).slice(0, 30),
+            badge: log.result ? (RESULT_LABELS[log.result] ?? log.result) : undefined,
+          })),
+          ...contact.memos.map((m): TimelineItem => ({
+            id: m.id,
+            type: "memo",
+            createdAt: m.createdAt,
+            summary: m.content.slice(0, 30),
+          })),
+          ...smsLogs.map((s): TimelineItem => ({
+            id: s.id,
+            type: "sms",
+            createdAt: s.sentAt,
+            summary: s.contentPreview.slice(0, 30),
+            badge: s.status === "SENT" ? "발송완료" : s.status === "BLOCKED" ? "차단" : "실패",
+          })),
+        ]
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 5);
+
+        if (items.length === 0) return null;
+
+        return (
+          <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-gold-500" />
+              최근 활동
+            </h3>
+            <div className="space-y-2">
+              {items.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setTab(item.type === "sms" ? "sms" : item.type === "memo" ? "memo" : "call")}
+                  className="w-full flex items-start gap-3 text-left hover:bg-gray-50 rounded-lg p-2 transition-colors"
+                >
+                  <span className="mt-0.5 text-gray-400 shrink-0">
+                    {item.type === "call" && <Phone className="w-4 h-4" />}
+                    {item.type === "memo" && <FileText className="w-4 h-4" />}
+                    {item.type === "sms" && <MessageSquare className="w-4 h-4" />}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-700 truncate">{item.summary || "—"}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {new Date(item.createdAt).toLocaleString("ko-KR")}
+                    </p>
+                  </div>
+                  {item.badge && (
+                    <span className="shrink-0 text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 탭 */}
       <div className="flex border-b border-gray-200 mb-4">
         {[
@@ -303,8 +377,8 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                 setSmsLoading(true);
                 fetch(`/api/sms-logs?contactId=${contact.id}&days=90`)
                   .then(r => r.json())
-                  .then(d => { if (d.ok) setSmsLogs(d.logs ?? []); })
-                  .finally(() => setSmsLoading(false));
+                  .then(d => { if (d.ok) setSmsLogs(d.logs ?? []); setSmsLoading(false); })
+                  .catch(() => { logger.error("[ContactDetail] SMS 로그 fetch 실패", { contactId: contact.id }); setSmsLoading(false); });
               }
             }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
