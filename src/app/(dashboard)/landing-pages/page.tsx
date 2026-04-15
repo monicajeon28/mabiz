@@ -14,10 +14,37 @@ type LandingPage = {
   _count?: { registrations: number };
 };
 
+type LandingStats = {
+  viewCount:    number;
+  registered:   number;
+  funnelEntered: number;
+  purchased:    number;
+  rates: {
+    visitToRegister:  number;
+    registerToFunnel: number;
+    funnelToPurchase: number;
+    visitToPurchase:  number;
+  };
+};
+
 export default function LandingPagesPage() {
   const [pages, setPages]   = useState<LandingPage[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [copied, setCopied]   = useState<string | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [copied, setCopied]         = useState<string | null>(null);
+  const [statsMap, setStatsMap]     = useState<Record<string, LandingStats>>({});
+  const [loadingStats, setLoadingStats] = useState<string | null>(null);
+
+  const loadStats = async (pageId: string) => {
+    if (statsMap[pageId] || loadingStats === pageId) return;
+    setLoadingStats(pageId);
+    try {
+      const res  = await fetch(`/api/landing-pages/${pageId}/stats`);
+      const data = await res.json();
+      if (data.ok) setStatsMap(prev => ({ ...prev, [pageId]: data.stats }));
+    } finally {
+      setLoadingStats(null);
+    }
+  };
 
   useEffect(() => {
     fetch("/api/landing-pages")
@@ -98,7 +125,49 @@ export default function LandingPagesPage() {
                       </>
                     )}
                     <span>{new Date(page.createdAt).toLocaleDateString("ko-KR")}</span>
+                    <button
+                      onClick={() => loadStats(page.id)}
+                      className="text-blue-500 hover:underline"
+                    >
+                      {loadingStats === page.id ? "로딩..." : statsMap[page.id] ? "새로고침" : "📊 상세 지표"}
+                    </button>
                   </div>
+
+                  {/* 3단 퍼널 지표 */}
+                  {statsMap[page.id] && (() => {
+                    const s = statsMap[page.id]!;
+                    return (
+                      <div className="mt-3 bg-gray-50 rounded-lg p-3">
+                        <p className="text-xs font-semibold text-gray-600 mb-2">퍼널 전환 현황</p>
+                        <div className="flex items-center gap-1 text-xs flex-wrap">
+                          <span className="bg-white border border-gray-200 rounded px-2 py-1">
+                            방문 <strong>{s.viewCount.toLocaleString()}</strong>
+                          </span>
+                          <span className="text-gray-400">→ {s.rates.visitToRegister}%</span>
+                          <span className="bg-blue-50 border border-blue-200 rounded px-2 py-1">
+                            등록 <strong>{s.registered}</strong>
+                          </span>
+                          <span className="text-gray-400">→ {s.rates.registerToFunnel}%</span>
+                          <span className="bg-purple-50 border border-purple-200 rounded px-2 py-1">
+                            퍼널 <strong>{s.funnelEntered}</strong>
+                          </span>
+                          <span className="text-gray-400">→ {s.rates.funnelToPurchase}%</span>
+                          <span className={`border rounded px-2 py-1 font-semibold ${
+                            s.purchased > 0
+                              ? "bg-green-50 border-green-300 text-green-700"
+                              : "bg-gray-50 border-gray-200 text-gray-400"
+                          }`} title="phone 기반 근사치">
+                            구매 <strong>{s.purchased}</strong>*
+                          </span>
+                        </div>
+                        {s.viewCount > 0 && s.purchased > 0 && (
+                          <p className="text-xs text-green-600 font-medium mt-1.5">
+                            전체 전환율: {s.rates.visitToPurchase}%
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* 액션 버튼 */}
