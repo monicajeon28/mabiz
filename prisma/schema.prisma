@@ -210,9 +210,12 @@ model CrmLandingRegistration {
   utmSource     String?
   utmMedium     String?   // utm_medium (예: cpc, social, email)
   utmCampaign   String?   // utm_campaign (예: spring_sale)
+  metadata      Json?     // 추가 질문 답변 (여행시기, 인원 등 자유형)
+  funnelStarted Boolean   @default(false)  // 퍼널 진입 여부
   landingPage   CrmLandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
   createdAt     DateTime       @default(now())
 
+  @@unique([landingPageId, phone])  // 중복 등록 방지 (race condition 방어)
   @@index([landingPageId])
   @@index([utmSource, utmMedium])
   @@map("CrmLandingRegistration")

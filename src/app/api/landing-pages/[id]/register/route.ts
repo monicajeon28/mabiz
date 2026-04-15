@@ -11,7 +11,7 @@ export async function POST(req: Request, { params }: Params) {
   try {
     const { id: landingPageId } = await params;
     const body = await req.json();
-    const { name, phone, email } = body;
+    const { name, phone, email, metadata } = body;
     // utm 파라미터: body 우선, 없으면 URL query에서 폴백 (양쪽 지원)
     const sp = new URL(req.url).searchParams;
     const utmSource   = body.utmSource   ?? sp.get('utm_source')   ?? null;
@@ -37,24 +37,38 @@ export async function POST(req: Request, { params }: Params) {
 
     const orgId = landingPage.organizationId;
 
-    // 신청 기록 저장
-    await prisma.crmLandingRegistration.create({
-      data: {
-        landingPageId,
-        name,
-        phone:     normalizedPhone,
-        email:      email      ?? null,
-        utmSource:  utmSource  ?? null,
-        utmMedium,
-        utmCampaign,
-      },
-    });
+    // 퍼널 시작 여부 (나중에 기록)
+    let funnelStarted = false;
+
+    // 신청 기록 저장 (unique constraint로 race condition 방어)
+    let regId: string;
+    try {
+      const reg = await prisma.crmLandingRegistration.create({
+        data: {
+          landingPageId,
+          name,
+          phone:       normalizedPhone,
+          email:       email       ?? null,
+          utmSource:   utmSource   ?? null,
+          utmMedium:   utmMedium   ?? null,
+          utmCampaign: utmCampaign ?? null,
+          metadata:    metadata    ?? undefined,
+          funnelStarted: false,
+        },
+        select: { id: true },
+      });
+      regId = reg.id;
+    } catch (e: unknown) {
+      // unique constraint 위반 = 중복 등록
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('Unique constraint') || msg.includes('P2002')) {
+        return NextResponse.json({ ok: true, isDuplicate: true });
+      }
+      throw e;
+    }
 
     // ★ 핵심: Contact upsert → 그룹 자동 배정 → 퍼널 자동 시작
-    let contactId: string | null = null;
-
     if (orgId) {
-      // Contact 생성 또는 업데이트
       const contact = await prisma.contact.upsert({
         where: {
           phone_organizationId: { phone: normalizedPhone, organizationId: orgId },
@@ -66,7 +80,7 @@ export async function POST(req: Request, { params }: Params) {
           email:     email ?? null,
           type:      "LEAD",
           utmSource: utmSource ?? null,
-          adminMemo: `랜딩페이지 "신청 from: ${landingPage.title}"`,
+          adminMemo: `랜딩페이지 신청 from: "${landingPage.title}"`,
         },
         update: {
           name,
@@ -74,11 +88,8 @@ export async function POST(req: Request, { params }: Params) {
         },
       });
 
-      contactId = contact.id;
-
-      // 그룹 배정
+      // 그룹 배정 + 퍼널 시작
       if (landingPage.groupId) {
-        // ContactGroupMember 추가
         await prisma.contactGroupMember.upsert({
           where: {
             groupId_contactId: { groupId: landingPage.groupId, contactId: contact.id },
@@ -87,23 +98,34 @@ export async function POST(req: Request, { params }: Params) {
           update: {},
         });
 
-        // 퍼널 자동 시작 (그룹에 퍼널 연결된 경우)
         const triggered = await triggerGroupFunnel({
           contactId:      contact.id,
           groupId:        landingPage.groupId,
           organizationId: orgId,
-          sendFirst:      true, // 즉시 첫 메시지 발송
+          sendFirst:      true,
         });
 
-        logger.log("[LandingRegister] 등록 완료", {
-          phone:     normalizedPhone.substring(0, 4) + "***",
-          groupId:   landingPage.groupId,
-          funnelTriggered: triggered,
-        });
+        funnelStarted = triggered;
+
+        // funnelStarted 업데이트 (fire-and-forget)
+        if (triggered) {
+          // id로 특정 행만 업데이트 (updateMany 다중 행 방지)
+          prisma.crmLandingRegistration.update({
+            where: { id: regId },
+            data:  { funnelStarted: true },
+          }).catch(() => {});
+        }
       }
     }
 
-    return NextResponse.json({ ok: true, contactId });
+    logger.log("[LandingRegister] 등록 완료", {
+      phone:        normalizedPhone.substring(0, 4) + "***",
+      funnelStarted,
+    });
+
+    // [P2] contactId 응답 제거 (IDOR 탐색 방지)
+    return NextResponse.json({ ok: true, funnelStarted });
+
   } catch (err) {
     logger.error("[POST /api/landing-pages/[id]/register]", { err });
     return NextResponse.json({ ok: false, message: "등록 중 오류가 발생했습니다." }, { status: 500 });
