@@ -34,8 +34,10 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const router  = useRouter();
 
   const [contact,       setContact]       = useState<Contact | null>(null);
-  const [tab,           setTab]           = useState<"call" | "memo" | "group">("call");
+  const [tab,           setTab]           = useState<"call" | "memo" | "group" | "sms">("call");
   const [loading,       setLoading]       = useState(true);
+  const [smsLogs,       setSmsLogs]       = useState<{ id: string; phone: string; contentPreview: string; status: string; channel: string; sentAt: string }[]>([]);
+  const [smsLoading,    setSmsLoading]    = useState(false);
 
   // 콜 기록 폼
   const [showCallForm, setShowCallForm]   = useState(false);
@@ -291,10 +293,20 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           { key: "call",  label: `📞 콜기록 (${contact.callLogs.length})` },
           { key: "memo",  label: `📝 메모 (${contact.memos.length})` },
           { key: "group", label: "👥 그룹 배정" },
+          { key: "sms",   label: "💬 발송내역" },
         ].map((t) => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key as typeof tab)}
+            onClick={() => {
+              setTab(t.key as typeof tab);
+              if (t.key === "sms" && smsLogs.length === 0) {
+                setSmsLoading(true);
+                fetch(`/api/sms-logs?contactId=${contact.id}&days=90`)
+                  .then(r => r.json())
+                  .then(d => { if (d.ok) setSmsLogs(d.logs ?? []); })
+                  .finally(() => setSmsLoading(false));
+              }
+            }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               tab === t.key
                 ? "border-gold-500 text-navy-900"
@@ -483,6 +495,36 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* SMS 발송 내역 탭 */}
+      {tab === "sms" && (
+        <div className="space-y-2">
+          {smsLoading ? (
+            <div className="text-center text-sm text-gray-400 py-8">불러오는 중...</div>
+          ) : smsLogs.length === 0 ? (
+            <p className="text-center text-sm text-gray-400 py-8">발송 내역이 없습니다.</p>
+          ) : (
+            smsLogs.map((log) => (
+              <div key={log.id} className="bg-white border border-gray-200 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                    log.status === "SENT"    ? "bg-green-100 text-green-700" :
+                    log.status === "BLOCKED" ? "bg-yellow-100 text-yellow-700" :
+                                              "bg-red-100 text-red-700"
+                  }`}>
+                    {log.status === "SENT" ? "✅ 발송완료" : log.status === "BLOCKED" ? "🚫 차단" : "❌ 실패"}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {new Date(log.sentAt).toLocaleString("ko-KR")}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-700">{log.contentPreview}</p>
+                <p className="text-xs text-gray-400 mt-1">{log.phone} · {log.channel}</p>
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>

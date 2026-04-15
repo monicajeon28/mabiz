@@ -306,6 +306,24 @@ model SmsOptOut {
   reason     String?
 }
 
+// ─── SMS 발송 내역 로그 ───────────────────────────────────────
+model SmsLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  contactId      String?
+  phone          String   // 앞4자***마스킹 저장 (개인정보 최소화)
+  contentPreview String   // 발송 내용 앞 30자
+  status         String   @default("SENT")  // SENT | FAILED | BLOCKED
+  blockReason    String?  // OPT_OUT | NIGHT_BLOCK
+  resultCode     String?  // Aligo 응답 코드
+  msgId          String?  // Aligo msg_id (재발송 연동용)
+  channel        String   @default("FUNNEL") // FUNNEL | GROUP | MANUAL
+  sentAt         DateTime @default(now())
+
+  @@index([organizationId, sentAt])
+  @@index([contactId, sentAt])
+}
+
 // ─── 세일즈 플레이북 ──────────────────────────────────────────
 model SalesPlaybook {
   id        String   @id @default(cuid())

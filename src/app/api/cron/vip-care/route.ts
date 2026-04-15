@@ -105,6 +105,13 @@ export async function GET(req: Request) {
     }
   }
 
-  logger.log("[Cron/vip-care] 완료", { sentCount, skippedCount });
-  return NextResponse.json({ ok: true, sentCount, skippedCount });
+  // SmsLog 90일 초과 레코드 자동 삭제 (DB 용량 관리)
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setUTCDate(ninetyDaysAgo.getUTCDate() - 90);
+  const { count: deletedLogs } = await prisma.smsLog.deleteMany({
+    where: { sentAt: { lt: ninetyDaysAgo } },
+  }).catch(() => ({ count: 0 }));
+
+  logger.log("[Cron/vip-care] 완료", { sentCount, skippedCount, deletedLogs });
+  return NextResponse.json({ ok: true, sentCount, skippedCount, deletedLogs });
 }
