@@ -33,10 +33,13 @@ model OrgSmsConfig {
   organizationId String       @unique
   aligoKey       String       // Aligo API Key
   aligoUserId    String       // Aligo User ID
-  senderPhone    String       // 발신번호 (등록된 번호)
-  isActive       Boolean      @default(true)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  updatedAt      DateTime     @updatedAt
+  senderPhone      String        // 발신번호 (등록된 번호)
+  isActive         Boolean       @default(true)
+  senderVerified   Boolean       @default(false)  // Aligo 발신번호 인증 여부
+  verifiedAt       DateTime?                       // 인증 완료 시각
+  arsNum           String?                         // 진행 중인 ARS 인증번호 (임시)
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  updatedAt        DateTime      @updatedAt
 }
 
 // ─── 조직별 이메일 설정 ────────────────────────────────────────

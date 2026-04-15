@@ -199,11 +199,59 @@ export async function POST() {
       }),
     ]);
 
-    logger.log("[Setup/Defaults] 기본 셋업 완료", { orgId, funnels: 3, groups: 3 });
+    // ─── 지역별 관심 그룹 8개 + 퍼널 생성 ─────────────────────────
+    const REGIONAL_GROUPS = [
+      { name: '🇯🇵 일본 크루즈 관심',  color: '#FF6B6B', shortName: '일본',    emoji: '🌸' },
+      { name: '🇹🇼 대만·홍콩 관심',    color: '#4ECDC4', shortName: '대만·홍콩', emoji: '🏙' },
+      { name: '🇪🇺 유럽 크루즈 관심',  color: '#45B7D1', shortName: '유럽',    emoji: '⛵' },
+      { name: '🌊 카리브해 관심',       color: '#96CEB4', shortName: '카리브해', emoji: '🏝' },
+      { name: '🇺🇸 미국 크루즈 관심',  color: '#4B9CD3', shortName: '미국',    emoji: '🗽' },
+      { name: '🏔 알래스카 관심',       color: '#6C5CE7', shortName: '알래스카', emoji: '🧊' },
+      { name: '🌏 동남아 크루즈 관심',  color: '#FFEAA7', shortName: '동남아',  emoji: '🌺' },
+      { name: '🚢 크루즈 전반 관심',    color: '#DFE6E9', shortName: '크루즈',  emoji: '🌍' },
+    ];
+
+    for (const rg of REGIONAL_GROUPS) {
+      const exists = await prisma.contactGroup.findFirst({
+        where: { organizationId: orgId, name: rg.name },
+        select: { id: true },
+      });
+      if (exists) continue;
+
+      await prisma.$transaction(async (tx) => {
+        const stages = Array.from({ length: 12 }, (_, i) => ({
+          order:          i,
+          name:           `${i + 1}주차`,
+          triggerType:    'DAYS_AFTER' as const,
+          triggerOffset:  i * 7,
+          channel:        'SMS' as const,
+          messageContent: `크루즈닷 입니다 ${rg.emoji}\n[고객명]님, ${rg.shortName} 크루즈 소식이에요!\n→ [링크]`,
+        }));
+        const funnel = await tx.funnel.create({
+          data: {
+            organizationId: orgId,
+            name:           `${rg.name} — 주간 뉴스`,
+            isActive:       true,
+            stages:         { createMany: { data: stages } },
+          },
+          select: { id: true },
+        });
+        await tx.contactGroup.create({
+          data: {
+            organizationId: orgId,
+            name:           rg.name,
+            color:          rg.color,
+            funnelId:       funnel.id,
+          },
+        });
+      });
+    }
+
+    logger.log("[Setup/Defaults] 기본 셋업 완료", { orgId, funnels: 11, groups: 11 });
 
     return NextResponse.json({
       ok: true,
-      message: "기본 그룹 3개 + 퍼널 3개 생성 완료!",
+      message: "기본 그룹 11개 + 퍼널 11개 생성 완료!",
       setup: {
         funnels: [
           { id: funnel1.id, name: funnel1.name, group: group1.name },

@@ -5,20 +5,24 @@ import { ArrowLeft, MessageSquare, CheckCircle, AlertCircle, Loader2 } from "luc
 import Link from "next/link";
 
 type Config = {
-  id?: string;
-  aligoUserId?: string;
-  senderPhone?: string;
-  isActive?: boolean;
-  updatedAt?: string;
+  id?:             string;
+  aligoUserId?:    string;
+  senderPhone?:    string;
+  isActive?:       boolean;
+  senderVerified?: boolean;
+  verifiedAt?:     string | null;
+  updatedAt?:      string;
 };
 
 export default function SmsSettingsPage() {
   const [config, setConfig]       = useState<Config>({});
   const [form, setForm]           = useState({ aligoKey: "", aligoUserId: "", senderPhone: "" });
   const [testPhone, setTestPhone] = useState("");
-  const [saving, setSaving]       = useState(false);
-  const [testing, setTesting]     = useState(false);
-  const [msg, setMsg]             = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [saving, setSaving]         = useState(false);
+  const [testing, setTesting]       = useState(false);
+  const [verifying, setVerifying]   = useState(false);
+  const [verifyStep, setVerifyStep] = useState<"idle" | "requested" | "done">("idle");
+  const [msg, setMsg]               = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/settings/sms")
@@ -47,6 +51,33 @@ export default function SmsSettingsPage() {
     setMsg({ type: data.ok ? "ok" : "err", text: data.ok ? "저장되었습니다." : (data.message ?? "저장 실패") });
     if (data.ok) setConfig((c) => ({ ...c, aligoUserId: form.aligoUserId, senderPhone: form.senderPhone }));
     setSaving(false);
+  };
+
+  const requestVerify = async () => {
+    setVerifying(true); setMsg(null);
+    const res  = await fetch("/api/settings/sms/verify", { method: "POST" });
+    const data = await res.json();
+    if (data.ok) {
+      setVerifyStep("requested");
+      setMsg({ type: "ok", text: data.message });
+    } else {
+      setMsg({ type: "err", text: data.message ?? "인증 요청 실패" });
+    }
+    setVerifying(false);
+  };
+
+  const confirmVerify = async () => {
+    setVerifying(true); setMsg(null);
+    const res  = await fetch("/api/settings/sms/verify", { method: "PUT" });
+    const data = await res.json();
+    if (data.ok) {
+      setVerifyStep("done");
+      setConfig((c) => ({ ...c, senderVerified: true, verifiedAt: new Date().toISOString() }));
+      setMsg({ type: "ok", text: data.message });
+    } else {
+      setMsg({ type: "err", text: data.message ?? "인증 실패" });
+    }
+    setVerifying(false);
   };
 
   const test = async () => {
@@ -78,12 +109,21 @@ export default function SmsSettingsPage() {
 
       {/* 현재 상태 */}
       {config.id && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-5 flex items-center gap-3">
-          <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
-          <div className="text-sm">
-            <p className="font-medium text-green-800">SMS 연동 완료</p>
-            <p className="text-green-600 mt-0.5">
-              발신번호: {config.senderPhone} · 마지막 수정: {config.updatedAt ? new Date(config.updatedAt).toLocaleDateString("ko-KR") : "-"}
+        <div className={`border rounded-xl p-4 mb-5 flex items-center gap-3 ${
+          config.senderVerified
+            ? "bg-green-50 border-green-200"
+            : "bg-yellow-50 border-yellow-200"
+        }`}>
+          {config.senderVerified
+            ? <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
+            : <AlertCircle className="w-5 h-5 text-yellow-500 shrink-0" />}
+          <div className="text-sm flex-1">
+            <p className={`font-medium ${config.senderVerified ? "text-green-800" : "text-yellow-800"}`}>
+              {config.senderVerified ? "✅ 발신번호 인증 완료" : "⚠️ 발신번호 미인증 — 문자 발송이 차단될 수 있습니다"}
+            </p>
+            <p className={`mt-0.5 ${config.senderVerified ? "text-green-600" : "text-yellow-700"}`}>
+              발신번호: {config.senderPhone}
+              {config.senderVerified && config.verifiedAt && ` · 인증일: ${new Date(config.verifiedAt).toLocaleDateString("ko-KR")}`}
             </p>
           </div>
         </div>
@@ -147,6 +187,41 @@ export default function SmsSettingsPage() {
           {saving ? "저장 중..." : "저장"}
         </button>
       </div>
+
+      {/* 발신번호 인증 */}
+      {config.id && !config.senderVerified && (
+        <div className="bg-white rounded-xl border border-yellow-200 p-5 mt-4 space-y-3">
+          <h2 className="text-sm font-semibold text-gray-700">📞 발신번호 인증 (필수)</h2>
+          <p className="text-xs text-gray-500">
+            미인증 번호로 발송하면 통신사에서 차단됩니다. Aligo ARS 인증을 완료하세요.
+          </p>
+          {verifyStep === "idle" && (
+            <button
+              onClick={requestVerify}
+              disabled={verifying}
+              className="w-full border border-yellow-400 text-yellow-800 py-2 rounded-lg text-sm font-medium hover:bg-yellow-50 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {verifying && <Loader2 className="w-4 h-4 animate-spin" />}
+              인증 전화 요청하기
+            </button>
+          )}
+          {verifyStep === "requested" && (
+            <div className="space-y-2">
+              <p className="text-xs text-green-700 font-medium">
+                ✅ 인증 전화가 발송됩니다. ARS 안내에 따라 인증번호를 입력한 후 아래 버튼을 누르세요.
+              </p>
+              <button
+                onClick={confirmVerify}
+                disabled={verifying}
+                className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {verifying && <Loader2 className="w-4 h-4 animate-spin" />}
+                ARS 입력 완료 — 인증 확인
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 테스트 발송 */}
       {config.id && (
