@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     // 어느 조직(파트너)의 랜딩페이지인지 찾기
     let orgId: string | null = null;
     if (landingPageSlug) {
-      const lp = await prisma.landingPage.findFirst({
+      const lp = await prisma.crmLandingPage.findFirst({
         where: { slug: landingPageSlug },
         select: { organizationId: true, id: true },
       });

@@ -17,7 +17,7 @@ model Organization {
   members       OrganizationMember[]
   contacts      Contact[]
   contactGroups ContactGroup[]
-  landingPages  LandingPage[]
+  landingPages  CrmLandingPage[]
   funnels       Funnel[]
   smsTemplates  SmsTemplate[]
   smsConfig     OrgSmsConfig?
@@ -170,7 +170,7 @@ model ContactMemo {
 }
 
 // ─── 랜딩페이지 ──────────────────────────────────────────────
-model LandingPage {
+model CrmLandingPage {
   id             String   @id @default(cuid())
   organizationId String
   title          String
@@ -181,27 +181,29 @@ model LandingPage {
   viewCount      Int      @default(0)
   autoFunnelId   String?
 
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  registrations  LandingRegistration[]
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  registrations  CrmLandingRegistration[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@unique([slug, organizationId])
   @@index([organizationId])
+  @@map("CrmLandingPage")
 }
 
-model LandingRegistration {
-  id            String      @id @default(cuid())
+model CrmLandingRegistration {
+  id            String         @id @default(cuid())
   landingPageId String
   name          String
   phone         String
   email         String?
   utmSource     String?
-  landingPage   LandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
-  createdAt     DateTime    @default(now())
+  landingPage   CrmLandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+  createdAt     DateTime       @default(now())
 
   @@index([landingPageId])
+  @@map("CrmLandingRegistration")
 }
 
 // ─── 퍼널 자동화 ──────────────────────────────────────────────
