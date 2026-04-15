@@ -222,6 +222,7 @@ model Funnel {
   name           String
   description    String?
   isActive       Boolean  @default(true)
+  funnelType     String   @default("GENERAL")  // VIP_CARE | REGIONAL | GENERAL
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   stages         FunnelStage[]
 
@@ -240,6 +241,7 @@ model FunnelStage {
   triggerOffset  Int     @default(0)
   channel        String  @default("SMS")
   messageContent String? @db.Text
+  linkUrl      String?  // SMS에 삽입할 뉴스 URL (선택)
   funnel         Funnel  @relation(fields: [funnelId], references: [id], onDelete: Cascade)
 
   @@index([funnelId])

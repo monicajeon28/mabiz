@@ -47,6 +47,16 @@ export async function triggerGroupFunnel(opts: TriggerOptions): Promise<boolean>
   });
   if (!contact || contact.optOutAt) return false;
 
+  // [RISK-01] departureDate 없는 고객 → DDAY 퍼널 배정 차단
+  const hasDdayStage = funnel.stages.some((s) => s.triggerType === "DDAY");
+  if (hasDdayStage && !contact.departureDate) {
+    logger.log('[FunnelTrigger] departureDate 없는 고객 DDAY 퍼널 차단', {
+      contactId,
+      funnelId: funnel.id,
+    });
+    return false;
+  }
+
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
@@ -81,6 +91,7 @@ export async function triggerGroupFunnel(opts: TriggerOptions): Promise<boolean>
           .replace(/\[고객명\]/g, contact.name)
           .replace(/\[이름\]/g,   contact.name)
           .replace(/\[상품명\]/g, contact.productName ?? "크루즈")
+          .replace(/\[링크\]/g, (stage as any).linkUrl ?? '')
       : null;
 
     return {
