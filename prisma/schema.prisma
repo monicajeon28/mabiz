@@ -1,13 +1,281 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+// ─── 테넌트 (파트너 회사 단위) ───────────────────────────────────
+model Organization {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  plan         String   @default("FREE")
+  externalAffiliateProfileId Int? @unique
+
+  members       OrganizationMember[]
+  contacts      Contact[]
+  contactGroups ContactGroup[]
+  landingPages  LandingPage[]
+  funnels       Funnel[]
+  smsTemplates  SmsTemplate[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String       @default("MEMBER")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+// ─── 고객 ────────────────────────────────────────────────────
+model Contact {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  phone          String
+  email          String?
+  type           String   @default("LEAD")
+  cruiseInterest String?
+  budgetRange    String?
+  utmSource      String?
+  lastContactedAt DateTime?
+  purchasedAt    DateTime?
+  optOutAt       DateTime?
+  adminMemo      String?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  groups         ContactGroupMember[]
+  callLogs       CallLog[]
+  memos          ContactMemo[]
+  vipSequences   VipCareSequence[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([phone, organizationId])
+  @@index([organizationId])
+  @@index([type])
+}
+
+// ─── 고객 그룹 ────────────────────────────────────────────────
+model ContactGroup {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  color          String?  @default("#6B7280")
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members        ContactGroupMember[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+model ContactGroupMember {
+  id        String       @id @default(cuid())
+  groupId   String
+  contactId String
+  group     ContactGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  contact   Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  addedAt   DateTime     @default(now())
+
+  @@unique([groupId, contactId])
+}
+
+// ─── 콜 기록 ────────────────────────────────────────────────
+model CallLog {
+  id             String   @id @default(cuid())
+  contactId      String
+  userId         String
+  content        String?
+  result         String?
+  duration       Int?
+  convictionScore Int?
+  nextAction     String?
+  scheduledAt    DateTime?
+  contact        Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime @default(now())
+
+  @@index([contactId])
+  @@index([userId])
+}
+
+// ─── 고객 메모 ────────────────────────────────────────────────
+model ContactMemo {
+  id        String   @id @default(cuid())
+  contactId String
+  userId    String
+  content   String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([contactId])
+}
+
+// ─── 랜딩페이지 ──────────────────────────────────────────────
+model LandingPage {
+  id             String   @id @default(cuid())
+  organizationId String
+  title          String
+  slug           String
+  htmlContent    String?  @db.Text
+  isActive       Boolean  @default(true)
+  isPublic       Boolean  @default(true)
+  viewCount      Int      @default(0)
+  autoFunnelId   String?
+
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  registrations  LandingRegistration[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([slug, organizationId])
+  @@index([organizationId])
+}
+
+model LandingRegistration {
+  id            String      @id @default(cuid())
+  landingPageId String
+  name          String
+  phone         String
+  email         String?
+  utmSource     String?
+  landingPage   LandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@index([landingPageId])
+}
+
+// ─── 퍼널 자동화 ──────────────────────────────────────────────
+model Funnel {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  isActive       Boolean  @default(true)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stages         FunnelStage[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+model FunnelStage {
+  id             String  @id @default(cuid())
+  funnelId       String
+  order          Int
+  name           String
+  triggerType    String  @default("DAYS_AFTER")
+  triggerOffset  Int     @default(0)
+  channel        String  @default("SMS")
+  messageContent String? @db.Text
+  funnel         Funnel  @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+
+  @@index([funnelId])
+}
+
+// ─── VIP 케어 타임라인 ────────────────────────────────────────
+model VipCareSequence {
+  id           String   @id @default(cuid())
+  contactId    String
+  funnelId     String?
+  startDate    DateTime
+  status       String   @default("ACTIVE")
+  currentStage Int      @default(0)
+  contact      Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  logs         VipCareLog[]
+
+  createdAt    DateTime @default(now())
+
+  @@index([contactId])
+  @@index([status])
+}
+
+model VipCareLog {
+  id          String          @id @default(cuid())
+  sequenceId  String
+  stageOrder  Int
+  scheduledAt DateTime
+  sentAt      DateTime?
+  status      String          @default("PENDING")
+  content     String?         @db.Text
+  sequence    VipCareSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  @@index([sequenceId])
+  @@index([scheduledAt])
+}
+
+// ─── 문자 템플릿 라이브러리 ────────────────────────────────────
+model SmsTemplate {
+  id             String   @id @default(cuid())
+  organizationId String?
+  category       String
+  title          String
+  content        String   @db.Text
+  triggerType    String?
+  triggerOffset  Int?
+  isSystem       Boolean  @default(false)
+  usageCount     Int      @default(0)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([category])
+}
+
+// ─── 수신거부 ────────────────────────────────────────────────
+model SmsOptOut {
+  id         String   @id @default(cuid())
+  phone      String   @unique
+  optedOutAt DateTime @default(now())
+  reason     String?
+}
+
+// ─── 세일즈 플레이북 ──────────────────────────────────────────
+model SalesPlaybook {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  content   String   @db.Text
+  priority  Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+}
+
+// ─── PayApp 결제 ──────────────────────────────────────────────
+model PayAppPayment {
+  id            String    @id @default(cuid())
+  orderId       String    @unique
+  amount        Int
+  customerName  String
+  customerPhone String
+  status        String    @default("pending")
+  landingPageId String?
+  paidAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([customerPhone])
+  @@index([landingPageId])
 }
