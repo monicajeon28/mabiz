@@ -14,11 +14,13 @@ interface Props {
  * - 완료 화면 표시
  */
 export function LandingClient({ pageId, htmlContent }: Props) {
-  const [done,       setDone]       = useState(false);
+  const [done,        setDone]        = useState(false);
   const [isDuplicate, setIsDuplicate] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting,  setSubmitting]  = useState(false);
+  const [phoneError,  setPhoneError]  = useState("");
   const containerRef  = useRef<HTMLDivElement>(null);
   const submittingRef = useRef(false); // stale closure 방지용 ref
+  const loadTimeRef = useRef<number>(Date.now());
 
   useEffect(() => {
     const container = containerRef.current;
@@ -29,6 +31,20 @@ export function LandingClient({ pageId, htmlContent }: Props) {
       if (submittingRef.current) return;
 
       const form  = e.target as HTMLFormElement;
+
+      // [WO-15] Honeypot 체크
+      const hpVal = (form.querySelector('input[name="website"]') as HTMLInputElement)?.value ?? '';
+      if (hpVal.trim()) {
+        setDone(true); // 조용히 성공 처리
+        return;
+      }
+
+      // [WO-15] 시간 기반 방어 (1.5초 미만 = 봇)
+      if (Date.now() - loadTimeRef.current < 1500) {
+        setDone(true);
+        return;
+      }
+
       // name 우선순위: name 어트리뷰트 → placeholder 포함 → type=text 첫번째
       const name  = (
         form.querySelector('input[name="name"]') ??
@@ -46,6 +62,14 @@ export function LandingClient({ pageId, htmlContent }: Props) {
       const phoneVal = phone?.value ?? "";
       const emailVal = email?.value ?? "";
 
+      // [WO-15] 전화번호 형식 사전 검증 (UX — 값이 있는데 형식 오류면 에러 표시)
+      const rawPhone = phoneVal.replace(/[^0-9]/g, '');
+      if (rawPhone && !/^01[016789]\d{7,8}$/.test(rawPhone)) {
+        setPhoneError('올바른 휴대폰 번호를 입력해 주세요. (예: 010-1234-5678)');
+        return;
+      }
+      setPhoneError('');
+
       if (!nameVal.trim() || !phoneVal.trim()) return;
 
       submittingRef.current = true;
@@ -54,7 +78,7 @@ export function LandingClient({ pageId, htmlContent }: Props) {
         const res  = await fetch(`/api/landing-pages/${pageId}/register`, {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ name: nameVal, phone: phoneVal, email: emailVal || undefined }),
+          body:    JSON.stringify({ name: nameVal, phone: phoneVal, email: emailVal || undefined, loadedAt: loadTimeRef.current }),
         });
         const data = await res.json();
         if (data.ok) {
@@ -70,6 +94,20 @@ export function LandingClient({ pageId, htmlContent }: Props) {
 
     // 폼 submit 이벤트 인터셉트
     const forms = container.querySelectorAll("form");
+
+    // [WO-15] Honeypot input 주입 (봇 유인 — display:none 금지)
+    forms.forEach((form) => {
+      if (form.querySelector('input[name="website"]')) return; // 중복 방지
+      const hp = document.createElement('input');
+      hp.type = 'text';
+      hp.name = 'website';
+      hp.autocomplete = 'off';
+      hp.tabIndex = -1;
+      hp.setAttribute('aria-hidden', 'true');
+      hp.style.cssText = 'position:absolute;left:-9999px;opacity:0;height:0;overflow:hidden;';
+      form.appendChild(hp);
+    });
+
     forms.forEach((f) => f.addEventListener("submit", handleSubmit));
 
     // submit-btn 클래스 버튼 클릭 인터셉트 (form 태그 없는 경우 대비)
@@ -86,7 +124,8 @@ export function LandingClient({ pageId, htmlContent }: Props) {
     return () => {
       forms.forEach((f) => f.removeEventListener("submit", handleSubmit));
     };
-  }, [pageId, submitting]);
+  // submitting은 submittingRef로 처리 → 의존성 제거 (중복 주입 방지)
+  }, [pageId]);
 
   if (done) {
     return (
@@ -113,6 +152,11 @@ export function LandingClient({ pageId, htmlContent }: Props) {
 
   return (
     <div className="min-h-screen relative">
+      {phoneError && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+          {phoneError}
+        </div>
+      )}
       {submitting && (
         <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center">
           <div className="bg-white rounded-xl px-6 py-4 text-sm font-medium text-navy-900">

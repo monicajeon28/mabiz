@@ -12,19 +12,47 @@ export async function POST(req: Request, { params }: Params) {
     const { id: landingPageId } = await params;
     const body = await req.json();
     const { name, phone, email, metadata } = body;
-    // utm 파라미터: body 우선, 없으면 URL query에서 폴백 (양쪽 지원)
+
+    // [WO-15] Honeypot: 봇이 website 필드를 채우면 조용히 성공 반환 (website만 사용)
+    const honeypot = (body.website ?? '').toString();
+    if (honeypot.trim()) {
+      logger.warn('[LandingRegister] Honeypot 감지 — 봇 차단', { landingPageId });
+      return NextResponse.json({ ok: true, funnelStarted: false });
+    }
+
+    // [WO-15] 시간 방어: 1.5초 미만 제출 = 자동화 봇
+    const loadedAt = typeof body.loadedAt === 'number' ? body.loadedAt : null;
+    if (loadedAt) {
+      const elapsed = Date.now() - loadedAt;
+      // elapsed <= 0: 미래 timestamp 조작 방어, elapsed < 1500: 초고속 봇 방어
+      if (elapsed <= 0 || elapsed < 1500) {
+        logger.warn('[LandingRegister] 시간 방어 감지', { elapsed });
+        return NextResponse.json({ ok: true, funnelStarted: false });
+      }
+    }
+
+    // 필수값 먼저 체크 (UTM 파싱보다 앞)
+    if (!name?.trim() || !phone?.trim()) {
+      return NextResponse.json({ ok: false, message: "이름과 전화번호는 필수입니다." }, { status: 400 });
+    }
+
+    // 전화번호 정규화 (11자리 + 10자리 케이스 모두 처리)
+    const digits = phone.replace(/[^0-9]/g, "");
+    const normalizedPhone = digits.length === 10
+      ? digits.replace(/^(\d{3})(\d{3})(\d{4})$/, "$1-$2-$3")
+      : digits.replace(/^(\d{3})(\d{4})(\d{4})$/, "$1-$2-$3");
+
+    // utm 파라미터 (필수값 검증 이후)
     const sp = new URL(req.url).searchParams;
     const utmSource   = body.utmSource   ?? sp.get('utm_source')   ?? null;
     const utmMedium   = body.utmMedium   ?? sp.get('utm_medium')   ?? null;
     const utmCampaign = body.utmCampaign ?? sp.get('utm_campaign') ?? null;
 
-    if (!name?.trim() || !phone?.trim()) {
-      return NextResponse.json({ ok: false, message: "이름과 전화번호는 필수입니다." }, { status: 400 });
+    // [WO-15] 전화번호 형식 검증 (정규화 이후 적용)
+    const KR_PHONE_RE = /^01[016789]-\d{3,4}-\d{4}$/;
+    if (!KR_PHONE_RE.test(normalizedPhone)) {
+      return NextResponse.json({ ok: false, message: '올바른 전화번호를 입력해 주세요.' }, { status: 400 });
     }
-
-    // 전화번호 정규화
-    const normalizedPhone = phone.replace(/[^0-9]/g, "")
-      .replace(/^(\d{3})(\d{4})(\d{4})$/, "$1-$2-$3");
 
     // 랜딩페이지 조회 (groupId 포함)
     const landingPage = await prisma.crmLandingPage.findFirst({
