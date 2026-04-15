@@ -18,6 +18,48 @@ export default function GroupsPage() {
   const [form, setForm]       = useState({ name: "", description: "", color: "#6B7280", funnelId: "" });
   const [saving, setSaving]   = useState(false);
 
+  // 일괄 발송 상태
+  const [blastGroupId,  setBlastGroupId]  = useState<string | null>(null);
+  const [blastMsg,      setBlastMsg]      = useState("");
+  const [blastPreview,  setBlastPreview]  = useState<{ willSend: number; isOverLimit: boolean; overLimitMsg: string | null } | null>(null);
+  const [blasting,      setBlasting]      = useState(false);
+  const [blastResult,   setBlastResult]   = useState<{ sentCount: number; blockedCount: number; failedCount: number } | null>(null);
+
+  const openBlast = (groupId: string) => {
+    setBlastGroupId(groupId);
+    setBlastMsg("");
+    setBlastPreview(null);
+    setBlastResult(null);
+  };
+
+  const checkBlast = async () => {
+    if (!blastGroupId || !blastMsg.trim()) return;
+    const res  = await fetch(`/api/groups/${blastGroupId}/blast`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: blastMsg, dryRun: true }),
+    });
+    const data = await res.json();
+    if (data.ok) setBlastPreview(data);
+  };
+
+  const sendBlast = async () => {
+    if (!blastGroupId || !blastMsg.trim() || blasting) return;
+    setBlasting(true);
+    try {
+      const res  = await fetch(`/api/groups/${blastGroupId}/blast`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: blastMsg, dryRun: false }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setBlastResult({ sentCount: data.sentCount, blockedCount: data.blockedCount, failedCount: data.failedCount });
+        setBlastPreview(null);
+      }
+    } finally {
+      setBlasting(false); // 에러 시에도 반드시 해제
+    }
+  };
+
   useEffect(() => {
     Promise.all([
       fetch("/api/groups").then((r) => r.json()),
@@ -220,10 +262,81 @@ export default function GroupsPage() {
                   )}
                 </div>
 
-                <button className="p-2 hover:bg-gray-100 rounded-lg">
-                  <Settings className="w-4 h-4 text-gray-400" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => openBlast(group.id)}
+                    className="px-3 py-1.5 bg-gold-50 border border-gold-300 text-gold-700 rounded-lg text-xs font-medium hover:bg-gold-100"
+                    title="그룹 전체에 즉시 문자 발송"
+                  >
+                    📢 발송
+                  </button>
+                  <button className="p-2 hover:bg-gray-100 rounded-lg">
+                    <Settings className="w-4 h-4 text-gray-400" />
+                  </button>
+                </div>
               </div>
+
+              {/* 일괄 발송 패널 */}
+              {blastGroupId === group.id && (
+                <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+                  {blastResult ? (
+                    <div className="bg-green-50 rounded-lg p-3 text-sm">
+                      <p className="font-semibold text-green-800">✅ 발송 완료</p>
+                      <p className="text-green-700 mt-1">
+                        성공 {blastResult.sentCount}명 · 차단 {blastResult.blockedCount}명
+                        {blastResult.failedCount > 0 && ` · 실패 ${blastResult.failedCount}명`}
+                      </p>
+                      <button onClick={() => setBlastGroupId(null)} className="text-xs text-gray-500 mt-2 underline">닫기</button>
+                    </div>
+                  ) : (
+                    <>
+                      <textarea
+                        value={blastMsg}
+                        onChange={(e) => { setBlastMsg(e.target.value); setBlastPreview(null); }}
+                        placeholder={"크루즈닷 입니다 😊\n[고객명]님, 이번 주 특가 소식이에요!\n→ cruisedot.co.kr"}
+                        rows={3}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500 resize-none"
+                      />
+                      <p className="text-xs text-gray-400">[고객명] 자동 치환됩니다</p>
+
+                      {blastPreview && (
+                        <div className="bg-blue-50 rounded-lg p-3 text-sm">
+                          <p className="font-medium text-blue-800">발송 예정: {blastPreview.willSend}명</p>
+                          {blastPreview.isOverLimit && (
+                            <p className="text-xs text-orange-600 mt-1">⚠️ {blastPreview.overLimitMsg}</p>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        {!blastPreview ? (
+                          <button
+                            onClick={checkBlast}
+                            disabled={!blastMsg.trim()}
+                            className="flex-1 border border-blue-300 text-blue-700 py-1.5 rounded-lg text-sm hover:bg-blue-50 disabled:opacity-50"
+                          >
+                            대상 확인
+                          </button>
+                        ) : (
+                          <button
+                            onClick={sendBlast}
+                            disabled={blasting}
+                            className="flex-1 bg-navy-900 text-white py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
+                          >
+                            {blasting ? "발송 중..." : `${blastPreview.willSend}명에게 발송`}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setBlastGroupId(null)}
+                          className="flex-1 bg-gray-100 text-gray-600 py-1.5 rounded-lg text-sm"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
