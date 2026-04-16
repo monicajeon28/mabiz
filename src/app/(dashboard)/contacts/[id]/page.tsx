@@ -4,7 +4,8 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Phone, MessageSquare, Edit2,
-  Plus, Clock, FileText, Star, GitBranch, Calendar, Send, AlarmClock
+  Plus, Clock, FileText, Star, GitBranch, Calendar, Send, AlarmClock,
+  Share2, Users, Building2, X
 } from "lucide-react";
 import { logger } from "@/lib/logger";
 
@@ -67,6 +68,15 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
   // WO-23: 예약 발송 모달
   const [showSchedModal, setShowSchedModal] = useState(false);
+
+  // WO-28: DB 전달 모달
+  const [showSendDb,    setShowSendDb]    = useState(false);
+  const [sendDbMode,    setSendDbMode]    = useState<"org" | "agent">("agent");
+  const [orgs,          setOrgs]          = useState<{ id: string; name: string }[]>([]);
+  const [agents,        setAgents]        = useState<{ userId: string; displayName: string | null; organization: { name: string } }[]>([]);
+  const [sendDbTarget,  setSendDbTarget]  = useState("");
+  const [sendingDb,     setSendingDb]     = useState(false);
+  const [sendDbResult,  setSendDbResult]  = useState("");
   const [schedMsg,       setSchedMsg]       = useState("");
   const [schedAt,        setSchedAt]        = useState("");
   const [scheduling,     setScheduling]     = useState(false);
@@ -163,6 +173,44 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       setSelectedGroup("");
     }
     setAssigning(false);
+  };
+
+  // WO-28: DB 전달 모달 열기 (대상 목록 로드)
+  const openSendDb = async () => {
+    setShowSendDb(true);
+    setSendDbResult("");
+    setSendDbTarget("");
+    const [orgRes, agentRes] = await Promise.all([
+      fetch("/api/org/list").then((r) => r.json()),
+      fetch("/api/org/agents").then((r) => r.json()),
+    ]);
+    if (orgRes.ok)   setOrgs(orgRes.orgs ?? []);
+    if (agentRes.ok) setAgents(agentRes.agents ?? []);
+  };
+
+  const sendDb = async () => {
+    if (!sendDbTarget) return;
+    setSendingDb(true);
+    const body = sendDbMode === "org"
+      ? { targetOrgId: sendDbTarget }
+      : { targetUserId: sendDbTarget };
+    const res  = await fetch(`/api/contacts/${id}/send-db`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    setSendingDb(false);
+    if (data.ok) {
+      const label = sendDbMode === "org"
+        ? `✅ ${data.targetOrgName}으로 전달 완료`
+        : `✅ ${data.agentName ?? "판매원"}에게 할당 완료`;
+      setSendDbResult(label);
+      setSendDbTarget("");
+      setTimeout(() => { setShowSendDb(false); setSendDbResult(""); }, 2000);
+    } else {
+      setSendDbResult(`❌ ${data.message ?? "전달 실패"}`);
+    }
   };
 
   // WO-25C: 태그 저장
@@ -271,6 +319,89 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6">
 
+      {/* WO-28: DB 전달 모달 */}
+      {showSendDb && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-end md:items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Share2 className="w-4 h-4 text-purple-500" /> DB 전달
+              </h3>
+              <button onClick={() => setShowSendDb(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 전달 모드 선택 */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setSendDbMode("agent"); setSendDbTarget(""); }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                  sendDbMode === "agent"
+                    ? "bg-navy-900 text-white border-navy-900"
+                    : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <Users className="w-4 h-4" /> 판매원에게 할당
+              </button>
+              <button
+                onClick={() => { setSendDbMode("org"); setSendDbTarget(""); }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                  sendDbMode === "org"
+                    ? "bg-purple-600 text-white border-purple-600"
+                    : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <Building2 className="w-4 h-4" /> 대리점 교환
+              </button>
+            </div>
+
+            {/* 대상 선택 */}
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1.5 block">
+                {sendDbMode === "agent" ? "담당 판매원 선택" : "전달할 대리점 선택"}
+              </label>
+              <select
+                value={sendDbTarget}
+                onChange={(e) => setSendDbTarget(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-purple-400"
+              >
+                <option value="">선택하세요...</option>
+                {sendDbMode === "agent"
+                  ? agents.map((a) => (
+                      <option key={a.userId} value={a.userId}>
+                        {a.displayName ?? a.userId} ({a.organization.name})
+                      </option>
+                    ))
+                  : orgs.map((o) => (
+                      <option key={o.id} value={o.id}>{o.name}</option>
+                    ))
+                }
+              </select>
+              {sendDbMode === "org" && sendDbTarget && (
+                <p className="text-xs text-gray-400 mt-1">
+                  ℹ️ 원본 데이터는 유지됩니다. 대상 조직에 복사됩니다.
+                </p>
+              )}
+            </div>
+
+            {sendDbResult && (
+              <p className={`text-sm font-medium ${sendDbResult.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>
+                {sendDbResult}
+              </p>
+            )}
+
+            <button
+              onClick={sendDb}
+              disabled={sendingDb || !sendDbTarget}
+              className="w-full bg-purple-600 text-white py-2.5 rounded-xl font-medium hover:bg-purple-700 disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {sendingDb ? "전달 중..." : <><Share2 className="w-4 h-4" /> 전달하기</>}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* WO-22: 즉시 SMS 발송 모달 */}
       {showSmsModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-end md:items-center justify-center p-4">
@@ -358,6 +489,13 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         <a href={`tel:${contact.phone}`} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">
           <Phone className="w-5 h-5" />
         </a>
+        <button
+          onClick={openSendDb}
+          className="p-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100"
+          title="DB 전달"
+        >
+          <Share2 className="w-5 h-5" />
+        </button>
         <button
           onClick={() => setShowSmsModal(true)}
           className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100"

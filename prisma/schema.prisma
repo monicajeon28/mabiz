@@ -111,7 +111,11 @@ model Contact {
   reEngageCount  Int       @default(0)  // 재진입 시도 횟수 (최대 2회)
 
   // 담당 판매원 (AGENT에게 배당된 고객)
-  assignedUserId String?   // Clerk userId of the assigned AGENT
+  assignedUserId  String?   // Clerk userId of the assigned AGENT
+
+  // DB 출처 추적 (WO-28)
+  freeSalesId     String?   // 유입시킨 프리세일즈 식별자 (어필리에이트 코드)
+  sourceOrgId     String?   // DB 전달 시 원본 조직 ID (이력 추적)
   // 크루즈 출발 정보 (VIP 케어 D-day 기준)
   departureDate  DateTime? // 출발 예정일 → D-150, D-90... 자동 계산
   productName    String?   // 상품명 (예: 지중해 7박 MSC)
