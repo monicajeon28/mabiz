@@ -14,8 +14,8 @@ model Organization {
   plan         String   @default("FREE")
   externalAffiliateProfileId Int? @unique
 
-  members       OrganizationMember[]
-  contacts      Contact[]
+  members         OrganizationMember[]
+  contacts        Contact[]
   contactGroups ContactGroup[]
   landingPages  CrmLandingPage[]
   funnels       Funnel[]
@@ -23,6 +23,7 @@ model Organization {
   smsConfig        OrgSmsConfig?
   emailConfig      OrgEmailConfig?
   scheduledSmsList ScheduledSms[]
+  inviteTokens     OrgInviteToken[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -470,4 +471,27 @@ model ScheduledSms {
   @@index([organizationId, status, scheduledAt])
   @@index([scheduledAt, status])
   @@map("ScheduledSms")
+}
+
+// ─── 판매원 초대 토큰 (WO-27B) ───────────────────────────────
+model OrgInviteToken {
+  id             String    @id @default(cuid())
+  organizationId String
+  token          String    @unique @default(cuid())
+  role           String    @default("AGENT")
+  note           String?   // 초대 메모 (예: "홍길동 판매원")
+  expiresAt      DateTime  // 만료 시각 (기본 7일)
+  usedAt         DateTime?
+  usedByUserId   String?   // 사용한 Clerk userId
+  // 수당 조건 동의 기록
+  agreedToTerms  Boolean   @default(false)
+  createdByUserId String?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime  @default(now())
+
+  @@index([organizationId])
+  @@index([expiresAt])
+  @@map("OrgInviteToken")
 }
