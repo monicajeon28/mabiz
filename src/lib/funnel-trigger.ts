@@ -37,9 +37,27 @@ export async function triggerGroupFunnel(opts: TriggerOptions): Promise<boolean>
 
   const funnel = await prisma.funnel.findFirst({
     where: { id: group.funnelId, isActive: true },
-    include: { stages: { orderBy: { order: "asc" } } },
+    select: {
+      id: true,
+      funnelType: true,
+      stages: { orderBy: { order: "asc" } },
+    },
   });
   if (!funnel || funnel.stages.length === 0) return false;
+
+  // GAP-01: VIP_CARE 타입이면 동일 타입 ACTIVE/PENDING 시퀀스 중복 방지
+  if (funnel.funnelType === 'VIP_CARE') {
+    const activeVip = await prisma.vipCareSequence.findFirst({
+      where: {
+        contactId,
+        status: { in: ['ACTIVE', 'PENDING'] },
+      },
+    });
+    if (activeVip) {
+      logger.log('[FunnelTrigger] VIP_CARE 중복 시퀀스 차단', { contactId });
+      return false;
+    }
+  }
 
   const contact = await prisma.contact.findFirst({
     where: { id: contactId, organizationId },
