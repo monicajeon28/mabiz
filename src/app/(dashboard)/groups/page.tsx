@@ -20,6 +20,45 @@ export default function GroupsPage() {
   const [saving, setSaving]   = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // 지역 그룹 초기화 상태
+  const [setupMsg,     setSetupMsg]     = useState<string | null>(null);
+  const [setupLoading, setSetupLoading] = useState(false);
+
+  const initRegionalGroups = async () => {
+    if (setupLoading) return;
+    setSetupLoading(true);
+    setSetupMsg(null);
+    try {
+      const res  = await fetch('/api/setup/regional-groups', { method: 'POST' });
+      const data = await res.json() as { ok: boolean; created?: string[]; skipped?: string[]; message?: string };
+      if (data.ok) {
+        const createdCount = data.created?.length ?? 0;
+        const skippedCount = data.skipped?.length ?? 0;
+        if (createdCount === 0) {
+          setSetupMsg('이미 설정되어 있습니다');
+        } else {
+          setSetupMsg(`${createdCount}개 그룹 생성 완료${skippedCount > 0 ? ` (${skippedCount}개 스킵)` : ''}`);
+          const [g, f] = await Promise.all([
+            fetch('/api/groups').then((r) => r.json()),
+            fetch('/api/funnels').then((r) => r.json()),
+          ]);
+          if (g.ok)  setGroups(g.groups);
+          if (f.ok)  setFunnels(f.funnels);
+        }
+      } else {
+        const msg = data.message ?? '초기화에 실패했습니다.';
+        setSetupMsg(msg);
+        showError(msg);
+      }
+    } catch {
+      const msg = '네트워크 오류가 발생했습니다.';
+      setSetupMsg(msg);
+      showError(msg);
+    } finally {
+      setSetupLoading(false);
+    }
+  };
+
   // 일괄 발송 상태
   const [blastGroupId,  setBlastGroupId]  = useState<string | null>(null);
   const [blastMsg,      setBlastMsg]      = useState("");
@@ -162,6 +201,24 @@ export default function GroupsPage() {
         <p className="text-xs text-blue-600 mt-2">
           랜딩페이지 신청 시에도 그룹 자동 배정 → 퍼널 즉시 시작
         </p>
+      </div>
+
+      {/* 지역 그룹 초기 설정 */}
+      <div className="mb-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
+        <p className="text-sm font-semibold text-blue-800 mb-1">📍 지역별 관심 그룹 자동 설정</p>
+        <p className="text-xs text-blue-600 mb-3">8개 지역 그룹 + 12주 SMS 퍼널을 한 번에 생성합니다</p>
+        <button
+          onClick={initRegionalGroups}
+          disabled={setupLoading}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+        >
+          {setupLoading ? '생성 중...' : '🚀 지역 그룹 초기화'}
+        </button>
+        {setupMsg && (
+          <p className={`text-xs mt-2 ${setupMsg.includes('이미') ? 'text-gray-500' : setupMsg.includes('실패') || setupMsg.includes('오류') ? 'text-red-600' : 'text-green-600'}`}>
+            {setupMsg}
+          </p>
+        )}
       </div>
 
       {/* 새 그룹 폼 */}

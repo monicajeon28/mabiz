@@ -109,7 +109,7 @@ export async function triggerGroupFunnel(opts: TriggerOptions): Promise<boolean>
           .replace(/\[고객명\]/g, contact.name)
           .replace(/\[이름\]/g,   contact.name)
           .replace(/\[상품명\]/g, contact.productName ?? "크루즈")
-          .replace(/\[링크\]/g, '') // linkUrl 필드 미존재 — 추후 FunnelStage 타입에 추가 예정
+          .replace(/\[링크\]/g, stage.linkUrl ?? 'https://www.cruisedot.co.kr')
       : null;
 
     return {
