@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/scheduled-sms",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/re-engage",
+      "schedule": "0 1 * * *"
     }
   ]
 }

@@ -14,8 +14,11 @@ export async function GET() {
         aligoUserId: true,
         senderPhone: true,
         isActive: true,
+        senderVerified: true,
+        verifiedAt: true,
+        reEngageMsg1: true,
+        reEngageMsg2: true,
         updatedAt: true,
-        // aligoKey는 보안상 마스킹
         aligoKey: false,
       },
     });
@@ -23,6 +26,33 @@ export async function GET() {
     return NextResponse.json({ ok: true, config });
   } catch (err) {
     logger.error("[GET /api/settings/sms]", { err });
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+}
+
+// PATCH /api/settings/sms — 재진입 메시지 등 부분 업데이트
+export async function PATCH(req: Request) {
+  try {
+    const orgId = await getOrgId();
+    const body  = await req.json() as { reEngageMsg1?: string | null; reEngageMsg2?: string | null };
+
+    const existing = await prisma.orgSmsConfig.findUnique({ where: { organizationId: orgId } });
+    if (!existing) {
+      return NextResponse.json({ ok: false, message: "SMS 설정을 먼저 저장하세요." }, { status: 400 });
+    }
+
+    await prisma.orgSmsConfig.update({
+      where: { organizationId: orgId },
+      data: {
+        ...(body.reEngageMsg1 !== undefined ? { reEngageMsg1: body.reEngageMsg1 } : {}),
+        ...(body.reEngageMsg2 !== undefined ? { reEngageMsg2: body.reEngageMsg2 } : {}),
+      },
+    });
+
+    logger.log("[PATCH /api/settings/sms] 재진입 메시지 저장", { orgId });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    logger.error("[PATCH /api/settings/sms]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
