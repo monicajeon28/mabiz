@@ -40,7 +40,6 @@ export async function POST() {
             triggerType:    'DDAY',
             triggerOffset:  s.triggerOffset,
             messageContent: s.content,
-            isActive:       true,
           })),
         },
       },

@@ -41,7 +41,24 @@ export async function POST(req: Request) {
       });
 
       const raw = (msg.content[0] as { type: string; text: string }).text;
-      const result = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] ?? '{}') as Record<string, unknown>;
+      let result: Record<string, unknown> = {};
+      const jsonMatch = raw.match(/\{[\s\S]*\}/)?.[0];
+      if (!jsonMatch) {
+        await prisma.aiCallLog.update({
+          where: { id: call.id },
+          data:  { analysisStatus: 'ERROR' },
+        }).catch((e) => logger.log('[AnalyzeCalls] ERROR 상태 업데이트 실패', { id: call.id, error: e instanceof Error ? e.message : String(e) }));
+        continue;
+      }
+      try {
+        result = JSON.parse(jsonMatch) as Record<string, unknown>;
+      } catch {
+        await prisma.aiCallLog.update({
+          where: { id: call.id },
+          data:  { analysisStatus: 'ERROR' },
+        }).catch(() => {});
+        continue;
+      }
 
       await prisma.$transaction([
         prisma.aiCallLog.update({

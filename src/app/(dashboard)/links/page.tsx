@@ -14,8 +14,8 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mabiz.cruisedot.co.k
 const QUICK_URLS = [
   { label: '🚢 크루즈닷 메인',   url: 'https://www.cruisedot.co.kr' },
   { label: '⭐ 골드 멤버십',      url: 'https://www.cruisedot.co.kr/gold' },
-  { label: '🇯🇵 일본 크루즈',    url: 'https://www.cruisedot.co.kr/mall' },
-  { label: '🇪🇺 지중해 크루즈',  url: 'https://www.cruisedot.co.kr/mall' },
+  { label: '🇯🇵 일본 크루즈',    url: 'https://www.cruisedot.co.kr/mall?cat=japan' },
+  { label: '🇪🇺 지중해 크루즈',  url: 'https://www.cruisedot.co.kr/mall?cat=mediterranean' },
 ];
 
 export default function LinksPage() {

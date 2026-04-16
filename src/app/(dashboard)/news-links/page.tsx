@@ -23,10 +23,13 @@ export default function NewsLinksPage() {
 
   const sync = async () => {
     setSyncing(true);
-    await fetch('/api/cron/news-sync', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET ?? ''}` },
-    }).catch(() => {});
+    try {
+      const res = await fetch('/api/tools/news-sync-trigger', { method: 'POST' });
+      const d = await res.json() as { ok: boolean };
+      if (!d.ok) showError('동기화 실패');
+    } catch {
+      showError('동기화 실패');
+    }
     load();
     setSyncing(false);
   };

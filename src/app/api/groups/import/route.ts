@@ -30,6 +30,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: '스테이지 데이터 필수' }, { status: 400 });
     }
 
+    if (body.stages.length > 50) {
+      return NextResponse.json(
+        { ok: false, message: '스테이지는 최대 50개까지 가능합니다' },
+        { status: 400 }
+      );
+    }
+
+    const sanitizedStages = body.stages.map((s) => ({
+      ...s,
+      name:           (s.name ?? '').substring(0, 100),
+      messageContent: s.messageContent ? s.messageContent.substring(0, 1000) : undefined,
+      linkUrl:        s.linkUrl ? s.linkUrl.substring(0, 500) : undefined,
+    }));
+
     const funnel = await prisma.funnel.create({
       data: {
         organizationId: orgId,
@@ -37,7 +51,7 @@ export async function POST(req: Request) {
         funnelType: body.funnelType ?? 'GENERAL',
         isActive:   false,
         stages: {
-          create: body.stages.map((s) => ({
+          create: sanitizedStages.map((s) => ({
             name:           s.name,
             order:          s.order,
             triggerType:    s.triggerType,

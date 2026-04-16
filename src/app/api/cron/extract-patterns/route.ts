@@ -62,7 +62,7 @@ ${allPhrases}
       }>;
 
       for (const p of patterns) {
-        await prisma.scriptPattern.create({
+        const created = await prisma.scriptPattern.create({
           data: {
             organizationId: orgId,
             productType: 'GOLD',
@@ -73,8 +73,11 @@ ${allPhrases}
             exampleCall: p.why ?? null,
             status: 'DRAFT',
           },
-        }).catch(() => {});
-        extracted++;
+        }).catch((e) => {
+          logger.log('[ExtractPatterns] 패턴 저장 실패', { error: e instanceof Error ? e.message : String(e) });
+          return null;
+        });
+        if (created) extracted++;
       }
     } catch (e) {
       logger.log('[ExtractPatterns] 추출 실패', { persona, error: e instanceof Error ? e.message : String(e) });

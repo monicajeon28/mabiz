@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
+import { randomBytes } from 'crypto';
 import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 function generateCode(): string {
-  return Math.random().toString(36).substring(2, 8); // 6자리
+  return randomBytes(4).toString('hex').substring(0, 6);
 }
 
 export async function GET(req: Request) {
@@ -33,7 +34,17 @@ export async function POST(req: Request) {
     if (!body.targetUrl) return NextResponse.json({ ok: false, message: 'targetUrl 필수' }, { status: 400 });
 
     // URL 유효성 + SSRF 방어
-    try { new URL(body.targetUrl); } catch { return NextResponse.json({ ok: false, message: '유효하지 않은 URL' }, { status: 400 }); }
+    try {
+      const parsed = new URL(body.targetUrl);
+      if (parsed.protocol !== 'https:') {
+        return NextResponse.json({ ok: false, message: 'https URL만 허용됩니다' }, { status: 400 });
+      }
+      const h = parsed.hostname;
+      const isPrivate = /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1$|localhost$)/i.test(h);
+      if (isPrivate) {
+        return NextResponse.json({ ok: false, message: '내부 네트워크 URL은 허용되지 않습니다' }, { status: 400 });
+      }
+    } catch { return NextResponse.json({ ok: false, message: '유효하지 않은 URL' }, { status: 400 }); }
 
     let code = generateCode();
     let attempts = 0;

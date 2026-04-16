@@ -43,5 +43,13 @@ export async function GET(req: Request, { params }: Params) {
   }
 
   logger.log('[ShortLink] 클릭', { code, contactId: link.contactId ?? '없음' });
+  try {
+    const parsed = new URL(link.targetUrl);
+    if (parsed.protocol !== 'https:') {
+      return NextResponse.redirect('https://www.cruisedot.co.kr', { status: 302 });
+    }
+  } catch {
+    return NextResponse.redirect('https://www.cruisedot.co.kr', { status: 302 });
+  }
   return NextResponse.redirect(link.targetUrl, { status: 302 });
 }
