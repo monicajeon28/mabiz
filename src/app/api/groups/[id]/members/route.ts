@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getAuthContext, requireOrgId } from "@/lib/rbac";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
 import { logger } from "@/lib/logger";
+import { addLeadScore } from "@/lib/lead-score";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -44,6 +45,9 @@ export async function POST(req: Request, { params }: Params) {
           create: { groupId, contactId },
           update: {},
         });
+
+        // 리드 스코어 +10 (그룹 배정 = 파트너 관심)
+        addLeadScore(contactId, "GROUP_ASSIGNED").catch(() => {});
 
         // ★ 핵심: 그룹에 퍼널이 연결되어 있으면 자동 시작
         // 그룹 배정 후 퍼널 자동 시작 (sendFirst: true → 즉시 첫 SMS)

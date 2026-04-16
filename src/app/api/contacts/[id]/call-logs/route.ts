@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { getOrgId } from "@/lib/org";
 import { logger } from "@/lib/logger";
+import { addLeadScore } from "@/lib/lead-score";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -57,6 +58,17 @@ export async function POST(req: Request, { params }: Params) {
       where: { id },
       data: { lastContactedAt: new Date() },
     });
+
+    // 리드 스코어 업데이트 (fire-and-forget)
+    const scoreMap: Record<string, "CALL_INTERESTED" | "CALL_RESCHEDULED" | "CALL_PENDING" | "CALL_REJECTED"> = {
+      INTERESTED:  "CALL_INTERESTED",
+      RESCHEDULED: "CALL_RESCHEDULED",
+      PENDING:     "CALL_PENDING",
+      REJECTED:    "CALL_REJECTED",
+    };
+    if (result && scoreMap[result]) {
+      addLeadScore(id, scoreMap[result]).catch(() => {});
+    }
 
     return NextResponse.json({ ok: true, log }, { status: 201 });
   } catch (err) {

@@ -96,6 +96,9 @@ model Contact {
   optOutAt       DateTime?
   adminMemo      String?
 
+  // 리드 스코어링 (WO-25B)
+  leadScore      Int       @default(0)   // HOT 70+ / WARM 30~69 / COLD 0~29 / LOST <0
+
   // 담당 판매원 (AGENT에게 배당된 고객)
   assignedUserId String?   // Clerk userId of the assigned AGENT
   // 크루즈 출발 정보 (VIP 케어 D-day 기준)

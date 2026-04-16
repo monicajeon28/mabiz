@@ -12,8 +12,16 @@ type Contact = {
   type: string;
   cruiseInterest: string | null;
   lastContactedAt: string | null;
+  leadScore: number;
   groups: { group: { id: string; name: string; color: string | null } }[];
   _count: { callLogs: number };
+};
+
+const getLeadTier = (score: number) => {
+  if (score >= 70) return { label: "🔥 HOT",  color: "bg-red-100 text-red-700" };
+  if (score >= 30) return { label: "☀️ WARM", color: "bg-orange-100 text-orange-600" };
+  if (score >= 0)  return { label: "❄️ COLD", color: "bg-blue-50 text-blue-500" };
+  return               { label: "💤 LOST", color: "bg-gray-100 text-gray-400" };
 };
 
 type QuickCallResult = "INTERESTED" | "PENDING" | "REJECTED";
@@ -130,7 +138,7 @@ export default function ContactsPage() {
     }
   };
 
-  // 오늘 콜할 사람: LEAD + (연락 없음 OR 3일 이상 연락 없음)
+  // 오늘 콜할 사람: LEAD + (연락 없음 OR 3일 이상 연락 없음) → 리드 스코어 높은 순
   const todayCallList = contacts
     .filter((c) => {
       if (c.type !== "LEAD") return false;
@@ -138,6 +146,7 @@ export default function ContactsPage() {
       if (days === null) return true;
       return days >= 3;
     })
+    .sort((a, b) => (b.leadScore ?? 0) - (a.leadScore ?? 0))  // HOT 먼저
     .slice(0, 5);
 
   return (
@@ -196,7 +205,12 @@ export default function ContactsPage() {
                 onClick={() => router.push(`/contacts/${c.id}`)}
                 className="w-full text-left flex items-center justify-between px-3 py-2 bg-white rounded-lg border border-amber-100 hover:border-amber-300 hover:shadow-sm transition-all text-sm"
               >
-                <span className="font-medium text-gray-900">{c.name}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-gray-900">{c.name}</span>
+                  {(c.leadScore ?? 0) >= 70 && (
+                    <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold">🔥 HOT</span>
+                  )}
+                </div>
                 <span className="text-gray-500 flex items-center gap-3">
                   <a
                     href={`tel:${c.phone}`}
@@ -206,6 +220,7 @@ export default function ContactsPage() {
                     {c.phone}
                   </a>
                   <span className="text-xs text-amber-600">{formatDaysSince(c.lastContactedAt)}</span>
+                  <span className="text-xs text-gray-400">{c.leadScore ?? 0}점</span>
                 </span>
               </button>
             ))}
@@ -256,6 +271,7 @@ export default function ContactsPage() {
         <div className="space-y-2">
           {contacts.map((c) => {
             const typeInfo = TYPE_LABELS[c.type] ?? { label: c.type, color: "bg-gray-100 text-gray-600" };
+            const tierInfo = getLeadTier(c.leadScore ?? 0);
             const isQuickCallOpen = quickCallId === c.id;
             return (
               <div key={c.id} className="bg-white rounded-xl border border-gray-200 hover:border-gold-300 hover:shadow-sm transition-all">
@@ -270,8 +286,14 @@ export default function ContactsPage() {
 
                   {/* 정보 */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-gray-900">{c.name}</span>
+                      {/* 리드 스코어 뱃지 — HOT만 강조, WARM/COLD는 서브로 */}
+                      {c.type === "LEAD" && (
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${tierInfo.color}`}>
+                          {tierInfo.label}
+                        </span>
+                      )}
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${typeInfo.color}`}>
                         {typeInfo.label}
                       </span>

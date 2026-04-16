@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getAuthContext, requireOrgId } from "@/lib/rbac";
 import { sendSms, getOrgSmsConfig } from "@/lib/aligo";
 import { logger } from "@/lib/logger";
+import { addLeadScore } from "@/lib/lead-score";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -70,6 +71,9 @@ export async function POST(req: Request, { params }: Params) {
         { status: 400 }
       );
     }
+
+    // 리드 스코어 +5 (파트너가 수동 발송 = 관심 행동)
+    addLeadScore(contactId, "SMS_MANUAL").catch(() => {});
 
     return NextResponse.json({ ok: true });
   } catch (err) {

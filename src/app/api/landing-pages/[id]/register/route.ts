@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
 import { logger } from "@/lib/logger";
+import { addLeadScore } from "@/lib/lead-score";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -115,6 +116,9 @@ export async function POST(req: Request, { params }: Params) {
           email: email ?? undefined,
         },
       });
+
+      // 리드 스코어 +30 (랜딩 등록 = 강력한 관심 신호)
+      addLeadScore(contact.id, "LANDING_REGISTER").catch(() => {});
 
       // 그룹 배정 + 퍼널 시작
       if (landingPage.groupId) {
