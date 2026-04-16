@@ -20,6 +20,8 @@ import {
   FolderOpen,
   Settings,
   LogOut,
+  BarChart2,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -33,6 +35,8 @@ const tabs = [
 ] as const;
 
 const extraMenus = [
+  { href: "/marketing",       icon: BarChart2,  label: "마케팅" },
+  { href: "/marketing/sales", icon: TrendingUp, label: "매출관리" },
   { href: "/funnels",            icon: GitBranch,     label: "퍼널" },
   { href: "/landing-pages",      icon: FileText,      label: "랜딩페이지" },
   { href: "/messages/scheduled", icon: AlarmClock,    label: "예약발송" },

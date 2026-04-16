@@ -21,6 +21,7 @@ import {
   BookOpen,
   Newspaper,
   FolderOpen,
+  BarChart2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk, useUser } from "@clerk/nextjs";
@@ -40,6 +41,8 @@ const navSections = [
   {
     label: "마케팅 자동화",
     items: [
+      { href: "/marketing",       icon: BarChart2,     label: "마케팅 대시보드" },
+      { href: "/marketing/sales", icon: TrendingUp,    label: "랜딩 매출관리" },
       { href: "/messages",           icon: MessageSquare, label: "문자 CRM" },
       { href: "/messages/scheduled", icon: AlarmClock,    label: "예약 발송" },
       { href: "/sms-logs",           icon: ClipboardList, label: "발송 기록" },
