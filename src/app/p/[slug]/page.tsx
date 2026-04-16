@@ -14,7 +14,7 @@ export default async function PublicLandingPage({
 
   const page = await prisma.crmLandingPage.findFirst({
     where:  { slug, isActive: true, isPublic: true },
-    select: { id: true, title: true, htmlContent: true },
+    select: { id: true, title: true, htmlContent: true, commentEnabled: true },
   });
 
   if (!page) notFound();
@@ -49,7 +49,9 @@ export default async function PublicLandingPage({
   return (
     <LandingClient
       pageId={page.id}
+      slug={slug}
       htmlContent={page.htmlContent ?? ""}
+      commentEnabled={page.commentEnabled}
     />
   );
 }
