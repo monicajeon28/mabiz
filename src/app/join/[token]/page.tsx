@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, SignIn } from "@clerk/nextjs";
 import { CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { showError } from '@/components/ui/Toast';
 
 // ─── 어필리에이트 판매원 계약서 (법적 효력) ────────────────────
 const CONTRACT_SECTIONS = [
@@ -91,7 +92,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
     if (!agreed || !allChecked || !displayName.trim()) return;
     // 디지털 서명 = 입력한 이름과 일치해야 함
     if (signature.trim() !== displayName.trim()) {
-      alert("디지털 서명이 이름과 일치하지 않습니다.");
+      showError("디지털 서명이 이름과 일치하지 않습니다.");
       return;
     }
     setAccepting(true);

@@ -125,7 +125,7 @@ export async function GET(req: Request) {
       await prisma.scheduledSms.update({
         where: { id: item.id },
         data:  { status: "FAILED" },
-      }).catch(() => {});
+      }).catch((e) => logger.log('[CronSMS] FAILED 상태 업데이트 실패', { error: e instanceof Error ? e.message : String(e) }));
       errors++;
     }
   }

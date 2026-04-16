@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
         update: {
           status: "PENDING",
         },
-      }).catch(() => {}); // fire-and-forget
+      }).catch((e) => logger.log('[PurchaseWebhook] AffiliateSale 기록 실패', { error: e instanceof Error ? e.message : String(e) }));
     }
 
     logger.log('[PurchaseWebhook] 처리 완료', {
