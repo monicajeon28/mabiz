@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getAuthContext } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import prisma from "@/lib/prisma";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -23,7 +24,10 @@ const SYSTEM_PROMPT = `당신은 크루즈 여행 세일즈 콜 전문 코치입
     "objectionHandling": { "score": 75, "comment": "거절대응 코멘트" },
     "closing": { "score": 60, "comment": "클로징 코멘트" },
     "emotionalTouch": { "score": 85, "comment": "감정터치 코멘트" }
-  }
+  },
+  "personaType": "FILIAL_DUTY",
+  "personaConfidence": 0.85,
+  "objectionTypes": ["PRICE", "TIMING"]
 }
 
 평가 기준:
@@ -33,13 +37,28 @@ const SYSTEM_PROMPT = `당신은 크루즈 여행 세일즈 콜 전문 코치입
 - 클로징: 링크 발송, 추가 설명 여부
 - 감정터치: 감정어 사용, 공감 표현
 
+추가로 아래 5개 페르소나 중 가장 적합한 것을 판단하라:
+1. FILIAL_DUTY: 부모님 동반, 건강/안전 중시
+2. NEWLYWEDS: 신혼/기념일, 로맨스/가격 중시
+3. SINGLE_ADVENTURE: 1인/친구그룹, 재미/경험 중시
+4. RETIRED_LEISURE: 60세+, 여유/건강 중시
+5. PRICE_SENSITIVE: 가성비 최우선, 가격반론 많음
+
+JSON에 personaType(위 코드값)과 personaConfidence(0~1) 추가.
+objectionTypes 배열도 추가 (통화에서 감지된 반론 유형들).
+
 JSON만 반환. 설명 없이.`;
 
 export async function POST(req: Request) {
   try {
-    await getAuthContext();
-    const body     = await req.json();
-    const { text } = body;
+    const ctx = await getAuthContext();
+    const body = await req.json();
+    const { text, converted, productType, durationSec } = body as {
+      text: string;
+      converted?: boolean;
+      productType?: "GOLD" | "GENERAL";
+      durationSec?: number;
+    };
 
     if (!text?.trim()) {
       return NextResponse.json({ ok: false, message: "통화 내용을 입력하세요." }, { status: 400 });
@@ -62,7 +81,35 @@ export async function POST(req: Request) {
     const cleaned = raw.replace(/```json?\n?|\n?```/g, "").trim();
     const result  = JSON.parse(cleaned);
 
-    logger.log("[ColFeedback] 분석 완료", { score: result.score });
+    // DB 저장
+    const rawTextMasked = text.replace(/01[0-9]-?\d{3,4}-?\d{4}/g, "010-****-****");
+    const callLog = await prisma.aiCallLog.create({
+      data: {
+        organizationId: ctx.organizationId!,
+        agentUserId: ctx.userId,
+        productType: productType ?? "GENERAL",
+        rawTextMasked,
+        converted: converted ?? false,
+        durationSec: durationSec ?? null,
+        analysisStatus: "DONE",
+        personaType: result.personaType,
+      },
+    });
+    await prisma.aiCallAnalysis.create({
+      data: {
+        callLogId: callLog.id,
+        personaDetected: result.personaType ?? "UNKNOWN",
+        personaConfidence: result.personaConfidence ?? 0,
+        scores: result.details ?? {},
+        keyPhrases: result.strengths ?? [],
+        strengths: result.strengths ?? [],
+        weaknesses: result.improvements ?? [],
+        objectionTypes: result.objectionTypes ?? [],
+        goldValueScore: productType === "GOLD" ? result.convictionScore : null,
+      },
+    });
+
+    logger.log("[CallFeedback] 분석 완료", { score: result.score, callLogId: callLog.id });
     return NextResponse.json({ ok: true, result });
   } catch (err) {
     logger.error("[POST /api/tools/call-feedback]", { err });

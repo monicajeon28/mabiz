@@ -18,6 +18,7 @@ import {
   Building2,
   ClipboardList,
   CreditCard,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk, useUser } from "@clerk/nextjs";
@@ -32,6 +33,7 @@ const navItems = [
   { href: "/funnels",            icon: GitBranch,       label: "퍼널" },
   { href: "/landing-pages",      icon: FileText,        label: "랜딩페이지" },
   { href: "/tools",              icon: Wrench,          label: "영업 도구함" },
+  { href: "/playbook",           icon: BookOpen,        label: "콜 플레이북" },
   { href: "/db",                 icon: Database,        label: "DB 관리" },
   { href: "/links",              icon: Link2,           label: "상담 링크" },
   { href: "/b2b",               icon: Building2,       label: "B2B 파이프라인" },

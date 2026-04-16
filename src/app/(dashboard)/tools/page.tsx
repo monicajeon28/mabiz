@@ -11,6 +11,9 @@ type FeedbackResult = {
   strengths: string[]; improvements: string[];
   convictionScore: number; nextAction: string; followUpSms: string;
   details: Record<string, { score: number; comment: string }>;
+  personaType?: string;
+  personaConfidence?: number;
+  objectionTypes?: string[];
 };
 
 const TEMPLATE_TABS = [
@@ -44,6 +47,8 @@ export default function ToolsPage() {
   const [analyzing,   setAnalyzing]  = useState(false);
   const [feedback,    setFeedback]   = useState<FeedbackResult | null>(null);
   const [feedbackErr, setFeedbackErr] = useState("");
+  const [converted,   setConverted]  = useState<boolean | null>(null);
+  const [productType, setProductType] = useState<'GOLD' | 'GENERAL'>('GOLD');
 
   useEffect(() => {
     fetch("/api/tools/sms-templates")
@@ -76,7 +81,7 @@ export default function ToolsPage() {
     const res  = await fetch("/api/tools/call-feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: callText }),
+      body: JSON.stringify({ text: callText, converted: converted ?? false, productType }),
     });
     const data = await res.json();
     if (data.ok) {
@@ -237,6 +242,29 @@ export default function ToolsPage() {
                 <input type="file" accept=".txt" onChange={handleFileUpload} className="hidden" />
               </label>
             </div>
+            {/* 상품 유형 */}
+            <div className="flex gap-2 mb-3">
+              <button onClick={() => setProductType('GOLD')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium border ${productType === 'GOLD' ? 'bg-yellow-500 text-white border-yellow-500' : 'border-gray-200 text-gray-600'}`}>
+                ⭐ 골드 멤버십
+              </button>
+              <button onClick={() => setProductType('GENERAL')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium border ${productType === 'GENERAL' ? 'bg-blue-500 text-white border-blue-500' : 'border-gray-200 text-gray-600'}`}>
+                🚢 일반 크루즈
+              </button>
+            </div>
+            {/* 성약 여부 */}
+            <div className="flex gap-2 mb-3">
+              <span className="text-sm text-gray-500 self-center">성약:</span>
+              <button onClick={() => setConverted(true)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium border ${converted === true ? 'bg-green-500 text-white border-green-500' : 'border-gray-200 text-gray-600'}`}>
+                ✅ 성공
+              </button>
+              <button onClick={() => setConverted(false)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium border ${converted === false ? 'bg-red-400 text-white border-red-400' : 'border-gray-200 text-gray-600'}`}>
+                ❌ 미성약
+              </button>
+            </div>
             <textarea
               value={callText}
               onChange={(e) => setCallText(e.target.value)}
@@ -279,6 +307,28 @@ export default function ToolsPage() {
                   <p className="font-bold text-lg">{feedback.grade}등급</p>
                   <p className="text-gray-300 text-sm mt-1">{feedback.summary}</p>
                   <p className="text-gold-300 text-sm mt-2">확신척도 {feedback.convictionScore}/10</p>
+                  {feedback.personaType && (
+                    <div className="mt-2 flex items-center gap-2 flex-wrap">
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                        feedback.personaType === 'FILIAL_DUTY'       ? 'bg-purple-600 text-white' :
+                        feedback.personaType === 'NEWLYWEDS'         ? 'bg-pink-500 text-white' :
+                        feedback.personaType === 'SINGLE_ADVENTURE'  ? 'bg-sky-500 text-white' :
+                        feedback.personaType === 'RETIRED_LEISURE'   ? 'bg-green-500 text-white' :
+                        feedback.personaType === 'PRICE_SENSITIVE'   ? 'bg-orange-500 text-white' :
+                                                                       'bg-gray-500 text-white'
+                      }`}>
+                        {feedback.personaType === 'FILIAL_DUTY'      ? '👨‍👩‍👧 효도 여행' :
+                         feedback.personaType === 'NEWLYWEDS'        ? '💑 신혼부부' :
+                         feedback.personaType === 'SINGLE_ADVENTURE' ? '🧳 혼자 여행' :
+                         feedback.personaType === 'RETIRED_LEISURE'  ? '🌿 은퇴 여유' :
+                         feedback.personaType === 'PRICE_SENSITIVE'  ? '💰 가격 민감' :
+                         feedback.personaType}
+                      </span>
+                      {feedback.personaConfidence !== undefined && (
+                        <span className="text-gray-400 text-xs">신뢰도 {feedback.personaConfidence}%</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

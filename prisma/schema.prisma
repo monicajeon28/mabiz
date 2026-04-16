@@ -28,6 +28,8 @@ model Organization {
   receivedTransfers ContactTransferLog[] @relation("ToOrg")
   affiliateSales    AffiliateSale[]
   b2bProspects      B2BProspect[]
+  aiCallLogs        AiCallLog[]
+  scriptPatterns    ScriptPattern[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -590,4 +592,55 @@ model B2BProspect {
   @@index([assignedUserId])
   @@index([affiliateCode])
   @@map("B2BProspect")
+}
+
+model AiCallLog {
+  id             String          @id @default(cuid())
+  organizationId String
+  agentUserId    String
+  productType    String          // GOLD | GENERAL
+  personaType    String?
+  rawTextMasked  String          @db.Text
+  converted      Boolean         @default(false)
+  durationSec    Int?
+  analysisStatus String          @default("PENDING")
+  uploadedAt     DateTime        @default(now())
+  organization   Organization    @relation(fields: [organizationId], references: [id])
+  analysis       AiCallAnalysis?
+  @@map("AiCallLog")
+}
+
+model AiCallAnalysis {
+  id                String     @id @default(cuid())
+  callLogId         String     @unique
+  callLog           AiCallLog  @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  personaDetected   String
+  personaConfidence Float      @default(0)
+  scores            Json
+  keyPhrases        Json
+  strengths         Json
+  weaknesses        Json
+  objectionTypes    Json
+  goldValueScore    Float?
+  analyzedAt        DateTime   @default(now())
+  @@map("AiCallAnalysis")
+}
+
+model ScriptPattern {
+  id             String       @id @default(cuid())
+  organizationId String
+  productType    String
+  personaType    String
+  category       String
+  objectionType  String?
+  patternText    String       @db.Text
+  exampleCall    String?      @db.Text
+  useCount       Int          @default(0)
+  conversionRate Float        @default(0)
+  status         String       @default("DRAFT")
+  approvedBy     String?
+  approvedAt     DateTime?
+  extractedAt    DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  @@map("ScriptPattern")
 }
