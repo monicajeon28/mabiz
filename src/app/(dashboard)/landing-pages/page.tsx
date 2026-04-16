@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, Eye, Copy, Share2, Edit2, Globe } from "lucide-react";
+import { Plus, Eye, Copy, Edit2, Globe, Files, Power } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 type LandingPage = {
   id: string;
@@ -28,11 +29,14 @@ type LandingStats = {
 };
 
 export default function LandingPagesPage() {
+  const router = useRouter();
   const [pages, setPages]   = useState<LandingPage[]>([]);
   const [loading, setLoading]       = useState(true);
   const [copied, setCopied]         = useState<string | null>(null);
   const [statsMap, setStatsMap]     = useState<Record<string, LandingStats>>({});
   const [loadingStats, setLoadingStats] = useState<string | null>(null);
+  const [cloningId,   setCloningId]     = useState<string | null>(null);
+  const [togglingId,  setTogglingId]    = useState<string | null>(null);
 
   const loadStats = async (pageId: string) => {
     if (loadingStats === pageId) return;
@@ -60,6 +64,34 @@ export default function LandingPagesPage() {
     navigator.clipboard.writeText(url);
     setCopied(slug);
     setTimeout(() => setCopied(null), 2000);
+  };
+
+  const toggleActive = async (page: LandingPage) => {
+    setTogglingId(page.id);
+    const res = await fetch(`/api/landing-pages/${page.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: !page.isActive }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      setPages((prev) => prev.map((p) => p.id === page.id ? { ...p, isActive: !p.isActive } : p));
+    }
+    setTogglingId(null);
+  };
+
+  const clonePage = async (pageId: string) => {
+    setCloningId(pageId);
+    const res = await fetch(`/api/landing-pages/${pageId}/clone`, { method: "POST" });
+    const data = await res.json();
+    if (data.ok) {
+      // 목록 새로고침 후 새 페이지 편집화면으로 이동
+      const listRes = await fetch("/api/landing-pages");
+      const listData = await listRes.json();
+      if (listData.ok) setPages(listData.pages);
+      router.push(`/landing-pages/${data.page.id}`);
+    }
+    setCloningId(null);
   };
 
   return (
@@ -97,8 +129,15 @@ export default function LandingPagesPage() {
               className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-sm transition-shadow"
             >
               <div className="flex items-start gap-3">
-                {/* 상태 인디케이터 */}
-                <div className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${page.isActive ? "bg-green-400" : "bg-gray-300"}`} />
+                {/* isActive 토글 */}
+                <button
+                  onClick={() => toggleActive(page)}
+                  disabled={togglingId === page.id}
+                  title={page.isActive ? "비활성화" : "활성화"}
+                  className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 transition-colors ${
+                    page.isActive ? "bg-green-400 hover:bg-green-600" : "bg-gray-300 hover:bg-gray-500"
+                  } disabled:opacity-50`}
+                />
 
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-gray-900">{page.title}</h3>
@@ -194,6 +233,28 @@ export default function LandingPagesPage() {
                       <Copy className="w-4 h-4" />
                     )}
                   </button>
+                  <button
+                    onClick={() => clonePage(page.id)}
+                    disabled={cloningId === page.id}
+                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 disabled:opacity-50"
+                    title="복제"
+                  >
+                    {cloningId === page.id
+                      ? <span className="text-xs text-blue-500">복제중...</span>
+                      : <Files className="w-4 h-4" />}
+                  </button>
+                  <Link
+                    href={`/landing-pages/${page.id}?tab=registrations`}
+                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 relative"
+                    title="등록자 목록"
+                  >
+                    <Eye className="w-4 h-4" />
+                    {page._count && page._count.registrations > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">
+                        {page._count.registrations > 9 ? "9+" : page._count.registrations}
+                      </span>
+                    )}
+                  </Link>
                   <Link
                     href={`/landing-pages/${page.id}`}
                     className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
