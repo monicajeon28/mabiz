@@ -19,6 +19,7 @@ import {
   ClipboardList,
   CreditCard,
   BookOpen,
+  Newspaper,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk, useUser } from "@clerk/nextjs";
@@ -41,6 +42,7 @@ const navItems = [
   { href: "/statements",        icon: FileText,        label: "내 정산 내역" },
   { href: "/team-statements",   icon: Users,           label: "팀 정산" },
   { href: "/contracts",         icon: ClipboardList,   label: "계약서 관리" },
+  { href: "/news-links",        icon: Newspaper,       label: "뉴스 링크" },
 ];
 
 // FREE_SALES 전용 메뉴 (판매 현황 + 링크만)

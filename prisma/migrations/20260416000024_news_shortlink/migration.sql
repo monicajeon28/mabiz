@@ -1,0 +1,19 @@
+CREATE TABLE IF NOT EXISTS "NewsShortLink" (
+  "id" TEXT NOT NULL,
+  "organizationId" TEXT,
+  "shortCode" TEXT NOT NULL,
+  "title" TEXT NOT NULL,
+  "url" TEXT NOT NULL,
+  "isActive" BOOLEAN NOT NULL DEFAULT true,
+  "syncedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "NewsShortLink_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "NewsShortLink_shortCode_key" ON "NewsShortLink"("shortCode");
+
+CREATE TABLE IF NOT EXISTS "NewsSyncState" (
+  "id" TEXT NOT NULL DEFAULT 'global',
+  "lastSyncedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "NewsSyncState_pkey" PRIMARY KEY ("id")
+);

@@ -682,3 +682,22 @@ model ShortLinkClick {
   contact     Contact?  @relation(fields: [contactId], references: [id])
   @@map("ShortLinkClick")
 }
+
+model NewsShortLink {
+  id             String   @id @default(cuid())
+  organizationId String?  // null = 전체 공용
+  shortCode      String   @unique
+  title          String
+  url            String
+  isActive       Boolean  @default(true)
+  syncedAt       DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@map("NewsShortLink")
+}
+
+model NewsSyncState {
+  id           String   @id @default("global")
+  lastSyncedAt DateTime @default(now())
+  @@map("NewsSyncState")
+}
