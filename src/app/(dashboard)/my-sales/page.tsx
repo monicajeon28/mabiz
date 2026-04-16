@@ -23,6 +23,16 @@ type SummaryRow = {
   _count: { id: number };
 };
 
+type Payslip = {
+  period: string;
+  totalSales: number;
+  totalCommission: number;
+  totalWithholding: number;
+  netPayment: number;
+  status: string;
+  approvedAt: string | null;
+};
+
 const STATUS_INFO: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   PENDING:   { label: "출발 대기",    color: "bg-yellow-100 text-yellow-700", icon: <Clock      className="w-3.5 h-3.5" /> },
   EARNED:    { label: "수당 확정",    color: "bg-green-100 text-green-700",  icon: <CheckCircle className="w-3.5 h-3.5" /> },
@@ -37,6 +47,8 @@ export default function MySalesPage() {
   const [link,          setLink]          = useState<string | null>(null);
   const [copied,        setCopied]        = useState(false);
   const [loading,       setLoading]       = useState(true);
+  const [payslips,      setPayslips]      = useState<Payslip[]>([]);
+  const [payslipLoading, setPayslipLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
@@ -53,6 +65,14 @@ export default function MySalesPage() {
       }
       setLoading(false);
     }).catch(() => setLoading(false));
+
+    fetch("/api/my/payslip-summary")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok) setPayslips(data.payslips ?? []);
+      })
+      .catch(() => {})
+      .finally(() => setPayslipLoading(false));
   }, []);
 
   const copyLink = () => {
@@ -128,6 +148,55 @@ export default function MySalesPage() {
         <p>• 수당은 여행 출발 완료 후 확정됩니다 (PENDING → 확정)</p>
         <p>• 3.3% 원천징수 후 지급됩니다</p>
         <p>• 환불 발생 시 수당이 환수될 수 있습니다</p>
+      </div>
+
+      {/* 월별 확정 명세서 */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5">
+        <p className="text-sm font-semibold text-gray-700 mb-3">📋 월별 확정 명세서</p>
+        {payslipLoading ? (
+          <div className="space-y-2">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-10 bg-gray-100 rounded-lg animate-pulse" />
+            ))}
+          </div>
+        ) : payslips.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-6">아직 확정된 명세서가 없습니다</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-gray-400 border-b border-gray-100">
+                  <th className="text-left pb-2 font-medium">기간</th>
+                  <th className="text-right pb-2 font-medium">총판매액</th>
+                  <th className="text-right pb-2 font-medium">확정수당</th>
+                  <th className="text-center pb-2 font-medium">상태</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {payslips.map((ps, idx) => (
+                  <tr key={idx} className="text-sm">
+                    <td className="py-2.5 text-gray-700">{ps.period}</td>
+                    <td className="py-2.5 text-right text-gray-900 font-medium">
+                      {ps.totalSales.toLocaleString()}원
+                    </td>
+                    <td className="py-2.5 text-right text-green-700 font-semibold">
+                      {ps.totalCommission.toLocaleString()}원
+                    </td>
+                    <td className="py-2.5 text-center">
+                      {ps.status === "APPROVED" ? (
+                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">확정</span>
+                      ) : ps.status === "SENT" ? (
+                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">지급완료</span>
+                      ) : (
+                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">{ps.status}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* 판매 목록 */}
