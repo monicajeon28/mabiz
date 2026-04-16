@@ -70,14 +70,21 @@ export async function PUT(req: Request) {
       );
     }
 
+    const { verifySenderNumber } = await import("@/lib/aligo");
+    const senderVerified = await verifySenderNumber({ key: aligoKey, userId: aligoUserId, sender: senderPhone });
+
+    if (!senderVerified) {
+      logger.log("[PUT /api/settings/sms] 발신번호 미인증 상태로 저장", { orgId });
+    }
+
     const config = await prisma.orgSmsConfig.upsert({
       where: { organizationId: orgId },
-      create: { organizationId: orgId, aligoKey, aligoUserId, senderPhone },
-      update: { aligoKey, aligoUserId, senderPhone, isActive: true },
+      create: { organizationId: orgId, aligoKey, aligoUserId, senderPhone, senderVerified, verifiedAt: senderVerified ? new Date() : null },
+      update: { aligoKey, aligoUserId, senderPhone, isActive: true, senderVerified, verifiedAt: senderVerified ? new Date() : null },
     });
 
-    logger.log("[PUT /api/settings/sms] SMS 설정 저장", { orgId });
-    return NextResponse.json({ ok: true, config: { id: config.id } });
+    logger.log("[PUT /api/settings/sms] SMS 설정 저장", { orgId, senderVerified });
+    return NextResponse.json({ ok: true, config: { id: config.id }, senderVerified });
   } catch (err) {
     logger.error("[PUT /api/settings/sms]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });

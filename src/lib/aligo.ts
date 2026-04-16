@@ -151,3 +151,20 @@ export async function getOrgSmsConfig(organizationId: string) {
   const { default: prisma } = await import("@/lib/prisma");
   return prisma.orgSmsConfig.findUnique({ where: { organizationId } });
 }
+
+/** Aligo에 등록된 발신번호 목록 조회 후 검증 */
+export async function verifySenderNumber(config: AligoConfig): Promise<boolean> {
+  try {
+    const formData = new URLSearchParams({ key: config.key, user_id: config.userId });
+    const res = await fetch('https://apis.aligo.in/sender/', {
+      method: 'POST',
+      body: formData.toString(),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    const data = await res.json() as { list?: { flag: string; telnum: string }[] };
+    return Array.isArray(data.list) &&
+      data.list.some((item) => item.flag === '1' && item.telnum === config.sender);
+  } catch {
+    return false; // 네트워크 오류 시 검증 불가 → false (저장은 허용, 경고만)
+  }
+}

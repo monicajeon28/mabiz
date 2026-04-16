@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
+import { checkBotGuard } from "@/lib/bot-guard";
 
 type Params = { params: Promise<{ orgSlug: string }> };
 
@@ -27,7 +28,12 @@ export async function POST(req: Request, { params }: Params) {
       companyName?: string; groupSize?: number;
       packageInterest?: string; preferredDate?: string;
       destination?: string; affiliateCode?: string;
+      website?: string; hp?: string; loadedAt?: number;
     };
+
+    if (!checkBotGuard(body as Record<string, unknown>, 'B2BRegister')) {
+      return NextResponse.json({ ok: true }); // 조용한 차단
+    }
 
     if (!body.name?.trim() || !body.phone?.trim()) {
       return NextResponse.json({ ok: false, message: "이름과 전화번호는 필수입니다." }, { status: 400 });

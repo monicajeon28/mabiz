@@ -15,6 +15,8 @@ import {
   LogOut,
   AlarmClock,
   TrendingUp,
+  Building2,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk, useUser } from "@clerk/nextjs";
@@ -25,11 +27,13 @@ const navItems = [
   { href: "/contacts",           icon: Users,           label: "고객 관리" },
   { href: "/messages",           icon: MessageSquare,   label: "문자 CRM" },
   { href: "/messages/scheduled", icon: AlarmClock,      label: "예약 발송" },
+  { href: "/sms-logs",           icon: ClipboardList,   label: "발송 기록" },
   { href: "/funnels",            icon: GitBranch,       label: "퍼널" },
   { href: "/landing-pages",      icon: FileText,        label: "랜딩페이지" },
   { href: "/tools",              icon: Wrench,          label: "영업 도구함" },
   { href: "/db",                 icon: Database,        label: "DB 관리" },
   { href: "/links",              icon: Link2,           label: "상담 링크" },
+  { href: "/b2b",               icon: Building2,       label: "B2B 파이프라인" },
 ];
 
 // FREE_SALES 전용 메뉴 (판매 현황 + 링크만)

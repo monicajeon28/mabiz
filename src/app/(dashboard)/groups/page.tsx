@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Users, GitBranch, Settings, ArrowRight } from "lucide-react";
+import { Plus, Users, GitBranch, Settings, ArrowRight, Zap } from "lucide-react";
+import { showError } from "@/components/ui/Toast";
 
 type Group = {
   id: string; name: string; description: string | null;
@@ -47,9 +48,15 @@ export default function GroupsPage() {
       });
       const data = await res.json();
       if (data.ok) setBlastPreview(data);
-      else setBlastError(data.error ?? "대상 확인에 실패했습니다.");
+      else {
+        const msg = data.error ?? data.message ?? "대상 확인에 실패했습니다.";
+        setBlastError(msg);
+        showError(msg);
+      }
     } catch {
-      setBlastError("네트워크 오류가 발생했습니다.");
+      const msg = "네트워크 오류가 발생했습니다.";
+      setBlastError(msg);
+      showError(msg);
     } finally {
       setCheckingBlast(false);
     }
@@ -67,7 +74,15 @@ export default function GroupsPage() {
       if (data.ok) {
         setBlastResult({ sentCount: data.sentCount, blockedCount: data.blockedCount, failedCount: data.failedCount });
         setBlastPreview(null);
+      } else {
+        const msg = data.error ?? data.message ?? "발송에 실패했습니다.";
+        setBlastError(msg);
+        showError(msg);
       }
+    } catch {
+      const msg = "네트워크 오류가 발생했습니다.";
+      setBlastError(msg);
+      showError(msg);
     } finally {
       setBlasting(false); // 에러 시에도 반드시 해제
     }
@@ -290,10 +305,10 @@ export default function GroupsPage() {
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => openBlast(group.id)}
-                    className="px-3 py-1.5 bg-gold-50 border border-gold-300 text-gold-700 rounded-lg text-xs font-medium hover:bg-gold-100"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-gold-50 border border-gold-300 text-gold-700 rounded-lg text-xs font-medium hover:bg-gold-100"
                     title="그룹 전체에 즉시 문자 발송"
                   >
-                    📢 발송
+                    <Zap className="w-3 h-3" /> 즉시발송
                   </button>
                   <button className="p-2 hover:bg-gray-100 rounded-lg">
                     <Settings className="w-4 h-4 text-gray-400" />
@@ -332,7 +347,9 @@ export default function GroupsPage() {
                         <div className="bg-blue-50 rounded-lg p-3 text-sm">
                           <p className="font-medium text-blue-800">발송 예정: {blastPreview.willSend}명</p>
                           {blastPreview.isOverLimit && (
-                            <p className="text-xs text-orange-600 mt-1">⚠️ {blastPreview.overLimitMsg}</p>
+                            <p className="text-xs text-orange-600 mt-1">
+                              ⚠️ 200명 초과 — 첫 200명만 발송됩니다
+                            </p>
                           )}
                         </div>
                       )}
