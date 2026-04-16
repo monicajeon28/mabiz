@@ -9,7 +9,7 @@ export async function GET(_req: Request) {
     const ctx   = await getAuthContext();
     const orgId = requireOrgId(ctx);
 
-    if (ctx.role !== "OWNER") {
+    if (ctx.role !== "OWNER" && ctx.role !== "GLOBAL_ADMIN") {
       return NextResponse.json({ ok: false }, { status: 403 });
     }
 
@@ -45,11 +45,17 @@ export async function POST(req: Request) {
     const ctx   = await getAuthContext();
     const orgId = requireOrgId(ctx);
 
-    if (ctx.role !== "OWNER") {
-      return NextResponse.json({ ok: false, message: "대리점장만 초대 링크를 생성할 수 있습니다." }, { status: 403 });
+    if (ctx.role !== "OWNER" && ctx.role !== "GLOBAL_ADMIN") {
+      return NextResponse.json({ ok: false, message: "대리점장 또는 관리자만 초대 링크를 생성할 수 있습니다." }, { status: 403 });
     }
 
-    const { note } = await req.json() as { note?: string };
+    const { role = 'AGENT', note } = await req.json() as { role?: string; note?: string };
+
+    // 허용 역할 검증
+    const ALLOWED_ROLES = ['OWNER', 'AGENT', 'FREE_SALES'];
+    if (!ALLOWED_ROLES.includes(role)) {
+      return NextResponse.json({ ok: false, message: '허용되지 않은 역할입니다' }, { status: 400 });
+    }
 
     // 7일 만료
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -57,7 +63,7 @@ export async function POST(req: Request) {
     const invite = await prisma.orgInviteToken.create({
       data: {
         organizationId: orgId,
-        role:           "AGENT",
+        role,
         note:           note?.trim() ?? null,
         expiresAt,
         createdByUserId: ctx.userId,
@@ -86,7 +92,7 @@ export async function DELETE(req: Request) {
     const ctx   = await getAuthContext();
     const orgId = requireOrgId(ctx);
 
-    if (ctx.role !== "OWNER") {
+    if (ctx.role !== "OWNER" && ctx.role !== "GLOBAL_ADMIN") {
       return NextResponse.json({ ok: false }, { status: 403 });
     }
 
