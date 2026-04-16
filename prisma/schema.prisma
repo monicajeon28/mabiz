@@ -30,6 +30,7 @@ model Organization {
   b2bProspects      B2BProspect[]
   aiCallLogs        AiCallLog[]
   scriptPatterns    ScriptPattern[]
+  shortLinks        ShortLink[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -132,6 +133,8 @@ model Contact {
   callLogs       CallLog[]
   memos          ContactMemo[]
   vipSequences   VipCareSequence[]
+  shortLinks     ShortLink[]
+  shortLinkClicks ShortLinkClick[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -648,4 +651,34 @@ model ScriptPattern {
   extractedAt    DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id])
   @@map("ScriptPattern")
+}
+
+// ─── 숏링크 ──────────────────────────────────────────────────
+model ShortLink {
+  id             String           @id @default(cuid())
+  organizationId String
+  code           String           @unique
+  targetUrl      String
+  title          String?
+  contactId      String?
+  category       String?
+  autoGroupId    String?
+  clickCount     Int              @default(0)
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  contact        Contact?         @relation(fields: [contactId], references: [id])
+  clicks         ShortLinkClick[]
+  @@map("ShortLink")
+}
+
+model ShortLinkClick {
+  id          String    @id @default(cuid())
+  linkId      String
+  contactId   String?
+  clickedAt   DateTime  @default(now())
+  userAgent   String?
+  link        ShortLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  contact     Contact?  @relation(fields: [contactId], references: [id])
+  @@map("ShortLinkClick")
 }
