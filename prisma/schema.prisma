@@ -27,6 +27,7 @@ model Organization {
   sentTransfers     ContactTransferLog[] @relation("FromOrg")
   receivedTransfers ContactTransferLog[] @relation("ToOrg")
   affiliateSales    AffiliateSale[]
+  b2bProspects      B2BProspect[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -556,4 +557,37 @@ model AffiliateSale {
   @@index([affiliateUserId])
   @@index([status])
   @@map("AffiliateSale")
+}
+
+// ─── B2B 잠재고객 (WO-28C) ───────────────────────────────────
+// 330만/540만/750만 패키지 구매 가능성 있는 잠재고객 파이프라인
+model B2BProspect {
+  id              String    @id @default(cuid())
+  organizationId  String
+  name            String    // 담당자 이름
+  phone           String    // 전화번호
+  email           String?
+  companyName     String?   // 회사명 (단체/기업 대상)
+  position        String?   // 직책
+  groupSize       Int?      // 예상 인원
+  packageInterest String?   // "330" | "540" | "750" | null
+  budget          String?   // 예산 범위 메모
+  preferredDate   String?   // 희망 시기
+  destination     String?   // 희망 목적지
+  status          String    @default("NEW")
+  // NEW=신규 | CONTACTED=연락함 | NEGOTIATING=협상중 | WON=계약성사 | LOST=실패
+  notes           String?   @db.Text
+  assignedUserId  String?   // 담당 판매원
+  source          String?   // 유입 경로 (B2B_LANDING, DIRECT, REFERRAL 등)
+  affiliateCode   String?   // 유입시킨 파트너 코드
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([organizationId, status])
+  @@index([assignedUserId])
+  @@index([affiliateCode])
+  @@map("B2BProspect")
 }
