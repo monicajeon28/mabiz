@@ -382,10 +382,13 @@ model SalesPlaybook {
   type      String
   title     String
   content   String   @db.Text
-  priority  Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  priority     Int      @default(0)
+  isActive     Boolean  @default(true)
+  scriptTab    String   @default("GENERAL")
+  productCode  String   @default("ALL")
+  sectionOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([type])
 }
@@ -604,6 +607,7 @@ model AiCallLog {
   converted      Boolean         @default(false)
   durationSec    Int?
   analysisStatus String          @default("PENDING")
+  productCode    String          @default("ALL")
   uploadedAt     DateTime        @default(now())
   organization   Organization    @relation(fields: [organizationId], references: [id])
   analysis       AiCallAnalysis?
@@ -637,6 +641,7 @@ model ScriptPattern {
   exampleCall    String?      @db.Text
   useCount       Int          @default(0)
   conversionRate Float        @default(0)
+  productCode    String       @default("ALL")
   status         String       @default("DRAFT")
   approvedBy     String?
   approvedAt     DateTime?
