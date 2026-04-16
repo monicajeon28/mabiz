@@ -34,6 +34,9 @@ const navItems = [
   { href: "/db",                 icon: Database,        label: "DB 관리" },
   { href: "/links",              icon: Link2,           label: "상담 링크" },
   { href: "/b2b",               icon: Building2,       label: "B2B 파이프라인" },
+  { href: "/statements",        icon: FileText,        label: "내 정산 내역" },
+  { href: "/team-statements",   icon: Users,           label: "팀 정산" },
+  { href: "/contracts",         icon: ClipboardList,   label: "계약서 관리" },
 ];
 
 // FREE_SALES 전용 메뉴 (판매 현황 + 링크만)
