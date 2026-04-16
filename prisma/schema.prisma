@@ -26,6 +26,7 @@ model Organization {
   inviteTokens      OrgInviteToken[]
   sentTransfers     ContactTransferLog[] @relation("FromOrg")
   receivedTransfers ContactTransferLog[] @relation("ToOrg")
+  affiliateSales    AffiliateSale[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -524,4 +525,35 @@ model ContactTransferLog {
   @@index([toOrgId])
   @@index([transferredBy])
   @@map("ContactTransferLog")
+}
+
+// ─── 어필리에이트 판매 이력 (WO-28B) ─────────────────────────
+// 크루즈몰 결제 완료 → 웹훅 → mabiz에 저장
+model AffiliateSale {
+  id              String    @id @default(cuid())
+  organizationId  String    // 소속 조직 (대리점)
+  affiliateCode   String    // 판매한 파트너 어필리에이트 코드
+  affiliateUserId String?   // mabiz Clerk userId (연결된 경우)
+  productName     String    // 상품명
+  saleAmount      Int       // 판매 금액 (원)
+  commissionRate  Int       @default(0)  // 수당률 % (예: 5)
+  commissionAmount Int      @default(0)  // 예상 수당 (원)
+  status          String    @default("PENDING")
+  // PENDING=출발전 | EARNED=여행완료=지급확정 | PAID=지급완료 | CANCELLED=취소
+  travelCompletedAt DateTime? // 여행 완료 확인 시각
+  paidAt          DateTime?   // 실제 지급 시각
+  customerPhone   String?     // 마스킹 저장 (앞4자리만)
+  orderId         String?     @unique  // 크루즈몰 주문번호
+  sourceWebhook   String?     // 웹훅 출처 (purchase/payapp)
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([affiliateCode])
+  @@index([affiliateUserId])
+  @@index([status])
+  @@map("AffiliateSale")
 }

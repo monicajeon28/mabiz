@@ -28,7 +28,14 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { phone, name, productName, departureDate, orderId, organizationId } = body;
+  const {
+    phone, name, productName, departureDate, orderId, organizationId,
+    // WO-28B: 어필리에이트 추적
+    affiliateCode,
+    saleAmount,
+    commissionRate,
+    commissionAmount,
+  } = body;
 
   if (!phone || !name || !organizationId) {
     return NextResponse.json({ ok: false, message: 'phone, name, organizationId 필수' }, { status: 400 });
@@ -48,15 +55,18 @@ export async function POST(req: NextRequest) {
         phone,
         name,
         organizationId,
-        productName: productName ?? null,
-        departureDate: departureDate ? new Date(departureDate) : null,
-        bookingRef: orderId ?? null,
+        productName:    productName    ?? null,
+        departureDate:  departureDate  ? new Date(departureDate) : null,
+        bookingRef:     orderId        ?? null,
+        affiliateCode:  affiliateCode  ?? null,
       },
       update: {
         name,
-        productName: productName ?? undefined,
+        productName:   productName   ?? undefined,
         departureDate: departureDate ? new Date(departureDate) : undefined,
-        bookingRef: orderId ?? undefined,
+        bookingRef:    orderId       ?? undefined,
+        // 어필리에이트 코드 업데이트 (있는 경우)
+        ...(affiliateCode ? { affiliateCode } : {}),
       },
       select: { id: true, departureDate: true },
     });
@@ -84,10 +94,39 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // WO-28B: 어필리에이트 판매 이력 기록
+    if (affiliateCode && saleAmount) {
+      const affiliateMember = await prisma.organizationMember.findFirst({
+        where: { organizationId, isActive: true },
+        select: { userId: true },
+      });
+
+      await prisma.affiliateSale.upsert({
+        where: { orderId: orderId ?? `manual-${Date.now()}` },
+        create: {
+          organizationId,
+          affiliateCode,
+          affiliateUserId: affiliateMember?.userId ?? null,
+          productName:     productName ?? "크루즈 상품",
+          saleAmount:      parseInt(String(saleAmount)) || 0,
+          commissionRate:  parseInt(String(commissionRate)) || 0,
+          commissionAmount: parseInt(String(commissionAmount)) || 0,
+          status:          "PENDING",
+          customerPhone:   phone.substring(0, 4) + "****",
+          orderId:         orderId ?? null,
+          sourceWebhook:   "purchase",
+        },
+        update: {
+          status: "PENDING",
+        },
+      }).catch(() => {}); // fire-and-forget
+    }
+
     logger.log('[PurchaseWebhook] 처리 완료', {
       contactId: contact.id,
       vipGroup: vipGroup?.name ?? '없음',
       funnelStarted,
+      affiliateCode: affiliateCode ?? '없음',
     });
 
     return NextResponse.json({ ok: true, contactId: contact.id, funnelStarted });

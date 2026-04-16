@@ -14,20 +14,27 @@ import {
   Settings,
   LogOut,
   AlarmClock,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useClerk } from "@clerk/nextjs";
+import { useClerk, useUser } from "@clerk/nextjs";
 
+// OWNER/AGENT/GLOBAL_ADMIN 메뉴
 const navItems = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "대시보드" },
-  { href: "/contacts", icon: Users, label: "고객 관리" },
-  { href: "/messages",           icon: MessageSquare, label: "문자 CRM" },
-  { href: "/messages/scheduled", icon: AlarmClock,    label: "예약 발송" },
-  { href: "/funnels", icon: GitBranch, label: "퍼널" },
-  { href: "/landing-pages", icon: FileText, label: "랜딩페이지" },
-  { href: "/tools", icon: Wrench, label: "영업 도구함" },
-  { href: "/db", icon: Database, label: "DB 관리" },
-  { href: "/links", icon: Link2, label: "상담 링크" },
+  { href: "/dashboard",          icon: LayoutDashboard, label: "대시보드" },
+  { href: "/contacts",           icon: Users,           label: "고객 관리" },
+  { href: "/messages",           icon: MessageSquare,   label: "문자 CRM" },
+  { href: "/messages/scheduled", icon: AlarmClock,      label: "예약 발송" },
+  { href: "/funnels",            icon: GitBranch,       label: "퍼널" },
+  { href: "/landing-pages",      icon: FileText,        label: "랜딩페이지" },
+  { href: "/tools",              icon: Wrench,          label: "영업 도구함" },
+  { href: "/db",                 icon: Database,        label: "DB 관리" },
+  { href: "/links",              icon: Link2,           label: "상담 링크" },
+];
+
+// FREE_SALES 전용 메뉴 (판매 현황 + 링크만)
+const freeSalesNavItems = [
+  { href: "/my-sales", icon: TrendingUp, label: "내 판매 현황" },
 ];
 
 interface SidebarNavProps {
@@ -37,6 +44,12 @@ interface SidebarNavProps {
 export function SidebarNav({ className }: SidebarNavProps) {
   const pathname = usePathname();
   const { signOut } = useClerk();
+  const { user }    = useUser();
+
+  // Clerk publicMetadata 또는 OrganizationMember role로 FREE_SALES 판별
+  // 서버에서 역할 확인이 어려우므로 /my-sales 접근 시 서버에서 제한
+  const isFreeSales = (user?.publicMetadata as { role?: string })?.role === "FREE_SALES";
+  const items = isFreeSales ? freeSalesNavItems : navItems;
 
   return (
     <nav
@@ -53,7 +66,7 @@ export function SidebarNav({ className }: SidebarNavProps) {
 
       {/* 메뉴 */}
       <ul className="flex-1 py-4 space-y-0.5 px-3">
-        {navItems.map((item) => {
+        {items.map((item) => {
           const isActive =
             pathname === item.href || pathname.startsWith(item.href + "/");
           return (
