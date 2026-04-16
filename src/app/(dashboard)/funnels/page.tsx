@@ -1,7 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, GitBranch, Play, Pause, ChevronRight } from "lucide-react";
+import { Plus, GitBranch, Play, Pause, ChevronRight, BarChart2 } from "lucide-react";
+
+type FunnelStat = {
+  id: string; name: string; isActive: boolean;
+  stageCount: number; enrolledCount: number;
+};
+type ChannelStat = { sent: number; failed: number; blocked: number; total: number; successRate: number };
+type StatsData = {
+  funnelStats:  FunnelStat[];
+  channelStats: Record<string, ChannelStat>;
+  smsTotal:     number;
+  period:       string;
+};
 
 type FunnelStage = {
   id: string; order: number; name: string;
@@ -31,9 +43,11 @@ const VIP_CARE_STAGES = [
 ];
 
 export default function FunnelsPage() {
-  const [funnels, setFunnels] = useState<Funnel[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [funnels,  setFunnels]  = useState<Funnel[]>([]);
+  const [loading,  setLoading]  = useState(true);
   const [creating, setCreating] = useState(false);
+  const [stats,    setStats]    = useState<StatsData | null>(null);
+  const [showStats, setShowStats] = useState(false);
 
   useEffect(() => {
     fetch("/api/funnels")
@@ -60,6 +74,13 @@ export default function FunnelsPage() {
     setCreating(false);
   };
 
+  const loadStats = async () => {
+    if (stats) { setShowStats(!showStats); return; }
+    const res = await fetch("/api/funnels/stats");
+    const data = await res.json();
+    if (data.ok) { setStats(data); setShowStats(true); }
+  };
+
   const triggerLabel = (s: FunnelStage) => {
     if (s.triggerType === "DDAY") {
       return s.triggerOffset < 0 ? `D${s.triggerOffset}` : s.triggerOffset === 0 ? "D-day" : `D+${s.triggerOffset}`;
@@ -75,6 +96,12 @@ export default function FunnelsPage() {
           <p className="text-sm text-gray-500 mt-0.5">Vercel Cron 매시간 자동 발송</p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={loadStats}
+            className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
+          >
+            <BarChart2 className="w-4 h-4" /> 성과 리포트
+          </button>
           {funnels.length === 0 && !loading && (
             <button
               onClick={createVipCareFunnel}
@@ -93,6 +120,58 @@ export default function FunnelsPage() {
           </button>
         </div>
       </div>
+
+      {/* 성과 리포트 패널 */}
+      {showStats && stats && (
+        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-5 space-y-4">
+          <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <BarChart2 className="w-4 h-4 text-blue-500" /> 성과 리포트 ({stats.period})
+          </p>
+
+          {/* SMS 채널별 통계 */}
+          <div>
+            <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide">SMS 채널별 발송 ({stats.smsTotal.toLocaleString()}건)</p>
+            <div className="grid grid-cols-3 gap-2">
+              {(["FUNNEL", "GROUP", "MANUAL"] as const).map((ch) => {
+                const s = stats.channelStats[ch];
+                if (!s) return null;
+                return (
+                  <div key={ch} className="bg-gray-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-gray-400 mb-1">
+                      {ch === "FUNNEL" ? "퍼널 자동" : ch === "GROUP" ? "그룹 일괄" : "수동 발송"}
+                    </p>
+                    <p className="text-lg font-bold text-gray-900">{s.total.toLocaleString()}</p>
+                    <p className={`text-xs font-medium mt-0.5 ${s.successRate >= 90 ? "text-green-600" : s.successRate >= 70 ? "text-yellow-600" : "text-red-500"}`}>
+                      성공률 {s.successRate}%
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 퍼널별 등록 현황 */}
+          {stats.funnelStats.length > 0 && (
+            <div>
+              <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide">퍼널별 등록 고객</p>
+              <div className="space-y-2">
+                {stats.funnelStats
+                  .sort((a, b) => b.enrolledCount - a.enrolledCount)
+                  .map((f) => (
+                    <div key={f.id} className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${f.isActive ? "bg-green-400" : "bg-gray-300"}`} />
+                      <p className="text-sm text-gray-700 flex-1 truncate">{f.name}</p>
+                      <p className="text-xs text-gray-400">{f.stageCount}단계</p>
+                      <p className="text-sm font-semibold text-navy-900 w-16 text-right">
+                        {f.enrolledCount.toLocaleString()}명
+                      </p>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Cron 상태 */}
       <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-5">

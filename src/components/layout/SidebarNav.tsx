@@ -13,6 +13,7 @@ import {
   Link2,
   Settings,
   LogOut,
+  AlarmClock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk } from "@clerk/nextjs";
@@ -20,7 +21,8 @@ import { useClerk } from "@clerk/nextjs";
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "대시보드" },
   { href: "/contacts", icon: Users, label: "고객 관리" },
-  { href: "/messages", icon: MessageSquare, label: "문자 CRM" },
+  { href: "/messages",           icon: MessageSquare, label: "문자 CRM" },
+  { href: "/messages/scheduled", icon: AlarmClock,    label: "예약 발송" },
   { href: "/funnels", icon: GitBranch, label: "퍼널" },
   { href: "/landing-pages", icon: FileText, label: "랜딩페이지" },
   { href: "/tools", icon: Wrench, label: "영업 도구함" },
