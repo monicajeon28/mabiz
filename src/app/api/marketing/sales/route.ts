@@ -9,6 +9,10 @@ export async function GET() {
     const ctx   = await getAuthContext();
     const orgId = requireOrgId(ctx);
 
+    if (ctx.role === 'FREE_SALES') {
+      return NextResponse.json({ ok: false }, { status: 403 });
+    }
+
     const now   = new Date();
     const thisMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const thisMonthEnd   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
@@ -27,13 +31,14 @@ export async function GET() {
       .map((s) => s.orderId)
       .filter((id): id is string => id !== null);
 
-    // 전체 결제 내역 (최근 6개월 + 이번 달 집계용)
+    // 전체 결제 내역 (최근 6개월 + 이번 달 집계용, 최대 500건)
     const payments = await prisma.payAppPayment.findMany({
       where: {
         orderId: { in: orderIds },
         createdAt: { gte: sixMonthsAgo },
       },
       orderBy: { createdAt: "desc" },
+      take: 500,
     });
 
     // ─── 이번 달 요약 ────────────────────────────────────────
@@ -137,7 +142,7 @@ export async function GET() {
       amount:        p.amount,
       status:        p.status,
       buyerName:     p.customerName,
-      buyerTel:      p.customerPhone.substring(0, 4) + "****",
+      buyerTel:      (p.customerPhone ?? '').substring(0, 4) + "****",
       paidAt:        p.paidAt?.toISOString() ?? null,
       landingPageId: p.landingPageId ?? null,
     }));

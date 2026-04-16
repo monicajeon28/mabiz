@@ -22,14 +22,12 @@ export async function GET() {
         title: true,
         slug: true,
         viewCount: true,
-        registrations: {
-          select: { id: true },
-        },
+        _count: { select: { registrations: true } },
       },
     });
 
     const totalViews = pages.reduce((sum, p) => sum + p.viewCount, 0);
-    const totalRegistrations = pages.reduce((sum, p) => sum + p.registrations.length, 0);
+    const totalRegistrations = pages.reduce((sum, p) => sum + p._count.registrations, 0);
 
     // ── 2. 퍼널 진입 수 (funnelStarted = true)
     const funnelEnteredResult = await prisma.crmLandingRegistration.count({
@@ -57,6 +55,30 @@ export async function GET() {
         ? Math.round((purchasedResult / totalRegistrations) * 1000) / 10
         : 0;
 
+    // ── 4-1. 전월 대비 등록수
+    const lpIds = pages.map((p) => p.id);
+    const thisMonthStart = new Date();
+    thisMonthStart.setUTCDate(1);
+    thisMonthStart.setUTCHours(0, 0, 0, 0);
+
+    const lastMonthStart = new Date(thisMonthStart);
+    lastMonthStart.setUTCMonth(lastMonthStart.getUTCMonth() - 1);
+    const lastMonthEnd = new Date(thisMonthStart);
+
+    const [thisMonthRegs, lastMonthRegs] = await Promise.all([
+      prisma.crmLandingRegistration.count({
+        where: { landingPageId: { in: lpIds }, createdAt: { gte: thisMonthStart } },
+      }),
+      prisma.crmLandingRegistration.count({
+        where: { landingPageId: { in: lpIds }, createdAt: { gte: lastMonthStart, lt: lastMonthEnd } },
+      }),
+    ]);
+
+    const regDelta =
+      lastMonthRegs > 0
+        ? Math.round(((thisMonthRegs - lastMonthRegs) / lastMonthRegs) * 100)
+        : null;
+
     // ── 5. 상위 5개 랜딩페이지 (등록수 기준)
     const topPages = pages
       .map((p) => ({
@@ -64,10 +86,10 @@ export async function GET() {
         title: p.title,
         slug: p.slug,
         viewCount: p.viewCount,
-        registrations: p.registrations.length,
+        registrations: p._count.registrations,
         conversionRate:
           p.viewCount > 0
-            ? Math.round((p.registrations.length / p.viewCount) * 1000) / 10
+            ? Math.round((p._count.registrations / p.viewCount) * 1000) / 10
             : 0,
       }))
       .sort((a, b) => b.registrations - a.registrations)
@@ -118,6 +140,9 @@ export async function GET() {
         totalPurchased: purchasedResult,
         conversionRate,
         purchaseRate,
+        thisMonthRegistrations: thisMonthRegs,
+        lastMonthRegistrations: lastMonthRegs,
+        registrationDelta: regDelta,
       },
       topPages,
       trend,

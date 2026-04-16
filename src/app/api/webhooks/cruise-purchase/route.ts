@@ -33,18 +33,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 
-  const incomingSecret = req.headers.get('x-webhook-secret') ?? '';
-  let valid = false;
-  try {
-    // 길이가 다르면 timingSafeEqual이 throw — 미리 방어
-    if (incomingSecret.length === secret.length) {
-      valid = timingSafeEqual(Buffer.from(incomingSecret), Buffer.from(secret));
-    }
-  } catch {
-    valid = false;
-  }
-  if (!valid) {
-    logger.error('[CruisePurchaseWebhook] 인증 실패');
+  const incoming = req.headers.get('x-webhook-secret') ?? '';
+  const secretBuf   = Buffer.from(secret,   'utf8');
+  const incomingBuf = Buffer.from(incoming, 'utf8');
+
+  // 길이 다르면 즉시 false (길이 자체는 비밀이 아님) — 타이밍 어택 방지
+  const isValid =
+    secretBuf.length === incomingBuf.length &&
+    timingSafeEqual(secretBuf, incomingBuf);
+
+  if (!isValid) {
+    logger.warn('[CruisePurchaseWebhook] 시크릿 검증 실패');
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
@@ -77,6 +76,15 @@ export async function POST(req: NextRequest) {
   // 필수 파라미터 검증
   if (!buyerTel || !orderId) {
     return NextResponse.json({ ok: false, message: 'buyerTel, orderId 필수' }, { status: 400 });
+  }
+
+  // amount 범위 검증 (0 이하, 1억 이상, 정수 아닌 값 거부)
+  if (
+    typeof amount !== 'undefined' &&
+    (!Number.isInteger(amount) || amount <= 0 || amount >= 100_000_000)
+  ) {
+    logger.warn('[CruisePurchaseWebhook] 비정상 amount', { amount });
+    return NextResponse.json({ ok: false, message: '비정상 금액' }, { status: 400 });
   }
 
   // affiliateCode 없으면 처리 불가 (어느 조직인지 알 수 없어 오염 방지)

@@ -35,12 +35,27 @@ export function NotificationBell() {
     }
   };
 
-  // 마운트 시 + 30초마다 폴링
+  // 마운트 시 + 30초마다 폴링 (백그라운드 탭에서는 중단)
   useEffect(() => {
     fetchLeads();
-    const interval = setInterval(fetchLeads, 30_000);
-    return () => clearInterval(interval);
-  }, []);
+
+    let interval: ReturnType<typeof setInterval> | null = setInterval(fetchLeads, 30_000);
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (interval) { clearInterval(interval); interval = null; }
+      } else {
+        fetchLeads(); // 탭 복귀 시 즉시 갱신
+        interval = setInterval(fetchLeads, 30_000);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      if (interval) clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 외부 클릭 시 닫기
   useEffect(() => {
