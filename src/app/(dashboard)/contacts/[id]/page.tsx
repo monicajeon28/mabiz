@@ -4,7 +4,7 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Phone, MessageSquare, Edit2,
-  Plus, Clock, FileText, Star, GitBranch, Calendar, Package
+  Plus, Clock, FileText, Star, GitBranch, Calendar, Send, AlarmClock
 } from "lucide-react";
 import { logger } from "@/lib/logger";
 
@@ -47,6 +47,19 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const [loading,       setLoading]       = useState(true);
   const [smsLogs,       setSmsLogs]       = useState<{ id: string; phone: string; contentPreview: string; status: string; channel: string; sentAt: string }[]>([]);
   const [smsLoading,    setSmsLoading]    = useState(false);
+
+  // WO-22: 즉시 SMS 발송 모달
+  const [showSmsModal,  setShowSmsModal]  = useState(false);
+  const [smsMsg,        setSmsMsg]        = useState("");
+  const [sending,       setSending]       = useState(false);
+  const [sendResult,    setSendResult]    = useState("");
+
+  // WO-23: 예약 발송 모달
+  const [showSchedModal, setShowSchedModal] = useState(false);
+  const [schedMsg,       setSchedMsg]       = useState("");
+  const [schedAt,        setSchedAt]        = useState("");
+  const [scheduling,     setScheduling]     = useState(false);
+  const [schedResult,    setSchedResult]    = useState("");
 
   // 콜 기록 폼
   const [showCallForm, setShowCallForm]   = useState(false);
@@ -135,6 +148,49 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     setAssigning(false);
   };
 
+  // WO-22: 즉시 SMS 발송
+  const sendSmsNow = async () => {
+    if (!smsMsg.trim()) return;
+    setSending(true);
+    setSendResult("");
+    const res  = await fetch(`/api/contacts/${id}/sms`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: smsMsg }),
+    });
+    const data = await res.json();
+    setSending(false);
+    if (data.ok) {
+      setSendResult("✅ 발송 완료!");
+      setSmsMsg("");
+      setTimeout(() => { setShowSmsModal(false); setSendResult(""); }, 1500);
+    } else {
+      setSendResult(`❌ ${data.message ?? "발송 실패"}`);
+    }
+  };
+
+  // WO-23: 예약 발송 등록
+  const scheduleSmsSend = async () => {
+    if (!schedMsg.trim() || !schedAt) return;
+    setScheduling(true);
+    setSchedResult("");
+    const res  = await fetch("/api/scheduled-sms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactId: id, message: schedMsg, scheduledAt: schedAt }),
+    });
+    const data = await res.json();
+    setScheduling(false);
+    if (data.ok) {
+      setSchedResult("✅ 예약 완료!");
+      setSchedMsg("");
+      setSchedAt("");
+      setTimeout(() => { setShowSchedModal(false); setSchedResult(""); }, 1500);
+    } else {
+      setSchedResult(`❌ ${data.message ?? "예약 실패"}`);
+    }
+  };
+
   // 출발일 저장
   const saveDeparture = async () => {
     setSavingDept(true);
@@ -171,6 +227,85 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6">
+
+      {/* WO-22: 즉시 SMS 발송 모달 */}
+      {showSmsModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-end md:items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-5 space-y-3 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Send className="w-4 h-4 text-green-500" /> SMS 즉시 발송
+              </h3>
+              <button onClick={() => { setShowSmsModal(false); setSendResult(""); }} className="text-gray-400 hover:text-gray-600 text-lg">×</button>
+            </div>
+            <p className="text-xs text-gray-500">수신: <strong>{contact?.name}</strong> ({contact?.phone})</p>
+            <textarea
+              value={smsMsg}
+              onChange={(e) => setSmsMsg(e.target.value)}
+              placeholder="[고객명], [이름] 치환 사용 가능&#10;예: [고객명]님, 안녕하세요! 크루즈닷입니다."
+              rows={4}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-gold-500"
+            />
+            <p className="text-xs text-gray-400 text-right">{smsMsg.length}자</p>
+            {sendResult && (
+              <p className={`text-sm font-medium ${sendResult.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>
+                {sendResult}
+              </p>
+            )}
+            <button
+              onClick={sendSmsNow}
+              disabled={sending || !smsMsg.trim()}
+              className="w-full bg-green-600 text-white py-2.5 rounded-xl font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {sending ? "발송 중..." : <><Send className="w-4 h-4" /> 지금 바로 발송</>}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* WO-23: 예약 발송 모달 */}
+      {showSchedModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-end md:items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-5 space-y-3 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <AlarmClock className="w-4 h-4 text-orange-500" /> SMS 예약 발송
+              </h3>
+              <button onClick={() => { setShowSchedModal(false); setSchedResult(""); }} className="text-gray-400 hover:text-gray-600 text-lg">×</button>
+            </div>
+            <p className="text-xs text-gray-500">수신: <strong>{contact?.name}</strong> ({contact?.phone})</p>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">발송 예정 시각</label>
+              <input
+                type="datetime-local"
+                value={schedAt}
+                onChange={(e) => setSchedAt(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
+              />
+            </div>
+            <textarea
+              value={schedMsg}
+              onChange={(e) => setSchedMsg(e.target.value)}
+              placeholder="[고객명], [이름] 치환 사용 가능"
+              rows={4}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-gold-500"
+            />
+            {schedResult && (
+              <p className={`text-sm font-medium ${schedResult.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>
+                {schedResult}
+              </p>
+            )}
+            <button
+              onClick={scheduleSmsSend}
+              disabled={scheduling || !schedMsg.trim() || !schedAt}
+              className="w-full bg-orange-500 text-white py-2.5 rounded-xl font-medium hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {scheduling ? "예약 중..." : <><AlarmClock className="w-4 h-4" /> 예약 등록</>}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 헤더 */}
       <div className="flex items-center gap-3 mb-5">
         <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg">
@@ -180,8 +315,19 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         <a href={`tel:${contact.phone}`} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">
           <Phone className="w-5 h-5" />
         </a>
-        <button className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100">
+        <button
+          onClick={() => setShowSmsModal(true)}
+          className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100"
+          title="SMS 즉시 발송"
+        >
           <MessageSquare className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => setShowSchedModal(true)}
+          className="p-2 bg-orange-50 text-orange-500 rounded-lg hover:bg-orange-100"
+          title="SMS 예약 발송"
+        >
+          <AlarmClock className="w-5 h-5" />
         </button>
         <button onClick={() => router.push(`/contacts/${id}/edit`)} className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100">
           <Edit2 className="w-5 h-5 text-gray-500" />

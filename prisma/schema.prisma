@@ -19,9 +19,10 @@ model Organization {
   contactGroups ContactGroup[]
   landingPages  CrmLandingPage[]
   funnels       Funnel[]
-  smsTemplates  SmsTemplate[]
-  smsConfig     OrgSmsConfig?
-  emailConfig   OrgEmailConfig?
+  smsTemplates     SmsTemplate[]
+  smsConfig        OrgSmsConfig?
+  emailConfig      OrgEmailConfig?
+  scheduledSmsList ScheduledSms[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -432,4 +433,28 @@ model PayAppPayment {
 
   @@index([customerPhone])
   @@index([landingPageId])
+}
+
+// ─── 예약 발송 (WO-23) ────────────────────────────────────────
+model ScheduledSms {
+  id             String    @id @default(cuid())
+  organizationId String
+  contactId      String?   // 개별 발송 대상 (null이면 groupId 기준)
+  groupId        String?   // 그룹 발송 대상
+  message        String    @db.Text
+  scheduledAt    DateTime  // 발송 예정 시각 (KST 기준 UTC 저장)
+  status         String    @default("PENDING")  // PENDING | SENT | FAILED | CANCELLED
+  sentAt         DateTime?
+  sentCount      Int       @default(0)
+  failedCount    Int       @default(0)
+  createdByUserId String?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([organizationId, status, scheduledAt])
+  @@index([scheduledAt, status])
+  @@map("ScheduledSms")
 }
