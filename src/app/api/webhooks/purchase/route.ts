@@ -48,27 +48,63 @@ export async function POST(req: NextRequest) {
   });
 
   try {
-    // Contact upsert (전화번호 + 조직 기준)
-    const contact = await prisma.contact.upsert({
-      where: { phone_organizationId: { phone, organizationId } },
-      create: {
-        phone,
-        name,
-        organizationId,
-        productName:    productName    ?? null,
-        departureDate:  departureDate  ? new Date(departureDate) : null,
-        bookingRef:     orderId        ?? null,
-        affiliateCode:  affiliateCode  ?? null,
-      },
-      update: {
-        name,
-        productName:   productName   ?? undefined,
-        departureDate: departureDate ? new Date(departureDate) : undefined,
-        bookingRef:    orderId       ?? undefined,
-        // 어필리에이트 코드 업데이트 (있는 경우)
-        ...(affiliateCode ? { affiliateCode } : {}),
-      },
-      select: { id: true, departureDate: true },
+    // WO-28B: contact + affiliateSale 두 write를 트랜잭션으로 묶기
+    let affiliateMember: { userId: string } | null = null;
+    if (affiliateCode && saleAmount) {
+      affiliateMember = await prisma.organizationMember.findFirst({
+        where: { organizationId, isActive: true },
+        select: { userId: true },
+      });
+    }
+
+    const contact = await prisma.$transaction(async (tx) => {
+      // Contact upsert (전화번호 + 조직 기준)
+      const upsertedContact = await tx.contact.upsert({
+        where: { phone_organizationId: { phone, organizationId } },
+        create: {
+          phone,
+          name,
+          organizationId,
+          productName:    productName    ?? null,
+          departureDate:  departureDate  ? new Date(departureDate) : null,
+          bookingRef:     orderId        ?? null,
+          affiliateCode:  affiliateCode  ?? null,
+        },
+        update: {
+          name,
+          productName:   productName   ?? undefined,
+          departureDate: departureDate ? new Date(departureDate) : undefined,
+          bookingRef:    orderId       ?? undefined,
+          // 어필리에이트 코드 업데이트 (있는 경우)
+          ...(affiliateCode ? { affiliateCode } : {}),
+        },
+        select: { id: true, departureDate: true },
+      });
+
+      // WO-28B: 어필리에이트 판매 이력 기록 (조건부)
+      if (affiliateCode && saleAmount) {
+        await tx.affiliateSale.upsert({
+          where: { orderId: orderId ?? `manual-${Date.now()}` },
+          create: {
+            organizationId,
+            affiliateCode,
+            affiliateUserId: affiliateMember?.userId ?? null,
+            productName:     productName ?? "크루즈 상품",
+            saleAmount:      parseInt(String(saleAmount)) || 0,
+            commissionRate:  parseInt(String(commissionRate)) || 0,
+            commissionAmount: parseInt(String(commissionAmount)) || 0,
+            status:          "PENDING",
+            customerPhone:   phone.substring(0, 4) + "****",
+            orderId:         orderId ?? null,
+            sourceWebhook:   "purchase",
+          },
+          update: {
+            status: "PENDING",
+          },
+        });
+      }
+
+      return upsertedContact;
     });
 
     // "구매고객 VIP 케어" 그룹 찾기
@@ -92,34 +128,6 @@ export async function POST(req: NextRequest) {
         organizationId,
         sendFirst: true,
       });
-    }
-
-    // WO-28B: 어필리에이트 판매 이력 기록
-    if (affiliateCode && saleAmount) {
-      const affiliateMember = await prisma.organizationMember.findFirst({
-        where: { organizationId, isActive: true },
-        select: { userId: true },
-      });
-
-      await prisma.affiliateSale.upsert({
-        where: { orderId: orderId ?? `manual-${Date.now()}` },
-        create: {
-          organizationId,
-          affiliateCode,
-          affiliateUserId: affiliateMember?.userId ?? null,
-          productName:     productName ?? "크루즈 상품",
-          saleAmount:      parseInt(String(saleAmount)) || 0,
-          commissionRate:  parseInt(String(commissionRate)) || 0,
-          commissionAmount: parseInt(String(commissionAmount)) || 0,
-          status:          "PENDING",
-          customerPhone:   phone.substring(0, 4) + "****",
-          orderId:         orderId ?? null,
-          sourceWebhook:   "purchase",
-        },
-        update: {
-          status: "PENDING",
-        },
-      }).catch((e) => logger.log('[PurchaseWebhook] AffiliateSale 기록 실패', { error: e instanceof Error ? e.message : String(e) }));
     }
 
     logger.log('[PurchaseWebhook] 처리 완료', {
