@@ -31,6 +31,8 @@ model Organization {
   aiCallLogs        AiCallLog[]
   scriptPatterns    ScriptPattern[]
   shortLinks        ShortLink[]
+  salesDocuments    SalesDocument[]
+  salesDocApprovals SalesDocumentApproval[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -135,6 +137,7 @@ model Contact {
   vipSequences   VipCareSequence[]
   shortLinks     ShortLink[]
   shortLinkClicks ShortLinkClick[]
+  salesDocuments  SalesDocument[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -556,6 +559,7 @@ model AffiliateSale {
   sourceWebhook   String?     // 웹훅 출처 (purchase/payapp)
 
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  salesDocuments  SalesDocument[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -700,4 +704,77 @@ model NewsSyncState {
   id           String   @id @default("global")
   lastSyncedAt DateTime @default(now())
   @@map("NewsSyncState")
+}
+
+// ─── 크루즈닷 결제 데이터 (동일 Neon DB 공유) ────────────────
+// 마이그레이션 불필요 — 크루즈닷과 동일 테이블을 읽기 전용으로 참조
+model Payment {
+  id              Int       @id @default(autoincrement())
+  orderId         String    @unique
+  buyerName       String
+  buyerTel        String
+  buyerEmail      String?
+  amount          Int
+  status          String    @default("pending")
+  pgProvider      String?
+  pgTransactionId String?
+  paidAt          DateTime?
+  cancelledAt     DateTime?
+  productName     String?
+  affiliateCode   String?
+  metadata        Json?
+  @@map("Payment")
+}
+
+// ─── 영업 문서 (견적서·구매확인서·환불증명서) ─────────────────
+model SalesDocument {
+  id              String   @id @default(cuid())
+  organizationId  String
+  documentType    String
+  // COMPARISON_QUOTE | PURCHASE_CONFIRMATION | REFUND_CERTIFICATE
+  status          String   @default("DRAFT")
+  // DRAFT | PENDING_APPROVAL | APPROVED | REJECTED
+  orderId         String?
+  affiliateSaleId String?
+  contactId       String?
+  generatedData   Json
+  filePath        String?
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectedReason  String?
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact         Contact?      @relation(fields: [contactId], references: [id])
+  affiliateSale   AffiliateSale? @relation(fields: [affiliateSaleId], references: [id])
+  approvals       SalesDocumentApproval[]
+
+  @@index([organizationId, documentType])
+  @@index([organizationId, status])
+  @@index([orderId])
+  @@map("SalesDocument")
+}
+
+model SalesDocumentApproval {
+  id             String    @id @default(cuid())
+  documentId     String
+  organizationId String
+  requestedBy    String
+  approvedBy     String?
+  status         String    @default("PENDING")
+  requestNote    String?   @db.Text
+  adminNote      String?   @db.Text
+  processedAt    DateTime?
+
+  document       SalesDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([organizationId, status])
+  @@index([documentId])
+  @@map("SalesDocumentApproval")
 }

@@ -20,6 +20,7 @@ import {
   CreditCard,
   BookOpen,
   Newspaper,
+  FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk, useUser } from "@clerk/nextjs";
@@ -42,6 +43,7 @@ const navItems = [
   { href: "/statements",        icon: FileText,        label: "내 정산 내역" },
   { href: "/team-statements",   icon: Users,           label: "팀 정산" },
   { href: "/contracts",         icon: ClipboardList,   label: "계약서 관리" },
+  { href: "/documents",         icon: FolderOpen,      label: "서류 관리" },
   { href: "/news-links",        icon: Newspaper,       label: "뉴스 링크" },
 ];
 
