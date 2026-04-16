@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   ArrowLeft, Plus, Trash2, Save, Eye, EyeOff,
-  ChevronUp, ChevronDown, MessageSquare, Zap
+  ChevronUp, ChevronDown, MessageSquare, Zap, Link2, Check, Wand2
 } from "lucide-react";
+import { showError } from "@/components/ui/Toast";
 
 type Stage = {
   id?:            string;
@@ -45,8 +46,29 @@ export default function FunnelEditPage() {
   const [loading,     setLoading]     = useState(true);
   const [saving,      setSaving]      = useState(false);
   const [saveMsg,     setSaveMsg]     = useState("");
-  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
-  const [previewIdx,  setPreviewIdx]  = useState<number | null>(null);
+  const [expandedIdx,   setExpandedIdx]   = useState<number | null>(null);
+  const [previewIdx,    setPreviewIdx]    = useState<number | null>(null);
+  const [shortlinking,  setShortlinking]  = useState<number | null>(null); // 숏링크 생성 중인 stage idx
+  const [copiedLink,    setCopiedLink]    = useState<number | null>(null);
+
+  // 긴 URL → 자동 숏링크 생성 후 linkUrl에 적용
+  const makeShortLink = async (idx: number, rawUrl: string) => {
+    if (!rawUrl.trim()) return;
+    // 이미 숏링크면 스킵
+    if (rawUrl.includes('/l/')) { showError('이미 숏링크입니다'); return; }
+    setShortlinking(idx);
+    try {
+      const res = await fetch('/api/links', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ targetUrl: rawUrl, title: stages[idx]?.name || '퍼널 링크' }),
+      });
+      const d = await res.json() as { ok: boolean; shortUrl?: string };
+      if (!d.ok || !d.shortUrl) throw new Error();
+      updateStage(idx, 'linkUrl', d.shortUrl);
+    } catch { showError('숏링크 생성 실패'); }
+    finally { setShortlinking(null); }
+  };
 
   const load = useCallback(async () => {
     const res  = await fetch(`/api/funnels/${id}`);
@@ -368,15 +390,50 @@ export default function FunnelEditPage() {
                     )}
                   </div>
 
-                  {/* 링크 URL */}
+                  {/* 링크 URL — 자동 숏링크 */}
                   <div>
-                    <label className="text-xs font-medium text-gray-500 mb-1 block">[링크] 치환 URL (선택)</label>
-                    <input
-                      value={stage.linkUrl}
-                      onChange={(e) => updateStage(idx, "linkUrl", e.target.value)}
-                      placeholder="https://... (SMS에 [링크] 넣으면 이 URL로 대체)"
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
-                    />
+                    <label className="text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                      <Link2 className="w-3 h-3" /> [링크] 치환 URL
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        value={stage.linkUrl}
+                        onChange={(e) => updateStage(idx, "linkUrl", e.target.value)}
+                        placeholder="https://... 길어도 OK — 숏링크 자동변환 가능"
+                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                      />
+                      {/* 숏링크 변환 버튼 */}
+                      <button
+                        type="button"
+                        onClick={() => makeShortLink(idx, stage.linkUrl)}
+                        disabled={!stage.linkUrl || shortlinking === idx}
+                        title="긴 URL → 숏링크 자동 변환"
+                        className="px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-medium flex items-center gap-1 disabled:opacity-40 whitespace-nowrap hover:bg-blue-700"
+                      >
+                        {shortlinking === idx
+                          ? <span className="animate-spin">⏳</span>
+                          : <Wand2 className="w-3.5 h-3.5" />}
+                        숏링크
+                      </button>
+                      {/* 복사 버튼 */}
+                      {stage.linkUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(stage.linkUrl);
+                            setCopiedLink(idx);
+                            setTimeout(() => setCopiedLink(null), 2000);
+                          }}
+                          className="px-2 py-2 border border-gray-200 rounded-lg hover:bg-gray-50"
+                        >
+                          {copiedLink === idx
+                            ? <Check className="w-4 h-4 text-green-500" />
+                            : <Link2 className="w-4 h-4 text-gray-400" />}
+                        </button>
+                      )}
+                    </div>
+                    {/* 뉴스 링크 빠른 선택 */}
+                    <NewsLinkPicker onSelect={(url) => updateStage(idx, "linkUrl", url)} />
                   </div>
                 </div>
               )}
@@ -402,6 +459,49 @@ export default function FunnelEditPage() {
           {saving ? "저장 중..." : "전체 저장"}
         </button>
       </div>
+    </div>
+  );
+}
+
+// ── 뉴스 링크 빠른 선택 패널 ─────────────────────────────────────────
+function NewsLinkPicker({ onSelect }: { onSelect: (url: string) => void }) {
+  const [open,  setOpen]  = useState(false);
+  const [links, setLinks] = useState<{ id: string; title: string; url: string }[]>([]);
+
+  const load = () => {
+    if (links.length > 0) return;
+    fetch('/api/tools/news-links').then(r => r.json())
+      .then(d => { if (d.ok) setLinks(d.links ?? []); });
+  };
+
+  return (
+    <div className="mt-1.5">
+      <button
+        type="button"
+        onClick={() => { setOpen(!open); load(); }}
+        className="text-xs text-blue-600 flex items-center gap-1 hover:underline"
+      >
+        <Zap className="w-3 h-3" />
+        {open ? '뉴스 링크 닫기' : '크루즈닷 뉴스에서 선택'}
+      </button>
+      {open && (
+        <div className="mt-2 border rounded-xl bg-gray-50 max-h-40 overflow-y-auto">
+          {links.length === 0 ? (
+            <p className="text-xs text-gray-400 p-3">동기화된 뉴스가 없습니다</p>
+          ) : (
+            links.map((l) => (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => { onSelect(l.url); setOpen(false); }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-white border-b last:border-0 truncate"
+              >
+                📰 {l.title}
+              </button>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
