@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, GitBranch, Play, Pause, ChevronRight, BarChart2 } from "lucide-react";
+import { Plus, GitBranch, Play, Pause, ChevronRight, BarChart2, Edit2, AlertCircle } from "lucide-react";
+import Link from "next/link";
 
 type FunnelStat = {
   id: string; name: string; isActive: boolean;
@@ -199,20 +200,39 @@ export default function FunnelsPage() {
               {/* 퍼널 헤더 */}
               <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
                 <div className={`w-2.5 h-2.5 rounded-full ${funnel.isActive ? "bg-green-400" : "bg-gray-300"}`} />
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-gray-900">{funnel.name}</h3>
                   {funnel.description && <p className="text-xs text-gray-400 mt-0.5">{funnel.description}</p>}
                 </div>
-                <span className="text-sm text-gray-500">{funnel.stages.length}단계</span>
+                {/* 메시지 미작성 경고 */}
+                {funnel.stages.some((s) => !s.messageContent) && (
+                  <span className="flex items-center gap-1 text-xs text-orange-500 font-medium shrink-0">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    미작성
+                  </span>
+                )}
+                <span className="text-sm text-gray-500 shrink-0">{funnel.stages.length}단계</span>
+                <Link
+                  href={`/funnels/${funnel.id}`}
+                  className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-navy-900 shrink-0"
+                  title="퍼널 편집"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </Link>
               </div>
 
               {/* 스테이지 미리보기 (가로 스크롤) */}
               <div className="flex gap-2 p-4 overflow-x-auto">
                 {funnel.stages.slice(0, 8).map((stage, i) => (
                   <div key={stage.id} className="flex items-center gap-1 shrink-0">
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-center min-w-[80px]">
+                    <div className={`border rounded-lg px-3 py-2 text-center min-w-[80px] ${
+                      stage.messageContent
+                        ? "bg-gray-50 border-gray-200"
+                        : "bg-orange-50 border-orange-200"
+                    }`}>
                       <p className="text-xs text-gold-500 font-bold">{triggerLabel(stage)}</p>
                       <p className="text-xs text-gray-700 mt-0.5 truncate max-w-[72px]">{stage.name}</p>
+                      {!stage.messageContent && <p className="text-[9px] text-orange-400 mt-0.5">미작성</p>}
                     </div>
                     {i < Math.min(funnel.stages.length - 1, 7) && (
                       <ChevronRight className="w-3 h-3 text-gray-300 shrink-0" />
