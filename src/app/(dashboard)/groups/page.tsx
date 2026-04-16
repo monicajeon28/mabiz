@@ -59,6 +59,37 @@ export default function GroupsPage() {
     }
   };
 
+  // 복제·내보내기·가져오기 상태
+  const [copiedExportId, setCopiedExportId] = useState<string | null>(null);
+  const [showImport,     setShowImport]     = useState(false);
+  const [importJson,     setImportJson]     = useState('');
+
+  const loadGroups = async () => {
+    const [g, f] = await Promise.all([
+      fetch('/api/groups').then((r) => r.json()),
+      fetch('/api/funnels').then((r) => r.json()),
+    ]);
+    if (g.ok)  setGroups(g.groups);
+    if (f.ok)  setFunnels(f.funnels);
+  };
+
+  const cloneGroup = async (id: string) => {
+    const res = await fetch(`/api/groups/${id}/clone`, { method: 'POST' });
+    const d   = await res.json() as { ok: boolean; group?: { name: string } };
+    if (d.ok) { await loadGroups(); }
+    else showError('복제 실패');
+  };
+
+  const exportGroup = async (id: string) => {
+    const res = await fetch(`/api/groups/${id}/export`);
+    const d   = await res.json() as { ok: boolean; data?: unknown };
+    if (d.ok) {
+      await navigator.clipboard.writeText(JSON.stringify(d.data, null, 2));
+      setCopiedExportId(id);
+      setTimeout(() => setCopiedExportId(null), 2000);
+    } else showError('내보내기 실패');
+  };
+
   // 일괄 발송 상태
   const [blastGroupId,  setBlastGroupId]  = useState<string | null>(null);
   const [blastMsg,      setBlastMsg]      = useState("");
@@ -221,6 +252,44 @@ export default function GroupsPage() {
         )}
       </div>
 
+      {/* 가져오기 패널 */}
+      <div className="mb-4">
+        <button
+          onClick={() => setShowImport(!showImport)}
+          className="text-sm text-blue-600 underline"
+        >
+          📥 다른 조직 퍼널 가져오기
+        </button>
+        {showImport && (
+          <div className="mt-2 p-4 border rounded-xl bg-gray-50">
+            <textarea
+              value={importJson}
+              onChange={(e) => setImportJson(e.target.value)}
+              placeholder="내보내기로 복사한 JSON 붙여넣기"
+              className="w-full border rounded-lg px-3 py-2 text-xs font-mono h-32"
+            />
+            <button
+              onClick={async () => {
+                try {
+                  const data = JSON.parse(importJson) as Record<string, unknown>;
+                  const res  = await fetch('/api/groups/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                  });
+                  const d = await res.json() as { ok: boolean };
+                  if (d.ok) { setShowImport(false); setImportJson(''); await loadGroups(); }
+                  else showError('가져오기 실패');
+                } catch { showError('올바른 JSON 형식이 아닙니다'); }
+              }}
+              className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm"
+            >
+              가져오기
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* 새 그룹 폼 */}
       {showNew && (
         <div className="bg-white border border-gold-300 rounded-xl p-5 mb-4 shadow-sm">
@@ -359,7 +428,21 @@ export default function GroupsPage() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 flex-wrap justify-end">
+                  <button
+                    onClick={() => cloneGroup(group.id)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-100"
+                    title="그룹 복제"
+                  >
+                    📋 복제
+                  </button>
+                  <button
+                    onClick={() => exportGroup(group.id)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-100"
+                    title="그룹 내보내기 (JSON 클립보드 복사)"
+                  >
+                    {copiedExportId === group.id ? '✅ 복사됨' : '📤 내보내기'}
+                  </button>
                   <button
                     onClick={() => openBlast(group.id)}
                     className="flex items-center gap-1 px-3 py-1.5 bg-gold-50 border border-gold-300 text-gold-700 rounded-lg text-xs font-medium hover:bg-gold-100"

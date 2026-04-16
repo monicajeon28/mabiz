@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, Eye, Copy, Edit2, Globe, Files, Power } from "lucide-react";
+import { Plus, Eye, Copy, Edit2, Globe, Files, Power, Link2, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type LandingPage = {
@@ -12,6 +12,7 @@ type LandingPage = {
   isActive: boolean;
   viewCount: number;
   createdAt: string;
+  groupId?: string | null;
   _count?: { registrations: number };
 };
 
@@ -37,6 +38,7 @@ export default function LandingPagesPage() {
   const [loadingStats, setLoadingStats] = useState<string | null>(null);
   const [cloningId,   setCloningId]     = useState<string | null>(null);
   const [togglingId,  setTogglingId]    = useState<string | null>(null);
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
 
   const loadStats = async (pageId: string) => {
     if (loadingStats === pageId) return;
@@ -58,6 +60,25 @@ export default function LandingPagesPage() {
       .then((d) => { if (d.ok) setPages(d.pages); })
       .finally(() => setLoading(false));
   }, []);
+
+  const createShortLink = async (page: LandingPage) => {
+    const landingUrl = `${window.location.origin}/p/${page.slug}`;
+    const res = await fetch('/api/links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        targetUrl: landingUrl,
+        title: `${page.title} 랜딩링크`,
+        autoGroupId: page.groupId ?? undefined,
+      }),
+    });
+    const d = await res.json();
+    if (d.ok) {
+      navigator.clipboard.writeText(`${window.location.origin}/l/${d.link.code}`);
+      setCopiedLinkId(page.id);
+      setTimeout(() => setCopiedLinkId(null), 2000);
+    }
+  };
 
   const copyLink = (slug: string) => {
     const url = `${window.location.origin}/p/${slug}`;
@@ -213,6 +234,23 @@ export default function LandingPagesPage() {
 
                 {/* 액션 버튼 */}
                 <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => createShortLink(page)}
+                    className="flex items-center gap-1 px-2 py-1.5 hover:bg-gray-100 rounded-lg text-gray-500 text-xs"
+                    title="숏링크 만들기"
+                  >
+                    {copiedLinkId === page.id ? (
+                      <>
+                        <Check className="w-4 h-4 text-green-500" />
+                        <span className="text-green-500">복사됨</span>
+                      </>
+                    ) : (
+                      <>
+                        <Link2 className="w-4 h-4" />
+                        <span>숏링크</span>
+                      </>
+                    )}
+                  </button>
                   <a
                     href={`/p/${page.slug}`}
                     target="_blank"
