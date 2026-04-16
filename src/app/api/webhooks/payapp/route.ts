@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
+import { triggerGroupFunnel } from "@/lib/funnel-trigger";
 
 export async function POST(req: Request) {
   try {
@@ -116,6 +117,46 @@ export async function POST(req: Request) {
         });
       }
     });
+
+    // 퍼널 자동 트리거: 랜딩페이지에 연결된 그룹이 있으면 퍼널 시작
+    if (orgId && landingPageSlug) {
+      try {
+        const lp = await prisma.crmLandingPage.findFirst({
+          where: { slug: landingPageSlug },
+          select: { groupId: true, organizationId: true },
+        });
+        if (lp?.groupId) {
+          const contact = await prisma.contact.findFirst({
+            where: { phone: customerPhone, organizationId: orgId },
+            select: { id: true },
+          });
+          if (contact) {
+            await triggerGroupFunnel({
+              contactId: contact.id,
+              groupId: lp.groupId,
+              organizationId: orgId,
+              sendFirst: true,
+            });
+            logger.log("[PayApp Webhook] 퍼널 자동 트리거", {
+              orgId,
+              phone: customerPhone.substring(0, 4) + "***",
+              groupId: lp.groupId,
+            });
+          }
+        }
+      } catch (funnelErr) {
+        // 퍼널 트리거 실패는 결제 처리에 영향 없음 (non-blocking)
+        logger.warn(
+          "[PayApp Webhook] 퍼널 트리거 실패 (결제는 정상 완료)",
+          {
+            err:
+              funnelErr instanceof Error
+                ? funnelErr.message
+                : String(funnelErr),
+          }
+        );
+      }
+    }
 
     logger.log("[PayApp Webhook] 결제 완료 처리 성공", {
       orderId,

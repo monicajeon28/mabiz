@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk, useUser } from "@clerk/nextjs";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
 // OWNER/AGENT/GLOBAL_ADMIN 메뉴 — 섹션 그룹핑
 const navSections = [
@@ -93,9 +94,12 @@ export function SidebarNav({ className }: SidebarNavProps) {
       )}
     >
       {/* 로고 */}
-      <div className="px-6 py-5 border-b border-navy-700">
-        <h1 className="text-xl font-bold text-gold-500">mabiz</h1>
-        <p className="text-xs text-gray-400 mt-0.5">크루즈 영업 CRM</p>
+      <div className="px-6 py-5 border-b border-navy-700 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-gold-500">mabiz</h1>
+          <p className="text-xs text-gray-400 mt-0.5">크루즈 영업 CRM</p>
+        </div>
+        <NotificationBell />
       </div>
 
       {/* 메뉴 */}
