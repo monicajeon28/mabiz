@@ -99,6 +99,9 @@ model Contact {
   // 리드 스코어링 (WO-25B)
   leadScore      Int       @default(0)   // HOT 70+ / WARM 30~69 / COLD 0~29 / LOST <0
 
+  // 고객 태그 (WO-25C) — 세그먼트 기반 타겟 발송
+  tags           String[]  @default([])  // 예: ["지중해", "가족", "봄출발"]
+
   // 담당 판매원 (AGENT에게 배당된 고객)
   assignedUserId String?   // Clerk userId of the assigned AGENT
   // 크루즈 출발 정보 (VIP 케어 D-day 기준)

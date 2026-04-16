@@ -44,7 +44,10 @@ export async function PATCH(req: Request, { params }: Params) {
     const existing = await prisma.contact.findFirst({ where });
     if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
 
-    const { name, phone, email, type, cruiseInterest, budgetRange, adminMemo, assignedUserId } = body;
+    const { name, phone, email, type, cruiseInterest, budgetRange,
+            adminMemo, assignedUserId, tags,
+            departureDate, productName, bookingRef, commentEnabled,
+            isActive } = body;
 
     const contact = await prisma.contact.update({
       where: { id },
@@ -56,12 +59,18 @@ export async function PATCH(req: Request, { params }: Params) {
         ...(cruiseInterest !== undefined ? { cruiseInterest } : {}),
         ...(budgetRange    !== undefined ? { budgetRange }    : {}),
         ...(adminMemo      !== undefined ? { adminMemo }      : {}),
+        ...(departureDate  !== undefined ? { departureDate: departureDate ? new Date(departureDate) : null } : {}),
+        ...(productName    !== undefined ? { productName }    : {}),
+        ...(bookingRef     !== undefined ? { bookingRef }     : {}),
+        // 태그 (WO-25C) — 배열 전체 교체 방식
+        ...(Array.isArray(tags)          ? { tags }           : {}),
         // OWNER/ADMIN만 담당자 변경 가능
         ...(assignedUserId !== undefined && ctx.role !== "AGENT"
           ? { assignedUserId }
           : {}),
       },
     });
+    void isActive; void commentEnabled; // 미사용 변수 TS 경고 방지
 
     return NextResponse.json({ ok: true, contact });
   } catch (err) {

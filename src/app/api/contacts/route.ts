@@ -13,6 +13,8 @@ export async function GET(req: Request) {
     const type    = searchParams.get("type");
     const q       = searchParams.get("q");
     const groupId = searchParams.get("groupId");
+    const tagParam = searchParams.get("tags");                      // 쉼표 구분 태그 필터
+    const tags    = tagParam ? tagParam.split(",").map((t) => t.trim()).filter(Boolean) : [];
     const page    = parseInt(searchParams.get("page")  ?? "1");
     const limit   = parseInt(searchParams.get("limit") ?? "30");
 
@@ -25,6 +27,8 @@ export async function GET(req: Request) {
           ]}
         : {}),
       ...(groupId ? { groups: { some: { groupId } } } : {}),
+      // 태그 필터: AND 조건 (모든 태그를 포함한 고객)
+      ...(tags.length > 0 ? { tags: { hasEvery: tags } } : {}),
     });
 
     const [contacts, total] = await Promise.all([

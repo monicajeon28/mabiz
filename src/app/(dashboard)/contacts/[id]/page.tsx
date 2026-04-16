@@ -21,9 +21,20 @@ type Contact = {
   adminMemo: string | null; assignedUserId: string | null;
   lastContactedAt: string | null; purchasedAt: string | null;
   departureDate: string | null; productName: string | null; bookingRef: string | null;
+  tags: string[];
+  leadScore: number;
   groups: { group: { id: string; name: string } }[];
   callLogs: CallLog[]; memos: Memo[];
 };
+
+// 크루즈 여행사 특화 추천 태그
+const SUGGESTED_TAGS = [
+  "지중해", "알래스카", "카리브해", "북유럽", "동남아", "발틱해",
+  "커플", "가족", "부모님", "친구여행", "혼자",
+  "100만이하", "200만대", "300만이상", "VIP",
+  "봄출발", "여름출발", "가을출발", "겨울출발",
+  "재구매가능", "지인추천", "고민중", "계약완료",
+];
 
 const RESULT_LABELS: Record<string, string> = {
   INTERESTED: "✅ 관심있음", PENDING: "⏳ 보류",
@@ -75,6 +86,11 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const [assigning,     setAssigning]     = useState(false);
   const [assignMsg,     setAssignMsg]     = useState("");
 
+  // WO-25C: 태그
+  const [tags,          setTags]          = useState<string[]>([]);
+  const [tagInput,      setTagInput]      = useState("");
+  const [savingTags,    setSavingTags]    = useState(false);
+
   // 출발일 + 상품명
   const [showDeptForm,  setShowDeptForm]  = useState(false);
   const [deptForm, setDeptForm]           = useState({ departureDate: "", productName: "", bookingRef: "" });
@@ -87,6 +103,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     ]).then(([c, g]) => {
       if (c.ok) {
         setContact(c.contact);
+        setTags(c.contact.tags ?? []);
         if (c.contact.departureDate) {
           setDeptForm({
             departureDate: c.contact.departureDate.split("T")[0],
@@ -146,6 +163,32 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       setSelectedGroup("");
     }
     setAssigning(false);
+  };
+
+  // WO-25C: 태그 저장
+  const saveTag = async (newTags: string[]) => {
+    setSavingTags(true);
+    await fetch(`/api/contacts/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tags: newTags }),
+    });
+    setSavingTags(false);
+  };
+
+  const addTag = (tag: string) => {
+    const t = tag.trim();
+    if (!t || tags.includes(t)) return;
+    const next = [...tags, t];
+    setTags(next);
+    saveTag(next);
+    setTagInput("");
+  };
+
+  const removeTag = (tag: string) => {
+    const next = tags.filter((tt) => tt !== tag);
+    setTags(next);
+    saveTag(next);
   };
 
   // WO-22: 즉시 SMS 발송
@@ -440,6 +483,62 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
             ))}
           </div>
         )}
+      </div>
+
+      {/* WO-25C: 고객 태그 카드 */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-semibold text-gray-700">🏷️ 태그</p>
+          {savingTags && <span className="text-xs text-gray-400">저장 중...</span>}
+        </div>
+
+        {/* 현재 태그 */}
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-full"
+            >
+              {tag}
+              <button
+                onClick={() => removeTag(tag)}
+                className="text-blue-400 hover:text-blue-700 ml-0.5 font-bold"
+              >×</button>
+            </span>
+          ))}
+          {tags.length === 0 && (
+            <p className="text-xs text-gray-400">태그 없음 — 아래에서 추가하세요</p>
+          )}
+        </div>
+
+        {/* 태그 입력 */}
+        <div className="flex gap-2 mb-2">
+          <input
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(tagInput); } }}
+            placeholder="태그 직접 입력 후 Enter"
+            className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400"
+          />
+          <button
+            onClick={() => addTag(tagInput)}
+            disabled={!tagInput.trim()}
+            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 disabled:opacity-40"
+          >추가</button>
+        </div>
+
+        {/* 추천 태그 */}
+        <div className="flex flex-wrap gap-1.5">
+          {SUGGESTED_TAGS.filter((t) => !tags.includes(t)).slice(0, 12).map((tag) => (
+            <button
+              key={tag}
+              onClick={() => addTag(tag)}
+              className="text-xs bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600 px-2 py-0.5 rounded-full transition-colors"
+            >
+              + {tag}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 최근 활동 타임라인 */}
