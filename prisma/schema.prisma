@@ -22,8 +22,10 @@ model Organization {
   smsTemplates     SmsTemplate[]
   smsConfig        OrgSmsConfig?
   emailConfig      OrgEmailConfig?
-  scheduledSmsList ScheduledSms[]
-  inviteTokens     OrgInviteToken[]
+  scheduledSmsList  ScheduledSms[]
+  inviteTokens      OrgInviteToken[]
+  sentTransfers     ContactTransferLog[] @relation("FromOrg")
+  receivedTransfers ContactTransferLog[] @relation("ToOrg")
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -113,8 +115,8 @@ model Contact {
   // 담당 판매원 (AGENT에게 배당된 고객)
   assignedUserId  String?   // Clerk userId of the assigned AGENT
 
-  // DB 출처 추적 (WO-28)
-  freeSalesId     String?   // 유입시킨 프리세일즈 식별자 (어필리에이트 코드)
+  // 어필리에이트 추적 (WO-28) — 프리세일즈/직속판매원 링크 유입 모두 포함
+  affiliateCode   String?   // 크루즈몰 affiliateCode (파트너 고유 코드)
   sourceOrgId     String?   // DB 전달 시 원본 조직 ID (이력 추적)
   // 크루즈 출발 정보 (VIP 케어 D-day 기준)
   departureDate  DateTime? // 출발 예정일 → D-150, D-90... 자동 계산
@@ -498,4 +500,28 @@ model OrgInviteToken {
   @@index([organizationId])
   @@index([expiresAt])
   @@map("OrgInviteToken")
+}
+
+// ─── DB 전달 이력 (WO-28) ─────────────────────────────────────
+model ContactTransferLog {
+  id             String    @id @default(cuid())
+  contactId      String    // 전달된 contact (원본)
+  fromOrgId      String    // 보낸 조직
+  toOrgId        String?   // 받은 조직 (ORG_COPY 모드)
+  toUserId       String?   // 받은 판매원 userId (AGENT_ASSIGN 모드)
+  newContactId   String?   // 복사 후 새로 생성된 contact ID
+  transferType   String    // "ORG_COPY" | "AGENT_ASSIGN"
+  transferredBy  String    // 전달한 사람 Clerk userId
+  note           String?   // 전달 메모
+
+  fromOrg        Organization @relation("FromOrg", fields: [fromOrgId], references: [id], onDelete: Cascade)
+  toOrg          Organization? @relation("ToOrg",  fields: [toOrgId],   references: [id], onDelete: SetNull)
+
+  createdAt      DateTime  @default(now())
+
+  @@index([contactId])
+  @@index([fromOrgId])
+  @@index([toOrgId])
+  @@index([transferredBy])
+  @@map("ContactTransferLog")
 }

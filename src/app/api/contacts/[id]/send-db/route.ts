@@ -57,40 +57,56 @@ export async function POST(req: Request, { params }: Params) {
         return NextResponse.json({ ok: false, message: "대상 조직을 찾을 수 없습니다." }, { status: 404 });
       }
 
-      // 중복 확인 후 upsert (전화번호 + 조직 unique)
-      const transferred = await prisma.contact.upsert({
-        where: {
-          phone_organizationId: {
-            phone:          contact.phone,
-            organizationId: targetOrgId,
+      // 트랜잭션: 복사 + 이력 동시 저장
+      const [transferred] = await prisma.$transaction(async (tx) => {
+        const copied = await tx.contact.upsert({
+          where: {
+            phone_organizationId: {
+              phone:          contact.phone,
+              organizationId: targetOrgId,
+            },
           },
-        },
-        create: {
-          organizationId:  targetOrgId,
-          name:            contact.name,
-          phone:           contact.phone,
-          email:           contact.email,
-          type:            contact.type,
-          cruiseInterest:  contact.cruiseInterest,
-          budgetRange:     contact.budgetRange,
-          adminMemo:       contact.adminMemo
-            ? `[${contact.adminMemo}] (전달 from: ${contact.organizationId})`
-            : `(전달 from: ${contact.organizationId})`,
-          tags:            contact.tags,
-          leadScore:       contact.leadScore,
-          utmSource:       contact.utmSource,
-          sourceOrgId:     contact.organizationId,  // 원본 조직 기록
-          freeSalesId:     contact.freeSalesId,
-        },
-        update: {
-          // 이미 있으면 메모만 업데이트
-          adminMemo: `(재전달 from: ${contact.organizationId} on ${new Date().toLocaleDateString("ko-KR")})`,
-        },
+          create: {
+            organizationId:  targetOrgId,
+            name:            contact.name,
+            phone:           contact.phone,
+            email:           contact.email,
+            type:            contact.type,
+            cruiseInterest:  contact.cruiseInterest,
+            budgetRange:     contact.budgetRange,
+            adminMemo:       contact.adminMemo
+              ? `[${contact.adminMemo}] (전달 from: ${contact.organizationId})`
+              : `(전달 from: ${contact.organizationId})`,
+            tags:            contact.tags,
+            leadScore:       contact.leadScore,
+            utmSource:       contact.utmSource,
+            sourceOrgId:     contact.organizationId,
+            affiliateCode:   contact.affiliateCode,
+          },
+          update: {
+            adminMemo: `(재전달 from: ${contact.organizationId} on ${new Date().toLocaleDateString("ko-KR")})`,
+          },
+        });
+
+        // 전달 이력 기록
+        const log = await tx.contactTransferLog.create({
+          data: {
+            contactId:     contactId,
+            fromOrgId:     contact.organizationId,
+            toOrgId:       targetOrgId,
+            newContactId:  copied.id,
+            transferType:  "ORG_COPY",
+            transferredBy: ctx.userId,
+          },
+        });
+
+        return [copied, log] as const;
       });
 
-      logger.log("[POST /api/contacts/[id]/send-db] 조직 간 전달", {
+      logger.log("[POST /api/contacts/[id]/send-db] 조직 간 전달 완료", {
         contactId, fromOrg: contact.organizationId,
         targetOrgId, targetOrgName: targetOrg.name,
+        newContactId: transferred.id,
       });
 
       return NextResponse.json({
@@ -121,10 +137,22 @@ export async function POST(req: Request, { params }: Params) {
         );
       }
 
-      await prisma.contact.update({
-        where: { id: contactId },
-        data:  { assignedUserId: targetUserId },
-      });
+      // 트랜잭션: 할당 + 이력 동시 저장
+      await prisma.$transaction([
+        prisma.contact.update({
+          where: { id: contactId },
+          data:  { assignedUserId: targetUserId },
+        }),
+        prisma.contactTransferLog.create({
+          data: {
+            contactId:     contactId,
+            fromOrgId:     contact.organizationId,
+            toUserId:      targetUserId,
+            transferType:  "AGENT_ASSIGN",
+            transferredBy: ctx.userId,
+          },
+        }),
+      ]);
 
       logger.log("[POST /api/contacts/[id]/send-db] AGENT 할당", {
         contactId,
