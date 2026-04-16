@@ -25,26 +25,46 @@ import {
 import { cn } from "@/lib/utils";
 import { useClerk, useUser } from "@clerk/nextjs";
 
-// OWNER/AGENT/GLOBAL_ADMIN 메뉴
-const navItems = [
-  { href: "/dashboard",          icon: LayoutDashboard, label: "대시보드" },
-  { href: "/contacts",           icon: Users,           label: "고객 관리" },
-  { href: "/messages",           icon: MessageSquare,   label: "문자 CRM" },
-  { href: "/messages/scheduled", icon: AlarmClock,      label: "예약 발송" },
-  { href: "/sms-logs",           icon: ClipboardList,   label: "발송 기록" },
-  { href: "/funnels",            icon: GitBranch,       label: "퍼널" },
-  { href: "/landing-pages",      icon: FileText,        label: "랜딩페이지" },
-  { href: "/tools",              icon: Wrench,          label: "영업 도구함" },
-  { href: "/playbook",           icon: BookOpen,        label: "콜 플레이북" },
-  { href: "/db",                 icon: Database,        label: "DB 관리" },
-  { href: "/links",              icon: Link2,           label: "상담 링크" },
-  { href: "/b2b",               icon: Building2,       label: "B2B 파이프라인" },
-  { href: "/payments",          icon: CreditCard,      label: "결제 내역" },
-  { href: "/statements",        icon: FileText,        label: "내 정산 내역" },
-  { href: "/team-statements",   icon: Users,           label: "팀 정산" },
-  { href: "/contracts",         icon: ClipboardList,   label: "계약서 관리" },
-  { href: "/documents",         icon: FolderOpen,      label: "서류 관리" },
-  { href: "/news-links",        icon: Newspaper,       label: "뉴스 링크" },
+// OWNER/AGENT/GLOBAL_ADMIN 메뉴 — 섹션 그룹핑
+const navSections = [
+  {
+    label: "CRM",
+    items: [
+      { href: "/dashboard",  icon: LayoutDashboard, label: "대시보드" },
+      { href: "/contacts",   icon: Users,           label: "고객 관리" },
+      { href: "/db",         icon: Database,        label: "DB 관리" },
+      { href: "/b2b",        icon: Building2,       label: "B2B 파이프라인" },
+    ],
+  },
+  {
+    label: "마케팅 자동화",
+    items: [
+      { href: "/messages",           icon: MessageSquare, label: "문자 CRM" },
+      { href: "/messages/scheduled", icon: AlarmClock,    label: "예약 발송" },
+      { href: "/sms-logs",           icon: ClipboardList, label: "발송 기록" },
+      { href: "/funnels",            icon: GitBranch,     label: "퍼널" },
+      { href: "/landing-pages",      icon: FileText,      label: "랜딩페이지" },
+      { href: "/links",              icon: Link2,         label: "상담 링크" },
+      { href: "/news-links",         icon: Newspaper,     label: "뉴스 링크" },
+    ],
+  },
+  {
+    label: "영업 도구",
+    items: [
+      { href: "/tools",    icon: Wrench,   label: "영업 도구함" },
+      { href: "/playbook", icon: BookOpen, label: "콜 플레이북" },
+    ],
+  },
+  {
+    label: "정산·서류",
+    items: [
+      { href: "/payments",        icon: CreditCard,    label: "결제 내역" },
+      { href: "/statements",      icon: FileText,      label: "내 정산 내역" },
+      { href: "/team-statements", icon: Users,         label: "팀 정산" },
+      { href: "/contracts",       icon: ClipboardList, label: "계약서 관리" },
+      { href: "/documents",       icon: FolderOpen,    label: "서류 관리" },
+    ],
+  },
 ];
 
 // FREE_SALES 전용 메뉴 (판매 현황 + 링크만)
@@ -64,7 +84,6 @@ export function SidebarNav({ className }: SidebarNavProps) {
   // Clerk publicMetadata 또는 OrganizationMember role로 FREE_SALES 판별
   // 서버에서 역할 확인이 어려우므로 /my-sales 접근 시 서버에서 제한
   const isFreeSales = (user?.publicMetadata as { role?: string })?.role === "FREE_SALES";
-  const items = isFreeSales ? freeSalesNavItems : navItems;
 
   return (
     <nav
@@ -80,27 +99,62 @@ export function SidebarNav({ className }: SidebarNavProps) {
       </div>
 
       {/* 메뉴 */}
-      <ul className="flex-1 py-4 space-y-0.5 px-3">
-        {items.map((item) => {
-          const isActive =
-            pathname === item.href || pathname.startsWith(item.href + "/");
-          return (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-navy-700 text-white border-l-2 border-gold-500 pl-[10px]"
-                    : "text-gray-300 hover:bg-navy-700 hover:text-white"
-                )}
-              >
-                <item.icon className="w-4 h-4 shrink-0" />
-                {item.label}
-              </Link>
+      <ul className="flex-1 py-4 space-y-0.5 px-3 overflow-y-auto">
+        {isFreeSales ? (
+          freeSalesNavItems.map((item) => {
+            const isActive =
+              pathname === item.href || pathname.startsWith(item.href + "/");
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-navy-700 text-white border-l-2 border-gold-500 pl-[10px]"
+                      : "text-gray-300 hover:bg-navy-700 hover:text-white"
+                  )}
+                >
+                  <item.icon className="w-4 h-4 shrink-0" />
+                  {item.label}
+                </Link>
+              </li>
+            );
+          })
+        ) : (
+          navSections.map((section) => (
+            <li key={section.label}>
+              {/* 섹션 레이블 */}
+              <ul>
+                <li className="px-3 pt-4 pb-1">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    {section.label}
+                  </span>
+                </li>
+                {section.items.map((item) => {
+                  const isActive =
+                    pathname === item.href || pathname.startsWith(item.href + "/");
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                          isActive
+                            ? "bg-navy-700 text-white border-l-2 border-gold-500 pl-[10px]"
+                            : "text-gray-300 hover:bg-navy-700 hover:text-white"
+                        )}
+                      >
+                        <item.icon className="w-4 h-4 shrink-0" />
+                        {item.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
             </li>
-          );
-        })}
+          ))
+        )}
       </ul>
 
       {/* 하단 설정 */}

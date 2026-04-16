@@ -37,6 +37,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: "파일을 첨부하세요." }, { status: 400 });
     }
 
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { ok: false, message: "파일 크기는 10MB 이하여야 합니다" },
+        { status: 400 }
+      );
+    }
+
     const buffer  = Buffer.from(await file.arrayBuffer());
     const wb      = XLSX.read(buffer, { type: "buffer" });
     const sheet   = wb.Sheets[wb.SheetNames[0]];

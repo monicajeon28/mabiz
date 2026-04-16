@@ -35,6 +35,9 @@ export async function GET(req: Request) {
   let sentCount    = 0;
   let skippedCount = 0;
 
+  // N+1 방지: 조직별 SMS 설정 캐시
+  const smsConfigCache: Record<string, Awaited<ReturnType<typeof getOrgSmsConfig>> | null> = {};
+
   for (const seq of sequences) {
     const { contact } = seq;
 
@@ -44,8 +47,11 @@ export async function GET(req: Request) {
       continue;
     }
 
-    // 해당 조직의 SMS 설정 조회
-    const smsConfig = await getOrgSmsConfig(contact.organizationId);
+    // 해당 조직의 SMS 설정 조회 (캐시 적용)
+    if (!(contact.organizationId in smsConfigCache)) {
+      smsConfigCache[contact.organizationId] = await getOrgSmsConfig(contact.organizationId);
+    }
+    const smsConfig = smsConfigCache[contact.organizationId];
     if (!smsConfig?.isActive) {
       skippedCount++;
       continue;
