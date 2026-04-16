@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, buildContactWhere, canDelete } from "@/lib/rbac";
+import { getAuthContext, buildContactWhere, canDelete, maskContactInfo } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 type Params = { params: Promise<{ id: string }> };
@@ -26,7 +26,8 @@ export async function GET(_req: Request, { params }: Params) {
     });
 
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
-    return NextResponse.json({ ok: true, contact });
+    // AGENT 역할이면 개인정보 마스킹
+    return NextResponse.json({ ok: true, contact: maskContactInfo(contact, ctx) });
   } catch (err) {
     logger.error("[GET /api/contacts/[id]]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });

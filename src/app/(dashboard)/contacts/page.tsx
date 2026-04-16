@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Filter, Phone, MessageSquare, CheckCircle, Clock, XCircle } from "lucide-react";
+import { Search, Plus, Filter, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet } from "lucide-react";
 
 type Contact = {
   id: string;
@@ -64,7 +64,13 @@ export default function ContactsPage() {
   const [assigning, setAssigning] = useState<string | null>(null);
 
   // 퀵 콜 상태
-  const [quickCallId, setQuickCallId] = useState<string | null>(null);
+  const [quickCallId,    setQuickCallId]    = useState<string | null>(null);
+
+  // 엑셀 가져오기 (WO-27A)
+  const [showImport,    setShowImport]    = useState(false);
+  const [importFile,    setImportFile]    = useState<File | null>(null);
+  const [importing,     setImporting]     = useState(false);
+  const [importResult,  setImportResult]  = useState<{ successCount: number; skipCount: number; errors: string[] } | null>(null);
   const [quickCallLoading, setQuickCallLoading] = useState(false);
   const [quickCallError, setQuickCallError] = useState<string | null>(null);
 
@@ -88,6 +94,21 @@ export default function ContactsPage() {
   useEffect(() => {
     fetch("/api/groups").then(r => r.json()).then(d => { if (d.ok) setGroups(d.groups ?? []); });
   }, []);
+
+  const runImport = async () => {
+    if (!importFile) return;
+    setImporting(true);
+    setImportResult(null);
+    const form = new FormData();
+    form.append("file", importFile);
+    const res  = await fetch("/api/contacts/import", { method: "POST", body: form });
+    const data = await res.json();
+    if (data.ok) {
+      setImportResult({ successCount: data.successCount, skipCount: data.skipCount, errors: data.errors ?? [] });
+      fetchContacts();
+    }
+    setImporting(false);
+  };
 
   const quickAssign = async (contactId: string, groupId: string) => {
     if (!groupId) return;
@@ -151,18 +172,94 @@ export default function ContactsPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
+
+      {/* 엑셀 가져오기 모달 */}
+      {showImport && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-green-600" /> 엑셀 고객 가져오기
+              </h3>
+              <button onClick={() => setShowImport(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 형식 안내 */}
+            <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-600 space-y-1">
+              <p className="font-semibold">📋 엑셀 파일 형식</p>
+              <p>• 필수: <strong>이름</strong>, <strong>전화번호</strong></p>
+              <p>• 선택: 이메일, 관심크루즈, 예산, 메모, 유형</p>
+              <p>• 유형: "잠재고객" 또는 "구매완료" (기본: 잠재고객)</p>
+              <p>• 중복 전화번호는 정보 업데이트됩니다</p>
+            </div>
+
+            {/* 파일 선택 */}
+            <label className="block">
+              <div className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+                importFile ? "border-green-400 bg-green-50" : "border-gray-200 hover:border-navy-300"
+              }`}>
+                <Upload className={`w-8 h-8 mx-auto mb-2 ${importFile ? "text-green-500" : "text-gray-400"}`} />
+                {importFile
+                  ? <p className="text-sm font-medium text-green-700">{importFile.name}</p>
+                  : <p className="text-sm text-gray-400">파일을 클릭하거나 드래그하세요<br />.xlsx, .xls 지원</p>
+                }
+              </div>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => { setImportFile(e.target.files?.[0] ?? null); setImportResult(null); }}
+              />
+            </label>
+
+            {/* 결과 */}
+            {importResult && (
+              <div className={`rounded-xl p-3 text-sm ${
+                importResult.skipCount === 0 ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-800"
+              }`}>
+                <p className="font-semibold mb-1">
+                  ✅ {importResult.successCount}명 등록 완료
+                  {importResult.skipCount > 0 && ` / ⚠️ ${importResult.skipCount}건 건너뜀`}
+                </p>
+                {importResult.errors.slice(0, 3).map((e, i) => (
+                  <p key={i} className="text-xs opacity-80">{e}</p>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={runImport}
+              disabled={importing || !importFile}
+              className="w-full bg-green-600 text-white py-2.5 rounded-xl font-medium hover:bg-green-700 disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {importing ? <><Upload className="w-4 h-4 animate-bounce" /> 가져오는 중...</> : "가져오기 실행"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-xl font-bold text-navy-900">고객 관리</h1>
           <p className="text-sm text-gray-500 mt-0.5">총 {total.toLocaleString()}명</p>
         </div>
-        <Link
-          href="/contacts/new"
-          className="flex items-center gap-1.5 bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> 고객 추가
-        </Link>
+        <div className="flex gap-2">
+          <button
+            onClick={() => { setShowImport(true); setImportResult(null); setImportFile(null); }}
+            className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
+          >
+            <Upload className="w-4 h-4" /> 엑셀 가져오기
+          </button>
+          <Link
+            href="/contacts/new"
+            className="flex items-center gap-1.5 bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> 고객 추가
+          </Link>
+        </div>
       </div>
 
       {/* 검색 + 필터 */}

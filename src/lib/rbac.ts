@@ -58,11 +58,31 @@ export function buildContactWhere(ctx: AuthContext, extra: Record<string, unknow
     // 대리점장: 자기 조직 전체
     return { organizationId: ctx.organizationId!, ...extra };
   }
-  // AGENT: 자기한테 배당된 것만
+  // AGENT (330만 직속 판매원): 자기 조직 전체 접근 (콜영업용)
+  // 삭제는 불가 (canDelete 참조), 개인정보는 API 레이어에서 마스킹 처리
   return {
     organizationId: ctx.organizationId!,
-    assignedUserId: ctx.userId,
     ...extra,
+  };
+}
+
+/** AGENT 역할에서 고객 개인정보 마스킹 여부 */
+export function shouldMaskContact(ctx: AuthContext): boolean {
+  return ctx.role === "AGENT";
+}
+
+/** 연락처 마스킹 (AGENT용) */
+export function maskContactInfo<T extends { name?: string; phone?: string; email?: string | null }>(
+  contact: T,
+  ctx: AuthContext
+): T {
+  if (!shouldMaskContact(ctx)) return contact;
+  return {
+    ...contact,
+    // AGENT는 이름 성씨만, 전화번호 앞 4자리만
+    name:  contact.name  ? contact.name[0] + "**"              : contact.name,
+    phone: contact.phone ? contact.phone.substring(0, 4) + "****" : contact.phone,
+    email: contact.email ? "***@***"                           : contact.email,
   };
 }
 

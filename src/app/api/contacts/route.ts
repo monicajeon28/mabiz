@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, buildContactWhere, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, buildContactWhere, requireOrgId, maskContactInfo } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
 
@@ -45,7 +45,10 @@ export async function GET(req: Request) {
       prisma.contact.count({ where: baseWhere }),
     ]);
 
-    return NextResponse.json({ ok: true, contacts, total, page, limit });
+    // AGENT 역할이면 개인정보 마스킹
+    const masked = contacts.map((c) => maskContactInfo(c, ctx));
+
+    return NextResponse.json({ ok: true, contacts: masked, total, page, limit });
   } catch (err) {
     logger.error("[GET /api/contacts]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
