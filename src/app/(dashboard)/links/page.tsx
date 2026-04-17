@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Copy, Check, Link2, Plus, BarChart2 } from "lucide-react";
+import { Copy, Check, Link2, Plus, BarChart2, MousePointer } from "lucide-react";
 import { showError } from "@/components/ui/Toast";
 
 type ShortLink = {
@@ -8,6 +8,9 @@ type ShortLink = {
   targetUrl: string; category: string | null;
   clickCount: number; createdAt: string;
 };
+
+type ClickLog = { id: string; contactId: string | null; clickedAt: string };
+type ClickStats = { clickCount: number; clicks: ClickLog[] };
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mabiz.cruisedot.co.kr';
 
@@ -19,13 +22,16 @@ const QUICK_URLS = [
 ];
 
 export default function LinksPage() {
-  const [links,     setLinks]     = useState<ShortLink[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [showForm,  setShowForm]  = useState(false);
-  const [copied,    setCopied]    = useState<string | null>(null);
-  const [title,     setTitle]     = useState('');
-  const [targetUrl, setTargetUrl] = useState('');
-  const [creating,  setCreating]  = useState(false);
+  const [links,        setLinks]        = useState<ShortLink[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [showForm,     setShowForm]     = useState(false);
+  const [copied,       setCopied]       = useState<string | null>(null);
+  const [title,        setTitle]        = useState('');
+  const [targetUrl,    setTargetUrl]    = useState('');
+  const [creating,     setCreating]     = useState(false);
+  const [clickStats,   setClickStats]   = useState<Record<string, ClickStats>>({});
+  const [loadingClicks, setLoadingClicks] = useState<string | null>(null);
+  const [openClickId,  setOpenClickId]  = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -52,6 +58,28 @@ export default function LinksPage() {
       load();
     } catch { showError('링크 생성 실패'); }
     finally { setCreating(false); }
+  };
+
+  const toggleClicks = async (linkId: string) => {
+    if (openClickId === linkId) {
+      setOpenClickId(null);
+      return;
+    }
+    setOpenClickId(linkId);
+    if (clickStats[linkId]) return; // 이미 로드됨
+    setLoadingClicks(linkId);
+    try {
+      const res = await fetch(`/api/links/${linkId}/clicks`);
+      const d = await res.json() as { ok: boolean; clickCount?: number; clicks?: ClickLog[] };
+      if (d.ok) {
+        setClickStats(prev => ({
+          ...prev,
+          [linkId]: { clickCount: d.clickCount ?? 0, clicks: d.clicks ?? [] },
+        }));
+      }
+    } finally {
+      setLoadingClicks(null);
+    }
   };
 
   const copyUrl = (code: string) => {
@@ -116,23 +144,52 @@ export default function LinksPage() {
       ) : (
         <div className="space-y-3">
           {links.map(link => (
-            <div key={link.id} className="border rounded-xl p-4 bg-white shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{link.title ?? link.targetUrl}</p>
-                  <p className="text-xs text-blue-600 mt-0.5">{APP_URL}/l/{link.code}</p>
-                  <p className="text-xs text-gray-400 mt-0.5 truncate">{link.targetUrl}</p>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <div className="flex items-center gap-1 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-lg">
-                    <BarChart2 className="w-3 h-3" /> {link.clickCount}
+            <div key={link.id} className="border rounded-xl bg-white shadow-sm overflow-hidden">
+              <div className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{link.title ?? link.targetUrl}</p>
+                    <p className="text-xs text-blue-600 mt-0.5">{APP_URL}/l/{link.code}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 truncate">{link.targetUrl}</p>
                   </div>
-                  <button onClick={() => copyUrl(link.code)}
-                    className="p-2 hover:bg-gray-100 rounded-lg">
-                    {copied === link.code ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-500" />}
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => toggleClicks(link.id)}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs font-medium text-gray-600 transition-colors"
+                    >
+                      <MousePointer className="w-3 h-3" />
+                      {clickStats[link.id]?.clickCount ?? link.clickCount ?? 0}회
+                      {loadingClicks === link.id && ' ...'}
+                    </button>
+                    <button onClick={() => copyUrl(link.code)}
+                      className="p-2 hover:bg-gray-100 rounded-lg">
+                      {copied === link.code ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-500" />}
+                    </button>
+                  </div>
                 </div>
               </div>
+              {openClickId === link.id && (
+                <div className="bg-gray-50 border-t px-4 py-3">
+                  {(clickStats[link.id]?.clicks ?? []).length === 0 ? (
+                    <p className="text-xs text-gray-400 text-center py-2">클릭 기록이 없습니다</p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                      {(clickStats[link.id]?.clicks ?? []).map(c => (
+                        <div key={c.id} className="flex items-center justify-between text-xs">
+                          <span className="text-gray-500">
+                            {new Date(c.clickedAt).toLocaleDateString('ko-KR', {
+                              month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                            })}
+                          </span>
+                          <span className="text-gray-400">
+                            {c.contactId ? '등록 고객' : '비회원'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>

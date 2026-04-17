@@ -51,6 +51,13 @@ type TimelineItem = {
   badge?: string;
 };
 
+type TransferLog = {
+  id: string;
+  createdAt: string;
+  fromOrg: { name: string } | null;
+  toOrg: { name: string } | null;
+};
+
 export default function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router  = useRouter();
@@ -110,6 +117,10 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const [enrolling,        setEnrolling]        = useState(false);
   const [enrollError,      setEnrollError]      = useState('');
 
+  // 이관 이력
+  const [transferLogs,    setTransferLogs]    = useState<TransferLog[]>([]);
+  const [loadingTransfer, setLoadingTransfer] = useState(false);
+
   // 출발일 + 상품명
   const [showDeptForm,  setShowDeptForm]  = useState(false);
   const [deptForm, setDeptForm]           = useState({ departureDate: "", productName: "", bookingRef: "" });
@@ -154,6 +165,15 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       if (f.ok) setFunnels(f.funnels ?? []);
     }).finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!contact?.id) return;
+    setLoadingTransfer(true);
+    fetch(`/api/contacts/${contact.id}/transfer-logs`)
+      .then(r => r.json())
+      .then(d => { if (d.ok) setTransferLogs(d.logs ?? []); })
+      .finally(() => setLoadingTransfer(false));
+  }, [contact?.id]);
 
   const addCallLog = async () => {
     const res  = await fetch(`/api/contacts/${id}/call-logs`, {
@@ -1086,6 +1106,32 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
               </div>
             )}
           </div>
+
+          {/* 이관 이력 */}
+          {(transferLogs.length > 0 || loadingTransfer) && (
+            <div className="mt-6 border-t pt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">DB 이관 이력</h3>
+              {loadingTransfer ? (
+                <div className="space-y-2">
+                  {[1,2].map(i => <div key={i} className="h-10 bg-gray-100 rounded-lg animate-pulse" />)}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {transferLogs.map(log => (
+                    <div key={log.id} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2.5 text-sm">
+                      <span className="text-gray-500 shrink-0">
+                        {new Date(log.createdAt).toLocaleDateString('ko-KR')}
+                      </span>
+                      <span className="text-gray-400">·</span>
+                      <span className="text-gray-700 truncate">
+                        {log.fromOrg?.name ?? '외부'} → {log.toOrg?.name ?? '외부'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
