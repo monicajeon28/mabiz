@@ -40,6 +40,7 @@ export default function ContactsAllPage() {
   const [contacts, setContacts] = useState<ContactAll[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const [q, setQ] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -57,6 +58,7 @@ export default function ContactsAllPage() {
 
   const fetchContacts = useCallback(async () => {
     setLoading(true);
+    setError('');
     const params = new URLSearchParams({
       page: String(page),
       limit: '30',
@@ -64,13 +66,18 @@ export default function ContactsAllPage() {
       ...(q ? { q } : {}),
       ...(typeFilter ? { type: typeFilter } : {}),
     });
-    const res = await fetch(`/api/contacts/all?${params}`);
-    const data = await res.json();
-    if (data.ok) {
-      setContacts(data.contacts);
-      setTotal(data.total);
+    try {
+      const res = await fetch(`/api/contacts/all?${params}`);
+      if (!res.ok) throw new Error('서버 오류');
+      const data = await res.json() as { ok: boolean; contacts?: ContactAll[]; total?: number };
+      if (!data.ok) throw new Error('데이터 로드 실패');
+      setContacts(data.contacts ?? []);
+      setTotal(data.total ?? 0);
+    } catch {
+      setError('고객 목록을 불러오지 못했습니다');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [page, selectedOrg, q, typeFilter]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
@@ -159,20 +166,30 @@ export default function ContactsAllPage() {
         </div>
       )}
 
+      {/* 에러 */}
+      {error && (
+        <div className="text-center py-12">
+          <p className="text-red-500 text-sm mb-3">{error}</p>
+          <button onClick={fetchContacts} className="px-4 py-2 bg-navy-900 text-white rounded-lg text-sm">
+            다시 시도
+          </button>
+        </div>
+      )}
+
       {/* 고객 목록 */}
-      {loading ? (
+      {!error && loading ? (
         <div className="space-y-3">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
           ))}
         </div>
-      ) : contacts.length === 0 ? (
+      ) : !error && contacts.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-4xl mb-3">👥</p>
           <p className="font-medium">고객이 없습니다</p>
           <p className="text-sm mt-1">검색 조건이나 조직 필터를 변경해보세요.</p>
         </div>
-      ) : (
+      ) : !error ? (
         <div className="space-y-2">
           {contacts.map(c => {
             const typeInfo = TYPE_LABELS[c.type] ?? { label: c.type, color: 'bg-gray-100 text-gray-600' };
@@ -218,7 +235,7 @@ export default function ContactsAllPage() {
             );
           })}
         </div>
-      )}
+      ) : null}
 
       {/* 페이지네이션 */}
       {total > 30 && (

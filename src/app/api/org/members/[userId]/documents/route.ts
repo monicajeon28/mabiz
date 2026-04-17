@@ -7,6 +7,7 @@ import { logger } from '@/lib/logger';
 const BUCKET = 'member-documents';
 const DOC_TYPES = ['ID_CARD', 'BANK_ACCOUNT', 'CONTRACT', 'OTHER'];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'pdf', 'webp', 'heic'];
 
 type Params = { params: Promise<{ userId: string }> };
 
@@ -28,7 +29,18 @@ export async function GET(_req: Request, { params }: Params) {
       orderBy: { uploadedAt: 'desc' },
     });
 
-    return NextResponse.json({ ok: true, documents: docs });
+    // 조회 시점에 signed URL 재생성 (1시간 유효)
+    const supabase = getSupabaseAdmin();
+    const docsWithUrls = await Promise.all(
+      docs.map(async (doc) => {
+        const { data } = await supabase.storage
+          .from(BUCKET)
+          .createSignedUrl(doc.storagePath, 60 * 60); // 1시간 유효
+        return { ...doc, signedUrl: data?.signedUrl ?? null };
+      })
+    );
+
+    return NextResponse.json({ ok: true, documents: docsWithUrls });
   } catch (e) {
     logger.error('[MemberDocs GET]', { e });
     return NextResponse.json({ ok: false }, { status: 500 });
@@ -57,9 +69,25 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: '파일 크기 10MB 초과' }, { status: 400 });
     }
 
+    // 파일 확장자 화이트리스트 검증
+    const fileExt = file.name.split('.').pop()?.toLowerCase() ?? '';
+    if (!ALLOWED_EXTENSIONS.includes(fileExt)) {
+      return NextResponse.json(
+        { ok: false, message: `허용된 파일 형식: ${ALLOWED_EXTENSIONS.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
+    // 파일명 경로 트래버설 방지 — 허용 문자 외 제거 후 확장자만 사용
+    const safeName = file.name
+      .replace(/[^a-zA-Z0-9가-힣._-]/g, '_') // 허용 문자 외 모두 _ 로
+      .replace(/\.\./g, '_')                   // .. 경로 트래버설 방지
+      .substring(0, 100);                      // 길이 제한
+    const safeExt = safeName.split('.').pop()?.toLowerCase() ?? fileExt;
+    const storagePath = `${orgId}/${userId}/${docType}_${Date.now()}.${safeExt}`;
+
     // Supabase Storage 업로드
     const supabase = getSupabaseAdmin();
-    const storagePath = `${orgId}/${userId}/${docType}_${Date.now()}_${file.name}`;
     const arrayBuffer = await file.arrayBuffer();
 
     const { error: uploadError } = await supabase.storage
@@ -74,18 +102,14 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: '업로드 실패' }, { status: 500 });
     }
 
-    // Signed URL 생성 (7일)
-    const { data: urlData } = await supabase.storage
-      .from(BUCKET)
-      .createSignedUrl(storagePath, 60 * 60 * 24 * 7);
-
+    // DB에는 storagePath만 저장 (fileUrl에 signed URL 저장 금지 — 만료 문제)
     const doc = await prisma.memberDocument.create({
       data: {
         organizationId: orgId,
         userId,
         docType,
         fileName: file.name,
-        fileUrl: urlData?.signedUrl ?? '',
+        fileUrl: storagePath, // storagePath 저장 (GET 시 signed URL 재생성)
         storagePath,
         fileSize: file.size,
         status: 'UPLOADED',
