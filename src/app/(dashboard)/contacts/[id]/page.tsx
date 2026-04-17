@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useMemo, use } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Phone, MessageSquare, Edit2,
@@ -26,6 +26,7 @@ type Contact = {
   leadScore: number;
   groups: { group: { id: string; name: string } }[];
   callLogs: CallLog[]; memos: Memo[];
+  vipSequences: { id: string; funnelId: string; status: string; startDate: string }[];
 };
 
 // 크루즈 여행사 특화 추천 태그
@@ -101,16 +102,43 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const [tagInput,      setTagInput]      = useState("");
   const [savingTags,    setSavingTags]    = useState(false);
 
+  // 퍼널 직접 등록
+  const [funnels,          setFunnels]          = useState<{ id: string; name: string; funnelType: string }[]>([]);
+  const [selectedFunnelId, setSelectedFunnelId] = useState('');
+  const [enrollStartDate,  setEnrollStartDate]  = useState('');
+  const [enrollSendNow,    setEnrollSendNow]    = useState(false);
+  const [enrolling,        setEnrolling]        = useState(false);
+  const [enrollError,      setEnrollError]      = useState('');
+
   // 출발일 + 상품명
   const [showDeptForm,  setShowDeptForm]  = useState(false);
   const [deptForm, setDeptForm]           = useState({ departureDate: "", productName: "", bookingRef: "" });
   const [savingDept,    setSavingDept]    = useState(false);
 
+  const fetchContact = () => {
+    fetch(`/api/contacts/${id}`)
+      .then((r) => r.json())
+      .then((c) => {
+        if (c.ok) {
+          setContact(c.contact);
+          setTags(c.contact.tags ?? []);
+          if (c.contact.departureDate) {
+            setDeptForm({
+              departureDate: c.contact.departureDate.split("T")[0],
+              productName:   c.contact.productName ?? "",
+              bookingRef:    c.contact.bookingRef  ?? "",
+            });
+          }
+        }
+      });
+  };
+
   useEffect(() => {
     Promise.all([
       fetch(`/api/contacts/${id}`).then((r) => r.json()),
       fetch("/api/groups").then((r) => r.json()),
-    ]).then(([c, g]) => {
+      fetch("/api/funnels").then((r) => r.json()),
+    ]).then(([c, g, f]) => {
       if (c.ok) {
         setContact(c.contact);
         setTags(c.contact.tags ?? []);
@@ -123,6 +151,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         }
       }
       if (g.ok) setAllGroups(g.groups);
+      if (f.ok) setFunnels(f.funnels ?? []);
     }).finally(() => setLoading(false));
   }, [id]);
 
@@ -305,6 +334,10 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     }
     setSavingDept(false);
   };
+
+  const enrolledFunnelIds = useMemo(() => {
+    return new Set((contact?.vipSequences ?? []).map((s) => s.funnelId));
+  }, [contact]);
 
   if (loading) return (
     <div className="p-6 space-y-4">
@@ -949,6 +982,107 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                     {g.name}
                   </span>
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* 퍼널 직접 등록 */}
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+              <GitBranch className="w-4 h-4 text-blue-500" />
+              퍼널 직접 등록
+            </h3>
+            <p className="text-xs text-gray-400 mb-3">그룹 없이 퍼널에 바로 등록합니다</p>
+
+            <div className="space-y-3">
+              <select
+                value={selectedFunnelId}
+                onChange={(e) => setSelectedFunnelId(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="">퍼널 선택</option>
+                {funnels.map((f) => (
+                  <option
+                    key={f.id}
+                    value={f.id}
+                    disabled={enrolledFunnelIds.has(f.id)}
+                  >
+                    {f.name}{enrolledFunnelIds.has(f.id) ? ' (이미 등록됨)' : ''}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                type="date"
+                value={enrollStartDate}
+                onChange={(e) => setEnrollStartDate(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="시작일 (비우면 오늘)"
+              />
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={enrollSendNow}
+                  onChange={(e) => setEnrollSendNow(e.target.checked)}
+                  className="w-4 h-4 rounded accent-blue-600"
+                />
+                <span className="text-sm text-gray-700">즉시 첫 메시지 발송</span>
+              </label>
+
+              {enrollError && <p className="text-xs text-red-500">{enrollError}</p>}
+
+              <button
+                onClick={async () => {
+                  if (!selectedFunnelId) return;
+                  setEnrolling(true);
+                  setEnrollError('');
+                  const res = await fetch(`/api/funnels/${selectedFunnelId}/enroll`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      contactId: contact.id,
+                      startDate: enrollStartDate || undefined,
+                      sendNow: enrollSendNow,
+                    }),
+                  });
+                  const d = await res.json();
+                  if (d.ok) {
+                    setSelectedFunnelId('');
+                    setEnrollStartDate('');
+                    setEnrollSendNow(false);
+                    fetchContact();
+                  } else {
+                    setEnrollError(d.message ?? '등록 실패');
+                  }
+                  setEnrolling(false);
+                }}
+                disabled={!selectedFunnelId || enrolling}
+                className="w-full py-2.5 bg-navy-900 text-white rounded-xl text-sm font-medium disabled:opacity-50 hover:bg-navy-800"
+              >
+                {enrolling ? '등록 중...' : '퍼널 등록'}
+              </button>
+            </div>
+
+            {/* 등록된 퍼널 목록 */}
+            {(contact.vipSequences ?? []).length > 0 && (
+              <div className="mt-4 border-t pt-3">
+                <p className="text-xs font-medium text-gray-500 mb-2">등록된 퍼널</p>
+                <div className="space-y-1.5">
+                  {(contact.vipSequences ?? []).map((seq) => {
+                    const funnel = funnels.find((f) => f.id === seq.funnelId);
+                    return (
+                      <div key={seq.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                        <span className="text-xs font-medium text-gray-700">{funnel?.name ?? seq.funnelId}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          seq.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {seq.status === 'ACTIVE' ? '진행중' : seq.status}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, Plus, Filter, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet } from "lucide-react";
@@ -13,6 +13,7 @@ type Contact = {
   cruiseInterest: string | null;
   lastContactedAt: string | null;
   leadScore: number;
+  tags: string[] | null;
   groups: { group: { id: string; name: string; color: string | null } }[];
   _count: { callLogs: number };
 };
@@ -62,6 +63,10 @@ export default function ContactsPage() {
   const [groups, setGroups] = useState<{ id: string; name: string; funnelId: string | null }[]>([]);
   const [bulkGroupId, setBulkGroupId] = useState<string>("");
   const [assigning, setAssigning] = useState<string | null>(null);
+
+  // 태그 필터 상태
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [showTagBlast, setShowTagBlast] = useState(false);
 
   // 퀵 콜 상태
   const [quickCallId,    setQuickCallId]    = useState<string | null>(null);
@@ -159,6 +164,21 @@ export default function ContactsPage() {
     }
   };
 
+  // 동적 태그 목록 수집
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    contacts.forEach(c => (c.tags ?? []).forEach(t => set.add(t)));
+    return Array.from(set).sort();
+  }, [contacts]);
+
+  // 태그 필터 적용된 고객 목록
+  const filteredContacts = useMemo(() => {
+    if (selectedTags.length === 0) return contacts;
+    return contacts.filter(c =>
+      selectedTags.every(t => (c.tags ?? []).includes(t))
+    );
+  }, [contacts, selectedTags]);
+
   // 오늘 콜할 사람: LEAD + (연락 없음 OR 3일 이상 연락 없음) → 리드 스코어 높은 순
   const todayCallList = contacts
     .filter((c) => {
@@ -247,6 +267,15 @@ export default function ContactsPage() {
           <p className="text-sm text-gray-500 mt-0.5">총 {total.toLocaleString()}명</p>
         </div>
         <div className="flex gap-2">
+          {selectedTags.length > 0 && (
+            <button
+              onClick={() => setShowTagBlast(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              <MessageSquare className="w-4 h-4" />
+              태그 SMS ({filteredContacts.length}명)
+            </button>
+          )}
           <button
             onClick={() => { setShowImport(true); setImportResult(null); setImportFile(null); }}
             className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
@@ -287,6 +316,35 @@ export default function ContactsPage() {
           </select>
         </div>
       </div>
+
+      {/* 태그 칩 필터 */}
+      {allTags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 px-0 pb-3">
+          {allTags.map(tag => (
+            <button
+              key={tag}
+              onClick={() => setSelectedTags(prev =>
+                prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+              )}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                selectedTags.includes(tag)
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              #{tag}
+            </button>
+          ))}
+          {selectedTags.length > 0 && (
+            <button
+              onClick={() => setSelectedTags([])}
+              className="px-2.5 py-1 rounded-full text-xs text-gray-400 hover:text-gray-600"
+            >
+              초기화
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 오늘 콜할 사람 */}
       {todayCallList.length > 0 && (
@@ -358,15 +416,15 @@ export default function ContactsPage() {
             <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
           ))}
         </div>
-      ) : contacts.length === 0 ? (
+      ) : filteredContacts.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-4xl mb-3">👥</p>
-          <p className="font-medium">고객이 없습니다</p>
-          <p className="text-sm mt-1">위 버튼으로 고객을 추가해보세요.</p>
+          <p className="font-medium">{selectedTags.length > 0 ? '해당 태그를 보유한 고객이 없습니다' : '고객이 없습니다'}</p>
+          <p className="text-sm mt-1">{selectedTags.length > 0 ? '다른 태그를 선택해보세요.' : '위 버튼으로 고객을 추가해보세요.'}</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {contacts.map((c) => {
+          {filteredContacts.map((c) => {
             const typeInfo = TYPE_LABELS[c.type] ?? { label: c.type, color: "bg-gray-100 text-gray-600" };
             const tierInfo = getLeadTier(c.leadScore ?? 0);
             const isQuickCallOpen = quickCallId === c.id;
@@ -513,6 +571,182 @@ export default function ContactsPage() {
           </button>
         </div>
       )}
+
+      {/* TagBlast 모달 */}
+      {showTagBlast && (
+        <TagBlastModal
+          tags={selectedTags}
+          onClose={() => setShowTagBlast(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function TagBlastModal({
+  tags, onClose
+}: { tags: string[]; onClose: () => void }) {
+  const [tab, setTab] = useState<'template' | 'direct'>('direct');
+  const [message, setMessage] = useState('');
+  const [templates, setTemplates] = useState<{ id: string; name: string; content: string }[]>([]);
+  const [preview, setPreview] = useState<{ willSend: number; isOverLimit: boolean; overLimitMsg: string | null } | null>(null);
+  const [step, setStep] = useState<'write' | 'preview' | 'done'>('write');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+
+  // 템플릿 로드
+  useEffect(() => {
+    fetch('/api/tools/sms-templates')
+      .then(r => r.json())
+      .then(d => { if (d.ok) setTemplates(d.templates ?? []); });
+  }, []);
+
+  const handlePreview = async () => {
+    if (!message.trim()) return;
+    setSending(true);
+    setSendError(null);
+    const res = await fetch('/api/contacts/tag-blast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags, message, dryRun: true }),
+    });
+    const d = await res.json();
+    if (d.ok) {
+      setPreview(d);
+      setStep('preview');
+    } else {
+      setSendError(d.error ?? '오류가 발생했습니다.');
+    }
+    setSending(false);
+  };
+
+  const handleSend = async () => {
+    setSending(true);
+    setSendError(null);
+    const res = await fetch('/api/contacts/tag-blast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags, message, dryRun: false }),
+    });
+    const d = await res.json();
+    if (d.ok) {
+      setStep('done');
+    } else {
+      setSendError(d.error ?? '발송에 실패했습니다.');
+    }
+    setSending(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between px-5 py-4 border-b">
+          <div>
+            <h2 className="font-semibold text-gray-900">태그 SMS 발송</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {tags.map(t => `#${t}`).join(' · ')} 태그 보유 고객 (AND 조건)
+            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+        </div>
+
+        <div className="p-5">
+          {step === 'write' && (
+            <>
+              {/* 탭 */}
+              <div className="flex gap-2 mb-4">
+                {(['direct', 'template'] as const).map(t => (
+                  <button key={t} onClick={() => setTab(t)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      tab === t ? 'bg-navy-900 text-white' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                    {t === 'direct' ? '직접 입력' : '템플릿 선택'}
+                  </button>
+                ))}
+              </div>
+
+              {tab === 'direct' ? (
+                <textarea
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  placeholder="발송할 메시지를 입력하세요"
+                  className="w-full border rounded-xl p-3 text-sm h-32 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {templates.map(t => (
+                    <button key={t.id} onClick={() => { setMessage(t.content); setTab('direct'); }}
+                      className="w-full text-left px-3 py-2.5 border rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors">
+                      <p className="text-sm font-medium text-gray-800">{t.name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">{t.content}</p>
+                    </button>
+                  ))}
+                  {templates.length === 0 && (
+                    <p className="text-sm text-gray-400 text-center py-4">등록된 템플릿이 없습니다</p>
+                  )}
+                </div>
+              )}
+
+              <p className="text-xs text-gray-400 mt-2">
+                * 선택한 태그를 모두 보유한 고객에게만 발송됩니다 (AND 조건)
+              </p>
+
+              {sendError && <p className="text-xs text-red-500 mt-2">{sendError}</p>}
+
+              <button
+                onClick={handlePreview}
+                disabled={!message.trim() || sending}
+                className="w-full mt-4 py-3 bg-blue-600 text-white rounded-xl text-sm font-medium disabled:opacity-50"
+              >
+                {sending ? '확인 중...' : '발송 대상 확인'}
+              </button>
+            </>
+          )}
+
+          {step === 'preview' && preview && (
+            <div className="space-y-4">
+              <div className={`rounded-xl p-4 ${preview.isOverLimit ? 'bg-red-50' : 'bg-blue-50'}`}>
+                <p className="text-lg font-bold text-center">
+                  {preview.willSend}명에게 발송됩니다
+                </p>
+                {preview.isOverLimit && (
+                  <p className="text-xs text-red-600 text-center mt-1">{preview.overLimitMsg}</p>
+                )}
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-xs text-gray-500 mb-1">발송 메시지</p>
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">{message}</p>
+              </div>
+              {sendError && <p className="text-xs text-red-500">{sendError}</p>}
+              <div className="flex gap-2">
+                <button onClick={() => setStep('write')}
+                  className="flex-1 py-3 border rounded-xl text-sm text-gray-600">
+                  수정
+                </button>
+                <button onClick={handleSend} disabled={sending}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-medium disabled:opacity-50">
+                  {sending ? '발송 중...' : '발송하기'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 'done' && (
+            <div className="text-center py-6">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-green-600 text-xl">✓</span>
+              </div>
+              <p className="font-semibold text-gray-900">발송 완료</p>
+              <p className="text-sm text-gray-500 mt-1">{preview?.willSend}명에게 SMS를 발송했습니다</p>
+              <button onClick={onClose}
+                className="mt-4 px-6 py-2.5 bg-navy-900 text-white rounded-xl text-sm">
+                닫기
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

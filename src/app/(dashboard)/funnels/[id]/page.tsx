@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   ArrowLeft, Plus, Trash2, Save, Eye, EyeOff,
-  ChevronUp, ChevronDown, MessageSquare, Zap, Link2, Check, Wand2
+  ChevronUp, ChevronDown, MessageSquare, Zap, Link2, Check, Wand2, Users
 } from "lucide-react";
 import { showError } from "@/components/ui/Toast";
 
@@ -50,6 +50,7 @@ export default function FunnelEditPage() {
   const [previewIdx,    setPreviewIdx]    = useState<number | null>(null);
   const [shortlinking,  setShortlinking]  = useState<number | null>(null); // 숏링크 생성 중인 stage idx
   const [copiedLink,    setCopiedLink]    = useState<number | null>(null);
+  const [showEnroll,    setShowEnroll]    = useState(false);
 
   // 긴 URL → 자동 숏링크 생성 후 linkUrl에 적용
   const makeShortLink = async (idx: number, rawUrl: string) => {
@@ -188,6 +189,13 @@ export default function FunnelEditPage() {
             {saveMsg}
           </span>
         )}
+        <button
+          onClick={() => setShowEnroll(true)}
+          className="flex items-center gap-1.5 px-3 py-2 bg-navy-900 text-white rounded-lg text-sm font-medium hover:bg-navy-800"
+        >
+          <Users className="w-4 h-4" />
+          고객 등록
+        </button>
         <button
           onClick={save}
           disabled={saving}
@@ -459,6 +467,14 @@ export default function FunnelEditPage() {
           {saving ? "저장 중..." : "전체 저장"}
         </button>
       </div>
+
+      {showEnroll && (
+        <EnrollModal
+          funnelId={id}
+          onClose={() => setShowEnroll(false)}
+          onDone={() => { /* 필요시 load() 호출 */ }}
+        />
+      )}
     </div>
   );
 }
@@ -502,6 +518,123 @@ function NewsLinkPicker({ onSelect }: { onSelect: (url: string) => void }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── 고객 퍼널 등록 모달 ─────────────────────────────────────────────
+function EnrollModal({
+  funnelId,
+  onClose,
+  onDone,
+}: {
+  funnelId: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [q, setQ] = useState('');
+  const [contacts, setContacts] = useState<{ id: string; name: string; phone: string; type: string }[]>([]);
+  const [selected, setSelected] = useState<{ id: string; name: string } | null>(null);
+  const [startDate, setStartDate] = useState('');
+  const [sendNow, setSendNow] = useState(false);
+  const [enrolling, setEnrolling] = useState(false);
+  const [error, setError] = useState('');
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 고객 검색 (디바운스 300ms)
+  const search = (val: string) => {
+    setQ(val);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (!val.trim()) { setContacts([]); return; }
+    timerRef.current = setTimeout(async () => {
+      const res = await fetch(`/api/contacts?q=${encodeURIComponent(val)}&limit=10`);
+      const d = await res.json() as { ok: boolean; contacts?: { id: string; name: string; phone: string; type: string }[] };
+      if (d.ok) setContacts(d.contacts ?? []);
+    }, 300);
+  };
+
+  const handleEnroll = async () => {
+    if (!selected) return;
+    setEnrolling(true);
+    setError('');
+    const res = await fetch(`/api/funnels/${funnelId}/enroll`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contactId: selected.id,
+        startDate: startDate || undefined,
+        sendNow,
+      }),
+    });
+    const d = await res.json() as { ok: boolean; message?: string };
+    if (d.ok) { onDone(); onClose(); }
+    else setError(d.message ?? '등록 실패');
+    setEnrolling(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b">
+          <h2 className="font-semibold">고객 퍼널 등록</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+        <div className="p-5 space-y-4">
+          {/* 고객 검색 */}
+          {!selected ? (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">고객 검색</label>
+              <input
+                value={q}
+                onChange={e => search(e.target.value)}
+                placeholder="이름 또는 전화번호"
+                className="w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {contacts.length > 0 && (
+                <div className="mt-2 border rounded-xl overflow-hidden">
+                  {contacts.map(c => (
+                    <button key={c.id} onClick={() => { setSelected(c); setQ(''); setContacts([]); }}
+                      className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 border-b last:border-0">
+                      <span className="font-medium">{c.name}</span>
+                      <span className="text-gray-400 ml-2 text-xs">{c.phone.substring(0, 4)}****</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-between bg-blue-50 rounded-xl px-4 py-3">
+              <span className="text-sm font-medium text-blue-800">{selected.name}</span>
+              <button onClick={() => setSelected(null)} className="text-blue-400 hover:text-blue-600 text-xs">변경</button>
+            </div>
+          )}
+
+          {/* 시작일 (선택) */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">
+              시작일 <span className="text-gray-400">(비우면 오늘)</span>
+            </label>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+              className="w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* 즉시 발송 토글 */}
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" checked={sendNow} onChange={e => setSendNow(e.target.checked)}
+              className="w-4 h-4 rounded accent-blue-600"
+            />
+            <span className="text-sm text-gray-700">등록 즉시 첫 메시지 발송</span>
+          </label>
+
+          {error && <p className="text-xs text-red-500">{error}</p>}
+
+          <button onClick={handleEnroll} disabled={!selected || enrolling}
+            className="w-full py-3 bg-navy-900 text-white rounded-xl text-sm font-medium disabled:opacity-50">
+            {enrolling ? '등록 중...' : '퍼널 등록'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

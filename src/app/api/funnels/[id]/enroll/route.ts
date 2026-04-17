@@ -35,6 +35,18 @@ export async function POST(req: Request, { params }: Params) {
 
     const baseDate = startDate ? new Date(startDate) : new Date();
 
+    // 중복 등록 방지
+    const existing = await prisma.vipCareSequence.findFirst({
+      where: { contactId, funnelId, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (existing) {
+      return NextResponse.json(
+        { ok: false, message: '이미 이 퍼널에 등록된 고객입니다', alreadyEnrolled: true },
+        { status: 409 }
+      );
+    }
+
     // VipCareSequence + Log 생성
     const sequence = await prisma.vipCareSequence.create({
       data: {
