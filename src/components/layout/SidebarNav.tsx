@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
+  Users2,
   MessageSquare,
   GitBranch,
   FileText,
@@ -23,6 +24,8 @@ import {
   FolderOpen,
   BarChart2,
   Calculator,
+  Phone,
+  ShoppingBag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk, useUser } from "@clerk/nextjs";
@@ -34,8 +37,10 @@ const navSections = [
     label: "CRM",
     items: [
       { href: "/dashboard",  icon: LayoutDashboard, label: "대시보드" },
-      { href: "/contacts",   icon: Users,           label: "고객 관리" },
-      { href: "/db",         icon: Database,        label: "DB 관리" },
+      { href: "/contacts",            icon: Users,        label: "고객 관리" },
+      { href: "/contacts/inquiries", icon: Phone,        label: "문의 고객" },
+      { href: "/contacts/purchased", icon: ShoppingBag,  label: "구매 고객" },
+      { href: "/db",                 icon: Database,     label: "DB 관리" },
       { href: "/b2b",        icon: Building2,       label: "B2B 파이프라인" },
     ],
   },
@@ -89,7 +94,9 @@ export function SidebarNav({ className }: SidebarNavProps) {
 
   // Clerk publicMetadata 또는 OrganizationMember role로 FREE_SALES 판별
   // 서버에서 역할 확인이 어려우므로 /my-sales 접근 시 서버에서 제한
-  const isFreeSales = (user?.publicMetadata as { role?: string })?.role === "FREE_SALES";
+  const role        = (user?.publicMetadata as { role?: string })?.role;
+  const isFreeSales = role === "FREE_SALES";
+  const isGlobalAdmin = role === "GLOBAL_ADMIN";
 
   return (
     <nav
@@ -160,6 +167,26 @@ export function SidebarNav({ className }: SidebarNavProps) {
                     </li>
                   );
                 })}
+                {/* GLOBAL_ADMIN 전용: 전체 고객 관리 (CRM 섹션에만 표시) */}
+                {section.label === "CRM" && isGlobalAdmin && (() => {
+                  const isActive = pathname === "/contacts/all" || pathname.startsWith("/contacts/all/");
+                  return (
+                    <li key="/contacts/all">
+                      <Link
+                        href="/contacts/all"
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                          isActive
+                            ? "bg-navy-700 text-white border-l-2 border-gold-500 pl-[10px]"
+                            : "text-gray-300 hover:bg-navy-700 hover:text-white"
+                        )}
+                      >
+                        <Users2 className="w-4 h-4 shrink-0" />
+                        전체 고객 (관리자)
+                      </Link>
+                    </li>
+                  );
+                })()}
               </ul>
             </li>
           ))
