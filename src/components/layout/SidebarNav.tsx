@@ -170,6 +170,26 @@ export function SidebarNav({ className }: SidebarNavProps) {
                     </li>
                   );
                 })}
+                {/* GLOBAL_ADMIN 전용: 계약서 템플릿 (정산·서류 섹션에만 표시) */}
+                {section.label === "정산·서류" && isGlobalAdmin && (() => {
+                  const isTemplatesActive = pathname === "/contracts/templates" || pathname.startsWith("/contracts/templates/");
+                  return (
+                    <li key="/contracts/templates">
+                      <Link
+                        href="/contracts/templates"
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                          isTemplatesActive
+                            ? "bg-navy-700 text-white border-l-2 border-gold-500 pl-[10px]"
+                            : "text-gray-300 hover:bg-navy-700 hover:text-white"
+                        )}
+                      >
+                        <FileText className="w-4 h-4 shrink-0" />
+                        계약서 템플릿
+                      </Link>
+                    </li>
+                  );
+                })()}
                 {/* GLOBAL_ADMIN 전용: 전체 고객 관리 + 어필리에이트 성과 (CRM 섹션에만 표시) */}
                 {section.label === "CRM" && isGlobalAdmin && (() => {
                   const isAllActive = pathname === "/contacts/all" || pathname.startsWith("/contacts/all/");

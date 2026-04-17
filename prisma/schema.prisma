@@ -802,3 +802,19 @@ model MemberDocument {
   @@index([organizationId, userId])
   @@map("MemberDocument")
 }
+
+// ─── 시스템 설정 (크루즈몰 공유 테이블) ─────────────────────────
+// 계약서 템플릿 등 시스템 설정 저장용 — 크루즈몰과 동일 Neon DB 공유
+model SystemConfig {
+  id          Int      @id @default(autoincrement())
+  configKey   String   @unique
+  configValue String?
+  description String?
+  category    String   @default("general")
+  isActive    Boolean  @default(true)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("SystemConfig")
+}
