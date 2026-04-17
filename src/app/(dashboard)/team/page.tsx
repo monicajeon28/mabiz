@@ -5,6 +5,12 @@ import { Users, TrendingUp, UserCheck, BarChart } from "lucide-react";
 import { showError } from "@/components/ui/Toast";
 import { logger } from "@/lib/logger";
 
+type AgentMetric = {
+  agent: { id: string; affiliateCode: string; displayName: string | null; status: string };
+  leads: { total: number };
+  sales: { count: number; salesCommission: number | null };
+};
+
 type Member = {
   userId: string;
   displayName: string | null;
@@ -67,10 +73,73 @@ function KpiCard({
   );
 }
 
+function LeaderboardSection() {
+  const [agents, setAgents] = useState<AgentMetric[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/team/agents")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) setAgents(d.metrics ?? []);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const rankEmojis = ["🥇", "🥈", "🥉"];
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  if (agents.length === 0) {
+    return (
+      <div className="text-center py-16 text-gray-400">
+        <p>판매원 데이터가 없습니다</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {agents.map((item, idx) => (
+        <div
+          key={item.agent.id}
+          className="bg-white border rounded-xl p-4 flex items-center gap-4"
+        >
+          <span className="text-2xl w-8">{rankEmojis[idx] ?? `${idx + 1}`}</span>
+          <div className="flex-1">
+            <p className="font-semibold">
+              {item.agent.displayName ?? item.agent.affiliateCode}
+            </p>
+            <p className="text-xs text-gray-500">
+              리드 {item.leads.total}건 · 판매 {item.sales.count}건
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="font-bold text-navy-900">
+              {(item.sales.salesCommission ?? 0).toLocaleString()}원
+            </p>
+            <p className="text-xs text-gray-400">커미션</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function TeamPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"crm" | "leaderboard">("crm");
 
   useEffect(() => {
     fetch("/api/team/crm-stats")
@@ -94,9 +163,39 @@ export default function TeamPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-8">
       {/* 헤더 */}
       <div>
-        <h1 className="text-2xl font-bold text-navy-900">팀 CRM 성과</h1>
-        <p className="text-sm text-gray-500 mt-1">조직 전체 CRM 실적 현황</p>
+        <h1 className="text-2xl font-bold text-navy-900">팀 성과</h1>
+        <p className="text-sm text-gray-500 mt-1">조직 전체 CRM 실적 및 판매원 순위</p>
       </div>
+
+      {/* 탭 */}
+      <div className="flex gap-2 border-b pb-3">
+        <button
+          onClick={() => setActiveTab("crm")}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            activeTab === "crm"
+              ? "bg-navy-900 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          CRM 성과
+        </button>
+        <button
+          onClick={() => setActiveTab("leaderboard")}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            activeTab === "leaderboard"
+              ? "bg-navy-900 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          판매원 순위
+        </button>
+      </div>
+
+      {/* 리더보드 탭 */}
+      {activeTab === "leaderboard" && <LeaderboardSection />}
+
+      {/* CRM 성과 탭 */}
+      {activeTab === "crm" && (<>
 
       {/* KPI 카드 */}
       {loading ? (
@@ -195,6 +294,7 @@ export default function TeamPage() {
           </table>
         </div>
       </div>
+      </>)}
     </div>
   );
 }
