@@ -1,8 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Copy, Check, Loader2, UserX, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react';
+import {
+  ArrowLeft, Copy, Check, Loader2, UserX,
+  ToggleLeft, ToggleRight, Trash2, FileText,
+  Upload, X, Download,
+} from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
@@ -11,7 +15,6 @@ type Member = {
   displayName: string | null;
   role: string;
   isActive: boolean;
-  createdAt: string;
 };
 
 type InviteToken = {
@@ -26,6 +29,16 @@ type InviteToken = {
   createdAt: string;
 };
 
+type MemberDoc = {
+  id: string;
+  docType: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number | null;
+  status: string;
+  uploadedAt: string;
+};
+
 const ROLE_LABELS: Record<string, string> = {
   OWNER: '대리점장',
   AGENT: '판매원',
@@ -37,6 +50,20 @@ const ROLE_BADGE: Record<string, string> = {
   AGENT: 'bg-blue-100 text-blue-700',
   FREE_SALES: 'bg-gray-100 text-gray-600',
 };
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  ID_CARD: '신분증',
+  BANK_ACCOUNT: '계좌사본',
+  CONTRACT: '계약서',
+  OTHER: '기타',
+};
+
+function formatBytes(bytes: number | null): string {
+  if (!bytes) return '-';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 function ShimmerCard() {
   return (
@@ -50,6 +77,185 @@ function ShimmerCard() {
   );
 }
 
+// ─── 서류 패널 ───────────────────────────────────────────────
+function MemberDocumentPanel({ userId }: { userId: string }) {
+  const [docs, setDocs] = useState<MemberDoc[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [docType, setDocType] = useState('ID_CARD');
+  const [file, setFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 삭제 컨펌
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDocId, setPendingDocId] = useState<string | null>(null);
+
+  const fetchDocs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/org/members/${userId}/documents`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setDocs(data.documents ?? []);
+    } catch {
+      showError('서류 목록을 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => { fetchDocs(); }, [fetchDocs]);
+
+  async function handleUpload() {
+    if (!file) { showError('파일을 선택해 주세요.'); return; }
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('docType', docType);
+      const res = await fetch(`/api/org/members/${userId}/documents`, {
+        method: 'POST',
+        body: form,
+      });
+      const data = await res.json();
+      if (!data.ok) { showError(data.message ?? '업로드 실패'); return; }
+      showSuccess('서류를 업로드했습니다.');
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      await fetchDocs();
+    } catch {
+      showError('업로드 중 오류가 발생했습니다.');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function openDeleteDoc(docId: string) {
+    setPendingDocId(docId);
+    setConfirmOpen(true);
+  }
+
+  async function handleDeleteDoc() {
+    if (!pendingDocId) return;
+    setConfirmOpen(false);
+    try {
+      const res = await fetch(`/api/org/members/${userId}/documents/${pendingDocId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!data.ok) { showError('삭제에 실패했습니다.'); return; }
+      showSuccess('서류를 삭제했습니다.');
+      setDocs((prev) => prev.filter((d) => d.id !== pendingDocId));
+    } catch {
+      showError('요청 처리 중 오류가 발생했습니다.');
+    } finally {
+      setPendingDocId(null);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* 업로드 폼 */}
+      <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-3">
+        <p className="text-xs font-semibold text-gray-600">서류 업로드</p>
+        <select
+          value={docType}
+          onChange={(e) => setDocType(e.target.value)}
+          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+        >
+          {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png,.webp"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          className="w-full text-sm text-gray-600 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+        />
+        {file && (
+          <p className="text-xs text-gray-500 truncate">{file.name} ({formatBytes(file.size)})</p>
+        )}
+        <button
+          onClick={handleUpload}
+          disabled={uploading || !file}
+          className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
+          <Upload className="w-4 h-4" />
+          업로드
+        </button>
+      </div>
+
+      {/* 서류 목록 */}
+      {loading ? (
+        <div className="flex justify-center py-6">
+          <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+        </div>
+      ) : docs.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-8 text-gray-400">
+          <FileText className="w-7 h-7" />
+          <p className="text-xs">등록된 서류가 없습니다.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {docs.map((doc) => (
+            <div
+              key={doc.id}
+              className="flex items-start gap-3 p-3 bg-white rounded-xl border border-gray-200"
+            >
+              <FileText className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-gray-800 truncate">{doc.fileName}</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {DOC_TYPE_LABELS[doc.docType] ?? doc.docType} · {formatBytes(doc.fileSize)}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {new Date(doc.uploadedAt).toLocaleDateString('ko-KR')}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <a
+                  href={doc.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:text-blue-700 p-1"
+                  aria-label="다운로드"
+                  title="새 탭에서 열기"
+                >
+                  <Download className="w-4 h-4" />
+                </a>
+                <button
+                  onClick={() => openDeleteDoc(doc.id)}
+                  className="text-red-400 hover:text-red-600 p-1"
+                  aria-label="삭제"
+                  title="서류 삭제"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 삭제 확인 다이얼로그 */}
+      <ConfirmDialog
+        open={confirmOpen}
+        title="서류 삭제"
+        message="이 서류를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+        confirmLabel="삭제"
+        cancelLabel="취소"
+        variant="danger"
+        onConfirm={handleDeleteDoc}
+        onCancel={() => { setConfirmOpen(false); setPendingDocId(null); }}
+      />
+    </div>
+  );
+}
+
+// ─── 메인 페이지 ─────────────────────────────────────────────
 export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<InviteToken[]>([]);
@@ -63,9 +269,12 @@ export default function MembersPage() {
   const [createdUrl, setCreatedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // ConfirmDialog 상태
+  // ConfirmDialog 상태 (멤버 삭제)
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+
+  // 서류 패널
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
   const fetchMembers = useCallback(async () => {
     setLoadingMembers(true);
@@ -138,6 +347,7 @@ export default function MembersPage() {
       }
       showSuccess('팀원을 삭제했습니다.');
       setMembers((prev) => prev.filter((m) => m.userId !== pendingDelete));
+      if (selectedMember?.userId === pendingDelete) setSelectedMember(null);
     } catch {
       showError('요청 처리 중 오류가 발생했습니다.');
     } finally {
@@ -246,9 +456,12 @@ export default function MembersPage() {
                         {ROLE_LABELS[member.role] ?? member.role}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      가입일 {new Date(member.createdAt).toLocaleDateString('ko-KR')}
-                    </p>
+                    <button
+                      onClick={() => setSelectedMember(member)}
+                      className="text-xs text-blue-600 hover:underline mt-1"
+                    >
+                      서류 관리
+                    </button>
                   </div>
 
                   {/* 활성화 토글 */}
@@ -388,7 +601,7 @@ export default function MembersPage() {
         )}
       </section>
 
-      {/* 삭제 확인 다이얼로그 */}
+      {/* 멤버 삭제 확인 다이얼로그 */}
       <ConfirmDialog
         open={confirmOpen}
         title="팀원 삭제"
@@ -402,6 +615,31 @@ export default function MembersPage() {
           setPendingDelete(null);
         }}
       />
+
+      {/* 서류 슬라이드 오버 패널 */}
+      {selectedMember && (
+        <div className="fixed inset-0 z-50 flex">
+          <div
+            className="flex-1 bg-black/40"
+            onClick={() => setSelectedMember(null)}
+          />
+          <div className="w-full max-w-sm bg-white h-full overflow-y-auto shadow-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-gray-900">
+                {selectedMember.displayName ?? '팀원'} 서류
+              </h2>
+              <button
+                onClick={() => setSelectedMember(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="닫기"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <MemberDocumentPanel userId={selectedMember.userId} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
