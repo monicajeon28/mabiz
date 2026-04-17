@@ -23,9 +23,11 @@ import {
   Newspaper,
   FolderOpen,
   BarChart2,
+  BarChart,
   Calculator,
   Phone,
   ShoppingBag,
+  Award,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk, useUser } from "@clerk/nextjs";
@@ -42,6 +44,7 @@ const navSections = [
       { href: "/contacts/purchased", icon: ShoppingBag,  label: "구매 고객" },
       { href: "/db",                 icon: Database,     label: "DB 관리" },
       { href: "/b2b",        icon: Building2,       label: "B2B 파이프라인" },
+      { href: "/team",       icon: BarChart,        label: "팀 성과" },
     ],
   },
   {
@@ -167,24 +170,41 @@ export function SidebarNav({ className }: SidebarNavProps) {
                     </li>
                   );
                 })}
-                {/* GLOBAL_ADMIN 전용: 전체 고객 관리 (CRM 섹션에만 표시) */}
+                {/* GLOBAL_ADMIN 전용: 전체 고객 관리 + 어필리에이트 성과 (CRM 섹션에만 표시) */}
                 {section.label === "CRM" && isGlobalAdmin && (() => {
-                  const isActive = pathname === "/contacts/all" || pathname.startsWith("/contacts/all/");
+                  const isAllActive = pathname === "/contacts/all" || pathname.startsWith("/contacts/all/");
+                  const isAffiliateActive = pathname === "/team/affiliate" || pathname.startsWith("/team/affiliate/");
                   return (
-                    <li key="/contacts/all">
-                      <Link
-                        href="/contacts/all"
-                        className={cn(
-                          "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                          isActive
-                            ? "bg-navy-700 text-white border-l-2 border-gold-500 pl-[10px]"
-                            : "text-gray-300 hover:bg-navy-700 hover:text-white"
-                        )}
-                      >
-                        <Users2 className="w-4 h-4 shrink-0" />
-                        전체 고객 (관리자)
-                      </Link>
-                    </li>
+                    <>
+                      <li key="/contacts/all">
+                        <Link
+                          href="/contacts/all"
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                            isAllActive
+                              ? "bg-navy-700 text-white border-l-2 border-gold-500 pl-[10px]"
+                              : "text-gray-300 hover:bg-navy-700 hover:text-white"
+                          )}
+                        >
+                          <Users2 className="w-4 h-4 shrink-0" />
+                          전체 고객 (관리자)
+                        </Link>
+                      </li>
+                      <li key="/team/affiliate">
+                        <Link
+                          href="/team/affiliate"
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                            isAffiliateActive
+                              ? "bg-navy-700 text-white border-l-2 border-gold-500 pl-[10px]"
+                              : "text-gray-300 hover:bg-navy-700 hover:text-white"
+                          )}
+                        >
+                          <Award className="w-4 h-4 shrink-0" />
+                          어필리에이트 성과
+                        </Link>
+                      </li>
+                    </>
                   );
                 })()}
               </ul>
