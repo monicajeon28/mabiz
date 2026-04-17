@@ -22,6 +22,7 @@ import {
   Newspaper,
   FolderOpen,
   BarChart2,
+  Calculator,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClerk, useUser } from "@clerk/nextjs";
@@ -55,8 +56,9 @@ const navSections = [
   {
     label: "영업 도구",
     items: [
-      { href: "/tools",    icon: Wrench,   label: "영업 도구함" },
-      { href: "/playbook", icon: BookOpen, label: "콜 플레이북" },
+      { href: "/tools",                   icon: Wrench,      label: "영업 도구함" },
+      { href: "/playbook",                icon: BookOpen,    label: "콜 플레이북" },
+      { href: "/tools/profit-calculator", icon: Calculator,  label: "수익 계산기" },
     ],
   },
   {

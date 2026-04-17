@@ -22,6 +22,7 @@ import {
   LogOut,
   BarChart2,
   TrendingUp,
+  Calculator,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -50,6 +51,7 @@ const extraMenus = [
   { href: "/links",              icon: Link2,         label: "상담링크" },
   { href: "/news-links",         icon: Newspaper,     label: "뉴스링크" },
   { href: "/settings",           icon: Settings,      label: "설정" },
+  { href: '/tools/profit-calculator', icon: Calculator, label: '수익계산기' },
 ] as const;
 
 interface BottomTabBarProps {
