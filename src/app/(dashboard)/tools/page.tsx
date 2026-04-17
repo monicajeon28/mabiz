@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { MessageSquare, Phone, BookOpen, User, Copy, Check, Loader2, Upload, FileText } from "lucide-react";
+import { CompressorModal } from "@/components/ui/CompressorModal";
 
 type Template = { id: string; category: string; title: string; content: string; triggerOffset: number | null };
 type Playbook  = { id: string; type: string; title: string; content: string; priority: number };
@@ -34,6 +35,7 @@ const PLAYBOOK_TABS = [
 ];
 
 export default function ToolsPage() {
+  const [showCompressor, setShowCompressor] = useState(false);
   const [mainTab,  setMainTab]   = useState<"sms" | "playbook" | "call-feedback">("sms");
   const [smsTab,   setSmsTab]    = useState("CARE_VIP");
   const [pbTab,    setPbTab]     = useState("REJECTION");
@@ -101,6 +103,22 @@ export default function ToolsPage() {
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <h1 className="text-xl font-bold text-navy-900 mb-5">영업 도구함</h1>
+
+      {/* 만능 압축기 */}
+      <button
+        onClick={() => setShowCompressor(true)}
+        className="flex items-center gap-3 w-full bg-white border rounded-xl px-4 py-3.5 hover:border-blue-300 hover:bg-blue-50 transition-colors text-left mb-5"
+      >
+        <span className="text-2xl">🗜️</span>
+        <div>
+          <p className="font-semibold text-sm text-gray-900">만능 압축기</p>
+          <p className="text-xs text-gray-500">이미지·PDF·WebP·음성 파일 압축</p>
+        </div>
+      </button>
+
+      {showCompressor && (
+        <CompressorModal isOpen={showCompressor} onClose={() => setShowCompressor(false)} />
+      )}
 
       {/* 메인 탭 */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6">
