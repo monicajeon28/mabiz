@@ -24,14 +24,14 @@ function parseDateRange(searchParams: URLSearchParams) {
   let to: Date | undefined;
 
   if (fromParam) {
-    const parsed = new Date(`${fromParam}T00:00:00`);
+    const parsed = new Date(`${fromParam}T00:00:00+09:00`);
     if (!Number.isNaN(parsed.getTime())) {
       from = parsed;
     }
   }
 
   if (toParam) {
-    const parsed = new Date(`${toParam}T23:59:59`);
+    const parsed = new Date(`${toParam}T23:59:59+09:00`);
     if (!Number.isNaN(parsed.getTime())) {
       to = parsed;
     }

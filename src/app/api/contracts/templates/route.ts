@@ -72,7 +72,7 @@ export async function GET() {
     });
 
     // 기본 템플릿과 저장된 템플릿 병합
-    const templates: Record<string, any> = { ...DEFAULT_TEMPLATES };
+    const templates: Record<string, ContractTemplate> = { ...DEFAULT_TEMPLATES };
 
     // 저장된 템플릿 병합 (기존 + 커스텀)
     configs.forEach((config) => {
@@ -115,7 +115,7 @@ export async function GET() {
   } catch (error: unknown) {
     logger.error('[Contract Templates GET] Error:', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
-      { ok: false, message: (error instanceof Error ? error.message : String(error)) || '템플릿 조회 중 오류가 발생했습니다.' },
+      { ok: false, message: '템플릿 조회 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }
@@ -218,7 +218,7 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     logger.error('[Contract Templates POST] Error:', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
-      { ok: false, message: (error instanceof Error ? error.message : String(error)) || '템플릿 저장 중 오류가 발생했습니다.' },
+      { ok: false, message: '템플릿 저장 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }
@@ -285,7 +285,7 @@ export async function DELETE(req: NextRequest) {
   } catch (error: unknown) {
     logger.error('[Contract Templates DELETE] Error:', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
-      { ok: false, message: (error instanceof Error ? error.message : String(error)) || '템플릿 삭제 중 오류가 발생했습니다.' },
+      { ok: false, message: '템플릿 삭제 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

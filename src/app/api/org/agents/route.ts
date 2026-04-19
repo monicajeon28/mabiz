@@ -15,7 +15,7 @@ export async function GET() {
       ? null  // GLOBAL_ADMIN은 별도로 쿼리
       : requireOrgId(ctx);
 
-    if (ctx.role === "AGENT") {
+    if (ctx.role === "AGENT" || ctx.role === "FREE_SALES") {
       return NextResponse.json({ ok: false }, { status: 403 });
     }
 
