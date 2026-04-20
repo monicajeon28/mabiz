@@ -46,8 +46,11 @@ const TEMPLATE_MAP = {
 
 export async function POST() {
   try {
-    const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const ctx = await getAuthContext();
+    // GLOBAL_ADMIN은 조직ID 없음 → 본사 org 사용
+    const orgId = ctx.role === 'GLOBAL_ADMIN'
+      ? 'org_bonsa_cruisedot'
+      : requireOrgId(ctx);
 
     // 이미 셋업 여부 확인
     const existing = await prisma.funnel.count({ where: { organizationId: orgId } });
