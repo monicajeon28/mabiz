@@ -1,5 +1,5 @@
 {
-  "buildCommand": "prisma migrate deploy && next build",
+  "buildCommand": "prisma generate && prisma migrate deploy && next build",
   "crons": [
     {
       "path": "/api/cron/vip-care",
