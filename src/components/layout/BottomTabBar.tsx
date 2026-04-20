@@ -26,7 +26,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { useClerk } from "@clerk/nextjs";
 
 const tabs = [
   { href: "/dashboard", icon: Home,         label: "홈" },
@@ -61,7 +60,6 @@ interface BottomTabBarProps {
 export function BottomTabBar({ className }: BottomTabBarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { signOut } = useClerk();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
@@ -152,7 +150,7 @@ export function BottomTabBar({ className }: BottomTabBarProps) {
               <button
                 onClick={() => {
                   setDrawerOpen(false);
-                  signOut({ redirectUrl: "/sign-in" });
+                  fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).then(() => window.location.replace('/sign-in'));
                 }}
                 className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-red-50 hover:bg-red-100 transition-colors"
               >

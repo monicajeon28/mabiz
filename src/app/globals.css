@@ -6,6 +6,17 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* 브랜드 커스텀 색상 — navy/gold/cream */
+  --color-navy-900: #1E2D4E;
+  --color-navy-800: #243660;
+  --color-navy-700: #2A4080;
+  --color-navy-500: #3B5BA5;
+  --color-navy-100: #EEF2FF;
+  --color-gold-500: #C9A84C;
+  --color-gold-300: #E8C96B;
+  --color-gold-100: #FFF3CD;
+  --color-cream: #FAF8F5;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);

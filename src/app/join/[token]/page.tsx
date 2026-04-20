@@ -2,7 +2,6 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth, SignIn } from "@clerk/nextjs";
 import { CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { showError } from '@/components/ui/Toast';
 
@@ -57,17 +56,18 @@ const CONTRACT_SECTIONS = [
 export default function JoinPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
   const router    = useRouter();
-  const { isSignedIn, userId } = useAuth();
 
-  const [step,          setStep]          = useState<"loading" | "info" | "signin" | "accept" | "done" | "error">("loading");
-  const [orgName,       setOrgName]       = useState("");
-  const [note,          setNote]          = useState("");
-  const [errorMsg,      setErrorMsg]      = useState("");
-  const [displayName,   setDisplayName]   = useState("");
-  const [signature,     setSignature]     = useState("");     // 디지털 서명 (실명 일치)
-  const [agreed,        setAgreed]        = useState(false);
-  const [allChecked,    setAllChecked]    = useState(false);  // 전체 동의
-  const [accepting,     setAccepting]     = useState(false);
+  const [step,        setStep]        = useState<"loading" | "accept" | "done" | "error">("loading");
+  const [orgName,     setOrgName]     = useState("");
+  const [note,        setNote]        = useState("");
+  const [errorMsg,    setErrorMsg]    = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [signature,   setSignature]   = useState("");     // 디지털 서명 (실명 일치)
+  const [agreed,      setAgreed]      = useState(false);
+  const [allChecked,  setAllChecked]  = useState(false);  // 전체 동의
+  const [accepting,   setAccepting]   = useState(false);
+  const [phone,       setPhone]       = useState('');
+  const [password,    setPassword]    = useState('');
 
   useEffect(() => {
     fetch(`/api/join/${token}`)
@@ -76,30 +76,26 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
         if (!d.ok) { setErrorMsg(d.message ?? "유효하지 않은 초대입니다."); setStep("error"); return; }
         setOrgName(d.orgName);
         setNote(d.note ?? "");
-        setStep(isSignedIn ? "accept" : "info");
+        setStep("accept"); // 바로 accept 단계로 (로그인 불필요)
       })
       .catch(() => { setErrorMsg("오류가 발생했습니다."); setStep("error"); });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
-
-  // 로그인 후 accept 단계로
-  useEffect(() => {
-    if (isSignedIn && step === "signin") setStep("accept");
-    if (isSignedIn && step === "info")   setStep("accept");
-  }, [isSignedIn, step]);
 
   const accept = async () => {
     if (!agreed || !allChecked || !displayName.trim()) return;
-    // 디지털 서명 = 입력한 이름과 일치해야 함
     if (signature.trim() !== displayName.trim()) {
       showError("디지털 서명이 이름과 일치하지 않습니다.");
       return;
     }
+    const phoneClean = phone.trim().replace(/[^0-9]/g, '');
+    if (!phoneClean) { showError("전화번호를 입력해주세요."); return; }
+    if (!password) { showError("비밀번호를 입력해주세요."); return; }
+
     setAccepting(true);
     const res  = await fetch(`/api/join/${token}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ displayName, agreedToTerms: true, signature }),
+      body: JSON.stringify({ displayName, agreedToTerms: true, signature, phone: phoneClean, password }),
     });
     const data = await res.json();
     setAccepting(false);
@@ -153,34 +149,8 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
         </div>
 
         <div className="p-6">
-          {/* 계약 요약 (로그인 전 간략 표시) */}
-          {!isSignedIn && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
-              <p className="text-sm font-bold text-amber-800 mb-2">⚠️ 계약 전 필수 확인</p>
-              <ul className="space-y-1 text-xs text-amber-900">
-                <li>• 수당은 여행 완료 후 지급 (3.3% 원천징수)</li>
-                <li>• 고객 DB 무단 사용 시 위약벌 최대 3,000만원</li>
-                <li>• 콘텐츠 무단복제 시 위약벌 3,000만원 + 형사고발</li>
-                <li>• 로그인 후 전체 계약서 확인 및 서명 필요</li>
-              </ul>
-            </div>
-          )}
-
-          {/* 로그인 단계 */}
-          {(step === "info" || step === "signin") && !isSignedIn && (
-            <div className="space-y-4">
-              <p className="text-sm text-center text-gray-600">
-                가입을 완료하려면 로그인/회원가입이 필요합니다.
-              </p>
-              <SignIn
-                appearance={{ elements: { rootBox: "w-full", card: "shadow-none border-0 p-0" } }}
-                fallbackRedirectUrl={`/join/${token}`}
-              />
-            </div>
-          )}
-
           {/* 수락 단계 */}
-          {step === "accept" && isSignedIn && (
+          {step === "accept" && (
             <div className="space-y-5">
               {/* 이름 입력 */}
               <div>
@@ -191,6 +161,31 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
                   placeholder="홍길동 (계약서 서명에 사용됩니다)"
                   className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500"
                 />
+              </div>
+
+              {/* 전화번호 입력 */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1.5 block">전화번호 (아이디로 사용) *</label>
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="01012345678"
+                  inputMode="tel"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500"
+                />
+              </div>
+
+              {/* 비밀번호 입력 */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1.5 block">비밀번호 설정 *</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="로그인에 사용할 비밀번호"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500"
+                />
+                <p className="text-xs text-gray-400 mt-1">나중에 설정으로 변경 가능합니다</p>
               </div>
 
               {/* 계약서 본문 */}

@@ -1,0 +1,113 @@
+import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import prisma from '@/lib/prisma';
+import { logger } from '@/lib/logger';
+import { MABIZ_SESSION_COOKIE } from '@/lib/auth';
+import { createHash, timingSafeEqual } from 'crypto';
+
+// bcrypt 없이 단순 비교 (초기에는 평문 or SHA256)
+// OrganizationMember.passwordHash가 null이면 초기 비밀번호 'qwe1' 허용
+function checkPassword(input: string, stored: string | null): boolean {
+  if (!stored) {
+    return input === 'qwe1'; // 초기 비밀번호
+  }
+  // SHA256 해시 비교
+  const inputHash = createHash('sha256').update(input).digest('hex');
+  try {
+    const a = Buffer.from(inputHash);
+    const b = Buffer.from(stored);
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const { phone, password } = await req.json() as { phone?: string; password?: string };
+
+    if (!phone?.trim() || !password) {
+      return NextResponse.json({ ok: false, error: '전화번호와 비밀번호를 입력해주세요.' }, { status: 400 });
+    }
+
+    const phoneClean = phone.trim().replace(/[^0-9]/g, '');
+
+    // GlobalAdmin 먼저 확인
+    const admin = await prisma.globalAdmin.findFirst({
+      where: { phone: phoneClean },
+    });
+
+    if (admin) {
+      if (!checkPassword(password, admin.passwordHash ?? null)) {
+        return NextResponse.json({ ok: false, error: '비밀번호가 올바르지 않습니다.' }, { status: 401 });
+      }
+
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30일
+      const session = await prisma.mabizSession.create({
+        data: { adminId: admin.id, role: 'GLOBAL_ADMIN', expiresAt },
+      });
+
+      const cookieStore = await cookies();
+      cookieStore.set(MABIZ_SESSION_COOKIE, session.id, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        expires: expiresAt,
+      });
+
+      logger.log('[POST /api/auth/login] GLOBAL_ADMIN 로그인 성공', {
+        adminId: admin.id,
+      });
+
+      return NextResponse.json({ ok: true, role: 'GLOBAL_ADMIN' });
+    }
+
+    // OrganizationMember 확인
+    const member = await prisma.organizationMember.findFirst({
+      where: { phone: phoneClean, isActive: true },
+    });
+
+    if (!member) {
+      return NextResponse.json({ ok: false, error: '등록되지 않은 전화번호입니다.' }, { status: 401 });
+    }
+
+    if (!checkPassword(password, member.passwordHash ?? null)) {
+      return NextResponse.json({ ok: false, error: '비밀번호가 올바르지 않습니다.' }, { status: 401 });
+    }
+
+    const role =
+      member.role === 'OWNER'      ? 'OWNER'      :
+      member.role === 'FREE_SALES' ? 'FREE_SALES' : 'AGENT';
+
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const session = await prisma.mabizSession.create({
+      data: {
+        memberId: member.id,
+        role,
+        organizationId: member.organizationId,
+        expiresAt,
+      },
+    });
+
+    const cookieStore = await cookies();
+    cookieStore.set(MABIZ_SESSION_COOKIE, session.id, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      expires: expiresAt,
+    });
+
+    logger.log('[POST /api/auth/login] mabiz 로그인 성공', {
+      memberId: member.id,
+      role,
+    });
+
+    return NextResponse.json({ ok: true, role });
+  } catch (err) {
+    logger.error('[POST /api/auth/login]', { err });
+    return NextResponse.json({ ok: false, error: '서버 오류가 발생했습니다.' }, { status: 500 });
+  }
+}

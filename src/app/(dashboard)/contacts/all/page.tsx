@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Filter, Building2 } from "lucide-react";
-import { useUser } from "@clerk/nextjs";
 
 type ContactAll = {
   id: string;
@@ -27,15 +26,21 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
 
 export default function ContactsAllPage() {
   const router = useRouter();
-  const { user, isLoaded } = useUser();
-  const role = (user?.publicMetadata as { role?: string })?.role;
+  const [role, setRole] = useState<string | null>(null);
+  const [authLoaded, setAuthLoaded] = useState(false);
 
-  // GLOBAL_ADMIN 아니면 /contacts로 리다이렉트
+  // /api/auth/me 로 역할 확인
   useEffect(() => {
-    if (isLoaded && user && role !== 'GLOBAL_ADMIN') {
-      router.replace('/contacts');
-    }
-  }, [isLoaded, user, role, router]);
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(d => {
+        if (!d.ok) { router.replace('/contacts'); return; }
+        setRole(d.role);
+        setAuthLoaded(true);
+        if (d.role !== 'GLOBAL_ADMIN') router.replace('/contacts');
+      })
+      .catch(() => router.replace('/contacts'));
+  }, [router]);
 
   const [contacts, setContacts] = useState<ContactAll[]>([]);
   const [total, setTotal] = useState(0);
@@ -90,7 +95,7 @@ export default function ContactsAllPage() {
   }, [contacts]);
 
   // GLOBAL_ADMIN 인증 전에는 아무것도 렌더링하지 않음
-  if (!isLoaded || (user && role !== 'GLOBAL_ADMIN')) {
+  if (!authLoaded || role !== 'GLOBAL_ADMIN') {
     return null;
   }
 

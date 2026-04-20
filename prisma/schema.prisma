@@ -80,6 +80,8 @@ model OrganizationMember {
   role           String       @default("AGENT")
   displayName    String?      // 이름
   isActive       Boolean      @default(true)
+  phone          String?      // 로그인용 전화번호 (예: 01012345678)
+  passwordHash   String?      // bcrypt 해시
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, userId])
@@ -89,10 +91,28 @@ model OrganizationMember {
 
 // ─── 글로벌 관리자 (모든 조직 DB 접근 + 삭제 권한) ────────────
 model GlobalAdmin {
-  id        String   @id @default(cuid())
-  userId    String   @unique  // Clerk user ID
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  userId       String   @unique  // Clerk user ID
+  phone        String?  @unique
+  passwordHash String?
+  displayName  String?
+  createdAt    DateTime @default(now())
 }
+// ─── Mabiz 세션 (Clerk 제거 후 세션 쿠키 기반 인증) ─────────────
+model MabizSession {
+  id             String   @id @default(cuid())
+  memberId       String?  // OrganizationMember.id
+  adminId        String?  // GlobalAdmin.id
+  role           String   // GLOBAL_ADMIN | OWNER | AGENT | FREE_SALES
+  organizationId String?
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  @@index([memberId])
+  @@index([adminId])
+  @@map("MabizSession")
+}
+
 
 // ─── 고객 ────────────────────────────────────────────────────
 model Contact {

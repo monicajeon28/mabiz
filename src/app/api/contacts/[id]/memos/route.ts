@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { getOrgId } from "@/lib/org";
 import { logger } from "@/lib/logger";
+import { getAuthContext } from "@/lib/rbac";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -30,7 +30,7 @@ export async function GET(_req: Request, { params }: Params) {
 export async function POST(req: Request, { params }: Params) {
   try {
     const orgId = await getOrgId();
-    const { userId } = await auth();
+    const ctx = await getAuthContext();
     const { id } = await params;
     const { content } = await req.json();
 
@@ -42,7 +42,7 @@ export async function POST(req: Request, { params }: Params) {
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
 
     const memo = await prisma.contactMemo.create({
-      data: { contactId: id, userId: userId!, content },
+      data: { contactId: id, userId: ctx.userId, content },
     });
     return NextResponse.json({ ok: true, memo }, { status: 201 });
   } catch (err) {

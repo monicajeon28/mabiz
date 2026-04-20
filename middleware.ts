@@ -1,17 +1,40 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-const isPublicRoute = createRouteMatcher([
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/p/(.*)",             // 공개 랜딩페이지
-  "/api/webhooks/(.*)", // PayApp webhook 등
-]);
+const PUBLIC_PATHS = [
+  "/sign-in",
+  "/api/auth/login",
+  "/api/auth/logout",
+  "/api/auth/me",
+  "/api/webhooks",
+  "/api/public",
+  "/p/",
+  "/join/",
+  "/b2b/",
+  "/l/",
+];
 
-export default clerkMiddleware(async (auth, req) => {
-  if (!isPublicRoute(req)) {
-    await auth.protect();
+function isPublic(pathname: string): boolean {
+  return PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+}
+
+export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  // 정적 파일 + public 경로 허용
+  if (isPublic(pathname)) return NextResponse.next();
+
+  // 세션 쿠키 확인
+  const sid = req.cookies.get("mabiz.sid")?.value;
+  if (!sid) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/sign-in";
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
   }
-});
+
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: [

@@ -8,8 +8,8 @@
  *   FREE_SALES    - 내 판매 현황 + 어필리에이트 링크만 (고객 DB 접근 없음)
  */
 
-import { auth } from "@clerk/nextjs/server";
-import prisma from "@/lib/prisma";
+import 'server-only';
+import { getMabizSession } from '@/lib/auth';
 
 export type UserRole = "GLOBAL_ADMIN" | "OWNER" | "AGENT" | "FREE_SALES";
 
@@ -27,28 +27,9 @@ export interface AuthContext {
 
 /** 현재 사용자의 권한 컨텍스트 조회 */
 export async function getAuthContext(): Promise<AuthContext> {
-  const { userId } = await auth();
-  if (!userId) throw new Error("UNAUTHORIZED");
-
-  // 글로벌 관리자 체크
-  const isGlobalAdmin = await prisma.globalAdmin.findUnique({ where: { userId } });
-  if (isGlobalAdmin) {
-    return { userId, role: "GLOBAL_ADMIN", organizationId: null, member: null };
-  }
-
-  // 조직 멤버 조회
-  const member = await prisma.organizationMember.findFirst({
-    where: { userId, isActive: true },
-    select: { id: true, organizationId: true, role: true, displayName: true },
-  });
-
-  if (!member) throw new Error("NO_ORGANIZATION");
-
-  const role: UserRole =
-    member.role === "OWNER"      ? "OWNER"      :
-    member.role === "FREE_SALES" ? "FREE_SALES" : "AGENT";
-
-  return { userId, role, organizationId: member.organizationId, member };
+  const session = await getMabizSession();
+  if (!session) throw new Error('UNAUTHORIZED');
+  return session;
 }
 
 /** 고객 목록 조회 조건 (역할 기반) */

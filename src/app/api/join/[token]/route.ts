@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
 import { logger } from "@/lib/logger";
+import { createHash } from "crypto";
 
 type Params = { params: Promise<{ token: string }> };
 
@@ -41,20 +41,25 @@ export async function GET(_req: Request, { params }: Params) {
   }
 }
 
-// POST /api/join/[token] — 초대 수락 (Clerk 로그인 후)
+// POST /api/join/[token] — 초대 수락 (전화번호/비밀번호 기반 가입)
 export async function POST(req: Request, { params }: Params) {
   try {
     const { token } = await params;
-    const { userId } = await auth();
-
-    if (!userId) {
-      return NextResponse.json({ ok: false, message: "로그인이 필요합니다." }, { status: 401 });
-    }
-
-    const body = await req.json() as { displayName?: string; agreedToTerms?: boolean };
+    const body = await req.json() as {
+      displayName?: string;
+      agreedToTerms?: boolean;
+      phone?: string;
+      password?: string;
+      signature?: string;
+    };
 
     if (!body.agreedToTerms) {
       return NextResponse.json({ ok: false, message: "수당 조건에 동의해야 합니다." }, { status: 400 });
+    }
+
+    const phoneClean = body.phone?.trim().replace(/[^0-9]/g, '') || '';
+    if (!phoneClean) {
+      return NextResponse.json({ ok: false, message: "전화번호를 입력해주세요." }, { status: 400 });
     }
 
     const invite = await prisma.orgInviteToken.findUnique({
@@ -66,37 +71,63 @@ export async function POST(req: Request, { params }: Params) {
     if (invite.usedAt) return NextResponse.json({ ok: false, message: "이미 사용된 초대입니다." }, { status: 400 });
     if (invite.expiresAt < new Date()) return NextResponse.json({ ok: false, message: "만료된 초대입니다." }, { status: 400 });
 
-    // 이미 멤버인지 확인
+    // 전화번호로 중복 가입 확인
     const existing = await prisma.organizationMember.findFirst({
-      where: { organizationId: invite.organizationId, userId },
+      where: { organizationId: invite.organizationId, phone: phoneClean },
     });
     if (existing) {
-      return NextResponse.json({ ok: false, message: "이미 조직 멤버입니다." }, { status: 400 });
+      return NextResponse.json({ ok: false, message: "이미 가입된 전화번호입니다." }, { status: 400 });
     }
 
-    // 트랜잭션: 멤버 추가 + 초대 토큰 사용 처리
+    const passwordHash = createHash('sha256').update(body.password || 'qwe1').digest('hex');
+    const memberId = `mbr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
     await prisma.$transaction([
       prisma.organizationMember.create({
         data: {
+          id: memberId,
           organizationId: invite.organizationId,
-          userId,
-          role:           invite.role,
-          displayName:    body.displayName?.trim() ?? null,
-          isActive:       true,
+          userId: memberId,
+          phone: phoneClean,
+          passwordHash,
+          role: invite.role,
+          displayName: body.displayName?.trim() ?? null,
+          isActive: true,
         },
       }),
       prisma.orgInviteToken.update({
         where: { id: invite.id },
         data: {
           usedAt:       new Date(),
-          usedByUserId: userId,
+          usedByUserId: memberId,
           agreedToTerms: true,
         },
       }),
     ]);
 
+    // 자동 로그인 세션 생성
+    const { cookies } = await import('next/headers');
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const session = await prisma.mabizSession.create({
+      data: {
+        memberId,
+        role: invite.role === 'OWNER' ? 'OWNER' : invite.role === 'FREE_SALES' ? 'FREE_SALES' : 'AGENT',
+        organizationId: invite.organizationId,
+        expiresAt,
+      },
+    });
+
+    const cookieStore = await cookies();
+    cookieStore.set('mabiz.sid', session.id, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      expires: expiresAt,
+    });
+
     logger.log("[POST /api/join/[token]] 판매원 가입 완료", {
-      userId, orgId: invite.organizationId,
+      memberId, orgId: invite.organizationId,
     });
 
     return NextResponse.json({ ok: true });

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import {
   ChevronDown,
@@ -255,15 +254,16 @@ type ConfirmState = {
 };
 
 export default function AffiliateTeamDashboardPage() {
-  const { user } = useUser();
   const router = useRouter();
-  const role = (user?.publicMetadata as { role?: string })?.role;
 
   useEffect(() => {
-    if (user && role !== 'GLOBAL_ADMIN') {
-      router.replace('/dashboard');
-    }
-  }, [user, role, router]);
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(d => {
+        if (!d.ok || d.role !== 'GLOBAL_ADMIN') router.replace('/dashboard');
+      })
+      .catch(() => router.replace('/dashboard'));
+  }, [router]);
 
   // ConfirmDialog 상태 관리 (useConfirm 대체)
   const [confirmState, setConfirmState] = useState<ConfirmState>({
@@ -799,8 +799,6 @@ export default function AffiliateTeamDashboardPage() {
     return cards;
   }, [totals]);
 
-  // GLOBAL_ADMIN 아닌 경우 렌더링 차단
-  if (user && role !== 'GLOBAL_ADMIN') return null;
 
   return (
     <div className="space-y-8 p-6">

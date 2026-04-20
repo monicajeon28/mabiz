@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useUser } from '@clerk/nextjs';
+import { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { CARD_FEE_RATE, FREE_AGENT_COMMISSION_RATE } from '@/lib/constants/affiliate';
 
 // ─── 유틸 ────────────────────────────────────────────────────────────────────
@@ -24,18 +24,8 @@ type InputMode = 'pct' | 'amount'; // 어느 쪽을 사용자가 입력했는지
 
 // ─── 컴포넌트 ─────────────────────────────────────────────────────────────────
 
-export default function ProfitCalculatorPage() {
-  const { user } = useUser();
-  const role = (user?.publicMetadata as { role?: string })?.role;
-
-  if (role === 'FREE_SALES' || role === 'AGENT') {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-gray-400 text-sm">접근 권한이 없습니다</p>
-      </div>
-    );
-  }
-
+// 실제 계산기 UI — 권한 통과 후에만 렌더링
+function CalculatorContent() {
   // 1단계 — 기본 단가
   const [salePrice, setSalePrice] = useState<string>('1000000');
   const [costPrice, setCostPrice] = useState<string>('800000');
@@ -410,4 +400,31 @@ export default function ProfitCalculatorPage() {
       )}
     </div>
   );
+}
+
+export default function ProfitCalculatorPage() {
+  const router = useRouter();
+  const [blocked, setBlocked] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(d => {
+        if (!d.ok) { router.replace('/dashboard'); return; }
+        setBlocked(d.role === 'FREE_SALES' || d.role === 'AGENT');
+      })
+      .catch(() => router.replace('/dashboard'));
+  }, [router]);
+
+  if (blocked === null) return null;
+
+  if (blocked) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-400 text-sm">접근 권한이 없습니다</p>
+      </div>
+    );
+  }
+
+  return <CalculatorContent />;
 }

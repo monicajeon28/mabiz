@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@clerk/nextjs';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
@@ -45,8 +44,16 @@ const ICON_OPTIONS = ['📄', '📋', '📜', '📝', '🏢', '👤', '🚢', '�
 
 export default function ContractTemplatesPage() {
   const router = useRouter();
-  const { user } = useUser();
-  const role = (user?.publicMetadata as { role?: string })?.role;
+
+  // GLOBAL_ADMIN 역할 확인
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(d => {
+        if (!d.ok || d.role !== 'GLOBAL_ADMIN') router.replace('/contracts');
+      })
+      .catch(() => router.replace('/contracts'));
+  }, [router]);
 
   const [templates, setTemplates] = useState<Templates>({});
   const [contractTypes, setContractTypes] = useState<string[]>([]);
@@ -73,12 +80,6 @@ export default function ContractTemplatesPage() {
   // 복원 확인 모달
   const [showRestoreModal, setShowRestoreModal] = useState(false);
 
-  // GLOBAL_ADMIN 인증
-  useEffect(() => {
-    if (user && role !== 'GLOBAL_ADMIN') {
-      router.replace('/contracts');
-    }
-  }, [user, role, router]);
 
   useEffect(() => {
     fetchTemplates();
