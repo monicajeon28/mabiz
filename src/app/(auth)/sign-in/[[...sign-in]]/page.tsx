@@ -57,10 +57,6 @@ function SignInContent() {
           <h1 className="text-white text-3xl font-bold leading-tight mb-4">
             파트너센터에<br />오신 것을 환영합니다
           </h1>
-          <p className="text-gray-300 text-sm leading-relaxed">
-            대리점장·판매원·관리자 전용<br />
-            고객관리·수당확인·영업도구를 한 곳에서
-          </p>
         </div>
         <div className="relative z-10 p-8">
           <p className="text-white/30 text-xs">(주)마비즈컴퍼니 · mabizcruisedot.com</p>
@@ -90,15 +86,14 @@ function SignInContent() {
             )}
 
             <div className="space-y-1.5">
-              <label className="block text-sm font-semibold text-slate-700">전화번호</label>
+              <label className="block text-sm font-semibold text-slate-700">아이디</label>
               <input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="01012345678"
-                inputMode="tel"
+                placeholder="아이디를 입력하세요"
                 required
+                autoComplete="username"
                 className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition"
-                style={{ '--tw-ring-color': '#C9A84C' } as React.CSSProperties}
               />
             </div>
 
