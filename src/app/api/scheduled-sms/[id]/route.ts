@@ -6,13 +6,13 @@ import { logger } from "@/lib/logger";
 // DELETE /api/scheduled-sms/[id] — 예약 SMS 취소
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const ctx   = await getAuthContext();
     const orgId = requireOrgId(ctx);
 
-    const { id } = params;
+    const { id } = await params;
     if (!id) {
       return NextResponse.json({ ok: false, message: "id가 없습니다." }, { status: 400 });
     }
