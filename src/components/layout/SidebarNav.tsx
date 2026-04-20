@@ -110,9 +110,9 @@ export function SidebarNav({ className }: SidebarNavProps) {
     >
       {/* 로고 */}
       <div className="px-6 py-5 border-b border-navy-700 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gold-500">mabiz</h1>
-          <p className="text-xs text-gray-400 mt-0.5">크루즈 영업 CRM</p>
+        <div className="flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="크루즈닷파트너스" className="h-8 w-auto object-contain" />
         </div>
         <NotificationBell />
       </div>
