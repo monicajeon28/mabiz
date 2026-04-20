@@ -304,6 +304,7 @@ model FunnelStage {
   funnel         Funnel  @relation(fields: [funnelId], references: [id], onDelete: Cascade)
 
   @@index([funnelId])
+  @@map("CrmFunnelStage")
 }
 
 // ─── VIP 케어 타임라인 ────────────────────────────────────────
@@ -381,6 +382,7 @@ model SmsLog {
 
   @@index([organizationId, sentAt])
   @@index([contactId, sentAt])
+  @@map("CrmSmsLog")
 }
 
 // ─── 세일즈 플레이북 ──────────────────────────────────────────
@@ -467,6 +469,7 @@ model PayAppPayment {
 
   @@index([customerPhone])
   @@index([landingPageId])
+  @@map("CrmPayAppPayment")
 }
 
 // ─── 예약 발송 (WO-23) ────────────────────────────────────────
@@ -569,7 +572,7 @@ model AffiliateSale {
   @@index([affiliateCode])
   @@index([affiliateUserId])
   @@index([status])
-  @@map("AffiliateSale")
+  @@map("CrmAffiliateSale")
 }
 
 // ─── B2B 잠재고객 (WO-28C) ───────────────────────────────────
@@ -602,7 +605,7 @@ model B2BProspect {
   @@index([organizationId, status])
   @@index([assignedUserId])
   @@index([affiliateCode])
-  @@map("B2BProspect")
+  @@map("CrmB2BProspect")
 }
 
 model AiCallLog {
