@@ -4,14 +4,20 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { MABIZ_SESSION_COOKIE } from '@/lib/auth';
 import { createHash, timingSafeEqual } from 'crypto';
+import bcrypt from 'bcryptjs';
 
-// bcrypt 없이 단순 비교 (초기에는 평문 or SHA256)
-// OrganizationMember.passwordHash가 null이면 초기 비밀번호 'qwe1' 허용
-function checkPassword(input: string, stored: string | null): boolean {
-  if (!stored) {
-    return input === 'qwe1'; // 초기 비밀번호
+function isBcryptHash(h: string) {
+  return h.startsWith('$2b$') || h.startsWith('$2a$');
+}
+
+async function checkPassword(input: string, stored: string | null): Promise<boolean> {
+  if (!stored) return input === 'qwe1';
+
+  if (isBcryptHash(stored)) {
+    return bcrypt.compare(input, stored);
   }
-  // SHA256 해시 비교
+
+  // SHA256 비교
   const inputHash = createHash('sha256').update(input).digest('hex');
   try {
     const a = Buffer.from(inputHash);
@@ -28,10 +34,12 @@ export async function POST(req: Request) {
     const { phone, password } = await req.json() as { phone?: string; password?: string };
 
     if (!phone?.trim() || !password) {
-      return NextResponse.json({ ok: false, error: '전화번호와 비밀번호를 입력해주세요.' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: '아이디와 비밀번호를 입력해주세요.' }, { status: 400 });
     }
 
-    const phoneClean = phone.trim().replace(/[^0-9]/g, '');
+    // 아이디: 숫자만 있으면 전화번호 정규화, 영문 포함이면 그대로
+    const raw = phone.trim();
+    const phoneClean = /^[0-9\-\s]+$/.test(raw) ? raw.replace(/[^0-9]/g, '') : raw;
 
     // GlobalAdmin 먼저 확인
     const admin = await prisma.globalAdmin.findFirst({
@@ -39,11 +47,11 @@ export async function POST(req: Request) {
     });
 
     if (admin) {
-      if (!checkPassword(password, admin.passwordHash ?? null)) {
+      if (!await checkPassword(password, admin.passwordHash ?? null)) {
         return NextResponse.json({ ok: false, error: '비밀번호가 올바르지 않습니다.' }, { status: 401 });
       }
 
-      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30일
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       const session = await prisma.mabizSession.create({
         data: { adminId: admin.id, role: 'GLOBAL_ADMIN', expiresAt },
       });
@@ -57,10 +65,6 @@ export async function POST(req: Request) {
         expires: expiresAt,
       });
 
-      logger.log('[POST /api/auth/login] GLOBAL_ADMIN 로그인 성공', {
-        adminId: admin.id,
-      });
-
       return NextResponse.json({ ok: true, role: 'GLOBAL_ADMIN' });
     }
 
@@ -70,10 +74,10 @@ export async function POST(req: Request) {
     });
 
     if (!member) {
-      return NextResponse.json({ ok: false, error: '등록되지 않은 전화번호입니다.' }, { status: 401 });
+      return NextResponse.json({ ok: false, error: '등록되지 않은 아이디입니다.' }, { status: 401 });
     }
 
-    if (!checkPassword(password, member.passwordHash ?? null)) {
+    if (!await checkPassword(password, member.passwordHash ?? null)) {
       return NextResponse.json({ ok: false, error: '비밀번호가 올바르지 않습니다.' }, { status: 401 });
     }
 
@@ -83,12 +87,7 @@ export async function POST(req: Request) {
 
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     const session = await prisma.mabizSession.create({
-      data: {
-        memberId: member.id,
-        role,
-        organizationId: member.organizationId,
-        expiresAt,
-      },
+      data: { memberId: member.id, role, organizationId: member.organizationId, expiresAt },
     });
 
     const cookieStore = await cookies();
@@ -100,10 +99,7 @@ export async function POST(req: Request) {
       expires: expiresAt,
     });
 
-    logger.log('[POST /api/auth/login] mabiz 로그인 성공', {
-      memberId: member.id,
-      role,
-    });
+    logger.log('[POST /api/auth/login] 로그인 성공', { memberId: member.id, role });
 
     return NextResponse.json({ ok: true, role });
   } catch (err) {
