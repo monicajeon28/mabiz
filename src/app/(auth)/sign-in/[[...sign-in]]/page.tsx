@@ -75,7 +75,7 @@ function SignInContent() {
 
           <div className="hidden lg:block mb-8">
             <h2 className="text-2xl font-bold" style={{ color: '#1E2D4E' }}>로그인</h2>
-            <p className="text-gray-500 text-sm mt-1">파트너 계정으로 접속하세요</p>
+            <p className="text-gray-500 text-sm mt-1">계정 아이디와 비밀번호를 입력하세요</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -136,7 +136,7 @@ function SignInContent() {
           </div>
 
           <p className="mt-5 text-center text-xs text-slate-400 leading-relaxed">
-            판매원·대리점장 계정은 본사에서 발급합니다.<br />
+            관리자·대리점장·판매원 계정은 본사에서 발급합니다.<br />
             문의: jmonica@cruisedot.co.kr
           </p>
         </div>

@@ -206,9 +206,18 @@ export default function ContactsPage() {
               </button>
             </div>
 
-            {/* 형식 안내 */}
+            {/* 형식 안내 + 샘플 다운로드 */}
             <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-600 space-y-1">
-              <p className="font-semibold">📋 엑셀 파일 형식</p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="font-semibold">📋 엑셀 파일 형식</p>
+                <a
+                  href="/api/contacts/sample"
+                  download="cruisedot_import_sample.xlsx"
+                  className="flex items-center gap-1 text-green-700 font-semibold bg-green-100 hover:bg-green-200 px-2 py-1 rounded-lg text-xs transition-colors"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" /> 샘플 다운로드
+                </a>
+              </div>
               <p>• 필수: <strong>이름</strong>, <strong>전화번호</strong></p>
               <p>• 선택: 이메일, 관심크루즈, 예산, 메모, 유형</p>
               <p>• 유형: "잠재고객" 또는 "구매완료" (기본: 잠재고객)</p>
