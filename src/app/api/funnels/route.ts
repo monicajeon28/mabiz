@@ -3,11 +3,17 @@ import prisma from "@/lib/prisma";
 import { getAuthContext, requireOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
+const BONSA_ORG_ID = 'org_bonsa_cruisedot';
+
+function resolveOrgId(ctx: Awaited<ReturnType<typeof getAuthContext>>): string {
+  return ctx.role === 'GLOBAL_ADMIN' ? BONSA_ORG_ID : requireOrgId(ctx);
+}
+
 // GET /api/funnels
 export async function GET() {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const funnels = await prisma.funnel.findMany({
       where: { organizationId: orgId },
@@ -26,7 +32,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { name, description, stages } = await req.json();
 
     if (!name?.trim()) {
