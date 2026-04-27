@@ -14,7 +14,7 @@ export async function PATCH(req: Request, { params }: Params) {
     const orgId = ctx.role === "GLOBAL_ADMIN" ? undefined : requireOrgId(ctx);
     const { id } = await params;
 
-    const existing = await prisma.b2BProspect.findFirst({
+    const existing = await prisma.b2bProspect.findFirst({
       where: { id, ...(orgId ? { organizationId: orgId } : {}) },
     });
     if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
@@ -29,7 +29,7 @@ export async function PATCH(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: "유효하지 않은 상태값입니다." }, { status: 400 });
     }
 
-    const updated = await prisma.b2BProspect.update({
+    const updated = await prisma.b2bProspect.update({
       where: { id },
       data: {
         ...(body.status          !== undefined ? { status:          body.status }          : {}),
@@ -64,12 +64,12 @@ export async function DELETE(_req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: "삭제 권한이 없습니다." }, { status: 403 });
     }
 
-    const existing = await prisma.b2BProspect.findFirst({
+    const existing = await prisma.b2bProspect.findFirst({
       where: { id, ...(orgId ? { organizationId: orgId } : {}) },
     });
     if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
 
-    await prisma.b2BProspect.delete({ where: { id } });
+    await prisma.b2bProspect.delete({ where: { id } });
 
     logger.log("[DELETE /api/b2b/[id]]", { id });
 

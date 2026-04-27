@@ -20,17 +20,17 @@ export async function GET(req: Request) {
     };
 
     const [prospects, total] = await Promise.all([
-      prisma.b2BProspect.findMany({
+      prisma.b2bProspect.findMany({
         where,
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,
       }),
-      prisma.b2BProspect.count({ where }),
+      prisma.b2bProspect.count({ where }),
     ]);
 
     // 상태별 카운트
-    const counts = await prisma.b2BProspect.groupBy({
+    const counts = await prisma.b2bProspect.groupBy({
       by:    ["status"],
       where: orgId ? { organizationId: orgId } : {},
       _count: { id: true },
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: "이름과 전화번호는 필수입니다." }, { status: 400 });
     }
 
-    const prospect = await prisma.b2BProspect.create({
+    const prospect = await prisma.b2bProspect.create({
       data: {
         organizationId:  orgId,
         name:            body.name.trim(),
