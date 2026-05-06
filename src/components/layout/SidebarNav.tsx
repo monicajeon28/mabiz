@@ -7,7 +7,7 @@ import {
   FileText, Wrench, Database, Link2, Settings, LogOut,
   AlarmClock, TrendingUp, Building2, ClipboardList, CreditCard,
   BookOpen, Newspaper, FolderOpen, BarChart2, BarChart,
-  Calculator, Phone, ShoppingBag, Award,
+  Calculator, Phone, ShoppingBag, Award, Star, Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/components/layout/NotificationBell";
@@ -41,6 +41,16 @@ const navSections: NavSection[] = [
       { href: "/team",                  icon: BarChart,     label: "팀 성과",       roles: ["GLOBAL_ADMIN", "OWNER"] },
       { href: "/contacts/all",          icon: Users2,       label: "전체 고객(관리자)", roles: ["GLOBAL_ADMIN"] },
       { href: "/team/affiliate",        icon: Award,        label: "어필리에이트 성과", roles: ["GLOBAL_ADMIN"] },
+    ],
+  },
+  {
+    label: "GMcruise",
+    roles: ["GLOBAL_ADMIN", "OWNER", "AGENT"],
+    items: [
+      { href: "/affiliate-sales", icon: TrendingUp,   label: "판매 관리",  roles: ["GLOBAL_ADMIN", "OWNER"] },
+      { href: "/gold-members",    icon: Star,          label: "골드회원" },
+      { href: "/gold-inquiries",  icon: MessageSquare, label: "골드문의" },
+      { href: "/payslips",        icon: Receipt,       label: "급여명세" },
     ],
   },
   {
