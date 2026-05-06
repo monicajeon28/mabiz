@@ -17,6 +17,14 @@ export interface AuthContext {
   userId: string;
   role: UserRole;
   organizationId: string | null;
+  /** GMcruise User 기반 세션일 때 채워짐 */
+  mallUser?: {
+    id: number;
+    name: string | null;
+    mallUserId: string | null;
+    affiliateType: string | null;
+    affiliateProfileId: number | null;
+  };
   member: {
     id: string;
     organizationId: string;

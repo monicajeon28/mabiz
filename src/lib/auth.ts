@@ -7,9 +7,17 @@ import type { UserRole } from '@/lib/rbac';
 export const MABIZ_SESSION_COOKIE = 'mabiz.sid';
 
 export interface MabizAuthContext {
-  userId: string;          // memberId 또는 adminId
+  userId: string;          // memberId, adminId, 또는 mallUserId 문자열
   role: UserRole;
   organizationId: string | null;
+  // GMcruise User 기반 세션일 때 채워짐
+  mallUser?: {
+    id: number;
+    name: string | null;
+    mallUserId: string | null;
+    affiliateType: string | null;
+    affiliateProfileId: number | null;
+  };
   member: {
     id: string;
     organizationId: string;
@@ -17,6 +25,14 @@ export interface MabizAuthContext {
     displayName: string | null;
   } | null;
 }
+
+type RawMallUser = {
+  id: number;
+  name: string | null;
+  mallUserId: string | null;
+  affiliateType: string | null;
+  affiliateProfileId: number | null;
+};
 
 export async function getMabizSession(): Promise<MabizAuthContext | null> {
   try {
@@ -34,6 +50,7 @@ export async function getMabizSession(): Promise<MabizAuthContext | null> {
       return null;
     }
 
+    // GlobalAdmin 세션
     if (session.adminId) {
       return {
         userId: session.adminId,
@@ -43,6 +60,7 @@ export async function getMabizSession(): Promise<MabizAuthContext | null> {
       };
     }
 
+    // OrganizationMember 세션
     if (session.memberId && session.organizationId) {
       const member = await prisma.organizationMember.findUnique({
         where: { id: session.memberId },
@@ -65,6 +83,39 @@ export async function getMabizSession(): Promise<MabizAuthContext | null> {
           role: member.role,
           displayName: member.displayName,
         },
+      };
+    }
+
+    // GMcruise User 세션 (mallUserId 기반)
+    if (session.mallUserId) {
+      const rows = await prisma.$queryRawUnsafe<RawMallUser[]>(
+        `SELECT u.id, u.name, u."mallUserId",
+                ap.type as "affiliateType",
+                ap.id as "affiliateProfileId"
+         FROM "User" u
+         LEFT JOIN "AffiliateProfile" ap ON ap."userId" = u.id AND ap."isActive" = true
+         WHERE u.id = $1 AND u."isLocked" = false
+         LIMIT 1`,
+        session.mallUserId
+      );
+
+      const mallUser = rows[0];
+      if (!mallUser) return null;
+
+      const role = session.role as UserRole;
+
+      return {
+        userId: String(session.mallUserId),
+        role,
+        organizationId: session.organizationId ?? null,
+        mallUser: {
+          id: mallUser.id,
+          name: mallUser.name,
+          mallUserId: mallUser.mallUserId,
+          affiliateType: mallUser.affiliateType,
+          affiliateProfileId: mallUser.affiliateProfileId,
+        },
+        member: null,
       };
     }
 

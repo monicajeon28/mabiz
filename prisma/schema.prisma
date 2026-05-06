@@ -103,6 +103,7 @@ model MabizSession {
   id             String   @id @default(cuid())
   memberId       String?  // OrganizationMember.id
   adminId        String?  // GlobalAdmin.id
+  mallUserId     Int?     // GMcruise User.id (크루즈닷몰 공유 계정)
   role           String   // GLOBAL_ADMIN | OWNER | AGENT | FREE_SALES
   organizationId String?
   expiresAt      DateTime
@@ -110,6 +111,7 @@ model MabizSession {
 
   @@index([memberId])
   @@index([adminId])
+  @@index([mallUserId])
   @@map("MabizSession")
 }
 
