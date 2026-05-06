@@ -93,7 +93,7 @@ export async function getMabizSession(): Promise<MabizAuthContext | null> {
                 ap.type as "affiliateType",
                 ap.id as "affiliateProfileId"
          FROM "User" u
-         LEFT JOIN "AffiliateProfile" ap ON ap."userId" = u.id AND ap."isActive" = true
+         LEFT JOIN "AffiliateProfile" ap ON ap."userId" = u.id AND ap.status = 'ACTIVE'
          WHERE u.id = $1 AND u."isLocked" = false
          LIMIT 1`,
         session.mallUserId

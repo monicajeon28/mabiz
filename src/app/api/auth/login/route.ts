@@ -46,17 +46,23 @@ async function findMallUser(identifier: string): Promise<{
     mallUserId: string | null;
     affiliateType: string | null;
   };
-  const rows = await prisma.$queryRawUnsafe<RawUser[]>(
-    `SELECT u.id, u.name, u.password, u.role, u."mallUserId",
-            ap.type as "affiliateType"
-     FROM "User" u
-     LEFT JOIN "AffiliateProfile" ap ON ap."userId" = u.id AND ap."isActive" = true
-     WHERE (u."mallUserId" = $1 OR u.phone = $1)
-       AND u."isLocked" = false
-     LIMIT 1`,
-    identifier
-  );
-  return rows[0] ?? null;
+  try {
+    const rows = await prisma.$queryRawUnsafe<RawUser[]>(
+      `SELECT u.id, u.name, u.password, u.role, u."mallUserId",
+              ap.type as "affiliateType"
+       FROM "User" u
+       LEFT JOIN "AffiliateProfile" ap ON ap."userId" = u.id AND ap.status = 'ACTIVE'
+       WHERE (u."mallUserId" = $1 OR u.phone = $1)
+         AND u."isLocked" = false
+       LIMIT 1`,
+      identifier
+    );
+    return rows[0] ?? null;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error('[findMallUser] raw SQL 실패', { identifier, msg });
+    throw err;
+  }
 }
 
 // GMcruise mallUserId 기반 CRM 역할 결정
