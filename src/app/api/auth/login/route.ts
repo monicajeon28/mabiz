@@ -70,9 +70,8 @@ function resolveRoleFromMallUser(role: string, mallUserId: string | null, affili
   if (role === 'admin') return 'GLOBAL_ADMIN';
   if (!affiliateType) return null; // community인데 AffiliateProfile 없으면 로그인 불가
   if (affiliateType === 'BRANCH_MANAGER' || affiliateType === 'HQ') return 'OWNER';
+  if (affiliateType === 'PRESALES') return 'FREE_SALES';
   if (affiliateType === 'SALES_AGENT') {
-    // mallUserId가 'pre'로 시작하면 프리세일즈
-    if (mallUserId && mallUserId.toLowerCase().startsWith('pre')) return 'FREE_SALES';
     return 'AGENT';
   }
   return null;
