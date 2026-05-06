@@ -47,10 +47,13 @@ const navSections: NavSection[] = [
     label: "GMcruise",
     roles: ["GLOBAL_ADMIN", "OWNER", "AGENT"],
     items: [
-      { href: "/affiliate-sales", icon: TrendingUp,   label: "판매 관리",  roles: ["GLOBAL_ADMIN", "OWNER"] },
-      { href: "/gold-members",    icon: Star,          label: "골드회원" },
-      { href: "/gold-inquiries",  icon: MessageSquare, label: "골드문의" },
-      { href: "/payslips",        icon: Receipt,       label: "급여명세" },
+      { href: "/affiliate-sales",   icon: TrendingUp,   label: "판매 관리",    roles: ["GLOBAL_ADMIN", "OWNER"] },
+      { href: "/gold-members",      icon: Star,          label: "골드회원" },
+      { href: "/gold-inquiries",    icon: MessageSquare, label: "골드문의" },
+      { href: "/payslips",          icon: Receipt,       label: "급여명세" },
+      { href: "/commission-ledger", icon: BookOpen,      label: "커미션 원장",  roles: ["GLOBAL_ADMIN", "OWNER"] },
+      { href: "/year-end-report",   icon: BarChart2,     label: "연말정산",     roles: ["GLOBAL_ADMIN", "OWNER"] },
+      { href: "/products",          icon: ShoppingBag,   label: "상품 관리",    roles: ["GLOBAL_ADMIN"] },
     ],
   },
   {
