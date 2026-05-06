@@ -92,7 +92,7 @@ model OrganizationMember {
 // ─── 글로벌 관리자 (모든 조직 DB 접근 + 삭제 권한) ────────────
 model GlobalAdmin {
   id           String   @id @default(cuid())
-  userId       String   @unique  // Clerk user ID
+  userId       String?  @unique  // Clerk 제거 후 선택적
   phone        String?  @unique
   passwordHash String?
   displayName  String?
@@ -108,6 +108,7 @@ model MabizSession {
   organizationId String?
   expiresAt      DateTime
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([memberId])
   @@index([adminId])
