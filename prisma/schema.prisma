@@ -170,11 +170,13 @@ model Contact {
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?               // 소프트 삭제 일시 (null = 활성)
 
   @@unique([phone, organizationId])
   @@index([organizationId])
   @@index([type])
   @@index([assignedUserId])
+  @@index([deletedAt])
 }
 
 // ─── 고객 그룹 ────────────────────────────────────────────────
@@ -186,6 +188,9 @@ model ContactGroup {
   color          String?  @default("#6B7280")
   // 이 그룹에 배정되면 자동으로 시작할 퍼널
   funnelId       String?
+  // 그룹 소유자 (OrganizationMember.id 또는 GlobalAdmin.id)
+  // null = 조직 공유 그룹 (기존 데이터 호환), 있으면 개인 그룹
+  ownerId        String?
 
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   members        ContactGroupMember[]
@@ -194,6 +199,7 @@ model ContactGroup {
   updatedAt      DateTime @updatedAt
 
   @@index([organizationId])
+  @@index([ownerId])
 }
 
 model ContactGroupMember {
@@ -896,4 +902,27 @@ model SystemConfig {
   updatedAt   DateTime @updatedAt
 
   @@map("SystemConfig")
+}
+
+// ─── 웹 푸시 구독 정보 ─────────────────────────────────────────
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String   // OrganizationMember.id 또는 GlobalAdmin.id
+  endpoint  String   @unique  // 브라우저가 제공하는 고유 엔드포인트
+  p256dh    String   // ECDH 공개 키 (base64)
+  auth      String   // 인증 토큰 (base64)
+  role      String   // OWNER | AGENT | GLOBAL_ADMIN
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ─── 사용자별 푸시 설정 ────────────────────────────────────────
+model UserPushSettings {
+  id            String   @id @default(cuid())
+  userId        String   @unique  // OrganizationMember.id 또는 GlobalAdmin.id
+  notifyEnabled Boolean  @default(true)  // 푸시 알림 활성화 여부
+  notifyAtHour  Int      @default(9)     // 0-23: 몇 시에 자동 푸시할지
+  lastPushedAt  DateTime?                 // 마지막으로 푸시 발송한 날짜+시간
+  updatedAt     DateTime @updatedAt
 }

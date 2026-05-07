@@ -70,7 +70,7 @@ export async function getMabizSession(): Promise<MabizAuthContext | null> {
       if (!member || !member.isActive) return null;
 
       const role: UserRole =
-        member.role === 'OWNER'      ? 'OWNER'      :
+        (member.role === 'OWNER' || member.role === 'BRANCH_MANAGER') ? 'OWNER' :
         member.role === 'FREE_SALES' ? 'FREE_SALES' : 'AGENT';
 
       return {

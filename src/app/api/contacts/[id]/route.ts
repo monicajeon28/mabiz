@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, buildContactWhere, canDelete, maskContactInfo } from "@/lib/rbac";
+import { getAuthContext, buildContactWhere, canDelete, canHardDelete, maskContactInfo } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 type Params = { params: Promise<{ id: string }> };
@@ -26,8 +26,97 @@ export async function GET(_req: Request, { params }: Params) {
     });
 
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
-    // AGENT 역할이면 개인정보 마스킹
-    return NextResponse.json({ ok: true, contact: maskContactInfo(contact, ctx) });
+
+    // ── 연결된 콜 기록 (DB 전달된 양방향 연결 고객) ─────────
+    const transferLinks = await prisma.contactTransferLog.findMany({
+      where: {
+        OR: [
+          { contactId: contact.id },     // 내가 보낸 복사본
+          { newContactId: contact.id },  // 내가 받은 원본
+        ],
+        transferType: "ORG_COPY",
+      },
+      select: { contactId: true, newContactId: true },
+    });
+
+    const linkedIds = new Set<string>();
+    for (const l of transferLinks) {
+      if (l.contactId    !== contact.id && l.contactId)    linkedIds.add(l.contactId);
+      if (l.newContactId !== contact.id && l.newContactId) linkedIds.add(l.newContactId);
+    }
+
+    let sharedCallLogs: Array<{
+      id: string; createdAt: Date; content: string | null; result: string | null;
+      duration: number | null; convictionScore: number | null; nextAction: string | null;
+      scheduledAt: Date | null; userId: string;
+      _sharedFrom: string; // 조직명
+      _authorName: string | null;
+    }> = [];
+
+    if (linkedIds.size > 0) {
+      const linkedContacts = await prisma.contact.findMany({
+        where: { id: { in: [...linkedIds] } },
+        include: {
+          callLogs: { orderBy: { createdAt: "desc" }, take: 30 },
+          organization: { select: { name: true } },
+        },
+      });
+      for (const lc of linkedContacts) {
+        sharedCallLogs.push(...lc.callLogs.map(log => ({
+          ...log, _sharedFrom: lc.organization.name, _authorName: null,
+        })));
+      }
+      // 최신순 정렬
+      sharedCallLogs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+
+    // ── userId → 이름 batch 조회 (callLogs + memos + sharedCallLogs) ──
+    const rawUserIds = [
+      ...contact.callLogs.map(l => l.userId),
+      ...contact.memos.map(m => m.userId),
+      ...sharedCallLogs.map(l => l.userId),
+    ].filter(Boolean);
+    const uniqueUserIds = [...new Set(rawUserIds)];
+
+    const [gaList, memberList] = await Promise.all([
+      uniqueUserIds.length > 0
+        ? prisma.globalAdmin.findMany({
+            where: { id: { in: uniqueUserIds } },
+            select: { id: true, displayName: true },
+          })
+        : Promise.resolve([]),
+      uniqueUserIds.length > 0
+        ? prisma.organizationMember.findMany({
+            where: { id: { in: uniqueUserIds } },
+            select: { id: true, displayName: true, phone: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const nameMap = new Map<string, string>();
+    for (const ga of gaList)     nameMap.set(ga.id, ga.displayName ?? '관리자');
+    for (const m  of memberList) nameMap.set(m.id,  m.displayName  ?? m.phone ?? m.id);
+
+    const callLogsWithAuthor = contact.callLogs.map(l => ({
+      ...l, _authorName: nameMap.get(l.userId) ?? null,
+    }));
+    const memosWithAuthor = contact.memos.map(m => ({
+      ...m, _authorName: nameMap.get(m.userId) ?? null,
+    }));
+    const sharedWithAuthor = sharedCallLogs.map(l => ({
+      ...l, _authorName: nameMap.get(l.userId) ?? null,
+    }));
+
+    const masked = maskContactInfo(contact, ctx);
+    return NextResponse.json({
+      ok: true,
+      contact: {
+        ...masked,
+        callLogs:       callLogsWithAuthor,
+        memos:          memosWithAuthor,
+        sharedCallLogs: sharedWithAuthor,
+      },
+    });
   } catch (err) {
     logger.error("[GET /api/contacts/[id]]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
@@ -54,7 +143,8 @@ export async function PATCH(req: Request, { params }: Params) {
       where: { id },
       data: {
         ...(name           !== undefined ? { name }           : {}),
-        ...(phone          !== undefined ? { phone }          : {}),
+        // 전화번호는 OWNER/GLOBAL_ADMIN만 변경 가능 (고유 식별키 보호)
+        ...(phone          !== undefined && ctx.role !== "AGENT" ? { phone } : {}),
         ...(email          !== undefined ? { email }          : {}),
         ...(type           !== undefined ? { type }           : {}),
         ...(cruiseInterest !== undefined ? { cruiseInterest } : {}),
@@ -80,26 +170,79 @@ export async function PATCH(req: Request, { params }: Params) {
   }
 }
 
-// DELETE /api/contacts/[id] — OWNER / GLOBAL_ADMIN 만
+// DELETE /api/contacts/[id]
+// GLOBAL_ADMIN: 삭제 전 Drive 백업 → 하드 삭제
+// OWNER: 소프트 삭제 (deletedAt 설정) → Drive 백업 fire-and-forget
+// AGENT: 불가
 export async function DELETE(_req: Request, { params }: Params) {
   try {
     const ctx  = await getAuthContext();
     const { id } = await params;
 
-    // 삭제 권한 체크
     if (!canDelete(ctx)) {
       return NextResponse.json(
-        { ok: false, message: "삭제 권한이 없습니다. 관리자에게 문의하세요." },
+        { ok: false, message: "삭제 권한이 없습니다." },
         { status: 403 }
       );
     }
 
     const where    = buildContactWhere(ctx, { id });
-    const existing = await prisma.contact.findFirst({ where });
+    const existing = await prisma.contact.findFirst({
+      where,
+      include: {
+        callLogs:     { orderBy: { createdAt: "desc" } },
+        memos:        { orderBy: { createdAt: "desc" } },
+        groups:       { include: { group: { select: { id: true, name: true } } } },
+        organization: { select: { id: true, name: true } },
+      },
+    });
     if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
 
-    await prisma.contact.delete({ where: { id } });
-    logger.log("[DELETE /api/contacts/[id]] 고객 삭제", { id, role: ctx.role });
+    if (canHardDelete(ctx)) {
+      // GLOBAL_ADMIN: Drive 백업 후 하드 삭제
+      const transferLogs = await prisma.contactTransferLog.findMany({
+        where: { contactId: id }, orderBy: { createdAt: "desc" },
+      });
+      import("@/lib/backup-xlsx").then(({ backupContactsToExcel }) =>
+        backupContactsToExcel({
+          orgName:              existing.organization.name,
+          orgId:                existing.organizationId,
+          contacts: [{
+            ...existing,
+            tags:        existing.tags ?? [],
+            groups:      existing.groups,
+            transferLogs: transferLogs.map(t => ({ ...t, toUserName: null })),
+          }],
+          mode:                 "pre_delete",
+          contactNameForDelete: existing.name,
+        }).catch(() => {})
+      ).catch(() => {});
+      await prisma.contact.delete({ where: { id } });
+      logger.log("[DELETE] 하드 삭제", { id });
+    } else {
+      // OWNER: 소프트 삭제
+      await prisma.contact.update({ where: { id }, data: { deletedAt: new Date() } });
+      // Drive 백업 fire-and-forget
+      const transferLogs = await prisma.contactTransferLog.findMany({
+        where: { contactId: id }, orderBy: { createdAt: "desc" },
+      });
+      import("@/lib/backup-xlsx").then(({ backupContactsToExcel }) =>
+        backupContactsToExcel({
+          orgName:              existing.organization.name,
+          orgId:                existing.organizationId,
+          contacts: [{
+            ...existing,
+            tags:        existing.tags ?? [],
+            groups:      existing.groups,
+            transferLogs: transferLogs.map(t => ({ ...t, toUserName: null })),
+          }],
+          mode:                 "pre_delete",
+          contactNameForDelete: existing.name,
+        }).catch(() => {})
+      ).catch(() => {});
+      logger.log("[DELETE] 소프트 삭제", { id });
+    }
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     logger.error("[DELETE /api/contacts/[id]]", { err });

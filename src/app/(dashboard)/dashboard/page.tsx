@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, TrendingUp, RotateCcw, Clock, Star } from "lucide-react";
+import { Users, TrendingUp, RotateCcw, Clock, Star, Phone, Settings, Send, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
 type DashboardData = {
@@ -19,11 +19,16 @@ type DashboardData = {
   monthRefundCount?: number;
   // FREE_SALES
   affiliateCode?: string | null;
+  // CRM 전용 (affiliateProfileId 없는 OWNER/AGENT)
+  totalContacts?: number;
+  newContactsThisMonth?: number;
+  // 오늘 콜 (모든 역할)
+  callDueToday?: number;
 };
 
 type FeedItem = {
   id:        string;
-  type:      'LANDING_REG' | 'SALE_PENDING' | 'GOLD_INQUIRY' | 'B2B_LEAD' | 'NEW_CONTACT' | 'ORG_CONTRACT';
+  type:      'LANDING_REG' | 'SALE_PENDING' | 'GOLD_INQUIRY' | 'B2B_LEAD' | 'NEW_CONTACT' | 'ORG_CONTRACT' | 'CALL_DUE';
   name:      string;
   phone:     string | null;
   detail:    string | null;
@@ -39,6 +44,7 @@ const TYPE_CONFIG: Record<string, { label: string; emoji: string; dotColor: stri
   B2B_LEAD:     { label: 'B2B 잠재고객',  emoji: '🏢', dotColor: 'bg-indigo-500' },
   NEW_CONTACT:  { label: '신규 고객',      emoji: '📋', dotColor: 'bg-green-500'  },
   ORG_CONTRACT: { label: '신규 대리점',    emoji: '🤝', dotColor: 'bg-purple-500' },
+  CALL_DUE:     { label: '오늘 콜 예정',    emoji: '📞', dotColor: 'bg-rose-500'   },
 };
 
 function relativeTime(iso: string): string {
@@ -66,6 +72,161 @@ function KpiCard({
         {typeof value === "number" ? value.toLocaleString() : value}
       </p>
       {sub && <p className={`text-xs mt-1 ${color ? "text-white/60" : "text-gray-400"}`}>{sub}</p>}
+    </div>
+  );
+}
+
+function PushCallNotification({ callDueCount }: { callDueCount: number }) {
+  const [sending, setSending] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState<{ notifyEnabled: boolean; notifyAtHour: number } | null>(null);
+  const [pushSettings, setPushSettings] = useState<{ notifyEnabled: boolean; notifyAtHour: number }>({
+    notifyEnabled: true,
+    notifyAtHour: 9,
+  });
+
+  // 초기 로드: 설정 조회
+  useEffect(() => {
+    if (showSettings) {
+      fetch('/api/push/settings')
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok && d.settings) {
+            setPushSettings(d.settings);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [showSettings]);
+
+  const sendNow = async () => {
+    setSending(true);
+    try {
+      // 먼저 푸시 권한 요청
+      if ('Notification' in window && Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
+
+      // 구독 정보 저장 및 푸시 발송
+      const result = await fetch('/api/push/send-today', { method: 'POST' });
+      const data = await result.json();
+
+      if (data.ok) {
+        alert(`${callDueCount}명의 고객 콜 알림을 폰으로 보냈습니다`);
+      } else {
+        alert(data.error || '푸시 발송 실패');
+      }
+    } catch (err) {
+      alert('푸시 발송 중 오류가 발생했습니다');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const saveSettings = async () => {
+    try {
+      const result = await fetch('/api/push/settings', {
+        method: 'PUT',
+        body: JSON.stringify(pushSettings),
+      });
+      const data = await result.json();
+
+      if (data.ok) {
+        alert('설정이 저장되었습니다');
+        setShowSettings(false);
+      } else {
+        alert(data.error || '설정 저장 실패');
+      }
+    } catch (err) {
+      alert('설정 저장 중 오류가 발생했습니다');
+    }
+  };
+
+  return (
+    <div className="bg-gradient-to-r from-rose-50 to-orange-50 border border-rose-200 rounded-2xl p-5 mb-6">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-2">
+            <Phone className="w-5 h-5 text-rose-600" />
+            <h3 className="font-semibold text-rose-900">오늘 콜 목록 ({callDueCount}명)</h3>
+          </div>
+          <p className="text-sm text-rose-700">스마트폰에 푸시 알림으로 받아보세요</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={sendNow}
+            disabled={sending}
+            className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-medium hover:bg-rose-700 disabled:opacity-50 transition-colors"
+          >
+            <Send className="w-4 h-4" />
+            {sending ? '전송 중...' : '폰으로 보내기'}
+          </button>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-rose-200 text-rose-600 rounded-lg text-sm font-medium hover:bg-rose-50 transition-colors"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* 푸시 설정 모달 */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl">
+            <h2 className="text-lg font-bold text-navy-900 mb-4">푸시 알림 설정</h2>
+
+            {/* 알림 활성화 토글 */}
+            <div className="mb-5 p-4 border border-gray-200 rounded-xl">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={pushSettings.notifyEnabled}
+                  onChange={e => setPushSettings({ ...pushSettings, notifyEnabled: e.target.checked })}
+                  className="w-4 h-4 rounded border-gray-300"
+                />
+                <span className="text-sm font-medium text-gray-700">자동 푸시 알림 활성화</span>
+              </label>
+              <p className="text-xs text-gray-500 mt-2 ml-7">매일 지정한 시간에 자동으로 알림을 보냅니다</p>
+            </div>
+
+            {/* 시간 선택 */}
+            {pushSettings.notifyEnabled && (
+              <div className="mb-5 p-4 border border-gray-200 rounded-xl">
+                <label className="text-sm font-medium text-gray-700 mb-2 block">몇 시에 보낼까요?</label>
+                <select
+                  value={pushSettings.notifyAtHour}
+                  onChange={e => setPushSettings({ ...pushSettings, notifyAtHour: parseInt(e.target.value) })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
+                >
+                  {Array.from({ length: 17 }, (_, i) => i + 6).map(hour => (
+                    <option key={hour} value={hour}>
+                      {hour.toString().padStart(2, '0')}:00
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-2">아침 6시부터 밤 10시까지 선택 가능</p>
+              </div>
+            )}
+
+            {/* 버튼 */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowSettings(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+              >
+                닫기
+              </button>
+              <button
+                onClick={saveSettings}
+                className="flex-1 px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-medium hover:bg-rose-700 transition-colors"
+              >
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -111,33 +272,59 @@ export default function DashboardPage() {
 
       {/* GLOBAL_ADMIN KPI */}
       {role === "GLOBAL_ADMIN" && data && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           <KpiCard title="전체 판매원"  value={data.totalAgents ?? 0}          icon={<Users className="w-5 h-5" />} color="bg-navy-900" />
           <KpiCard title="이번달 매출"  value={(data.monthSaleAmount ?? 0).toLocaleString() + "원"} icon={<TrendingUp className="w-5 h-5" />} />
           <KpiCard title="이번달 환불"  value={(data.monthRefundAmount ?? 0).toLocaleString() + "원"} icon={<RotateCcw className="w-5 h-5" />} />
           <KpiCard title="승인 대기"    value={data.pendingApprovalCount ?? 0} icon={<Clock className="w-5 h-5" />} />
           <KpiCard title="골드회원"     value={data.goldMemberCount ?? 0}      icon={<Star className="w-5 h-5" />} />
+          <KpiCard title="오늘 콜"     value={data.callDueToday ?? 0}         icon={<Phone className="w-5 h-5" />} color="bg-rose-600" />
         </div>
       )}
 
-      {/* OWNER KPI */}
-      {role === "OWNER" && data && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <KpiCard title="소속 판매원"  value={data.teamAgentCount ?? 0}         icon={<Users className="w-5 h-5" />} color="bg-navy-900" />
-          <KpiCard title="팀 이번달 매출" value={(data.monthSaleAmount ?? 0).toLocaleString() + "원"} icon={<TrendingUp className="w-5 h-5" />} />
-          <KpiCard title="팀 환불"      value={(data.monthRefundAmount ?? 0).toLocaleString() + "원"} icon={<RotateCcw className="w-5 h-5" />} />
-          <KpiCard title="승인 대기"    value={data.pendingApprovalCount ?? 0} icon={<Clock className="w-5 h-5" />} />
+      {/* OWNER KPI — 어필리에이트 연동 있을 때 */}
+      {role === "OWNER" && data && data.teamAgentCount !== undefined && data.monthSaleAmount !== undefined && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <KpiCard title="소속 판매원"    value={data.teamAgentCount ?? 0}                                   icon={<Users className="w-5 h-5" />} color="bg-navy-900" />
+          <KpiCard title="팀 이번달 매출" value={(data.monthSaleAmount ?? 0).toLocaleString() + "원"}        icon={<TrendingUp className="w-5 h-5" />} />
+          <KpiCard title="팀 환불"        value={(data.monthRefundAmount ?? 0).toLocaleString() + "원"}      icon={<RotateCcw className="w-5 h-5" />} />
+          <KpiCard title="승인 대기"      value={data.pendingApprovalCount ?? 0}                             icon={<Clock className="w-5 h-5" />} />
+          <KpiCard title="오늘 콜"       value={data.callDueToday ?? 0}                                     icon={<Phone className="w-5 h-5" />} color="bg-rose-600" />
         </div>
       )}
 
-      {/* AGENT KPI */}
-      {role === "AGENT" && data && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      {/* OWNER KPI — CRM 전용 (affiliateProfileId 없음) */}
+      {role === "OWNER" && data && data.totalContacts !== undefined && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+          <KpiCard title="전체 고객"        value={data.totalContacts ?? 0}          icon={<Users className="w-5 h-5" />} color="bg-navy-900" />
+          <KpiCard title="이번달 신규 고객" value={data.newContactsThisMonth ?? 0}   icon={<TrendingUp className="w-5 h-5" />} />
+          <KpiCard title="오늘 콜"        value={data.callDueToday ?? 0}         icon={<Phone className="w-5 h-5" />} color="bg-rose-600" />
+        </div>
+      )}
+
+      {/* AGENT KPI — 어필리에이트 연동 있을 때 */}
+      {role === "AGENT" && data && data.monthSaleAmount !== undefined && data.totalContacts === undefined && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           <KpiCard title="이번달 매출"  value={(data.monthSaleAmount ?? 0).toLocaleString() + "원"} icon={<TrendingUp className="w-5 h-5" />} color="bg-navy-900" />
           <KpiCard title="환불 건수"    value={data.monthRefundCount ?? 0}     icon={<RotateCcw className="w-5 h-5" />} />
           <KpiCard title="승인 대기"    value={data.pendingApprovalCount ?? 0} icon={<Clock className="w-5 h-5" />} />
           <KpiCard title="내 골드회원"  value={data.goldMemberCount ?? 0}      icon={<Star className="w-5 h-5" />} />
+          <KpiCard title="오늘 콜"     value={data.callDueToday ?? 0}         icon={<Phone className="w-5 h-5" />} color="bg-rose-600" />
         </div>
+      )}
+
+      {/* AGENT KPI — CRM 전용 (affiliateProfileId 없음) */}
+      {role === "AGENT" && data && data.totalContacts !== undefined && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+          <KpiCard title="담당 고객"        value={data.totalContacts ?? 0}          icon={<Users className="w-5 h-5" />} color="bg-navy-900" />
+          <KpiCard title="이번달 신규 고객" value={data.newContactsThisMonth ?? 0}   icon={<TrendingUp className="w-5 h-5" />} />
+          <KpiCard title="오늘 콜"        value={data.callDueToday ?? 0}         icon={<Phone className="w-5 h-5" />} color="bg-rose-600" />
+        </div>
+      )}
+
+      {/* 푸시 알림 콜 전송 */}
+      {data && data.callDueToday !== undefined && data.callDueToday > 0 && (
+        <PushCallNotification callDueCount={data.callDueToday} />
       )}
 
       {/* 빠른 메뉴 */}

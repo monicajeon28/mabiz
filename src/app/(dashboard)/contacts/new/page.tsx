@@ -144,8 +144,14 @@ export default function NewContactPage() {
               onChange={(e) => setForm({ ...form, type: e.target.value })}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-gold-500"
             >
-              <option value="LEAD">잠재고객</option>
-              <option value="CUSTOMER">구매완료</option>
+              <option value="잠재고객">잠재고객</option>
+              <option value="문자">문자</option>
+              <option value="부재">부재</option>
+              <option value="3일부재">3일부재</option>
+              <option value="소통">소통</option>
+              <option value="구매완료">구매완료</option>
+              <option value="VIP">VIP</option>
+              <option value="수신거부">수신거부</option>
             </select>
           </div>
 
@@ -163,6 +169,9 @@ export default function NewContactPage() {
               <option value="알래스카">알래스카</option>
               <option value="북유럽">북유럽</option>
               <option value="동남아">동남아</option>
+              <option value="발틱해">발틱해</option>
+              <option value="국내출발">국내출발</option>
+              <option value="국내근처">국내근처</option>
               <option value="기타">기타</option>
             </select>
           </div>

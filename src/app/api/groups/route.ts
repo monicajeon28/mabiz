@@ -20,11 +20,16 @@ export async function GET() {
       return NextResponse.json({ ok: false }, { status: 403 });
     }
 
+    // 내 그룹(ownerId === ctx.userId) + 조직 공유 그룹(ownerId === null) 만 반환
+    // GLOBAL_ADMIN은 ownerId 필터 없이 조직 전체 조회
+    const ownerFilter = ctx.role !== 'GLOBAL_ADMIN'
+      ? { OR: [{ ownerId: ctx.userId }, { ownerId: null }] }
+      : {};
+
     const groups = await prisma.contactGroup.findMany({
-      where: { organizationId: orgId },
+      where: { organizationId: orgId, ...ownerFilter },
       include: {
         _count: { select: { members: true } },
-        // 연결된 퍼널 이름도 같이
       },
       orderBy: { createdAt: "asc" },
     });
@@ -86,6 +91,7 @@ export async function POST(req: Request) {
         description: description ?? null,
         color:       color       ?? "#6B7280",
         funnelId:    funnelId    ?? null,
+        ownerId:     ctx.userId,  // 개인 그룹으로 생성
       },
     });
 

@@ -1,0 +1,315 @@
+import { NextResponse } from "next/server";
+import * as XLSX from "xlsx";
+import prisma from "@/lib/prisma";
+import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { logger } from "@/lib/logger";
+import { ImportTarget, IMPORT_CONFIGS } from "@/lib/import-config";
+import {
+  isValidXlsx,
+  buildHeaderMap,
+  chunkRows,
+  normalizePhone,
+} from "@/lib/import-utils";
+
+// POST /api/import?target=b2c|b2b_buyer|b2b_inquiry
+export async function POST(req: Request) {
+  try {
+    // 인증 체크
+    const ctx = await getAuthContext();
+    const orgId = requireOrgId(ctx);
+
+    // target 파라미터 검증
+    const url = new URL(req.url);
+    const targetParam = url.searchParams.get("target");
+
+    if (!targetParam) {
+      return NextResponse.json(
+        { ok: false, message: "target 파라미터가 필수입니다" },
+        { status: 400 }
+      );
+    }
+
+    // target을 정규화 (b2b-buyer → b2b_buyer)
+    const target = targetParam
+      .toLowerCase()
+      .replace(/-/g, "_") as ImportTarget;
+
+    if (!IMPORT_CONFIGS[target]) {
+      return NextResponse.json(
+        { ok: false, message: "유효하지 않은 target입니다" },
+        { status: 400 }
+      );
+    }
+
+    // AGENT, FREE_SALES 역할 차단
+    if (ctx.role === "AGENT" || ctx.role === "FREE_SALES") {
+      return NextResponse.json(
+        { ok: false, message: "권한이 없습니다" },
+        { status: 403 }
+      );
+    }
+
+    // B2B target + AGENT/FREE_SALES 이중 체크
+    if (target.startsWith("b2b")) {
+      if (ctx.role === "AGENT" || ctx.role === "FREE_SALES") {
+        return NextResponse.json(
+          { ok: false, message: "B2B 기능에 접근할 권한이 없습니다" },
+          { status: 403 }
+        );
+      }
+    }
+
+    // formData.get("file") 검증
+    const formData = await req.formData();
+    const file = formData.get("file") as File | null;
+
+    if (!file) {
+      return NextResponse.json(
+        { ok: false, message: "파일을 첨부하세요" },
+        { status: 400 }
+      );
+    }
+
+    // file.size > 10MB 체크
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { ok: false, message: "파일 크기는 10MB 이하여야 합니다" },
+        { status: 400 }
+      );
+    }
+
+    // magic bytes 검증
+    const buffer = Buffer.from(await file.arrayBuffer());
+    if (!isValidXlsx(buffer)) {
+      return NextResponse.json(
+        { ok: false, message: "유효한 Excel 파일이 아닙니다" },
+        { status: 400 }
+      );
+    }
+
+    // XLSX.read() 파싱
+    const wb = XLSX.read(buffer, { type: "buffer" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, {
+      defval: "",
+    });
+
+    // rows.length === 0 체크
+    if (rows.length === 0) {
+      return NextResponse.json(
+        { ok: false, message: "데이터가 없습니다" },
+        { status: 400 }
+      );
+    }
+
+    // buildHeaderMap() 실행
+    const firstRow = rows[0];
+    const headerMap = buildHeaderMap(firstRow, target);
+
+    if (Object.keys(headerMap).length === 0) {
+      return NextResponse.json(
+        { ok: false, message: "유효한 컬럼이 없습니다" },
+        { status: 400 }
+      );
+    }
+
+    let successCount = 0;
+    let validationSkipCount = 0;
+    let processErrorCount = 0;
+    const errors: string[] = [];
+
+    // chunkRows() 100행 청크 및 순차 처리
+    const chunks = chunkRows(rows, 100);
+
+    for (const chunk of chunks) {
+      const results = await Promise.allSettled(
+        chunk.map(async (row) => {
+          const lineNo = rows.indexOf(row) + 2; // 엑셀 행 번호 (헤더 제외)
+          const data: Record<string, string> = {};
+
+          // 헤더 매핑 적용
+          for (const [col, field] of Object.entries(headerMap)) {
+            if (row[col]) {
+              data[field] = String(row[col]).trim();
+            }
+          }
+
+          // B2C 처리
+          if (target === "b2c") {
+            if (!data["이름"] || !data["전화번호"]) {
+              errors.push(`${lineNo}행: 이름 또는 전화번호 없음`);
+              throw new Error("SKIP");
+            }
+
+            const phone = normalizePhone(data["전화번호"]);
+            const typeMap: Record<string, string> = {
+              구매: "CUSTOMER",
+              구매고객: "CUSTOMER",
+              customer: "CUSTOMER",
+              잠재: "LEAD",
+              잠재고객: "LEAD",
+              lead: "LEAD",
+            };
+
+            await prisma.contact.upsert({
+              where: {
+                phone_organizationId: {
+                  phone,
+                  organizationId: orgId,
+                },
+              },
+              create: {
+                organizationId: orgId,
+                name: data["이름"],
+                phone,
+                email: data["이메일"] || null,
+                type: typeMap[data["유형"]?.toLowerCase() ?? ""] ?? "LEAD",
+                cruiseInterest: data["관심크루즈"] || null,
+                adminMemo: data["메모"] || null,
+              },
+              update: {
+                name: data["이름"],
+                email: data["이메일"] || undefined,
+                cruiseInterest: data["관심크루즈"] || undefined,
+                adminMemo: data["메모"] || undefined,
+              },
+            });
+          }
+
+          // B2B_BUYER 처리
+          if (target === "b2b_buyer") {
+            if (!data["회사명"] || !data["대표명"] || !data["전화번호"]) {
+              errors.push(`${lineNo}행: 회사명, 대표명, 전화번호 필수`);
+              throw new Error("SKIP");
+            }
+
+            const phone = normalizePhone(data["전화번호"]);
+
+            // B2B Prospect 찾기 또는 생성
+            let prospect = await prisma.b2BProspect.findFirst({
+              where: {
+                organizationId: orgId,
+                phone,
+                companyName: data["회사명"],
+              },
+            });
+
+            if (prospect) {
+              await prisma.b2BProspect.update({
+                where: { id: prospect.id },
+                data: {
+                  name: data["대표명"],
+                  email: data["이메일"] || undefined,
+                  position: data["담당자"] || undefined,
+                },
+              });
+            } else {
+              await prisma.b2BProspect.create({
+                data: {
+                  organizationId: orgId,
+                  name: data["대표명"],
+                  phone,
+                  email: data["이메일"] || null,
+                  companyName: data["회사명"],
+                  position: data["담당자"] || null,
+                  status: "NEW",
+                },
+              });
+            }
+          }
+
+          // B2B_INQUIRY 처리
+          if (target === "b2b_inquiry") {
+            if (!data["회사명"] || !data["문의자명"] || !data["전화번호"]) {
+              errors.push(`${lineNo}행: 회사명, 문의자명, 전화번호 필수`);
+              throw new Error("SKIP");
+            }
+
+            const phone = normalizePhone(data["전화번호"]);
+
+            // B2B Prospect 찾기 또는 생성
+            let prospect = await prisma.b2BProspect.findFirst({
+              where: {
+                organizationId: orgId,
+                phone,
+                companyName: data["회사명"],
+              },
+            });
+
+            if (prospect) {
+              await prisma.b2BProspect.update({
+                where: { id: prospect.id },
+                data: {
+                  name: data["문의자명"],
+                  email: data["이메일"] || undefined,
+                  notes: data["문의내용"] || undefined,
+                },
+              });
+            } else {
+              await prisma.b2BProspect.create({
+                data: {
+                  organizationId: orgId,
+                  name: data["문의자명"],
+                  phone,
+                  email: data["이메일"] || null,
+                  companyName: data["회사명"],
+                  notes: data["문의내용"] || null,
+                  status: "NEW",
+                },
+              });
+            }
+          }
+        })
+      );
+
+      // 결과 집계
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          successCount++;
+        } else {
+          if (result.reason?.message === "SKIP") {
+            validationSkipCount++;
+          } else {
+            processErrorCount++;
+            if (errors.length < 20) {
+              errors.push(result.reason?.message || "알 수 없는 오류");
+            }
+          }
+        }
+      }
+    }
+
+    logger.log("[POST /api/import]", {
+      target,
+      successCount,
+      validationSkipCount,
+      processErrorCount,
+      orgId,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      successCount,
+      validationSkipCount,
+      processErrorCount,
+      errors: errors.slice(0, 20),
+    });
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      err.message === "UNAUTHORIZED"
+    ) {
+      return NextResponse.json(
+        { ok: false, message: "인증이 필요합니다" },
+        { status: 401 }
+      );
+    }
+
+    logger.error("[POST /api/import]", { err });
+    return NextResponse.json(
+      { ok: false, message: "파일 처리 중 오류가 발생했습니다" },
+      { status: 500 }
+    );
+  }
+}

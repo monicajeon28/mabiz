@@ -26,6 +26,31 @@ export async function GET(_req: Request, { params }: Params) {
   }
 }
 
+// DELETE /api/contacts/[id]/memos?memoId=xxx  (단건)
+// DELETE /api/contacts/[id]/memos              (전체)
+export async function DELETE(req: Request, { params }: Params) {
+  try {
+    const orgId = await getOrgId();
+    const { id } = await params;
+    const { searchParams } = new URL(req.url);
+    const memoId = searchParams.get("memoId");
+
+    const contact = await prisma.contact.findFirst({ where: { id, organizationId: orgId } });
+    if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
+
+    if (memoId) {
+      await prisma.contactMemo.deleteMany({ where: { id: memoId, contactId: id } });
+    } else {
+      await prisma.contactMemo.deleteMany({ where: { contactId: id } });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    logger.error("[DELETE memos]", { err });
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+}
+
 // POST /api/contacts/[id]/memos
 export async function POST(req: Request, { params }: Params) {
   try {

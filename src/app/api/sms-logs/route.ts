@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -16,8 +16,17 @@ import { logger } from '@/lib/logger';
  */
 export async function GET(req: NextRequest) {
   try {
-    const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const ctx = await getAuthContext();
+    let orgId: string;
+    if (ctx.organizationId) {
+      orgId = ctx.organizationId;
+    } else if (ctx.role === 'GLOBAL_ADMIN') {
+      const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
+      if (!firstOrg) return NextResponse.json({ ok: true, logs: [], summary: { total: 0, sent: 0, failed: 0, blocked: 0 } });
+      orgId = firstOrg.id;
+    } else {
+      return NextResponse.json({ ok: false }, { status: 403 });
+    }
 
     const { searchParams } = new URL(req.url);
     const contactId = searchParams.get('contactId') ?? undefined;

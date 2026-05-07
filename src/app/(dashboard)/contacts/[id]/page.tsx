@@ -3,9 +3,9 @@
 import { useState, useEffect, useMemo, use } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft, Phone, MessageSquare, Edit2,
+  ArrowLeft, Phone, MessageSquare,
   Plus, Clock, FileText, Star, GitBranch, Calendar, Send, AlarmClock,
-  Share2, Users, Building2, X
+  Share2, Users, Building2, X, ChevronDown, Trash2, Copy, Check, CloudUpload, Search, FileDown
 } from "lucide-react";
 import { logger } from "@/lib/logger";
 
@@ -13,8 +13,10 @@ type CallLog = {
   id: string; content: string | null; result: string | null;
   duration: number | null; convictionScore: number | null;
   nextAction: string | null; scheduledAt: string | null; createdAt: string;
+  _sharedFrom?: string;   // 다른 조직 공유 콜 기록
+  _authorName?: string | null; // 작성자 이름
 };
-type Memo = { id: string; content: string; createdAt: string };
+type Memo = { id: string; content: string; createdAt: string; _authorName?: string | null };
 type Group = { id: string; name: string; funnelId?: string | null };
 type Contact = {
   id: string; name: string; phone: string; email: string | null;
@@ -24,14 +26,16 @@ type Contact = {
   departureDate: string | null; productName: string | null; bookingRef: string | null;
   tags: string[];
   leadScore: number;
+  sourceOrgId: string | null; // 공유받은 복사본 여부 (null이 아니면 재공유 불가)
   groups: { group: { id: string; name: string } }[];
   callLogs: CallLog[]; memos: Memo[];
+  sharedCallLogs: (CallLog & { _sharedFrom: string })[];
   vipSequences: { id: string; funnelId: string; status: string; startDate: string }[];
 };
 
 // 크루즈 여행사 특화 추천 태그
 const SUGGESTED_TAGS = [
-  "지중해", "알래스카", "카리브해", "북유럽", "동남아", "발틱해",
+  "지중해", "알래스카", "카리브해", "북유럽", "동남아", "발틱해", "국내출발", "국내근처",
   "커플", "가족", "부모님", "친구여행", "혼자",
   "100만이하", "200만대", "300만이상", "VIP",
   "봄출발", "여름출발", "가을출발", "겨울출발",
@@ -54,8 +58,14 @@ type TimelineItem = {
 type TransferLog = {
   id: string;
   createdAt: string;
+  transferType: string;
+  newContactId: string | null;
+  transferredBy: string;
   fromOrg: { name: string } | null;
-  toOrg: { name: string } | null;
+  toOrg:   { name: string } | null;
+  toUserName:    string | null;
+  toUserOrgName: string | null;
+  canRecall: boolean;
 };
 
 export default function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -81,7 +91,9 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const [showSendDb,    setShowSendDb]    = useState(false);
   const [sendDbMode,    setSendDbMode]    = useState<"org" | "agent">("agent");
   const [orgs,          setOrgs]          = useState<{ id: string; name: string }[]>([]);
-  const [agents,        setAgents]        = useState<{ userId: string; displayName: string | null; organization: { name: string } }[]>([]);
+  const [dbSections,    setDbSections]    = useState<{ label: string; members: { id: string; displayName: string | null; loginId: string; orgName: string }[] }[]>([]);
+  const [myDbRole,      setMyDbRole]      = useState<string>("");
+  const [dbSearch,      setDbSearch]      = useState("");
   const [sendDbTarget,  setSendDbTarget]  = useState("");
   const [sendingDb,     setSendingDb]     = useState(false);
   const [sendDbResult,  setSendDbResult]  = useState("");
@@ -121,17 +133,117 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const [transferLogs,    setTransferLogs]    = useState<TransferLog[]>([]);
   const [loadingTransfer, setLoadingTransfer] = useState(false);
 
+  // 콜 기록 accordion
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+
+  // 콜 기록 복사 피드백
+  const [copiedLogId, setCopiedLogId] = useState<string | null>(null);
+
+  // 이름 인라인 편집
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput,   setNameInput]   = useState("");
+
+  // 콜 기록 삭제
+  const deleteCallLog = async (logId: string) => {
+    if (!confirm("이 콜 기록을 삭제할까요?")) return;
+    const res = await fetch(`/api/contacts/${id}/call-logs?logId=${logId}`, { method: "DELETE" });
+    const data = await res.json();
+    if (data.ok) {
+      setContact(c => c ? { ...c, callLogs: c.callLogs.filter(l => l.id !== logId) } : c);
+      if (expandedLogId === logId) setExpandedLogId(null);
+    }
+  };
+
+  const deleteAllCallLogs = async () => {
+    if (!confirm(`콜 기록 ${contact?.callLogs.length}건을 전체 삭제할까요? 되돌릴 수 없습니다.`)) return;
+    const res = await fetch(`/api/contacts/${id}/call-logs`, { method: "DELETE" });
+    const data = await res.json();
+    if (data.ok) { setContact(c => c ? { ...c, callLogs: [] } : c); setExpandedLogId(null); }
+  };
+
+  // 콜 기록 구글 드라이브 백업
+  const [backing, setBacking] = useState(false);
+  const [backupResult, setBackupResult] = useState<{ url: string; count: number } | null>(null);
+
+  const backupCallLogs = async () => {
+    setBacking(true);
+    setBackupResult(null);
+    try {
+      const res = await fetch(`/api/contacts/${id}/call-logs/backup`, { method: "POST" });
+      const data = await res.json();
+      if (data.ok) setBackupResult({ url: data.viewUrl, count: data.count });
+      else alert(data.message ?? "백업 실패");
+    } finally {
+      setBacking(false);
+    }
+  };
+
+  // 메모 삭제
+  const deleteMemo = async (memoId: string) => {
+    if (!confirm("이 메모를 삭제할까요?")) return;
+    const res = await fetch(`/api/contacts/${id}/memos?memoId=${memoId}`, { method: "DELETE" });
+    const data = await res.json();
+    if (data.ok) setContact(c => c ? { ...c, memos: c.memos.filter(m => m.id !== memoId) } : c);
+  };
+
+  const deleteAllMemos = async () => {
+    if (!confirm(`메모 ${contact?.memos.length}건을 전체 삭제할까요?`)) return;
+    const res = await fetch(`/api/contacts/${id}/memos`, { method: "DELETE" });
+    const data = await res.json();
+    if (data.ok) setContact(c => c ? { ...c, memos: [] } : c);
+  };
+
+  const copyCallLog = (log: CallLog) => {
+    const RESULT_KO: Record<string, string> = {
+      INTERESTED: '관심있음', PENDING: '보류', REJECTED: '거절', RESCHEDULED: '재콜예약',
+    };
+    const dt = new Date(log.createdAt).toLocaleString('ko-KR');
+    const parts = [
+      `[${dt}]`,
+      log.result ? RESULT_KO[log.result] ?? log.result : '',
+      log.convictionScore ? `확신도 ${log.convictionScore}점` : '',
+      log.content ?? '',
+      log.nextAction ? `→ ${log.nextAction}` : '',
+    ].filter(Boolean);
+    navigator.clipboard.writeText(parts.join(' | ')).then(() => {
+      setCopiedLogId(log.id);
+      setTimeout(() => setCopiedLogId(null), 1500);
+    });
+  };
+
   // 출발일 + 상품명
   const [showDeptForm,  setShowDeptForm]  = useState(false);
   const [deptForm, setDeptForm]           = useState({ departureDate: "", productName: "", bookingRef: "" });
   const [savingDept,    setSavingDept]    = useState(false);
+
+  // 인라인 필드 편집 (상태, 관심 크루즈)
+  const [savingField, setSavingField]     = useState<string | null>(null);
+
+  const saveField = async (field: string, value: string | null) => {
+    setSavingField(field);
+    const res = await fetch(`/api/contacts/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
+    });
+    const data = await res.json();
+    if (data.ok) setContact((c) => c ? { ...c, [field]: value } : c);
+    setSavingField(null);
+  };
+
+  const saveName = async () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed || trimmed === contact?.name) { setEditingName(false); return; }
+    await saveField("name", trimmed);
+    setEditingName(false);
+  };
 
   const fetchContact = () => {
     fetch(`/api/contacts/${id}`)
       .then((r) => r.json())
       .then((c) => {
         if (c.ok) {
-          setContact(c.contact);
+          setContact({ ...c.contact, sharedCallLogs: c.contact.sharedCallLogs ?? [] });
           setTags(c.contact.tags ?? []);
           if (c.contact.departureDate) {
             setDeptForm({
@@ -229,36 +341,85 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     setShowSendDb(true);
     setSendDbResult("");
     setSendDbTarget("");
+    setDbSearch("");
     const [orgRes, agentRes] = await Promise.all([
       fetch("/api/org/list").then((r) => r.json()),
       fetch("/api/org/agents").then((r) => r.json()),
     ]);
     if (orgRes.ok)   setOrgs(orgRes.orgs ?? []);
-    if (agentRes.ok) setAgents(agentRes.agents ?? []);
+    if (agentRes.ok) {
+      setDbSections(agentRes.sections ?? []);
+      setMyDbRole(agentRes.myRole ?? "");
+    }
   };
 
   const sendDb = async () => {
     if (!sendDbTarget) return;
     setSendingDb(true);
-    const body = sendDbMode === "org"
-      ? { targetOrgId: sendDbTarget }
-      : { targetUserId: sendDbTarget };
-    const res  = await fetch(`/api/contacts/${id}/send-db`, {
+    const res = await fetch(`/api/contacts/${id}/send-db`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ targetUserId: sendDbTarget }),
     });
     const data = await res.json();
     setSendingDb(false);
     if (data.ok) {
-      const label = sendDbMode === "org"
-        ? `✅ ${data.targetOrgName}으로 전달 완료`
-        : `✅ ${data.agentName ?? "판매원"}에게 할당 완료`;
-      setSendDbResult(label);
+      setSendDbResult(`✅ ${data.agentName ?? "대상"}에게 전달 완료`);
       setSendDbTarget("");
+      // 전달 이력 새로고침 (뱃지 반영)
+      fetch(`/api/contacts/${id}/transfer-logs`)
+        .then(r => r.json())
+        .then(d => { if (d.ok) setTransferLogs(d.logs ?? []); });
       setTimeout(() => { setShowSendDb(false); setSendDbResult(""); }, 2000);
     } else {
       setSendDbResult(`❌ ${data.message ?? "전달 실패"}`);
+    }
+  };
+
+  // 이 고객 Drive 백업
+  const [backingContact, setBackingContact] = useState(false);
+  const [contactBackupMsg, setContactBackupMsg] = useState("");
+
+  const handleContactBackup = async () => {
+    setBackingContact(true);
+    setContactBackupMsg("");
+    try {
+      const res  = await fetch(`/api/backup/contact/${id}`, { method: "POST" });
+      const data = await res.json();
+      if (data.ok) {
+        setContactBackupMsg("✅ Drive에 백업 완료");
+        setTimeout(() => setContactBackupMsg(""), 3000);
+      } else {
+        setContactBackupMsg("❌ 백업 실패");
+      }
+    } catch {
+      setContactBackupMsg("❌ 오류");
+    } finally {
+      setBackingContact(false);
+    }
+  };
+
+  // DB 회수
+  const [recalling, setRecalling] = useState(false);
+  const handleRecall = async (log: TransferLog) => {
+    if (!confirm(`"${log.toUserName ?? log.toUserOrgName ?? "대상"}"에게 전달한 DB를 회수할까요? 상대방이 해당 고객을 볼 수 없게 됩니다.`)) return;
+    setRecalling(true);
+    try {
+      const res = await fetch(`/api/contacts/${id}/recall-db`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logId: log.id }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setTransferLogs(prev => prev.filter(l => l.id !== log.id));
+      } else {
+        alert(data.message ?? "회수에 실패했습니다.");
+      }
+    } catch {
+      alert("네트워크 오류가 발생했습니다.");
+    } finally {
+      setRecalling(false);
     }
   };
 
@@ -385,58 +546,83 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
               </button>
             </div>
 
-            {/* 전달 모드 선택 */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => { setSendDbMode("agent"); setSendDbTarget(""); }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                  sendDbMode === "agent"
-                    ? "bg-navy-900 text-white border-navy-900"
-                    : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <Users className="w-4 h-4" /> 판매원에게 할당
-              </button>
-              <button
-                onClick={() => { setSendDbMode("org"); setSendDbTarget(""); }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                  sendDbMode === "org"
-                    ? "bg-purple-600 text-white border-purple-600"
-                    : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <Building2 className="w-4 h-4" /> 대리점 교환
-              </button>
+            {/* 연관 검색 */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <input
+                autoFocus
+                value={dbSearch}
+                onChange={(e) => { setDbSearch(e.target.value); setSendDbTarget(""); }}
+                placeholder="이름 / 닉네임 / 아이디 검색..."
+                className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-purple-400"
+              />
             </div>
 
-            {/* 대상 선택 */}
-            <div>
-              <label className="text-xs font-medium text-gray-500 mb-1.5 block">
-                {sendDbMode === "agent" ? "담당 판매원 선택" : "전달할 대리점 선택"}
-              </label>
-              <select
-                value={sendDbTarget}
-                onChange={(e) => setSendDbTarget(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-purple-400"
-              >
-                <option value="">선택하세요...</option>
-                {sendDbMode === "agent"
-                  ? agents.map((a) => (
-                      <option key={a.userId} value={a.userId}>
-                        {a.displayName ?? a.userId} ({a.organization.name})
-                      </option>
-                    ))
-                  : orgs.map((o) => (
-                      <option key={o.id} value={o.id}>{o.name}</option>
-                    ))
-                }
-              </select>
-              {sendDbMode === "org" && sendDbTarget && (
-                <p className="text-xs text-gray-400 mt-1">
-                  ℹ️ 원본 데이터는 유지됩니다. 대상 조직에 복사됩니다.
-                </p>
-              )}
-            </div>
+            {/* 선택된 대상 표시 */}
+            {sendDbTarget && (() => {
+              const sel = dbSections.flatMap(s => s.members).find(m => m.id === sendDbTarget);
+              if (!sel) return null;
+              return (
+                <div className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-xl px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-purple-200 text-purple-800 flex items-center justify-center text-xs font-bold shrink-0">
+                      {(sel.displayName ?? sel.loginId)[0]}
+                    </div>
+                    <div>
+                      <span className="text-sm font-semibold text-purple-800">{sel.displayName ?? sel.loginId}</span>
+                      <span className="text-xs text-purple-400 ml-1.5">{sel.loginId}</span>
+                      <span className="text-xs text-purple-400 ml-1.5">· {sel.orgName}</span>
+                    </div>
+                  </div>
+                  <button onClick={() => setSendDbTarget("")} className="text-purple-400 hover:text-purple-600 text-xl leading-none">×</button>
+                </div>
+              );
+            })()}
+
+            {/* 섹션별 드롭다운 목록 (검색 중이거나 미선택 시 표시) */}
+            {(!sendDbTarget || dbSearch) && (() => {
+              const q = dbSearch.trim().toLowerCase();
+              const filtered = dbSections.map(sec => ({
+                ...sec,
+                members: sec.members.filter(m =>
+                  !q ||
+                  (m.displayName ?? "").toLowerCase().includes(q) ||
+                  m.loginId.toLowerCase().includes(q) ||
+                  m.orgName.toLowerCase().includes(q)
+                ),
+              })).filter(sec => sec.members.length > 0);
+              return (
+                <div className="space-y-1 max-h-60 overflow-y-auto">
+                  {filtered.length === 0 ? (
+                    <p className="text-xs text-gray-400 text-center py-6">검색 결과 없음</p>
+                  ) : filtered.map((section) => (
+                    <details key={section.label} open>
+                      <summary className="flex items-center justify-between px-2 py-1.5 cursor-pointer text-xs font-semibold text-gray-500 hover:text-gray-700 select-none list-none">
+                        <span>{section.label}</span>
+                        <span className="text-gray-300">{section.members.length}명</span>
+                      </summary>
+                      <div className="space-y-0.5 mt-0.5 mb-2">
+                        {section.members.map((m) => (
+                          <button
+                            key={m.id}
+                            onClick={() => { setSendDbTarget(m.id); setDbSearch(""); }}
+                            className="w-full text-left px-3 py-2 rounded-xl text-sm bg-gray-50 hover:bg-purple-50 text-gray-700 transition-colors flex items-center gap-2.5"
+                          >
+                            <div className="w-7 h-7 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold shrink-0">
+                              {(m.displayName ?? m.loginId)[0]}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{m.displayName ?? m.loginId}</p>
+                              <p className="text-xs text-gray-400 truncate">{m.loginId} · {m.orgName}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              );
+            })()}
 
             {sendDbResult && (
               <p className={`text-sm font-medium ${sendDbResult.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>
@@ -475,9 +661,20 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
             />
             <p className="text-xs text-gray-400 text-right">{smsMsg.length}자</p>
             {sendResult && (
-              <p className={`text-sm font-medium ${sendResult.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>
+              <div className={`rounded-xl p-3 text-sm font-medium ${sendResult.startsWith("✅") ? "text-green-600 bg-green-50" : "text-red-500 bg-red-50"}`}>
                 {sendResult}
-              </p>
+                {sendResult.includes("SMS 설정") && (
+                  <div className="mt-2">
+                    <a
+                      href="/settings/sms"
+                      className="inline-flex items-center gap-1 text-blue-600 underline text-xs font-normal"
+                      onClick={() => setShowSmsModal(false)}
+                    >
+                      → Aligo SMS 설정하러 가기
+                    </a>
+                  </div>
+                )}
+              </div>
             )}
             <button
               onClick={sendSmsNow}
@@ -538,14 +735,43 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-xl font-bold text-navy-900 flex-1">{contact.name}</h1>
+        {editingName ? (
+          <input
+            autoFocus
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            onBlur={saveName}
+            onKeyDown={(e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditingName(false); }}
+            className="text-xl font-bold text-navy-900 flex-1 border-b-2 border-purple-400 outline-none bg-transparent"
+          />
+        ) : (
+          <h1
+            className="text-xl font-bold text-navy-900 flex-1 cursor-pointer hover:text-purple-700 transition-colors"
+            onClick={() => { setNameInput(contact.name); setEditingName(true); }}
+            title="클릭하여 이름 수정"
+          >
+            {contact.name}
+          </h1>
+        )}
         <a href={`tel:${contact.phone}`} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">
           <Phone className="w-5 h-5" />
         </a>
         <button
-          onClick={openSendDb}
-          className="p-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100"
-          title="DB 전달"
+          onClick={handleContactBackup}
+          disabled={backingContact}
+          className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 disabled:opacity-50"
+          title="이 고객 Drive 백업"
+        >
+          {backingContact
+            ? <span className="text-xs px-1">...</span>
+            : <FileDown className="w-5 h-5" />
+          }
+        </button>
+        <button
+          onClick={contact.sourceOrgId ? undefined : openSendDb}
+          disabled={!!contact.sourceOrgId}
+          className={`p-2 rounded-lg ${contact.sourceOrgId ? "bg-gray-100 text-gray-300 cursor-not-allowed" : "bg-purple-50 text-purple-600 hover:bg-purple-100"}`}
+          title={contact.sourceOrgId ? "공유받은 DB는 재공유할 수 없습니다" : "DB 전달"}
         >
           <Share2 className="w-5 h-5" />
         </button>
@@ -563,24 +789,99 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         >
           <AlarmClock className="w-5 h-5" />
         </button>
-        <button onClick={() => router.push(`/contacts/${id}/edit`)} className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100">
-          <Edit2 className="w-5 h-5 text-gray-500" />
-        </button>
       </div>
+
+      {/* 백업 결과 토스트 */}
+      {contactBackupMsg && (
+        <div className={`mb-3 px-4 py-2 rounded-xl text-sm font-medium ${contactBackupMsg.startsWith("✅") ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
+          {contactBackupMsg}
+        </div>
+      )}
+
+      {/* 전달됨 뱃지 (최신 이력) */}
+      {transferLogs.length > 0 && (() => {
+        const latest = transferLogs[0];
+        const targetName = latest.toUserName ?? latest.toUserOrgName ?? "알 수 없음";
+        return (
+          <div className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-xl px-4 py-2.5 mb-4">
+            <div className="flex items-center gap-2">
+              <Share2 className="w-4 h-4 text-purple-500 shrink-0" />
+              <div>
+                <span className="text-sm font-semibold text-purple-700">→ {targetName}</span>
+                <span className="text-xs text-purple-400 ml-2">({latest.toUserOrgName ?? latest.toOrg?.name ?? "본사"})</span>
+                <p className="text-xs text-purple-400 mt-0.5">
+                  {new Date(latest.createdAt).toLocaleDateString("ko-KR")} 전달
+                  {latest.transferType === "ORG_COPY" && " · 복사본 공유"}
+                </p>
+              </div>
+            </div>
+            {latest.canRecall && (
+              <button
+                onClick={() => handleRecall(latest)}
+                disabled={recalling}
+                className="text-xs text-red-500 hover:text-red-700 hover:underline font-medium disabled:opacity-50 shrink-0 ml-2"
+              >
+                {recalling ? "회수 중..." : "회수하기"}
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* 기본 정보 */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div><span className="text-gray-400">전화번호</span><p className="font-medium mt-0.5">{contact.phone}</p></div>
+
+          {/* 상태 — 인라인 드롭다운 */}
           <div>
             <span className="text-gray-400">상태</span>
-            <p className="font-medium mt-0.5">
-              {contact.type === "CUSTOMER" ? "✅ 구매완료" : contact.type === "LEAD" ? "🔵 잠재고객" : contact.type}
-            </p>
+            <div className="mt-0.5 relative">
+              <select
+                value={contact.type}
+                disabled={savingField === "type"}
+                onChange={(e) => saveField("type", e.target.value)}
+                className="w-full font-medium bg-transparent border-0 border-b border-dashed border-gray-300 focus:outline-none focus:border-navy-500 pr-5 py-0 cursor-pointer text-sm appearance-none"
+              >
+                <option value="잠재고객">🔵 잠재고객</option>
+                <option value="문자">💬 문자</option>
+                <option value="부재">📵 부재</option>
+                <option value="3일부재">⏰ 3일부재</option>
+                <option value="소통">🤝 소통</option>
+                <option value="구매완료">✅ 구매완료</option>
+                <option value="VIP">⭐ VIP</option>
+                <option value="수신거부">🚫 수신거부</option>
+              </select>
+              <ChevronDown className="absolute right-0 top-0.5 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+              {savingField === "type" && <span className="text-xs text-gray-400 absolute -bottom-4 left-0">저장 중...</span>}
+            </div>
           </div>
-          {contact.cruiseInterest && (
-            <div><span className="text-gray-400">관심 크루즈</span><p className="font-medium mt-0.5 text-gold-500">{contact.cruiseInterest}</p></div>
-          )}
+
+          {/* 관심 크루즈 — 인라인 드롭다운 */}
+          <div>
+            <span className="text-gray-400">관심 크루즈</span>
+            <div className="mt-0.5 relative">
+              <select
+                value={contact.cruiseInterest ?? ""}
+                disabled={savingField === "cruiseInterest"}
+                onChange={(e) => saveField("cruiseInterest", e.target.value || null)}
+                className="w-full font-medium text-gold-600 bg-transparent border-0 border-b border-dashed border-gray-300 focus:outline-none focus:border-navy-500 pr-5 py-0 cursor-pointer text-sm appearance-none"
+              >
+                <option value="">선택 안함</option>
+                <option value="지중해">🌊 지중해</option>
+                <option value="카리브해">🏝️ 카리브해</option>
+                <option value="알래스카">🏔️ 알래스카</option>
+                <option value="북유럽">❄️ 북유럽</option>
+                <option value="동남아">🌴 동남아</option>
+                <option value="발틱해">🚢 발틱해</option>
+                <option value="국내출발">🇰🇷 국내출발</option>
+                <option value="국내근처">🗺️ 국내근처</option>
+                <option value="기타">기타</option>
+              </select>
+              <ChevronDown className="absolute right-0 top-0.5 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+              {savingField === "cruiseInterest" && <span className="text-xs text-gray-400 absolute -bottom-4 left-0">저장 중...</span>}
+            </div>
+          </div>
         </div>
 
         {/* ★ 출발일 + 상품 정보 (VIP 케어 핵심) */}
@@ -627,13 +928,38 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">크루즈 상품명</label>
-                <input
-                  type="text"
+                <select
                   value={deptForm.productName}
                   onChange={(e) => setDeptForm({ ...deptForm, productName: e.target.value })}
-                  placeholder="예: 지중해 7박 MSC 크루즈"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
-                />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500 bg-white"
+                >
+                  <option value="">상품 선택...</option>
+                  <optgroup label="지중해">
+                    <option value="지중해 7박 MSC 크루즈">지중해 7박 MSC</option>
+                    <option value="지중해 14박 MSC 크루즈">지중해 14박 MSC</option>
+                    <option value="지중해 7박 코스타 크루즈">지중해 7박 코스타</option>
+                  </optgroup>
+                  <optgroup label="북유럽·발틱">
+                    <option value="북유럽 12박 크루즈">북유럽 12박</option>
+                    <option value="발틱해 10박 크루즈">발틱해 10박</option>
+                  </optgroup>
+                  <optgroup label="알래스카">
+                    <option value="알래스카 7박 크루즈">알래스카 7박</option>
+                  </optgroup>
+                  <optgroup label="카리브해">
+                    <option value="카리브해 7박 크루즈">카리브해 7박</option>
+                    <option value="카리브해 14박 크루즈">카리브해 14박</option>
+                  </optgroup>
+                  <optgroup label="동남아">
+                    <option value="동남아 5박 크루즈">동남아 5박</option>
+                    <option value="동남아 7박 크루즈">동남아 7박</option>
+                  </optgroup>
+                  <optgroup label="국내">
+                    <option value="국내출발 크루즈">국내출발</option>
+                    <option value="국내근처 크루즈">국내근처</option>
+                  </optgroup>
+                  <option value="직접입력">직접입력 (하단 메모 활용)</option>
+                </select>
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">예약 번호</label>
@@ -831,12 +1157,38 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       {/* 콜기록 탭 */}
       {tab === "call" && (
         <div>
-          <button
-            onClick={() => setShowCallForm(true)}
-            className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-xl p-3 text-sm text-gray-500 hover:border-gold-300 hover:text-gold-600 mb-3 transition-colors"
-          >
-            <Plus className="w-4 h-4" /> 콜 기록 추가
-          </button>
+          <div className="flex gap-2 mb-3 flex-wrap">
+            <button
+              onClick={() => setShowCallForm(true)}
+              className="flex-1 flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-xl p-3 text-sm text-gray-500 hover:border-gold-300 hover:text-gold-600 transition-colors"
+            >
+              <Plus className="w-4 h-4" /> 콜 기록 추가
+            </button>
+            {contact.callLogs.length > 0 && (
+              <>
+                <button
+                  onClick={backupCallLogs}
+                  disabled={backing}
+                  className="flex items-center gap-1.5 px-3 py-2 border border-blue-200 text-blue-600 rounded-xl text-xs hover:bg-blue-50 transition-colors disabled:opacity-50"
+                >
+                  <CloudUpload className="w-3.5 h-3.5" />
+                  {backing ? "백업 중..." : "Drive 백업"}
+                </button>
+                <button
+                  onClick={deleteAllCallLogs}
+                  className="flex items-center gap-1.5 px-3 py-2 border border-red-200 text-red-500 rounded-xl text-xs hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> 전체 삭제
+                </button>
+              </>
+            )}
+          </div>
+          {backupResult && (
+            <div className="mb-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm flex items-center justify-between">
+              <span className="text-blue-700">✅ {backupResult.count}건 Drive 백업 완료</span>
+              <a href={backupResult.url} target="_blank" rel="noreferrer" className="text-blue-600 underline text-xs">파일 열기 →</a>
+            </div>
+          )}
 
           {showCallForm && (
             <div className="bg-white border border-gold-300 rounded-xl p-4 mb-3 space-y-3">
@@ -887,38 +1239,157 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           )}
 
           <div className="space-y-2">
-            {contact.callLogs.map((log) => (
-              <div key={log.id} className="bg-white border border-gray-200 rounded-xl p-4">
-                <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
-                  <Clock className="w-3 h-3" />
-                  {new Date(log.createdAt).toLocaleString("ko-KR")}
-                  {log.result && <span className="text-gray-600">{RESULT_LABELS[log.result] ?? log.result}</span>}
-                  {log.convictionScore && (
-                    <span className="flex items-center gap-0.5 text-gold-500">
-                      <Star className="w-3 h-3 fill-gold-500" /> {log.convictionScore}점
+            {contact.callLogs.map((log) => {
+              const isOpen = expandedLogId === log.id;
+              return (
+                <div key={log.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  {/* 요약 행 — 클릭으로 열기/닫기 */}
+                  <button
+                    type="button"
+                    onClick={() => setExpandedLogId(isOpen ? null : log.id)}
+                    className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <Clock className="w-3 h-3 text-gray-400 shrink-0" />
+                    <span className="text-xs text-gray-400 shrink-0">
+                      {new Date(log.createdAt).toLocaleString("ko-KR")}
                     </span>
+                    {log.result && (
+                      <span className="text-xs text-gray-600 shrink-0">{RESULT_LABELS[log.result] ?? log.result}</span>
+                    )}
+                    {log.convictionScore && (
+                      <span className="flex items-center gap-0.5 text-xs text-gold-500 shrink-0">
+                        <Star className="w-3 h-3 fill-gold-500" />{log.convictionScore}점
+                      </span>
+                    )}
+                    {/* 내용 첫 줄 미리보기 */}
+                    {log.content && !isOpen && (
+                      <span className="text-xs text-gray-500 truncate flex-1 ml-1">{log.content}</span>
+                    )}
+                    {/* 작성자 딱지 */}
+                    {log._authorName && (
+                      <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full shrink-0 font-medium">
+                        {log._authorName}
+                      </span>
+                    )}
+                    <ChevronDown className={`w-3.5 h-3.5 text-gray-400 shrink-0 ml-auto transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {/* 확장 영역 */}
+                  {isOpen && (
+                    <div className="border-t border-gray-100 px-4 pb-4 pt-3 space-y-2">
+                      {log.content && (
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{log.content}</p>
+                      )}
+                      {log.nextAction && (
+                        <p className="text-xs text-blue-600">→ {log.nextAction}</p>
+                      )}
+                      {/* 액션 버튼 */}
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={() => copyCallLog(log)}
+                          className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          {copiedLogId === log.id
+                            ? <><Check className="w-3 h-3 text-green-500" /> 복사됨</>
+                            : <><Copy className="w-3 h-3" /> 복사</>
+                          }
+                        </button>
+                        {log.scheduledAt && (
+                          <a
+                            href={`/api/contacts/${id}/call-logs/${log.id}/ics`}
+                            download={`call-${log.id}.ics`}
+                            className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors"
+                          >
+                            <FileDown className="w-3 h-3" /> 캘린더
+                          </a>
+                        )}
+                        <button
+                          onClick={() => deleteCallLog(log.id)}
+                          className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors ml-auto"
+                        >
+                          <Trash2 className="w-3 h-3" /> 삭제
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
-                {log.content && <p className="text-sm text-gray-700">{log.content}</p>}
-                {log.nextAction && <p className="text-xs text-blue-600 mt-1">→ {log.nextAction}</p>}
-              </div>
-            ))}
+              );
+            })}
             {contact.callLogs.length === 0 && (
               <p className="text-center text-sm text-gray-400 py-8">콜 기록이 없습니다.</p>
             )}
           </div>
+
+          {/* 공유된 콜 기록 (DB 전달 연결 고객) */}
+          {(contact.sharedCallLogs?.length ?? 0) > 0 && (
+            <div className="mt-5">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-px flex-1 bg-purple-100" />
+                <span className="text-xs font-semibold text-purple-500 flex items-center gap-1">
+                  <Share2 className="w-3 h-3" /> 공유된 콜 기록
+                </span>
+                <div className="h-px flex-1 bg-purple-100" />
+              </div>
+              <div className="space-y-2">
+                {contact.sharedCallLogs.map((log) => (
+                  <div key={log.id} className="bg-purple-50 border border-purple-200 rounded-xl overflow-hidden">
+                    <div className="flex items-center gap-2 px-4 py-3">
+                      <Clock className="w-3 h-3 text-purple-300 shrink-0" />
+                      <span className="text-xs text-purple-400 shrink-0">
+                        {new Date(log.createdAt).toLocaleString("ko-KR")}
+                      </span>
+                      {log.result && (
+                        <span className="text-xs text-purple-600 shrink-0">{RESULT_LABELS[log.result] ?? log.result}</span>
+                      )}
+                      {log.convictionScore && (
+                        <span className="text-xs text-gold-500 shrink-0">
+                          <Star className="w-3 h-3 fill-gold-400 inline" />{log.convictionScore}점
+                        </span>
+                      )}
+                      {log.content && (
+                        <span className="text-xs text-purple-500 truncate flex-1">{log.content}</span>
+                      )}
+                      {/* 작성자 이름 딱지 */}
+                      {log._authorName && (
+                        <span className="text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full shrink-0 font-medium">
+                          {log._authorName}
+                        </span>
+                      )}
+                      {/* 공유 조직 딱지 */}
+                      <span className="text-[10px] bg-purple-200 text-purple-700 px-1.5 py-0.5 rounded-full shrink-0">
+                        {log._sharedFrom}
+                      </span>
+                    </div>
+                    {log.nextAction && (
+                      <div className="px-4 pb-3 text-xs text-blue-500">→ {log.nextAction}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* 메모 탭 */}
       {tab === "memo" && (
         <div>
-          <button
-            onClick={() => setShowMemoForm(true)}
-            className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-xl p-3 text-sm text-gray-500 hover:border-gold-300 hover:text-gold-600 mb-3 transition-colors"
-          >
-            <Plus className="w-4 h-4" /> 메모 추가
-          </button>
+          <div className="flex gap-2 mb-3">
+            <button
+              onClick={() => setShowMemoForm(true)}
+              className="flex-1 flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-xl p-3 text-sm text-gray-500 hover:border-gold-300 hover:text-gold-600 transition-colors"
+            >
+              <Plus className="w-4 h-4" /> 메모 추가
+            </button>
+            {contact.memos.length > 0 && (
+              <button
+                onClick={deleteAllMemos}
+                className="flex items-center gap-1.5 px-3 py-2 border border-red-200 text-red-500 rounded-xl text-xs hover:bg-red-50 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> 전체 삭제
+              </button>
+            )}
+          </div>
           {showMemoForm && (
             <div className="bg-white border border-gold-300 rounded-xl p-4 mb-3 space-y-2">
               <textarea
@@ -937,8 +1408,22 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           <div className="space-y-2">
             {contact.memos.map((m) => (
               <div key={m.id} className="bg-white border border-gray-200 rounded-xl p-4">
-                <div className="flex items-center gap-1 text-xs text-gray-400 mb-1">
-                  <FileText className="w-3 h-3" /> {new Date(m.createdAt).toLocaleString("ko-KR")}
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                    <FileText className="w-3 h-3" />
+                    <span>{new Date(m.createdAt).toLocaleString("ko-KR")}</span>
+                    {m._authorName && (
+                      <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full font-medium text-[10px]">
+                        {m._authorName}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => deleteMemo(m.id)}
+                    className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
                 <p className="text-sm text-gray-700 whitespace-pre-wrap">{m.content}</p>
               </div>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Filter, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet } from "lucide-react";
+import { Search, Plus, Filter, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet, Loader2, Share2, FolderDown } from "lucide-react";
 
 type Contact = {
   id: string;
@@ -12,10 +12,18 @@ type Contact = {
   type: string;
   cruiseInterest: string | null;
   lastContactedAt: string | null;
+  departureDate: string | null;
   leadScore: number;
   tags: string[] | null;
   groups: { group: { id: string; name: string; color: string | null } }[];
   _count: { callLogs: number };
+  lastTransferredTo: {
+    name: string;
+    orgName: string;
+    logId: string;
+    transferType: string;
+    canRecall: boolean;
+  } | null;
 };
 
 const getLeadTier = (score: number) => {
@@ -28,9 +36,19 @@ const getLeadTier = (score: number) => {
 type QuickCallResult = "INTERESTED" | "PENDING" | "REJECTED";
 
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  LEAD:         { label: "잠재", color: "bg-blue-100 text-blue-700" },
-  CUSTOMER:     { label: "구매완료", color: "bg-green-100 text-green-700" },
-  UNSUBSCRIBED: { label: "수신거부", color: "bg-gray-100 text-gray-500" },
+  // 신규 상태값
+  "잠재고객":  { label: "잠재고객",  color: "bg-blue-100 text-blue-700" },
+  "문자":      { label: "문자",      color: "bg-sky-100 text-sky-700" },
+  "부재":      { label: "부재",      color: "bg-yellow-100 text-yellow-700" },
+  "3일부재":   { label: "3일부재",   color: "bg-orange-100 text-orange-700" },
+  "소통":      { label: "소통",      color: "bg-purple-100 text-purple-700" },
+  "구매완료":  { label: "구매완료",  color: "bg-green-100 text-green-700" },
+  "VIP":       { label: "VIP",       color: "bg-gold-100 text-gold-700 font-bold" },
+  "수신거부":  { label: "수신거부",  color: "bg-gray-100 text-gray-500" },
+  // 기존 영문 코드 (하위 호환)
+  LEAD:         { label: "잠재고객",  color: "bg-blue-100 text-blue-700" },
+  CUSTOMER:     { label: "구매완료",  color: "bg-green-100 text-green-700" },
+  UNSUBSCRIBED: { label: "수신거부",  color: "bg-gray-100 text-gray-500" },
 };
 
 const QUICK_CALL_OPTIONS: { result: QuickCallResult; label: string; icon: React.ReactNode; color: string }[] = [
@@ -38,6 +56,14 @@ const QUICK_CALL_OPTIONS: { result: QuickCallResult; label: string; icon: React.
   { result: "PENDING",    label: "보류", icon: <Clock className="w-3.5 h-3.5" />,        color: "bg-yellow-100 text-yellow-700 hover:bg-yellow-200" },
   { result: "REJECTED",   label: "거절", icon: <XCircle className="w-3.5 h-3.5" />,      color: "bg-red-100 text-red-700 hover:bg-red-200" },
 ];
+
+function getDDay(departureDateStr: string | null): { label: string; urgent: boolean } | null {
+  if (!departureDateStr) return null;
+  const diff = Math.ceil((new Date(departureDateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  if (diff > 0) return { label: `D-${diff}`, urgent: diff <= 14 };
+  if (diff === 0) return { label: "D-DAY", urgent: true };
+  return { label: `D+${Math.abs(diff)}`, urgent: false };
+}
 
 function getDaysSince(dateStr: string | null): number | null {
   if (!dateStr) return null;
@@ -68,6 +94,162 @@ export default function ContactsPage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showTagBlast, setShowTagBlast] = useState(false);
 
+  // 전체 백업
+  const [backingUp,     setBackingUp]     = useState(false);
+  const [backupMsg,     setBackupMsg]     = useState("");
+
+  const handleOrgBackup = async () => {
+    setBackingUp(true);
+    setBackupMsg("");
+    try {
+      const res  = await fetch("/api/backup/org", { method: "POST" });
+      const data = await res.json();
+      if (data.ok) {
+        setBackupMsg(`✅ ${data.count}명 Drive 백업 완료`);
+        setTimeout(() => setBackupMsg(""), 4000);
+      } else {
+        setBackupMsg("❌ 백업 실패");
+      }
+    } catch {
+      setBackupMsg("❌ 네트워크 오류");
+    } finally {
+      setBackingUp(false);
+    }
+  };
+
+  // 그룹 필터
+  const [filterGroupId,  setFilterGroupId]  = useState("");
+  const [showGroupBlast, setShowGroupBlast] = useState(false);
+
+  // 복수 선택 + 공유
+  const [selectedIds,    setSelectedIds]    = useState<Set<string>>(new Set());
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareSections,  setShareSections]  = useState<{ label: string; members: { id: string; displayName: string | null; loginId: string; orgName: string }[] }[]>([]);
+  const [shareTarget,    setShareTarget]    = useState("");
+  const [shareSearch,    setShareSearch]    = useState("");
+  const [sharing,        setSharing]        = useState(false);
+  const [shareResult,    setShareResult]    = useState("");
+
+  // 그룹 추가 모달 (목록에서)
+  const [groupModalOpen, setGroupModalOpen] = useState(false);
+  const [groupAddForContact, setGroupAddForContact] = useState<string | null>(null); // 배정할 contactId
+  const [newGroupName, setNewGroupName] = useState("");
+  const [groupAdding, setGroupAdding] = useState(false);
+  const [groupAddError, setGroupAddError] = useState("");
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredContacts.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredContacts.map((c: { id: string }) => c.id)));
+    }
+  };
+
+  const openShareModal = async () => {
+    if (selectedIds.size === 0) return;
+    setShareResult("");
+    setShareTarget("");
+    setShareSearch("");
+    const res = await fetch("/api/org/agents").then(r => r.json());
+    if (res.ok) setShareSections(res.sections ?? []);
+    setShowShareModal(true);
+  };
+
+  const handleBulkShare = async () => {
+    if (!shareTarget || selectedIds.size === 0) return;
+    setSharing(true);
+    let ok = 0, fail = 0;
+    for (const contactId of selectedIds) {
+      const res = await fetch(`/api/contacts/${contactId}/send-db`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId: shareTarget }),
+      });
+      const data = await res.json();
+      data.ok ? ok++ : fail++;
+    }
+    setSharing(false);
+    setShareResult(`✅ ${ok}건 전달 완료${fail > 0 ? ` / ❌ ${fail}건 실패` : ""}`);
+    setSelectedIds(new Set());
+    fetchContacts(); // 전달됨 뱃지 반영
+    setTimeout(() => { setShowShareModal(false); setShareResult(""); }, 2000);
+  };
+
+  const handleAddGroup = async () => {
+    const name = newGroupName.trim();
+    if (!name) { setGroupAddError("그룹 이름을 입력해주세요."); return; }
+    setGroupAdding(true);
+    setGroupAddError("");
+    try {
+      const res = await fetch("/api/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (!data.ok) { setGroupAddError(data.error ?? "그룹 생성 실패"); return; }
+      const newGroup = { id: data.group.id, name: data.group.name, funnelId: data.group.funnelId ?? null };
+      setGroups((prev) => [...prev, newGroup]);
+
+      // 그룹 생성 즉시 해당 고객에게 배정
+      if (groupAddForContact) {
+        await fetch(`/api/groups/${newGroup.id}/members`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contactIds: [groupAddForContact] }),
+        });
+        setContacts(prev => prev.map(c =>
+          c.id === groupAddForContact && !c.groups.some(g => g.group.id === newGroup.id)
+            ? { ...c, groups: [...c.groups, { group: { id: newGroup.id, name: newGroup.name, color: null } }] }
+            : c
+        ));
+      }
+
+      setNewGroupName("");
+      setGroupModalOpen(false);
+      setGroupAddForContact(null);
+    } catch {
+      setGroupAddError("서버 오류가 발생했습니다.");
+    } finally {
+      setGroupAdding(false);
+    }
+  };
+
+  // 회수 처리
+  const [recalling, setRecalling] = useState<string | null>(null); // contactId
+
+  const handleRecall = async (contactId: string, logId: string) => {
+    if (!confirm("전달한 DB를 회수하시겠습니까? 상대방이 더 이상 해당 고객을 볼 수 없게 됩니다.")) return;
+    setRecalling(contactId);
+    try {
+      const res = await fetch(`/api/contacts/${contactId}/recall-db`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logId }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setContacts(prev => prev.map(c =>
+          c.id === contactId ? { ...c, lastTransferredTo: null } : c
+        ));
+      } else {
+        alert(data.message ?? "회수에 실패했습니다.");
+      }
+    } catch {
+      alert("네트워크 오류가 발생했습니다.");
+    } finally {
+      setRecalling(null);
+    }
+  };
+
   // 퀵 콜 상태
   const [quickCallId,    setQuickCallId]    = useState<string | null>(null);
 
@@ -82,8 +264,9 @@ export default function ContactsPage() {
   const fetchContacts = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: "30" });
-    if (q) params.set("q", q);
-    if (type) params.set("type", type);
+    if (q)             params.set("q",       q);
+    if (type)          params.set("type",    type);
+    if (filterGroupId) params.set("groupId", filterGroupId);
 
     const res = await fetch(`/api/contacts?${params}`);
     const data = await res.json();
@@ -92,9 +275,10 @@ export default function ContactsPage() {
       setTotal(data.total);
     }
     setLoading(false);
-  }, [q, type, page]);
+  }, [q, type, page, filterGroupId]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
+  useEffect(() => { setPage(1); }, [filterGroupId]);
 
   useEffect(() => {
     fetch("/api/groups").then(r => r.json()).then(d => { if (d.ok) setGroups(d.groups ?? []); });
@@ -118,11 +302,34 @@ export default function ContactsPage() {
   const quickAssign = async (contactId: string, groupId: string) => {
     if (!groupId) return;
     setAssigning(contactId);
+
+    // 기존 그룹 제거 후 새 그룹 배정 (그룹은 1개만)
+    const contact = contacts.find(c => c.id === contactId);
+    if (contact && contact.groups.length > 0) {
+      for (const g of contact.groups) {
+        await fetch(`/api/groups/${g.group.id}/members`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contactIds: [contactId] }),
+        });
+      }
+    }
+
     await fetch(`/api/groups/${groupId}/members`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contactId }),
+      body: JSON.stringify({ contactIds: [contactId] }),
     });
+
+    // 로컬 상태 업데이트 (새 그룹만 표시)
+    const grp = groups.find(g => g.id === groupId);
+    if (grp) {
+      setContacts(prev => prev.map(c =>
+        c.id === contactId
+          ? { ...c, groups: [{ group: { id: grp.id, name: grp.name, color: null } }] }
+          : c
+      ));
+    }
     setAssigning(null);
   };
 
@@ -192,6 +399,46 @@ export default function ContactsPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
+
+      {/* 그룹 추가 모달 */}
+      {groupModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setGroupModalOpen(false)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-gray-900">새 그룹 추가</h3>
+              <button onClick={() => setGroupModalOpen(false)} className="p-1 rounded-lg hover:bg-gray-100">
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <input
+                autoFocus
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddGroup(); } }}
+                placeholder="그룹 이름 입력"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-900/20"
+              />
+              {groupAddError && <p className="text-xs text-red-500">{groupAddError}</p>}
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => setGroupModalOpen(false)}
+                  className="flex-1 py-2.5 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50"
+                >취소</button>
+                <button
+                  onClick={handleAddGroup}
+                  disabled={groupAdding}
+                  className="flex-1 py-2.5 bg-navy-900 text-white text-sm rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {groupAdding && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  그룹 추가
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 엑셀 가져오기 모달 */}
       {showImport && (
@@ -276,6 +523,15 @@ export default function ContactsPage() {
           <p className="text-sm text-gray-500 mt-0.5">총 {total.toLocaleString()}명</p>
         </div>
         <div className="flex gap-2">
+          {selectedIds.size > 0 && (
+            <button
+              onClick={openShareModal}
+              className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors"
+            >
+              <Share2 className="w-4 h-4" />
+              공유 ({selectedIds.size}명)
+            </button>
+          )}
           {selectedTags.length > 0 && (
             <button
               onClick={() => setShowTagBlast(true)}
@@ -285,6 +541,27 @@ export default function ContactsPage() {
               태그 SMS ({filteredContacts.length}명)
             </button>
           )}
+          {filterGroupId && (
+            <button
+              onClick={() => setShowGroupBlast(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+            >
+              <MessageSquare className="w-4 h-4" />
+              그룹 SMS ({total}명)
+            </button>
+          )}
+          <button
+            onClick={handleOrgBackup}
+            disabled={backingUp}
+            className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+            title="고객 전체를 Drive에 Excel 백업"
+          >
+            {backingUp
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : <FolderDown className="w-4 h-4" />
+            }
+            전체 백업
+          </button>
           <button
             onClick={() => { setShowImport(true); setImportResult(null); setImportFile(null); }}
             className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
@@ -299,6 +576,13 @@ export default function ContactsPage() {
           </Link>
         </div>
       </div>
+
+      {/* 백업 결과 토스트 */}
+      {backupMsg && (
+        <div className={`mb-3 px-4 py-2.5 rounded-xl text-sm font-medium ${backupMsg.startsWith("✅") ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
+          {backupMsg}
+        </div>
+      )}
 
       {/* 검색 + 필터 */}
       <div className="flex gap-2 mb-4">
@@ -320,10 +604,31 @@ export default function ContactsPage() {
             className="pl-9 pr-8 py-2 border border-gray-200 rounded-lg text-sm appearance-none bg-white focus:outline-none focus:border-gold-500"
           >
             <option value="">전체</option>
-            <option value="LEAD">잠재고객</option>
-            <option value="CUSTOMER">구매완료</option>
+            <option value="잠재고객">잠재고객</option>
+            <option value="문자">문자</option>
+            <option value="부재">부재</option>
+            <option value="3일부재">3일부재</option>
+            <option value="소통">소통</option>
+            <option value="구매완료">구매완료</option>
+            <option value="VIP">VIP</option>
+            <option value="수신거부">수신거부</option>
           </select>
         </div>
+        {/* 그룹 필터 드롭다운 */}
+        {groups.length > 0 && (
+          <div className="relative">
+            <select
+              value={filterGroupId}
+              onChange={(e) => setFilterGroupId(e.target.value)}
+              className={`pl-3 pr-8 py-2 border rounded-lg text-sm appearance-none bg-white focus:outline-none ${filterGroupId ? "border-green-400 text-green-700 font-medium" : "border-gray-200 focus:border-gold-500"}`}
+            >
+              <option value="">그룹 전체</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* 태그 칩 필터 */}
@@ -433,15 +738,39 @@ export default function ContactsPage() {
         </div>
       ) : (
         <div className="space-y-2">
+          {/* 전체선택 행 */}
+          {filteredContacts.length > 0 && (
+            <div className="flex items-center gap-2 px-2 pb-1">
+              <input
+                type="checkbox"
+                checked={selectedIds.size === filteredContacts.length && filteredContacts.length > 0}
+                onChange={toggleSelectAll}
+                className="w-4 h-4 rounded cursor-pointer accent-purple-600"
+              />
+              <span className="text-xs text-gray-400">
+                {selectedIds.size > 0 ? `${selectedIds.size}명 선택됨` : "전체 선택"}
+              </span>
+            </div>
+          )}
           {filteredContacts.map((c) => {
             const typeInfo = TYPE_LABELS[c.type] ?? { label: c.type, color: "bg-gray-100 text-gray-600" };
             const tierInfo = getLeadTier(c.leadScore ?? 0);
             const isQuickCallOpen = quickCallId === c.id;
+            const isSelected = selectedIds.has(c.id);
             return (
-              <div key={c.id} className="bg-white rounded-xl border border-gray-200 hover:border-gold-300 hover:shadow-sm transition-all">
+              <div key={c.id} className={`bg-white rounded-xl border transition-all ${isSelected ? "border-purple-400 shadow-sm" : "border-gray-200 hover:border-gold-300 hover:shadow-sm"}`}>
+                <div className="flex items-center gap-3 px-4 py-3 group">
+                  {/* 체크박스 */}
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleSelect(c.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-4 h-4 rounded cursor-pointer accent-purple-600 shrink-0"
+                  />
                 <Link
                   href={`/contacts/${c.id}`}
-                  className="flex items-center gap-3 px-4 py-3 group"
+                  className="flex items-center gap-3 flex-1 min-w-0"
                 >
                   {/* 아바타 */}
                   <div className="w-10 h-10 rounded-full bg-navy-900 text-white flex items-center justify-center text-sm font-bold shrink-0">
@@ -470,7 +799,7 @@ export default function ContactsPage() {
                         </span>
                       ))}
                     </div>
-                    <div className="text-sm text-gray-500 mt-0.5 flex items-center gap-3">
+                    <div className="text-sm text-gray-500 mt-0.5 flex items-center gap-3 flex-wrap">
                       <span>{c.phone}</span>
                       {c.cruiseInterest && <span className="text-gold-500">{c.cruiseInterest}</span>}
                       {c._count.callLogs > 0 && (
@@ -478,12 +807,33 @@ export default function ContactsPage() {
                           <Phone className="w-3 h-3" /> {c._count.callLogs}회
                         </span>
                       )}
+                      {/* D-day 뱃지 */}
+                      {(() => {
+                        const dday = getDDay(c.departureDate);
+                        if (!dday) return null;
+                        return (
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${dday.urgent ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                            ✈️ {dday.label}
+                          </span>
+                        );
+                      })()}
                     </div>
+                    {/* 태그 칩 */}
+                    {(c.tags ?? []).length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {(c.tags ?? []).slice(0, 5).map((tag) => (
+                          <span key={tag} className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full">#{tag}</span>
+                        ))}
+                        {(c.tags ?? []).length > 5 && (
+                          <span className="text-xs text-gray-400">+{(c.tags ?? []).length - 5}</span>
+                        )}
+                      </div>
+                    )}
                     {/* 빠른 그룹 배정 */}
-                    {groups.length > 0 && (
-                      <div className="flex items-center gap-1 mt-2" onClick={(e) => e.preventDefault()}>
+                    <div className="flex items-center gap-2 mt-2" onClick={(e) => e.preventDefault()}>
+                      {groups.length > 0 && (
                         <select
-                          className="text-xs border border-gray-200 rounded px-1.5 py-1 flex-1 max-w-[180px] bg-white focus:outline-none"
+                          className="text-xs border border-gray-200 rounded px-1.5 py-1 max-w-[180px] bg-white focus:outline-none"
                           defaultValue=""
                           onChange={(e) => {
                             e.stopPropagation();
@@ -496,10 +846,43 @@ export default function ContactsPage() {
                             <option key={g.id} value={g.id}>{g.name} {g.funnelId ? "🔄" : ""}</option>
                           ))}
                         </select>
-                        {assigning === c.id && <span className="text-xs text-gray-400">배정 중...</span>}
-                      </div>
-                    )}
+                      )}
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setGroupAddError(""); setNewGroupName(""); setGroupAddForContact(c.id); setGroupModalOpen(true); }}
+                        className="flex items-center gap-0.5 text-xs text-navy-700 hover:text-navy-900 font-medium"
+                      >
+                        <Plus className="w-3 h-3" /> 그룹 추가
+                      </button>
+                      {assigning === c.id && <span className="text-xs text-gray-400">배정 중...</span>}
+                    </div>
                   </div>
+
+                  {/* 전달됨 뱃지 + 회수 버튼 */}
+                  {c.lastTransferredTo && (
+                    <div className="flex flex-col items-end gap-1 shrink-0 ml-1">
+                      <div className="flex items-center gap-1 bg-purple-50 border border-purple-200 rounded-lg px-2 py-1">
+                        <span className="text-xs text-purple-500">→</span>
+                        <div className="text-right">
+                          <p className="text-xs font-medium text-purple-700 leading-tight">{c.lastTransferredTo.name}</p>
+                          <p className="text-[10px] text-purple-400 leading-tight">{c.lastTransferredTo.orgName}</p>
+                        </div>
+                      </div>
+                      {c.lastTransferredTo.canRecall && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleRecall(c.id, c.lastTransferredTo!.logId);
+                          }}
+                          disabled={recalling === c.id}
+                          className="text-[10px] text-red-400 hover:text-red-600 hover:underline disabled:opacity-50"
+                        >
+                          {recalling === c.id ? "회수 중..." : "회수"}
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {/* 빠른 액션 (PC hover) */}
                   <div className="hidden md:flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -524,6 +907,7 @@ export default function ContactsPage() {
                     </button>
                   </div>
                 </Link>
+                </div>{/* end flex items-center gap-3 */}
 
                 {/* 퀵 콜 기록 인라인 폼 */}
                 {isQuickCallOpen && (
@@ -581,6 +965,108 @@ export default function ContactsPage() {
         </div>
       )}
 
+      {/* 복수 선택 공유 모달 */}
+      {showShareModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-end md:items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Share2 className="w-4 h-4 text-purple-500" />
+                DB 전달 ({selectedIds.size}명)
+              </h3>
+              <button onClick={() => setShowShareModal(false)} className="text-gray-400 hover:text-gray-600">×</button>
+            </div>
+
+            {/* 연관 검색 */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <input
+                autoFocus
+                value={shareSearch}
+                onChange={(e) => { setShareSearch(e.target.value); setShareTarget(""); }}
+                placeholder="이름 / 닉네임 / 아이디 검색..."
+                className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-purple-400"
+              />
+            </div>
+            {(() => {
+              const sel = shareSections.flatMap(s => s.members).find(m => m.id === shareTarget);
+              const q   = shareSearch.trim().toLowerCase();
+              const filtered = shareSections.map(sec => ({
+                ...sec,
+                members: sec.members.filter(m =>
+                  !q ||
+                  (m.displayName ?? "").toLowerCase().includes(q) ||
+                  m.loginId.toLowerCase().includes(q) ||
+                  m.orgName.toLowerCase().includes(q)
+                ),
+              })).filter(sec => sec.members.length > 0);
+              return (
+                <>
+                  {sel && (
+                    <div className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-xl px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-purple-200 text-purple-800 flex items-center justify-center text-xs font-bold shrink-0">
+                          {(sel.displayName ?? sel.loginId)[0]}
+                        </div>
+                        <div>
+                          <span className="text-sm font-semibold text-purple-800">{sel.displayName ?? sel.loginId}</span>
+                          <span className="text-xs text-purple-400 ml-1.5">{sel.loginId}</span>
+                          <span className="text-xs text-purple-400 ml-1.5">· {sel.orgName}</span>
+                        </div>
+                      </div>
+                      <button onClick={() => setShareTarget("")} className="text-purple-400 hover:text-purple-600 text-xl leading-none">×</button>
+                    </div>
+                  )}
+                  {(!shareTarget || shareSearch) && (
+                    <div className="space-y-1 max-h-56 overflow-y-auto">
+                      {filtered.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-6">검색 결과 없음</p>
+                      ) : filtered.map((section) => (
+                        <details key={section.label} open>
+                          <summary className="flex items-center justify-between px-2 py-1.5 cursor-pointer text-xs font-semibold text-gray-500 hover:text-gray-700 select-none list-none">
+                            <span>{section.label}</span>
+                            <span className="text-gray-300">{section.members.length}명</span>
+                          </summary>
+                          <div className="space-y-0.5 mt-0.5 mb-2">
+                            {section.members.map((m) => (
+                              <button
+                                key={m.id}
+                                onClick={() => { setShareTarget(m.id); setShareSearch(""); }}
+                                className="w-full text-left px-3 py-2 rounded-xl text-sm bg-gray-50 hover:bg-purple-50 text-gray-700 transition-colors flex items-center gap-2.5"
+                              >
+                                <div className="w-7 h-7 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold shrink-0">
+                                  {(m.displayName ?? m.loginId)[0]}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium truncate">{m.displayName ?? m.loginId}</p>
+                                  <p className="text-xs text-gray-400 truncate">{m.loginId} · {m.orgName}</p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </details>
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+
+            {shareResult && (
+              <p className={`text-sm font-medium ${shareResult.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>{shareResult}</p>
+            )}
+
+            <button
+              onClick={handleBulkShare}
+              disabled={sharing || !shareTarget}
+              className="w-full bg-purple-600 text-white py-2.5 rounded-xl font-medium hover:bg-purple-700 disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {sharing ? "전달 중..." : <><Share2 className="w-4 h-4" /> {selectedIds.size}명 전달하기</>}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* TagBlast 모달 */}
       {showTagBlast && (
         <TagBlastModal
@@ -588,6 +1074,180 @@ export default function ContactsPage() {
           onClose={() => setShowTagBlast(false)}
         />
       )}
+
+      {/* GroupBlast 모달 */}
+      {showGroupBlast && filterGroupId && (
+        <GroupBlastModal
+          groupId={filterGroupId}
+          groupName={groups.find(g => g.id === filterGroupId)?.name ?? ""}
+          onClose={() => setShowGroupBlast(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function GroupBlastModal({
+  groupId, groupName, onClose
+}: { groupId: string; groupName: string; onClose: () => void }) {
+  const [tab, setTab] = useState<'template' | 'direct'>('direct');
+  const [message, setMessage] = useState('');
+  const [templates, setTemplates] = useState<{ id: string; name: string; content: string }[]>([]);
+  const [preview, setPreview] = useState<{ willSend: number; isOverLimit: boolean; overLimitMsg: string | null } | null>(null);
+  const [step, setStep] = useState<'write' | 'preview' | 'done'>('write');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/tools/sms-templates')
+      .then(r => r.json())
+      .then(d => { if (d.ok) setTemplates(d.templates ?? []); });
+  }, []);
+
+  const handlePreview = async () => {
+    if (!message.trim()) return;
+    setSending(true);
+    setSendError(null);
+    const res = await fetch('/api/contacts/group-blast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId, message, dryRun: true }),
+    });
+    const d = await res.json();
+    if (d.ok) {
+      setPreview(d);
+      setStep('preview');
+    } else {
+      setSendError(d.message ?? '오류가 발생했습니다.');
+    }
+    setSending(false);
+  };
+
+  const handleSend = async () => {
+    setSending(true);
+    setSendError(null);
+    const res = await fetch('/api/contacts/group-blast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId, message, dryRun: false }),
+    });
+    const d = await res.json();
+    if (d.ok) {
+      setStep('done');
+    } else {
+      setSendError(d.message ?? '발송에 실패했습니다.');
+    }
+    setSending(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b">
+          <div>
+            <h2 className="font-semibold text-gray-900">그룹 SMS 발송</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              &quot;{groupName}&quot; 그룹 고객 전체
+            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+        </div>
+
+        <div className="p-5">
+          {step === 'write' && (
+            <>
+              <div className="flex gap-2 mb-4">
+                {(['direct', 'template'] as const).map(t => (
+                  <button key={t} onClick={() => setTab(t)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      tab === t ? 'bg-navy-900 text-white' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                    {t === 'direct' ? '직접 입력' : '템플릿 선택'}
+                  </button>
+                ))}
+              </div>
+
+              {tab === 'direct' ? (
+                <textarea
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  placeholder="발송할 메시지를 입력하세요&#10;[고객명] 또는 [이름] 으로 이름 치환 가능"
+                  className="w-full border rounded-xl p-3 text-sm h-32 resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {templates.map(t => (
+                    <button key={t.id} onClick={() => { setMessage(t.content); setTab('direct'); }}
+                      className="w-full text-left px-3 py-2.5 border rounded-xl hover:border-green-300 hover:bg-green-50 transition-colors">
+                      <p className="text-sm font-medium text-gray-800">{t.name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">{t.content}</p>
+                    </button>
+                  ))}
+                  {templates.length === 0 && (
+                    <p className="text-sm text-gray-400 text-center py-4">등록된 템플릿이 없습니다</p>
+                  )}
+                </div>
+              )}
+
+              <p className="text-xs text-gray-400 mt-2">
+                * 수신거부·전화번호 미입력 고객은 자동 제외됩니다
+              </p>
+
+              {sendError && <p className="text-xs text-red-500 mt-2">{sendError}</p>}
+
+              <button
+                onClick={handlePreview}
+                disabled={!message.trim() || sending}
+                className="w-full mt-4 py-3 bg-green-600 text-white rounded-xl text-sm font-medium disabled:opacity-50"
+              >
+                {sending ? '확인 중...' : '발송 대상 확인'}
+              </button>
+            </>
+          )}
+
+          {step === 'preview' && preview && (
+            <div className="space-y-4">
+              <div className={`rounded-xl p-4 ${preview.isOverLimit ? 'bg-red-50' : 'bg-green-50'}`}>
+                <p className="text-lg font-bold text-center">
+                  {preview.willSend}명에게 발송됩니다
+                </p>
+                {preview.isOverLimit && (
+                  <p className="text-xs text-red-600 text-center mt-1">{preview.overLimitMsg}</p>
+                )}
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-xs text-gray-500 mb-1">발송 메시지</p>
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">{message}</p>
+              </div>
+              {sendError && <p className="text-xs text-red-500">{sendError}</p>}
+              <div className="flex gap-2">
+                <button onClick={() => setStep('write')}
+                  className="flex-1 py-3 border rounded-xl text-sm text-gray-600">
+                  수정
+                </button>
+                <button onClick={handleSend} disabled={sending}
+                  className="flex-1 py-3 bg-green-600 text-white rounded-xl text-sm font-medium disabled:opacity-50">
+                  {sending ? '발송 중...' : '발송하기'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 'done' && (
+            <div className="text-center py-6">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-green-600 text-xl">✓</span>
+              </div>
+              <p className="font-semibold text-gray-900">발송 완료</p>
+              <p className="text-sm text-gray-500 mt-1">&quot;{groupName}&quot; 그룹에 SMS를 발송했습니다</p>
+              <button onClick={onClose}
+                className="mt-4 px-6 py-2.5 bg-navy-900 text-white rounded-xl text-sm">
+                닫기
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

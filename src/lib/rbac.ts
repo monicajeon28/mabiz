@@ -50,14 +50,20 @@ export function buildContactWhere(ctx: AuthContext, extra: Record<string, unknow
     throw new Error("FREE_SALES_NO_ACCESS");
   }
   if (ctx.role === "OWNER") {
-    return { organizationId: ctx.organizationId!, ...extra };
+    return { organizationId: ctx.organizationId!, deletedAt: null, ...extra };
   }
   // AGENT: 할당된 고객만
   return {
     organizationId: ctx.organizationId!,
     assignedUserId: ctx.userId,
+    deletedAt: null,
     ...extra,
   };
+}
+
+/** GLOBAL_ADMIN만 하드 삭제 가능, OWNER는 소프트 삭제만 */
+export function canHardDelete(ctx: AuthContext): boolean {
+  return ctx.role === "GLOBAL_ADMIN";
 }
 
 /** FREE_SALES 역할 차단 */

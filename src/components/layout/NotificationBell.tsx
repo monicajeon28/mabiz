@@ -6,7 +6,7 @@ import { logger } from "@/lib/logger";
 
 type FeedItem = {
   id:        string;
-  type:      'LANDING_REG' | 'SALE_PENDING' | 'GOLD_INQUIRY' | 'B2B_LEAD' | 'NEW_CONTACT' | 'ORG_CONTRACT';
+  type:      'LANDING_REG' | 'SALE_PENDING' | 'GOLD_INQUIRY' | 'B2B_LEAD' | 'NEW_CONTACT' | 'ORG_CONTRACT' | 'CALL_DUE';
   name:      string;
   phone:     string | null;
   detail:    string | null;
@@ -22,6 +22,7 @@ const TYPE_CONFIG = {
   B2B_LEAD:     { label: 'B2B 잠재고객',  emoji: '🏢', color: 'bg-indigo-50 border-indigo-200', dot: 'bg-indigo-500' },
   NEW_CONTACT:  { label: '신규 고객',      emoji: '📋', color: 'bg-green-50 border-green-200',   dot: 'bg-green-500'  },
   ORG_CONTRACT: { label: '신규 대리점',    emoji: '🤝', color: 'bg-purple-50 border-purple-200', dot: 'bg-purple-500' },
+  CALL_DUE:     { label: '오늘 콜 예정',    emoji: '📞', color: 'bg-rose-50 border-rose-200',    dot: 'bg-rose-500'   },
 };
 
 function relativeTime(iso: string): string {
@@ -39,6 +40,7 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pushPermission, setPushPermission] = useState<NotificationPermission>('default');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchFeed = async () => {
@@ -59,8 +61,21 @@ export function NotificationBell() {
   };
 
   // 마운트 시 + 10초마다 폴링 (백그라운드 탭에서는 중단)
+  // + 서비스 워커 등록 및 푸시 권한 요청
   useEffect(() => {
     fetchFeed();
+
+    // 서비스 워커 등록 (처음 1회)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(err => {
+        logger.log('[NotificationBell] SW 등록 실패', { err: err.message });
+      });
+    }
+
+    // 푸시 권한 상태 확인
+    if ('Notification' in window) {
+      setPushPermission(Notification.permission);
+    }
 
     let interval: ReturnType<typeof setInterval> | null = setInterval(fetchFeed, 10_000);
 

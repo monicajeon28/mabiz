@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext } from "@/lib/rbac";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
 import { logger } from "@/lib/logger";
 import { addLeadScore } from "@/lib/lead-score";
@@ -10,8 +10,17 @@ type Params = { params: Promise<{ id: string }> };
 // POST /api/groups/[id]/members — 고객을 그룹에 추가 → 퍼널 자동 시작
 export async function POST(req: Request, { params }: Params) {
   try {
-    const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const ctx = await getAuthContext();
+    let orgId: string;
+    if (ctx.organizationId) {
+      orgId = ctx.organizationId;
+    } else if (ctx.role === 'GLOBAL_ADMIN') {
+      const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
+      if (!firstOrg) return NextResponse.json({ ok: false, error: '조직이 없습니다.' }, { status: 500 });
+      orgId = firstOrg.id;
+    } else {
+      return NextResponse.json({ ok: false }, { status: 403 });
+    }
     const { id: groupId } = await params;
     const { contactIds } = await req.json(); // string[]
 
@@ -19,13 +28,20 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: "contactIds 필수" }, { status: 400 });
     }
 
-    // 그룹이 이 조직 소유인지 확인
+    // 그룹이 이 조직 소유이고, 내 그룹(ownerId === ctx.userId) 또는 공유 그룹(ownerId === null)인지 확인
     const group = await prisma.contactGroup.findFirst({
-      where: { id: groupId, organizationId: orgId },
+      where: {
+        id: groupId,
+        organizationId: orgId,
+        ...(ctx.role !== 'GLOBAL_ADMIN'
+          ? { OR: [{ ownerId: ctx.userId }, { ownerId: null }] }
+          : {}),
+      },
     });
     if (!group) return NextResponse.json({ ok: false }, { status: 404 });
 
     // ★ contactId 소유권 검증 — 타 조직 고객을 이 그룹에 끼워넣기 방지
+    // 공유받은 복사본(sourceOrgId 있음)도 내 조직에 속하므로 허용
     const validContacts = await prisma.contact.findMany({
       where: { id: { in: contactIds }, organizationId: orgId },
       select: { id: true },
@@ -85,14 +101,29 @@ export async function POST(req: Request, { params }: Params) {
 // DELETE /api/groups/[id]/members — 그룹에서 제거
 export async function DELETE(req: Request, { params }: Params) {
   try {
-    const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const ctx = await getAuthContext();
+    let orgId: string;
+    if (ctx.organizationId) {
+      orgId = ctx.organizationId;
+    } else if (ctx.role === 'GLOBAL_ADMIN') {
+      const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
+      if (!firstOrg) return NextResponse.json({ ok: false }, { status: 500 });
+      orgId = firstOrg.id;
+    } else {
+      return NextResponse.json({ ok: false }, { status: 403 });
+    }
     const { id: groupId } = await params;
     const { contactIds } = await req.json();
 
-    // 그룹 소유권 확인
+    // 그룹 소유권 확인 (내 그룹 또는 공유 그룹만 조작 가능)
     const group = await prisma.contactGroup.findFirst({
-      where: { id: groupId, organizationId: orgId },
+      where: {
+        id: groupId,
+        organizationId: orgId,
+        ...(ctx.role !== 'GLOBAL_ADMIN'
+          ? { OR: [{ ownerId: ctx.userId }, { ownerId: null }] }
+          : {}),
+      },
     });
     if (!group) return NextResponse.json({ ok: false }, { status: 404 });
 

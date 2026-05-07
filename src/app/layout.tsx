@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "크루즈닷파트너스 — 파트너 CRM",
   description: "크루즈닷 파트너 전용 CRM. 고객관리, 수당확인, 영업도구를 한 곳에서.",
   metadataBase: new URL("https://www.mabizcruisedot.com"),
+  manifest: "/manifest.json",
   icons: {
     icon: "/favicon.png",
     shortcut: "/favicon.png",

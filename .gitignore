@@ -19,3 +19,8 @@ dist/
 .vercel
 .env.vercel.tmp
 .env*.local
+
+# 서비스 계정 키 (절대 커밋 금지)
+docs/*.json
+scripts/test-key*.mjs
+scripts/fix-env-key.mjs

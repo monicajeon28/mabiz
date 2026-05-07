@@ -20,7 +20,7 @@ import { logger } from '@/lib/logger';
 
 type FeedItem = {
   id: string;
-  type: 'LANDING_REG' | 'SALE_PENDING' | 'GOLD_INQUIRY' | 'B2B_LEAD' | 'NEW_CONTACT' | 'ORG_CONTRACT';
+  type: 'LANDING_REG' | 'SALE_PENDING' | 'GOLD_INQUIRY' | 'B2B_LEAD' | 'NEW_CONTACT' | 'ORG_CONTRACT' | 'CALL_DUE';
   name: string;
   phone: string | null;
   detail: string | null;
@@ -48,6 +48,7 @@ const LINK_PATH: Record<string, string> = {
   B2B_LEAD:     '/b2b',
   NEW_CONTACT:  '/contacts',
   ORG_CONTRACT: '/admin/organizations',
+  CALL_DUE:     '/contacts',
 };
 
 function maskPhone(phone: string | null): string | null {
@@ -125,21 +126,7 @@ export async function GET(req: Request) {
           AND als."createdAt" >= ${sinceDate}
       `);
 
-      // ── GOLD_INQUIRY (전체, GMcruise ProductInquiry) ──
-      parts.push(Prisma.sql`
-        SELECT
-          'GOLD_INQUIRY'::text         AS type,
-          pi.id::text                  AS id,
-          pi.name                      AS name,
-          pi.phone                     AS phone,
-          NULL::text                   AS detail,
-          NULL::bigint                 AS amount,
-          '/gold-inquiries'::text      AS link_path,
-          pi."createdAt"               AS created_at
-        FROM "ProductInquiry" pi
-        WHERE pi."productCode" = 'GOLD_MEMBERSHIP'
-          AND pi."createdAt" >= ${sinceDate}
-      `);
+      // ── GOLD_INQUIRY: ProductInquiry 테이블은 이 DB에 없으므로 제외 ──
 
       // ── B2B_LEAD (status='NEW', 전체) ──
       parts.push(Prisma.sql`
@@ -187,6 +174,22 @@ export async function GET(req: Request) {
         WHERE o."createdAt" >= ${sinceDate}
       `);
 
+      // ── CALL_DUE (오늘 콜 예정) ──
+      parts.push(Prisma.sql`
+        SELECT
+          'CALL_DUE'::text             AS type,
+          cl.id::text                  AS id,
+          c.name                       AS name,
+          c.phone                      AS phone,
+          cl."nextAction"              AS detail,
+          NULL::bigint                 AS amount,
+          ('/contacts/' || c.id)::text AS link_path,
+          cl."scheduledAt"             AS created_at
+        FROM "CallLog" cl
+        JOIN "Contact" c ON c.id = cl."contactId"
+        WHERE (cl."scheduledAt"::date) = (NOW() AT TIME ZONE 'Asia/Seoul')::date
+      `);
+
     } else if (ctx.role === 'OWNER') {
       const orgId = ctx.organizationId!;
 
@@ -229,21 +232,7 @@ export async function GET(req: Request) {
         `);
       }
 
-      // ── GOLD_INQUIRY (조직 필터 없음, ProductInquiry에 organizationId 컬럼 없음) ──
-      parts.push(Prisma.sql`
-        SELECT
-          'GOLD_INQUIRY'::text         AS type,
-          pi.id::text                  AS id,
-          pi.name                      AS name,
-          pi.phone                     AS phone,
-          NULL::text                   AS detail,
-          NULL::bigint                 AS amount,
-          '/gold-inquiries'::text      AS link_path,
-          pi."createdAt"               AS created_at
-        FROM "ProductInquiry" pi
-        WHERE pi."productCode" = 'GOLD_MEMBERSHIP'
-          AND pi."createdAt" >= ${sinceDate}
-      `);
+      // ── GOLD_INQUIRY: ProductInquiry 테이블은 이 DB에 없으므로 제외 ──
 
       // ── B2B_LEAD (조직 필터) ──
       parts.push(Prisma.sql`
@@ -276,6 +265,23 @@ export async function GET(req: Request) {
         FROM "Contact" c
         WHERE c."organizationId" = ${orgId}
           AND c."createdAt" >= ${sinceDate}
+      `);
+
+      // ── CALL_DUE (조직 필터, 모든 콜) ──
+      parts.push(Prisma.sql`
+        SELECT
+          'CALL_DUE'::text             AS type,
+          cl.id::text                  AS id,
+          c.name                       AS name,
+          c.phone                      AS phone,
+          cl."nextAction"              AS detail,
+          NULL::bigint                 AS amount,
+          ('/contacts/' || c.id)::text AS link_path,
+          cl."scheduledAt"             AS created_at
+        FROM "CallLog" cl
+        JOIN "Contact" c ON c.id = cl."contactId"
+        WHERE c."organizationId" = ${orgId}
+          AND (cl."scheduledAt"::date) = (NOW() AT TIME ZONE 'Asia/Seoul')::date
       `);
 
     } else {
@@ -321,21 +327,7 @@ export async function GET(req: Request) {
         `);
       }
 
-      // ── GOLD_INQUIRY (ProductInquiry에 scope 없음, 전체) ──
-      parts.push(Prisma.sql`
-        SELECT
-          'GOLD_INQUIRY'::text         AS type,
-          pi.id::text                  AS id,
-          pi.name                      AS name,
-          pi.phone                     AS phone,
-          NULL::text                   AS detail,
-          NULL::bigint                 AS amount,
-          '/gold-inquiries'::text      AS link_path,
-          pi."createdAt"               AS created_at
-        FROM "ProductInquiry" pi
-        WHERE pi."productCode" = 'GOLD_MEMBERSHIP'
-          AND pi."createdAt" >= ${sinceDate}
-      `);
+      // ── GOLD_INQUIRY: ProductInquiry 테이블은 이 DB에 없으므로 제외 ──
 
       // ── NEW_CONTACT (담당자 배당 고객만) ──
       parts.push(Prisma.sql`
@@ -352,6 +344,23 @@ export async function GET(req: Request) {
         WHERE c."organizationId" = ${orgId}
           AND c."assignedUserId" = ${ctx.userId}
           AND c."createdAt" >= ${sinceDate}
+      `);
+
+      // ── CALL_DUE (본인 콜로그만) ──
+      parts.push(Prisma.sql`
+        SELECT
+          'CALL_DUE'::text             AS type,
+          cl.id::text                  AS id,
+          c.name                       AS name,
+          c.phone                      AS phone,
+          cl."nextAction"              AS detail,
+          NULL::bigint                 AS amount,
+          ('/contacts/' || c.id)::text AS link_path,
+          cl."scheduledAt"             AS created_at
+        FROM "CallLog" cl
+        JOIN "Contact" c ON c.id = cl."contactId"
+        WHERE cl."userId" = ${ctx.userId}
+          AND (cl."scheduledAt"::date) = (NOW() AT TIME ZONE 'Asia/Seoul')::date
       `);
     }
 

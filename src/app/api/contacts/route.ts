@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, buildContactWhere, requireOrgId, maskContactInfo } from "@/lib/rbac";
+import { getAuthContext, buildContactWhere, maskContactInfo } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
 
@@ -48,7 +48,52 @@ export async function GET(req: Request) {
     // AGENT 역할이면 개인정보 마스킹
     const masked = contacts.map((c) => maskContactInfo(c, ctx));
 
-    return NextResponse.json({ ok: true, contacts: masked, total, page, limit });
+    // ── 전달 이력 배치 조회 (N+1 없이) ──────────────────────────
+    const contactIds = contacts.map((c) => c.id);
+    const rawLogs = contactIds.length > 0
+      ? await prisma.contactTransferLog.findMany({
+          where:   { contactId: { in: contactIds } },
+          orderBy: { createdAt: "desc" },
+          select:  { id: true, contactId: true, toUserId: true, transferType: true, newContactId: true, transferredBy: true },
+        })
+      : [];
+
+    // contactId → 최신 로그 1건
+    const latestLog = new Map<string, typeof rawLogs[0]>();
+    for (const l of rawLogs) if (!latestLog.has(l.contactId)) latestLog.set(l.contactId, l);
+
+    // toUserId 배치 이름 조회
+    const toUserIds = [...new Set([...latestLog.values()].map((l) => l.toUserId).filter((x): x is string => !!x))];
+    const [orgMembers, globalAdmins] = toUserIds.length === 0
+      ? [[], []]
+      : await Promise.all([
+          prisma.organizationMember.findMany({
+            where:  { id: { in: toUserIds } },
+            select: { id: true, displayName: true, organization: { select: { name: true } } },
+          }),
+          prisma.globalAdmin.findMany({
+            where:  { id: { in: toUserIds } },
+            select: { id: true, displayName: true },
+          }),
+        ]);
+
+    const nameMap = new Map<string, { name: string; orgName: string }>();
+    orgMembers.forEach((m) => nameMap.set(m.id, { name: m.displayName ?? m.id, orgName: m.organization.name }));
+    globalAdmins.forEach((a) => nameMap.set(a.id, { name: a.displayName ?? "본사", orgName: "본사" }));
+
+    const contactsWithTransfer = masked.map((c) => {
+      const log = latestLog.get(c.id);
+      if (!log) return { ...c, lastTransferredTo: null };
+      const target = log.toUserId ? nameMap.get(log.toUserId) : null;
+      return {
+        ...c,
+        lastTransferredTo: target
+          ? { name: target.name, orgName: target.orgName, logId: log.id, transferType: log.transferType, canRecall: log.transferredBy === ctx.userId || ctx.role === "GLOBAL_ADMIN" }
+          : null,
+      };
+    });
+
+    return NextResponse.json({ ok: true, contacts: contactsWithTransfer, total, page, limit });
   } catch (err) {
     logger.error("[GET /api/contacts]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
@@ -58,8 +103,20 @@ export async function GET(req: Request) {
 // POST /api/contacts — 고객 생성 (OWNER / GLOBAL_ADMIN만)
 export async function POST(req: Request) {
   try {
-    const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const ctx = await getAuthContext();
+
+    // GLOBAL_ADMIN은 organizationId가 null — 첫 번째 조직 사용
+    let orgId: string;
+    if (ctx.organizationId) {
+      orgId = ctx.organizationId;
+    } else if (ctx.role === 'GLOBAL_ADMIN') {
+      const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
+      if (!firstOrg) return NextResponse.json({ ok: false, error: '조직이 없습니다.' }, { status: 500 });
+      orgId = firstOrg.id;
+    } else {
+      return NextResponse.json({ ok: false, error: '조직 정보가 없습니다.' }, { status: 403 });
+    }
+
     const body  = await req.json();
     const { name, phone, email, type, cruiseInterest, budgetRange, adminMemo, groupIds, assignedUserId } = body;
 
