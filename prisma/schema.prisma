@@ -12,6 +12,8 @@ model Organization {
   name         String
   slug         String   @unique
   plan         String   @default("FREE")
+  status       String   @default("ACTIVE")  // ACTIVE | SUSPENDED | TERMINATED
+  contractRef  String?  @unique             // GMcruise 계약 참조 ID (webhook idempotency)
   externalAffiliateProfileId Int? @unique
 
   members         OrganizationMember[]
@@ -75,13 +77,14 @@ model OrgEmailConfig {
 model OrganizationMember {
   id             String       @id @default(cuid())
   organizationId String
-  userId         String       // Clerk user ID
-  // OWNER=대리점장 | AGENT=정식판매원(330만계약) | VIEWER=조회만
+  userId         String       // Clerk 제거 후: memberId 자체 또는 GMcruise User.id
+  // OWNER=대리점장 | AGENT=정식판매원(330만계약) | FREE_SALES=프리세일즈
   role           String       @default("AGENT")
   displayName    String?      // 이름
   isActive       Boolean      @default(true)
   phone          String?      // 로그인용 전화번호 (예: 01012345678)
-  passwordHash   String?      // bcrypt 해시
+  email          String?      // 알림 수신용 이메일 (OWNER 가입 완료 알림 발송 대상)
+  passwordHash   String?      // bcrypt 해시 (SHA-256 사용 금지)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, userId])
@@ -523,12 +526,12 @@ model ScheduledSms {
 model OrgInviteToken {
   id             String    @id @default(cuid())
   organizationId String
-  token          String    @unique @default(cuid())
+  token          String    @unique  // randomBytes(32).toString('base64url') — API에서 생성, cuid() 사용 금지
   role           String    @default("AGENT")
   note           String?   // 초대 메모 (예: "홍길동 판매원")
-  expiresAt      DateTime  // 만료 시각 (기본 7일)
+  expiresAt      DateTime  // 만료 시각 (기본 14일)
   usedAt         DateTime?
-  usedByUserId   String?   // 사용한 Clerk userId
+  usedByUserId   String?   // OrganizationMember.id (가입 완료한 멤버)
   // 수당 조건 동의 기록
   agreedToTerms  Boolean   @default(false)
   createdByUserId String?

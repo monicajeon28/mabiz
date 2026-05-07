@@ -2,7 +2,12 @@ import { logger } from "@/lib/logger";
 import { createTransport } from "nodemailer";
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
-const ENCRYPT_KEY = process.env.EMAIL_ENCRYPT_KEY ?? "mabiz-default-32char-key!!!!!!!";
+const _RAW_KEY = process.env.EMAIL_ENCRYPT_KEY;
+if (!_RAW_KEY || _RAW_KEY.length < 32) {
+  if (process.env.NODE_ENV === 'production') console.error("[FATAL] EMAIL_ENCRYPT_KEY 미설정 — 조직 SMTP 불동작");
+}
+const ENCRYPT_KEY = _RAW_KEY ?? "";
+
 
 // SMTP 비밀번호 암호화
 export function encryptSmtpPassword(plain: string): string {
