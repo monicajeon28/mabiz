@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Plus, X, Loader2 } from "lucide-react";
 
 export default function NewContactPage() {
   const router = useRouter();
@@ -20,11 +20,44 @@ export default function NewContactPage() {
   const [groups, setGroups] = useState<{ id: string; name: string; funnelId: string | null }[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
 
+  // 그룹 추가 팝업
+  const [groupModalOpen, setGroupModalOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [groupAdding, setGroupAdding] = useState(false);
+  const [groupAddError, setGroupAddError] = useState("");
+  const groupInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     fetch("/api/groups").then((r) => r.json()).then((data) => {
       if (data.ok) setGroups(data.groups ?? []);
     });
   }, []);
+
+  const handleAddGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newGroupName.trim();
+    if (!name) { setGroupAddError("그룹 이름을 입력해주세요."); return; }
+    setGroupAdding(true);
+    setGroupAddError("");
+    try {
+      const res = await fetch("/api/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (!data.ok) { setGroupAddError(data.error ?? "그룹 생성 실패"); return; }
+      const created = data.group;
+      setGroups((prev) => [...prev, { id: created.id, name: created.name, funnelId: created.funnelId ?? null }]);
+      setSelectedGroupId(created.id);
+      setNewGroupName("");
+      setGroupModalOpen(false);
+    } catch {
+      setGroupAddError("서버 오류가 발생했습니다.");
+    } finally {
+      setGroupAdding(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,7 +210,57 @@ export default function NewContactPage() {
               ))}
             </select>
             {selectedGroupId && <p className="text-xs text-gray-400 mt-1">🔄 퍼널 연결 시 등록 즉시 자동 문자 발송</p>}
+            <button
+              type="button"
+              onClick={() => { setGroupModalOpen(true); setGroupAddError(""); setTimeout(() => groupInputRef.current?.focus(), 50); }}
+              className="mt-2 flex items-center gap-1 text-xs text-navy-700 hover:text-navy-900 font-medium"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              그룹 추가
+            </button>
           </div>
+
+          {/* 그룹 추가 팝업 */}
+          {groupModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/40" onClick={() => setGroupModalOpen(false)} />
+              <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-base font-bold text-gray-900">새 그룹 추가</h3>
+                  <button type="button" onClick={() => setGroupModalOpen(false)} className="p-1 rounded-lg hover:bg-gray-100">
+                    <X className="w-4 h-4 text-gray-500" />
+                  </button>
+                </div>
+                <form onSubmit={handleAddGroup} className="space-y-3">
+                  <input
+                    ref={groupInputRef}
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    placeholder="그룹 이름 입력"
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-900/20"
+                  />
+                  {groupAddError && <p className="text-xs text-red-500">{groupAddError}</p>}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setGroupModalOpen(false)}
+                      className="flex-1 py-2.5 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50"
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={groupAdding}
+                      className="flex-1 py-2.5 bg-navy-900 text-white text-sm rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {groupAdding && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                      그룹 추가
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
 
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
