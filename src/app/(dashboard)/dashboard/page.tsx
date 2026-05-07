@@ -21,6 +21,36 @@ type DashboardData = {
   affiliateCode?: string | null;
 };
 
+type FeedItem = {
+  id:        string;
+  type:      'LANDING_REG' | 'SALE_PENDING' | 'GOLD_INQUIRY' | 'B2B_LEAD' | 'NEW_CONTACT' | 'ORG_CONTRACT';
+  name:      string;
+  phone:     string | null;
+  detail:    string | null;
+  amount:    number | null;
+  linkPath:  string;
+  createdAt: string;
+};
+
+const TYPE_CONFIG: Record<string, { label: string; emoji: string; dotColor: string }> = {
+  LANDING_REG:  { label: '랜딩 신규 등록', emoji: '👤', dotColor: 'bg-blue-500'   },
+  SALE_PENDING: { label: '판매 승인 대기', emoji: '💰', dotColor: 'bg-amber-500'  },
+  GOLD_INQUIRY: { label: '골드문의 신규',  emoji: '⭐', dotColor: 'bg-yellow-500' },
+  B2B_LEAD:     { label: 'B2B 잠재고객',  emoji: '🏢', dotColor: 'bg-indigo-500' },
+  NEW_CONTACT:  { label: '신규 고객',      emoji: '📋', dotColor: 'bg-green-500'  },
+  ORG_CONTRACT: { label: '신규 대리점',    emoji: '🤝', dotColor: 'bg-purple-500' },
+};
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1)  return '방금';
+  if (m < 60) return `${m}분 전`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}시간 전`;
+  return `${Math.floor(h / 24)}일 전`;
+}
+
 function KpiCard({
   title, value, sub, color = "", icon,
 }: {
@@ -42,11 +72,18 @@ function KpiCard({
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [feed, setFeed] = useState<FeedItem[]>([]);
+  const [feedLoading, setFeedLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/dashboard").then((r) => r.json()).then((d) => {
       if (d.ok) setData(d);
     });
+
+    fetch('/api/notifications/feed?limit=5')
+      .then(r => r.json())
+      .then(d => { if (d.ok) setFeed(d.items ?? []); })
+      .finally(() => setFeedLoading(false));
   }, []);
 
   const role = data?.role;
@@ -102,6 +139,56 @@ export default function DashboardPage() {
           <KpiCard title="내 골드회원"  value={data.goldMemberCount ?? 0}      icon={<Star className="w-5 h-5" />} />
         </div>
       )}
+
+      {/* 최근 알림 */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-navy-900">최근 알림</h2>
+          <Link href="#" className="text-xs text-blue-600 hover:underline">전체 보기</Link>
+        </div>
+
+        {feedLoading ? (
+          <div className="space-y-2">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />
+            ))}
+          </div>
+        ) : feed.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">새 알림이 없습니다</p>
+        ) : (
+          <div className="space-y-2">
+            {feed.map(item => {
+              const cfg = TYPE_CONFIG[item.type];
+              return (
+                <Link key={item.id} href={item.linkPath}
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-200"
+                >
+                  {/* 왼쪽 dot */}
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${cfg?.dotColor ?? 'bg-gray-400'}`} />
+                  {/* 이모지 */}
+                  <span className="text-base shrink-0">{cfg?.emoji}</span>
+                  {/* 내용 */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-500">{cfg?.label}</span>
+                      {item.amount && (
+                        <span className="text-xs font-bold text-amber-600">{item.amount.toLocaleString()}원</span>
+                      )}
+                    </div>
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {item.name}{item.phone ? ` · ${item.phone}` : ''}{item.detail ? ` · ${item.detail}` : ''}
+                    </p>
+                  </div>
+                  {/* 시간 */}
+                  <span className="text-xs text-gray-400 shrink-0 whitespace-nowrap">
+                    {relativeTime(item.createdAt)}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* 빠른 메뉴 */}
       <div className="bg-white rounded-2xl border border-gray-200 p-5">
