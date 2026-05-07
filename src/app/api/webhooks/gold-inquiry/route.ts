@@ -28,7 +28,8 @@ export async function POST(req: NextRequest) {
     phone: string;
     name: string;
     email?: string;
-    tier?: number;
+    courseType?: 'A' | 'B' | 'C';   // A코스 / B코스 / C코스
+    productCode?: string;             // 직접 전달 시 우선 사용
     message?: string;
     affiliateCode?: string;
     organizationId?: string;
@@ -37,13 +38,17 @@ export async function POST(req: NextRequest) {
     submittedAt?: string;
   };
 
-  const { phone, name, email, tier, message, affiliateCode, organizationId: bodyOrgId } = body;
+  const { phone, name, email, courseType, message, affiliateCode, organizationId: bodyOrgId } = body;
+
+  // productCode 결정: 직접 전달 > courseType 매핑 > 기본값
+  const productCode = body.productCode
+    ?? (courseType ? `GOLD_MEMBERSHIP_${courseType}` : 'GOLD_MEMBERSHIP');
 
   if (!phone || !name) {
     return NextResponse.json({ ok: false, message: 'phone, name 필수' }, { status: 400 });
   }
 
-  logger.log('[GoldInquiryWebhook] 수신', { phone: phone.slice(0, 4) + '***', tier });
+  logger.log('[GoldInquiryWebhook] 수신', { phone: phone.slice(0, 4) + '***', courseType, productCode });
 
   // 1. Organization 결정
   let organizationId = bodyOrgId;
@@ -102,7 +107,7 @@ export async function POST(req: NextRequest) {
       data: {
         contactId,
         userId: 'webhook-gold-inquiry',
-        content: `[골드문의] 희망등급: ${tier ? tier.toLocaleString() : '미입력'}원, ${message ?? '내용 없음'}`,
+        content: `[골드문의] 코스: ${courseType ? `${courseType}코스` : '미입력'}, ${message ?? '내용 없음'}`,
       },
     });
   } catch (err) {

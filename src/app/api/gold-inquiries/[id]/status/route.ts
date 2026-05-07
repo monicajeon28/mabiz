@@ -15,7 +15,7 @@ const VALID_STATUSES = new Set(['pending', 'unavailable', 'passport_waiting', 'c
  */
 export async function PATCH(
   req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const ctx = await getMabizSession();
@@ -24,7 +24,8 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const inquiryId = parseInt(context.params.id);
+    const { id } = await context.params;
+    const inquiryId = parseInt(id);
     if (!inquiryId || isNaN(inquiryId) || inquiryId <= 0) {
       return NextResponse.json({ ok: false, error: '유효하지 않은 ID' }, { status: 400 });
     }

@@ -1,109 +1,143 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
-/**
- * GET /api/gold-members
- * GMcruise ProductInquiry WHERE productCode='GOLD_MEMBERSHIP' AND status='confirmed'
- * (GoldMember 전용 테이블 없음 — 골드 구매 확정 문의를 골드회원으로 간주)
- *
- * GLOBAL_ADMIN / OWNER / AGENT: 전체 조회
- * FREE_SALES: 403
- */
-
 function maskPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
-  if (digits.length >= 10) {
-    return digits.slice(0, 3) + '-****-' + digits.slice(-4);
-  }
+  if (digits.length >= 10) return digits.slice(0, 3) + '-****-' + digits.slice(-4);
   return phone.slice(0, 3) + '****' + phone.slice(-4);
 }
 
-type RawMember = {
-  id: number;
-  productCode: string;
-  name: string;
-  phone: string;
-  message: string | null;
-  status: string;
-  createdAt: Date;
-  userId: number | null;
-};
+function generateMemberCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
 
+// GET: 골드회원 목록
 export async function GET(req: NextRequest) {
   try {
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
-    if (ctx.role === 'FREE_SALES') {
+    if (ctx.role === 'FREE_SALES') return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
+
+    const { searchParams } = new URL(req.url);
+    const page       = Math.max(1, parseInt(searchParams.get('page') ?? '1') || 1);
+    const limit      = Math.min(100, parseInt(searchParams.get('limit') ?? '20') || 20);
+    const status     = searchParams.get('status') ?? '';
+    const courseType = searchParams.get('courseType') ?? '';
+    const q          = searchParams.get('q')?.trim() ?? '';
+
+    const where: Record<string, unknown> = {};
+    if (ctx.organizationId) where.organizationId = ctx.organizationId;
+    if (status) where.status = status;
+    if (courseType) where.courseType = courseType;
+    if (q) where.OR = [
+      { name: { contains: q, mode: 'insensitive' } },
+      { phone: { contains: q } },
+      { memberCode: { contains: q.toUpperCase() } },
+    ];
+
+    const [members, total] = await Promise.all([
+      prisma.goldMember.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: { _count: { select: { consultations: true } } },
+      }),
+      prisma.goldMember.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      ok: true,
+      goldMembers: members.map(m => ({
+        id:             m.id,
+        name:           m.name,
+        phone:          maskPhone(m.phone),
+        email:          m.email,
+        memberCode:     m.memberCode,
+        courseType:     m.courseType,
+        joinDate:       m.joinDate.toISOString(),
+        paymentDay:     m.paymentDay,
+        totalPayments:  m.totalPayments,
+        paidCount:      m.paidCount,
+        status:         m.status,
+        memo:           m.memo,
+        consultationCount: m._count.consultations,
+        createdAt:      m.createdAt.toISOString(),
+      })),
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    });
+  } catch (err) {
+    logger.error('[GET /api/gold-members]', { err });
+    return NextResponse.json({ ok: false, error: '서버 오류' }, { status: 500 });
+  }
+}
+
+// POST: 골드회원 등록
+export async function POST(req: NextRequest) {
+  try {
+    const ctx = await getMabizSession();
+    if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
+    if (ctx.role === 'FREE_SALES' || ctx.role === 'AGENT') {
       return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const { searchParams } = new URL(req.url);
-    const page   = Math.max(1, parseInt(searchParams.get('page')  ?? '1')  || 1);
-    const limit  = Math.min(100, parseInt(searchParams.get('limit') ?? '20') || 20);
-    const offset = (page - 1) * limit;
+    const body = await req.json() as {
+      name: string;
+      phone: string;
+      email?: string;
+      courseType: string;
+      joinDate: string;
+      paymentDay?: number;
+      totalPayments?: number;
+      memo?: string;
+    };
 
-    const q = searchParams.get('q')?.trim() ?? '';
+    const { name, phone, email, courseType, joinDate, paymentDay, totalPayments, memo } = body;
+    if (!name || !phone || !courseType || !joinDate) {
+      return NextResponse.json({ ok: false, error: '이름, 전화번호, 코스, 가입날짜는 필수입니다.' }, { status: 400 });
+    }
+    if (!['A', 'B', 'C'].includes(courseType)) {
+      return NextResponse.json({ ok: false, error: '코스는 A, B, C 중 하나여야 합니다.' }, { status: 400 });
+    }
 
-    const searchCondition: Prisma.Sql = q
-      ? Prisma.sql`AND (pi.name ILIKE ${'%' + q + '%'} OR pi.phone ILIKE ${'%' + q + '%'})`
-      : Prisma.empty;
+    const organizationId = ctx.organizationId ?? (await prisma.organization.findFirst({ select: { id: true } }))?.id;
+    if (!organizationId) return NextResponse.json({ ok: false, error: '조직이 없습니다.' }, { status: 500 });
 
-    // 골드회원 = productCode='GOLD_MEMBERSHIP' + status='confirmed'
-    const [rows, countRows] = await Promise.all([
-      prisma.$queryRaw<RawMember[]>(Prisma.sql`
-        SELECT
-          pi.id,
-          pi."productCode",
-          pi.name,
-          pi.phone,
-          pi.message,
-          pi.status,
-          pi."createdAt",
-          pi."userId"
-        FROM "ProductInquiry" pi
-        WHERE pi."productCode" = 'GOLD_MEMBERSHIP'
-          AND pi.status = 'confirmed'
-          ${searchCondition}
-        ORDER BY pi."createdAt" DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `),
-      prisma.$queryRaw<[{ count: bigint }]>(Prisma.sql`
-        SELECT COUNT(*)::bigint AS count
-        FROM "ProductInquiry" pi
-        WHERE pi."productCode" = 'GOLD_MEMBERSHIP'
-          AND pi.status = 'confirmed'
-          ${searchCondition}
-      `),
-    ]);
+    // 고유 memberCode 생성
+    let memberCode = '';
+    for (let i = 0; i < 10; i++) {
+      const code = generateMemberCode();
+      const exists = await prisma.goldMember.findUnique({ where: { memberCode: code } });
+      if (!exists) { memberCode = code; break; }
+    }
+    if (!memberCode) return NextResponse.json({ ok: false, error: '코드 생성 실패' }, { status: 500 });
 
-    const total = Number(countRows[0]?.count ?? 0);
+    const member = await prisma.goldMember.create({
+      data: {
+        organizationId,
+        name,
+        phone: phone.replace(/[^0-9]/g, ''),
+        email: email || null,
+        memberCode,
+        courseType,
+        joinDate: new Date(joinDate),
+        paymentDay: paymentDay ?? null,
+        totalPayments: totalPayments ?? 0,
+        paidCount: 0,
+        memo: memo || null,
+      },
+    });
 
-    const goldMembers = rows.map((r) => ({
-      id:           r.id,
-      name:         r.name,
-      phone:        maskPhone(r.phone),
-      status:       r.status,
-      productType:  r.productCode,
-      tier:         null,
-      paymentCount: null,
-      maxPaymentCount: null,
-      startDate:    r.createdAt.toISOString(),
-      createdAt:    r.createdAt.toISOString(),
-      memo:         r.message,
-      agentName:    null,
-      agentMallUserId: null,
-      managerName:  null,
-    }));
-
-    logger.log('[GET /api/gold-members]', { role: ctx.role, total });
-    return NextResponse.json({ ok: true, goldMembers, total, page, totalPages: Math.ceil(total / limit) });
-
+    logger.log('[POST /api/gold-members] 골드회원 등록', { id: member.id, courseType });
+    return NextResponse.json({ ok: true, member });
   } catch (err) {
-    logger.error('[GET /api/gold-members]', { err });
+    logger.error('[POST /api/gold-members]', { err });
     return NextResponse.json({ ok: false, error: '서버 오류' }, { status: 500 });
   }
 }
