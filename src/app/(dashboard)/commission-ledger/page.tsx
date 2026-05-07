@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
 
 type LedgerEntry = {
@@ -77,14 +77,21 @@ export default function CommissionLedgerPage() {
   const [type,       setType]       = useState("");
   const [yearMonth,  setYearMonth]  = useState("");
   const [loading,    setLoading]    = useState(true);
+  const abortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(() => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     if (type)      params.set("type",      type);
     if (yearMonth) params.set("yearMonth", yearMonth);
-    fetch(`/api/commission-ledger?${params}`)
-      .then((r) => r.json())
+    fetch(`/api/commission-ledger?${params}`, { signal: controller.signal })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((d) => {
         if (d.ok) {
           setLedger(d.ledger ?? []);
@@ -93,10 +100,14 @@ export default function CommissionLedgerPage() {
           setTotalPages(d.totalPages ?? 1);
         }
       })
-      .finally(() => setLoading(false));
+      .catch((e) => { if (e.name !== "AbortError") console.error("[commission-ledger]", e); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
   }, [page, type, yearMonth]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    return () => abortRef.current?.abort();
+  }, [load]);
 
   function handleTypeTab(v: string) {
     setType(v);

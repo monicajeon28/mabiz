@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronLeft, ChevronRight, Search, Loader2, MessageSquare } from "lucide-react";
 
 type GoldInquiry = {
@@ -13,6 +13,12 @@ type GoldInquiry = {
   submittedAt: string | null;
   createdAt: string;
   agentName: string | null;
+};
+
+const TIER_LABELS: Record<number, string> = {
+  1: "실버",
+  2: "골드",
+  3: "플래티넘",
 };
 
 // GMcruise ProductInquiry 실제 status 값 (소문자)
@@ -41,23 +47,34 @@ export default function GoldInquiriesPage() {
   const [search,    setSearch]    = useState("");
   const [loading,   setLoading]   = useState(true);
   const [acting,    setActing]    = useState<number | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const totalPages = Math.ceil(total / 20);
 
   const load = useCallback(() => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: "20" });
     if (status) params.set("status", status);
     if (search) params.set("q", search);
-    fetch(`/api/gold-inquiries?${params}`)
-      .then((r) => r.json())
+    fetch(`/api/gold-inquiries?${params}`, { signal: controller.signal })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((d) => {
         if (d.ok) { setInquiries(d.inquiries ?? []); setTotal(d.total ?? 0); }
       })
-      .finally(() => setLoading(false));
+      .catch((e) => { if (e.name !== "AbortError") console.error("[gold-inquiries]", e); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
   }, [page, status, search]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    return () => abortRef.current?.abort();
+  }, [load]);
 
   const changeStatus = async (id: number, newStatus: string) => {
     setActing(id);

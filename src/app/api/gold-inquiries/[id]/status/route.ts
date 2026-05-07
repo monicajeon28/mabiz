@@ -29,9 +29,12 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: '유효하지 않은 ID' }, { status: 400 });
     }
 
-    const body = await req.json() as { status?: string };
+    const body = await req.json() as { status?: unknown };
+    if (typeof body.status !== 'string') {
+      return NextResponse.json({ ok: false, error: 'status 문자열 필수' }, { status: 400 });
+    }
     // 대소문자 모두 처리
-    const status = (body.status ?? '').toLowerCase();
+    const status = body.status.toLowerCase();
     if (!status || !VALID_STATUSES.has(status)) {
       return NextResponse.json(
         { ok: false, error: `허용된 status: ${[...VALID_STATUSES].join('|')}` },

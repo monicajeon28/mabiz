@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
         LIMIT ${limit} OFFSET ${offset}
       `),
       prisma.$queryRaw<[{ count: bigint }]>(Prisma.sql`
-        SELECT COUNT(*) AS count
+        SELECT COUNT(*)::bigint AS count
         FROM "ProductInquiry" pi
         WHERE pi."productCode" = 'GOLD_MEMBERSHIP'
           AND pi.status = 'confirmed'
@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
       id:           r.id,
       name:         r.name,
       phone:        maskPhone(r.phone),
-      status:       'active',          // confirmed = active
+      status:       r.status,
       productType:  r.productCode,
       tier:         null,
       paymentCount: null,

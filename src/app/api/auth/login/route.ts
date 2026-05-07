@@ -11,7 +11,7 @@ function isBcryptHash(h: string) {
 }
 
 async function checkPassword(input: string, stored: string | null): Promise<boolean> {
-  if (!stored) return input === 'qwe1';
+  if (!stored) return false;
 
   if (isBcryptHash(stored)) {
     return bcrypt.compare(input, stored);

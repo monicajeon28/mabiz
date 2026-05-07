@@ -35,6 +35,9 @@ export async function GET(req: NextRequest) {
   try {
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
+    if (ctx.role === 'FREE_SALES') {
+      return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
+    }
 
     const { searchParams } = new URL(req.url);
     const page   = Math.max(1, parseInt(searchParams.get('page')  ?? '1')  || 1);

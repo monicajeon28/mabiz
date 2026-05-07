@@ -11,6 +11,14 @@ const ALLOWED_TYPES = new Set([
 ]);
 const YEAR_MONTH_RE = /^\d{4}-\d{2}$/;
 
+// yearMonth → [start, end) Date 범위 (index 활용)
+function monthRange(yearMonth: string): [Date, Date] {
+  const [y, m] = yearMonth.split('-').map(Number);
+  const start = new Date(y, m - 1, 1);
+  const end   = m === 12 ? new Date(y + 1, 0, 1) : new Date(y, m, 1);
+  return [start, end];
+}
+
 type RawLedger = {
   id: number;
   profileId: number | null;
@@ -55,9 +63,11 @@ export async function GET(req: NextRequest) {
     const rawYearMonth  = searchParams.get('yearMonth')?.trim() ?? '';
     const rawType       = searchParams.get('type');
 
-    const profileIdFilter = rawProfileId ? parseInt(rawProfileId) || null : null;
-    const yearMonth       = YEAR_MONTH_RE.test(rawYearMonth) ? rawYearMonth : null;
-    const typeFilter      = rawType && ALLOWED_TYPES.has(rawType) ? rawType : null;
+    // AGENT는 agentId 파라미터 무시 — roleCondition으로 자동 제한
+    const canFilterByAgent = ctx.role === 'GLOBAL_ADMIN' || ctx.role === 'OWNER';
+    const profileIdFilter  = canFilterByAgent && rawProfileId ? parseInt(rawProfileId) || null : null;
+    const yearMonth        = YEAR_MONTH_RE.test(rawYearMonth) ? rawYearMonth : null;
+    const typeFilter       = rawType && ALLOWED_TYPES.has(rawType) ? rawType : null;
 
     // 역할별 스코프
     let roleCondition: Prisma.Sql = Prisma.empty;
@@ -83,9 +93,12 @@ export async function GET(req: NextRequest) {
     const profileCondition: Prisma.Sql = profileIdFilter
       ? Prisma.sql`AND cl."profileId" = ${profileIdFilter}`
       : Prisma.empty;
-    // yearMonth: CommissionLedger에 yearMonth 컬럼 없음 → createdAt에서 파생
+    // yearMonth: CommissionLedger에 yearMonth 컬럼 없음 → createdAt 범위로 변환 (index 활용)
     const yearMonthCondition: Prisma.Sql = yearMonth
-      ? Prisma.sql`AND TO_CHAR(cl."createdAt", 'YYYY-MM') = ${yearMonth}`
+      ? (() => {
+          const [start, end] = monthRange(yearMonth);
+          return Prisma.sql`AND cl."createdAt" >= ${start} AND cl."createdAt" < ${end}`;
+        })()
       : Prisma.empty;
     const typeCondition: Prisma.Sql = typeFilter
       ? Prisma.sql`AND cl."entryType" = ${typeFilter}`

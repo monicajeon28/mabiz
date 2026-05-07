@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronLeft, ChevronRight, FileText } from "lucide-react";
 
 type Payslip = {
@@ -33,6 +33,7 @@ export default function PayslipsPage() {
   const [status,    setStatus]    = useState("");
   const [yearMonth, setYearMonth] = useState("");
   const [loading,   setLoading]   = useState(true);
+  const abortRef = useRef<AbortController | null>(null);
 
   const totalPages = Math.ceil(total / 20);
 
@@ -48,19 +49,29 @@ export default function PayslipsPage() {
   })();
 
   const load = useCallback(() => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: "20" });
     if (status)    params.set("status",    status);
     if (yearMonth) params.set("yearMonth", yearMonth);
-    fetch(`/api/payslips?${params}`)
-      .then((r) => r.json())
+    fetch(`/api/payslips?${params}`, { signal: controller.signal })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((d) => {
         if (d.ok) { setPayslips(d.payslips ?? []); setTotal(d.total ?? 0); }
       })
-      .finally(() => setLoading(false));
+      .catch((e) => { if (e.name !== "AbortError") console.error("[payslips]", e); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
   }, [page, status, yearMonth]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    return () => abortRef.current?.abort();
+  }, [load]);
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">

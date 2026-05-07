@@ -40,16 +40,21 @@ export async function POST(req: NextRequest) {
 
     const now = new Date();
 
-    // OWNER: 자신의 managerId 소속 판매만
+    // OWNER: 자신의 managerId 소속 판매만 — profileId 없으면 403
     let ownerCondition: Prisma.Sql = Prisma.empty;
-    if (ctx.role === 'OWNER' && ctx.mallUser?.affiliateProfileId) {
-      ownerCondition = Prisma.sql`AND "managerId" = ${ctx.mallUser.affiliateProfileId}`;
+    if (ctx.role === 'OWNER') {
+      const ownerProfileId = ctx.mallUser?.affiliateProfileId;
+      if (!ownerProfileId) {
+        return NextResponse.json({ ok: false, error: '파트너 프로필이 없습니다.' }, { status: 403 });
+      }
+      ownerCondition = Prisma.sql`AND "managerId" = ${ownerProfileId}`;
     }
 
     const rows = await prisma.$queryRaw<{ id: number }[]>(
       Prisma.sql`
         UPDATE "AffiliateSale"
         SET    status = 'APPROVED',
+               "approvedAt" = ${now},
                "confirmedAt" = ${now}
         WHERE  id = ANY(${ids}::int[])
           AND  status IN ('PENDING', 'PENDING_APPROVAL')

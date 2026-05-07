@@ -10,6 +10,6 @@ export async function GET() {
     userId: ctx.userId,
     role: ctx.role,
     organizationId: ctx.organizationId,
-    displayName: ctx.member?.displayName ?? null,
+    displayName: ctx.member?.displayName ?? ctx.mallUser?.name ?? null,
   });
 }

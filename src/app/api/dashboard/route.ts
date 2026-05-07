@@ -52,12 +52,14 @@ export async function GET() {
         prisma.$queryRaw<SumRow[]>(Prisma.sql`
           SELECT COALESCE(SUM("saleAmount"), 0)::bigint AS total
           FROM "AffiliateSale"
-          WHERE status IN ('APPROVED','CONFIRMED') AND "yearMonth" = ${yearMonth}
+          WHERE status IN ('APPROVED','CONFIRMED')
+            AND TO_CHAR("saleDate", 'YYYY-MM') = ${yearMonth}
         `),
         prisma.$queryRaw<SumRow[]>(Prisma.sql`
           SELECT COALESCE(SUM("saleAmount"), 0)::bigint AS total
           FROM "AffiliateSale"
-          WHERE status = 'REFUNDED' AND "yearMonth" = ${yearMonth}
+          WHERE status = 'REFUNDED'
+            AND TO_CHAR("saleDate", 'YYYY-MM') = ${yearMonth}
         `),
         prisma.$queryRaw<CountRow[]>(Prisma.sql`
           SELECT COUNT(*)::bigint AS count
@@ -65,7 +67,8 @@ export async function GET() {
         `),
         prisma.$queryRaw<CountRow[]>(Prisma.sql`
           SELECT COUNT(*)::bigint AS count
-          FROM "GoldMember" WHERE status = 'active' AND "deletedAt" IS NULL
+          FROM "ProductInquiry"
+          WHERE "productCode" = 'GOLD_MEMBERSHIP' AND status = 'confirmed'
         `),
       ]);
 
@@ -97,13 +100,13 @@ export async function GET() {
           SELECT COALESCE(SUM("saleAmount"), 0)::bigint AS total
           FROM "AffiliateSale"
           WHERE "managerId" = ${profileId} AND status IN ('APPROVED','CONFIRMED')
-            AND "yearMonth" = ${yearMonth}
+            AND TO_CHAR("saleDate", 'YYYY-MM') = ${yearMonth}
         `),
         prisma.$queryRaw<SumRow[]>(Prisma.sql`
           SELECT COALESCE(SUM("saleAmount"), 0)::bigint AS total
           FROM "AffiliateSale"
           WHERE "managerId" = ${profileId} AND status = 'REFUNDED'
-            AND "yearMonth" = ${yearMonth}
+            AND TO_CHAR("saleDate", 'YYYY-MM') = ${yearMonth}
         `),
         prisma.$queryRaw<CountRow[]>(Prisma.sql`
           SELECT COUNT(*)::bigint AS count
@@ -134,13 +137,13 @@ export async function GET() {
           SELECT COALESCE(SUM("saleAmount"), 0)::bigint AS total
           FROM "AffiliateSale"
           WHERE "agentId" = ${profileId} AND status IN ('APPROVED','CONFIRMED')
-            AND "yearMonth" = ${yearMonth}
+            AND TO_CHAR("saleDate", 'YYYY-MM') = ${yearMonth}
         `),
         prisma.$queryRaw<CountRow[]>(Prisma.sql`
           SELECT COUNT(*)::bigint AS count
           FROM "AffiliateSale"
           WHERE "agentId" = ${profileId} AND status = 'REFUNDED'
-            AND "yearMonth" = ${yearMonth}
+            AND TO_CHAR("saleDate", 'YYYY-MM') = ${yearMonth}
         `),
         prisma.$queryRaw<CountRow[]>(Prisma.sql`
           SELECT COUNT(*)::bigint AS count
@@ -149,8 +152,8 @@ export async function GET() {
         `),
         prisma.$queryRaw<CountRow[]>(Prisma.sql`
           SELECT COUNT(*)::bigint AS count
-          FROM "GoldMember"
-          WHERE "agentId" = ${profileId} AND status = 'active' AND "deletedAt" IS NULL
+          FROM "ProductInquiry"
+          WHERE "productCode" = 'GOLD_MEMBERSHIP' AND status = 'confirmed'
         `),
       ]);
 
