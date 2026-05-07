@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Upload, Download, Database, Users, CheckCircle,
-  AlertCircle, Loader2, FileSpreadsheet, Info
+  AlertCircle, Loader2, FileSpreadsheet, Info, ChevronDown
 } from "lucide-react";
+import { IMPORT_CONFIGS, type ImportTarget } from "@/lib/import-config";
 
 type Stats = { total: number; leads: number; customers: number; optOut: number };
 type Group = { id: string; name: string; memberCount: number };
@@ -16,6 +17,8 @@ export default function DbPage() {
   const [exportType,   setExportType]   = useState("all");
   const [groups,       setGroups]       = useState<Group[]>([]);
   const [groupsLoaded, setGroupsLoaded] = useState(false);
+  const [importTarget, setImportTarget] = useState<ImportTarget>("b2c");
+  const [errorsOpen,   setErrorsOpen]   = useState(false);
   const [result,       setResult]       = useState<{
     type: "ok" | "err";
     text: string;
@@ -81,7 +84,7 @@ export default function DbPage() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportNew = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -91,13 +94,13 @@ export default function DbPage() {
     const fd = new FormData();
     fd.append("file", file);
 
-    const res  = await fetch("/api/contacts/import", { method: "POST", body: fd });
+    const res  = await fetch(`/api/import?target=${importTarget}`, { method: "POST", body: fd });
     const data = await res.json();
 
     if (data.ok) {
       setResult({
         type: "ok",
-        text: `✅ ${data.successCount}명 가져오기 완료` + (data.skipCount > 0 ? ` (건너뜀 ${data.skipCount}건)` : ""),
+        text: `✅ ${data.successCount}건 가져오기 완료` + (data.skipCount > 0 ? ` (건너뜀 ${data.skipCount}건)` : ""),
         successCount: data.successCount,
         skipCount:    data.skipCount,
         errors:       data.errors,
@@ -159,9 +162,38 @@ export default function DbPage() {
 
       {/* 가져오기 */}
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-4">
           <Upload className="w-5 h-5 text-navy-900" />
           <h2 className="font-semibold text-gray-900">엑셀 가져오기</h2>
+        </div>
+
+        {/* 탭 */}
+        <div className="flex gap-4 border-b border-gray-200 mb-4">
+          {(["b2c", "b2b_buyer", "b2b_inquiry"] as const).map((target) => {
+            const config = IMPORT_CONFIGS[target];
+            const borderColor =
+              target === "b2c" ? "border-navy-900" :
+              target === "b2b_buyer" ? "border-green-700" :
+              "border-blue-600";
+            const isActive = importTarget === target;
+            return (
+              <button
+                key={target}
+                onClick={() => {
+                  setImportTarget(target);
+                  setResult(null);
+                  if (fileRef.current) fileRef.current.value = "";
+                }}
+                className={`pb-2 text-sm font-medium transition-colors ${
+                  isActive
+                    ? `text-gray-900 border-b-2 ${borderColor}`
+                    : "text-gray-500 border-b-2 border-transparent hover:text-gray-700"
+                }`}
+              >
+                {config.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* 컬럼 안내 */}
@@ -171,7 +203,7 @@ export default function DbPage() {
               <Info className="w-4 h-4" /> 엑셀 파일 형식 안내
             </p>
             <a
-              href="/api/contacts/sample"
+              href={`/api/import/sample?target=${importTarget}`}
               download="cruisedot_import_sample.xlsx"
               className="flex items-center gap-1 text-xs bg-white border border-blue-300 text-blue-700 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors font-medium"
             >
@@ -181,8 +213,10 @@ export default function DbPage() {
           </div>
           <p>첫 행이 헤더여야 합니다. 지원 컬럼명:</p>
           <div className="flex flex-wrap gap-1.5 mt-1.5">
-            {["이름(필수)", "전화번호(필수)", "이메일", "관심크루즈", "예산", "메모", "유형"].map((c) => (
-              <span key={c} className="bg-blue-100 px-2 py-0.5 rounded text-xs">{c}</span>
+            {IMPORT_CONFIGS[importTarget].columns.map((col) => (
+              <span key={col.name} className="bg-blue-100 px-2 py-0.5 rounded text-xs">
+                {col.label}
+              </span>
             ))}
           </div>
         </div>
@@ -206,7 +240,7 @@ export default function DbPage() {
             ref={fileRef}
             type="file"
             accept=".xlsx,.xls"
-            onChange={handleImport}
+            onChange={handleImportNew}
             disabled={importing}
             className="hidden"
           />
@@ -267,10 +301,22 @@ export default function DbPage() {
           </div>
           {result.errors && result.errors.length > 0 && (
             <div className="ml-7">
-              <p className="text-xs text-red-600 font-medium mb-1">오류 목록:</p>
-              {result.errors.map((e, i) => (
-                <p key={i} className="text-xs text-red-500">• {e}</p>
-              ))}
+              <button
+                onClick={() => setErrorsOpen(!errorsOpen)}
+                className="flex items-center gap-1.5 text-xs text-red-600 font-medium hover:text-red-700 transition-colors"
+              >
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform ${errorsOpen ? "rotate-180" : ""}`}
+                />
+                오류 목록 ({result.errors.length}건)
+              </button>
+              {errorsOpen && (
+                <div className="mt-2 space-y-1">
+                  {result.errors.map((e, i) => (
+                    <p key={i} className="text-xs text-red-500">• {e}</p>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

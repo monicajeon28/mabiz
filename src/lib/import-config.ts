@@ -1,0 +1,365 @@
+/**
+ * 엑셀 가져오기 설정 및 공통 변환 함수
+ */
+
+export interface ColumnDef {
+  name: string;
+  label: string;
+  required?: boolean;
+  field?: string;
+  aliases?: string[];
+  transform?: (value: unknown) => unknown;
+}
+
+export interface ImportConfig {
+  label: string;
+  name?: string;
+  description?: string;
+  columns: ColumnDef[];
+  validate?: (row: Record<string, unknown>, rowIndex: number) => string[];
+}
+
+/**
+ * 전화번호 정규화
+ * - 숫자만 추출
+ * - 010-1234-5678 형식으로 변환
+ */
+export function normalizePhone(value: unknown): string | null {
+  if (!value) return null;
+  const str = String(value).trim();
+  const digits = str.replace(/\D/g, '');
+  if (!digits || digits.length < 10) return null;
+  // 010 → 010, 01 → 010 처리
+  if (digits.startsWith('82')) {
+    // +82 형식 처리
+    const withoutCountry = digits.slice(2);
+    if (withoutCountry.startsWith('10')) {
+      return `010-${withoutCountry.slice(2, 5)}-${withoutCountry.slice(5)}`;
+    }
+    return `0${withoutCountry.slice(1, 3)}-${withoutCountry.slice(3, 6 + (withoutCountry.length > 9 ? 1 : 0))}-${withoutCountry.slice(6 + (withoutCountry.length > 9 ? 1 : 0))}`;
+  }
+  if (digits.startsWith('1')) {
+    return `010-${digits.slice(1, 4)}-${digits.slice(4)}`;
+  }
+  if (digits.length === 10) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+/**
+ * 금액 파싱
+ * - 콤마 제거
+ * - 숫자로 변환
+ */
+export function parseAmount(value: unknown): number | null {
+  if (!value) return null;
+  const str = String(value).trim().replace(/,/g, '');
+  const num = parseFloat(str);
+  return isNaN(num) ? null : num;
+}
+
+/**
+ * 날짜 정규화
+ * - 다양한 형식 지원: YYYY-MM-DD, YYYY/MM/DD, YYYYMMDD, 엑셀 시리얼 등
+ */
+export function parseDate(value: unknown): string | null {
+  if (!value) return null;
+  const str = String(value).trim();
+
+  // 이미 YYYY-MM-DD 형식
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return str;
+  }
+
+  // YYYY/MM/DD
+  if (/^\d{4}\/\d{2}\/\d{2}$/.test(str)) {
+    return str.replace(/\//g, '-');
+  }
+
+  // YYYYMMDD
+  if (/^\d{8}$/.test(str)) {
+    return `${str.slice(0, 4)}-${str.slice(4, 6)}-${str.slice(6, 8)}`;
+  }
+
+  // 엑셀 시리얼 (숫자)
+  const num = parseFloat(str);
+  if (!isNaN(num) && num > 0 && num < 100000) {
+    // 엑셀의 1900년 1월 1일 = 1
+    const date = new Date(1900, 0, num);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  return null;
+}
+
+/**
+ * 상태 정규화
+ * - 다양한 한글 표현을 통일된 상태로 변환
+ */
+export function normalizeStatus(value: unknown): string | null {
+  if (!value) return null;
+  const str = String(value).trim().toLowerCase();
+
+  const statusMap: Record<string, string> = {
+    '신청': 'pending',
+    '대기': 'pending',
+    'pending': 'pending',
+    '진행': 'in_progress',
+    '진행중': 'in_progress',
+    'in_progress': 'in_progress',
+    '완료': 'completed',
+    'completed': 'completed',
+    '취소': 'cancelled',
+    'cancelled': 'cancelled',
+    '거절': 'rejected',
+    'rejected': 'rejected',
+  };
+
+  return statusMap[str] || null;
+}
+
+/**
+ * 연락처 타입 정규화
+ * - 한글/영문 매핑
+ */
+export function normalizeContactType(value: unknown): string | null {
+  if (!value) return null;
+  const str = String(value).trim().toLowerCase();
+
+  const typeMap: Record<string, string> = {
+    '개인': 'personal',
+    'personal': 'personal',
+    '법인': 'corporate',
+    'corporate': 'corporate',
+    '개인사업자': 'sole_proprietor',
+    'sole_proprietor': 'sole_proprietor',
+  };
+
+  return typeMap[str] || null;
+}
+
+/**
+ * 셀 값 정제
+ * - 공백 제거
+ * - 빈 문자열 → null
+ */
+export function sanitizeCell(value: unknown): unknown {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed === '' ? null : trimmed;
+  }
+  return value;
+}
+
+/**
+ * 배열을 N개 청크로 분할
+ */
+export function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
+/**
+ * 행을 파싱하고 변환
+ * - 헤더 매핑 적용
+ * - 컬럼 변환 함수 실행
+ */
+export function parseRow(
+  rawRow: Record<string, unknown>,
+  headerMap: Record<string, string>,
+  columns: ColumnDef[]
+): Record<string, unknown> {
+  const parsed: Record<string, unknown> = {};
+  const columnMap = new Map(columns.map((c) => [c.field, c]));
+
+  for (const [excelCol, fieldName] of Object.entries(headerMap)) {
+    const value = sanitizeCell(rawRow[excelCol]);
+    const columnDef = columnMap.get(fieldName);
+
+    if (columnDef && columnDef.transform && value !== null) {
+      parsed[fieldName] = columnDef.transform(value);
+    } else {
+      parsed[fieldName] = value;
+    }
+  }
+
+  return parsed;
+}
+
+/**
+ * ImportTarget 타입 정의
+ */
+export type ImportTarget = 'b2c' | 'b2b_buyer' | 'b2b_inquiry';
+
+/**
+ * B2C 고객 가져오기 설정
+ */
+export const B2C_IMPORT_CONFIG: ImportConfig = {
+  label: 'B2C 고객',
+  name: 'B2C 고객',
+  description: '개인 고객 정보 가져오기',
+  columns: [
+    {
+      name: '이름',
+      label: '이름(필수)',
+      required: true,
+      field: 'name',
+      aliases: ['이름', '성명', 'name'],
+    },
+    {
+      name: '전화번호',
+      label: '전화번호(필수)',
+      required: true,
+      field: 'phone',
+      aliases: ['전화', '휴대폰', '핸드폰', 'phone', 'tel'],
+      transform: normalizePhone,
+    },
+    {
+      name: '이메일',
+      label: '이메일',
+      field: 'email',
+      aliases: ['이메일', 'email', 'e-mail'],
+    },
+    {
+      name: '관심크루즈',
+      label: '관심크루즈',
+      field: 'cruiseInterest',
+      aliases: ['선호 크루즈', '크루즈 관심도', 'cruise_interest', 'interest'],
+    },
+    {
+      name: '예산',
+      label: '예산',
+      field: 'budgetRange',
+      aliases: ['예산', '예산범위', 'budget_range', 'budget'],
+    },
+    {
+      name: '메모',
+      label: '메모',
+      field: 'adminMemo',
+      aliases: ['메모', '관리자메모', 'admin_memo', 'memo', 'notes'],
+    },
+    {
+      name: '유형',
+      label: '유형',
+      field: 'type',
+      aliases: ['타입', '고객타입', 'type', 'customer_type'],
+      transform: (value) => {
+        if (!value) return null;
+        const str = String(value).trim().toLowerCase();
+        if (str === '개인' || str === 'personal') return 'personal';
+        if (str === '법인' || str === 'corporate') return 'corporate';
+        return null;
+      },
+    },
+  ],
+};
+
+/**
+ * B2B 구매자 가져오기 설정
+ */
+export const B2B_BUYER_IMPORT_CONFIG: ImportConfig = {
+  label: 'B2B 구매자',
+  name: 'B2B 구매자',
+  description: 'B2B 구매자 정보 가져오기',
+  columns: [
+    {
+      name: '회사명',
+      label: '회사명(필수)',
+      required: true,
+      field: 'company_name',
+      aliases: ['회사명', '회사', 'company_name', 'company'],
+    },
+    {
+      name: '대표명',
+      label: '대표명(필수)',
+      required: true,
+      field: 'representative_name',
+      aliases: ['대표명', '대표', 'representative_name', 'representative'],
+    },
+    {
+      name: '전화번호',
+      label: '전화번호(필수)',
+      required: true,
+      field: 'phone',
+      aliases: ['전화', '휴대폰', '핸드폰', 'phone', 'tel'],
+      transform: normalizePhone,
+    },
+    {
+      name: '이메일',
+      label: '이메일',
+      field: 'email',
+      aliases: ['이메일', 'email', 'e-mail'],
+    },
+    {
+      name: '담당자',
+      label: '담당자',
+      field: 'contact_person',
+      aliases: ['담당자', '담당', 'contact_person', 'contact'],
+    },
+  ],
+};
+
+/**
+ * B2B 문의자 가져오기 설정
+ */
+export const B2B_INQUIRY_IMPORT_CONFIG: ImportConfig = {
+  label: 'B2B 문의자',
+  name: 'B2B 문의자',
+  description: 'B2B 문의자 정보 가져오기',
+  columns: [
+    {
+      name: '회사명',
+      label: '회사명(필수)',
+      required: true,
+      field: 'company_name',
+      aliases: ['회사명', '회사', 'company_name', 'company'],
+    },
+    {
+      name: '문의자명',
+      label: '문의자명(필수)',
+      required: true,
+      field: 'inquirer_name',
+      aliases: ['문의자명', '문의자', 'inquirer_name', 'inquirer'],
+    },
+    {
+      name: '전화번호',
+      label: '전화번호(필수)',
+      required: true,
+      field: 'phone',
+      aliases: ['전화', '휴대폰', '핸드폰', 'phone', 'tel'],
+      transform: normalizePhone,
+    },
+    {
+      name: '이메일',
+      label: '이메일',
+      field: 'email',
+      aliases: ['이메일', 'email', 'e-mail'],
+    },
+    {
+      name: '문의내용',
+      label: '문의내용',
+      field: 'inquiry_content',
+      aliases: ['문의내용', '내용', 'inquiry_content', 'content'],
+    },
+  ],
+};
+
+/**
+ * 모든 가져오기 설정 (ImportTarget 키로 접근)
+ */
+export const IMPORT_CONFIGS: Record<ImportTarget, ImportConfig> = {
+  b2c: B2C_IMPORT_CONFIG,
+  b2b_buyer: B2B_BUYER_IMPORT_CONFIG,
+  b2b_inquiry: B2B_INQUIRY_IMPORT_CONFIG,
+};
