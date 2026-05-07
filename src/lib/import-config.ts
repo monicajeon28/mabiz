@@ -1,6 +1,7 @@
 /**
  * 엑셀 가져오기 설정 및 공통 변환 함수
  */
+import { normalizePhone } from '@/lib/import-utils';
 
 export interface ColumnDef {
   name: string;
@@ -19,36 +20,6 @@ export interface ImportConfig {
   validate?: (row: Record<string, unknown>, rowIndex: number) => string[];
 }
 
-/**
- * 전화번호 정규화
- * - 숫자만 추출
- * - 010-1234-5678 형식으로 변환
- */
-export function normalizePhone(value: unknown): string | null {
-  if (!value) return null;
-  const str = String(value).trim();
-  const digits = str.replace(/\D/g, '');
-  if (!digits || digits.length < 10) return null;
-  // 010 → 010, 01 → 010 처리
-  if (digits.startsWith('82')) {
-    // +82 형식 처리
-    const withoutCountry = digits.slice(2);
-    if (withoutCountry.startsWith('10')) {
-      return `010-${withoutCountry.slice(2, 5)}-${withoutCountry.slice(5)}`;
-    }
-    return `0${withoutCountry.slice(1, 3)}-${withoutCountry.slice(3, 6 + (withoutCountry.length > 9 ? 1 : 0))}-${withoutCountry.slice(6 + (withoutCountry.length > 9 ? 1 : 0))}`;
-  }
-  if (digits.startsWith('1')) {
-    return `010-${digits.slice(1, 4)}-${digits.slice(4)}`;
-  }
-  if (digits.length === 10) {
-    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-  }
-  if (digits.length === 11) {
-    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
-  }
-  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-}
 
 /**
  * 금액 파싱

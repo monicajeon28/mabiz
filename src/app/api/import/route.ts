@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import * as XLSX from "xlsx";
 import prisma from "@/lib/prisma";
 import { getAuthContext, requireOrgId } from "@/lib/rbac";
@@ -10,13 +11,172 @@ import {
   chunkRows,
   normalizePhone,
 } from "@/lib/import-utils";
+import { backupImportFileToDrive } from "@/lib/import-backup";
 
-// POST /api/import?target=b2c|b2b_buyer|b2b_inquiry
+// ==================== 배치 처리 함수 ====================
+
+/**
+ * B2C 고객 배치 INSERT with ON CONFLICT
+ */
+async function processBatchB2C(
+  chunk: Array<{ lineNo: number; data: Record<string, string> }>,
+  orgId: string,
+  errors: string[]
+): Promise<void> {
+  if (chunk.length === 0) return;
+
+  const values = chunk
+    .map((item) => {
+      const phone = normalizePhone(item.data["전화번호"]);
+      if (!phone) {
+        errors.push(`${item.lineNo}행: 전화번호 정규화 실패`);
+        return null;
+      }
+
+      const typeMap: Record<string, string> = {
+        구매: "CUSTOMER",
+        구매고객: "CUSTOMER",
+        customer: "CUSTOMER",
+        잠재: "LEAD",
+        잠재고객: "LEAD",
+        lead: "LEAD",
+      };
+
+      const id = crypto.randomUUID();
+      return {
+        id,
+        lineNo: item.lineNo,
+        phone,
+        name: item.data["이름"],
+        email: item.data["이메일"] || null,
+        type: typeMap[item.data["유형"]?.toLowerCase() ?? ""] ?? "LEAD",
+        cruiseInterest: item.data["관심크루즈"] || null,
+        adminMemo: item.data["메모"] || null,
+      };
+    })
+    .filter((v) => v !== null) as Array<{
+    id: string;
+    lineNo: number;
+    phone: string;
+    name: string;
+    email: string | null;
+    type: string;
+    cruiseInterest: string | null;
+    adminMemo: string | null;
+  }>;
+
+  if (values.length === 0) return;
+
+  // Batch INSERT with ON CONFLICT
+  const insertValues = values
+    .map(
+      (v) =>
+        `(${Prisma.raw(`'${v.id}'`)}, ${Prisma.raw(`'${orgId}'`)}, ${Prisma.raw(`'${v.phone}'`)}, ${Prisma.raw(`'${v.name.replace(/'/g, "''")}'`)}, ${Prisma.raw(`${v.email ? `'${v.email.replace(/'/g, "''")}'` : "NULL"}`)}, ${Prisma.raw(`'${v.type}'`)}, ${Prisma.raw(`${v.cruiseInterest ? `'${v.cruiseInterest.replace(/'/g, "''")}'` : "NULL"}`)}, ${Prisma.raw(`${v.adminMemo ? `'${v.adminMemo.replace(/'/g, "''")}'` : "NULL"}`)}, NOW(), NOW())`
+    )
+    .join(",");
+
+  await prisma.$executeRawUnsafe(`
+    INSERT INTO "Contact"
+      (id, "organizationId", phone, name, email, type, "cruiseInterest", "adminMemo", "createdAt", "updatedAt")
+    VALUES
+      ${insertValues}
+    ON CONFLICT (phone, "organizationId") DO UPDATE SET
+      name = EXCLUDED.name,
+      email = EXCLUDED.email,
+      type = EXCLUDED.type,
+      "cruiseInterest" = EXCLUDED."cruiseInterest",
+      "adminMemo" = EXCLUDED."adminMemo",
+      "updatedAt" = NOW()
+  `);
+}
+
+/**
+ * B2B 구매자/문의자 배치 INSERT with ON CONFLICT
+ */
+async function processBatchB2B(
+  chunk: Array<{
+    lineNo: number;
+    data: Record<string, string>;
+    eduType: "BUYER" | "INQUIRER";
+  }>,
+  orgId: string,
+  errors: string[]
+): Promise<void> {
+  if (chunk.length === 0) return;
+
+  const values = chunk
+    .map((item) => {
+      const phone = normalizePhone(item.data["전화번호"]);
+      if (!phone) {
+        errors.push(`${item.lineNo}행: 전화번호 정규화 실패`);
+        return null;
+      }
+
+      const id = crypto.randomUUID();
+      return {
+        id,
+        lineNo: item.lineNo,
+        phone,
+        companyName: item.data["회사명"],
+        name: item.data["대표명"] || item.data["문의자명"],
+        email: item.data["이메일"] || null,
+        position: item.data["담당자"] || null,
+        notes: item.data["문의내용"] || null,
+        eduType: item.eduType,
+      };
+    })
+    .filter((v) => v !== null) as Array<{
+    id: string;
+    lineNo: number;
+    phone: string;
+    companyName: string;
+    name: string;
+    email: string | null;
+    position: string | null;
+    notes: string | null;
+    eduType: "BUYER" | "INQUIRER";
+  }>;
+
+  if (values.length === 0) return;
+
+  // Batch INSERT with ON CONFLICT
+  const insertValues = values
+    .map(
+      (v) =>
+        `(${Prisma.raw(`'${v.id}'`)}, ${Prisma.raw(`'${orgId}'`)}, ${Prisma.raw(`'${v.phone}'`)}, ${Prisma.raw(`'${v.companyName.replace(/'/g, "''")}'`)}, ${Prisma.raw(`'${v.name.replace(/'/g, "''")}'`)}, ${Prisma.raw(`${v.email ? `'${v.email.replace(/'/g, "''")}'` : "NULL"}`)}, ${Prisma.raw(`${v.position ? `'${v.position.replace(/'/g, "''")}'` : "NULL"}`)}, ${Prisma.raw(`${v.notes ? `'${v.notes.replace(/'/g, "''")}'` : "NULL"}`)}, ${Prisma.raw(`'${v.eduType}'`)}, 'NEW', NOW(), NOW())`
+    )
+    .join(",");
+
+  await prisma.$executeRawUnsafe(`
+    INSERT INTO "CrmB2BProspect"
+      (id, "organizationId", phone, "companyName", name, email, position, notes, "eduType", status, "createdAt", "updatedAt")
+    VALUES
+      ${insertValues}
+    ON CONFLICT (phone, "organizationId") DO UPDATE SET
+      "companyName" = EXCLUDED."companyName",
+      name = EXCLUDED.name,
+      email = EXCLUDED.email,
+      position = EXCLUDED.position,
+      notes = EXCLUDED.notes,
+      "eduType" = EXCLUDED."eduType",
+      "updatedAt" = NOW()
+  `);
+}
+
+// ==================== POST 핸들러 ====================
+
 export async function POST(req: Request) {
+  const startTime = Date.now();
+  let ctx;
+  let orgId;
+  let orgName;
+  let buffer;
+
   try {
     // 인증 체크
-    const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    ctx = await getAuthContext();
+    orgId = requireOrgId(ctx);
+    orgName = ctx.organization?.name || "unknown";
 
     // target 파라미터 검증
     const url = new URL(req.url);
@@ -41,22 +201,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // AGENT, FREE_SALES 역할 차단
+    // 권한 체크 (AGENT, FREE_SALES 차단)
     if (ctx.role === "AGENT" || ctx.role === "FREE_SALES") {
       return NextResponse.json(
         { ok: false, message: "권한이 없습니다" },
         { status: 403 }
       );
-    }
-
-    // B2B target + AGENT/FREE_SALES 이중 체크
-    if (target.startsWith("b2b")) {
-      if (ctx.role === "AGENT" || ctx.role === "FREE_SALES") {
-        return NextResponse.json(
-          { ok: false, message: "B2B 기능에 접근할 권한이 없습니다" },
-          { status: 403 }
-        );
-      }
     }
 
     // formData.get("file") 검증
@@ -79,16 +229,24 @@ export async function POST(req: Request) {
       );
     }
 
-    // magic bytes 검증
-    const buffer = Buffer.from(await file.arrayBuffer());
-    if (!isValidXlsx(buffer)) {
+    // 1단계: 처음 4바이트만 읽어서 magic bytes 검증
+    const headerBuffer = Buffer.alloc(Math.min(4, file.size));
+    const reader = file.slice(0, 4).stream().getReader();
+    const { value } = await reader.read();
+    if (value) {
+      headerBuffer.set(value);
+    }
+    if (!isValidXlsx(headerBuffer)) {
       return NextResponse.json(
         { ok: false, message: "유효한 Excel 파일이 아닙니다" },
         { status: 400 }
       );
     }
 
-    // XLSX.read() 파싱
+    // 2단계: 실제 파일은 전체 읽기
+    buffer = Buffer.from(await file.arrayBuffer());
+
+    // 3단계: XLSX.read() 파싱
     const wb = XLSX.read(buffer, { type: "buffer" });
     const sheet = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, {
@@ -119,174 +277,132 @@ export async function POST(req: Request) {
     let processErrorCount = 0;
     const errors: string[] = [];
 
-    // chunkRows() 100행 청크 및 순차 처리
+    // 청크 단위 배치 처리
     const chunks = chunkRows(rows, 100);
 
-    for (const chunk of chunks) {
-      const results = await Promise.allSettled(
-        chunk.map(async (row) => {
-          const lineNo = rows.indexOf(row) + 2; // 엑셀 행 번호 (헤더 제외)
-          const data: Record<string, string> = {};
+    for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+      const chunk = chunks[chunkIdx];
+      const batchData: Array<{
+        lineNo: number;
+        data: Record<string, string>;
+        eduType?: "BUYER" | "INQUIRER";
+      }> = [];
 
-          // 헤더 매핑 적용
-          for (const [col, field] of Object.entries(headerMap)) {
-            if (row[col]) {
-              data[field] = String(row[col]).trim();
-            }
+      // 각 행 검증 및 데이터 준비
+      for (let i = 0; i < chunk.length; i++) {
+        const row = chunk[i];
+        const chunkStartIdx = chunkIdx * 100;
+        const lineNo = chunkStartIdx + i + 2; // 엑셀 행 번호 (헤더 제외)
+        const data: Record<string, string> = {};
+
+        // 헤더 매핑 적용
+        for (const [col, field] of Object.entries(headerMap)) {
+          const cellValue = (row as Record<string, string>)[col];
+          if (cellValue) {
+            data[field as string] = String(cellValue).trim();
           }
+        }
 
-          // B2C 처리
-          if (target === "b2c") {
-            if (!data["이름"] || !data["전화번호"]) {
-              errors.push(`${lineNo}행: 이름 또는 전화번호 없음`);
-              throw new Error("SKIP");
-            }
-
-            const phone = normalizePhone(data["전화번호"]);
-            const typeMap: Record<string, string> = {
-              구매: "CUSTOMER",
-              구매고객: "CUSTOMER",
-              customer: "CUSTOMER",
-              잠재: "LEAD",
-              잠재고객: "LEAD",
-              lead: "LEAD",
-            };
-
-            await prisma.contact.upsert({
-              where: {
-                phone_organizationId: {
-                  phone,
-                  organizationId: orgId,
-                },
-              },
-              create: {
-                organizationId: orgId,
-                name: data["이름"],
-                phone,
-                email: data["이메일"] || null,
-                type: typeMap[data["유형"]?.toLowerCase() ?? ""] ?? "LEAD",
-                cruiseInterest: data["관심크루즈"] || null,
-                adminMemo: data["메모"] || null,
-              },
-              update: {
-                name: data["이름"],
-                email: data["이메일"] || undefined,
-                cruiseInterest: data["관심크루즈"] || undefined,
-                adminMemo: data["메모"] || undefined,
-              },
-            });
-          }
-
-          // B2B_BUYER 처리
-          if (target === "b2b_buyer") {
-            if (!data["회사명"] || !data["대표명"] || !data["전화번호"]) {
-              errors.push(`${lineNo}행: 회사명, 대표명, 전화번호 필수`);
-              throw new Error("SKIP");
-            }
-
-            const phone = normalizePhone(data["전화번호"]);
-
-            // B2B Prospect 찾기 또는 생성
-            let prospect = await prisma.b2BProspect.findFirst({
-              where: {
-                organizationId: orgId,
-                phone,
-                companyName: data["회사명"],
-              },
-            });
-
-            if (prospect) {
-              await prisma.b2BProspect.update({
-                where: { id: prospect.id },
-                data: {
-                  name: data["대표명"],
-                  email: data["이메일"] || undefined,
-                  position: data["담당자"] || undefined,
-                },
-              });
-            } else {
-              await prisma.b2BProspect.create({
-                data: {
-                  organizationId: orgId,
-                  name: data["대표명"],
-                  phone,
-                  email: data["이메일"] || null,
-                  companyName: data["회사명"],
-                  position: data["담당자"] || null,
-                  status: "NEW",
-                },
-              });
-            }
-          }
-
-          // B2B_INQUIRY 처리
-          if (target === "b2b_inquiry") {
-            if (!data["회사명"] || !data["문의자명"] || !data["전화번호"]) {
-              errors.push(`${lineNo}행: 회사명, 문의자명, 전화번호 필수`);
-              throw new Error("SKIP");
-            }
-
-            const phone = normalizePhone(data["전화번호"]);
-
-            // B2B Prospect 찾기 또는 생성
-            let prospect = await prisma.b2BProspect.findFirst({
-              where: {
-                organizationId: orgId,
-                phone,
-                companyName: data["회사명"],
-              },
-            });
-
-            if (prospect) {
-              await prisma.b2BProspect.update({
-                where: { id: prospect.id },
-                data: {
-                  name: data["문의자명"],
-                  email: data["이메일"] || undefined,
-                  notes: data["문의내용"] || undefined,
-                },
-              });
-            } else {
-              await prisma.b2BProspect.create({
-                data: {
-                  organizationId: orgId,
-                  name: data["문의자명"],
-                  phone,
-                  email: data["이메일"] || null,
-                  companyName: data["회사명"],
-                  notes: data["문의내용"] || null,
-                  status: "NEW",
-                },
-              });
-            }
-          }
-        })
-      );
-
-      // 결과 집계
-      for (const result of results) {
-        if (result.status === "fulfilled") {
-          successCount++;
-        } else {
-          if (result.reason?.message === "SKIP") {
+        // B2C 검증
+        if (target === "b2c") {
+          if (!data["이름"] || !data["전화번호"]) {
+            errors.push(`${lineNo}행: 이름 또는 전화번호 없음`);
             validationSkipCount++;
-          } else {
-            processErrorCount++;
-            if (errors.length < 20) {
-              errors.push(result.reason?.message || "알 수 없는 오류");
-            }
+            continue;
           }
+          batchData.push({ lineNo, data });
+        }
+
+        // B2B_BUYER 검증
+        if (target === "b2b_buyer") {
+          if (!data["회사명"] || !data["대표명"] || !data["전화번호"]) {
+            errors.push(`${lineNo}행: 회사명, 대표명, 전화번호 필수`);
+            validationSkipCount++;
+            continue;
+          }
+          batchData.push({ lineNo, data, eduType: "BUYER" });
+        }
+
+        // B2B_INQUIRY 검증
+        if (target === "b2b_inquiry") {
+          if (!data["회사명"] || !data["문의자명"] || !data["전화번호"]) {
+            errors.push(`${lineNo}행: 회사명, 문의자명, 전화번호 필수`);
+            validationSkipCount++;
+            continue;
+          }
+          batchData.push({ lineNo, data, eduType: "INQUIRER" });
+        }
+      }
+
+      // 배치 INSERT 실행
+      try {
+        if (target === "b2c") {
+          await processBatchB2C(
+            batchData as Parameters<typeof processBatchB2C>[0],
+            orgId,
+            errors
+          );
+        } else if (target === "b2b_buyer" || target === "b2b_inquiry") {
+          await processBatchB2B(
+            batchData as Parameters<typeof processBatchB2B>[0],
+            orgId,
+            errors
+          );
+        }
+        successCount += batchData.length;
+      } catch (err) {
+        processErrorCount += batchData.length;
+        if (errors.length < 20) {
+          errors.push(
+            `배치 처리 오류: ${err instanceof Error ? err.message : "알 수 없음"}`
+          );
         }
       }
     }
 
-    logger.log("[POST /api/import]", {
+    // 로깅
+    const duration = Date.now() - startTime;
+    logger.log("[POST /api/import] 완료", {
       target,
+      rows: rows.length,
       successCount,
       validationSkipCount,
       processErrorCount,
+      duration,
       orgId,
     });
+
+    // Fire-and-forget: ImportLog 기록
+    (async () => {
+      try {
+        await prisma.importLog.create({
+          data: {
+            organizationId: orgId,
+            target,
+            totalRows: rows.length,
+            successCount,
+            validationSkipCount,
+            processErrorCount,
+            errorSummary: errors.slice(0, 5).join(" | "),
+          },
+        });
+      } catch (err) {
+        logger.error("[POST /api/import] ImportLog 저장 실패", { err });
+      }
+    })();
+
+    // Fire-and-forget: Drive 백업
+    (async () => {
+      try {
+        await backupImportFileToDrive({
+          orgName,
+          buffer,
+          target,
+        });
+      } catch (err) {
+        logger.error("[POST /api/import] Drive 백업 실패", { err });
+      }
+    })();
 
     return NextResponse.json({
       ok: true,
@@ -296,17 +412,14 @@ export async function POST(req: Request) {
       errors: errors.slice(0, 20),
     });
   } catch (err) {
-    if (
-      err instanceof Error &&
-      err.message === "UNAUTHORIZED"
-    ) {
+    if (err instanceof Error && err.message === "UNAUTHORIZED") {
       return NextResponse.json(
         { ok: false, message: "인증이 필요합니다" },
         { status: 401 }
       );
     }
 
-    logger.error("[POST /api/import]", { err });
+    logger.error("[POST /api/import] 오류", { err });
     return NextResponse.json(
       { ok: false, message: "파일 처리 중 오류가 발생했습니다" },
       { status: 500 }

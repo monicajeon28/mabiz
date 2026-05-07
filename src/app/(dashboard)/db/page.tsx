@@ -19,25 +19,29 @@ export default function DbPage() {
   const [groupsLoaded, setGroupsLoaded] = useState(false);
   const [importTarget, setImportTarget] = useState<ImportTarget>("b2c");
   const [errorsOpen,   setErrorsOpen]   = useState(false);
+  const [importHint,   setImportHint]   = useState("처리 중...");
+  const [rowEstimate,  setRowEstimate]  = useState<number | null>(null);
   const [result,       setResult]       = useState<{
     type: "ok" | "err";
     text: string;
     successCount?: number;
     skipCount?: number;
+    validationSkipCount?: number;
+    processErrorCount?: number;
     errors?: string[];
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // ── 통계 로드 ───────────────────────────────────────────────
-  function loadStats() {
-    fetch("/api/contacts?limit=1")
+  function loadStats(signal?: AbortSignal) {
+    fetch("/api/contacts?limit=1", signal ? { signal } : undefined)
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) setStats({ total: d.total, leads: 0, customers: 0, optOut: 0 });
       });
     Promise.all([
-      fetch("/api/contacts?limit=1&type=LEAD").then((r) => r.json()),
-      fetch("/api/contacts?limit=1&type=CUSTOMER").then((r) => r.json()),
+      fetch("/api/contacts?limit=1&type=LEAD", signal ? { signal } : undefined).then((r) => r.json()),
+      fetch("/api/contacts?limit=1&type=CUSTOMER", signal ? { signal } : undefined).then((r) => r.json()),
     ]).then(([leads, customers]) => {
       setStats((prev) =>
         prev ? { ...prev, leads: leads.total ?? 0, customers: customers.total ?? 0 } : null
@@ -73,7 +77,7 @@ export default function DbPage() {
     const ctrl = new AbortController();
     const onVisible = () => {
       if (!document.hidden) {
-        loadStats();
+        loadStats(ctrl.signal);
         loadGroups(ctrl.signal);
       }
     };
@@ -91,30 +95,54 @@ export default function DbPage() {
     setImporting(true);
     setResult(null);
 
-    const fd = new FormData();
-    fd.append("file", file);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
 
-    const res  = await fetch(`/api/import?target=${importTarget}`, { method: "POST", body: fd });
-    const data = await res.json();
+      const res  = await fetch(`/api/import?target=${importTarget}`, { method: "POST", body: fd });
+      const data = await res.json();
 
-    if (data.ok) {
-      setResult({
-        type: "ok",
-        text: `✅ ${data.successCount}건 가져오기 완료` + (data.skipCount > 0 ? ` (건너뜀 ${data.skipCount}건)` : ""),
-        successCount: data.successCount,
-        skipCount:    data.skipCount,
-        errors:       data.errors,
-      });
-      // 통계 새로고침
-      fetch("/api/contacts?limit=1")
-        .then((r) => r.json())
-        .then((d) => setStats((prev) => prev ? { ...prev, total: d.total } : null));
-    } else {
-      setResult({ type: "err", text: data.message ?? "가져오기 실패" });
+      if (data.ok) {
+        const msgParts: string[] = [`✅ ${data.successCount}건 가져오기 완료`];
+        if (data.skipCount > 0) msgParts.push(`건너뜀 ${data.skipCount}건`);
+        if (data.validationSkipCount > 0) msgParts.push(`검증 제외 ${data.validationSkipCount}건`);
+        if (data.processErrorCount > 0) msgParts.push(`처리 오류 ${data.processErrorCount}건`);
+
+        setResult({
+          type: "ok",
+          text: msgParts.join(" | ") + "\nGoogle Drive에 자동 백업 중...",
+          successCount: data.successCount,
+          skipCount:    data.skipCount,
+          validationSkipCount: data.validationSkipCount,
+          processErrorCount: data.processErrorCount,
+          errors:       data.errors,
+        });
+        // 통계 새로고침
+        fetch("/api/contacts?limit=1")
+          .then((r) => r.json())
+          .then((d) => setStats((prev) => prev ? { ...prev, total: d.total } : null));
+      } else {
+        setResult({ type: "err", text: data.message ?? "가져오기 실패" });
+      }
+    } catch (error) {
+      setResult({ type: "err", text: "오류 발생: " + (error instanceof Error ? error.message : "알 수 없음") });
+    } finally {
+      setImporting(false);
+      if (fileRef.current) fileRef.current.value = "";
     }
+  };
 
-    setImporting(false);
-    if (fileRef.current) fileRef.current.value = "";
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const estimate = Math.ceil(file.size / 1024);
+      setRowEstimate(estimate);
+      if (estimate > 1000) {
+        setImportHint(`⚠️ 약 ${estimate.toLocaleString()}행으로 추정됩니다. 1000행 초과이므로 파일을 나누어 업로드하세요.`);
+      } else {
+        setImportHint("처리 중...");
+      }
+    }
   };
 
   const handleExport = async () => {
@@ -165,6 +193,18 @@ export default function DbPage() {
         <div className="flex items-center gap-2 mb-4">
           <Upload className="w-5 h-5 text-navy-900" />
           <h2 className="font-semibold text-gray-900">엑셀 가져오기</h2>
+        </div>
+
+        {/* 대량 업로드 안내 */}
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+          <p className="font-semibold text-amber-900 mb-2">📋 대량 업로드 안내</p>
+          <ul className="text-sm text-amber-800 space-y-1">
+            <li>• 최대 1000행까지 한 번에 업로드 가능합니다</li>
+            <li>• 1000행 초과 시 파일을 나누어 업로드하세요</li>
+            <li>• 업로드 중 창을 닫지 마세요</li>
+            <li>• 중복 데이터는 자동으로 업데이트됩니다</li>
+            <li>• 완료 후 자동으로 Google Drive에 백업됩니다</li>
+          </ul>
         </div>
 
         {/* 탭 */}
@@ -227,20 +267,26 @@ export default function DbPage() {
           {importing ? (
             <div className="flex items-center gap-2 text-gray-500">
               <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-sm">처리 중...</span>
+              <span className="text-sm">{importHint}</span>
             </div>
           ) : (
             <div className="text-center">
               <FileSpreadsheet className="w-8 h-8 text-gray-400 mx-auto mb-2" />
               <p className="text-sm text-gray-600 font-medium">xlsx 파일 클릭하거나 드래그</p>
               <p className="text-xs text-gray-400 mt-1">.xlsx, .xls 지원</p>
+              {rowEstimate && rowEstimate > 1000 && (
+                <p className="text-xs text-red-500 mt-2 font-medium">⚠️ 약 {rowEstimate.toLocaleString()}행 (1000행 초과)</p>
+              )}
             </div>
           )}
           <input
             ref={fileRef}
             type="file"
             accept=".xlsx,.xls"
-            onChange={handleImportNew}
+            onChange={(e) => {
+              handleFileSelect(e);
+              handleImportNew(e);
+            }}
             disabled={importing}
             className="hidden"
           />
