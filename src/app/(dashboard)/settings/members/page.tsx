@@ -16,6 +16,8 @@ type Member = {
   displayName: string | null;
   role: string;
   isActive: boolean;
+  isGoldMember: boolean;
+  goldMemberSince: string | null;
 };
 
 type InviteToken = {
@@ -484,7 +486,17 @@ export default function MembersPage() {
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[member.role] ?? 'bg-gray-100 text-gray-600'}`}>
                         {ROLE_LABELS[member.role] ?? member.role}
                       </span>
+                      {member.isGoldMember && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-yellow-100 text-yellow-700">
+                          골드회원 ★
+                        </span>
+                      )}
                     </div>
+                    {member.isGoldMember && member.goldMemberSince && (
+                      <p className="text-[10px] text-yellow-600 mt-0.5">
+                        골드 가입: {new Date(member.goldMemberSince).toLocaleDateString('ko-KR')}
+                      </p>
+                    )}
                     <button
                       onClick={() => setSelectedMember(member)}
                       className="text-xs text-blue-600 hover:underline mt-1"
