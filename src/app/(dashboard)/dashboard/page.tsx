@@ -140,58 +140,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* 최근 알림 */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-navy-900">최근 알림</h2>
-          <Link href="#" className="text-xs text-blue-600 hover:underline">전체 보기</Link>
-        </div>
-
-        {feedLoading ? (
-          <div className="space-y-2">
-            {[0, 1, 2].map(i => (
-              <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />
-            ))}
-          </div>
-        ) : feed.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">새 알림이 없습니다</p>
-        ) : (
-          <div className="space-y-2">
-            {feed.map(item => {
-              const cfg = TYPE_CONFIG[item.type];
-              return (
-                <Link key={item.id} href={item.linkPath}
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-200"
-                >
-                  {/* 왼쪽 dot */}
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${cfg?.dotColor ?? 'bg-gray-400'}`} />
-                  {/* 이모지 */}
-                  <span className="text-base shrink-0">{cfg?.emoji}</span>
-                  {/* 내용 */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-gray-500">{cfg?.label}</span>
-                      {item.amount && (
-                        <span className="text-xs font-bold text-amber-600">{item.amount.toLocaleString()}원</span>
-                      )}
-                    </div>
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {item.name}{item.phone ? ` · ${item.phone}` : ''}{item.detail ? ` · ${item.detail}` : ''}
-                    </p>
-                  </div>
-                  {/* 시간 */}
-                  <span className="text-xs text-gray-400 shrink-0 whitespace-nowrap">
-                    {relativeTime(item.createdAt)}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
       {/* 빠른 메뉴 */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-5">
+      <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
         <h2 className="font-semibold text-navy-900 mb-4">빠른 이동</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
@@ -215,6 +165,52 @@ export default function DashboardPage() {
               </Link>
             ))}
         </div>
+      </div>
+
+      {/* 최근 알림 */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-navy-900">최근 알림</h2>
+          <Link href="#" className="text-xs text-blue-600 hover:underline">전체 보기</Link>
+        </div>
+
+        {feedLoading ? (
+          <div className="space-y-2">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />
+            ))}
+          </div>
+        ) : feed.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">새 알림이 없습니다</p>
+        ) : (
+          <div className="space-y-2">
+            {feed.map(item => {
+              const cfg = TYPE_CONFIG[item.type];
+              return (
+                <Link key={item.id} href={item.linkPath}
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-200"
+                >
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${cfg?.dotColor ?? 'bg-gray-400'}`} />
+                  <span className="text-base shrink-0">{cfg?.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-500">{cfg?.label}</span>
+                      {item.amount && (
+                        <span className="text-xs font-bold text-amber-600">{item.amount.toLocaleString()}원</span>
+                      )}
+                    </div>
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {item.name}{item.phone ? ` · ${item.phone}` : ''}{item.detail ? ` · ${item.detail}` : ''}
+                    </p>
+                  </div>
+                  <span className="text-xs text-gray-400 shrink-0 whitespace-nowrap">
+                    {relativeTime(item.createdAt)}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
