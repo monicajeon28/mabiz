@@ -155,6 +155,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: '등록되지 않은 아이디입니다.' }, { status: 401 });
     }
 
+    // 소셜 로그인 계정 차단 (비밀번호를 알 수 없으므로 CRM 로그인 불가)
+    const socialPrefixes = ['naver_', 'kakao_', 'google_'];
+    if (mallUser.mallUserId && socialPrefixes.some(p => mallUser.mallUserId!.startsWith(p))) {
+      return NextResponse.json(
+        { ok: false, error: '카카오·네이버·구글 소셜 계정은 파트너스 CRM에 직접 로그인할 수 없습니다.' },
+        { status: 403 }
+      );
+    }
+
     // GMcruise User.password 검증 (bcrypt 또는 평문 레거시)
     const passwordOk = await checkPassword(password, mallUser.password);
     if (!passwordOk) {
