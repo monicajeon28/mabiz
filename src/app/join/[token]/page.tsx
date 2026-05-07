@@ -101,7 +101,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
     setAccepting(false);
     if (data.ok) {
       setStep("done");
-      setTimeout(() => router.push("/dashboard"), 2500);
+      setTimeout(() => router.push(`/welcome?role=${data.role ?? 'AGENT'}`), 1800);
     } else {
       setErrorMsg(data.message ?? "가입 실패");
       setStep("error");

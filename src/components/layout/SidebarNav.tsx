@@ -41,6 +41,7 @@ const navSections: NavSection[] = [
       { href: "/team",                  icon: BarChart,     label: "팀 성과",       roles: ["GLOBAL_ADMIN", "OWNER"] },
       { href: "/contacts/all",          icon: Users2,       label: "전체 고객(관리자)", roles: ["GLOBAL_ADMIN"] },
       { href: "/team/affiliate",        icon: Award,        label: "어필리에이트 성과", roles: ["GLOBAL_ADMIN"] },
+      { href: "/admin/organizations",   icon: Building2,    label: "대리점 관리",       roles: ["GLOBAL_ADMIN"] },
     ],
   },
   {
