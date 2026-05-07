@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Rocket, CheckCircle, Loader2, Users, TrendingUp, RotateCcw, Clock, Star } from "lucide-react";
+import { Users, TrendingUp, RotateCcw, Clock, Star } from "lucide-react";
 import Link from "next/link";
 
 type DashboardData = {
@@ -20,8 +20,6 @@ type DashboardData = {
   // FREE_SALES
   affiliateCode?: string | null;
 };
-
-type SetupState = "loading" | "needed" | "done";
 
 function KpiCard({
   title, value, sub, color = "", icon,
@@ -43,29 +41,13 @@ function KpiCard({
 }
 
 export default function DashboardPage() {
-  const [data,        setData]        = useState<DashboardData | null>(null);
-  const [setupState,  setSetupState]  = useState<SetupState>("loading");
-  const [setting,     setSetting]     = useState(false);
-  const [setupResult, setSetupResult] = useState<string | null>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
 
   useEffect(() => {
     fetch("/api/dashboard").then((r) => r.json()).then((d) => {
       if (d.ok) setData(d);
     });
-
-    fetch("/api/funnels").then((r) => r.json()).then((d) => {
-      setSetupState(d.funnels?.length > 0 ? "done" : "needed");
-    });
   }, []);
-
-  const runDefaultSetup = async () => {
-    setSetting(true);
-    const res  = await fetch("/api/setup/defaults", { method: "POST" });
-    const d    = await res.json();
-    setSetupState(d.ok ? "done" : "needed");
-    setSetupResult(d.ok ? "기본 그룹 3개 + 퍼널 3개 생성 완료!" : (d.message ?? "셋업 실패"));
-    setSetting(false);
-  };
 
   const role = data?.role;
   const ym   = data?.yearMonth ?? new Date().toISOString().slice(0, 7);
@@ -76,33 +58,6 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold text-navy-900">대시보드</h1>
         <p className="text-gray-500 text-sm mt-1">{ym} 기준 · {new Date().toLocaleDateString("ko-KR")}</p>
       </div>
-
-      {/* 기본 셋업 배너 */}
-      {setupState === "needed" && (
-        <div className="bg-gradient-to-r from-navy-900 to-navy-700 text-white rounded-2xl p-5 mb-6">
-          <div className="flex items-start gap-4">
-            <Rocket className="w-8 h-8 text-gold-300 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <h2 className="font-bold text-lg">기본 셋업 1번만 클릭하면 끝!</h2>
-              <p className="text-gray-300 text-sm mt-1 mb-3">그룹 3개 + 퍼널 3개 자동 생성</p>
-              <button
-                onClick={runDefaultSetup}
-                disabled={setting}
-                className="flex items-center gap-2 bg-gold-500 text-navy-900 px-6 py-2.5 rounded-xl font-bold hover:bg-gold-300 disabled:opacity-50 transition-colors"
-              >
-                {setting ? <><Loader2 className="w-4 h-4 animate-spin" /> 생성 중...</> : <><Rocket className="w-4 h-4" /> 기본 셋업 시작하기</>}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {setupResult && (
-        <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
-          <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
-          <p className="text-green-800 font-medium text-sm">{setupResult}</p>
-        </div>
-      )}
 
       {/* FREE_SALES */}
       {role === "FREE_SALES" && (
