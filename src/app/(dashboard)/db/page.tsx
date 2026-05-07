@@ -7,12 +7,15 @@ import {
 } from "lucide-react";
 
 type Stats = { total: number; leads: number; customers: number; optOut: number };
+type Group = { id: string; name: string; memberCount: number };
 
 export default function DbPage() {
   const [stats,      setStats]      = useState<Stats | null>(null);
   const [importing,  setImporting]  = useState(false);
   const [exporting,  setExporting]  = useState(false);
   const [exportType, setExportType] = useState("all");
+  const [groups,       setGroups]       = useState<Group[]>([]);
+  const [groupsLoaded, setGroupsLoaded] = useState(false);
   const [result,     setResult]     = useState<{
     type: "ok" | "err";
     text: string;
@@ -42,6 +45,17 @@ export default function DbPage() {
           : null
       );
     });
+    // 그룹 목록 (내보내기 셀렉터용)
+    fetch("/api/groups")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) setGroups((d.groups ?? []).map((g: { id: string; name: string; _count?: { members: number } }) => ({
+          id: g.id,
+          name: g.name,
+          memberCount: g._count?.members ?? 0,
+        })));
+      })
+      .finally(() => setGroupsLoaded(true));
   }, []);
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,8 +93,13 @@ export default function DbPage() {
 
   const handleExport = async () => {
     setExporting(true);
-    const params = exportType !== "all" ? `?type=${exportType.toUpperCase()}` : "";
-    const res    = await fetch(`/api/contacts/export${params}`);
+    let params = "";
+    if (exportType.startsWith("type:")) {
+      params = `?type=${exportType.replace("type:", "").toUpperCase()}`;
+    } else if (exportType.startsWith("group:")) {
+      params = `?groupId=${exportType.replace("group:", "")}`;
+    }
+    const res = await fetch(`/api/contacts/export${params}`);
 
     if (res.ok) {
       const blob     = await res.blob();
@@ -124,9 +143,19 @@ export default function DbPage() {
 
         {/* 컬럼 안내 */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800">
-          <p className="font-medium mb-1 flex items-center gap-1.5">
-            <Info className="w-4 h-4" /> 엑셀 파일 형식 안내
-          </p>
+          <div className="flex items-center justify-between mb-1">
+            <p className="font-medium flex items-center gap-1.5">
+              <Info className="w-4 h-4" /> 엑셀 파일 형식 안내
+            </p>
+            <a
+              href="/api/contacts/sample"
+              download="cruisedot_import_sample.xlsx"
+              className="flex items-center gap-1 text-xs bg-white border border-blue-300 text-blue-700 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors font-medium"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              샘플 다운로드
+            </a>
+          </div>
           <p>첫 행이 헤더여야 합니다. 지원 컬럼명:</p>
           <div className="flex flex-wrap gap-1.5 mt-1.5">
             {["이름(필수)", "전화번호(필수)", "이메일", "관심크루즈", "예산", "메모", "유형"].map((c) => (
@@ -175,8 +204,17 @@ export default function DbPage() {
             className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-gold-500"
           >
             <option value="all">전체 고객</option>
-            <option value="lead">잠재고객만</option>
-            <option value="customer">구매완료만</option>
+            <option value="type:LEAD">잠재고객만</option>
+            <option value="type:CUSTOMER">구매완료만</option>
+            {groupsLoaded && groups.length > 0 && (
+              <optgroup label="그룹별">
+                {groups.map((g) => (
+                  <option key={g.id} value={`group:${g.id}`}>
+                    {g.name} ({g.memberCount}명)
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
           <button
             onClick={handleExport}
