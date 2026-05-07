@@ -10,13 +10,13 @@ type Stats = { total: number; leads: number; customers: number; optOut: number }
 type Group = { id: string; name: string; memberCount: number };
 
 export default function DbPage() {
-  const [stats,      setStats]      = useState<Stats | null>(null);
-  const [importing,  setImporting]  = useState(false);
-  const [exporting,  setExporting]  = useState(false);
-  const [exportType, setExportType] = useState("all");
+  const [stats,        setStats]        = useState<Stats | null>(null);
+  const [importing,    setImporting]    = useState(false);
+  const [exporting,    setExporting]    = useState(false);
+  const [exportType,   setExportType]   = useState("all");
   const [groups,       setGroups]       = useState<Group[]>([]);
   const [groupsLoaded, setGroupsLoaded] = useState(false);
-  const [result,     setResult]     = useState<{
+  const [result,       setResult]       = useState<{
     type: "ok" | "err";
     text: string;
     successCount?: number;
@@ -25,38 +25,61 @@ export default function DbPage() {
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  // ── 통계 로드 ───────────────────────────────────────────────
+  function loadStats() {
     fetch("/api/contacts?limit=1")
       .then((r) => r.json())
       .then((d) => {
-        if (d.ok) {
-          // 간략 통계 (별도 API 없이 total 활용)
-          setStats({ total: d.total, leads: 0, customers: 0, optOut: 0 });
-        }
+        if (d.ok) setStats({ total: d.total, leads: 0, customers: 0, optOut: 0 });
       });
-    // 상세 통계
     Promise.all([
       fetch("/api/contacts?limit=1&type=LEAD").then((r) => r.json()),
       fetch("/api/contacts?limit=1&type=CUSTOMER").then((r) => r.json()),
     ]).then(([leads, customers]) => {
       setStats((prev) =>
-        prev
-          ? { ...prev, leads: leads.total ?? 0, customers: customers.total ?? 0 }
-          : null
+        prev ? { ...prev, leads: leads.total ?? 0, customers: customers.total ?? 0 } : null
       );
     });
-    // 그룹 목록 (내보내기 셀렉터용)
-    fetch("/api/groups")
+  }
+
+  // ── 그룹 로드 (AbortController로 stale fetch 방지) ──────────
+  function loadGroups(signal?: AbortSignal) {
+    fetch("/api/groups", signal ? { signal } : undefined)
       .then((r) => r.json())
       .then((d) => {
-        if (d.ok) setGroups((d.groups ?? []).map((g: { id: string; name: string; _count?: { members: number } }) => ({
-          id: g.id,
-          name: g.name,
-          memberCount: g._count?.members ?? 0,
-        })));
+        if (d.ok) setGroups(
+          (d.groups ?? []).map((g: { id: string; name: string; _count?: { members: number } }) => ({
+            id:          g.id,
+            name:        g.name,
+            memberCount: g._count?.members ?? 0,
+          }))
+        );
       })
-      .finally(() => setGroupsLoaded(true));
-  }, []);
+      .catch(() => { /* 실패 시 기존 목록 유지 — silent fail */ });
+  }
+
+  // ── 마운트 시 최초 1회 로드 ────────────────────────────────
+  useEffect(() => {
+    loadStats();
+    loadGroups();
+    setGroupsLoaded(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 탭 복귀 시 통계·그룹 자동 갱신 (메모리 누수 방지) ──────
+  useEffect(() => {
+    const ctrl = new AbortController();
+    const onVisible = () => {
+      if (!document.hidden) {
+        loadStats();
+        loadGroups(ctrl.signal);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      ctrl.abort();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
