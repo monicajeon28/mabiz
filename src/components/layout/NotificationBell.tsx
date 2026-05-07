@@ -1,52 +1,75 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
 import { logger } from "@/lib/logger";
 
-type Lead = {
-  id: string;
-  name: string;
-  phone: string;
-  landingPageTitle: string;
+type FeedItem = {
+  id:        string;
+  type:      'LANDING_REG' | 'SALE_PENDING' | 'GOLD_INQUIRY' | 'B2B_LEAD' | 'NEW_CONTACT' | 'ORG_CONTRACT';
+  name:      string;
+  phone:     string | null;
+  detail:    string | null;
+  amount:    number | null;
+  linkPath:  string;
   createdAt: string;
-  funnelStarted: boolean;
 };
 
+const TYPE_CONFIG = {
+  LANDING_REG:  { label: '랜딩 신규 등록', emoji: '👤', color: 'bg-blue-50 border-blue-200',    dot: 'bg-blue-500'   },
+  SALE_PENDING: { label: '판매 승인 대기', emoji: '💰', color: 'bg-amber-50 border-amber-200',  dot: 'bg-amber-500'  },
+  GOLD_INQUIRY: { label: '골드문의 신규',  emoji: '⭐', color: 'bg-yellow-50 border-yellow-200', dot: 'bg-yellow-500' },
+  B2B_LEAD:     { label: 'B2B 잠재고객',  emoji: '🏢', color: 'bg-indigo-50 border-indigo-200', dot: 'bg-indigo-500' },
+  NEW_CONTACT:  { label: '신규 고객',      emoji: '📋', color: 'bg-green-50 border-green-200',   dot: 'bg-green-500'  },
+  ORG_CONTRACT: { label: '신규 대리점',    emoji: '🤝', color: 'bg-purple-50 border-purple-200', dot: 'bg-purple-500' },
+};
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1)  return '방금';
+  if (m < 60) return `${m}분 전`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}시간 전`;
+  return `${Math.floor(h / 24)}일 전`;
+}
+
 export function NotificationBell() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchLeads = async () => {
+  const fetchFeed = async () => {
     setLoading(true);
     try {
       const since = localStorage.getItem("mabiz_notification_since") ?? "";
       const url = since
-        ? `/api/notifications/leads?since=${encodeURIComponent(since)}`
-        : "/api/notifications/leads";
+        ? `/api/notifications/feed?since=${encodeURIComponent(since)}`
+        : "/api/notifications/feed";
       const res = await fetch(url);
-      const d = (await res.json()) as { ok: boolean; leads?: Lead[] };
-      if (d.ok) setLeads(d.leads ?? []);
+      const d = (await res.json()) as { ok: boolean; items?: FeedItem[] };
+      if (d.ok) setItems(d.items ?? []);
     } catch (err) {
-      logger.log("[NotificationBell] fetchLeads 실패", { err });
+      logger.log("[NotificationBell] fetchFeed 실패", { err });
     } finally {
       setLoading(false);
     }
   };
 
-  // 마운트 시 + 30초마다 폴링 (백그라운드 탭에서는 중단)
+  // 마운트 시 + 10초마다 폴링 (백그라운드 탭에서는 중단)
   useEffect(() => {
-    fetchLeads();
+    fetchFeed();
 
-    let interval: ReturnType<typeof setInterval> | null = setInterval(fetchLeads, 30_000);
+    let interval: ReturnType<typeof setInterval> | null = setInterval(fetchFeed, 10_000);
 
     const handleVisibility = () => {
       if (document.hidden) {
         if (interval) { clearInterval(interval); interval = null; }
       } else {
-        fetchLeads(); // 탭 복귀 시 즉시 갱신
-        interval = setInterval(fetchLeads, 30_000);
+        fetchFeed(); // 탭 복귀 시 즉시 갱신
+        interval = setInterval(fetchFeed, 10_000);
       }
     };
 
@@ -73,7 +96,7 @@ export function NotificationBell() {
 
   const markAllRead = () => {
     localStorage.setItem("mabiz_notification_since", new Date().toISOString());
-    setLeads([]);
+    setItems([]);
     setOpen(false);
   };
 
@@ -82,26 +105,26 @@ export function NotificationBell() {
       <button
         onClick={() => {
           setOpen((o) => !o);
-          if (!open) fetchLeads();
+          if (!open) fetchFeed();
         }}
         className="relative p-2 rounded-lg hover:bg-navy-700 transition-colors"
         aria-label="알림"
       >
         <Bell className="w-5 h-5 text-gray-300" />
-        {leads.length > 0 && (
+        {items.length > 0 && (
           <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold leading-none">
-            {leads.length > 9 ? "9+" : leads.length}
+            {items.length > 9 ? "9+" : items.length}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 w-72 bg-white rounded-xl shadow-xl border z-50 overflow-hidden">
+        <div className="absolute top-full left-0 mt-1 w-80 bg-white rounded-xl shadow-xl border z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
             <span className="text-sm font-semibold text-gray-700">
               신규 DB 알림
             </span>
-            {leads.length > 0 && (
+            {items.length > 0 && (
               <button
                 onClick={markAllRead}
                 className="text-xs text-blue-600 hover:underline"
@@ -116,40 +139,54 @@ export function NotificationBell() {
                 불러오는 중...
               </div>
             )}
-            {!loading && leads.length === 0 && (
+            {!loading && items.length === 0 && (
               <div className="p-4 text-xs text-gray-400 text-center">
                 새 알림이 없습니다
               </div>
             )}
             {!loading &&
-              leads.map((lead) => (
-                <div
-                  key={lead.id}
-                  className="px-4 py-3 border-b last:border-0 hover:bg-gray-50"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-800">
-                      {lead.name}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      {new Date(lead.createdAt).toLocaleDateString("ko-KR", {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
+              items.map((item) => {
+                const cfg = TYPE_CONFIG[item.type];
+                return (
+                  <div
+                    key={item.id}
+                    className={`px-4 py-3 border-b last:border-0 border ${cfg.color}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${cfg.dot}`} />
+                      <span className="text-xs font-semibold text-gray-600 flex-1">
+                        {cfg.emoji} {cfg.label}
+                      </span>
+                      <span className="text-xs text-gray-400 whitespace-nowrap">
+                        {relativeTime(item.createdAt)}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-sm font-medium text-gray-800">
+                      {item.name}
+                      {item.phone && (
+                        <span className="ml-2 text-xs text-gray-500 font-normal">{item.phone}</span>
+                      )}
+                      {item.detail && (
+                        <span className="ml-2 text-xs text-gray-500 font-normal">{item.detail}</span>
+                      )}
+                    </div>
+                    {item.amount != null && (
+                      <div className="text-xs text-gray-700 font-semibold mt-0.5">
+                        {(item.amount / 10000).toLocaleString()}만원
+                      </div>
+                    )}
+                    <button
+                      onClick={() => {
+                        router.push(item.linkPath);
+                        setOpen(false);
+                      }}
+                      className="mt-1.5 text-xs text-blue-600 hover:underline"
+                    >
+                      → 바로가기
+                    </button>
                   </div>
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    {lead.phone} · {lead.landingPageTitle}
-                  </div>
-                  {lead.funnelStarted && (
-                    <span className="text-xs text-green-600 font-medium">
-                      퍼널 자동 시작
-                    </span>
-                  )}
-                </div>
-              ))}
+                );
+              })}
           </div>
         </div>
       )}
