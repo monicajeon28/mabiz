@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import prisma from "@/lib/prisma";
@@ -6,14 +7,33 @@ import { logger } from "@/lib/logger";
 import { formatKSTDate, formatKSTDateCompact } from "@/lib/utils/dateUtils";
 
 // GET /api/contacts/export?type=LEAD
+// GET /api/contacts/export?groupId=xxx
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
     const { searchParams } = new URL(req.url);
-    const type = searchParams.get("type");
+    const type    = searchParams.get("type");
+    const groupId = searchParams.get("groupId");
+    let groupName: string | null = null;
+
+    // groupId 보안 검증 — 타 조직 접근 차단
+    if (groupId) {
+      const orgId = ctx.organizationId;
+      if (!orgId) return NextResponse.json({ ok: false }, { status: 403 });
+
+      const group = await prisma.contactGroup.findFirst({
+        where: { id: groupId, organizationId: orgId },
+        select: { name: true },
+      });
+      if (!group) {
+        return NextResponse.json({ ok: false, message: "그룹을 찾을 수 없습니다." }, { status: 404 });
+      }
+      groupName = group.name;
+    }
 
     const where = buildContactWhere(ctx, {
-      ...(type ? { type } : {}),
+      ...(type    ? { type }                           : {}),
+      ...(groupId ? { groups: { some: { groupId } } } : {}),
     });
 
     const contacts = await prisma.contact.findMany({
@@ -47,14 +67,20 @@ export async function GET(req: Request) {
       등록일:      formatKSTDate(c.createdAt),
     }));
 
-    const wb   = XLSX.utils.book_new();
-    const ws   = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
     XLSX.utils.book_append_sheet(wb, ws, "고객목록");
 
-    const buf      = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
-    const fileName = `고객목록_${formatKSTDateCompact(new Date())}.xlsx`;
+    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
 
-    logger.log("[GET /api/contacts/export]", { count: contacts.length });
+    const suffix = groupName
+      ? `_${groupName}`
+      : type === 'LEAD'     ? '_잠재고객'
+      : type === 'CUSTOMER' ? '_구매완료'
+      : '';
+    const fileName = `고객목록${suffix}_${formatKSTDateCompact(new Date())}.xlsx`;
+
+    logger.log("[GET /api/contacts/export]", { count: contacts.length, type, groupId });
 
     return new NextResponse(buf, {
       status: 200,
