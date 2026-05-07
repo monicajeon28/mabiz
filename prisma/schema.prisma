@@ -100,6 +100,7 @@ model GlobalAdmin {
   passwordHash String?
   displayName  String?
   createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 // ─── Mabiz 세션 (Clerk 제거 후 세션 쿠키 기반 인증) ─────────────
 model MabizSession {
