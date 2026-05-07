@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
             AND ar.status = 'ACTIVE'
         )
       `;
-    } else if (ctx.role === 'AGENT' || ctx.role === 'FREE_SALES') {
+    } else if (ctx.role === 'AGENT') {
       const agentProfileId = ctx.mallUser?.affiliateProfileId;
       if (agentProfileId) {
         scopeCondition = Prisma.sql`AND p."profileId" = ${agentProfileId}`;

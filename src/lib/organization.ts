@@ -122,7 +122,7 @@ export async function findOrCreateOrganization(
       },
       owner: {
         id:          existingOwner.id,
-        phone:       existingOwner.phone,
+        phone:       existingOwner.phone ?? '',
         displayName: existingOwner.displayName,
       },
       created: false,
