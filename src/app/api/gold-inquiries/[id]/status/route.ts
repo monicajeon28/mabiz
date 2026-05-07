@@ -5,11 +5,13 @@ import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
-const VALID_STATUSES = new Set(['PENDING', 'CONTACTED', 'CONVERTED', 'REJECTED']);
+// GMcruise ProductInquiry 실제 status 값 (소문자)
+const VALID_STATUSES = new Set(['pending', 'unavailable', 'passport_waiting', 'confirmed', 'refund']);
 
 /**
  * PATCH /api/gold-inquiries/[id]/status
  * 골드문의 상태 변경 (GLOBAL_ADMIN / OWNER만)
+ * ProductInquiry에 managerId 컬럼 없으므로 OWNER scope 미적용
  */
 export async function PATCH(
   req: NextRequest,
@@ -28,7 +30,8 @@ export async function PATCH(
     }
 
     const body = await req.json() as { status?: string };
-    const status = body.status;
+    // 대소문자 모두 처리
+    const status = (body.status ?? '').toLowerCase();
     if (!status || !VALID_STATUSES.has(status)) {
       return NextResponse.json(
         { ok: false, error: `허용된 status: ${[...VALID_STATUSES].join('|')}` },
@@ -36,22 +39,12 @@ export async function PATCH(
       );
     }
 
-    // OWNER: 소속 문의만 변경 가능
-    let scopeCondition: Prisma.Sql = Prisma.empty;
-    if (ctx.role === 'OWNER') {
-      const profileId = ctx.mallUser?.affiliateProfileId;
-      if (!profileId) {
-        return NextResponse.json({ ok: false, error: '파트너 프로필이 없습니다.' }, { status: 403 });
-      }
-      scopeCondition = Prisma.sql`AND "managerId" = ${profileId}`;
-    }
-
     const rows = await prisma.$queryRaw<{ id: number }[]>(Prisma.sql`
       UPDATE "ProductInquiry"
-      SET    status = ${status}
+      SET    status = ${status},
+             "updatedAt" = NOW()
       WHERE  id = ${inquiryId}
         AND  "productCode" = 'GOLD_MEMBERSHIP'
-        ${scopeCondition}
       RETURNING id
     `);
 

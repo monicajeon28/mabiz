@@ -16,17 +16,20 @@ type LedgerEntry = {
 };
 
 type Summary = {
-  totalEarned: number;
-  totalPaid: number;
-  totalReversed: number;
+  totalEarned: number;          // SALES_COMMISSION + OVERRIDE_COMMISSION
+  totalSalesCommission: number;
+  totalOverride: number;
+  totalWithholding: number;
   net: number;
 };
 
+// GMcruise CommissionLedger 실제 entryType 값
 const TYPE_META: Record<string, { label: string; badge: string }> = {
-  EARNED:   { label: "수익",   badge: "bg-green-100 text-green-700" },
-  PAID:     { label: "지급",   badge: "bg-blue-100 text-blue-700" },
-  ADJUSTED: { label: "조정",   badge: "bg-yellow-100 text-yellow-700" },
-  REVERSED: { label: "차감",   badge: "bg-red-100 text-red-700" },
+  SALES_COMMISSION:   { label: "판매커미션",  badge: "bg-green-100 text-green-700" },
+  OVERRIDE_COMMISSION:{ label: "오버라이드",  badge: "bg-emerald-100 text-emerald-700" },
+  BRANCH_COMMISSION:  { label: "지점커미션",  badge: "bg-teal-100 text-teal-700" },
+  HQ_NET:             { label: "본사순수익",  badge: "bg-blue-100 text-blue-700" },
+  WITHHOLDING:        { label: "원천징수",    badge: "bg-red-100 text-red-700" },
 };
 
 function formatDate(iso: string) {
@@ -34,10 +37,10 @@ function formatDate(iso: string) {
 }
 
 function formatAmount(type: string, amount: number) {
-  const positive = type === "EARNED" || type === "ADJUSTED";
+  const negative = type === "WITHHOLDING";
   return (
-    <span className={positive ? "text-green-600 font-medium" : "text-red-500 font-medium"}>
-      {positive ? "+" : "-"}
+    <span className={negative ? "text-red-500 font-medium" : "text-green-600 font-medium"}>
+      {negative ? "-" : "+"}
       {Math.abs(amount).toLocaleString("ko-KR")}원
     </span>
   );
@@ -58,11 +61,11 @@ function buildYmOptions() {
 const YM_OPTIONS = buildYmOptions();
 
 const TYPE_TABS: { value: string; label: string }[] = [
-  { value: "",         label: "전체" },
-  { value: "EARNED",   label: "수익 (EARNED)" },
-  { value: "PAID",     label: "지급 (PAID)" },
-  { value: "ADJUSTED", label: "조정 (ADJUSTED)" },
-  { value: "REVERSED", label: "차감 (REVERSED)" },
+  { value: "",                   label: "전체" },
+  { value: "SALES_COMMISSION",   label: "판매커미션" },
+  { value: "OVERRIDE_COMMISSION",label: "오버라이드" },
+  { value: "BRANCH_COMMISSION",  label: "지점커미션" },
+  { value: "WITHHOLDING",        label: "원천징수" },
 ];
 
 export default function CommissionLedgerPage() {
@@ -119,25 +122,25 @@ export default function CommissionLedgerPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500 mb-1">총수익</p>
+          <p className="text-xs text-gray-500 mb-1">판매커미션</p>
           <p className="text-lg font-bold text-green-600">
-            {summary ? `+${summary.totalEarned.toLocaleString("ko-KR")}원` : "—"}
+            {summary ? `+${summary.totalSalesCommission.toLocaleString("ko-KR")}원` : "—"}
           </p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500 mb-1">지급완료</p>
-          <p className="text-lg font-bold text-blue-600">
-            {summary ? `-${summary.totalPaid.toLocaleString("ko-KR")}원` : "—"}
+          <p className="text-xs text-gray-500 mb-1">오버라이드</p>
+          <p className="text-lg font-bold text-emerald-600">
+            {summary ? `+${summary.totalOverride.toLocaleString("ko-KR")}원` : "—"}
           </p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500 mb-1">차감</p>
+          <p className="text-xs text-gray-500 mb-1">원천징수</p>
           <p className="text-lg font-bold text-red-500">
-            {summary ? `-${summary.totalReversed.toLocaleString("ko-KR")}원` : "—"}
+            {summary ? `-${summary.totalWithholding.toLocaleString("ko-KR")}원` : "—"}
           </p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500 mb-1">잔액</p>
+          <p className="text-xs text-gray-500 mb-1">실수령액</p>
           <p className="text-lg font-bold text-navy-900">
             {summary ? `${summary.net.toLocaleString("ko-KR")}원` : "—"}
           </p>

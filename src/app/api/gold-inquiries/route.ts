@@ -5,7 +5,8 @@ import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
-const VALID_STATUSES = new Set(['PENDING', 'CONTACTED', 'CONVERTED', 'REJECTED']);
+// GMcruise ProductInquiry 실제 status 값 (소문자)
+const VALID_STATUSES = new Set(['pending', 'unavailable', 'passport_waiting', 'confirmed', 'refund']);
 
 function maskPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
@@ -17,25 +18,22 @@ function maskPhone(phone: string): string {
 
 type RawInquiry = {
   id: number;
+  productCode: string;
   name: string;
   phone: string;
-  tier: number | null;
-  status: string;
   message: string | null;
-  submittedAt: Date;
+  status: string;
   createdAt: Date;
-  agentName: string | null;
-  agentMallUserId: string | null;
+  userId: number | null;
 };
 
 /**
  * GET /api/gold-inquiries
- * GMcruise ProductInquiry WHERE productCode='GOLD_MEMBERSHIP' 목록 조회
+ * GMcruise ProductInquiry 목록 조회
  *
- * GLOBAL_ADMIN: 전체
- * OWNER:        managerId = affiliateProfileId
- * AGENT:        agentId   = affiliateProfileId
- * FREE_SALES:   403
+ * ProductInquiry에는 agentId/managerId 컬럼이 없으므로 역할별 scope 없음
+ * GLOBAL_ADMIN / OWNER / AGENT: 전체 조회 (productCode로만 필터)
+ * FREE_SALES: 403
  */
 export async function GET(req: NextRequest) {
   try {
@@ -52,18 +50,9 @@ export async function GET(req: NextRequest) {
 
     const rawStatus = searchParams.get('status');
     const q         = searchParams.get('q')?.trim() ?? '';
-    const status    = rawStatus && VALID_STATUSES.has(rawStatus) ? rawStatus : null;
-
-    let roleCondition: Prisma.Sql = Prisma.empty;
-    if (ctx.role === 'OWNER' || ctx.role === 'AGENT') {
-      const profileId = ctx.mallUser?.affiliateProfileId;
-      if (!profileId) {
-        return NextResponse.json({ ok: false, error: '파트너 프로필이 없습니다.' }, { status: 403 });
-      }
-      roleCondition = ctx.role === 'OWNER'
-        ? Prisma.sql`AND pi."managerId" = ${profileId}`
-        : Prisma.sql`AND pi."agentId"   = ${profileId}`;
-    }
+    // 대소문자 모두 처리: UI가 보내는 값 소문자 정규화
+    const statusRaw = rawStatus?.toLowerCase() ?? '';
+    const status    = statusRaw && VALID_STATUSES.has(statusRaw) ? statusRaw : null;
 
     const statusCondition: Prisma.Sql = status
       ? Prisma.sql`AND pi.status = ${status}`
@@ -75,25 +64,25 @@ export async function GET(req: NextRequest) {
     const [rows, countRows] = await Promise.all([
       prisma.$queryRaw<RawInquiry[]>(Prisma.sql`
         SELECT
-          pi.id, pi.name, pi.phone, pi.tier, pi.status, pi.message,
-          pi."submittedAt", pi."createdAt",
-          u.name         AS "agentName",
-          u."mallUserId" AS "agentMallUserId"
+          pi.id,
+          pi."productCode",
+          pi.name,
+          pi.phone,
+          pi.message,
+          pi.status,
+          pi."createdAt",
+          pi."userId"
         FROM "ProductInquiry" pi
-        LEFT JOIN "AffiliateProfile" ap ON ap.id = pi."agentId"
-        LEFT JOIN "User"             u  ON u.id  = ap."userId"
         WHERE pi."productCode" = 'GOLD_MEMBERSHIP'
-          ${roleCondition}
           ${statusCondition}
           ${searchCondition}
-        ORDER BY pi."submittedAt" DESC
+        ORDER BY pi."createdAt" DESC
         LIMIT ${limit} OFFSET ${offset}
       `),
       prisma.$queryRaw<[{ total: bigint }]>(Prisma.sql`
         SELECT COUNT(*)::bigint AS total
         FROM "ProductInquiry" pi
         WHERE pi."productCode" = 'GOLD_MEMBERSHIP'
-          ${roleCondition}
           ${statusCondition}
           ${searchCondition}
       `),
@@ -102,16 +91,16 @@ export async function GET(req: NextRequest) {
     const total = Number(countRows[0]?.total ?? 0);
 
     const inquiries = rows.map((r) => ({
-      id:              r.id,
-      name:            r.name,
-      phone:           maskPhone(r.phone),
-      tier:            r.tier,
-      status:          r.status,
-      message:         r.message,
-      submittedAt:     r.submittedAt?.toISOString() ?? null,
-      createdAt:       r.createdAt.toISOString(),
-      agentName:       r.agentName       ?? null,
-      agentMallUserId: r.agentMallUserId ?? null,
+      id:          r.id,
+      productCode: r.productCode,
+      name:        r.name,
+      phone:       maskPhone(r.phone),
+      message:     r.message,
+      status:      r.status,
+      submittedAt: r.createdAt.toISOString(), // UI 호환성
+      createdAt:   r.createdAt.toISOString(),
+      tier:        null,     // ProductInquiry에 tier 컬럼 없음
+      agentName:   null,     // ProductInquiry에 agentId 컬럼 없음
     }));
 
     logger.log('[GET /api/gold-inquiries]', { role: ctx.role, total, page });

@@ -19,10 +19,11 @@ type Payslip = {
   agentMallUserId: string | null;
 };
 
+// GMcruise AffiliatePayslip 실제 status 값
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  DRAFT:     { label: "초안",   color: "bg-gray-100 text-gray-500" },
-  CONFIRMED: { label: "확정",   color: "bg-blue-100 text-blue-700" },
-  PAID:      { label: "지급완료", color: "bg-green-100 text-green-700" },
+  PENDING:  { label: "대기",    color: "bg-yellow-100 text-yellow-700" },
+  APPROVED: { label: "승인",    color: "bg-blue-100 text-blue-700" },
+  SENT:     { label: "지급완료", color: "bg-green-100 text-green-700" },
 };
 
 export default function PayslipsPage() {
@@ -75,7 +76,7 @@ export default function PayslipsPage() {
       <div className="flex flex-wrap gap-3 mb-5">
         {/* 상태 필터 */}
         <div className="flex gap-2">
-          {["", "DRAFT", "CONFIRMED", "PAID"].map((s) => (
+          {["", "PENDING", "APPROVED", "SENT"].map((s) => (
             <button
               key={s}
               onClick={() => { setStatus(s); setPage(1); }}

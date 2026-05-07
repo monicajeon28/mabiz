@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     siteName: "크루즈닷파트너스",
     images: [
       {
-        url: "/og-image.jpg",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
         alt: "크루즈닷파트너스 파트너 CRM",

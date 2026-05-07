@@ -132,12 +132,11 @@ function SignInContent() {
             >
               프리마케터 간편 등록하기
             </a>
-            <p className="text-center text-xs text-slate-400 mt-2">본사 직속 3% 수당 · 어필리에이트 링크 제공</p>
+            <p className="text-center text-xs text-slate-400 mt-2">대한민국 최초 판매 CRM / CMS 프로그램</p>
           </div>
 
-          <p className="mt-5 text-center text-xs text-slate-400 leading-relaxed">
-            관리자·대리점장·판매원 계정은 본사에서 발급합니다.<br />
-            문의: jmonica@cruisedot.co.kr
+          <p className="mt-5 text-center text-xs text-slate-400">
+            문의: hyeseon28@naver.com
           </p>
         </div>
       </div>

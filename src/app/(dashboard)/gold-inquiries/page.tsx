@@ -15,20 +15,21 @@ type GoldInquiry = {
   agentName: string | null;
 };
 
+// GMcruise ProductInquiry 실제 status 값 (소문자)
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  PENDING:   { label: "대기",   color: "bg-yellow-100 text-yellow-700" },
-  CONTACTED: { label: "연락됨", color: "bg-blue-100 text-blue-700" },
-  CONVERTED: { label: "전환",   color: "bg-green-100 text-green-700" },
-  REJECTED:  { label: "거절",   color: "bg-red-100 text-red-700" },
+  pending:          { label: "대기",        color: "bg-yellow-100 text-yellow-700" },
+  passport_waiting: { label: "여권대기",    color: "bg-blue-100 text-blue-700" },
+  confirmed:        { label: "확정",        color: "bg-green-100 text-green-700" },
+  unavailable:      { label: "불가",        color: "bg-gray-100 text-gray-500" },
+  refund:           { label: "환불",        color: "bg-red-100 text-red-700" },
 };
 
-const TIER_LABELS: Record<number, string> = { 1: "실버", 2: "골드", 3: "플래티넘" };
-
 const NEXT_STATUS: Record<string, string[]> = {
-  PENDING:   ["CONTACTED", "CONVERTED", "REJECTED"],
-  CONTACTED: ["CONVERTED", "REJECTED"],
-  CONVERTED: [],
-  REJECTED:  [],
+  pending:          ["passport_waiting", "confirmed", "unavailable"],
+  passport_waiting: ["confirmed", "unavailable"],
+  confirmed:        ["refund"],
+  unavailable:      [],
+  refund:           [],
 };
 
 export default function GoldInquiriesPage() {
@@ -88,7 +89,7 @@ export default function GoldInquiriesPage() {
       {/* 필터 */}
       <div className="flex flex-wrap gap-3 mb-5">
         <div className="flex gap-2 flex-wrap">
-          {["", "PENDING", "CONTACTED", "CONVERTED", "REJECTED"].map((s) => (
+          {["", "pending", "passport_waiting", "confirmed", "unavailable", "refund"].map((s) => (
             <button
               key={s}
               onClick={() => { setStatus(s); setPage(1); }}
@@ -169,9 +170,9 @@ export default function GoldInquiriesPage() {
                                 key={ns}
                                 onClick={() => changeStatus(inq.id, ns)}
                                 className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
-                                  ns === "CONVERTED"
+                                  ns === "confirmed"
                                     ? "bg-green-100 text-green-700 hover:bg-green-200"
-                                    : ns === "REJECTED"
+                                    : ns === "unavailable" || ns === "refund"
                                     ? "bg-red-100 text-red-700 hover:bg-red-200"
                                     : "bg-blue-100 text-blue-700 hover:bg-blue-200"
                                 }`}

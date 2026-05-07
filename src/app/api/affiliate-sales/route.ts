@@ -12,11 +12,9 @@ type RawSale = {
   status: string;
   saleAmount: number;
   salesCommission: number | null;
-  commissionRate: number | null;
   yearMonth: string | null;
   saleDate: Date | null;
   confirmedAt: Date | null;
-  paidAt: Date | null;
   refundedAt: Date | null;
   createdAt: Date;
   externalOrderCode: string | null;
@@ -80,11 +78,9 @@ export async function GET(req: NextRequest) {
           als.status,
           als."saleAmount",
           als."salesCommission",
-          als."commissionRate",
-          als."yearMonth",
+          TO_CHAR(als."saleDate", 'YYYY-MM') AS "yearMonth",
           als."saleDate",
           als."confirmedAt",
-          als."paidAt",
           als."refundedAt",
           als."createdAt",
           als."externalOrderCode",
@@ -116,11 +112,9 @@ export async function GET(req: NextRequest) {
       status:             r.status,
       saleAmount:         Number(r.saleAmount),
       salesCommission:    r.salesCommission != null ? Number(r.salesCommission) : null,
-      commissionRate:     r.commissionRate  != null ? Number(r.commissionRate)  : null,
       yearMonth:          r.yearMonth,
       saleDate:           r.saleDate?.toISOString()    ?? null,
       confirmedAt:        r.confirmedAt?.toISOString() ?? null,
-      paidAt:             r.paidAt?.toISOString()      ?? null,
       refundedAt:         r.refundedAt?.toISOString()  ?? null,
       createdAt:          r.createdAt.toISOString(),
       externalOrderCode:  r.externalOrderCode,

@@ -18,3 +18,4 @@ dist/
 *.pem
 .vercel
 .env.vercel.tmp
+.env*.local

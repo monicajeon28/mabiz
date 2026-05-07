@@ -5,25 +5,28 @@ import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
-const ALLOWED_TYPES  = new Set(['EARNED', 'PAID', 'ADJUSTED', 'REVERSED']);
-const YEAR_MONTH_RE  = /^\d{4}-\d{2}$/;
+// GMcruise CommissionLedger 실제 entryType 값
+const ALLOWED_TYPES = new Set([
+  'SALES_COMMISSION', 'OVERRIDE_COMMISSION', 'BRANCH_COMMISSION', 'HQ_NET', 'WITHHOLDING',
+]);
+const YEAR_MONTH_RE = /^\d{4}-\d{2}$/;
 
 type RawLedger = {
   id: number;
-  agentId: number;
-  saleId: number | null;
-  type: string;
+  profileId: number | null;
+  saleId: number;
+  entryType: string;
   amount: number;
-  balance: number;
-  yearMonth: string;
-  note: string | null;
+  withholdingAmount: number | null;
+  isSettled: boolean;
+  notes: string | null;
   createdAt: Date;
 };
 
 type RawSummary = {
-  totalEarned: bigint;
-  totalPaid: bigint;
-  totalReversed: bigint;
+  totalSalesCommission: bigint;
+  totalOverride: bigint;
+  totalWithholding: bigint;
 };
 
 /**
@@ -32,7 +35,7 @@ type RawSummary = {
  *
  * GLOBAL_ADMIN: 전체
  * OWNER:        AffiliateRelation 소속 에이전트
- * AGENT:        본인 agentId
+ * AGENT:        본인 profileId
  * FREE_SALES:   403
  */
 export async function GET(req: NextRequest) {
@@ -48,13 +51,13 @@ export async function GET(req: NextRequest) {
     const limit  = Math.min(100, parseInt(searchParams.get('limit') ?? '20') || 20);
     const offset = (page - 1) * limit;
 
-    const rawAgentId   = searchParams.get('agentId');
-    const rawYearMonth = searchParams.get('yearMonth')?.trim() ?? '';
-    const rawType      = searchParams.get('type');
+    const rawProfileId  = searchParams.get('agentId');   // UI는 agentId로 보냄
+    const rawYearMonth  = searchParams.get('yearMonth')?.trim() ?? '';
+    const rawType       = searchParams.get('type');
 
-    const agentIdFilter = rawAgentId ? parseInt(rawAgentId) || null : null;
-    const yearMonth     = YEAR_MONTH_RE.test(rawYearMonth) ? rawYearMonth : null;
-    const typeFilter    = rawType && ALLOWED_TYPES.has(rawType) ? rawType : null;
+    const profileIdFilter = rawProfileId ? parseInt(rawProfileId) || null : null;
+    const yearMonth       = YEAR_MONTH_RE.test(rawYearMonth) ? rawYearMonth : null;
+    const typeFilter      = rawType && ALLOWED_TYPES.has(rawType) ? rawType : null;
 
     // 역할별 스코프
     let roleCondition: Prisma.Sql = Prisma.empty;
@@ -63,71 +66,86 @@ export async function GET(req: NextRequest) {
       if (!agentProfileId) {
         return NextResponse.json({ ok: false, error: '파트너 프로필이 없습니다.' }, { status: 403 });
       }
-      roleCondition = Prisma.sql`AND cl."agentId" = ${agentProfileId}`;
+      roleCondition = Prisma.sql`AND cl."profileId" = ${agentProfileId}`;
     } else if (ctx.role === 'OWNER') {
       const ownerProfileId = ctx.mallUser?.affiliateProfileId;
       if (!ownerProfileId) {
         return NextResponse.json({ ok: false, error: '파트너 프로필이 없습니다.' }, { status: 403 });
       }
       roleCondition = Prisma.sql`
-        AND cl."agentId" IN (
+        AND cl."profileId" IN (
           SELECT ar."agentId" FROM "AffiliateRelation" ar
           WHERE ar."managerId" = ${ownerProfileId} AND ar.status = 'ACTIVE'
         )
       `;
     }
 
-    const agentCondition:     Prisma.Sql = agentIdFilter ? Prisma.sql`AND cl."agentId" = ${agentIdFilter}` : Prisma.empty;
-    const yearMonthCondition: Prisma.Sql = yearMonth     ? Prisma.sql`AND cl."yearMonth" = ${yearMonth}`   : Prisma.empty;
-    const typeCondition:      Prisma.Sql = typeFilter    ? Prisma.sql`AND cl.type = ${typeFilter}`          : Prisma.empty;
+    const profileCondition: Prisma.Sql = profileIdFilter
+      ? Prisma.sql`AND cl."profileId" = ${profileIdFilter}`
+      : Prisma.empty;
+    // yearMonth: CommissionLedger에 yearMonth 컬럼 없음 → createdAt에서 파생
+    const yearMonthCondition: Prisma.Sql = yearMonth
+      ? Prisma.sql`AND TO_CHAR(cl."createdAt", 'YYYY-MM') = ${yearMonth}`
+      : Prisma.empty;
+    const typeCondition: Prisma.Sql = typeFilter
+      ? Prisma.sql`AND cl."entryType" = ${typeFilter}`
+      : Prisma.empty;
 
     const [rows, countRows, summaryRows] = await Promise.all([
       prisma.$queryRaw<RawLedger[]>(Prisma.sql`
-        SELECT cl.id, cl."agentId", cl."saleId", cl.type,
-               cl.amount, cl.balance, cl."yearMonth", cl.note, cl."createdAt"
+        SELECT cl.id, cl."profileId", cl."saleId", cl."entryType",
+               cl.amount, cl."withholdingAmount", cl."isSettled", cl.notes, cl."createdAt"
         FROM "CommissionLedger" cl
         WHERE 1=1
-          ${roleCondition} ${agentCondition} ${yearMonthCondition} ${typeCondition}
+          ${roleCondition} ${profileCondition} ${yearMonthCondition} ${typeCondition}
         ORDER BY cl."createdAt" DESC
         LIMIT ${limit} OFFSET ${offset}
       `),
       prisma.$queryRaw<[{ total: bigint }]>(Prisma.sql`
         SELECT COUNT(*)::bigint AS total
         FROM "CommissionLedger" cl
-        WHERE 1=1 ${roleCondition} ${agentCondition} ${yearMonthCondition} ${typeCondition}
+        WHERE 1=1 ${roleCondition} ${profileCondition} ${yearMonthCondition} ${typeCondition}
       `),
       prisma.$queryRaw<RawSummary[]>(Prisma.sql`
         SELECT
-          COALESCE(SUM(CASE WHEN cl.type IN ('EARNED','ADJUSTED') THEN cl.amount ELSE 0 END), 0)::bigint AS "totalEarned",
-          COALESCE(SUM(CASE WHEN cl.type = 'PAID'     THEN cl.amount ELSE 0 END), 0)::bigint             AS "totalPaid",
-          COALESCE(SUM(CASE WHEN cl.type = 'REVERSED' THEN cl.amount ELSE 0 END), 0)::bigint             AS "totalReversed"
+          COALESCE(SUM(CASE WHEN cl."entryType" = 'SALES_COMMISSION'   THEN cl.amount ELSE 0 END), 0)::bigint AS "totalSalesCommission",
+          COALESCE(SUM(CASE WHEN cl."entryType" = 'OVERRIDE_COMMISSION' THEN cl.amount ELSE 0 END), 0)::bigint AS "totalOverride",
+          COALESCE(SUM(CASE WHEN cl."entryType" = 'WITHHOLDING'         THEN cl.amount ELSE 0 END), 0)::bigint AS "totalWithholding"
         FROM "CommissionLedger" cl
-        WHERE 1=1 ${roleCondition} ${agentCondition} ${yearMonthCondition} ${typeCondition}
+        WHERE 1=1 ${roleCondition} ${profileCondition} ${yearMonthCondition} ${typeCondition}
       `),
     ]);
 
-    const total         = Number(countRows[0]?.total ?? 0);
-    const totalEarned   = Number(summaryRows[0]?.totalEarned   ?? 0);
-    const totalPaid     = Number(summaryRows[0]?.totalPaid     ?? 0);
-    const totalReversed = Number(summaryRows[0]?.totalReversed ?? 0);
+    const total                = Number(countRows[0]?.total ?? 0);
+    const totalSalesCommission = Number(summaryRows[0]?.totalSalesCommission ?? 0);
+    const totalOverride        = Number(summaryRows[0]?.totalOverride        ?? 0);
+    const totalWithholding     = Number(summaryRows[0]?.totalWithholding     ?? 0);
+    const totalEarned          = totalSalesCommission + totalOverride;
 
     const ledger = rows.map((r) => ({
-      id:        r.id,
-      agentId:   r.agentId,
-      saleId:    r.saleId ?? null,
-      type:      r.type,
-      amount:    Number(r.amount),
-      balance:   Number(r.balance),
-      yearMonth: r.yearMonth,
-      note:      r.note ?? null,
-      createdAt: r.createdAt.toISOString(),
+      id:               r.id,
+      agentId:          r.profileId ?? null,   // UI 호환성: agentId로 노출
+      saleId:           r.saleId,
+      type:             r.entryType,           // UI 호환성: type으로 노출
+      amount:           Number(r.amount),
+      withholdingAmount: r.withholdingAmount != null ? Number(r.withholdingAmount) : null,
+      isSettled:        r.isSettled,
+      yearMonth:        r.createdAt.toISOString().slice(0, 7), // 파생
+      note:             r.notes ?? null,
+      createdAt:        r.createdAt.toISOString(),
     }));
 
     logger.log('[GET /api/commission-ledger]', { role: ctx.role, total, page });
     return NextResponse.json({
       ok: true,
       ledger,
-      summary: { totalEarned, totalPaid, totalReversed, net: totalEarned - totalPaid - totalReversed },
+      summary: {
+        totalEarned,
+        totalSalesCommission,
+        totalOverride,
+        totalWithholding,
+        net: totalEarned - totalWithholding,
+      },
       total,
       page,
       totalPages: Math.ceil(total / limit),

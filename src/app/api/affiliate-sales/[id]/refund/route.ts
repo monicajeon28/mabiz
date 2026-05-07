@@ -8,6 +8,7 @@ import { logger } from '@/lib/logger';
 /**
  * POST /api/affiliate-sales/[id]/refund
  * 판매 환불 처리 (GLOBAL_ADMIN / OWNER만)
+ * - OWNER: 본인 managerId 소속 판매만 환불 가능
  */
 export async function POST(
   req: NextRequest,
@@ -28,6 +29,16 @@ export async function POST(
     const body = await req.json().catch(() => ({})) as { refundedAt?: string };
     const refundedAt = body.refundedAt ? new Date(body.refundedAt) : new Date();
 
+    // OWNER: 자신의 managerId 소속 판매만 처리
+    let scopeCondition: Prisma.Sql = Prisma.empty;
+    if (ctx.role === 'OWNER') {
+      const profileId = ctx.mallUser?.affiliateProfileId;
+      if (!profileId) {
+        return NextResponse.json({ ok: false, error: '파트너 프로필이 없습니다.' }, { status: 403 });
+      }
+      scopeCondition = Prisma.sql`AND "managerId" = ${profileId}`;
+    }
+
     const rows = await prisma.$queryRaw<{ id: number; agentId: number | null }[]>(
       Prisma.sql`
         UPDATE "AffiliateSale"
@@ -35,6 +46,7 @@ export async function POST(
                "refundedAt" = ${refundedAt}
         WHERE  id = ${saleId}
           AND  status NOT IN ('REFUNDED', 'CANCELLED')
+          ${scopeCondition}
         RETURNING id, "agentId"
       `
     );

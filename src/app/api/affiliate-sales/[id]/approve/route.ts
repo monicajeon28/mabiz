@@ -8,6 +8,7 @@ import { logger } from '@/lib/logger';
 /**
  * POST /api/affiliate-sales/[id]/approve
  * 판매 승인 (GLOBAL_ADMIN / OWNER만)
+ * - OWNER: 본인 managerId 소속 판매만 승인 가능
  */
 export async function POST(
   _req: NextRequest,
@@ -26,13 +27,27 @@ export async function POST(
     }
 
     const now = new Date();
+
+    // OWNER: 자신의 managerId 소속 판매만 처리
+    let scopeCondition: Prisma.Sql = Prisma.empty;
+    if (ctx.role === 'OWNER') {
+      const profileId = ctx.mallUser?.affiliateProfileId;
+      if (!profileId) {
+        return NextResponse.json({ ok: false, error: '파트너 프로필이 없습니다.' }, { status: 403 });
+      }
+      scopeCondition = Prisma.sql`AND "managerId" = ${profileId}`;
+    }
+
     const rows = await prisma.$queryRaw<{ id: number }[]>(
       Prisma.sql`
         UPDATE "AffiliateSale"
         SET    status = 'APPROVED',
-               "confirmedAt" = ${now}
+               "confirmedAt"  = ${now},
+               "approvedAt"   = ${now},
+               "approvedById" = ${ctx.mallUser?.id ?? null}
         WHERE  id = ${saleId}
           AND  status IN ('PENDING', 'PENDING_APPROVAL')
+          ${scopeCondition}
         RETURNING id
       `
     );

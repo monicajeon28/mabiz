@@ -1,11 +1,18 @@
+import { redirect } from "next/navigation";
+import { getMabizSession } from "@/lib/auth";
 import { SidebarNav } from "@/components/layout/SidebarNav";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await getMabizSession();
+  if (!session) {
+    redirect("/sign-in");
+  }
+
   return (
     <div className="flex h-screen bg-[#F7F8FC]">
       {/* PC: 좌측 사이드바 */}
