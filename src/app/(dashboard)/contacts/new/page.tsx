@@ -33,8 +33,8 @@ export default function NewContactPage() {
     });
   }, []);
 
-  const handleAddGroup = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddGroup = async (e?: React.FormEvent | React.MouseEvent) => {
+    e?.preventDefault();
     const name = newGroupName.trim();
     if (!name) { setGroupAddError("그룹 이름을 입력해주세요."); return; }
     setGroupAdding(true);
@@ -231,11 +231,12 @@ export default function NewContactPage() {
                     <X className="w-4 h-4 text-gray-500" />
                   </button>
                 </div>
-                <form onSubmit={handleAddGroup} className="space-y-3">
+                <div className="space-y-3">
                   <input
                     ref={groupInputRef}
                     value={newGroupName}
                     onChange={(e) => setNewGroupName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddGroup(e as unknown as React.FormEvent); } }}
                     placeholder="그룹 이름 입력"
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-900/20"
                   />
@@ -249,7 +250,8 @@ export default function NewContactPage() {
                       취소
                     </button>
                     <button
-                      type="submit"
+                      type="button"
+                      onClick={handleAddGroup}
                       disabled={groupAdding}
                       className="flex-1 py-2.5 bg-navy-900 text-white text-sm rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
                     >
@@ -257,7 +259,7 @@ export default function NewContactPage() {
                       그룹 추가
                     </button>
                   </div>
-                </form>
+                </div>
               </div>
             </div>
           )}

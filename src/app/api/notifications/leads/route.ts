@@ -24,9 +24,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, message: '접근 권한 없음' }, { status: 403 });
     }
 
-    // GLOBAL_ADMIN은 organizationId가 없으므로 별도 처리
+    // GLOBAL_ADMIN은 organizationId가 없음 — 빈 결과 반환 (폴링 에러 방지)
     if (ctx.role === 'GLOBAL_ADMIN') {
-      return NextResponse.json({ ok: false, message: '조직을 먼저 선택하세요' }, { status: 400 });
+      return NextResponse.json({ ok: true, leads: [], count: 0 });
     }
 
     const orgId = requireOrgId(ctx);

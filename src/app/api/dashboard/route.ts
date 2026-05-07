@@ -45,7 +45,7 @@ export async function GET() {
 
     // ── GLOBAL_ADMIN ──────────────────────────────────────────
     if (ctx.role === 'GLOBAL_ADMIN') {
-      const [agentRows, saleRows, refundRows, pendingRows, goldRows] = await Promise.all([
+      const [agentRows, saleRows, refundRows, pendingRows, goldCount] = await Promise.all([
         prisma.$queryRaw<CountRow[]>(Prisma.sql`
           SELECT COUNT(*)::bigint AS count FROM "AffiliateProfile" WHERE status != 'TERMINATED'
         `),
@@ -65,11 +65,8 @@ export async function GET() {
           SELECT COUNT(*)::bigint AS count
           FROM "AffiliateSale" WHERE status IN ('PENDING','PENDING_APPROVAL')
         `),
-        prisma.$queryRaw<CountRow[]>(Prisma.sql`
-          SELECT COUNT(*)::bigint AS count
-          FROM "ProductInquiry"
-          WHERE "productCode" = 'GOLD_MEMBERSHIP' AND status = 'confirmed'
-        `),
+        // CRM GoldMember 테이블 사용 (ProductInquiry는 GMcruise 테이블 — 없을 수 있음)
+        prisma.goldMember.count({ where: { status: 'ACTIVE' } }),
       ]);
 
       logger.log('[GET /api/dashboard] GLOBAL_ADMIN', { yearMonth });
@@ -79,7 +76,7 @@ export async function GET() {
         monthSaleAmount:      Number(saleRows[0]?.total    ?? 0),
         monthRefundAmount:    Number(refundRows[0]?.total  ?? 0),
         pendingApprovalCount: Number(pendingRows[0]?.count ?? 0),
-        goldMemberCount:      Number(goldRows[0]?.count    ?? 0),
+        goldMemberCount:      goldCount,
       });
     }
 
@@ -132,7 +129,7 @@ export async function GET() {
         return NextResponse.json({ ok: false, error: '파트너 프로필이 없습니다.' }, { status: 403 });
       }
 
-      const [saleRows, refundRows, pendingRows, goldRows] = await Promise.all([
+      const [saleRows, refundRows, pendingRows, goldCount] = await Promise.all([
         prisma.$queryRaw<SumRow[]>(Prisma.sql`
           SELECT COALESCE(SUM("saleAmount"), 0)::bigint AS total
           FROM "AffiliateSale"
@@ -150,11 +147,8 @@ export async function GET() {
           FROM "AffiliateSale"
           WHERE "agentId" = ${profileId} AND status IN ('PENDING','PENDING_APPROVAL')
         `),
-        prisma.$queryRaw<CountRow[]>(Prisma.sql`
-          SELECT COUNT(*)::bigint AS count
-          FROM "ProductInquiry"
-          WHERE "productCode" = 'GOLD_MEMBERSHIP' AND status = 'confirmed'
-        `),
+        // CRM GoldMember 테이블 사용
+        prisma.goldMember.count({ where: { status: 'ACTIVE' } }),
       ]);
 
       logger.log('[GET /api/dashboard] AGENT', { profileId, yearMonth });
@@ -163,7 +157,7 @@ export async function GET() {
         monthSaleAmount:      Number(saleRows[0]?.total    ?? 0),
         monthRefundCount:     Number(refundRows[0]?.count  ?? 0),
         pendingApprovalCount: Number(pendingRows[0]?.count ?? 0),
-        goldMemberCount:      Number(goldRows[0]?.count    ?? 0),
+        goldMemberCount:      goldCount,
       });
     }
 
