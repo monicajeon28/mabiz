@@ -37,6 +37,9 @@ model Organization {
   salesDocApprovals SalesDocumentApproval[]
   memberDocuments   MemberDocument[]
   goldMembers       GoldMember[]
+  adminMessages     AdminMessage[]
+  partners          Partner[]
+  imageAssets       ImageAsset[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -159,6 +162,10 @@ model Contact {
   productName    String?   // 상품명 (예: 지중해 7박 MSC)
   bookingRef     String?   // 예약 번호 (PNR 등)
 
+  // 파트너 배정 (TASK-016)
+  partnerId      String?
+  partner        Partner? @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   groups         ContactGroupMember[]
   callLogs       CallLog[]
@@ -167,6 +174,7 @@ model Contact {
   shortLinks     ShortLink[]
   shortLinkClicks ShortLinkClick[]
   salesDocuments  SalesDocument[]
+  funnelState    ContactFunnelState?
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -176,6 +184,7 @@ model Contact {
   @@index([organizationId])
   @@index([type])
   @@index([assignedUserId])
+  @@index([partnerId])
   @@index([deletedAt])
 }
 
@@ -230,6 +239,7 @@ model CallLog {
 
   @@index([contactId])
   @@index([userId])
+  @@index([contactId, createdAt(sort: Desc)])  // ✅ 페이지네이션 빠르게 조회
 }
 
 // ─── 고객 메모 ────────────────────────────────────────────────
@@ -925,4 +935,144 @@ model UserPushSettings {
   notifyAtHour  Int      @default(9)     // 0-23: 몇 시에 자동 푸시할지
   lastPushedAt  DateTime?                 // 마지막으로 푸시 발송한 날짜+시간
   updatedAt     DateTime @updatedAt
+}
+
+// ─── DLQ: Webhook 실패 재시도 큐 ─────────────────────────────
+model MabizSyncDLQ {
+  id             String    @id @default(cuid())
+  webhookType    String    // purchase | refund | inquiry | gold-inquiry | partner-signup | news-sync | cruise-purchase | payapp
+  payload        Json      // 원본 webhook payload
+  failureReason  String    @db.Text
+  retryCount     Int       @default(0)
+  maxRetries     Int       @default(3)
+  nextRetryAt    DateTime?
+  resolvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([resolvedAt, nextRetryAt])
+  @@index([webhookType])
+  @@map("MabizSyncDLQ")
+}
+
+// ─── Google Drive 백업 재시도 큐 ─────────────────────────────
+model BackupJob {
+  id          String   @id @default(cuid())
+  type        String   // 'CALL_LOG' (나중에 다른 타입 추가 가능)
+  targetId    String   // contactId
+  payload     Json     // { userId, displayName, customerName, customerPhone }
+  status      String   @default("PENDING")  // PENDING | SUCCESS | FAILED
+  retryCount  Int      @default(0)
+  maxRetries  Int      @default(3)
+  lastError   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([targetId, status])
+}
+
+// ─── 관리자 메시지 발송 이력 (SMS/카카오) ─────────────────────
+model AdminMessage {
+  id               String       @id @default(cuid())
+  organizationId   String
+  adminId          String       // OrganizationMember.id 또는 GlobalAdmin.id
+  messageType      String       // 'sms' | 'kakao'
+  content          String       @db.Text
+  totalSent        Int          @default(0)
+  successCount     Int          @default(0)
+  createdAt        DateTime     @default(now())
+
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, createdAt(sort: Desc)])
+}
+
+// ─── 파트너 대시보드 (TASK-016) ──────────────────────────────
+model Partner {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name String
+  email String?
+  phone String?
+  status String @default("ACTIVE")  // ACTIVE/INACTIVE
+  commissionRate Decimal? @db.Decimal(5, 2)
+  totalRevenue BigInt @default(0)
+
+  contacts Contact[]
+  metrics PartnerMetrics[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([status])
+}
+
+model PartnerMetrics {
+  id String @id @default(cuid())
+  partnerId String
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  year Int
+  month Int
+  customerCount Int @default(0)
+  leadCount Int @default(0)
+  revenue BigInt @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([partnerId, year, month])
+  @@index([partnerId, year, month])
+}
+
+// ─── 퍼널 상태 전이 (고객별 상태 관리) ──────────────────────────
+model ContactFunnelState {
+  id                String    @id @default(cuid())
+  organizationId    String
+  contactId         String    @unique
+  contact           Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  status            String    @default("PENDING")  // PENDING|ACTIVE|WAITING|COMPLETED|FAILED|ARCHIVED
+  nextScheduledAt   DateTime? @db.Timestamptz(6)
+  metadata          Json?     @db.JsonB  // 실패 이유, 커스텀 필드 등
+
+  createdAt         DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@index([organizationId, status])
+  @@index([nextScheduledAt])
+  @@map("ContactFunnelState")
+}
+
+// ─── 이미지 자산 (조직별 Google Drive 통합 관리) ─────────────────
+model ImageAsset {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Text
+  organizationId String
+
+  originalFileName String
+  driveFileId String
+  drivePath String?
+
+  mimeType String?
+  fileSize BigInt?
+  width Int?
+  height Int?
+
+  tags String[]
+  category String?
+
+  uploadedBy String
+  uploadedAt DateTime @default(now()) @db.Timestamptz(6)
+  lastAccessedAt DateTime? @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, driveFileId])
+  @@index([organizationId, category])
+  @@map("ImageAsset")
 }
