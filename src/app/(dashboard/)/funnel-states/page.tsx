@@ -8,7 +8,6 @@ import FunnelStateModal from '@/components/funnel/FunnelStateModal';
 
 export default function FunnelStatesPage() {
   const [selectedStatus, setSelectedStatus] = useState<FunnelState | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedStateId, setSelectedStateId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
 
@@ -20,7 +19,7 @@ export default function FunnelStatesPage() {
       if (!res.ok) throw new Error('통계 조회 실패');
       return res.json();
     },
-    refetchInterval: 60000, // 1분마다 리프레시
+    refetchInterval: 60000,
   });
 
   // 상태별 고객 목록 조회
@@ -57,7 +56,6 @@ export default function FunnelStatesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      {/* 헤더 */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">퍼널 상태 관리</h1>
         <p className="text-gray-600 mt-2">고객의 퍼널 진행 상황을 관리합니다</p>
@@ -106,39 +104,27 @@ export default function FunnelStatesPage() {
       {/* KPI 카드 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <Card className="p-6">
-          <div className="text-sm font-medium text-gray-600 mb-2">
-            변환율
-          </div>
+          <div className="text-sm font-medium text-gray-600 mb-2">변환율</div>
           <div className="text-2xl font-bold">
             {statsData?.data?.conversionRate || 0}%
           </div>
-          <p className="text-xs text-gray-500 mt-1">
-            PENDING → COMPLETED
-          </p>
+          <p className="text-xs text-gray-500 mt-1">PENDING → COMPLETED</p>
         </Card>
 
         <Card className="p-6">
-          <div className="text-sm font-medium text-gray-600 mb-2">
-            평균 체류일수
-          </div>
+          <div className="text-sm font-medium text-gray-600 mb-2">평균 체류일수</div>
           <div className="text-2xl font-bold">
             {statsData?.data?.averageDaysToComplete || 0}일
           </div>
-          <p className="text-xs text-gray-500 mt-1">
-            완료까지 소요 기간
-          </p>
+          <p className="text-xs text-gray-500 mt-1">완료까지 소요 기간</p>
         </Card>
 
         <Card className="p-6">
-          <div className="text-sm font-medium text-gray-600 mb-2">
-            총 고객 수
-          </div>
+          <div className="text-sm font-medium text-gray-600 mb-2">총 고객 수</div>
           <div className="text-2xl font-bold">
             {statsData?.data?.total || 0}
           </div>
-          <p className="text-xs text-gray-500 mt-1">
-            활성 퍼널 상태
-          </p>
+          <p className="text-xs text-gray-500 mt-1">활성 퍼널 상태</p>
         </Card>
       </div>
 
@@ -146,20 +132,11 @@ export default function FunnelStatesPage() {
       <Card className="p-6">
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-2">고객 목록</h2>
-          <p className="text-sm text-gray-600">
-            상태별로 고객을 필터링하고 상태를 변경합니다
-          </p>
+          <p className="text-sm text-gray-600">상태별로 고객을 필터링하고 상태를 변경합니다</p>
         </div>
 
         {/* 필터 */}
         <div className="flex gap-4 mb-6">
-          <input
-            type="text"
-            placeholder="고객명 검색..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
           <select
             value={selectedStatus || ''}
             onChange={(e) =>
@@ -231,7 +208,6 @@ export default function FunnelStatesPage() {
         )}
       </Card>
 
-      {/* 모달 */}
       {selectedStateId && (
         <FunnelStateModal
           stateId={selectedStateId}
@@ -243,7 +219,6 @@ export default function FunnelStatesPage() {
   );
 }
 
-// 유틸리티 컴포넌트
 function StatCard({
   label,
   count,
