@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { logVisitToken } from '@/lib/visit-token';
 
 type Params = { params: Promise<{ code: string }> };
 
 export async function GET(req: Request, { params }: Params) {
   const { code } = await params;
+
+  // visitToken 로깅 (쿠키에서 읽기)
+  const cookieHeader = req.headers.get('cookie') ?? '';
+  const vtMatch = cookieHeader.match(/visitToken=([^;]+)/);
+  const existingVt = vtMatch?.[1] ?? null;
+  logVisitToken(existingVt, 'ShortLink').catch(() => {});
 
   const link = await prisma.shortLink.findUnique({
     where: { code, isActive: true },
@@ -51,5 +58,14 @@ export async function GET(req: Request, { params }: Params) {
   } catch {
     return NextResponse.redirect('https://www.cruisedot.co.kr', { status: 302 });
   }
-  return NextResponse.redirect(link.targetUrl, { status: 302 });
+  const response = NextResponse.redirect(link.targetUrl, { status: 302 });
+  // visitToken 쿠키 설정 (24시간 유효)
+  response.cookies.set('visitToken', link.id, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: 86400,
+    path: '/',
+  });
+  return response;
 }

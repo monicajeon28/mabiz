@@ -79,7 +79,6 @@ function KpiCard({
 function PushCallNotification({ callDueCount }: { callDueCount: number }) {
   const [sending, setSending] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [settings, setSettings] = useState<{ notifyEnabled: boolean; notifyAtHour: number } | null>(null);
   const [pushSettings, setPushSettings] = useState<{ notifyEnabled: boolean; notifyAtHour: number }>({
     notifyEnabled: true,
     notifyAtHour: 9,
@@ -128,6 +127,7 @@ function PushCallNotification({ callDueCount }: { callDueCount: number }) {
       const result = await fetch('/api/push/settings', {
         method: 'PUT',
         body: JSON.stringify(pushSettings),
+        headers: { 'Content-Type': 'application/json' },
       });
       const data = await result.json();
 
@@ -148,19 +148,25 @@ function PushCallNotification({ callDueCount }: { callDueCount: number }) {
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
             <Phone className="w-5 h-5 text-rose-600" />
-            <h3 className="font-semibold text-rose-900">오늘 콜 목록 ({callDueCount}명)</h3>
+            <h3 className="font-semibold text-rose-900">
+              {callDueCount > 0 ? `오늘 콜 목록 (${callDueCount}명)` : '푸시 알림 설정'}
+            </h3>
           </div>
-          <p className="text-sm text-rose-700">스마트폰에 푸시 알림으로 받아보세요</p>
+          <p className="text-sm text-rose-700">
+            {callDueCount > 0 ? '스마트폰에 푸시 알림으로 받아보세요' : '매일 지정된 시간에 자동으로 알림을 받을 수 있습니다'}
+          </p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={sendNow}
-            disabled={sending}
-            className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-medium hover:bg-rose-700 disabled:opacity-50 transition-colors"
-          >
-            <Send className="w-4 h-4" />
-            {sending ? '전송 중...' : '폰으로 보내기'}
-          </button>
+          {callDueCount > 0 && (
+            <button
+              onClick={sendNow}
+              disabled={sending}
+              className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-medium hover:bg-rose-700 disabled:opacity-50 transition-colors"
+            >
+              <Send className="w-4 h-4" />
+              {sending ? '전송 중...' : '폰으로 보내기'}
+            </button>
+          )}
           <button
             onClick={() => setShowSettings(true)}
             className="flex items-center gap-1.5 px-3 py-2 bg-white border border-rose-200 text-rose-600 rounded-lg text-sm font-medium hover:bg-rose-50 transition-colors"
@@ -244,6 +250,10 @@ export default function DashboardPage() {
     fetch('/api/notifications/feed?limit=5')
       .then(r => r.json())
       .then(d => { if (d.ok) setFeed(d.items ?? []); })
+      .catch(err => {
+        console.error('알림 피드 로드 실패:', err);
+        // Optional: toast 라이브러리 사용 가능
+      })
       .finally(() => setFeedLoading(false));
   }, []);
 
@@ -323,7 +333,7 @@ export default function DashboardPage() {
       )}
 
       {/* 푸시 알림 콜 전송 */}
-      {data && data.callDueToday !== undefined && data.callDueToday > 0 && (
+      {data && data.callDueToday !== undefined && (
         <PushCallNotification callDueCount={data.callDueToday} />
       )}
 
@@ -358,7 +368,7 @@ export default function DashboardPage() {
       <div className="bg-white rounded-2xl border border-gray-200 p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-navy-900">최근 알림</h2>
-          <Link href="#" className="text-xs text-blue-600 hover:underline">전체 보기</Link>
+          <Link href="/notifications" className="text-xs text-blue-600 hover:underline">전체 보기</Link>
         </div>
 
         {feedLoading ? (

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { uploadImageToDrive, validateImageFile } from '@/lib/image-sync';
+import { extractImageDimensions } from '@/lib/image-metadata';
 import { logger } from '@/lib/logger';
 
 /**
@@ -44,6 +45,9 @@ export async function POST(req: Request) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
+    // 이미지 메타데이터 추출
+    const dimensions = extractImageDimensions(buffer);
+
     // Drive 업로드 수행
     const asset = await uploadImageToDrive({
       organizationId: orgId,
@@ -54,6 +58,8 @@ export async function POST(req: Request) {
       mimeType: file.type,
       category,
       tags,
+      width: dimensions?.width,
+      height: dimensions?.height,
     });
 
     logger.info('[POST /api/images/upload] 이미지 업로드 성공', {
@@ -72,6 +78,9 @@ export async function POST(req: Request) {
         uploadedAt: asset.uploadedAt,
         mimeType: asset.mimeType,
         fileSize: asset.fileSize?.toString(),
+        width: asset.width,
+        height: asset.height,
+        thumbnailUrl: `https://drive.google.com/thumbnail?id=${asset.driveFileId}`,
       },
     });
   } catch (err) {

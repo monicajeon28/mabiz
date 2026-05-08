@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import prisma from "@/lib/prisma";
 import { getAuthContext, requireOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
-import { ImportTarget, IMPORT_CONFIGS } from "@/lib/import-config";
+import { ImportTarget, IMPORT_CONFIGS, normalizeContactType } from "@/lib/import-config";
 import {
   isValidXlsx,
   buildHeaderMap,
@@ -12,6 +12,10 @@ import {
   normalizePhone,
 } from "@/lib/import-utils";
 import { backupImportFileToDrive } from "@/lib/import-backup";
+import { invalidateCache } from "@/lib/redis";
+import { createVercelBatchTimeoutGuard, shouldContinueProcessing } from "@/lib/timeout-guard";
+
+export const maxDuration = 300;
 
 // ==================== 배치 처리 함수 ====================
 
@@ -33,23 +37,15 @@ async function processBatchB2C(
         return null;
       }
 
-      const typeMap: Record<string, string> = {
-        구매: "CUSTOMER",
-        구매고객: "CUSTOMER",
-        customer: "CUSTOMER",
-        잠재: "LEAD",
-        잠재고객: "LEAD",
-        lead: "LEAD",
-      };
-
       const id = crypto.randomUUID();
+      const normalizedType = normalizeContactType(item.data["유형"]) ?? "LEAD";
       return {
         id,
         lineNo: item.lineNo,
         phone,
         name: item.data["이름"],
         email: item.data["이메일"] || null,
-        type: typeMap[item.data["유형"]?.toLowerCase() ?? ""] ?? "LEAD",
+        type: normalizedType,
         cruiseInterest: item.data["관심크루즈"] || null,
         adminMemo: item.data["메모"] || null,
       };
@@ -171,12 +167,20 @@ export async function POST(req: Request) {
   let orgId;
   let orgName;
   let buffer;
+  const timeoutGuard = createVercelBatchTimeoutGuard();
+  timeoutGuard.start();
 
   try {
     // 인증 체크
     ctx = await getAuthContext();
     orgId = requireOrgId(ctx);
-    orgName = ctx.organization?.name || "unknown";
+
+    // 조직 이름 조회
+    const org = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { name: true },
+    });
+    orgName = org?.name || "unknown";
 
     // target 파라미터 검증
     const url = new URL(req.url);
@@ -281,6 +285,18 @@ export async function POST(req: Request) {
     const chunks = chunkRows(rows, 100);
 
     for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+      // 타임아웃 체크
+      if (timeoutGuard.hasExceeded()) {
+        logger.warn("[import] Timeout 임박, 안전 중단", { chunkIdx });
+        break;
+      }
+
+      // 메모리 체크
+      if (!shouldContinueProcessing(85)) {
+        logger.warn("[import] 메모리 85% 도달, 안전 중단", { chunkIdx });
+        break;
+      }
+
       const chunk = chunks[chunkIdx];
       const batchData: Array<{
         lineNo: number;
@@ -372,24 +388,24 @@ export async function POST(req: Request) {
       orgId,
     });
 
-    // Fire-and-forget: ImportLog 기록
-    (async () => {
-      try {
-        await prisma.importLog.create({
-          data: {
-            organizationId: orgId,
-            target,
-            totalRows: rows.length,
-            successCount,
-            validationSkipCount,
-            processErrorCount,
-            errorSummary: errors.slice(0, 5).join(" | "),
-          },
-        });
-      } catch (err) {
-        logger.error("[POST /api/import] ImportLog 저장 실패", { err });
-      }
-    })();
+    // Fire-and-forget: ImportLog 기록 (TODO: ImportLog 모델이 Prisma schema에 없음)
+    // (async () => {
+    //   try {
+    //     await prisma.importLog.create({
+    //       data: {
+    //         organizationId: orgId,
+    //         target,
+    //         totalRows: rows.length,
+    //         successCount,
+    //         validationSkipCount,
+    //         processErrorCount,
+    //         errorSummary: errors.slice(0, 5).join(" | "),
+    //       },
+    //     });
+    //   } catch (err) {
+    //     logger.error("[POST /api/import] ImportLog 저장 실패", { err });
+    //   }
+    // })();
 
     // Fire-and-forget: Drive 백업
     (async () => {
@@ -403,6 +419,11 @@ export async function POST(req: Request) {
         logger.error("[POST /api/import] Drive 백업 실패", { err });
       }
     })();
+
+    // 캐시 무효화 (import 성공 시)
+    if (successCount > 0) {
+      await invalidateCache(`crm-stats:${orgId}:*`);
+    }
 
     return NextResponse.json({
       ok: true,
@@ -424,5 +445,7 @@ export async function POST(req: Request) {
       { ok: false, message: "파일 처리 중 오류가 발생했습니다" },
       { status: 500 }
     );
+  } finally {
+    timeoutGuard.stop();
   }
 }

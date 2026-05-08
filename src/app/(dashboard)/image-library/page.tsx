@@ -9,6 +9,7 @@ import {
   CopyIcon,
   CheckIcon,
 } from 'lucide-react';
+import { formatFileSize } from '@/lib/image-metadata';
 
 interface ImageAsset {
   id: string;
@@ -414,7 +415,7 @@ export default function ImageLibraryPage() {
                       )}
 
                       <p className="text-xs text-gray-600 mb-3">
-                        {asset.fileSize}
+                        {asset.fileSize && formatFileSize(asset.fileSize)}
                         {asset.width && ` • ${asset.width}x${asset.height}`}
                       </p>
 

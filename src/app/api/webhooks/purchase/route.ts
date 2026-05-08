@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { triggerGroupFunnel } from '@/lib/funnel-trigger';
+import { enqueueDLQ } from '@/lib/mabiz-dlq';
 
 /**
  * POST /api/webhooks/purchase
@@ -140,6 +141,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, contactId: contact.id, funnelStarted });
   } catch (err) {
     logger.error('[PurchaseWebhook] 처리 실패', { err });
+    await enqueueDLQ('purchase', body, err instanceof Error ? err.message : String(err)).catch(() => {});
     return NextResponse.json({ ok: false, message: '처리 실패' }, { status: 500 });
   }
 }

@@ -13,7 +13,7 @@ const ALLOWED_STATUSES = new Set(['DRAFT', 'SENT', 'SIGNED', 'EXPIRED', 'CANCELL
  */
 export async function PATCH(
   req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const ctx = await getMabizSession();
@@ -22,7 +22,8 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const contractId = parseInt(context.params.id);
+    const params = await context.params;
+    const contractId = parseInt(params.id);
     if (!contractId || isNaN(contractId) || contractId <= 0) {
       return NextResponse.json({ ok: false, error: '유효하지 않은 ID' }, { status: 400 });
     }

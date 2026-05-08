@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import webpush from 'web-push';
@@ -65,13 +66,11 @@ export async function GET(req: Request) {
     for (const user of usersToNotify) {
       try {
         // 오늘 콜 예정 건수 조회
-        const callDueRows = await prisma.$queryRaw<{ count: bigint }[]>(
-          `
+        const callDueRows = await prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
           SELECT COUNT(*)::bigint AS count FROM "CallLog"
           WHERE "userId" = ${user.userId}
             AND ("scheduledAt"::date) = (NOW() AT TIME ZONE 'Asia/Seoul')::date
-          `
-        );
+        `);
 
         const callDueCount = Number(callDueRows[0]?.count ?? 0);
 

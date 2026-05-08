@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { enqueueDLQ } from '@/lib/mabiz-dlq';
 
 /**
  * POST /api/webhooks/partner-signup
@@ -94,6 +95,7 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     logger.error('[PartnerSignupWebhook] Contact upsert 실패', { err });
+    await enqueueDLQ('partner-signup', body, err instanceof Error ? err.message : String(err)).catch(() => {});
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 

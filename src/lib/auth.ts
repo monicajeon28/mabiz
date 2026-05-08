@@ -1,6 +1,7 @@
 import 'server-only';
 import { cookies } from 'next/headers';
 import prisma from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import type { UserRole } from '@/lib/rbac';
 
@@ -88,15 +89,14 @@ export async function getMabizSession(): Promise<MabizAuthContext | null> {
 
     // GMcruise User 세션 (mallUserId 기반)
     if (session.mallUserId) {
-      const rows = await prisma.$queryRawUnsafe<RawMallUser[]>(
-        `SELECT u.id, u.name, u."mallUserId",
+      const rows = await prisma.$queryRaw<RawMallUser[]>(
+        Prisma.sql`SELECT u.id, u.name, u."mallUserId",
                 ap.type as "affiliateType",
                 ap.id as "affiliateProfileId"
          FROM "User" u
          LEFT JOIN "AffiliateProfile" ap ON ap."userId" = u.id AND ap.status = 'ACTIVE'
-         WHERE u.id = $1 AND u."isLocked" = false
-         LIMIT 1`,
-        session.mallUserId
+         WHERE u.id = ${session.mallUserId} AND u."isLocked" = false
+         LIMIT 1`
       );
 
       const mallUser = rows[0];

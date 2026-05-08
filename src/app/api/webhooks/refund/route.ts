@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'crypto';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { enqueueDLQ } from '@/lib/mabiz-dlq';
 
 /**
  * POST /api/webhooks/refund
@@ -68,6 +69,7 @@ export async function POST(req: NextRequest) {
     logger.log('[RefundWebhook] AffiliateSale 업데이트', { saleUpdated, gmAgentId });
   } catch (err) {
     logger.error('[RefundWebhook] AffiliateSale 업데이트 실패', { err });
+    await enqueueDLQ('refund', body, err instanceof Error ? err.message : String(err)).catch(() => {});
   }
 
   // Step 2: 환불율 >= 30% → 에이전트 링크 SUSPEND

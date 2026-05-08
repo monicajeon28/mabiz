@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import prisma from "@/lib/prisma";
 import { getAuthContext, requireOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { normalizeContactType } from "@/lib/import-config";
 
 // 엑셀 컬럼 매핑 (한글 헤더 → 필드명)
 const COLUMN_MAP: Record<string, string> = {
@@ -83,13 +84,10 @@ export async function POST(req: Request) {
       // 전화번호 정규화 (하이픈 통일)
       data.phone = data.phone.replace(/[^0-9]/g, "").replace(/^(\d{3})(\d{4})(\d{4})$/, "$1-$2-$3");
 
-      // 유형 매핑
+      // 유형 정규화
       if (data.type) {
-        const typeMap: Record<string, string> = {
-          "구매": "CUSTOMER", "구매고객": "CUSTOMER", "customer": "CUSTOMER",
-          "잠재": "LEAD", "잠재고객": "LEAD", "lead": "LEAD",
-        };
-        data.type = typeMap[data.type.toLowerCase()] ?? "LEAD";
+        const normalized = normalizeContactType(data.type);
+        data.type = normalized ?? "LEAD";
       }
 
       try {

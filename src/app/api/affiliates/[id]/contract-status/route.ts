@@ -15,22 +15,24 @@ const ALLOWED_CONTRACT_STATUSES = new Set([
  */
 export async function PATCH(
   req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
     if (ctx.role !== 'GLOBAL_ADMIN') {
       return NextResponse.json({ ok: false, error: '권한 없음' }, { status: 403 });
     }
 
-    const profileId = parseInt(context.params.id);
+    const profileId = parseInt(params.id);
     if (!profileId || isNaN(profileId) || profileId <= 0) {
       return NextResponse.json({ ok: false, error: '유효하지 않은 ID' }, { status: 400 });
     }
 
     let contractStatus: string;
     try {
+    const params = await context.params;
       const body = await req.json() as { contractStatus?: unknown };
       contractStatus = String(body.contractStatus ?? '');
     } catch {

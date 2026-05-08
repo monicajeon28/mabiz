@@ -98,22 +98,29 @@ export function normalizeStatus(value: unknown): string | null {
 
 /**
  * 연락처 타입 정규화
- * - 한글/영문 매핑
+ * - 한글/영문 매핑 → Prisma Contact.type Enum (LEAD | CUSTOMER)
  */
 export function normalizeContactType(value: unknown): string | null {
   if (!value) return null;
   const str = String(value).trim().toLowerCase();
 
   const typeMap: Record<string, string> = {
-    '개인': 'personal',
-    'personal': 'personal',
-    '법인': 'corporate',
-    'corporate': 'corporate',
-    '개인사업자': 'sole_proprietor',
-    'sole_proprietor': 'sole_proprietor',
+    // 잠재고객
+    '잠재': 'LEAD',
+    '잠재고객': 'LEAD',
+    'lead': 'LEAD',
+    '개인': 'LEAD',
+    'personal': 'LEAD',
+
+    // 구매 고객
+    '구매': 'CUSTOMER',
+    '구매고객': 'CUSTOMER',
+    'customer': 'CUSTOMER',
+    '법인': 'CUSTOMER',
+    'corporate': 'CUSTOMER',
   };
 
-  return typeMap[str] || null;
+  return typeMap[str] || 'LEAD'; // 기본값: LEAD
 }
 
 /**
@@ -225,13 +232,7 @@ export const B2C_IMPORT_CONFIG: ImportConfig = {
       label: '유형',
       field: 'type',
       aliases: ['타입', '고객타입', 'type', 'customer_type'],
-      transform: (value) => {
-        if (!value) return null;
-        const str = String(value).trim().toLowerCase();
-        if (str === '개인' || str === 'personal') return 'personal';
-        if (str === '법인' || str === 'corporate') return 'corporate';
-        return null;
-      },
+      transform: normalizeContactType,
     },
   ],
 };

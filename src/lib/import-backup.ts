@@ -51,9 +51,9 @@ export async function backupImportFileToDrive(params: {
       supportsAllDrives: true,
     });
 
-    logger.info(`[importBackup] ${orgName}/${target} 백업 완료: ${fileName}`);
+    logger.log(`[importBackup] ${orgName}/${target} 백업 완료: ${fileName}`);
   } catch (err) {
-    logger.error(`[importBackup] 백업 실패:`, err);
+    logger.error(`[importBackup] 백업 실패:`, { err: String(err) });
   }
 
   return null;

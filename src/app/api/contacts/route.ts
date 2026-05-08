@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     const tagParam = searchParams.get("tags");                      // 쉼표 구분 태그 필터
     const tags    = tagParam ? tagParam.split(",").map((t) => t.trim()).filter(Boolean) : [];
     const page    = parseInt(searchParams.get("page")  ?? "1");
-    const limit   = parseInt(searchParams.get("limit") ?? "30");
+    const safeLimit = Math.min(Number(searchParams.get("limit")) || 30, 200); // limit 상한 강제 (200건)
 
     const baseWhere = buildContactWhere(ctx, {
       ...(type ? { type } : {}),
@@ -35,10 +35,16 @@ export async function GET(req: Request) {
       prisma.contact.findMany({
         where: baseWhere,
         orderBy: { updatedAt: "desc" },
-        skip: (page - 1) * limit,
-        take: limit,
-        include: {
-          groups: { include: { group: { select: { id: true, name: true, color: true } } } },
+        skip: (page - 1) * safeLimit,
+        take: safeLimit,
+        select: {
+          id: true,
+          phone: true,
+          name: true,
+          email: true,
+          type: true,
+          cruiseInterest: true,
+          groups: { select: { id: true, groupId: true, group: { select: { id: true, name: true, color: true } } } },
           _count: { select: { callLogs: true } },
         },
       }),
@@ -93,7 +99,7 @@ export async function GET(req: Request) {
       };
     });
 
-    return NextResponse.json({ ok: true, contacts: contactsWithTransfer, total, page, limit });
+    return NextResponse.json({ ok: true, contacts: contactsWithTransfer, total, page, limit: safeLimit });
   } catch (err) {
     logger.error("[GET /api/contacts]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
@@ -145,6 +151,24 @@ export async function POST(req: Request) {
     });
 
     logger.log("[POST /api/contacts] 고객 생성", { id: contact.id });
+
+    // 퍼널 상태 자동 생성 (fire-and-forget)
+    prisma.contactFunnelState.upsert({
+      where: {
+        organizationId_contactId: {
+          organizationId: orgId,
+          contactId: contact.id,
+        },
+      },
+      update: {},
+      create: {
+        organizationId: orgId,
+        contactId: contact.id,
+        status: 'PENDING',
+      },
+    }).catch((err) => {
+      logger.error('[POST /api/contacts] 퍼널 상태 생성 실패', { err, contactId: contact.id });
+    });
 
     // 그룹 배정 시 퍼널 자동 시작 (fire-and-forget)
     if (groupIds?.length && contact.id) {

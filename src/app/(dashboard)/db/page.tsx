@@ -32,21 +32,21 @@ export default function DbPage() {
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // ── 통계 로드 ───────────────────────────────────────────────
+  // ── 통계 로드 (단일 /api/team/crm-stats 호출) ───────────────
   function loadStats(signal?: AbortSignal) {
-    fetch("/api/contacts?limit=1", signal ? { signal } : undefined)
+    fetch("/api/team/crm-stats", signal ? { signal } : undefined)
       .then((r) => r.json())
       .then((d) => {
-        if (d.ok) setStats({ total: d.total, leads: 0, customers: 0, optOut: 0 });
-      });
-    Promise.all([
-      fetch("/api/contacts?limit=1&type=LEAD", signal ? { signal } : undefined).then((r) => r.json()),
-      fetch("/api/contacts?limit=1&type=CUSTOMER", signal ? { signal } : undefined).then((r) => r.json()),
-    ]).then(([leads, customers]) => {
-      setStats((prev) =>
-        prev ? { ...prev, leads: leads.total ?? 0, customers: customers.total ?? 0 } : null
-      );
-    });
+        if (d.ok && d.summary) {
+          setStats({
+            total: d.summary.totalContacts ?? 0,
+            leads: d.summary.totalLeads ?? 0,
+            customers: d.summary.totalCustomers ?? 0,
+            optOut: 0,
+          });
+        }
+      })
+      .catch(() => { /* silent fail */ });
   }
 
   // ── 그룹 로드 (AbortController로 stale fetch 방지) ──────────
@@ -118,9 +118,7 @@ export default function DbPage() {
           errors:       data.errors,
         });
         // 통계 새로고침
-        fetch("/api/contacts?limit=1")
-          .then((r) => r.json())
-          .then((d) => setStats((prev) => prev ? { ...prev, total: d.total } : null));
+        loadStats();
       } else {
         setResult({ type: "err", text: data.message ?? "가져오기 실패" });
       }
@@ -147,24 +145,29 @@ export default function DbPage() {
 
   const handleExport = async () => {
     setExporting(true);
-    let params = "";
-    if (exportType.startsWith("type:")) {
-      params = `?type=${exportType.replace("type:", "").toUpperCase()}`;
-    } else if (exportType.startsWith("group:")) {
-      params = `?groupId=${exportType.replace("group:", "")}`;
-    }
-    const res = await fetch(`/api/contacts/export${params}`);
+    try {
+      let params = "";
+      if (exportType.startsWith("type:")) {
+        params = `?type=${exportType.replace("type:", "").toUpperCase()}`;
+      } else if (exportType.startsWith("group:")) {
+        params = `?groupId=${exportType.replace("group:", "")}`;
+      }
+      const res = await fetch(`/api/contacts/export${params}`);
 
-    if (res.ok) {
-      const blob     = await res.blob();
-      const url      = URL.createObjectURL(blob);
-      const a        = document.createElement("a");
-      a.href         = url;
-      a.download     = `고객목록_${new Date().toLocaleDateString("ko-KR").replace(/\./g, "")}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(url);
+      if (res.ok) {
+        const blob     = await res.blob();
+        const url      = URL.createObjectURL(blob);
+        const a        = document.createElement("a");
+        a.href         = url;
+        a.download     = `고객목록_${new Date().toLocaleDateString("ko-KR").replace(/\./g, "")}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error("Export failed:", error);
+    } finally {
+      setExporting(false);
     }
-    setExporting(false);
   };
 
   return (

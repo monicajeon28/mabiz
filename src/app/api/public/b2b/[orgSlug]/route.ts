@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { checkBotGuard } from "@/lib/bot-guard";
+import { checkOrigin } from "@/lib/origin-guard";
 
 type Params = { params: Promise<{ orgSlug: string }> };
 
@@ -12,6 +13,10 @@ type Params = { params: Promise<{ orgSlug: string }> };
  */
 export async function POST(req: Request, { params }: Params) {
   try {
+    if (!checkOrigin(req, 'B2BRegister')) {
+      return NextResponse.json({ ok: false, message: '허용되지 않은 요청입니다.' }, { status: 403 });
+    }
+
     const { orgSlug } = await params;
 
     // 조직 확인

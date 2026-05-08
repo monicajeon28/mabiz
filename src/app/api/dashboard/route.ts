@@ -1,4 +1,5 @@
-export const dynamic = 'force-dynamic';
+// ✅ 5분간 캐싱 (성능 향상)
+export const revalidate = 300;  // 5분 (seconds)
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';

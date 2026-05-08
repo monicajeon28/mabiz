@@ -12,16 +12,17 @@ import { logger } from '@/lib/logger';
  */
 export async function POST(
   req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
     if (ctx.role !== 'GLOBAL_ADMIN' && ctx.role !== 'OWNER') {
       return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const saleId = parseInt(context.params.id);
+    const saleId = parseInt(params.id);
     if (!saleId || isNaN(saleId)) {
       return NextResponse.json({ ok: false, error: '유효하지 않은 ID' }, { status: 400 });
     }

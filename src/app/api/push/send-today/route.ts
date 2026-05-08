@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import webpush from 'web-push';
@@ -23,6 +24,11 @@ export async function POST(req: Request) {
     const ctx = await getAuthContext();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
 
+    // organizationId 필수 (GLOBAL_ADMIN 제외)
+    if (!ctx.organizationId && ctx.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json({ ok: false, error: 'organizationId 필수' }, { status: 400 });
+    }
+
     if (!vapidPublicKey || !vapidPrivateKey) {
       return NextResponse.json(
         { ok: false, error: '푸시 알림이 설정되지 않았습니다' },
@@ -41,7 +47,7 @@ export async function POST(req: Request) {
 
     // 오늘 콜 예정 건수 조회
     const callDueRows = await prisma.$queryRaw<{ count: bigint }[]>(
-      `
+      Prisma.sql`
       SELECT COUNT(*)::bigint AS count FROM "CallLog"
       WHERE "userId" = ${ctx.userId}
         AND ("scheduledAt"::date) = (NOW() AT TIME ZONE 'Asia/Seoul')::date
@@ -89,14 +95,32 @@ export async function POST(req: Request) {
         })
     );
 
-    await Promise.allSettled(sendPromises);
+    const results = await Promise.allSettled(sendPromises);
 
-    logger.log('[POST /api/push/send-today]', { userId: ctx.userId, callDueCount, sentTo: subscriptions.length });
+    // 발송 결과 집계
+    const successCount = results.filter(r => r.status === 'fulfilled').length;
+    const failureCount = results.filter(r => r.status === 'rejected').length;
+
+    logger.log('[POST /api/push/send-today]', { userId: ctx.userId, callDueCount, sentTo: subscriptions.length, successCount, failureCount });
+
+    // PushLog 저장 (fire-and-forget)
+    (async () => {
+      try {
+        await prisma.$executeRaw(Prisma.sql`
+          INSERT INTO "PushLog" ("organizationId", "subscriptionCount", "successCount", "failureCount", "createdAt")
+          VALUES (${ctx.organizationId}, ${subscriptions.length}, ${successCount}, ${failureCount}, NOW())
+        `);
+      } catch (err) {
+        logger.error('[push/send-today] PushLog 저장 실패', { err });
+      }
+    })();
 
     return NextResponse.json({
       ok: true,
       callDueCount,
       sentTo: subscriptions.length,
+      successCount,
+      failureCount,
     });
   } catch (err) {
     logger.error('[POST /api/push/send-today]', { err });

@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
+import { enqueueDLQ } from "@/lib/mabiz-dlq";
 import { NextResponse } from "next/server";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
 
@@ -167,6 +168,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err) {
     logger.error("[PayApp Webhook] 처리 실패", { err });
+    await enqueueDLQ("payapp", { body: "form-data" }, err instanceof Error ? err.message : String(err)).catch(() => {});
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }

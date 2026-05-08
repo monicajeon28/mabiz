@@ -14,13 +14,14 @@ const SLUG_RE = /^[a-z0-9-]{3,50}$/;
  */
 export async function GET(
   _req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
 
-    const profileId = parseInt(context.params.id);
+    const profileId = parseInt(params.id);
     if (isNaN(profileId) || profileId <= 0) {
       return NextResponse.json({ ok: false, error: '유효하지 않은 ID' }, { status: 400 });
     }
@@ -67,16 +68,17 @@ export async function GET(
  */
 export async function PATCH(
   req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
     if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false, error: '권한 없음' }, { status: 403 });
     }
 
-    const profileId = parseInt(context.params.id);
+    const profileId = parseInt(params.id);
     if (isNaN(profileId) || profileId <= 0) {
       return NextResponse.json({ ok: false, error: '유효하지 않은 ID' }, { status: 400 });
     }
@@ -91,6 +93,7 @@ export async function PATCH(
 
     let slug: string;
     try {
+    const params = await context.params;
       const body = await req.json() as { slug?: unknown };
       if (typeof body.slug !== 'string') {
         return NextResponse.json({ ok: false, error: 'slug 값이 필요합니다.' }, { status: 400 });

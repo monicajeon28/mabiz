@@ -54,7 +54,7 @@ function slugify(name: string): string {
 }
 
 async function uniqueSlug(base: string): Promise<string> {
-  let slug = base || 'org';
+  let slug = base ?? 'org';
   let attempt = 0;
   while (attempt < 10) {
     const exists = await prisma.organization.findUnique({ where: { slug } });

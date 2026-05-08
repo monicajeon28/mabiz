@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { enqueueDLQ } from '@/lib/mabiz-dlq';
 
 export async function POST(req: Request) {
   // Bearer 토큰 인증
@@ -46,6 +47,7 @@ export async function POST(req: Request) {
     }
   } catch (err) {
     logger.error('[NewsSync] DB 처리 실패', { action: body.action, shortCode: body.shortCode, err });
+    await enqueueDLQ('news-sync', body, err instanceof Error ? err.message : String(err)).catch(() => {});
     return NextResponse.json({ ok: false, message: 'DB 처리 중 오류가 발생했습니다' }, { status: 500 });
   }
 

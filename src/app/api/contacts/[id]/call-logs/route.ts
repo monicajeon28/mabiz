@@ -14,16 +14,41 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, { params }: Params) {
   try {
     const orgId = await getOrgId();
+    const ctx = await getAuthContext();
     const { id } = await params;
 
     const contact = await prisma.contact.findFirst({ where: { id, organizationId: orgId } });
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
 
+    // 역할별 필터링
+    let whereClause: any = { contactId: id };
+    if (ctx.role === 'AGENT') {
+      // 판매원은 자신이 만든 콜기록만 봄
+      whereClause.userId = ctx.userId;
+    }
+    // OWNER/GLOBAL_ADMIN은 contactId 필터만으로 OK (조직/전체 콜 모두 볼 수 있음)
+
+    // 페이지 파라미터 추출 (기본값: page=1)
+    const pageParam = new URL(_req.url).searchParams.get('page') ?? '1';
+    const page = Math.max(1, parseInt(pageParam, 10) || 1);
+    const pageSize = 20;  // 한 페이지에 20개씩
+    const skip = (page - 1) * pageSize;
+
     const logs = await prisma.callLog.findMany({
-      where: { contactId: id },
+      where: whereClause,
       orderBy: { createdAt: "desc" },
+      take: pageSize,
+      skip: skip,
     });
-    return NextResponse.json({ ok: true, logs });
+
+    // 전체 개수도 함께 반환 (프론트에서 페이지 정보 표시용)
+    const total = await prisma.callLog.count({ where: whereClause });
+
+    return NextResponse.json({
+      ok: true,
+      logs,
+      pagination: { page, pageSize, total, pages: Math.ceil(total / pageSize) }
+    });
   } catch (err) {
     logger.error("[GET call-logs]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
@@ -51,6 +76,53 @@ export async function DELETE(req: Request, { params }: Params) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     logger.error("[DELETE call-logs]", { err });
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+}
+
+// PUT /api/contacts/[id]/call-logs?logId=xxx (수정)
+export async function PUT(req: Request, { params }: Params) {
+  try {
+    const orgId = await getOrgId();
+    const ctx = await getAuthContext();
+    const { id } = await params;
+    const { searchParams } = new URL(req.url);
+    const logId = searchParams.get("logId");
+
+    if (!logId) return NextResponse.json({ ok: false, message: "logId 필수" }, { status: 400 });
+
+    const contact = await prisma.contact.findFirst({ where: { id, organizationId: orgId } });
+    if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
+
+    // 기존 콜 기록 확인
+    const existingLog = await prisma.callLog.findFirst({ where: { id: logId, contactId: id } });
+    if (!existingLog) return NextResponse.json({ ok: false }, { status: 404 });
+
+    // AGENT는 자신의 콜 기록만 수정 가능
+    if (ctx.role === 'AGENT' && existingLog.userId !== ctx.userId) {
+      return NextResponse.json({ ok: false }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const { content, result, duration, convictionScore, nextAction, scheduledAt } = body;
+
+    // 수정
+    const updatedLog = await prisma.callLog.update({
+      where: { id: logId },
+      data: {
+        content: content ?? existingLog.content,
+        result: result ?? existingLog.result,
+        duration: duration ? parseInt(duration) : existingLog.duration,
+        convictionScore: convictionScore ? parseInt(convictionScore) : existingLog.convictionScore,
+        nextAction: nextAction ?? existingLog.nextAction,
+        scheduledAt: scheduledAt ? new Date(scheduledAt) : existingLog.scheduledAt,
+      },
+    });
+
+    logger.log('[PUT call-logs] 수정 완료', { logId, contactId: id, updatedBy: ctx.userId });
+    return NextResponse.json({ ok: true, log: updatedLog }, { status: 200 });
+  } catch (err) {
+    logger.error("[PUT call-logs]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
@@ -102,9 +174,8 @@ export async function POST(req: Request, { params }: Params) {
       addLeadScore(id, scoreMap[result]).catch(() => {});
     }
 
-    // ★ Google Drive 자동 백업 (fire-and-forget — 실패해도 응답에 영향 없음)
+    // ★ Google Drive 자동 백업 (BackupJob 큐에 등록)
     if (session && process.env.GOOGLE_DRIVE_CALL_LOG_FOLDER_ID) {
-      // GLOBAL_ADMIN은 "admin" prefix + GA displayName, 일반 멤버는 memberId + displayName
       let userId: string;
       let displayName: string;
       if (ctx.role === 'GLOBAL_ADMIN') {
@@ -119,23 +190,20 @@ export async function POST(req: Request, { params }: Params) {
         displayName = ctx.member?.displayName ?? userId;
       }
 
-      // 전체 콜 기록 (새로 저장된 것 포함) 가져와서 백업
-      prisma.callLog.findMany({
-        where:   { contactId: id },
-        orderBy: { createdAt: 'desc' },
-        select: { createdAt: true, result: true, convictionScore: true, content: true, nextAction: true },
-      }).then(allLogs => {
-        return backupCallLogsToGoogleDrive({
-          userId,
-          displayName,
-          customerName:  contact.name,
-          customerPhone: contact.phone,
-          callLogs: allLogs,
-        });
-      }).then(({ fileId }) => {
-        logger.log('[CallLog] Drive 자동 백업 완료', { contactId: id, fileId });
+      // ✅ BackupJob에 등록 (바로 백업하지 않고, 크론이 나중에 처리)
+      await prisma.backupJob.create({
+        data: {
+          type: 'CALL_LOG',
+          targetId: id,
+          payload: {
+            userId,
+            displayName,
+            customerName: contact.name,
+            customerPhone: contact.phone,
+          },
+        },
       }).catch(err => {
-        logger.error('[CallLog] Drive 자동 백업 실패 (무시)', { err });
+        logger.error('[CallLog] BackupJob 등록 실패', { err });
       });
     }
 

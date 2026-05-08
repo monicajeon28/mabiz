@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { enqueueDLQ } from '@/lib/mabiz-dlq';
 
 /**
  * POST /api/webhooks/cruise-purchase
@@ -212,6 +213,7 @@ export async function POST(req: NextRequest) {
 
   } catch (err) {
     logger.error('[CruisePurchaseWebhook] 처리 실패', { err, orderId });
+    await enqueueDLQ('cruise-purchase', body, err instanceof Error ? err.message : String(err)).catch(() => {});
     return NextResponse.json({ ok: false, message: '처리 실패' }, { status: 500 });
   }
 }

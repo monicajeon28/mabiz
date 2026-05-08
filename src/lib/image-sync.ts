@@ -20,8 +20,10 @@ export async function uploadImageToDrive(params: {
   mimeType: string;
   category?: string;
   tags?: string[];
+  width?: number;
+  height?: number;
 }) {
-  const { organizationId, userId, orgName, buffer, fileName, mimeType, category, tags } = params;
+  const { organizationId, userId, orgName, buffer, fileName, mimeType, category, tags, width, height } = params;
 
   try {
     const drive = getDriveClient();
@@ -66,6 +68,8 @@ export async function uploadImageToDrive(params: {
         drivePath: categoryFolder,
         mimeType,
         fileSize: BigInt(buffer.length),
+        width: width || null,
+        height: height || null,
         category: category || 'Other',
         tags: tags || [],
         uploadedBy: userId,
@@ -121,30 +125,40 @@ export async function syncDriveFolder(params: {
     const upserted = [];
 
     for (const file of files) {
-      const asset = await prisma.imageAsset.upsert({
-        where: {
-          organizationId_driveFileId: {
-            organizationId,
-            driveFileId: file.id!,
+      try {
+        const asset = await prisma.imageAsset.upsert({
+          where: {
+            organizationId_driveFileId: {
+              organizationId,
+              driveFileId: file.id!,
+            },
           },
-        },
-        create: {
-          organizationId,
-          originalFileName: file.name!,
-          driveFileId: file.id!,
-          drivePath: categoryFolder,
-          mimeType: file.mimeType || undefined,
-          fileSize: file.size ? BigInt(file.size) : null,
-          category,
-          tags: [],
-          uploadedBy: 'system',
-        },
-        update: {
-          lastAccessedAt: new Date(),
-        },
-      });
+          create: {
+            organizationId,
+            originalFileName: file.name!,
+            driveFileId: file.id!,
+            drivePath: categoryFolder,
+            mimeType: file.mimeType || undefined,
+            fileSize: file.size ? BigInt(file.size) : null,
+            width: null,
+            height: null,
+            category,
+            tags: [],
+            uploadedBy: 'system',
+          },
+          update: {
+            lastAccessedAt: new Date(),
+          },
+        });
 
-      upserted.push(asset);
+        upserted.push(asset);
+      } catch (err) {
+        logger.warn('[image-sync] 개별 파일 동기화 실패', {
+          fileName: file.name,
+          driveFileId: file.id,
+          err,
+        });
+      }
     }
 
     logger.info('[image-sync] 폴더 동기화 완료', {

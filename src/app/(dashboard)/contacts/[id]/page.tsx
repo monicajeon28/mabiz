@@ -104,7 +104,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
   // 콜 기록 폼
   const [showCallForm, setShowCallForm]   = useState(false);
-  const [callForm, setCallForm]           = useState({ content: "", result: "INTERESTED", convictionScore: "5", nextAction: "" });
+  const [callForm, setCallForm]           = useState({ content: "", result: "INTERESTED", convictionScore: "5", nextAction: "", scheduledAt: "" });
 
   // 메모 폼
   const [showMemoForm, setShowMemoForm]   = useState(false);
@@ -296,7 +296,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     if (data.ok) {
       setContact((c) => c ? { ...c, callLogs: [data.log, ...c.callLogs] } : c);
       setShowCallForm(false);
-      setCallForm({ content: "", result: "INTERESTED", convictionScore: "5", nextAction: "" });
+      setCallForm({ content: "", result: "INTERESTED", convictionScore: "5", nextAction: "", scheduledAt: "" });
     }
   };
 
@@ -1229,6 +1229,13 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                 placeholder="다음 액션"
                 value={callForm.nextAction}
                 onChange={(e) => setCallForm({ ...callForm, nextAction: e.target.value })}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
+              />
+              <input
+                type="datetime-local"
+                placeholder="다음 콜 날짜"
+                value={callForm.scheduledAt}
+                onChange={(e) => setCallForm({ ...callForm, scheduledAt: e.target.value })}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
               />
               <div className="flex gap-2">

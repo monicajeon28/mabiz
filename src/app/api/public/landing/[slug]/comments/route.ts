@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
+import { checkOrigin } from "@/lib/origin-guard";
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -34,6 +35,10 @@ export async function GET(_req: Request, { params }: Params) {
 // POST /api/public/landing/[slug]/comments — 방문자 댓글 작성 (인증 불필요)
 export async function POST(req: Request, { params }: Params) {
   try {
+    if (!checkOrigin(req, 'LandingComment')) {
+      return NextResponse.json({ ok: false, message: '허용되지 않은 요청입니다.' }, { status: 403 });
+    }
+
     const { slug } = await params;
 
     const page = await prisma.crmLandingPage.findFirst({
