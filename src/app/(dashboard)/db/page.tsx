@@ -21,6 +21,7 @@ export default function DbPage() {
   const [errorsOpen,   setErrorsOpen]   = useState(false);
   const [importHint,   setImportHint]   = useState("처리 중...");
   const [rowEstimate,  setRowEstimate]  = useState<number | null>(null);
+  const [dragActive,   setDragActive]   = useState(false);
   const [result,       setResult]       = useState<{
     type: "ok" | "err";
     text: string;
@@ -139,6 +140,38 @@ export default function DbPage() {
         setImportHint(`⚠️ 약 ${estimate.toLocaleString()}행으로 추정됩니다. 1000행 초과이므로 파일을 나누어 업로드하세요.`);
       } else {
         setImportHint("처리 중...");
+      }
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+
+      // file input에 반영
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      if (fileRef.current) {
+        fileRef.current.files = dataTransfer.files;
+        handleFileSelect({ target: { files: dataTransfer.files } } as any);
+        handleImportNew({ target: { files: dataTransfer.files } } as any as React.ChangeEvent<HTMLInputElement>);
       }
     }
   };
@@ -264,9 +297,18 @@ export default function DbPage() {
           </div>
         </div>
 
-        <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
-          importing ? "border-gray-200 bg-gray-50" : "border-gray-300 hover:border-gold-400 hover:bg-gold-50/30"
-        }`}>
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
+            dragActive
+              ? "border-blue-500 bg-blue-50"
+              : importing
+              ? "border-gray-200 bg-gray-50"
+              : "border-gray-300 hover:border-gold-400 hover:bg-gold-50/30"
+          }`}
+        >
           {importing ? (
             <div className="flex items-center gap-2 text-gray-500">
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -282,18 +324,20 @@ export default function DbPage() {
               )}
             </div>
           )}
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={(e) => {
-              handleFileSelect(e);
-              handleImportNew(e);
-            }}
-            disabled={importing}
-            className="hidden"
-          />
-        </label>
+          <label className="absolute inset-0 flex items-center justify-center cursor-pointer">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={(e) => {
+                handleFileSelect(e);
+                handleImportNew(e);
+              }}
+              disabled={importing}
+              className="hidden"
+            />
+          </label>
+        </div>
       </div>
 
       {/* 내보내기 */}

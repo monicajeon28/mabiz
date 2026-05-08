@@ -17,7 +17,7 @@ export async function GET() {
       if (!firstOrg) return NextResponse.json({ ok: true, groups: [] });
       orgId = firstOrg.id;
     } else {
-      return NextResponse.json({ ok: false }, { status: 403 });
+      return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '이 작업을 수행할 권한이 없습니다' }, { status: 403 });
     }
 
     // 내 그룹(ownerId === ctx.userId) + 조직 공유 그룹(ownerId === null) 만 반환
@@ -75,13 +75,19 @@ export async function POST(req: Request) {
       if (!firstOrg) return NextResponse.json({ ok: false, error: '조직이 없습니다.' }, { status: 500 });
       orgId = firstOrg.id;
     } else {
-      return NextResponse.json({ ok: false, error: '조직 정보가 없습니다.' }, { status: 403 });
+      return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '조직 정보가 없습니다' }, { status: 403 });
     }
 
     const { name, description, color, funnelId } = await req.json();
 
     if (!name?.trim()) {
       return NextResponse.json({ ok: false, message: "그룹 이름은 필수입니다." }, { status: 400 });
+    }
+    if (name.length > 100) {
+      return NextResponse.json({ ok: false, message: "그룹 이름은 100자 이하여야 합니다." }, { status: 400 });
+    }
+    if (color && !/^#[0-9a-fA-F]{6}$/.test(color)) {
+      return NextResponse.json({ ok: false, message: "color는 #RRGGBB 형식이어야 합니다." }, { status: 400 });
     }
 
     const group = await prisma.contactGroup.create({

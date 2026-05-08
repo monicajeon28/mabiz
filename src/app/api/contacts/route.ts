@@ -15,7 +15,9 @@ export async function GET(req: Request) {
     const groupId = searchParams.get("groupId");
     const tagParam = searchParams.get("tags");                      // 쉼표 구분 태그 필터
     const tags    = tagParam ? tagParam.split(",").map((t) => t.trim()).filter(Boolean) : [];
-    const page    = parseInt(searchParams.get("page")  ?? "1");
+    const cursor  = searchParams.get("cursor");                     // cursor 기반 페이지네이션
+    const rawPage = parseInt(searchParams.get("page") ?? "1", 10);
+    const page    = Number.isNaN(rawPage) ? 1 : Math.max(1, rawPage);
     const safeLimit = Math.min(Number(searchParams.get("limit")) || 30, 200); // limit 상한 강제 (200건)
 
     const baseWhere = buildContactWhere(ctx, {
@@ -31,12 +33,25 @@ export async function GET(req: Request) {
       ...(tags.length > 0 ? { tags: { hasEvery: tags } } : {}),
     });
 
+    // cursor 기반 페이지네이션 또는 offset 기반 페이지네이션
+    let where = baseWhere;
+    let skip = 0;
+    let take = safeLimit + 1;  // hasMore 판단용 +1
+
+    if (cursor) {
+      skip = 1;  // cursor 항목 제외
+      where = { ...baseWhere, id: { gt: cursor } };  // id > cursor
+    } else {
+      take = safeLimit;  // offset 방식일 때는 +1 안 함
+      skip = (page - 1) * safeLimit;
+    }
+
     const [contacts, total] = await Promise.all([
       prisma.contact.findMany({
-        where: baseWhere,
-        orderBy: { updatedAt: "desc" },
-        skip: (page - 1) * safeLimit,
-        take: safeLimit,
+        where: cursor ? where : baseWhere,
+        orderBy: { id: "asc" },
+        skip: skip,
+        take: cursor ? take : safeLimit,
         select: {
           id: true,
           phone: true,
@@ -51,11 +66,24 @@ export async function GET(req: Request) {
       prisma.contact.count({ where: baseWhere }),
     ]);
 
+    // cursor 기반일 때 +1 제거
+    let returnedContacts = contacts;
+    let nextCursor: string | null = null;
+    let hasMore = false;
+
+    if (cursor) {
+      if (contacts.length > safeLimit) {
+        hasMore = true;
+        nextCursor = contacts[safeLimit]?.id || null;
+        returnedContacts = contacts.slice(0, safeLimit);
+      }
+    }
+
     // AGENT 역할이면 개인정보 마스킹
-    const masked = contacts.map((c) => maskContactInfo(c, ctx));
+    const masked = returnedContacts.map((c) => maskContactInfo(c, ctx));
 
     // ── 전달 이력 배치 조회 (N+1 없이) ──────────────────────────
-    const contactIds = contacts.map((c) => c.id);
+    const contactIds = returnedContacts.map((c) => c.id);
     const rawLogs = contactIds.length > 0
       ? await prisma.contactTransferLog.findMany({
           where:   { contactId: { in: contactIds } },
@@ -98,6 +126,11 @@ export async function GET(req: Request) {
           : null,
       };
     });
+
+    // cursor 기반이면 cursor 응답, 아니면 offset 응답
+    if (cursor) {
+      return NextResponse.json({ ok: true, data: contactsWithTransfer, nextCursor, hasMore, limit: safeLimit });
+    }
 
     return NextResponse.json({ ok: true, contacts: contactsWithTransfer, total, page, limit: safeLimit });
   } catch (err) {

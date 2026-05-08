@@ -60,6 +60,7 @@ export async function GET(_req: Request, { params }: Params) {
 export async function DELETE(req: Request, { params }: Params) {
   try {
     const orgId = await getOrgId();
+    const ctx = await getAuthContext();
     const { id } = await params;
     const { searchParams } = new URL(req.url);
     const logId = searchParams.get("logId");
@@ -67,10 +68,16 @@ export async function DELETE(req: Request, { params }: Params) {
     const contact = await prisma.contact.findFirst({ where: { id, organizationId: orgId } });
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
 
+    // AGENT는 자신의 콜로그만 삭제 가능
+    const deleteWhere: any = { contactId: id };
+    if (ctx.role === 'AGENT') {
+      deleteWhere.userId = ctx.userId;
+    }
+
     if (logId) {
-      await prisma.callLog.deleteMany({ where: { id: logId, contactId: id } });
+      await prisma.callLog.deleteMany({ where: { ...deleteWhere, id: logId } });
     } else {
-      await prisma.callLog.deleteMany({ where: { contactId: id } });
+      await prisma.callLog.deleteMany({ where: deleteWhere });
     }
 
     return NextResponse.json({ ok: true });
@@ -100,7 +107,7 @@ export async function PUT(req: Request, { params }: Params) {
 
     // AGENT는 자신의 콜 기록만 수정 가능
     if (ctx.role === 'AGENT' && existingLog.userId !== ctx.userId) {
-      return NextResponse.json({ ok: false }, { status: 403 });
+      return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '다른 사용자의 콜기록은 수정할 수 없습니다' }, { status: 403 });
     }
 
     const body = await req.json();

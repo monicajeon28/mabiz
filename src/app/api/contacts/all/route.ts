@@ -8,15 +8,17 @@ export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
     if (ctx.role !== 'GLOBAL_ADMIN') {
-      return NextResponse.json({ ok: false }, { status: 403 });
+      return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: 'GLOBAL_ADMIN만 접근 가능합니다' }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
     const q     = searchParams.get('q') ?? '';
     const type  = searchParams.get('type') ?? '';
     const orgId = searchParams.get('orgId') ?? '';
-    const page  = parseInt(searchParams.get('page') ?? '1');
-    const limit = parseInt(searchParams.get('limit') ?? '30');
+    const rawPage = parseInt(searchParams.get('page') ?? '1', 10);
+    const page  = Number.isNaN(rawPage) ? 1 : Math.max(1, rawPage);
+    const rawLimit = parseInt(searchParams.get('limit') ?? '30', 10);
+    const limit = Number.isNaN(rawLimit) ? 30 : Math.min(Math.max(1, rawLimit), 200);
 
     const where = {
       ...(orgId ? { organizationId: orgId } : {}),

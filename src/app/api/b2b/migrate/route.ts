@@ -158,7 +158,76 @@ export async function POST() {
     await prisma.$executeRaw(Prisma.sql`CREATE INDEX IF NOT EXISTS "ImageAsset_org_tags_idx" ON "ImageAsset" USING GIN("organizationId", tags)`);
     await prisma.$executeRaw(Prisma.sql`CREATE INDEX IF NOT EXISTS "ImageAsset_uploadedAt_idx" ON "ImageAsset"("uploadedAt" DESC)`);
 
-    return NextResponse.json({ ok: true, message: '마이그레이션 완료 (Partner + ImageAsset 테이블 추가)' });
+    // ─── 일반 문서 승인 시스템 (TASK-024) ──────────────────────────
+    // 1. Document 테이블 생성 (기본 문서 정보)
+    await prisma.$executeRaw(Prisma.sql`
+      CREATE TABLE IF NOT EXISTS "Document" (
+        id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        "organizationId" TEXT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,
+        "contactId" TEXT REFERENCES "Contact"(id) ON DELETE CASCADE,
+
+        title TEXT NOT NULL,
+        description TEXT,
+        category TEXT,
+        status TEXT NOT NULL DEFAULT 'DRAFT',
+
+        "driveFileId" TEXT,
+        "fileSize" BIGINT,
+        "mimeType" TEXT,
+
+        "createdBy" TEXT NOT NULL,
+        "updatedBy" TEXT,
+        "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+        CONSTRAINT "Document_org_title_unique" UNIQUE("organizationId", title)
+      )
+    `);
+
+    // Document 인덱스 생성
+    await prisma.$executeRaw(Prisma.sql`CREATE INDEX IF NOT EXISTS "Document_org_status_idx" ON "Document"("organizationId", status)`);
+    await prisma.$executeRaw(Prisma.sql`CREATE INDEX IF NOT EXISTS "Document_org_category_idx" ON "Document"("organizationId", category)`);
+
+    // 2. DocumentVersion 테이블 생성 (버전 관리)
+    await prisma.$executeRaw(Prisma.sql`
+      CREATE TABLE IF NOT EXISTS "DocumentVersion" (
+        id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        "documentId" TEXT NOT NULL REFERENCES "Document"(id) ON DELETE CASCADE,
+
+        "versionNumber" INTEGER NOT NULL,
+        "driveFileId" TEXT NOT NULL,
+        description TEXT,
+
+        "uploadedBy" TEXT NOT NULL,
+        "uploadedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+        CONSTRAINT "DocumentVersion_doc_version_unique" UNIQUE("documentId", "versionNumber")
+      )
+    `);
+
+    // DocumentVersion 인덱스 생성
+    await prisma.$executeRaw(Prisma.sql`CREATE INDEX IF NOT EXISTS "DocumentVersion_doc_idx" ON "DocumentVersion"("documentId", "versionNumber" DESC)`);
+
+    // 3. DocumentApproval 테이블 생성 (승인 이력)
+    await prisma.$executeRaw(Prisma.sql`
+      CREATE TABLE IF NOT EXISTS "DocumentApproval" (
+        id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        "documentId" TEXT NOT NULL REFERENCES "Document"(id) ON DELETE CASCADE,
+
+        "approvedBy" TEXT NOT NULL,
+        status TEXT NOT NULL,
+        comment TEXT,
+
+        "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+        CONSTRAINT "DocumentApproval_doc_approver_unique" UNIQUE("documentId", "approvedBy")
+      )
+    `);
+
+    // DocumentApproval 인덱스 생성
+    await prisma.$executeRaw(Prisma.sql`CREATE INDEX IF NOT EXISTS "DocumentApproval_doc_idx" ON "DocumentApproval"("documentId")`);
+
+    return NextResponse.json({ ok: true, message: '마이그레이션 완료 (Document + DocumentVersion + DocumentApproval 테이블 추가)' });
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
   }

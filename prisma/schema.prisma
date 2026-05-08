@@ -18,6 +18,7 @@ model Organization {
 
   members         OrganizationMember[]
   contacts        Contact[]
+  documents       Document[]
   contactGroups ContactGroup[]
   landingPages  CrmLandingPage[]
   funnels       Funnel[]
@@ -174,6 +175,7 @@ model Contact {
   shortLinks     ShortLink[]
   shortLinkClicks ShortLinkClick[]
   salesDocuments  SalesDocument[]
+  documents       Document[]
   funnelState    ContactFunnelState?
 
   createdAt      DateTime @default(now())
@@ -1075,4 +1077,82 @@ model ImageAsset {
   @@unique([organizationId, driveFileId])
   @@index([organizationId, category])
   @@map("ImageAsset")
+}
+
+// ─── Google Calendar OAuth 토큰 (사용자별) ───────────────────
+model GoogleCalendarToken {
+  id             String   @id @default(cuid())
+  userId         String   @unique  // OrganizationMember.userId
+  accessToken    String   @db.Text // 암호화 저장
+  refreshToken   String   @db.Text // 암호화 저장
+  expiresAt      DateTime           // access_token 만료 시각
+  calendarEmail  String?            // 연결된 Google 계정 이메일
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("GoogleCalendarToken")
+}
+
+// ─── 일반 문서 승인 시스템 (TASK-024) ─────────────────────────
+model Document {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Text
+  organizationId String
+  contactId String?
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  title String
+  description String?
+  category String?  // 계약, 영수증, 신원증명, 기타
+  status String @default("DRAFT")  // DRAFT|SUBMITTED|APPROVED|REJECTED|ARCHIVED
+
+  driveFileId String?
+  fileSize BigInt?
+  mimeType String?
+
+  createdBy String
+  updatedBy String?
+
+  versions DocumentVersion[]
+  approvals DocumentApproval[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, title])
+  @@index([organizationId, status])
+  @@index([organizationId, category])
+  @@map("Document")
+}
+
+model DocumentVersion {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Text
+  documentId String
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  versionNumber Int
+  driveFileId String
+  description String?
+  uploadedBy String
+  uploadedAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([documentId, versionNumber])
+  @@index([documentId, versionNumber(sort: Desc)])
+  @@map("DocumentVersion")
+}
+
+model DocumentApproval {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Text
+  documentId String
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  approvedBy String
+  status String  // APPROVED|REJECTED|PENDING
+  comment String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([documentId, approvedBy])
+  @@index([documentId])
+  @@map("DocumentApproval")
 }

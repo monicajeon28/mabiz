@@ -33,7 +33,7 @@ export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
     if (ctx.role === 'FREE_SALES' || ctx.role === 'AGENT') {
-      return NextResponse.json({ ok: false, message: '접근 권한 없음' }, { status: 403 });
+      return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '이 작업을 수행할 권한이 없습니다' }, { status: 403 });
     }
     const orgId = ctx.role === 'GLOBAL_ADMIN' ? undefined : requireOrgId(ctx);
 
@@ -41,7 +41,8 @@ export async function GET(req: Request) {
     const eduType = searchParams.get('eduType') ?? undefined;
     const status  = searchParams.get('status')  ?? undefined;
     const q       = searchParams.get('q')?.trim() ?? undefined;
-    const page    = Math.max(1, parseInt(searchParams.get('page') ?? '1'));
+    const rawPage = parseInt(searchParams.get('page') ?? '1', 10);
+    const page    = Number.isNaN(rawPage) ? 1 : Math.max(1, rawPage);
     const limit   = 30;
     const offset  = (page - 1) * limit;
 
@@ -97,7 +98,7 @@ export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
     if (ctx.role === 'FREE_SALES' || ctx.role === 'AGENT') {
-      return NextResponse.json({ ok: false, message: '접근 권한 없음' }, { status: 403 });
+      return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '이 작업을 수행할 권한이 없습니다' }, { status: 403 });
     }
     const orgId = requireOrgId(ctx);
 

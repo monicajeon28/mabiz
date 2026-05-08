@@ -9,6 +9,13 @@ function formatMessage(level: LogLevel, message: string, data?: object): string 
 const isServer = typeof process !== "undefined" && process.stdout != null;
 
 export const logger = {
+  info: (message: string, data?: object) => {
+    if (isServer) {
+      process.stdout.write(formatMessage("log", message, data) + "\n");
+    } else {
+      console.log(formatMessage("log", message, data));
+    }
+  },
   log: (message: string, data?: object) => {
     if (process.env.NODE_ENV !== "production") {
       if (isServer) {
