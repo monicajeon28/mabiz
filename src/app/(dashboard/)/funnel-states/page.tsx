@@ -1,10 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { logger } from '@/lib/logger';
 import type { FunnelState } from '@/lib/funnel-state-machine';
 import FunnelStateModal from '@/components/funnel/FunnelStateModal';
 

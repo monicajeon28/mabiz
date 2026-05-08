@@ -2,15 +2,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { logger } from '@/lib/logger';
 import {
   getStateLabel,
   getAvailableTransitions,
   type FunnelState,
 } from '@/lib/funnel-state-machine';
-import { toast } from 'sonner';
 
 interface FunnelStateModalProps {
   stateId: string;
@@ -62,14 +58,14 @@ export default function FunnelStateModal({
       return res.json();
     },
     onSuccess: (data) => {
-      toast.success(data.message || '상태가 변경되었습니다.');
+      alert(data.message || '상태가 변경되었습니다.');
       setSelectedState(null);
       setReason('');
       setNotes('');
       onClose();
     },
     onError: (err) => {
-      toast.error(err instanceof Error ? err.message : '상태 변경 실패');
+      alert(err instanceof Error ? err.message : '상태 변경 실패');
     },
   });
 
