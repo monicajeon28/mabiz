@@ -55,15 +55,15 @@ export async function processImageForLibrary(inputBuffer: Buffer): Promise<{
   width: number;
   height: number;
 }> {
-  const metadata = await sharp(inputBuffer).metadata();
-  const w = metadata.width || 800;
-  const h = metadata.height || 600;
+  // 워터마크 SVG 생성을 위해 원본 크기만 먼저 조회 (헤더만 읽음)
+  const { width: w = 800, height: h = 600 } = await sharp(inputBuffer).metadata();
   const watermarkSvg = getWatermarkSvg(w, h);
 
-  const webpBuffer = await sharp(inputBuffer)
+  // 합성 + WebP 변환을 한 파이프라인으로 실행, 출력 메타데이터도 함께 수집
+  const { data: webpBuffer, info } = await sharp(inputBuffer)
     .composite([{ input: watermarkSvg, gravity: 'center', blend: 'over' }])
     .webp({ quality: 85 })
-    .toBuffer();
+    .toBuffer({ resolveWithObject: true });
 
-  return { webpBuffer, width: w, height: h };
+  return { webpBuffer, width: info.width, height: info.height };
 }

@@ -23,13 +23,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, message: 'Unauthorized' }, { status: 401 });
   }
 
-  const limit = 20; // 1회 최대 처리 수
+  // 1회 최대 처리 수 (메모리 안전: 3개 동시 × 최대 100MB = 300MB)
+  const BATCH_LIMIT = 12;
+  const CONCURRENCY = 3;
   const results = { processed: 0, failed: 0, skipped: 0 };
 
   try {
     const pending = await prisma.imageAsset.findMany({
       where: { processingStatus: 'PENDING' },
-      take: limit,
+      take: BATCH_LIMIT,
       orderBy: { uploadedAt: 'asc' },
     });
 
@@ -38,17 +40,19 @@ export async function POST(req: Request) {
     }
 
     const drive = getDriveClient();
+    const { Readable } = await import('stream');
 
-    for (const asset of pending) {
+    /** 단일 asset 처리 */
+    const processAsset = async (asset: typeof pending[0]) => {
       try {
         // SVG는 워터마크 처리 스킵
         if (asset.mimeType === 'image/svg+xml') {
           await prisma.imageAsset.update({
-            where: { id: asset.id },
+            where: { id: asset.id, organizationId: asset.organizationId },
             data: { processingStatus: 'DONE', processedAt: new Date() },
           });
           results.skipped++;
-          continue;
+          return;
         }
 
         // 원본 파일 다운로드
@@ -64,16 +68,12 @@ export async function POST(req: Request) {
 
         // Drive에 WebP 파일 업로드 (원본과 같은 폴더)
         const webpFileName = asset.originalFileName.replace(/\.[^.]+$/, '') + '_wm.webp';
-        const { Readable } = await import('stream');
         const uploaded = await drive.files.create({
           requestBody: {
             name: webpFileName,
             parents: asset.drivePath ? [asset.drivePath] : [],
           },
-          media: {
-            mimeType: 'image/webp',
-            body: Readable.from(webpBuffer),
-          },
+          media: { mimeType: 'image/webp', body: Readable.from(webpBuffer) },
           fields: 'id',
           supportsAllDrives: true,
         });
@@ -81,14 +81,8 @@ export async function POST(req: Request) {
         const webpFileId = uploaded.data.id!;
 
         await prisma.imageAsset.update({
-          where: { id: asset.id },
-          data: {
-            webpDriveFileId: webpFileId,
-            processingStatus: 'DONE',
-            processedAt: new Date(),
-            width: width,
-            height: height,
-          },
+          where: { id: asset.id, organizationId: asset.organizationId },
+          data: { webpDriveFileId: webpFileId, processingStatus: 'DONE', processedAt: new Date(), width, height },
         });
 
         results.processed++;
@@ -101,6 +95,11 @@ export async function POST(req: Request) {
         });
         results.failed++;
       }
+    };
+
+    // CONCURRENCY 단위로 청크 분할 후 병렬 처리 (OOM 방지)
+    for (let i = 0; i < pending.length; i += CONCURRENCY) {
+      await Promise.all(pending.slice(i, i + CONCURRENCY).map(processAsset));
     }
 
     return NextResponse.json({ ok: true, results });

@@ -39,6 +39,13 @@ export function ImageLibraryModal({
   const [assets, setAssets] = useState<ImageAsset[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // 검색어 500ms 디바운스 (타이핑마다 API 호출 방지)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 500);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // 이미지 목록 조회
   const fetchAssets = async () => {
@@ -48,7 +55,7 @@ export function ImageLibraryModal({
       setIsLoading(true);
       const params = new URLSearchParams();
 
-      if (search) params.append('search', search);
+      if (debouncedSearch) params.append('search', debouncedSearch);
       if (category) params.append('category', category);
       params.append('limit', '100');
 
@@ -69,7 +76,7 @@ export function ImageLibraryModal({
     if (isOpen) {
       fetchAssets();
     }
-  }, [isOpen, search, category]);
+  }, [isOpen, debouncedSearch, category]);
 
   if (!isOpen) return null;
 

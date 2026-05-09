@@ -12,48 +12,32 @@ export async function GET(req: Request) {
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
 
-    // 전체 이미지 수
-    const totalImages = await prisma.imageAsset.count({
-      where: { organizationId: orgId },
-    });
+    // 5개 쿼리 병렬 실행 + aggregate로 전체 로드 제거
+    const [sizeResult, totalImages, byCategory, byMime, recentUploads] = await Promise.all([
+      prisma.imageAsset.aggregate({
+        where: { organizationId: orgId },
+        _sum: { fileSize: true },
+      }),
+      prisma.imageAsset.count({ where: { organizationId: orgId } }),
+      prisma.imageAsset.groupBy({
+        by: ['category'],
+        where: { organizationId: orgId },
+        _count: { id: true },
+      }),
+      prisma.imageAsset.groupBy({
+        by: ['mimeType'],
+        where: { organizationId: orgId },
+        _count: { id: true },
+      }),
+      prisma.imageAsset.findMany({
+        where: { organizationId: orgId },
+        orderBy: { uploadedAt: 'desc' },
+        take: 5,
+        select: { id: true, originalFileName: true, uploadedAt: true },
+      }),
+    ]);
 
-    // 전체 저장소 크기
-    const assets = await prisma.imageAsset.findMany({
-      where: { organizationId: orgId },
-      select: { fileSize: true },
-    });
-
-    const totalSize = assets.reduce((sum, a) => sum + Number(a.fileSize || 0), 0);
-
-    // 카테고리별 이미지 수
-    const byCategory = await prisma.imageAsset.groupBy({
-      by: ['category'],
-      where: { organizationId: orgId },
-      _count: {
-        id: true,
-      },
-    });
-
-    // MIME 타입별 이미지 수
-    const byMime = await prisma.imageAsset.groupBy({
-      by: ['mimeType'],
-      where: { organizationId: orgId },
-      _count: {
-        id: true,
-      },
-    });
-
-    // 최근 업로드 이미지
-    const recentUploads = await prisma.imageAsset.findMany({
-      where: { organizationId: orgId },
-      orderBy: { uploadedAt: 'desc' },
-      take: 5,
-      select: {
-        id: true,
-        originalFileName: true,
-        uploadedAt: true,
-      },
-    });
+    const totalSize = Number(sizeResult._sum.fileSize ?? 0);
 
     logger.info('[GET /api/images/stats] 통계 조회', {
       organizationId: orgId,
