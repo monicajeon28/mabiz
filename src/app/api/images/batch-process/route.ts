@@ -13,8 +13,13 @@ export const maxDuration = 300; // 5분
  */
 export async function POST(req: Request) {
   // Cron 호출 인증
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    logger.error('[batch-process] CRON_SECRET 환경변수 미설정');
+    return NextResponse.json({ ok: false, message: 'Server misconfiguration' }, { status: 500 });
+  }
   const authHeader = req.headers.get('Authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ ok: false, message: 'Unauthorized' }, { status: 401 });
   }
 
