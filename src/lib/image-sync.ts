@@ -4,6 +4,7 @@
  * - syncDriveFolder(): Drive 폴더 스캔 → DB 동기화 (배치)
  */
 
+import type { drive_v3 } from 'googleapis';
 import { getDriveClient, findOrCreateFolder } from '@/lib/drive-client';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
@@ -114,7 +115,7 @@ export async function syncDriveFolder(params: {
     }
 
     // nextPageToken 루프로 전체 파일 수집 (100개 제한 해제)
-    const allFiles: any[] = [];
+    const allFiles: drive_v3.Schema$File[] = [];
     let pageToken: string | undefined;
     do {
       const response = await drive.files.list({

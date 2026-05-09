@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     const tags    = tagParam ? tagParam.split(",").map((t) => t.trim()).filter(Boolean) : [];
     const cursor  = searchParams.get("cursor");                     // cursor 기반 페이지네이션
     const rawPage = parseInt(searchParams.get("page") ?? "1", 10);
-    const page    = Number.isNaN(rawPage) ? 1 : Math.max(1, rawPage);
+    const page    = Number.isNaN(rawPage) ? 1 : Math.min(Math.max(1, rawPage), 10000);
     const safeLimit = Math.min(Number(searchParams.get("limit")) || 30, 200); // limit 상한 강제 (200건)
 
     const baseWhere = buildContactWhere(ctx, {
@@ -164,6 +164,12 @@ export async function POST(req: Request) {
         { ok: false, message: "이름과 전화번호는 필수입니다." },
         { status: 400 }
       );
+    }
+    if (typeof name === 'string' && name.length > 100) {
+      return NextResponse.json({ ok: false, message: "이름은 100자 이하여야 합니다." }, { status: 400 });
+    }
+    if (typeof phone === 'string' && phone.length > 20) {
+      return NextResponse.json({ ok: false, message: "전화번호는 20자 이하여야 합니다." }, { status: 400 });
     }
 
     const contact = await prisma.contact.create({

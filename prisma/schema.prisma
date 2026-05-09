@@ -41,6 +41,7 @@ model Organization {
   adminMessages     AdminMessage[]
   partners          Partner[]
   imageAssets       ImageAsset[]
+  importLogs        ImportLog[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -1082,6 +1083,37 @@ model ImageAsset {
   @@unique([organizationId, driveFileId])
   @@index([organizationId, category])
   @@map("ImageAsset")
+}
+
+// ─── Import 이력 (b2b/migrate에서 생성, 고객 일괄 업로드 추적) ──
+model ImportLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  target         String   // 대상 (contacts, b2b 등)
+  totalRows      Int      @map("total_rows")
+  successfulRows Int      @map("successful_rows")
+  failedRows     Int      @map("failed_rows")
+  errors         String?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([target])
+  @@index([createdAt])
+  @@map("ImportLog")
+}
+
+// ─── 푸시 발송 이력 (웹 푸시 알림 발송 기록) ──────────────────
+model PushLog {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Text
+  organizationId    String
+  subscriptionCount Int
+  successCount      Int      @default(0)
+  failureCount      Int      @default(0)
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("PushLog")
 }
 
 // ─── Google Calendar OAuth 토큰 (사용자별) ───────────────────
