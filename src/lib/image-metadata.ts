@@ -114,7 +114,7 @@ function extractWebpDimensions(buffer: Buffer): { width: number; height: number 
     // VP8 청크에서 크기 추출 (프레임 태그 이후)
     if (buffer.subarray(vp8Index, vp8Index + 3).toString() === 'VP8 ') {
       const offset = vp8Index + 10;
-      const frameTag = buffer.readUInt24LE(offset);
+      const frameTag = buffer.readUIntLE(offset, 3);
       const width = ((frameTag >> 0) & 0x3fff) + 1;
       const height = ((frameTag >> 14) & 0x3fff) + 1;
       return { width, height };

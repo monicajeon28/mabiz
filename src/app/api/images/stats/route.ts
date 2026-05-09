@@ -23,7 +23,7 @@ export async function GET(req: Request) {
       select: { fileSize: true },
     });
 
-    const totalSize = assets.reduce((sum, a) => sum + (a.fileSize || 0n), 0n);
+    const totalSize = assets.reduce((sum, a) => sum + Number(a.fileSize || 0), 0);
 
     // 카테고리별 이미지 수
     const byCategory = await prisma.imageAsset.groupBy({

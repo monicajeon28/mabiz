@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
     const synced = await syncDriveFolder({
       organizationId: orgId,
-      orgName: ctx.organization?.name || orgId,
+      orgName: orgId,
       category,
     });
 

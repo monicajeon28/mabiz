@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
@@ -96,7 +97,7 @@ export async function POST(
       where: { id },
       data: {
         status: newState,
-        metadata: updatedMetadata,
+        metadata: updatedMetadata as unknown as Prisma.InputJsonValue,
         updatedAt: new Date(),
       },
       include: {

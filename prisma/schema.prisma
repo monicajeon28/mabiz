@@ -1072,6 +1072,11 @@ model ImageAsset {
   uploadedAt DateTime @default(now()) @db.Timestamptz(6)
   lastAccessedAt DateTime? @db.Timestamptz(6)
 
+  // 워터마크+WebP 처리 결과
+  webpDriveFileId  String?
+  processedAt      DateTime? @db.Timestamptz(6)
+  processingStatus String    @default("PENDING") // PENDING|DONE|FAILED
+
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, driveFileId])

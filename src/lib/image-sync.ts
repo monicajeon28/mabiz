@@ -96,35 +96,43 @@ export async function syncDriveFolder(params: {
   organizationId: string;
   orgName: string;
   category: string;
+  folderId?: string; // 직접 폴더 ID 지정 가능
 }) {
-  const { organizationId, orgName, category } = params;
+  const { organizationId, orgName, category, folderId } = params;
 
   try {
     const drive = getDriveClient();
 
-    const rootFolderId = process.env.GOOGLE_DRIVE_CRM_BACKUP_FOLDER_ID;
-    if (!rootFolderId) {
-      throw new Error('GOOGLE_DRIVE_CRM_BACKUP_FOLDER_ID 환경변수 미설정');
+    let targetFolderId = folderId;
+    if (!targetFolderId) {
+      const rootFolderId = process.env.GOOGLE_DRIVE_CRM_BACKUP_FOLDER_ID;
+      if (!rootFolderId) {
+        throw new Error('GOOGLE_DRIVE_CRM_BACKUP_FOLDER_ID 환경변수 미설정');
+      }
+      const orgFolder = await findOrCreateFolder(orgName, rootFolderId);
+      targetFolderId = await findOrCreateFolder(category, orgFolder);
     }
 
-    // 폴더 경로 탐색
-    const orgFolder = await findOrCreateFolder(orgName, rootFolderId);
-    const categoryFolder = await findOrCreateFolder(category, orgFolder);
+    // nextPageToken 루프로 전체 파일 수집 (100개 제한 해제)
+    const allFiles: any[] = [];
+    let pageToken: string | undefined;
+    do {
+      const response = await drive.files.list({
+        q: `'${targetFolderId}' in parents and mimeType contains 'image/' and not mimeType = 'image/svg+xml' and trashed=false`,
+        fields: 'nextPageToken, files(id, name, mimeType, size)',
+        corpora: 'allDrives',
+        includeItemsFromAllDrives: true,
+        pageSize: 100,
+        pageToken,
+        supportsAllDrives: true,
+      });
+      allFiles.push(...(response.data.files || []));
+      pageToken = response.data.nextPageToken ?? undefined;
+    } while (pageToken);
 
-    // 폴더 내 이미지 파일 목록 조회
-    const response = await drive.files.list({
-      q: `'${categoryFolder}' in parents and mimeType contains 'image/' and trashed=false`,
-      fields: 'files(id, name, mimeType, size, webViewLink)',
-      corpora: 'allDrives',
-      includeItemsFromAllDrives: true,
-      pageSize: 100,
-      supportsAllDrives: true,
-    });
-
-    const files = response.data.files || [];
     const upserted = [];
 
-    for (const file of files) {
+    for (const file of allFiles) {
       try {
         const asset = await prisma.imageAsset.upsert({
           where: {
@@ -137,7 +145,7 @@ export async function syncDriveFolder(params: {
             organizationId,
             originalFileName: file.name!,
             driveFileId: file.id!,
-            drivePath: categoryFolder,
+            drivePath: targetFolderId,
             mimeType: file.mimeType || undefined,
             fileSize: file.size ? BigInt(file.size) : null,
             width: null,
@@ -165,6 +173,7 @@ export async function syncDriveFolder(params: {
       organizationId,
       category,
       syncedCount: upserted.length,
+      totalScanned: allFiles.length,
     });
 
     return upserted;

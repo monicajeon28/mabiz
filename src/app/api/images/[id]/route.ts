@@ -10,14 +10,15 @@ import { logger } from '@/lib/logger';
  */
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
 
     const asset = await prisma.imageAsset.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!asset || asset.organizationId !== orgId) {
@@ -42,7 +43,7 @@ export async function GET(
         uploadedAt: asset.uploadedAt.toISOString(),
         uploadedBy: asset.uploadedBy,
         lastAccessedAt: asset.lastAccessedAt?.toISOString(),
-        thumbnailUrl: `https://drive.google.com/thumbnail?id=${asset.driveFileId}`,
+        thumbnailUrl: `https://drive.google.com/thumbnail?id=${asset.driveFileId}&sz=w400`,
         driveUrl: `https://drive.google.com/file/d/${asset.driveFileId}`,
       },
     });
@@ -61,15 +62,16 @@ export async function GET(
  */
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
     const { category, tags } = await req.json();
 
     const asset = await prisma.imageAsset.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!asset || asset.organizationId !== orgId) {
@@ -80,7 +82,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.imageAsset.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(category && { category }),
         ...(tags && { tags }),
@@ -89,7 +91,7 @@ export async function PATCH(
     });
 
     logger.info('[PATCH /api/images/[id]] 메타데이터 수정', {
-      assetId: params.id,
+      assetId: id,
       category,
       tagsCount: tags?.length,
     });
@@ -117,14 +119,15 @@ export async function PATCH(
  */
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
 
     const asset = await prisma.imageAsset.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!asset || asset.organizationId !== orgId) {
@@ -136,11 +139,11 @@ export async function DELETE(
 
     // DB에서만 삭제 (Drive 파일은 유지)
     await prisma.imageAsset.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     logger.info('[DELETE /api/images/[id]] 이미지 삭제', {
-      assetId: params.id,
+      assetId: id,
       driveFileId: asset.driveFileId,
     });
 

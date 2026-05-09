@@ -188,10 +188,7 @@ export async function POST(req: Request) {
     // 퍼널 상태 자동 생성 (fire-and-forget)
     prisma.contactFunnelState.upsert({
       where: {
-        organizationId_contactId: {
-          organizationId: orgId,
-          contactId: contact.id,
-        },
+        contactId: contact.id,
       },
       update: {},
       create: {

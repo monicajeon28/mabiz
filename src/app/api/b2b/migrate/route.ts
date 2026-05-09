@@ -15,8 +15,13 @@ export async function POST() {
     await prisma.$executeRaw(Prisma.sql`ALTER TABLE "CrmB2BProspect" ADD COLUMN IF NOT EXISTS "paymentDate" TEXT`);
     await prisma.$executeRaw(Prisma.sql`CREATE INDEX IF NOT EXISTS "CrmB2BProspect_eduType_idx" ON "CrmB2BProspect"("eduType")`);
 
-    // B2BProspect 유니크 제약 (organizationId + phone)
-    await prisma.$executeRaw(Prisma.sql`ALTER TABLE "CrmB2BProspect" ADD CONSTRAINT "CrmB2BProspect_organizationId_phone_key" UNIQUE ("organizationId", "phone") ON CONFLICT DO NOTHING`);
+    // B2BProspect 유니크 제약 (organizationId + phone) — 이미 존재하면 건너뜀
+    await prisma.$executeRaw(Prisma.sql`
+      DO $$ BEGIN
+        ALTER TABLE "CrmB2BProspect" ADD CONSTRAINT "CrmB2BProspect_organizationId_phone_key" UNIQUE ("organizationId", "phone");
+      EXCEPTION WHEN duplicate_table THEN NULL;
+      END $$
+    `);
 
     // ImportLog 테이블 생성
     await prisma.$executeRaw(Prisma.sql`
@@ -227,7 +232,23 @@ export async function POST() {
     // DocumentApproval 인덱스 생성
     await prisma.$executeRaw(Prisma.sql`CREATE INDEX IF NOT EXISTS "DocumentApproval_doc_idx" ON "DocumentApproval"("documentId")`);
 
-    return NextResponse.json({ ok: true, message: '마이그레이션 완료 (Document + DocumentVersion + DocumentApproval 테이블 추가)' });
+    // ─── ImageAsset 워터마크 처리 필드 추가 (트랜잭션으로 원자적 실행) ──────
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(Prisma.sql`
+        ALTER TABLE "ImageAsset"
+        ADD COLUMN IF NOT EXISTS "webpDriveFileId" TEXT
+      `);
+      await tx.$executeRaw(Prisma.sql`
+        ALTER TABLE "ImageAsset"
+        ADD COLUMN IF NOT EXISTS "processedAt" TIMESTAMPTZ
+      `);
+      await tx.$executeRaw(Prisma.sql`
+        ALTER TABLE "ImageAsset"
+        ADD COLUMN IF NOT EXISTS "processingStatus" TEXT NOT NULL DEFAULT 'PENDING'
+      `);
+    });
+
+    return NextResponse.json({ ok: true, message: '마이그레이션 완료 (Document + ImageAsset 워터마크 필드 추가)' });
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
   }

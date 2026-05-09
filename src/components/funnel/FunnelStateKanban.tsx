@@ -75,11 +75,12 @@ export default function FunnelStateKanban({
           {/* 카드 목록 */}
           <div className="space-y-2 flex-1">
             {groupedByStatus[status].map((state) => (
-              <Card
+              <div
                 key={state.id}
-                className="cursor-pointer hover:shadow-md transition-shadow"
+                className="cursor-pointer"
                 onClick={() => onCardClick?.(state.id)}
               >
+              <Card className="hover:shadow-md transition-shadow">
                 <CardContent className="p-3">
                   <h4 className="font-medium text-sm truncate">
                     {state.contact.name}
@@ -101,6 +102,7 @@ export default function FunnelStateKanban({
                   </div>
                 </CardContent>
               </Card>
+              </div>
             ))}
 
             {groupedByStatus[status].length === 0 && (

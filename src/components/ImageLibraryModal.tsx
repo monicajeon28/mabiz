@@ -145,7 +145,7 @@ export function ImageLibraryModal({
                     </p>
                     {asset.fileSize && (
                       <p className="text-xs text-gray-600">
-                        {formatFileSize(asset.fileSize)}
+                        {formatFileSize(Number(asset.fileSize))}
                       </p>
                     )}
                   </div>

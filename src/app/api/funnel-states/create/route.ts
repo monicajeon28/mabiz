@@ -47,12 +47,7 @@ export async function POST(req: Request) {
 
     // 이미 존재하는 상태가 있는지 확인
     const existingState = await prisma.contactFunnelState.findUnique({
-      where: {
-        organizationId_contactId: {
-          organizationId: orgId,
-          contactId,
-        },
-      },
+      where: { contactId },
     });
 
     if (existingState) {

@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     const asset = await uploadImageToDrive({
       organizationId: orgId,
       userId: ctx.userId!,
-      orgName: ctx.organization?.name || orgId,
+      orgName: orgId,
       buffer,
       fileName: file.name,
       mimeType: file.type,

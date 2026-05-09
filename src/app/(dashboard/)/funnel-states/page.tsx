@@ -231,13 +231,14 @@ function StatCard({
   onClick: () => void;
 }) {
   return (
-    <Card
+    <div onClick={onClick}>
+      <Card
       className={`cursor-pointer hover:shadow-md transition-shadow p-4 ${color}`}
-      onClick={onClick}
-    >
-      <div className="text-2xl font-bold text-gray-900">{count}</div>
-      <p className="text-xs text-gray-600 mt-1">{label}</p>
-    </Card>
+      >
+        <div className="text-2xl font-bold text-gray-900">{count}</div>
+        <p className="text-xs text-gray-600 mt-1">{label}</p>
+      </Card>
+    </div>
   );
 }
 

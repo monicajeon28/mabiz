@@ -8,6 +8,7 @@ import {
   RefreshCwIcon,
   CopyIcon,
   CheckIcon,
+  DownloadIcon,
 } from 'lucide-react';
 import { formatFileSize } from '@/lib/image-metadata';
 
@@ -25,6 +26,9 @@ interface ImageAsset {
   lastAccessedAt?: string;
   thumbnailUrl: string;
   driveUrl: string;
+  webpDriveFileId?: string;
+  processingStatus: string; // PENDING | DONE | FAILED
+  processedAt?: string;
 }
 
 const CATEGORIES = ['배너', '상품', '로고', '기타'];
@@ -390,11 +394,28 @@ export default function ImageLibraryPage() {
                         {asset.fileName}
                       </h3>
 
-                      {asset.category && (
-                        <span className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-1 rounded mb-2">
-                          {asset.category}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2 mb-2">
+                        {asset.category && (
+                          <span className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-1 rounded">
+                            {asset.category}
+                          </span>
+                        )}
+                        {asset.processingStatus === 'PENDING' && (
+                          <span className="inline-block bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-1 rounded">
+                            처리중
+                          </span>
+                        )}
+                        {asset.processingStatus === 'DONE' && asset.webpDriveFileId && (
+                          <span className="inline-block bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded">
+                            WM완료
+                          </span>
+                        )}
+                        {asset.processingStatus === 'FAILED' && (
+                          <span className="inline-block bg-red-100 text-red-800 text-xs font-semibold px-2 py-1 rounded">
+                            처리실패
+                          </span>
+                        )}
+                      </div>
 
                       {asset.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1 mb-3">
@@ -415,12 +436,12 @@ export default function ImageLibraryPage() {
                       )}
 
                       <p className="text-xs text-gray-600 mb-3">
-                        {asset.fileSize && formatFileSize(asset.fileSize)}
+                        {asset.fileSize && formatFileSize(Number(asset.fileSize))}
                         {asset.width && ` • ${asset.width}x${asset.height}`}
                       </p>
 
                       {/* 버튼 */}
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <button
                           onClick={() => copyLink(asset.driveUrl, asset.id)}
                           className="flex-1 px-3 py-2 bg-blue-500 text-white text-sm rounded font-medium hover:bg-blue-600 flex items-center justify-center gap-1"
@@ -438,13 +459,23 @@ export default function ImageLibraryPage() {
                           )}
                         </button>
                         <a
-                          href={asset.driveUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 px-3 py-2 bg-gray-500 text-white text-sm rounded font-medium hover:bg-gray-600"
+                          href={`/api/images/${asset.id}/download`}
+                          className="px-3 py-2 bg-gray-500 text-white text-sm rounded font-medium hover:bg-gray-600 flex items-center gap-1"
+                          title="원본 다운로드"
                         >
-                          보기
+                          <DownloadIcon className="w-4 h-4" />
                         </a>
+                        {asset.webpDriveFileId && (
+                          <a
+                            href={`https://drive.google.com/file/d/${asset.webpDriveFileId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-2 bg-green-500 text-white text-sm rounded font-medium hover:bg-green-600 flex items-center gap-1"
+                            title="워터마크 WebP 보기"
+                          >
+                            WM
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>

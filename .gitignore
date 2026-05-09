@@ -31,3 +31,7 @@ scripts/fix-env-key.mjs
 *.bak
 *.tmp
 .DS_Store
+
+# Google Calendar (보안 수정 후 재배포 예정)
+src/app/api/auth/google-calendar/
+src/lib/google-calendar.ts
