@@ -54,8 +54,14 @@ export default function ImageLibraryPage() {
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 권한 체크 (임시)
-  const isAdmin = true; // TODO: GLOBAL_ADMIN 권한 확인
+  // 권한 체크
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((data) => { if (data.ok) setIsAdmin(data.role === 'GLOBAL_ADMIN'); })
+      .catch(() => setIsAdmin(false));
+  }, []);
 
   /**
    * 이미지 목록 조회
