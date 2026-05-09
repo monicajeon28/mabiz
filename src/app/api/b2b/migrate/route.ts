@@ -248,7 +248,31 @@ export async function POST() {
       `);
     });
 
-    return NextResponse.json({ ok: true, message: '마이그레이션 완료 (Document + ImageAsset 워터마크 필드 추가)' });
+    // GoogleCalendarEvent 테이블 추가
+    await prisma.$executeRaw(Prisma.sql`
+      CREATE TABLE IF NOT EXISTS "GoogleCalendarEvent" (
+        "id"            TEXT NOT NULL,
+        "userId"        TEXT NOT NULL,
+        "googleEventId" TEXT NOT NULL,
+        "summary"       TEXT NOT NULL,
+        "description"   TEXT,
+        "startTime"     TIMESTAMPTZ NOT NULL,
+        "endTime"       TIMESTAMPTZ NOT NULL,
+        "contactId"     TEXT,
+        "createdAt"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        "updatedAt"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT "GoogleCalendarEvent_pkey" PRIMARY KEY ("id"),
+        CONSTRAINT "GoogleCalendarEvent_userId_googleEventId_key" UNIQUE ("userId", "googleEventId")
+      )
+    `);
+    await prisma.$executeRaw(Prisma.sql`
+      CREATE INDEX IF NOT EXISTS "GoogleCalendarEvent_userId_idx" ON "GoogleCalendarEvent"("userId")
+    `);
+    await prisma.$executeRaw(Prisma.sql`
+      CREATE INDEX IF NOT EXISTS "GoogleCalendarEvent_contactId_idx" ON "GoogleCalendarEvent"("contactId")
+    `);
+
+    return NextResponse.json({ ok: true, message: '마이그레이션 완료 (Document + ImageAsset 워터마크 필드 추가 + GoogleCalendarEvent 테이블 추가)' });
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
   }

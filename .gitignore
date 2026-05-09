@@ -32,4 +32,3 @@ scripts/fix-env-key.mjs
 *.tmp
 .DS_Store
 
-# Google Calendar 보안 수정 완료 (2026-05-09) — 추적 해제

@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { exchangeCode, encryptToken, getGoogleEmail } from "@/lib/google-calendar";
+import { getMabizSession } from "@/lib/auth";
+import { exchangeCode, encryptToken, getGoogleEmail, verifyState } from "@/lib/google-calendar";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://mabizcruisedot.com";
 
 // GET /api/auth/google-calendar/callback — Google이 리다이렉트하는 곳
 export async function GET(req: NextRequest) {
+  // 수정 1: 비로그인 차단 — 세션 없으면 즉시 거부
+  const session = await getMabizSession();
+  if (!session) {
+    return NextResponse.redirect(`${APP_URL}/settings?calendar_error=unauthorized`);
+  }
+
   const { searchParams } = req.nextUrl;
   const code = searchParams.get("code");
   const stateParam = searchParams.get("state");
@@ -20,18 +27,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${APP_URL}/settings?calendar_error=missing_params`);
   }
 
-  // state에서 userId 추출
-  let userId: string;
-  try {
-    const state = JSON.parse(Buffer.from(stateParam, "base64url").toString());
-    userId = state.userId;
-    // 10분 이상 지난 state 거부
-    if (Date.now() - state.ts > 10 * 60 * 1000) {
-      return NextResponse.redirect(`${APP_URL}/settings?calendar_error=state_expired`);
-    }
-  } catch {
+  // 수정 2: HMAC 서명 검증으로 state 위·변조 방지
+  const stateData = verifyState(stateParam);
+  if (!stateData) {
     return NextResponse.redirect(`${APP_URL}/settings?calendar_error=invalid_state`);
   }
+  // 10분 만료 체크
+  if (Date.now() - stateData.ts > 10 * 60 * 1000) {
+    return NextResponse.redirect(`${APP_URL}/settings?calendar_error=state_expired`);
+  }
+
+  // 수정 3: IDOR 방지 — 세션 userId와 state userId 교차 검증
+  if (session.userId !== stateData.userId) {
+    return NextResponse.redirect(`${APP_URL}/settings?calendar_error=unauthorized`);
+  }
+
+  const userId = stateData.userId;
 
   try {
     // code → token 교환
@@ -64,7 +75,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.redirect(`${APP_URL}/settings?calendar_connected=true`);
   } catch (err) {
-    console.error("[Google Calendar Callback] Error:", err);
+    // 수정 4: 민감 정보(토큰 등) 로그 노출 방지
+    console.error("[Google Calendar Callback] Error:", err instanceof Error ? err.message : String(err));
     return NextResponse.redirect(`${APP_URL}/settings?calendar_error=token_exchange_failed`);
   }
 }

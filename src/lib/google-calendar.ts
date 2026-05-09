@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from "crypto";
 import prisma from "@/lib/prisma";
 
 // ─── 환경변수 ────────────────────────────────────────────────
@@ -15,6 +15,14 @@ function getEncryptKey(): Buffer {
   return Buffer.from(key.substring(0, 32));
 }
 
+// 모듈 로드 시점에 ENCRYPTION_KEY 유효성 검증 (빈 문자열 폴백으로 인한 AES 오류 방지)
+{
+  const _key = process.env.ENCRYPTION_KEY ?? '';
+  if (_key.length < 32) {
+    throw new Error('[google-calendar] ENCRYPTION_KEY 환경변수가 설정되지 않았거나 32자 미만입니다. 서버를 시작할 수 없습니다.');
+  }
+}
+
 // ─── 토큰 암호화/복호화 (AES-256-CBC) ───────────────────────
 export function encryptToken(plain: string): string {
   const iv = randomBytes(16);
@@ -24,7 +32,11 @@ export function encryptToken(plain: string): string {
 }
 
 export function decryptToken(encrypted: string): string {
-  const [ivHex, encHex] = encrypted.split(":");
+  const parts = encrypted.split(":");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    throw new Error('decryptToken: 암호화된 토큰 형식이 올바르지 않습니다 (iv:ciphertext 형식 필요)');
+  }
+  const [ivHex, encHex] = parts;
   const iv = Buffer.from(ivHex, "hex");
   const decipher = createDecipheriv("aes-256-cbc", getEncryptKey(), iv);
   const decrypted = Buffer.concat([
@@ -32,6 +44,41 @@ export function decryptToken(encrypted: string): string {
     decipher.final(),
   ]);
   return decrypted.toString("utf8");
+}
+
+// ─── HMAC-SHA256 state 서명/검증 (CSRF 방지) ─────────────────
+const STATE_SECRET = process.env.GOOGLE_CALENDAR_STATE_SECRET ?? '';
+
+export interface GoogleOAuthState {
+  userId: string;
+  ts: number;
+}
+
+export function signState(stateObj: GoogleOAuthState): string {
+  const payload = JSON.stringify(stateObj);
+  const sig = createHmac('sha256', STATE_SECRET).update(payload).digest('hex');
+  return Buffer.from(JSON.stringify({ ...stateObj, sig })).toString('base64url');
+}
+
+export function verifyState(stateParam: string): GoogleOAuthState | null {
+  try {
+    const parsed = JSON.parse(Buffer.from(stateParam, 'base64url').toString()) as {
+      userId?: string;
+      ts?: number;
+      sig?: string;
+    };
+    const { userId, ts, sig } = parsed;
+    if (!userId || !ts || !sig) return null;
+    const payload = JSON.stringify({ userId, ts });
+    const expected = createHmac('sha256', STATE_SECRET).update(payload).digest('hex');
+    const sigBuf = Buffer.from(sig);
+    const expBuf = Buffer.from(expected);
+    if (sigBuf.length !== expBuf.length) return null;
+    if (!timingSafeEqual(sigBuf, expBuf)) return null;
+    return { userId, ts };
+  } catch {
+    return null;
+  }
 }
 
 // ─── OAuth URL 생성 ─────────────────────────────────────────
@@ -81,6 +128,7 @@ export async function exchangeCode(code: string): Promise<GoogleTokenResponse> {
 }
 
 // ─── Refresh Token → 새 Access Token ────────────────────────
+/** 갱신 실패 시 `error` 필드를 포함한 객체를 throw하므로 호출자가 분기 처리 가능 */
 export async function refreshAccessToken(refreshToken: string): Promise<{ access_token: string; expires_in: number }> {
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -93,8 +141,16 @@ export async function refreshAccessToken(refreshToken: string): Promise<{ access
     }),
   });
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Token refresh failed: ${err}`);
+    let errorCode: string | undefined;
+    try {
+      const body = await res.json() as { error?: string };
+      errorCode = body.error;
+    } catch {
+      // JSON 파싱 실패 시 errorCode는 undefined 유지
+    }
+    const err = new Error(`Token refresh failed: ${errorCode ?? 'UNKNOWN'}`);
+    (err as Error & { errorCode?: string }).errorCode = errorCode;
+    throw err;
   }
   return res.json();
 }
@@ -123,9 +179,19 @@ export async function getValidAccessToken(userId: string): Promise<string | null
     });
 
     return refreshed.access_token;
-  } catch {
-    // refresh 실패 시 토큰 삭제 (재로그인 필요)
-    await prisma.googleCalendarToken.delete({ where: { userId } });
+  } catch (err: unknown) {
+    const errorCode = (err as Error & { errorCode?: string }).errorCode;
+    const isRevoked =
+      errorCode === 'invalid_grant' ||
+      (typeof errorCode === 'string' && errorCode.toLowerCase().includes('revoked'));
+
+    if (isRevoked) {
+      // 진짜 만료/폐기 → 토큰 삭제 후 재로그인 유도
+      await prisma.googleCalendarToken.delete({ where: { userId } });
+    } else {
+      // 네트워크/타임아웃 등 일시적 오류 → 토큰 유지, 로그만 기록
+      console.error('[google-calendar] refreshAccessToken 일시적 오류 (토큰 유지):', err);
+    }
     return null;
   }
 }
@@ -186,6 +252,19 @@ export async function addCalendarEvent(userId: string, event: CalendarEvent): Pr
     return { success: false, error: 'CALENDAR_API_ERROR' };
   }
 
-  const data = await res.json();
+  const data = await res.json() as { id: string };
+
+  // 생성된 이벤트 ID를 DB에 저장
+  await prisma.googleCalendarEvent.create({
+    data: {
+      userId,
+      googleEventId: data.id,
+      summary: event.summary,
+      description: event.description ?? null,
+      startTime: event.startTime,
+      endTime,
+    },
+  });
+
   return { success: true, eventId: data.id };
 }

@@ -1130,6 +1130,26 @@ model GoogleCalendarToken {
   @@map("GoogleCalendarToken")
 }
 
+// ─── Google Calendar 이벤트 기록 (CRM 전용) ─────────────────────────
+// 이벤트 수정/삭제를 위해 Google Event ID를 DB에 저장
+model GoogleCalendarEvent {
+  id            String   @id @default(cuid())
+  userId        String
+  googleEventId String   // Google Calendar가 발급한 이벤트 ID
+  summary       String
+  description   String?
+  startTime     DateTime @db.Timestamptz(6)
+  endTime       DateTime @db.Timestamptz(6)
+  contactId     String?  // 연결된 고객 (선택사항)
+
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([userId, googleEventId])
+  @@index([userId])
+  @@index([contactId])
+}
+
 // ─── 일반 문서 승인 시스템 (TASK-024) ─────────────────────────
 model Document {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Text
