@@ -388,24 +388,23 @@ export async function POST(req: Request) {
       orgId,
     });
 
-    // Fire-and-forget: ImportLog 기록 (TODO: ImportLog 모델이 Prisma schema에 없음)
-    // (async () => {
-    //   try {
-    //     await prisma.importLog.create({
-    //       data: {
-    //         organizationId: orgId,
-    //         target,
-    //         totalRows: rows.length,
-    //         successCount,
-    //         validationSkipCount,
-    //         processErrorCount,
-    //         errorSummary: errors.slice(0, 5).join(" | "),
-    //       },
-    //     });
-    //   } catch (err) {
-    //     logger.error("[POST /api/import] ImportLog 저장 실패", { err });
-    //   }
-    // })();
+    // Fire-and-forget: ImportLog 기록
+    (async () => {
+      try {
+        await prisma.importLog.create({
+          data: {
+            organizationId: orgId,
+            target,
+            totalRows: rows.length,
+            successfulRows: successCount,
+            failedRows: validationSkipCount + processErrorCount,
+            errors: errors.slice(0, 5).join(" | ") || null,
+          },
+        });
+      } catch (err) {
+        logger.error("[POST /api/import] ImportLog 저장 실패", { err });
+      }
+    })();
 
     // Fire-and-forget: Drive 백업
     (async () => {

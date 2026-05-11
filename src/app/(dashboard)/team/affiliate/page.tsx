@@ -428,8 +428,12 @@ export default function AffiliateTeamDashboardPage() {
     }
   };
 
-  // /api/team/messages 미구현 시 주석 처리 필요
+  // /api/team/messages 미구현 — 향후 구현 시 활성화
   const loadTeamMessages = async (showAll: boolean = false) => {
+    // API 미구현 상태 — 빈 배열 반환
+    void showAll;
+    return;
+    /* 향후 구현 시 활성화:
     try {
       const url = showAll
         ? '/api/team/messages'
@@ -446,6 +450,7 @@ export default function AffiliateTeamDashboardPage() {
     } catch {
       // 클라이언트 컴포넌트 — 무시
     }
+    */
   };
 
   const loadRecipients = async () => {
