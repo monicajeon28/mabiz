@@ -63,29 +63,52 @@ async function processBatchB2C(
 
   if (values.length === 0) return 0;
 
-  // 파라미터 바인딩으로 SQL Injection 방지 (행 단위 에러 포착)
-  let success = 0;
-  for (const v of values) {
-    try {
-      await prisma.$executeRaw`
-        INSERT INTO "Contact"
-          (id, "organizationId", phone, name, email, type, "cruiseInterest", "adminMemo", "createdAt", "updatedAt")
-        VALUES
-          (${v.id}, ${orgId}, ${v.phone}, ${v.name}, ${v.email}, ${v.type}, ${v.cruiseInterest}, ${v.adminMemo}, NOW(), NOW())
-        ON CONFLICT (phone, "organizationId") DO UPDATE SET
-          name = EXCLUDED.name,
-          email = EXCLUDED.email,
-          type = EXCLUDED.type,
-          "cruiseInterest" = EXCLUDED."cruiseInterest",
-          "adminMemo" = EXCLUDED."adminMemo",
-          "updatedAt" = NOW()
-      `;
-      success++;
-    } catch (err) {
-      errors.push(`DB 저장 실패 (phone: ${v.phone.slice(0, 4)}***): ${err instanceof Error ? err.message : '알 수 없음'}`);
+  // 배치 INSERT with 파라미터 바인딩 (Prisma.sql + Prisma.join)
+  // SQL Injection 방지 + 배치 성능 (1회 DB 왕복)
+  try {
+    const rows = values.map((v) =>
+      Prisma.sql`(${v.id}, ${orgId}, ${v.phone}, ${v.name}, ${v.email}, ${v.type}, ${v.cruiseInterest}, ${v.adminMemo}, NOW(), NOW())`
+    );
+
+    await prisma.$executeRaw`
+      INSERT INTO "Contact"
+        (id, "organizationId", phone, name, email, type, "cruiseInterest", "adminMemo", "createdAt", "updatedAt")
+      VALUES
+        ${Prisma.join(rows)}
+      ON CONFLICT (phone, "organizationId") DO UPDATE SET
+        name = EXCLUDED.name,
+        email = EXCLUDED.email,
+        type = EXCLUDED.type,
+        "cruiseInterest" = EXCLUDED."cruiseInterest",
+        "adminMemo" = EXCLUDED."adminMemo",
+        "updatedAt" = NOW()
+    `;
+    return values.length;
+  } catch (err) {
+    // 배치 실패 시 개별 재시도 (부분 성공 지원)
+    let success = 0;
+    for (const v of values) {
+      try {
+        await prisma.$executeRaw`
+          INSERT INTO "Contact"
+            (id, "organizationId", phone, name, email, type, "cruiseInterest", "adminMemo", "createdAt", "updatedAt")
+          VALUES
+            (${v.id}, ${orgId}, ${v.phone}, ${v.name}, ${v.email}, ${v.type}, ${v.cruiseInterest}, ${v.adminMemo}, NOW(), NOW())
+          ON CONFLICT (phone, "organizationId") DO UPDATE SET
+            name = EXCLUDED.name,
+            email = EXCLUDED.email,
+            type = EXCLUDED.type,
+            "cruiseInterest" = EXCLUDED."cruiseInterest",
+            "adminMemo" = EXCLUDED."adminMemo",
+            "updatedAt" = NOW()
+        `;
+        success++;
+      } catch (rowErr) {
+        errors.push(`DB 저장 실패 (phone: ${v.phone.slice(0, 4)}***): ${rowErr instanceof Error ? rowErr.message : '알 수 없음'}`);
+      }
     }
+    return success;
   }
-  return success;
 }
 
 /**
@@ -137,30 +160,53 @@ async function processBatchB2B(
 
   if (values.length === 0) return 0;
 
-  // 파라미터 바인딩으로 SQL Injection 방지 (행 단위 에러 포착)
-  let success = 0;
-  for (const v of values) {
-    try {
-      await prisma.$executeRaw`
-        INSERT INTO "CrmB2BProspect"
-          (id, "organizationId", phone, "companyName", name, email, position, notes, "eduType", status, "createdAt", "updatedAt")
-        VALUES
-          (${v.id}, ${orgId}, ${v.phone}, ${v.companyName}, ${v.name}, ${v.email}, ${v.position}, ${v.notes}, ${v.eduType}, 'NEW', NOW(), NOW())
-        ON CONFLICT (phone, "organizationId") DO UPDATE SET
-          "companyName" = EXCLUDED."companyName",
-          name = EXCLUDED.name,
-          email = EXCLUDED.email,
-          position = EXCLUDED.position,
-          notes = EXCLUDED.notes,
-          "eduType" = EXCLUDED."eduType",
-          "updatedAt" = NOW()
-      `;
-      success++;
-    } catch (err) {
-      errors.push(`B2B DB 저장 실패 (phone: ${v.phone.slice(0, 4)}***): ${err instanceof Error ? err.message : '알 수 없음'}`);
+  // 배치 INSERT with 파라미터 바인딩 (Prisma.sql + Prisma.join)
+  try {
+    const rows = values.map((v) =>
+      Prisma.sql`(${v.id}, ${orgId}, ${v.phone}, ${v.companyName}, ${v.name}, ${v.email}, ${v.position}, ${v.notes}, ${v.eduType}, 'NEW', NOW(), NOW())`
+    );
+
+    await prisma.$executeRaw`
+      INSERT INTO "CrmB2BProspect"
+        (id, "organizationId", phone, "companyName", name, email, position, notes, "eduType", status, "createdAt", "updatedAt")
+      VALUES
+        ${Prisma.join(rows)}
+      ON CONFLICT (phone, "organizationId") DO UPDATE SET
+        "companyName" = EXCLUDED."companyName",
+        name = EXCLUDED.name,
+        email = EXCLUDED.email,
+        position = EXCLUDED.position,
+        notes = EXCLUDED.notes,
+        "eduType" = EXCLUDED."eduType",
+        "updatedAt" = NOW()
+    `;
+    return values.length;
+  } catch {
+    // 배치 실패 시 개별 재시도
+    let success = 0;
+    for (const v of values) {
+      try {
+        await prisma.$executeRaw`
+          INSERT INTO "CrmB2BProspect"
+            (id, "organizationId", phone, "companyName", name, email, position, notes, "eduType", status, "createdAt", "updatedAt")
+          VALUES
+            (${v.id}, ${orgId}, ${v.phone}, ${v.companyName}, ${v.name}, ${v.email}, ${v.position}, ${v.notes}, ${v.eduType}, 'NEW', NOW(), NOW())
+          ON CONFLICT (phone, "organizationId") DO UPDATE SET
+            "companyName" = EXCLUDED."companyName",
+            name = EXCLUDED.name,
+            email = EXCLUDED.email,
+            position = EXCLUDED.position,
+            notes = EXCLUDED.notes,
+            "eduType" = EXCLUDED."eduType",
+            "updatedAt" = NOW()
+        `;
+        success++;
+      } catch (rowErr) {
+        errors.push(`B2B DB 저장 실패 (phone: ${v.phone.slice(0, 4)}***): ${rowErr instanceof Error ? rowErr.message : '알 수 없음'}`);
+      }
     }
+    return success;
   }
-  return success;
 }
 
 // ==================== POST 핸들러 ====================
