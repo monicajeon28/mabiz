@@ -269,7 +269,7 @@ export default function NewLandingPage() {
             srcDoc={html}
             className="w-full h-full border-0"
             title="미리보기"
-            sandbox="allow-scripts allow-same-origin"
+            sandbox="allow-scripts"
           />
         ) : (
           <div className="h-full overflow-y-auto p-4">

@@ -43,16 +43,21 @@ export async function POST(req: Request) {
     const body = await req.text();
     const params = new URLSearchParams(body);
 
-    // [보안] linkval 검증 — 진짜 PayApp인지 확인 (누락 시에도 차단)
+    // [보안] linkval 검증 — 진짜 PayApp인지 확인
     const linkval = params.get("linkval");
-    if (!linkval || !validateFeedback(linkval)) {
-      // IP 화이트리스트가 설정된 경우에만 linkval 검증 건너뛰기 허용
-      if (allowedIPs.length === 0) {
-        logger.warn("[PayApp Webhook] linkval 누락/불일치 + IP 미설정 — 차단");
+    if (linkval) {
+      if (!validateFeedback(linkval)) {
+        logger.warn("[PayApp Webhook] linkval 불일치 — 차단");
         return new Response("FAIL", { status: 403 });
       }
-      // IP 화이트리스트 통과했으면 linkval 없어도 허용 (PayApp 내부 호출)
-      logger.warn("[PayApp Webhook] linkval 누락/불일치 — IP 검증으로 대체", { requestIP });
+    } else {
+      // linkval 누락 — IP 화이트리스트 통과 여부와 관계없이 경고 로그
+      logger.warn("[PayApp Webhook] linkval 누락 — 보안 주의", { requestIP });
+      // IP 화이트리스트도 없으면 차단
+      if (allowedIPs.length === 0) {
+        logger.warn("[PayApp Webhook] linkval 누락 + IP 미설정 — 차단");
+        return new Response("FAIL", { status: 403 });
+      }
     }
 
     const payState    = params.get("pay_state") ?? "";

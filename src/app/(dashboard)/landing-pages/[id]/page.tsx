@@ -88,14 +88,19 @@ export default function EditLandingPage() {
 
   const loadRegistrations = async (p: number) => {
     setRegLoading(true);
-    const res = await fetch(`/api/landing-pages/${id}/registrations?page=${p}&limit=20`);
-    const data = await res.json();
-    if (data.ok) {
-      setRegistrations(data.registrations);
-      setRegTotal(data.total);
-      setRegPage(p);
+    try {
+      const res = await fetch(`/api/landing-pages/${id}/registrations?page=${p}&limit=20`);
+      const data = await res.json();
+      if (data.ok) {
+        setRegistrations(data.registrations);
+        setRegTotal(data.total);
+        setRegPage(p);
+      }
+    } catch {
+      setError("등록자 목록을 불러오지 못했습니다.");
+    } finally {
+      setRegLoading(false);
     }
-    setRegLoading(false);
   };
 
   useEffect(() => {
@@ -105,9 +110,13 @@ export default function EditLandingPage() {
   }, [tab, id]);
 
   const loadComments = async () => {
-    const res = await fetch(`/api/landing-pages/${id}/comments`);
-    const data = await res.json();
-    if (data.ok) setComments(data.comments);
+    try {
+      const res = await fetch(`/api/landing-pages/${id}/comments`);
+      const data = await res.json();
+      if (data.ok) setComments(data.comments);
+    } catch {
+      setCommentMsg("후기 목록을 불러오지 못했습니다.");
+    }
   };
 
   const deleteComment = async (commentId: string) => {
@@ -288,7 +297,7 @@ export default function EditLandingPage() {
           </div>
           <div className="flex-1 overflow-hidden">
             {preview ? (
-              <iframe srcDoc={html} className="w-full h-full border-0" title="preview" sandbox="allow-scripts allow-same-origin" />
+              <iframe srcDoc={html} className="w-full h-full border-0" title="preview" sandbox="allow-scripts" />
             ) : (
               <HtmlEditor value={html} onChange={setHtml} />
             )}

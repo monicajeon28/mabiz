@@ -298,7 +298,7 @@ export default function PaymentsPage() {
       </div>
 
       {/* 결제 목록 */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
@@ -383,7 +383,7 @@ export default function PaymentsPage() {
             />
             <button onClick={() => loadMallPayments(1)} className="bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium">검색</button>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -436,7 +436,7 @@ export default function PaymentsPage() {
 
       {/* 정기결제 탭 */}
       {tab === "subscriptions" && (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>

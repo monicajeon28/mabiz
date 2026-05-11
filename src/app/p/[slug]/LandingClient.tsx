@@ -215,7 +215,7 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payme
       forms.forEach((f) => f.removeEventListener("submit", handleSubmit));
     };
   // submitting은 submittingRef로 처리 → 의존성 제거 (중복 주입 방지)
-  }, [pageId]);
+  }, [pageId, slug]);
 
   if (done || alreadyRegistered) {
     return (

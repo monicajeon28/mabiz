@@ -106,10 +106,14 @@ export default async function PaymentCompletePage({
           <>
             <div className="text-5xl mb-4">{"⏳"}</div>
             <h1 className="text-xl font-bold text-navy-900 mb-2">
-              {payment ? "결제 처리 중입니다" : "결제 정보를 확인 중입니다"}
+              {payment ? "결제 처리 중입니다" : orderId ? "결제 정보를 확인 중입니다" : "결제 페이지"}
             </h1>
             <p className="text-gray-500 text-sm mb-6">
-              잠시 후 결제가 확인되면 담당자가 연락드리겠습니다.
+              {payment
+                ? "잠시 후 결제가 확인되면 담당자가 연락드리겠습니다."
+                : orderId
+                  ? "결제 확인에 시간이 걸릴 수 있습니다. 잠시만 기다려주세요."
+                  : "결제 정보가 없습니다. 랜딩페이지에서 다시 시도해주세요."}
             </p>
           </>
         )}
@@ -142,8 +146,7 @@ export default async function PaymentCompletePage({
   );
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+export async function generateMetadata() {
   return {
     title: "결제 완료 - 크루즈닷",
     description: "결제가 완료되었습니다. 감사합니다.",

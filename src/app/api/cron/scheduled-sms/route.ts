@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import prisma from "@/lib/prisma";
 import { sendSms, getOrgSmsConfig } from "@/lib/aligo";
 import { logger } from "@/lib/logger";
@@ -19,13 +20,17 @@ export async function GET(req: Request) {
       logger.warn("[CronScheduledSms] CRON_SECRET 환경변수 미설정 — 프로덕션에서 차단");
       return NextResponse.json({ ok: false, message: "CRON_SECRET required" }, { status: 500 });
     }
-    if (auth !== `Bearer ${secret}`) {
+    const expected = `Bearer ${secret}`;
+    if (auth.length !== expected.length || !timingSafeEqual(Buffer.from(auth), Buffer.from(expected))) {
       return NextResponse.json({ ok: false }, { status: 401 });
     }
   } else {
     // 개발 환경: secret 있으면 검증, 없으면 통과
-    if (secret && auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ ok: false }, { status: 401 });
+    if (secret) {
+      const expected = `Bearer ${secret}`;
+      if (auth.length !== expected.length || !timingSafeEqual(Buffer.from(auth), Buffer.from(expected))) {
+        return NextResponse.json({ ok: false }, { status: 401 });
+      }
     }
   }
 
