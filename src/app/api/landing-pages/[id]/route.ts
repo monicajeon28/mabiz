@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { getAuthContext, requireOrgId, canDelete } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
+
+const PatchSchema = z.object({
+  title:          z.string().min(1).max(200).optional(),
+  slug:           z.string().min(1).max(100).optional(),
+  htmlContent:    z.string().optional(),
+  isActive:       z.boolean().optional(),
+  groupId:        z.string().nullable().optional(),
+  commentEnabled: z.boolean().optional(),
+  autoFunnelId:   z.string().nullable().optional(),
+}).strict();
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -31,19 +42,26 @@ export async function PATCH(req: Request, { params }: Params) {
     const { id } = await params;
     const body   = await req.json();
 
+    const parsed = PatchSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ ok: false, message: "잘못된 요청 데이터", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
+    }
+
     const existing = await prisma.crmLandingPage.findFirst({ where: { id, organizationId: orgId } });
     if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
 
-    const { title, slug, htmlContent, isActive, groupId } = body;
+    const { title, slug, htmlContent, isActive, groupId, commentEnabled, autoFunnelId } = parsed.data;
     const sanitizedContent = htmlContent !== undefined ? sanitizeHtml(htmlContent) : undefined;
     const page = await prisma.crmLandingPage.update({
       where: { id },
       data: {
-        ...(title            !== undefined ? { title }                       : {}),
-        ...(slug             !== undefined ? { slug }                        : {}),
-        ...(sanitizedContent !== undefined ? { htmlContent: sanitizedContent } : {}),
-        ...(isActive         !== undefined ? { isActive }                    : {}),
-        ...(groupId          !== undefined ? { groupId: groupId ?? null }    : {}),
+        ...(title            !== undefined ? { title }                            : {}),
+        ...(slug             !== undefined ? { slug }                             : {}),
+        ...(sanitizedContent !== undefined ? { htmlContent: sanitizedContent }    : {}),
+        ...(isActive         !== undefined ? { isActive }                         : {}),
+        ...(groupId          !== undefined ? { groupId: groupId ?? null }         : {}),
+        ...(commentEnabled   !== undefined ? { commentEnabled }                   : {}),
+        ...(autoFunnelId     !== undefined ? { autoFunnelId: autoFunnelId ?? null } : {}),
       },
     });
     return NextResponse.json({ ok: true, page });

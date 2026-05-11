@@ -59,15 +59,14 @@ export async function POST(req: NextRequest) {
 
   logger.log('[InquiryWebhook] 수신', { phone: phone.slice(0, 4) + '***', inquiryType });
 
-  // 1. organizationId 결정
+  // 1. organizationId 결정 (findFirst 제거 — 비결정적 배정 방지)
   let organizationId = bodyOrgId;
   if (!organizationId) {
-    const defaultOrg = await prisma.organization.findFirst();
-    if (!defaultOrg) {
-      logger.error('[InquiryWebhook] 기본 Organization 없음');
-      return NextResponse.json({ ok: false }, { status: 500 });
+    organizationId = process.env.DEFAULT_ORGANIZATION_ID;
+    if (!organizationId) {
+      logger.error('[InquiryWebhook] organizationId 미제공 + DEFAULT_ORGANIZATION_ID 미설정');
+      return NextResponse.json({ ok: false, message: 'organizationId 필수' }, { status: 400 });
     }
-    organizationId = defaultOrg.id;
   }
 
   // 2~4. Contact upsert + Memo + 그룹 배정을 트랜잭션으로 통합

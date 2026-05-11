@@ -58,12 +58,30 @@ export default async function PublicLandingPage({
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://crm.cruisedot.co.kr';
   const page = await prisma.crmLandingPage.findFirst({
     where:  { slug },
     select: { title: true },
   });
+  const title = page?.title ?? "크루즈닷 랜딩페이지";
+  const description = `${title} - 크루즈 전문 여행사 크루즈닷 상담 신청`;
+  const url = `${baseUrl}/p/${slug}`;
+
   return {
-    title:       page?.title ?? "크루즈닷 랜딩페이지",
-    description: "크루즈 전문 여행사 크루즈닷의 상담 신청 페이지입니다.",
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      type: 'website' as const,
+      url,
+      siteName: '크루즈닷',
+    },
+    twitter: {
+      card: 'summary' as const,
+      title,
+      description,
+    },
   };
 }
