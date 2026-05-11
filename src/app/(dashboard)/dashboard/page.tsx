@@ -241,7 +241,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [feedLoading, setFeedLoading] = useState(true);
-  const [myUserId, setMyUserId] = useState<string>("");
+  const [myOrgId, setMyOrgId] = useState<string>("");
   const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
@@ -249,7 +249,7 @@ export default function DashboardPage() {
       if (d.ok) setData(d);
     });
     fetch("/api/auth/me", { credentials: "include" }).then((r) => r.json()).then((d) => {
-      if (d.ok && d.userId) setMyUserId(d.userId);
+      if (d.ok && d.organizationId) setMyOrgId(d.organizationId);
     }).catch(() => {});
 
     fetch('/api/notifications/feed?limit=5')
@@ -285,11 +285,11 @@ export default function DashboardPage() {
                 const baseUrl = window.location.origin;
                 const link = role === "GLOBAL_ADMIN"
                   ? `${baseUrl}/landing`
-                  : `${baseUrl}/landing?ref=${myUserId}`;
+                  : `${baseUrl}/landing?ref=${myOrgId}`;
                 navigator.clipboard.writeText(link).then(() => {
                   setLinkCopied(true);
                   setTimeout(() => setLinkCopied(false), 2000);
-                });
+                }).catch(() => { window.prompt("링크를 복사하세요:", link); });
               }}
               className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             >
@@ -300,8 +300,8 @@ export default function DashboardPage() {
             {typeof window !== "undefined" && (
               role === "GLOBAL_ADMIN"
                 ? `${window.location.origin}/landing`
-                : myUserId
-                  ? `${window.location.origin}/landing?ref=${myUserId}`
+                : myOrgId
+                  ? `${window.location.origin}/landing?ref=${myOrgId}`
                   : "로딩 중..."
             )}
           </div>
