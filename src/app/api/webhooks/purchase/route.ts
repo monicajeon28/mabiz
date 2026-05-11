@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { triggerGroupFunnel } from '@/lib/funnel-trigger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
+import { normalizePhone } from '@/lib/phone-normalize';
 
 /**
  * POST /api/webhooks/purchase
@@ -71,24 +72,27 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    const normalizedPhone = normalizePhone(phone);
     const contact = await prisma.$transaction(async (tx) => {
       // Contact upsert (전화번호 + 조직 기준)
       const upsertedContact = await tx.contact.upsert({
-        where: { phone_organizationId: { phone, organizationId } },
+        where: { phone_organizationId: { phone: normalizedPhone, organizationId } },
         create: {
-          phone,
+          phone: normalizedPhone,
           name,
           organizationId,
           productName:    productName    ?? null,
           departureDate:  departureDate  ? new Date(departureDate) : null,
           bookingRef:     orderId        ?? null,
           affiliateCode:  affiliateCode  ?? null,
+          purchasedAt:    new Date(),
         },
         update: {
           name,
           productName:   productName   ?? undefined,
           departureDate: departureDate ? new Date(departureDate) : undefined,
           bookingRef:    orderId       ?? undefined,
+          purchasedAt:   new Date(),
           // 어필리에이트 코드 업데이트 (있는 경우)
           ...(affiliateCode ? { affiliateCode } : {}),
         },
@@ -108,13 +112,20 @@ export async function POST(req: NextRequest) {
             commissionRate:  parseInt(String(commissionRate)) || 0,
             commissionAmount: parseInt(String(commissionAmount)) || 0,
             status:          "PENDING",
-            customerPhone:   phone.substring(0, 4) + "****",
+            customerPhone:   normalizedPhone.substring(0, 4) + "****",
             orderId:         orderId ?? null,
             sourceWebhook:   "purchase",
           },
           update: {
             status: "PENDING",
           },
+        });
+      }
+
+      // processedWebhookEvent를 트랜잭션 안에서 기록 (멱등성 보장)
+      if (eventId) {
+        await tx.processedWebhookEvent.create({
+          data: { eventId, webhookType: 'purchase' },
         });
       }
 
@@ -151,14 +162,7 @@ export async function POST(req: NextRequest) {
       affiliateCode: affiliateCode ?? '없음',
     });
 
-    // eventId 처리 완료 기록
-    if (eventId) {
-      await prisma.processedWebhookEvent.create({
-        data: { eventId, webhookType: 'purchase' },
-      }).catch(() => {}); // 실패해도 웹훅 처리에 영향 없음
-    }
-
-    return NextResponse.json({ ok: true, contactId: contact.id, funnelStarted });
+    return NextResponse.json({ ok: true, funnelStarted });
   } catch (err) {
     logger.error('[PurchaseWebhook] 처리 실패', { err });
     await enqueueDLQ('purchase', body, err instanceof Error ? err.message : String(err)).catch(() => {});

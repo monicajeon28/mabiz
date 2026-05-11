@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
+import { normalizePhone } from '@/lib/phone-normalize';
 
 /**
  * POST /api/webhooks/refund
@@ -55,7 +56,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  logger.log('[RefundWebhook] 수신', { orderId, buyerPhone: buyerPhone.slice(0, 4) + '***' });
+  const normalizedPhone = normalizePhone(buyerPhone);
+  logger.log('[RefundWebhook] 수신', { orderId, buyerPhone: normalizedPhone.slice(0, 4) + '***' });
 
   let saleUpdated = false;
   let agentSuspended = false;
@@ -127,7 +129,7 @@ export async function POST(req: NextRequest) {
     }
     if (organizationId) {
       const result = await prisma.contact.updateMany({
-        where: { phone: buyerPhone, organizationId },
+        where: { phone: normalizedPhone, organizationId },
         data: { type: 'REFUNDED' },
       });
       contactUpdated = result.count > 0;
@@ -142,8 +144,8 @@ export async function POST(req: NextRequest) {
   if (eventId) {
     await prisma.processedWebhookEvent.create({
       data: { eventId, webhookType: 'refund' },
-    }).catch(() => {}); // 실패해도 웹훅 처리에 영향 없음
+    }).catch(() => {});
   }
 
-  return NextResponse.json({ ok: true, saleUpdated, agentSuspended, contactUpdated });
+  return NextResponse.json({ ok: true });
 }

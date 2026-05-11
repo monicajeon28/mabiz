@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, requireOrgId, canDelete } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { sanitizeHtml } from "@/lib/html-sanitizer";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -34,14 +35,15 @@ export async function PATCH(req: Request, { params }: Params) {
     if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
 
     const { title, slug, htmlContent, isActive, groupId } = body;
+    const sanitizedContent = htmlContent !== undefined ? sanitizeHtml(htmlContent) : undefined;
     const page = await prisma.crmLandingPage.update({
       where: { id },
       data: {
-        ...(title       !== undefined ? { title }       : {}),
-        ...(slug        !== undefined ? { slug }        : {}),
-        ...(htmlContent !== undefined ? { htmlContent } : {}),
-        ...(isActive    !== undefined ? { isActive }    : {}),
-        ...(groupId     !== undefined ? { groupId: groupId ?? null } : {}),
+        ...(title            !== undefined ? { title }                       : {}),
+        ...(slug             !== undefined ? { slug }                        : {}),
+        ...(sanitizedContent !== undefined ? { htmlContent: sanitizedContent } : {}),
+        ...(isActive         !== undefined ? { isActive }                    : {}),
+        ...(groupId          !== undefined ? { groupId: groupId ?? null }    : {}),
       },
     });
     return NextResponse.json({ ok: true, page });

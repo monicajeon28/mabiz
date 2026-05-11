@@ -34,7 +34,7 @@ export async function GET(req: Request) {
   // 처리할 예약 목록 (최대 50건/회)
   const due = await prisma.scheduledSms.findMany({
     where: {
-      status:      "PENDING",
+      status:      { in: ["PENDING", "NIGHT_BLOCKED"] },
       scheduledAt: { lte: now },
     },
     orderBy: { scheduledAt: "asc" },
@@ -50,9 +50,9 @@ export async function GET(req: Request) {
 
   for (const item of due) {
     try {
-      // 낙관적 잠금 — PENDING → SENDING (다른 인스턴스 중복 처리 방지)
+      // 낙관적 잠금 — PENDING/NIGHT_BLOCKED → SENDING (다른 인스턴스 중복 처리 방지)
       const locked = await prisma.scheduledSms.updateMany({
-        where: { id: item.id, status: "PENDING" },
+        where: { id: item.id, status: { in: ["PENDING", "NIGHT_BLOCKED"] } },
         data:  { status: "SENDING" },
       });
       if (locked.count === 0) continue; // 이미 다른 인스턴스가 처리 중
@@ -111,8 +111,19 @@ export async function GET(req: Request) {
           channel:        "MANUAL",
         });
 
-        if (Number(result.result_code) === 1) sentCount++;
-        else failedCount++;
+        if (Number(result.result_code) === 1) {
+          sentCount++;
+        } else if (Number(result.result_code) === -98) {
+          // 야간 차단 — NIGHT_BLOCKED로 상태 변경, 다음 실행에서 재시도
+          await prisma.scheduledSms.update({
+            where: { id: item.id },
+            data:  { status: "NIGHT_BLOCKED" },
+          });
+          logger.log("[Cron/ScheduledSms] 야간 차단 → NIGHT_BLOCKED", { id: item.id });
+          continue; // 다음 item으로
+        } else {
+          failedCount++;
+        }
       }
 
       await prisma.scheduledSms.update({

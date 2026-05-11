@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
+import { normalizePhone } from '@/lib/phone-normalize';
 
 /**
  * POST /api/webhooks/inquiry
@@ -69,75 +70,72 @@ export async function POST(req: NextRequest) {
     organizationId = defaultOrg.id;
   }
 
-  // 2. Contact upsert
-  let contactId: string;
-  let created = false;
+  // 2~4. Contact upsert + Memo + 그룹 배정을 트랜잭션으로 통합
+  const normalizedPhone = normalizePhone(phone);
   try {
-    const existing = await prisma.contact.findFirst({
-      where: { phone, organizationId },
-      select: { id: true, type: true, leadScore: true },
-    });
-
-    if (existing) {
-      await prisma.contact.update({
-        where: { id: existing.id },
-        data: {
-          name,
-          ...(email ? { email } : {}),
-          ...(affiliateCode ? { affiliateCode } : {}),
-          type: existing.type === 'PURCHASED' ? 'PURCHASED' : 'LEAD',
-          leadScore: (existing.leadScore ?? 0) + 15,
-        },
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.contact.findFirst({
+        where: { phone: normalizedPhone, organizationId },
+        select: { id: true, type: true, leadScore: true },
       });
-      contactId = existing.id;
-    } else {
-      const c = await prisma.contact.create({
-        data: { phone, name, organizationId, ...(email ? { email } : {}), ...(affiliateCode ? { affiliateCode } : {}), type: 'LEAD', leadScore: 15 },
+
+      let contactId: string;
+      let created = false;
+
+      if (existing) {
+        await tx.contact.update({
+          where: { id: existing.id },
+          data: {
+            name,
+            ...(email ? { email } : {}),
+            ...(affiliateCode ? { affiliateCode } : {}),
+            type: existing.type === 'PURCHASED' ? 'PURCHASED' : 'LEAD',
+            leadScore: (existing.leadScore ?? 0) + 15,
+          },
+        });
+        contactId = existing.id;
+      } else {
+        const c = await tx.contact.create({
+          data: { phone: normalizedPhone, name, organizationId, ...(email ? { email } : {}), ...(affiliateCode ? { affiliateCode } : {}), type: 'LEAD', leadScore: 15 },
+          select: { id: true },
+        });
+        contactId = c.id;
+        created = true;
+      }
+
+      // ContactMemo
+      await tx.contactMemo.create({
+        data: { contactId, userId: 'webhook-inquiry', content: `[문의] ${inquiryType ?? '상담신청'}: ${message ?? '내용 없음'}` },
+      });
+
+      // 상담 그룹 자동 배정
+      const group = await tx.contactGroup.findFirst({
+        where: { organizationId, name: { contains: '상담' } },
         select: { id: true },
       });
-      contactId = c.id;
-      created = true;
-    }
+      if (group) {
+        await tx.contactGroupMember.upsert({
+          where: { groupId_contactId: { groupId: group.id, contactId } },
+          create: { groupId: group.id, contactId },
+          update: {},
+        });
+      }
+
+      // processedWebhookEvent를 트랜잭션 안에서 기록
+      if (eventId) {
+        await tx.processedWebhookEvent.create({
+          data: { eventId, webhookType: 'inquiry' },
+        });
+      }
+
+      return { contactId, created };
+    });
+
+    logger.log('[InquiryWebhook] 완료', { contactId: result.contactId, created: result.created });
+    return NextResponse.json({ ok: true });
   } catch (err) {
-    logger.error('[InquiryWebhook] Contact upsert 실패', { err });
+    logger.error('[InquiryWebhook] 처리 실패', { err });
     await enqueueDLQ('inquiry', body, err instanceof Error ? err.message : String(err)).catch(() => {});
     return NextResponse.json({ ok: false }, { status: 500 });
   }
-
-  // 3. ContactMemo 생성
-  try {
-    await prisma.contactMemo.create({
-      data: { contactId, userId: 'webhook-inquiry', content: `[문의] ${inquiryType ?? '상담신청'}: ${message ?? '내용 없음'}` },
-    });
-  } catch (err) {
-    logger.error('[InquiryWebhook] ContactMemo 실패', { err });
-  }
-
-  // 4. 상담 그룹 자동 배정
-  try {
-    const group = await prisma.contactGroup.findFirst({
-      where: { organizationId, name: { contains: '상담' } },
-      select: { id: true },
-    });
-    if (group) {
-      await prisma.contactGroupMember.upsert({
-        where: { groupId_contactId: { groupId: group.id, contactId } },
-        create: { groupId: group.id, contactId },
-        update: {},
-      });
-    }
-  } catch (err) {
-    logger.error('[InquiryWebhook] 그룹 배정 실패', { err });
-  }
-
-  logger.log('[InquiryWebhook] 완료', { contactId, created });
-
-  // eventId 처리 완료 기록
-  if (eventId) {
-    await prisma.processedWebhookEvent.create({
-      data: { eventId, webhookType: 'inquiry' },
-    }).catch(() => {}); // 실패해도 웹훅 처리에 영향 없음
-  }
-
-  return NextResponse.json({ ok: true, contactId, created });
 }

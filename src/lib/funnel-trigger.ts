@@ -11,7 +11,6 @@
 
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
-import { sendSms, getOrgSmsConfig } from "@/lib/aligo";
 
 interface TriggerOptions {
   contactId:      string;
@@ -139,37 +138,17 @@ export async function triggerGroupFunnel(opts: TriggerOptions): Promise<boolean>
     departure:  contact.departureDate?.toISOString().split("T")[0] ?? "미지정",
   });
 
-  // 즉시 첫 번째 메시지 발송 (PENDING 상태인 것만)
+  // sendFirst=true → PENDING 상태로 cron에 위임 (동기 SMS 발송 제거 — 응답 시간 개선)
   if (sendFirst) {
     const firstPending = sequence.logs
       .filter((l) => l.status === "PENDING")
       .sort((a, b) => a.stageOrder - b.stageOrder)[0];
 
-    if (firstPending?.content) {
-      const smsConfig = await getOrgSmsConfig(organizationId);
-      if (smsConfig?.isActive) {
-        const updated = await prisma.vipCareLog.updateMany({
-          where: { id: firstPending.id, status: "PENDING" },
-          data:  { status: "SENDING" },
-        });
-        if (updated.count > 0) {
-          const result = await sendSms({
-            config: {
-              key:    smsConfig.aligoKey,
-              userId: smsConfig.aligoUserId,
-              sender: smsConfig.senderPhone,
-            },
-            receiver: contact.phone,
-            msg:      firstPending.content,
-            msgType:  firstPending.content.length > 90 ? "LMS" : "SMS",
-          });
-          await prisma.vipCareLog.update({
-            where: { id: firstPending.id },
-            data:  { status: result.result_code === 1 ? "SENT" : "FAILED", sentAt: new Date() },
-          });
-        }
-      }
-    }
+    logger.log("[FunnelTrigger] sendFirst=true → PENDING 상태로 cron 위임", {
+      contactId,
+      funnelId: funnel.id,
+      firstLogId: firstPending?.id ?? null,
+    });
   }
 
   return true;

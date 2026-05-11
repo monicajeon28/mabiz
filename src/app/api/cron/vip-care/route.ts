@@ -61,7 +61,7 @@ export async function GET(req: Request) {
     const todayLogs = await prisma.vipCareLog.findMany({
       where: {
         sequenceId: seq.id,
-        status: "PENDING",
+        status: { in: ["PENDING", "NIGHT_BLOCKED"] },
         scheduledAt: { gte: today, lt: new Date(today.getTime() + 86400000) },
       },
     });
@@ -79,7 +79,7 @@ export async function GET(req: Request) {
 
       // 발송 전 SENDING으로 원자적 업데이트 (중복 방지)
       const updated = await prisma.vipCareLog.updateMany({
-        where: { id: log.id, status: "PENDING" },
+        where: { id: log.id, status: { in: ["PENDING", "NIGHT_BLOCKED"] } },
         data: { status: "SENDING" },
       });
 

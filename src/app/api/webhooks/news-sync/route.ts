@@ -45,41 +45,44 @@ export async function POST(req: Request) {
   }
 
   try {
-    if (body.action === 'create') {
-      await prisma.newsShortLink.upsert({
-        where:  { shortCode: body.shortCode },
-        create: {
-          shortCode: body.shortCode,
-          title:     body.title ?? '크루즈닷 뉴스',
-          url:       body.url ?? `https://www.cruisedot.co.kr/n/${body.shortCode}`,
-          isActive:  true,
-        },
-        update: {
-          title:    body.title ?? '크루즈닷 뉴스',
-          url:      body.url ?? `https://www.cruisedot.co.kr/n/${body.shortCode}`,
-          isActive: true,
-          syncedAt: new Date(),
-        },
-      });
-      logger.log('[NewsSync] 뉴스 추가됨', { shortCode: body.shortCode });
-    } else if (body.action === 'deactivate') {
-      await prisma.newsShortLink.updateMany({
-        where: { shortCode: body.shortCode },
-        data:  { isActive: false, syncedAt: new Date() },
-      });
-      logger.log('[NewsSync] 뉴스 비활성화됨', { shortCode: body.shortCode });
-    }
+    await prisma.$transaction(async (tx) => {
+      if (body.action === 'create') {
+        await tx.newsShortLink.upsert({
+          where:  { shortCode: body.shortCode },
+          create: {
+            shortCode: body.shortCode,
+            title:     body.title ?? '크루즈닷 뉴스',
+            url:       body.url ?? `https://www.cruisedot.co.kr/n/${body.shortCode}`,
+            isActive:  true,
+          },
+          update: {
+            title:    body.title ?? '크루즈닷 뉴스',
+            url:      body.url ?? `https://www.cruisedot.co.kr/n/${body.shortCode}`,
+            isActive: true,
+            syncedAt: new Date(),
+          },
+        });
+        logger.log('[NewsSync] 뉴스 추가됨', { shortCode: body.shortCode });
+      } else if (body.action === 'deactivate') {
+        await tx.newsShortLink.updateMany({
+          where: { shortCode: body.shortCode },
+          data:  { isActive: false, syncedAt: new Date() },
+        });
+        logger.log('[NewsSync] 뉴스 비활성화됨', { shortCode: body.shortCode });
+      }
+
+      // processedWebhookEvent를 트랜잭션 안에서 기록
+      if (body.eventId) {
+        await tx.processedWebhookEvent.create({
+          data: { eventId: body.eventId, webhookType: 'news-sync' },
+        });
+      }
+    });
+
+    return NextResponse.json({ ok: true });
   } catch (err) {
     logger.error('[NewsSync] DB 처리 실패', { action: body.action, shortCode: body.shortCode, err });
     await enqueueDLQ('news-sync', body, err instanceof Error ? err.message : String(err)).catch(() => {});
     return NextResponse.json({ ok: false, message: 'DB 처리 중 오류가 발생했습니다' }, { status: 500 });
   }
-
-  if (body.eventId) {
-    await prisma.processedWebhookEvent.create({
-      data: { eventId: body.eventId, webhookType: 'news-sync' },
-    }).catch(() => {});
-  }
-
-  return NextResponse.json({ ok: true });
 }

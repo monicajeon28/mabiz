@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
 import { logger } from "@/lib/logger";
 import { addLeadScore } from "@/lib/lead-score";
+import { normalizePhone } from "@/lib/phone-normalize";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -37,11 +38,8 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: "이름과 전화번호는 필수입니다." }, { status: 400 });
     }
 
-    // 전화번호 정규화 (11자리 + 10자리 케이스 모두 처리)
-    const digits = phone.replace(/[^0-9]/g, "");
-    const normalizedPhone = digits.length === 10
-      ? digits.replace(/^(\d{3})(\d{3})(\d{4})$/, "$1-$2-$3")
-      : digits.replace(/^(\d{3})(\d{4})(\d{4})$/, "$1-$2-$3");
+    // 전화번호 정규화 (공통 유틸 사용)
+    const normalizedPhone = normalizePhone(phone);
 
     // utm 파라미터 (필수값 검증 이후)
     const sp = new URL(req.url).searchParams;
