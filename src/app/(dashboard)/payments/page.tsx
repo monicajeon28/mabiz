@@ -3,6 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { CreditCard, RefreshCw, ArrowUpRight, ArrowDownLeft, Clock, Repeat } from "lucide-react";
 
+/** 전화번호 마스킹: 010-****-5678 형식 */
+function maskPhone(phone: string): string {
+  const digits = phone.replace(/[^0-9]/g, '');
+  if (digits.length === 11) return `${digits.slice(0, 3)}-****-${digits.slice(7)}`;
+  if (digits.length === 10) return `${digits.slice(0, 3)}-***-${digits.slice(6)}`;
+  return phone.slice(0, 4) + "****";
+}
+
 type Payment = {
   id: string;
   orderId: string;
@@ -73,6 +81,8 @@ export default function PaymentsPage() {
   // 정기결제
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [subLoading, setSubLoading] = useState(false);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
 
   const load = useCallback(async (p: number) => {
     setLoading(true);
@@ -256,7 +266,7 @@ export default function PaymentsPage() {
                   <td className="px-4 py-3 font-medium text-gray-900">{p.productName ?? "-"}</td>
                   <td className="px-4 py-3">
                     <p className="text-gray-900">{p.customerName}</p>
-                    <p className="text-xs text-gray-400">{p.customerPhone.slice(0, 4) + "***"}</p>
+                    <p className="text-xs text-gray-400">{maskPhone(p.customerPhone)}</p>
                   </td>
                   <td className="px-4 py-3 text-right font-semibold">{p.amount.toLocaleString()}원</td>
                   <td className="px-4 py-3 text-center">
@@ -329,7 +339,7 @@ export default function PaymentsPage() {
                     <td className="px-4 py-3 font-medium text-gray-900">{s.goodname}</td>
                     <td className="px-4 py-3">
                       <p className="text-gray-900">{s.customerName}</p>
-                      <p className="text-xs text-gray-400">{s.customerPhone.slice(0, 4) + "***"}</p>
+                      <p className="text-xs text-gray-400">{maskPhone(s.customerPhone)}</p>
                     </td>
                     <td className="px-4 py-3 text-right font-semibold">{s.goodprice.toLocaleString()}원</td>
                     <td className="px-4 py-3 text-center text-sm">매월 {s.cycleDay === 90 ? "말일" : `${s.cycleDay}일`}</td>
@@ -339,16 +349,26 @@ export default function PaymentsPage() {
                     <td className="px-4 py-3 text-center">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
                     </td>
-                    <td className="px-4 py-3 text-center space-x-2">
-                      {s.status === "active" && (
-                        <button onClick={() => handleSubAction(s.id, "pause")} className="text-xs text-amber-600 hover:text-amber-800 font-medium">일시정지</button>
-                      )}
-                      {s.status === "paused" && (
-                        <button onClick={() => handleSubAction(s.id, "resume")} className="text-xs text-emerald-600 hover:text-emerald-800 font-medium">재시작</button>
-                      )}
-                      {s.status !== "cancelled" && (
-                        <button onClick={() => { if (confirm("정기결제를 해지하시겠습니까? 복구 불가능합니다.")) handleSubAction(s.id, "cancel"); }} className="text-xs text-red-600 hover:text-red-800 font-medium">해지</button>
-                      )}
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        {s.status === "active" && (
+                          <button onClick={() => handleSubAction(s.id, "pause")} className="text-xs text-amber-600 hover:text-amber-800 font-medium">일시정지</button>
+                        )}
+                        {s.status === "paused" && (
+                          <button onClick={() => handleSubAction(s.id, "resume")} className="text-xs text-emerald-600 hover:text-emerald-800 font-medium">재시작</button>
+                        )}
+                        {s.status !== "cancelled" && (
+                          cancelling === s.id ? (
+                            <div className="flex items-center gap-1">
+                              <input type="text" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="해지 사유" className="border border-gray-200 rounded px-2 py-1 text-xs w-24" />
+                              <button onClick={() => { handleSubAction(s.id, "cancel"); setCancelling(null); setCancelReason(""); }} className="text-xs bg-red-600 text-white px-2 py-1 rounded">확인</button>
+                              <button onClick={() => { setCancelling(null); setCancelReason(""); }} className="text-xs text-gray-400">취소</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setCancelling(s.id)} className="text-xs text-red-600 hover:text-red-800 font-medium">해지</button>
+                          )
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

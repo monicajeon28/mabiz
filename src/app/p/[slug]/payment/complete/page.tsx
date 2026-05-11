@@ -19,12 +19,12 @@ export default async function PaymentCompletePage({
   // 랜딩페이지 확인
   const page = await prisma.crmLandingPage.findFirst({
     where: { slug, isActive: true },
-    select: { title: true, productName: true },
+    select: { title: true, productName: true, organizationId: true },
   });
 
   if (!page) notFound();
 
-  // 결제 정보 조회
+  // 결제 정보 조회 (organizationId 검증 — IDOR 방지)
   let payment: {
     productName: string | null;
     amount: number;
@@ -36,8 +36,8 @@ export default async function PaymentCompletePage({
   } | null = null;
 
   if (orderId) {
-    payment = await prisma.payAppPayment.findUnique({
-      where: { orderId },
+    payment = await prisma.payAppPayment.findFirst({
+      where: { orderId, organizationId: page.organizationId },
       select: {
         productName: true,
         amount: true,
