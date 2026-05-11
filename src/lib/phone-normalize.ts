@@ -9,7 +9,12 @@ export function normalizePhone(phone: string): string {
   const digits = phone.replace(/[^0-9]/g, '');
 
   // +82 국제번호 처리
-  const normalized = digits.startsWith('82') ? '0' + digits.slice(2) : digits;
+  let normalized = digits.startsWith('82') ? '0' + digits.slice(2) : digits;
+
+  // 선두 0 중복 제거 (예: +82010... → 0010... → 010...)
+  if (normalized.startsWith('00')) {
+    normalized = normalized.slice(1);
+  }
 
   // 11자리: 010-1234-5678
   if (normalized.length === 11) {

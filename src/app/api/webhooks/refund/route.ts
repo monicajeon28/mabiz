@@ -64,22 +64,22 @@ export async function POST(req: NextRequest) {
   let contactUpdated = false;
 
   // Step 1: AffiliateSale → REFUNDED
-  let gmAgentId: number | null = null;
+  let gmAgentId: string | null = null;
   try {
     const refundedAtDate = new Date(refundedAt);
-    const rows = await prisma.$queryRaw<{ id: number; agentId: number | null }[]>(
+    const rows = await prisma.$queryRaw<{ id: number; affiliateUserId: string | null }[]>(
       Prisma.sql`
         UPDATE "AffiliateSale"
         SET    status = 'REFUNDED',
                "refundedAt" = ${refundedAtDate}
-        WHERE  "externalOrderCode" = ${orderId}
+        WHERE  "orderId" = ${orderId}
           AND  status NOT IN ('REFUNDED', 'CANCELLED')
-        RETURNING id, "agentId"
+        RETURNING id, "affiliateUserId"
       `
     );
     if (rows.length > 0) {
       saleUpdated = true;
-      gmAgentId = rows[0].agentId ?? null;
+      gmAgentId = rows[0].affiliateUserId ?? null;
     }
     logger.log('[RefundWebhook] AffiliateSale 업데이트', { saleUpdated, gmAgentId });
   } catch (err) {

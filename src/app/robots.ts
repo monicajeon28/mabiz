@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/p/',
-        disallow: ['/api/', '/(dashboard)/'],
+        disallow: '/',
       },
     ],
     sitemap: `${process.env.NEXT_PUBLIC_BASE_URL ?? 'https://crm.cruisedot.co.kr'}/sitemap.xml`,

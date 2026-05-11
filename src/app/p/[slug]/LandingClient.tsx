@@ -39,6 +39,14 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled }: Pro
   const submittingRef = useRef(false);
   const loadTimeRef = useRef<number>(Date.now());
 
+  // 에러 토스트 4초 자동 dismiss
+  useEffect(() => {
+    if (phoneError || fieldError) {
+      const timer = setTimeout(() => { setPhoneError(''); setFieldError(''); }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [phoneError, fieldError]);
+
   // 재방문 체크
   useEffect(() => {
     try {
@@ -145,7 +153,11 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled }: Pro
           setDone(true);
           try { localStorage.setItem(`registered_${slug}`, '1'); } catch {}
           window.scrollTo({ top: 0, behavior: "smooth" });
+        } else {
+          setFieldError(data.message ?? '등록에 실패했습니다. 다시 시도해 주세요.');
         }
+      } catch {
+        setFieldError('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
       } finally {
         submittingRef.current = false;
         setSubmitting(false);

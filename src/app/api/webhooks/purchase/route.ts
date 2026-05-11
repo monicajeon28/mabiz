@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
           productName:   productName   ?? undefined,
           departureDate: departureDate ? new Date(departureDate) : undefined,
           bookingRef:    orderId       ?? undefined,
-          purchasedAt:   new Date(),
+          // purchasedAt은 update에서 제거 — 첫 구매일 보존
           // 어필리에이트 코드 업데이트 (있는 경우)
           ...(affiliateCode ? { affiliateCode } : {}),
         },

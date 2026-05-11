@@ -94,8 +94,9 @@ export async function GET(req: Request) {
         recipients.push(...members.map((m) => m.contact));
       }
 
-      let sentCount   = 0;
-      let failedCount = 0;
+      let sentCount    = 0;
+      let failedCount  = 0;
+      let nightBlocked = false;
 
       for (const r of recipients) {
         const msg = item.message
@@ -114,16 +115,21 @@ export async function GET(req: Request) {
         if (Number(result.result_code) === 1) {
           sentCount++;
         } else if (Number(result.result_code) === -98) {
-          // 야간 차단 — NIGHT_BLOCKED로 상태 변경, 다음 실행에서 재시도
-          await prisma.scheduledSms.update({
-            where: { id: item.id },
-            data:  { status: "NIGHT_BLOCKED" },
-          });
-          logger.log("[Cron/ScheduledSms] 야간 차단 → NIGHT_BLOCKED", { id: item.id });
-          continue; // 다음 item으로
+          // 야간 차단 — 같은 시간대이므로 전체 중단
+          nightBlocked = true;
+          break;
         } else {
           failedCount++;
         }
+      }
+
+      if (nightBlocked) {
+        await prisma.scheduledSms.update({
+          where: { id: item.id },
+          data:  { status: "NIGHT_BLOCKED" },
+        });
+        logger.log("[Cron/ScheduledSms] 야간 차단 → NIGHT_BLOCKED (다음 08시 이후 재시도)", { id: item.id });
+        continue; // SENT로 덮어쓰기 방지 — 다음 item으로
       }
 
       await prisma.scheduledSms.update({
