@@ -26,8 +26,8 @@ async function processBatchB2C(
   chunk: Array<{ lineNo: number; data: Record<string, string> }>,
   orgId: string,
   errors: string[]
-): Promise<void> {
-  if (chunk.length === 0) return;
+): Promise<number> {
+  if (chunk.length === 0) return 0;
 
   const values = chunk
     .map((item) => {
@@ -61,24 +61,31 @@ async function processBatchB2C(
     adminMemo: string | null;
   }>;
 
-  if (values.length === 0) return;
+  if (values.length === 0) return 0;
 
-  // 파라미터 바인딩으로 SQL Injection 방지 (개별 upsert)
+  // 파라미터 바인딩으로 SQL Injection 방지 (행 단위 에러 포착)
+  let success = 0;
   for (const v of values) {
-    await prisma.$executeRaw`
-      INSERT INTO "Contact"
-        (id, "organizationId", phone, name, email, type, "cruiseInterest", "adminMemo", "createdAt", "updatedAt")
-      VALUES
-        (${v.id}, ${orgId}, ${v.phone}, ${v.name}, ${v.email}, ${v.type}, ${v.cruiseInterest}, ${v.adminMemo}, NOW(), NOW())
-      ON CONFLICT (phone, "organizationId") DO UPDATE SET
-        name = EXCLUDED.name,
-        email = EXCLUDED.email,
-        type = EXCLUDED.type,
-        "cruiseInterest" = EXCLUDED."cruiseInterest",
-        "adminMemo" = EXCLUDED."adminMemo",
-        "updatedAt" = NOW()
-    `;
+    try {
+      await prisma.$executeRaw`
+        INSERT INTO "Contact"
+          (id, "organizationId", phone, name, email, type, "cruiseInterest", "adminMemo", "createdAt", "updatedAt")
+        VALUES
+          (${v.id}, ${orgId}, ${v.phone}, ${v.name}, ${v.email}, ${v.type}, ${v.cruiseInterest}, ${v.adminMemo}, NOW(), NOW())
+        ON CONFLICT (phone, "organizationId") DO UPDATE SET
+          name = EXCLUDED.name,
+          email = EXCLUDED.email,
+          type = EXCLUDED.type,
+          "cruiseInterest" = EXCLUDED."cruiseInterest",
+          "adminMemo" = EXCLUDED."adminMemo",
+          "updatedAt" = NOW()
+      `;
+      success++;
+    } catch (err) {
+      errors.push(`DB 저장 실패 (phone: ${v.phone.slice(0, 4)}***): ${err instanceof Error ? err.message : '알 수 없음'}`);
+    }
   }
+  return success;
 }
 
 /**
@@ -92,8 +99,8 @@ async function processBatchB2B(
   }>,
   orgId: string,
   errors: string[]
-): Promise<void> {
-  if (chunk.length === 0) return;
+): Promise<number> {
+  if (chunk.length === 0) return 0;
 
   const values = chunk
     .map((item) => {
@@ -128,25 +135,32 @@ async function processBatchB2B(
     eduType: "BUYER" | "INQUIRER";
   }>;
 
-  if (values.length === 0) return;
+  if (values.length === 0) return 0;
 
-  // 파라미터 바인딩으로 SQL Injection 방지 (개별 upsert)
+  // 파라미터 바인딩으로 SQL Injection 방지 (행 단위 에러 포착)
+  let success = 0;
   for (const v of values) {
-    await prisma.$executeRaw`
-      INSERT INTO "CrmB2BProspect"
-        (id, "organizationId", phone, "companyName", name, email, position, notes, "eduType", status, "createdAt", "updatedAt")
-      VALUES
-        (${v.id}, ${orgId}, ${v.phone}, ${v.companyName}, ${v.name}, ${v.email}, ${v.position}, ${v.notes}, ${v.eduType}, 'NEW', NOW(), NOW())
-      ON CONFLICT (phone, "organizationId") DO UPDATE SET
-        "companyName" = EXCLUDED."companyName",
-        name = EXCLUDED.name,
-        email = EXCLUDED.email,
-        position = EXCLUDED.position,
-        notes = EXCLUDED.notes,
-        "eduType" = EXCLUDED."eduType",
-        "updatedAt" = NOW()
-    `;
+    try {
+      await prisma.$executeRaw`
+        INSERT INTO "CrmB2BProspect"
+          (id, "organizationId", phone, "companyName", name, email, position, notes, "eduType", status, "createdAt", "updatedAt")
+        VALUES
+          (${v.id}, ${orgId}, ${v.phone}, ${v.companyName}, ${v.name}, ${v.email}, ${v.position}, ${v.notes}, ${v.eduType}, 'NEW', NOW(), NOW())
+        ON CONFLICT (phone, "organizationId") DO UPDATE SET
+          "companyName" = EXCLUDED."companyName",
+          name = EXCLUDED.name,
+          email = EXCLUDED.email,
+          position = EXCLUDED.position,
+          notes = EXCLUDED.notes,
+          "eduType" = EXCLUDED."eduType",
+          "updatedAt" = NOW()
+      `;
+      success++;
+    } catch (err) {
+      errors.push(`B2B DB 저장 실패 (phone: ${v.phone.slice(0, 4)}***): ${err instanceof Error ? err.message : '알 수 없음'}`);
+    }
   }
+  return success;
 }
 
 // ==================== POST 핸들러 ====================
