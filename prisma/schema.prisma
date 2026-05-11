@@ -502,21 +502,68 @@ model CrmLandingView {
   @@map("CrmLandingView")
 }
 
-// ─── PayApp 결제 ──────────────────────────────────────────────
+// ─── PayApp 결제 (B2B 전용 — 크루즈닷몰 공유 테이블 아님) ─────
 model PayAppPayment {
   id            String    @id @default(cuid())
   orderId       String    @unique
   amount        Int
   customerName  String
   customerPhone String
-  status        String    @default("pending")
+  status        String    @default("pending") // pending/paid/refunded/partial_refunded/cancelled
   landingPageId String?
   paidAt        DateTime?
   createdAt     DateTime  @default(now())
 
+  // 결제 상세
+  productName   String?
+  customerEmail String?
+  mulNo         String?   // PayApp 결제요청번호
+  payType       String?   // 1=카드,2=휴대폰,6=계좌이체,7=가상계좌,15=카카오페이 등
+  cardName      String?   // 결제 카드명
+  cstUrl        String?   // 매출전표 URL
+
+  // 환불
+  refundedAt    DateTime?
+  refundAmount  Int       @default(0)
+  refundReason  String?
+
+  // 메타데이터 (부분환불 이력, 현금영수증 정보 등)
+  metadata      Json?
+
+  // 정기결제 연결
+  subscriptionId String?
+  subscription   PayAppSubscription? @relation(fields: [subscriptionId], references: [id])
+
   @@index([customerPhone])
   @@index([landingPageId])
+  @@index([mulNo])
+  @@index([status])
   @@map("CrmPayAppPayment")
+}
+
+// ─── PayApp 정기결제 (B2B 전용) ──────────────────────────────────
+model PayAppSubscription {
+  id              String    @id @default(cuid())
+  organizationId  String
+  rebillNo        String    @unique   // PayApp 정기결제 등록번호
+  goodname        String              // 상품명
+  goodprice       Int                 // 정기결제 금액
+  customerName    String
+  customerPhone   String
+  customerEmail   String?
+  cycleDay        Int       @default(1)   // 매월 결제일 (1~31, 90=말일)
+  expireDate      DateTime              // 만료일
+  status          String    @default("pending") // pending/active/paused/cancelled
+  payUrl          String?               // 최초 결제 URL
+  landingPageId   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  payments        PayAppPayment[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("CrmPayAppSubscription")
 }
 
 // ─── 예약 발송 (WO-23) ────────────────────────────────────────
