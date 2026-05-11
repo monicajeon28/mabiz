@@ -59,11 +59,18 @@ export async function PATCH(req: Request, { params }: Params) {
  * DELETE /api/payapp/subscription/[id]
  * 정기결제 해지 (복구 불가)
  */
-export async function DELETE(_req: Request, { params }: Params) {
+export async function DELETE(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
     const { id } = await params;
+
+    // 해지 사유 파싱 (body가 있으면)
+    let cancelReason = '';
+    try {
+      const body = await req.json();
+      cancelReason = body.reason ?? '';
+    } catch { /* body 없으면 무시 */ }
 
     const sub = await prisma.payAppSubscription.findFirst({
       where: { id, organizationId: orgId },
@@ -81,7 +88,7 @@ export async function DELETE(_req: Request, { params }: Params) {
 
     await prisma.payAppSubscription.update({ where: { id }, data: { status: 'cancelled' } });
 
-    logger.log('[PayApp/Subscription] 해지 완료', { id, rebillNo: sub.rebillNo });
+    logger.log('[PayApp/Subscription] 해지 완료', { id, rebillNo: sub.rebillNo, reason: cancelReason });
     return NextResponse.json({ ok: true });
   } catch (err) {
     logger.error('[PayApp/Subscription] 해지 실패', { err });

@@ -69,7 +69,6 @@ const navSections: NavSection[] = [
       { href: "/messages/scheduled",    icon: AlarmClock,   label: "예약 발송" },
       { href: "/sms-logs",              icon: ClipboardList,label: "발송 기록" },
       { href: "/funnels",               icon: GitBranch,    label: "퍼널" },
-      { href: "/funnel-states",         icon: GitBranch,    label: "퍼널 상태 관리" },
       { href: "/landing-pages",         icon: FileText,     label: "랜딩페이지" },
       { href: "/payments",              icon: CreditCard,   label: "결제 관리(B2B)" },
       { href: "/links",                 icon: Link2,        label: "상담 링크" },
@@ -87,7 +86,6 @@ const navSections: NavSection[] = [
   {
     label: "정산·서류",
     items: [
-      { href: "/payments/mall",    icon: CreditCard,   label: "결제 내역(몰)" },
       { href: "/statements",       icon: FileText,     label: "내 정산 내역" },
       { href: "/team-statements",  icon: Users,        label: "팀 정산",    roles: ["GLOBAL_ADMIN", "OWNER"] },
       { href: "/contracts",        icon: ClipboardList,label: "계약서 관리" },

@@ -121,7 +121,11 @@ export default function PaymentsPage() {
   const handleSubAction = async (id: string, action: "pause" | "resume" | "cancel") => {
     try {
       if (action === "cancel") {
-        const res = await fetch(`/api/payapp/subscription/${id}`, { method: "DELETE" });
+        const res = await fetch(`/api/payapp/subscription/${id}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: cancelReason }),
+        });
         const data = await res.json();
         if (!data.ok) { alert(data.message ?? "해지 실패"); return; }
       } else {
