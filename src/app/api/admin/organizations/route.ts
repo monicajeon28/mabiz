@@ -8,7 +8,7 @@ import { findOrCreateOrganization } from '@/lib/organization';
  * GET /api/admin/organizations
  * GLOBAL_ADMIN only: 전체 대리점 목록 (멤버 수 포함)
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const ctx = await getAuthContext();
 
@@ -16,7 +16,17 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
     }
 
+    // 검색 파라미터
+    const url = new URL(req.url);
+    const search = url.searchParams.get('search');
+
     const orgs = await prisma.organization.findMany({
+      where: search ? {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { members: { some: { displayName: { contains: search, mode: 'insensitive' } } } },
+        ],
+      } : undefined,
       select: {
         id:          true,
         name:        true,
@@ -26,22 +36,37 @@ export async function GET() {
         contractRef: true,
         createdAt:   true,
         _count: {
-          select: { members: true },
+          select: { members: true, contacts: true },
+        },
+        // OWNER 멤버 정보
+        members: {
+          where: { role: 'OWNER', isActive: true },
+          select: { displayName: true, phone: true, email: true, userId: true },
+          take: 1,
         },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    const result = orgs.map((org) => ({
-      id:          org.id,
-      name:        org.name,
-      slug:        org.slug,
-      status:      org.status,
-      plan:        org.plan,
-      contractRef: org.contractRef,
-      createdAt:   org.createdAt,
-      memberCount: org._count.members,
-    }));
+    const result = orgs.map((org) => {
+      const owner = org.members[0] ?? null;
+      return {
+        id:           org.id,
+        name:         org.name,
+        slug:         org.slug,
+        status:       org.status,
+        plan:         org.plan,
+        contractRef:  org.contractRef,
+        createdAt:    org.createdAt,
+        memberCount:  org._count.members,
+        contactCount: org._count.contacts,
+        owner: owner ? {
+          name:  owner.displayName,
+          phone: owner.phone ? owner.phone.slice(0, 4) + '****' : null,
+          email: owner.email,
+        } : null,
+      };
+    });
 
     return NextResponse.json({ ok: true, organizations: result });
   } catch (err) {

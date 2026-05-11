@@ -20,7 +20,9 @@ type Org = {
   plan: string;
   contractRef: string | null;
   memberCount: number;
+  contactCount: number;
   createdAt: string;
+  owner: { name: string | null; phone: string | null; email: string | null } | null;
 };
 
 // ─── Badge helpers ────────────────────────────────────────────
@@ -223,12 +225,21 @@ function OrgCard({ org }: { org: Org }) {
         </div>
       </div>
 
+      {/* OWNER 정보 */}
+      {org.owner && (
+        <div className="text-xs text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+          <span className="font-semibold">{org.owner.name ?? '미설정'}</span>
+          {org.owner.phone && <span className="ml-2 text-gray-400">{org.owner.phone}</span>}
+        </div>
+      )}
+
       {/* Meta row */}
       <div className="flex items-center gap-4 text-xs text-gray-500">
         <span className="flex items-center gap-1">
           <Users className="w-3.5 h-3.5" />
-          {org.memberCount}명
+          멤버 {org.memberCount}명
         </span>
+        <span className="font-medium text-blue-600">고객 DB {org.contactCount.toLocaleString()}명</span>
         <span>계약번호: {org.contractRef ?? '없음'}</span>
       </div>
 
@@ -251,6 +262,7 @@ export default function OrganizationsPage() {
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [search, setSearch] = useState("");
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchAll = useCallback(async (signal?: AbortSignal) => {
@@ -270,7 +282,9 @@ export default function OrganizationsPage() {
       }
 
       // Fetch org list
-      const orgRes = await fetch('/api/admin/organizations', { signal });
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      const orgRes = await fetch(`/api/admin/organizations?${params}`, { signal });
       if (!orgRes.ok) throw new Error('orgs fetch failed');
       const data = await orgRes.json();
       setOrgs(data.organizations ?? []);
@@ -280,7 +294,7 @@ export default function OrganizationsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [search]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -312,7 +326,19 @@ export default function OrganizationsPage() {
     <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">대리점 관리</h1>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">대리점 관리</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{orgs.length}개 대리점</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="대리점명/점장명 검색"
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-48 focus:outline-none focus:border-blue-500"
+            onKeyDown={(e) => e.key === 'Enter' && fetchAll()}
+          />
         <button
           onClick={() => setShowModal(true)}
           className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
@@ -320,6 +346,7 @@ export default function OrganizationsPage() {
           <Plus className="w-4 h-4" />
           대리점 등록
         </button>
+        </div>
       </div>
 
       {/* Org list */}
