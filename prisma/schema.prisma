@@ -1328,9 +1328,12 @@ model GmUser {
   nextActionDate              DateTime?
   nextActionNote              String?
 
-  reservations        GmReservation[]
-  travelers           GmTraveler[]
-  trips               GmTrip[]
+  reservations            GmReservation[]
+  travelers               GmTraveler[]
+  trips                   GmTrip[]
+  passportSubmissions     GmPassportSubmission[]
+  passportRequestsSent    GmPassportRequestLog[] @relation("PassportRequestLog_userIdToUser")
+  passportRequestsAdmin   GmPassportRequestLog[] @relation("PassportRequestLog_adminIdToUser")
 
   @@map("User")
 }
@@ -1502,6 +1505,7 @@ model GmPassportSubmission {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @default(now()) @updatedAt
 
+  user           GmUser    @relation(fields: [userId], references: [id])
   guests         GmPassportSubmissionGuest[]
 
   @@index([userId])
@@ -1539,6 +1543,9 @@ model GmPassportRequestLog {
   status         String
   errorReason    String?
   sentAt         DateTime @default(now())
+
+  user           GmUser   @relation("PassportRequestLog_userIdToUser", fields: [userId], references: [id])
+  admin          GmUser   @relation("PassportRequestLog_adminIdToUser", fields: [adminId], references: [id])
 
   @@index([userId])
   @@index([adminId])
