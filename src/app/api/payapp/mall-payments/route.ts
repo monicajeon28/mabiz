@@ -1,0 +1,47 @@
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
+
+/**
+ * GET /api/payapp/mall-payments
+ * 크루즈닷몰(웰컴페이먼츠 B2C) 결제 내역 조회 — 읽기 전용
+ * Payment 테이블은 크루즈닷몰 공유 DB이므로 절대 수정하지 않음
+ */
+export async function GET(req: Request) {
+  try {
+    await getAuthContext();
+    const url = new URL(req.url);
+
+    const search = url.searchParams.get('search');
+    const status = url.searchParams.get('status');
+    const page   = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'));
+    const limit  = Math.min(50, parseInt(url.searchParams.get('limit') ?? '20'));
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = {};
+    if (status) where.status = status;
+    if (search) {
+      where.OR = [
+        { buyerName: { contains: search } },
+        { buyerTel: { contains: search } },
+        { productName: { contains: search } },
+      ];
+    }
+
+    const [payments, total] = await Promise.all([
+      prisma.payment.findMany({
+        where,
+        orderBy: { paidAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.payment.count({ where }),
+    ]);
+
+    return NextResponse.json({ ok: true, payments, total, page, totalPages: Math.ceil(total / limit) });
+  } catch (err) {
+    logger.error('[MallPayments] 조회 실패', { err });
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+}

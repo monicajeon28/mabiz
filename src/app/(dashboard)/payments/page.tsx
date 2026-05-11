@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { CreditCard, RefreshCw, ArrowUpRight, ArrowDownLeft, Clock, Repeat } from "lucide-react";
+import { CreditCard, RefreshCw, ArrowUpRight, ArrowDownLeft, Clock, Repeat, Store } from "lucide-react";
 
 /** 전화번호 마스킹: 010-****-5678 형식 */
 function maskPhone(phone: string): string {
@@ -65,8 +65,20 @@ const SUB_STATUS: Record<string, { label: string; color: string }> = {
   cancelled: { label: "해지",     color: "text-red-700 bg-red-50" },
 };
 
+type MallPayment = {
+  id: number;
+  orderId: string;
+  buyerName: string;
+  buyerTel: string;
+  amount: number;
+  status: string;
+  productName: string | null;
+  pgProvider: string | null;
+  paidAt: string | null;
+};
+
 export default function PaymentsPage() {
-  const [tab, setTab] = useState<"payments" | "subscriptions">("payments");
+  const [tab, setTab] = useState<"payments" | "mall" | "subscriptions">("payments");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [stats, setStats]       = useState<Stats | null>(null);
   const [total, setTotal]       = useState(0);
@@ -77,6 +89,13 @@ export default function PaymentsPage() {
   const [search, setSearch]     = useState("");
   const [refunding, setRefunding] = useState<string | null>(null);
   const [refundReason, setRefundReason] = useState("");
+
+  // 크루즈닷몰 결제
+  const [mallPayments, setMallPayments] = useState<MallPayment[]>([]);
+  const [mallTotal, setMallTotal]       = useState(0);
+  const [mallPage, setMallPage]         = useState(1);
+  const [mallTotalPages, setMallTotalPages] = useState(1);
+  const [mallLoading, setMallLoading]   = useState(false);
 
   // 정기결제
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -116,6 +135,24 @@ export default function PaymentsPage() {
     setSubLoading(false);
   }, []);
 
+  const loadMallPayments = useCallback(async (p: number) => {
+    setMallLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(p), limit: "20" });
+      if (search) params.set("search", search);
+      const res = await fetch(`/api/payapp/mall-payments?${params}`);
+      const data = await res.json();
+      if (data.ok) {
+        setMallPayments(data.payments);
+        setMallTotal(data.total);
+        setMallPage(data.page);
+        setMallTotalPages(data.totalPages);
+      }
+    } catch {}
+    setMallLoading(false);
+  }, [search]);
+
+  useEffect(() => { if (tab === "mall") loadMallPayments(1); }, [tab, loadMallPayments]);
   useEffect(() => { if (tab === "subscriptions") loadSubscriptions(); }, [tab, loadSubscriptions]);
 
   const handleSubAction = async (id: string, action: "pause" | "resume" | "cancel") => {
@@ -167,7 +204,7 @@ export default function PaymentsPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
           <CreditCard className="w-6 h-6" />
-          결제 관리 (페이앱 B2B)
+          결제 관리
         </h1>
         <button onClick={() => tab === "payments" ? load(page) : loadSubscriptions()} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
           <RefreshCw className="w-4 h-4" /> 새로고침
@@ -181,6 +218,12 @@ export default function PaymentsPage() {
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "payments" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
         >
           <CreditCard className="w-4 h-4 inline mr-1.5" />결제 내역
+        </button>
+        <button
+          onClick={() => setTab("mall")}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "mall" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+        >
+          <Store className="w-4 h-4 inline mr-1.5" />크루즈닷몰(B2C)
         </button>
         <button
           onClick={() => setTab("subscriptions")}
@@ -315,6 +358,71 @@ export default function PaymentsPage() {
         </div>
       )}
       </>)}
+
+      {/* 크루즈닷몰 B2C 탭 — 읽기 전용 */}
+      {tab === "mall" && (
+        <>
+          <div className="flex gap-3 mb-4">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="이름, 전화번호, 상품명 검색"
+              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+              onKeyDown={(e) => e.key === "Enter" && loadMallPayments(1)}
+            />
+            <button onClick={() => loadMallPayments(1)} className="bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium">검색</button>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">상품명</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">고객</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-600">금액</th>
+                  <th className="text-center px-4 py-3 font-medium text-gray-600">상태</th>
+                  <th className="text-center px-4 py-3 font-medium text-gray-600">PG</th>
+                  <th className="text-center px-4 py-3 font-medium text-gray-600">결제일</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mallLoading ? (
+                  <tr><td colSpan={6} className="text-center py-12 text-gray-400">불러오는 중...</td></tr>
+                ) : mallPayments.length === 0 ? (
+                  <tr><td colSpan={6} className="text-center py-12 text-gray-400">결제 내역이 없습니다</td></tr>
+                ) : mallPayments.map((p) => (
+                  <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-900">{p.productName ?? "-"}</td>
+                    <td className="px-4 py-3">
+                      <p className="text-gray-900">{p.buyerName}</p>
+                      <p className="text-xs text-gray-400">{maskPhone(p.buyerTel)}</p>
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold">{p.amount.toLocaleString()}원</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        p.status === "paid" ? "text-emerald-700 bg-emerald-50" :
+                        p.status === "cancelled" ? "text-red-700 bg-red-50" : "text-gray-600 bg-gray-100"
+                      }`}>{p.status === "paid" ? "결제완료" : p.status === "cancelled" ? "취소" : p.status}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center text-xs text-gray-500">{p.pgProvider ?? "-"}</td>
+                    <td className="px-4 py-3 text-center text-xs text-gray-400">
+                      {p.paidAt ? new Date(p.paidAt).toLocaleDateString("ko-KR") : "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {mallTotalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <button disabled={mallPage <= 1} onClick={() => loadMallPayments(mallPage - 1)} className="px-3 py-1 text-sm border rounded disabled:opacity-30">이전</button>
+              <span className="text-sm text-gray-500">{mallPage} / {mallTotalPages} ({mallTotal}건)</span>
+              <button disabled={mallPage >= mallTotalPages} onClick={() => loadMallPayments(mallPage + 1)} className="px-3 py-1 text-sm border rounded disabled:opacity-30">다음</button>
+            </div>
+          )}
+          <p className="text-xs text-gray-400 mt-3 text-center">크루즈닷몰(웰컴페이먼츠) 결제 내역 — 읽기 전용</p>
+        </>
+      )}
 
       {/* 정기결제 탭 */}
       {tab === "subscriptions" && (

@@ -70,7 +70,7 @@ const navSections: NavSection[] = [
       { href: "/sms-logs",              icon: ClipboardList,label: "발송 기록" },
       { href: "/funnels",               icon: GitBranch,    label: "퍼널" },
       { href: "/landing-pages",         icon: FileText,     label: "랜딩페이지" },
-      { href: "/payments",              icon: CreditCard,   label: "결제 관리(B2B)" },
+      { href: "/payments",              icon: CreditCard,   label: "결제 관리" },
       { href: "/links",                 icon: Link2,        label: "상담 링크" },
       { href: "/news-links",            icon: Newspaper,    label: "뉴스 링크" },
     ],
