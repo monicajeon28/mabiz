@@ -168,3 +168,116 @@ export async function verifySenderNumber(config: AligoConfig): Promise<boolean> 
     return false; // 네트워크 오류 시 검증 불가 → false (저장은 허용, 경고만)
   }
 }
+
+// ─── 카카오 알림톡 (Aligo 카카오 API) ─────────────────────────
+
+interface SendKakaoParams {
+  config: AligoConfig;
+  receiver: string;
+  templateCode: string;    // Aligo에 등록된 템플릿 코드
+  subject?: string;        // 알림톡 제목
+  message: string;         // 템플릿에 맞는 메시지 본문
+  buttonTitle?: string;    // 버튼 텍스트
+  buttonUrl?: string;      // 버튼 URL
+  failoverSms?: boolean;   // 실패 시 SMS 대체 발송
+  organizationId?: string;
+  contactId?: string;
+  channel?: string;
+}
+
+/**
+ * Aligo 카카오 알림톡 발송
+ * API: https://kakaoapi.aligo.in/akv10/alimtalk/send/
+ *
+ * 사전 조건:
+ * - Aligo 계정에서 카카오 알림톡 활성화
+ * - 카카오 채널 연동 완료
+ * - 템플릿 검수 승인 완료
+ */
+export async function sendKakaoAlimtalk(params: SendKakaoParams): Promise<AligoResponse> {
+  const {
+    config, receiver, templateCode, subject, message, buttonTitle, buttonUrl,
+    failoverSms = true, organizationId, contactId, channel = "MANUAL",
+  } = params;
+
+  // 수신거부 체크
+  const optedOut = await isOptedOut(receiver);
+  if (optedOut) {
+    if (organizationId) {
+      recordSmsLog({ organizationId, contactId, phone: receiver, msg: message, status: "BLOCKED", blockReason: "OPT_OUT", channel });
+    }
+    return { result_code: -99, message: "수신거부 번호" };
+  }
+
+  // 야간 차단
+  if (isNightTime()) {
+    if (organizationId) {
+      recordSmsLog({ organizationId, contactId, phone: receiver, msg: message, status: "BLOCKED", blockReason: "NIGHT_BLOCK", channel });
+    }
+    return { result_code: -98, message: "야간 발송 차단" };
+  }
+
+  const apiKey = process.env.ALIGO_KAKAO_API_KEY ?? config.key;
+  const senderKey = process.env.ALIGO_KAKAO_SENDER_KEY;
+
+  if (!senderKey) {
+    logger.warn("[Aligo/Kakao] ALIGO_KAKAO_SENDER_KEY 미설정 — SMS 대체 발송");
+    // 카카오 설정이 안 되어 있으면 SMS로 대체
+    if (failoverSms) {
+      return sendSms({ config, receiver, msg: message, organizationId, contactId, channel: channel as "FUNNEL" | "GROUP" | "MANUAL" });
+    }
+    return { result_code: -97, message: "카카오 설정 미완료" };
+  }
+
+  const formData = new URLSearchParams({
+    apikey: apiKey,
+    userid: config.userId,
+    senderkey: senderKey,
+    tpl_code: templateCode,
+    sender: config.sender,
+    receiver_1: receiver.replace(/[^0-9]/g, ''),
+    subject_1: subject ?? '',
+    message_1: message,
+    ...(failoverSms ? { failover: 'Y', fsubject_1: subject ?? '', fmessage_1: message } : {}),
+  });
+
+  // 버튼 추가
+  if (buttonTitle && buttonUrl) {
+    formData.set('button_1', JSON.stringify({
+      button: [{ name: buttonTitle, linkType: 'WL', linkTypeName: '웹링크', linkMo: buttonUrl, linkPc: buttonUrl }],
+    }));
+  }
+
+  try {
+    const res = await fetch("https://kakaoapi.aligo.in/akv10/alimtalk/send/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: formData.toString(),
+    });
+    const data = (await res.json()) as AligoResponse;
+
+    logger.log("[Aligo/Kakao] 알림톡 발송 결과", {
+      code: data.result_code,
+      phone: receiver.substring(0, 4) + "***",
+    });
+
+    if (organizationId) {
+      recordSmsLog({
+        organizationId, contactId, phone: receiver, msg: message,
+        status: Number(data.result_code) === 0 ? "SENT" : "FAILED",
+        resultCode: String(data.result_code),
+        msgId: data.msg_id,
+        channel: channel + "_KAKAO",
+      });
+    }
+    return data;
+  } catch (err) {
+    logger.error("[Aligo/Kakao] 알림톡 발송 실패", { err });
+    // 실패 시 SMS 대체 발송
+    if (failoverSms) {
+      logger.log("[Aligo/Kakao] SMS 대체 발송 시도");
+      return sendSms({ config, receiver, msg: message, organizationId, contactId, channel: channel as "FUNNEL" | "GROUP" | "MANUAL" });
+    }
+    return { result_code: -1, message: "발송 오류" };
+  }
+}
