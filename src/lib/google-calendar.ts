@@ -1,5 +1,28 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from "crypto";
 import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
+
+// ─── 재시도 헬퍼 (Exponential Backoff) ───────────────────────
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3
+): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      // auth 오류는 재시도 불필요
+      if (msg.includes('invalid_grant') || msg.includes('revoked')) throw err;
+      if (i < maxRetries - 1) {
+        await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
+      }
+    }
+  }
+  throw lastErr;
+}
 
 // ─── 환경변수 ────────────────────────────────────────────────
 const CLIENT_ID = process.env.GOOGLE_CALENDAR_CLIENT_ID!;
@@ -168,7 +191,7 @@ export async function getValidAccessToken(userId: string): Promise<string | null
 
   try {
     const decryptedRefresh = decryptToken(token.refreshToken);
-    const refreshed = await refreshAccessToken(decryptedRefresh);
+    const refreshed = await retryWithBackoff(() => refreshAccessToken(decryptedRefresh));
 
     await prisma.googleCalendarToken.update({
       where: { userId },
@@ -267,4 +290,94 @@ export async function addCalendarEvent(userId: string, event: CalendarEvent): Pr
   });
 
   return { success: true, eventId: data.id };
+}
+
+/** Google Calendar 이벤트 수정 */
+export async function updateCalendarEvent(
+  userId: string,
+  googleEventId: string,
+  updates: Partial<CalendarEvent>
+): Promise<{ success: boolean; error?: string }> {
+  const accessToken = await getValidAccessToken(userId);
+  if (!accessToken) return { success: false, error: 'GOOGLE_NOT_CONNECTED' };
+
+  // DB에서 이벤트 소유권 확인
+  const existing = await prisma.googleCalendarEvent.findUnique({
+    where: { userId_googleEventId: { userId, googleEventId } },
+  });
+  if (!existing) return { success: false, error: 'EVENT_NOT_FOUND' };
+
+  const startTime = updates.startTime ?? existing.startTime;
+  const endTime = updates.endTime ?? new Date(startTime.getTime() + 30 * 60 * 1000);
+
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...(updates.summary && { summary: updates.summary }),
+        ...(updates.description !== undefined && { description: updates.description }),
+        start: { dateTime: startTime.toISOString(), timeZone: 'Asia/Seoul' },
+        end: { dateTime: endTime.toISOString(), timeZone: 'Asia/Seoul' },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.text();
+    logger.error('[updateCalendarEvent] Google API 오류', { err });
+    return { success: false, error: err };
+  }
+
+  await prisma.googleCalendarEvent.update({
+    where: { userId_googleEventId: { userId, googleEventId } },
+    data: {
+      ...(updates.summary && { summary: updates.summary }),
+      ...(updates.description !== undefined && { description: updates.description ?? null }),
+      startTime,
+      endTime,
+    },
+  });
+
+  return { success: true };
+}
+
+/** Google Calendar 이벤트 삭제 */
+export async function deleteCalendarEvent(
+  userId: string,
+  googleEventId: string
+): Promise<{ success: boolean; error?: string }> {
+  const accessToken = await getValidAccessToken(userId);
+  if (!accessToken) return { success: false, error: 'GOOGLE_NOT_CONNECTED' };
+
+  // DB에서 소유권 확인
+  const existing = await prisma.googleCalendarEvent.findUnique({
+    where: { userId_googleEventId: { userId, googleEventId } },
+  });
+  if (!existing) return { success: false, error: 'EVENT_NOT_FOUND' };
+
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`,
+    {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+
+  // 410 Gone = 이미 삭제됨 → DB만 정리
+  if (!res.ok && res.status !== 410) {
+    const err = await res.text();
+    logger.error('[deleteCalendarEvent] Google API 오류', { err });
+    return { success: false, error: err };
+  }
+
+  await prisma.googleCalendarEvent.delete({
+    where: { userId_googleEventId: { userId, googleEventId } },
+  });
+
+  return { success: true };
 }
