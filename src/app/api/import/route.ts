@@ -63,27 +63,22 @@ async function processBatchB2C(
 
   if (values.length === 0) return;
 
-  // Batch INSERT with ON CONFLICT
-  const insertValues = values
-    .map(
-      (v) =>
-        `(${Prisma.raw(`'${v.id}'`)}, ${Prisma.raw(`'${orgId}'`)}, ${Prisma.raw(`'${v.phone}'`)}, ${Prisma.raw(`'${v.name.replace(/'/g, "''")}'`)}, ${Prisma.raw(`${v.email ? `'${v.email.replace(/'/g, "''")}'` : "NULL"}`)}, ${Prisma.raw(`'${v.type}'`)}, ${Prisma.raw(`${v.cruiseInterest ? `'${v.cruiseInterest.replace(/'/g, "''")}'` : "NULL"}`)}, ${Prisma.raw(`${v.adminMemo ? `'${v.adminMemo.replace(/'/g, "''")}'` : "NULL"}`)}, NOW(), NOW())`
-    )
-    .join(",");
-
-  await prisma.$executeRawUnsafe(`
-    INSERT INTO "Contact"
-      (id, "organizationId", phone, name, email, type, "cruiseInterest", "adminMemo", "createdAt", "updatedAt")
-    VALUES
-      ${insertValues}
-    ON CONFLICT (phone, "organizationId") DO UPDATE SET
-      name = EXCLUDED.name,
-      email = EXCLUDED.email,
-      type = EXCLUDED.type,
-      "cruiseInterest" = EXCLUDED."cruiseInterest",
-      "adminMemo" = EXCLUDED."adminMemo",
-      "updatedAt" = NOW()
-  `);
+  // 파라미터 바인딩으로 SQL Injection 방지 (개별 upsert)
+  for (const v of values) {
+    await prisma.$executeRaw`
+      INSERT INTO "Contact"
+        (id, "organizationId", phone, name, email, type, "cruiseInterest", "adminMemo", "createdAt", "updatedAt")
+      VALUES
+        (${v.id}, ${orgId}, ${v.phone}, ${v.name}, ${v.email}, ${v.type}, ${v.cruiseInterest}, ${v.adminMemo}, NOW(), NOW())
+      ON CONFLICT (phone, "organizationId") DO UPDATE SET
+        name = EXCLUDED.name,
+        email = EXCLUDED.email,
+        type = EXCLUDED.type,
+        "cruiseInterest" = EXCLUDED."cruiseInterest",
+        "adminMemo" = EXCLUDED."adminMemo",
+        "updatedAt" = NOW()
+    `;
+  }
 }
 
 /**
@@ -135,28 +130,23 @@ async function processBatchB2B(
 
   if (values.length === 0) return;
 
-  // Batch INSERT with ON CONFLICT
-  const insertValues = values
-    .map(
-      (v) =>
-        `(${Prisma.raw(`'${v.id}'`)}, ${Prisma.raw(`'${orgId}'`)}, ${Prisma.raw(`'${v.phone}'`)}, ${Prisma.raw(`'${v.companyName.replace(/'/g, "''")}'`)}, ${Prisma.raw(`'${v.name.replace(/'/g, "''")}'`)}, ${Prisma.raw(`${v.email ? `'${v.email.replace(/'/g, "''")}'` : "NULL"}`)}, ${Prisma.raw(`${v.position ? `'${v.position.replace(/'/g, "''")}'` : "NULL"}`)}, ${Prisma.raw(`${v.notes ? `'${v.notes.replace(/'/g, "''")}'` : "NULL"}`)}, ${Prisma.raw(`'${v.eduType}'`)}, 'NEW', NOW(), NOW())`
-    )
-    .join(",");
-
-  await prisma.$executeRawUnsafe(`
-    INSERT INTO "CrmB2BProspect"
-      (id, "organizationId", phone, "companyName", name, email, position, notes, "eduType", status, "createdAt", "updatedAt")
-    VALUES
-      ${insertValues}
-    ON CONFLICT (phone, "organizationId") DO UPDATE SET
-      "companyName" = EXCLUDED."companyName",
-      name = EXCLUDED.name,
-      email = EXCLUDED.email,
-      position = EXCLUDED.position,
-      notes = EXCLUDED.notes,
-      "eduType" = EXCLUDED."eduType",
-      "updatedAt" = NOW()
-  `);
+  // 파라미터 바인딩으로 SQL Injection 방지 (개별 upsert)
+  for (const v of values) {
+    await prisma.$executeRaw`
+      INSERT INTO "CrmB2BProspect"
+        (id, "organizationId", phone, "companyName", name, email, position, notes, "eduType", status, "createdAt", "updatedAt")
+      VALUES
+        (${v.id}, ${orgId}, ${v.phone}, ${v.companyName}, ${v.name}, ${v.email}, ${v.position}, ${v.notes}, ${v.eduType}, 'NEW', NOW(), NOW())
+      ON CONFLICT (phone, "organizationId") DO UPDATE SET
+        "companyName" = EXCLUDED."companyName",
+        name = EXCLUDED.name,
+        email = EXCLUDED.email,
+        position = EXCLUDED.position,
+        notes = EXCLUDED.notes,
+        "eduType" = EXCLUDED."eduType",
+        "updatedAt" = NOW()
+    `;
+  }
 }
 
 // ==================== POST 핸들러 ====================
@@ -388,23 +378,21 @@ export async function POST(req: Request) {
       orgId,
     });
 
-    // Fire-and-forget: ImportLog 기록
-    (async () => {
-      try {
-        await prisma.importLog.create({
-          data: {
-            organizationId: orgId,
-            target,
-            totalRows: rows.length,
-            successfulRows: successCount,
-            failedRows: validationSkipCount + processErrorCount,
-            errors: errors.slice(0, 5).join(" | ") || null,
-          },
-        });
-      } catch (err) {
-        logger.error("[POST /api/import] ImportLog 저장 실패", { err });
-      }
-    })();
+    // ImportLog 기록 (응답 전 확실히 저장)
+    try {
+      await prisma.importLog.create({
+        data: {
+          organizationId: orgId,
+          target,
+          totalRows: rows.length,
+          successfulRows: successCount,
+          failedRows: validationSkipCount + processErrorCount,
+          errors: errors.slice(0, 5).join(" | ") || null,
+        },
+      });
+    } catch (err) {
+      logger.error("[POST /api/import] ImportLog 저장 실패", { err });
+    }
 
     // Fire-and-forget: Drive 백업
     (async () => {
