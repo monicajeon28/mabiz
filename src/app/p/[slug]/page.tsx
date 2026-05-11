@@ -14,7 +14,11 @@ export default async function PublicLandingPage({
 
   const page = await prisma.crmLandingPage.findFirst({
     where:  { slug, isActive: true, isPublic: true },
-    select: { id: true, title: true, htmlContent: true, commentEnabled: true },
+    select: {
+      id: true, title: true, htmlContent: true, commentEnabled: true,
+      paymentEnabled: true, paymentType: true, productName: true, productPrice: true,
+      cycleDay: true, expireDate: true,
+    },
   });
 
   if (!page) notFound();
@@ -52,6 +56,13 @@ export default async function PublicLandingPage({
       slug={slug}
       htmlContent={page.htmlContent ?? ""}
       commentEnabled={page.commentEnabled}
+      payment={page.paymentEnabled ? {
+        type: (page.paymentType as "onetime" | "subscription") ?? "onetime",
+        productName: page.productName ?? "",
+        productPrice: page.productPrice ?? 0,
+        cycleDay: page.cycleDay ?? 1,
+        expireDate: page.expireDate?.toISOString().split("T")[0] ?? "",
+      } : undefined}
     />
   );
 }

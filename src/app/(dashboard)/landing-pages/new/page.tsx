@@ -66,6 +66,14 @@ export default function NewLandingPage() {
   const [groups, setGroups]     = useState<{ id: string; name: string; funnelId: string | null }[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
 
+  // 결제 설정
+  const [paymentEnabled, setPaymentEnabled] = useState(false);
+  const [paymentType, setPaymentType]       = useState<"onetime" | "subscription">("onetime");
+  const [productName, setProductName]       = useState("");
+  const [productPrice, setProductPrice]     = useState("");
+  const [cycleDay, setCycleDay]             = useState("1");
+  const [expireDate, setExpireDate]         = useState("");
+
   useEffect(() => {
     fetch("/api/groups").then((r) => r.json()).then((data) => {
       if (data.ok) setGroups(data.groups ?? []);
@@ -89,7 +97,17 @@ export default function NewLandingPage() {
     const res  = await fetch("/api/landing-pages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, slug, htmlContent: html, groupId: selectedGroupId || null }),
+      body: JSON.stringify({
+        title, slug, htmlContent: html,
+        groupId: selectedGroupId || null,
+        ...(paymentEnabled ? {
+          paymentEnabled: true,
+          paymentType,
+          productName,
+          productPrice: parseInt(productPrice) || 0,
+          ...(paymentType === "subscription" ? { cycleDay: parseInt(cycleDay), expireDate } : {}),
+        } : {}),
+      }),
     });
     const data = await res.json();
     if (data.ok) {
@@ -166,6 +184,82 @@ export default function NewLandingPage() {
           </select>
           <p className="text-xs text-gray-400">🔄 = 퍼널 연결됨 — 등록 즉시 자동 문자 발송</p>
         </div>
+
+        {/* 결제 설정 */}
+        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-200">
+          <label className="text-sm font-medium text-gray-700 whitespace-nowrap flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={paymentEnabled}
+              onChange={(e) => setPaymentEnabled(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300"
+            />
+            결제 기능 활성화
+          </label>
+        </div>
+
+        {paymentEnabled && (
+          <div className="flex flex-wrap items-center gap-3 mt-2 pl-6">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-500">결제 유형</label>
+              <select
+                value={paymentType}
+                onChange={(e) => setPaymentType(e.target.value as "onetime" | "subscription")}
+                className="border border-gray-300 rounded-lg px-2 py-1 text-sm bg-white"
+              >
+                <option value="onetime">일반 결제</option>
+                <option value="subscription">정기 결제 (월)</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-500">상품명</label>
+              <input
+                type="text"
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                placeholder="크루즈 여행 상품"
+                className="border border-gray-300 rounded-lg px-2 py-1 text-sm w-40"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-500">금액</label>
+              <input
+                type="number"
+                value={productPrice}
+                onChange={(e) => setProductPrice(e.target.value)}
+                placeholder="100000"
+                className="border border-gray-300 rounded-lg px-2 py-1 text-sm w-28"
+              />
+              <span className="text-xs text-gray-400">원</span>
+            </div>
+            {paymentType === "subscription" && (
+              <>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500">매월 결제일</label>
+                  <select
+                    value={cycleDay}
+                    onChange={(e) => setCycleDay(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-2 py-1 text-sm bg-white"
+                  >
+                    {Array.from({ length: 31 }, (_, i) => (
+                      <option key={i + 1} value={i + 1}>{i + 1}일</option>
+                    ))}
+                    <option value="90">말일</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500">만료일</label>
+                  <input
+                    type="date"
+                    value={expireDate}
+                    onChange={(e) => setExpireDate(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-2 py-1 text-sm"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 에디터 / 미리보기 */}

@@ -274,6 +274,14 @@ model CrmLandingPage {
 
   commentEnabled Boolean  @default(false)  // 방문자 댓글 허용 여부
 
+  // 결제 설정 (페이앱 B2B)
+  paymentEnabled Boolean  @default(false)
+  paymentType    String?  // "onetime" | "subscription"
+  productName    String?
+  productPrice   Int?
+  cycleDay       Int?     // 정기결제 매월 결제일 (1~31, 90=말일)
+  expireDate     DateTime? // 정기결제 만료일
+
   organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   registrations  CrmLandingRegistration[]
   comments       CrmLandingComment[]

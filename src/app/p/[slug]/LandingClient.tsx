@@ -2,11 +2,20 @@
 
 import { useState, useRef, useEffect } from "react";
 
+interface PaymentConfig {
+  type:         "onetime" | "subscription";
+  productName:  string;
+  productPrice: number;
+  cycleDay:     number;
+  expireDate:   string;
+}
+
 interface Props {
   pageId:          string;
   slug:            string;
   htmlContent:     string;
   commentEnabled:  boolean;
+  payment?:        PaymentConfig;
 }
 
 type Comment = {
@@ -22,13 +31,16 @@ type Comment = {
  * - 폼 submit 인터셉트 → register API 호출
  * - 완료 화면 표시
  */
-export function LandingClient({ pageId, slug, htmlContent, commentEnabled }: Props) {
+export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payment }: Props) {
   const [done,        setDone]        = useState(false);
   const [isDuplicate, setIsDuplicate] = useState(false);
   const [submitting,  setSubmitting]  = useState(false);
   const [phoneError,  setPhoneError]  = useState("");
   const [fieldError,  setFieldError]  = useState("");
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [registeredName, setRegisteredName] = useState("");
+  const [registeredPhone, setRegisteredPhone] = useState("");
 
   // 댓글
   const [comments,     setComments]    = useState<Comment[]>([]);
@@ -154,6 +166,8 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled }: Pro
         const data = await res.json();
         if (data.ok) {
           setIsDuplicate(!!data.isDuplicate);
+          setRegisteredName(nameVal);
+          setRegisteredPhone(phoneVal);
           setDone(true);
           try { localStorage.setItem(`registered_${slug}`, '1'); } catch {}
           window.scrollTo({ top: 0, behavior: "smooth" });
@@ -214,9 +228,60 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled }: Pro
           <p className="text-gray-600 text-sm leading-relaxed">
             {alreadyRegistered || isDuplicate
               ? "담당자가 곧 연락드릴 예정이에요."
-              : "담당자가 빠르면 1시간 이내로 연락드립니다."}
+              : payment
+                ? "결제를 진행하시면 예약이 확정됩니다."
+                : "담당자가 빠르면 1시간 이내로 연락드립니다."}
           </p>
-          <div className="mt-6 space-y-3">
+
+          {/* 결제 버튼 (결제 설정이 있는 경우) */}
+          {payment && !alreadyRegistered && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-xl">
+              <p className="text-sm font-semibold text-gray-800 mb-1">{payment.productName}</p>
+              <p className="text-2xl font-bold text-navy-900 mb-3">
+                {payment.productPrice.toLocaleString()}원
+                {payment.type === "subscription" && <span className="text-sm font-normal text-gray-500"> /월</span>}
+              </p>
+              <button
+                onClick={async () => {
+                  setPaymentLoading(true);
+                  try {
+                    const res = await fetch("/api/payapp/request", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        type: payment.type,
+                        goodname: payment.productName,
+                        price: payment.productPrice,
+                        customerName: registeredName,
+                        customerPhone: registeredPhone,
+                        landingPageId: pageId,
+                        ...(payment.type === "subscription" ? {
+                          cycleDay: payment.cycleDay,
+                          expireDate: payment.expireDate,
+                        } : {}),
+                      }),
+                    });
+                    const data = await res.json();
+                    if (data.ok && data.payUrl) {
+                      window.location.href = data.payUrl;
+                    } else {
+                      setFieldError(data.message ?? "결제 요청에 실패했습니다.");
+                    }
+                  } catch {
+                    setFieldError("네트워크 오류가 발생했습니다.");
+                  } finally {
+                    setPaymentLoading(false);
+                  }
+                }}
+                disabled={paymentLoading}
+                className="w-full bg-emerald-600 text-white min-h-[48px] flex items-center justify-center rounded-xl text-base font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
+              >
+                {paymentLoading ? "결제 준비 중..." : payment.type === "subscription" ? "정기결제 시작하기" : "결제하기"}
+              </button>
+            </div>
+          )}
+
+          <div className="mt-4 space-y-3">
             <a
               href="https://pf.kakao.com/_cruisedot"
               target="_blank"
