@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a192f">
+<title>크루즈파트너스 — 여행 콘텐츠로 수수료까지 | 크루즈닷</title>
+<meta name="description" content="쿠팡파트너스처럼, 크루즈를 링크로 판매하세요. 비용 0원. 2년간 1,000명 이상 크루즈 보낸 여행사의 판매 시스템.">
+<script>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','903256635768882');fbq('track','PageView');</script>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{--navy:#0a192f;--navy-light:#112240;--gold:#c5a059;--gold-light:#e8d5a8;--gold-bg:rgba(197,160,89,.08);--orange:#FF6B35;--orange-hover:#e55a28;--white:#ffffff;--gray-50:#f8f9fb;--gray-100:#f1f3f7;--gray-300:#d1d5db;--gray-500:#6b7280;--gray-900:#1a1a2e;--green:#10b981;--ease:.25s cubic-bezier(.4,0,.2,1)}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;font-size:16px}
+body{font-family:'Pretendard Variable','Pretendard',-apple-system,sans-serif;color:var(--gray-900);background:var(--white);-webkit-font-smoothing:antialiased;word-break:keep-all;line-height:1.8;font-size:18px;padding-bottom:calc(env(safe-area-inset-bottom)+64px)}
+img{max-width:100%;display:block}
+a{text-decoration:none;color:inherit}
+button{font-family:inherit;cursor:pointer}
+.hero{background:linear-gradient(160deg,var(--navy) 0%,var(--navy-light) 100%);color:var(--white);padding:48px 20px 44px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(197,160,89,.1) 0%,transparent 70%);pointer-events:none}
+.hero-kicker{display:inline-block;background:rgba(197,160,89,.15);border:1px solid rgba(197,160,89,.3);border-radius:99px;padding:6px 18px;font-size:14px;font-weight:600;color:var(--gold-light);margin-bottom:20px}
+.hero h1{font-size:clamp(26px,7vw,40px);font-weight:900;line-height:1.25;margin-bottom:14px;letter-spacing:-.04em}
+.hero h1 em{font-style:normal;color:var(--gold)}
+.hero-desc{font-size:clamp(15px,3.5vw,18px);opacity:.85;line-height:1.75;margin-bottom:8px;max-width:480px;margin-left:auto;margin-right:auto}
+.hero-cost{font-size:16px;font-weight:700;color:var(--gold-light);margin-bottom:28px}
+.hero-cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--orange);color:var(--white);font-size:17px;font-weight:700;padding:15px 32px;border-radius:12px;border:none;min-height:52px;transition:all var(--ease)}
+.hero-cta:active{transform:scale(.97);background:var(--orange-hover)}
+.section{padding:52px 20px}
+.section-alt{background:var(--gray-50)}
+.section-dark{background:var(--navy);color:var(--white)}
+.s-title{font-size:clamp(20px,5vw,28px);font-weight:800;line-height:1.35;margin-bottom:24px;text-align:center;letter-spacing:-.03em}
+.s-sub{font-size:16px;color:var(--white);text-align:center;line-height:1.8;margin-bottom:32px}
+.counters{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:28px;max-width:440px;margin-left:auto;margin-right:auto}
+.counter{background:rgba(255,255,255,.06);border:1px solid rgba(197,160,89,.2);border-radius:12px;padding:18px 8px;text-align:center}
+.counter-num{font-size:clamp(20px,5vw,26px);font-weight:800;color:var(--gold);line-height:1.2}
+.counter-label{font-size:14px;color:rgba(255,255,255,.8);margin-top:4px}
+.mall-preview{max-width:400px;margin:0 auto 20px;border-radius:14px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3);border:2px solid rgba(197,160,89,.3);position:relative}
+.mall-preview img{width:100%;height:auto}
+.mall-tag{position:absolute;bottom:12px;left:12px;right:12px;background:rgba(10,25,47,.85);backdrop-filter:blur(8px);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--gold-light);text-align:center;font-weight:600}
+/* 솔직 섹션 — 텍스트 흐름 */
+.honest-intro{max-width:500px;margin:0 auto 28px;font-size:17px;line-height:1.9;color:var(--gray-900)}
+.honest-intro p{margin-bottom:6px}
+.honest-intro p.intro-punch{font-weight:700;margin-bottom:20px}
+.honest-list{max-width:500px;margin:0 auto 28px;list-style:none;counter-reset:honest-counter}
+.honest-list li{counter-increment:honest-counter;display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--gray-100);font-size:16px;line-height:1.75;color:var(--gray-900)}
+.honest-list li:last-child{border-bottom:none}
+.honest-list li::before{content:counter(honest-counter);display:flex;align-items:center;justify-content:center;flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--orange);color:var(--white);font-size:14px;font-weight:800;margin-top:3px}
+.structure{max-width:320px;margin:0 auto 24px;background:var(--gray-50);border:2px solid var(--gray-300);border-radius:14px;padding:24px 20px;text-align:center}
+.structure-flow{font-size:17px;font-weight:600;line-height:2.2;color:var(--gray-900)}
+.structure-flow .arrow{color:var(--gold);font-size:20px}
+.structure-note{font-size:14px;color:var(--gray-500);margin-top:8px;padding-top:12px;border-top:1px dashed var(--gray-300)}
+.structure-warning{max-width:500px;margin:0 auto;background:rgba(197,160,89,.08);border-left:4px solid var(--gold);border-radius:0 8px 8px 0;padding:14px 18px;font-size:15px;line-height:1.75;color:var(--gray-900)}
+/* anchor-btn: 섹션3 인라인폼 대체 */
+.anchor-btn-wrap{max-width:360px;margin:28px auto 0;text-align:center}
+.anchor-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--white);color:var(--orange);border:2px solid var(--orange);font-size:16px;font-weight:700;padding:14px 28px;border-radius:12px;transition:all var(--ease)}
+.anchor-btn:active{background:var(--orange);color:var(--white)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:480px;margin:0 auto 28px}
+@media(max-width:440px){.steps{grid-template-columns:1fr;gap:16px}}
+.step{text-align:center;padding:20px 12px;background:var(--white);border:1px solid var(--gray-300);border-radius:14px;position:relative}
+.step-num{width:32px;height:32px;background:var(--orange);color:var(--white);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;margin:0 auto 10px}
+.step-icon{font-size:28px;margin-bottom:8px}
+.step-title{font-size:15px;font-weight:700;margin-bottom:4px;color:var(--gray-900)}
+.step-desc{font-size:14px;color:var(--gray-500);line-height:1.6}
+.step-arrow{display:none;position:absolute;right:-18px;top:50%;transform:translateY(-50%);font-size:20px;color:var(--gray-300)}
+@media(min-width:441px){.step-arrow{display:block}}
+.lifestyle{text-align:center;font-size:17px;line-height:2;color:var(--gray-500);margin-bottom:28px;font-style:italic}
+.partner-count{text-align:center;font-size:15px;color:var(--gray-500);background:var(--gray-50);border-radius:10px;padding:14px;margin-bottom:8px}
+.partner-count strong{color:var(--orange);font-weight:700}
+/* 타임라인 */
+.timeline{max-width:440px;margin:0 auto 0;padding:0 8px}
+.timeline-item{display:flex;gap:16px;padding-bottom:28px;position:relative}
+.timeline-item:last-child{padding-bottom:0}
+.timeline-item:not(:last-child)::before{content:'';position:absolute;left:15px;top:32px;bottom:0;width:2px;background:var(--gray-300)}
+.tl-dot{flex-shrink:0;width:32px;height:32px;border-radius:50%;background:var(--navy);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;z-index:1;position:relative}
+.tl-dot span{font-size:11px;font-weight:800;color:var(--gold);white-space:nowrap}
+.tl-body{padding-top:4px;flex:1}
+.tl-label{font-size:14px;font-weight:700;color:var(--gray-500);margin-bottom:3px}
+.tl-text{font-size:15px;font-weight:600;color:var(--gray-900);line-height:1.6}
+.tl-text em{font-style:normal;color:var(--orange);font-weight:700}
+/* 폼 */
+.form-section{max-width:400px;margin:0 auto}
+.form-head{font-size:clamp(20px,5vw,26px);font-weight:800;text-align:center;margin-bottom:8px;letter-spacing:-.03em}
+.form-sub{font-size:15px;color:var(--gray-500);text-align:center;margin-bottom:20px;line-height:1.7}
+.form-input{width:100%;height:54px;border:2px solid var(--gray-300);border-radius:12px;padding:0 16px;font-size:18px;font-family:inherit;margin-bottom:12px;transition:border var(--ease);-webkit-appearance:none;background:var(--white);color:var(--gray-900)}
+.form-input:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 3px rgba(255,107,53,.12)}
+.form-input::placeholder{color:var(--gray-300)}
+.form-submit{width:100%;min-height:56px;background:var(--orange);color:var(--white);border:none;border-radius:12px;font-size:18px;font-weight:800;transition:all var(--ease);font-family:inherit;padding:14px 20px}
+.form-submit:active{transform:scale(.97);background:var(--orange-hover)}
+.form-agree{font-size:14px;color:var(--gray-500);text-align:center;margin-top:12px;line-height:1.7}
+.form-free{text-align:center;margin-top:16px;font-size:15px;color:var(--gray-500);line-height:1.7}
+.form-free strong{color:var(--gray-900);font-weight:700}
+.success-msg{display:none;text-align:center;padding:40px 20px}
+.success-msg.show{display:block}
+.success-msg h3{font-size:24px;font-weight:800;margin:12px 0 8px}
+.success-msg p{font-size:16px;color:var(--gray-500);margin-bottom:20px;line-height:1.7}
+.footer{background:var(--navy);color:rgba(255,255,255,.6);padding:32px 20px calc(80px + env(safe-area-inset-bottom));font-size:14px;line-height:2;text-align:center}
+.footer a{color:rgba(255,255,255,.7)}
+.sticky-bar{position:fixed;bottom:0;left:0;right:0;z-index:999;background:var(--navy);padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom));box-shadow:0 -4px 24px rgba(0,0,0,.2);display:none;align-items:center;gap:12px}
+.sticky-left{font-size:13px;font-weight:700;color:var(--gold);white-space:nowrap}
+.sticky-btn{flex:1;min-height:48px;background:var(--orange);color:var(--white);border:none;border-radius:10px;font-size:16px;font-weight:700;font-family:inherit;transition:all var(--ease);animation:pulse 2s ease-in-out infinite}
+.sticky-btn:active{background:var(--orange-hover)}
+/* 수익 인증 그리드: 모바일 1열(크게), PC 2열 */
+.revenue-proof-grid{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:640px){.hero{padding:64px 32px 56px}.section{padding:64px 32px}.form-section{max-width:440px}.revenue-proof-grid{grid-template-columns:1fr 1fr}}
+@media(min-width:1024px){.hero{padding:96px 40px 80px}.section{padding:80px 40px}.sticky-bar{display:none!important}body{padding-bottom:0}}
+/* 애니메이션 */
+@keyframes fadeInUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,107,53,.4)}70%{box-shadow:0 0 0 14px rgba(255,107,53,0)}}
+@keyframes goldGlow{0%,100%{box-shadow:0 4px 20px rgba(197,160,89,.12)}50%{box-shadow:0 4px 32px rgba(197,160,89,.35)}}
+.animate-in{opacity:0;transform:translateY(24px)}
+.animate-in.visible{animation:fadeInUp .6s ease forwards}
+.btn-pulse{animation:pulse 2s ease-in-out infinite}
+.card-glow{animation:goldGlow 3s ease-in-out infinite}
+</style>
+</head>
+<body>
+
+<!-- ═══ HERO ═══ -->
+<section class="hero" id="top">
+<div class="hero-kicker">이미 127명이 시작했습니다</div>
+<h1>127명은 이미 벌고 있습니다.<br><em>당신은요?</em></h1>
+<p class="hero-desc">블로그·SNS에 링크 하나 올리면 끝.<br>판매될 때마다 수수료가 자동 입금됩니다.</p>
+<p class="hero-cost">가입비 0원. 시작 비용 0원. 링크만 받으세요.</p>
+<a href="#apply" class="hero-cta">3기 마감 전에 신청하기 ↓</a>
+<!-- Hero: 120px 2×2 격자 -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;justify-items:center;margin-top:28px;max-width:260px;margin-left:auto;margin-right:auto">
+<img src="https://www.leadgeny.kr/data/file/smarteditor2/2026-03-14/ed72e289fd0e0f0e81ff43b3f963e182_1773490111_2195.png" alt="크루즈닷 스탭 단체" loading="eager" style="width:120px;height:120px;border-radius:14px;object-fit:cover;border:2px solid rgba(197,160,89,.3)">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-11-16/354def09d2ee2d48ff812a59a1f2c00b_1763275230_0379.jpg" alt="크루즈 터미널 스탭" loading="eager" style="width:120px;height:120px;border-radius:14px;object-fit:cover;border:2px solid rgba(197,160,89,.3)">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-11-16/354def09d2ee2d48ff812a59a1f2c00b_1763275230_6515.jpg" alt="크루즈 스탭 쉽투어" loading="eager" style="width:120px;height:120px;border-radius:14px;object-fit:cover;border:2px solid rgba(197,160,89,.3)">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-08-27/35678ffef7bca30be7b0a09219c12215_1756224513_768.jpg" alt="모니카 강의" loading="eager" style="width:120px;height:120px;border-radius:14px;object-fit:cover;border:2px solid rgba(197,160,89,.3)">
+</div>
+<p style="font-size:14px;color:rgba(255,255,255,.6);margin-top:10px">크루즈닷 스탭 · 터미널 인솔 · 현장 강의</p>
+</section>
+
+<!-- ═══ 증거 ═══ -->
+<section class="section section-dark" id="proof">
+<h2 class="s-title" style="color:var(--white)">2년간 <em style="color:var(--gold)">1,000명</em> 출발.<br>지금 이 순간에도 예약이 들어옵니다.</h2>
+<div class="counters">
+<div class="counter"><div class="counter-num">1,000+</div><div class="counter-label">크루즈 출발</div></div>
+<div class="counter"><div class="counter-num">3,000+</div><div class="counter-label">콘텐츠 제작</div></div>
+<div class="counter"><div class="counter-num">127+</div><div class="counter-label">활동 파트너</div></div>
+</div>
+<p class="s-sub">이 팀의 판매 시스템을 그대로 받습니다.<br>처음부터 만들 필요 없습니다.</p>
+<div class="mall-preview">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-11-16/354def09d2ee2d48ff812a59a1f2c00b_1763271130_6526.png" alt="크루즈 가이드 지니 판매원몰" loading="lazy" width="400" height="210">
+<div class="mall-tag">이 판매몰이 내 이름으로 즉시 셋업됩니다</div>
+</div>
+<!-- 영상 3개 -->
+<div style="max-width:440px;margin:24px auto 0">
+<p style="text-align:center;font-size:15px;font-weight:700;color:var(--gold-light);margin-bottom:12px">실제 현장 영상</p>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+<a href="https://youtu.be/QcTTmP5Ldt4" target="_blank" rel="noopener" style="position:relative;border-radius:10px;overflow:hidden;aspect-ratio:9/16;background:#000">
+<img src="https://img.youtube.com/vi/QcTTmP5Ldt4/mqdefault.jpg" alt="크루즈 현장" loading="lazy" style="width:100%;height:100%;object-fit:cover;opacity:.8">
+<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><div style="width:40px;height:40px;background:rgba(255,255,255,.9);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="font-size:16px;margin-left:3px">▶</span></div></div>
+<p style="position:absolute;bottom:6px;left:6px;right:6px;font-size:11px;color:#fff;font-weight:600">크루즈 현장</p>
+</a>
+<a href="https://youtube.com/shorts/CSZy5MSUfx8" target="_blank" rel="noopener" style="position:relative;border-radius:10px;overflow:hidden;aspect-ratio:9/16;background:#000">
+<img src="https://img.youtube.com/vi/CSZy5MSUfx8/mqdefault.jpg" alt="파트너 활동" loading="lazy" style="width:100%;height:100%;object-fit:cover;opacity:.8">
+<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><div style="width:40px;height:40px;background:rgba(255,255,255,.9);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="font-size:16px;margin-left:3px">▶</span></div></div>
+<p style="position:absolute;bottom:6px;left:6px;right:6px;font-size:11px;color:#fff;font-weight:600">파트너 활동</p>
+</a>
+<a href="https://youtu.be/e-1sSLsCvdM" target="_blank" rel="noopener" style="position:relative;border-radius:10px;overflow:hidden;aspect-ratio:9/16;background:#000">
+<img src="https://img.youtube.com/vi/e-1sSLsCvdM/mqdefault.jpg" alt="라이브 강의" loading="lazy" style="width:100%;height:100%;object-fit:cover;opacity:.8">
+<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><div style="width:40px;height:40px;background:rgba(255,255,255,.9);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="font-size:16px;margin-left:3px">▶</span></div></div>
+<p style="position:absolute;bottom:6px;left:6px;right:6px;font-size:11px;color:#fff;font-weight:600">라이브 강의</p>
+</a>
+</div>
+</div>
+<p style="text-align:center;font-size:14px;color:rgba(255,255,255,.6);margin-top:16px">검증된 판매 시스템을 파트너에게 그대로 드립니다.</p>
+<!-- 수수료 입금 증거 -->
+<div style="max-width:560px;margin:32px auto 0">
+<p style="text-align:center;font-size:17px;font-weight:700;color:var(--gold-light);margin-bottom:6px">실제 파트너 수수료 입금 내역</p>
+<p style="text-align:center;font-size:14px;color:rgba(255,255,255,.5);margin-bottom:16px">여행 출발 후 정산 — 매달 입금되는 수수료</p>
+<div class="revenue-proof-grid">
+<div style="background:rgba(255,255,255,.06);border:1px solid rgba(197,160,89,.25);border-radius:14px;overflow:hidden;padding:12px 12px 16px">
+<img src="assets/revenue_proof_1.webp" alt="파트너 수수료 입금 내역" loading="lazy" style="width:100%;border-radius:10px;margin-bottom:10px">
+<p style="text-align:center;font-size:15px;color:var(--gold-light);font-weight:700;line-height:1.5">파트너 A<br><span style="color:rgba(255,255,255,.5);font-weight:400;font-size:14px">월 23만~175만원</span></p>
+</div>
+<div style="background:rgba(255,255,255,.06);border:1px solid rgba(197,160,89,.25);border-radius:14px;overflow:hidden;padding:12px 12px 16px">
+<img src="assets/revenue_proof_2.webp" alt="파트너 수수료 입금 내역" loading="lazy" style="width:100%;border-radius:10px;margin-bottom:10px">
+<p style="text-align:center;font-size:15px;color:var(--gold-light);font-weight:700;line-height:1.5">파트너 B<br><span style="color:rgba(255,255,255,.5);font-weight:400;font-size:14px">월 30만~527만원</span></p>
+</div>
+</div>
+<p style="text-align:center;font-size:13px;color:rgba(255,255,255,.4);margin-top:12px;line-height:1.6">※ 수수료는 개인 활동량에 따라 다르며, 특정 수익을 보장하지 않습니다.</p>
+</div>
+</section>
+
+<!-- ═══ 솔직 + 안심 ═══ -->
+<section class="section" id="honest">
+<h2 class="s-title">솔직히 말씀드립니다</h2>
+
+<div class="honest-intro">
+  <p>크루즈 한 건은 쉽지 않습니다.</p>
+  <p>'클릭 몇 번'으로 끝나는 부업은 아닙니다.</p>
+  <p class="intro-punch">그래서 127명만 하고 있고, 그래서 기회입니다.</p>
+</div>
+
+<ul class="honest-list">
+  <li><span>초기 비용 0원 — 잃을 게 없으니 안 해볼 이유도 없습니다</span></li>
+  <li><span>여행 사진 올리는 게 일입니다 — 이미 하고 있는 일 아닌가요?</span></li>
+  <li><span>콘텐츠는 쌓이고, 수수료도 쌓입니다 — 자는 동안에도</span></li>
+  <li><span>자체 상품 1건 = 수수료 10만원. 월 10건이면?</span></li>
+</ul>
+
+<!-- 수수료 구조 -->
+<div class="animate-in" style="max-width:380px;margin:0 auto 24px;background:var(--white);border:2px solid var(--gold);border-radius:12px;padding:18px;text-align:center">
+<p style="font-size:15px;font-weight:700;color:var(--gray-900);margin-bottom:10px">상품별 수수료율</p>
+<div style="display:flex;justify-content:center;gap:16px;margin-bottom:12px">
+<div style="background:var(--gray-50);border-radius:10px;padding:12px 16px;flex:1">
+<p style="font-size:14px;color:var(--gray-500);margin-bottom:4px">제휴 여행사 상품</p>
+<p style="font-size:22px;font-weight:800;color:var(--gray-900)">1~2%</p>
+</div>
+<div style="background:var(--gold-bg);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;flex:1">
+<p style="font-size:14px;color:var(--gold);margin-bottom:4px">크루즈닷 자체 상품</p>
+<p style="font-size:22px;font-weight:800;color:var(--orange)">3~5%</p>
+</div>
+</div>
+<p style="font-size:14px;color:var(--gray-500);line-height:1.6">제휴 여행사 상품도 판매 가능<br>패키지·부산 출도착 포함</p>
+<p style="font-size:12px;color:var(--gray-500);margin-top:8px">※ 수수료는 상품·조건에 따라 다르며, 예시 금액은 수익을 보장하지 않습니다.</p>
+</div>
+
+<div class="structure">
+<div class="structure-flow">나 (파트너)<br><span class="arrow">↓</span><br>내 링크로 판매<br><span class="arrow">↓</span><br>여행 출발 후 수수료 정산</div>
+<div class="structure-note">끝. 하위 라인 없음.</div>
+</div>
+<div class="structure-warning"><strong>내가 올린 콘텐츠가 24시간 영업사원이 되는 구조.</strong><br>지인 영업 아닙니다.</div>
+
+<!-- 섹션3: 인라인 폼 → 앵커 버튼 -->
+<div class="anchor-btn-wrap">
+<p style="font-size:16px;font-weight:700;color:var(--gray-900);margin-bottom:14px">이 구조, 괜찮다 싶으면 늦기 전에 확인하세요</p>
+<a href="#apply" class="anchor-btn">3기 마감 전에 신청하기 ↓</a>
+</div>
+</section>
+
+<!-- ═══ 가능성 ═══ -->
+<section class="section section-alt" id="howto">
+<h2 class="s-title">이렇게 쉬운데, 왜 아직 안 하고 계세요?</h2>
+<div class="steps">
+<div class="step"><div class="step-num">1</div><div class="step-icon">📸</div><div class="step-title">사진 한 장 올리기</div><div class="step-desc">블로그, 인스타,<br>유튜브 어디든</div><div class="step-arrow">→</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-icon">🔗</div><div class="step-title">크루즈 링크 공유</div><div class="step-desc">크루즈닷몰<br>내 전용 링크</div><div class="step-arrow">→</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-icon">💰</div><div class="step-title">수수료 입금</div><div class="step-desc">여행 출발일에 맞춰<br>정산됩니다</div></div>
+</div>
+<div class="lifestyle">여행 좋아하시죠? 그럼 콘텐츠는 이미 나옵니다.<br>콘텐츠가 쌓이면 링크가 팔립니다.<br>좋아하는 일이 수입이 됩니다.</div>
+<div class="partner-count">지금 이 순간, <strong>127명</strong>이 콘텐츠를 올리고 수수료를 받고 있습니다.<br>내일이면 128명이 됩니다.</div>
+
+<!-- 파트너 사례: 해리 → 소라 → 로즈 -->
+
+<!-- 1. 해리 (시작) -->
+<div class="animate-in" style="max-width:400px;margin:24px auto 16px;background:var(--white);border:1px solid var(--gray-300);border-radius:16px;padding:20px 18px">
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-06-26/b941a75d82cb776b1c7905af131243fa_1750943262_1122.jpg" alt="해리 파트너" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--gray-300)">
+<div><p style="font-size:16px;font-weight:700;color:var(--gray-900);margin-bottom:2px">해리 파트너</p><p style="font-size:14px;color:var(--gray-500)">35세 · 직장인 (부업 3개월차)</p></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+<div style="background:var(--gray-50);border-radius:10px;padding:12px;text-align:center"><p style="font-size:22px;font-weight:800;color:var(--gray-900);line-height:1.2">10건</p><p style="font-size:14px;color:var(--gray-500);margin-top:3px">월 판매</p></div>
+<div style="background:var(--gray-50);border-radius:10px;padding:12px;text-align:center"><p style="font-size:22px;font-weight:800;color:var(--gray-900);line-height:1.2">87만원</p><p style="font-size:14px;color:var(--gray-500);margin-top:3px">월 수수료</p></div>
+</div>
+<p style="font-size:14px;line-height:1.7;color:var(--gray-500);padding:10px 12px;background:var(--gray-50);border-radius:8px">"퇴근 후 인스타에 사진만 올렸어요. 3개월 만에 월 87만원. 더 일찍 시작할 걸 후회합니다."</p>
+</div>
+
+<!-- 2. 소라 (성장) -->
+<div class="animate-in" style="max-width:400px;margin:0 auto 16px;background:var(--white);border:1px solid var(--gray-300);border-radius:16px;padding:20px 18px">
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-06-26/b941a75d82cb776b1c7905af131243fa_1750943260_8572.jpg" alt="소라 파트너" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--gray-300)">
+<div><p style="font-size:16px;font-weight:700;color:var(--gray-900);margin-bottom:2px">소라 파트너</p><p style="font-size:14px;color:var(--gray-500)">41세 · 프리랜서 (활동 8개월차)</p></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+<div style="background:var(--gray-50);border-radius:10px;padding:12px;text-align:center"><p style="font-size:22px;font-weight:800;color:var(--gray-900);line-height:1.2">26건</p><p style="font-size:14px;color:var(--gray-500);margin-top:3px">월 판매</p></div>
+<div style="background:var(--gray-50);border-radius:10px;padding:12px;text-align:center"><p style="font-size:22px;font-weight:800;color:var(--gray-900);line-height:1.2">241만원</p><p style="font-size:14px;color:var(--gray-500);margin-top:3px">월 수수료</p></div>
+</div>
+<p style="font-size:14px;line-height:1.7;color:var(--gray-500);padding:10px 12px;background:var(--gray-50);border-radius:8px">"8개월째 블로그+유튜브 올리고 있어요. 본업 월급보다 수수료가 많아졌는데, 이게 가능한 거였어요?"</p>
+</div>
+
+<!-- 3. 로즈 (베테랑 — 도파민 피크) -->
+<div class="card-glow" style="max-width:400px;margin:0 auto;background:var(--white);border:2px solid var(--gold);border-radius:16px;padding:24px 20px">
+<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-06-26/b941a75d82cb776b1c7905af131243fa_1750943261_2941.jpg" alt="로즈 파트너" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid var(--gold)">
+<div><p style="font-size:18px;font-weight:800;color:var(--gray-900);margin-bottom:2px">로즈 파트너</p><p style="font-size:14px;color:var(--gray-500)">48세 · 주부 (활동 2년차)</p></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+<div style="background:var(--gray-50);border-radius:10px;padding:14px;text-align:center"><p style="font-size:26px;font-weight:800;color:var(--orange);line-height:1.2">28건</p><p style="font-size:14px;color:var(--gray-500);margin-top:4px">월 판매 실적</p></div>
+<div style="background:var(--gray-50);border-radius:10px;padding:14px;text-align:center"><p style="font-size:26px;font-weight:800;color:var(--orange);line-height:1.2">247만원</p><p style="font-size:14px;color:var(--gray-500);margin-top:4px">월 수수료</p></div>
+</div>
+<p style="font-size:15px;line-height:1.8;color:var(--gray-900);background:var(--gold-bg);border-radius:8px;padding:12px 14px;font-style:italic">"처음엔 후기만 올렸어요.<br>2년 지난 지금, 매달 고객이 먼저 찾아옵니다. 시작이 반이더라고요."</p>
+</div>
+<p style="text-align:center;font-size:13px;color:var(--gray-500);margin-top:16px;line-height:1.6">※ 위 실적은 실제 파트너 기준이며(가명), 개인 활동량에 따라 차이가 있습니다.<br>수익을 보장하지 않습니다. 단, 방법을 알려드려서 노력하는 만큼 성과를 낼 수 있도록 코칭해 드립니다.</p>
+
+<!-- ═══ 파트너의 첫 90일 타임라인 (수수료 공개 직후, 피크폼 직전) ═══ -->
+<div class="animate-in" style="max-width:440px;margin:36px auto 0;padding:28px 24px;background:var(--white);border-radius:18px;border:1px solid var(--gray-300);box-shadow:0 4px 20px rgba(0,0,0,.05)">
+<p style="font-size:18px;font-weight:800;color:var(--gray-900);text-align:center;margin-bottom:24px;letter-spacing:-.03em">3개월이면 수수료가 시작됩니다</p>
+<div class="timeline">
+  <div class="timeline-item">
+    <div class="tl-dot"><span>1주</span></div>
+    <div class="tl-body">
+      <p class="tl-label">1주차</p>
+      <p class="tl-text">카카오 채널 개설 <em>(3분. 커피 한 잔보다 빠릅니다)</em></p>
+    </div>
+  </div>
+  <div class="timeline-item">
+    <div class="tl-dot"><span>2주</span></div>
+    <div class="tl-body">
+      <p class="tl-label">2주차</p>
+      <p class="tl-text">첫 콘텐츠 발행 <em>(파트너가 1:1 피드백)</em></p>
+    </div>
+  </div>
+  <div class="timeline-item">
+    <div class="tl-dot"><span>1개월</span></div>
+    <div class="tl-body">
+      <p class="tl-label">1개월</p>
+      <p class="tl-text">첫 문의 유입</p>
+    </div>
+  </div>
+  <div class="timeline-item">
+    <div class="tl-dot"><span>2개월</span></div>
+    <div class="tl-body">
+      <p class="tl-label">2개월</p>
+      <p class="tl-text">첫 예약 성사 <em>(수수료 3~15만원)</em></p>
+    </div>
+  </div>
+  <div class="timeline-item">
+    <div class="tl-dot"><span>3개월</span></div>
+    <div class="tl-body">
+      <p class="tl-label">3개월</p>
+      <p class="tl-text">수수료 수입 발생 시작 <em>(활동량에 따라 다름)</em></p>
+    </div>
+  </div>
+</div>
+<p style="font-size:14px;color:var(--gray-500);text-align:center;margin-top:20px;line-height:1.8;padding-top:16px;border-top:1px dashed var(--gray-300)">채널이 없어도 괜찮습니다.<br>카카오스토리 공유만으로 첫 수수료를 받은 파트너도 있습니다.</p>
+</div>
+
+<!-- ★ 피크폼 직전: 손실 1줄 + 기수제 -->
+<div style="max-width:400px;margin:28px auto 0;text-align:center">
+<p style="font-size:15px;color:var(--gray-500);line-height:1.85">매달 <strong style="color:var(--gray-900)">1,200명</strong>이 '크루즈 부업'을 검색하고 있습니다.<br>그 중 누군가는 오늘 신청합니다. 그 자리에 당신이 없으면, 다른 사람이 채웁니다.</p>
+<p style="font-size:11px;color:var(--gray-300);margin-top:4px">(네이버 키워드 도구 기준)</p>
+<div style="margin-top:14px;display:inline-flex;align-items:center;gap:8px;background:var(--orange);color:var(--white);padding:10px 20px;border-radius:99px;font-size:15px;font-weight:800">
+<span>3기 모집 중</span>
+<span style="background:rgba(255,255,255,.2);padding:3px 10px;border-radius:99px;font-size:13px" id="ddayBadge"></span>
+</div>
+</div>
+
+<!-- ★ 로즈 직후 피크폼 (도파민 피크에서 전환) -->
+<div style="max-width:380px;margin:20px auto 0;text-align:center;background:var(--white);border:2px solid var(--orange);border-radius:16px;padding:24px 20px;box-shadow:0 4px 16px rgba(255,107,53,.1)">
+<p style="font-size:18px;font-weight:800;color:var(--gray-900);margin-bottom:4px">아직 고민 중이세요? 127명은 이미 시작했습니다.</p>
+<p style="font-size:14px;color:var(--gray-500);margin-bottom:12px">3기 마감 전에 판매몰부터 확인하세요. 비용 없습니다.</p>
+
+<!-- 무료 라이브 + 카톡방 혜택 -->
+<div style="background:var(--gold-bg);border:1px solid var(--gold);border-radius:12px;padding:14px 16px;margin-bottom:16px;text-align:left">
+<div style="display:flex;gap:8px;margin-bottom:10px">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-11-16/354def09d2ee2d48ff812a59a1f2c00b_1763275430_2282.gif" alt="크루즈 라이브 방송" loading="lazy" style="width:50%;border-radius:8px">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-08-03/2aaf4aa2aa0950f4d179e35f99934319_1754194677_0318.png" alt="온라인 강의" loading="lazy" style="width:50%;border-radius:8px">
+</div>
+<p style="font-size:15px;font-weight:700;color:var(--gray-900);margin-bottom:8px">지금 신청하면 추가로 받는 것</p>
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+<span style="font-size:20px">🎥</span>
+<span style="font-size:14px;color:var(--gray-900);line-height:1.5"><strong>매주 수요일 오후 8시</strong> 무료 라이브 강의 링크</span>
+</div>
+<div style="display:flex;align-items:center;gap:10px">
+<span style="font-size:20px">💬</span>
+<span style="font-size:14px;color:var(--gray-900);line-height:1.5"><strong>파트너 전용 카톡방</strong> 커뮤니티 즉시 초대</span>
+</div>
+<div style="margin-top:10px;background:var(--navy);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px">
+<span style="font-size:24px">🎓</span>
+<div>
+<p style="font-size:14px;color:var(--gold);font-weight:700;line-height:1.4"><s style="color:rgba(255,255,255,.4);font-weight:400">600만원</s> → <span style="color:var(--white);font-size:18px">0원</span></p>
+<p style="font-size:13px;color:rgba(255,255,255,.7);line-height:1.4">자동화 마케팅 240강 · 매일 아침 8시 1강씩</p>
+</div>
+</div>
+</div>
+<input class="form-input" type="text" placeholder="이름" id="nameInput3">
+<input class="form-input" type="tel" placeholder="010-1234-5678" maxlength="13" oninput="formatPhone(this)" id="phoneInput3">
+<label style="display:flex;align-items:flex-start;gap:8px;text-align:left;margin-bottom:14px;cursor:pointer">
+<input type="checkbox" checked style="margin-top:4px;width:18px;height:18px;flex-shrink:0;accent-color:var(--orange)">
+<span style="font-size:13px;color:var(--gray-500);line-height:1.6">개인정보 수집·이용에 동의합니다. (수집 항목: 이름, 전화번호 / 목적: 파트너 가입 안내 / 보유: 1년)</span>
+</label>
+<button class="form-submit btn-pulse" onclick="submitFormPeak()">지금 바로 신청하기</button>
+<p style="font-size:14px;color:var(--gray-500);margin-top:8px">크루즈파트너스는 무료입니다.<br><span style="font-size:12px">심화 교육 프로그램은 선택 사항이며 별도 안내됩니다.</span></p>
+</div>
+
+<!-- 나머지: 활동사진 + 카톡 + 파트너들 -->
+<p style="text-align:center;font-size:15px;font-weight:700;color:var(--gray-900);margin:32px 0 12px">실제 활동하는 파트너들</p>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:440px;margin:0 auto">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-11-16/354def09d2ee2d48ff812a59a1f2c00b_1763275231_1789.jpg" alt="크루즈 스탭 안내" loading="lazy" style="border-radius:10px;aspect-ratio:4/3;object-fit:cover">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-11-16/354def09d2ee2d48ff812a59a1f2c00b_1763275231_6474.jpg" alt="크루즈 스탭 현장" loading="lazy" style="border-radius:10px;aspect-ratio:4/3;object-fit:cover">
+</div>
+<p style="text-align:center;font-size:15px;font-weight:700;color:var(--gray-900);margin:24px 0 12px">실제 고객 반응</p>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:440px;margin:0 auto">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-11-16/354def09d2ee2d48ff812a59a1f2c00b_1763275251_4906.png" alt="고객 후기 카톡" loading="lazy" style="border-radius:10px;border:1px solid var(--gray-300)">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-11-16/354def09d2ee2d48ff812a59a1f2c00b_1763275251_546.png" alt="고객 후기 카톡2" loading="lazy" style="border-radius:10px;border:1px solid var(--gray-300)">
+</div>
+
+<!-- 파트너들 (구 코치진): 이름+역할 -->
+<div style="text-align:center;margin:28px auto 0;max-width:440px">
+<p style="font-size:15px;font-weight:700;color:var(--gray-900);margin-bottom:16px">함께 활동 중인 파트너들</p>
+<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+<div style="text-align:center;width:72px">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-08-03/2aaf4aa2aa0950f4d179e35f99934319_1754199867_3063.png" alt="모니카" loading="lazy" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);margin:0 auto 6px">
+<p style="font-size:13px;font-weight:700;color:var(--gray-900)">모니카</p>
+<p style="font-size:12px;color:var(--gray-500);line-height:1.4">AI 마케팅</p>
+</div>
+<div style="text-align:center;width:72px">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-08-03/2aaf4aa2aa0950f4d179e35f99934319_1754199901_6284.jpg" alt="로즈" loading="lazy" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--gray-300);margin:0 auto 6px">
+<p style="font-size:13px;font-weight:700;color:var(--gray-900)">로즈</p>
+<p style="font-size:12px;color:var(--gray-500);line-height:1.4">크루즈 인솔</p>
+</div>
+<div style="text-align:center;width:72px">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-08-03/2aaf4aa2aa0950f4d179e35f99934319_1754199918_2226.jpg" alt="페르" loading="lazy" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--gray-300);margin:0 auto 6px">
+<p style="font-size:13px;font-weight:700;color:var(--gray-900)">페르</p>
+<p style="font-size:12px;color:var(--gray-500);line-height:1.4">크루즈 세일즈</p>
+</div>
+<div style="text-align:center;width:72px">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-08-03/2aaf4aa2aa0950f4d179e35f99934319_1754199959_7439.jpg" alt="맥스" loading="lazy" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--gray-300);margin:0 auto 6px">
+<p style="font-size:13px;font-weight:700;color:var(--gray-900)">맥스</p>
+<p style="font-size:12px;color:var(--gray-500);line-height:1.4">고객 CS</p>
+</div>
+<div style="text-align:center;width:72px">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-08-03/2aaf4aa2aa0950f4d179e35f99934319_1754199959_7938.jpg" alt="웰리" loading="lazy" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--gray-300);margin:0 auto 6px">
+<p style="font-size:13px;font-weight:700;color:var(--gray-900)">웰리</p>
+<p style="font-size:12px;color:var(--gray-500);line-height:1.4">마케팅 자동화</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ═══ 최종 CTA ═══ -->
+<section class="section" id="apply">
+<div class="form-section" id="formArea">
+<div id="formContent">
+<div style="max-width:400px;margin:0 auto 16px;border-radius:14px;overflow:hidden;position:relative">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-06-26/b941a75d82cb776b1c7905af131243fa_1750946395_97.png" alt="크루즈 발코니" loading="lazy" style="width:100%;aspect-ratio:16/9;object-fit:cover">
+<div style="position:absolute;bottom:0;left:0;right:0;padding:16px 20px;background:linear-gradient(transparent,rgba(0,0,0,.7));color:var(--white);font-size:16px;font-weight:600;line-height:1.5">링크 하나가 이 여행을 만들어 줬습니다</div>
+</div>
+<div style="max-width:340px;margin:0 auto 24px;text-align:center">
+<p style="font-size:14px;color:var(--gray-500);margin-bottom:8px">실제 파트너 결제 건</p>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-06-26/b941a75d82cb776b1c7905af131243fa_1750946395_715.png" alt="결제 후기" loading="lazy" style="border-radius:8px;border:1px solid var(--gray-300);max-height:160px;object-fit:cover">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-06-26/b941a75d82cb776b1c7905af131243fa_1750946395_763.png" alt="결제 후기2" loading="lazy" style="border-radius:8px;border:1px solid var(--gray-300);max-height:160px;object-fit:cover">
+</div>
+</div>
+<p class="form-head">3기 마감 임박.<br>지금 신청하면 내일 판매몰이 열립니다.</p>
+<p class="form-sub">이름과 연락처만 남기세요.<br>당일 안내 연락드립니다.</p>
+
+<!-- 무료 혜택 강조 -->
+<div style="background:var(--gold-bg);border:1px solid var(--gold);border-radius:12px;padding:14px 16px;margin-bottom:20px;text-align:left">
+<p style="font-size:14px;font-weight:700;color:var(--gray-900);margin-bottom:8px">신청 즉시 받는 것</p>
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+<span style="font-size:18px">🔗</span>
+<span style="font-size:14px;color:var(--gray-900)">내 크루즈 판매 링크</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+<span style="font-size:18px">🎥</span>
+<span style="font-size:14px;color:var(--gray-900)">매주 수요일 밤 8시 무료 라이브 강의</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+<span style="font-size:18px">💬</span>
+<span style="font-size:14px;color:var(--gray-900)">파트너 전용 카톡방 커뮤니티</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px">
+<span style="font-size:18px">📚</span>
+<span style="font-size:14px;color:var(--gray-900)">크루즈 마케팅 가이드</span>
+</div>
+<div style="margin-top:8px;background:var(--navy);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px">
+<span style="font-size:24px">🎓</span>
+<div>
+<p style="font-size:14px;color:var(--gold);font-weight:700;line-height:1.4"><s style="color:rgba(255,255,255,.4);font-weight:400">600만원</s> → <span style="color:var(--white);font-size:18px">0원</span></p>
+<p style="font-size:13px;color:rgba(255,255,255,.7);line-height:1.4">자동화 마케팅 240강 · 매일 아침 8시</p>
+</div>
+</div>
+</div>
+<input class="form-input" id="nameInput" type="text" placeholder="이름" autocomplete="name">
+<input class="form-input" id="phoneInput" type="tel" placeholder="010-1234-5678" autocomplete="tel" inputmode="tel" maxlength="13" oninput="formatPhone(this)">
+<label style="display:flex;align-items:flex-start;gap:8px;text-align:left;margin-bottom:14px;cursor:pointer">
+<input type="checkbox" checked style="margin-top:4px;width:18px;height:18px;flex-shrink:0;accent-color:var(--orange)">
+<span style="font-size:13px;color:var(--gray-500);line-height:1.6">개인정보 수집·이용에 동의합니다. (수집 항목: 이름, 전화번호 / 목적: 파트너 가입 안내 / 보유: 1년)</span>
+</label>
+<button class="form-submit btn-pulse" onclick="submitForm()">3기 마감 전에 시작하기</button>
+<div class="form-free"><strong>크루즈파트너스 기본 가입은 무료입니다.</strong><br>심화 교육 프로그램은 선택 사항이며 별도 안내됩니다.</div>
+<div style="display:flex;gap:8px;justify-content:center;margin-top:20px;flex-wrap:wrap">
+<img src="https://leadgeny.kr/data/file/smarteditor2/2025-08-27/35678ffef7bca30be7b0a09219c12215_1756222745_5229.jpg" alt="교육원신고증" loading="lazy" style="width:100px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--gray-300)">
+<img src="https://www.leadgeny.kr/data/file/smarteditor2/2026-03-15/ed72e289fd0e0f0e81ff43b3f963e182_1773500655_154.jpg" alt="관광사업등록증" loading="lazy" style="width:100px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--gray-300)">
+</div>
+<p style="text-align:center;font-size:14px;color:var(--gray-500);margin-top:8px">원격평생교육원 시설신고 · 관광사업등록 완료</p>
+</div>
+<div class="success-msg" id="successMsg">
+<div style="font-size:48px">✓</div>
+<h3>확인 완료!</h3>
+<p>판매몰 셋업 안내를 어떻게 받으시겠어요?</p>
+<div style="display:flex;flex-direction:column;gap:10px;max-width:320px;margin:0 auto">
+<a href="tel:0317564025" style="display:flex;align-items:center;justify-content:center;gap:8px;background:var(--navy);color:var(--white);font-size:16px;font-weight:700;padding:15px 24px;border-radius:10px">📞 전화로 바로 안내받기</a>
+<a href="https://open.kakao.com/o/plREDDUh" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#FEE500;color:#1a1a2e;font-size:16px;font-weight:700;padding:15px 24px;border-radius:10px">💬 카카오톡으로 먼저 확인하기</a>
+</div>
+<p style="font-size:14px;color:var(--gray-500);margin-top:12px">편한 방법으로 선택해주세요</p>
+</div>
+</div>
+</section>
+
+<footer class="footer">
+<p>크루즈닷 | 사업자등록번호: 714-57-00419<br>대표: 배연성 | 경기 화성시 효행로 1068 (리더스프라자) 603-A60호<br>관광사업등록: 제2025-000004호<br>고객센터: <a href="tel:0317564025">031-756-4025</a></p>
+<p style="margin-top:16px">&copy; 2026 크루즈닷. All rights reserved.</p>
+</footer>
+
+<div class="sticky-bar" id="stickyBar">
+<span class="sticky-left">3기 마감 <span id="dday"></span></span>
+<button class="sticky-btn" onclick="document.getElementById('apply').scrollIntoView({behavior:'smooth'})">무료 신청하기</button>
+</div>
+
+<script>
+// 스크롤 애니메이션
+(function(){var obs=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target)}})},{threshold:.15});document.querySelectorAll('.animate-in').forEach(function(el){obs.observe(el)})})();
+
+// 카운터 애니메이션
+(function(){var counted=false;var obs=new IntersectionObserver(function(entries){if(entries[0].isIntersecting&&!counted){counted=true;document.querySelectorAll('.counter-num').forEach(function(el){var target=parseInt(el.textContent.replace(/[^0-9]/g,''));var start=0;var dur=1200;var st=performance.now();(function step(now){var p=Math.min((now-st)/dur,1);el.textContent=Math.floor(start+p*(target-start)).toLocaleString()+'+';if(p<1)requestAnimationFrame(step)})(st)})}},{threshold:.3});var c=document.querySelector('.counters');if(c)obs.observe(c)})();
+
+// D-day 계산
+(function(){var deadline=new Date('2026-06-15T23:59:59');function update(){var now=new Date();var diff=deadline-now;var days=Math.max(0,Math.ceil(diff/86400000));var els=document.querySelectorAll('#dday,#ddayBadge');els.forEach(function(el){el.textContent='D-'+days})}update();setInterval(update,60000)})();
+
+(function(){var bar=document.getElementById('stickyBar');var form=document.getElementById('apply');window.addEventListener('scroll',function(){var pct=window.scrollY/(document.body.scrollHeight-window.innerHeight);var formTop=form.getBoundingClientRect().top;if(pct>.25&&formTop>300){bar.style.display='flex'}else{bar.style.display='none'}})})();
+function formatPhone(el){var v=el.value.replace(/\D/g,'');if(v.length<=3)el.value=v;else if(v.length<=7)el.value=v.slice(0,3)+'-'+v.slice(3);else el.value=v.slice(0,3)+'-'+v.slice(3,7)+'-'+v.slice(7,11)}
+/* 점장별 ref 파라미터 자동 감지 */
+var _ref=(new URLSearchParams(window.location.search)).get('ref')||'';
+function _sendToCRM(name,phone,onSuccess){
+  fetch('/api/public/landing-register',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name:name,phone:phone,ref:_ref||undefined})
+  }).then(function(r){return r.json()}).then(function(d){
+    if(d.ok){onSuccess()}
+    else{alert(d.message||'신청에 실패했습니다. 다시 시도해주세요.')}
+  }).catch(function(){onSuccess()});
+  if(typeof fbq==='function')fbq('track','Lead',{content_name:'크루즈파트너스',value:1,currency:'KRW'});
+}
+function submitForm(){var name=(document.getElementById('nameInput').value||'').trim();var phone=(document.getElementById('phoneInput').value||'').trim();if(!name){alert('이름을 입력해 주세요.');document.getElementById('nameInput').focus();return}var digits=phone.replace(/\D/g,'');if(digits.length<10){alert('연락처를 올바르게 입력해 주세요.');document.getElementById('phoneInput').focus();return}var btn=document.querySelector('#formContent .form-submit');btn.textContent='처리 중...';btn.disabled=true;_sendToCRM(name,phone,function(){document.getElementById('formContent').style.display='none';var msg=document.getElementById('successMsg');msg.classList.add('show');msg.scrollIntoView({behavior:'smooth',block:'center'})})}
+function submitFormPeak(){var name=(document.getElementById('nameInput3').value||'').trim();var phone=(document.getElementById('phoneInput3').value||'').trim();if(!name){alert('이름을 입력해 주세요.');document.getElementById('nameInput3').focus();return}var digits=phone.replace(/\D/g,'');if(digits.length<10){alert('연락처를 올바르게 입력해 주세요.');document.getElementById('phoneInput3').focus();return}_sendToCRM(name,phone,function(){var formArea=document.getElementById('nameInput3').parentElement;formArea.innerHTML='<div style="text-align:center;padding:24px"><div style="font-size:40px;margin-bottom:8px">✓</div><p style="font-size:20px;font-weight:800;color:var(--gray-900)">확인 완료!</p><p style="font-size:14px;color:var(--gray-500);margin-top:6px">곧 판매몰 셋업을 안내해 드리겠습니다</p><div style="display:flex;flex-direction:column;gap:8px;margin-top:16px"><a href="tel:0317564025" style="display:flex;align-items:center;justify-content:center;gap:6px;background:var(--navy);color:var(--white);font-size:15px;font-weight:700;padding:13px 20px;border-radius:10px">📞 전화로 바로 안내</a><a href="https://open.kakao.com/o/plREDDUh" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:6px;background:#FEE500;color:#1a1a2e;font-size:15px;font-weight:700;padding:13px 20px;border-radius:10px">💬 카카오톡 먼저</a></div></div>'})}
+</script>
+</body>
+</html>

@@ -27,6 +27,7 @@ const RATE_LIMIT_RULES: { pattern: RegExp; maxPerMinute: number }[] = [
   { pattern: /^\/api\/landing-pages\/[^/]+\/view$/, maxPerMinute: 15 },
   { pattern: /^\/api\/public\/landing\/[^/]+\/comments$/, maxPerMinute: 10 },
   { pattern: /^\/api\/public\/payapp\/request$/, maxPerMinute: 3 },
+  { pattern: /^\/api\/public\/landing-register$/, maxPerMinute: 5 },
 ];
 
 function getClientIp(req: NextRequest): string {
