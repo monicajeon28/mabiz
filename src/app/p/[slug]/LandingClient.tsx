@@ -278,6 +278,10 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payme
               >
                 {paymentLoading ? "결제 준비 중..." : payment.type === "subscription" ? "정기결제 시작하기" : "결제하기"}
               </button>
+              <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
+                판매자: 마비즈스쿨 원격평생교육원 | 사업자번호: 851-67-00338 | 대표: 전혜선<br />
+                통신판매업: 제 2024-대전서구-2845 호
+              </p>
             </div>
           )}
 

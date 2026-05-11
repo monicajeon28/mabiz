@@ -141,6 +141,14 @@ export default async function PaymentCompletePage({
             랜딩페이지로 돌아가기
           </Link>
         </div>
+
+        {/* 사업자 정보 */}
+        <div className="mt-6 pt-4 border-t border-gray-100 text-[10px] text-gray-400 leading-relaxed text-left">
+          <p className="font-medium text-gray-500 mb-1">마비즈스쿨 원격평생교육원</p>
+          <p>사업자등록번호: 851-67-00338 | 대표: 전혜선</p>
+          <p>통신판매업: 제 2024-대전서구-2845 호</p>
+          <p>주소: 대전광역시 서구 계백로 1161, 유니온빌딩 404-C38호</p>
+        </div>
       </div>
     </div>
   );
