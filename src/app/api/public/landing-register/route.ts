@@ -53,17 +53,19 @@ export async function POST(req: Request) {
       }
     }
 
-    // ref가 없거나 매칭 안 되면 기본 조직 사용
+    // ref가 있는데 매칭 안 되면 에러 (점장 오타 방지)
+    if (ref && !organizationId) {
+      logger.warn('[LandingRegister] ref 매칭 실패', { ref });
+      return NextResponse.json({ ok: false, message: '잘못된 링크입니다. 정확한 링크로 다시 시도해주세요.' }, { status: 400 });
+    }
+
+    // ref 없으면 기본 조직 (본사 직접 유입)
     if (!organizationId) {
       organizationId = process.env.DEFAULT_ORGANIZATION_ID ?? null;
-      if (!organizationId) {
-        const defaultOrg = await prisma.organization.findFirst({ select: { id: true } });
-        organizationId = defaultOrg?.id ?? null;
-      }
     }
 
     if (!organizationId) {
-      logger.error('[LandingRegister] 조직 특정 불가');
+      logger.error('[LandingRegister] DEFAULT_ORGANIZATION_ID 미설정');
       return NextResponse.json({ ok: false, message: '처리 중 오류가 발생했습니다.' }, { status: 500 });
     }
 
@@ -80,10 +82,8 @@ export async function POST(req: Request) {
         ...(refUserId ? { assignedUserId: refUserId } : {}),
       },
       update: {
-        name: name.trim(),
-        // 기존 채널이 있으면 유지, 없으면 b2b
-        ...(ref ? { affiliateCode: ref } : {}),
-        ...(refUserId ? { assignedUserId: refUserId } : {}),
+        // 기존 이름/귀속 보존 — 덮어쓰지 않음 (수수료 귀속 변경 방지)
+        // 최초 등록 시에만 설정되고, 재신청 시에는 변경 안 됨
       },
       select: { id: true },
     });

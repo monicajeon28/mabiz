@@ -526,7 +526,7 @@ function _sendToCRM(name,phone,onSuccess){
   }).then(function(r){return r.json()}).then(function(d){
     if(d.ok){onSuccess()}
     else{alert(d.message||'신청에 실패했습니다. 다시 시도해주세요.')}
-  }).catch(function(){onSuccess()});
+  }).catch(function(){alert('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')});
   if(typeof fbq==='function')fbq('track','Lead',{content_name:'크루즈파트너스',value:1,currency:'KRW'});
 }
 function submitForm(){var name=(document.getElementById('nameInput').value||'').trim();var phone=(document.getElementById('phoneInput').value||'').trim();if(!name){alert('이름을 입력해 주세요.');document.getElementById('nameInput').focus();return}var digits=phone.replace(/\D/g,'');if(digits.length<10){alert('연락처를 올바르게 입력해 주세요.');document.getElementById('phoneInput').focus();return}var btn=document.querySelector('#formContent .form-submit');btn.textContent='처리 중...';btn.disabled=true;_sendToCRM(name,phone,function(){document.getElementById('formContent').style.display='none';var msg=document.getElementById('successMsg');msg.classList.add('show');msg.scrollIntoView({behavior:'smooth',block:'center'})})}
