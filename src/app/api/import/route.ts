@@ -400,22 +400,24 @@ export async function POST(req: Request) {
         }
       }
 
-      // 배치 INSERT 실행
+      // 배치 INSERT 실행 (반환값으로 정확한 성공/실패 카운트)
       try {
+        let inserted = 0;
         if (target === "b2c") {
-          await processBatchB2C(
+          inserted = await processBatchB2C(
             batchData as Parameters<typeof processBatchB2C>[0],
             orgId,
             errors
           );
         } else if (target === "b2b_buyer" || target === "b2b_inquiry") {
-          await processBatchB2B(
+          inserted = await processBatchB2B(
             batchData as Parameters<typeof processBatchB2B>[0],
             orgId,
             errors
           );
         }
-        successCount += batchData.length;
+        successCount += inserted;
+        processErrorCount += batchData.length - inserted;
       } catch (err) {
         processErrorCount += batchData.length;
         if (errors.length < 20) {
