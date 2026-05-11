@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
       imageBuffer = Buffer.from(arrayBuffer);
     } catch (error) {
       const err = error as Record<string, unknown>;
-      logger.error('[OCR to APIS] 이미지 다운로드 오류:', err);
+      logger.error('[OCR to APIS] 이미지 다운로드 오류:', { message: err.message });
       return NextResponse.json(
         { ok: false, message: `이미지를 가져올 수 없습니다: ${err.message}` },
         { status: 400 }
@@ -159,7 +159,7 @@ Return ONLY the JSON object now:`;
       }
     } catch (ocrError) {
       const err = ocrError as Record<string, unknown>;
-      logger.error('[OCR to APIS] OCR 처리 오류:', err);
+      logger.error('[OCR to APIS] OCR 처리 오류:', { message: err.message });
       return NextResponse.json(
         { ok: false, message: `OCR 처리 중 오류가 발생했습니다: ${err.message}` },
         { status: 500 }
@@ -345,7 +345,7 @@ Return ONLY the JSON object now:`;
       });
     } catch (dbError) {
       const err = dbError as Record<string, unknown>;
-      logger.error('[OCR to APIS] DB 저장 오류:', err);
+      logger.error('[OCR to APIS] DB 저장 오류:', { message: err.message, code: err.code });
       return NextResponse.json(
         { ok: false, message: `APIS 데이터 저장 중 오류가 발생했습니다: ${err.message}` },
         { status: 500 }
@@ -353,7 +353,7 @@ Return ONLY the JSON object now:`;
     }
   } catch (error) {
     const err = error as Record<string, unknown>;
-    logger.error('[OCR to APIS] POST error:', err);
+    logger.error('[OCR to APIS] POST error:', { message: err.message });
     return NextResponse.json(
       {
         ok: false,

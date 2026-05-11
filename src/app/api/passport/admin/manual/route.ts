@@ -136,7 +136,7 @@ async function upsertSubmission(params: {
 
   const now = new Date();
   const createData: any = {
-    user: { connect: { id: userId } },
+    userId,
     token,
     tokenExpiresAt,
     isSubmitted: false,

@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
           cruiseName: true,
           startDate: true,
           endDate: true,
-          reservationCode: true,
+
         },
       },
       passportSubmissions: {
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
     } else {
       const latestTrip = customerUser.trips[0];
       const createData: Record<string, unknown> = {
-        user: { connect: { id: customerUser.id } },
+        userId: customerUser.id,
         token,
         tokenExpiresAt,
         isSubmitted: false,
@@ -171,36 +171,13 @@ export async function POST(req: NextRequest) {
       };
 
       if (latestTrip?.id) {
-        // GmPassportSubmission에 tripId 직접 설정
-        (createData as Record<string, unknown>).tripId = latestTrip.id;
-        delete (createData as Record<string, unknown>).user;
-        const created = await prisma.gmPassportSubmission.create({
-          data: {
-            userId: customerUser.id,
-            token,
-            tokenExpiresAt,
-            isSubmitted: false,
-            driveFolderUrl: null,
-            extraData: Prisma.JsonNull,
-            updatedAt: new Date(),
-            tripId: latestTrip.id,
-          },
-        });
-        submissionId = created.id;
-      } else {
-        const created = await prisma.gmPassportSubmission.create({
-          data: {
-            userId: customerUser.id,
-            token,
-            tokenExpiresAt,
-            isSubmitted: false,
-            driveFolderUrl: null,
-            extraData: Prisma.JsonNull,
-            updatedAt: new Date(),
-          },
-        });
-        submissionId = created.id;
+        createData.tripId = latestTrip.id;
       }
+
+      const created = await prisma.gmPassportSubmission.create({
+        data: createData as any,
+      });
+      submissionId = created.id;
     }
 
     // 여권 요청 시간 업데이트
@@ -244,7 +221,6 @@ export async function POST(req: NextRequest) {
     const err = error as Record<string, unknown>;
     logger.error(`[PassportLink] POST /api/passport/admin/leads-link error:`, {
       message: err.message,
-      stack: err.stack,
     });
     return NextResponse.json(
       {

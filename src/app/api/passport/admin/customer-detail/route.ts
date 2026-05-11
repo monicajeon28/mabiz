@@ -13,7 +13,7 @@ export async function POST(
   try {
     const manager = await requireCrmManager();
     if (!manager) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 403 });
     }
 
     // Next.js 13+ App Router 호환: params가 Promise일 수 있음
@@ -217,7 +217,7 @@ export async function PUT(
   try {
     const manager = await requireCrmManager();
     if (!manager) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 403 });
     }
 
     // Next.js 13+ App Router 호환: params가 Promise일 수 있음

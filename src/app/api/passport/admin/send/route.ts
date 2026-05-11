@@ -318,7 +318,7 @@ export async function POST(req: NextRequest) {
         } else {
           const now = new Date();
           const createData: any = {
-            User: { connect: { id: user.id } },
+            userId: user.id,
             token,
             tokenExpiresAt,
             isSubmitted: false,
@@ -328,7 +328,7 @@ export async function POST(req: NextRequest) {
           };
 
           if (latestTrip?.id) {
-            createData.UserTrip = { connect: { id: latestTrip.id } };
+            createData.tripId = latestTrip.id;
           }
 
           const created = await prisma.gmPassportSubmission.create({

@@ -139,7 +139,10 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     const err = error as Record<string, unknown>;
-    logger.error('POST /api/passport/admin/leads-complete error:', err);
+    logger.error('POST /api/passport/admin/leads-complete error:', {
+      message: err.message,
+      code: err.code,
+    });
     return NextResponse.json(
       { ok: false, message: 'Server error' },
       { status: 500 }

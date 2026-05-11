@@ -48,6 +48,10 @@ export async function POST(req: NextRequest) {
     });
 
     // 관리자 액션 로그 기록 (AdminActionLog는 CRM 스키마에 없으므로 raw query)
+    const maskedPhone = lead.customerPhone
+      ? lead.customerPhone.slice(0, 3) + '****' + lead.customerPhone.slice(-4)
+      : null;
+
     await prisma.$executeRaw`
       INSERT INTO "AdminActionLog" ("adminId", "targetUserId", "action", "details")
       VALUES (
@@ -57,7 +61,7 @@ export async function POST(req: NextRequest) {
         ${JSON.stringify({
           leadId,
           customerName: lead.customerName,
-          customerPhone: lead.customerPhone,
+          customerPhone: maskedPhone,
           message,
         })}::jsonb
       )
@@ -69,7 +73,10 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: unknown) {
     const err = error as Record<string, unknown>;
-    logger.error(`POST /api/passport/admin/leads-request error:`, err);
+    logger.error(`POST /api/passport/admin/leads-request error:`, {
+      message: err.message,
+      code: err.code,
+    });
     return NextResponse.json(
       {
         ok: false,

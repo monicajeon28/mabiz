@@ -214,7 +214,7 @@ export async function POST(req: NextRequest) {
       const tokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30일 후 만료
 
       const createData: any = {
-        user: { connect: { id: user.id } },
+        userId: user.id,
         token,
         tokenExpiresAt,
         isSubmitted: true, // 수동 등록은 바로 제출 완료로 처리
