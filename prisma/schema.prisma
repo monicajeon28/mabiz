@@ -1487,6 +1487,77 @@ model GmApisSyncQueue {
   @@map("ApisSyncQueue")
 }
 
+// ─── 여권 관리 (크루즈닷몰 공유) ─────────────────────────
+
+model GmPassportSubmission {
+  id             Int       @id @default(autoincrement())
+  userId         Int
+  tripId         Int?
+  token          String
+  tokenExpiresAt DateTime
+  isSubmitted    Boolean   @default(false)
+  submittedAt    DateTime?
+  driveFolderUrl String?
+  extraData      Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+
+  guests         GmPassportSubmissionGuest[]
+
+  @@index([userId])
+  @@index([token])
+  @@map("PassportSubmission")
+}
+
+model GmPassportSubmissionGuest {
+  id                 Int       @id @default(autoincrement())
+  submissionId       Int
+  groupNumber        Int
+  name               String
+  phone              String?
+  passportNumber     String?
+  nationality        String?
+  dateOfBirth        DateTime?
+  passportExpiryDate DateTime?
+  ocrRawData         Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
+
+  submission         GmPassportSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+  @@map("PassportSubmissionGuest")
+}
+
+model GmPassportRequestLog {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  adminId        Int
+  templateId     Int?
+  messageBody    String
+  messageChannel String
+  status         String
+  errorReason    String?
+  sentAt         DateTime @default(now())
+
+  @@index([userId])
+  @@index([adminId])
+  @@map("PassportRequestLog")
+}
+
+model GmPassportRequestTemplate {
+  id          Int      @id @default(autoincrement())
+  title       String
+  body        String
+  variables   Json?
+  isDefault   Boolean  @default(false)
+  updatedById Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@map("PassportRequestTemplate")
+}
+
 // ─── 웹훅 이벤트 중복 처리 방지 ──────────────────────────
 model ProcessedWebhookEvent {
   eventId      String   @id              // GMcruise에서 보내는 UUID v4
