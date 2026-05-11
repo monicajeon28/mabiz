@@ -61,7 +61,11 @@ BEGIN
   END IF;
 END $$;
 
--- 5. CrmLandingPage 결제 설정 컬럼 추가
+-- 5. Contact 채널 구분 컬럼 추가
+ALTER TABLE "Contact" ADD COLUMN IF NOT EXISTS "channel" TEXT NOT NULL DEFAULT 'direct';
+CREATE INDEX IF NOT EXISTS "Contact_channel_idx" ON "Contact"("channel");
+
+-- 6. CrmLandingPage 결제 설정 컬럼 추가
 ALTER TABLE "CrmLandingPage" ADD COLUMN IF NOT EXISTS "paymentEnabled" BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE "CrmLandingPage" ADD COLUMN IF NOT EXISTS "paymentType" TEXT;
 ALTER TABLE "CrmLandingPage" ADD COLUMN IF NOT EXISTS "productName" TEXT;

@@ -30,6 +30,7 @@ export default function PurchasedPage() {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [channelFilter, setChannelFilter] = useState<"" | "b2c" | "b2b">("");
   const [groups, setGroups] = useState<{ id: string; name: string; funnelId: string | null }[]>([]);
   const [assigning, setAssigning] = useState<string | null>(null);
 
@@ -45,6 +46,7 @@ export default function PurchasedPage() {
     setLoading(true);
     setFetchError('');
     const params = new URLSearchParams({ page: String(page), limit: "30", type: "CUSTOMER" });
+    if (channelFilter) params.set("channel", channelFilter);
     if (q) params.set("q", q);
 
     try {
@@ -59,7 +61,7 @@ export default function PurchasedPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, page]);
+  }, [q, page, channelFilter]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
@@ -176,7 +178,20 @@ export default function PurchasedPage() {
       <div className="flex items-center justify-between mb-2">
         <div>
           <h1 className="text-xl font-bold text-navy-900">구매 고객 관리</h1>
-          <p className="text-sm text-gray-500 mt-0.5">총 {total.toLocaleString()}명</p>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="flex bg-gray-100 rounded-lg p-0.5">
+              {([["", "전체"], ["b2c", "B2C(몰)"], ["b2b", "B2B(페이앱)"]] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => { setChannelFilter(val as "" | "b2c" | "b2b"); setPage(1); }}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${channelFilter === val ? "bg-white text-navy-900 shadow-sm" : "text-gray-500"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="text-sm text-gray-500">{total.toLocaleString()}명</span>
+          </div>
         </div>
         <div className="flex gap-2">
           <button

@@ -135,6 +135,7 @@ model Contact {
   phone          String
   email          String?
   type           String   @default("LEAD")
+  channel        String   @default("direct")  // b2c(크루즈닷몰), b2b(페이앱), direct(직접등록)
   cruiseInterest String?
   budgetRange    String?
   utmSource      String?

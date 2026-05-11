@@ -11,6 +11,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
 
     const type    = searchParams.get("type");
+    const channel = searchParams.get("channel"); // b2c, b2b, direct
     const q       = searchParams.get("q");
     const groupId = searchParams.get("groupId");
     const tagParam = searchParams.get("tags");                      // 쉼표 구분 태그 필터
@@ -22,6 +23,7 @@ export async function GET(req: Request) {
 
     const baseWhere = buildContactWhere(ctx, {
       ...(type ? { type } : {}),
+      ...(channel ? { channel } : {}),
       ...(q
         ? { OR: [
             { name: { contains: q, mode: "insensitive" as const } },

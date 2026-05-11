@@ -159,8 +159,9 @@ export async function POST(req: Request) {
               phone: normalizedPhone,
               type: "CUSTOMER",
               purchasedAt: new Date(),
+              channel: "b2b",
             },
-            update: { type: "CUSTOMER" },
+            update: { type: "CUSTOMER", channel: "b2b" },
           });
         }
       });

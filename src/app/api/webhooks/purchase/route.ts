@@ -132,6 +132,7 @@ export async function POST(req: NextRequest) {
           bookingRef:     orderId       ?? null,
           affiliateCode:  affiliateCode ?? null,
           purchasedAt:    new Date(),
+          channel:        "b2c",
         },
         update: {
           name,
