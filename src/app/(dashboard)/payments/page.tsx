@@ -79,6 +79,7 @@ type MallPayment = {
 
 export default function PaymentsPage() {
   const [tab, setTab] = useState<"payments" | "mall" | "subscriptions">("payments");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [stats, setStats]       = useState<Stats | null>(null);
   const [total, setTotal]       = useState(0);
@@ -122,6 +123,13 @@ export default function PaymentsPage() {
     } catch {}
     setLoading(false);
   }, [filter, search]);
+
+  useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((d) => { if (d.ok && d.role === 'GLOBAL_ADMIN') setIsAdmin(true); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => { if (tab === "payments") load(1); }, [load, tab]);
 
@@ -219,12 +227,14 @@ export default function PaymentsPage() {
         >
           <CreditCard className="w-4 h-4 inline mr-1.5" />결제 내역
         </button>
-        <button
-          onClick={() => setTab("mall")}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "mall" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-        >
-          <Store className="w-4 h-4 inline mr-1.5" />크루즈닷몰(B2C)
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setTab("mall")}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "mall" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+          >
+            <Store className="w-4 h-4 inline mr-1.5" />크루즈닷몰(B2C)
+          </button>
+        )}
         <button
           onClick={() => setTab("subscriptions")}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "subscriptions" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}

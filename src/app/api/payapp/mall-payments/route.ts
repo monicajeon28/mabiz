@@ -10,7 +10,11 @@ import { logger } from '@/lib/logger';
  */
 export async function GET(req: Request) {
   try {
-    await getAuthContext();
+    const ctx = await getAuthContext();
+    // 크루즈닷몰 결제 내역은 관리자만 접근 가능
+    if (ctx.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json({ ok: false, message: '관리자만 접근 가능합니다.' }, { status: 403 });
+    }
     const url = new URL(req.url);
 
     const search = url.searchParams.get('search');
