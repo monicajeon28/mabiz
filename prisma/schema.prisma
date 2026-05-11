@@ -1565,6 +1565,44 @@ model GmPassportRequestTemplate {
   @@map("PassportRequestTemplate")
 }
 
+// ─── PNR 감사로그 + 여행계약 ─────────────────────────────
+
+model GmReservationAudit {
+  id              Int       @id @default(autoincrement())
+  reservationId   Int
+  userId          Int?
+  action          String
+  fieldChanged    String?
+  oldValue        String?
+  newValue        String?
+  reason          String?
+  ipAddress       String?
+  userAgent       String?
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+
+  @@index([reservationId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@map("ReservationAudit")
+}
+
+model GmTravelContract {
+  id              Int       @id @default(autoincrement())
+  reservationId   Int
+  contractUrl     String?
+  signedAt        DateTime?
+  signedByUserId  Int?
+  status          String    @default("PENDING")
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
+
+  @@index([reservationId])
+  @@index([status])
+  @@map("TravelContract")
+}
+
 // ─── 웹훅 이벤트 중복 처리 방지 ──────────────────────────
 model ProcessedWebhookEvent {
   eventId      String   @id              // GMcruise에서 보내는 UUID v4
