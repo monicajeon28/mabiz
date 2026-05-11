@@ -7,7 +7,7 @@ import {
   FileText, Wrench, Database, Link2, Settings, LogOut,
   AlarmClock, TrendingUp, Building2, ClipboardList, CreditCard,
   BookOpen, Newspaper, FolderOpen, BarChart2, BarChart,
-  Calculator, Phone, ShoppingBag, Award, Star, Receipt,
+  Calculator, Phone, ShoppingBag, Award, Star, Receipt, Stamp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/components/layout/NotificationBell";
@@ -57,6 +57,7 @@ const navSections: NavSection[] = [
       { href: "/year-end-report",   icon: BarChart2,     label: "연말정산",     roles: ["GLOBAL_ADMIN", "OWNER"] },
       { href: "/products",          icon: ShoppingBag,   label: "상품 관리",    roles: ["GLOBAL_ADMIN"] },
       { href: "/members",           icon: Users,         label: "크루즈닷 회원관리", roles: ["GLOBAL_ADMIN"] },
+      { href: "/passport",          icon: Stamp,         label: "여권 관리",    roles: ["GLOBAL_ADMIN", "OWNER"] },
     ],
   },
   {

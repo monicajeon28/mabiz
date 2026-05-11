@@ -6,19 +6,15 @@ import { requireCrmManager } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
 
 // POST: 수동 여권 등록 (조건 없이 등록 가능)
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ userId: string }> | { userId: string } }
-) {
+export async function POST(req: NextRequest) {
   try {
     const manager = await requireCrmManager();
     if (!manager) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Next.js 13+ App Router 호환: params가 Promise일 수 있음
-    const resolvedParams = await Promise.resolve(params);
-    const userId = parseInt(resolvedParams.userId);
+    const postBody = await req.json();
+    const userId = parseInt(String(postBody.userId));
     if (isNaN(userId)) {
       return NextResponse.json(
         { ok: false, error: 'Invalid user ID' },
@@ -26,8 +22,7 @@ export async function POST(
       );
     }
 
-    const body = await req.json();
-    const { korName, engGivenName, engSurname, passportNo, birthDate, expiryDate, reservationId } = body;
+    const { korName, engGivenName, engSurname, passportNo, birthDate, expiryDate, reservationId } = postBody;
 
     // 여권번호만 필수, 나머지는 선택사항 (조건 없이 등록 가능)
     if (!passportNo || passportNo.trim() === '') {
@@ -210,19 +205,15 @@ export async function POST(
 }
 
 // PUT: 여권 정보 수정
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: Promise<{ userId: string }> | { userId: string } }
-) {
+export async function PUT(req: NextRequest) {
   try {
     const manager = await requireCrmManager();
     if (!manager) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Next.js 13+ App Router 호환: params가 Promise일 수 있음
-    const resolvedParams = await Promise.resolve(params);
-    const userId = parseInt(resolvedParams.userId);
+    const putBody = await req.json();
+    const userId = parseInt(String(putBody.userId));
     if (isNaN(userId)) {
       return NextResponse.json(
         { ok: false, error: 'Invalid user ID' },
