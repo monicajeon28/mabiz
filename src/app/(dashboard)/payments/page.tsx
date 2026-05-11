@@ -1,150 +1,232 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { CreditCard, RefreshCw, ArrowUpRight, ArrowDownLeft, Clock } from "lucide-react";
 
 type Payment = {
   id: string;
   orderId: string;
-  productName: string;
+  productName: string | null;
+  customerName: string;
+  customerPhone: string;
   amount: number;
   status: string;
+  payType: string | null;
+  cardName: string | null;
   paidAt: string | null;
-  buyerName: string;
-  buyerTel: string | null;
+  refundedAt: string | null;
+  refundAmount: number;
+  createdAt: string;
 };
 
-interface ApiResponse {
-  ok: boolean;
-  payments: Payment[];
-  message?: string;
-}
+type Stats = {
+  totalPaid: number;
+  totalPaidCount: number;
+  totalRefunded: number;
+  totalRefundedCount: number;
+  totalPending: number;
+  totalPendingCount: number;
+};
 
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  const y = d.getFullYear();
-  const M = String(d.getMonth() + 1).padStart(2, "0");
-  const D = String(d.getDate()).padStart(2, "0");
-  return `${y}-${M}-${D}`;
-}
-
-function formatAmount(amount: number) {
-  return amount.toLocaleString() + "원";
-}
-
-function maskTel(tel: string) {
-  if (tel.length < 4) return tel;
-  return tel.substring(0, 4) + "***";
-}
-
-function StatusBadge({ status }: { status: string }) {
-  if (status === "completed") {
-    return (
-      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-        결제완료
-      </span>
-    );
-  }
-  return (
-    <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-      {status}
-    </span>
-  );
-}
-
-function SkeletonRow() {
-  return (
-    <tr>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <td key={i} className="px-4 py-3">
-          <div className="h-4 bg-gray-200 rounded animate-pulse" />
-        </td>
-      ))}
-    </tr>
-  );
-}
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  paid:             { label: "결제완료", color: "text-emerald-700 bg-emerald-50" },
+  pending:          { label: "대기",     color: "text-gray-600 bg-gray-100" },
+  waiting:          { label: "입금대기", color: "text-amber-700 bg-amber-50" },
+  refunded:         { label: "환불",     color: "text-red-700 bg-red-50" },
+  partial_refunded: { label: "부분환불", color: "text-orange-700 bg-orange-50" },
+  cancelled:        { label: "취소",     color: "text-gray-500 bg-gray-100" },
+};
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats]       = useState<Stats | null>(null);
+  const [total, setTotal]       = useState(0);
+  const [page, setPage]         = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading]   = useState(true);
+  const [filter, setFilter]     = useState("");
+  const [search, setSearch]     = useState("");
+  const [refunding, setRefunding] = useState<string | null>(null);
+  const [refundReason, setRefundReason] = useState("");
 
-  useEffect(() => {
-    fetch("/api/my/payments")
-      .then((res) => res.json())
-      .then((data: ApiResponse) => {
-        if (data.ok) {
-          setPayments(data.payments ?? []);
-        } else {
-          setError(data.message ?? "데이터를 불러오지 못했습니다.");
-        }
-      })
-      .catch(() => {
-        setError("네트워크 오류가 발생했습니다.");
-      })
-      .finally(() => setLoading(false));
-  }, []);
+  const load = useCallback(async (p: number) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(p), limit: "20" });
+      if (filter) params.set("status", filter);
+      if (search) params.set("search", search);
+
+      const res = await fetch(`/api/payapp/payments?${params}`);
+      const data = await res.json();
+      if (data.ok) {
+        setPayments(data.payments);
+        setTotal(data.total);
+        setPage(data.page);
+        setTotalPages(data.totalPages);
+        setStats(data.stats);
+      }
+    } catch {}
+    setLoading(false);
+  }, [filter, search]);
+
+  useEffect(() => { load(1); }, [load]);
+
+  const handleRefund = async (paymentId: string) => {
+    if (!refundReason.trim()) return;
+    try {
+      const res = await fetch("/api/payapp/refund", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentId, reason: refundReason }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setRefunding(null);
+        setRefundReason("");
+        load(page);
+      } else {
+        alert(data.message ?? "환불 실패");
+      }
+    } catch {
+      alert("네트워크 오류");
+    }
+  };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">결제 내역</h1>
+    <div className="p-6 max-w-6xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <CreditCard className="w-6 h-6" />
+          결제 관리 (페이앱 B2B)
+        </h1>
+        <button onClick={() => load(page)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+          <RefreshCw className="w-4 h-4" /> 새로고침
+        </button>
+      </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4">
-          {error}
+      {/* 통계 카드 */}
+      {stats && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div className="bg-emerald-50 rounded-xl p-4">
+            <div className="flex items-center gap-2 text-emerald-700 mb-1">
+              <ArrowUpRight className="w-4 h-4" />
+              <span className="text-sm font-medium">결제 완료</span>
+            </div>
+            <p className="text-2xl font-bold text-emerald-900">{stats.totalPaid.toLocaleString()}원</p>
+            <p className="text-xs text-emerald-600 mt-1">{stats.totalPaidCount}건</p>
+          </div>
+          <div className="bg-red-50 rounded-xl p-4">
+            <div className="flex items-center gap-2 text-red-700 mb-1">
+              <ArrowDownLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">환불</span>
+            </div>
+            <p className="text-2xl font-bold text-red-900">{stats.totalRefunded.toLocaleString()}원</p>
+            <p className="text-xs text-red-600 mt-1">{stats.totalRefundedCount}건</p>
+          </div>
+          <div className="bg-amber-50 rounded-xl p-4">
+            <div className="flex items-center gap-2 text-amber-700 mb-1">
+              <Clock className="w-4 h-4" />
+              <span className="text-sm font-medium">대기</span>
+            </div>
+            <p className="text-2xl font-bold text-amber-900">{stats.totalPending.toLocaleString()}원</p>
+            <p className="text-xs text-amber-600 mt-1">{stats.totalPendingCount}건</p>
+          </div>
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      {/* 필터 + 검색 */}
+      <div className="flex gap-3 mb-4">
+        <select value={filter} onChange={(e) => setFilter(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+          <option value="">전체 상태</option>
+          <option value="paid">결제완료</option>
+          <option value="pending">대기</option>
+          <option value="refunded">환불</option>
+          <option value="partial_refunded">부분환불</option>
+          <option value="cancelled">취소</option>
+        </select>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="이름, 전화번호, 상품명 검색"
+          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
+          onKeyDown={(e) => e.key === "Enter" && load(1)}
+        />
+        <button onClick={() => load(1)} className="bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700">
+          검색
+        </button>
+      </div>
+
+      {/* 결제 목록 */}
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">결제일</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600">상품명</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-600">고객</th>
               <th className="text-right px-4 py-3 font-medium text-gray-600">금액</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">구매자명</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">연락처</th>
               <th className="text-center px-4 py-3 font-medium text-gray-600">상태</th>
+              <th className="text-center px-4 py-3 font-medium text-gray-600">결제수단</th>
+              <th className="text-center px-4 py-3 font-medium text-gray-600">일시</th>
+              <th className="text-center px-4 py-3 font-medium text-gray-600">관리</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
-            {loading && (
-              <>
-                <SkeletonRow />
-                <SkeletonRow />
-                <SkeletonRow />
-                <SkeletonRow />
-                <SkeletonRow />
-              </>
-            )}
-            {!loading && !error && payments.length === 0 && (
-              <tr>
-                <td colSpan={6} className="text-center py-16 text-gray-400">
-                  결제 내역이 없습니다
-                </td>
-              </tr>
-            )}
-            {!loading &&
-              payments.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 text-gray-700">
-                    {p.paidAt ? formatDate(p.paidAt) : "-"}
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={7} className="text-center py-12 text-gray-400">불러오는 중...</td></tr>
+            ) : payments.length === 0 ? (
+              <tr><td colSpan={7} className="text-center py-12 text-gray-400">결제 내역이 없습니다</td></tr>
+            ) : payments.map((p) => {
+              const st = STATUS_LABELS[p.status] ?? { label: p.status, color: "text-gray-500 bg-gray-100" };
+              return (
+                <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium text-gray-900">{p.productName ?? "-"}</td>
+                  <td className="px-4 py-3">
+                    <p className="text-gray-900">{p.customerName}</p>
+                    <p className="text-xs text-gray-400">{p.customerPhone.slice(0, 4) + "***"}</p>
                   </td>
-                  <td className="px-4 py-3 text-gray-700">{p.productName}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-gray-900">
-                    {formatAmount(p.amount)}
+                  <td className="px-4 py-3 text-right font-semibold">{p.amount.toLocaleString()}원</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
                   </td>
-                  <td className="px-4 py-3 text-gray-700">{p.buyerName}</td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {p.buyerTel ? maskTel(p.buyerTel) : "-"}
+                  <td className="px-4 py-3 text-center text-xs text-gray-500">{p.cardName ?? p.payType ?? "-"}</td>
+                  <td className="px-4 py-3 text-center text-xs text-gray-400">
+                    {p.paidAt ? new Date(p.paidAt).toLocaleDateString("ko-KR") : "-"}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <StatusBadge status={p.status} />
+                    {["paid", "partial_refunded"].includes(p.status) && (
+                      refunding === p.id ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={refundReason}
+                            onChange={(e) => setRefundReason(e.target.value)}
+                            placeholder="환불 사유"
+                            className="border border-gray-200 rounded px-2 py-1 text-xs w-24"
+                          />
+                          <button onClick={() => handleRefund(p.id)} className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-500">확인</button>
+                          <button onClick={() => { setRefunding(null); setRefundReason(""); }} className="text-xs text-gray-400 hover:text-gray-600">취소</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setRefunding(p.id)} className="text-xs text-red-600 hover:text-red-800 font-medium">환불</button>
+                      )
+                    )}
                   </td>
                 </tr>
-              ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
+
+      {/* 페이지네이션 */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <button disabled={page <= 1} onClick={() => load(page - 1)} className="px-3 py-1 text-sm border rounded disabled:opacity-30">이전</button>
+          <span className="text-sm text-gray-500">{page} / {totalPages} ({total}건)</span>
+          <button disabled={page >= totalPages} onClick={() => load(page + 1)} className="px-3 py-1 text-sm border rounded disabled:opacity-30">다음</button>
+        </div>
+      )}
     </div>
   );
 }
