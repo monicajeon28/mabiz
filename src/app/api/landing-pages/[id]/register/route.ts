@@ -132,7 +132,6 @@ export async function POST(req: Request, { params }: Params) {
           contactId:      contact.id,
           groupId:        landingPage.groupId,
           organizationId: orgId,
-          sendFirst:      true,
         });
 
         funnelStarted = triggered;

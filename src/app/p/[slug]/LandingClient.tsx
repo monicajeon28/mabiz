@@ -69,18 +69,22 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled }: Pro
     if (!commentForm.authorName.trim() || !commentForm.content.trim()) return;
     setPosting(true);
     setCommentMsg("");
-    const res = await fetch(`/api/public/landing/${slug}/comments`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(commentForm),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      setComments((prev) => [data.comment, ...prev]);
-      setCommentForm({ authorName: "", content: "" });
-      setCommentMsg("후기가 등록됐습니다!");
-    } else {
-      setCommentMsg(data.message ?? "등록 실패");
+    try {
+      const res = await fetch(`/api/public/landing/${slug}/comments`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(commentForm),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setComments((prev) => [data.comment, ...prev]);
+        setCommentForm({ authorName: "", content: "" });
+        setCommentMsg("후기가 등록됐습니다!");
+      } else {
+        setCommentMsg(data.message ?? "등록 실패");
+      }
+    } catch {
+      setCommentMsg("네트워크 오류가 발생했습니다.");
     }
     setPosting(false);
   };
@@ -217,13 +221,13 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled }: Pro
               href="https://pf.kakao.com/_cruisedot"
               target="_blank"
               rel="noopener noreferrer"
-              className="block w-full bg-yellow-400 text-gray-900 py-3 rounded-xl text-sm font-bold hover:bg-yellow-300 transition-colors"
+              className="block w-full bg-yellow-400 text-gray-900 min-h-[44px] flex items-center justify-center rounded-xl text-sm font-bold hover:bg-yellow-300 transition-colors"
             >
               카카오톡 상담 시작하기
             </a>
             <a
               href="tel:1899-4798"
-              className="block w-full bg-navy-900 text-white py-3 rounded-xl text-sm font-bold hover:bg-navy-700 transition-colors"
+              className="block w-full bg-navy-900 text-white min-h-[44px] flex items-center justify-center rounded-xl text-sm font-bold hover:bg-navy-700 transition-colors"
             >
               전화 상담 (1899-4798)
             </a>
@@ -262,6 +266,8 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled }: Pro
       )}
       <div
         ref={containerRef}
+        role="main"
+        aria-label="랜딩페이지 콘텐츠"
         dangerouslySetInnerHTML={{ __html: htmlContent }}
       />
 

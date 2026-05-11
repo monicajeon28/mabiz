@@ -136,7 +136,6 @@ export async function POST(req: Request) {
               contactId: contact.id,
               groupId: lp.groupId,
               organizationId: orgId,
-              sendFirst: true,
             });
             logger.log("[PayApp Webhook] 퍼널 자동 트리거", {
               orgId,

@@ -151,7 +151,6 @@ export async function POST(req: NextRequest) {
         contactId: contact.id,
         groupId: vipGroup.id,
         organizationId,
-        sendFirst: true,
       });
     }
 

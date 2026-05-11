@@ -45,7 +45,7 @@ export async function GET(req: Request, { params }: Params) {
       where: { id: link.contactId },
       data: { groups: { connect: { id: link.autoGroupId } } },
     }).then(() =>
-      triggerGroupFunnel({ contactId: link.contactId!, groupId: link.autoGroupId!, organizationId: link.organizationId, sendFirst: true })
+      triggerGroupFunnel({ contactId: link.contactId!, groupId: link.autoGroupId!, organizationId: link.organizationId })
     ).catch((e) => logger.log('[ShortLink] 그룹 배정 실패', { error: e instanceof Error ? e.message : String(e) }));
   }
 

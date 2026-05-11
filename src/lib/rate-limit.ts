@@ -1,6 +1,11 @@
 /**
  * 메모리 기반 sliding window rate limiter
  * Edge Runtime 호환 (Node.js 전용 모듈 미사용)
+ *
+ * ⚠️ Vercel Serverless 한계:
+ * - 각 인스턴스가 독립 Map을 가지므로 인스턴스 간 상태 공유 불가
+ * - 분산 환경에서 정확한 rate limiting은 Redis(Upstash) 사용 필요
+ * - 현재는 단일 인스턴스 내 burst 방어용으로만 유효
  */
 
 interface RateLimitEntry {

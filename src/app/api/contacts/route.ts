@@ -213,7 +213,6 @@ export async function POST(req: Request) {
           contactId:      contact.id,
           groupId:        gid,
           organizationId: orgId,
-          sendFirst:      true,
         }).catch(() => {});
       }
     }

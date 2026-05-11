@@ -96,10 +96,11 @@ export async function GET(req: Request) {
         msgType:  message.length > 90 ? "LMS" : "SMS",
       });
 
+      const code = Number(result.result_code);
       const finalStatus =
-        result.result_code === 1   ? "SENT" :
-        result.result_code === -98 ? "NIGHT_BLOCKED" :
-        result.result_code === -99 ? "OPTED_OUT" : "FAILED";
+        code === 1   ? "SENT" :
+        code === -98 ? "NIGHT_BLOCKED" :
+        code === -99 ? "OPTED_OUT" : "FAILED";
 
       await prisma.vipCareLog.update({
         where: { id: log.id },

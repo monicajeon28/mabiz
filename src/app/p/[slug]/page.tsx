@@ -60,7 +60,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://crm.cruisedot.co.kr';
   const page = await prisma.crmLandingPage.findFirst({
-    where:  { slug },
+    where:  { slug, isActive: true, isPublic: true },
     select: { title: true },
   });
   const title = page?.title ?? "크루즈닷 랜딩페이지";

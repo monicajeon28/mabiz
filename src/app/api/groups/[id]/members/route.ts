@@ -73,7 +73,6 @@ export async function POST(req: Request, { params }: Params) {
             contactId,
             groupId,
             organizationId: orgId,
-            sendFirst: true,
           }).catch((err) => {
             logger.error('[GroupMember] 퍼널 트리거 실패', { err });
           });

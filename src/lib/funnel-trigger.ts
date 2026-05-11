@@ -16,11 +16,10 @@ interface TriggerOptions {
   contactId:      string;
   groupId:        string;
   organizationId: string;
-  sendFirst?:     boolean;
 }
 
 export async function triggerGroupFunnel(opts: TriggerOptions): Promise<boolean> {
-  const { contactId, groupId, organizationId, sendFirst = false } = opts;
+  const { contactId, groupId, organizationId } = opts;
 
   const group = await prisma.contactGroup.findFirst({
     where: { id: groupId, organizationId },
@@ -137,19 +136,6 @@ export async function triggerGroupFunnel(opts: TriggerOptions): Promise<boolean>
     stages:     funnel.stages.length,
     departure:  contact.departureDate?.toISOString().split("T")[0] ?? "미지정",
   });
-
-  // sendFirst=true → PENDING 상태로 cron에 위임 (동기 SMS 발송 제거 — 응답 시간 개선)
-  if (sendFirst) {
-    const firstPending = sequence.logs
-      .filter((l) => l.status === "PENDING")
-      .sort((a, b) => a.stageOrder - b.stageOrder)[0];
-
-    logger.log("[FunnelTrigger] sendFirst=true → PENDING 상태로 cron 위임", {
-      contactId,
-      funnelId: funnel.id,
-      firstLogId: firstPending?.id ?? null,
-    });
-  }
 
   return true;
 }

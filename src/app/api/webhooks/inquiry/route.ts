@@ -73,8 +73,8 @@ export async function POST(req: NextRequest) {
   const normalizedPhone = normalizePhone(phone);
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const existing = await tx.contact.findFirst({
-        where: { phone: normalizedPhone, organizationId },
+      const existing = await tx.contact.findUnique({
+        where: { phone_organizationId: { phone: normalizedPhone, organizationId } },
         select: { id: true, type: true, leadScore: true },
       });
 

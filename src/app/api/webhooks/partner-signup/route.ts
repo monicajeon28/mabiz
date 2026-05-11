@@ -77,8 +77,8 @@ export async function POST(req: NextRequest) {
       let contactId: string;
       let created = false;
 
-      const existing = await tx.contact.findFirst({
-        where: { phone: normalizedPhone, organizationId },
+      const existing = await tx.contact.findUnique({
+        where: { phone_organizationId: { phone: normalizedPhone, organizationId } },
         select: { id: true, type: true, leadScore: true },
       });
 
