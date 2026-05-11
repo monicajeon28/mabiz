@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { ArrowLeft, Eye, Users, ChevronLeft, ChevronRight, MessageSquare, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, Eye, Users, MessageSquare } from "lucide-react";
 import dynamic from "next/dynamic";
+import { RegistrationsTab } from "./components/RegistrationsTab";
+import { CommentsTab } from "./components/CommentsTab";
 
 type Registration = {
   id: string;
@@ -307,142 +309,28 @@ export default function EditLandingPage() {
 
       {/* 등록자 목록 탭 */}
       {tab === "registrations" && (
-        <div className="flex-1 overflow-y-auto p-4">
-          {regLoading ? (
-            <div className="space-y-2">
-              {[...Array(5)].map((_, i) => <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />)}
-            </div>
-          ) : registrations.length === 0 ? (
-            <div className="text-center py-16 text-gray-400">
-              <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">아직 등록자가 없습니다.</p>
-            </div>
-          ) : (
-            <>
-              <p className="text-sm text-gray-500 mb-3">총 <strong>{regTotal}</strong>명 등록</p>
-              <div className="space-y-2">
-                {registrations.map((r) => (
-                  <div key={r.id} className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900">{r.name}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{r.phone}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs text-gray-400">{new Date(r.createdAt).toLocaleString("ko-KR")}</p>
-                      <div className="flex items-center gap-1.5 justify-end mt-0.5">
-                        {r.funnelStarted && (
-                          <span className="text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full font-medium">퍼널진입</span>
-                        )}
-                        {r.utmSource && (
-                          <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">{r.utmSource}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {/* 페이지네이션 */}
-              {regTotal > 20 && (
-                <div className="flex items-center justify-center gap-3 mt-4">
-                  <button
-                    onClick={() => loadRegistrations(regPage - 1)}
-                    disabled={regPage === 1}
-                    className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="text-xs text-gray-500">{regPage} / {Math.ceil(regTotal / 20)}</span>
-                  <button
-                    onClick={() => loadRegistrations(regPage + 1)}
-                    disabled={regPage >= Math.ceil(regTotal / 20)}
-                    className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        <RegistrationsTab
+          registrations={registrations}
+          regTotal={regTotal}
+          regPage={regPage}
+          regLoading={regLoading}
+          onPageChange={loadRegistrations}
+        />
       )}
+
       {/* 댓글 관리 탭 */}
       {tab === "comments" && (
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* 댓글 설정 */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-sm font-semibold text-gray-700">방문자 후기 기능</p>
-              <button
-                onClick={toggleCommentEnabled}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  commentEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
-                }`}
-              >
-                {commentEnabled ? "✅ 활성" : "비활성"}
-              </button>
-            </div>
-            <p className="text-xs text-gray-400">활성화 시 공개 랜딩페이지 하단에 후기 섹션이 노출됩니다.</p>
-          </div>
-
-          {/* AI 후기 생성 */}
-          <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-4">
-            <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-2">
-              <Sparkles className="w-4 h-4 text-purple-500" /> AI 후기 자동 생성
-            </p>
-            <p className="text-xs text-gray-500 mb-3">랜딩페이지 내용을 분석해 실제 고객 후기처럼 보이는 댓글을 생성합니다.</p>
-            <div className="flex items-center gap-2">
-              <select
-                value={genCount}
-                onChange={(e) => setGenCount(Number(e.target.value))}
-                className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white"
-              >
-                {[3, 5, 7, 10].map((n) => <option key={n} value={n}>{n}개</option>)}
-              </select>
-              <button
-                onClick={generateComments}
-                disabled={generating}
-                className="flex-1 bg-purple-600 text-white py-1.5 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-1.5"
-              >
-                {generating ? "생성 중..." : <><Sparkles className="w-3.5 h-3.5" /> 생성하기</>}
-              </button>
-            </div>
-            {commentMsg && (
-              <p className={`text-xs mt-2 ${commentMsg.includes("✅") ? "text-green-600" : "text-red-500"}`}>
-                {commentMsg}
-              </p>
-            )}
-          </div>
-
-          {/* 댓글 목록 */}
-          <div className="space-y-2">
-            {comments.length === 0 ? (
-              <p className="text-center text-sm text-gray-400 py-8">후기가 없습니다.</p>
-            ) : (
-              comments.map((c) => (
-                <div key={c.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-semibold">{c.authorName}</span>
-                      {c.isAutoGenerated && (
-                        <span className="text-[10px] bg-purple-100 text-purple-500 px-1.5 py-0.5 rounded-full">AI생성</span>
-                      )}
-                      <span className="text-xs text-gray-400 ml-auto">
-                        {new Date(c.createdAt).toLocaleDateString("ko-KR")}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-700">{c.content}</p>
-                  </div>
-                  <button
-                    onClick={() => deleteComment(c.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+        <CommentsTab
+          comments={comments}
+          commentEnabled={commentEnabled}
+          genCount={genCount}
+          generating={generating}
+          commentMsg={commentMsg}
+          onToggleEnabled={toggleCommentEnabled}
+          onGenCountChange={setGenCount}
+          onGenerate={generateComments}
+          onDelete={deleteComment}
+        />
       )}
     </div>
   );
