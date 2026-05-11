@@ -111,6 +111,7 @@ export async function POST(req: Request) {
       var2: landingPage.slug ?? '',
       recvemail: customerEmail,
       smsuse: 'n',
+      returnurl: `${baseUrl}/p/${landingPage.slug}/payment/complete?orderId=${orderId}`,
     });
 
     if (!result.ok) {

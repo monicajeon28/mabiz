@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { CreditCard, RefreshCw, ArrowUpRight, ArrowDownLeft, Clock } from "lucide-react";
+import { CreditCard, RefreshCw, ArrowUpRight, ArrowDownLeft, Clock, Repeat } from "lucide-react";
 
 type Payment = {
   id: string;
@@ -37,7 +37,28 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   cancelled:        { label: "취소",     color: "text-gray-500 bg-gray-100" },
 };
 
+type Subscription = {
+  id: string;
+  rebillNo: string;
+  goodname: string;
+  goodprice: number;
+  customerName: string;
+  customerPhone: string;
+  cycleDay: number;
+  expireDate: string;
+  status: string;
+  createdAt: string;
+};
+
+const SUB_STATUS: Record<string, { label: string; color: string }> = {
+  pending:   { label: "대기",     color: "text-gray-600 bg-gray-100" },
+  active:    { label: "활성",     color: "text-emerald-700 bg-emerald-50" },
+  paused:    { label: "일시정지", color: "text-amber-700 bg-amber-50" },
+  cancelled: { label: "해지",     color: "text-red-700 bg-red-50" },
+};
+
 export default function PaymentsPage() {
+  const [tab, setTab] = useState<"payments" | "subscriptions">("payments");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [stats, setStats]       = useState<Stats | null>(null);
   const [total, setTotal]       = useState(0);
@@ -48,6 +69,10 @@ export default function PaymentsPage() {
   const [search, setSearch]     = useState("");
   const [refunding, setRefunding] = useState<string | null>(null);
   const [refundReason, setRefundReason] = useState("");
+
+  // 정기결제
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [subLoading, setSubLoading] = useState(false);
 
   const load = useCallback(async (p: number) => {
     setLoading(true);
@@ -69,7 +94,38 @@ export default function PaymentsPage() {
     setLoading(false);
   }, [filter, search]);
 
-  useEffect(() => { load(1); }, [load]);
+  useEffect(() => { if (tab === "payments") load(1); }, [load, tab]);
+
+  const loadSubscriptions = useCallback(async () => {
+    setSubLoading(true);
+    try {
+      const res = await fetch("/api/payapp/subscription");
+      const data = await res.json();
+      if (data.ok) setSubscriptions(data.subscriptions ?? []);
+    } catch {}
+    setSubLoading(false);
+  }, []);
+
+  useEffect(() => { if (tab === "subscriptions") loadSubscriptions(); }, [tab, loadSubscriptions]);
+
+  const handleSubAction = async (id: string, action: "pause" | "resume" | "cancel") => {
+    try {
+      if (action === "cancel") {
+        const res = await fetch(`/api/payapp/subscription/${id}`, { method: "DELETE" });
+        const data = await res.json();
+        if (!data.ok) { alert(data.message ?? "해지 실패"); return; }
+      } else {
+        const res = await fetch(`/api/payapp/subscription/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        });
+        const data = await res.json();
+        if (!data.ok) { alert(data.message ?? "처리 실패"); return; }
+      }
+      loadSubscriptions();
+    } catch { alert("네트워크 오류"); }
+  };
 
   const handleRefund = async (paymentId: string) => {
     if (!refundReason.trim()) return;
@@ -99,11 +155,28 @@ export default function PaymentsPage() {
           <CreditCard className="w-6 h-6" />
           결제 관리 (페이앱 B2B)
         </h1>
-        <button onClick={() => load(page)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+        <button onClick={() => tab === "payments" ? load(page) : loadSubscriptions()} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
           <RefreshCw className="w-4 h-4" /> 새로고침
         </button>
       </div>
 
+      {/* 탭 */}
+      <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
+        <button
+          onClick={() => setTab("payments")}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "payments" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+        >
+          <CreditCard className="w-4 h-4 inline mr-1.5" />결제 내역
+        </button>
+        <button
+          onClick={() => setTab("subscriptions")}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "subscriptions" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+        >
+          <Repeat className="w-4 h-4 inline mr-1.5" />정기결제
+        </button>
+      </div>
+
+      {tab === "payments" && (<>
       {/* 통계 카드 */}
       {stats && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -225,6 +298,63 @@ export default function PaymentsPage() {
           <button disabled={page <= 1} onClick={() => load(page - 1)} className="px-3 py-1 text-sm border rounded disabled:opacity-30">이전</button>
           <span className="text-sm text-gray-500">{page} / {totalPages} ({total}건)</span>
           <button disabled={page >= totalPages} onClick={() => load(page + 1)} className="px-3 py-1 text-sm border rounded disabled:opacity-30">다음</button>
+        </div>
+      )}
+      </>)}
+
+      {/* 정기결제 탭 */}
+      {tab === "subscriptions" && (
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">상품명</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">고객</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-600">월 금액</th>
+                <th className="text-center px-4 py-3 font-medium text-gray-600">결제일</th>
+                <th className="text-center px-4 py-3 font-medium text-gray-600">만료일</th>
+                <th className="text-center px-4 py-3 font-medium text-gray-600">상태</th>
+                <th className="text-center px-4 py-3 font-medium text-gray-600">관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              {subLoading ? (
+                <tr><td colSpan={7} className="text-center py-12 text-gray-400">불러오는 중...</td></tr>
+              ) : subscriptions.length === 0 ? (
+                <tr><td colSpan={7} className="text-center py-12 text-gray-400">정기결제 내역이 없습니다</td></tr>
+              ) : subscriptions.map((s) => {
+                const st = SUB_STATUS[s.status] ?? { label: s.status, color: "text-gray-500 bg-gray-100" };
+                return (
+                  <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-900">{s.goodname}</td>
+                    <td className="px-4 py-3">
+                      <p className="text-gray-900">{s.customerName}</p>
+                      <p className="text-xs text-gray-400">{s.customerPhone.slice(0, 4) + "***"}</p>
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold">{s.goodprice.toLocaleString()}원</td>
+                    <td className="px-4 py-3 text-center text-sm">매월 {s.cycleDay === 90 ? "말일" : `${s.cycleDay}일`}</td>
+                    <td className="px-4 py-3 text-center text-xs text-gray-400">
+                      {new Date(s.expireDate).toLocaleDateString("ko-KR")}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center space-x-2">
+                      {s.status === "active" && (
+                        <button onClick={() => handleSubAction(s.id, "pause")} className="text-xs text-amber-600 hover:text-amber-800 font-medium">일시정지</button>
+                      )}
+                      {s.status === "paused" && (
+                        <button onClick={() => handleSubAction(s.id, "resume")} className="text-xs text-emerald-600 hover:text-emerald-800 font-medium">재시작</button>
+                      )}
+                      {s.status !== "cancelled" && (
+                        <button onClick={() => { if (confirm("정기결제를 해지하시겠습니까? 복구 불가능합니다.")) handleSubAction(s.id, "cancel"); }} className="text-xs text-red-600 hover:text-red-800 font-medium">해지</button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
