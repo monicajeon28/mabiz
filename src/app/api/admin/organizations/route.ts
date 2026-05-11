@@ -62,7 +62,11 @@ export async function GET(req: NextRequest) {
         contactCount: org._count.contacts,
         owner: owner ? {
           name:  owner.displayName,
-          phone: owner.phone ? owner.phone.slice(0, 4) + '****' : null,
+          phone: owner.phone ? (() => {
+            const d = owner.phone!.replace(/[^0-9]/g, '');
+            if (d.length === 11) return `${d.slice(0,3)}-****-${d.slice(7)}`;
+            return d.slice(0, 3) + '-***-' + d.slice(d.length - 4);
+          })() : null,
           email: owner.email,
         } : null,
       };

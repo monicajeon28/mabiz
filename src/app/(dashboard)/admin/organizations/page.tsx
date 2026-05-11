@@ -90,7 +90,7 @@ function RegisterModal({ onClose, onCreated }: RegisterModalProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          orgName: orgName.trim(),
+          name: orgName.trim(),
           ownerName: ownerName.trim(),
           ownerPhone: ownerPhone.trim(),
         }),
@@ -283,7 +283,8 @@ export default function OrganizationsPage() {
 
       // Fetch org list
       const params = new URLSearchParams();
-      if (search) params.set('search', search);
+      const currentSearch = (document.getElementById('org-search') as HTMLInputElement)?.value ?? '';
+      if (currentSearch) params.set('search', currentSearch);
       const orgRes = await fetch(`/api/admin/organizations?${params}`, { signal });
       if (!orgRes.ok) throw new Error('orgs fetch failed');
       const data = await orgRes.json();
@@ -294,7 +295,7 @@ export default function OrganizationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -334,10 +335,11 @@ export default function OrganizationsPage() {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            id="org-search"
+            defaultValue={search}
             placeholder="대리점명/점장명 검색"
             className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-48 focus:outline-none focus:border-blue-500"
-            onKeyDown={(e) => e.key === 'Enter' && fetchAll()}
+            onKeyDown={(e) => { if (e.key === 'Enter') { setSearch((e.target as HTMLInputElement).value); fetchAll(); } }}
           />
         <button
           onClick={() => setShowModal(true)}
