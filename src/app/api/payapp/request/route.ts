@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       expireDate?: string;
     };
 
-    if (!goodname || !price || !customerName || !customerPhone) {
+    if (!goodname || !price || price < 100 || !customerName || !customerPhone) {
       return NextResponse.json(
         { ok: false, message: '상품명, 금액, 이름, 전화번호는 필수입니다.' },
         { status: 400 }

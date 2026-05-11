@@ -228,35 +228,6 @@ export default function EditLandingPage() {
         )}
       </div>
 
-      {/* 설정 바 */}
-      <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100 shrink-0">
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-gray-500 whitespace-nowrap">슬러그</label>
-          <input
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            placeholder="url-slug"
-            className="border border-gray-200 rounded px-2 py-1 text-xs w-40 focus:outline-none focus:border-gold-500"
-          />
-        </div>
-        <div className="flex items-center gap-2 flex-1">
-          <label className="text-xs text-gray-500 whitespace-nowrap">등록 고객 배정 그룹</label>
-          <select
-            value={selectedGroupId}
-            onChange={(e) => setSelectedGroupId(e.target.value)}
-            className="border border-gray-200 rounded px-2 py-1 text-xs flex-1 max-w-xs focus:outline-none focus:border-gold-500"
-          >
-            <option value="">그룹 미지정</option>
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name} {g.funnelId ? "🔄" : ""}
-              </option>
-            ))}
-          </select>
-          <span className="text-xs text-gray-400">🔄 = 등록 즉시 자동 문자</span>
-        </div>
-      </div>
-
       {/* 에디터 탭 */}
       {tab === "editor" && (
         <>
@@ -317,7 +288,7 @@ export default function EditLandingPage() {
           </div>
           <div className="flex-1 overflow-hidden">
             {preview ? (
-              <iframe srcDoc={html} className="w-full h-full border-0" title="preview" />
+              <iframe srcDoc={html} className="w-full h-full border-0" title="preview" sandbox="allow-scripts allow-same-origin" />
             ) : (
               <HtmlEditor value={html} onChange={setHtml} />
             )}

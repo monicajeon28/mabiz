@@ -15,7 +15,9 @@ export async function GET(req: Request) {
     const orgId = requireOrgId(ctx);
     const url = new URL(req.url);
 
-    const status = url.searchParams.get('status');
+    const VALID_STATUSES = ['paid', 'pending', 'waiting', 'refunded', 'partial_refunded', 'cancelled'];
+    const statusParam = url.searchParams.get('status');
+    const status = statusParam && VALID_STATUSES.includes(statusParam) ? statusParam : null;
     const search = url.searchParams.get('search');
     const month  = url.searchParams.get('month'); // YYYY-MM
     const page   = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'));
@@ -52,33 +54,33 @@ export async function GET(req: Request) {
       prisma.payAppPayment.count({ where: whereClause }),
     ]);
 
-    // 통계 (조직 전체)
-    const allPayments = await prisma.payAppPayment.findMany({
-      where: { organizationId: orgId },
-      select: { status: true, amount: true, refundAmount: true },
-    });
+    // 통계 (DB 레벨 집계 — 메모리 효율)
+    const [paidAgg, refundAgg, pendingAgg] = await Promise.all([
+      prisma.payAppPayment.aggregate({
+        where: { organizationId: orgId, status: 'paid' },
+        _sum: { amount: true },
+        _count: true,
+      }),
+      prisma.payAppPayment.aggregate({
+        where: { organizationId: orgId, status: { in: ['refunded', 'partial_refunded'] } },
+        _sum: { refundAmount: true },
+        _count: true,
+      }),
+      prisma.payAppPayment.aggregate({
+        where: { organizationId: orgId, status: { in: ['pending', 'waiting'] } },
+        _sum: { amount: true },
+        _count: true,
+      }),
+    ]);
 
     const stats = {
-      totalPaid: 0,
-      totalPaidCount: 0,
-      totalRefunded: 0,
-      totalRefundedCount: 0,
-      totalPending: 0,
-      totalPendingCount: 0,
+      totalPaid: paidAgg._sum.amount ?? 0,
+      totalPaidCount: paidAgg._count,
+      totalRefunded: refundAgg._sum.refundAmount ?? 0,
+      totalRefundedCount: refundAgg._count,
+      totalPending: pendingAgg._sum.amount ?? 0,
+      totalPendingCount: pendingAgg._count,
     };
-
-    for (const p of allPayments) {
-      if (p.status === 'paid') {
-        stats.totalPaid += p.amount;
-        stats.totalPaidCount++;
-      } else if (p.status === 'refunded' || p.status === 'partial_refunded') {
-        stats.totalRefunded += p.refundAmount ?? 0;
-        stats.totalRefundedCount++;
-      } else if (p.status === 'pending' || p.status === 'waiting') {
-        stats.totalPending += p.amount;
-        stats.totalPendingCount++;
-      }
-    }
 
     return NextResponse.json({
       ok: true,

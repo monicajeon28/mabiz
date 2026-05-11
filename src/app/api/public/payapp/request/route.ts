@@ -1,8 +1,21 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { requestPayment, requestSubscription } from '@/lib/payapp';
 import { normalizePhone } from '@/lib/phone-normalize';
+
+const RequestSchema = z.object({
+  type:          z.enum(["onetime", "subscription"]).default("onetime"),
+  goodname:      z.string().min(1).max(200),
+  price:         z.number().int().min(100).max(100_000_000),
+  customerName:  z.string().min(1).max(50),
+  customerPhone: z.string().min(10).max(15),
+  customerEmail: z.string().email().optional(),
+  landingPageId: z.string().min(1),
+  cycleDay:      z.number().int().min(1).max(90).optional(),
+  expireDate:    z.string().optional(),
+});
 
 /**
  * POST /api/public/payapp/request
@@ -13,35 +26,15 @@ import { normalizePhone } from '@/lib/phone-normalize';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-
-    const {
-      type = 'onetime',
-      goodname,
-      price,
-      customerName,
-      customerPhone,
-      customerEmail,
-      landingPageId,
-      cycleDay,
-      expireDate,
-    } = body as {
-      type?: 'onetime' | 'subscription';
-      goodname: string;
-      price: number;
-      customerName: string;
-      customerPhone: string;
-      customerEmail?: string;
-      landingPageId: string;
-      cycleDay?: number;
-      expireDate?: string;
-    };
-
-    if (!goodname || !price || !customerName || !customerPhone || !landingPageId) {
+    const parsed = RequestSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { ok: false, message: '상품명, 금액, 이름, 전화번호, 랜딩페이지ID는 필수입니다.' },
+        { ok: false, message: '입력값을 확인해주세요.', errors: parsed.error.flatten().fieldErrors },
         { status: 400 }
       );
     }
+
+    const { type, goodname, price, customerName, customerPhone, customerEmail, landingPageId, cycleDay, expireDate } = parsed.data;
 
     // 랜딩페이지로 조직 특정 (인증 대신)
     const landingPage = await prisma.crmLandingPage.findFirst({
