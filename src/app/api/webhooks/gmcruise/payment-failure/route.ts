@@ -4,14 +4,15 @@ import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
+import { normalizePhone } from '@/lib/phone-normalize';
 
 /**
- * POST /api/webhooks/payment-failure
- * 크루즈닷몰 결제 실패/PG취소실패/환불보류 알림
+ * POST /api/webhooks/gmcruise/payment-failure
+ * 크루즈닷몰 결제 실패(status !== 'paid') 시 → CRM ContactMemo 기록
  * Authorization: Bearer MABIZ_PAYMENT_FAILURE_WEBHOOK_SECRET
  *
- * ⚠️ Contact.type은 절대 변경하지 않음 — 결제 실패는 일시적일 수 있으므로
- *    메모 기록만 수행
+ * ⚠️ Contact.type은 절대 변경하지 않음 — 결제 실패는 일시적일 수 있음
+ * ⚠️ customerPhone은 평문 전송 (마스킹 없음) — CRM에서 후속 연락 목적
  */
 export async function POST(req: NextRequest) {
   const secret = process.env.MABIZ_PAYMENT_FAILURE_WEBHOOK_SECRET;
@@ -19,6 +20,7 @@ export async function POST(req: NextRequest) {
     logger.error('[PaymentFailureWebhook] MABIZ_PAYMENT_FAILURE_WEBHOOK_SECRET 미설정');
     return NextResponse.json({ ok: false }, { status: 500 });
   }
+
   const token = (req.headers.get('authorization') ?? '').replace('Bearer ', '');
   if (
     token.length !== secret.length ||
@@ -37,97 +39,110 @@ export async function POST(req: NextRequest) {
 
   const {
     orderId,
-    saleId,
-    status,
     amount,
-    failureReason,
+    reason,
+    customerName,
     customerPhone,
     affiliateCode,
-    occurredAt,
+    failedAt,
     eventId,
   } = body as {
     orderId: string;
-    saleId?: number | null;
-    status: string;
-    amount: number;
-    failureReason?: string | null;
+    amount?: number | null;
+    reason?: string | null;
+    customerName?: string | null;
     customerPhone?: string | null;
     affiliateCode?: string | null;
-    occurredAt: string;
+    failedAt: string;
     eventId: string;
   };
 
-  // orderId, eventId 필수
   if (!orderId || !eventId) {
     return NextResponse.json({ ok: false, message: 'orderId, eventId 필수' }, { status: 400 });
   }
 
-  // eventId 멱등성 체크 (중복 수신 방지)
-  const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
-    where: { eventId },
-    select: { eventId: true },
-  });
-  if (alreadyProcessed) {
-    logger.log('[PaymentFailureWebhook] 중복 이벤트 무시', { eventId });
-    return NextResponse.json({ ok: true, duplicate: true });
-  }
-
-  // 전화번호 마스킹 여부 판별
-  const isPhoneMasked = customerPhone ? customerPhone.includes('*') : true;
-
   logger.log('[PaymentFailureWebhook] 수신', {
     orderId,
-    status,
-    customerPhone: customerPhone ? String(customerPhone).slice(0, 4) + '***' : '없음',
+    reason,
+    phone: customerPhone ? customerPhone.slice(0, 4) + '***' : '없음',
     amount: amount ?? 0,
   });
 
   try {
-    // 1) orderId로 CRM AffiliateSale 찾기 → organizationId 역추적
+    // 멱등성 체크
+    const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
+      where: { eventId },
+      select: { eventId: true },
+    });
+    if (alreadyProcessed) {
+      logger.log('[PaymentFailureWebhook] 중복 이벤트 무시', { eventId });
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
+
+    // orderId로 CRM AffiliateSale → organizationId 역추적
     let sale = await prisma.affiliateSale.findUnique({
       where: { orderId },
-      select: { organizationId: true, customerPhone: true },
+      select: { organizationId: true },
     });
 
-    // 2) AffiliateSale 못 찾았으면 affiliateCode로 역추적
     if (!sale && affiliateCode) {
       sale = await prisma.affiliateSale.findFirst({
         where: { affiliateCode },
-        select: { organizationId: true, customerPhone: true },
+        select: { organizationId: true },
         orderBy: { createdAt: 'desc' },
       });
     }
 
-    // 3) 최종 fallback: DEFAULT_ORGANIZATION_ID
     const organizationId = sale?.organizationId ?? process.env.DEFAULT_ORGANIZATION_ID;
 
     if (!organizationId) {
-      logger.error('[PaymentFailureWebhook] 조직 특정 불가', { orderId });
-      return NextResponse.json({ ok: false, message: '조직 특정 불가' }, { status: 422 });
+      logger.log('[PaymentFailureWebhook] 조직 특정 불가 — 로그만 기록', { orderId, affiliateCode });
+      await prisma.processedWebhookEvent.create({
+        data: { eventId, webhookType: 'payment-failure' },
+      });
+      return NextResponse.json({ ok: true, matched: false });
     }
 
     // Contact 찾기
     // 1순위: bookingRef === orderId
-    let contact = await prisma.contact.findFirst({
+    let contact: { id: string } | null = await prisma.contact.findFirst({
       where: { bookingRef: orderId, organizationId },
-      select: { id: true, phone: true, name: true },
+      select: { id: true },
     });
 
-    // 2순위: customerPhone이 마스킹 안 됐으면 phone으로 찾기
-    if (!contact && customerPhone && !isPhoneMasked) {
+    // 2순위: customerPhone (평문 — 마스킹 없음)
+    if (!contact && customerPhone) {
+      const normalizedPhone = normalizePhone(customerPhone);
       contact = await prisma.contact.findFirst({
-        where: { phone: customerPhone, organizationId },
-        select: { id: true, phone: true, name: true },
+        where: { phone: normalizedPhone, organizationId },
+        select: { id: true },
       });
     }
 
+    // 3순위: affiliateCode로 최근 Contact
+    if (!contact && affiliateCode) {
+      contact = await prisma.contact.findFirst({
+        where: { affiliateCode, organizationId },
+        select: { id: true },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    // 트랜잭션
     await prisma.$transaction(async (tx) => {
-      // Contact가 있으면 메모만 기록 (type은 절대 변경하지 않음)
+      await tx.processedWebhookEvent.create({
+        data: { eventId, webhookType: 'payment-failure' },
+      });
+
       if (contact) {
-        const displayAmount = amount > 0 ? amount.toLocaleString() + '원' : '금액 미상';
+        const displayAmount = amount && amount > 0 ? amount.toLocaleString() + '원' : '금액 미상';
         const memoLines = [
-          `[결제실패] ${displayAmount} / ${status} / 사유: ${failureReason ?? '없음'} / 주문: ${orderId}`,
-        ].join('\n');
+          `[결제실패] ${displayAmount}`,
+          `상태: ${reason ?? '알 수 없음'}`,
+          `주문: ${orderId}`,
+          customerName ? `고객: ${customerName}` : null,
+          `발생일시: ${failedAt}`,
+        ].filter(Boolean).join(' / ');
 
         await tx.contactMemo.create({
           data: {
@@ -137,24 +152,18 @@ export async function POST(req: NextRequest) {
           },
         });
       }
-
-      // eventId 처리 완료 기록 (트랜잭션 안에서 — TOCTOU 방지)
-      await tx.processedWebhookEvent.create({
-        data: { eventId, webhookType: 'payment-failure' },
-      });
     });
 
     logger.log('[PaymentFailureWebhook] 완료', {
       contactFound: !!contact,
-      contactId: contact?.id ?? null,
       orderId,
-      status,
-      amount: amount ?? 0,
+      reason,
+      eventId,
     });
 
-    return NextResponse.json({ ok: true, contactFound: !!contact });
+    return NextResponse.json({ ok: true, matched: !!contact });
   } catch (err) {
-    logger.error('[PaymentFailureWebhook] 처리 실패', { err, orderId });
+    logger.error('[PaymentFailureWebhook] 처리 실패', { err, orderId, eventId });
     await enqueueDLQ('payment-failure', body, err instanceof Error ? err.message : String(err)).catch(() => {});
     return NextResponse.json({ ok: false, message: '처리 실패' }, { status: 500 });
   }

@@ -23,7 +23,7 @@
 
 ### 엔드포인트
 ```
-POST /api/webhooks/lead-status-change
+POST /api/webhooks/gmcruise/lead-status
 Authorization: Bearer {MABIZ_LEAD_STATUS_WEBHOOK_SECRET}
 ```
 
@@ -68,7 +68,7 @@ MABIZ_LEAD_STATUS_WEBHOOK_SECRET={CRM팀 발급}
 
 ### 엔드포인트
 ```
-POST /api/webhooks/passport-approved
+POST /api/webhooks/gmcruise/passport-approved
 Authorization: Bearer {MABIZ_PASSPORT_WEBHOOK_SECRET}
 ```
 
@@ -110,7 +110,7 @@ MABIZ_PASSPORT_WEBHOOK_SECRET={CRM팀 발급}
 
 ### 엔드포인트
 ```
-POST /api/webhooks/payment-failure
+POST /api/webhooks/gmcruise/payment-failure
 Authorization: Bearer {MABIZ_PAYMENT_FAILURE_WEBHOOK_SECRET}
 ```
 
@@ -166,9 +166,9 @@ MABIZ_PAYMENT_FAILURE_WEBHOOK_SECRET={CRM팀 발급}
 
 ### CRM (수신)
 ```
-[ ] POST /api/webhooks/lead-status-change 엔드포인트 구현
-[ ] POST /api/webhooks/passport-approved 엔드포인트 구현
-[ ] POST /api/webhooks/payment-failure 엔드포인트 구현
+[ ] POST /api/webhooks/gmcruise/lead-status 엔드포인트 구현
+[ ] POST /api/webhooks/gmcruise/passport-approved 엔드포인트 구현
+[ ] POST /api/webhooks/gmcruise/payment-failure 엔드포인트 구현
 [ ] Bearer 시크릿 3개 발급 + .env 등록
 [ ] 각 웹훅 테스트
 ```
