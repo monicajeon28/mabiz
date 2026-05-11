@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     }
 
     const payment = await prisma.payAppPayment.findFirst({
-      where: { id: paymentId },
+      where: { id: paymentId, organizationId: orgId },
     });
 
     if (!payment) {

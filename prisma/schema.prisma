@@ -522,6 +522,9 @@ model PayAppPayment {
   paidAt        DateTime?
   createdAt     DateTime  @default(now())
 
+  // 조직 (테넌트 격리)
+  organizationId String?
+
   // 결제 상세
   productName   String?
   customerEmail String?

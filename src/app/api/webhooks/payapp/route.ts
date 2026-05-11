@@ -43,11 +43,16 @@ export async function POST(req: Request) {
     const body = await req.text();
     const params = new URLSearchParams(body);
 
-    // [보안] linkval 검증 — 진짜 PayApp인지 확인
+    // [보안] linkval 검증 — 진짜 PayApp인지 확인 (누락 시에도 차단)
     const linkval = params.get("linkval");
-    if (linkval && !validateFeedback(linkval)) {
-      logger.warn("[PayApp Webhook] linkval 불일치 — 위조 요청 차단");
-      return new Response("FAIL", { status: 403 });
+    if (!linkval || !validateFeedback(linkval)) {
+      // IP 화이트리스트가 설정된 경우에만 linkval 검증 건너뛰기 허용
+      if (allowedIPs.length === 0) {
+        logger.warn("[PayApp Webhook] linkval 누락/불일치 + IP 미설정 — 차단");
+        return new Response("FAIL", { status: 403 });
+      }
+      // IP 화이트리스트 통과했으면 linkval 없어도 허용 (PayApp 내부 호출)
+      logger.warn("[PayApp Webhook] linkval 누락/불일치 — IP 검증으로 대체", { requestIP });
     }
 
     const payState    = params.get("pay_state") ?? "";
@@ -81,15 +86,22 @@ export async function POST(req: Request) {
         return new Response("SUCCESS");
       }
 
-      // 중복 방지: mulNo 또는 orderId로 기처리 확인
+      // 중복 방지 + 금액 검증
       if (orderId) {
         const existing = await prisma.payAppPayment.findUnique({
           where: { orderId },
-          select: { id: true, status: true },
+          select: { id: true, status: true, amount: true },
         });
         if (existing?.status === "paid") {
           logger.log("[PayApp Webhook] 이미 처리됨", { orderId });
           return new Response("SUCCESS");
+        }
+        // 금액 검증: 요청 금액과 웹훅 전달 금액 대조
+        if (existing && price > 0 && existing.amount !== price) {
+          logger.warn("[PayApp Webhook] 금액 불일치 — 위조 의심", {
+            orderId, expected: existing.amount, received: price,
+          });
+          return new Response("FAIL", { status: 400 });
         }
       }
 
@@ -109,6 +121,7 @@ export async function POST(req: Request) {
           where: { orderId: orderId || `mul_${mulNo}` },
           create: {
             orderId: orderId || `mul_${mulNo}`,
+            organizationId: orgId ?? null,
             amount: price,
             customerPhone: normalizedPhone,
             customerName: name || "미확인",
@@ -168,8 +181,9 @@ export async function POST(req: Request) {
         }
       }
 
-      // 현금영수증 자동 발행 (카드 결제 제외, non-blocking)
-      if (payType !== "card" && normalizedPhone && price > 0) {
+      // 현금영수증 자동 발행 — 현금성 결제만 (카드/간편결제 제외)
+      const cashPayTypes = ["bank_transfer", "virtual_account", "phone"];
+      if (cashPayTypes.includes(payType) && normalizedPhone && price > 0) {
         issueCashReceipt({
           goodName: name || "크루즈 상품",
           buyerName: name || "미확인",
@@ -177,14 +191,15 @@ export async function POST(req: Request) {
           amount: price,
         }).then((r) => {
           if (r.ok) {
-            // 현금영수증 정보를 metadata에 저장
-            prisma.payAppPayment.update({
-              where: { orderId: orderId || `mul_${mulNo}` },
-              data: {
-                metadata: {
-                  cashReceipt: { cashstno: r.cashstno, cashsturl: r.cashsturl, issuedAt: new Date().toISOString() },
+            // 현금영수증 정보를 metadata에 병합 저장 (기존 데이터 보존)
+            prisma.payAppPayment.findUnique({ where: { orderId: orderId || `mul_${mulNo}` } }).then((p) => {
+              const existing = (p?.metadata ?? {}) as Record<string, unknown>;
+              prisma.payAppPayment.update({
+                where: { orderId: orderId || `mul_${mulNo}` },
+                data: {
+                  metadata: { ...existing, cashReceipt: { cashstno: r.cashstno, cashsturl: r.cashsturl, issuedAt: new Date().toISOString() } },
                 },
-              },
+              }).catch(() => {});
             }).catch(() => {});
             logger.log("[PayApp Webhook] 현금영수증 자동 발행 성공", { cashstno: r.cashstno });
           } else {

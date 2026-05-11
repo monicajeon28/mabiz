@@ -245,7 +245,7 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payme
                 onClick={async () => {
                   setPaymentLoading(true);
                   try {
-                    const res = await fetch("/api/payapp/request", {
+                    const res = await fetch("/api/public/payapp/request", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
