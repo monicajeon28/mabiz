@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, TrendingUp, RotateCcw, Clock, Star, Phone, Settings, Send, AlertCircle } from "lucide-react";
+import { Users, TrendingUp, RotateCcw, Clock, Star, Phone, Settings, Send, AlertCircle, Copy, Check } from "lucide-react";
 import Link from "next/link";
 
 type DashboardData = {
@@ -241,11 +241,16 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [feedLoading, setFeedLoading] = useState(true);
+  const [myUserId, setMyUserId] = useState<string>("");
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     fetch("/api/dashboard").then((r) => r.json()).then((d) => {
       if (d.ok) setData(d);
     });
+    fetch("/api/auth/me", { credentials: "include" }).then((r) => r.json()).then((d) => {
+      if (d.ok && d.userId) setMyUserId(d.userId);
+    }).catch(() => {});
 
     fetch('/api/notifications/feed?limit=5')
       .then(r => r.json())
@@ -266,6 +271,42 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold text-navy-900">대시보드</h1>
         <p className="text-gray-500 text-sm mt-1">{ym} 기준 · {new Date().toLocaleDateString("ko-KR")}</p>
       </div>
+
+      {/* B2B 랜딩 링크 카드 — 관리자/점장(OWNER) */}
+      {(role === "GLOBAL_ADMIN" || role === "OWNER") && (
+        <div className="bg-gradient-to-r from-navy-900 to-navy-800 text-white rounded-xl p-5 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gold-300 mb-1">내 B2B 홍보 랜딩 링크</p>
+              <p className="text-xs text-gray-400">이 링크로 유입된 고객이 CRM에 자동 등록됩니다</p>
+            </div>
+            <button
+              onClick={() => {
+                const baseUrl = window.location.origin;
+                const link = role === "GLOBAL_ADMIN"
+                  ? `${baseUrl}/landing`
+                  : `${baseUrl}/landing?ref=${myUserId}`;
+                navigator.clipboard.writeText(link).then(() => {
+                  setLinkCopied(true);
+                  setTimeout(() => setLinkCopied(false), 2000);
+                });
+              }}
+              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              {linkCopied ? <><Check className="w-4 h-4 text-green-400" /> 복사됨!</> : <><Copy className="w-4 h-4" /> 링크 복사</>}
+            </button>
+          </div>
+          <div className="mt-3 bg-white/5 rounded-lg px-3 py-2 text-xs font-mono text-gray-300 truncate">
+            {typeof window !== "undefined" && (
+              role === "GLOBAL_ADMIN"
+                ? `${window.location.origin}/landing`
+                : myUserId
+                  ? `${window.location.origin}/landing?ref=${myUserId}`
+                  : "로딩 중..."
+            )}
+          </div>
+        </div>
+      )}
 
       {/* FREE_SALES */}
       {role === "FREE_SALES" && (
