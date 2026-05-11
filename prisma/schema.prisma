@@ -1303,7 +1303,6 @@ model GmUser {
   testModeStartedAt           DateTime?
   customerSource              String?
   adminMemo                   String?
-  mallUserId                  String?
   mallNickname                String?
   genieStatus                 String?
   genieLinkedAt               DateTime?
@@ -1328,7 +1327,6 @@ model GmUser {
   customerGroupId             Int?
   nextActionDate              DateTime?
   nextActionNote              String?
-  onboardingUpdatedByUser     Boolean   @default(false)
 
   reservations        GmReservation[]
   travelers           GmTraveler[]
