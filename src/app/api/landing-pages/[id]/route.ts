@@ -13,6 +13,13 @@ const PatchSchema = z.object({
   groupId:        z.string().nullable().optional(),
   commentEnabled: z.boolean().optional(),
   autoFunnelId:   z.string().nullable().optional(),
+  // 결제 설정 (페이앱 B2B)
+  paymentEnabled: z.boolean().optional(),
+  paymentType:    z.enum(["onetime", "subscription"]).optional(),
+  productName:    z.string().nullable().optional(),
+  productPrice:   z.number().nullable().optional(),
+  cycleDay:       z.number().min(1).max(90).nullable().optional(),
+  expireDate:     z.string().nullable().optional(),
 }).strict();
 
 type Params = { params: Promise<{ id: string }> };
@@ -50,18 +57,27 @@ export async function PATCH(req: Request, { params }: Params) {
     const existing = await prisma.crmLandingPage.findFirst({ where: { id, organizationId: orgId } });
     if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
 
-    const { title, slug, htmlContent, isActive, groupId, commentEnabled, autoFunnelId } = parsed.data;
+    const {
+      title, slug, htmlContent, isActive, groupId, commentEnabled, autoFunnelId,
+      paymentEnabled, paymentType, productName, productPrice, cycleDay, expireDate,
+    } = parsed.data;
     const sanitizedContent = htmlContent !== undefined ? sanitizeHtml(htmlContent) : undefined;
     const page = await prisma.crmLandingPage.update({
       where: { id },
       data: {
-        ...(title            !== undefined ? { title }                            : {}),
-        ...(slug             !== undefined ? { slug }                             : {}),
-        ...(sanitizedContent !== undefined ? { htmlContent: sanitizedContent }    : {}),
-        ...(isActive         !== undefined ? { isActive }                         : {}),
-        ...(groupId          !== undefined ? { groupId: groupId ?? null }         : {}),
-        ...(commentEnabled   !== undefined ? { commentEnabled }                   : {}),
+        ...(title            !== undefined ? { title }                              : {}),
+        ...(slug             !== undefined ? { slug }                               : {}),
+        ...(sanitizedContent !== undefined ? { htmlContent: sanitizedContent }      : {}),
+        ...(isActive         !== undefined ? { isActive }                           : {}),
+        ...(groupId          !== undefined ? { groupId: groupId ?? null }           : {}),
+        ...(commentEnabled   !== undefined ? { commentEnabled }                     : {}),
         ...(autoFunnelId     !== undefined ? { autoFunnelId: autoFunnelId ?? null } : {}),
+        ...(paymentEnabled   !== undefined ? { paymentEnabled }                     : {}),
+        ...(paymentType      !== undefined ? { paymentType }                        : {}),
+        ...(productName      !== undefined ? { productName: productName ?? null }   : {}),
+        ...(productPrice     !== undefined ? { productPrice: productPrice ?? null } : {}),
+        ...(cycleDay         !== undefined ? { cycleDay: cycleDay ?? null }          : {}),
+        ...(expireDate       !== undefined ? { expireDate: expireDate ? new Date(expireDate) : null } : {}),
       },
     });
     return NextResponse.json({ ok: true, page });

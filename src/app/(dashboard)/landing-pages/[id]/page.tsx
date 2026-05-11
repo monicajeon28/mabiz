@@ -41,6 +41,14 @@ export default function EditLandingPage() {
   const [groups, setGroups]     = useState<{ id: string; name: string; funnelId: string | null }[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
 
+  // 결제 설정
+  const [paymentEnabled, setPaymentEnabled] = useState(false);
+  const [paymentType, setPaymentType]       = useState<"onetime" | "subscription">("onetime");
+  const [productName, setProductName]       = useState("");
+  const [productPrice, setProductPrice]     = useState("");
+  const [cycleDay, setCycleDay]             = useState("1");
+  const [expireDate, setExpireDate]         = useState("");
+
   // 등록자 목록
   const [registrations, setRegistrations]     = useState<Registration[]>([]);
   const [regTotal,       setRegTotal]          = useState(0);
@@ -66,6 +74,12 @@ export default function EditLandingPage() {
         setHtml(pageData.page.htmlContent ?? "");
         setSelectedGroupId(pageData.page.groupId ?? "");
         setCommentEnabled(pageData.page.commentEnabled ?? false);
+        setPaymentEnabled(pageData.page.paymentEnabled ?? false);
+        setPaymentType(pageData.page.paymentType ?? "onetime");
+        setProductName(pageData.page.productName ?? "");
+        setProductPrice(String(pageData.page.productPrice ?? ""));
+        setCycleDay(String(pageData.page.cycleDay ?? "1"));
+        setExpireDate(pageData.page.expireDate ? pageData.page.expireDate.split("T")[0] : "");
       }
       if (groupData.ok) setGroups(groupData.groups ?? []);
       setLoading(false);
@@ -140,7 +154,17 @@ export default function EditLandingPage() {
     const res = await fetch(`/api/landing-pages/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, slug, htmlContent: html, groupId: selectedGroupId || null }),
+      body: JSON.stringify({
+        title, slug, htmlContent: html,
+        groupId: selectedGroupId || null,
+        paymentEnabled,
+        ...(paymentEnabled ? {
+          paymentType,
+          productName: productName || null,
+          productPrice: parseInt(productPrice) || null,
+          ...(paymentType === "subscription" ? { cycleDay: parseInt(cycleDay), expireDate: expireDate || null } : {}),
+        } : {}),
+      }),
     });
     const data = await res.json();
     setSaving(false);
@@ -262,6 +286,33 @@ export default function EditLandingPage() {
                 ))}
               </select>
               <span className="text-xs text-gray-400">🔄 = 등록 즉시 자동 문자</span>
+            </div>
+            {/* 결제 설정 */}
+            <div className="flex items-center gap-3 mt-2 pt-2 border-t border-gray-100">
+              <label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
+                <input type="checkbox" checked={paymentEnabled} onChange={(e) => setPaymentEnabled(e.target.checked)} className="w-3.5 h-3.5" />
+                결제 기능
+              </label>
+              {paymentEnabled && (
+                <>
+                  <select value={paymentType} onChange={(e) => setPaymentType(e.target.value as "onetime" | "subscription")} className="border border-gray-200 rounded px-2 py-1 text-xs">
+                    <option value="onetime">일반 결제</option>
+                    <option value="subscription">정기 결제</option>
+                  </select>
+                  <input type="text" value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="상품명" className="border border-gray-200 rounded px-2 py-1 text-xs w-28" />
+                  <input type="number" value={productPrice} onChange={(e) => setProductPrice(e.target.value)} placeholder="금액" className="border border-gray-200 rounded px-2 py-1 text-xs w-20" />
+                  <span className="text-xs text-gray-400">원</span>
+                  {paymentType === "subscription" && (
+                    <>
+                      <select value={cycleDay} onChange={(e) => setCycleDay(e.target.value)} className="border border-gray-200 rounded px-2 py-1 text-xs">
+                        {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}일</option>)}
+                        <option value="90">말일</option>
+                      </select>
+                      <input type="date" value={expireDate} onChange={(e) => setExpireDate(e.target.value)} className="border border-gray-200 rounded px-2 py-1 text-xs" />
+                    </>
+                  )}
+                </>
+              )}
             </div>
           </div>
           <div className="flex-1 overflow-hidden">
