@@ -36,6 +36,7 @@ import { findOrCreateOrganization } from '@/lib/organization';
 import { notifyGlobalAdmin } from '@/lib/system-email';
 import { renderNewOrgEmail } from '@/lib/email-templates';
 import { logger } from '@/lib/logger';
+import prisma from '@/lib/prisma';
 
 interface ContractSignedPayload {
   contractRef:  string;
@@ -44,6 +45,7 @@ interface ContractSignedPayload {
   ownerEmail?:  string;
   orgName:      string;
   signedAt:     string;
+  eventId?:     string;
 }
 
 export async function POST(req: NextRequest) {
@@ -75,13 +77,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: '페이로드 파싱 실패' }, { status: 400 });
   }
 
-  const { contractRef, ownerName, ownerPhone, ownerEmail, orgName, signedAt } = payload;
+  const { contractRef, ownerName, ownerPhone, ownerEmail, orgName, signedAt, eventId } = payload;
 
   if (!contractRef || !ownerName || !ownerPhone || !orgName) {
     return NextResponse.json(
       { ok: false, message: 'contractRef, ownerName, ownerPhone, orgName 필수' },
       { status: 400 }
     );
+  }
+
+  // ── 5-0. eventId 멱등성 체크 ────────────────────────────────────────
+  if (eventId) {
+    const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
+      where: { eventId },
+      select: { eventId: true },
+    });
+    if (alreadyProcessed) {
+      logger.log('[ContractSignedWebhook] 중복 이벤트 무시', { eventId });
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
   }
 
   // ── 5. Organization 생성 (idempotent) ──────────────────────────────
@@ -121,6 +135,12 @@ export async function POST(req: NextRequest) {
     notifyGlobalAdmin(subject, html).catch((e) =>
       logger.error('[ContractSignedWebhook] GLOBAL_ADMIN 알림 실패', { e })
     );
+  }
+
+  if (eventId) {
+    await prisma.processedWebhookEvent.create({
+      data: { eventId, webhookType: 'contract-signed' },
+    }).catch(() => {});
   }
 
   logger.warn('[ContractSignedWebhook] 처리 완료', {

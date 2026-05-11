@@ -37,12 +37,24 @@ export async function POST(req: NextRequest) {
     managerId?: number;
     organizationId?: string;
     joinedAt?: string;
+    eventId?: string;
   };
 
-  const { mallUserId, name, phone, email, affiliateType, affiliateCode, organizationId: bodyOrgId } = body;
+  const { mallUserId, name, phone, email, affiliateType, affiliateCode, organizationId: bodyOrgId, eventId } = body;
 
   if (!mallUserId || !name || !phone) {
     return NextResponse.json({ ok: false, message: 'mallUserId, name, phone 필수' }, { status: 400 });
+  }
+
+  if (eventId) {
+    const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
+      where: { eventId },
+      select: { eventId: true },
+    });
+    if (alreadyProcessed) {
+      logger.log('[PartnerSignupWebhook] 중복 이벤트 무시', { eventId });
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
   }
 
   logger.log('[PartnerSignupWebhook] 수신', { mallUserId, affiliateType, phone: phone.slice(0, 4) + '***' });
@@ -128,6 +140,12 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     logger.error('[PartnerSignupWebhook] 그룹 배정 실패', { err });
+  }
+
+  if (eventId) {
+    await prisma.processedWebhookEvent.create({
+      data: { eventId, webhookType: 'partner-signup' },
+    }).catch(() => {});
   }
 
   logger.log('[PartnerSignupWebhook] 완료', { contactId, created, mallUserId });

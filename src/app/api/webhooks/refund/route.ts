@@ -34,12 +34,25 @@ export async function POST(req: NextRequest) {
     refundedAt: string;
     affiliateCode?: string;
     organizationId?: string;
+    eventId?: string;
   };
 
-  const { orderId, buyerPhone, refundedAt, organizationId: bodyOrgId } = body;
+  const { orderId, buyerPhone, refundedAt, organizationId: bodyOrgId, eventId } = body;
 
   if (!orderId || !buyerPhone) {
     return NextResponse.json({ ok: false, message: 'orderId, buyerPhone 필수' }, { status: 400 });
+  }
+
+  // eventId 멱등성 체크 (중복 수신 방지)
+  if (eventId) {
+    const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
+      where: { eventId },
+      select: { eventId: true },
+    });
+    if (alreadyProcessed) {
+      logger.log('[RefundWebhook] 중복 이벤트 무시', { eventId });
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
   }
 
   logger.log('[RefundWebhook] 수신', { orderId, buyerPhone: buyerPhone.slice(0, 4) + '***' });
@@ -124,5 +137,13 @@ export async function POST(req: NextRequest) {
   }
 
   logger.log('[RefundWebhook] 완료', { saleUpdated, agentSuspended, contactUpdated });
+
+  // eventId 처리 완료 기록
+  if (eventId) {
+    await prisma.processedWebhookEvent.create({
+      data: { eventId, webhookType: 'refund' },
+    }).catch(() => {}); // 실패해도 웹훅 처리에 영향 없음
+  }
+
   return NextResponse.json({ ok: true, saleUpdated, agentSuspended, contactUpdated });
 }

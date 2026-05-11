@@ -37,9 +37,10 @@ export async function POST(req: NextRequest) {
     agentId?: number;
     managerId?: number;
     submittedAt?: string;
+    eventId?: string;
   };
 
-  const { phone, name, email, courseType, message, affiliateCode, organizationId: bodyOrgId } = body;
+  const { phone, name, email, courseType, message, affiliateCode, organizationId: bodyOrgId, eventId } = body;
 
   // productCode 결정: 직접 전달 > courseType 매핑 > 기본값
   const productCode = body.productCode
@@ -47,6 +48,18 @@ export async function POST(req: NextRequest) {
 
   if (!phone || !name) {
     return NextResponse.json({ ok: false, message: 'phone, name 필수' }, { status: 400 });
+  }
+
+  // eventId 멱등성 체크 (중복 수신 방지)
+  if (eventId) {
+    const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
+      where: { eventId },
+      select: { eventId: true },
+    });
+    if (alreadyProcessed) {
+      logger.log('[GoldInquiryWebhook] 중복 이벤트 무시', { eventId });
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
   }
 
   logger.log('[GoldInquiryWebhook] 수신', { phone: phone.slice(0, 4) + '***', courseType, productCode });
@@ -134,5 +147,13 @@ export async function POST(req: NextRequest) {
   }
 
   logger.log('[GoldInquiryWebhook] 완료', { contactId, created });
+
+  // eventId 처리 완료 기록
+  if (eventId) {
+    await prisma.processedWebhookEvent.create({
+      data: { eventId, webhookType: 'gold-inquiry' },
+    }).catch(() => {}); // 실패해도 웹훅 처리에 영향 없음
+  }
+
   return NextResponse.json({ ok: true, contactId, created });
 }

@@ -1213,3 +1213,13 @@ model DocumentApproval {
   @@index([documentId])
   @@map("DocumentApproval")
 }
+
+// ─── 웹훅 이벤트 중복 처리 방지 ──────────────────────────
+model ProcessedWebhookEvent {
+  eventId      String   @id              // GMcruise에서 보내는 UUID v4
+  webhookType  String                    // purchase | refund | inquiry | gold-inquiry | partner-signup | news-sync | contract-signed | reservation
+  processedAt  DateTime @default(now())
+
+  @@index([webhookType])
+  @@map("ProcessedWebhookEvent")
+}

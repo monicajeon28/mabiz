@@ -36,10 +36,23 @@ export async function POST(req: NextRequest) {
     saleAmount,
     commissionRate,
     commissionAmount,
+    eventId,
   } = body;
 
   if (!phone || !name || !organizationId) {
     return NextResponse.json({ ok: false, message: 'phone, name, organizationId 필수' }, { status: 400 });
+  }
+
+  // eventId 멱등성 체크 (중복 수신 방지)
+  if (eventId) {
+    const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
+      where: { eventId },
+      select: { eventId: true },
+    });
+    if (alreadyProcessed) {
+      logger.log('[PurchaseWebhook] 중복 이벤트 무시', { eventId });
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
   }
 
   logger.log('[PurchaseWebhook] 수신', {
@@ -137,6 +150,13 @@ export async function POST(req: NextRequest) {
       funnelStarted,
       affiliateCode: affiliateCode ?? '없음',
     });
+
+    // eventId 처리 완료 기록
+    if (eventId) {
+      await prisma.processedWebhookEvent.create({
+        data: { eventId, webhookType: 'purchase' },
+      }).catch(() => {}); // 실패해도 웹훅 처리에 영향 없음
+    }
 
     return NextResponse.json({ ok: true, contactId: contact.id, funnelStarted });
   } catch (err) {
