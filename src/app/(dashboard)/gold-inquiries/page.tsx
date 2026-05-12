@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ChevronLeft, ChevronRight, Search, Loader2, MessageSquare } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, Loader2, MessageSquare, UserPlus } from "lucide-react";
 
 type GoldInquiry = {
   id: number;
@@ -46,7 +46,9 @@ export default function GoldInquiriesPage() {
   const [q,         setQ]         = useState("");
   const [search,    setSearch]    = useState("");
   const [loading,   setLoading]   = useState(true);
-  const [acting,    setActing]    = useState<number | null>(null);
+  const [acting,      setActing]      = useState<number | null>(null);
+  const [converting,  setConverting]  = useState<number | null>(null);  // 전환 중인 문의 id
+  const [convertedIds, setConvertedIds] = useState<Record<number, string>>({}); // id → memberId
   const abortRef = useRef<AbortController | null>(null);
 
   const totalPages = Math.ceil(total / 20);
@@ -85,6 +87,28 @@ export default function GoldInquiriesPage() {
     });
     setActing(null);
     load();
+  };
+
+  const convertToMember = async (inq: GoldInquiry, courseType: string) => {
+    setConverting(inq.id);
+    try {
+      const r = await fetch(`/api/gold-inquiries/${inq.id}/convert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseType }),
+      });
+      const d = await r.json() as { ok: boolean; memberId?: string; alreadyExists?: boolean; error?: string };
+      if (d.ok && d.memberId) {
+        setConvertedIds((prev) => ({ ...prev, [inq.id]: d.memberId! }));
+        if (d.alreadyExists) alert('이미 골드회원으로 등록된 고객입니다.');
+      } else {
+        alert(d.error ?? '전환 실패');
+      }
+    } catch {
+      alert('네트워크 오류');
+    } finally {
+      setConverting(null);
+    }
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -156,6 +180,7 @@ export default function GoldInquiriesPage() {
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">담당</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">상태</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">액션</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">회원전환</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">접수일</th>
                 </tr>
               </thead>
@@ -198,6 +223,33 @@ export default function GoldInquiriesPage() {
                               </button>
                             ))}
                           </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {convertedIds[inq.id] ? (
+                          <a
+                            href={`/gold-members/${convertedIds[inq.id]}`}
+                            className="text-xs text-emerald-600 font-medium hover:underline flex items-center gap-1"
+                          >
+                            <UserPlus className="w-3 h-3" />회원보기
+                          </a>
+                        ) : converting === inq.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                        ) : !['unavailable', 'refund'].includes(inq.status) ? (
+                          <div className="flex gap-1">
+                            {(['A', 'B', 'C'] as const).map((course) => (
+                              <button
+                                key={course}
+                                onClick={() => convertToMember(inq, course)}
+                                className="px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors"
+                                title={`${course}코스 골드회원 전환`}
+                              >
+                                {course}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-300">-</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-gray-400 text-xs">
