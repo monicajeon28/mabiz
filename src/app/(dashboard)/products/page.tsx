@@ -14,7 +14,33 @@ import {
   FileSpreadsheet,
   Loader2,
 } from "lucide-react";
-import type { ApisRow } from "@/app/api/admin/apis/excel/route";
+type ApisRow = {
+  seq: number;
+  rv: string;
+  cabin: string | number;
+  groupId: string | number;
+  roomingGroupId: string | number;
+  cabinType: string;
+  engSurname: string;
+  engGivenName: string;
+  korName: string;
+  residentNum: string;
+  gender: string;
+  birthDate: string;
+  passportNo: string;
+  issueDate: string;
+  expiryDate: string;
+  phone: string;
+  airline: string;
+  paymentDate: string;
+  paymentMethod: string;
+  paymentAmount: string | number;
+  agentName: string;
+  remarks: string;
+  groupMemo: string;
+  notes: string;
+  passportDriveUrl: string;
+};
 
 type CabinEntry = { total: number; booked: number; remaining: number };
 type CabinSummary = Record<string, CabinEntry>;
