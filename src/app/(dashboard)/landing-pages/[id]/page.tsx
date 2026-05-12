@@ -103,6 +103,34 @@ export default function EditLandingPage() {
   const [shareMsg,    setShareMsg]    = useState("");
   const [b2bEduType, setB2bEduType] = useState<"" | "INQUIRER" | "BUYER">("");
 
+  // new/page.tsx에서 이식한 추가 편집 필드
+  const [exposureTitle, setExposureTitle]       = useState("");
+  const [exposureImage, setExposureImage]       = useState("");
+  const [buttonTitle, setButtonTitle]           = useState("");
+  const [completionPageUrl, setCompletionPageUrl] = useState("");
+  const [headerScript, setHeaderScript]         = useState("");
+  const [description, setDescription]           = useState("");
+  const [footer, setFooter]                     = useState("");
+  const [commentCount, setCommentCount]         = useState(5);
+  const [commentDateFrom, setCommentDateFrom]   = useState("2024-01-01");
+  const [commentDateTo, setCommentDateTo]       = useState("2025-12-31");
+  const [showAdvanced, setShowAdvanced]         = useState(false);
+
+  type FieldToggle = { enabled: boolean; required: boolean };
+  const [formFields, setFormFields] = useState<Record<string, FieldToggle>>({
+    phone:            { enabled: true,  required: true  },
+    name:             { enabled: true,  required: true  },
+    email:            { enabled: false, required: false },
+    gender:           { enabled: false, required: false },
+    birthDate:        { enabled: false, required: false },
+    address:          { enabled: false, required: false },
+    marketingConsent: { enabled: false, required: false },
+  });
+  const FIELD_LABELS: Record<string, string> = {
+    phone: "연락처", name: "이름", email: "이메일",
+    gender: "성별", birthDate: "생년월일", address: "주소", marketingConsent: "마케팅동의",
+  };
+
   useEffect(() => {
     Promise.all([
       fetch(`/api/landing-pages/${id}`).then((r) => r.json()),
@@ -136,8 +164,22 @@ export default function EditLandingPage() {
         setProductPrice(String(pageData.page.productPrice ?? ""));
         setCycleDay(String(pageData.page.cycleDay ?? "1"));
         setExpireDate(pageData.page.expireDate ? pageData.page.expireDate.split("T")[0] : "");
-        const fc = pageData.page.formConfig as { b2bEduType?: string } | null;
+        const fc = pageData.page.formConfig as { b2bEduType?: string; fields?: Record<string, FieldToggle>; footer?: string } | null;
         setB2bEduType((fc?.b2bEduType as "" | "INQUIRER" | "BUYER") ?? "");
+        if (fc?.fields) setFormFields(fc.fields);
+        if (fc?.footer) setFooter(fc.footer);
+        // 추가 편집 필드
+        setExposureTitle(pageData.page.exposureTitle ?? "");
+        setExposureImage(pageData.page.exposureImage ?? "");
+        setButtonTitle(pageData.page.buttonTitle ?? "");
+        setCompletionPageUrl(pageData.page.completionPageUrl ?? "");
+        setHeaderScript(pageData.page.headerScript ?? "");
+        setDescription(pageData.page.description ?? "");
+        // 댓글 설정
+        const cc = pageData.page.commentConfig as { count?: number; dateFrom?: string; dateTo?: string } | null;
+        if (cc?.count)    setCommentCount(cc.count);
+        if (cc?.dateFrom) setCommentDateFrom(cc.dateFrom);
+        if (cc?.dateTo)   setCommentDateTo(cc.dateTo);
       }
       if (groupData.ok) setGroups(groupData.groups ?? []);
       if (membersData.ok && membersData.members) {
@@ -334,7 +376,20 @@ export default function EditLandingPage() {
       body: JSON.stringify({
         title, slug, htmlContent: content, editorMode,
         groupId: selectedGroupId || null, paymentEnabled,
-        ...(b2bEduType !== undefined ? { infoCollection: true, formConfig: b2bEduType ? { b2bEduType } : null } : {}),
+        infoCollection: true,
+        formConfig: {
+          ...(b2bEduType ? { b2bEduType } : {}),
+          fields: formFields,
+          ...(footer ? { footer } : {}),
+        },
+        ...(exposureTitle     ? { exposureTitle }                     : { exposureTitle: null }),
+        ...(exposureImage     ? { exposureImage }                     : { exposureImage: null }),
+        ...(buttonTitle       ? { buttonTitle }                       : { buttonTitle: null }),
+        ...(completionPageUrl ? { completionPageUrl }                 : { completionPageUrl: null }),
+        ...(headerScript      ? { headerScript }                      : { headerScript: null }),
+        ...(description       ? { description }                       : { description: null }),
+        commentEnabled,
+        commentConfig: commentEnabled ? { count: commentCount, dateFrom: commentDateFrom, dateTo: commentDateTo } : undefined,
         ...(paymentEnabled ? {
           paymentType, productName: productName || null,
           productPrice: parseInt(productPrice) || null,
@@ -494,6 +549,132 @@ export default function EditLandingPage() {
               <option value="BUYER">교육 구매자로 등록</option>
             </select>
             {b2bEduType && <span className="text-xs text-indigo-500">신청 시 자동으로 교육 {b2bEduType === 'INQUIRER' ? '문의자' : '구매자'}로 저장됩니다</span>}
+          </div>
+          {/* 고급 설정 (폼 필드 / 노출 / 완료 URL / 헤더 스크립트) */}
+          <div className="border-b border-gray-100 shrink-0">
+            <button
+              onClick={() => setShowAdvanced((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-2 bg-gray-50 text-xs font-medium text-gray-600 hover:bg-gray-100"
+            >
+              <span>고급 설정 (폼 필드 · 노출 제목/이미지 · 완료 URL · 헤더 스크립트)</span>
+              <span>{showAdvanced ? "▲" : "▼"}</span>
+            </button>
+            {showAdvanced && (
+              <div className="px-4 py-3 bg-white space-y-3">
+                {/* 폼 필드 설정 */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-600 mb-1.5">신청 폼 필드</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(formFields).map(([key, val]) => (
+                      <label key={key} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={val.enabled}
+                          onChange={(e) => setFormFields((prev) => ({ ...prev, [key]: { ...val, enabled: e.target.checked } }))}
+                          className="w-3 h-3"
+                        />
+                        <span>{FIELD_LABELS[key] ?? key}</span>
+                        {val.enabled && (
+                          <label className="flex items-center gap-0.5 text-[10px] text-red-500 ml-1">
+                            <input
+                              type="checkbox"
+                              checked={val.required}
+                              onChange={(e) => setFormFields((prev) => ({ ...prev, [key]: { ...val, required: e.target.checked } }))}
+                              className="w-2.5 h-2.5"
+                            />
+                            필수
+                          </label>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {/* 푸터 */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 w-24 shrink-0">폼 하단 텍스트</label>
+                  <input
+                    value={footer}
+                    onChange={(e) => setFooter(e.target.value)}
+                    placeholder="예: 개인정보 수집에 동의합니다"
+                    className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-400"
+                  />
+                </div>
+                {/* 신청 버튼 이름 */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 w-24 shrink-0">신청 버튼 이름</label>
+                  <input
+                    value={buttonTitle}
+                    onChange={(e) => setButtonTitle(e.target.value)}
+                    placeholder="예: 무료 상담 신청하기"
+                    className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-400"
+                  />
+                </div>
+                {/* 완료 후 이동 URL */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 w-24 shrink-0">완료 후 이동 URL</label>
+                  <input
+                    value={completionPageUrl}
+                    onChange={(e) => setCompletionPageUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-400"
+                  />
+                </div>
+                {/* 노출 제목 (OG) */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 w-24 shrink-0">카카오 공유 제목</label>
+                  <input
+                    value={exposureTitle}
+                    onChange={(e) => setExposureTitle(e.target.value)}
+                    placeholder="SNS 공유 시 표시될 제목"
+                    className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-400"
+                  />
+                </div>
+                {/* 설명 */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 w-24 shrink-0">페이지 설명</label>
+                  <input
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="SNS 공유 시 표시될 설명"
+                    className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-400"
+                  />
+                </div>
+                {/* 헤더 스크립트 */}
+                <div className="flex items-start gap-2">
+                  <label className="text-xs text-gray-500 w-24 shrink-0 mt-1">헤더 스크립트</label>
+                  <textarea
+                    value={headerScript}
+                    onChange={(e) => setHeaderScript(e.target.value)}
+                    placeholder="<script>...</script> 픽셀 코드 등"
+                    rows={2}
+                    className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-blue-400 resize-y"
+                  />
+                </div>
+                {/* 댓글 설정 */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+                    <input type="checkbox" checked={commentEnabled} onChange={(e) => { setCommentEnabled(e.target.checked); }} className="w-3 h-3" />
+                    AI 후기 생성
+                  </label>
+                  {commentEnabled && (
+                    <>
+                      <input type="number" min={1} max={30} value={commentCount}
+                        onChange={(e) => setCommentCount(parseInt(e.target.value) || 5)}
+                        className="border border-gray-200 rounded px-2 py-1 text-xs w-14"
+                      />
+                      <span className="text-xs text-gray-400">개, 기간:</span>
+                      <input type="date" value={commentDateFrom} onChange={(e) => setCommentDateFrom(e.target.value)}
+                        className="border border-gray-200 rounded px-2 py-1 text-xs"
+                      />
+                      <span className="text-xs text-gray-400">~</span>
+                      <input type="date" value={commentDateTo} onChange={(e) => setCommentDateTo(e.target.value)}
+                        className="border border-gray-200 rounded px-2 py-1 text-xs"
+                      />
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           {/* 신청 완료 이메일 설정 */}
           <div className="flex flex-wrap items-start gap-3 px-4 py-2 bg-blue-50 border-b border-blue-100 shrink-0">

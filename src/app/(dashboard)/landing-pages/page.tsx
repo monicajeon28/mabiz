@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
-  Plus, Eye, Copy, Edit2, Globe, Files, Power, Link2,
+  Plus, Eye, Copy, Globe, Files, Link2,
   Check, Share2, Trash2, Users, X, ChevronDown, ChevronUp,
+  BarChart2, Pencil,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -429,33 +430,47 @@ function PageCard({
               </>
             )}
             <span>{new Date(page.createdAt).toLocaleDateString("ko-KR")}</span>
-            {!isShared && (
-              <button onClick={() => onLoadStats(page.id)} className="text-blue-500 hover:underline">
-                {loadingStats === page.id ? "로딩..." : statsMap[page.id] ? "새로고침" : "📊 상세 지표"}
-              </button>
-            )}
           </div>
 
-          {/* 퍼널 지표 */}
+          {/* 퍼널 막대 그래프 */}
           {statsMap[page.id] && (() => {
             const s = statsMap[page.id]!;
+            const max = s.viewCount || 1;
+            const bars = [
+              { label: "방문", value: s.viewCount,      color: "bg-gray-400",   rate: null },
+              { label: "등록", value: s.registered,     color: "bg-blue-500",   rate: s.rates.visitToRegister },
+              { label: "퍼널", value: s.funnelEntered,  color: "bg-purple-500", rate: s.rates.registerToFunnel },
+              { label: "구매", value: s.purchased,      color: "bg-green-500",  rate: s.rates.funnelToPurchase },
+            ];
             return (
-              <div className="mt-3 bg-gray-50 rounded-lg p-3">
-                <p className="text-xs font-semibold text-gray-600 mb-2">퍼널 전환 현황</p>
-                <div className="flex items-center gap-1 text-xs flex-wrap">
-                  <span className="bg-white border border-gray-200 rounded px-2 py-1">방문 <strong>{s.viewCount.toLocaleString()}</strong></span>
-                  <span className="text-gray-400">→ {s.rates.visitToRegister}%</span>
-                  <span className="bg-blue-50 border border-blue-200 rounded px-2 py-1">등록 <strong>{s.registered}</strong></span>
-                  <span className="text-gray-400">→ {s.rates.registerToFunnel}%</span>
-                  <span className="bg-purple-50 border border-purple-200 rounded px-2 py-1">퍼널 <strong>{s.funnelEntered}</strong></span>
-                  <span className="text-gray-400">→ {s.rates.funnelToPurchase}%</span>
-                  <span className={`border rounded px-2 py-1 font-semibold ${
-                    s.purchased > 0 ? "bg-green-50 border-green-300 text-green-700" : "bg-gray-50 border-gray-200 text-gray-400"
-                  }`}>구매 <strong>{s.purchased}</strong>*</span>
+              <div className="mt-3 bg-gray-50 rounded-xl p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-gray-600">퍼널 전환 그래프</p>
+                  {s.viewCount > 0 && s.purchased > 0 && (
+                    <span className="text-[11px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                      전체 전환 {s.rates.visitToPurchase}%
+                    </span>
+                  )}
                 </div>
-                {s.viewCount > 0 && s.purchased > 0 && (
-                  <p className="text-xs text-green-600 font-medium mt-1.5">전체 전환율: {s.rates.visitToPurchase}%</p>
-                )}
+                <div className="space-y-1.5">
+                  {bars.map((b) => (
+                    <div key={b.label} className="flex items-center gap-2">
+                      <span className="text-[11px] text-gray-500 w-8 shrink-0">{b.label}</span>
+                      <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${b.color}`}
+                          style={{ width: `${Math.round((b.value / max) * 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-semibold text-gray-700 w-8 text-right shrink-0">
+                        {b.value.toLocaleString()}
+                      </span>
+                      {b.rate !== null && (
+                        <span className="text-[10px] text-gray-400 w-8 shrink-0">{b.rate}%</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             );
           })()}
@@ -531,12 +546,21 @@ function PageCard({
                   </span>
                 )}
               </Link>
+              <button
+                onClick={() => onLoadStats(page.id)}
+                className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
+                title={statsMap[page.id] ? "그래프 새로고침" : "퍼널 그래프 보기"}
+              >
+                {loadingStats === page.id
+                  ? <span className="text-[10px] text-blue-400">로딩</span>
+                  : <BarChart2 className={`w-4 h-4 ${statsMap[page.id] ? "text-blue-500" : ""}`} />}
+              </button>
               <Link
                 href={`/landing-pages/${page.id}`}
                 className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
                 title="편집"
               >
-                <Edit2 className="w-4 h-4" />
+                <Pencil className="w-4 h-4" />
               </Link>
               <button
                 onClick={() => onDelete(page.id, page.title)}
