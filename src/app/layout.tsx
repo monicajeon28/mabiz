@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "크루즈닷파트너스 — 파트너 CRM",
   description: "크루즈닷 파트너 전용 CRM. 고객관리, 수당확인, 영업도구를 한 곳에서.",
-  metadataBase: new URL("https://www.mabizcruisedot.com"),
+  metadataBase: new URL("https://mabizcruisedot.com"),
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.png",
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "크루즈닷파트너스 — 파트너 CRM",
     description: "크루즈닷 파트너 전용 CRM. 고객관리, 수당확인, 영업도구를 한 곳에서.",
-    url: "https://www.mabizcruisedot.com",
+    url: "https://mabizcruisedot.com",
     siteName: "크루즈닷파트너스",
     images: [
       {

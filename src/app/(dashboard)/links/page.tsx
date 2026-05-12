@@ -12,7 +12,7 @@ type ShortLink = {
 type ClickLog = { id: string; contactId: string | null; clickedAt: string };
 type ClickStats = { clickCount: number; clicks: ClickLog[] };
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mabiz.cruisedot.co.kr';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mabizcruisedot.com';
 
 const QUICK_URLS = [
   { label: '🚢 크루즈닷 메인',   url: 'https://www.cruisedot.co.kr' },

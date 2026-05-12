@@ -80,7 +80,7 @@ export default async function PublicLandingPage({
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://crm.cruisedot.co.kr';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://mabizcruisedot.com';
   const page = await prisma.crmLandingPage.findFirst({
     where:  { slug, isActive: true, isPublic: true },
     select: { title: true, exposureTitle: true, exposureImage: true, description: true },

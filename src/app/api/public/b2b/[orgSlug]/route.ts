@@ -9,7 +9,7 @@ type Params = { params: Promise<{ orgSlug: string }> };
 /**
  * POST /api/public/b2b/[orgSlug]
  * 공개 B2B 랜딩 등록 (인증 불필요)
- * 파트너 링크: https://mabiz.cruisedot.co.kr/b2b/[orgSlug]
+ * 파트너 링크: https://mabizcruisedot.com/b2b/[orgSlug]
  */
 export async function POST(req: Request, { params }: Params) {
   try {

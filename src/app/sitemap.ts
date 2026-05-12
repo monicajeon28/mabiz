@@ -4,7 +4,7 @@ import type { MetadataRoute } from 'next';
 import prisma from '@/lib/prisma';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://crm.cruisedot.co.kr';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://mabizcruisedot.com';
 
   const pages = await prisma.crmLandingPage.findMany({
     where: { isActive: true, isPublic: true },

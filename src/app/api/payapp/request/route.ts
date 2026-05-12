@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     }
 
     const normalizedPhone = normalizePhone(customerPhone);
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://crm.cruisedot.co.kr';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://mabizcruisedot.com';
     const feedbackurl = `${baseUrl}/api/webhooks/payapp`;
 
     if (type === 'subscription') {

@@ -9,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: '/',
       },
     ],
-    sitemap: `${process.env.NEXT_PUBLIC_BASE_URL ?? 'https://crm.cruisedot.co.kr'}/sitemap.xml`,
+    sitemap: `${process.env.NEXT_PUBLIC_BASE_URL ?? 'https://mabizcruisedot.com'}/sitemap.xml`,
   };
 }
