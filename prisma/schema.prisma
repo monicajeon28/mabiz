@@ -1613,25 +1613,43 @@ model GmAffiliateLink {
 }
 
 model GmAffiliateContract {
-  id                Int       @id @default(autoincrement())
-  userId            Int?
-  name              String?
-  phone             String?
-  email             String?
-  address           String?
-  bankAccount       String?
-  bankAccountHolder String?
-  bankName          String?
-  status            String    @default("submitted") // submitted | PROCESSING | APPROVED
-  metadata          Json?
-  submittedAt       DateTime?
-  contractSignedAt  DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id                   Int       @id @default(autoincrement())
+  userId               Int?
+  name                 String?
+  phone                String?
+  email                String?
+  address              String?
+  residentId           String?   // 주민등록번호 (앞 6자리-* 마스킹 저장)
+  bankAccount          String?
+  bankAccountHolder    String?
+  bankName             String?
+  // 필수 동의 항목
+  consentPrivacy       Boolean   @default(false)
+  consentNonCompete    Boolean   @default(false)
+  consentDbUse         Boolean   @default(false)
+  consentPenalty       Boolean   @default(false)
+  consentRefund        Boolean   @default(false)
+  // 서명/도장
+  signatureImageUrl    String?   // 서명 이미지 URL
+  signatureImageFileId String?   // 서명 파일 ID
+  // 계약 상태
+  status               String    @default("submitted") // submitted | PROCESSING | APPROVED
+  notes                String?
+  invitedByProfileId   Int?      // 초대한 대리점장 AffiliateProfile.id
+  reviewerId           Int?
+  reviewedAt           DateTime?
+  contractStartDate    DateTime?
+  contractEndDate      DateTime?
+  metadata             Json?
+  submittedAt          DateTime?
+  contractSignedAt     DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  user              GmUser?   @relation(fields: [userId], references: [id])
+  user                 GmUser?   @relation(fields: [userId], references: [id])
 
   @@index([status])
+  @@index([phone])
   @@map("AffiliateContract")
 }
 

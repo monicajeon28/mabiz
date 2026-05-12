@@ -104,7 +104,7 @@ export async function provisionAffiliateAccounts(
     const managerProfile = await tx.gmAffiliateProfile.create({
       data: {
         userId: managerGmUser.id,
-        type: 'MANAGER',
+        type: 'BRANCH_MANAGER',
         status: 'ACTIVE',
         contractStatus: 'SIGNED',
         displayName: `${contractorName} 대리점`,
@@ -122,7 +122,7 @@ export async function provisionAffiliateAccounts(
     const agentProfile = await tx.gmAffiliateProfile.create({
       data: {
         userId: agentGmUser.id,
-        type: 'AGENT',
+        type: 'SALES_AGENT',
         status: 'ACTIVE',
         contractStatus: 'SIGNED',
         displayName: `${contractorName} 판매원`,

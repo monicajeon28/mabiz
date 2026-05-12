@@ -1,31 +1,35 @@
-// 대리점 계약 가격 정책
-// 수수료율은 여기서만 정의 — 다른 파일에서 하드코딩 금지
+// 대리점/판매원 계약 가격 정책
+// 수수료율·역할 등급은 여기서만 정의 — 다른 파일에서 하드코딩 금지
 
 export const CONTRACT_PRICE_TIERS = {
-  BASIC: {
-    id: 'basic',
-    label: '기본 대리점',
+  /** 판매원 330만 */
+  SALES_330: {
+    label: '판매원',
     priceKRW: 3_300_000,
     commissionRate: 10,
-    description: '기본 수수료 10%',
+    memberType: 'SALES_AGENT' as const,
+    description: '판매원 계약 · 수수료 10%',
   },
-  STANDARD: {
-    id: 'standard',
-    label: '표준 대리점',
+  /** 판매원 540만 */
+  SALES_540: {
+    label: '판매원 (프리미엄)',
     priceKRW: 5_400_000,
     commissionRate: 15,
-    description: '표준 수수료 15%',
+    memberType: 'SALES_AGENT' as const,
+    description: '판매원 계약 · 수수료 15%',
   },
-  PREMIUM: {
-    id: 'premium',
-    label: '프리미엄 대리점',
+  /** 대리점 750만 */
+  BRANCH_750: {
+    label: '대리점',
     priceKRW: 7_500_000,
     commissionRate: 20,
-    description: '프리미엄 수수료 20%',
+    memberType: 'BRANCH_MANAGER' as const,
+    description: '대리점 계약 · 수수료 20%',
   },
 } as const;
 
 export type PriceTierKey = keyof typeof CONTRACT_PRICE_TIERS;
+export type MemberType = (typeof CONTRACT_PRICE_TIERS)[PriceTierKey]['memberType'];
 
 export type ValidTierAmount = 3_300_000 | 5_400_000 | 7_500_000;
 

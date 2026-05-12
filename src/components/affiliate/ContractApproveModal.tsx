@@ -41,7 +41,7 @@ interface Props {
 
 export default function ContractApproveModal({ contractId, onClose, onApproved }: Props) {
   const [contractInfo, setContractInfo] = useState<ContractInfo | null>(null);
-  const [selectedTier, setSelectedTier] = useState<PriceTierKey>('BASIC');
+  const [selectedTier, setSelectedTier] = useState<PriceTierKey>('SALES_330');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<ApproveResult | null>(null);
