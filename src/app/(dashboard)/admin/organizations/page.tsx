@@ -9,8 +9,11 @@ import {
   Loader2,
   ShieldOff,
   Users,
+  FileCheck,
+  Clock,
 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
+import ContractApproveModal from '@/components/affiliate/ContractApproveModal';
 
 type Org = {
   id: string;
@@ -257,6 +260,15 @@ function OrgCard({ org }: { org: Org }) {
 
 // ─── Main page ────────────────────────────────────────────────
 
+type PendingContract = {
+  id: number;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  status: string;
+  createdAt: string;
+};
+
 export default function OrganizationsPage() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
@@ -264,6 +276,26 @@ export default function OrganizationsPage() {
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
   const abortRef = useRef<AbortController | null>(null);
+
+  // ── 대기 중인 계약 (affiliate-auto-system) ──────────────────
+  const [pendingContracts, setPendingContracts] = useState<PendingContract[]>([]);
+  const [contractsLoading, setContractsLoading] = useState(true);
+  const [approveContractId, setApproveContractId] = useState<number | null>(null);
+
+  const fetchPendingContracts = useCallback(async () => {
+    setContractsLoading(true);
+    try {
+      const res = await fetch('/api/affiliate/contracts?status=submitted');
+      const data = await res.json();
+      if (data.ok) setPendingContracts(data.data.contracts ?? []);
+    } catch {
+      // 조용히 실패
+    } finally {
+      setContractsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchPendingContracts(); }, [fetchPendingContracts]);
 
   const fetchAll = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -325,6 +357,67 @@ export default function OrganizationsPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-6">
+
+      {/* ── 대기 중인 계약 신청 ── */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <FileCheck className="w-4 h-4 text-amber-600" />
+          <h2 className="text-sm font-semibold text-gray-700">계약 승인 대기</h2>
+          {!contractsLoading && pendingContracts.length > 0 && (
+            <span className="ml-1 px-2 py-0.5 bg-amber-500 text-white text-xs font-bold rounded-full">
+              {pendingContracts.length}
+            </span>
+          )}
+        </div>
+
+        {contractsLoading ? (
+          <div className="h-16 bg-gray-100 animate-pulse rounded-xl" />
+        ) : pendingContracts.length === 0 ? (
+          <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-400">
+            <Clock className="w-3.5 h-3.5" />
+            대기 중인 계약 신청이 없습니다.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {pendingContracts.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-3"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{c.name ?? '이름 없음'}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {c.phone ?? '-'} · {c.email ?? '-'}
+                    <span className="ml-3 text-gray-400">
+                      {new Date(c.createdAt).toLocaleDateString('ko-KR')} 접수
+                    </span>
+                  </p>
+                </div>
+                <button
+                  onClick={() => setApproveContractId(c.id)}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap"
+                >
+                  승인하기
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* 승인 모달 */}
+      {approveContractId !== null && (
+        <ContractApproveModal
+          contractId={approveContractId}
+          onClose={() => setApproveContractId(null)}
+          onApproved={() => {
+            setApproveContractId(null);
+            fetchPendingContracts(); // 승인 후 목록 갱신
+            handleCreated();         // 조직 목록도 갱신
+          }}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
