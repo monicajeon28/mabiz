@@ -322,11 +322,11 @@ export async function GET(req: NextRequest) {
     const saleManagerParams: unknown[] = [];
     if (from) {
       saleManagerParams.push(from);
-      saleManagerQuery += ` AND "createdAt" >= $${saleManagerParams.length}`;
+      saleManagerQuery += ` AND "saleDate" >= $${saleManagerParams.length}`;
     }
     if (to) {
       saleManagerParams.push(to);
-      saleManagerQuery += ` AND "createdAt" <= $${saleManagerParams.length}`;
+      saleManagerQuery += ` AND "saleDate" <= $${saleManagerParams.length}`;
     }
     saleManagerQuery += ` GROUP BY "managerId"`;
     const saleGroups = await prisma.$queryRawUnsafe<SaleGroupRow[]>(saleManagerQuery, ...saleManagerParams);
@@ -351,11 +351,11 @@ export async function GET(req: NextRequest) {
       const saleAgentParams: unknown[] = [];
       if (from) {
         saleAgentParams.push(from);
-        saleAgentQuery += ` AND "createdAt" >= $${saleAgentParams.length}`;
+        saleAgentQuery += ` AND "saleDate" >= $${saleAgentParams.length}`;
       }
       if (to) {
         saleAgentParams.push(to);
-        saleAgentQuery += ` AND "createdAt" <= $${saleAgentParams.length}`;
+        saleAgentQuery += ` AND "saleDate" <= $${saleAgentParams.length}`;
       }
       saleAgentQuery += ` GROUP BY "agentId"`;
       saleAgentGroups = await prisma.$queryRawUnsafe<SaleAgentGroupRow[]>(saleAgentQuery, ...saleAgentParams);
@@ -477,42 +477,34 @@ export async function GET(req: NextRequest) {
         const ledgerTotals = agentLedgerSummary.reduce(
           (acc, row) => {
             const amount = Number(row.sum_amount ?? 0);
-            const withholding = Number(row.sum_withholdingAmount ?? 0);
             if (row.isSettled) {
               acc.settled += amount;
             } else {
               acc.pending += amount;
             }
+            // 원천징수는 WITHHOLDING 전용 행의 amount 만 집계
+            // (COMMISSION 행의 withholdingAmount와 중복 집계 방지)
             if (row.entryType === 'WITHHOLDING') {
               if (row.isSettled) acc.withholdingSettled += amount;
               else acc.withholdingPending += amount;
               acc.withholdingAdjustments += amount;
             }
-            if (row.entryType === 'SALES_COMMISSION') {
-              acc.salesWithholding += withholding;
-            }
-            if (row.entryType === 'OVERRIDE_COMMISSION') {
-              acc.overrideWithholding += withholding;
-            }
-            acc.withholding += withholding;
             return acc;
           },
           {
             settled: 0,
             pending: 0,
-            withholding: 0,
             withholdingAdjustments: 0,
             withholdingSettled: 0,
             withholdingPending: 0,
-            salesWithholding: 0,
-            overrideWithholding: 0,
             totalWithholding: 0,
             grossCommission: 0,
             netCommission: 0,
           },
         );
 
-        ledgerTotals.totalWithholding = ledgerTotals.salesWithholding + ledgerTotals.overrideWithholding;
+        // totalWithholding = WITHHOLDING 행 amount 합계 (단일 소스)
+        ledgerTotals.totalWithholding = ledgerTotals.withholdingAdjustments;
         const agentGrossCommission = (salesCommission ?? 0) + (overrideCommission ?? 0);
         ledgerTotals.grossCommission = agentGrossCommission;
         ledgerTotals.netCommission = agentGrossCommission - ledgerTotals.totalWithholding;
@@ -568,26 +560,20 @@ export async function GET(req: NextRequest) {
       const ledgerTotals = ledgerSummary.reduce(
         (acc, row) => {
           const amount = Number(row.sum_amount ?? 0);
-          const withholding = Number(row.sum_withholdingAmount ?? 0);
           if (row.entryType === 'BRANCH_COMMISSION') {
             if (row.isSettled) acc.branchSettled += amount;
             else acc.branchPending += amount;
-            acc.branchWithholding += withholding;
           }
           if (row.entryType === 'OVERRIDE_COMMISSION') {
             if (row.isSettled) acc.overrideSettled += amount;
             else acc.overridePending += amount;
-            acc.overrideWithholding += withholding;
           }
+          // 원천징수는 WITHHOLDING 전용 행 amount 만 집계 (단일 소스)
           if (row.entryType === 'WITHHOLDING') {
-            if (row.isSettled) {
-              acc.withholdingSettled += amount;
-            } else {
-              acc.withholdingPending += amount;
-              acc.withholdingAdjustments += amount; // 미지급분만
-            }
+            if (row.isSettled) acc.withholdingSettled += amount;
+            else acc.withholdingPending += amount;
+            acc.withholdingAdjustments += amount;
           }
-          acc.withholding += withholding;
           return acc;
         },
         {
@@ -595,19 +581,17 @@ export async function GET(req: NextRequest) {
           branchPending: 0,
           overrideSettled: 0,
           overridePending: 0,
-          withholding: 0,
           withholdingAdjustments: 0,
           withholdingSettled: 0,
           withholdingPending: 0,
-          branchWithholding: 0,
-          overrideWithholding: 0,
           totalWithholding: 0,
           grossCommission: 0,
           netCommission: 0,
         },
       );
 
-      ledgerTotals.totalWithholding = ledgerTotals.branchWithholding + ledgerTotals.overrideWithholding;
+      // totalWithholding = WITHHOLDING 행 amount 합계 (단일 소스)
+      ledgerTotals.totalWithholding = ledgerTotals.withholdingAdjustments;
       const managerGrossCommission = (branchCommission ?? 0) + (overrideCommission ?? 0);
       ledgerTotals.grossCommission = managerGrossCommission;
       ledgerTotals.netCommission = managerGrossCommission - ledgerTotals.totalWithholding;
