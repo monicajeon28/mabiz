@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { ArrowLeft, Eye, Users, MessageSquare, ImageIcon, Code, Upload, X, GripVertical } from "lucide-react";
+import { ArrowLeft, Eye, Users, MessageSquare, ImageIcon, Code, Upload, X, GripVertical, BarChart2, Share2, Mail } from "lucide-react";
 import dynamic from "next/dynamic";
 import { RegistrationsTab } from "./components/RegistrationsTab";
 import { CommentsTab } from "./components/CommentsTab";
@@ -34,9 +34,11 @@ export default function EditLandingPage() {
   const id = params.id as string;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [tab, setTab]           = useState<"editor" | "registrations" | "comments">(
+  const [tab, setTab]           = useState<"editor" | "registrations" | "comments" | "stats" | "share">(
     searchParams.get("tab") === "registrations" ? "registrations" :
-    searchParams.get("tab") === "comments" ? "comments" : "editor"
+    searchParams.get("tab") === "comments"      ? "comments"      :
+    searchParams.get("tab") === "stats"         ? "stats"         :
+    searchParams.get("tab") === "share"         ? "share"         : "editor"
   );
   const [title, setTitle]       = useState("");
   const [slug, setSlug]         = useState("");
@@ -77,11 +79,35 @@ export default function EditLandingPage() {
   const [generating,    setGenerating]   = useState(false);
   const [commentMsg,    setCommentMsg]   = useState("");
 
+  // 이메일 설정
+  const [regEmailEnabled, setRegEmailEnabled] = useState(false);
+  const [regEmailSubject, setRegEmailSubject] = useState("");
+  const [regEmailContent, setRegEmailContent] = useState("");
+  const [emailSaveMsg,    setEmailSaveMsg]    = useState("");
+
+  // 5단계 통계
+  type LandingStats = {
+    viewCount: number; registered: number; emailSent: number;
+    funnelEntered: number; purchased: number;
+    rates: { visitToRegister: number; registerToEmail: number; registerToFunnel: number; funnelToPurchase: number; visitToPurchase: number };
+  };
+  const [stats,        setStats]        = useState<LandingStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+
+  // 공유 (OWNER + GLOBAL_ADMIN)
+  type ShareEntry = { id: string; userId: string; sharedByUserId: string; createdAt: string };
+  type OrgMember  = { userId: string; displayName: string | null; role: string };
+  const [shares,      setShares]      = useState<ShareEntry[]>([]);
+  const [orgMembers,  setOrgMembers]  = useState<OrgMember[]>([]);
+  const [shareUserId, setShareUserId] = useState("");
+  const [shareMsg,    setShareMsg]    = useState("");
+
   useEffect(() => {
     Promise.all([
       fetch(`/api/landing-pages/${id}`).then((r) => r.json()),
       fetch("/api/groups").then((r) => r.json()),
-    ]).then(([pageData, groupData]) => {
+      fetch("/api/org/members").then((r) => r.json()).catch(() => ({ ok: false })),
+    ]).then(([pageData, groupData, membersData]) => {
       if (pageData.ok && pageData.page) {
         setTitle(pageData.page.title ?? "");
         setSlug(pageData.page.slug ?? "");
@@ -90,6 +116,10 @@ export default function EditLandingPage() {
         setEditorMode(pageData.page.editorMode === "image" ? "image" : "html");
         setCommentEnabled(pageData.page.commentEnabled ?? false);
         setPaymentEnabled(pageData.page.paymentEnabled ?? false);
+        // 이메일 설정
+        setRegEmailEnabled(pageData.page.regEmailEnabled ?? false);
+        setRegEmailSubject(pageData.page.regEmailSubject ?? "");
+        setRegEmailContent(pageData.page.regEmailContent ?? "");
         // 이미지 로드
         if (pageData.page.images?.length) {
           setImages(pageData.page.images.map((img: { id: string; sortOrder: number; altText?: string; imageAsset: { id: string; driveFileId: string; originalFileName: string; mimeType: string; width: number; height: number } }) => ({
@@ -107,9 +137,67 @@ export default function EditLandingPage() {
         setExpireDate(pageData.page.expireDate ? pageData.page.expireDate.split("T")[0] : "");
       }
       if (groupData.ok) setGroups(groupData.groups ?? []);
+      if (membersData.ok && membersData.members) {
+        setOrgMembers(membersData.members.filter((m: OrgMember) => m.role === "OWNER"));
+      }
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [id]);
+
+  const loadStats = async () => {
+    setStatsLoading(true);
+    try {
+      const res  = await fetch(`/api/landing-pages/${id}/stats`);
+      const data = await res.json();
+      if (data.ok) setStats(data.stats);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  const loadShares = async () => {
+    try {
+      const res  = await fetch(`/api/landing-pages/${id}/share`);
+      const data = await res.json();
+      if (data.ok) setShares(data.shares ?? []);
+    } catch { /* 권한 없는 역할은 조용히 무시 */ }
+  };
+
+  const saveEmailSettings = async () => {
+    setEmailSaveMsg("");
+    const res = await fetch(`/api/landing-pages/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ regEmailEnabled, regEmailSubject: regEmailSubject || null, regEmailContent: regEmailContent || null }),
+    });
+    const data = await res.json();
+    setEmailSaveMsg(data.ok ? "저장됐어요!" : "저장 실패");
+    setTimeout(() => setEmailSaveMsg(""), 2500);
+  };
+
+  const addShare = async () => {
+    if (!shareUserId) return;
+    setShareMsg("");
+    const res = await fetch(`/api/landing-pages/${id}/share`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: shareUserId }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      setShareMsg("공유 완료!");
+      setShareUserId("");
+      loadShares();
+    } else {
+      setShareMsg(data.message ?? "공유 실패");
+    }
+    setTimeout(() => setShareMsg(""), 2500);
+  };
+
+  const removeShare = async (userId: string) => {
+    await fetch(`/api/landing-pages/${id}/share?userId=${encodeURIComponent(userId)}`, { method: "DELETE" });
+    setShares((prev) => prev.filter((s) => s.userId !== userId));
+  };
 
   const loadRegistrations = async (p: number) => {
     setRegLoading(true);
@@ -130,7 +218,9 @@ export default function EditLandingPage() {
 
   useEffect(() => {
     if (tab === "registrations") loadRegistrations(1);
-    if (tab === "comments") loadComments();
+    if (tab === "comments")      loadComments();
+    if (tab === "stats")         loadStats();
+    if (tab === "share")         loadShares();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, id]);
 
@@ -287,6 +377,18 @@ export default function EditLandingPage() {
           >
             <MessageSquare className="w-3 h-3" /> 후기 {comments.length > 0 && `(${comments.length})`}
           </button>
+          <button
+            onClick={() => setTab("stats")}
+            className={`px-3 py-1.5 font-medium flex items-center gap-1 transition-colors ${tab === "stats" ? "bg-navy-900 text-white" : "text-gray-500 hover:bg-gray-50"}`}
+          >
+            <BarChart2 className="w-3 h-3" /> 통계
+          </button>
+          <button
+            onClick={() => setTab("share")}
+            className={`px-3 py-1.5 font-medium flex items-center gap-1 transition-colors ${tab === "share" ? "bg-navy-900 text-white" : "text-gray-500 hover:bg-gray-50"}`}
+          >
+            <Share2 className="w-3 h-3" /> 공유
+          </button>
         </div>
         {tab === "editor" && (
           <>
@@ -375,6 +477,38 @@ export default function EditLandingPage() {
               )}
             </div>
           </div>
+          {/* 신청 완료 이메일 설정 */}
+          <div className="flex flex-wrap items-start gap-3 px-4 py-2 bg-blue-50 border-b border-blue-100 shrink-0">
+            <label className="text-xs font-medium text-blue-700 flex items-center gap-1.5 mt-1">
+              <Mail className="w-3.5 h-3.5" />
+              신청 완료 이메일
+              <input type="checkbox" checked={regEmailEnabled} onChange={(e) => setRegEmailEnabled(e.target.checked)} className="w-3.5 h-3.5 ml-1" />
+              <span className={`ml-0.5 ${regEmailEnabled ? "text-blue-600" : "text-gray-400"}`}>{regEmailEnabled ? "ON" : "OFF"}</span>
+            </label>
+            {regEmailEnabled && (
+              <>
+                <input
+                  type="text"
+                  value={regEmailSubject}
+                  onChange={(e) => setRegEmailSubject(e.target.value)}
+                  placeholder="이메일 제목 (예: [이름]님, 신청이 완료되었습니다)"
+                  className="border border-blue-200 rounded px-2 py-1 text-xs w-72 focus:outline-none focus:border-blue-500"
+                />
+                <textarea
+                  value={regEmailContent}
+                  onChange={(e) => setRegEmailContent(e.target.value)}
+                  placeholder="이메일 본문 ([고객명] 변수 사용 가능, HTML 태그 허용)"
+                  rows={2}
+                  className="border border-blue-200 rounded px-2 py-1 text-xs w-96 resize-y focus:outline-none focus:border-blue-500"
+                />
+              </>
+            )}
+            <button
+              onClick={saveEmailSettings}
+              className="bg-blue-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-blue-700"
+            >저장</button>
+            {emailSaveMsg && <span className={`text-xs mt-1 ${emailSaveMsg.includes("실패") ? "text-red-500" : "text-green-600"}`}>{emailSaveMsg}</span>}
+          </div>
           <div className="flex-1 overflow-hidden">
             {preview ? (
               <iframe srcDoc={editorMode === "image" ? buildHtmlFromImages() : html} className="w-full h-full border-0" title="preview" sandbox="allow-scripts" />
@@ -457,6 +591,106 @@ export default function EditLandingPage() {
           onGenerate={generateComments}
           onDelete={deleteComment}
         />
+      )}
+
+      {/* 통계 탭 — 5단계 퍼널 */}
+      {tab === "stats" && (
+        <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+          <div className="max-w-2xl mx-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-gray-800">퍼널 전환 통계</h2>
+              <button onClick={loadStats} className="text-xs text-gray-500 hover:text-navy-900 underline">새로고침</button>
+            </div>
+            {statsLoading ? (
+              <div className="space-y-3">{[...Array(5)].map((_, i) => <div key={i} className="h-14 bg-gray-200 animate-pulse rounded-xl" />)}</div>
+            ) : stats ? (
+              <>
+                {/* 5단계 퍼널 카드 */}
+                {[
+                  { label: "방문",   value: stats.viewCount,    color: "bg-gray-100 text-gray-700",   rate: null },
+                  { label: "신청",   value: stats.registered,   color: "bg-blue-100 text-blue-700",   rate: `방문→신청 ${stats.rates.visitToRegister}%` },
+                  { label: "이메일", value: stats.emailSent,    color: "bg-indigo-100 text-indigo-700", rate: `신청→이메일 ${stats.rates.registerToEmail}%` },
+                  { label: "퍼널",   value: stats.funnelEntered, color: "bg-amber-100 text-amber-700",  rate: `신청→퍼널 ${stats.rates.registerToFunnel}%` },
+                  { label: "구매",   value: stats.purchased,    color: "bg-green-100 text-green-700",  rate: `퍼널→구매 ${stats.rates.funnelToPurchase}%` },
+                ].map((s, idx) => (
+                  <div key={s.label}>
+                    <div className={`flex items-center justify-between rounded-xl px-4 py-3 ${s.color}`}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold w-4 text-center opacity-50">{idx + 1}</span>
+                        <span className="text-sm font-semibold">{s.label}</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {s.rate && <span className="text-xs opacity-70">{s.rate}</span>}
+                        <span className="text-xl font-bold tabular-nums">{s.value.toLocaleString()}</span>
+                      </div>
+                    </div>
+                    {idx < 4 && (
+                      <div className="flex justify-center py-1 text-gray-300 text-xs">▼</div>
+                    )}
+                  </div>
+                ))}
+                <div className="mt-4 p-3 bg-gray-100 rounded-xl text-xs text-gray-500">
+                  최종 전환율 (방문→구매): <span className="font-bold text-gray-700">{stats.rates.visitToPurchase}%</span>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500">통계를 불러오지 못했습니다.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 공유 탭 — OWNER + GLOBAL_ADMIN */}
+      {tab === "share" && (
+        <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+          <div className="max-w-lg mx-auto">
+            <h2 className="text-base font-semibold text-gray-800 mb-4">파트너 공유</h2>
+            <p className="text-xs text-gray-500 mb-4">대리점장(OWNER)에게 이 랜딩페이지를 공유합니다. 공유받은 파트너는 이 페이지를 조회할 수 있습니다.</p>
+
+            {/* 공유 추가 */}
+            <div className="flex gap-2 mb-4">
+              <select
+                value={shareUserId}
+                onChange={(e) => setShareUserId(e.target.value)}
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-navy-500"
+              >
+                <option value="">파트너 선택 (대리점장)</option>
+                {orgMembers.map((m) => (
+                  <option key={m.userId} value={m.userId}>{m.displayName ?? m.userId}</option>
+                ))}
+              </select>
+              <button
+                onClick={addShare}
+                disabled={!shareUserId}
+                className="bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-navy-800"
+              >공유</button>
+            </div>
+            {shareMsg && <p className={`text-xs mb-3 ${shareMsg.includes("실패") ? "text-red-500" : "text-green-600"}`}>{shareMsg}</p>}
+
+            {/* 공유 목록 */}
+            {shares.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">공유된 파트너가 없습니다.</p>
+            ) : (
+              <div className="space-y-2">
+                {shares.map((s) => {
+                  const member = orgMembers.find((m) => m.userId === s.userId);
+                  return (
+                    <div key={s.id} className="flex items-center justify-between bg-white rounded-xl border border-gray-100 px-4 py-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{member?.displayName ?? s.userId}</p>
+                        <p className="text-xs text-gray-400">{new Date(s.createdAt).toLocaleDateString("ko-KR")} 공유</p>
+                      </div>
+                      <button
+                        onClick={() => removeShare(s.userId)}
+                        className="text-xs text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded"
+                      >취소</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -33,6 +33,10 @@ const PatchSchema = z.object({
   productPrice:   z.number().nullable().optional(),
   cycleDay:       z.number().min(1).max(90).nullable().optional(),
   expireDate:     z.string().nullable().optional(),
+  // 신청 완료 이메일 설정
+  regEmailEnabled: z.boolean().optional(),
+  regEmailSubject: z.string().nullable().optional(),
+  regEmailContent: z.string().nullable().optional(),
 }).strict();
 
 type Params = { params: Promise<{ id: string }> };
@@ -82,6 +86,7 @@ export async function PATCH(req: Request, { params }: Params) {
       editorMode, description, category, pageGroup, buttonTitle, completionPageUrl,
       headerScript, exposureTitle, exposureImage, infoCollection, formConfig,
       paymentEnabled, paymentType, productName, productPrice, cycleDay, expireDate,
+      regEmailEnabled, regEmailSubject, regEmailContent,
     } = parsed.data;
     const sanitizedContent = htmlContent !== undefined ? sanitizeHtml(htmlContent) : undefined;
     const page = await prisma.crmLandingPage.update({
@@ -111,7 +116,10 @@ export async function PATCH(req: Request, { params }: Params) {
         ...(productName      !== undefined ? { productName: productName ?? null }   : {}),
         ...(productPrice     !== undefined ? { productPrice: productPrice ?? null } : {}),
         ...(cycleDay         !== undefined ? { cycleDay: cycleDay ?? null }          : {}),
-        ...(expireDate       !== undefined ? { expireDate: expireDate ? new Date(expireDate) : null } : {}),
+        ...(expireDate        !== undefined ? { expireDate: expireDate ? new Date(expireDate) : null } : {}),
+        ...(regEmailEnabled   !== undefined ? { regEmailEnabled }                                      : {}),
+        ...(regEmailSubject   !== undefined ? { regEmailSubject: regEmailSubject ?? null }             : {}),
+        ...(regEmailContent   !== undefined ? { regEmailContent: regEmailContent ?? null }             : {}),
       },
     });
     return NextResponse.json({ ok: true, page });

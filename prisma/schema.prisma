@@ -305,10 +305,16 @@ model CrmLandingPage {
   // 에디터 모드: "html" (코딩형) | "image" (이미지형)
   editorMode     String   @default("html")
 
+  // 신청 완료 이메일 자동 발송 설정
+  regEmailEnabled Boolean @default(false)  // 이메일 발송 ON/OFF
+  regEmailSubject String?                  // 이메일 제목 (치환변수: [고객명])
+  regEmailContent String? @db.Text         // 이메일 내용 (HTML or 텍스트)
+
   organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   registrations  CrmLandingRegistration[]
   comments       CrmLandingComment[]
   images         CrmLandingPageImage[]
+  shares         CrmLandingShare[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -316,6 +322,22 @@ model CrmLandingPage {
   @@unique([slug, organizationId])
   @@index([organizationId])
   @@map("CrmLandingPage")
+}
+
+// ─── 랜딩페이지 파트너 공유 ──────────────────────────────────
+// OWNER(대리점장) 또는 GLOBAL_ADMIN만 사용 가능
+model CrmLandingShare {
+  id            String         @id @default(cuid())
+  landingPageId String
+  userId        String         // 공유받은 파트너(OWNER)의 userId
+  sharedByUserId String        // 공유한 관리자/OWNER의 userId
+  landingPage   CrmLandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime       @default(now())
+
+  @@unique([landingPageId, userId])
+  @@index([userId])
+  @@map("CrmLandingShare")
 }
 
 // ─── 랜딩페이지 이미지 (이미지형 모드용, 순서 관리) ─────────────

@@ -4,6 +4,7 @@ import { triggerGroupFunnel } from "@/lib/funnel-trigger";
 import { logger } from "@/lib/logger";
 import { addLeadScore } from "@/lib/lead-score";
 import { normalizePhone } from "@/lib/phone-normalize";
+import { sendFunnelEmail } from "@/lib/email";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -56,7 +57,10 @@ export async function POST(req: Request, { params }: Params) {
     // 랜딩페이지 조회 (groupId 포함)
     const landingPage = await prisma.crmLandingPage.findFirst({
       where: { id: landingPageId, isActive: true },
-      select: { id: true, organizationId: true, groupId: true, autoFunnelId: true, title: true },
+      select: {
+        id: true, organizationId: true, groupId: true, autoFunnelId: true, title: true,
+        regEmailEnabled: true, regEmailSubject: true, regEmailContent: true,
+      },
     });
     if (!landingPage) {
       return NextResponse.json({ ok: false, message: "페이지를 찾을 수 없습니다." }, { status: 404 });
@@ -166,9 +170,28 @@ export async function POST(req: Request, { params }: Params) {
       }
     }
 
+    // 신청 완료 이메일 자동 발송 (설정 ON + 이메일 주소 있을 때만)
+    if (landingPage.regEmailEnabled && email && landingPage.regEmailSubject) {
+      const subject = (landingPage.regEmailSubject)
+        .replace(/\[고객명\]/g, name).replace(/\[이름\]/g, name);
+      const rawContent = landingPage.regEmailContent || `${name}님, 신청이 완료되었습니다.`;
+      const htmlContent = rawContent.includes("<")
+        ? rawContent
+        : `<div style="font-family:sans-serif;line-height:1.8;white-space:pre-wrap">${rawContent.replace(/\[고객명\]/g, name).replace(/\[이름\]/g, name)}</div>`;
+
+      sendFunnelEmail({
+        organizationId: orgId,
+        to:      email,
+        subject,
+        html:    htmlContent,
+        channel: "MANUAL",
+      }).catch(() => {}); // fire-and-forget: 이메일 실패해도 신청은 유지
+    }
+
     logger.log("[LandingRegister] 등록 완료", {
       phone:        normalizedPhone.substring(0, 4) + "***",
       funnelStarted,
+      emailSent: !!(landingPage.regEmailEnabled && email),
     });
 
     // [P2] contactId 응답 제거 (IDOR 탐색 방지)
