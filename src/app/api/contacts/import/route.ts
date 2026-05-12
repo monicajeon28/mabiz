@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { normalizeContactType } from "@/lib/import-config";
 
@@ -29,7 +29,7 @@ const COLUMN_MAP: Record<string, string> = {
 export async function POST(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const formData = await req.formData();
     const file     = formData.get("file") as File | null;

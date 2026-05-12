@@ -125,6 +125,13 @@ export default function PurchasedPage() {
               <p>• 필수: <strong>이름</strong>, <strong>전화번호</strong></p>
               <p>• 선택: 이메일, 관심크루즈, 예산, 메모, 유형</p>
               <p>• 중복 전화번호는 정보 업데이트됩니다</p>
+              <a
+                href="/api/contacts/import/sample"
+                download="contacts-sample.xlsx"
+                className="inline-flex items-center gap-1 mt-1 text-blue-600 hover:text-blue-800 font-medium"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" /> 샘플 파일 다운로드
+              </a>
             </div>
 
             <label className="block">
