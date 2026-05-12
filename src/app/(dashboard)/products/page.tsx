@@ -18,13 +18,18 @@ type Product = {
   id: number;
   code: string;
   name: string;
-  description: string | null;
+  cruiseLine: string;
+  shipName: string | null;
+  nights: number;
+  days: number;
   price: number;
-  commissionRate: number | null;
   isActive: boolean;
+  saleStatus: string | null;
+  availableCount: number | null;
+  reservedCount: number | null;
+  refundPolicy: unknown;
   createdAt: string;
   departureDate: string | null;
-  shipName: string | null;
   daysLeft: number | null;
   cabinSummary: CabinSummary | null;
 };
@@ -58,9 +63,17 @@ function formatPrice(price: number) {
   return price.toLocaleString("ko-KR") + "원";
 }
 
-function formatCommission(rate: number | null) {
-  if (rate === null) return "-";
-  return (rate * 100).toFixed(1) + "%";
+function SaleStatusBadge({ status }: { status: string | null }) {
+  if (!status) return <span className="text-gray-400 text-xs">-</span>;
+  const map: Record<string, string> = {
+    "판매중": "bg-green-100 text-green-700",
+    "판매완료": "bg-gray-100 text-gray-500",
+    "마감임박": "bg-orange-100 text-orange-700",
+    "준비중": "bg-blue-100 text-blue-700",
+    "취소": "bg-red-100 text-red-700",
+  };
+  const cls = map[status] ?? "bg-gray-100 text-gray-600";
+  return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{status}</span>;
 }
 
 function DdayBadge({ daysLeft }: { daysLeft: number | null }) {
@@ -131,7 +144,7 @@ function CabinSummaryCell({ summary }: { summary: CabinSummary | null }) {
 function SkeletonRow() {
   return (
     <tr>
-      {Array.from({ length: 8 }).map((_, i) => (
+      {Array.from({ length: 8 }).map((_, i) => (  /* 상품코드/상품명/출발일/D-day/객실/가격/판매상태/도구 */
         <td key={i} className="px-4 py-3">
           <div className="h-4 bg-gray-200 rounded animate-pulse" />
         </td>
@@ -488,10 +501,9 @@ export default function ProductsPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600 whitespace-nowrap">상품명</th>
                 <th className="text-center px-4 py-3 font-medium text-gray-600 whitespace-nowrap">출발일</th>
                 <th className="text-center px-4 py-3 font-medium text-gray-600 whitespace-nowrap">D-day</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 whitespace-nowrap">판매현황</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 whitespace-nowrap">객실 잔여</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-600 whitespace-nowrap">가격</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600 whitespace-nowrap">커미션율</th>
-                <th className="text-center px-4 py-3 font-medium text-gray-600 whitespace-nowrap">상태</th>
+                <th className="text-center px-4 py-3 font-medium text-gray-600 whitespace-nowrap">판매상태</th>
                 <th className="text-center px-4 py-3 font-medium text-gray-600 whitespace-nowrap">도구</th>
               </tr>
             </thead>
@@ -508,7 +520,7 @@ export default function ProductsPage() {
 
               {!loading && !error && products.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="text-center py-16 text-gray-400 text-sm">
+                  <td colSpan={8} className="text-center py-16 text-gray-400 text-sm">
                     <ShoppingBag className="w-10 h-10 mx-auto mb-2 text-gray-300" />
                     등록된 상품이 없습니다
                   </td>
@@ -525,9 +537,10 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-900 font-medium max-w-[200px]">
                       <div className="truncate">{product.name}</div>
-                      {product.shipName && (
-                        <div className="text-xs text-gray-400 mt-0.5">{product.shipName}</div>
-                      )}
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        {product.cruiseLine} {product.shipName ? `· ${product.shipName}` : ""}
+                        {product.nights > 0 ? ` · ${product.nights}박${product.days}일` : ""}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-center text-gray-700 whitespace-nowrap">
                       {product.departureDate ? formatDate(product.departureDate) : "-"}
@@ -541,11 +554,8 @@ export default function ProductsPage() {
                     <td className="px-4 py-3 text-right text-gray-900 font-semibold tabular-nums whitespace-nowrap">
                       {formatPrice(product.price)}
                     </td>
-                    <td className="px-4 py-3 text-right text-gray-700 tabular-nums whitespace-nowrap">
-                      {formatCommission(product.commissionRate)}
-                    </td>
                     <td className="px-4 py-3 text-center">
-                      <ActiveBadge isActive={product.isActive} />
+                      <SaleStatusBadge status={product.saleStatus} />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1.5">

@@ -7,13 +7,20 @@ import { logger } from '@/lib/logger';
 
 type RawProduct = {
   id: number;
-  code: string;
-  name: string;
-  category: string | null;
-  price: number;
-  commissionRate: number | null;
+  productCode: string;
+  cruiseLine: string;
+  shipName: string;
+  packageName: string;
+  basePrice: number;
+  nights: number;
+  days: number;
   isActive: boolean;
-  description: string | null;
+  saleStatus: string | null;
+  availableCount: number | null;
+  reservedCount: number | null;
+  refundPolicy: unknown;
+  startDate: Date | null;
+  endDate: Date | null;
   createdAt: Date;
 };
 
@@ -35,11 +42,11 @@ type CabinSummary = Record<string, CabinEntry>;
 
 /**
  * GET /api/products
- * GMcruise 상품 목록 조회 (읽기 전용)
+ * 크루즈 상품 목록 조회 (CruiseProduct 테이블)
  * + 출발일(D-day) + 객실 잔여 현황 (CabinInventory)
  *
  * FREE_SALES: 403
- * 파라미터: page, limit, isActive('true'|'false'), q(이름/코드 검색)
+ * 파라미터: page, limit, isActive('true'|'false'), q(상품명/코드 검색)
  */
 export async function GET(req: NextRequest) {
   try {
@@ -61,32 +68,37 @@ export async function GET(req: NextRequest) {
       isActiveRaw === 'false' ? false :
       null;
 
-    const conditions: Prisma.Sql[] = [];
+    const conditions: Prisma.Sql[] = [
+      Prisma.sql`p."deletedAt" IS NULL`,
+    ];
     if (isActive !== null) conditions.push(Prisma.sql`p."isActive" = ${isActive}`);
-    if (q) conditions.push(Prisma.sql`(p.name ILIKE ${'%' + q + '%'} OR p.code ILIKE ${'%' + q + '%'})`);
+    if (q) conditions.push(Prisma.sql`(p."packageName" ILIKE ${'%' + q + '%'} OR p."productCode" ILIKE ${'%' + q + '%'})`);
 
-    const whereClause = conditions.length > 0
-      ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
-      : Prisma.empty;
+    const whereClause = Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`;
 
     const [rows, countRows] = await Promise.all([
       prisma.$queryRaw<RawProduct[]>(Prisma.sql`
-        SELECT p.id, p.code, p.name, p.category, p.price,
-               p."commissionRate", p."isActive", p.description, p."createdAt"
-        FROM "Product" p
+        SELECT p.id, p."productCode", p."cruiseLine", p."shipName",
+               p."packageName", p."basePrice", p.nights, p.days,
+               p."isActive", p."saleStatus",
+               p."availableCount", p."reservedCount",
+               p."refundPolicy", p."startDate", p."endDate", p."createdAt"
+        FROM "CruiseProduct" p
         ${whereClause}
-        ORDER BY p."createdAt" DESC
+        ORDER BY p."startDate" DESC NULLS LAST, p."createdAt" DESC
         LIMIT ${limit} OFFSET ${offset}
       `),
       prisma.$queryRaw<[{ total: bigint }]>(Prisma.sql`
-        SELECT COUNT(*)::bigint AS total FROM "Product" p ${whereClause}
+        SELECT COUNT(*)::bigint AS total FROM "CruiseProduct" p ${whereClause}
       `),
     ]);
 
     const total = Number(countRows[0]?.total ?? 0);
 
-    // ── 배치 조회: GmTrip + CabinInventory ─────────────────────────
-    const codes = rows.map((r) => r.code).filter((c) => c && c.length > 0);
+    // ── 배치 조회: Trip(출발일) + CabinInventory(객실현황) ───────
+    const codes = rows
+      .map((r) => r.productCode)
+      .filter((c): c is string => !!c && c.length > 0);
 
     const [tripRows, inventoryRows] = await (codes.length > 0
       ? Promise.all([
@@ -110,7 +122,7 @@ export async function GET(req: NextRequest) {
         ])
       : Promise.resolve([[] as TripRow[], [] as InventoryRow[]]));
 
-    // ── 인덱스 맵 빌드 ───────────────────────────────────────────
+    // ── 인덱스 맵 ────────────────────────────────────────────────
     const tripMap = new Map<string, TripRow>();
     for (const t of tripRows) tripMap.set(t.productCode, t);
 
@@ -135,22 +147,28 @@ export async function GET(req: NextRequest) {
     }
 
     const products = rows.map((r) => {
-      const trip     = tripMap.get(r.code);
-      const daysLeft = trip ? calcDaysLeft(trip.departureDate) : null;
-      const cabinSummary = inventoryMap.get(r.code) ?? null;
+      const trip       = tripMap.get(r.productCode);
+      // Trip.departureDate 우선, 없으면 CruiseProduct.startDate
+      const depDate    = trip?.departureDate ?? r.startDate ?? null;
+      const daysLeft   = depDate ? calcDaysLeft(depDate) : null;
+      const cabinSummary = inventoryMap.get(r.productCode) ?? null;
 
       return {
-        id:             r.id,
-        code:           r.code,
-        name:           r.name,
-        category:       r.category,
-        price:          Number(r.price),
-        commissionRate: r.commissionRate != null ? Number(r.commissionRate) : null,
-        isActive:       r.isActive,
-        description:    r.description,
-        createdAt:      r.createdAt.toISOString(),
-        departureDate:  trip ? trip.departureDate.toISOString() : null,
-        shipName:       trip?.shipName ?? null,
+        id:           r.id,
+        code:         r.productCode,
+        name:         r.packageName,
+        cruiseLine:   r.cruiseLine,
+        shipName:     trip?.shipName ?? r.shipName,
+        nights:       r.nights,
+        days:         r.days,
+        price:        Number(r.basePrice),
+        isActive:     r.isActive,
+        saleStatus:   r.saleStatus,
+        availableCount: r.availableCount,
+        reservedCount:  r.reservedCount,
+        refundPolicy: r.refundPolicy,
+        createdAt:    r.createdAt.toISOString(),
+        departureDate: depDate ? depDate.toISOString() : null,
         daysLeft,
         cabinSummary,
       };
