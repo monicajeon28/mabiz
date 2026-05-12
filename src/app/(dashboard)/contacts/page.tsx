@@ -175,20 +175,21 @@ export default function ContactsPage() {
   const handleBulkShare = async () => {
     if (!shareTarget || selectedIds.size === 0) return;
     setSharing(true);
-    let ok = 0, fail = 0;
-    for (const contactId of selectedIds) {
-      const res = await fetch(`/api/contacts/${contactId}/send-db`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetUserId: shareTarget }),
-      });
-      const data = await res.json();
-      data.ok ? ok++ : fail++;
-    }
+    const results = await Promise.all(
+      Array.from(selectedIds).map((contactId) =>
+        fetch(`/api/contacts/${contactId}/send-db`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ targetUserId: shareTarget }),
+        }).then((r) => r.json()).catch(() => ({ ok: false }))
+      )
+    );
+    const ok   = results.filter((d) => d.ok).length;
+    const fail = results.filter((d) => !d.ok).length;
     setSharing(false);
     setShareResult(`✅ ${ok}건 전달 완료${fail > 0 ? ` / ❌ ${fail}건 실패` : ""}`);
     setSelectedIds(new Set());
-    fetchContacts(); // 전달됨 뱃지 반영
+    fetchContacts();
     setTimeout(() => { setShowShareModal(false); setShareResult(""); }, 2000);
   };
 
@@ -338,16 +339,18 @@ export default function ContactsPage() {
     if (!groupId) return;
     setAssigning(contactId);
 
-    // 기존 그룹 제거 후 새 그룹 배정 (그룹은 1개만)
+    // 기존 그룹 제거 후 새 그룹 배정 (그룹은 1개만) — 병렬 처리
     const contact = contacts.find(c => c.id === contactId);
     if (contact && contact.groups.length > 0) {
-      for (const g of contact.groups) {
-        await fetch(`/api/groups/${g.group.id}/members`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contactIds: [contactId] }),
-        });
-      }
+      await Promise.all(
+        contact.groups.map((g) =>
+          fetch(`/api/groups/${g.group.id}/members`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contactIds: [contactId] }),
+          })
+        )
+      );
     }
 
     await fetch(`/api/groups/${groupId}/members`, {
@@ -371,9 +374,13 @@ export default function ContactsPage() {
   const bulkAssignUnassigned = async () => {
     if (!bulkGroupId) return;
     const unassigned = contacts.filter((c) => c.groups.length === 0);
-    for (const c of unassigned) {
-      await quickAssign(c.id, bulkGroupId);
-    }
+    if (unassigned.length === 0) return;
+    // 단일 배치 API 호출 (그룹 없는 고객이므로 기존 그룹 제거 불필요)
+    await fetch(`/api/groups/${bulkGroupId}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactIds: unassigned.map((c) => c.id) }),
+    });
     fetchContacts();
   };
 
