@@ -549,8 +549,8 @@ function CruiseDotPartnersForm() {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M9.172 16.243a4 4 0 010-8.486m5.656 8.486a4 4 0 010-8.486M13 12a1 1 0 11-2 0 1 1 0 012 0z" />
                           </svg>
                         ),
-                        label: '매주 세일즈 상품 방송',
-                        desc: '파트너스를 위한 세일즈 상품 방송이 매주 화요일 저녁 7시에 열립니다.',
+                        label: '매주 라이브 상품 방송',
+                        desc: '전문적인 세일즈 호스트님이 파트너스를 위한 라이브 상품 방송을 매주 화요일 저녁 7시에 열어 드립니다.',
                         badge: '매주 화요일 19:00',
                         badgeColor: 'bg-violet-100 text-violet-700',
                       },
