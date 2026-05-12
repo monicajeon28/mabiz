@@ -31,9 +31,9 @@ export async function uploadImageToDrive(params: {
     const drive = getDriveClient();
 
     // CRM자산 루트 폴더 ID 확인
-    const rootFolderId = process.env.GOOGLE_DRIVE_CRM_BACKUP_FOLDER_ID;
+    const rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID;
     if (!rootFolderId) {
-      throw new Error('GOOGLE_DRIVE_CRM_BACKUP_FOLDER_ID 환경변수 미설정');
+      throw new Error('GOOGLE_DRIVE_ROOT_FOLDER_ID 환경변수 미설정');
     }
 
     // 조직별 폴더 생성/탐색
@@ -109,9 +109,9 @@ export async function syncDriveFolder(params: {
 
     let targetFolderId = folderId;
     if (!targetFolderId) {
-      const rootFolderId = process.env.GOOGLE_DRIVE_CRM_BACKUP_FOLDER_ID;
+      const rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID;
       if (!rootFolderId) {
-        throw new Error('GOOGLE_DRIVE_CRM_BACKUP_FOLDER_ID 환경변수 미설정');
+        throw new Error('GOOGLE_DRIVE_ROOT_FOLDER_ID 환경변수 미설정');
       }
       const orgFolder = await findOrCreateFolder(orgName, rootFolderId);
       targetFolderId = await findOrCreateFolder(category, orgFolder);

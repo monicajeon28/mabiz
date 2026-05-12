@@ -15,11 +15,13 @@ export function getDriveClient() {
     return driveClientInstance;
   }
 
-  const privateKey = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? '')
-    .replace(/\\n/g, '\n');
+  const privateKey = (
+    process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_PRIVATE_KEY ??
+    process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? ''
+  ).replace(/\\n/g, '\n');
   const auth = new google.auth.GoogleAuth({
     credentials: {
-      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      client_email: process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_EMAIL ?? process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
       private_key: privateKey,
     },
     scopes: ['https://www.googleapis.com/auth/drive'],
