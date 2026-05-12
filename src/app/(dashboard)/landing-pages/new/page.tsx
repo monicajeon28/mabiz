@@ -277,12 +277,15 @@ ${footerBlock}
   // ──────────────────────────────────────────────
   const ensurePage = useCallback(async (): Promise<string | null> => {
     if (savedPageId) return savedPageId;
-    if (!title.trim()) { setError("제목을 먼저 입력하세요."); return null; }
-    const s = slug.trim() || title.toLowerCase().replace(/[^a-z0-9가-힣]/g, "-").replace(/-+/g, "-");
-    setSlug(s);
+    // 제목이 없으면 임시 제목/슬러그 자동 생성 (나중에 수정 가능)
+    const autoTitle = title.trim() || `랜딩페이지 ${new Date().toLocaleDateString("ko-KR")}`;
+    const autoSlug  = slug.trim() || `page-${Date.now()}`;
+    if (!title.trim()) setTitle(autoTitle);
+    if (!slug.trim())  setSlug(autoSlug);
+    const s = autoSlug;
     const res  = await fetch("/api/landing-pages", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, slug: s, htmlContent: "", editorMode: "image", groupId: selectedGroupId || null }),
+      body: JSON.stringify({ title: autoTitle, slug: s, htmlContent: "", editorMode: "image", groupId: selectedGroupId || null }),
     });
     const data = await res.json();
     if (!data.ok) { setError(data.message ?? "페이지 생성 실패"); return null; }
@@ -835,7 +838,7 @@ ${footerBlock}
         </div>
 
         {/* iPhone 프레임 */}
-        <div className="flex-1 overflow-hidden flex items-start justify-center py-8 px-6">
+        <div className="flex-1 overflow-y-auto flex flex-col items-center py-8 px-6 gap-6">
           <div className="relative w-[280px]" style={{ userSelect: "none" }}>
             {/* 폰 외곽 — z-0: 스크린 뒤에서 베젤 역할 */}
             <div className="absolute inset-0 rounded-[40px] pointer-events-none z-0"
@@ -856,6 +859,33 @@ ${footerBlock}
             {/* 홈 바 — z-20 */}
             <div className="absolute bottom-[10px] left-1/2 -translate-x-1/2 z-20 w-14 h-1 bg-gray-400/40 rounded-full pointer-events-none" />
           </div>
+
+          {/* OG 공유 카드 미리보기 */}
+          {exposureImage && (
+            <div className="w-[280px] shrink-0">
+              <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+                카카오·SNS 공유 미리보기
+              </p>
+              <div className="bg-white rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                <img
+                  src={(() => {
+                    const m = exposureImage.match(/id=([^&]+)/);
+                    return m ? `/api/landing-pages/images/proxy?id=${m[1]}` : exposureImage;
+                  })()}
+                  alt="OG 썸네일"
+                  className="w-full h-36 object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+                <div className="px-3 py-2.5">
+                  <p className="text-xs font-semibold text-gray-900 truncate">
+                    {exposureTitle || title || "랜딩페이지 제목"}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">mabizcruisedot.com</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
