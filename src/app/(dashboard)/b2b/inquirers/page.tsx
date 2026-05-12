@@ -41,10 +41,10 @@ export default function InquirersPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams({ eduType: "INQUIRER", page: String(page), limit: "30" });
+    const params = new URLSearchParams({ page: String(page), limit: "30" });
     if (filter) params.set("status", filter);
     if (q)      params.set("q", q);
-    const res  = await fetch(`/api/b2b?${params}`);
+    const res  = await fetch(`/api/b2b-prospects?${params}`);
     const data = await res.json();
     if (data.ok) { setProspects(data.prospects); setTotal(data.total ?? 0); }
     setLoading(false);
@@ -56,7 +56,7 @@ export default function InquirersPage() {
   const save = async () => {
     if (!form.name.trim() || !form.phone.trim()) return;
     setSaving(true);
-    const res = await fetch("/api/b2b", {
+    const res = await fetch("/api/b2b-prospects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, eduType: "INQUIRER" }),

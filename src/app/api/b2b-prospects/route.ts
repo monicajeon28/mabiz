@@ -43,3 +43,32 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
+
+/** POST /api/b2b-prospects — B2B 잠재고객 생성 */
+export async function POST(req: Request) {
+  try {
+    const ctx = await getAuthContext();
+    const orgId = requireOrgId(ctx);
+    const body = await req.json();
+
+    const { name, phone, email, companyName, position, status, notes } = body;
+    if (!name || !phone) {
+      return NextResponse.json({ ok: false, message: '이름과 전화번호는 필수입니다.' }, { status: 400 });
+    }
+
+    const prospect = await prisma.b2BProspect.create({
+      data: {
+        organizationId: orgId,
+        name, phone, email: email ?? null,
+        companyName: companyName ?? null,
+        position: position ?? null,
+        status: status ?? 'NEW',
+        notes: notes ?? null,
+      },
+    });
+    return NextResponse.json({ ok: true, prospect }, { status: 201 });
+  } catch (err) {
+    logger.error('[POST /api/b2b-prospects]', { err });
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+}
