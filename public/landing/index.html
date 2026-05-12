@@ -25,7 +25,7 @@ body{
   font-family:'Pretendard Variable','Pretendard',-apple-system,sans-serif;
   color:var(--gray-900);background:var(--white);
   -webkit-font-smoothing:antialiased;word-break:keep-all;
-  line-height:1.85;font-size:18px;
+  line-height:1.95;font-size:19px;
   padding-bottom:calc(env(safe-area-inset-bottom)+72px)
 }
 img{max-width:100%;display:block}
@@ -35,7 +35,7 @@ button{font-family:inherit;cursor:pointer}
 /* ── HERO ── */
 .hero{
   background:linear-gradient(160deg,#061221 0%,#0a192f 60%,#0f2a45 100%);
-  color:var(--white);padding:52px 20px 48px;text-align:center;position:relative;overflow:hidden
+  color:var(--white);padding:60px 20px 56px;text-align:center;position:relative;overflow:hidden
 }
 .hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% -20%,rgba(197,160,89,.18) 0%,transparent 65%);pointer-events:none}
 .hero-kicker{
@@ -65,7 +65,7 @@ button{font-family:inherit;cursor:pointer}
 .hero-stat-label{font-size:13px;color:rgba(255,255,255,.75);margin-top:3px;font-weight:500}
 
 /* ── SECTION BASE ── */
-.section{padding:56px 20px}
+.section{padding:64px 20px}
 .section-alt{background:#f5f7fa}
 .section-dark{background:var(--navy);color:var(--white)}
 .section-gold{background:linear-gradient(135deg,#1a1200 0%,#2d1f00 100%);color:var(--white)}
@@ -236,11 +236,11 @@ button{font-family:inherit;cursor:pointer}
 <!-- ═══ HERO ═══ -->
 <section class="hero" id="top">
 <div class="hero-kicker"><span class="hero-kicker-dot"></span>127명이 지금 수수료를 받고 있습니다</div>
-<h1>여행 사진 한 장이<br><em>매달 수입</em>이 됩니다</h1>
+<h1>여행 콘텐츠 하나가<br><em>평생 수입처</em>가 되는 시스템</h1>
 <p class="hero-sub">
-  쿠팡파트너스처럼 크루즈 링크를 공유하세요.<br>
-  판매될 때마다 <strong>수수료가 자동 입금</strong>됩니다.<br>
-  주부도, 본업이 있어도, SNS가 없어도 됩니다.
+  링크 한 번 올리면 끝. 판매될 때마다 <strong>자동 입금</strong>됩니다.<br>
+  주부·직장인·프리랜서 모두 가능.<br>
+  <strong style="color:var(--gold)">경쟁사들도 탐내하는 시스템을 지금 신청하세요.</strong>
 </p>
 <p class="hero-cost">가입비 0원 · 보증금 0원 · 시작 비용 0원</p>
 <a href="#apply" class="hero-cta">지금 무료로 시작하기 ↓</a>
@@ -613,6 +613,112 @@ button{font-family:inherit;cursor:pointer}
     <p style="font-size:13px;color:rgba(255,255,255,.55);margin-top:6px">관광사업 등록증</p>
   </div>
 </div>
+</section>
+
+<!-- ═══ 경쟁사 차단 보호 시스템 ═══ -->
+<section class="section section-alt">
+<h2 class="s-title">왜 경쟁사들은 이 시스템을<br>복제하지 못할까?</h2>
+<p class="s-desc" style="margin-bottom:32px">
+  10가지 법적·기술적 장벽으로<br>
+  진정한 파트너들만 보호합니다.
+</p>
+
+<div style="max-width:560px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:12px">
+  <!-- 1. 신원검증 -->
+  <div style="background:var(--white);border:1px solid var(--gray-300);border-radius:14px;padding:16px 18px;display:flex;gap:14px">
+    <div style="font-size:28px;flex-shrink:0">🔐</div>
+    <div style="flex:1;min-width:0">
+      <p style="font-size:15px;font-weight:700;color:var(--gray-900);margin-bottom:3px">신원 검증</p>
+      <p style="font-size:14px;color:var(--gray-500);line-height:1.65">사업자번호·소재지·직원 신분증 검증. 경쟁사 임직원 감지 차단.</p>
+    </div>
+  </div>
+
+  <!-- 2. 법적 계약 -->
+  <div style="background:var(--white);border:1px solid var(--gray-300);border-radius:14px;padding:16px 18px;display:flex;gap:14px">
+    <div style="font-size:28px;flex-shrink:0">⚖️</div>
+    <div style="flex:1;min-width:0">
+      <p style="font-size:15px;font-weight:700;color:var(--gray-900);margin-bottom:3px">타사 영업 금지 조항</p>
+      <p style="font-size:14px;color:var(--gray-500);line-height:1.65">계약서에 명시. 경쟁사 대리 활동 불가. 위반 시 3,000만원 위약벌.</p>
+    </div>
+  </div>
+
+  <!-- 3. 콘텐츠 라이센싱 -->
+  <div style="background:var(--white);border:1px solid var(--gray-300);border-radius:14px;padding:16px 18px;display:flex;gap:14px">
+    <div style="font-size:28px;flex-shrink:0">📄</div>
+    <div style="flex:1;min-width:0">
+      <p style="font-size:15px;font-weight:700;color:var(--gray-900);margin-bottom:3px">콘텐츠 독점 라이센스</p>
+      <p style="font-size:14px;color:var(--gray-500);line-height:1.65">파트너만 사용 가능한 마케팅 자료. 타사 사용 자동 감지.</p>
+    </div>
+  </div>
+
+  <!-- 4. 투명성 감시 -->
+  <div style="background:var(--white);border:1px solid var(--gray-300);border-radius:14px;padding:16px 18px;display:flex;gap:14px">
+    <div style="font-size:28px;flex-shrink:0">📊</div>
+    <div style="flex:1;min-width:0">
+      <p style="font-size:15px;font-weight:700;color:var(--gray-900);margin-bottom:3px">활동 투명성 기록</p>
+      <p style="font-size:14px;color:var(--gray-500);line-height:1.65">모든 판매·활동이 기록됨. 경쟁사 내부 정보 유출 시 적발.</p>
+    </div>
+  </div>
+
+  <!-- 5. 커뮤니티 검증 -->
+  <div style="background:var(--white);border:1px solid var(--gray-300);border-radius:14px;padding:16px 18px;display:flex;gap:14px">
+    <div style="font-size:28px;flex-shrink:0">👥</div>
+    <div style="flex:1;min-width:0">
+      <p style="font-size:15px;font-weight:700;color:var(--gray-900);margin-bottom:3px">폐쇄 커뮤니티</p>
+      <p style="font-size:14px;color:var(--gray-500);line-height:1.65">파트너 전용 카톡방. 경쟁사 잠입 즉시 감지 및 제거.</p>
+    </div>
+  </div>
+
+  <!-- 6. 브랜드 정체성 -->
+  <div style="background:var(--white);border:1px solid var(--gray-300);border-radius:14px;padding:16px 18px;display:flex;gap:14px">
+    <div style="font-size:28px;flex-shrink:0">🏆</div>
+    <div style="flex:1;min-width:0">
+      <p style="font-size:15px;font-weight:700;color:var(--gray-900);margin-bottom:3px">브랜드 보호</p>
+      <p style="font-size:14px;color:var(--gray-500);line-height:1.65">"크루즈닷 파트너스" 브랜드. 경쟁사는 동일 정체성 불가능.</p>
+    </div>
+  </div>
+
+  <!-- 7. 성과 기반 관계 -->
+  <div style="background:var(--white);border:1px solid var(--gray-300);border-radius:14px;padding:16px 18px;display:flex;gap:14px">
+    <div style="font-size:28px;flex-shrink:0">💰</div>
+    <div style="flex:1;min-width:0">
+      <p style="font-size:15px;font-weight:700;color:var(--gray-900);margin-bottom:3px">성과 기반 구조</p>
+      <p style="font-size:14px;color:var(--gray-500);line-height:1.65">수수료로만 이득. 단순 정보만 원하는 경쟁사는 무의미.</p>
+    </div>
+  </div>
+
+  <!-- 8. 법적 강제력 -->
+  <div style="background:var(--white);border:1px solid var(--gray-300);border-radius:14px;padding:16px 18px;display:flex;gap:14px">
+    <div style="font-size:28px;flex-shrink:0">🛡️</div>
+    <div style="flex:1;min-width:0">
+      <p style="font-size:15px;font-weight:700;color:var(--gray-900);margin-bottom:3px">법적 강제력</p>
+      <p style="font-size:14px;color:var(--gray-500);line-height:1.65">공식 등록 여행사. 분쟁 발생 시 법원 제소 가능.</p>
+    </div>
+  </div>
+
+  <!-- 9. 시스템 복잡성 -->
+  <div style="background:var(--white);border:1px solid var(--gray-300);border-radius:14px;padding:16px 18px;display:flex;gap:14px">
+    <div style="font-size:28px;flex-shrink:0">⚙️</div>
+    <div style="flex:1;min-width:0">
+      <p style="font-size:15px;font-weight:700;color:var(--gray-900);margin-bottom:3px">운영 시스템 복잡성</p>
+      <p style="font-size:14px;color:var(--gray-500);line-height:1.65">2년 축적된 판매·마케팅 노하우. 단순 복제 불가능.</p>
+    </div>
+  </div>
+
+  <!-- 10. 신뢰 자산 -->
+  <div style="background:var(--white);border:1px solid var(--gray-300);border-radius:14px;padding:16px 18px;display:flex;gap:14px">
+    <div style="font-size:28px;flex-shrink:0">🌟</div>
+    <div style="flex:1;min-width:0">
+      <p style="font-size:15px;font-weight:700;color:var(--gray-900);margin-bottom:3px">1,000명 신뢰 자산</p>
+      <p style="font-size:14px;color:var(--gray-500);line-height:1.65">2년간 1,000명 출발의 신뢰. 새로운 여행사는 불가능.</p>
+    </div>
+  </div>
+</div>
+
+<p style="text-align:center;font-size:16px;color:var(--gray-500);margin-top:28px;line-height:1.85;font-style:italic">
+  이 10가지 장벽이 있기 때문에<br>
+  <strong style="color:var(--gray-900)">지금 신청하는 분들만 진정한 경쟁 우위를 가질 수 있습니다.</strong>
+</p>
 </section>
 
 <!-- ═══ 최종 CTA ═══ -->
