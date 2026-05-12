@@ -324,19 +324,24 @@ model CrmLandingPage {
   @@map("CrmLandingPage")
 }
 
-// ─── 랜딩페이지 파트너 공유 ──────────────────────────────────
-// OWNER(대리점장) 또는 GLOBAL_ADMIN만 사용 가능
+// ─── 랜딩페이지 조직간 공유 ──────────────────────────────────
+// 본사↔대리점장, 대리점장↔대리점장 양방향 공유
 model CrmLandingShare {
-  id            String         @id @default(cuid())
-  landingPageId String
-  userId        String         // 공유받은 파트너(OWNER)의 userId
-  sharedByUserId String        // 공유한 관리자/OWNER의 userId
-  landingPage   CrmLandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+  id              String         @id @default(cuid())
+  landingPageId   String
+  landingPage     CrmLandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
 
-  createdAt     DateTime       @default(now())
+  sharedToOrgId   String         // 공유받는 조직 ID ("__ALL__" = 전체 공유)
+  sharedByUserId  String         // 공유한 사용자 userId
+  sharedByOrgId   String         // 공유한 조직 ID (출처 표시용)
+  sharedByName    String         // 공유한 사람 이름 (표시용 스냅샷)
+  isGlobal        Boolean        @default(false)  // 전체 공유 여부
 
-  @@unique([landingPageId, userId])
-  @@index([userId])
+  createdAt       DateTime       @default(now())
+
+  @@unique([landingPageId, sharedToOrgId])
+  @@index([sharedToOrgId])
+  @@index([sharedByOrgId])
   @@map("CrmLandingShare")
 }
 
@@ -1416,6 +1421,8 @@ model GmUser {
   passportSubmissions     GmPassportSubmission[]
   passportRequestsSent    GmPassportRequestLog[] @relation("PassportRequestLog_userIdToUser")
   passportRequestsAdmin   GmPassportRequestLog[] @relation("PassportRequestLog_adminIdToUser")
+  affiliateProfile        GmAffiliateProfile?
+  affiliateContracts      GmAffiliateContract[]
 
   @@map("User")
 }
@@ -1555,6 +1562,77 @@ model GmAffiliateRelation {
   @@index([managerId])
   @@index([agentId])
   @@map("AffiliateRelation")
+}
+
+// ─── 대리점 자동화 (크루즈닷몰 공유 — 기존 테이블 매핑) ──────────
+// ⚠️ 신규 테이블 생성 없음 — 기존 Neon 테이블 읽기/쓰기 매핑
+// ⚠️ ALTER TABLE 금지 — 컬럼 추가 시 크루즈닷몰 팀 협의 필수
+
+model GmAffiliateProfile {
+  id                  Int       @id @default(autoincrement())
+  userId              Int       @unique
+  type                String    // MANAGER | AGENT
+  status              String    @default("ACTIVE")
+  contractStatus      String?   @default("UNSIGNED")
+  displayName         String?
+  contactPhone        String?
+  contactEmail        String?
+  affiliateCode       String    @unique
+  agentCommissionRate Int?
+  guarantorId         Int?      // Agent의 경우 담당 Manager profile ID
+  contractSignedAt    DateTime?
+  onboardedAt         DateTime?
+  publishedAt         DateTime?
+  welcomeEmailSentAt  DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user                GmUser    @relation(fields: [userId], references: [id])
+
+  @@index([affiliateCode])
+  @@index([guarantorId])
+  @@map("AffiliateProfile")
+}
+
+model GmAffiliateLink {
+  id              Int       @id @default(autoincrement())
+  managerId       Int?
+  agentId         Int?
+  code            String    @unique
+  url             String
+  status          String    @default("ACTIVE")
+  clickCount      Int       @default(0)
+  conversionCount Int       @default(0)
+  totalRevenue    Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([managerId])
+  @@index([agentId])
+  @@map("AffiliateLink")
+}
+
+model GmAffiliateContract {
+  id                Int       @id @default(autoincrement())
+  userId            Int?
+  name              String?
+  phone             String?
+  email             String?
+  address           String?
+  bankAccount       String?
+  bankAccountHolder String?
+  bankName          String?
+  status            String    @default("submitted") // submitted | PROCESSING | APPROVED
+  metadata          Json?
+  submittedAt       DateTime?
+  contractSignedAt  DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user              GmUser?   @relation(fields: [userId], references: [id])
+
+  @@index([status])
+  @@map("AffiliateContract")
 }
 
 model GmApisSyncQueue {

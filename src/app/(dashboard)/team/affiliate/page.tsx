@@ -20,9 +20,11 @@ import {
   CheckSquare,
   Square,
   Check,
+  FileCheck,
 } from 'lucide-react';
 import { showError } from '@/components/ui/Toast';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import ContractApproveModal from '@/components/affiliate/ContractApproveModal';
 
 // dayjs 없음 → 간단한 상대 시간 유틸
 function fromNow(dateStr: string | null): string {
@@ -269,6 +271,28 @@ export default function AffiliateTeamDashboardPage() {
   const handleConfirmCancel = () => {
     confirmState.resolve?.(false);
     setConfirmState((prev) => ({ ...prev, open: false, resolve: null }));
+  };
+
+  // ── 대기 중인 계약 목록 ─────────────────────────────────────────
+  const [pendingContracts, setPendingContracts] = useState<Array<{
+    id: number; name: string | null; email: string | null; phone: string | null;
+    status: string; createdAt: string;
+  }>>([]);
+  const [approveModalContractId, setApproveModalContractId] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch('/api/affiliate/contracts?status=submitted')
+      .then(r => r.json())
+      .then(d => { if (d.ok) setPendingContracts(d.data.contracts); })
+      .catch(() => {});
+  }, []);
+
+  const handleApproved = () => {
+    setApproveModalContractId(null);
+    // 승인 후 목록 새로고침
+    fetch('/api/affiliate/contracts?status=submitted')
+      .then(r => r.json())
+      .then(d => { if (d.ok) setPendingContracts(d.data.contracts); });
   };
 
   const [filters, setFilters] = useState<Filters>({ search: '', from: '', to: '' });
@@ -786,6 +810,51 @@ export default function AffiliateTeamDashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* ── 대기 중인 계약 ── */}
+      {pendingContracts.length > 0 && (
+        <div className="rounded-2xl bg-amber-50 border border-amber-200 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <FileCheck className="w-5 h-5 text-amber-600" />
+            <h2 className="text-base font-semibold text-amber-900">
+              승인 대기 중인 계약 ({pendingContracts.length}건)
+            </h2>
+          </div>
+          <div className="space-y-2">
+            {pendingContracts.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between bg-white rounded-xl px-4 py-3 border border-amber-100"
+              >
+                <div className="flex items-center gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{c.name || '이름 없음'}</p>
+                    <p className="text-xs text-gray-500">{c.email || '-'} · {c.phone || '-'}</p>
+                  </div>
+                  <span className="text-xs text-gray-400">
+                    {new Date(c.createdAt).toLocaleDateString('ko-KR')} 접수
+                  </span>
+                </div>
+                <button
+                  onClick={() => setApproveModalContractId(c.id)}
+                  className="px-4 py-1.5 bg-amber-600 text-white text-xs font-semibold rounded-lg hover:bg-amber-700 transition-colors"
+                >
+                  승인하기
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 승인 모달 */}
+      {approveModalContractId !== null && (
+        <ContractApproveModal
+          contractId={approveModalContractId}
+          onClose={() => setApproveModalContractId(null)}
+          onApproved={handleApproved}
+        />
+      )}
 
       <form onSubmit={handleSubmit} className="rounded-3xl bg-white/90 p-6 shadow-sm backdrop-blur">
         <div className="grid gap-4 md:grid-cols-[2fr_1fr_1fr_auto]">
