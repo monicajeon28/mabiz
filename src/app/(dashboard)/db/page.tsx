@@ -76,15 +76,24 @@ export default function DbPage() {
   // ── 고객 목록 로드 ─────────────────────────────────────────
   function loadContacts(page: number = 1, signal?: AbortSignal) {
     setContactsLoading(true);
-    const typeMap: Record<ImportTarget, string> = { b2c: "", b2b_buyer: "BUYER", b2b_inquiry: "INQUIRER" };
     const params = new URLSearchParams({ page: String(page), limit: "20" });
-    if (typeMap[importTarget]) params.set("type", typeMap[importTarget]);
     if (searchQ) params.set("q", searchQ);
-    fetch(`/api/contacts?${params}`, signal ? { signal } : undefined)
+
+    // B2C → Contact 테이블, B2B → B2BProspect 테이블
+    const isB2B = importTarget === "b2b_buyer" || importTarget === "b2b_inquiry";
+    const url = isB2B ? `/api/b2b-prospects?${params}` : `/api/contacts?${params}`;
+
+    fetch(url, signal ? { signal } : undefined)
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) {
-          setContacts(d.contacts ?? []);
+          // B2B는 다른 필드명 매핑
+          const items = isB2B
+            ? (d.prospects ?? []).map((p: { id: string; name: string; phone: string; status: string; companyName: string; createdAt: string }) => ({
+                id: p.id, name: `${p.companyName ? p.companyName + ' ' : ''}${p.name}`, phone: p.phone, type: p.status, createdAt: p.createdAt,
+              }))
+            : (d.contacts ?? []);
+          setContacts(items);
           setContactsTotal(d.total ?? 0);
           setContactsPage(page);
         }
@@ -103,9 +112,12 @@ export default function DbPage() {
     return () => ctrl.abort();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 탭 변경 시 고객 목록 새로고침 ──────────────────────────
+  // ── 탭 변경 시 고객 목록 새로고침 (AbortController) ─────────
   useEffect(() => {
-    loadContacts(1);
+    const ctrl = new AbortController();
+    setSearchQ("");
+    loadContacts(1, ctrl.signal);
+    return () => ctrl.abort();
   }, [importTarget]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 탭 복귀 시 통계·그룹 자동 갱신 (메모리 누수 방지) ──────
