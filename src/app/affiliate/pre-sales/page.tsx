@@ -565,43 +565,48 @@ function CruiseDotPartnersForm() {
       <form onSubmit={handleSubmit} className="max-w-xl mx-auto px-4 py-6 space-y-5">
 
         {/* 안내 배너 */}
-        <div className="bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-900 rounded-2xl overflow-hidden shadow-lg">
-          {/* 타이틀 영역 */}
-          <div className="px-5 pt-5 pb-4 flex items-center gap-3">
-            <div className="w-11 h-11 flex-shrink-0 bg-white rounded-xl flex items-center justify-center shadow-sm">
-              {/* 배 아이콘 */}
-              <svg className="w-6 h-6 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.6 15h16.8M12 3v4M8 7h8" />
-              </svg>
+        <div className="bg-white rounded-2xl overflow-hidden shadow-md border border-gray-100">
+          {/* 타이틀 영역 — 파란 줄 강조 */}
+          <div className="bg-blue-700 px-5 py-4 flex items-center gap-3.5">
+            {/* 크루즈닷 로고 */}
+            <div className="w-12 h-12 flex-shrink-0 bg-white rounded-xl shadow overflow-hidden flex items-center justify-center p-1">
+              <div className="relative w-full h-full">
+                <Image
+                  src={COMPANY.logo}
+                  alt="크루즈닷 파트너스"
+                  fill
+                  className="object-contain"
+                  onError={() => {}}
+                />
+              </div>
             </div>
-            <div>
-              <h2 className="text-white text-lg font-extrabold leading-tight tracking-tight">크루즈닷 파트너스 신청</h2>
-              <p className="text-blue-300 text-xs font-medium mt-0.5">Cruise Dot Partners Program</p>
+            <div className="min-w-0">
+              <h2 className="text-white text-xl font-extrabold leading-tight">크루즈닷 파트너스 신청</h2>
+              <p className="text-blue-100 text-sm font-medium mt-0.5">Cruise Dot Partners Program</p>
             </div>
           </div>
-          {/* 혜택 카드 */}
-          <div className="grid grid-cols-3 gap-2 px-5 pb-5">
-            <div className="bg-white rounded-xl p-3 text-center shadow-sm">
-              <svg className="w-5 h-5 text-blue-600 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          {/* 혜택 카드 — 흰 배경 */}
+          <div className="grid grid-cols-3 divide-x divide-gray-100">
+            <div className="py-4 px-2 text-center">
+              <svg className="w-6 h-6 text-blue-600 mx-auto mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="text-blue-700 font-extrabold text-sm leading-none">1~5%</p>
-              <p className="text-gray-500 text-xs mt-1">판매 수수료</p>
+              <p className="text-blue-700 font-extrabold text-lg leading-none">1~5%</p>
+              <p className="text-gray-700 text-xs font-semibold mt-1">판매 수수료</p>
             </div>
-            <div className="bg-white rounded-xl p-3 text-center shadow-sm">
-              <svg className="w-5 h-5 text-blue-600 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="py-4 px-2 text-center">
+              <svg className="w-6 h-6 text-blue-600 mx-auto mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="text-blue-700 font-extrabold text-sm leading-none">무료</p>
-              <p className="text-gray-500 text-xs mt-1">가입·보증금 없음</p>
+              <p className="text-blue-700 font-extrabold text-lg leading-none">무료</p>
+              <p className="text-gray-700 text-xs font-semibold mt-1">가입·보증금 없음</p>
             </div>
-            <div className="bg-white rounded-xl p-3 text-center shadow-sm">
-              <svg className="w-5 h-5 text-blue-600 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="py-4 px-2 text-center">
+              <svg className="w-6 h-6 text-blue-600 mx-auto mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
-              <p className="text-blue-700 font-extrabold text-sm leading-none">타사 겸업</p>
-              <p className="text-gray-500 text-xs mt-1">허용</p>
+              <p className="text-blue-700 font-extrabold text-lg leading-none">타사 겸업</p>
+              <p className="text-gray-700 text-xs font-semibold mt-1">허용</p>
             </div>
           </div>
         </div>
