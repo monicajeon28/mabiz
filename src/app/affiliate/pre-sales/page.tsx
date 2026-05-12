@@ -879,12 +879,30 @@ function CruiseDotPartnersForm() {
                 </label>
               ))}
             </div>
+
+            {/* 반려 시 파기 안내 */}
+            <div className="flex items-start gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-3">
+              <svg className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                반려 시 계약서 및 제출 서류는 <span className="font-semibold text-gray-700">즉시 자동 파기</span>됩니다.
+              </p>
+            </div>
           </div>
         </section>
 
         {errorMsg && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{errorMsg}</div>
         )}
+
+        {/* 동기부여 문구 */}
+        <div className="bg-gradient-to-r from-blue-700 to-indigo-700 rounded-2xl px-5 py-4 text-center shadow-lg shadow-blue-200">
+          <p className="text-white text-base font-extrabold leading-snug tracking-tight">
+            상위 0.1% 새로운 세대로 진입하세요.
+          </p>
+          <p className="text-blue-200 text-sm font-medium mt-1">행운을 빕니다 🚢</p>
+        </div>
 
         <button
           type="submit"
