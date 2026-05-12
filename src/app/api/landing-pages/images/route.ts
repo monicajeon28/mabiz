@@ -3,7 +3,17 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import sharp from 'sharp';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
+
+/** GLOBAL_ADMIN 포함 orgId 해결 헬퍼 */
+async function getOrgId(ctx: Awaited<ReturnType<typeof getAuthContext>>): Promise<string> {
+  if (ctx.role === 'GLOBAL_ADMIN' && !ctx.organizationId) {
+    const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
+    if (!firstOrg) throw new Error('NO_ORGANIZATION');
+    return firstOrg.id;
+  }
+  return resolveOrgId(ctx);
+}
 import { uploadImageToDrive } from '@/lib/image-sync';
 import { getDriveClient } from '@/lib/drive-client';
 import { logger } from '@/lib/logger';
@@ -21,7 +31,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = await getOrgId(ctx);
 
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
@@ -102,8 +112,11 @@ export async function POST(req: Request) {
       finalFileName = file.name.replace(/\.[^.]+$/, '.webp');
     }
 
-    // 메타데이터 추출
+    // 메타데이터 추출 — GIF animated:true 시 height = 프레임높이×프레임수이므로 pages로 나눔
     const meta = await sharp(processedBuffer, isGif ? { animated: true } : undefined).metadata();
+    const displayHeight = isGif && meta.pages && meta.pages > 1
+      ? Math.round((meta.height ?? 0) / meta.pages)
+      : meta.height;
 
     // 조직명 조회 (Drive 폴더용)
     const org = await prisma.organization.findUnique({
@@ -122,7 +135,7 @@ export async function POST(req: Request) {
       category: `랜딩페이지/${page.title}`,
       tags: ['landing-page', landingPageId],
       width: meta.width,
-      height: meta.height,
+      height: displayHeight,
     });
 
     // WebP 처리 완료 표시 (GIF가 아닌 경우)
@@ -176,7 +189,7 @@ export async function POST(req: Request) {
         url: thumbnailUrl,
         driveFileId: asset.driveFileId,
         width: meta.width || 0,
-        height: meta.height || 0,
+        height: displayHeight || 0,
         mimeType: finalMimeType,
         fileName: finalFileName,
         sortOrder,
@@ -187,8 +200,9 @@ export async function POST(req: Request) {
     if (msg === 'UNAUTHORIZED') {
       return NextResponse.json({ ok: false, message: '인증이 필요합니다' }, { status: 401 });
     }
-    logger.error('[landing-images] 업로드 실패', { err });
-    return NextResponse.json({ ok: false, message: '이미지 업로드 중 오류 발생' }, { status: 500 });
+    console.error('[landing-images] 업로드 실패 RAW:', msg, err instanceof Error ? err.stack : '');
+    logger.error('[landing-images] 업로드 실패', { message: msg });
+    return NextResponse.json({ ok: false, message: msg || '이미지 업로드 중 오류 발생' }, { status: 500 });
   }
 }
 
@@ -209,7 +223,7 @@ async function getNextSortOrder(landingPageId: string): Promise<number> {
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = await getOrgId(ctx);
 
     const { searchParams } = new URL(req.url);
     const landingPageId = searchParams.get('landingPageId');
@@ -274,7 +288,7 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = await getOrgId(ctx);
 
     const body = await req.json();
     const { landingPageId, imageIds } = body as { landingPageId: string; imageIds: string[] };
@@ -321,7 +335,7 @@ export async function PATCH(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = await getOrgId(ctx);
 
     const body = await req.json();
     const { id } = body as { id: string };

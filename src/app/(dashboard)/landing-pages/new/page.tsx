@@ -293,10 +293,18 @@ ${footerBlock}
     return data.page.id;
   }, [savedPageId, title, slug, selectedGroupId]);
 
-  const uploadFiles = async (files: FileList) => {
-    const pageId = await ensurePage();
+  const uploadFiles = async (files: File[]) => {
+    setError("");
+    let pageId: string | null = null;
+    try {
+      pageId = await ensurePage();
+    } catch (e) {
+      setError(`페이지 생성 오류: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
     if (!pageId) return;
-    setUploading(true); setError("");
+    setUploading(true);
+    let uploaded = 0;
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       // Windows 드래그&드롭 시 file.type이 빈 문자열일 수 있어 확장자로도 검사
@@ -305,13 +313,15 @@ ${footerBlock}
       if (!isImage) continue;
       if (file.size > 20 * 1024 * 1024) { setError(`${file.name}: 20MB 초과`); continue; }
       const fd = new FormData();
-      fd.append("file", file); fd.append("landingPageId", pageId); fd.append("sortOrder", String(images.length + i));
+      fd.append("file", file); fd.append("landingPageId", pageId); fd.append("sortOrder", String(images.length + uploaded));
       try {
         const res  = await fetch("/api/landing-pages/images", { method: "POST", body: fd });
         const data = await res.json();
-        if (data.ok) setImages((prev) => [...prev, data.image]);
+        if (data.ok) { setImages((prev) => [...prev, data.image]); uploaded++; }
         else setError(data.message ?? `${file.name} 업로드 실패`);
-      } catch { setError(`${file.name} 업로드 중 오류`); }
+      } catch (e) {
+        setError(`${file.name} 업로드 중 오류: ${e instanceof Error ? e.message : String(e)}`);
+      }
     }
     setUploading(false);
   };
@@ -542,13 +552,13 @@ ${footerBlock}
                   className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${uploading ? "border-yellow-400 bg-yellow-50" : "border-gray-300 hover:border-yellow-400 hover:bg-gray-50"}`}
                   onClick={() => fileInputRef.current?.click()}
                   onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); }}
+                  onDrop={(e) => { e.preventDefault(); e.stopPropagation(); const f = Array.from(e.dataTransfer.files); if (f.length) uploadFiles(f); }}
                 >
                   <Upload className="w-9 h-9 text-gray-400 mx-auto mb-3" />
                   <p className="text-sm font-medium text-gray-600">{uploading ? "업로드 중..." : "이미지 드래그 또는 클릭"}</p>
                   <p className="text-xs text-gray-400 mt-1">JPG · PNG · WebP · GIF / 최대 20MB</p>
                   <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
-                    onChange={(e) => { if (e.target.files) uploadFiles(e.target.files); e.target.value = ""; }} />
+                    onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; if (f.length) uploadFiles(f); }} />
                 </div>
                 {/* 라이브러리에서 추가 */}
                 <button

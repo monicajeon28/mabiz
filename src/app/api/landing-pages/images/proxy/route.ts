@@ -54,7 +54,9 @@ export async function GET(req: Request) {
 
     if (!driveRes.ok) return new NextResponse(null, { status: 404 });
 
-    const contentType = driveRes.headers.get('content-type') ?? 'image/webp';
+    // Drive가 content-type 안 주거나 octet-stream인 경우 파일 ID로 추정
+    const rawCT = driveRes.headers.get('content-type') ?? '';
+    const contentType = rawCT && !rawCT.includes('octet-stream') ? rawCT : 'image/jpeg';
     const buffer = Buffer.from(await driveRes.arrayBuffer());
 
     return new NextResponse(buffer, {
