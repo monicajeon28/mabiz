@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
-import { sendSms, getOrgSmsConfig } from "@/lib/aligo";
+import { sendByChannel, getOrgSmsConfig } from "@/lib/aligo";
 
 // Vercel Cron: 매시간 실행
 // vercel.json: { "crons": [{ "path": "/api/cron/vip-care", "schedule": "0 * * * *" }] }
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
     include: {
       contact: {
         select: {
-          id: true, name: true, phone: true,
+          id: true, name: true, phone: true, email: true,
           optOutAt: true, organizationId: true,
         },
       },
@@ -85,15 +85,20 @@ export async function GET(req: Request) {
 
       if (updated.count === 0) continue; // 이미 다른 프로세스가 처리 중
 
-      const result = await sendSms({
-        config: {
+      const ch = (log.channel || "SMS") as "SMS" | "EMAIL" | "KAKAO";
+
+      const result = await sendByChannel({
+        channel:  ch,
+        smsConfig: {
           key:    smsConfig.aligoKey,
           userId: smsConfig.aligoUserId,
           sender: smsConfig.senderPhone,
         },
-        receiver: contact.phone,
-        msg:      message,
-        msgType:  message.length > 90 ? "LMS" : "SMS",
+        receiver:       contact.phone,
+        email:          contact.email,
+        msg:            message,
+        organizationId: contact.organizationId,
+        contactId:      contact.id,
       });
 
       const code = Number(result.result_code);

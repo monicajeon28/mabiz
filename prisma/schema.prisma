@@ -424,6 +424,7 @@ model VipCareLog {
   scheduledAt DateTime
   sentAt      DateTime?
   status      String          @default("PENDING")  // PENDING | SENDING | SENT | FAILED | NIGHT_BLOCKED | OPTED_OUT | PAUSED | CANCELLED
+  channel     String          @default("SMS")       // SMS | EMAIL | KAKAO
   content     String?         @db.Text
   sequence    VipCareSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
 

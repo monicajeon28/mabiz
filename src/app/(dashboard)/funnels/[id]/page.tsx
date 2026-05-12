@@ -21,6 +21,14 @@ type Stage = {
 
 const VARS = ["[고객명]", "[이름]", "[출발일]", "[링크]"];
 
+const CHANNEL_OPTIONS = [
+  { value: "SMS",   label: "SMS",    icon: "\u{1F4F1}", color: "bg-green-100 text-green-700" },
+  { value: "EMAIL", label: "\uC774\uBA54\uC77C", icon: "\u{1F4E7}", color: "bg-blue-100 text-blue-700" },
+  { value: "KAKAO", label: "\uCE74\uCE74\uC624", icon: "\u{1F4AC}", color: "bg-yellow-100 text-yellow-700" },
+] as const;
+
+const channelInfo = (ch: string) => CHANNEL_OPTIONS.find((c) => c.value === ch) || CHANNEL_OPTIONS[0];
+
 const triggerLabel = (s: Stage) => {
   if (s.triggerType === "DDAY") {
     if (s.triggerOffset < 0)  return `D${s.triggerOffset}`;
@@ -277,7 +285,7 @@ export default function FunnelEditPage() {
                   </p>
                   {hasMsgContent ? (
                     <p className="text-xs text-gray-400 truncate mt-0.5">
-                      📱 {stage.messageContent.slice(0, 40)}...
+                      {channelInfo(stage.channel).icon} {stage.messageContent.slice(0, 40)}...
                     </p>
                   ) : (
                     <p className="text-xs text-orange-500 mt-0.5 font-medium">⚠️ 메시지 미작성</p>
@@ -309,8 +317,8 @@ export default function FunnelEditPage() {
                     />
                   </div>
 
-                  {/* 트리거 설정 */}
-                  <div className="grid grid-cols-2 gap-2">
+                  {/* 트리거 설정 + 채널 선택 */}
+                  <div className="grid grid-cols-3 gap-2">
                     <div>
                       <label className="text-xs font-medium text-gray-500 mb-1 block">트리거 유형</label>
                       <select
@@ -333,12 +341,28 @@ export default function FunnelEditPage() {
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
                       />
                     </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 mb-1 block">발송 채널</label>
+                      <select
+                        value={stage.channel}
+                        onChange={(e) => updateStage(idx, "channel", e.target.value)}
+                        className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white focus:outline-none"
+                      >
+                        {CHANNEL_OPTIONS.map((ch) => (
+                          <option key={ch.value} value={ch.value}>
+                            {ch.icon} {ch.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
                   {/* 메시지 작성 */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-medium text-gray-500">SMS 메시지</label>
+                      <label className="text-xs font-medium text-gray-500">
+                        {channelInfo(stage.channel).icon} {channelInfo(stage.channel).label} 메시지
+                      </label>
                       <button
                         onClick={() => setPreviewIdx(isPreview ? null : idx)}
                         className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700"
@@ -351,7 +375,7 @@ export default function FunnelEditPage() {
                     {isPreview ? (
                       /* 미리보기 */
                       <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                        <p className="text-xs text-green-600 font-medium mb-2">📱 실제 발송 미리보기 (예시 고객: 김민준)</p>
+                        <p className="text-xs text-green-600 font-medium mb-2">{channelInfo(stage.channel).icon} {channelInfo(stage.channel).label} 미리보기 (예시 고객: 김민준)</p>
                         <div className="bg-white rounded-xl p-3 shadow-sm">
                           <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
                             {(stage.messageContent || "(메시지 없음)")
@@ -388,9 +412,11 @@ export default function FunnelEditPage() {
                           className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:border-gold-500"
                         />
                         <div className="flex items-center justify-between mt-1">
-                          <p className={`text-xs ${stage.messageContent.length > 90 ? "text-orange-500" : "text-gray-400"}`}>
+                          <p className={`text-xs ${stage.channel === "SMS" && stage.messageContent.length > 90 ? "text-orange-500" : "text-gray-400"}`}>
                             {stage.messageContent.length}자
-                            {stage.messageContent.length > 90 ? " (장문 SMS)" : " (단문)"}
+                            {stage.channel === "SMS"
+                              ? stage.messageContent.length > 90 ? " (장문 SMS)" : " (단문)"
+                              : stage.channel === "EMAIL" ? " (이메일)" : " (카카오)"}
                           </p>
                           <p className="text-xs text-gray-400">미리보기 버튼으로 확인 권장</p>
                         </div>

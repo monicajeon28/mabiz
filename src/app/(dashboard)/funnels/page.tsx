@@ -37,10 +37,10 @@ const VIP_CARE_STAGES = [
   { name: "KTX 예매",      triggerType: "DDAY",       triggerOffset: -30,  channel: "SMS" },
   { name: "오리엔테이션",  triggerType: "DDAY",       triggerOffset: -15,  channel: "SMS" },
   { name: "준비물 체크",   triggerType: "DDAY",       triggerOffset: -7,   channel: "SMS" },
-  { name: "카톡방 초대",   triggerType: "DDAY",       triggerOffset: -7,   channel: "SMS" },
+  { name: "카톡방 초대",   triggerType: "DDAY",       triggerOffset: -7,   channel: "KAKAO" },
   { name: "터미널 안내",   triggerType: "DDAY",       triggerOffset: -1,   channel: "SMS" },
   { name: "출발 당일",     triggerType: "DDAY",       triggerOffset: 0,    channel: "SMS" },
-  { name: "후기 요청",     triggerType: "DAYS_AFTER", triggerOffset: 2,    channel: "SMS" },
+  { name: "후기 요청",     triggerType: "DAYS_AFTER", triggerOffset: 2,    channel: "EMAIL" },
 ];
 
 export default function FunnelsPage() {

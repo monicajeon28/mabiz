@@ -281,3 +281,78 @@ export async function sendKakaoAlimtalk(params: SendKakaoParams): Promise<AligoR
     return { result_code: -1, message: "발송 오류" };
   }
 }
+
+// ─── 퍼널 3채널 통합 발송 ────────────────────────────────────────
+
+interface SendByChannelParams {
+  channel: "SMS" | "EMAIL" | "KAKAO";
+  smsConfig: AligoConfig;
+  receiver: string;        // 전화번호 (SMS/KAKAO)
+  email?: string | null;   // 이메일 주소 (EMAIL)
+  msg: string;
+  subject?: string;        // 이메일 제목 / 카카오 제목
+  templateCode?: string;   // 카카오 알림톡 템플릿
+  linkUrl?: string | null;
+  organizationId: string;
+  contactId?: string;
+}
+
+/**
+ * 채널별 자동 분기 발송
+ * - Cron과 enroll에서 이 함수 하나로 통합 호출
+ * - 반환값: result_code 1 = 성공
+ */
+export async function sendByChannel(params: SendByChannelParams): Promise<AligoResponse> {
+  const {
+    channel, smsConfig, receiver, email, msg, subject,
+    templateCode, linkUrl, organizationId, contactId,
+  } = params;
+
+  // 메시지에 [링크] 치환
+  const finalMsg = linkUrl ? msg.replace(/\[링크\]/g, linkUrl) : msg;
+
+  switch (channel) {
+    case "EMAIL": {
+      if (!email) {
+        logger.warn("[sendByChannel] EMAIL 채널인데 이메일 주소 없음", { contactId });
+        return { result_code: -96, message: "이메일 주소 없음" };
+      }
+      const { sendFunnelEmail } = await import("@/lib/email");
+      const result = await sendFunnelEmail({
+        organizationId,
+        contactId,
+        to: email,
+        subject: subject || "안내드립니다",
+        html: `<div style="font-family:sans-serif;line-height:1.8;white-space:pre-wrap">${finalMsg}</div>`,
+      });
+      return { result_code: result.result_code, message: result.message };
+    }
+
+    case "KAKAO": {
+      return sendKakaoAlimtalk({
+        config: smsConfig,
+        receiver,
+        templateCode: templateCode || "FUNNEL_DEFAULT",
+        subject,
+        message: finalMsg,
+        failoverSms: true,
+        organizationId,
+        contactId,
+        channel: "FUNNEL",
+      });
+    }
+
+    case "SMS":
+    default: {
+      return sendSms({
+        config: smsConfig,
+        receiver,
+        msg: finalMsg,
+        msgType: finalMsg.length > 90 ? "LMS" : "SMS",
+        organizationId,
+        contactId,
+        channel: "FUNNEL",
+      });
+    }
+  }
+}

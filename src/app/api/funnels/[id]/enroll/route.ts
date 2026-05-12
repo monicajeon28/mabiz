@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, requireOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
-import { sendSms, getOrgSmsConfig } from "@/lib/aligo";
+import { sendByChannel, getOrgSmsConfig } from "@/lib/aligo";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -74,6 +74,7 @@ export async function POST(req: Request, { params }: Params) {
               stageOrder:  stage.order,
               scheduledAt,
               status:      "PENDING",
+              channel:     stage.channel || "SMS",
               content,
             };
           }),
@@ -87,6 +88,7 @@ export async function POST(req: Request, { params }: Params) {
       const smsConfig = await getOrgSmsConfig(orgId);
       const firstLog  = sequence.logs.find((l) => l.stageOrder === 0);
       const firstStage = funnel.stages[0];
+      const ch = (firstStage.channel || "SMS") as "SMS" | "EMAIL" | "KAKAO";
 
       if (smsConfig?.isActive && firstLog?.content && !contact.optOutAt) {
         const updated = await prisma.vipCareLog.updateMany({
@@ -95,22 +97,27 @@ export async function POST(req: Request, { params }: Params) {
         });
 
         if (updated.count > 0) {
-          const result = await sendSms({
-            config: {
+          const result = await sendByChannel({
+            channel: ch,
+            smsConfig: {
               key:    smsConfig.aligoKey,
               userId: smsConfig.aligoUserId,
               sender: smsConfig.senderPhone,
             },
-            receiver: contact.phone,
-            msg:      firstLog.content,
-            msgType:  firstLog.content.length > 90 ? "LMS" : "SMS",
+            receiver:       contact.phone,
+            email:          contact.email,
+            msg:            firstLog.content,
+            linkUrl:        firstStage.linkUrl,
+            organizationId: orgId,
+            contactId,
           });
 
+          const code = Number(result.result_code);
           await prisma.vipCareLog.update({
             where: { id: firstLog.id },
             data: {
-              status:  result.result_code === 1 ? "SENT" : "FAILED",
-              sentAt:  new Date(),
+              status: code === 1 ? "SENT" : code === -98 ? "NIGHT_BLOCKED" : "FAILED",
+              sentAt: new Date(),
             },
           });
         }

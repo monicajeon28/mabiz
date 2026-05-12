@@ -78,3 +78,52 @@ export async function getOrgEmailConfig(organizationId: string) {
   const { default: prisma } = await import("@/lib/prisma");
   return prisma.orgEmailConfig.findUnique({ where: { organizationId } });
 }
+
+// ─── 퍼널용 이메일 발송 (sendSms와 동일한 응답 인터페이스) ─────────
+
+interface FunnelEmailResponse {
+  result_code: number;  // 1=성공, 음수=실패
+  message: string;
+}
+
+/**
+ * 퍼널 Cron에서 호출하는 이메일 발송
+ * - sendSms()와 동일한 result_code 구조 (1=성공)
+ * - 조직 SMTP 설정 자동 조회
+ */
+export async function sendFunnelEmail(params: {
+  organizationId: string;
+  contactId?: string;
+  to: string;
+  subject: string;
+  html: string;
+}): Promise<FunnelEmailResponse> {
+  const { organizationId, to, subject, html } = params;
+
+  if (!to || !to.includes("@")) {
+    logger.warn("[Email/Funnel] 유효하지 않은 이메일", { to: to?.slice(0, 5) + "***" });
+    return { result_code: -96, message: "유효하지 않은 이메일" };
+  }
+
+  const config = await getOrgEmailConfig(organizationId);
+  if (!config?.isActive) {
+    logger.warn("[Email/Funnel] 이메일 설정 미완료", { organizationId });
+    return { result_code: -97, message: "이메일 설정 미완료" };
+  }
+
+  const ok = await sendEmail({
+    smtpHost: config.smtpHost,
+    smtpPort: config.smtpPort,
+    smtpUser: config.smtpUser,
+    smtpPassEncrypted: config.smtpPassEncrypted,
+    senderName: config.senderName,
+    senderEmail: config.senderEmail,
+    to,
+    subject,
+    html,
+  });
+
+  return ok
+    ? { result_code: 1, message: "발송 성공" }
+    : { result_code: -1, message: "발송 실패" };
+}
