@@ -660,17 +660,6 @@ function CruiseDotPartnersForm() {
                 title: '수수료 수익 발생',
                 desc: '링크를 통해 구매 완료 시 1~5% 수수료 지급.\nDB 수수료 1,000원이 구매마다 추가 적립.\n고객 문의는 크루즈닷 전문 세일즈 팀이 대신 처리해 드립니다.',
               },
-              {
-                step: '5',
-                color: 'bg-sky-600',
-                icon: (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                ),
-                title: '크루즈닷 파트너 혜택',
-                desc: '크루즈닷은 법적으로 등록된 대한민국 여행사입니다.\n대기업·중소기업 여행사와 공식 제휴하여 안전하고 신뢰할 수 있는 상품을 제공합니다.',
-              },
             ].map((item) => (
               <div key={item.step} className="flex gap-3.5 px-5 py-4">
                 <div className={`${item.color} w-8 h-8 rounded-xl flex items-center justify-center text-white flex-shrink-0 mt-0.5 shadow-sm`}>
@@ -685,6 +674,61 @@ function CruiseDotPartnersForm() {
                 </div>
               </div>
             ))}
+
+            {/* STEP 5 — 태극기 + 신뢰 */}
+            <div className="flex gap-3.5 px-5 py-4">
+              <div className="bg-sky-600 w-8 h-8 rounded-xl flex items-center justify-center text-white flex-shrink-0 mt-0.5 shadow-sm">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-bold text-gray-400">STEP 5</span>
+                  <p className="text-sm font-bold text-gray-900">크루즈닷 신뢰 & 안전</p>
+                </div>
+                <div className="flex items-start gap-2 mb-1.5">
+                  {/* 태극기 SVG */}
+                  <svg className="w-5 h-3.5 mt-0.5 flex-shrink-0 rounded-sm overflow-hidden" viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="30" height="20" fill="white"/>
+                    {/* 태극 원 빨강 */}
+                    <circle cx="15" cy="10" r="5" fill="#CD2E3A"/>
+                    {/* 태극 원 파랑 (하단 반) */}
+                    <path d="M15 10 A5 5 0 0 1 10 10 A2.5 2.5 0 0 0 15 10 Z" fill="#003478"/>
+                    <path d="M15 10 A5 5 0 0 0 20 10 A2.5 2.5 0 0 1 15 10 Z" fill="#003478"/>
+                    {/* 건괘 (좌상) */}
+                    <line x1="3" y1="3" x2="8" y2="3" stroke="#000" strokeWidth="1"/>
+                    <line x1="3" y1="5" x2="8" y2="5" stroke="#000" strokeWidth="1"/>
+                    <line x1="3" y1="7" x2="8" y2="7" stroke="#000" strokeWidth="1"/>
+                    {/* 곤괘 (우상) */}
+                    <line x1="22" y1="3" x2="24.5" y2="3" stroke="#000" strokeWidth="1"/>
+                    <line x1="25.5" y1="3" x2="28" y2="3" stroke="#000" strokeWidth="1"/>
+                    <line x1="22" y1="5" x2="24.5" y2="5" stroke="#000" strokeWidth="1"/>
+                    <line x1="25.5" y1="5" x2="28" y2="5" stroke="#000" strokeWidth="1"/>
+                    <line x1="22" y1="7" x2="24.5" y2="7" stroke="#000" strokeWidth="1"/>
+                    <line x1="25.5" y1="7" x2="28" y2="7" stroke="#000" strokeWidth="1"/>
+                    {/* 감괘 (좌하) */}
+                    <line x1="3" y1="13" x2="8" y2="13" stroke="#000" strokeWidth="1"/>
+                    <line x1="3" y1="15" x2="5.5" y2="15" stroke="#000" strokeWidth="1"/>
+                    <line x1="6.5" y1="15" x2="8" y2="15" stroke="#000" strokeWidth="1"/>
+                    <line x1="3" y1="17" x2="8" y2="17" stroke="#000" strokeWidth="1"/>
+                    {/* 이괘 (우하) */}
+                    <line x1="22" y1="13" x2="24.5" y2="13" stroke="#000" strokeWidth="1"/>
+                    <line x1="25.5" y1="13" x2="28" y2="13" stroke="#000" strokeWidth="1"/>
+                    <line x1="22" y1="15" x2="28" y2="15" stroke="#000" strokeWidth="1"/>
+                    <line x1="22" y1="17" x2="24.5" y2="17" stroke="#000" strokeWidth="1"/>
+                    <line x1="25.5" y1="17" x2="28" y2="17" stroke="#000" strokeWidth="1"/>
+                  </svg>
+                  <p className="text-xs text-gray-700 font-semibold leading-relaxed">
+                    대한민국 공식 등록 여행사
+                  </p>
+                </div>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  크루즈닷은 법적으로 등록된 대한민국 여행사로, 대기업·중소기업 여행사와 공식 제휴하고 있습니다.<br />
+                  소비자에게 안전하고 신뢰 있는 여행을 지원해 드립니다.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
