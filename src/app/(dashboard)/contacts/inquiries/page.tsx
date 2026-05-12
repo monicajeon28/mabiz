@@ -73,6 +73,7 @@ export default function InquiriesPage() {
     setFetchError('');
     const params = new URLSearchParams({ page: String(page), limit: "30", type: "LEAD" });
     if (q) params.set("q", q);
+    if (selectedTags.length > 0) params.set("tags", selectedTags.join(","));
 
     try {
       const res = await fetch(`/api/contacts?${params}`);
@@ -86,7 +87,7 @@ export default function InquiriesPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, page]);
+  }, [q, page, selectedTags]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
@@ -123,9 +124,12 @@ export default function InquiriesPage() {
   const bulkAssignUnassigned = async () => {
     if (!bulkGroupId) return;
     const unassigned = contacts.filter((c) => c.groups.length === 0);
-    for (const c of unassigned) {
-      await quickAssign(c.id, bulkGroupId);
-    }
+    if (unassigned.length === 0) return;
+    await fetch(`/api/groups/${bulkGroupId}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactIds: unassigned.map((c) => c.id) }),
+    });
     fetchContacts();
   };
 
@@ -164,12 +168,7 @@ export default function InquiriesPage() {
     return Array.from(set).sort();
   }, [contacts]);
 
-  const filteredContacts = useMemo(() => {
-    if (selectedTags.length === 0) return contacts;
-    return contacts.filter(c =>
-      selectedTags.every(t => (c.tags ?? []).includes(t))
-    );
-  }, [contacts, selectedTags]);
+  const filteredContacts = contacts;
 
   const todayCallList = contacts
     .filter((c) => {
