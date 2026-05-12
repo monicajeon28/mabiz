@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { getAuthContext } from '@/lib/rbac';
@@ -56,6 +57,9 @@ export async function PUT(
       return NextResponse.json({ ok: false, message: '반려된 신청은 승인할 수 없습니다.' }, { status: 409 });
     }
 
+    const completionToken = randomUUID();
+    const completionLink = `${process.env.NEXT_PUBLIC_APP_URL}/affiliate/pre-sales/complete?token=${completionToken}`;
+
     await prisma.gmAffiliateContract.update({
       where: { id: contractId },
       data: {
@@ -65,6 +69,8 @@ export async function PUT(
           approvedAt: new Date().toISOString(),
           approvedBy: ctx.userId,
           approveNote: note || null,
+          completionToken,
+          completionLink,
         },
       },
     });
@@ -78,7 +84,7 @@ export async function PUT(
     return NextResponse.json({
       ok: true,
       message: '신청이 승인되었습니다.',
-      data: { contractId, name: contract.name },
+      data: { contractId, name: contract.name, completionLink },
     });
   } catch (err) {
     logger.error('[CRUISE-PARTNER] 승인 실패', { error: err });

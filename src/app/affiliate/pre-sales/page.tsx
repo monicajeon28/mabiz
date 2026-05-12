@@ -1,15 +1,15 @@
 'use client';
 
 /**
- * /affiliate/pre-sales — 크루즈닷 파트너스 가입 신청 (공개 페이지, 인증 불필요)
- * 프리랜서 용역계약서 형식
+ * /affiliate/pre-sales — 크루즈닷 파트너스 가입 신청 1단계 (공개 페이지, 인증 불필요)
+ * 이름/연락처/이메일/주소/SNS채널/지원동기만 수집
  *
  * URL 파라미터:
  *   ?agent=홍길동&agency=강남대리점&agentPhone=010-1234-5678
  *   → 대리점장 소개 모드 자동 활성화 (어필리에이트 링크)
  */
 
-import { useState, useRef, useCallback, useEffect, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 
@@ -30,7 +30,6 @@ function getContractBody(params: {
   name: string;
   phone: string;
   address: string;
-  residentId: string;
   supervisorName: string;
   supervisorAgency: string;
   supervisorPhone: string;
@@ -39,7 +38,7 @@ function getContractBody(params: {
   const today = new Date();
   const dateStr = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
   const {
-    name, phone, address, residentId,
+    name, phone, address,
     supervisorName, supervisorAgency, supervisorPhone, useSupervisor,
   } = params;
 
@@ -64,7 +63,6 @@ function getContractBody(params: {
   성  명  : ${name || '                    '}
   연락처  : ${phone || '                    '}
   주  소  : ${address || '                    '}
-  주민번호: ${residentId ? residentId.replace(/(\d{6})-?(\d{7})/, '$1-$2') : '              -              '}
   ${supervisorSection}
 
 계약 체결일 : ${dateStr}
@@ -151,199 +149,6 @@ ${dateStr}
 `;
 }
 
-// ── 서명 캔버스 ──────────────────────────────────────────────────────
-
-interface SignatureCanvasProps {
-  onSigned: (dataUrl: string | null) => void;
-}
-
-function SignatureCanvas({ onSigned }: SignatureCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const isDrawing = useRef(false);
-  const lastPos = useRef({ x: 0, y: 0 });
-
-  const getPos = (e: MouseEvent | TouchEvent) => {
-    const canvas = canvasRef.current!;
-    const rect = canvas.getBoundingClientRect();
-    if ('touches' in e) {
-      return {
-        x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top,
-      };
-    }
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-  };
-
-  const startDraw = useCallback((e: MouseEvent | TouchEvent) => {
-    e.preventDefault();
-    isDrawing.current = true;
-    lastPos.current = getPos(e);
-  }, []);
-
-  const draw = useCallback((e: MouseEvent | TouchEvent) => {
-    if (!isDrawing.current) return;
-    e.preventDefault();
-    const canvas = canvasRef.current!;
-    const ctx = canvas.getContext('2d')!;
-    const pos = getPos(e);
-    ctx.beginPath();
-    ctx.moveTo(lastPos.current.x, lastPos.current.y);
-    ctx.lineTo(pos.x, pos.y);
-    ctx.strokeStyle = '#1a1a1a';
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.stroke();
-    lastPos.current = pos;
-  }, []);
-
-  const endDraw = useCallback(() => {
-    if (!isDrawing.current) return;
-    isDrawing.current = false;
-    const canvas = canvasRef.current!;
-    onSigned(canvas.toDataURL('image/png'));
-  }, [onSigned]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    canvas.addEventListener('mousedown', startDraw);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', endDraw);
-    canvas.addEventListener('mouseleave', endDraw);
-    canvas.addEventListener('touchstart', startDraw, { passive: false });
-    canvas.addEventListener('touchmove', draw, { passive: false });
-    canvas.addEventListener('touchend', endDraw);
-    return () => {
-      canvas.removeEventListener('mousedown', startDraw);
-      canvas.removeEventListener('mousemove', draw);
-      canvas.removeEventListener('mouseup', endDraw);
-      canvas.removeEventListener('mouseleave', endDraw);
-      canvas.removeEventListener('touchstart', startDraw);
-      canvas.removeEventListener('touchmove', draw);
-      canvas.removeEventListener('touchend', endDraw);
-    };
-  }, [startDraw, draw, endDraw]);
-
-  const handleClear = () => {
-    const canvas = canvasRef.current!;
-    const ctx = canvas.getContext('2d')!;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    onSigned(null);
-  };
-
-  return (
-    <div className="space-y-2">
-      <div className="border-2 border-dashed border-gray-300 rounded-xl overflow-hidden bg-white relative">
-        <canvas
-          ref={canvasRef}
-          width={520}
-          height={120}
-          className="w-full touch-none cursor-crosshair"
-          style={{ display: 'block' }}
-        />
-        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs text-gray-300 pointer-events-none select-none">
-          서명란
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={handleClear}
-        className="text-xs text-gray-400 hover:text-red-500 transition-colors"
-      >
-        지우기
-      </button>
-    </div>
-  );
-}
-
-// ── 파일 업로드 컴포넌트 ─────────────────────────────────────────────
-
-interface FileUploadProps {
-  label: string;
-  required?: boolean;
-  hint?: string;
-  securityNote?: string;
-  onChange: (dataUrl: string | null) => void;
-  preview: string | null;
-}
-
-function FileUpload({ label, required, hint, securityNote, onChange, preview }: FileUploadProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleFile = (file: File | undefined) => {
-    if (!file) return;
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
-    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-    const allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
-    if (!allowedTypes.includes(file.type) && !allowedExts.includes(ext)) {
-      alert('이미지 파일만 업로드할 수 있습니다 (JPG, PNG, WEBP, HEIC).');
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      alert('파일 크기는 10MB 이하여야 합니다.');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      onChange(e.target?.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      {hint && <p className="text-xs text-gray-500 mb-1.5">{hint}</p>}
-      {preview ? (
-        <div className="relative border border-gray-200 rounded-xl overflow-hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={preview} alt={label} className="w-full max-h-40 object-contain bg-gray-50" />
-          <button
-            type="button"
-            onClick={() => onChange(null)}
-            className="absolute top-2 right-2 bg-white border border-gray-200 rounded-full w-7 h-7 flex items-center justify-center text-gray-500 hover:text-red-500 hover:border-red-300 text-xs shadow-sm transition"
-          >
-            ✕
-          </button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="w-full border-2 border-dashed border-gray-300 rounded-xl p-5 text-center hover:border-blue-400 hover:bg-blue-50 transition-all group"
-        >
-          <div className="w-10 h-10 bg-gray-100 group-hover:bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2 transition">
-            <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <p className="text-sm text-gray-500 group-hover:text-blue-600">사진을 선택하거나 촬영하세요</p>
-          <p className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP, HEIC · 최대 10MB</p>
-        </button>
-      )}
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={(e) => handleFile(e.target.files?.[0])}
-      />
-      {securityNote && (
-        <div className="mt-2 flex items-start gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-          <svg className="w-3.5 h-3.5 text-slate-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-          <p className="text-xs text-slate-500 leading-relaxed">{securityNote}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── 메인 컴포넌트 (내부) ─────────────────────────────────────────────
 
 function CruiseDotPartnersForm() {
@@ -367,7 +172,6 @@ function CruiseDotPartnersForm() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
-  const [residentId, setResidentId] = useState('');
 
   // SNS 채널
   const [snsYoutube, setSnsYoutube] = useState('');
@@ -377,24 +181,11 @@ function CruiseDotPartnersForm() {
   const [snsEtc, setSnsEtc] = useState('');
   const [applyNote, setApplyNote] = useState('');
 
-  // 정산 계좌
-  const [bankName, setBankName] = useState('');
-  const [bankAccount, setBankAccount] = useState('');
-  const [bankAccountHolder, setBankAccountHolder] = useState('');
-  const [bankBookPhoto, setBankBookPhoto] = useState<string | null>(null);
-
-  // 신분증
-  const [idPhoto, setIdPhoto] = useState<string | null>(null);
-
   // 담당 대리점장 (URL 파라미터로 자동 설정)
   const useSupervisor = hasAgentParam;
   const supervisorName = agentParam;
   const supervisorAgency = agencyParam;
   const supervisorPhone = agentPhoneParam;
-
-  // 서명
-  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
-  const [signName, setSignName] = useState('');
 
   // 동의
   const [consents, setConsents] = useState({
@@ -407,7 +198,7 @@ function CruiseDotPartnersForm() {
 
   const allConsents = Object.values(consents).every(Boolean);
   const contractBody = getContractBody({
-    name, phone, address, residentId,
+    name, phone, address,
     supervisorName, supervisorAgency, supervisorPhone, useSupervisor,
   });
 
@@ -448,12 +239,12 @@ function CruiseDotPartnersForm() {
       setErrorMsg('이메일을 입력해 주세요. 승인 시 아이디·임시 비밀번호가 이메일로 발송됩니다.');
       return;
     }
-    if (!allConsents) {
-      setErrorMsg('필수 동의 항목을 모두 확인해 주세요.');
+    if (!applyNote.trim()) {
+      setErrorMsg('지원 동기를 입력해 주세요.');
       return;
     }
-    if (!signatureDataUrl && !signName.trim()) {
-      setErrorMsg('서명 또는 성명을 입력해 주세요.');
+    if (!allConsents) {
+      setErrorMsg('필수 동의 항목을 모두 확인해 주세요.');
       return;
     }
 
@@ -472,13 +263,8 @@ function CruiseDotPartnersForm() {
         body: JSON.stringify({
           name: name.trim(),
           phone: phone.trim(),
-          email: email.trim() || undefined,
+          email: email.trim(),
           address: address.trim() || undefined,
-          residentId: residentId.trim() || undefined,
-          bankName: bankName.trim() || undefined,
-          bankAccount: bankAccount.trim() || undefined,
-          bankAccountHolder: bankAccountHolder.trim() || undefined,
-          signatureImageUrl: signatureDataUrl || undefined,
           consentPrivacy: true,
           consentNonCompete: true,
           consentDbUse: true,
@@ -486,11 +272,8 @@ function CruiseDotPartnersForm() {
           consentRefund: true,
           metadata: {
             type: 'CRUISE_PARTNER',
-            signName: signName.trim() || undefined,
-            idPhotoUrl: idPhoto || undefined,
-            bankBookUrl: bankBookPhoto || undefined,
             snsChannels: Object.keys(snsChannels).length > 0 ? snsChannels : undefined,
-            applyNote: applyNote.trim() || undefined,
+            applyNote: applyNote.trim(),
             supervisorName: useSupervisor ? supervisorName : undefined,
             supervisorAgency: useSupervisor ? supervisorAgency : undefined,
             supervisorPhone: useSupervisor ? supervisorPhone : undefined,
@@ -522,8 +305,10 @@ function CruiseDotPartnersForm() {
             </svg>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">신청 완료!</h1>
-            <p className="text-gray-500 mt-2 text-sm">담당자가 확인 후 연락드리겠습니다.</p>
+            <h1 className="text-2xl font-bold text-gray-900">신청이 접수되었습니다!</h1>
+            <p className="text-gray-500 mt-2 text-sm whitespace-pre-line">
+              {"담당자 검토 후 승인/반려 결과를 이메일로 안내해 드립니다.\n승인 완료 시 아이디·임시 비밀번호와 함께 서류 제출 링크가 발송됩니다."}
+            </p>
           </div>
           <div className="bg-blue-50 rounded-xl p-4 text-sm text-left space-y-2">
             <p className="text-blue-700 font-semibold">신청 정보</p>
@@ -570,9 +355,7 @@ function CruiseDotPartnersForm() {
 
         {/* 안내 배너 */}
         <div className="bg-white rounded-2xl overflow-hidden shadow-md border border-gray-100">
-          {/* 타이틀 영역 — 파란 줄 강조 */}
           <div className="bg-blue-700 px-5 py-4 flex items-center gap-3.5">
-            {/* 크루즈닷 로고 */}
             <div className="w-12 h-12 flex-shrink-0 bg-white rounded-xl shadow overflow-hidden flex items-center justify-center p-1">
               <div className="relative w-full h-full">
                 <Image
@@ -589,7 +372,6 @@ function CruiseDotPartnersForm() {
               <p className="text-blue-100 text-sm font-medium mt-0.5">Cruise Dot Partners Program</p>
             </div>
           </div>
-          {/* 혜택 카드 — 흰 배경 */}
           <div className="grid grid-cols-3 divide-x divide-gray-100">
             <div className="py-4 px-2 text-center">
               <svg className="w-6 h-6 text-blue-600 mx-auto mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -634,7 +416,7 @@ function CruiseDotPartnersForm() {
                   </svg>
                 ),
                 title: '신청 완료 → 승인 대기',
-                desc: '담당자(관리자 또는 대리점장)가 서류를 검토합니다.\n승인 시 이메일로 아이디·임시 비밀번호가 발급됩니다.\n반려 시 사유가 이메일로 안내되며 재신청 가능합니다.',
+                desc: '담당자(관리자 또는 대리점장)가 서류를 검토합니다.\n승인 시 이메일로 아이디·임시 비밀번호가 발급됩니다.\n반려 시 사유가 이메일로 안내되며 재신청 가능합니다.\n⏱ 승인 처리는 1~3일 소요됩니다.',
               },
               {
                 step: '2',
@@ -697,31 +479,24 @@ function CruiseDotPartnersForm() {
                   <p className="text-sm font-bold text-gray-900">크루즈닷 신뢰 & 안전</p>
                 </div>
                 <div className="flex items-start gap-2 mb-1.5">
-                  {/* 태극기 SVG */}
                   <svg className="w-5 h-3.5 mt-0.5 flex-shrink-0 rounded-sm overflow-hidden" viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg">
                     <rect width="30" height="20" fill="white"/>
-                    {/* 태극 원 빨강 */}
                     <circle cx="15" cy="10" r="5" fill="#CD2E3A"/>
-                    {/* 태극 원 파랑 (하단 반) */}
                     <path d="M15 10 A5 5 0 0 1 10 10 A2.5 2.5 0 0 0 15 10 Z" fill="#003478"/>
                     <path d="M15 10 A5 5 0 0 0 20 10 A2.5 2.5 0 0 1 15 10 Z" fill="#003478"/>
-                    {/* 건괘 (좌상) */}
                     <line x1="3" y1="3" x2="8" y2="3" stroke="#000" strokeWidth="1"/>
                     <line x1="3" y1="5" x2="8" y2="5" stroke="#000" strokeWidth="1"/>
                     <line x1="3" y1="7" x2="8" y2="7" stroke="#000" strokeWidth="1"/>
-                    {/* 곤괘 (우상) */}
                     <line x1="22" y1="3" x2="24.5" y2="3" stroke="#000" strokeWidth="1"/>
                     <line x1="25.5" y1="3" x2="28" y2="3" stroke="#000" strokeWidth="1"/>
                     <line x1="22" y1="5" x2="24.5" y2="5" stroke="#000" strokeWidth="1"/>
                     <line x1="25.5" y1="5" x2="28" y2="5" stroke="#000" strokeWidth="1"/>
                     <line x1="22" y1="7" x2="24.5" y2="7" stroke="#000" strokeWidth="1"/>
                     <line x1="25.5" y1="7" x2="28" y2="7" stroke="#000" strokeWidth="1"/>
-                    {/* 감괘 (좌하) */}
                     <line x1="3" y1="13" x2="8" y2="13" stroke="#000" strokeWidth="1"/>
                     <line x1="3" y1="15" x2="5.5" y2="15" stroke="#000" strokeWidth="1"/>
                     <line x1="6.5" y1="15" x2="8" y2="15" stroke="#000" strokeWidth="1"/>
                     <line x1="3" y1="17" x2="8" y2="17" stroke="#000" strokeWidth="1"/>
-                    {/* 이괘 (우하) */}
                     <line x1="22" y1="13" x2="24.5" y2="13" stroke="#000" strokeWidth="1"/>
                     <line x1="25.5" y1="13" x2="28" y2="13" stroke="#000" strokeWidth="1"/>
                     <line x1="22" y1="15" x2="28" y2="15" stroke="#000" strokeWidth="1"/>
@@ -818,25 +593,6 @@ function CruiseDotPartnersForm() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">주민등록번호</label>
-              <input
-                type="text"
-                value={residentId}
-                onChange={(e) => setResidentId(e.target.value)}
-                placeholder="000000-0000000"
-                maxLength={14}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-mono"
-              />
-              <div className="mt-1.5 flex items-start gap-1.5 bg-blue-50 border border-blue-100 rounded-lg px-2.5 py-1.5">
-                <svg className="w-3.5 h-3.5 text-blue-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-xs text-blue-700 leading-relaxed">
-                  프리랜서 용역 소득세 신고(원천징수) 목적으로만 수집됩니다. (소득세법 제145조)
-                </p>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -847,7 +603,6 @@ function CruiseDotPartnersForm() {
             <p className="text-violet-200 text-xs mt-0.5">포트폴리오 및 활동 채널을 알려주세요 (선택)</p>
           </div>
           <div className="p-5 space-y-3">
-            {/* SNS 링크들 */}
             {[
               { key: 'youtube', label: '유튜브', placeholder: 'https://youtube.com/@...', value: snsYoutube, setter: setSnsYoutube, color: 'text-red-500', icon: (
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
@@ -890,100 +645,24 @@ function CruiseDotPartnersForm() {
             </div>
 
             <div className="border-t border-gray-100 pt-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">지원 동기</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                지원 동기 <span className="text-red-500">*</span>
+              </label>
               <textarea
                 value={applyNote}
                 onChange={(e) => setApplyNote(e.target.value)}
-                placeholder="크루즈닷 파트너스에 지원하신 동기나 활동 계획을 간단히 적어주세요 (선택)"
-                rows={3}
+                placeholder={"지원 동기와 활동 계획을 최대한 꼼꼼하게 작성해 주세요.\n미작성 또는 불성실한 내용은 반려 사유가 될 수 있습니다."}
+                rows={4}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-violet-400 focus:border-violet-400 outline-none resize-none bg-gray-50"
               />
             </div>
           </div>
         </section>
 
-        {/* ③ 정산 계좌 */}
-        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-indigo-700 px-5 py-3.5">
-            <h2 className="text-white font-bold text-sm">③ 정산 계좌</h2>
-          </div>
-          <div className="p-5 space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">은행명</label>
-                <input
-                  type="text"
-                  value={bankName}
-                  onChange={(e) => setBankName(e.target.value)}
-                  placeholder="국민은행"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">예금주</label>
-                <input
-                  type="text"
-                  value={bankAccountHolder}
-                  onChange={(e) => setBankAccountHolder(e.target.value)}
-                  placeholder="홍길동"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">계좌번호</label>
-              <input
-                type="text"
-                value={bankAccount}
-                onChange={(e) => setBankAccount(e.target.value)}
-                placeholder="000000-00-000000"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono"
-              />
-            </div>
-            <FileUpload
-              label="통장 사본 사진"
-              hint="통장 앞면 전체가 보이도록 촬영해 주세요 (계좌번호·예금주 명확히 보이게)"
-              securityNote="본 서류는 수수료 정산 및 「소득세법」상 원천징수 신고 목적으로만 수집됩니다. 「개인정보 보호법」 제29조에 따른 안전성 확보 조치가 적용되며, 인가된 담당자만 열람 가능합니다."
-              onChange={setBankBookPhoto}
-              preview={bankBookPhoto}
-            />
-          </div>
-        </section>
-
-        {/* ④ 본인 확인 */}
-        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-slate-700 px-5 py-3.5">
-            <h2 className="text-white font-bold text-sm">④ 본인 확인 (법적 인증)</h2>
-          </div>
-          <div className="p-5 space-y-3">
-            {/* 안내 박스 */}
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-                <p className="text-sm font-semibold text-amber-800">법적 본인인증 필수 서류</p>
-              </div>
-              <p className="text-xs text-amber-700 leading-relaxed">
-                프리랜서 용역계약의 <strong>법적 효력 발생</strong> 및 「소득세법」상 원천징수 신고를 위한 필수 서류입니다.
-                수집된 서류는 계약 목적 이외 사용이 엄격히 금지되며, 「개인정보 보호법」 제24조(고유식별정보)에 따라 보호됩니다.
-                계약 종료 후 법정 보존기간 경과 시 즉시 파기합니다.
-              </p>
-            </div>
-            <FileUpload
-              label="신분증 사진"
-              hint="주민등록증 또는 운전면허증 · 이름·주민번호·사진이 모두 보이도록 촬영"
-              securityNote="본 서류는 인가된 담당자만 열람 가능하며, 「개인정보 보호법」 및 관계 법령에 따라 엄격히 관리됩니다."
-              onChange={setIdPhoto}
-              preview={idPhoto}
-            />
-          </div>
-        </section>
-
-        {/* ⑤ 계약서 확인 */}
+        {/* ③ 계약서 확인 */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="bg-gray-800 px-5 py-3.5 flex items-center justify-between">
-            <h2 className="text-white font-bold text-sm">⑤ 계약서 확인</h2>
+            <h2 className="text-white font-bold text-sm">③ 계약서 확인</h2>
             {contractRead && (
               <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-medium">확인 완료</span>
             )}
@@ -1035,10 +714,6 @@ function CruiseDotPartnersForm() {
                   </div>
                   <div className="text-xs text-gray-500 text-right">
                     <p>을: {name || '___________'}</p>
-                    {signatureDataUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={signatureDataUrl} alt="서명" className="w-20 h-10 object-contain mt-1 border border-dashed border-gray-300 rounded" />
-                    )}
                   </div>
                 </div>
               </div>
@@ -1062,10 +737,10 @@ function CruiseDotPartnersForm() {
           )}
         </section>
 
-        {/* ⑥ 필수 동의 */}
+        {/* ④ 필수 동의 */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="bg-orange-600 px-5 py-3.5">
-            <h2 className="text-white font-bold text-sm">⑥ 필수 동의</h2>
+            <h2 className="text-white font-bold text-sm">④ 필수 동의</h2>
           </div>
           <div className="p-5 space-y-3">
             <label className="flex items-center gap-3 cursor-pointer p-3 bg-orange-50 border border-orange-200 rounded-xl">
@@ -1083,7 +758,7 @@ function CruiseDotPartnersForm() {
                 {
                   key: 'privacy' as const,
                   title: '개인정보 처리 동의 (필수)',
-                  desc: '수집 항목: 이름·연락처·주민번호·계좌·신분증·통장사본 사진 · 목적: 파트너 계약 및 정산 · 보유: 계약 종료 후 5년',
+                  desc: '수집 항목: 이름·연락처·이메일·주소 · 목적: 파트너 계약 및 정산 · 보유: 계약 종료 후 5년',
                 },
                 {
                   key: 'commission' as const,
@@ -1114,53 +789,6 @@ function CruiseDotPartnersForm() {
                   </div>
                 </label>
               ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ⑦ 서명 */}
-        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-purple-700 px-5 py-3.5">
-            <h2 className="text-white font-bold text-sm">⑦ 서명</h2>
-          </div>
-          <div className="p-5 space-y-5">
-            <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">직접 서명</p>
-              <SignatureCanvas onSigned={setSignatureDataUrl} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">성명 (인쇄체)</label>
-              <input
-                type="text"
-                value={signName}
-                onChange={(e) => setSignName(e.target.value)}
-                placeholder="홍길동"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
-              />
-            </div>
-            <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-xl">
-              <div className="text-center">
-                <p className="text-xs text-gray-500 mb-1.5">갑 (크루즈닷 대표 배연성)</p>
-                <div className="flex gap-1.5 justify-center">
-                  <div className="relative w-12 h-12">
-                    <Image src={COMPANY.stamp} alt="배연성 도장" fill className="object-contain opacity-80" onError={() => {}} />
-                  </div>
-                  <div className="relative w-12 h-12">
-                    <Image src={COMPANY.cruiseStamp} alt="크루즈닷 도장" fill className="object-contain opacity-80" onError={() => {}} />
-                  </div>
-                </div>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-gray-500 mb-1.5">을 ({name || '신청자'})</p>
-                {signatureDataUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={signatureDataUrl} alt="서명" className="w-20 h-14 object-contain border border-dashed border-gray-300 rounded mx-auto" />
-                ) : (
-                  <div className="w-20 h-14 border-2 border-dashed border-gray-300 rounded mx-auto flex items-center justify-center">
-                    <span className="text-xs text-gray-300">서명란</span>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         </section>
