@@ -91,3 +91,24 @@ export function requireOrgId(ctx: AuthContext): string {
   if (!ctx.organizationId) throw new Error("ORGANIZATION_REQUIRED");
   return ctx.organizationId;
 }
+
+/** 본사 조직 ID (GLOBAL_ADMIN 쓰기 작업 기본값) */
+export const BONSA_ORG_ID = 'org_bonsa_cruisedot';
+
+/**
+ * GLOBAL_ADMIN → null (전체 조직 조회, org 필터 없음)
+ * 나머지 역할 → organizationId (없으면 에러)
+ */
+export function resolveOrgIdOrNull(ctx: AuthContext): string | null {
+  if (ctx.role === 'GLOBAL_ADMIN') return null;
+  return requireOrgId(ctx);
+}
+
+/**
+ * GLOBAL_ADMIN → BONSA_ORG_ID (쓰기 작업 기본 조직)
+ * 나머지 역할 → organizationId (없으면 에러)
+ */
+export function resolveOrgId(ctx: AuthContext): string {
+  if (ctx.role === 'GLOBAL_ADMIN') return BONSA_ORG_ID;
+  return requireOrgId(ctx);
+}

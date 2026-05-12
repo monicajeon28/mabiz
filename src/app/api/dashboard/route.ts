@@ -1,5 +1,4 @@
-// ✅ 5분간 캐싱 (성능 향상)
-export const revalidate = 300;  // 5분 (seconds)
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
@@ -46,7 +45,8 @@ export async function GET() {
 
     // ── GLOBAL_ADMIN ──────────────────────────────────────────
     if (ctx.role === 'GLOBAL_ADMIN') {
-      const [agentRows, saleRows, refundRows, pendingRows, goldCount, callDueRows] = await Promise.all([
+      const startOfMonth = new Date(`${yearMonth}-01T00:00:00.000Z`);
+      const [agentRows, saleRows, refundRows, pendingRows, goldCount, callDueRows, totalContactRows, newContactRows] = await Promise.all([
         prisma.$queryRaw<CountRow[]>(Prisma.sql`
           SELECT COUNT(*)::bigint AS count FROM "AffiliateProfile" WHERE status != 'TERMINATED'
         `),
@@ -66,24 +66,35 @@ export async function GET() {
           SELECT COUNT(*)::bigint AS count
           FROM "AffiliateSale" WHERE status IN ('PENDING','PENDING_APPROVAL')
         `),
-        // CRM GoldMember 테이블 사용 (ProductInquiry는 GMcruise 테이블 — 없을 수 있음)
+        // CRM GoldMember 테이블 사용
         prisma.goldMember.count({ where: { status: 'ACTIVE' } }),
-        // 오늘 콜 예정 건수
+        // 오늘 콜 예정 건수 (전체)
         prisma.$queryRaw<CountRow[]>(Prisma.sql`
           SELECT COUNT(*)::bigint AS count FROM "CallLog"
           WHERE ("scheduledAt"::date) = (NOW() AT TIME ZONE 'Asia/Seoul')::date
+        `),
+        // CRM 전체 고객 수
+        prisma.$queryRaw<CountRow[]>(Prisma.sql`
+          SELECT COUNT(*)::bigint AS count FROM "Contact" WHERE "deletedAt" IS NULL
+        `),
+        // CRM 이번달 신규 고객 수
+        prisma.$queryRaw<CountRow[]>(Prisma.sql`
+          SELECT COUNT(*)::bigint AS count FROM "Contact"
+          WHERE "deletedAt" IS NULL AND "createdAt" >= ${startOfMonth}
         `),
       ]);
 
       logger.log('[GET /api/dashboard] GLOBAL_ADMIN', { yearMonth });
       return NextResponse.json({
         ok: true, role: 'GLOBAL_ADMIN', yearMonth,
-        totalAgents:          Number(agentRows[0]?.count   ?? 0),
-        monthSaleAmount:      Number(saleRows[0]?.total    ?? 0),
-        monthRefundAmount:    Number(refundRows[0]?.total  ?? 0),
-        pendingApprovalCount: Number(pendingRows[0]?.count ?? 0),
+        totalAgents:          Number(agentRows[0]?.count      ?? 0),
+        monthSaleAmount:      Number(saleRows[0]?.total       ?? 0),
+        monthRefundAmount:    Number(refundRows[0]?.total     ?? 0),
+        pendingApprovalCount: Number(pendingRows[0]?.count    ?? 0),
         goldMemberCount:      goldCount,
-        callDueToday:         Number(callDueRows[0]?.count ?? 0),
+        callDueToday:         Number(callDueRows[0]?.count    ?? 0),
+        totalContacts:        Number(totalContactRows[0]?.count ?? 0),
+        newContactsThisMonth: Number(newContactRows[0]?.count  ?? 0),
       });
     }
 
@@ -148,10 +159,14 @@ export async function GET() {
           FROM "AffiliateSale"
           WHERE "managerId" = ${profileId} AND status IN ('PENDING','PENDING_APPROVAL')
         `),
-        prisma.$queryRaw<CountRow[]>(Prisma.sql`
-          SELECT COUNT(*)::bigint AS count FROM "CallLog"
-          WHERE ("scheduledAt"::date) = (NOW() AT TIME ZONE 'Asia/Seoul')::date
-        `),
+        ctx.organizationId
+          ? prisma.$queryRaw<CountRow[]>(Prisma.sql`
+              SELECT COUNT(*)::bigint AS count FROM "CallLog" cl
+              JOIN "Contact" c ON c.id = cl."contactId"
+              WHERE c."organizationId" = ${ctx.organizationId}
+                AND (cl."scheduledAt"::date) = (NOW() AT TIME ZONE 'Asia/Seoul')::date
+            `)
+          : Promise.resolve([{ count: BigInt(0) }] as CountRow[]),
       ]);
 
       logger.log('[GET /api/dashboard] OWNER', { profileId, yearMonth });

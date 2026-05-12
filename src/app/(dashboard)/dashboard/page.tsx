@@ -352,14 +352,20 @@ export default function DashboardPage() {
 
       {/* GLOBAL_ADMIN KPI */}
       {role === "GLOBAL_ADMIN" && data && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-          <KpiCard title="전체 판매원"  value={data.totalAgents ?? 0}          icon={<Users className="w-5 h-5" />} color="bg-navy-900" />
-          <KpiCard title="이번달 매출"  value={(data.monthSaleAmount ?? 0).toLocaleString() + "원"} icon={<TrendingUp className="w-5 h-5" />} />
-          <KpiCard title="이번달 환불"  value={(data.monthRefundAmount ?? 0).toLocaleString() + "원"} icon={<RotateCcw className="w-5 h-5" />} />
-          <KpiCard title="승인 대기"    value={data.pendingApprovalCount ?? 0} icon={<Clock className="w-5 h-5" />} />
-          <KpiCard title="골드회원"     value={data.goldMemberCount ?? 0}      icon={<Star className="w-5 h-5" />} />
-          <KpiCard title="오늘 콜"     value={data.callDueToday ?? 0}         icon={<Phone className="w-5 h-5" />} color="bg-rose-600" />
-        </div>
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-3">
+            <KpiCard title="전체 판매원"  value={data.totalAgents ?? 0}          icon={<Users className="w-5 h-5" />} color="bg-navy-900" />
+            <KpiCard title="이번달 매출"  value={(data.monthSaleAmount ?? 0).toLocaleString() + "원"} icon={<TrendingUp className="w-5 h-5" />} />
+            <KpiCard title="이번달 환불"  value={(data.monthRefundAmount ?? 0).toLocaleString() + "원"} icon={<RotateCcw className="w-5 h-5" />} />
+            <KpiCard title="승인 대기"    value={data.pendingApprovalCount ?? 0} icon={<Clock className="w-5 h-5" />} />
+            <KpiCard title="골드회원"     value={data.goldMemberCount ?? 0}      icon={<Star className="w-5 h-5" />} />
+            <KpiCard title="오늘 콜"      value={data.callDueToday ?? 0}         icon={<Phone className="w-5 h-5" />} color="bg-rose-600" />
+          </div>
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            <KpiCard title="CRM 전체 고객"     value={data.totalContacts ?? 0}        icon={<Users className="w-5 h-5" />} color="bg-emerald-600" />
+            <KpiCard title="이번달 신규 고객"  value={data.newContactsThisMonth ?? 0} icon={<TrendingUp className="w-5 h-5" />} />
+          </div>
+        </>
       )}
 
       {/* OWNER KPI — 어필리에이트 연동 있을 때 */}
