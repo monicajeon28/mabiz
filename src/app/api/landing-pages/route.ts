@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgId, resolveOrgIdOrNull } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, BONSA_ORG_ID } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 // GET /api/landing-pages
@@ -11,14 +11,55 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '이 작업을 수행할 권한이 없습니다' }, { status: 403 });
     }
     const orgId = resolveOrgIdOrNull(ctx);
+    const myOrgId = orgId ?? BONSA_ORG_ID;
 
+    // 내 페이지
     const pages = await prisma.crmLandingPage.findMany({
       where: { ...(orgId ? { organizationId: orgId } : {}) },
       orderBy: { createdAt: "desc" },
       include: { _count: { select: { registrations: true } } },
     });
 
-    return NextResponse.json({ ok: true, pages });
+    // 공유받은 페이지 (sharedToOrgId = myOrgId OR isGlobal = true)
+    const receivedShares = await prisma.crmLandingShare.findMany({
+      where: {
+        OR: [
+          { sharedToOrgId: myOrgId },
+          { isGlobal: true },
+        ],
+        // 내 페이지는 제외 (자기 자신이 소유한 페이지)
+        landingPage: {
+          organizationId: { not: myOrgId },
+        },
+      },
+      include: {
+        landingPage: {
+          include: { _count: { select: { registrations: true } } },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // 공유한 조직 이름 조회
+    const byOrgIds = [...new Set(receivedShares.map((s) => s.sharedByOrgId))];
+    const byOrgs = byOrgIds.length > 0
+      ? await prisma.organization.findMany({
+          where: { id: { in: byOrgIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const byOrgMap = Object.fromEntries(byOrgs.map((o) => [o.id, o.name]));
+
+    const sharedPages = receivedShares.map((s) => ({
+      ...s.landingPage,
+      isShared: true,
+      sharedByName: s.sharedByName,
+      sharedByOrgId: s.sharedByOrgId,
+      sharedByOrgName: byOrgMap[s.sharedByOrgId] ?? s.sharedByOrgId,
+      shareId: s.id,
+    }));
+
+    return NextResponse.json({ ok: true, pages, sharedPages });
   } catch (err) {
     logger.error("[GET /api/landing-pages]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
