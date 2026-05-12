@@ -162,6 +162,7 @@ export async function POST(req: NextRequest) {
           name:          buyerName ?? '크루즈닷 구매자',
           phone:         buyerTel,
           type:          'CUSTOMER',
+          channel:       'b2c',
           affiliateCode,
           productName:   productName ?? null,
           purchasedAt:   paidAtDate,
@@ -169,6 +170,7 @@ export async function POST(req: NextRequest) {
         update: {
           // 기존 연락처라면 구매 정보만 업데이트
           type:          'CUSTOMER',
+          channel:       'b2c',
           purchasedAt:   paidAtDate,
           productName:   productName ?? undefined,
           affiliateCode,
