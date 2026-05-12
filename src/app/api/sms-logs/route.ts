@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const contactId = searchParams.get('contactId') ?? undefined;
     const status    = searchParams.get('status')    ?? undefined;
+    const channel   = searchParams.get('channel')   ?? undefined;
     const days      = Math.min(Number(searchParams.get('days')  ?? 30), 90);
     const take      = Math.min(Number(searchParams.get('take')  ?? 50), 100);
 
@@ -43,6 +44,7 @@ export async function GET(req: NextRequest) {
           organizationId: orgId,          // ← 조직 필터 강제 (IDOR 방지)
           ...(contactId ? { contactId } : {}),
           ...(status    ? { status }    : {}),
+          ...(channel   ? { channel }   : {}),
           sentAt: { gte: since },
         },
         orderBy: { sentAt: 'desc' },

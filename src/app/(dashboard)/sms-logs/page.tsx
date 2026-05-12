@@ -55,36 +55,43 @@ function formatDate(iso: string) {
   return `${y}-${M}-${D} ${h}:${m}`;
 }
 
+type Stats = {
+  total: number; sent: number; failed: number; blocked: number; successRate: number;
+  byChannel: Record<string, number>;
+  blockReasons: { reason: string; count: number }[];
+  daily: { date: string; sent: number; failed: number; blocked: number }[];
+};
+
 export default function SmsLogsPage() {
   const [logs, setLogs] = useState<SmsLog[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [days, setDays] = useState(30);
   const [statusFilter, setStatusFilter] = useState("");
+  const [channelFilter, setChannelFilter] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams({ days: String(days), take: "50" });
     if (statusFilter) params.set("status", statusFilter);
+    if (channelFilter) params.set("channel", channelFilter);
 
     setLoading(true);
     setError(null);
 
-    fetch(`/api/sms-logs?${params.toString()}`)
-      .then((res) => res.json() as Promise<ApiResponse>)
-      .then((data) => {
-        if (!data.ok) {
-          setError(data.message ?? "데이터를 불러오는 데 실패했습니다.");
-          return;
-        }
-        setLogs(data.logs);
-        setSummary(data.summary);
-      })
-      .catch(() => {
-        setError("네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
-      })
-      .finally(() => setLoading(false));
-  }, [days, statusFilter]);
+    Promise.all([
+      fetch(`/api/sms-logs?${params.toString()}`).then((r) => r.json() as Promise<ApiResponse>),
+      fetch(`/api/sms-logs/stats?days=${days}`).then((r) => r.json()),
+    ]).then(([logData, statsData]) => {
+      if (!logData.ok) { setError(logData.message ?? "데이터 로드 실패"); return; }
+      setLogs(logData.logs);
+      setSummary(logData.summary);
+      if (statsData.ok) setStats(statsData.stats);
+    }).catch(() => {
+      setError("네트워크 오류가 발생했습니다.");
+    }).finally(() => setLoading(false));
+  }, [days, statusFilter, channelFilter]);
 
   return (
     <div className="p-6 space-y-6">
@@ -94,25 +101,105 @@ export default function SmsLogsPage() {
         <p className="text-sm text-gray-500 mt-1">최근 발송된 문자 메시지 내역입니다.</p>
       </div>
 
-      {/* 요약 카드 */}
-      {summary && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-white border rounded-lg p-4 text-center">
-            <p className="text-xs text-gray-500 mb-1">전체</p>
-            <p className="text-2xl font-bold text-gray-900">{summary.total}</p>
+      {/* 통계 대시보드 */}
+      {stats && (
+        <div className="space-y-4">
+          {/* 요약 카드 5개 */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="bg-white border rounded-lg p-4 text-center">
+              <p className="text-xs text-gray-500 mb-1">전체</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.total.toLocaleString()}</p>
+            </div>
+            <div className="bg-white border rounded-lg p-4 text-center">
+              <p className="text-xs text-gray-500 mb-1">성공</p>
+              <p className="text-2xl font-bold text-green-600">{stats.sent.toLocaleString()}</p>
+            </div>
+            <div className="bg-white border rounded-lg p-4 text-center">
+              <p className="text-xs text-gray-500 mb-1">실패</p>
+              <p className="text-2xl font-bold text-red-600">{stats.failed.toLocaleString()}</p>
+            </div>
+            <div className="bg-white border rounded-lg p-4 text-center">
+              <p className="text-xs text-gray-500 mb-1">차단</p>
+              <p className="text-2xl font-bold text-yellow-600">{stats.blocked.toLocaleString()}</p>
+            </div>
+            <div className="bg-white border rounded-lg p-4 text-center">
+              <p className="text-xs text-gray-500 mb-1">성공률</p>
+              <p className="text-2xl font-bold text-blue-600">{stats.successRate}%</p>
+            </div>
           </div>
-          <div className="bg-white border rounded-lg p-4 text-center">
-            <p className="text-xs text-gray-500 mb-1">성공</p>
-            <p className="text-2xl font-bold text-green-600">{summary.sent}</p>
+
+          {/* 채널별 + 차단 사유 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* 채널별 발송 */}
+            <div className="bg-white border rounded-lg p-4">
+              <p className="text-sm font-medium text-gray-700 mb-3">채널별 발송</p>
+              <div className="space-y-2">
+                {Object.entries(stats.byChannel).map(([ch, cnt]) => {
+                  const pct = stats.total > 0 ? Math.round((cnt / stats.total) * 100) : 0;
+                  return (
+                    <div key={ch} className="flex items-center gap-3">
+                      <span className="text-xs font-medium text-gray-600 w-12">{CHANNEL_LABEL[ch] ?? ch}</span>
+                      <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
+                        <div className="bg-blue-500 h-full rounded-full transition-all" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-xs text-gray-500 w-16 text-right">{cnt.toLocaleString()} ({pct}%)</span>
+                    </div>
+                  );
+                })}
+                {Object.keys(stats.byChannel).length === 0 && (
+                  <p className="text-xs text-gray-400">데이터 없음</p>
+                )}
+              </div>
+            </div>
+
+            {/* 차단 사유 TOP */}
+            <div className="bg-white border rounded-lg p-4">
+              <p className="text-sm font-medium text-gray-700 mb-3">차단 사유</p>
+              <div className="space-y-2">
+                {stats.blockReasons.map((r) => (
+                  <div key={r.reason} className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">
+                      {r.reason === "OPT_OUT" ? "수신거부" : r.reason === "NIGHT_BLOCK" ? "야간차단" : r.reason}
+                    </span>
+                    <span className="text-sm font-semibold text-yellow-600">{r.count}건</span>
+                  </div>
+                ))}
+                {stats.blockReasons.length === 0 && (
+                  <p className="text-xs text-gray-400">차단 건 없음</p>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="bg-white border rounded-lg p-4 text-center">
-            <p className="text-xs text-gray-500 mb-1">실패</p>
-            <p className="text-2xl font-bold text-red-600">{summary.failed}</p>
-          </div>
-          <div className="bg-white border rounded-lg p-4 text-center">
-            <p className="text-xs text-gray-500 mb-1">차단</p>
-            <p className="text-2xl font-bold text-yellow-600">{summary.blocked}</p>
-          </div>
+
+          {/* 일별 추이 (텍스트 기반 — 간단한 바 차트) */}
+          {stats.daily.length > 0 && (
+            <div className="bg-white border rounded-lg p-4">
+              <p className="text-sm font-medium text-gray-700 mb-3">일별 발송 추이 (최근 {days}일)</p>
+              <div className="space-y-1 max-h-64 overflow-y-auto">
+                {stats.daily.slice(-14).map((d) => {
+                  const dayTotal = d.sent + d.failed + d.blocked;
+                  const maxVal = Math.max(...stats.daily.slice(-14).map((x) => x.sent + x.failed + x.blocked), 1);
+                  const pct = Math.round((dayTotal / maxVal) * 100);
+                  return (
+                    <div key={d.date} className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-20 shrink-0">{d.date.slice(5)}</span>
+                      <div className="flex-1 flex h-4 rounded overflow-hidden bg-gray-100">
+                        <div className="bg-green-400" style={{ width: `${dayTotal > 0 ? (d.sent / maxVal) * 100 : 0}%` }} />
+                        <div className="bg-red-400" style={{ width: `${dayTotal > 0 ? (d.failed / maxVal) * 100 : 0}%` }} />
+                        <div className="bg-yellow-400" style={{ width: `${dayTotal > 0 ? (d.blocked / maxVal) * 100 : 0}%` }} />
+                      </div>
+                      <span className="text-xs text-gray-400 w-10 text-right">{dayTotal}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex gap-4 mt-2 text-xs text-gray-400">
+                <span className="flex items-center gap-1"><span className="w-3 h-3 bg-green-400 rounded" />성공</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 bg-red-400 rounded" />실패</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 bg-yellow-400 rounded" />차단</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -134,15 +221,22 @@ export default function SmsLogsPage() {
         </div>
         <div className="flex items-center gap-2">
           <label className="text-sm text-gray-600 whitespace-nowrap">상태</label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="border rounded-md px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+            className="border rounded-md px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">전체</option>
             <option value="SENT">성공</option>
             <option value="FAILED">실패</option>
             <option value="BLOCKED">차단</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-600 whitespace-nowrap">채널</label>
+          <select value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)}
+            className="border rounded-md px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">전체</option>
+            <option value="FUNNEL">퍼널</option>
+            <option value="GROUP">그룹</option>
+            <option value="MANUAL">수동</option>
           </select>
         </div>
       </div>
