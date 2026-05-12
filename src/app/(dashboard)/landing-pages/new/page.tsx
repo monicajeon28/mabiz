@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ImageIcon, Code, Upload, X, GripVertical, Plus, Trash2, Smartphone } from "lucide-react";
 import dynamic from "next/dynamic";
+import { ImageLibraryModal } from "@/components/image-library/ImageLibraryModal";
 
 const HtmlEditor = dynamic(
   () => import("@/components/editor/HtmlEditor").then((m) => m.HtmlEditor),
@@ -12,8 +13,39 @@ const HtmlEditor = dynamic(
 
 type UploadedImage = {
   id: string; assetId: string; url: string; driveFileId: string;
+  fullUrl?: string;  // 라이브러리 이미지는 원본 URL 별도 보관
   width: number; height: number; mimeType: string; fileName: string; sortOrder: number;
 };
+
+/** 라이브러리 HTML에서 Drive fileId + 썸네일 URL 추출 */
+function extractDriveInfo(html: string): { url: string; driveFileId: string; fullUrl: string } | null {
+  const srcset = html.match(/srcset="([^"]+)"/)?.[1];
+  const src    = html.match(/src="([^"]+)"/)?.[1];
+  const rawUrl = srcset ?? src;
+  if (!rawUrl) return null;
+  try {
+    const u = new URL(rawUrl);
+    // drive.google.com/thumbnail?id=FILE_ID
+    if (u.hostname === "drive.google.com" && u.searchParams.get("id")) {
+      const fileId = u.searchParams.get("id")!;
+      return {
+        url:         `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`,
+        fullUrl:     `https://drive.google.com/thumbnail?id=${fileId}&sz=w1920`,
+        driveFileId: fileId,
+      };
+    }
+    // lh3.googleusercontent.com/d/FILE_ID=w...
+    if (u.hostname === "lh3.googleusercontent.com") {
+      const fileId = u.pathname.split("/d/")[1]?.split("=")[0] ?? "";
+      if (fileId) return {
+        url:         `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`,
+        fullUrl:     `https://drive.google.com/thumbnail?id=${fileId}&sz=w1920`,
+        driveFileId: fileId,
+      };
+    }
+    return null;
+  } catch { return null; }
+}
 type FieldToggle = { enabled: boolean; required: boolean };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -42,6 +74,7 @@ export default function NewLandingPage() {
   const [uploading, setUploading]   = useState(false);
   const [savedPageId, setSavedPageId] = useState<string | null>(null);
   const [dragIdx, setDragIdx]       = useState<number | null>(null);
+  const [showLibrary, setShowLibrary] = useState(false);
 
   // 결제
   const [paymentEnabled, setPaymentEnabled] = useState(false);
@@ -234,6 +267,29 @@ ${formBlock}
     setImages((prev) => prev.filter((i) => i.id !== id));
   };
 
+  // 이미지 라이브러리에서 선택 시
+  const handleLibraryInsert = useCallback((html: string) => {
+    if (editorMode === "html") {
+      // HTML 에디터 모드: 코드 끝에 삽입
+      setHtml((prev) => prev + "\n" + html);
+      return;
+    }
+    // 이미지 모드: Drive URL 파싱 → images 배열에 추가
+    const info = extractDriveInfo(html);
+    if (!info) return;
+    setImages((prev) => [...prev, {
+      id:          crypto.randomUUID(),
+      assetId:     info.driveFileId,
+      url:         info.url,
+      fullUrl:     info.fullUrl,
+      driveFileId: info.driveFileId,
+      width: 0, height: 0,
+      mimeType:    "image/webp",
+      fileName:    "라이브러리 이미지",
+      sortOrder:   prev.length,
+    }]);
+  }, [editorMode]);
+
   // ──────────────────────────────────────────────
   // 저장
   // ──────────────────────────────────────────────
@@ -259,7 +315,8 @@ ${formBlock}
       const pageId = savedPageId || (await ensurePage());
       if (!pageId) { setSaving(false); return; }
       const imgTags = images.map((img) => {
-        const src = `https://lh3.googleusercontent.com/d/${img.driveFileId}=w1200`;
+        const src = img.fullUrl
+          ?? `https://drive.google.com/thumbnail?id=${img.driveFileId}&sz=w1920`;
         const ar  = img.width && img.height ? `aspect-ratio:${img.width}/${img.height};` : "";
         return `<img src="${src}" alt="" style="width:100%;display:block;${ar}" loading="lazy">`;
       }).join("\n");
@@ -357,6 +414,15 @@ ${formBlock}
                   <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
                     onChange={(e) => { if (e.target.files) uploadFiles(e.target.files); e.target.value = ""; }} />
                 </div>
+                {/* 라이브러리에서 추가 */}
+                <button
+                  type="button"
+                  onClick={() => setShowLibrary(true)}
+                  className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-200 bg-white rounded-xl text-sm font-medium text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  Drive 라이브러리에서 추가
+                </button>
                 {images.length > 0 && (
                   <div className="mt-4 space-y-2">
                     <p className="text-xs font-medium text-gray-500">이미지 {images.length}장 · 드래그로 순서 변경</p>
@@ -565,6 +631,12 @@ ${formBlock}
         </div>
       </div>
 
+    {/* 이미지 라이브러리 모달 */}
+    <ImageLibraryModal
+      open={showLibrary}
+      onClose={() => setShowLibrary(false)}
+      onInsert={handleLibraryInsert}
+    />
     </div>
   );
 }
