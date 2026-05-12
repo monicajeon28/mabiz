@@ -322,11 +322,11 @@ export async function GET(req: NextRequest) {
     const saleManagerParams: unknown[] = [];
     if (from) {
       saleManagerParams.push(from);
-      saleManagerQuery += ` AND "confirmedAt" >= $${saleManagerParams.length}`;
+      saleManagerQuery += ` AND "createdAt" >= $${saleManagerParams.length}`;
     }
     if (to) {
       saleManagerParams.push(to);
-      saleManagerQuery += ` AND "confirmedAt" <= $${saleManagerParams.length}`;
+      saleManagerQuery += ` AND "createdAt" <= $${saleManagerParams.length}`;
     }
     saleManagerQuery += ` GROUP BY "managerId"`;
     const saleGroups = await prisma.$queryRawUnsafe<SaleGroupRow[]>(saleManagerQuery, ...saleManagerParams);
@@ -351,11 +351,11 @@ export async function GET(req: NextRequest) {
       const saleAgentParams: unknown[] = [];
       if (from) {
         saleAgentParams.push(from);
-        saleAgentQuery += ` AND "confirmedAt" >= $${saleAgentParams.length}`;
+        saleAgentQuery += ` AND "createdAt" >= $${saleAgentParams.length}`;
       }
       if (to) {
         saleAgentParams.push(to);
-        saleAgentQuery += ` AND "confirmedAt" <= $${saleAgentParams.length}`;
+        saleAgentQuery += ` AND "createdAt" <= $${saleAgentParams.length}`;
       }
       saleAgentQuery += ` GROUP BY "agentId"`;
       saleAgentGroups = await prisma.$queryRawUnsafe<SaleAgentGroupRow[]>(saleAgentQuery, ...saleAgentParams);
@@ -580,9 +580,12 @@ export async function GET(req: NextRequest) {
             acc.overrideWithholding += withholding;
           }
           if (row.entryType === 'WITHHOLDING') {
-            if (row.isSettled) acc.withholdingSettled += amount;
-            else acc.withholdingPending += amount;
-            acc.withholdingAdjustments += amount;
+            if (row.isSettled) {
+              acc.withholdingSettled += amount;
+            } else {
+              acc.withholdingPending += amount;
+              acc.withholdingAdjustments += amount; // 미지급분만
+            }
           }
           acc.withholding += withholding;
           return acc;
