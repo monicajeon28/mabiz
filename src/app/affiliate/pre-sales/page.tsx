@@ -3,9 +3,14 @@
 /**
  * /affiliate/pre-sales — 크루즈닷 파트너스 가입 신청 (공개 페이지, 인증 불필요)
  * 프리랜서 용역계약서 형식
+ *
+ * URL 파라미터:
+ *   ?agent=홍길동&agency=강남대리점&agentPhone=010-1234-5678
+ *   → 대리점장 소개 모드 자동 활성화 (어필리에이트 링크)
  */
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 
 const COMPANY = {
@@ -82,7 +87,7 @@ function getContractBody(params: {
 ① 갑은 을의 영업 성과에 따라 다음의 기준으로 용역 보수를 지급한다.
    - 기본 수수료 : 판매 금액의 1% ~ 5% (성과 및 등급에 따라 차등 적용)
    - 수수료율은 갑과 을이 별도 협의하여 결정하며, 갑의 내부 정책에 따라 조정될 수 있다.
-② 정산은 매월 말일 기준으로 익월 15일 이내에 지급한다.
+② 보수는 해당 크루즈 상품의 출발일에 지급한다.
 ③ 을이 제공한 정산 계좌 정보가 불일치하는 경우 지급이 보류될 수 있다.
 ④ 가입비·보증금 등 선납 비용은 없다.
 
@@ -99,7 +104,7 @@ function getContractBody(params: {
 ① 갑이 제공하는 모든 마케팅 자료, 이미지, 영상, 텍스트, 교육 자료 등의 저작권은 갑에게 귀속된다.
 ② 을은 갑의 콘텐츠를 갑의 사전 서면 동의 없이 복제·수정·배포·판매하거나 타 플랫폼에 게시할 수 없다.
 ③ 을이 본 조를 위반할 경우, 갑은 을에 대해 즉시 계약을 해지하고, 손해배상 및 위약벌을 청구할 수 있다.
-   - 위약벌 : 위반 행위 1건당 금 삼백만 원(₩3,000,000) 이상
+   - 위약벌 : 위반 행위 1건당 금 삼천만 원(₩30,000,000) 이상
 ④ 계약 해지 이후에도 취득한 콘텐츠의 무단사용 금지 의무는 유효하다.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -141,7 +146,7 @@ function getContractBody(params: {
 
 ${dateStr}
 
-갑 : 크루즈닷         대표 배연성  (인)
+갑 : 크루즈닷 대표 배연성  (인)
 을 : ${name || '          '}          (서명)
 `;
 }
@@ -258,11 +263,12 @@ interface FileUploadProps {
   label: string;
   required?: boolean;
   hint?: string;
+  securityNote?: string;
   onChange: (dataUrl: string | null) => void;
   preview: string | null;
 }
 
-function FileUpload({ label, required, hint, onChange, preview }: FileUploadProps) {
+function FileUpload({ label, required, hint, securityNote, onChange, preview }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (file: File | undefined) => {
@@ -290,7 +296,7 @@ function FileUpload({ label, required, hint, onChange, preview }: FileUploadProp
       <label className="block text-sm font-medium text-gray-700 mb-1">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
-      {hint && <p className="text-xs text-gray-400 mb-2">{hint}</p>}
+      {hint && <p className="text-xs text-gray-500 mb-1.5">{hint}</p>}
       {preview ? (
         <div className="relative border border-gray-200 rounded-xl overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -307,7 +313,7 @@ function FileUpload({ label, required, hint, onChange, preview }: FileUploadProp
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="w-full border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-400 hover:bg-blue-50 transition-all group"
+          className="w-full border-2 border-dashed border-gray-300 rounded-xl p-5 text-center hover:border-blue-400 hover:bg-blue-50 transition-all group"
         >
           <div className="w-10 h-10 bg-gray-100 group-hover:bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2 transition">
             <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -326,13 +332,29 @@ function FileUpload({ label, required, hint, onChange, preview }: FileUploadProp
         className="hidden"
         onChange={(e) => handleFile(e.target.files?.[0])}
       />
+      {securityNote && (
+        <div className="mt-2 flex items-start gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+          <svg className="w-3.5 h-3.5 text-slate-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <p className="text-xs text-slate-500 leading-relaxed">{securityNote}</p>
+        </div>
+      )}
     </div>
   );
 }
 
-// ── 메인 컴포넌트 ────────────────────────────────────────────────────
+// ── 메인 컴포넌트 (내부) ─────────────────────────────────────────────
 
-export default function CruiseDotPartnersPage() {
+function CruiseDotPartnersForm() {
+  const searchParams = useSearchParams();
+
+  // URL 파라미터로 어필리에이트 링크 자동 처리
+  const agentParam = searchParams.get('agent') ?? '';
+  const agencyParam = searchParams.get('agency') ?? '';
+  const agentPhoneParam = searchParams.get('agentPhone') ?? '';
+  const hasAgentParam = agentParam.length > 0;
+
   const [step, setStep] = useState<Step>('form');
   const [resultId, setResultId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -347,6 +369,14 @@ export default function CruiseDotPartnersPage() {
   const [address, setAddress] = useState('');
   const [residentId, setResidentId] = useState('');
 
+  // SNS 채널
+  const [snsYoutube, setSnsYoutube] = useState('');
+  const [snsBlog, setSnsBlog] = useState('');
+  const [snsInstagram, setSnsInstagram] = useState('');
+  const [snsKakao, setSnsKakao] = useState('');
+  const [snsEtc, setSnsEtc] = useState('');
+  const [applyNote, setApplyNote] = useState('');
+
   // 정산 계좌
   const [bankName, setBankName] = useState('');
   const [bankAccount, setBankAccount] = useState('');
@@ -356,11 +386,11 @@ export default function CruiseDotPartnersPage() {
   // 신분증
   const [idPhoto, setIdPhoto] = useState<string | null>(null);
 
-  // 담당 대리점장
-  const [useSupervisor, setUseSupervisor] = useState(false);
-  const [supervisorName, setSupervisorName] = useState('');
-  const [supervisorAgency, setSupervisorAgency] = useState('');
-  const [supervisorPhone, setSupervisorPhone] = useState('');
+  // 담당 대리점장 (URL 파라미터로 자동 설정)
+  const useSupervisor = hasAgentParam;
+  const supervisorName = agentParam;
+  const supervisorAgency = agencyParam;
+  const supervisorPhone = agentPhoneParam;
 
   // 서명
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
@@ -368,11 +398,11 @@ export default function CruiseDotPartnersPage() {
 
   // 동의
   const [consents, setConsents] = useState({
-    privacy: false,      // 개인정보 처리 동의
-    contract: false,     // 계약서 전체 내용 확인 및 동의
-    commission: false,   // 수수료 및 정산 조건 동의
-    autoTerminate: false, // 자동해지 조건 동의
-    brandProtect: false, // 해지 후 브랜드보호 / 콘텐츠보호 동의
+    privacy: false,
+    contract: false,
+    commission: false,
+    autoTerminate: false,
+    brandProtect: false,
   });
 
   const allConsents = Object.values(consents).every(Boolean);
@@ -423,6 +453,13 @@ export default function CruiseDotPartnersPage() {
       return;
     }
 
+    const snsChannels: Record<string, string> = {};
+    if (snsYoutube.trim()) snsChannels.youtube = snsYoutube.trim();
+    if (snsBlog.trim()) snsChannels.blog = snsBlog.trim();
+    if (snsInstagram.trim()) snsChannels.instagram = snsInstagram.trim();
+    if (snsKakao.trim()) snsChannels.kakao = snsKakao.trim();
+    if (snsEtc.trim()) snsChannels.etc = snsEtc.trim();
+
     setIsSubmitting(true);
     try {
       const res = await fetch('/api/affiliate/contracts', {
@@ -448,9 +485,11 @@ export default function CruiseDotPartnersPage() {
             signName: signName.trim() || undefined,
             idPhotoUrl: idPhoto || undefined,
             bankBookUrl: bankBookPhoto || undefined,
-            supervisorName: useSupervisor ? supervisorName.trim() : undefined,
-            supervisorAgency: useSupervisor ? supervisorAgency.trim() : undefined,
-            supervisorPhone: useSupervisor ? supervisorPhone.trim() : undefined,
+            snsChannels: Object.keys(snsChannels).length > 0 ? snsChannels : undefined,
+            applyNote: applyNote.trim() || undefined,
+            supervisorName: useSupervisor ? supervisorName : undefined,
+            supervisorAgency: useSupervisor ? supervisorAgency : undefined,
+            supervisorPhone: useSupervisor ? supervisorPhone : undefined,
           },
         }),
       });
@@ -500,9 +539,9 @@ export default function CruiseDotPartnersPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
         <div className="max-w-xl mx-auto px-4 py-3 flex items-center gap-3">
-          <div className="relative w-10 h-10 flex-shrink-0">
+          <div className="relative w-9 h-9 flex-shrink-0">
             <Image
               src={COMPANY.logo}
               alt="크루즈닷 파트너스"
@@ -511,41 +550,77 @@ export default function CruiseDotPartnersPage() {
               onError={() => {}}
             />
           </div>
-          <div>
-            <h1 className="text-base font-bold text-gray-900">크루즈닷 파트너스</h1>
+          <div className="min-w-0">
+            <h1 className="text-sm font-bold text-gray-900 leading-tight">크루즈닷 파트너스</h1>
             <p className="text-xs text-gray-500">프리랜서 용역 계약 신청서</p>
           </div>
+          {useSupervisor && (
+            <div className="ml-auto flex-shrink-0 bg-blue-50 border border-blue-200 rounded-lg px-2 py-1">
+              <p className="text-xs text-blue-700 font-medium">{supervisorName} 대리점</p>
+            </div>
+          )}
         </div>
       </header>
 
       <form onSubmit={handleSubmit} className="max-w-xl mx-auto px-4 py-6 space-y-5">
 
         {/* 안내 배너 */}
-        <div className="bg-gradient-to-r from-blue-700 to-indigo-700 rounded-2xl p-5 text-white">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 relative flex-shrink-0 mt-0.5">
+        <div className="bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-900 rounded-2xl p-5 text-white shadow-lg">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 relative flex-shrink-0 bg-white/10 rounded-xl p-1">
               <Image
                 src={COMPANY.logo}
                 alt="크루즈닷"
                 fill
-                className="object-contain brightness-200"
+                className="object-contain"
                 onError={() => {}}
               />
             </div>
             <div>
-              <h2 className="text-lg font-bold mb-1">크루즈닷 파트너스 신청</h2>
-              <p className="text-blue-100 text-sm leading-relaxed">
-                크루즈닷 파트너스로 활동하시면 크루즈 상품 홍보·판매 수수료(1~5%)를 받으실 수 있습니다.<br />
-                가입비·보증금 없음. 타사 영업 가능.
-              </p>
+              <h2 className="text-lg font-bold leading-tight">크루즈닷 파트너스 신청</h2>
+              <p className="text-blue-200 text-xs">Cruise Dot Partners Program</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2 mt-1">
+            <div className="bg-white/10 rounded-xl p-2.5 text-center">
+              <p className="text-white font-bold text-sm">1~5%</p>
+              <p className="text-blue-200 text-xs mt-0.5">판매 수수료</p>
+            </div>
+            <div className="bg-white/10 rounded-xl p-2.5 text-center">
+              <p className="text-white font-bold text-sm">가입비 없음</p>
+              <p className="text-blue-200 text-xs mt-0.5">보증금 없음</p>
+            </div>
+            <div className="bg-white/10 rounded-xl p-2.5 text-center">
+              <p className="text-white font-bold text-sm">타사 겸업</p>
+              <p className="text-blue-200 text-xs mt-0.5">허용</p>
             </div>
           </div>
         </div>
 
+        {/* 담당자 안내 (URL 파라미터 또는 본사) */}
+        <div className={`rounded-xl p-4 border ${useSupervisor ? 'bg-teal-50 border-teal-200' : 'bg-gray-50 border-gray-200'}`}>
+          <div className="flex items-center gap-2">
+            <svg className={`w-4 h-4 ${useSupervisor ? 'text-teal-600' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            <p className={`text-sm font-semibold ${useSupervisor ? 'text-teal-800' : 'text-gray-700'}`}>
+              {useSupervisor ? '담당 대리점장' : '담당: 본사 직속'}
+            </p>
+          </div>
+          {useSupervisor ? (
+            <div className="mt-2 text-sm text-teal-700 space-y-0.5">
+              <p>{supervisorName}{supervisorAgency ? ` · ${supervisorAgency}` : ''}</p>
+              {supervisorPhone && <p className="text-teal-600">{supervisorPhone}</p>}
+            </div>
+          ) : (
+            <p className="mt-1 text-xs text-gray-500">문의: {COMPANY.phone}</p>
+          )}
+        </div>
+
         {/* ① 신청자 정보 */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-blue-700 px-6 py-4">
-            <h2 className="text-white font-bold text-base">① 신청자 정보</h2>
+          <div className="bg-blue-700 px-5 py-3.5">
+            <h2 className="text-white font-bold text-sm">① 신청자 정보</h2>
           </div>
           <div className="p-5 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -604,15 +679,79 @@ export default function CruiseDotPartnersPage() {
                 maxLength={14}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-mono"
               />
-              <p className="text-xs text-gray-400 mt-1">정산 및 프리랜서 용역 소득세 신고 목적으로만 사용됩니다.</p>
+              <p className="text-xs text-gray-400 mt-1">
+                프리랜서 용역 소득세 신고(원천징수) 목적으로만 수집됩니다. (소득세법 제145조)
+              </p>
             </div>
           </div>
         </section>
 
-        {/* ② 정산 계좌 */}
+        {/* ② SNS 채널 & 지원동기 */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-indigo-700 px-6 py-4">
-            <h2 className="text-white font-bold text-base">② 정산 계좌</h2>
+          <div className="bg-violet-700 px-5 py-3.5">
+            <h2 className="text-white font-bold text-sm">② SNS 채널 & 지원동기</h2>
+            <p className="text-violet-200 text-xs mt-0.5">포트폴리오 및 활동 채널을 알려주세요 (선택)</p>
+          </div>
+          <div className="p-5 space-y-3">
+            {/* SNS 링크들 */}
+            {[
+              { key: 'youtube', label: '유튜브', placeholder: 'https://youtube.com/@...', value: snsYoutube, setter: setSnsYoutube, color: 'text-red-500', icon: (
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+              )},
+              { key: 'instagram', label: '인스타그램', placeholder: 'https://instagram.com/...', value: snsInstagram, setter: setSnsInstagram, color: 'text-pink-500', icon: (
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+              )},
+              { key: 'blog', label: '블로그', placeholder: 'https://blog.naver.com/...', value: snsBlog, setter: setSnsBlog, color: 'text-green-600', icon: (
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+              )},
+              { key: 'kakao', label: '카카오채널', placeholder: 'https://pf.kakao.com/...', value: snsKakao, setter: setSnsKakao, color: 'text-yellow-600', icon: (
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3C6.477 3 2 6.477 2 10.8c0 2.742 1.579 5.153 3.969 6.636L4.89 21l4.394-2.303C10.083 18.88 11.02 19 12 19c5.523 0 10-3.582 10-8S17.523 3 12 3z"/></svg>
+              )},
+            ].map((item) => (
+              <div key={item.key}>
+                <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1.5">
+                  <span className={item.color}>{item.icon}</span>
+                  {item.label}
+                </label>
+                <input
+                  type="url"
+                  value={item.value}
+                  onChange={(e) => item.setter(e.target.value)}
+                  placeholder={item.placeholder}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-violet-400 focus:border-violet-400 outline-none bg-gray-50"
+                />
+              </div>
+            ))}
+
+            {/* 기타 */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">기타 채널 / 링크</label>
+              <input
+                type="text"
+                value={snsEtc}
+                onChange={(e) => setSnsEtc(e.target.value)}
+                placeholder="틱톡, 네이버카페, 홈페이지 등"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-violet-400 focus:border-violet-400 outline-none bg-gray-50"
+              />
+            </div>
+
+            <div className="border-t border-gray-100 pt-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">지원 동기</label>
+              <textarea
+                value={applyNote}
+                onChange={(e) => setApplyNote(e.target.value)}
+                placeholder="크루즈닷 파트너스에 지원하신 동기나 활동 계획을 간단히 적어주세요 (선택)"
+                rows={3}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-violet-400 focus:border-violet-400 outline-none resize-none bg-gray-50"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* ③ 정산 계좌 */}
+        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="bg-indigo-700 px-5 py-3.5">
+            <h2 className="text-white font-bold text-sm">③ 정산 계좌</h2>
           </div>
           <div className="p-5 space-y-4">
             <div className="grid grid-cols-2 gap-3">
@@ -649,107 +788,47 @@ export default function CruiseDotPartnersPage() {
             </div>
             <FileUpload
               label="통장 사본 사진"
-              hint="통장 앞면 전체가 보이도록 촬영해 주세요"
+              hint="통장 앞면 전체가 보이도록 촬영해 주세요 (계좌번호·예금주 명확히 보이게)"
+              securityNote="본 서류는 수수료 정산 및 세무 신고 목적으로만 수집됩니다. AES-256 암호화 및 접근 권한 제어(RBAC) 기반의 보안 스토리지에 보관되며, 「개인정보 보호법」 제29조에 따른 안전성 확보 조치가 적용됩니다."
               onChange={setBankBookPhoto}
               preview={bankBookPhoto}
             />
           </div>
         </section>
 
-        {/* ③ 신분증 */}
+        {/* ④ 본인 확인 */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-slate-700 px-6 py-4">
-            <h2 className="text-white font-bold text-base">③ 본인 확인</h2>
+          <div className="bg-slate-700 px-5 py-3.5">
+            <h2 className="text-white font-bold text-sm">④ 본인 확인 (법적 인증)</h2>
           </div>
-          <div className="p-5">
+          <div className="p-5 space-y-3">
+            {/* 안내 박스 */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                <p className="text-sm font-semibold text-amber-800">법적 본인인증 서류</p>
+              </div>
+              <p className="text-xs text-amber-700 leading-relaxed">
+                신분증 사본은 프리랜서 용역계약의 <strong>법적 효력 발생</strong> 및 「소득세법」상 원천징수 신고를 위한 필수 서류입니다.
+                수집된 서류는 계약 목적 외 사용이 엄격히 금지되며, SSAS(Server-Side AES Secure Storage) 방식으로 암호화 보관됩니다.
+              </p>
+            </div>
             <FileUpload
               label="신분증 사진"
-              hint="주민등록증 또는 운전면허증 · 이름·주민번호·사진이 모두 보이도록 촬영해 주세요"
+              hint="주민등록증 또는 운전면허증 · 이름·주민번호·사진이 모두 보이도록 촬영"
+              securityNote="AES-256-CBC 암호화 · RBAC 접근제어 · 「개인정보 보호법」 제24조(고유식별정보) 준수 · 계약 종료 후 5년 보관 후 파기"
               onChange={setIdPhoto}
               preview={idPhoto}
             />
           </div>
         </section>
 
-        {/* ④ 담당 대리점장 */}
-        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-teal-700 px-6 py-4">
-            <h2 className="text-white font-bold text-base">④ 담당 대리점장</h2>
-          </div>
-          <div className="p-5 space-y-4">
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setUseSupervisor(false)}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                  !useSupervisor
-                    ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
-                    : 'bg-white text-gray-600 border-gray-300 hover:border-teal-400'
-                }`}
-              >
-                본사 직속
-              </button>
-              <button
-                type="button"
-                onClick={() => setUseSupervisor(true)}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                  useSupervisor
-                    ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
-                    : 'bg-white text-gray-600 border-gray-300 hover:border-teal-400'
-                }`}
-              >
-                대리점장 소개
-              </button>
-            </div>
-
-            {!useSupervisor && (
-              <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 text-sm text-teal-800">
-                <p className="font-medium">본사 직속으로 가입됩니다.</p>
-                <p className="text-teal-600 text-xs mt-1">문의: {COMPANY.phone}</p>
-              </div>
-            )}
-
-            {useSupervisor && (
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">대리점장 이름</label>
-                  <input
-                    type="text"
-                    value={supervisorName}
-                    onChange={(e) => setSupervisorName(e.target.value)}
-                    placeholder="홍길동"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">대리점명</label>
-                  <input
-                    type="text"
-                    value={supervisorAgency}
-                    onChange={(e) => setSupervisorAgency(e.target.value)}
-                    placeholder="OO 대리점"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">대리점장 연락처</label>
-                  <input
-                    type="tel"
-                    value={supervisorPhone}
-                    onChange={(e) => setSupervisorPhone(e.target.value)}
-                    placeholder="010-0000-0000"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-
         {/* ⑤ 계약서 확인 */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-gray-800 px-6 py-4 flex items-center justify-between">
-            <h2 className="text-white font-bold text-base">⑤ 계약서 확인</h2>
+          <div className="bg-gray-800 px-5 py-3.5 flex items-center justify-between">
+            <h2 className="text-white font-bold text-sm">⑤ 계약서 확인</h2>
             {contractRead && (
               <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-medium">확인 완료</span>
             )}
@@ -759,12 +838,12 @@ export default function CruiseDotPartnersPage() {
             <div className="p-5">
               <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm text-gray-600 space-y-2">
                 <p className="font-semibold text-gray-800">크루즈닷 파트너스 프리랜서 용역계약서</p>
-                <ul className="text-xs space-y-1 text-gray-500">
-                  <li>• 제3조 타사 영업 허용</li>
-                  <li>• 제4조 콘텐츠 보호 및 무단도용 금지 (위약벌 건당 300만원~)</li>
-                  <li>• 제5조 5개월 무매출 시 자동 해지</li>
-                  <li>• 제6조 수수료 1~5%</li>
-                  <li>• 제7조 해지 후 2년 브랜드보호 의무</li>
+                <ul className="text-xs space-y-1.5 text-gray-500">
+                  <li className="flex items-start gap-1.5"><span className="text-blue-400 mt-0.5">•</span> 제3조 보수 및 정산 · 수수료 1~5%, 출발일 지급</li>
+                  <li className="flex items-start gap-1.5"><span className="text-blue-400 mt-0.5">•</span> 제4조 타사 영업 허용</li>
+                  <li className="flex items-start gap-1.5"><span className="text-red-400 mt-0.5">•</span> 제5조 콘텐츠 무단도용 금지 · 위약벌 건당 3,000만원</li>
+                  <li className="flex items-start gap-1.5"><span className="text-orange-400 mt-0.5">•</span> 제6조 5개월 무매출 시 자동 해지</li>
+                  <li className="flex items-start gap-1.5"><span className="text-orange-400 mt-0.5">•</span> 제7조 해지 후 2년 브랜드보호 의무</li>
                 </ul>
               </div>
               <button
@@ -777,49 +856,26 @@ export default function CruiseDotPartnersPage() {
             </div>
           ) : (
             <div className="p-4">
-              {/* 계약서 본문 */}
               <div
                 className="h-80 overflow-y-auto border border-gray-200 rounded-xl bg-gray-50 p-4"
                 onScroll={handleContractScroll}
               >
-                {/* 로고 + 도장 영역 */}
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
-                  <div className="relative w-24 h-12">
-                    <Image
-                      src={COMPANY.logo}
-                      alt="크루즈닷 파트너스"
-                      fill
-                      className="object-contain"
-                      onError={() => {}}
-                    />
+                  <div className="relative w-24 h-10">
+                    <Image src={COMPANY.logo} alt="크루즈닷 파트너스" fill className="object-contain" onError={() => {}} />
                   </div>
                   <div className="flex gap-2">
-                    <div className="relative w-14 h-14 opacity-70">
-                      <Image
-                        src={COMPANY.cruiseStamp}
-                        alt="크루즈닷 도장"
-                        fill
-                        className="object-contain"
-                        onError={() => {}}
-                      />
+                    <div className="relative w-12 h-12 opacity-75">
+                      <Image src={COMPANY.cruiseStamp} alt="크루즈닷 도장" fill className="object-contain" onError={() => {}} />
                     </div>
                   </div>
                 </div>
-                <pre className="whitespace-pre-wrap text-xs text-gray-700 font-mono leading-relaxed">
-                  {contractBody}
-                </pre>
-                {/* 서명 미리보기 영역 */}
+                <pre className="whitespace-pre-wrap text-xs text-gray-700 font-mono leading-relaxed">{contractBody}</pre>
                 <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-end">
                   <div className="text-xs text-gray-500">
-                    <p>갑: 크루즈닷 배연성</p>
-                    <div className="relative w-16 h-16 mt-1 opacity-80">
-                      <Image
-                        src={COMPANY.stamp}
-                        alt="배연성 도장"
-                        fill
-                        className="object-contain"
-                        onError={() => {}}
-                      />
+                    <p>갑: 크루즈닷 대표 배연성</p>
+                    <div className="relative w-14 h-14 mt-1 opacity-80">
+                      <Image src={COMPANY.stamp} alt="배연성 도장" fill className="object-contain" onError={() => {}} />
                     </div>
                   </div>
                   <div className="text-xs text-gray-500 text-right">
@@ -832,9 +888,7 @@ export default function CruiseDotPartnersPage() {
                 </div>
               </div>
               {!contractRead && (
-                <p className="text-xs text-gray-400 text-center mt-2">
-                  스크롤하여 계약서 전체를 읽어주세요
-                </p>
+                <p className="text-xs text-gray-400 text-center mt-2">스크롤하여 계약서 전체를 읽어주세요</p>
               )}
               {contractRead && (
                 <div className="mt-3">
@@ -845,9 +899,7 @@ export default function CruiseDotPartnersPage() {
                       onChange={(e) => setConsent('contract')(e.target.checked)}
                       className="w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500"
                     />
-                    <span className="text-sm font-medium text-green-800">
-                      계약서 전체 내용을 읽고 이해하였으며 동의합니다.
-                    </span>
+                    <span className="text-sm font-medium text-green-800">계약서 전체 내용을 읽고 이해하였으며 동의합니다.</span>
                   </label>
                 </div>
               )}
@@ -857,11 +909,10 @@ export default function CruiseDotPartnersPage() {
 
         {/* ⑥ 필수 동의 */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-orange-600 px-6 py-4">
-            <h2 className="text-white font-bold text-base">⑥ 필수 동의</h2>
+          <div className="bg-orange-600 px-5 py-3.5">
+            <h2 className="text-white font-bold text-sm">⑥ 필수 동의</h2>
           </div>
           <div className="p-5 space-y-3">
-            {/* 전체 동의 */}
             <label className="flex items-center gap-3 cursor-pointer p-3 bg-orange-50 border border-orange-200 rounded-xl">
               <input
                 type="checkbox"
@@ -877,12 +928,12 @@ export default function CruiseDotPartnersPage() {
                 {
                   key: 'privacy' as const,
                   title: '개인정보 처리 동의 (필수)',
-                  desc: '수집 항목: 이름·연락처·주민번호·계좌·사진 · 목적: 파트너 계약 및 정산 · 보유: 계약 종료 후 5년',
+                  desc: '수집 항목: 이름·연락처·주민번호·계좌·신분증·통장사본 사진 · 목적: 파트너 계약 및 정산 · 보유: 계약 종료 후 5년',
                 },
                 {
                   key: 'commission' as const,
                   title: '수수료 및 정산 조건 동의 (필수)',
-                  desc: '판매 금액의 1~5% 수수료, 익월 15일 이내 정산 조건에 동의합니다.',
+                  desc: '판매 금액의 1~5% 수수료, 해당 상품 출발일 지급 조건에 동의합니다.',
                 },
                 {
                   key: 'autoTerminate' as const,
@@ -892,7 +943,7 @@ export default function CruiseDotPartnersPage() {
                 {
                   key: 'brandProtect' as const,
                   title: '브랜드보호 및 콘텐츠 보호 동의 (필수)',
-                  desc: '계약 해지 후 2년간 브랜드 보호 의무 준수, 콘텐츠 무단 도용 시 건당 300만원 위약벌에 동의합니다.',
+                  desc: '계약 해지 후 2년간 브랜드 보호 의무 준수, 콘텐츠 무단 도용 시 건당 3,000만원 위약벌에 동의합니다.',
                 },
               ].map((item) => (
                 <label key={item.key} className="flex items-start gap-3 cursor-pointer p-3 border border-gray-200 rounded-xl hover:bg-gray-50">
@@ -904,7 +955,7 @@ export default function CruiseDotPartnersPage() {
                   />
                   <div>
                     <p className="text-sm font-medium text-gray-700">{item.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{item.desc}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{item.desc}</p>
                   </div>
                 </label>
               ))}
@@ -914,17 +965,14 @@ export default function CruiseDotPartnersPage() {
 
         {/* ⑦ 서명 */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-purple-700 px-6 py-4">
-            <h2 className="text-white font-bold text-base">⑦ 서명</h2>
+          <div className="bg-purple-700 px-5 py-3.5">
+            <h2 className="text-white font-bold text-sm">⑦ 서명</h2>
           </div>
           <div className="p-5 space-y-5">
-            {/* 서명 캔버스 */}
             <div>
               <p className="text-sm font-medium text-gray-700 mb-2">직접 서명</p>
               <SignatureCanvas onSigned={setSignatureDataUrl} />
             </div>
-
-            {/* 성명 입력 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">성명 (인쇄체)</label>
               <input
@@ -935,40 +983,25 @@ export default function CruiseDotPartnersPage() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
               />
             </div>
-
-            {/* 도장 미리보기 */}
             <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-xl">
               <div className="text-center">
-                <p className="text-xs text-gray-500 mb-2">갑 (크루즈닷)</p>
-                <div className="relative w-16 h-16 mx-auto">
-                  <Image
-                    src={COMPANY.stamp}
-                    alt="배연성 도장"
-                    fill
-                    className="object-contain"
-                    onError={() => {}}
-                  />
+                <p className="text-xs text-gray-500 mb-1.5">갑 (크루즈닷 대표 배연성)</p>
+                <div className="flex gap-1.5 justify-center">
+                  <div className="relative w-12 h-12">
+                    <Image src={COMPANY.stamp} alt="배연성 도장" fill className="object-contain opacity-80" onError={() => {}} />
+                  </div>
+                  <div className="relative w-12 h-12">
+                    <Image src={COMPANY.cruiseStamp} alt="크루즈닷 도장" fill className="object-contain opacity-80" onError={() => {}} />
+                  </div>
                 </div>
               </div>
               <div className="text-center">
-                <p className="text-xs text-gray-500 mb-2">갑 (회사 도장)</p>
-                <div className="relative w-16 h-16 mx-auto">
-                  <Image
-                    src={COMPANY.cruiseStamp}
-                    alt="크루즈닷 도장"
-                    fill
-                    className="object-contain"
-                    onError={() => {}}
-                  />
-                </div>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-gray-500 mb-2">을 (신청자)</p>
+                <p className="text-xs text-gray-500 mb-1.5">을 ({name || '신청자'})</p>
                 {signatureDataUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={signatureDataUrl} alt="서명" className="w-20 h-16 object-contain border border-dashed border-gray-300 rounded mx-auto" />
+                  <img src={signatureDataUrl} alt="서명" className="w-20 h-14 object-contain border border-dashed border-gray-300 rounded mx-auto" />
                 ) : (
-                  <div className="w-20 h-16 border-2 border-dashed border-gray-300 rounded mx-auto flex items-center justify-center">
+                  <div className="w-20 h-14 border-2 border-dashed border-gray-300 rounded mx-auto flex items-center justify-center">
                     <span className="text-xs text-gray-300">서명란</span>
                   </div>
                 )}
@@ -977,14 +1010,10 @@ export default function CruiseDotPartnersPage() {
           </div>
         </section>
 
-        {/* 에러 메시지 */}
         {errorMsg && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
-            {errorMsg}
-          </div>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{errorMsg}</div>
         )}
 
-        {/* 제출 버튼 */}
         <button
           type="submit"
           disabled={isSubmitting}
@@ -998,9 +1027,7 @@ export default function CruiseDotPartnersPage() {
               </svg>
               제출 중...
             </span>
-          ) : (
-            '크루즈닷 파트너스 가입 신청'
-          )}
+          ) : '크루즈닷 파트너스 가입 신청'}
         </button>
 
         <p className="text-center text-xs text-gray-400 pb-4">
@@ -1008,5 +1035,22 @@ export default function CruiseDotPartnersPage() {
         </p>
       </form>
     </div>
+  );
+}
+
+// ── Suspense 래퍼 (useSearchParams 요구사항) ──────────────────────────
+
+export default function CruiseDotPartnersPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-gray-500">로딩 중...</p>
+        </div>
+      </div>
+    }>
+      <CruiseDotPartnersForm />
+    </Suspense>
   );
 }
