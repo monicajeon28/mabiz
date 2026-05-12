@@ -84,9 +84,9 @@ function getContractBody(params: {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 제3조 (보수 및 정산)
-① 갑은 을의 영업 성과에 따라 다음의 기준으로 용역 보수를 지급한다.
-   - 기본 수수료 : 판매 금액의 1% ~ 5% (성과 및 등급에 따라 차등 적용)
-   - 수수료율은 갑과 을이 별도 협의하여 결정하며, 갑의 내부 정책에 따라 조정될 수 있다.
+① 을의 활동 방식은 개인 어필리에이트 링크를 통한 크루즈 상품 판매이며, 갑은 해당 링크를 통해 확정된 판매 건에 대하여 다음의 기준으로 용역 보수를 지급한다.
+   - 기본 수수료 : 판매 금액의 1% ~ 5% (상품별 상이)
+   - 수수료율은 갑이 정하는 상품별 정책에 따르며, 사전 공지 후 변경될 수 있다.
 ② 보수는 해당 크루즈 상품의 출발일에 지급한다.
 ③ 을이 제공한 정산 계좌 정보가 불일치하는 경우 지급이 보류될 수 있다.
 ④ 가입비·보증금 등 선납 비용은 없다.
@@ -582,17 +582,17 @@ function CruiseDotPartnersForm() {
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2 mt-1">
-            <div className="bg-white/10 rounded-xl p-2.5 text-center">
-              <p className="text-white font-bold text-sm">1~5%</p>
-              <p className="text-blue-200 text-xs mt-0.5">판매 수수료</p>
+            <div className="bg-white rounded-xl p-2.5 text-center shadow-sm">
+              <p className="text-blue-700 font-bold text-sm">1~5%</p>
+              <p className="text-gray-600 text-xs mt-0.5">판매 수수료</p>
             </div>
-            <div className="bg-white/10 rounded-xl p-2.5 text-center">
-              <p className="text-white font-bold text-sm">가입비 없음</p>
-              <p className="text-blue-200 text-xs mt-0.5">보증금 없음</p>
+            <div className="bg-white rounded-xl p-2.5 text-center shadow-sm">
+              <p className="text-blue-700 font-bold text-sm">가입비 없음</p>
+              <p className="text-gray-600 text-xs mt-0.5">보증금 없음</p>
             </div>
-            <div className="bg-white/10 rounded-xl p-2.5 text-center">
-              <p className="text-white font-bold text-sm">타사 겸업</p>
-              <p className="text-blue-200 text-xs mt-0.5">허용</p>
+            <div className="bg-white rounded-xl p-2.5 text-center shadow-sm">
+              <p className="text-blue-700 font-bold text-sm">타사 겸업</p>
+              <p className="text-gray-600 text-xs mt-0.5">허용</p>
             </div>
           </div>
         </div>
@@ -789,7 +789,7 @@ function CruiseDotPartnersForm() {
             <FileUpload
               label="통장 사본 사진"
               hint="통장 앞면 전체가 보이도록 촬영해 주세요 (계좌번호·예금주 명확히 보이게)"
-              securityNote="본 서류는 수수료 정산 및 세무 신고 목적으로만 수집됩니다. AES-256 암호화 및 접근 권한 제어(RBAC) 기반의 보안 스토리지에 보관되며, 「개인정보 보호법」 제29조에 따른 안전성 확보 조치가 적용됩니다."
+              securityNote="본 서류는 수수료 정산 및 「소득세법」상 원천징수 신고 목적으로만 수집됩니다. 「개인정보 보호법」 제29조에 따른 안전성 확보 조치가 적용되며, 인가된 담당자만 열람 가능합니다."
               onChange={setBankBookPhoto}
               preview={bankBookPhoto}
             />
@@ -808,17 +808,18 @@ function CruiseDotPartnersForm() {
                 <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
-                <p className="text-sm font-semibold text-amber-800">법적 본인인증 서류</p>
+                <p className="text-sm font-semibold text-amber-800">법적 본인인증 필수 서류</p>
               </div>
               <p className="text-xs text-amber-700 leading-relaxed">
-                신분증 사본은 프리랜서 용역계약의 <strong>법적 효력 발생</strong> 및 「소득세법」상 원천징수 신고를 위한 필수 서류입니다.
-                수집된 서류는 계약 목적 외 사용이 엄격히 금지되며, SSAS(Server-Side AES Secure Storage) 방식으로 암호화 보관됩니다.
+                프리랜서 용역계약의 <strong>법적 효력 발생</strong> 및 「소득세법」상 원천징수 신고를 위한 필수 서류입니다.
+                수집된 서류는 계약 목적 이외 사용이 엄격히 금지되며, 「개인정보 보호법」 제24조(고유식별정보)에 따라 보호됩니다.
+                계약 종료 후 법정 보존기간 경과 시 즉시 파기합니다.
               </p>
             </div>
             <FileUpload
               label="신분증 사진"
               hint="주민등록증 또는 운전면허증 · 이름·주민번호·사진이 모두 보이도록 촬영"
-              securityNote="AES-256-CBC 암호화 · RBAC 접근제어 · 「개인정보 보호법」 제24조(고유식별정보) 준수 · 계약 종료 후 5년 보관 후 파기"
+              securityNote="본 서류는 인가된 담당자만 열람 가능하며, 「개인정보 보호법」 및 관계 법령에 따라 엄격히 관리됩니다."
               onChange={setIdPhoto}
               preview={idPhoto}
             />
@@ -933,7 +934,7 @@ function CruiseDotPartnersForm() {
                 {
                   key: 'commission' as const,
                   title: '수수료 및 정산 조건 동의 (필수)',
-                  desc: '판매 금액의 1~5% 수수료, 해당 상품 출발일 지급 조건에 동의합니다.',
+                  desc: '어필리에이트 링크 판매 기준 수수료 1~5% (상품별 상이), 해당 상품 출발일 지급 조건에 동의합니다.',
                 },
                 {
                   key: 'autoTerminate' as const,

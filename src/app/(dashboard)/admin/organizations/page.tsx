@@ -683,6 +683,20 @@ export default function OrganizationsPage() {
         </div>
       </section>
 
+      {/* 파트너스 신청 관리 링크 */}
+      <section>
+        <a
+          href="/admin/partner-applications"
+          className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl p-4 hover:bg-blue-100 transition-colors group"
+        >
+          <div>
+            <p className="text-sm font-bold text-blue-800">파트너스 신청 관리</p>
+            <p className="text-xs text-blue-600 mt-0.5">크루즈닷 파트너스 가입 신청 검토 · 승인/반려</p>
+          </div>
+          <ExternalLink className="w-4 h-4 text-blue-500 group-hover:text-blue-700 flex-shrink-0" />
+        </a>
+      </section>
+
       {/* 계약 승인 대기 */}
       <section>
         <div className="flex items-center gap-2 mb-2.5">
