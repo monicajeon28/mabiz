@@ -5,6 +5,34 @@ import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
+export type ApisRow = {
+  seq: number;
+  rv: string;
+  cabin: string | number;
+  groupId: string | number;
+  roomingGroupId: string | number;
+  cabinType: string;
+  engSurname: string;
+  engGivenName: string;
+  korName: string;
+  residentNum: string;
+  gender: string;
+  birthDate: string;
+  passportNo: string;
+  issueDate: string;
+  expiryDate: string;
+  phone: string;
+  airline: string;
+  paymentDate: string;
+  paymentMethod: string;
+  paymentAmount: string | number;
+  agentName: string;
+  remarks: string;
+  groupMemo: string;
+  notes: string;
+  passportDriveUrl: string;
+};
+
 type TripRow = {
   id: number;
   productCode: string;
@@ -79,6 +107,8 @@ export async function GET(req: NextRequest) {
     if (!productCode) {
       return NextResponse.json({ ok: false, error: 'productCode 파라미터가 필요합니다.' }, { status: 400 });
     }
+    // preview=1 이면 JSON 반환 (미리보기용)
+    const isPreview = req.nextUrl.searchParams.get('preview') === '1';
 
     // ── 1. GmTrip 조회 ──────────────────────────────────────────
     const trips = await prisma.$queryRaw<TripRow[]>`
@@ -191,7 +221,57 @@ export async function GET(req: NextRequest) {
       ]);
     }
 
-    // ── 5. xlsx 워크북 생성 ─────────────────────────────────────
+    // ── 5-a. 미리보기 JSON 응답 ─────────────────────────────────
+    if (isPreview) {
+      const previewRows: ApisRow[] = travelers.map((tv, idx) => {
+        const rv = reservationMap.get(tv.reservationId);
+        const paymentDateStr = rv?.paymentDate
+          ? (() => {
+              const d = new Date(rv.paymentDate);
+              return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+            })()
+          : '';
+        return {
+          seq: idx + 1,
+          rv: rv?.pnrNumber ?? '',
+          cabin: tv.roomNumber > 0 ? tv.roomNumber : '',
+          groupId: tv.companionGroupId ?? '',
+          roomingGroupId: tv.roomingGroupId ?? '',
+          cabinType: rv?.cabinType ?? '',
+          engSurname: tv.engSurname ?? '',
+          engGivenName: tv.engGivenName ?? '',
+          korName: tv.korName ?? '',
+          residentNum: tv.residentNum ?? '',
+          gender: tv.gender ?? '',
+          birthDate: excelDateToStr(tv.birthDate),
+          passportNo: tv.passportNo ?? '',
+          issueDate: excelDateToStr(tv.issueDate),
+          expiryDate: excelDateToStr(tv.expiryDate),
+          phone: tv.phone ?? '',
+          airline: rv?.airlineName ?? '',
+          paymentDate: paymentDateStr,
+          paymentMethod: rv?.paymentMethod ?? '',
+          paymentAmount: rv?.paymentAmount ?? '',
+          agentName: rv?.agentName ?? '',
+          remarks: rv?.remarks ?? '',
+          groupMemo: rv?.groupMemo ?? '',
+          notes: tv.notes ?? '',
+          passportDriveUrl: tv.passportDriveUrl ?? '',
+        };
+      });
+
+      logger.log('[APIS Preview]', { role: ctx.role, productCode, count: previewRows.length });
+      return NextResponse.json({
+        ok: true,
+        productCode,
+        tripTitle: titleText,
+        rows: previewRows,
+        reservationCount: reservations.length,
+        travelerCount: travelers.length,
+      });
+    }
+
+    // ── 5-b. xlsx 워크북 생성 (다운로드) ────────────────────────
     const wb = XLSX.utils.book_new();
 
     // 시트명: 출발일 + 상품코드 (31자 제한)

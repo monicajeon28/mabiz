@@ -11,7 +11,10 @@ import {
   X,
   PlusCircle,
   MapPin,
+  FileSpreadsheet,
+  Loader2,
 } from "lucide-react";
+import type { ApisRow } from "@/app/api/admin/apis/excel/route";
 
 type CabinEntry = { total: number; booked: number; remaining: number };
 type CabinSummary = Record<string, CabinEntry>;
@@ -291,14 +294,27 @@ const LEGAL_SLOTS: RefundSlot[] = [
 ];
 
 function calcRefundClient(amount: number, daysLeft: number, policy: RefundPolicyJson | null) {
-  // 상품 등록된 환불정책이 있으면 우선 사용, 없으면 법정기준
   const usePolicy = policy?.isStructured && policy.slots?.length ? policy : null;
   const slots = usePolicy ? usePolicy.slots : LEGAL_SLOTS;
   const isLegal = !usePolicy;
 
+  // 출발 후(daysLeft < 0): 환불 불가 (100%)
+  if (daysLeft < 0) {
+    const noRefundSlot: RefundSlot = { daysBeforeDep: -999, penaltyRate: 100, label: "출발 후 — 환불 불가" };
+    return {
+      refundAmount: 0,
+      penaltyRate: 100,
+      penaltyAmount: amount,
+      daysBeforeDep: daysLeft,
+      basis: "출발 후 환불 불가",
+      appliedSlot: noRefundSlot,
+      isLegal,
+      displaySlots: slots,
+    };
+  }
+
   const sorted = [...slots].sort((a, b) => b.daysBeforeDep - a.daysBeforeDep);
   const appliedSlot = sorted.find((s) => daysLeft >= s.daysBeforeDep) ??
-    sorted[sorted.length - 1] ??
     { daysBeforeDep: 0, penaltyRate: 100, label: "당일 취소" };
 
   const penaltyAmount = Math.round((amount * appliedSlot.penaltyRate) / 100);
@@ -419,22 +435,170 @@ function RefundModal({ product, onClose }: RefundModalProps) {
         )}
 
         {/* 위약금 기준표 */}
-        <div className="text-xs text-gray-500 space-y-0.5">
-          <p className="font-medium text-gray-600 mb-1">위약금 기준표</p>
-          {[...slots].sort((a, b) => b.daysBeforeDep - a.daysBeforeDep).map((s) => (
-            <div
-              key={s.daysBeforeDep}
-              className={`flex justify-between ${
-                daysLeft >= s.daysBeforeDep &&
-                (slots.filter(x => x.daysBeforeDep <= daysLeft).sort((a,b) => b.daysBeforeDep - a.daysBeforeDep)[0]?.daysBeforeDep === s.daysBeforeDep)
-                  ? "text-orange-600 font-medium"
-                  : ""
-              }`}
-            >
-              <span>출발 {s.daysBeforeDep}일 전 이후</span>
-              <span>{s.penaltyRate}% {s.label ? `(${s.label})` : ""}</span>
+        {daysLeft >= 0 && (
+          <div className="text-xs text-gray-500 space-y-0.5">
+            <p className="font-medium text-gray-600 mb-1">위약금 기준표</p>
+            {[...slots]
+              .sort((a, b) => b.daysBeforeDep - a.daysBeforeDep)
+              .map((s) => {
+                // 현재 적용 구간 하이라이트: 정렬된 배열에서 daysLeft >= s.daysBeforeDep 인 첫 번째 항목
+                const isApplied = result?.appliedSlot.daysBeforeDep === s.daysBeforeDep;
+                return (
+                  <div
+                    key={s.daysBeforeDep}
+                    className={`flex justify-between rounded px-1 -mx-1 ${isApplied ? "bg-orange-50 text-orange-700 font-semibold" : ""}`}
+                  >
+                    <span>출발 {s.daysBeforeDep}일 전 이후</span>
+                    <span>{s.penaltyRate}% {s.label ? `(${s.label})` : ""}</span>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── APIS 미리보기 모달 ────────────────────────────────────────────
+
+const APIS_HEADERS = [
+  "순번","RV","CABIN","일행","루밍","카테고리",
+  "영문성","영문이름","성명","주민번호","성별","생년월일",
+  "여권번호","여권발급","여권만료","연락처",
+  "항공","결제일","결제방법","결제금액","담당자","비고",
+];
+
+const APIS_KEYS: (keyof ApisRow)[] = [
+  "seq","rv","cabin","groupId","roomingGroupId","cabinType",
+  "engSurname","engGivenName","korName","residentNum","gender","birthDate",
+  "passportNo","issueDate","expiryDate","phone",
+  "airline","paymentDate","paymentMethod","paymentAmount","agentName","remarks",
+];
+
+interface ApisModalProps {
+  product: Product;
+  onClose: () => void;
+}
+
+function ApisModal({ product, onClose }: ApisModalProps) {
+  const [rows, setRows] = useState<ApisRow[]>([]);
+  const [tripTitle, setTripTitle] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/admin/apis/excel?productCode=${encodeURIComponent(product.code)}&preview=1`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) {
+          setRows(d.rows ?? []);
+          setTripTitle(d.tripTitle ?? product.name);
+        } else {
+          setError(d.error ?? "데이터를 불러오지 못했습니다.");
+        }
+      })
+      .catch(() => setError("네트워크 오류"))
+      .finally(() => setLoading(false));
+  }, [product.code, product.name]);
+
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/admin/apis/excel?productCode=${encodeURIComponent(product.code)}`);
+      if (!res.ok) { alert("다운로드 실패"); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      a.href = url;
+      a.download = `APIS_${product.code}_${dateStr}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
+          <div className="flex items-center gap-2">
+            <FileSpreadsheet className="w-5 h-5 text-green-600" />
+            <div>
+              <h2 className="text-base font-bold text-gray-900">APIS 탑승자 명단</h2>
+              {tripTitle && <p className="text-xs text-gray-500 mt-0.5">{tripTitle}</p>}
             </div>
-          ))}
+          </div>
+          <div className="flex items-center gap-2">
+            {!loading && !error && rows.length > 0 && (
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                {downloading ? "생성 중..." : "엑셀 다운로드"}
+              </button>
+            )}
+            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-gray-100">
+              <X className="w-5 h-5 text-gray-400" />
+            </button>
+          </div>
+        </div>
+
+        {/* 내용 */}
+        <div className="flex-1 overflow-auto p-4">
+          {loading && (
+            <div className="flex items-center justify-center py-20 gap-2 text-gray-500">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="text-sm">데이터 불러오는 중...</span>
+            </div>
+          )}
+          {error && (
+            <div className="text-center py-20 text-red-500 text-sm">{error}</div>
+          )}
+          {!loading && !error && rows.length === 0 && (
+            <div className="text-center py-20 text-gray-400 text-sm">
+              <FileSpreadsheet className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+              등록된 탑승자 정보가 없습니다
+            </div>
+          )}
+          {!loading && rows.length > 0 && (
+            <div className="text-xs">
+              <p className="text-gray-500 mb-2 font-medium">총 {rows.length}명</p>
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      {APIS_HEADERS.map((h) => (
+                        <th key={h} className="px-2 py-2 text-left font-medium text-gray-600 whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {rows.map((row, i) => (
+                      <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                        {APIS_KEYS.map((k) => (
+                          <td key={k} className="px-2 py-1.5 text-gray-800 whitespace-nowrap max-w-[120px] truncate">
+                            {String(row[k] ?? "")}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -453,8 +617,8 @@ export default function ProductsPage() {
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("all");
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [downloadingCode, setDownloadingCode] = useState<string | null>(null);
   const [refundProduct, setRefundProduct] = useState<Product | null>(null);
+  const [apisProduct, setApisProduct] = useState<Product | null>(null);
   const [cabinRegisterCode, setCabinRegisterCode] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
@@ -473,6 +637,7 @@ export default function ProductsPage() {
   const canRegisterCabin = userRole === "OWNER" || userRole === "GLOBAL_ADMIN";
 
   const cabinRegisterProduct = products.find((p) => p.code === cabinRegisterCode) ?? null;
+  // orgId가 없어도 모달은 열고, 모달 내에서 에러 처리
 
   const fetchProducts = useCallback(
     (currentPage: number, q: string, isActive: ActiveFilter) => {
@@ -522,34 +687,6 @@ export default function ProductsPage() {
     setSearchInput("");
     setSearchQuery("");
     setPage(1);
-  }
-
-  async function handleDownloadApis(product: Product) {
-    if (!canDownloadApis) return;
-    setDownloadingCode(product.code);
-    try {
-      const res = await fetch(`/api/admin/apis/excel?productCode=${encodeURIComponent(product.code)}`);
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        alert(data.error ?? "다운로드에 실패했습니다.");
-        return;
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      const today = new Date();
-      const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
-      a.href = url;
-      a.download = `APIS_${product.code}_${dateStr}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch {
-      alert("다운로드 중 오류가 발생했습니다.");
-    } finally {
-      setDownloadingCode(null);
-    }
   }
 
   const filterTabs: { label: string; value: ActiveFilter }[] = [
@@ -727,12 +864,11 @@ export default function ProductsPage() {
                         )}
                         {canDownloadApis && (
                           <button
-                            onClick={() => handleDownloadApis(product)}
-                            disabled={downloadingCode === product.code}
-                            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                            onClick={() => setApisProduct(product)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors whitespace-nowrap"
                           >
-                            <Download className="w-3.5 h-3.5" />
-                            {downloadingCode === product.code ? "생성 중..." : "APIS"}
+                            <FileSpreadsheet className="w-3.5 h-3.5" />
+                            APIS
                           </button>
                         )}
                       </div>
@@ -790,12 +926,17 @@ export default function ProductsPage() {
         <RefundModal product={refundProduct} onClose={() => setRefundProduct(null)} />
       )}
 
+      {/* APIS 미리보기 모달 */}
+      {apisProduct && (
+        <ApisModal product={apisProduct} onClose={() => setApisProduct(null)} />
+      )}
+
       {/* 객실 등록 모달 */}
-      {cabinRegisterProduct && orgId && (
+      {cabinRegisterProduct && (
         <CabinRegisterModal
           productCode={cabinRegisterProduct.code}
           productName={cabinRegisterProduct.name}
-          organizationId={orgId}
+          organizationId={orgId ?? ''}
           onClose={() => setCabinRegisterCode(null)}
           onSaved={() => {
             setCabinRegisterCode(null);
