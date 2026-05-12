@@ -73,9 +73,19 @@ export default function NewLandingPage() {
   const [uploading, setUploading]   = useState(false);
   const [savedPageId, setSavedPageId] = useState<string | null>(null);
   const [dragIdx, setDragIdx]       = useState<number | null>(null);
-  const [showLibrary, setShowLibrary] = useState(false);
-  const [copyPopup, setCopyPopup]     = useState<string | null>(null);
-  const [copied, setCopied]           = useState(false);
+  const [showLibrary, setShowLibrary]     = useState(false);
+  const [libraryPurpose, setLibraryPurpose] = useState<"content" | "ogImage">("content");
+  const [copyPopup, setCopyPopup]         = useState<string | null>(null);
+  const [copied, setCopied]               = useState(false);
+
+  // OG 이미지 / SEO
+  const [exposureTitle, setExposureTitle] = useState("");
+  const [exposureImage, setExposureImage] = useState("");   // Drive 썸네일 URL
+
+  // 그룹 인라인 추가
+  const [showAddGroup, setShowAddGroup]   = useState(false);
+  const [newGroupName, setNewGroupName]   = useState("");
+  const [addingGroup, setAddingGroup]     = useState(false);
 
   // 결제
   const [paymentEnabled, setPaymentEnabled]   = useState(false);
@@ -322,16 +332,26 @@ ${footerBlock}
   };
 
   // 이미지 라이브러리에서 선택 시
-  const handleLibraryInsert = useCallback((html: string) => {
+  const handleLibraryInsert = useCallback((rawHtml: string) => {
+    const info = extractDriveInfo(rawHtml);
+
+    // OG 이미지 목적
+    if (libraryPurpose === "ogImage") {
+      if (info) setExposureImage(info.url);
+      return;
+    }
+
     if (editorMode === "html") {
-      // HTML 에디터 모드: 코드 끝에 자동 삽입 + 팝업으로 복사 가능하게
-      setHtml((prev) => prev + "\n" + html);
-      setCopyPopup(html);
+      // HTML 에디터 모드: clean <img> 태그 생성 → 에디터 삽입 + 복사 팝업
+      const cleanTag = info
+        ? `<img src="${info.url}" alt="" style="width:100%;display:block;" loading="lazy">`
+        : rawHtml;
+      setHtml((prev) => prev + "\n" + cleanTag);
+      setCopyPopup(cleanTag);
       setCopied(false);
       return;
     }
     // 이미지 모드: Drive URL 파싱 → images 배열에 추가
-    const info = extractDriveInfo(html);
     if (!info) return;
     setImages((prev) => [...prev, {
       id:          crypto.randomUUID(),
@@ -344,7 +364,7 @@ ${footerBlock}
       fileName:    "라이브러리 이미지",
       sortOrder:   prev.length,
     }]);
-  }, [editorMode]);
+  }, [editorMode, libraryPurpose]);
 
   // ──────────────────────────────────────────────
   // 저장
@@ -357,8 +377,14 @@ ${footerBlock}
       title, slug, groupId: selectedGroupId || null,
       commentEnabled,
       commentConfig: commentEnabled ? { count: commentCount, dateFrom: commentDateFrom, dateTo: commentDateTo } : undefined,
-      footer: footer.trim() || null,
-      infoCollection: true, formConfig: { fields: formFields, additionalFields, ...(b2bEduType ? { b2bEduType } : {}) },
+      ...(exposureTitle  ? { exposureTitle }                                   : {}),
+      ...(exposureImage  ? { exposureImage }                                   : {}),
+      infoCollection: true,
+      formConfig: {
+        fields: formFields, additionalFields,
+        footer: footer.trim() || null,
+        ...(b2bEduType ? { b2bEduType } : {}),
+      },
       ...(buttonTitle        ? { buttonTitle }        : {}),
       ...(completionPageUrl  ? { completionPageUrl }  : {}),
       ...(headerScript       ? { headerScript }       : {}),
@@ -396,6 +422,23 @@ ${footerBlock}
       if (data.ok) router.push(`/landing-pages/${data.page.id}`);
       else { setError(data.message ?? "저장 실패"); setSaving(false); }
     }
+  };
+
+  const createGroup = async () => {
+    if (!newGroupName.trim()) return;
+    setAddingGroup(true);
+    try {
+      const res  = await fetch("/api/groups", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newGroupName.trim() }),
+      });
+      const data = await res.json();
+      if (data.ok && data.group) {
+        setGroups((prev) => [...prev, { id: data.group.id, name: data.group.name, funnelId: null }]);
+        setSelectedGroupId(data.group.id);
+        setNewGroupName(""); setShowAddGroup(false);
+      }
+    } finally { setAddingGroup(false); }
   };
 
   const toggleField    = (key: string) => setFormFields((p) => ({ ...p, [key]: { enabled: !p[key].enabled, required: !p[key].enabled ? p[key].required : false } }));
@@ -446,10 +489,28 @@ ${footerBlock}
               </button>
             </div>
             <select value={selectedGroupId} onChange={(e) => setSelectedGroupId(e.target.value)}
-              className="flex-1 max-w-xs border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-yellow-400">
-              <option value="">그룹 미지정 (자동 배정 없음)</option>
+              className="flex-1 max-w-[200px] border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-yellow-400">
+              <option value="">그룹 미지정</option>
               {groups.map((g) => <option key={g.id} value={g.id}>{g.name}{g.funnelId ? " 🔄" : ""}</option>)}
             </select>
+            <button type="button" onClick={() => setShowAddGroup(!showAddGroup)}
+              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-blue-400 hover:text-blue-600 text-lg leading-none transition-colors">
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+            {showAddGroup && (
+              <div className="flex items-center gap-1 basis-full mt-1">
+                <input type="text" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && createGroup()}
+                  placeholder="새 그룹명" autoFocus
+                  className="flex-1 border border-blue-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-500" />
+                <button onClick={createGroup} disabled={addingGroup || !newGroupName.trim()}
+                  className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-medium disabled:opacity-50">
+                  {addingGroup ? "..." : "추가"}
+                </button>
+                <button onClick={() => { setShowAddGroup(false); setNewGroupName(""); }}
+                  className="p-1.5 text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>
+              </div>
+            )}
             {groups.find((g) => g.id === selectedGroupId)?.funnelId && (
               <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">🔄 등록 즉시 자동 문자</span>
             )}
@@ -503,7 +564,7 @@ ${footerBlock}
                         className={`flex items-center gap-3 bg-white rounded-xl border p-3 transition-all cursor-grab ${dragIdx === idx ? "border-yellow-400 shadow-md opacity-80" : "border-gray-200 hover:border-gray-300"}`}>
                         <GripVertical className="w-4 h-4 text-gray-300 shrink-0" />
                         <div className="w-14 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                          <img src={img.url} alt="" className="w-full h-full object-cover" />
+                          <img src={img.driveFileId ? `/api/landing-pages/images/proxy?id=${img.driveFileId}` : img.url} alt="" className="w-full h-full object-cover" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate text-gray-700">{img.fileName}</p>
@@ -689,6 +750,43 @@ ${footerBlock}
             )}
           </div>
 
+          {/* ──── OG 이미지 / 링크 공유 설정 ──── */}
+          <div className="mx-4 mb-4 bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+              <p className="text-sm font-semibold text-gray-800">링크 공유 썸네일 (OG)</p>
+              <p className="text-xs text-gray-400 mt-0.5">카카오·SNS 공유 시 미리보기 제목·이미지</p>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <label className="text-xs text-gray-500 w-16 shrink-0">공유 제목</label>
+                <input type="text" value={exposureTitle} onChange={(e) => setExposureTitle(e.target.value)}
+                  placeholder="비워두면 랜딩페이지 제목 사용"
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1.5">썸네일 이미지</label>
+                {exposureImage ? (
+                  <div className="flex items-center gap-2">
+                    <img src={`/api/landing-pages/images/proxy?id=${exposureImage.match(/id=([^&]+)/)?.[1] ?? ""}`}
+                      alt="OG 이미지" className="w-20 h-14 object-cover rounded-lg border border-gray-200"
+                      onError={(e) => { (e.target as HTMLImageElement).src = ""; }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-600 truncate">{exposureImage}</p>
+                      <button onClick={() => setExposureImage("")} className="text-xs text-red-400 hover:text-red-600 mt-1">제거</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button"
+                    onClick={() => { setLibraryPurpose("ogImage"); setShowLibrary(true); }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-dashed border-gray-300 bg-gray-50 rounded-xl text-sm font-medium text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors">
+                    <ImageIcon className="w-4 h-4" />
+                    Drive에서 썸네일 이미지 선택
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* ──── 기타 설정 ──── */}
           <div className="mx-4 mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
@@ -764,8 +862,8 @@ ${footerBlock}
     {/* 이미지 라이브러리 모달 */}
     <ImageLibraryModal
       open={showLibrary}
-      onClose={() => setShowLibrary(false)}
-      onInsert={handleLibraryInsert}
+      onClose={() => { setShowLibrary(false); setLibraryPurpose("content"); }}
+      onInsert={(html) => { handleLibraryInsert(html); setShowLibrary(false); setLibraryPurpose("content"); }}
     />
 
     {/* HTML 코드 복사 팝업 */}
