@@ -65,7 +65,7 @@ export async function getMabizSession(): Promise<MabizAuthContext | null> {
     if (session.memberId && session.organizationId) {
       const member = await prisma.organizationMember.findUnique({
         where: { id: session.memberId },
-        select: { id: true, organizationId: true, role: true, displayName: true, isActive: true },
+        select: { id: true, organizationId: true, role: true, displayName: true, isActive: true, phone: true },
       });
 
       if (!member || !member.isActive) return null;
@@ -74,10 +74,38 @@ export async function getMabizSession(): Promise<MabizAuthContext | null> {
         (member.role === 'OWNER' || member.role === 'BRANCH_MANAGER') ? 'OWNER' :
         member.role === 'FREE_SALES' ? 'FREE_SALES' : 'AGENT';
 
+      // 크루즈닷몰 User 자동 연결 (phone 기반) — 급여/커미션/연말정산 접근에 필요
+      let mallUser: MabizAuthContext['mallUser'];
+      if (member.phone) {
+        try {
+          const rows = await prisma.$queryRaw<RawMallUser[]>(
+            Prisma.sql`SELECT u.id, u.name, u."mallUserId",
+              ap.id as "affiliateProfileId", ap.type as "affiliateType"
+              FROM "User" u
+              LEFT JOIN "AffiliateProfile" ap ON ap."userId" = u.id AND ap.status = 'ACTIVE'
+              WHERE u.phone = ${member.phone} AND u."isLocked" = false
+              LIMIT 1`
+          );
+          if (rows.length > 0) {
+            const r = rows[0];
+            mallUser = {
+              id: r.id,
+              name: r.name,
+              mallUserId: r.mallUserId,
+              affiliateType: r.affiliateType,
+              affiliateProfileId: r.affiliateProfileId,
+            };
+          }
+        } catch {
+          // 크루즈닷몰 연결 실패해도 CRM 기능은 정상 동작
+        }
+      }
+
       return {
         userId: session.memberId,
         role,
         organizationId: member.organizationId,
+        mallUser,
         member: {
           id: member.id,
           organizationId: member.organizationId,
