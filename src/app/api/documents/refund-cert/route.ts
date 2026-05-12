@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+import { sendFunnelEmail } from '@/lib/email';
 
 export async function POST(req: Request) {
   try {
@@ -24,9 +25,9 @@ export async function POST(req: Request) {
     const payment = await prisma.payment.findUnique({
       where: { orderId: body.orderId },
       select: {
-        orderId: true, buyerName: true, buyerTel: true, amount: true,
-        status: true, pgProvider: true, paidAt: true, cancelledAt: true,
-        productName: true, affiliateCode: true, metadata: true,
+        orderId: true, buyerName: true, buyerTel: true, buyerEmail: true,
+        amount: true, status: true, pgProvider: true, paidAt: true,
+        cancelledAt: true, productName: true, affiliateCode: true, metadata: true,
       },
     });
 
@@ -94,6 +95,7 @@ export async function POST(req: Request) {
         generatedData: {
           buyerName:                payment.buyerName,
           buyerTel:                 payment.buyerTel.substring(0, 4) + '****',
+          buyerEmail:               payment.buyerEmail ?? null,
           amount:                   payment.amount,
           productName:              payment.productName ?? '크루즈 상품',
           paidAt:                   payment.paidAt?.toISOString() ?? null,
@@ -124,6 +126,30 @@ export async function POST(req: Request) {
           status: 'APPROVED', processedAt: new Date(),
         },
       });
+
+      // 이메일 발송 (fire-and-forget)
+      const recipientEmail = payment.buyerEmail;
+      if (recipientEmail) {
+        sendFunnelEmail({
+          organizationId: orgId,
+          to:      recipientEmail,
+          subject: `[환불확인증] ${payment.productName ?? '크루즈 상품'} 환불 확인증이 발급되었습니다`,
+          html: `<div style="font-family:sans-serif;line-height:1.8;max-width:600px;margin:0 auto;padding:32px 24px">
+<h2 style="color:#1a1a2e;margin:0 0 16px">환불 확인증 발급 안내</h2>
+<p>${payment.buyerName}님, 아래 내용으로 환불 확인증이 발급되었습니다.</p>
+<table style="width:100%;border-collapse:collapse;margin:20px 0">
+  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666;width:40%">상품명</td><td style="padding:10px 14px;font-weight:600">${payment.productName ?? '크루즈 상품'}</td></tr>
+  <tr><td style="padding:10px 14px;color:#666">결제금액</td><td style="padding:10px 14px">${payment.amount.toLocaleString()}원</td></tr>
+  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">환불금액</td><td style="padding:10px 14px;font-weight:600;color:#e53e3e">${refundCalc.refundAmount.toLocaleString()}원</td></tr>
+  ${refundCalc.penaltyRate > 0 ? `<tr><td style="padding:10px 14px;color:#666">위약금</td><td style="padding:10px 14px">${refundCalc.penaltyRate}% (${refundCalc.penaltyAmount.toLocaleString()}원)</td></tr>` : ''}
+  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">환불 기준</td><td style="padding:10px 14px;font-size:13px">${refundCalc.basis}</td></tr>
+  <tr><td style="padding:10px 14px;color:#666">문서번호</td><td style="padding:10px 14px;font-size:12px;color:#888">${doc.id}</td></tr>
+</table>
+<p style="color:#666;font-size:14px">환불 처리는 3~5 영업일 소요됩니다. 문의사항이 있으시면 담당 에이전트에게 연락해 주세요.</p>
+</div>`,
+          channel: 'MANUAL',
+        }).catch(() => {});
+      }
     }
 
     logger.log('[RefundCert] 발급', { orgId, orderId: body.orderId, status, refundAmount: refundCalc.refundAmount });
