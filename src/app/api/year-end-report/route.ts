@@ -13,6 +13,7 @@ type RawAgentRow = {
   totalCommission: bigint;
   totalRefund: bigint;
   confirmedCount: bigint;
+  unsetCommissionCount: bigint;
 };
 
 const YEAR_RE = /^\d{4}$/;
@@ -75,9 +76,10 @@ export async function GET(req: NextRequest) {
         COALESCE(ap."displayName", u.name) AS "agentName",
         u."mallUserId",
         SUM(CASE WHEN als.status IN ('APPROVED','CONFIRMED') THEN als."saleAmount" ELSE 0 END)::bigint AS "totalSaleAmount",
-        SUM(CASE WHEN als.status IN ('APPROVED','CONFIRMED')
-              THEN COALESCE(als."salesCommission", FLOOR(als."saleAmount" * 0.03))
-              ELSE 0 END)::bigint AS "totalCommission",
+        COALESCE(SUM(CASE WHEN als.status IN ('APPROVED','CONFIRMED') AND als."salesCommission" IS NOT NULL
+              THEN als."salesCommission"
+              ELSE NULL END), 0)::bigint AS "totalCommission",
+        COUNT(CASE WHEN als.status IN ('APPROVED','CONFIRMED') AND als."salesCommission" IS NULL THEN 1 END)::bigint AS "unsetCommissionCount",
         SUM(CASE WHEN als.status = 'REFUNDED' THEN als."saleAmount" ELSE 0 END)::bigint AS "totalRefund",
         COUNT(CASE WHEN als.status IN ('APPROVED','CONFIRMED') THEN 1 END)::bigint AS "confirmedCount"
       FROM "AffiliateProfile" ap
@@ -88,35 +90,37 @@ export async function GET(req: NextRequest) {
         ${agentIdFilter}
         ${relationFilter}
       GROUP BY ap.id, ap."displayName", u.name, u."mallUserId"
+      -- TODO: FREE_SALES 수당 포함 필요 (AffiliateSale.affiliateCode 기반 별도 집계)
       ORDER BY "totalSaleAmount" DESC
     `);
 
     const agents = rows.map((r) => {
       const totalSaleAmount = Number(r.totalSaleAmount);
       const totalRefund     = Number(r.totalRefund);
-      const refundBase      = totalSaleAmount + totalRefund;
       return {
-        agentId:         r.agentId,
-        agentName:       r.agentName ?? '',
-        mallUserId:      r.mallUserId ?? null,
+        agentId:              r.agentId,
+        agentName:            r.agentName ?? '',
+        mallUserId:           r.mallUserId ?? null,
         totalSaleAmount,
-        totalCommission: Number(r.totalCommission),
+        totalCommission:      Number(r.totalCommission),
         totalRefund,
-        confirmedCount:  Number(r.confirmedCount),
-        refundRate:      refundBase > 0
-          ? Math.round((totalRefund / refundBase) * 1000) / 10
+        confirmedCount:       Number(r.confirmedCount),
+        unsetCommissionCount: Number(r.unsetCommissionCount),
+        refundRate:           totalSaleAmount > 0
+          ? Math.round((totalRefund / totalSaleAmount) * 1000) / 10
           : 0,
       };
     });
 
     const grandTotal = agents.reduce(
       (acc, a) => ({
-        totalSaleAmount: acc.totalSaleAmount + a.totalSaleAmount,
-        totalCommission: acc.totalCommission + a.totalCommission,
-        totalRefund:     acc.totalRefund     + a.totalRefund,
-        confirmedCount:  acc.confirmedCount  + a.confirmedCount,
+        totalSaleAmount:      acc.totalSaleAmount      + a.totalSaleAmount,
+        totalCommission:      acc.totalCommission      + a.totalCommission,
+        totalRefund:          acc.totalRefund          + a.totalRefund,
+        confirmedCount:       acc.confirmedCount       + a.confirmedCount,
+        unsetCommissionCount: acc.unsetCommissionCount + a.unsetCommissionCount,
       }),
-      { totalSaleAmount: 0, totalCommission: 0, totalRefund: 0, confirmedCount: 0 }
+      { totalSaleAmount: 0, totalCommission: 0, totalRefund: 0, confirmedCount: 0, unsetCommissionCount: 0 }
     );
 
     logger.log('[GET /api/year-end-report]', { role: ctx.role, year, agentCount: agents.length });

@@ -68,9 +68,10 @@ export async function GET(req: NextRequest) {
       `;
     } else if (ctx.role === 'AGENT') {
       const agentProfileId = ctx.mallUser?.affiliateProfileId;
-      if (agentProfileId) {
-        scopeCondition = Prisma.sql`AND p."profileId" = ${agentProfileId}`;
+      if (!agentProfileId) {
+        return NextResponse.json({ ok: false, error: '파트너 프로필이 없습니다.' }, { status: 403 });
       }
+      scopeCondition = Prisma.sql`AND p."profileId" = ${agentProfileId}`;
     }
     // GLOBAL_ADMIN: 조건 없음
 

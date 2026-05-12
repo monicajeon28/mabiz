@@ -29,6 +29,7 @@ type RawLedger = {
   isSettled: boolean;
   notes: string | null;
   createdAt: Date;
+  balance: number;  // 누적 잔액
 };
 
 type RawSummary = {
@@ -106,12 +107,20 @@ export async function GET(req: NextRequest) {
 
     const [rows, countRows, summaryRows] = await Promise.all([
       prisma.$queryRaw<RawLedger[]>(Prisma.sql`
-        SELECT cl.id, cl."profileId", cl."saleId", cl."entryType",
-               cl.amount, cl."withholdingAmount", cl."isSettled", cl.notes, cl."createdAt"
-        FROM "CommissionLedger" cl
-        WHERE 1=1
-          ${roleCondition} ${profileCondition} ${yearMonthCondition} ${typeCondition}
-        ORDER BY cl."createdAt" DESC
+        WITH base AS (
+          SELECT cl.id, cl."profileId", cl."saleId", cl."entryType",
+                 cl.amount, cl."withholdingAmount", cl."isSettled", cl.notes, cl."createdAt",
+                 SUM(cl.amount) OVER (
+                   PARTITION BY cl."profileId"
+                   ORDER BY cl."createdAt" ASC
+                   ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                 ) AS balance
+          FROM "CommissionLedger" cl
+          WHERE 1=1
+            ${roleCondition} ${profileCondition} ${yearMonthCondition} ${typeCondition}
+        )
+        SELECT * FROM base
+        ORDER BY "createdAt" DESC
         LIMIT ${limit} OFFSET ${offset}
       `),
       prisma.$queryRaw<[{ total: bigint }]>(Prisma.sql`
@@ -146,6 +155,7 @@ export async function GET(req: NextRequest) {
       yearMonth:        r.createdAt.toISOString().slice(0, 7), // 파생
       note:             r.notes ?? null,
       createdAt:        r.createdAt.toISOString(),
+      balance:          Number(r.balance),
     }));
 
     logger.log('[GET /api/commission-ledger]', { role: ctx.role, total, page });

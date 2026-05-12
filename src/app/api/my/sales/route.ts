@@ -108,7 +108,7 @@ export async function GET(req: Request) {
         SELECT
           als.status,
           SUM(als."saleAmount")::bigint AS "totalSaleAmount",
-          SUM(COALESCE(als."salesCommission", FLOOR(als."saleAmount" * COALESCE(als."commissionRate", 3) / 100)))::bigint AS "totalCommission",
+          COALESCE(SUM(als."salesCommission"), 0)::bigint AS "totalCommission",
           COUNT(*)::bigint AS count
         FROM "AffiliateSale" als
         WHERE 1=1 ${roleCondition}
@@ -120,8 +120,8 @@ export async function GET(req: Request) {
         affiliateCode: s.affiliateCode ?? "",
         productName: s.productCode ?? "",
         saleAmount: Number(s.saleAmount),
-        commissionRate: Number(s.commissionRate ?? 3),
-        commissionAmount: Number(s.salesCommission ?? Math.floor(Number(s.saleAmount) * (Number(s.commissionRate ?? 3) / 100))),
+        commissionRate: s.commissionRate != null ? Number(s.commissionRate) : null,
+        commissionAmount: s.salesCommission != null ? Number(s.salesCommission) : null,
         status: s.status,
         travelCompletedAt: s.confirmedAt?.toISOString() ?? null,
         paidAt: s.paidAt?.toISOString() ?? null,
