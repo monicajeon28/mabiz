@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, requireOrgId, resolveOrgIdOrNull } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 export async function GET(req: Request) {

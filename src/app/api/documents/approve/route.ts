@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     }
 
     // 권한 체크 (ADMIN 이상만 승인 가능)
-    if (!['ADMIN', 'GLOBAL_ADMIN', 'OWNER'].includes(ctx.role)) {
+    if (!['GLOBAL_ADMIN', 'OWNER'].includes(ctx.role)) {
       return NextResponse.json({ ok: false, message: '승인 권한 없음' }, { status: 403 });
     }
 

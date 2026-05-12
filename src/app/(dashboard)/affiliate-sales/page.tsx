@@ -43,18 +43,30 @@ export default function AffiliateSalesPage() {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: "20" });
     if (status) params.set("status", status);
-    fetch(`/api/affiliate-sales?${params}`).then((r) => r.json()).then((d) => {
-      if (d.ok) { setSales(d.sales ?? []); setTotal(d.total ?? 0); }
-    }).finally(() => setLoading(false));
+    fetch(`/api/affiliate-sales?${params}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) { setSales(d.sales ?? []); setTotal(d.total ?? 0); }
+        else { setSales([]); setTotal(0); }
+      })
+      .catch(() => { setSales([]); setTotal(0); })
+      .finally(() => setLoading(false));
   }, [page, status]);
 
   useEffect(() => { load(); }, [load]);
 
   const doAction = async (id: number, action: "approve" | "reject" | "refund") => {
     setActing(id);
-    await fetch(`/api/affiliate-sales/${id}/${action}`, { method: "POST" });
-    setActing(null);
-    load();
+    try {
+      const r = await fetch(`/api/affiliate-sales/${id}/${action}`, { method: "POST" });
+      const d = await r.json().catch(() => ({ ok: false }));
+      if (!d.ok) console.warn("[affiliate-sales] action 실패", { id, action });
+    } catch {
+      console.warn("[affiliate-sales] action 네트워크 오류", { id, action });
+    } finally {
+      setActing(null);
+      load();
+    }
   };
 
   return (
