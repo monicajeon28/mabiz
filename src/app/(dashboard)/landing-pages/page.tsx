@@ -298,6 +298,7 @@ function ShareModal({ pageId, pageTitle, onClose }: {
 function PageCard({
   page,
   isShared,
+  isSelected,
   statsMap,
   loadingStats,
   cloningId,
@@ -314,9 +315,11 @@ function PageCard({
   onDelete,
   onShare,
   onLoadStats,
+  onToggleSelect,
 }: {
   page: LandingPage & Partial<SharedPage>;
   isShared: boolean;
+  isSelected: boolean;
   statsMap: Record<string, LandingStats>;
   loadingStats: string | null;
   cloningId: string | null;
@@ -333,6 +336,7 @@ function PageCard({
   onDelete: (id: string, title: string) => void;
   onShare: (id: string, title: string) => void;
   onLoadStats: (id: string) => void;
+  onToggleSelect?: (id: string) => void;
 }) {
   const [hoverVisible, setHoverVisible] = useState(false);
   const titleRef = useRef<HTMLElement | null>(null);
@@ -348,8 +352,20 @@ function PageCard({
 
   return (
     <div className={`bg-white border rounded-xl p-4 hover:shadow-sm transition-shadow ${
-      isShared ? "border-blue-200 bg-blue-50/30" : "border-gray-200"
+      isShared ? "border-blue-200 bg-blue-50/30" : isSelected ? "border-navy-400 bg-navy-50/20" : "border-gray-200"
     }`}>
+      {/* 선택 체크박스 (내 페이지만) */}
+      {!isShared && onToggleSelect && (
+        <div className="flex items-center gap-2 mb-2">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(page.id)}
+            className="w-4 h-4 accent-navy-900"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
       {/* 공유받음 뱃지 */}
       {isShared && page.sharedByName && (
         <div className="flex items-center gap-1.5 mb-2">
@@ -553,6 +569,8 @@ export default function LandingPagesPage() {
   const [deletingId,  setDeletingId]  = useState<string | null>(null);
   const [shareModal,  setShareModal]  = useState<{ id: string; title: string } | null>(null);
   const [showShared,  setShowShared]  = useState(true);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const loadPages = useCallback(async () => {
     const res = await fetch("/api/landing-pages");
@@ -642,9 +660,45 @@ export default function LandingPagesPage() {
     setDeletingId(pageId);
     const res = await fetch(`/api/landing-pages/${pageId}`, { method: "DELETE" });
     const data = await res.json();
-    if (data.ok) setPages((prev) => prev.filter((p) => p.id !== pageId));
-    else alert(data.message ?? "삭제에 실패했습니다.");
+    if (data.ok) {
+      setPages((prev) => prev.filter((p) => p.id !== pageId));
+      setSelectedIds((prev) => { const n = new Set(prev); n.delete(pageId); return n; });
+    } else {
+      alert(data.message ?? "삭제에 실패했습니다.");
+    }
     setDeletingId(null);
+  };
+
+  const bulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`선택한 ${selectedIds.size}개 페이지를 삭제하시겠습니까?\n삭제하면 복구할 수 없습니다.`)) return;
+    setBulkDeleting(true);
+    const ids = [...selectedIds];
+    const results = await Promise.all(
+      ids.map((id) => fetch(`/api/landing-pages/${id}`, { method: "DELETE" }).then((r) => r.json()))
+    );
+    const deleted = ids.filter((_, i) => results[i].ok);
+    const failCount = ids.length - deleted.length;
+    setPages((prev) => prev.filter((p) => !deleted.includes(p.id)));
+    setSelectedIds(new Set());
+    if (failCount > 0) alert(`${failCount}개 삭제에 실패했습니다.`);
+    setBulkDeleting(false);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === pages.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(pages.map((p) => p.id)));
+    }
   };
 
   const openShareModal = (id: string, title: string) => setShareModal({ id, title });
@@ -652,7 +706,7 @@ export default function LandingPagesPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold text-navy-900">랜딩페이지</h1>
           <p className="text-sm text-gray-500 mt-0.5">총 {pages.length}개{sharedPages.length > 0 ? ` · 공유받음 ${sharedPages.length}개` : ""}</p>
@@ -664,6 +718,31 @@ export default function LandingPagesPage() {
           <Plus className="w-4 h-4" /> 새 페이지
         </Link>
       </div>
+
+      {/* 복수선택 툴바 */}
+      {pages.length > 0 && (
+        <div className="flex items-center gap-3 mb-3 px-1">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={selectedIds.size === pages.length && pages.length > 0}
+              onChange={toggleSelectAll}
+              className="w-4 h-4 accent-navy-900"
+            />
+            <span className="text-xs text-gray-500">전체 선택</span>
+          </label>
+          {selectedIds.size > 0 && (
+            <button
+              onClick={bulkDelete}
+              disabled={bulkDeleting}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {bulkDeleting ? "삭제 중..." : `${selectedIds.size}개 삭제`}
+            </button>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-3">
@@ -685,6 +764,7 @@ export default function LandingPagesPage() {
                   key={page.id}
                   page={page}
                   isShared={false}
+                  isSelected={selectedIds.has(page.id)}
                   statsMap={statsMap}
                   loadingStats={loadingStats}
                   cloningId={cloningId}
@@ -701,6 +781,7 @@ export default function LandingPagesPage() {
                   onDelete={deletePage}
                   onShare={openShareModal}
                   onLoadStats={loadStats}
+                  onToggleSelect={toggleSelect}
                 />
               ))
             )}
@@ -724,6 +805,7 @@ export default function LandingPagesPage() {
                       key={page.id}
                       page={page}
                       isShared={true}
+                      isSelected={false}
                       statsMap={statsMap}
                       loadingStats={loadingStats}
                       cloningId={cloningId}

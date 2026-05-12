@@ -133,16 +133,20 @@ export async function PATCH(req: Request, { params }: Params) {
 
 export async function DELETE(_req: Request, { params }: Params) {
   try {
-    const ctx   = await getAuthContext();
-    const orgId = resolveOrgId(ctx);
+    const ctx = await getAuthContext();
     const { id } = await params;
 
     if (!canDelete(ctx)) {
       return NextResponse.json({ ok: false, message: "삭제 권한이 없습니다." }, { status: 403 });
     }
 
-    const existing = await prisma.crmLandingPage.findFirst({ where: { id, organizationId: orgId } });
-    if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
+    // GLOBAL_ADMIN은 조직 필터 없이 삭제 가능
+    const where = ctx.role === "GLOBAL_ADMIN"
+      ? { id }
+      : { id, organizationId: resolveOrgId(ctx) };
+
+    const existing = await prisma.crmLandingPage.findFirst({ where });
+    if (!existing) return NextResponse.json({ ok: false, message: "페이지를 찾을 수 없습니다." }, { status: 404 });
 
     await prisma.crmLandingPage.delete({ where: { id } });
     return NextResponse.json({ ok: true });
