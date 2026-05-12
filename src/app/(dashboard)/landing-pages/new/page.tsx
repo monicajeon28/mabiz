@@ -643,15 +643,11 @@ ${commentBlock}
         {/* iPhone 프레임 */}
         <div className="flex-1 overflow-hidden flex items-start justify-center py-8 px-6">
           <div className="relative w-[280px]" style={{ userSelect: "none" }}>
-            {/* 폰 외곽 */}
-            <div className="absolute inset-0 rounded-[40px] pointer-events-none z-10"
+            {/* 폰 외곽 — z-0: 스크린 뒤에서 베젤 역할 */}
+            <div className="absolute inset-0 rounded-[40px] pointer-events-none z-0"
               style={{ background: "#2d3748", boxShadow: "0 0 0 1.5px #4a5568, 0 24px 64px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08)" }} />
-            {/* 노치 */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 w-20 h-5 bg-[#2d3748] rounded-b-2xl" />
-            {/* 홈 바 */}
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 w-16 h-1 bg-white/30 rounded-full" />
-            {/* 스크린 */}
-            <div className="relative mx-[10px] mt-[8px] mb-[8px] rounded-[32px] overflow-hidden bg-white"
+            {/* 스크린 — z-10: 폰 외곽 위에 표시 */}
+            <div className="relative mx-[10px] mt-[8px] mb-[8px] rounded-[32px] overflow-hidden bg-white z-10"
               style={{ height: "580px" }}>
               <iframe
                 srcDoc={previewHtml}
@@ -661,6 +657,10 @@ ${commentBlock}
                 style={{ display: "block" }}
               />
             </div>
+            {/* 노치 — z-20: 스크린 위에 오버레이 */}
+            <div className="absolute top-[8px] left-1/2 -translate-x-1/2 z-20 w-16 h-4 bg-[#2d3748] rounded-b-2xl pointer-events-none" />
+            {/* 홈 바 — z-20 */}
+            <div className="absolute bottom-[10px] left-1/2 -translate-x-1/2 z-20 w-14 h-1 bg-gray-400/40 rounded-full pointer-events-none" />
           </div>
         </div>
       </div>
