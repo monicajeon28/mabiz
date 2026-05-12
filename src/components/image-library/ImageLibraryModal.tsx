@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Search, X, Copy, Check, Link2, Play } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Search, X, Copy, Check, Link2, Play, Trash2, FolderPlus, Loader2 } from "lucide-react";
 
 interface ImageItem {
   id: string;
@@ -12,6 +12,7 @@ interface ImageItem {
   tags: string | null;
   isGif: boolean;
   isVideo: boolean;
+  source: "cache" | "asset";
 }
 
 interface ImageLibraryModalProps {
@@ -21,7 +22,7 @@ interface ImageLibraryModalProps {
   onInsert: (html: string) => void;
 }
 
-const FOLDERS = ["전체", "지중해", "카리브해", "알래스카", "선박", "객실", "후기", "기타"];
+const DEFAULT_FOLDERS = ["전체", "지중해", "카리브해", "알래스카", "선박", "객실", "후기", "기타"];
 
 export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModalProps) {
   const [tab, setTab]           = useState<"library" | "url" | "youtube">("library");
@@ -38,6 +39,19 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
   // YouTube
   const [ytInput, setYtInput]     = useState("");
   const [ytWidth, setYtWidth]     = useState("100%");
+
+  // 업로드
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 폴더 관리
+  const [folders, setFolders]           = useState<string[]>(DEFAULT_FOLDERS);
+  const [addingFolder, setAddingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+
+  // 인라인 타이틀 편집
+  const [editingId, setEditingId]     = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
 
   const fetchImages = useCallback(async () => {
     setLoading(true);
@@ -62,10 +76,8 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
 
   const buildImageHtml = (item: ImageItem) => {
     if (item.isGif) {
-      // GIF: img 태그 (animation 유지)
       return `<img src="${item.fullUrl}" alt="${item.title}" style="max-width:100%;height:auto;" loading="lazy">`;
     }
-    // 일반 이미지: webp 우선 + fallback
     return `<picture>\n  <source srcset="${item.fullUrl}" type="image/webp">\n  <img src="${item.thumbnailUrl}" alt="${item.title}" style="max-width:100%;height:auto;" loading="lazy">\n</picture>`;
   };
 
@@ -96,17 +108,131 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
     onClose();
   };
 
+  // ── 업로드 핸들러 ────────────────────────────────────────
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", folder !== "전체" ? folder : "기타");
+
+      const res  = await fetch("/api/image-library", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (data.ok) {
+        await fetchImages();
+      } else {
+        alert(data.error ?? "업로드 실패");
+      }
+    } catch {
+      alert("업로드 중 오류가 발생했습니다");
+    } finally {
+      setUploading(false);
+      // 파일 input 초기화 (같은 파일 재업로드 허용)
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  // ── 삭제 핸들러 ─────────────────────────────────────────
+  const handleDelete = async (e: React.MouseEvent, item: ImageItem) => {
+    e.stopPropagation();
+    if (!confirm(`"${item.title}" 이미지를 삭제할까요?`)) return;
+
+    const res  = await fetch(`/api/image-library/${item.id}`, { method: "DELETE" });
+    const data = await res.json();
+
+    if (data.ok) {
+      setItems((prev) => prev.filter((i) => i.id !== item.id));
+      if (selected?.id === item.id) setSelected(null);
+    } else {
+      alert(data.error ?? "삭제 실패");
+    }
+  };
+
+  // ── 인라인 타이틀 편집 ───────────────────────────────────
+  const startEditing = (e: React.MouseEvent, item: ImageItem) => {
+    if (item.source !== "asset") return;
+    e.stopPropagation();
+    setEditingId(item.id);
+    setEditingTitle(item.title);
+  };
+
+  const commitEdit = async (id: string) => {
+    const trimmed = editingTitle.trim();
+    setEditingId(null);
+    if (!trimmed) return;
+
+    const res  = await fetch(`/api/image-library/${id}`, {
+      method:  "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ title: trimmed }),
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+      setItems((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, title: trimmed } : i))
+      );
+    } else {
+      alert(data.error ?? "수정 실패");
+    }
+  };
+
+  // ── 폴더 추가 ────────────────────────────────────────────
+  const handleAddFolder = () => {
+    const name = newFolderName.trim();
+    if (!name) return;
+    if (!folders.includes(name)) {
+      setFolders((prev) => [...prev, name]);
+    }
+    setNewFolderName("");
+    setAddingFolder(false);
+    setFolder(name);
+  };
+
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      {/* 숨겨진 파일 입력 */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
       <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
         {/* 헤더 */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
           <h2 className="text-lg font-bold text-navy-900">이미지 / 영상 라이브러리</h2>
-          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
+          <div className="flex items-center gap-2">
+            {tab === "library" && (
+              <button
+                onClick={handleUploadClick}
+                disabled={uploading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gold-500 text-white rounded-lg text-sm font-medium hover:bg-gold-600 disabled:opacity-50 transition-colors"
+              >
+                {uploading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <span>📤</span>
+                )}
+                이미지 업로드
+              </button>
+            )}
+            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
         </div>
 
         {/* 탭 */}
@@ -146,8 +272,8 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                     className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gold-500"
                   />
                 </div>
-                <div className="flex gap-1 flex-wrap">
-                  {FOLDERS.map((f) => (
+                <div className="flex gap-1 flex-wrap items-center">
+                  {folders.map((f) => (
                     <button
                       key={f}
                       onClick={() => setFolder(f)}
@@ -160,6 +286,43 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                       {f}
                     </button>
                   ))}
+                  {/* 폴더 추가 버튼 */}
+                  {addingFolder ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        value={newFolderName}
+                        onChange={(e) => setNewFolderName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleAddFolder();
+                          if (e.key === "Escape") setAddingFolder(false);
+                        }}
+                        placeholder="폴더명"
+                        autoFocus
+                        className="w-20 px-2 py-1 text-xs border border-gray-300 rounded-full focus:outline-none focus:border-gold-500"
+                      />
+                      <button
+                        onClick={handleAddFolder}
+                        className="text-xs text-green-600 hover:text-green-800 font-medium"
+                      >
+                        확인
+                      </button>
+                      <button
+                        onClick={() => setAddingFolder(false)}
+                        className="text-xs text-gray-400 hover:text-gray-600"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setAddingFolder(true)}
+                      className="p-1.5 text-gray-400 hover:text-navy-900 rounded-full border border-dashed border-gray-300 hover:border-navy-900 transition-colors"
+                      title="폴더 추가"
+                    >
+                      <FolderPlus className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -173,12 +336,13 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                 <div className="text-center py-12 text-gray-400">
                   <p className="text-3xl mb-2">🖼️</p>
                   <p className="text-sm">이미지가 없습니다</p>
-                  <p className="text-xs mt-1">Google Drive와 동기화가 필요할 수 있습니다</p>
+                  <p className="text-xs mt-1">이미지를 업로드하거나 Google Drive와 동기화가 필요할 수 있습니다</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
                   {items.map((item) => {
                     const html = buildImageHtml(item);
+                    const isEditing = editingId === item.id;
                     return (
                       <div
                         key={item.id}
@@ -191,7 +355,6 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                       >
                         <div className="aspect-square bg-gray-100">
                           {item.isGif ? (
-                            // GIF: 실제 애니메이션 표시
                             <img
                               src={item.fullUrl}
                               alt={item.title}
@@ -211,8 +374,39 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                               GIF
                             </span>
                           )}
+                          {item.source === "asset" && (
+                            <span className="absolute top-1 left-1 bg-blue-500/80 text-white text-xs px-1.5 py-0.5 rounded font-bold">
+                              내
+                            </span>
+                          )}
                         </div>
-                        <p className="text-xs text-gray-600 px-1 py-1 truncate">{item.title}</p>
+
+                        {/* 타이틀: asset이면 더블클릭 편집 */}
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onBlur={() => commitEdit(item.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitEdit(item.id);
+                              if (e.key === "Escape") setEditingId(null);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            autoFocus
+                            className="w-full text-xs px-1 py-1 border border-gold-500 rounded focus:outline-none"
+                          />
+                        ) : (
+                          <p
+                            className={`text-xs text-gray-600 px-1 py-1 truncate ${
+                              item.source === "asset" ? "cursor-text hover:text-navy-900" : ""
+                            }`}
+                            onDoubleClick={(e) => startEditing(e, item)}
+                            title={item.source === "asset" ? "더블클릭으로 제목 편집" : item.title}
+                          >
+                            {item.title}
+                          </p>
+                        )}
 
                         {/* 호버 액션 */}
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded-xl">
@@ -230,6 +424,15 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                           >
                             <Link2 className="w-4 h-4" />
                           </button>
+                          {item.source === "asset" && (
+                            <button
+                              onClick={(e) => handleDelete(e, item)}
+                              className="p-2 bg-red-500 rounded-lg text-white hover:bg-red-600"
+                              title="삭제"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -276,7 +479,6 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                 </div>
               )}
 
-              {/* HTML 코드 미리보기 */}
               {urlInput && (
                 <div className="bg-gray-900 rounded-xl p-3">
                   <p className="text-xs text-gray-400 mb-2">HTML 코드</p>
