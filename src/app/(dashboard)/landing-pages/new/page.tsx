@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ImageIcon, Code, Upload, X, GripVertical, Plus, Trash2, Smartphone } from "lucide-react";
+import { ArrowLeft, ImageIcon, Code, Upload, X, GripVertical, Plus, Trash2, Smartphone, Copy, Check } from "lucide-react";
 import dynamic from "next/dynamic";
 import { ImageLibraryModal } from "@/components/image-library/ImageLibraryModal";
 
@@ -74,6 +74,8 @@ export default function NewLandingPage() {
   const [savedPageId, setSavedPageId] = useState<string | null>(null);
   const [dragIdx, setDragIdx]       = useState<number | null>(null);
   const [showLibrary, setShowLibrary] = useState(false);
+  const [copyPopup, setCopyPopup]     = useState<string | null>(null);
+  const [copied, setCopied]           = useState(false);
 
   // 결제
   const [paymentEnabled, setPaymentEnabled]   = useState(false);
@@ -107,6 +109,7 @@ export default function NewLandingPage() {
     marketingConsent:  { enabled: false, required: false },
   });
   const [additionalFields, setAdditionalFields] = useState<{ id: string; name: string; required: boolean }[]>([]);
+  const [b2bEduType, setB2bEduType] = useState<"" | "INQUIRER" | "BUYER">("")
 
 
   useEffect(() => {
@@ -321,8 +324,10 @@ ${footerBlock}
   // 이미지 라이브러리에서 선택 시
   const handleLibraryInsert = useCallback((html: string) => {
     if (editorMode === "html") {
-      // HTML 에디터 모드: 코드 끝에 삽입
+      // HTML 에디터 모드: 코드 끝에 자동 삽입 + 팝업으로 복사 가능하게
       setHtml((prev) => prev + "\n" + html);
+      setCopyPopup(html);
+      setCopied(false);
       return;
     }
     // 이미지 모드: Drive URL 파싱 → images 배열에 추가
@@ -353,7 +358,7 @@ ${footerBlock}
       commentEnabled,
       commentConfig: commentEnabled ? { count: commentCount, dateFrom: commentDateFrom, dateTo: commentDateTo } : undefined,
       footer: footer.trim() || null,
-      infoCollection: true, formConfig: { fields: formFields, additionalFields },
+      infoCollection: true, formConfig: { fields: formFields, additionalFields, ...(b2bEduType ? { b2bEduType } : {}) },
       ...(buttonTitle        ? { buttonTitle }        : {}),
       ...(completionPageUrl  ? { completionPageUrl }  : {}),
       ...(headerScript       ? { headerScript }       : {}),
@@ -453,7 +458,17 @@ ${footerBlock}
           {/* 에디터 */}
           <div className="p-4">
             {editorMode === "html" ? (
-              <HtmlEditor value={html} onChange={setHtml} height="420px" />
+              <div className="space-y-2">
+                <HtmlEditor value={html} onChange={setHtml} height="420px" />
+                <button
+                  type="button"
+                  onClick={() => setShowLibrary(true)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-200 bg-white rounded-xl text-sm font-medium text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  Drive 라이브러리에서 이미지 HTML 가져오기
+                </button>
+              </div>
             ) : (
               <div>
                 <div
@@ -560,6 +575,25 @@ ${footerBlock}
                   className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-1">
                   <Plus className="w-3.5 h-3.5" /> 질문 추가
                 </button>
+              </div>
+
+              {/* B2B 문의자 자동 연결 */}
+              <div className="pt-3 border-t border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-gray-700">B2B 문의자 자동 등록</p>
+                    <p className="text-xs text-gray-400 mt-0.5">신청 시 교육 문의자/구매자로 자동 저장</p>
+                  </div>
+                  <select
+                    value={b2bEduType}
+                    onChange={(e) => setB2bEduType(e.target.value as "" | "INQUIRER" | "BUYER")}
+                    className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-blue-400"
+                  >
+                    <option value="">사용 안 함</option>
+                    <option value="INQUIRER">교육 문의자로 등록</option>
+                    <option value="BUYER">교육 구매자로 등록</option>
+                  </select>
+                </div>
               </div>
 
               {/* 버튼 텍스트 */}
@@ -733,6 +767,32 @@ ${footerBlock}
       onClose={() => setShowLibrary(false)}
       onInsert={handleLibraryInsert}
     />
+
+    {/* HTML 코드 복사 팝업 */}
+    {copyPopup && (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setCopyPopup(null); setCopied(false); }}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <div>
+              <p className="font-semibold text-gray-800 text-sm">이미지 HTML 코드</p>
+              <p className="text-xs text-gray-400 mt-0.5">에디터에 자동 삽입됨 · 코드를 직접 복사할 수도 있어요</p>
+            </div>
+            <button onClick={() => { setCopyPopup(null); setCopied(false); }} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="p-5 space-y-3">
+            <pre className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-xs font-mono text-gray-700 overflow-x-auto whitespace-pre-wrap break-all max-h-52 leading-relaxed">{copyPopup}</pre>
+            <button
+              onClick={() => { navigator.clipboard.writeText(copyPopup); setCopied(true); }}
+              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${copied ? "bg-green-500 text-white" : "bg-[#1E2D4E] text-white hover:opacity-90"}`}
+            >
+              {copied ? <><Check className="w-4 h-4" /> 복사됨!</> : <><Copy className="w-4 h-4" /> HTML 코드 복사</>}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }
