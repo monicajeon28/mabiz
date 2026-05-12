@@ -108,21 +108,19 @@ export async function GET(req: Request) {
         WHERE r."createdAt" >= ${sinceDate}
       `);
 
-      // ── SALE_PENDING (전체, GMcruise AffiliateSale) ──
+      // ── SALE_PENDING (전체, CRM 자체 AffiliateSale) ──
       parts.push(Prisma.sql`
         SELECT
-          'SALE_PENDING'::text         AS type,
-          als.id::text                 AS id,
-          COALESCE(lead."customerName", ap."displayName", als."agentCode"::text, '판매건') AS name,
-          lead."customerPhone"         AS phone,
-          NULL::text                   AS detail,
-          als."saleAmount"::bigint     AS amount,
-          '/affiliate-sales'::text     AS link_path,
-          als."createdAt"              AS created_at
-        FROM "AffiliateSale" als
-        LEFT JOIN "AffiliateProfile" ap   ON ap.id   = als."agentId"
-        LEFT JOIN "AffiliateLead"    lead ON lead.id = als."leadId"
-        WHERE als.status IN ('PENDING', 'PENDING_APPROVAL')
+          'SALE_PENDING'::text                                    AS type,
+          als.id                                                  AS id,
+          COALESCE(als."customerPhone", als."affiliateCode", '판매건') AS name,
+          NULL::text                                              AS phone,
+          als."productName"                                       AS detail,
+          als."saleAmount"::bigint                                AS amount,
+          '/affiliate-sales'::text                                AS link_path,
+          als."createdAt"                                         AS created_at
+        FROM "CrmAffiliateSale" als
+        WHERE als.status = 'PENDING'
           AND als."createdAt" >= ${sinceDate}
       `);
 
@@ -210,27 +208,22 @@ export async function GET(req: Request) {
           AND r."createdAt" >= ${sinceDate}
       `);
 
-      // ── SALE_PENDING (OWNER: managerId 필터) ──
-      if (ctx.mallUser?.affiliateProfileId != null) {
-        const managerProfileId = ctx.mallUser.affiliateProfileId;
-        parts.push(Prisma.sql`
-          SELECT
-            'SALE_PENDING'::text         AS type,
-            als.id::text                 AS id,
-            COALESCE(lead."customerName", ap."displayName", '판매건') AS name,
-            lead."customerPhone"         AS phone,
-            NULL::text                   AS detail,
-            als."saleAmount"::bigint     AS amount,
-            '/affiliate-sales'::text     AS link_path,
-            als."createdAt"              AS created_at
-          FROM "AffiliateSale" als
-          LEFT JOIN "AffiliateProfile" ap   ON ap.id   = als."agentId"
-          LEFT JOIN "AffiliateLead"    lead ON lead.id = als."leadId"
-          WHERE als."managerId" = ${managerProfileId}
-            AND als.status IN ('PENDING', 'PENDING_APPROVAL')
-            AND als."createdAt" >= ${sinceDate}
-        `);
-      }
+      // ── SALE_PENDING (OWNER: 조직 기준) ──
+      parts.push(Prisma.sql`
+        SELECT
+          'SALE_PENDING'::text                                    AS type,
+          als.id                                                  AS id,
+          COALESCE(als."customerPhone", als."affiliateCode", '판매건') AS name,
+          NULL::text                                              AS phone,
+          als."productName"                                       AS detail,
+          als."saleAmount"::bigint                                AS amount,
+          '/affiliate-sales'::text                                AS link_path,
+          als."createdAt"                                         AS created_at
+        FROM "CrmAffiliateSale" als
+        WHERE als."organizationId" = ${orgId}
+          AND als.status = 'PENDING'
+          AND als."createdAt" >= ${sinceDate}
+      `);
 
       // ── GOLD_INQUIRY: ProductInquiry 테이블은 이 DB에 없으므로 제외 ──
 
@@ -305,27 +298,22 @@ export async function GET(req: Request) {
           AND r."createdAt" >= ${sinceDate}
       `);
 
-      // ── SALE_PENDING (AGENT: agentId 필터) ──
-      if (ctx.mallUser?.affiliateProfileId != null) {
-        const agentProfileId = ctx.mallUser.affiliateProfileId;
-        parts.push(Prisma.sql`
-          SELECT
-            'SALE_PENDING'::text         AS type,
-            als.id::text                 AS id,
-            COALESCE(lead."customerName", ap."displayName", '판매건') AS name,
-            lead."customerPhone"         AS phone,
-            NULL::text                   AS detail,
-            als."saleAmount"::bigint     AS amount,
-            '/affiliate-sales'::text     AS link_path,
-            als."createdAt"              AS created_at
-          FROM "AffiliateSale" als
-          LEFT JOIN "AffiliateProfile" ap   ON ap.id   = als."agentId"
-          LEFT JOIN "AffiliateLead"    lead ON lead.id = als."leadId"
-          WHERE als."agentId" = ${agentProfileId}
-            AND als.status IN ('PENDING', 'PENDING_APPROVAL')
-            AND als."createdAt" >= ${sinceDate}
-        `);
-      }
+      // ── SALE_PENDING (AGENT: affiliateUserId 기준) ──
+      parts.push(Prisma.sql`
+        SELECT
+          'SALE_PENDING'::text                                    AS type,
+          als.id                                                  AS id,
+          COALESCE(als."customerPhone", als."affiliateCode", '판매건') AS name,
+          NULL::text                                              AS phone,
+          als."productName"                                       AS detail,
+          als."saleAmount"::bigint                                AS amount,
+          '/affiliate-sales'::text                                AS link_path,
+          als."createdAt"                                         AS created_at
+        FROM "CrmAffiliateSale" als
+        WHERE als."affiliateUserId" = ${ctx.userId}
+          AND als.status = 'PENDING'
+          AND als."createdAt" >= ${sinceDate}
+      `);
 
       // ── GOLD_INQUIRY: ProductInquiry 테이블은 이 DB에 없으므로 제외 ──
 
