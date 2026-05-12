@@ -122,9 +122,13 @@ const ROLE_BADGE: Record<string, string> = {
 };
 
 const TIER_LABEL: Record<string, string> = {
-  BASIC: '베이직 330만',
-  STANDARD: '스탠다드 540만',
-  PREMIUM: '프리미엄 750만',
+  SALES_330: '직속마케터 330만',
+  SALES_540: '직속인솔스탭 540만',
+  BRANCH_750: '대리점',
+  // 구 키 호환
+  BASIC: '직속마케터 330만',
+  STANDARD: '직속인솔스탭 540만',
+  PREMIUM: '대리점',
 };
 
 const CONTRACT_STATUS_BADGE: Record<string, string> = {
@@ -140,9 +144,15 @@ const CONTRACT_STATUS_LABEL: Record<string, string> = {
 
 // ─── CopyButton ─────────────────────────────────────────
 
-function CopyApplyLink() {
+function CopyApplyLink({
+  path = '/affiliate/apply',
+  colorClass = 'bg-white text-blue-700 hover:bg-blue-50',
+}: {
+  path?: string;
+  colorClass?: string;
+}) {
   const [copied, setCopied] = useState(false);
-  const url = typeof window !== 'undefined' ? `${window.location.origin}/affiliate/apply` : '/affiliate/apply';
+  const url = typeof window !== 'undefined' ? `${window.location.origin}${path}` : path;
   return (
     <button
       onClick={() =>
@@ -151,7 +161,7 @@ function CopyApplyLink() {
           setTimeout(() => setCopied(false), 2000);
         })
       }
-      className="flex items-center gap-1.5 px-3 py-2 bg-white text-blue-700 text-xs font-semibold rounded-lg hover:bg-blue-50 transition-colors"
+      className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-colors ${colorClass}`}
     >
       {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
       {copied ? '복사됨!' : '링크 복사'}
@@ -611,32 +621,64 @@ export default function OrganizationsPage() {
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-5">
 
-      {/* 가입 신청 링크 공유 */}
-      <section className="bg-blue-600 rounded-2xl p-4 text-white">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Share2 className="w-4 h-4 shrink-0" />
-              <h2 className="text-sm font-bold">대리점 가입 신청 링크</h2>
+      {/* 계약서 가입 신청 링크 */}
+      <section className="space-y-2">
+        <div className="flex items-center gap-1.5 mb-1">
+          <Share2 className="w-4 h-4 text-gray-500 shrink-0" />
+          <h2 className="text-sm font-semibold text-gray-700">계약서 가입 신청 링크</h2>
+        </div>
+
+        {/* 판매 파트너 계약 신청 */}
+        <div className="bg-blue-600 rounded-xl p-4 text-white">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold mb-0.5">판매 파트너 계약 신청</p>
+              <p className="text-xs text-blue-200 font-mono truncate">
+                {typeof window !== 'undefined' ? window.location.origin : ''}/affiliate/apply
+              </p>
+              <p className="text-xs text-blue-300 mt-1">
+                잠재 판매 파트너에게 이 링크를 공유하세요. 신청 완료 시 아래 승인 대기 목록에 자동 표시됩니다.
+              </p>
             </div>
-            <p className="text-xs text-blue-200 font-mono truncate">
-              {typeof window !== 'undefined' ? window.location.origin : ''}/affiliate/apply
-            </p>
-            <p className="text-xs text-blue-300 mt-1">
-              잠재 대리점장에게 이 링크를 공유하세요. 신청 완료 시 아래 승인 대기 목록에 자동 표시됩니다.
-            </p>
+            <div className="flex items-center gap-2 shrink-0">
+              <CopyApplyLink path="/affiliate/apply" />
+              <a
+                href="/affiliate/apply"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors"
+                title="페이지 열기"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <CopyApplyLink />
-            <a
-              href="/affiliate/apply"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors"
-              title="페이지 열기"
-            >
-              <ExternalLink className="w-4 h-4" />
-            </a>
+        </div>
+
+        {/* 프리세일즈 가입신청 */}
+        <div className="bg-emerald-600 rounded-xl p-4 text-white">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold mb-0.5">프리세일즈 가입 신청</p>
+              <p className="text-xs text-emerald-200 font-mono truncate">
+                {typeof window !== 'undefined' ? window.location.origin : ''}/affiliate/pre-sales
+              </p>
+              <p className="text-xs text-emerald-300 mt-1">
+                잠재 프리세일즈 파트너에게 이 링크를 공유하세요.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <CopyApplyLink path="/affiliate/pre-sales" colorClass="bg-white text-emerald-700 hover:bg-emerald-50" />
+              <a
+                href="/affiliate/pre-sales"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 bg-emerald-500 hover:bg-emerald-400 rounded-lg transition-colors"
+                title="페이지 열기"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </div>
           </div>
         </div>
       </section>
