@@ -101,6 +101,7 @@ export default function EditLandingPage() {
   const [orgMembers,  setOrgMembers]  = useState<OrgMember[]>([]);
   const [shareUserId, setShareUserId] = useState("");
   const [shareMsg,    setShareMsg]    = useState("");
+  const [b2bEduType, setB2bEduType] = useState<"" | "INQUIRER" | "BUYER">("");
 
   useEffect(() => {
     Promise.all([
@@ -135,6 +136,8 @@ export default function EditLandingPage() {
         setProductPrice(String(pageData.page.productPrice ?? ""));
         setCycleDay(String(pageData.page.cycleDay ?? "1"));
         setExpireDate(pageData.page.expireDate ? pageData.page.expireDate.split("T")[0] : "");
+        const fc = pageData.page.formConfig as { b2bEduType?: string } | null;
+        setB2bEduType((fc?.b2bEduType as "" | "INQUIRER" | "BUYER") ?? "");
       }
       if (groupData.ok) setGroups(groupData.groups ?? []);
       if (membersData.ok && membersData.members) {
@@ -331,6 +334,7 @@ export default function EditLandingPage() {
       body: JSON.stringify({
         title, slug, htmlContent: content, editorMode,
         groupId: selectedGroupId || null, paymentEnabled,
+        ...(b2bEduType !== undefined ? { infoCollection: true, formConfig: b2bEduType ? { b2bEduType } : null } : {}),
         ...(paymentEnabled ? {
           paymentType, productName: productName || null,
           productPrice: parseInt(productPrice) || null,
@@ -476,6 +480,20 @@ export default function EditLandingPage() {
                 </>
               )}
             </div>
+          </div>
+          {/* B2B 문의자 자동 연결 */}
+          <div className="flex items-center gap-3 px-4 py-2 bg-indigo-50 border-b border-indigo-100 shrink-0">
+            <label className="text-xs font-medium text-indigo-700">B2B 자동 등록</label>
+            <select
+              value={b2bEduType}
+              onChange={(e) => setB2bEduType(e.target.value as "" | "INQUIRER" | "BUYER")}
+              className="text-xs border border-indigo-200 rounded-lg px-2 py-1 bg-white focus:outline-none"
+            >
+              <option value="">사용 안 함</option>
+              <option value="INQUIRER">교육 문의자로 등록</option>
+              <option value="BUYER">교육 구매자로 등록</option>
+            </select>
+            {b2bEduType && <span className="text-xs text-indigo-500">신청 시 자동으로 교육 {b2bEduType === 'INQUIRER' ? '문의자' : '구매자'}로 저장됩니다</span>}
           </div>
           {/* 신청 완료 이메일 설정 */}
           <div className="flex flex-wrap items-start gap-3 px-4 py-2 bg-blue-50 border-b border-blue-100 shrink-0">

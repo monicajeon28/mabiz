@@ -6,6 +6,11 @@ import { addLeadScore } from "@/lib/lead-score";
 import { normalizePhone } from "@/lib/phone-normalize";
 import { sendFunnelEmail } from "@/lib/email";
 
+type FormConfig = {
+  b2bEduType?: "INQUIRER" | "BUYER";
+  additionalFields?: { id: string; name: string; required: boolean }[];
+};
+
 type Params = { params: Promise<{ id: string }> };
 
 // POST /api/landing-pages/[id]/register
@@ -60,6 +65,7 @@ export async function POST(req: Request, { params }: Params) {
       select: {
         id: true, organizationId: true, groupId: true, autoFunnelId: true, title: true,
         regEmailEnabled: true, regEmailSubject: true, regEmailContent: true,
+        formConfig: true,
       },
     });
     if (!landingPage) {
@@ -121,6 +127,47 @@ export async function POST(req: Request, { params }: Params) {
 
       // 리드 스코어 +30 (랜딩 등록 = 강력한 관심 신호)
       addLeadScore(contact.id, "LANDING_REGISTER").catch(() => {});
+
+      // B2B 문의자/구매자 자동 등록
+      const fc = landingPage.formConfig as FormConfig | null;
+      if (fc?.b2bEduType) {
+        const additionalFieldsMap = new Map(
+          (fc.additionalFields ?? []).map((f) => [`custom_${f.id}`, f.name])
+        );
+        const customFields = (metadata as Record<string, unknown>)?.customFields as Record<string, string> | undefined;
+        const notesLines: string[] = [`[랜딩 신청: ${landingPage.title}]`];
+        if (customFields) {
+          for (const [key, val] of Object.entries(customFields)) {
+            const label = additionalFieldsMap.get(key) ?? key;
+            notesLines.push(`${label}: ${val}`);
+          }
+        }
+        const notesText = notesLines.join('\n');
+
+        const existingProspect = await prisma.b2BProspect.findFirst({
+          where: { phone: normalizedPhone, organizationId: orgId },
+          select: { id: true },
+        });
+        if (existingProspect) {
+          await prisma.b2BProspect.update({
+            where: { id: existingProspect.id },
+            data: { notes: notesText },
+          });
+        } else {
+          await prisma.b2BProspect.create({
+            data: {
+              organizationId: orgId,
+              name,
+              phone: normalizedPhone,
+              email: email ?? null,
+              eduType: fc.b2bEduType,
+              source: 'B2B_LANDING',
+              notes: notesText,
+              status: '잠재고객',
+            },
+          });
+        }
+      }
 
       // autoFunnelId 직접 퍼널 시작 (그룹 경유 없이)
       if (!funnelStarted && landingPage.autoFunnelId) {

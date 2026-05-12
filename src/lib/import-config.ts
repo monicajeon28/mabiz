@@ -246,18 +246,11 @@ export const B2B_BUYER_IMPORT_CONFIG: ImportConfig = {
   description: 'B2B 구매자 정보 가져오기',
   columns: [
     {
-      name: '회사명',
-      label: '회사명(필수)',
+      name: '이름',
+      label: '이름(필수)',
       required: true,
-      field: 'company_name',
-      aliases: ['회사명', '회사', 'company_name', 'company'],
-    },
-    {
-      name: '대표명',
-      label: '대표명(필수)',
-      required: true,
-      field: 'representative_name',
-      aliases: ['대표명', '대표', 'representative_name', 'representative'],
+      field: 'name',
+      aliases: ['이름', '성명', '대표명', '담당자명', 'name'],
     },
     {
       name: '전화번호',
@@ -268,16 +261,22 @@ export const B2B_BUYER_IMPORT_CONFIG: ImportConfig = {
       transform: normalizePhone,
     },
     {
+      name: '회사명',
+      label: '회사명',
+      field: 'companyName',
+      aliases: ['회사명', '회사', 'company_name', 'company'],
+    },
+    {
       name: '이메일',
       label: '이메일',
       field: 'email',
       aliases: ['이메일', 'email', 'e-mail'],
     },
     {
-      name: '담당자',
-      label: '담당자',
-      field: 'contact_person',
-      aliases: ['담당자', '담당', 'contact_person', 'contact'],
+      name: '메모',
+      label: '메모',
+      field: 'notes',
+      aliases: ['메모', '비고', '노트', 'notes', 'memo'],
     },
   ],
 };
@@ -291,18 +290,11 @@ export const B2B_INQUIRY_IMPORT_CONFIG: ImportConfig = {
   description: 'B2B 문의자 정보 가져오기',
   columns: [
     {
-      name: '회사명',
-      label: '회사명(필수)',
+      name: '이름',
+      label: '이름(필수)',
       required: true,
-      field: 'company_name',
-      aliases: ['회사명', '회사', 'company_name', 'company'],
-    },
-    {
-      name: '문의자명',
-      label: '문의자명(필수)',
-      required: true,
-      field: 'inquirer_name',
-      aliases: ['문의자명', '문의자', 'inquirer_name', 'inquirer'],
+      field: 'name',
+      aliases: ['이름', '성명', '문의자명', '담당자명', 'name'],
     },
     {
       name: '전화번호',
@@ -313,6 +305,12 @@ export const B2B_INQUIRY_IMPORT_CONFIG: ImportConfig = {
       transform: normalizePhone,
     },
     {
+      name: '회사명',
+      label: '회사명',
+      field: 'companyName',
+      aliases: ['회사명', '회사', 'company_name', 'company'],
+    },
+    {
       name: '이메일',
       label: '이메일',
       field: 'email',
@@ -321,8 +319,8 @@ export const B2B_INQUIRY_IMPORT_CONFIG: ImportConfig = {
     {
       name: '문의내용',
       label: '문의내용',
-      field: 'inquiry_content',
-      aliases: ['문의내용', '내용', 'inquiry_content', 'content'],
+      field: 'notes',
+      aliases: ['문의내용', '내용', '메모', 'notes', 'inquiry_content', 'content'],
     },
   ],
 };

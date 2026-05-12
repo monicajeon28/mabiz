@@ -138,11 +138,11 @@ async function processBatchB2B(
         id,
         lineNo: item.lineNo,
         phone,
-        companyName: item.data["회사명"],
-        name: item.data["대표명"] || item.data["문의자명"],
+        companyName: item.data["회사명"] || null,
+        name: item.data["이름"],
         email: item.data["이메일"] || null,
-        position: item.data["담당자"] || null,
-        notes: item.data["문의내용"] || null,
+        position: null,
+        notes: item.data["문의내용"] || item.data["메모"] || null,
         eduType: item.eduType,
       };
     })
@@ -381,8 +381,8 @@ export async function POST(req: Request) {
 
         // B2B_BUYER 검증
         if (target === "b2b_buyer") {
-          if (!data["회사명"] || !data["대표명"] || !data["전화번호"]) {
-            errors.push(`${lineNo}행: 회사명, 대표명, 전화번호 필수`);
+          if (!data["이름"] || !data["전화번호"]) {
+            errors.push(`${lineNo}행: 이름, 전화번호 필수`);
             validationSkipCount++;
             continue;
           }
@@ -391,8 +391,8 @@ export async function POST(req: Request) {
 
         // B2B_INQUIRY 검증
         if (target === "b2b_inquiry") {
-          if (!data["회사명"] || !data["문의자명"] || !data["전화번호"]) {
-            errors.push(`${lineNo}행: 회사명, 문의자명, 전화번호 필수`);
+          if (!data["이름"] || !data["전화번호"]) {
+            errors.push(`${lineNo}행: 이름, 전화번호 필수`);
             validationSkipCount++;
             continue;
           }
