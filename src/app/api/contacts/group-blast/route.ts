@@ -90,7 +90,7 @@ export async function POST(req: Request) {
 
           const result = await sendSms({
             config, receiver: c.phone, msg,
-            organizationId: orgId, contactId: c.id, channel: "MANUAL",
+            organizationId: orgId, contactId: c.id, channel: "GROUP",
           });
 
           if (Number(result.result_code) === 1) sentCount++;

@@ -16,6 +16,7 @@ export async function GET(req: Request) {
     const groupId = searchParams.get("groupId");
     const tagParam = searchParams.get("tags");                      // 쉼표 구분 태그 필터
     const tags    = tagParam ? tagParam.split(",").map((t) => t.trim()).filter(Boolean) : [];
+    const assignedTo = searchParams.get("assignedTo");             // 담당자 필터 (userId 또는 "unassigned")
     const cursor  = searchParams.get("cursor");                     // cursor 기반 페이지네이션
     const rawPage = parseInt(searchParams.get("page") ?? "1", 10);
     const page    = Number.isNaN(rawPage) ? 1 : Math.min(Math.max(1, rawPage), 10000);
@@ -33,6 +34,9 @@ export async function GET(req: Request) {
       ...(groupId ? { groups: { some: { groupId } } } : {}),
       // 태그 필터: AND 조건 (모든 태그를 포함한 고객)
       ...(tags.length > 0 ? { tags: { hasEvery: tags } } : {}),
+      ...(assignedTo === "unassigned" ? { assignedUserId: null }
+        : assignedTo ? { assignedUserId: assignedTo }
+        : {}),
     });
 
     // cursor 기반 페이지네이션 또는 offset 기반 페이지네이션

@@ -1,0 +1,138 @@
+// ============================================================================
+// PNR & Reservation System Models
+// ============================================================================
+// 여행자 예약 및 PNR(Passenger Name Record) 관리 시스템
+// - Reservation: 예약 정보 (여행, 결제, PNR 상태)
+// - Traveler: 개별 여행자 정보 (여권, 개인정보, 객실)
+// - ReservationAudit: 예약 변경 감사 로그
+// - TravelContract: 여행 계약서
+// ============================================================================
+
+model Reservation {
+  id                          Int            @id @default(autoincrement())
+  tripId                      Int
+  mainUserId                  Int
+  totalPeople                 Int
+  cabinType                   String?
+  paymentDate                 DateTime?
+  paymentMethod               String?
+  paymentAmount               Int?
+  agentName                   String?
+  remarks                     String?
+  passportGroupLink           String?
+  passportStatus              String         @default("PENDING")
+  affiliateSaleId             Int?
+  createdAt                   DateTime       @default(now())
+  pnrStatus                   String         @default("PENDING")
+  status                      String         @default("CONFIRMED")
+  updatedAt                   DateTime       @default(now()) @updatedAt
+  airlineName                 String?
+  airlineCode                 String?
+  finalConfirmStatus          String         @default("PENDING")
+  finalConfirmRequestedAt     DateTime?
+  finalConfirmRequestedById   Int?
+  finalConfirmApprovedAt      DateTime?
+  finalConfirmApprovedById    Int?
+  finalConfirmRejectedAt      DateTime?
+  finalConfirmRejectedById    Int?
+  finalConfirmRejectionReason String?
+  finalConfirmAudioUrl        String?
+  finalConfirmAudioDriveUrl   String?
+  lastModifiedByName          String?
+  pnrNumber                   String?
+  groupMemo                   String?
+  portTourSurveyAnswer        String?
+  portTourSurveyAnsweredAt    DateTime?
+  
+  // Relations
+  AffiliateSale               AffiliateSale? @relation(fields: [affiliateSaleId], references: [id])
+  User                        User           @relation(fields: [mainUserId], references: [id])
+  Trip                        Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  Traveler                    Traveler[]
+
+  @@index([mainUserId])
+  @@index([passportStatus])
+  @@index([tripId])
+  @@index([status])
+  @@index([pnrStatus])
+  @@index([finalConfirmStatus])
+  @@index([affiliateSaleId, createdAt])
+}
+
+model Traveler {
+  id               Int         @id @default(autoincrement())
+  reservationId    Int
+  roomNumber       Int
+  isSingleCharge   Boolean     @default(false)
+  engSurname       String?
+  engGivenName     String?
+  korName          String?
+  residentNum      String?
+  gender           String?
+  birthDate        String?
+  passportNo       String?
+  issueDate        String?
+  expiryDate       String?
+  passportImage    String?
+  userId           Int?
+  nationality      String?
+  notes            String?
+  phone            String?
+  companionGroupId Int?
+  roomingGroupId   Int?
+  passportDriveUrl String?
+  updatedAt        DateTime    @default(now())
+  
+  // Relations
+  Reservation      Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  User             User?       @relation(fields: [userId], references: [id])
+
+  @@index([reservationId])
+  @@index([residentNum])
+  @@index([userId])
+}
+
+model ReservationAudit {
+  id              Int       @id @default(autoincrement())
+  reservationId   Int
+  userId          Int?
+  action          String    // "CREATED", "UPDATED", "DELETED", "CONFIRMED", "REJECTED"
+  fieldChanged    String?   // "pnrStatus", "passportStatus", "finalConfirmStatus"
+  oldValue        String?
+  newValue        String?
+  reason          String?
+  ipAddress       String?
+  userAgent       String?
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+
+  @@index([reservationId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+}
+
+model TravelContract {
+  id              Int       @id @default(autoincrement())
+  reservationId   Int
+  contractUrl     String?
+  signedAt        DateTime?
+  signedByUserId  Int?
+  status          String    @default("PENDING") // "PENDING", "SIGNED", "CANCELLED"
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
+
+  @@index([reservationId])
+  @@index([status])
+}
+
+model TravelContractAudit {
+  id              Int       @id @default(autoincrement())
+  contractId      Int
+  action          String    // "CREATED", "SIGNED", "CANCELLED"
+  details         Json?
+  createdAt       DateTime  @default(now())
+
+  @@index([contractId, createdAt])
+  @@index([action, createdAt])
+}

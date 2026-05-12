@@ -121,6 +121,15 @@ export default function ContactsPage() {
   const [filterGroupId,  setFilterGroupId]  = useState("");
   const [showGroupBlast, setShowGroupBlast] = useState(false);
 
+  // 담당자 할당
+  type AssignStat = { userId: string; displayName: string; role: string; count: number };
+  const [assignStats, setAssignStats] = useState<AssignStat[]>([]);
+  const [unassignedCount, setUnassignedCount] = useState(0);
+  const [filterAssignedTo, setFilterAssignedTo] = useState("");
+  const [showBulkAssign, setShowBulkAssign] = useState(false);
+  const [bulkAssignTarget, setBulkAssignTarget] = useState("");
+  const [bulkAssigning, setBulkAssigning] = useState(false);
+
   // 복수 선택 + 공유
   const [selectedIds,    setSelectedIds]    = useState<Set<string>>(new Set());
   const [showShareModal, setShowShareModal] = useState(false);
@@ -264,9 +273,10 @@ export default function ContactsPage() {
   const fetchContacts = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: "30" });
-    if (q)             params.set("q",       q);
-    if (type)          params.set("type",    type);
-    if (filterGroupId) params.set("groupId", filterGroupId);
+    if (q)                params.set("q",          q);
+    if (type)             params.set("type",       type);
+    if (filterGroupId)    params.set("groupId",    filterGroupId);
+    if (filterAssignedTo) params.set("assignedTo", filterAssignedTo);
 
     const res = await fetch(`/api/contacts?${params}`);
     const data = await res.json();
@@ -275,14 +285,38 @@ export default function ContactsPage() {
       setTotal(data.total);
     }
     setLoading(false);
-  }, [q, type, page, filterGroupId]);
+  }, [q, type, page, filterGroupId, filterAssignedTo]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
-  useEffect(() => { setPage(1); }, [filterGroupId]);
+  useEffect(() => { setPage(1); }, [filterGroupId, filterAssignedTo]);
 
+  // 할당 통계 + 그룹 목록 로드
   useEffect(() => {
     fetch("/api/groups").then(r => r.json()).then(d => { if (d.ok) setGroups(d.groups ?? []); });
+    fetch("/api/contacts/assign-stats").then(r => r.json()).then(d => {
+      if (d.ok) { setAssignStats(d.stats ?? []); setUnassignedCount(d.unassigned ?? 0); }
+    }).catch(() => {});
   }, []);
+
+  const doBulkAssign = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkAssigning(true);
+    const res = await fetch("/api/contacts/bulk-assign", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactIds: Array.from(selectedIds), assignToUserId: bulkAssignTarget || null }),
+    });
+    const data = await res.json();
+    setBulkAssigning(false);
+    if (data.ok) {
+      setShowBulkAssign(false);
+      setSelectedIds(new Set());
+      fetchContacts();
+      // 통계 갱신
+      fetch("/api/contacts/assign-stats").then(r => r.json()).then(d => {
+        if (d.ok) { setAssignStats(d.stats); setUnassignedCount(d.unassigned); }
+      });
+    } else { alert(data.message ?? "할당 실패"); }
+  };
 
   const runImport = async () => {
     if (!importFile) return;
@@ -629,7 +663,48 @@ export default function ContactsPage() {
             </select>
           </div>
         )}
+        {/* 담당자 필터 */}
+        {assignStats.length > 0 && (
+          <div className="relative">
+            <select
+              value={filterAssignedTo}
+              onChange={(e) => setFilterAssignedTo(e.target.value)}
+              className={`pl-3 pr-8 py-2 border rounded-lg text-sm appearance-none bg-white focus:outline-none ${filterAssignedTo ? "border-purple-400 text-purple-700 font-medium" : "border-gray-200 focus:border-gold-500"}`}
+            >
+              <option value="">담당자 전체</option>
+              <option value="unassigned">미배정 ({unassignedCount})</option>
+              {assignStats.map((s) => (
+                <option key={s.userId} value={s.userId}>{s.displayName} ({s.count})</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {/* 일괄 할당 버튼 */}
+        {selectedIds.size > 0 && assignStats.length > 0 && (
+          <button onClick={() => setShowBulkAssign(true)}
+            className="px-3 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700">
+            선택 {selectedIds.size}명 담당자 할당
+          </button>
+        )}
       </div>
+
+      {/* 담당자별 통계 바 */}
+      {assignStats.length > 0 && (
+        <div className="flex gap-2 flex-wrap px-0 pb-2">
+          {assignStats.filter(s => s.count > 0).map((s) => (
+            <button key={s.userId} onClick={() => setFilterAssignedTo(s.userId === filterAssignedTo ? "" : s.userId)}
+              className={`text-xs px-2.5 py-1 rounded-full transition-colors ${filterAssignedTo === s.userId ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-purple-100"}`}>
+              {s.displayName} <span className="font-bold">{s.count}</span>
+            </button>
+          ))}
+          {unassignedCount > 0 && (
+            <button onClick={() => setFilterAssignedTo(filterAssignedTo === "unassigned" ? "" : "unassigned")}
+              className={`text-xs px-2.5 py-1 rounded-full transition-colors ${filterAssignedTo === "unassigned" ? "bg-red-600 text-white" : "bg-red-50 text-red-600 hover:bg-red-100"}`}>
+              미배정 <span className="font-bold">{unassignedCount}</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 태그 칩 필터 */}
       {allTags.length > 0 && (
@@ -1082,6 +1157,33 @@ export default function ContactsPage() {
           groupName={groups.find(g => g.id === filterGroupId)?.name ?? ""}
           onClose={() => setShowGroupBlast(false)}
         />
+      )}
+
+      {/* 일괄 담당자 할당 모달 */}
+      {showBulkAssign && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl">
+            <h2 className="text-lg font-bold text-navy-900 mb-2">담당자 할당</h2>
+            <p className="text-sm text-gray-500 mb-4">선택한 {selectedIds.size}명의 고객을 할당합니다</p>
+            <select value={bulkAssignTarget} onChange={(e) => setBulkAssignTarget(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm mb-4">
+              <option value="">미배정 (담당자 없음)</option>
+              {assignStats.map((s) => (
+                <option key={s.userId} value={s.userId}>{s.displayName} ({s.role}) — 현재 {s.count}명</option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <button onClick={() => setShowBulkAssign(false)}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">
+                취소
+              </button>
+              <button onClick={doBulkAssign} disabled={bulkAssigning}
+                className="flex-1 px-4 py-2.5 bg-purple-600 text-white rounded-lg text-sm font-bold hover:bg-purple-700 disabled:opacity-50">
+                {bulkAssigning ? "할당 중..." : "할당하기"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

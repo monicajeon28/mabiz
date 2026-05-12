@@ -1,0 +1,236 @@
+// ============================================================
+// CRM 이식용 — 크루즈닷몰 공유 테이블 Prisma 모델 정의
+// DB: ep-divine-shape-ai1u1c8e (Neon PostgreSQL)
+// 생성일: 2026-05-11 (pg_catalog 역설계, 유효 컬럼 47개)
+//
+// 사용법:
+//   CRM의 schema.prisma 하단에 아래 모델들을 붙여넣으세요.
+//   datasource db의 url은 크루즈닷몰과 동일한 Neon URL을 사용해야 합니다.
+//   관계(relations) 필드는 필요 시 추가하세요.
+// ============================================================
+
+model Reservation {
+  id                          Int       @id @default(autoincrement())
+  tripId                      Int
+  mainUserId                  Int
+  totalPeople                 Int
+  cabinType                   String?
+  paymentDate                 DateTime?
+  paymentMethod               String?
+  paymentAmount               Int?
+  agentName                   String?
+  remarks                     String?
+  passportGroupLink           String?
+  passportStatus              String    @default("PENDING")
+  affiliateSaleId             Int?
+  createdAt                   DateTime  @default(now())
+  pnrStatus                   String    @default("PENDING")
+  status                      String    @default("CONFIRMED")
+  updatedAt                   DateTime  @default(now()) @updatedAt
+  airlineName                 String?
+  airlineCode                 String?
+  finalConfirmStatus          String    @default("PENDING")
+  finalConfirmRequestedAt     DateTime?
+  finalConfirmRequestedById   Int?
+  finalConfirmApprovedAt      DateTime?
+  finalConfirmApprovedById    Int?
+  finalConfirmRejectedAt      DateTime?
+  finalConfirmRejectedById    Int?
+  finalConfirmRejectionReason String?
+  finalConfirmAudioUrl        String?
+  finalConfirmAudioDriveUrl   String?
+  lastModifiedByName          String?
+  pnrNumber                   String?
+  groupMemo                   String?
+  portTourSurveyAnswer        String?
+  portTourSurveyAnsweredAt    DateTime?
+  travelers                   Traveler[]
+}
+
+// ⚠️  Trip 테이블 주의:
+//   DB에는 userId/productId/reservationCode 등 여행일기 필드도 포함됩니다.
+//   CRM은 productCode/shipName/departureDate 필드만 주로 사용합니다.
+model Trip {
+  id              Int       @id @default(autoincrement())
+  // --- 크루즈 상품 정보 (CRM 주 사용 필드) ---
+  productCode     String    @default("")
+  shipName        String    @default("")
+  departureDate   DateTime  @default(now())
+  googleFolderId  String?
+  spreadsheetId   String?
+  status          String    @default("Upcoming")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime? @updatedAt
+  // --- 여행일기 필드 (크루즈닷 앱 전용, CRM 수정 금지) ---
+  userId          Int?
+  productId       Int?
+  reservationCode String?
+  cruiseName      String?
+  companionType   String?
+  destination     Json?
+  startDate       DateTime?
+  endDate         DateTime?
+  nights          Int       @default(0)
+  days            Int       @default(0)
+  visitCount      Int       @default(0)
+}
+
+// UserTrip: 고객과 여행 연결 (크루즈닷 앱 전용, CRM 읽기만 권장)
+model UserTrip {
+  id                 Int       @id @default(autoincrement())
+  userId             Int
+  productId          Int?
+  reservationCode    String?
+  cruiseName         String?
+  companionType      String?
+  destination        Json?
+  startDate          DateTime?
+  endDate            DateTime?
+  nights             Int       @default(0)
+  days               Int       @default(0)
+  visitCount         Int       @default(0)
+  status             String    @default("Upcoming")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
+  userTripFeedbackId Int?
+  googleFolderId     String?
+  spreadsheetId      String?
+}
+
+model AffiliateLead {
+  id                   Int       @id @default(autoincrement())
+  linkId               Int?
+  managerId            Int?
+  agentId              Int?
+  customerName         String?
+  customerPhone        String?
+  status               String    @default("NEW")
+  source               String?
+  passportRequestedAt  DateTime?
+  passportCompletedAt  DateTime?
+  lastContactedAt      DateTime?
+  nextActionAt         DateTime?
+  notes                String?
+  metadata             Json?
+  leadScore            Int       @default(0)
+  leadStage            String    @default("NURTURE")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @default(now()) @updatedAt
+  groupId              Int?
+  sharedToManagerId    Int?
+  sourceAgentId        Int?
+  registeredAt         DateTime  @default(now())
+  registeredByAdminId  Int?
+  registeredByProfileId Int?
+  registeredByRole     String?   @db.VarChar(20)
+  registeredBySystem   Boolean   @default(false)
+}
+
+model AffiliateRelation {
+  id              Int       @id @default(autoincrement())
+  managerId       Int
+  agentId         Int
+  status          String    @default("ACTIVE")
+  connectedAt     DateTime?
+  disconnectedAt  DateTime?
+  notes           String?
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime? @updatedAt
+  overrideRate    Float?
+}
+
+// ⚠️  Traveler: 여권 정보 포함 — 민감 데이터
+//   passportNo, residentNum 등 개인정보 필드 존재
+//   CRM에서 조회 시 마스킹 처리 권장
+model Traveler {
+  id               Int          @id @default(autoincrement())
+  reservationId    Int
+  roomNumber       Int
+  isSingleCharge   Boolean      @default(false)
+  engSurname       String?
+  engGivenName     String?
+  korName          String?
+  residentNum      String?      // ⚠️ 민감정보
+  gender           String?
+  birthDate        String?
+  passportNo       String?      // ⚠️ 민감정보
+  issueDate        String?
+  expiryDate       String?
+  passportImage    String?
+  passportDriveUrl String?
+  userId           Int?
+  nationality      String?
+  notes            String?
+  phone            String?      // ⚠️ 민감정보
+  companionGroupId Int?
+  roomingGroupId   Int?
+  updatedAt        DateTime     @default(now()) @updatedAt
+  reservation      Reservation  @relation(fields: [reservationId], references: [id])
+}
+
+// ============================================================
+// GmUser — 크루즈닷몰 공유 User 테이블
+//
+// ⚠️  명명 규칙:
+//   - 모델명을 "GmUser"로 하고 @@map("User")를 사용합니다.
+//   - CRM에 이미 User 모델이 있다면 충돌을 피하기 위함입니다.
+//   - CRM에 User 모델이 없다면 모델명을 "User"로 바꾸고 @@map 제거해도 됩니다.
+//
+// ⚠️  민감 필드 주의 (CRM에서 SELECT 절에 제외 권장):
+//   password, passwordResetToken, residentNum (Traveler), phone
+//
+// ⚠️  수정 금지 필드 (크루즈닷 앱 전용):
+//   loginCount, tripCount, onboarded, genieStatus, pwaGenieInstalledAt 등
+// ============================================================
+model GmUser {
+  id                          Int       @id @default(autoincrement())
+  externalId                  String?
+  name                        String?
+  email                       String?
+  phone                       String?   // ⚠️ 민감정보
+  password                    String    // ⚠️ 민감정보 — CRM 절대 노출 금지
+  onboarded                   Boolean   @default(false)
+  loginCount                  Int       @default(0)
+  tripCount                   Int       @default(0)
+  totalTripCount              Int       @default(0)
+  currentTripEndDate          DateTime?
+  role                        String    @default("user")
+  onboardingUpdatedAt         DateTime?
+  lastActiveAt                DateTime?
+  hibernatedAt                DateTime?
+  isHibernated                Boolean   @default(false)
+  isLocked                    Boolean   @default(false)
+  lockedAt                    DateTime?
+  lockedReason                String?
+  customerStatus              String?
+  testModeStartedAt           DateTime?
+  customerSource              String?
+  adminMemo                   String?
+  mallNickname                String?
+  genieStatus                 String?
+  genieLinkedAt               DateTime?
+  kakaoChannelAdded           Boolean   @default(false)
+  kakaoChannelAddedAt         DateTime?
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+  pwaGenieInstalledAt         DateTime?
+  pwaMallInstalledAt          DateTime?
+  refundCertificateCount      Int       @default(0)
+  grade                       String    @default("regular") @db.VarChar(50)
+  isPasswordSet               Boolean   @default(false)
+  goldMemberId                Int?
+  passwordResetToken          String?   // ⚠️ 민감정보
+  passwordResetTokenExpiresAt DateTime?
+  sourceAgentId               Int?
+  affiliateCode               String?   @db.VarChar(4)
+  socialEmail                 String?
+  socialId                    String?
+  socialProvider              String?
+  socialProfileImg            String?
+  customerGroupId             Int?
+  nextActionDate              DateTime?
+  nextActionNote              String?
+
+  @@map("User")
+}

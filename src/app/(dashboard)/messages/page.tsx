@@ -98,6 +98,17 @@ export default function MessagesPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* 그룹 대량 발송 안내 */}
+      <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <p className="text-sm font-medium text-blue-800">그룹 대량 발송</p>
+        <p className="text-xs text-blue-600 mt-1">
+          고객 관리 → 그룹 선택 → &quot;그룹 SMS&quot; 버튼으로 최대 200명에게 한번에 발송할 수 있습니다.
+        </p>
+        <a href="/contacts" className="inline-block mt-2 text-xs font-medium text-blue-700 hover:text-blue-900 underline">
+          고객 관리로 이동 →
+        </a>
+      </div>
     </div>
   );
 }

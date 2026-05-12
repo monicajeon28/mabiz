@@ -1,0 +1,580 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================================
+// Core User & Product Models
+// ============================================================================
+
+model User {
+  id                    Int       @id @default(autoincrement())
+  name                  String?
+  email                 String?   @unique
+  phone                 String?
+  role                  String    @default("user")
+  customerStatus        String?
+  password              String
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime
+  isLocked              Boolean   @default(false)
+  loginCount            Int       @default(0)
+
+  // Relations
+  Reservation           Reservation[]
+  ReservationAudit      ReservationAudit[]
+  ProductInquiry        ProductInquiry[]
+  Payment               Payment[]
+  Trial                 Trial?
+  TrialAuditLog         TrialAuditLog[]
+  AffiliateProfile      AffiliateProfile?
+  AutomationLog         AutomationLog[]
+
+  @@index([email])
+  @@index([createdAt])
+  @@index([role, isLocked])
+}
+
+model CruiseProduct {
+  id                    Int       @id @default(autoincrement())
+  name                  String
+  description           String?   @db.Text
+  shipName              String?
+  totalPassengers       Int?
+  departureDate         DateTime?
+  returnDate            DateTime?
+  price                 Int?
+  isActive              Boolean   @default(true)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime
+
+  // Relations
+  Reservation           Reservation[]
+  ProductInquiry        ProductInquiry[]
+  ProductImage          ProductImage[]
+
+  @@index([isActive, departureDate])
+  @@index([shipName])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// Passport Models (여권 정보 관리)
+// ============================================================================
+
+model PassportUploadToken {
+  id            Int           @id @default(autoincrement())
+  token         String        @unique @db.VarChar(64)
+  leadId        Int           @unique
+  expiresAt     DateTime
+  createdAt     DateTime      @default(now())
+
+  @@index([token, expiresAt])
+  @@index([leadId])
+}
+
+model PassportRequestLog {
+  id                  Int       @id @default(autoincrement())
+  userId              Int?
+  adminId             Int?
+  templateId          Int?
+  messageBody         String
+  messageChannel      String    @default("SMS")
+  status              String    @default("PENDING")
+  sentAt              DateTime?
+  createdAt           DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model PassportRequestTemplate {
+  id                  Int       @id @default(autoincrement())
+  name                String
+  messageTemplate     String    @db.Text
+  messageChannel      String    @default("SMS")
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+
+  @@index([isActive])
+}
+
+model PassportSubmission {
+  id                  Int       @id @default(autoincrement())
+  userId              Int
+  tripId              Int?
+  token               String    @unique @db.VarChar(64)
+  status              String    @default("PENDING")
+  submittedAt         DateTime?
+  expiresAt           DateTime
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+
+  // Relations
+  PassportSubmissionGuest PassportSubmissionGuest[]
+
+  @@index([userId, status])
+  @@index([token])
+  @@index([expiresAt])
+}
+
+model PassportSubmissionGuest {
+  id                  Int       @id @default(autoincrement())
+  submissionId        Int
+  groupNumber         Int
+  name                String
+  phone               String?
+  email               String?
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  PassportSubmission  PassportSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+  @@unique([submissionId, groupNumber])
+}
+
+// ============================================================================
+// Reservation Models (예약 정보)
+// ============================================================================
+
+model Reservation {
+  id                  Int       @id @default(autoincrement())
+  tripId              Int
+  mainUserId          Int
+  productId           Int?
+  totalPeople         Int
+  status              String    @default("PENDING")
+  bookingNumber       String?   @unique
+  totalPrice          Int?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+
+  // Relations
+  User                User      @relation(fields: [mainUserId], references: [id])
+  CruiseProduct       CruiseProduct? @relation(fields: [productId], references: [id])
+  Traveler            Traveler[]
+  ReservationAudit    ReservationAudit[]
+  TravelContract      TravelContract?
+
+  @@index([mainUserId, createdAt])
+  @@index([status, createdAt])
+  @@index([productId])
+}
+
+model ReservationAudit {
+  id                  Int       @id @default(autoincrement())
+  reservationId       Int
+  changedBy           Int
+  changedAt           DateTime  @default(now())
+  fieldName           String
+  oldValue            String?
+  newValue            String?
+
+  // Relations
+  Reservation         Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([reservationId, changedAt])
+}
+
+model Traveler {
+  id                  Int       @id @default(autoincrement())
+  reservationId       Int
+  name                String
+  phone               String?
+  email               String?
+  engSurname          String?
+  engGivenName        String?
+  birthDate           String?
+  roomNumber          Int?
+  isSingleCharge      Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+
+  // Relations
+  Reservation         Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([reservationId])
+}
+
+model TravelContract {
+  id                  Int       @id @default(autoincrement())
+  reservationId       Int       @unique
+  status              String    @default("PENDING")
+  signedAt            DateTime?
+  expiresAt           DateTime?
+  content             String?   @db.Text
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+
+  // Relations
+  Reservation         Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+}
+
+// ============================================================================
+// Product Inquiry Models (상품 문의)
+// ============================================================================
+
+model ProductInquiry {
+  id                  Int       @id @default(autoincrement())
+  userId              Int?
+  productId           Int?
+  name                String
+  phone               String
+  email               String?
+  message             String?   @db.Text
+  status              String    @default("PENDING")
+  priority            String?   @default("normal")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+
+  // Relations
+  User                User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  CruiseProduct       CruiseProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  InquiryCallLog      InquiryCallLog[]
+
+  @@index([userId, createdAt])
+  @@index([status, priority])
+}
+
+model InquiryCallLog {
+  id                  Int       @id @default(autoincrement())
+  inquiryId           Int
+  result              String
+  memo                String?
+  duration            Int?
+  calledAt            DateTime  @default(now())
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  ProductInquiry      ProductInquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+
+  @@index([inquiryId, calledAt])
+}
+
+// ============================================================================
+// ChatBot Models (챗봇 설정 및 세션)
+// ============================================================================
+
+model ChatBotFlow {
+  id                  Int       @id @default(autoincrement())
+  name                String    @unique
+  description         String?
+  isActive            Boolean   @default(true)
+  flowJson            Json?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+
+  // Relations
+  ChatBotQuestion     ChatBotQuestion[]
+
+  @@index([isActive])
+}
+
+model ChatBotQuestion {
+  id                  Int       @id @default(autoincrement())
+  flowId              Int
+  sequenceNumber      Int
+  question            String
+  type                String    @default("text")
+  isRequired          Boolean   @default(false)
+  metadata            Json?
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  ChatBotFlow         ChatBotFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  ChatBotResponse     ChatBotResponse[]
+
+  @@index([flowId, sequenceNumber])
+}
+
+model ChatBotResponse {
+  id                  Int       @id @default(autoincrement())
+  questionId          Int
+  response            String    @db.Text
+  nextSequence        Int?
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  ChatBotQuestion     ChatBotQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+}
+
+model ChatBotSession {
+  id                  Int       @id @default(autoincrement())
+  userId              Int
+  flowId              Int?
+  status              String    @default("ACTIVE")
+  currentQuestion     Int?
+  responses           Json?
+  startedAt           DateTime  @default(now())
+  endedAt             DateTime?
+
+  // Relations
+  User                User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([startedAt])
+}
+
+// ============================================================================
+// Payment Models (결제 정보)
+// ============================================================================
+
+model Payment {
+  id                  Int       @id @default(autoincrement())
+  orderId             String    @unique
+  userId              Int?
+  reservationId       Int?
+  amount              Int
+  currency            String    @default("KRW")
+  status              String    @default("PENDING")
+  paymentMethod       String?
+  buyerName           String?
+  buyerEmail          String?   @db.VarChar(255)
+  buyerTel            String?   @db.VarChar(20)
+  transactionId       String?   @unique
+  failureReason       String?
+  paidAt              DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+
+  // Relations
+  User                User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  PaymentRefund       PaymentRefund[]
+
+  @@index([userId, status])
+  @@index([orderId])
+  @@index([createdAt])
+  @@index([status, paidAt])
+}
+
+model PayAppPayment {
+  id                  Int       @id @default(autoincrement())
+  orderId             String    @unique
+  mulNo               String?   @unique
+  landingPageId       Int?
+  productName         String?
+  amount              Int
+  status              String    @default("PENDING")
+  paymentMethod       String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+
+  @@index([orderId])
+  @@index([status])
+}
+
+model PaymentRefund {
+  id                  Int       @id @default(autoincrement())
+  paymentId           Int
+  amount              Int
+  reason              String?
+  status              String    @default("PENDING")
+  requestedAt         DateTime  @default(now())
+  processedAt         DateTime?
+
+  // Relations
+  Payment             Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId, status])
+}
+
+// ============================================================================
+// Trial Models (체험 프로그램)
+// ============================================================================
+
+model Trial {
+  id                  Int       @id @default(autoincrement())
+  userId              Int       @unique
+  code                String    @unique @db.VarChar(32)
+  status              String    @default("ACTIVE")
+  startDate           DateTime  @default(now())
+  endDate             DateTime
+  notificationSent    Boolean   @default(false)
+  notificationSentAt  DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+
+  // Relations
+  User                User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  TrialAuditLog       TrialAuditLog[]
+
+  @@index([status, endDate])
+  @@index([userId])
+}
+
+model TrialAuditLog {
+  id                  Int       @id @default(autoincrement())
+  trialId             Int
+  userId              Int
+  action              String
+  details             Json?
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  Trial               Trial @relation(fields: [trialId], references: [id], onDelete: Cascade)
+  User                User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([trialId, createdAt])
+}
+
+model TrialSignup {
+  id                  Int       @id @default(autoincrement())
+  email               String    @unique
+  phone               String?
+  name                String?
+  source              String?
+  status              String    @default("PENDING")
+  convertedAt         DateTime?
+  createdAt           DateTime  @default(now())
+
+  @@index([status, createdAt])
+}
+
+// ============================================================================
+// Product Image Models (상품 이미지)
+// ============================================================================
+
+model ProductImage {
+  id                  Int       @id @default(autoincrement())
+  productId           Int
+  originalUrl         String?
+  webpUrl             String?
+  thumbUrl            String?
+  width               Int?
+  height              Int?
+  size                Int?
+  mimeType            String?
+  position            Int       @default(0)
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+
+  // Relations
+  CruiseProduct       CruiseProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ImageAccessLog      ImageAccessLog[]
+
+  @@index([productId, position])
+  @@index([isActive])
+}
+
+model ImageAccessLog {
+  id                  Int       @id @default(autoincrement())
+  imageId             Int
+  userId              Int?
+  ipAddress           String?
+  userAgent           String?
+  referer             String?
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  ProductImage        ProductImage @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  @@index([imageId, createdAt])
+  @@index([userId])
+}
+
+// ============================================================================
+// Affiliate Models (제휴 시스템)
+// ============================================================================
+
+model AffiliateSale {
+  id                  Int       @id @default(autoincrement())
+  saleNumber          String    @unique
+  profileId           Int
+  reservationId       Int?
+  amount              Int
+  commission          Int?
+  status              String    @default("PENDING")
+  approvedAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+
+  // Relations
+  AffiliateProfile    AffiliateProfile @relation(fields: [profileId], references: [id])
+  AffiliateLedger     AffiliateLedger[]
+
+  @@index([profileId, createdAt])
+  @@index([status, createdAt])
+}
+
+model AffiliateProfile {
+  id                  Int       @id @default(autoincrement())
+  userId              Int       @unique
+  companyName         String
+  businessNumber      String?   @unique
+  status              String    @default("ACTIVE")
+  commissionRate      Decimal   @default(0.05) @db.Decimal(5, 3)
+  bankName            String?
+  bankAccount         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+
+  // Relations
+  User                User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  AffiliateSale       AffiliateSale[]
+  AffiliateLedger     AffiliateLedger[]
+
+  @@index([status])
+}
+
+model AffiliateLedger {
+  id                  Int       @id @default(autoincrement())
+  saleId              Int
+  profileId           Int
+  type                String
+  amount              Int
+  withholdingAmount   Int       @default(0)
+  netAmount           Int
+  isSettled           Boolean   @default(false)
+  settledAt           DateTime?
+  description         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+
+  // Relations
+  AffiliateSale       AffiliateSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  AffiliateProfile    AffiliateProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([isSettled])
+  @@index([profileId, createdAt])
+  @@index([settledAt])
+}
+
+// ============================================================================
+// Automation & Logging Models (자동화 및 로깅)
+// ============================================================================
+
+model AutomationLog {
+  id                  Int       @id @default(autoincrement())
+  userId              Int?
+  actionType          String
+  status              String    @default("PENDING")
+  result              String?
+  errorMessage        String?
+  metadata            Json?
+  executedAt          DateTime?
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  User                User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([actionType, status])
+}
+
+// ============================================================================
+// Indexes for Performance
+// ============================================================================
