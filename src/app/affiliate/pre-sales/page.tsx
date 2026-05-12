@@ -513,6 +513,95 @@ function CruiseDotPartnersForm() {
                 </p>
               </div>
             </div>
+
+            {/* STEP 6 — 파트너스 전용 특별 혜택 */}
+            <div className="bg-amber-50 border-t-2 border-amber-300">
+              <div className="flex gap-3.5 px-5 pt-4 pb-3">
+                <div className="bg-amber-500 w-8 h-8 rounded-xl flex items-center justify-center text-white flex-shrink-0 mt-0.5 shadow-sm">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-xs font-bold text-amber-500">STEP 6</span>
+                    <p className="text-sm font-bold text-gray-900">파트너스 전용 특별 혜택</p>
+                  </div>
+                  <p className="text-xs text-amber-700 font-semibold mb-3">
+                    크루즈닷 파트너스에게만 드리는 특별 지원 프로그램입니다.
+                  </p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      {
+                        icon: (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.88v6.24a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        ),
+                        label: 'SNS 마케팅 강의 무료 제공',
+                        desc: '5개월 동안 SNS 마케팅 강의를 완전 무료로 제공해 드립니다.',
+                        badge: '5개월 무료',
+                        badgeColor: 'bg-blue-100 text-blue-700',
+                      },
+                      {
+                        icon: (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M9.172 16.243a4 4 0 010-8.486m5.656 8.486a4 4 0 010-8.486M13 12a1 1 0 11-2 0 1 1 0 012 0z" />
+                          </svg>
+                        ),
+                        label: '매주 세일즈 상품 방송',
+                        desc: '파트너스를 위한 세일즈 상품 방송이 매주 화요일 저녁 7시에 열립니다.',
+                        badge: '매주 화요일 19:00',
+                        badgeColor: 'bg-violet-100 text-violet-700',
+                      },
+                      {
+                        icon: (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                          </svg>
+                        ),
+                        label: '시스템 사용법 무료 특강',
+                        desc: '크루즈닷 파트너스 시스템 활용 무료 특강 초대장을 드립니다.',
+                        badge: '무료 초대',
+                        badgeColor: 'bg-emerald-100 text-emerald-700',
+                      },
+                      {
+                        icon: (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                        ),
+                        label: '멘토십 커뮤니티 카톡방 초대',
+                        desc: '파트너스 전용 멘토십 커뮤니티 카카오톡 방에 초대해 드립니다.',
+                        badge: '전용 커뮤니티',
+                        badgeColor: 'bg-yellow-100 text-yellow-700',
+                      },
+                    ].map((item, idx) => (
+                      <div key={idx} className="bg-white rounded-xl border border-amber-200 px-3.5 py-3 flex items-start gap-3 shadow-sm">
+                        <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 flex-shrink-0 mt-0.5">
+                          {item.icon}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                            <p className="text-xs font-bold text-gray-900">{item.label}</p>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${item.badgeColor}`}>
+                              {item.badge}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 leading-relaxed">{item.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="mx-5 mb-4 mt-1 bg-gradient-to-r from-amber-400 to-yellow-400 rounded-xl px-4 py-2.5 flex items-center gap-2 shadow-sm">
+                <svg className="w-4 h-4 text-white flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <p className="text-white text-xs font-bold">지금 신청하고 파트너스 전용 혜택을 모두 누리세요!</p>
+              </div>
+            </div>
           </div>
         </div>
 
