@@ -655,16 +655,16 @@ export default function OrganizationsPage() {
           </div>
         </div>
 
-        {/* 프리세일즈 가입신청 */}
+        {/* 크루즈닷 파트너스 가입신청 */}
         <div className="bg-emerald-600 rounded-xl p-4 text-white">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold mb-0.5">프리세일즈 가입 신청</p>
+              <p className="text-sm font-bold mb-0.5">크루즈닷 파트너스 가입 신청</p>
               <p className="text-xs text-emerald-200 font-mono truncate">
                 {typeof window !== 'undefined' ? window.location.origin : ''}/affiliate/pre-sales
               </p>
               <p className="text-xs text-emerald-300 mt-1">
-                잠재 프리세일즈 파트너에게 이 링크를 공유하세요.
+                잠재 크루즈닷 파트너스에게 이 링크를 공유하세요.
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">

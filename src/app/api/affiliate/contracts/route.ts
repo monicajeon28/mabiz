@@ -105,14 +105,25 @@ export async function POST(req: NextRequest) {
     // 도장 이미지 (metadata에 보관)
     const stampImageUrl: string | undefined = typeof body.stampImageUrl === 'string' ? body.stampImageUrl : undefined;
 
+    // metadata (type 식별용)
+    const bodyMeta = body.metadata && typeof body.metadata === 'object' ? body.metadata as Record<string, unknown> : {};
+    const contractType: string = typeof bodyMeta.type === 'string' ? bodyMeta.type : 'SALES_AGENT';
+
     if (!name || name.length < 2) {
       return NextResponse.json({ ok: false, message: '이름을 입력해 주세요.' }, { status: 400 });
     }
     if (!phone || phone.length < 9) {
       return NextResponse.json({ ok: false, message: '연락처를 입력해 주세요.' }, { status: 400 });
     }
-    if (!consentPrivacy || !consentNonCompete || !consentDbUse || !consentPenalty || !consentRefund) {
-      return NextResponse.json({ ok: false, message: '필수 동의 항목을 모두 확인해 주세요.' }, { status: 400 });
+    // CRUISE_PARTNER(크루즈닷 파트너스)는 프론트에서 모두 true로 보내므로 개인정보 동의만 검증
+    if (contractType === 'CRUISE_PARTNER') {
+      if (!consentPrivacy) {
+        return NextResponse.json({ ok: false, message: '개인정보 처리 동의는 필수입니다.' }, { status: 400 });
+      }
+    } else {
+      if (!consentPrivacy || !consentNonCompete || !consentDbUse || !consentPenalty || !consentRefund) {
+        return NextResponse.json({ ok: false, message: '필수 동의 항목을 모두 확인해 주세요.' }, { status: 400 });
+      }
     }
 
     // 동일 전화번호로 대기 중인 신청 있으면 중복 방지
@@ -131,6 +142,17 @@ export async function POST(req: NextRequest) {
     if (tierKey) metadata.tierKey = tierKey;
     if (amount) metadata.amount = amount;
     if (stampImageUrl) metadata.stampImageUrl = stampImageUrl;
+
+    // body.metadata 추가 필드 병합 (크루즈닷 파트너스 등 확장 필드)
+    const allowedMetaKeys = [
+      'type', 'signName', 'idPhotoUrl', 'bankBookUrl',
+      'supervisorName', 'supervisorAgency', 'supervisorPhone', 'note',
+    ];
+    for (const key of allowedMetaKeys) {
+      if (bodyMeta[key] !== undefined && bodyMeta[key] !== null && bodyMeta[key] !== '') {
+        metadata[key] = bodyMeta[key];
+      }
+    }
 
     const contract = await prisma.gmAffiliateContract.create({
       data: {
