@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ImageIcon, Code, Upload, X, GripVertical, Plus, Trash2, Smartphone } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -54,9 +54,8 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 export default function NewLandingPage() {
-  const router = useRouter();
+  const router      = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const iframeRef    = useRef<HTMLIFrameElement>(null);
 
   const [title, setTitle]               = useState("");
   const [slug, setSlug]                 = useState("");
@@ -218,16 +217,8 @@ ${commentBlock}
 </html>`;
   }, [editorMode, html, images, formFields, additionalFields, paymentEnabled, productName, productPrice, paymentType, buttonTitle, title, headerScript, commentEnabled]);
 
-  // state 변경 시마다 iframe에 직접 write (srcDoc 방식은 기존 iframe 업데이트 안 됨)
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-    const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
-    if (!doc) return;
-    doc.open();
-    doc.write(buildPreviewHtml());
-    doc.close();
-  }, [buildPreviewHtml]);
+  // state 변경 시 즉시 재계산 — srcDoc prop 변경으로 브라우저가 iframe 재렌더링
+  const previewHtml = useMemo(() => buildPreviewHtml(), [buildPreviewHtml]);
 
   // ──────────────────────────────────────────────
   // 이미지 업로드 / 정렬 / 삭제
@@ -663,9 +654,10 @@ ${commentBlock}
             <div className="relative mx-[10px] mt-[8px] mb-[8px] rounded-[32px] overflow-hidden bg-white"
               style={{ height: "580px" }}>
               <iframe
-                ref={iframeRef}
+                srcDoc={previewHtml}
                 className="w-full h-full border-0"
                 title="실시간 미리보기"
+                sandbox="allow-scripts allow-same-origin"
                 style={{ display: "block" }}
               />
             </div>
