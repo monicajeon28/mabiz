@@ -17,8 +17,30 @@ export async function GET() {
 
     const funnels = await prisma.funnel.findMany({
       where: { organizationId: orgId },
-      include: { stages: { orderBy: { order: "asc" } }, _count: true },
       orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        organizationId: true,
+        name: true,
+        description: true,
+        funnelType: true,
+        createdAt: true,
+        updatedAt: true,
+        // 목록에 필요한 필드만 선택 (messageContent @db.Text 불필요 전송 방지)
+        stages: {
+          orderBy: { order: "asc" },
+          select: {
+            id: true,
+            order: true,
+            name: true,
+            triggerType: true,
+            triggerOffset: true,
+            channel: true,
+            messageContent: true, // 미작성 경고 표시용 (null 여부 체크)
+            linkUrl: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json({ ok: true, funnels });

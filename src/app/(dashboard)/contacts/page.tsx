@@ -273,10 +273,11 @@ export default function ContactsPage() {
   const fetchContacts = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: "30" });
-    if (q)                params.set("q",          q);
-    if (type)             params.set("type",       type);
-    if (filterGroupId)    params.set("groupId",    filterGroupId);
-    if (filterAssignedTo) params.set("assignedTo", filterAssignedTo);
+    if (q)                        params.set("q",          q);
+    if (type)                     params.set("type",       type);
+    if (filterGroupId)            params.set("groupId",    filterGroupId);
+    if (filterAssignedTo)         params.set("assignedTo", filterAssignedTo);
+    if (selectedTags.length > 0)  params.set("tags",       selectedTags.join(","));
 
     const res = await fetch(`/api/contacts?${params}`);
     const data = await res.json();
@@ -285,10 +286,10 @@ export default function ContactsPage() {
       setTotal(data.total);
     }
     setLoading(false);
-  }, [q, type, page, filterGroupId, filterAssignedTo]);
+  }, [q, type, page, filterGroupId, filterAssignedTo, selectedTags]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
-  useEffect(() => { setPage(1); }, [filterGroupId, filterAssignedTo]);
+  useEffect(() => { setPage(1); }, [filterGroupId, filterAssignedTo, selectedTags]);
 
   // 할당 통계 + 그룹 목록 로드
   useEffect(() => {
@@ -412,13 +413,8 @@ export default function ContactsPage() {
     return Array.from(set).sort();
   }, [contacts]);
 
-  // 태그 필터 적용된 고객 목록
-  const filteredContacts = useMemo(() => {
-    if (selectedTags.length === 0) return contacts;
-    return contacts.filter(c =>
-      selectedTags.every(t => (c.tags ?? []).includes(t))
-    );
-  }, [contacts, selectedTags]);
+  // 태그 필터는 DB 레벨에서 처리 (fetchContacts의 tags 파라미터로 전달)
+  const filteredContacts = contacts;
 
   // 오늘 콜할 사람: LEAD + (연락 없음 OR 3일 이상 연락 없음) → 리드 스코어 높은 순
   const todayCallList = contacts
