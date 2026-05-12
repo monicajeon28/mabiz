@@ -74,7 +74,7 @@ export default function BuyersPage() {
   };
 
   const updateStatus = async (id: string, status: string) => {
-    const res = await fetch(`/api/b2b/${id}`, {
+    const res = await fetch(`/api/b2b-prospects/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
@@ -87,7 +87,7 @@ export default function BuyersPage() {
 
   const saveNotes = async () => {
     if (!detail || notesDraft === detail.notes) return;
-    await fetch(`/api/b2b/${detail.id}`, {
+    await fetch(`/api/b2b-prospects/${detail.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ notes: notesDraft }),
     });
@@ -97,7 +97,7 @@ export default function BuyersPage() {
 
   const remove = async (id: string) => {
     if (!confirm("이 구매자를 삭제하시겠습니까?")) return;
-    const res = await fetch(`/api/b2b/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/b2b-prospects/${id}`, { method: "DELETE" });
     const data = await res.json();
     if (data.ok) { setProspects(prev => prev.filter(p => p.id !== id)); if (detail?.id === id) setDetail(null); }
   };

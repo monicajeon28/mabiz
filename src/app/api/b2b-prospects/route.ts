@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgIdOrNull, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 /**
@@ -10,7 +10,7 @@ import { logger } from '@/lib/logger';
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx);
     const url = new URL(req.url);
 
     const q       = url.searchParams.get('q');
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     const limit   = Math.min(50, parseInt(url.searchParams.get('limit') ?? '20'));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = { organizationId: orgId };
+    const where: any = { ...(orgId ? { organizationId: orgId } : {}) };
     if (eduType) where.eduType = eduType;
     if (q) {
       where.OR = [
@@ -50,7 +50,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const body = await req.json();
 
     const { name, phone, email, companyName, position, status, notes,
