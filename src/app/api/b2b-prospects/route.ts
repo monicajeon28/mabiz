@@ -65,7 +65,7 @@ export async function POST(req: Request) {
         name, phone, email: email ?? null,
         companyName: companyName ?? null,
         position: position ?? null,
-        status: status ?? 'NEW',
+        status: status ?? '잠재고객',
         notes: notes ?? null,
         eduType: eduType ?? 'INQUIRER',
         productName: productName ?? null,

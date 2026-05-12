@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma';
 import { getAuthContext, resolveOrgIdOrNull, canDelete } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
-const VALID_STATUSES = ['잠재고객', '문자', '부재', '3일부재', '소통', '구매완료', 'VIP', '수신거부', 'NEW'];
+const VALID_STATUSES = ['잠재고객', '문자', '부재', '3일부재', '소통', '구매완료', 'VIP', '수신거부'];
 
 type Params = { params: Promise<{ id: string }> };
 

@@ -47,7 +47,7 @@ export default function BuyersPage() {
     const params = new URLSearchParams({ page: String(page), limit: "30", eduType: "BUYER" });
     if (filter) params.set("status", filter);
     if (q)      params.set("q", q);
-    const res  = await fetch(`/api/b2b-prospects?${params}`);
+    const res  = await fetch(`/api/b2b?${params}`);
     const data = await res.json();
     if (data.ok) { setProspects(data.prospects); setTotal(data.total ?? 0); }
     setLoading(false);
@@ -59,13 +59,14 @@ export default function BuyersPage() {
   const save = async () => {
     if (!form.name.trim() || !form.phone.trim()) return;
     setSaving(true);
-    const res = await fetch("/api/b2b-prospects", {
+    const res = await fetch("/api/b2b", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
         eduType: "BUYER",
         paymentAmount: form.paymentAmount ? parseInt(form.paymentAmount) : undefined,
+        paymentDate: form.paymentDate || undefined,
       }),
     });
     const data = await res.json();
@@ -74,7 +75,7 @@ export default function BuyersPage() {
   };
 
   const updateStatus = async (id: string, status: string) => {
-    const res = await fetch(`/api/b2b-prospects/${id}`, {
+    const res = await fetch(`/api/b2b/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
@@ -87,17 +88,26 @@ export default function BuyersPage() {
 
   const saveNotes = async () => {
     if (!detail || notesDraft === detail.notes) return;
-    await fetch(`/api/b2b-prospects/${detail.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notes: notesDraft }),
-    });
-    setDetail({ ...detail, notes: notesDraft });
-    setProspects(prev => prev.map(p => p.id === detail.id ? { ...p, notes: notesDraft } : p));
+    try {
+      const res = await fetch(`/api/b2b/${detail.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: notesDraft }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setDetail({ ...detail, notes: notesDraft });
+        setProspects(prev => prev.map(p => p.id === detail.id ? { ...p, notes: notesDraft } : p));
+      } else {
+        alert("메모 저장에 실패했습니다.");
+      }
+    } catch {
+      alert("메모 저장 중 오류가 발생했습니다.");
+    }
   };
 
   const remove = async (id: string) => {
     if (!confirm("이 구매자를 삭제하시겠습니까?")) return;
-    const res = await fetch(`/api/b2b-prospects/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/b2b/${id}`, { method: "DELETE" });
     const data = await res.json();
     if (data.ok) { setProspects(prev => prev.filter(p => p.id !== id)); if (detail?.id === id) setDetail(null); }
   };
@@ -120,7 +130,6 @@ export default function BuyersPage() {
                 { key: "phone",       label: "전화번호 *",   placeholder: "010-1234-5678" },
                 { key: "email",       label: "이메일",       placeholder: "abc@example.com" },
                 { key: "productName", label: "상품명",       placeholder: "2026 크루즈 판매원 교육" },
-                { key: "paymentDate", label: "결제일",       placeholder: "2026-05-01" },
               ].map(f => (
                 <div key={f.key} className={f.key === "productName" ? "col-span-2" : ""}>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">{f.label}</label>
@@ -132,6 +141,15 @@ export default function BuyersPage() {
                   />
                 </div>
               ))}
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">결제일</label>
+                <input
+                  type="date"
+                  value={form.paymentDate}
+                  onChange={e => setForm({ ...form, paymentDate: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
+                />
+              </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">결제금액 (원)</label>
                 <input
