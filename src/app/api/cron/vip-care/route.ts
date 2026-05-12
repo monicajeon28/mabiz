@@ -112,6 +112,30 @@ export async function GET(req: Request) {
     }
   }
 
+  // 시퀀스 자동완료: 모든 로그가 SENT/SKIPPED/OPTED_OUT/CANCELLED이면 COMPLETED
+  const completedSeqs = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT s.id
+    FROM "VipCareSequence" s
+    WHERE s.status = 'ACTIVE'
+      AND NOT EXISTS (
+        SELECT 1 FROM "VipCareLog" l
+        WHERE l."sequenceId" = s.id
+          AND l.status IN ('PENDING', 'SENDING', 'NIGHT_BLOCKED', 'PAUSED', 'FAILED')
+      )
+      AND EXISTS (
+        SELECT 1 FROM "VipCareLog" l2 WHERE l2."sequenceId" = s.id
+      )
+  `;
+
+  let completedCount = 0;
+  if (completedSeqs.length > 0) {
+    const result = await prisma.vipCareSequence.updateMany({
+      where: { id: { in: completedSeqs.map(s => s.id) } },
+      data: { status: "COMPLETED" },
+    });
+    completedCount = result.count;
+  }
+
   // SmsLog 90일 초과 레코드 자동 삭제 (DB 용량 관리)
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setUTCDate(ninetyDaysAgo.getUTCDate() - 90);
@@ -119,6 +143,6 @@ export async function GET(req: Request) {
     where: { sentAt: { lt: ninetyDaysAgo } },
   }).catch(() => ({ count: 0 }));
 
-  logger.log("[Cron/vip-care] 완료", { sentCount, skippedCount, deletedLogs });
-  return NextResponse.json({ ok: true, sentCount, skippedCount, deletedLogs });
+  logger.log("[Cron/vip-care] 완료", { sentCount, skippedCount, completedCount, deletedLogs });
+  return NextResponse.json({ ok: true, sentCount, skippedCount, completedCount, deletedLogs });
 }

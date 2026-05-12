@@ -404,7 +404,7 @@ model VipCareSequence {
   contactId    String
   funnelId     String?
   startDate    DateTime
-  status       String   @default("ACTIVE")  // ACTIVE | PAUSED | CANCELLED
+  status       String   @default("ACTIVE")  // ACTIVE | PAUSED | CANCELLED | COMPLETED
   currentStage Int      @default(0)
   pausedAt     DateTime?
   pausedBy     String?

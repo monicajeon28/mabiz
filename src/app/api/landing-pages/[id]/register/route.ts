@@ -56,7 +56,7 @@ export async function POST(req: Request, { params }: Params) {
     // 랜딩페이지 조회 (groupId 포함)
     const landingPage = await prisma.crmLandingPage.findFirst({
       where: { id: landingPageId, isActive: true },
-      select: { id: true, organizationId: true, groupId: true, title: true },
+      select: { id: true, organizationId: true, groupId: true, autoFunnelId: true, title: true },
     });
     if (!landingPage) {
       return NextResponse.json({ ok: false, message: "페이지를 찾을 수 없습니다." }, { status: 404 });
@@ -117,6 +117,25 @@ export async function POST(req: Request, { params }: Params) {
 
       // 리드 스코어 +30 (랜딩 등록 = 강력한 관심 신호)
       addLeadScore(contact.id, "LANDING_REGISTER").catch(() => {});
+
+      // autoFunnelId 직접 퍼널 시작 (그룹 경유 없이)
+      if (!funnelStarted && landingPage.autoFunnelId) {
+        try {
+          const enrollRes = await fetch(new URL(`/api/funnels/${landingPage.autoFunnelId}/enroll`, req.url).toString(), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contactId: contact.id, sendNow: false }),
+          });
+          const enrollData = await enrollRes.json();
+          if (enrollData.ok) {
+            funnelStarted = true;
+            prisma.crmLandingRegistration.update({
+              where: { id: regId },
+              data: { funnelStarted: true },
+            }).catch(() => {});
+          }
+        } catch { /* 퍼널 시작 실패해도 등록은 유지 */ }
+      }
 
       // 그룹 배정 + 퍼널 시작
       if (landingPage.groupId) {
