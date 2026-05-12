@@ -33,6 +33,8 @@ export default function PurchasedPage() {
   const [channelFilter, setChannelFilter] = useState<"" | "b2c" | "b2b">("");
   const [groups, setGroups] = useState<{ id: string; name: string; funnelId: string | null }[]>([]);
   const [assigning, setAssigning] = useState<string | null>(null);
+  const [bulkGroupId, setBulkGroupId] = useState<string>("");
+  const [sortBy, setSortBy] = useState<"recent" | "oldest">("recent");
 
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [fetchError, setFetchError] = useState('');
@@ -49,6 +51,7 @@ export default function PurchasedPage() {
     if (channelFilter) params.set("channel", channelFilter);
     if (q) params.set("q", q);
     if (selectedTags.length > 0) params.set("tags", selectedTags.join(","));
+    params.set("sortBy", sortBy === "recent" ? "purchasedAt_desc" : "purchasedAt_asc");
 
     try {
       const res = await fetch(`/api/contacts?${params}`);
@@ -62,7 +65,7 @@ export default function PurchasedPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, page, channelFilter, selectedTags]);
+  }, [q, page, channelFilter, selectedTags, sortBy]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
@@ -94,6 +97,18 @@ export default function PurchasedPage() {
       body: JSON.stringify({ contactId }),
     });
     setAssigning(null);
+  };
+
+  const bulkAssignUnassigned = async () => {
+    if (!bulkGroupId) return;
+    const unassigned = contacts.filter((c) => c.groups.length === 0);
+    if (unassigned.length === 0) return;
+    await fetch(`/api/groups/${bulkGroupId}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactIds: unassigned.map((c) => c.id) }),
+    });
+    fetchContacts();
   };
 
   const allTags = useMemo(() => {
@@ -217,7 +232,7 @@ export default function PurchasedPage() {
         결제 완료된 고객 목록입니다
       </div>
 
-      {/* 검색 */}
+      {/* 검색 + 정렬 */}
       <div className="flex gap-2 mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -229,7 +244,39 @@ export default function PurchasedPage() {
             className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gold-500"
           />
         </div>
+        <select
+          value={sortBy}
+          onChange={(e) => { setSortBy(e.target.value as "recent" | "oldest"); setPage(1); }}
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
+        >
+          <option value="recent">최근 구매순</option>
+          <option value="oldest">오래된 구매순</option>
+        </select>
       </div>
+
+      {/* 미배정 일괄배정 */}
+      {groups.length > 0 && (
+        <div className="flex items-center gap-2 mb-4 p-3 bg-green-50 border border-green-200 rounded-xl">
+          <span className="text-sm text-green-800 font-medium shrink-0">미배정 일괄 배정</span>
+          <select
+            value={bulkGroupId}
+            onChange={(e) => setBulkGroupId(e.target.value)}
+            className="text-sm border border-green-300 rounded-lg px-2 py-1.5 flex-1 max-w-[200px] bg-white focus:outline-none"
+          >
+            <option value="">그룹 선택...</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>{g.name} {g.funnelId ? "🔄" : ""}</option>
+            ))}
+          </select>
+          <button
+            onClick={bulkAssignUnassigned}
+            disabled={!bulkGroupId}
+            className="text-sm px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-40 transition-colors shrink-0"
+          >
+            배정 ({contacts.filter((c) => c.groups.length === 0).length}명)
+          </button>
+        </div>
+      )}
 
       {/* 태그 칩 필터 */}
       {allTags.length > 0 && (

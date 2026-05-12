@@ -17,6 +17,7 @@ export async function GET(req: Request) {
     const tagParam = searchParams.get("tags");                      // 쉼표 구분 태그 필터
     const tags    = tagParam ? tagParam.split(",").map((t) => t.trim()).filter(Boolean) : [];
     const assignedTo = searchParams.get("assignedTo");             // 담당자 필터 (userId 또는 "unassigned")
+    const sortBy  = searchParams.get("sortBy");                     // 정렬: purchasedAt_desc | purchasedAt_asc
     const cursor  = searchParams.get("cursor");                     // cursor 기반 페이지네이션
     const rawPage = parseInt(searchParams.get("page") ?? "1", 10);
     const page    = Number.isNaN(rawPage) ? 1 : Math.min(Math.max(1, rawPage), 10000);
@@ -55,7 +56,9 @@ export async function GET(req: Request) {
     const [contacts, total] = await Promise.all([
       prisma.contact.findMany({
         where: cursor ? where : baseWhere,
-        orderBy: { id: "asc" },
+        orderBy: sortBy === "purchasedAt_desc" ? { purchasedAt: "desc" as const }
+               : sortBy === "purchasedAt_asc"  ? { purchasedAt: "asc"  as const }
+               : { id: "asc" as const },
         skip: skip,
         take: cursor ? take : safeLimit,
         select: {
