@@ -145,10 +145,33 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // upsert: 같은 (organizationId, tripCode, cabinType)이 이미 있으면 totalCount 업데이트
+    // 기존 판매 현황 먼저 조회 (bookedCount 절대 수정 금지)
+    const existingCabins = await prisma.cabinInventory.findMany({
+      where: {
+        organizationId,
+        tripCode: tripCode ?? null,
+      },
+      select: { cabinType: true, bookedCount: true },
+    });
+    const bookedMap = new Map(existingCabins.map((c) => [c.cabinType, c.bookedCount]));
+
+    // 판매수보다 적게 수정 시도 → 에러
+    for (const c of cabins as { cabinType: string; totalCount: number }[]) {
+      const sold = bookedMap.get(c.cabinType) ?? 0;
+      if (c.totalCount < sold) {
+        return NextResponse.json(
+          { ok: false, error: `${c.cabinType}: 이미 ${sold}실 판매됨 — 총 수량은 ${sold} 이상이어야 합니다.` },
+          { status: 400 },
+        );
+      }
+    }
+
+    // upsert: bookedCount 유지, totalCount만 업데이트, status 재계산
     const upsertResults = await Promise.all(
-      cabins.map((c: { cabinType: string; totalCount: number }) =>
-        prisma.cabinInventory.upsert({
+      (cabins as { cabinType: string; totalCount: number }[]).map((c) => {
+        const sold = bookedMap.get(c.cabinType) ?? 0;
+        const newStatus = c.totalCount <= sold ? 'SOLD_OUT' : 'AVAILABLE';
+        return prisma.cabinInventory.upsert({
           where: {
             organizationId_tripCode_cabinType: {
               organizationId,
@@ -164,18 +187,19 @@ export async function POST(req: NextRequest) {
             shipName: shipName ?? null,
             cabinType: c.cabinType,
             totalCount: c.totalCount,
-            bookedCount: 0,
+            bookedCount: 0,           // 신규: 판매수 0부터 시작
             status: 'AVAILABLE',
           },
           update: {
-            totalCount: c.totalCount,
+            totalCount: c.totalCount, // totalCount만 수정
+            // bookedCount 절대 손대지 않음
             tripName,
             departureDate: departureDate ? new Date(departureDate) : null,
             shipName: shipName ?? null,
-            status: 'AVAILABLE',
+            status: newStatus,        // 판매수 기준 재계산
           },
-        }),
-      ),
+        });
+      }),
     );
     const created = { count: upsertResults.length };
 

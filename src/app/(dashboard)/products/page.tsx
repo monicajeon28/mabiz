@@ -228,6 +228,7 @@ interface CabinRegisterModalProps {
   productCode: string;
   productName: string;
   organizationId: string;
+  cabinSummary: CabinSummary | null;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -239,17 +240,31 @@ const DEFAULT_CABIN_TYPES = [
   { key: "suite",     label: "스위트 (Suite)" },
 ];
 
-function CabinRegisterModal({ productCode, productName, organizationId, onClose, onSaved }: CabinRegisterModalProps) {
-  const [counts, setCounts] = useState<Record<string, string>>({
-    inside: "",
-    oceanview: "",
-    balcony: "",
-    suite: "",
+function CabinRegisterModal({ productCode, productName, organizationId, cabinSummary, onClose, onSaved }: CabinRegisterModalProps) {
+  const [counts, setCounts] = useState<Record<string, string>>(() => {
+    // 기존 totalCount 로 미리 채우기
+    const init: Record<string, string> = { inside: "", oceanview: "", balcony: "", suite: "" };
+    if (cabinSummary) {
+      for (const key of Object.keys(init)) {
+        if (cabinSummary[key]) init[key] = String(cabinSummary[key]!.total);
+      }
+    }
+    return init;
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   async function handleSave() {
+    // UI 단에서도 판매수 미만 입력 차단
+    for (const { key, label } of DEFAULT_CABIN_TYPES) {
+      const val = parseInt(counts[key] ?? "", 10);
+      const sold = cabinSummary?.[key]?.booked ?? 0;
+      if (!isNaN(val) && val > 0 && val < sold) {
+        setErr(`${label}: 이미 ${sold}실 판매됨 — ${sold}실 이상으로 입력해 주세요. (2인 1실 기준)`);
+        return;
+      }
+    }
+
     const cabins = DEFAULT_CABIN_TYPES
       .map(({ key }) => ({ cabinType: key, totalCount: parseInt(counts[key] ?? "", 10) }))
       .filter((c) => !isNaN(c.totalCount) && c.totalCount > 0);
@@ -285,6 +300,8 @@ function CabinRegisterModal({ productCode, productName, organizationId, onClose,
     }
   }
 
+  const isEditing = cabinSummary && Object.keys(cabinSummary).length > 0;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
@@ -294,29 +311,46 @@ function CabinRegisterModal({ productCode, productName, organizationId, onClose,
         <button onClick={onClose} className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100">
           <X className="w-5 h-5 text-gray-400" />
         </button>
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-1">
           <PlusCircle className="w-5 h-5 text-blue-600" />
-          <h2 className="text-lg font-bold text-gray-900">객실 수량 등록</h2>
+          <h2 className="text-lg font-bold text-gray-900">{isEditing ? "객실 수량 수정" : "객실 수량 등록"}</h2>
         </div>
-        <p className="text-sm text-gray-500 mb-4 font-medium">{productName}</p>
+        <p className="text-sm text-gray-500 mb-1 font-medium">{productName}</p>
+        <p className="text-xs text-gray-400 mb-4">2인 1실 기준 · 판매된 실수는 수정 불가</p>
 
         <div className="space-y-3 mb-4">
-          {DEFAULT_CABIN_TYPES.map(({ key, label }) => (
-            <div key={key} className="flex items-center gap-3">
-              <label className="text-sm text-gray-700 w-[140px] shrink-0">{label}</label>
-              <div className="relative flex-1">
-                <input
-                  type="number"
-                  min="0"
-                  value={counts[key] ?? ""}
-                  onChange={(e) => setCounts((p) => ({ ...p, [key]: e.target.value }))}
-                  placeholder="0"
-                  className="w-full pr-6 pl-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                />
-                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">석</span>
+          {DEFAULT_CABIN_TYPES.map(({ key, label }) => {
+            const sold = cabinSummary?.[key]?.booked ?? 0;
+            const val = parseInt(counts[key] ?? "", 10);
+            const isTooLow = !isNaN(val) && val > 0 && val < sold;
+            return (
+              <div key={key} className="space-y-0.5">
+                <div className="flex items-center gap-3">
+                  <label className="text-sm text-gray-700 w-[140px] shrink-0">{label}</label>
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      min={sold > 0 ? sold : 0}
+                      value={counts[key] ?? ""}
+                      onChange={(e) => { setCounts((p) => ({ ...p, [key]: e.target.value })); setErr(null); }}
+                      placeholder="0"
+                      className={`w-full pr-6 pl-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+                        isTooLow
+                          ? "border-red-400 focus:ring-red-300/30 focus:border-red-500"
+                          : "border-gray-200 focus:ring-blue-500/20 focus:border-blue-500"
+                      }`}
+                    />
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">실</span>
+                  </div>
+                </div>
+                {sold > 0 && (
+                  <p className="text-[11px] text-red-500 pl-[152px]">
+                    이미 판매 <span className="font-bold">{sold}실</span> — 최소 {sold}실 이상
+                  </p>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {err && <p className="text-sm text-red-600 mb-3">{err}</p>}
@@ -999,6 +1033,7 @@ export default function ProductsPage() {
           productCode={cabinRegisterProduct.code}
           productName={cabinRegisterProduct.name}
           organizationId={orgId ?? ''}
+          cabinSummary={cabinRegisterProduct.cabinSummary}
           onClose={() => setCabinRegisterCode(null)}
           onSaved={() => {
             setCabinRegisterCode(null);
