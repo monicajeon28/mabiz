@@ -109,12 +109,17 @@ export async function POST(req: NextRequest) {
   try {
     const ctx = await getAuthContext();
 
-    if (ctx.role !== 'GLOBAL_ADMIN') {
+    if (ctx.role !== 'GLOBAL_ADMIN' && ctx.role !== 'OWNER') {
       return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
     }
 
+    // OWNER는 자기 조직만 등록 가능
     const body = await req.json();
     const { organizationId, tripName, tripCode, departureDate, shipName, cabins } = body;
+
+    if (ctx.role === 'OWNER' && ctx.organizationId && organizationId !== ctx.organizationId) {
+      return NextResponse.json({ ok: false, error: '자기 조직만 등록 가능합니다' }, { status: 403 });
+    }
 
     if (!organizationId || !tripName || !Array.isArray(cabins) || cabins.length === 0) {
       return NextResponse.json(

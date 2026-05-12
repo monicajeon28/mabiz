@@ -19,6 +19,8 @@ type RawProduct = {
   availableCount: number | null;
   reservedCount: number | null;
   refundPolicy: unknown;
+  itineraryPattern: unknown;
+  tourCities: string | null;
   startDate: Date | null;
   endDate: Date | null;
   createdAt: Date;
@@ -30,23 +32,42 @@ type TripRow = {
   shipName: string;
 };
 
+// CabinInventory: 상품 등록 시 설정한 총 용량
 type InventoryRow = {
   tripCode: string;
   cabinType: string;
   total: bigint;
-  booked: bigint;
+};
+
+// Reservation: 실제 확정된 예약 건수 (여권+PNR 완료 기준)
+type ReservationCountRow = {
+  productCode: string;
+  cabinType: string;
+  count: bigint;
 };
 
 type CabinEntry = { total: number; booked: number; remaining: number };
 type CabinSummary = Record<string, CabinEntry>;
 
 /**
+ * 객실타입 정규화: 한국어/영어 혼용 → 통일된 키
+ * CabinInventory.cabinType 과 Reservation.cabinType 이 다를 수 있으므로 정규화
+ */
+function normalizeCabinType(raw: string): string {
+  const s = (raw ?? '').toLowerCase().trim();
+  if (s.includes('발코니') || s.includes('balcony')) return 'balcony';
+  if (s.includes('오션뷰') || s.includes('ocean')) return 'oceanview';
+  if (s.includes('내측') || s.includes('inside') || s.includes('인사이드')) return 'inside';
+  if (s.includes('스위트') || s.includes('suite')) return 'suite';
+  return s || 'other';
+}
+
+/**
  * GET /api/products
  * 크루즈 상품 목록 조회 (CruiseProduct 테이블)
- * + 출발일(D-day) + 객실 잔여 현황 (CabinInventory)
+ * + 출발일(D-day) + 일정 + 객실 잔여 현황 + 환불정책
  *
  * FREE_SALES: 403
- * 파라미터: page, limit, isActive('true'|'false'), q(상품명/코드 검색)
  */
 export async function GET(req: NextRequest) {
   try {
@@ -82,7 +103,8 @@ export async function GET(req: NextRequest) {
                p."packageName", p."basePrice", p.nights, p.days,
                p."isActive", p."saleStatus",
                p."availableCount", p."reservedCount",
-               p."refundPolicy", p."startDate", p."endDate", p."createdAt"
+               p."refundPolicy", p."itineraryPattern", p."tourCities",
+               p."startDate", p."endDate", p."createdAt"
         FROM "CruiseProduct" p
         ${whereClause}
         ORDER BY p."startDate" DESC NULLS LAST, p."createdAt" DESC
@@ -95,45 +117,67 @@ export async function GET(req: NextRequest) {
 
     const total = Number(countRows[0]?.total ?? 0);
 
-    // ── 배치 조회: Trip(출발일) + CabinInventory(객실현황) ───────
+    // ── 배치 조회 (병렬) ─────────────────────────────────────────
     const codes = rows
       .map((r) => r.productCode)
       .filter((c): c is string => !!c && c.length > 0);
 
-    const [tripRows, inventoryRows] = await (codes.length > 0
+    const [tripRows, inventoryRows, reservationRows] = await (codes.length > 0
       ? Promise.all([
+          // 1) Trip 출발일
           prisma.$queryRaw<TripRow[]>(Prisma.sql`
             SELECT DISTINCT ON ("productCode") "productCode", "departureDate", "shipName"
             FROM "Trip"
             WHERE "productCode" IN (${Prisma.join(codes)})
             ORDER BY "productCode", "departureDate" ASC
           `),
+          // 2) CabinInventory 총 용량 (상품 등록 시 설정)
           ctx.organizationId
             ? prisma.$queryRaw<InventoryRow[]>(Prisma.sql`
                 SELECT "tripCode", "cabinType",
-                       SUM("totalCount")::bigint  AS total,
-                       SUM("bookedCount")::bigint AS booked
+                       SUM("totalCount")::bigint AS total
                 FROM "CabinInventory"
                 WHERE "tripCode" IN (${Prisma.join(codes)})
                   AND "organizationId" = ${ctx.organizationId}
                 GROUP BY "tripCode", "cabinType"
               `)
             : Promise.resolve([] as InventoryRow[]),
+          // 3) 실제 판매 카운트 (2인1실 기준 — PNR 완료 예약건 수)
+          prisma.$queryRaw<ReservationCountRow[]>(Prisma.sql`
+            SELECT t."productCode", r."cabinType",
+                   COUNT(r.id)::bigint AS count
+            FROM "Reservation" r
+            JOIN "Trip" t ON r."tripId" = t.id
+            WHERE t."productCode" IN (${Prisma.join(codes)})
+              AND r.status = 'CONFIRMED'
+              AND r."pnrStatus" = 'COMPLETED'
+            GROUP BY t."productCode", r."cabinType"
+          `),
         ])
-      : Promise.resolve([[] as TripRow[], [] as InventoryRow[]]));
+      : Promise.resolve([[] as TripRow[], [] as InventoryRow[], [] as ReservationCountRow[]]));
 
-    // ── 인덱스 맵 ────────────────────────────────────────────────
+    // ── 인덱스 맵 빌드 ───────────────────────────────────────────
     const tripMap = new Map<string, TripRow>();
     for (const t of tripRows) tripMap.set(t.productCode, t);
 
-    const inventoryMap = new Map<string, CabinSummary>();
+    // CabinInventory: productCode → { normalizedCabinType → totalCount }
+    const inventoryTotalMap = new Map<string, Map<string, number>>();
     for (const inv of inventoryRows) {
       if (!inv.tripCode) continue;
-      if (!inventoryMap.has(inv.tripCode)) inventoryMap.set(inv.tripCode, {});
-      const summary = inventoryMap.get(inv.tripCode)!;
-      const t = Number(inv.total);
-      const b = Number(inv.booked);
-      summary[inv.cabinType] = { total: t, booked: b, remaining: t - b };
+      if (!inventoryTotalMap.has(inv.tripCode)) inventoryTotalMap.set(inv.tripCode, new Map());
+      const key = normalizeCabinType(inv.cabinType);
+      const cur = inventoryTotalMap.get(inv.tripCode)!;
+      cur.set(key, (cur.get(key) ?? 0) + Number(inv.total));
+    }
+
+    // Reservation: productCode → { normalizedCabinType → bookedCount }
+    const reservationBookedMap = new Map<string, Map<string, number>>();
+    for (const rv of reservationRows) {
+      if (!rv.productCode) continue;
+      if (!reservationBookedMap.has(rv.productCode)) reservationBookedMap.set(rv.productCode, new Map());
+      const key = normalizeCabinType(rv.cabinType ?? '');
+      const cur = reservationBookedMap.get(rv.productCode)!;
+      cur.set(key, (cur.get(key) ?? 0) + Number(rv.count));
     }
 
     // ── D-day 계산 (KST 기준) ────────────────────────────────────
@@ -146,12 +190,34 @@ export async function GET(req: NextRequest) {
       return Math.round((d.getTime() - todayKst.getTime()) / 86400000);
     }
 
+    // ── 기항지 추출 (itineraryPattern JSON) ──────────────────────
+    function extractPorts(pattern: unknown): string[] {
+      if (!Array.isArray(pattern)) return [];
+      return (pattern as Array<{ type?: string; location?: string; country?: string }>)
+        .filter((d) => d.type !== 'sea' && d.location && d.location !== '해상')
+        .map((d) => d.location ?? '')
+        .filter(Boolean);
+    }
+
     const products = rows.map((r) => {
       const trip       = tripMap.get(r.productCode);
-      // Trip.departureDate 우선, 없으면 CruiseProduct.startDate
       const depDate    = trip?.departureDate ?? r.startDate ?? null;
       const daysLeft   = depDate ? calcDaysLeft(depDate) : null;
-      const cabinSummary = inventoryMap.get(r.productCode) ?? null;
+
+      // 객실 잔여: CabinInventory 총량 - 실제 예약수
+      const invTotals  = inventoryTotalMap.get(r.productCode);
+      const rvBookings = reservationBookedMap.get(r.productCode);
+
+      let cabinSummary: CabinSummary | null = null;
+      if (invTotals && invTotals.size > 0) {
+        cabinSummary = {};
+        for (const [cabinType, total] of invTotals.entries()) {
+          const booked = rvBookings?.get(cabinType) ?? 0;
+          cabinSummary[cabinType] = { total, booked, remaining: Math.max(0, total - booked) };
+        }
+      }
+
+      const ports = extractPorts(r.itineraryPattern);
 
       return {
         id:           r.id,
@@ -166,7 +232,9 @@ export async function GET(req: NextRequest) {
         saleStatus:   r.saleStatus,
         availableCount: r.availableCount,
         reservedCount:  r.reservedCount,
-        refundPolicy: r.refundPolicy,
+        refundPolicy: r.refundPolicy ?? null,
+        ports,                          // 기항지 목록
+        tourCities:   r.tourCities,
         createdAt:    r.createdAt.toISOString(),
         departureDate: depDate ? depDate.toISOString() : null,
         daysLeft,
