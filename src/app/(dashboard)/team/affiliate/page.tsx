@@ -165,24 +165,6 @@ type Filters = {
   to: string;
 };
 
-type LeadItem = {
-  id: number;
-  customerName: string | null;
-  customerPhone: string | null;
-  source: string | null;
-  status: string;
-  createdAt: string;
-  managerId: number | null;
-  metadata?: {
-    productCode?: string;
-    product_code?: string;
-    productName?: string;
-    product_name?: string;
-    mallUserId?: string;
-    affiliateMallUserId?: string;
-  } | null;
-};
-
 type TeamMessage = {
   id: number;
   title: string;
@@ -294,17 +276,6 @@ export default function AffiliateTeamDashboardPage() {
   const [totals, setTotals] = useState<DashboardResponse['totals']>(null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
-  const [phoneInquiries, setPhoneInquiries] = useState<Array<{
-    id: number;
-    customerName: string | null;
-    customerPhone: string | null;
-    productCode: string | null;
-    productName: string | null;
-    createdAt: string;
-    status: string;
-    mallUserId: string | null;
-    managerId: number | null;
-  }>>([]);
   const [teamMessages, setTeamMessages] = useState<Array<{
     id: number;
     title: string;
@@ -346,12 +317,8 @@ export default function AffiliateTeamDashboardPage() {
   const [selectedActivityIds, setSelectedActivityIds] = useState<number[]>([]);
   const [deletingActivities, setDeletingActivities] = useState(false);
 
-  // phoneInquiries 미사용 경고 억제
-  void phoneInquiries;
-
   useEffect(() => {
     loadMetrics();
-    loadPhoneInquiries();
     loadTeamMessages();
     const interval = setInterval(() => {
       loadTeamMessages();
@@ -401,31 +368,6 @@ export default function AffiliateTeamDashboardPage() {
 
   const toggleManager = (id: number) => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const loadPhoneInquiries = async () => {
-    try {
-      const res = await fetch('/api/contacts?type=LEAD&limit=20');
-      const json = await res.json();
-      if (res.ok && json?.ok && json.leads) {
-        const filtered = (json.leads as LeadItem[])
-          .filter((lead) => lead.source?.startsWith('mall-') || lead.source === 'product-inquiry')
-          .map((lead) => ({
-            id: lead.id,
-            customerName: lead.customerName,
-            customerPhone: lead.customerPhone,
-            productCode: lead.metadata?.productCode || lead.metadata?.product_code || null,
-            productName: lead.metadata?.productName || lead.metadata?.product_name || null,
-            createdAt: lead.createdAt,
-            status: lead.status,
-            mallUserId: lead.metadata?.mallUserId || lead.metadata?.affiliateMallUserId || null,
-            managerId: lead.managerId,
-          }));
-        setPhoneInquiries(filtered);
-      }
-    } catch {
-      // 클라이언트 컴포넌트 — 무시
-    }
   };
 
   // /api/team/messages 미구현 — 향후 구현 시 활성화
@@ -826,19 +768,13 @@ export default function AffiliateTeamDashboardPage() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => {
-              setShowMessagesModal(true);
-              loadTeamMessages(true);
-            }}
-            className="relative flex items-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-semibold text-teal-700 hover:bg-teal-100"
+            disabled
+            title="팀 메시지 기능은 준비 중입니다"
+            className="relative flex items-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-semibold text-teal-700 opacity-50 cursor-not-allowed"
           >
             <MessageSquare className="w-4 h-4" />
             팀 메시지
-            {unreadMessageCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
-                {unreadMessageCount > 9 ? '9+' : unreadMessageCount}
-              </span>
-            )}
+            <span className="ml-1 text-xs font-normal text-teal-500">(준비 중)</span>
           </button>
           <button
             type="button"

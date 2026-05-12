@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 
 // 정산 수수료 상수 (변경 시 이 파일 상단만 수정)
@@ -193,10 +194,9 @@ export async function GET(req: NextRequest) {
     }
 
     const managerIds = managers.map((m) => m.id);
-    const managerIdList = managerIds.join(',');
 
     // relations 조회 (AffiliateRelation + agentProfile join)
-    const relationRows = await prisma.$queryRawUnsafe<AffiliateRelationRow[]>(`
+    const relationRows = await prisma.$queryRaw<AffiliateRelationRow[]>(Prisma.sql`
       SELECT
         r."managerId",
         r."agentId",
@@ -210,7 +210,7 @@ export async function GET(req: NextRequest) {
         a.status AS agent_status
       FROM "AffiliateRelation" r
       LEFT JOIN "AffiliateProfile" a ON a.id = r."agentId"
-      WHERE r."managerId" IN (${managerIdList})
+      WHERE r."managerId" IN (${Prisma.join(managerIds)})
         AND r.status IN ('ACTIVE', 'PAUSED')
     `);
 
@@ -228,18 +228,14 @@ export async function GET(req: NextRequest) {
     const monthSeries = buildMonthSeries(trendStart, trendEnd, TREND_MONTHS);
 
     // 판매 트렌드 (AffiliateSale)
-    const salesTrendParams: unknown[] = [managerIdList, trendStart, trendEnd];
-    const salesTrendRecords = await prisma.$queryRawUnsafe<SaleTrendRow[]>(`
+    const salesTrendRecords = await prisma.$queryRaw<SaleTrendRow[]>(Prisma.sql`
       SELECT id, "managerId", "saleDate", "saleAmount", "branchCommission", "overrideCommission", "salesCommission"
       FROM "AffiliateSale"
-      WHERE "managerId" IN (${managerIdList})
+      WHERE "managerId" IN (${Prisma.join(managerIds)})
         AND status IN ('CONFIRMED', 'PAID', 'PAYOUT_SCHEDULED')
-        AND "saleDate" >= $2
-        AND "saleDate" <= $3
-    `, trendStart, trendEnd);
-
-    // salesTrendParams는 위에서만 참조용이므로 실제 쿼리에선 인라인
-    void salesTrendParams;
+        AND "saleDate" >= ${trendStart}
+        AND "saleDate" <= ${trendEnd}
+    `);
 
     const managerTrendMap = new Map<number, Map<string, TrendAccumulator>>();
 
@@ -266,47 +262,30 @@ export async function GET(req: NextRequest) {
     });
 
     // Lead status groups by manager (AffiliateLead)
-    let leadManagerQuery = `
+    const leadStatusGroups = await prisma.$queryRaw<LeadStatusGroupRow[]>(Prisma.sql`
       SELECT "managerId", status, COUNT(*) AS count
       FROM "AffiliateLead"
-      WHERE "managerId" IN (${managerIdList})
-    `;
-    const leadManagerParams: unknown[] = [];
-    if (from) {
-      leadManagerParams.push(from);
-      leadManagerQuery += ` AND "createdAt" >= $${leadManagerParams.length}`;
-    }
-    if (to) {
-      leadManagerParams.push(to);
-      leadManagerQuery += ` AND "createdAt" <= $${leadManagerParams.length}`;
-    }
-    leadManagerQuery += ` GROUP BY "managerId", status`;
-    const leadStatusGroups = await prisma.$queryRawUnsafe<LeadStatusGroupRow[]>(leadManagerQuery, ...leadManagerParams);
+      WHERE "managerId" IN (${Prisma.join(managerIds)})
+      ${from ? Prisma.sql`AND "createdAt" >= ${from}` : Prisma.empty}
+      ${to ? Prisma.sql`AND "createdAt" <= ${to}` : Prisma.empty}
+      GROUP BY "managerId", status
+    `);
 
     // Lead status groups by agent
     let leadAgentGroups: LeadAgentGroupRow[] = [];
     if (agentIds.length) {
-      const agentIdList = agentIds.join(',');
-      let leadAgentQuery = `
+      leadAgentGroups = await prisma.$queryRaw<LeadAgentGroupRow[]>(Prisma.sql`
         SELECT "agentId", status, COUNT(*) AS count
         FROM "AffiliateLead"
-        WHERE "agentId" IN (${agentIdList})
-      `;
-      const leadAgentParams: unknown[] = [];
-      if (from) {
-        leadAgentParams.push(from);
-        leadAgentQuery += ` AND "createdAt" >= $${leadAgentParams.length}`;
-      }
-      if (to) {
-        leadAgentParams.push(to);
-        leadAgentQuery += ` AND "createdAt" <= $${leadAgentParams.length}`;
-      }
-      leadAgentQuery += ` GROUP BY "agentId", status`;
-      leadAgentGroups = await prisma.$queryRawUnsafe<LeadAgentGroupRow[]>(leadAgentQuery, ...leadAgentParams);
+        WHERE "agentId" IN (${Prisma.join(agentIds)})
+        ${from ? Prisma.sql`AND "createdAt" >= ${from}` : Prisma.empty}
+        ${to ? Prisma.sql`AND "createdAt" <= ${to}` : Prisma.empty}
+        GROUP BY "agentId", status
+      `);
     }
 
     // Sale groups by manager (AffiliateSale)
-    let saleManagerQuery = `
+    const saleGroups = await prisma.$queryRaw<SaleGroupRow[]>(Prisma.sql`
       SELECT
         "managerId",
         COUNT(*) AS count,
@@ -316,26 +295,17 @@ export async function GET(req: NextRequest) {
         SUM("overrideCommission") AS sum_overrideCommission,
         SUM("salesCommission") AS sum_salesCommission
       FROM "AffiliateSale"
-      WHERE "managerId" IN (${managerIdList})
+      WHERE "managerId" IN (${Prisma.join(managerIds)})
         AND status IN ('CONFIRMED', 'PAID', 'PAYOUT_SCHEDULED')
-    `;
-    const saleManagerParams: unknown[] = [];
-    if (from) {
-      saleManagerParams.push(from);
-      saleManagerQuery += ` AND "saleDate" >= $${saleManagerParams.length}`;
-    }
-    if (to) {
-      saleManagerParams.push(to);
-      saleManagerQuery += ` AND "saleDate" <= $${saleManagerParams.length}`;
-    }
-    saleManagerQuery += ` GROUP BY "managerId"`;
-    const saleGroups = await prisma.$queryRawUnsafe<SaleGroupRow[]>(saleManagerQuery, ...saleManagerParams);
+      ${from ? Prisma.sql`AND "saleDate" >= ${from}` : Prisma.empty}
+      ${to ? Prisma.sql`AND "saleDate" <= ${to}` : Prisma.empty}
+      GROUP BY "managerId"
+    `);
 
     // Sale groups by agent
     let saleAgentGroups: SaleAgentGroupRow[] = [];
     if (agentIds.length) {
-      const agentIdList = agentIds.join(',');
-      let saleAgentQuery = `
+      saleAgentGroups = await prisma.$queryRaw<SaleAgentGroupRow[]>(Prisma.sql`
         SELECT
           "agentId",
           COUNT(*) AS count,
@@ -345,62 +315,37 @@ export async function GET(req: NextRequest) {
           SUM("overrideCommission") AS sum_overrideCommission,
           SUM("salesCommission") AS sum_salesCommission
         FROM "AffiliateSale"
-        WHERE "agentId" IN (${agentIdList})
+        WHERE "agentId" IN (${Prisma.join(agentIds)})
           AND status IN ('CONFIRMED', 'PAID', 'PAYOUT_SCHEDULED')
-      `;
-      const saleAgentParams: unknown[] = [];
-      if (from) {
-        saleAgentParams.push(from);
-        saleAgentQuery += ` AND "saleDate" >= $${saleAgentParams.length}`;
-      }
-      if (to) {
-        saleAgentParams.push(to);
-        saleAgentQuery += ` AND "saleDate" <= $${saleAgentParams.length}`;
-      }
-      saleAgentQuery += ` GROUP BY "agentId"`;
-      saleAgentGroups = await prisma.$queryRawUnsafe<SaleAgentGroupRow[]>(saleAgentQuery, ...saleAgentParams);
+        ${from ? Prisma.sql`AND "saleDate" >= ${from}` : Prisma.empty}
+        ${to ? Prisma.sql`AND "saleDate" <= ${to}` : Prisma.empty}
+        GROUP BY "agentId"
+      `);
     }
 
     // Ledger groups by manager (CommissionLedger)
-    let ledgerManagerQuery = `
+    const ledgerGroups = await prisma.$queryRaw<LedgerGroupRow[]>(Prisma.sql`
       SELECT "profileId", "entryType", "isSettled", SUM(amount) AS sum_amount, SUM("withholdingAmount") AS sum_withholdingAmount, COUNT(*) AS count
       FROM "CommissionLedger"
-      WHERE "profileId" IN (${managerIdList})
+      WHERE "profileId" IN (${Prisma.join(managerIds)})
         AND "entryType" IN ('BRANCH_COMMISSION', 'OVERRIDE_COMMISSION', 'WITHHOLDING')
-    `;
-    const ledgerManagerParams: unknown[] = [];
-    if (from) {
-      ledgerManagerParams.push(from);
-      ledgerManagerQuery += ` AND "createdAt" >= $${ledgerManagerParams.length}`;
-    }
-    if (to) {
-      ledgerManagerParams.push(to);
-      ledgerManagerQuery += ` AND "createdAt" <= $${ledgerManagerParams.length}`;
-    }
-    ledgerManagerQuery += ` GROUP BY "profileId", "entryType", "isSettled"`;
-    const ledgerGroups = await prisma.$queryRawUnsafe<LedgerGroupRow[]>(ledgerManagerQuery, ...ledgerManagerParams);
+      ${from ? Prisma.sql`AND "createdAt" >= ${from}` : Prisma.empty}
+      ${to ? Prisma.sql`AND "createdAt" <= ${to}` : Prisma.empty}
+      GROUP BY "profileId", "entryType", "isSettled"
+    `);
 
     // Ledger groups by agent
     let ledgerAgentGroups: LedgerGroupRow[] = [];
     if (agentIds.length) {
-      const agentIdList = agentIds.join(',');
-      let ledgerAgentQuery = `
+      ledgerAgentGroups = await prisma.$queryRaw<LedgerGroupRow[]>(Prisma.sql`
         SELECT "profileId", "entryType", "isSettled", SUM(amount) AS sum_amount, SUM("withholdingAmount") AS sum_withholdingAmount, COUNT(*) AS count
         FROM "CommissionLedger"
-        WHERE "profileId" IN (${agentIdList})
+        WHERE "profileId" IN (${Prisma.join(agentIds)})
           AND "entryType" IN ('SALES_COMMISSION', 'OVERRIDE_COMMISSION', 'WITHHOLDING')
-      `;
-      const ledgerAgentParams: unknown[] = [];
-      if (from) {
-        ledgerAgentParams.push(from);
-        ledgerAgentQuery += ` AND "createdAt" >= $${ledgerAgentParams.length}`;
-      }
-      if (to) {
-        ledgerAgentParams.push(to);
-        ledgerAgentQuery += ` AND "createdAt" <= $${ledgerAgentParams.length}`;
-      }
-      ledgerAgentQuery += ` GROUP BY "profileId", "entryType", "isSettled"`;
-      ledgerAgentGroups = await prisma.$queryRawUnsafe<LedgerGroupRow[]>(ledgerAgentQuery, ...ledgerAgentParams);
+        ${from ? Prisma.sql`AND "createdAt" >= ${from}` : Prisma.empty}
+        ${to ? Prisma.sql`AND "createdAt" <= ${to}` : Prisma.empty}
+        GROUP BY "profileId", "entryType", "isSettled"
+      `);
     }
 
     // 집계 맵 구성
