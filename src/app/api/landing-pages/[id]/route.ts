@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId, canDelete } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, canDelete } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 
@@ -37,6 +37,8 @@ const PatchSchema = z.object({
   regEmailEnabled: z.boolean().optional(),
   regEmailSubject: z.string().nullable().optional(),
   regEmailContent: z.string().nullable().optional(),
+  // 프론트엔드 전용 (DB 저장 안 함, strict 우회용)
+  commentConfig:  z.any().optional(),
 }).strict();
 
 type Params = { params: Promise<{ id: string }> };
@@ -44,11 +46,11 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx);
     const { id } = await params;
 
     const page = await prisma.crmLandingPage.findFirst({
-      where: { id, organizationId: orgId },
+      where: { id, ...(orgId ? { organizationId: orgId } : {}) },
       include: {
         _count: { select: { registrations: true } },
         registrations: { orderBy: { createdAt: "desc" }, take: 50 },
@@ -69,7 +71,7 @@ export async function GET(_req: Request, { params }: Params) {
 export async function PATCH(req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { id } = await params;
     const body   = await req.json();
 
@@ -132,7 +134,7 @@ export async function PATCH(req: Request, { params }: Params) {
 export async function DELETE(_req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
     if (!canDelete(ctx)) {
