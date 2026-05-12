@@ -22,8 +22,8 @@ type FunnelStage = {
 };
 type Funnel = {
   id: string; name: string; description: string | null; isActive: boolean;
+  organizationName: string | null;
   stages: FunnelStage[];
-  _count: { stages: number };
 };
 
 const VIP_CARE_STAGES = [
@@ -201,7 +201,14 @@ export default function FunnelsPage() {
               <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
                 <div className={`w-2.5 h-2.5 rounded-full ${funnel.isActive ? "bg-green-400" : "bg-gray-300"}`} />
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900">{funnel.name}</h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-semibold text-gray-900">{funnel.name}</h3>
+                    {funnel.organizationName && (
+                      <span className="text-xs px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded font-medium shrink-0">
+                        {funnel.organizationName}
+                      </span>
+                    )}
+                  </div>
                   {funnel.description && <p className="text-xs text-gray-400 mt-0.5">{funnel.description}</p>}
                 </div>
                 {/* 메시지 미작성 경고 */}

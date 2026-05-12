@@ -1,31 +1,26 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId, resolveOrgIdOrNull } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
-
-const BONSA_ORG_ID = 'org_bonsa_cruisedot';
-
-function resolveOrgId(ctx: Awaited<ReturnType<typeof getAuthContext>>): string {
-  return ctx.role === 'GLOBAL_ADMIN' ? BONSA_ORG_ID : requireOrgId(ctx);
-}
 
 // GET /api/funnels
 export async function GET() {
   try {
     const ctx   = await getAuthContext();
-    const orgId = resolveOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx); // GLOBAL_ADMIN → null (전체), others → orgId
 
-    const funnels = await prisma.funnel.findMany({
-      where: { organizationId: orgId },
+    const rawFunnels = await prisma.funnel.findMany({
+      where: orgId ? { organizationId: orgId } : undefined,
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
         organizationId: true,
         name: true,
         description: true,
-        funnelType: true,
+        isActive: true,
         createdAt: true,
         updatedAt: true,
+        organization: { select: { name: true } },
         // 목록에 필요한 필드만 선택 (messageContent @db.Text 불필요 전송 방지)
         stages: {
           orderBy: { order: "asc" },
@@ -42,6 +37,11 @@ export async function GET() {
         },
       },
     });
+
+    const funnels = rawFunnels.map(({ organization, ...f }) => ({
+      ...f,
+      organizationName: organization?.name ?? null,
+    }));
 
     return NextResponse.json({ ok: true, funnels });
   } catch (err) {
