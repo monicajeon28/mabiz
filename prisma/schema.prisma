@@ -27,6 +27,7 @@ model Organization {
   emailConfig      OrgEmailConfig?
   scheduledSmsList  ScheduledSms[]
   inviteTokens      OrgInviteToken[]
+  cabinInventories  CabinInventory[]
   sentTransfers     ContactTransferLog[] @relation("FromOrg")
   receivedTransfers ContactTransferLog[] @relation("ToOrg")
   affiliateSales    AffiliateSale[]
@@ -275,6 +276,17 @@ model CrmLandingPage {
 
   commentEnabled Boolean  @default(false)  // 방문자 댓글 허용 여부
 
+  // 에디터 고도화 필드
+  description       String?  @db.Text       // 페이지 설명 (관리용)
+  category          String?                 // 분류 (크루즈/교육/이벤트)
+  pageGroup         String?                 // 그룹 묶음 (접이식 정리)
+  buttonTitle       String?                 // 신청 버튼 텍스트 커스텀
+  completionPageUrl String?                 // 신청 완료 후 리다이렉트 URL
+  headerScript      String?  @db.Text       // 픽셀/GA 코드 삽입
+  exposureTitle     String?                 // 외부 노출용 제목
+  exposureImage     String?                 // 썸네일 이미지 URL
+  infoCollection    Boolean  @default(false) // 폼 필드 ON/OFF 설정 활성화
+
   // 결제 설정 (페이앱 B2B)
   paymentEnabled Boolean  @default(false)
   paymentType    String?  // "onetime" | "subscription"
@@ -283,9 +295,13 @@ model CrmLandingPage {
   cycleDay       Int?     // 정기결제 매월 결제일 (1~31, 90=말일)
   expireDate     DateTime? // 정기결제 만료일
 
+  // 에디터 모드: "html" (코딩형) | "image" (이미지형)
+  editorMode     String   @default("html")
+
   organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   registrations  CrmLandingRegistration[]
   comments       CrmLandingComment[]
+  images         CrmLandingPageImage[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -293,6 +309,24 @@ model CrmLandingPage {
   @@unique([slug, organizationId])
   @@index([organizationId])
   @@map("CrmLandingPage")
+}
+
+// ─── 랜딩페이지 이미지 (이미지형 모드용, 순서 관리) ─────────────
+model CrmLandingPageImage {
+  id             String         @id @default(cuid())
+  landingPageId  String
+  imageAssetId   String
+  sortOrder      Int            @default(0)
+  altText        String?        // 접근성 + SEO
+
+  landingPage    CrmLandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+  imageAsset     ImageAsset     @relation(fields: [imageAssetId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime       @default(now())
+
+  @@unique([landingPageId, imageAssetId])
+  @@index([landingPageId, sortOrder])
+  @@map("CrmLandingPageImage")
 }
 
 // ─── 랜딩페이지 방문자 댓글 ───────────────────────────────────
@@ -1138,6 +1172,7 @@ model ImageAsset {
   processingStatus String    @default("PENDING") // PENDING|DONE|FAILED
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  landingPages CrmLandingPageImage[]
 
   @@unique([organizationId, driveFileId])
   @@index([organizationId, category])
@@ -1563,6 +1598,30 @@ model GmPassportRequestTemplate {
   updatedAt   DateTime @default(now()) @updatedAt
 
   @@map("PassportRequestTemplate")
+}
+
+// ─── 잔여 객실 관리 (CRM 전용 — Phase 4) ────────────────
+
+model CabinInventory {
+  id              String   @id @default(cuid())
+  organizationId  String
+  tripName        String
+  tripCode        String?
+  departureDate   DateTime?
+  shipName        String?
+  cabinType       String
+  totalCount      Int
+  bookedCount     Int      @default(0)
+  status          String   @default("AVAILABLE")  // AVAILABLE | SOLD_OUT | CLOSED
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, tripCode, cabinType])
+  @@index([organizationId])
+  @@index([status])
+  @@map("CabinInventory")
 }
 
 // ─── PNR 감사로그 + 여행계약 ─────────────────────────────
