@@ -20,9 +20,19 @@ export async function GET(req: Request) {
     const rawLimit = parseInt(searchParams.get('limit') ?? '30', 10);
     const limit = Number.isNaN(rawLimit) ? 30 : Math.min(Math.max(1, rawLimit), 200);
 
+    const tagParam = searchParams.get('tags');
+    const tags = tagParam ? tagParam.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+    const sortBy = searchParams.get('sortBy'); // updatedAt_desc | createdAt_desc | name_asc
+    const orderBy =
+      sortBy === 'createdAt_desc' ? { createdAt: 'desc' as const } :
+      sortBy === 'name_asc'       ? { name: 'asc' as const } :
+      { updatedAt: 'desc' as const }; // 기본값
+
     const where = {
       ...(orgId ? { organizationId: orgId } : {}),
       ...(type ? { type } : {}),
+      ...(tags.length > 0 ? { tags: { hasEvery: tags } } : {}),
       ...(q ? {
         OR: [
           { name: { contains: q, mode: 'insensitive' as const } },
@@ -34,7 +44,7 @@ export async function GET(req: Request) {
     const [contacts, total] = await Promise.all([
       prisma.contact.findMany({
         where,
-        orderBy: { updatedAt: 'desc' },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
         select: {

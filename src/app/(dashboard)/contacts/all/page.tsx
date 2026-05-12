@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Filter, Building2 } from "lucide-react";
+import { Search, Filter, Building2, ArrowUpDown, X, Tag } from "lucide-react";
 
 type ContactAll = {
   id: string;
@@ -51,6 +51,9 @@ export default function ContactsAllPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [orgs, setOrgs] = useState<OrgOption[]>([]);
   const [selectedOrg, setSelectedOrg] = useState('');
+  const [tagInput, setTagInput] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState('updatedAt_desc');
 
   // 조직 목록 로드
   useEffect(() => {
@@ -70,7 +73,9 @@ export default function ContactsAllPage() {
       ...(selectedOrg ? { orgId: selectedOrg } : {}),
       ...(q ? { q } : {}),
       ...(typeFilter ? { type: typeFilter } : {}),
+      ...(sortBy ? { sortBy } : {}),
     });
+    if (selectedTags.length > 0) params.set('tags', selectedTags.join(','));
     try {
       const res = await fetch(`/api/contacts/all?${params}`);
       if (!res.ok) throw new Error('서버 오류');
@@ -83,16 +88,24 @@ export default function ContactsAllPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, selectedOrg, q, typeFilter]);
+  }, [page, selectedOrg, q, typeFilter, selectedTags, sortBy]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
-  // 동적 태그 목록
-  const allTags = useMemo(() => {
-    const set = new Set<string>();
-    contacts.forEach(c => (c.tags ?? []).forEach(t => set.add(t)));
-    return Array.from(set).sort();
-  }, [contacts]);
+  // 태그 추가 핸들러
+  const handleAddTag = () => {
+    const trimmed = tagInput.trim();
+    if (trimmed && !selectedTags.includes(trimmed)) {
+      setSelectedTags(prev => [...prev, trimmed]);
+      setPage(1);
+    }
+    setTagInput('');
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    setSelectedTags(prev => prev.filter(t => t !== tag));
+    setPage(1);
+  };
 
   // GLOBAL_ADMIN 인증 전에는 아무것도 렌더링하지 않음
   if (!authLoaded || role !== 'GLOBAL_ADMIN') {
@@ -114,7 +127,7 @@ export default function ContactsAllPage() {
       </div>
 
       {/* 검색 + 필터 */}
-      <div className="flex gap-2 mb-4 flex-wrap">
+      <div className="flex gap-2 mb-3 flex-wrap">
         {/* 조직 필터 */}
         <div className="relative">
           <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -155,21 +168,57 @@ export default function ContactsAllPage() {
             <option value="CUSTOMER">구매완료</option>
           </select>
         </div>
+
+        {/* 정렬 */}
+        <div className="relative">
+          <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <select
+            value={sortBy}
+            onChange={e => { setSortBy(e.target.value); setPage(1); }}
+            className="pl-9 pr-8 py-2 border border-gray-200 rounded-xl text-sm appearance-none bg-white focus:outline-none focus:border-gold-500"
+          >
+            <option value="updatedAt_desc">최근 수정순</option>
+            <option value="createdAt_desc">최근 등록순</option>
+            <option value="name_asc">이름순</option>
+          </select>
+        </div>
       </div>
 
-      {/* 태그 칩 (읽기 전용 — 현재 페이지 데이터 기준) */}
-      {allTags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 pb-3">
-          {allTags.map(tag => (
-            <span
-              key={tag}
-              className="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600"
-            >
-              #{tag}
-            </span>
-          ))}
+      {/* 태그 필터 입력 */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="relative flex items-center gap-1">
+          <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="태그 입력 후 추가"
+            value={tagInput}
+            onChange={e => setTagInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag(); } }}
+            className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-gold-500 w-44"
+          />
         </div>
-      )}
+        <button
+          onClick={handleAddTag}
+          className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white hover:bg-gray-50 text-gray-600 font-medium"
+        >
+          추가
+        </button>
+        {selectedTags.map(tag => (
+          <span
+            key={tag}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gold-100 text-gold-700 border border-gold-200"
+          >
+            #{tag}
+            <button
+              onClick={() => handleRemoveTag(tag)}
+              className="hover:text-gold-900 ml-0.5"
+              aria-label={`태그 ${tag} 제거`}
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        ))}
+      </div>
 
       {/* 에러 */}
       {error && (
