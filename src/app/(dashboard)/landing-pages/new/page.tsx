@@ -79,6 +79,11 @@ export default function NewLandingPage() {
   const [paymentEnabled, setPaymentEnabled]   = useState(false);
   // 댓글
   const [commentEnabled, setCommentEnabled]   = useState(false);
+  const [commentCount, setCommentCount]       = useState(5);
+  const [commentDateFrom, setCommentDateFrom] = useState("2024-01-01");
+  const [commentDateTo, setCommentDateTo]     = useState("2025-12-31");
+  // 푸터
+  const [footer, setFooter]                   = useState("");
   const [paymentType, setPaymentType]       = useState<"onetime" | "subscription">("onetime");
   const [productName, setProductName]       = useState("");
   const [productPrice, setProductPrice]     = useState("");
@@ -126,8 +131,8 @@ export default function NewLandingPage() {
       .map(([key, val]) => {
         if (key === "marketingConsent") return `
 <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#555;cursor:pointer;padding:6px 0;">
-  <input type="checkbox" style="margin-top:2px;width:16px;height:16px;accent-color:#1E2D4E;" ${val.required ? "required" : ""}>
-  <span>마케팅 정보 수신에 동의합니다${req(val.required)}</span>
+  <input type="checkbox" checked style="margin-top:2px;width:16px;height:16px;accent-color:#1E2D4E;">
+  <span>마케팅 정보 수신에 동의합니다</span>
 </label>`;
         if (key === "gender") return `
 <div style="margin-bottom:12px">
@@ -163,8 +168,6 @@ export default function NewLandingPage() {
 
     const formBlock = fieldHtmls.length > 0 || paymentEnabled ? `
 <div style="max-width:480px;margin:0 auto;padding:28px 20px 48px;background:#fff;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif">
-  ${title ? `<h3 style="text-align:center;font-size:19px;font-weight:700;color:#1a1a1a;margin:0 0 4px">${title}</h3>` : ""}
-  <p style="text-align:center;font-size:13px;color:#888;margin:0 0 20px">상담 신청 후 담당자가 연락드립니다</p>
   <form>
     ${fieldHtmls.join("\n    ")}
     ${paymentBlock}
@@ -179,28 +182,63 @@ export default function NewLandingPage() {
       bodyContent = images.length > 0
         ? `<div style="line-height:0">${images.map((img) => {
             const ar = img.width && img.height ? `aspect-ratio:${img.width}/${img.height};` : "";
-            return `<img src="${img.url}" alt="" style="width:100%;display:block;${ar}" loading="lazy">`;
+            const previewUrl = img.driveFileId
+              ? `/api/landing-pages/images/proxy?id=${img.driveFileId}`
+              : img.url;
+            return `<img src="${previewUrl}" alt="" style="width:100%;display:block;${ar}" loading="lazy">`;
           }).join("\n")}</div>`
         : `<div style="height:180px;display:flex;align-items:center;justify-content:center;background:#f7f8fc;color:#bbb;font-family:sans-serif;font-size:13px">이미지를 업로드하면 여기에 표시됩니다</div>`;
     }
 
+    const SAMPLE_NAMES = ["김미영", "박준호", "이수진", "최지원", "정현석", "한소희", "임재현", "오지영", "서민준", "윤지영", "강태양", "신예진", "조현우", "백지수", "류하은"];
+    const SAMPLE_TEXTS = [
+      "정말 잊지 못할 여행이었어요! 서비스도 친절하고 너무 좋았습니다.",
+      "가족들과 함께 다녀왔는데 모두 만족했어요. 강력 추천합니다 😊",
+      "크루즈 여행이 이렇게 좋은 줄 몰랐어요. 다음에도 꼭 이용할게요!",
+      "직원분들이 너무 친절하셨어요. 식사도 맛있고 즐거웠습니다.",
+      "처음 크루즈 여행인데 이렇게 편안할 수 없었어요. 꼭 다시 오고 싶어요!",
+      "일정이 알차고 가이드 설명도 정말 좋았어요. 다음에 또 올게요.",
+      "깨끗하고 넓은 객실, 맛있는 음식, 최고의 여행이었습니다.",
+      "아이들도 너무 좋아했어요. 가족 여행으로 완벽한 선택이었습니다.",
+      "가격 대비 퀄리티가 너무 좋아요. 친구들에게도 추천했어요!",
+      "담당자분이 꼼꼼하게 안내해 주셔서 처음인데도 전혀 불안하지 않았어요.",
+      "경치가 정말 아름다웠어요. 사진도 엄청 찍었어요 📸",
+      "음식이 정말 다양하고 맛있었어요. 매일 뷔페가 기다려졌어요.",
+      "처음부터 끝까지 완벽한 서비스였어요. 다음에 또 예약할게요.",
+      "가족 모두 잊지 못할 추억을 만들었어요. 정말 감사합니다!",
+      "여행 계획부터 귀국까지 세심하게 챙겨주셔서 너무 편했어요.",
+    ];
+    const fromMs = new Date(commentDateFrom || "2024-01-01").getTime();
+    const toMs   = new Date(commentDateTo   || "2025-12-31").getTime();
+    const safeRange = isNaN(fromMs) || isNaN(toMs) || fromMs > toMs
+      ? { from: new Date("2024-01-01").getTime(), to: new Date("2025-12-31").getTime() }
+      : { from: fromMs, to: toMs };
+    const commentItems = Array.from({ length: Math.min(commentCount || 5, 15) }, (_, i) => {
+      const seed    = (i * 1234567) % 1000000;
+      const ratio   = (seed % 997) / 997;
+      const ts      = safeRange.from + Math.floor(ratio * (safeRange.to - safeRange.from));
+      const d       = new Date(ts);
+      const dateStr = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+      return { name: SAMPLE_NAMES[i % SAMPLE_NAMES.length], text: SAMPLE_TEXTS[i % SAMPLE_TEXTS.length], date: dateStr };
+    });
     const commentBlock = commentEnabled ? `
 <div style="max-width:480px;margin:0 auto;padding:24px 20px 40px;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif">
   <h3 style="font-size:16px;font-weight:700;color:#1a1a1a;margin:0 0 16px;padding-bottom:12px;border-bottom:2px solid #f0f0f0">💬 고객 후기</h3>
-  ${[
-    { name: "김미영", text: "정말 잊지 못할 여행이었어요! 서비스도 친절하고 너무 좋았습니다." },
-    { name: "박준호", text: "가족들과 함께 다녀왔는데 모두 만족했어요. 강력 추천합니다 😊" },
-    { name: "이수진", text: "크루즈 여행이 이렇게 좋은 줄 몰랐어요. 다음에도 꼭 이용할게요!" },
-  ].map(c => `<div style="padding:12px 0;border-bottom:1px solid #f5f5f5">
+  ${commentItems.map(c => `<div style="padding:12px 0;border-bottom:1px solid #f5f5f5">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
       <div style="width:28px;height:28px;border-radius:50%;background:#1E2D4E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">${c.name[0]}</div>
       <span style="font-size:13px;font-weight:600;color:#333">${c.name}</span>
-      <span style="font-size:11px;color:#bbb;margin-left:auto">AI 샘플</span>
+      <span style="font-size:11px;color:#bbb;margin-left:auto">${c.date}</span>
     </div>
     <p style="font-size:13px;color:#555;line-height:1.6;margin:0">${c.text}</p>
   </div>`).join("")}
   <p style="font-size:11px;color:#bbb;text-align:center;margin-top:14px">저장 후 AI 후기 자동 생성 가능</p>
 </div>` : "";
+
+    const footerBlock = footer.trim() ? `
+<footer style="max-width:480px;margin:0 auto;padding:20px 20px 40px;text-align:center;font-size:11px;color:#aaa;line-height:1.9;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif;border-top:1px solid #f0f0f0">
+  ${footer.replace(/\n/g, "<br>")}
+</footer>` : "";
 
     return `<!DOCTYPE html>
 <html lang="ko">
@@ -213,9 +251,10 @@ ${headerScript || ""}
 ${bodyContent}
 ${formBlock}
 ${commentBlock}
+${footerBlock}
 </body>
 </html>`;
-  }, [editorMode, html, images, formFields, additionalFields, paymentEnabled, productName, productPrice, paymentType, buttonTitle, title, headerScript, commentEnabled]);
+  }, [editorMode, html, images, formFields, additionalFields, paymentEnabled, productName, productPrice, paymentType, buttonTitle, title, headerScript, commentEnabled, commentCount, commentDateFrom, commentDateTo, footer]);
 
   // state 변경 시 즉시 재계산 — srcDoc prop 변경으로 브라우저가 iframe 재렌더링
   const previewHtml = useMemo(() => buildPreviewHtml(), [buildPreviewHtml]);
@@ -312,6 +351,8 @@ ${commentBlock}
     const common = {
       title, slug, groupId: selectedGroupId || null,
       commentEnabled,
+      commentConfig: commentEnabled ? { count: commentCount, dateFrom: commentDateFrom, dateTo: commentDateTo } : undefined,
+      footer: footer.trim() || null,
       infoCollection: true, formConfig: { fields: formFields, additionalFields },
       ...(buttonTitle        ? { buttonTitle }        : {}),
       ...(completionPageUrl  ? { completionPageUrl }  : {}),
@@ -593,9 +634,23 @@ ${commentBlock}
               </button>
             </div>
             {commentEnabled && (
-              <div className="px-4 py-3 flex items-center gap-2 text-xs text-blue-600 bg-blue-50">
-                <span>💡</span>
-                <span>저장 완료 후 랜딩페이지 관리에서 AI 후기 자동 생성 버튼을 사용하세요.</span>
+              <div className="p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <label className="text-xs text-gray-500 w-20 shrink-0">후기 개수</label>
+                  <input type="number" min={1} max={15} value={commentCount}
+                    onChange={(e) => setCommentCount(Math.min(15, Math.max(1, parseInt(e.target.value) || 1)))}
+                    className="w-20 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
+                  <span className="text-xs text-gray-400">개 (최대 15)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 w-20 shrink-0">날짜 범위</label>
+                  <input type="date" value={commentDateFrom} onChange={(e) => setCommentDateFrom(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
+                  <span className="text-xs text-gray-400 shrink-0">~</span>
+                  <input type="date" value={commentDateTo} onChange={(e) => setCommentDateTo(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
+                </div>
+                <p className="text-xs text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">💡 저장 완료 후 랜딩페이지 관리에서 AI 후기 자동 생성 버튼을 사용하세요.</p>
               </div>
             )}
           </div>
@@ -615,6 +670,13 @@ ${commentBlock}
                 <label className="text-xs text-gray-500 w-24 shrink-0">페이지 설명</label>
                 <input type="text" value={description} onChange={(e) => setDescription(e.target.value)}
                   placeholder="관리용 내부 메모" className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1.5">푸터 텍스트</label>
+                <textarea value={footer} onChange={(e) => setFooter(e.target.value)}
+                  placeholder={"예) 사업자등록번호: 851-67-00338 | 대표: 전혜선\n주소: 서울시 강남구 테헤란로 123\n고객센터: 02-0000-0000 | 이메일: info@example.com"}
+                  rows={3} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 resize-none" />
+                <p className="text-xs text-gray-400 mt-1">사업자 정보, 주소, 고객센터 등 랜딩페이지 하단에 표시됩니다</p>
               </div>
               <div>
                 <label className="text-xs text-gray-500 block mb-1.5">헤더 스크립트 (픽셀 · GA 코드)</label>
