@@ -93,7 +93,7 @@ export function requireOrgId(ctx: AuthContext): string {
 }
 
 /** 본사 조직 ID (GLOBAL_ADMIN 쓰기 작업 기본값) */
-export const BONSA_ORG_ID = 'org_bonsa_cruisedot';
+export const BONSA_ORG_ID = 'org-cruisedot-main';
 
 /**
  * GLOBAL_ADMIN → null (전체 조직 조회, org 필터 없음)

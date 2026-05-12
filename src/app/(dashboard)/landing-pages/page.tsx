@@ -46,6 +46,7 @@ type ShareableOrg = {
   orgName: string;
   ownerDisplayName: string | null;
   label: string;
+  isBonsa?: boolean;
 };
 
 type ExistingShare = {
@@ -254,6 +255,8 @@ function ShareModal({ pageId, pageTitle, onClose }: {
                             ? "bg-blue-50 border-blue-200 opacity-60 cursor-not-allowed"
                             : selected.has(org.orgId)
                             ? "bg-blue-50 border-blue-400"
+                            : org.isBonsa
+                            ? "border-orange-200 hover:bg-orange-50"
                             : "border-gray-200 hover:bg-gray-50"
                         }`}
                       >
@@ -264,9 +267,17 @@ function ShareModal({ pageId, pageTitle, onClose }: {
                           onChange={() => !alreadyShared && toggleOrg(org.orgId)}
                           className="w-4 h-4 accent-blue-600"
                         />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-800 truncate">{org.label}</p>
-                          {alreadyShared && <p className="text-[10px] text-blue-500">이미 공유됨</p>}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            {org.isBonsa && (
+                              <span className="text-[10px] bg-orange-100 text-orange-600 font-semibold px-1.5 py-0.5 rounded shrink-0">본사</span>
+                            )}
+                            {!org.isBonsa && (
+                              <span className="text-[10px] bg-gray-100 text-gray-500 font-medium px-1.5 py-0.5 rounded shrink-0">대리점</span>
+                            )}
+                            <p className="text-sm font-medium text-gray-800 truncate">{org.label}</p>
+                          </div>
+                          {alreadyShared && <p className="text-[10px] text-blue-500 mt-0.5">이미 공유됨</p>}
                         </div>
                       </label>
                     );

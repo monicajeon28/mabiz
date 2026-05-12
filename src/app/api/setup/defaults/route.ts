@@ -49,7 +49,7 @@ export async function POST() {
     const ctx = await getAuthContext();
     // GLOBAL_ADMIN은 조직ID 없음 → 본사 org 사용
     const orgId = ctx.role === 'GLOBAL_ADMIN'
-      ? 'org_bonsa_cruisedot'
+      ? 'org-cruisedot-main'
       : requireOrgId(ctx);
 
     // 이미 셋업 여부 확인
