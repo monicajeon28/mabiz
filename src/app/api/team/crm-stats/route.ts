@@ -4,12 +4,14 @@ import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { getCache, setCache } from '@/lib/redis';
 
+const BONSA_ORG_ID = 'org_bonsa_cruisedot';
+
 export async function GET() {
   try {
     const ctx = await getAuthContext();
     if (ctx.role === 'FREE_SALES') return NextResponse.json({ ok: false }, { status: 403 });
 
-    const orgId = requireOrgId(ctx);
+    const orgId = ctx.role === 'GLOBAL_ADMIN' ? BONSA_ORG_ID : requireOrgId(ctx);
 
     // 캐시 조회
     const cacheKey = `crm-stats:${orgId}:v1`;

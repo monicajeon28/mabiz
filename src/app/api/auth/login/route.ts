@@ -174,10 +174,13 @@ export async function POST(req: Request) {
     if (!role) {
       return NextResponse.json({ ok: false, error: '로그인 권한이 없는 계정입니다.' }, { status: 403 });
     }
+    if (role === 'FREE_SALES') {
+      return NextResponse.json({ ok: false, error: 'CRM 로그인 권한이 없는 계정입니다.' }, { status: 403 });
+    }
 
     // OWNER/AGENT는 org 연결 필요 — externalAffiliateProfileId 매핑 또는 기본 org 사용
     let orgId: string | null = null;
-    if (role !== 'GLOBAL_ADMIN' && role !== 'FREE_SALES') {
+    if (role !== 'GLOBAL_ADMIN') {
       // 어필리에이트 프로필 ID로 조직 찾기
       if (mallUser.affiliateType) {
         type OrgRow = { id: string };
