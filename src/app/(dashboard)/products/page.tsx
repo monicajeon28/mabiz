@@ -114,22 +114,20 @@ function DdayBadge({ daysLeft }: { daysLeft: number | null }) {
   else
     badge = <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">D-{daysLeft}</span>;
 
-  // 마일스톤 배지: 6개월(180일) ±2주, 3개월(90일) ±2주
+  // 마일스톤 배지: 31일~365일 → N개월임박 (30일 이하는 기존 D-day 배지로 충분)
   let milestone: React.ReactNode = null;
-  if (daysLeft > 0) {
-    if (daysLeft >= 166 && daysLeft <= 180) {
-      milestone = (
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500 text-white leading-none">
-          6개월임박
-        </span>
-      );
-    } else if (daysLeft >= 76 && daysLeft <= 90) {
-      milestone = (
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-500 text-white leading-none">
-          3개월임박
-        </span>
-      );
-    }
+  if (daysLeft > 30 && daysLeft <= 365) {
+    const months = Math.ceil(daysLeft / 30); // 2~12
+    let cls = '';
+    if (months <= 3)       cls = 'bg-red-100 text-red-700';
+    else if (months <= 6)  cls = 'bg-orange-100 text-orange-700';
+    else if (months <= 9)  cls = 'bg-yellow-100 text-yellow-800';
+    else                   cls = 'bg-blue-100 text-blue-700';
+    milestone = (
+      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none ${cls}`}>
+        {months}개월임박
+      </span>
+    );
   }
 
   return (
