@@ -565,35 +565,126 @@ function CruiseDotPartnersForm() {
       <form onSubmit={handleSubmit} className="max-w-xl mx-auto px-4 py-6 space-y-5">
 
         {/* 안내 배너 */}
-        <div className="bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-900 rounded-2xl p-5 text-white shadow-lg">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 relative flex-shrink-0 bg-white/10 rounded-xl p-1">
-              <Image
-                src={COMPANY.logo}
-                alt="크루즈닷"
-                fill
-                className="object-contain"
-                onError={() => {}}
-              />
+        <div className="bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-900 rounded-2xl overflow-hidden shadow-lg">
+          {/* 타이틀 영역 */}
+          <div className="px-5 pt-5 pb-4 flex items-center gap-3">
+            <div className="w-11 h-11 flex-shrink-0 bg-white rounded-xl flex items-center justify-center shadow-sm">
+              {/* 배 아이콘 */}
+              <svg className="w-6 h-6 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.6 15h16.8M12 3v4M8 7h8" />
+              </svg>
             </div>
             <div>
-              <h2 className="text-lg font-bold leading-tight">크루즈닷 파트너스 신청</h2>
-              <p className="text-blue-200 text-xs">Cruise Dot Partners Program</p>
+              <h2 className="text-white text-lg font-extrabold leading-tight tracking-tight">크루즈닷 파트너스 신청</h2>
+              <p className="text-blue-300 text-xs font-medium mt-0.5">Cruise Dot Partners Program</p>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2 mt-1">
-            <div className="bg-white rounded-xl p-2.5 text-center shadow-sm">
-              <p className="text-blue-700 font-bold text-sm">1~5%</p>
-              <p className="text-gray-600 text-xs mt-0.5">판매 수수료</p>
+          {/* 혜택 카드 */}
+          <div className="grid grid-cols-3 gap-2 px-5 pb-5">
+            <div className="bg-white rounded-xl p-3 text-center shadow-sm">
+              <svg className="w-5 h-5 text-blue-600 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-blue-700 font-extrabold text-sm leading-none">1~5%</p>
+              <p className="text-gray-500 text-xs mt-1">판매 수수료</p>
             </div>
-            <div className="bg-white rounded-xl p-2.5 text-center shadow-sm">
-              <p className="text-blue-700 font-bold text-sm">가입비 없음</p>
-              <p className="text-gray-600 text-xs mt-0.5">보증금 없음</p>
+            <div className="bg-white rounded-xl p-3 text-center shadow-sm">
+              <svg className="w-5 h-5 text-blue-600 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-blue-700 font-extrabold text-sm leading-none">무료</p>
+              <p className="text-gray-500 text-xs mt-1">가입·보증금 없음</p>
             </div>
-            <div className="bg-white rounded-xl p-2.5 text-center shadow-sm">
-              <p className="text-blue-700 font-bold text-sm">타사 겸업</p>
-              <p className="text-gray-600 text-xs mt-0.5">허용</p>
+            <div className="bg-white rounded-xl p-3 text-center shadow-sm">
+              <svg className="w-5 h-5 text-blue-600 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <p className="text-blue-700 font-extrabold text-sm leading-none">타사 겸업</p>
+              <p className="text-gray-500 text-xs mt-1">허용</p>
             </div>
+          </div>
+        </div>
+
+        {/* 활동 프로세스 가이드 */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-gradient-to-r from-indigo-600 to-blue-600 px-5 py-3.5 flex items-center gap-2">
+            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <h2 className="text-white font-bold text-sm">가입 후 활동 방법</h2>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {[
+              {
+                step: '1',
+                color: 'bg-blue-600',
+                icon: (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ),
+                title: '신청 완료 → 승인 대기',
+                desc: '담당자(관리자 또는 대리점장)가 서류를 검토합니다.\n승인 시 이메일로 아이디·임시 비밀번호가 발급됩니다.\n반려 시 사유가 이메일로 안내되며 재신청 가능합니다.',
+              },
+              {
+                step: '2',
+                color: 'bg-indigo-600',
+                icon: (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                ),
+                title: '나만의 상품 링크 발급',
+                desc: '크루즈닷 몰에 발급받은 아이디·비밀번호로 로그인하세요.\n상품을 클릭하면 우측 하단에 나만의 상품몰 링크가 나타납니다.',
+              },
+              {
+                step: '3',
+                color: 'bg-violet-600',
+                icon: (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                  </svg>
+                ),
+                title: '링크를 내 채널에 공유',
+                desc: '유튜브, 인스타그램, 블로그, 카카오채널 등\n나의 SNS 채널에 상품 링크를 공유하세요.',
+              },
+              {
+                step: '4',
+                color: 'bg-emerald-600',
+                icon: (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ),
+                title: '수수료 수익 발생',
+                desc: '링크를 통해 구매 완료 시 1~5% 수수료 지급.\nDB 수수료 1,000원이 구매마다 추가 적립.\n고객 문의는 크루즈닷 전문 세일즈 팀이 대신 처리해 드립니다.',
+              },
+              {
+                step: '5',
+                color: 'bg-sky-600',
+                icon: (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ),
+                title: '크루즈닷 파트너 혜택',
+                desc: '크루즈닷은 법적으로 등록된 대한민국 여행사입니다.\n대기업·중소기업 여행사와 공식 제휴하여 안전하고 신뢰할 수 있는 상품을 제공합니다.',
+              },
+            ].map((item) => (
+              <div key={item.step} className="flex gap-3.5 px-5 py-4">
+                <div className={`${item.color} w-8 h-8 rounded-xl flex items-center justify-center text-white flex-shrink-0 mt-0.5 shadow-sm`}>
+                  {item.icon}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold text-gray-400">STEP {item.step}</span>
+                    <p className="text-sm font-bold text-gray-900">{item.title}</p>
+                  </div>
+                  <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">{item.desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -679,9 +770,14 @@ function CruiseDotPartnersForm() {
                 maxLength={14}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-mono"
               />
-              <p className="text-xs text-gray-400 mt-1">
-                프리랜서 용역 소득세 신고(원천징수) 목적으로만 수집됩니다. (소득세법 제145조)
-              </p>
+              <div className="mt-1.5 flex items-start gap-1.5 bg-blue-50 border border-blue-100 rounded-lg px-2.5 py-1.5">
+                <svg className="w-3.5 h-3.5 text-blue-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-xs text-blue-700 leading-relaxed">
+                  프리랜서 용역 소득세 신고(원천징수) 목적으로만 수집됩니다. (소득세법 제145조)
+                </p>
+              </div>
             </div>
           </div>
         </section>
