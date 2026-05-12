@@ -18,6 +18,7 @@ interface Props {
   payment?:          PaymentConfig;
   buttonTitle?:      string;
   completionPageUrl?: string;
+  footer?:           string;
 }
 
 type Comment = {
@@ -33,7 +34,7 @@ type Comment = {
  * - 폼 submit 인터셉트 → register API 호출
  * - 완료 화면 표시
  */
-export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payment, buttonTitle, completionPageUrl }: Props) {
+export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payment, buttonTitle, completionPageUrl, footer }: Props) {
   const [done,        setDone]        = useState(false);
   const [isDuplicate, setIsDuplicate] = useState(false);
   const [submitting,  setSubmitting]  = useState(false);
@@ -434,6 +435,13 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payme
             </button>
           </div>
         </div>
+      )}
+      {footer && (
+        <footer className="max-w-xl mx-auto px-4 py-8 border-t border-gray-100 text-center text-xs text-gray-400 leading-relaxed">
+          {footer.split('\n').map((line, i) => (
+            <span key={i}>{line}{i < footer.split('\n').length - 1 && <br />}</span>
+          ))}
+        </footer>
       )}
     </div>
   );

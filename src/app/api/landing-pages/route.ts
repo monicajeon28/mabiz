@@ -48,6 +48,14 @@ export async function POST(req: Request) {
         groupId: groupId ?? null,
         editorMode: mode,
         commentEnabled: commentEnabled === true,
+        // 에디터 고도화 필드
+        ...(rest.description      ? { description: rest.description }            : {}),
+        ...(rest.buttonTitle      ? { buttonTitle: rest.buttonTitle }             : {}),
+        ...(rest.completionPageUrl ? { completionPageUrl: rest.completionPageUrl } : {}),
+        ...(rest.headerScript     ? { headerScript: rest.headerScript }           : {}),
+        ...(rest.exposureTitle    ? { exposureTitle: rest.exposureTitle }         : {}),
+        ...(rest.exposureImage    ? { exposureImage: rest.exposureImage }         : {}),
+        ...(rest.formConfig       ? { formConfig: rest.formConfig, infoCollection: true } : {}),
         // 결제 설정 (있으면)
         ...(rest.paymentEnabled ? {
           paymentEnabled: true,

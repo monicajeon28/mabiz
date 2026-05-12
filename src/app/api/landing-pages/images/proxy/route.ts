@@ -1,12 +1,12 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { getDriveClient } from '@/lib/drive-client';
+import { google } from 'googleapis';
 import { getAuthContext } from '@/lib/rbac';
 
 /**
  * GET /api/landing-pages/images/proxy?id=DRIVE_FILE_ID
- * Drive 이미지를 서비스 계정으로 가져와서 반환 (preview iframe용)
+ * 서비스 계정 OAuth 토큰으로 Drive 파일 다운로드 후 반환
  */
 export async function GET(req: Request) {
   try {
@@ -18,19 +18,33 @@ export async function GET(req: Request) {
       return new NextResponse(null, { status: 400 });
     }
 
-    const drive = getDriveClient();
-    const res = await drive.files.get(
-      { fileId: id, alt: 'media' },
-      { responseType: 'arraybuffer' },
+    const privateKey = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? '').replace(/\\n/g, '\n');
+    const auth = new google.auth.GoogleAuth({
+      credentials: {
+        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+        private_key: privateKey,
+      },
+      scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+    });
+    const client = await auth.getClient() as { getAccessToken(): Promise<{ token: string | null | undefined }> };
+    const tokenRes = await client.getAccessToken();
+    const token = tokenRes.token ?? '';
+    if (!token) return new NextResponse(null, { status: 503 });
+
+    const driveRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${id}?alt=media`,
+      { headers: { Authorization: `Bearer ${token}` } },
     );
 
-    const buffer = Buffer.from(res.data as ArrayBuffer);
-    const contentType = (res.headers?.['content-type'] as string | undefined) ?? 'image/webp';
+    if (!driveRes.ok) return new NextResponse(null, { status: 404 });
+
+    const contentType = driveRes.headers.get('content-type') ?? 'image/webp';
+    const buffer = Buffer.from(await driveRes.arrayBuffer());
 
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'private, max-age=3600',
+        'Cache-Control': 'private, max-age=7200',
       },
     });
   } catch {

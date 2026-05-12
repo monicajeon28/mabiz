@@ -21,6 +21,7 @@ export default async function PublicLandingPage({
       cycleDay: true, expireDate: true,
       buttonTitle: true, completionPageUrl: true, headerScript: true,
       exposureTitle: true, exposureImage: true,
+      formConfig: true,
     },
   });
 
@@ -66,6 +67,7 @@ export default async function PublicLandingPage({
         commentEnabled={page.commentEnabled}
         buttonTitle={page.buttonTitle ?? undefined}
         completionPageUrl={page.completionPageUrl ?? undefined}
+        footer={(page.formConfig as Record<string, unknown> | null)?.footer as string | undefined}
         payment={page.paymentEnabled ? {
           type: (page.paymentType as "onetime" | "subscription") ?? "onetime",
           productName: page.productName ?? "",

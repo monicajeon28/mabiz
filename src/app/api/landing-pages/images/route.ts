@@ -5,6 +5,7 @@ import sharp from 'sharp';
 import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { uploadImageToDrive } from '@/lib/image-sync';
+import { getDriveClient } from '@/lib/drive-client';
 import { logger } from '@/lib/logger';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
@@ -138,6 +139,17 @@ export async function POST(req: Request) {
         sortOrder,
       },
     });
+
+    // 랜딩페이지 이미지는 공개 접근 가능하도록 권한 설정
+    try {
+      const drive = getDriveClient();
+      await drive.permissions.create({
+        fileId: asset.driveFileId,
+        requestBody: { role: 'reader', type: 'anyone' },
+      });
+    } catch {
+      // 권한 설정 실패는 무시 (이미지는 업로드됨)
+    }
 
     const thumbnailUrl = `https://drive.google.com/thumbnail?id=${asset.driveFileId}&sz=w800`;
 
