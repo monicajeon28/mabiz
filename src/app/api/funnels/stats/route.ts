@@ -27,15 +27,21 @@ export async function GET(_req: Request) {
       },
     });
 
-    // 3. 채널별 SMS 발송 통계 (최근 30일)
+    // 3. 채널별 발송 통계 (최근 30일) — SMS + EMAIL 병렬 조회
     const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const [smsByChannel, smsTotal] = await Promise.all([
+    const [smsByChannel, smsTotal, emailByStatus, emailTotal] = await Promise.all([
       prisma.smsLog.groupBy({
         by:    ["channel", "status"],
         where: { organizationId: orgId, sentAt: { gte: since30d } },
         _count: { id: true },
       }),
       prisma.smsLog.count({ where: { organizationId: orgId, sentAt: { gte: since30d } } }),
+      prisma.emailLog.groupBy({
+        by:    ["status"],
+        where: { organizationId: orgId, sentAt: { gte: since30d } },
+        _count: { id: true },
+      }),
+      prisma.emailLog.count({ where: { organizationId: orgId, sentAt: { gte: since30d } } }),
     ]);
 
     // 퍼널별 등록 고객 수 집계
@@ -70,13 +76,25 @@ export async function GET(_req: Request) {
       enrolledCount: enrollMap[f.id] ?? 0,
     }));
 
-    logger.log("[GET /api/funnels/stats]", { orgId, funnelCount: funnels.length, smsTotal });
+    // EMAIL 통계 집계
+    const emailStat = { sent: 0, failed: 0, blocked: 0, total: emailTotal, successRate: 0 };
+    for (const row of emailByStatus) {
+      const count = row._count.id;
+      if (row.status === "SENT")    emailStat.sent    += count;
+      if (row.status === "FAILED")  emailStat.failed  += count;
+      if (row.status === "BLOCKED") emailStat.blocked += count;
+    }
+    emailStat.successRate = emailTotal > 0 ? Math.round((emailStat.sent / emailTotal) * 100) : 0;
+    if (emailTotal > 0) channelStats["EMAIL"] = emailStat;
+
+    logger.log("[GET /api/funnels/stats]", { orgId, funnelCount: funnels.length, smsTotal, emailTotal });
 
     return NextResponse.json({
       ok: true,
       funnelStats,
       channelStats,
       smsTotal,
+      emailTotal,
       period: "최근 30일",
     });
   } catch (err) {

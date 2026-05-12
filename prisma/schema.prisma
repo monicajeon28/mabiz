@@ -25,8 +25,10 @@ model Organization {
   smsTemplates     SmsTemplate[]
   smsConfig        OrgSmsConfig?
   emailConfig      OrgEmailConfig?
-  scheduledSmsList  ScheduledSms[]
-  inviteTokens      OrgInviteToken[]
+  scheduledSmsList    ScheduledSms[]
+  scheduledEmailList  ScheduledEmail[]
+  emailTemplates      EmailTemplate[]
+  inviteTokens        OrgInviteToken[]
   cabinInventories  CabinInventory[]
   sentTransfers     ContactTransferLog[] @relation("FromOrg")
   receivedTransfers ContactTransferLog[] @relation("ToOrg")
@@ -191,6 +193,10 @@ model Contact {
   @@index([assignedUserId])
   @@index([partnerId])
   @@index([deletedAt])
+  // 성능 최적화 복합 인덱스 (B2B/B2C 필터, 담당자, 유형 복합 조회)
+  @@index([organizationId, channel])
+  @@index([organizationId, type])
+  @@index([organizationId, assignedUserId])
 }
 
 // ─── 고객 그룹 ────────────────────────────────────────────────
@@ -431,6 +437,9 @@ model VipCareLog {
   @@index([sequenceId])
   @@index([scheduledAt])
   @@index([status])
+  // 성능 최적화 복합 인덱스 (cron 오늘 발송 대상 조회)
+  @@index([sequenceId, status, scheduledAt])
+  @@index([status, scheduledAt])
 }
 
 // ─── 문자 템플릿 라이브러리 ────────────────────────────────────
@@ -1668,6 +1677,67 @@ model GmTravelContract {
   @@index([reservationId])
   @@index([status])
   @@map("TravelContract")
+}
+
+// ─── 이메일 발송 이력 ─────────────────────────────────────
+model EmailLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  contactId      String?
+  email          String   // 앞5자*** 마스킹 저장 (개인정보 최소화)
+  subjectPreview String   // 제목 앞 50자
+  status         String   @default("SENT")  // SENT | FAILED | BLOCKED
+  blockReason    String?  // NO_EMAIL | NO_CONFIG
+  channel        String   @default("FUNNEL") // FUNNEL | MANUAL
+  sentAt         DateTime @default(now())
+
+  @@index([organizationId, sentAt])
+  @@index([contactId, sentAt])
+  @@map("CrmEmailLog")
+}
+
+// ─── 이메일 템플릿 라이브러리 ────────────────────────────
+model EmailTemplate {
+  id             String        @id @default(cuid())
+  organizationId String?
+  category       String        // FUNNEL | MANUAL | SYSTEM
+  title          String        // 관리용 제목
+  subject        String        // 이메일 제목 (치환변수 사용 가능)
+  content        String        @db.Text
+  isSystem       Boolean       @default(false)
+  usageCount     Int           @default(0)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([category])
+  @@map("CrmEmailTemplate")
+}
+
+// ─── 이메일 예약 발송 ────────────────────────────────────
+model ScheduledEmail {
+  id              String    @id @default(cuid())
+  organizationId  String
+  contactId       String?   // 개별 발송 대상 (null이면 groupId 기준)
+  groupId         String?   // 그룹 발송 대상
+  subject         String
+  content         String    @db.Text
+  scheduledAt     DateTime  // 발송 예정 시각 (UTC 저장)
+  status          String    @default("PENDING")  // PENDING | SENDING | SENT | FAILED | CANCELLED
+  sentAt          DateTime?
+  sentCount       Int       @default(0)
+  failedCount     Int       @default(0)
+  createdByUserId String?
+  failureReason   String?
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime @default(now())
+
+  @@index([organizationId, scheduledAt])
+  @@index([status, scheduledAt])
+  @@map("CrmScheduledEmail")
 }
 
 // ─── 웹훅 이벤트 중복 처리 방지 ──────────────────────────

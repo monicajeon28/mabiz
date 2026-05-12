@@ -25,6 +25,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/scheduled-email",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/vip-care",
       "schedule": "0 * * * *"
     },

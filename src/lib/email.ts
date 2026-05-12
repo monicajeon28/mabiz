@@ -79,6 +79,37 @@ export async function getOrgEmailConfig(organizationId: string) {
   return prisma.orgEmailConfig.findUnique({ where: { organizationId } });
 }
 
+// ─── 이메일 로그 기록 (fire-and-forget, SmsLog 패턴 동일) ──────────
+
+function recordEmailLog(params: {
+  organizationId: string;
+  contactId?: string;
+  to: string;
+  subject: string;
+  status: "SENT" | "FAILED" | "BLOCKED";
+  blockReason?: string;
+  channel: string;
+}) {
+  const maskedEmail = params.to.slice(0, 5) + "***";
+  const subjectPreview = params.subject.slice(0, 50);
+
+  import("@/lib/prisma").then(({ default: prisma }) =>
+    prisma.emailLog.create({
+      data: {
+        organizationId: params.organizationId,
+        contactId:      params.contactId ?? null,
+        email:          maskedEmail,
+        subjectPreview,
+        status:         params.status,
+        blockReason:    params.blockReason ?? null,
+        channel:        params.channel,
+      },
+    })
+  ).catch((err) => {
+    logger.error("[Email] EmailLog 저장 실패", { err });
+  });
+}
+
 // ─── 퍼널용 이메일 발송 (sendSms와 동일한 응답 인터페이스) ─────────
 
 interface FunnelEmailResponse {
@@ -87,9 +118,10 @@ interface FunnelEmailResponse {
 }
 
 /**
- * 퍼널 Cron에서 호출하는 이메일 발송
+ * 퍼널 Cron / 예약 발송에서 호출하는 이메일 발송
  * - sendSms()와 동일한 result_code 구조 (1=성공)
  * - 조직 SMTP 설정 자동 조회
+ * - EmailLog 자동 기록 (fire-and-forget)
  */
 export async function sendFunnelEmail(params: {
   organizationId: string;
@@ -97,31 +129,36 @@ export async function sendFunnelEmail(params: {
   to: string;
   subject: string;
   html: string;
+  channel?: string;
 }): Promise<FunnelEmailResponse> {
-  const { organizationId, to, subject, html } = params;
+  const { organizationId, contactId, to, subject, html, channel = "FUNNEL" } = params;
 
   if (!to || !to.includes("@")) {
     logger.warn("[Email/Funnel] 유효하지 않은 이메일", { to: to?.slice(0, 5) + "***" });
+    recordEmailLog({ organizationId, contactId, to, subject, status: "BLOCKED", blockReason: "NO_EMAIL", channel });
     return { result_code: -96, message: "유효하지 않은 이메일" };
   }
 
   const config = await getOrgEmailConfig(organizationId);
   if (!config?.isActive) {
     logger.warn("[Email/Funnel] 이메일 설정 미완료", { organizationId });
+    recordEmailLog({ organizationId, contactId, to, subject, status: "BLOCKED", blockReason: "NO_CONFIG", channel });
     return { result_code: -97, message: "이메일 설정 미완료" };
   }
 
   const ok = await sendEmail({
-    smtpHost: config.smtpHost,
-    smtpPort: config.smtpPort,
-    smtpUser: config.smtpUser,
+    smtpHost:         config.smtpHost,
+    smtpPort:         config.smtpPort,
+    smtpUser:         config.smtpUser,
     smtpPassEncrypted: config.smtpPassEncrypted,
-    senderName: config.senderName,
-    senderEmail: config.senderEmail,
+    senderName:       config.senderName,
+    senderEmail:      config.senderEmail,
     to,
     subject,
     html,
   });
+
+  recordEmailLog({ organizationId, contactId, to, subject, status: ok ? "SENT" : "FAILED", channel });
 
   return ok
     ? { result_code: 1, message: "발송 성공" }

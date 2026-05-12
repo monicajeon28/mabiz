@@ -6,6 +6,11 @@ import { sendByChannel, getOrgSmsConfig } from "@/lib/aligo";
 // Vercel Cron: 매시간 실행
 // vercel.json: { "crons": [{ "path": "/api/cron/vip-care", "schedule": "0 * * * *" }] }
 
+// 배치 크기: 한 번에 처리할 VipCareLog 수
+// Vercel Pro cron 최대 300s → 100건 × 평균 2s = 200s 이내
+const BATCH_SIZE = 100;
+const MAX_DURATION_MS = 250_000; // 250s (Vercel 타임아웃 전 안전 종료)
+
 export async function GET(req: Request) {
   // Cron 보안 검증
   const authHeader = req.headers.get("authorization");
@@ -13,60 +18,85 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
+  const startTime = Date.now();
   const now   = new Date();
   const today = new Date(now);
   today.setUTCHours(0, 0, 0, 0);
+  const tomorrow = new Date(today.getTime() + 86_400_000);
 
   logger.log("[Cron/vip-care] 시작", { time: now.toISOString() });
 
-  // 활성 VIP 케어 시퀀스 전체 조회
-  const sequences = await prisma.vipCareSequence.findMany({
-    where: { status: "ACTIVE" },
-    include: {
-      contact: {
-        select: {
-          id: true, name: true, phone: true, email: true,
-          optOutAt: true, organizationId: true,
-        },
-      },
-    },
-  });
+  let sentCount      = 0;
+  let skippedCount   = 0;
+  let processedTotal = 0;
+  let earlyExit      = false;
 
-  let sentCount    = 0;
-  let skippedCount = 0;
-
-  // N+1 방지: 조직별 SMS 설정 캐시
+  // 조직별 SMS 설정 캐시 (같은 조직 반복 조회 방지)
   const smsConfigCache: Record<string, Awaited<ReturnType<typeof getOrgSmsConfig>> | null> = {};
 
-  for (const seq of sequences) {
-    const { contact } = seq;
-
-    // 수신거부 체크
-    if (contact.optOutAt) {
-      skippedCount++;
-      continue;
+  // ─── 핵심 변경: 시퀀스 루프 제거 ──────────────────────────────────
+  // 오늘 발송해야 할 VipCareLog를 직접 JOIN 쿼리로 한 번에 조회.
+  // 처리된 레코드는 SENDING/SENT/FAILED로 status가 바뀌므로
+  // 다음 배치 조회 시 자연스럽게 제외됨 → cursor 불필요.
+  // ─────────────────────────────────────────────────────────────────
+  while (true) {
+    // 시간 초과 시 조기 종료 (다음 cron 실행에서 이어서 처리)
+    if (Date.now() - startTime > MAX_DURATION_MS) {
+      earlyExit = true;
+      logger.log("[Cron/vip-care] 시간 초과로 조기 종료, 다음 실행에서 이어서 처리", {
+        processedTotal,
+      });
+      break;
     }
 
-    // 해당 조직의 SMS 설정 조회 (캐시 적용)
-    if (!(contact.organizationId in smsConfigCache)) {
-      smsConfigCache[contact.organizationId] = await getOrgSmsConfig(contact.organizationId);
-    }
-    const smsConfig = smsConfigCache[contact.organizationId];
-    if (!smsConfig?.isActive) {
-      skippedCount++;
-      continue;
-    }
-
-    // 오늘 발송해야 할 VipCareLog 조회 (PENDING 상태)
-    const todayLogs = await prisma.vipCareLog.findMany({
+    // 오늘 발송 대상 로그를 한 번의 쿼리로 조회 (Prisma가 내부적으로 JOIN 생성)
+    // 처리 후 status 변경되므로 항상 첫 페이지부터 조회해도 중복 없음
+    const logs = await prisma.vipCareLog.findMany({
+      take: BATCH_SIZE,
       where: {
-        sequenceId: seq.id,
         status: { in: ["PENDING", "NIGHT_BLOCKED"] },
-        scheduledAt: { gte: today, lt: new Date(today.getTime() + 86400000) },
+        scheduledAt: { gte: today, lt: tomorrow },
+        sequence: {
+          status: "ACTIVE",
+          contact: { optOutAt: null },
+        },
       },
+      include: {
+        sequence: {
+          include: {
+            contact: {
+              select: {
+                id: true, name: true, phone: true,
+                email: true, organizationId: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { id: "asc" },
     });
 
-    for (const log of todayLogs) {
+    if (logs.length === 0) break;
+
+    processedTotal += logs.length;
+
+    logger.log(`[Cron/vip-care] 배치 처리 중 ${processedTotal}건`, {
+      batchSize: logs.length,
+    });
+
+    for (const log of logs) {
+      const contact = log.sequence.contact;
+
+      // 조직 SMS 설정 캐시 조회
+      if (!(contact.organizationId in smsConfigCache)) {
+        smsConfigCache[contact.organizationId] = await getOrgSmsConfig(contact.organizationId);
+      }
+      const smsConfig = smsConfigCache[contact.organizationId];
+      if (!smsConfig?.isActive) {
+        skippedCount++;
+        continue;
+      }
+
       if (!log.content) {
         skippedCount++;
         continue;
@@ -77,13 +107,12 @@ export async function GET(req: Request) {
         .replace(/\[고객명\]/g, contact.name)
         .replace(/\[이름\]/g, contact.name);
 
-      // 발송 전 SENDING으로 원자적 업데이트 (중복 방지)
+      // CAS: 중복 발송 방지 — PENDING/NIGHT_BLOCKED → SENDING 원자적 업데이트
       const updated = await prisma.vipCareLog.updateMany({
         where: { id: log.id, status: { in: ["PENDING", "NIGHT_BLOCKED"] } },
         data: { status: "SENDING" },
       });
-
-      if (updated.count === 0) continue; // 이미 다른 프로세스가 처리 중
+      if (updated.count === 0) continue; // 다른 프로세스가 먼저 처리 중
 
       const ch = (log.channel || "SMS") as "SMS" | "EMAIL" | "KAKAO";
 
@@ -103,9 +132,9 @@ export async function GET(req: Request) {
 
       const code = Number(result.result_code);
       const finalStatus =
-        code === 1   ? "SENT" :
+        code === 1   ? "SENT"          :
         code === -98 ? "NIGHT_BLOCKED" :
-        code === -99 ? "OPTED_OUT" : "FAILED";
+        code === -99 ? "OPTED_OUT"     : "FAILED";
 
       await prisma.vipCareLog.update({
         where: { id: log.id },
@@ -115,9 +144,15 @@ export async function GET(req: Request) {
       if (finalStatus === "SENT") sentCount++;
       else skippedCount++;
     }
+
+    // 마지막 배치이면 루프 종료
+    if (logs.length < BATCH_SIZE) break;
   }
 
-  // 시퀀스 자동완료: 모든 로그가 SENT/SKIPPED/OPTED_OUT/CANCELLED이면 COMPLETED
+  // ─── 시퀀스 자동완료 ─────────────────────────────────────────────
+  // 모든 로그가 종료 상태(SENT/OPTED_OUT/CANCELLED/FAILED)이면 COMPLETED 처리
+  // (미완료 상태: PENDING/SENDING/NIGHT_BLOCKED/PAUSED/FAILED 가 없어야 함)
+  // ─────────────────────────────────────────────────────────────────
   const completedSeqs = await prisma.$queryRaw<{ id: string }[]>`
     SELECT s.id
     FROM "VipCareSequence" s
@@ -148,6 +183,15 @@ export async function GET(req: Request) {
     where: { sentAt: { lt: ninetyDaysAgo } },
   }).catch(() => ({ count: 0 }));
 
-  logger.log("[Cron/vip-care] 완료", { sentCount, skippedCount, completedCount, deletedLogs });
-  return NextResponse.json({ ok: true, sentCount, skippedCount, completedCount, deletedLogs });
+  const durationMs = Date.now() - startTime;
+  logger.log("[Cron/vip-care] 완료", {
+    sentCount, skippedCount, completedCount, deletedLogs,
+    processedTotal, durationMs, earlyExit,
+  });
+
+  return NextResponse.json({
+    ok: true,
+    sentCount, skippedCount, completedCount, deletedLogs,
+    processedTotal, durationMs, earlyExit,
+  });
 }
