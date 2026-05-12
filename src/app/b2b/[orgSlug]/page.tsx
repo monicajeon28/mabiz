@@ -189,6 +189,90 @@ export default function B2BLandingPage() {
         <p className="mt-6 text-xs text-gray-400 text-center">
           입력하신 정보는 상담 목적으로만 사용됩니다.
         </p>
+
+        {/* ── 수익인증 섹션 ─────────────────────────────────── */}
+        <div className="w-full max-w-md mt-10 space-y-8">
+
+          {/* 본업 수익인증 */}
+          <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+              <h3 className="text-white font-bold text-lg">본업 수익인증</h3>
+              <p className="text-blue-100 text-xs mt-1">크루즈닷 파트너 실제 수익 내역</p>
+            </div>
+            <div className="p-4 space-y-3">
+              <img
+                src="/images/income-proof/main-income.jpg"
+                alt="본업 크루즈닷 수익인증 — 월 300~500만원 수익 내역"
+                className="w-full rounded-lg border border-gray-100"
+                loading="lazy"
+              />
+              <img
+                src="/images/income-proof/side-income.jpg"
+                alt="크루즈닷 수익인증 — 꾸준한 수익 입금 내역"
+                className="w-full rounded-lg border border-gray-100"
+                loading="lazy"
+              />
+              <div className="flex items-center gap-2 pt-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-xs text-gray-500">매월 정산 · 투명한 수익 구조</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 주부 수익인증 */}
+          <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+            <div className="bg-gradient-to-r from-pink-500 to-rose-500 px-6 py-4">
+              <h3 className="text-white font-bold text-lg">주부 수익인증</h3>
+              <p className="text-pink-100 text-xs mt-1">육아와 병행하며 만드는 나만의 수익</p>
+            </div>
+            <div className="p-4">
+              <img
+                src="/images/income-proof/housewife-income.jpg"
+                alt="주부 크루즈닷 수익인증 — 재택 부업 수익 내역"
+                className="w-full rounded-lg border border-gray-100"
+                loading="lazy"
+              />
+              <div className="mt-3 bg-pink-50 rounded-lg p-3">
+                <p className="text-xs text-pink-700 font-medium">
+                  "아이 재우고 틈틈이 했는데, 매달 통장에 찍히니까 진짜 뿌듯해요"
+                </p>
+              </div>
+              <div className="flex items-center gap-2 pt-2">
+                <div className="w-2 h-2 bg-pink-500 rounded-full animate-pulse" />
+                <span className="text-xs text-gray-500">시간 자유 · 재택 가능 · 경력단절 무관</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 프리랜서 임산부 국가지원 */}
+          <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+            <div className="bg-gradient-to-r from-violet-500 to-purple-600 px-6 py-4">
+              <h3 className="text-white font-bold text-lg">프리랜서 임산부 국가지원</h3>
+              <p className="text-violet-100 text-xs mt-1">고용노동부 출산급여 150만원 수령 가능</p>
+            </div>
+            <div className="p-4">
+              <img
+                src="/images/income-proof/freelancer-support.jpg"
+                alt="프리랜서 임산부 국가지원 — 고용노동부 150만원 수령 인증"
+                className="w-full rounded-lg border border-gray-100"
+                loading="lazy"
+              />
+              <div className="mt-3 bg-violet-50 rounded-lg p-3 space-y-1">
+                <p className="text-xs text-violet-700 font-medium">
+                  크루즈닷 파트너 활동 = 프리랜서 경력 인정
+                </p>
+                <p className="text-xs text-violet-600">
+                  출산 시 고용노동부에서 <span className="font-bold">150만원</span> 출산급여 수령 가능
+                </p>
+              </div>
+              <div className="flex items-center gap-2 pt-2">
+                <div className="w-2 h-2 bg-violet-500 rounded-full animate-pulse" />
+                <span className="text-xs text-gray-500">국가 지원 · 프리랜서 경력 인정 · 출산급여</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
     </>
   );
