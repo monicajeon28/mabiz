@@ -4,6 +4,7 @@
  * - syncDriveFolder(): Drive 폴더 스캔 → DB 동기화 (배치)
  */
 
+import { Readable } from 'stream';
 import type { drive_v3 } from 'googleapis';
 import { getDriveClient, findOrCreateFolder } from '@/lib/drive-client';
 import prisma from '@/lib/prisma';
@@ -42,6 +43,7 @@ export async function uploadImageToDrive(params: {
     const categoryFolder = category ? await findOrCreateFolder(category, orgFolder) : orgFolder;
 
     // Drive에 파일 업로드
+    // googleapis media.body는 stream.Readable 필요 — Buffer 직접 전달 시 오류
     const file = await drive.files.create(
       {
         requestBody: {
@@ -50,7 +52,7 @@ export async function uploadImageToDrive(params: {
         },
         media: {
           mimeType,
-          body: buffer,
+          body: Readable.from(buffer),
         },
         fields: 'id, webViewLink',
         supportsAllDrives: true,
@@ -85,7 +87,8 @@ export async function uploadImageToDrive(params: {
 
     return asset;
   } catch (err) {
-    logger.error('[image-sync] Drive 업로드 실패', { err, fileName });
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error('[image-sync] Drive 업로드 실패', { message: msg, fileName });
     throw err;
   }
 }
