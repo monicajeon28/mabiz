@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import * as XLSX from "xlsx";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { ImportTarget, IMPORT_CONFIGS, normalizeContactType } from "@/lib/import-config";
 import {
@@ -223,7 +223,7 @@ export async function POST(req: Request) {
   try {
     // 인증 체크
     ctx = await getAuthContext();
-    orgId = requireOrgId(ctx);
+    orgId = resolveOrgId(ctx);
 
     // 조직 이름 조회
     const org = await prisma.organization.findUnique({
