@@ -61,7 +61,12 @@ BEGIN
   END IF;
 END $$;
 
--- 5. Contact 채널 구분 컬럼 추가
+-- 5. Contact 성능 인덱스 (crm-stats 10초 → 1초 이하로 개선)
+CREATE INDEX IF NOT EXISTS "Contact_orgId_createdAt_idx" ON "Contact"("organizationId", "createdAt" DESC);
+CREATE INDEX IF NOT EXISTS "Contact_orgId_purchasedAt_idx" ON "Contact"("organizationId", "purchasedAt");
+CREATE INDEX IF NOT EXISTS "Contact_orgId_optOutAt_idx" ON "Contact"("organizationId", "optOutAt");
+
+-- 6. Contact 채널 구분 컬럼 추가
 ALTER TABLE "Contact" ADD COLUMN IF NOT EXISTS "channel" TEXT NOT NULL DEFAULT 'direct';
 CREATE INDEX IF NOT EXISTS "Contact_channel_idx" ON "Contact"("channel");
 

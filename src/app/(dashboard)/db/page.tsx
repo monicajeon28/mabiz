@@ -66,11 +66,13 @@ export default function DbPage() {
       .catch(() => { /* 실패 시 기존 목록 유지 — silent fail */ });
   }
 
-  // ── 마운트 시 최초 1회 로드 ────────────────────────────────
+  // ── 마운트 시 최초 1회 로드 (AbortController로 cleanup) ───
   useEffect(() => {
-    loadStats();
-    loadGroups();
+    const ctrl = new AbortController();
+    loadStats(ctrl.signal);
+    loadGroups(ctrl.signal);
     setGroupsLoaded(true);
+    return () => ctrl.abort();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 탭 복귀 시 통계·그룹 자동 갱신 (메모리 누수 방지) ──────

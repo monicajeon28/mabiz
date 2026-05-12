@@ -77,14 +77,14 @@ export function NotificationBell() {
       setPushPermission(Notification.permission);
     }
 
-    let interval: ReturnType<typeof setInterval> | null = setInterval(fetchFeed, 10_000);
+    let interval: ReturnType<typeof setInterval> | null = setInterval(fetchFeed, 30_000);
 
     const handleVisibility = () => {
       if (document.hidden) {
         if (interval) { clearInterval(interval); interval = null; }
       } else {
         fetchFeed(); // 탭 복귀 시 즉시 갱신
-        interval = setInterval(fetchFeed, 10_000);
+        interval = setInterval(fetchFeed, 30_000);
       }
     };
 
