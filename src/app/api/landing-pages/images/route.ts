@@ -35,7 +35,15 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    // Windows 드래그&드롭 시 MIME 타입이 빈 문자열일 수 있어 확장자로 추론
+    const extMime: Record<string, string> = {
+      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+      gif: 'image/gif', webp: 'image/webp',
+    };
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+    const resolvedType = file.type || extMime[ext] || '';
+
+    if (!ALLOWED_TYPES.includes(resolvedType)) {
       return NextResponse.json(
         { ok: false, message: 'JPG, PNG, WebP, GIF만 업로드 가능합니다' },
         { status: 400 },
@@ -64,7 +72,7 @@ export async function POST(req: Request) {
     // 파일 읽기
     const arrayBuffer = await file.arrayBuffer();
     const originalBuffer = Buffer.from(arrayBuffer);
-    const isGif = file.type === 'image/gif';
+    const isGif = resolvedType === 'image/gif';
 
     // 이미지 처리: GIF는 압축만, 나머지는 WebP 변환
     let processedBuffer: Buffer;

@@ -299,7 +299,10 @@ ${footerBlock}
     setUploading(true); setError("");
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (!file.type.startsWith("image/")) continue;
+      // Windows 드래그&드롭 시 file.type이 빈 문자열일 수 있어 확장자로도 검사
+      const isImage = file.type.startsWith("image/") ||
+        /\.(jpe?g|png|gif|webp|bmp)$/i.test(file.name);
+      if (!isImage) continue;
       if (file.size > 20 * 1024 * 1024) { setError(`${file.name}: 20MB 초과`); continue; }
       const fd = new FormData();
       fd.append("file", file); fd.append("landingPageId", pageId); fd.append("sortOrder", String(images.length + i));

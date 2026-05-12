@@ -145,8 +145,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "파일이 없습니다" }, { status: 400 });
     }
 
-    // 파일 검증
-    if (!file.type.startsWith("image/")) {
+    // 파일 검증 — Windows 드래그&드롭 시 MIME 타입 빈 문자열 대응
+    const extMimeMap: Record<string, string> = {
+      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+      gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp',
+    };
+    const fileExt = ((file as File).name ?? '').split('.').pop()?.toLowerCase() ?? '';
+    const resolvedMime = file.type || extMimeMap[fileExt] || '';
+    if (!resolvedMime.startsWith("image/")) {
       return NextResponse.json({ ok: false, error: "이미지 파일만 업로드 가능합니다" }, { status: 400 });
     }
     const MAX_SIZE = 20 * 1024 * 1024; // 20MB
@@ -160,7 +166,7 @@ export async function POST(req: Request) {
     const inputBuffer  = Buffer.from(arrayBuffer);
 
     // Sharp 처리
-    const isGif = file.type === "image/gif";
+    const isGif = resolvedMime === "image/gif";
     let outputBuffer: Buffer;
     let outputMimeType: string;
     let outputFileName: string;
