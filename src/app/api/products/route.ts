@@ -132,6 +132,7 @@ export async function GET(req: NextRequest) {
             ORDER BY "productCode", "departureDate" ASC
           `),
           // 2) CabinInventory 총 용량 (상품 등록 시 설정)
+          // GLOBAL_ADMIN은 organizationId가 null → 전체 조회
           ctx.organizationId
             ? prisma.$queryRaw<InventoryRow[]>(Prisma.sql`
                 SELECT "tripCode", "cabinType",
@@ -141,7 +142,13 @@ export async function GET(req: NextRequest) {
                   AND "organizationId" = ${ctx.organizationId}
                 GROUP BY "tripCode", "cabinType"
               `)
-            : Promise.resolve([] as InventoryRow[]),
+            : prisma.$queryRaw<InventoryRow[]>(Prisma.sql`
+                SELECT "tripCode", "cabinType",
+                       SUM("totalCount")::bigint AS total
+                FROM "CabinInventory"
+                WHERE "tripCode" IN (${Prisma.join(codes)})
+                GROUP BY "tripCode", "cabinType"
+              `),
           // 3) 실제 판매 카운트 (2인1실 기준 — PNR 완료 예약건 수)
           prisma.$queryRaw<ReservationCountRow[]>(Prisma.sql`
             SELECT t."productCode", r."cabinType",

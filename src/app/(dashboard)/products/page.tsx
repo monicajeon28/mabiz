@@ -189,7 +189,6 @@ function CabinSummaryCell({ summary, productCode, onRegister }: {
               <span className="font-bold text-red-600">마감({entry.total})</span>
             ) : (
               <span className="tabular-nums">
-                {/* 판매 수: 빨강, 총 수: 파랑 */}
                 <span className="font-bold text-red-500">{entry.booked}</span>
                 <span className="text-gray-400 mx-0.5">/</span>
                 <span className="font-bold text-blue-500">{entry.total}</span>
@@ -201,6 +200,14 @@ function CabinSummaryCell({ summary, productCode, onRegister }: {
           </div>
         );
       })}
+      {/* 수정 버튼 */}
+      <button
+        onClick={() => onRegister(productCode)}
+        className="flex items-center gap-0.5 text-[10px] text-gray-400 hover:text-blue-600 transition-colors mt-0.5"
+      >
+        <PlusCircle className="w-3 h-3" />
+        수정
+      </button>
     </div>
   );
 }
