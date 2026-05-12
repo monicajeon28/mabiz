@@ -24,6 +24,7 @@ const FIELD_LABELS: Record<string, string> = {
 export default function NewLandingPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const iframeRef    = useRef<HTMLIFrameElement>(null);
 
   const [title, setTitle]               = useState("");
   const [slug, setSlug]                 = useState("");
@@ -68,8 +69,6 @@ export default function NewLandingPage() {
   });
   const [additionalFields, setAdditionalFields] = useState<{ id: string; name: string; required: boolean }[]>([]);
 
-  // 실시간 미리보기
-  const [previewDoc, setPreviewDoc] = useState("");
 
   useEffect(() => {
     fetch("/api/groups").then((r) => r.json()).then((d) => {
@@ -145,9 +144,8 @@ export default function NewLandingPage() {
     } else {
       bodyContent = images.length > 0
         ? `<div style="line-height:0">${images.map((img) => {
-            const src = `https://lh3.googleusercontent.com/d/${img.driveFileId}=w800`;
-            const ar  = img.width && img.height ? `aspect-ratio:${img.width}/${img.height};` : "";
-            return `<img src="${src}" alt="" style="width:100%;display:block;${ar}" loading="lazy">`;
+            const ar = img.width && img.height ? `aspect-ratio:${img.width}/${img.height};` : "";
+            return `<img src="${img.url}" alt="" style="width:100%;display:block;${ar}" loading="lazy">`;
           }).join("\n")}</div>`
         : `<div style="height:180px;display:flex;align-items:center;justify-content:center;background:#f7f8fc;color:#bbb;font-family:sans-serif;font-size:13px">이미지를 업로드하면 여기에 표시됩니다</div>`;
     }
@@ -166,8 +164,15 @@ ${formBlock}
 </html>`;
   }, [editorMode, html, images, formFields, additionalFields, paymentEnabled, productName, productPrice, paymentType, buttonTitle, title, headerScript]);
 
+  // state 변경 시마다 iframe에 직접 write (srcDoc 방식은 기존 iframe 업데이트 안 됨)
   useEffect(() => {
-    setPreviewDoc(buildPreviewHtml());
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
+    if (!doc) return;
+    doc.open();
+    doc.write(buildPreviewHtml());
+    doc.close();
   }, [buildPreviewHtml]);
 
   // ──────────────────────────────────────────────
@@ -550,11 +555,9 @@ ${formBlock}
             <div className="relative mx-[10px] mt-[8px] mb-[8px] rounded-[32px] overflow-hidden bg-white"
               style={{ height: "580px" }}>
               <iframe
-                key={previewDoc.length > 0 ? "loaded" : "empty"}
-                srcDoc={previewDoc}
+                ref={iframeRef}
                 className="w-full h-full border-0"
                 title="실시간 미리보기"
-                sandbox="allow-scripts"
                 style={{ display: "block" }}
               />
             </div>
