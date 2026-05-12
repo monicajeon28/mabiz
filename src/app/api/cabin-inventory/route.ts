@@ -115,8 +115,15 @@ export async function POST(req: NextRequest) {
 
     // OWNER는 자기 조직만 등록 가능
     const body = await req.json();
-    const { organizationId, tripName, tripCode, departureDate, shipName, cabins } = body;
+    let { organizationId, tripName, tripCode, departureDate, shipName, cabins } = body;
 
+    // GLOBAL_ADMIN은 organizationId 없이 호출 가능 → 자동으로 첫 번째 조직 사용
+    if (!organizationId && ctx.role === 'GLOBAL_ADMIN') {
+      const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
+      if (firstOrg) organizationId = firstOrg.id;
+    }
+
+    // OWNER는 자기 조직만
     if (ctx.role === 'OWNER' && ctx.organizationId && organizationId !== ctx.organizationId) {
       return NextResponse.json({ ok: false, error: '자기 조직만 등록 가능합니다' }, { status: 403 });
     }

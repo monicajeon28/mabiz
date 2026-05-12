@@ -137,9 +137,7 @@ export async function GET(req: NextRequest) {
       ORDER BY id ASC
     `;
 
-    if (reservations.length === 0) {
-      return NextResponse.json({ ok: false, error: '등록된 예약 정보가 없습니다.' }, { status: 404 });
-    }
+    // 예약이 없어도 빈 양식으로 반환 (미리보기/다운로드 모두 가능)
 
     const reservationIds = reservations.map((r) => r.id);
     const reservationMap = new Map(reservations.map((r) => [r.id, r]));

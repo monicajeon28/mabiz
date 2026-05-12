@@ -565,7 +565,7 @@ function ApisModal({ product, onClose }: ApisModalProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {!loading && !error && rows.length > 0 && (
+            {!loading && !error && (
               <button
                 onClick={handleDownload}
                 disabled={downloading}
@@ -592,15 +592,11 @@ function ApisModal({ product, onClose }: ApisModalProps) {
           {error && (
             <div className="text-center py-20 text-red-500 text-sm">{error}</div>
           )}
-          {!loading && !error && rows.length === 0 && (
-            <div className="text-center py-20 text-gray-400 text-sm">
-              <FileSpreadsheet className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-              등록된 탑승자 정보가 없습니다
-            </div>
-          )}
-          {!loading && rows.length > 0 && (
+          {!loading && !error && (
             <div className="text-xs">
-              <p className="text-gray-500 mb-2 font-medium">총 {rows.length}명</p>
+              <p className="text-gray-500 mb-2 font-medium">
+                {rows.length > 0 ? `총 ${rows.length}명` : "등록된 탑승자 없음 — 아래 양식으로 엑셀 다운로드 가능합니다"}
+              </p>
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
@@ -620,6 +616,13 @@ function ApisModal({ product, onClose }: ApisModalProps) {
                         ))}
                       </tr>
                     ))}
+                    {rows.length === 0 && (
+                      <tr>
+                        <td colSpan={APIS_HEADERS.length} className="text-center py-8 text-gray-400">
+                          탑승자 정보가 아직 없습니다
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
