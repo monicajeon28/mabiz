@@ -13,6 +13,7 @@ interface ImageItem {
   isGif: boolean;
   isVideo: boolean;
   source: "cache" | "asset";
+  driveFileId?: string; // asset 이미지만 존재 (Drive URL 생성용)
 }
 
 interface ImageLibraryModalProps {
@@ -75,10 +76,16 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
   };
 
   const buildImageHtml = (item: ImageItem) => {
+    // 삽입 HTML에는 공개 Drive 썸네일 URL 사용 (랜딩페이지 외부 공개 필요)
+    // asset인 경우 driveFileId로 Drive URL 직접 구성, cache는 기존 URL 사용
+    const insertUrl = item.driveFileId
+      ? `https://drive.google.com/thumbnail?id=${item.driveFileId}&sz=w1200`
+      : item.fullUrl;
+
     if (item.isGif) {
-      return `<img src="${item.fullUrl}" alt="${item.title}" style="max-width:100%;height:auto;" loading="lazy">`;
+      return `<img src="${insertUrl}" alt="${item.title}" style="max-width:100%;height:auto;" loading="lazy">`;
     }
-    return `<picture>\n  <source srcset="${item.fullUrl}" type="image/webp">\n  <img src="${item.thumbnailUrl}" alt="${item.title}" style="max-width:100%;height:auto;" loading="lazy">\n</picture>`;
+    return `<picture>\n  <source srcset="${insertUrl}" type="image/webp">\n  <img src="${insertUrl}" alt="${item.title}" style="max-width:100%;height:auto;" loading="lazy">\n</picture>`;
   };
 
   const buildUrlHtml = () => {

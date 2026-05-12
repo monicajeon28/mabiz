@@ -92,13 +92,16 @@ export async function GET(req: Request) {
     const assetResult = assetImages.map((asset) => ({
       id:           asset.id,
       title:        asset.originalFileName,
+      // 모달 썸네일: proxy (인증 보장)
       thumbnailUrl: `/api/landing-pages/images/proxy?id=${asset.driveFileId}`,
-      fullUrl:      `/api/landing-pages/images/proxy?id=${asset.driveFileId}`,
+      // 삽입 HTML용: Drive 공개 URL (랜딩페이지에서 외부 공개)
+      fullUrl:      `https://drive.google.com/thumbnail?id=${asset.driveFileId}&sz=w1200`,
       folder:       asset.category ?? "기타",
       tags:         asset.tags,
       isGif:        asset.mimeType === "image/gif",
       isVideo:      false,
       source:       "asset" as const,
+      driveFileId:  asset.driveFileId,
     }));
 
     const result = [...assetResult, ...cacheResult];
@@ -231,10 +234,11 @@ export async function POST(req: Request) {
         source:       "asset" as const,
         title:        asset.originalFileName,
         thumbnailUrl: `/api/landing-pages/images/proxy?id=${asset.driveFileId}`,
-        fullUrl:      `/api/landing-pages/images/proxy?id=${asset.driveFileId}`,
+        fullUrl:      `https://drive.google.com/thumbnail?id=${asset.driveFileId}&sz=w1200`,
         folder:       asset.category ?? "기타",
         isGif:        asset.mimeType === "image/gif",
         mimeType:     asset.mimeType,
+        driveFileId:  asset.driveFileId,
       },
     });
   } catch (err) {

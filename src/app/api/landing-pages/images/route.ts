@@ -76,7 +76,7 @@ export async function POST(req: Request) {
       const metadata = await sharp(originalBuffer, { animated: true }).metadata();
       if (metadata.width && metadata.width > 1200) {
         processedBuffer = await sharp(originalBuffer, { animated: true })
-          .resize(1200, null, { withoutEnlargement: true })
+          .resize({ width: 1200, withoutEnlargement: true })
           .gif()
           .toBuffer();
       } else {
