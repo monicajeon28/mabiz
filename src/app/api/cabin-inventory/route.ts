@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
       const sold = bookedMap.get(c.cabinType) ?? 0;
       if (c.totalCount < sold) {
         return NextResponse.json(
-          { ok: false, error: `${c.cabinType}: 이미 ${sold}실 판매됨 — 총 수량은 ${sold} 이상이어야 합니다.` },
+          { ok: false, error: `${c.cabinType}: 이미 ${sold}실 판매됨 (PNR 기준) — 총 수량은 ${sold} 이상이어야 합니다.` },
           { status: 400 },
         );
       }

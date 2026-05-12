@@ -260,7 +260,7 @@ function CabinRegisterModal({ productCode, productName, organizationId, cabinSum
       const val = parseInt(counts[key] ?? "", 10);
       const sold = cabinSummary?.[key]?.booked ?? 0;
       if (!isNaN(val) && val > 0 && val < sold) {
-        setErr(`${label}: 이미 ${sold}실 판매됨 — ${sold}실 이상으로 입력해 주세요. (2인 1실 기준)`);
+        setErr(`${label}: 이미 ${sold}실 판매됨 (PNR 기준) — ${sold}실 이상으로 입력해 주세요.`);
         return;
       }
     }
@@ -316,7 +316,7 @@ function CabinRegisterModal({ productCode, productName, organizationId, cabinSum
           <h2 className="text-lg font-bold text-gray-900">{isEditing ? "객실 수량 수정" : "객실 수량 등록"}</h2>
         </div>
         <p className="text-sm text-gray-500 mb-1 font-medium">{productName}</p>
-        <p className="text-xs text-gray-400 mb-4">2인 1실 기준 · 판매된 실수는 수정 불가</p>
+        <p className="text-xs text-gray-400 mb-4">PNR(그룹) 기준 · 판매된 실수는 수정 불가</p>
 
         <div className="space-y-3 mb-4">
           {DEFAULT_CABIN_TYPES.map(({ key, label }) => {
