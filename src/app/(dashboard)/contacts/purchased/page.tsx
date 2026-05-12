@@ -48,6 +48,7 @@ export default function PurchasedPage() {
     const params = new URLSearchParams({ page: String(page), limit: "30", type: "CUSTOMER" });
     if (channelFilter) params.set("channel", channelFilter);
     if (q) params.set("q", q);
+    if (selectedTags.length > 0) params.set("tags", selectedTags.join(","));
 
     try {
       const res = await fetch(`/api/contacts?${params}`);
@@ -61,7 +62,7 @@ export default function PurchasedPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, page, channelFilter]);
+  }, [q, page, channelFilter, selectedTags]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
@@ -101,12 +102,7 @@ export default function PurchasedPage() {
     return Array.from(set).sort();
   }, [contacts]);
 
-  const filteredContacts = useMemo(() => {
-    if (selectedTags.length === 0) return contacts;
-    return contacts.filter(c =>
-      selectedTags.every(t => (c.tags ?? []).includes(t))
-    );
-  }, [contacts, selectedTags]);
+  const filteredContacts = contacts;
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
