@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId, resolveOrgIdOrNull } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 // GET /api/landing-pages
@@ -10,10 +10,10 @@ export async function GET() {
     if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '이 작업을 수행할 권한이 없습니다' }, { status: 403 });
     }
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx);
 
     const pages = await prisma.crmLandingPage.findMany({
-      where: { organizationId: orgId },
+      where: { ...(orgId ? { organizationId: orgId } : {}) },
       orderBy: { createdAt: "desc" },
       include: { _count: { select: { registrations: true } } },
     });
@@ -32,8 +32,8 @@ export async function POST(req: Request) {
     if (ctx.role === 'FREE_SALES' || ctx.role === 'AGENT') {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '랜딩페이지 생성 권한이 없습니다' }, { status: 403 });
     }
-    const orgId = requireOrgId(ctx);
-    const { title, slug, htmlContent, groupId, editorMode, ...rest } = await req.json();
+    const orgId = resolveOrgId(ctx);
+    const { title, slug, htmlContent, groupId, editorMode, commentEnabled, ...rest } = await req.json();
 
     if (!title?.trim() || !slug?.trim()) {
       return NextResponse.json({ ok: false, message: "제목과 슬러그는 필수입니다." }, { status: 400 });
@@ -47,6 +47,7 @@ export async function POST(req: Request) {
         htmlContent: htmlContent ?? "",
         groupId: groupId ?? null,
         editorMode: mode,
+        commentEnabled: commentEnabled === true,
         // 결제 설정 (있으면)
         ...(rest.paymentEnabled ? {
           paymentEnabled: true,

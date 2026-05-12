@@ -77,7 +77,9 @@ export default function NewLandingPage() {
   const [showLibrary, setShowLibrary] = useState(false);
 
   // 결제
-  const [paymentEnabled, setPaymentEnabled] = useState(false);
+  const [paymentEnabled, setPaymentEnabled]   = useState(false);
+  // 댓글
+  const [commentEnabled, setCommentEnabled]   = useState(false);
   const [paymentType, setPaymentType]       = useState<"onetime" | "subscription">("onetime");
   const [productName, setProductName]       = useState("");
   const [productPrice, setProductPrice]     = useState("");
@@ -183,6 +185,24 @@ export default function NewLandingPage() {
         : `<div style="height:180px;display:flex;align-items:center;justify-content:center;background:#f7f8fc;color:#bbb;font-family:sans-serif;font-size:13px">이미지를 업로드하면 여기에 표시됩니다</div>`;
     }
 
+    const commentBlock = commentEnabled ? `
+<div style="max-width:480px;margin:0 auto;padding:24px 20px 40px;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif">
+  <h3 style="font-size:16px;font-weight:700;color:#1a1a1a;margin:0 0 16px;padding-bottom:12px;border-bottom:2px solid #f0f0f0">💬 고객 후기</h3>
+  ${[
+    { name: "김미영", text: "정말 잊지 못할 여행이었어요! 서비스도 친절하고 너무 좋았습니다." },
+    { name: "박준호", text: "가족들과 함께 다녀왔는데 모두 만족했어요. 강력 추천합니다 😊" },
+    { name: "이수진", text: "크루즈 여행이 이렇게 좋은 줄 몰랐어요. 다음에도 꼭 이용할게요!" },
+  ].map(c => `<div style="padding:12px 0;border-bottom:1px solid #f5f5f5">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="width:28px;height:28px;border-radius:50%;background:#1E2D4E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">${c.name[0]}</div>
+      <span style="font-size:13px;font-weight:600;color:#333">${c.name}</span>
+      <span style="font-size:11px;color:#bbb;margin-left:auto">AI 샘플</span>
+    </div>
+    <p style="font-size:13px;color:#555;line-height:1.6;margin:0">${c.text}</p>
+  </div>`).join("")}
+  <p style="font-size:11px;color:#bbb;text-align:center;margin-top:14px">저장 후 AI 후기 자동 생성 가능</p>
+</div>` : "";
+
     return `<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -193,9 +213,10 @@ ${headerScript || ""}
 <body>
 ${bodyContent}
 ${formBlock}
+${commentBlock}
 </body>
 </html>`;
-  }, [editorMode, html, images, formFields, additionalFields, paymentEnabled, productName, productPrice, paymentType, buttonTitle, title, headerScript]);
+  }, [editorMode, html, images, formFields, additionalFields, paymentEnabled, productName, productPrice, paymentType, buttonTitle, title, headerScript, commentEnabled]);
 
   // state 변경 시마다 iframe에 직접 write (srcDoc 방식은 기존 iframe 업데이트 안 됨)
   useEffect(() => {
@@ -299,6 +320,7 @@ ${formBlock}
 
     const common = {
       title, slug, groupId: selectedGroupId || null,
+      commentEnabled,
       infoCollection: true, formConfig: { fields: formFields, additionalFields },
       ...(buttonTitle        ? { buttonTitle }        : {}),
       ...(completionPageUrl  ? { completionPageUrl }  : {}),
@@ -563,6 +585,26 @@ ${formBlock}
                       className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* ──── 댓글 / 후기 설정 ──── */}
+          <div className="mx-4 mb-4 bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-4 py-3 flex items-center justify-between bg-gray-50 border-b border-gray-100">
+              <div>
+                <p className="text-sm font-semibold text-gray-800">고객 후기 댓글</p>
+                <p className="text-xs text-gray-400 mt-0.5">랜딩페이지 하단에 후기 섹션 표시 · 저장 후 AI 댓글 자동 생성</p>
+              </div>
+              <button onClick={() => setCommentEnabled(!commentEnabled)}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${commentEnabled ? "bg-blue-500 text-white shadow-sm" : "bg-gray-100 text-gray-400 hover:bg-gray-200"}`}>
+                {commentEnabled ? "ON" : "OFF"}
+              </button>
+            </div>
+            {commentEnabled && (
+              <div className="px-4 py-3 flex items-center gap-2 text-xs text-blue-600 bg-blue-50">
+                <span>💡</span>
+                <span>저장 완료 후 랜딩페이지 관리에서 AI 후기 자동 생성 버튼을 사용하세요.</span>
               </div>
             )}
           </div>
