@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Upload, Download, Database, Users, CheckCircle,
-  AlertCircle, Loader2, FileSpreadsheet, Info, ChevronDown
+  AlertCircle, Loader2, FileSpreadsheet, Info, ChevronDown, Search
 } from "lucide-react";
+import Link from "next/link";
 import { IMPORT_CONFIGS, type ImportTarget } from "@/lib/import-config";
 
 type Stats = { total: number; leads: number; customers: number; optOut: number };
@@ -18,6 +19,12 @@ export default function DbPage() {
   const [groups,       setGroups]       = useState<Group[]>([]);
   const [groupsLoaded, setGroupsLoaded] = useState(false);
   const [importTarget, setImportTarget] = useState<ImportTarget>("b2c");
+  const [showImport,   setShowImport]   = useState(false);  // 업로드 UI 토글
+  const [contacts,     setContacts]     = useState<{ id: string; name: string; phone: string; type: string; createdAt: string }[]>([]);
+  const [contactsTotal, setContactsTotal] = useState(0);
+  const [contactsPage, setContactsPage] = useState(1);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
   const [errorsOpen,   setErrorsOpen]   = useState(false);
   const [importHint,   setImportHint]   = useState("처리 중...");
   const [rowEstimate,  setRowEstimate]  = useState<number | null>(null);
@@ -66,14 +73,40 @@ export default function DbPage() {
       .catch(() => { /* 실패 시 기존 목록 유지 — silent fail */ });
   }
 
+  // ── 고객 목록 로드 ─────────────────────────────────────────
+  function loadContacts(page: number = 1, signal?: AbortSignal) {
+    setContactsLoading(true);
+    const typeMap: Record<ImportTarget, string> = { b2c: "", b2b_buyer: "BUYER", b2b_inquiry: "INQUIRER" };
+    const params = new URLSearchParams({ page: String(page), limit: "20" });
+    if (typeMap[importTarget]) params.set("type", typeMap[importTarget]);
+    if (searchQ) params.set("q", searchQ);
+    fetch(`/api/contacts?${params}`, signal ? { signal } : undefined)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) {
+          setContacts(d.contacts ?? []);
+          setContactsTotal(d.total ?? 0);
+          setContactsPage(page);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setContactsLoading(false));
+  }
+
   // ── 마운트 시 최초 1회 로드 (AbortController로 cleanup) ───
   useEffect(() => {
     const ctrl = new AbortController();
     loadStats(ctrl.signal);
     loadGroups(ctrl.signal);
+    loadContacts(1, ctrl.signal);
     setGroupsLoaded(true);
     return () => ctrl.abort();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 탭 변경 시 고객 목록 새로고침 ──────────────────────────
+  useEffect(() => {
+    loadContacts(1);
+  }, [importTarget]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 탭 복귀 시 통계·그룹 자동 갱신 (메모리 누수 방지) ──────
   useEffect(() => {
@@ -226,12 +259,77 @@ export default function DbPage() {
         </div>
       )}
 
-      {/* 가져오기 */}
+      {/* 탭 + 고객 목록 */}
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Upload className="w-5 h-5 text-navy-900" />
-          <h2 className="font-semibold text-gray-900">엑셀 가져오기</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex gap-4 border-b border-gray-200">
+            {(["b2c", "b2b_buyer", "b2b_inquiry"] as const).map((target) => {
+              const config = IMPORT_CONFIGS[target];
+              const isActive = importTarget === target;
+              return (
+                <button
+                  key={target}
+                  onClick={() => { setImportTarget(target); setShowImport(false); setResult(null); if (fileRef.current) fileRef.current.value = ""; }}
+                  className={`pb-2 text-sm font-medium transition-colors ${isActive ? "text-navy-900 border-b-2 border-navy-900" : "text-gray-400 hover:text-gray-600"}`}
+                >
+                  {config.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setShowImport(!showImport)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${showImport ? "bg-navy-900 text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+              <Upload className="w-3.5 h-3.5" /> {showImport ? "목록 보기" : "엑셀 가져오기"}
+            </button>
+          </div>
         </div>
+
+        {/* 고객 목록 (기본 뷰) */}
+        {!showImport && (
+          <div>
+            <div className="flex gap-2 mb-3">
+              <input type="text" value={searchQ} onChange={(e) => setSearchQ(e.target.value)} placeholder="이름, 전화번호 검색" className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" onKeyDown={(e) => e.key === "Enter" && loadContacts(1)} />
+              <button onClick={() => loadContacts(1)} className="bg-navy-900 text-white px-3 py-2 rounded-lg text-sm"><Search className="w-4 h-4" /></button>
+            </div>
+            {contactsLoading ? (
+              <div className="text-center py-8 text-gray-400">불러오는 중...</div>
+            ) : contacts.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <Database className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">데이터가 없습니다</p>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-gray-500 mb-2">총 {contactsTotal.toLocaleString()}건</p>
+                <div className="space-y-1">
+                  {contacts.map((c) => (
+                    <Link key={c.id} href={`/contacts/${c.id}`} className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 border border-gray-100">
+                      <div>
+                        <span className="text-sm font-medium text-gray-900">{c.name}</span>
+                        <span className="text-xs text-gray-400 ml-2">{c.phone}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${c.type === "CUSTOMER" ? "bg-green-50 text-green-700" : "bg-blue-50 text-blue-600"}`}>{c.type === "CUSTOMER" ? "구매" : c.type}</span>
+                        <span className="text-xs text-gray-400">{new Date(c.createdAt).toLocaleDateString("ko-KR")}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+                {contactsTotal > 20 && (
+                  <div className="flex justify-center gap-2 mt-3">
+                    <button disabled={contactsPage <= 1} onClick={() => loadContacts(contactsPage - 1)} className="px-3 py-1 text-xs border rounded disabled:opacity-30">이전</button>
+                    <span className="text-xs text-gray-500 py-1">{contactsPage} / {Math.ceil(contactsTotal / 20)}</span>
+                    <button disabled={contactsPage >= Math.ceil(contactsTotal / 20)} onClick={() => loadContacts(contactsPage + 1)} className="px-3 py-1 text-xs border rounded disabled:opacity-30">다음</button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* 엑셀 가져오기 (토글) */}
+        {showImport && (
+          <div>
 
         {/* 대량 업로드 안내 */}
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
@@ -243,35 +341,6 @@ export default function DbPage() {
             <li>• 중복 데이터는 자동으로 업데이트됩니다</li>
             <li>• 완료 후 자동으로 Google Drive에 백업됩니다</li>
           </ul>
-        </div>
-
-        {/* 탭 */}
-        <div className="flex gap-4 border-b border-gray-200 mb-4">
-          {(["b2c", "b2b_buyer", "b2b_inquiry"] as const).map((target) => {
-            const config = IMPORT_CONFIGS[target];
-            const borderColor =
-              target === "b2c" ? "border-navy-900" :
-              target === "b2b_buyer" ? "border-green-700" :
-              "border-blue-600";
-            const isActive = importTarget === target;
-            return (
-              <button
-                key={target}
-                onClick={() => {
-                  setImportTarget(target);
-                  setResult(null);
-                  if (fileRef.current) fileRef.current.value = "";
-                }}
-                className={`pb-2 text-sm font-medium transition-colors ${
-                  isActive
-                    ? `text-gray-900 border-b-2 ${borderColor}`
-                    : "text-gray-500 border-b-2 border-transparent hover:text-gray-700"
-                }`}
-              >
-                {config.label}
-              </button>
-            );
-          })}
         </div>
 
         {/* 컬럼 안내 */}
@@ -340,6 +409,8 @@ export default function DbPage() {
             />
           </label>
         </div>
+          </div>
+        )}
       </div>
 
       {/* 내보내기 */}
