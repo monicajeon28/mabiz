@@ -11,11 +11,13 @@ interface PaymentConfig {
 }
 
 interface Props {
-  pageId:          string;
-  slug:            string;
-  htmlContent:     string;
-  commentEnabled:  boolean;
-  payment?:        PaymentConfig;
+  pageId:            string;
+  slug:              string;
+  htmlContent:       string;
+  commentEnabled:    boolean;
+  payment?:          PaymentConfig;
+  buttonTitle?:      string;
+  completionPageUrl?: string;
 }
 
 type Comment = {
@@ -31,7 +33,7 @@ type Comment = {
  * - 폼 submit 인터셉트 → register API 호출
  * - 완료 화면 표시
  */
-export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payment }: Props) {
+export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payment, buttonTitle, completionPageUrl }: Props) {
   const [done,        setDone]        = useState(false);
   const [isDuplicate, setIsDuplicate] = useState(false);
   const [submitting,  setSubmitting]  = useState(false);
@@ -105,6 +107,13 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payme
     const container = containerRef.current;
     if (!container) return;
 
+    // buttonTitle 반영 — 폼 내 submit 버튼 텍스트 교체
+    if (buttonTitle) {
+      container.querySelectorAll<HTMLButtonElement>('form button[type="submit"], form button:not([type])').forEach((btn) => {
+        btn.textContent = buttonTitle;
+      });
+    }
+
     const handleSubmit = async (e: Event) => {
       e.preventDefault();
       if (submittingRef.current) return;
@@ -137,9 +146,30 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payme
       ) as HTMLInputElement | null;
       const email = form.querySelector('input[type="email"]') as HTMLInputElement | null;
 
+      // 추가 필드 수집
+      const genderEl    = form.querySelector('select[name="gender"], input[name="gender"]') as HTMLInputElement | null;
+      const birthDateEl = form.querySelector('input[name="birthDate"]') as HTMLInputElement | null;
+      const addressEl   = form.querySelector('input[name="address"]') as HTMLInputElement | null;
+      const consentEl   = form.querySelector('input[name="marketingConsent"]') as HTMLInputElement | null;
+
       const nameVal  = name?.value  ?? "";
       const phoneVal = phone?.value ?? "";
       const emailVal = email?.value ?? "";
+
+      // 커스텀 질문 수집 (name="custom_xxx")
+      const customFields: Record<string, string> = {};
+      form.querySelectorAll<HTMLInputElement>('input[name^="custom_"]').forEach((el) => {
+        if (el.value.trim()) customFields[el.name] = el.value.trim();
+      });
+
+      // metadata 조립
+      const metadata: Record<string, unknown> = {};
+      if (genderEl?.value)    metadata.gender = genderEl.value;
+      if (birthDateEl?.value) metadata.birthDate = birthDateEl.value;
+      if (addressEl?.value)   metadata.address = addressEl.value;
+      if (consentEl?.checked) metadata.marketingConsent = true;
+      if (Object.keys(customFields).length) metadata.customFields = customFields;
+      const hasMetadata = Object.keys(metadata).length > 0;
 
       // [WO-15] 전화번호 형식 사전 검증 (UX — 값이 있는데 형식 오류면 에러 표시)
       const rawPhone = phoneVal.replace(/[^0-9]/g, '');
@@ -161,7 +191,11 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payme
         const res  = await fetch(`/api/landing-pages/${pageId}/register`, {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ name: nameVal, phone: phoneVal, email: emailVal || undefined, loadedAt: loadTimeRef.current }),
+          body:    JSON.stringify({
+            name: nameVal, phone: phoneVal, email: emailVal || undefined,
+            loadedAt: loadTimeRef.current,
+            ...(hasMetadata ? { metadata } : {}),
+          }),
         });
         const data = await res.json();
         if (data.ok) {
@@ -170,6 +204,10 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payme
           setRegisteredPhone(phoneVal);
           setDone(true);
           try { localStorage.setItem(`registered_${slug}`, '1'); } catch {}
+          if (completionPageUrl) {
+            window.location.href = completionPageUrl;
+            return;
+          }
           window.scrollTo({ top: 0, behavior: "smooth" });
         } else {
           setFieldError(data.message ?? '등록에 실패했습니다. 다시 시도해 주세요.');

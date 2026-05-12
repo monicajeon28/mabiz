@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { createHash } from "crypto";
+import Script from "next/script";
 import { LandingClient } from "./LandingClient";
 
 // 공개 랜딩페이지 — 인증 불필요
@@ -18,6 +19,8 @@ export default async function PublicLandingPage({
       id: true, title: true, htmlContent: true, commentEnabled: true,
       paymentEnabled: true, paymentType: true, productName: true, productPrice: true,
       cycleDay: true, expireDate: true,
+      buttonTitle: true, completionPageUrl: true, headerScript: true,
+      exposureTitle: true, exposureImage: true,
     },
   });
 
@@ -51,19 +54,27 @@ export default async function PublicLandingPage({
   }
 
   return (
-    <LandingClient
-      pageId={page.id}
-      slug={slug}
-      htmlContent={page.htmlContent ?? ""}
-      commentEnabled={page.commentEnabled}
-      payment={page.paymentEnabled ? {
-        type: (page.paymentType as "onetime" | "subscription") ?? "onetime",
-        productName: page.productName ?? "",
-        productPrice: page.productPrice ?? 0,
-        cycleDay: page.cycleDay ?? 1,
-        expireDate: page.expireDate?.toISOString().split("T")[0] ?? "",
-      } : undefined}
-    />
+    <>
+      {page.headerScript && (
+        <Script id="landing-header-script" strategy="afterInteractive"
+          dangerouslySetInnerHTML={{ __html: page.headerScript }} />
+      )}
+      <LandingClient
+        pageId={page.id}
+        slug={slug}
+        htmlContent={page.htmlContent ?? ""}
+        commentEnabled={page.commentEnabled}
+        buttonTitle={page.buttonTitle ?? undefined}
+        completionPageUrl={page.completionPageUrl ?? undefined}
+        payment={page.paymentEnabled ? {
+          type: (page.paymentType as "onetime" | "subscription") ?? "onetime",
+          productName: page.productName ?? "",
+          productPrice: page.productPrice ?? 0,
+          cycleDay: page.cycleDay ?? 1,
+          expireDate: page.expireDate?.toISOString().split("T")[0] ?? "",
+        } : undefined}
+      />
+    </>
   );
 }
 
@@ -72,10 +83,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://crm.cruisedot.co.kr';
   const page = await prisma.crmLandingPage.findFirst({
     where:  { slug, isActive: true, isPublic: true },
-    select: { title: true },
+    select: { title: true, exposureTitle: true, exposureImage: true, description: true },
   });
-  const title = page?.title ?? "크루즈닷 랜딩페이지";
-  const description = `${title} - 크루즈 전문 여행사 크루즈닷 상담 신청`;
+  const title = page?.exposureTitle || page?.title || "크루즈닷 랜딩페이지";
+  const description = page?.description || `${title} - 크루즈 전문 여행사 크루즈닷 상담 신청`;
   const url = `${baseUrl}/p/${slug}`;
 
   return {
@@ -88,6 +99,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       type: 'website' as const,
       url,
       siteName: '크루즈닷',
+      ...(page?.exposureImage ? { images: [{ url: page.exposureImage }] } : {}),
     },
     twitter: {
       card: 'summary' as const,

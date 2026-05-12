@@ -69,7 +69,16 @@ export async function GET() {
 
     return NextResponse.json(responseData);
   } catch (e) {
-    logger.error('[TeamCrmStats]', { e });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    const msg = e instanceof Error ? e.message : String(e);
+    logger.error('[TeamCrmStats]', { error: msg });
+
+    if (msg === 'UNAUTHORIZED') {
+      return NextResponse.json({ ok: false, message: '인증이 필요합니다' }, { status: 401 });
+    }
+    if (msg === 'ORGANIZATION_REQUIRED') {
+      return NextResponse.json({ ok: false, message: '조직 정보가 없습니다' }, { status: 403 });
+    }
+
+    return NextResponse.json({ ok: false, message: '조회 중 오류 발생' }, { status: 500 });
   }
 }

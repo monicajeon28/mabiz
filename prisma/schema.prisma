@@ -286,6 +286,7 @@ model CrmLandingPage {
   exposureTitle     String?                 // 외부 노출용 제목
   exposureImage     String?                 // 썸네일 이미지 URL
   infoCollection    Boolean  @default(false) // 폼 필드 ON/OFF 설정 활성화
+  formConfig        Json?                   // 폼 필드 설정 { fields: {...}, additionalFields: [...] }
 
   // 결제 설정 (페이앱 B2B)
   paymentEnabled Boolean  @default(false)

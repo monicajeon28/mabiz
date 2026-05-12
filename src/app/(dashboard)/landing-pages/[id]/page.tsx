@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { ArrowLeft, Eye, Users, MessageSquare } from "lucide-react";
+import { ArrowLeft, Eye, Users, MessageSquare, ImageIcon, Code, Upload, X, GripVertical } from "lucide-react";
 import dynamic from "next/dynamic";
 import { RegistrationsTab } from "./components/RegistrationsTab";
 import { CommentsTab } from "./components/CommentsTab";
@@ -22,11 +22,17 @@ const HtmlEditor = dynamic(
   { ssr: false, loading: () => <div className="h-96 bg-gray-100 animate-pulse rounded-xl" /> }
 );
 
+type UploadedImage = {
+  id: string; assetId: string; url: string; driveFileId: string;
+  width: number; height: number; mimeType: string; fileName: string; sortOrder: number;
+};
+
 export default function EditLandingPage() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
   const id = params.id as string;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [tab, setTab]           = useState<"editor" | "registrations" | "comments">(
     searchParams.get("tab") === "registrations" ? "registrations" :
@@ -35,11 +41,17 @@ export default function EditLandingPage() {
   const [title, setTitle]       = useState("");
   const [slug, setSlug]         = useState("");
   const [html, setHtml]         = useState("");
+  const [editorMode, setEditorMode] = useState<"html" | "image">("html");
   const [preview, setPreview]   = useState(false);
   const [saving, setSaving]     = useState(false);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState("");
   const [saveMsg, setSaveMsg]   = useState("");
+
+  // 이미지 모드
+  const [images, setImages]     = useState<UploadedImage[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [dragIdx, setDragIdx]   = useState<number | null>(null);
   const [groups, setGroups]     = useState<{ id: string; name: string; funnelId: string | null }[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
 
@@ -75,8 +87,19 @@ export default function EditLandingPage() {
         setSlug(pageData.page.slug ?? "");
         setHtml(pageData.page.htmlContent ?? "");
         setSelectedGroupId(pageData.page.groupId ?? "");
+        setEditorMode(pageData.page.editorMode === "image" ? "image" : "html");
         setCommentEnabled(pageData.page.commentEnabled ?? false);
         setPaymentEnabled(pageData.page.paymentEnabled ?? false);
+        // 이미지 로드
+        if (pageData.page.images?.length) {
+          setImages(pageData.page.images.map((img: { id: string; sortOrder: number; altText?: string; imageAsset: { id: string; driveFileId: string; originalFileName: string; mimeType: string; width: number; height: number } }) => ({
+            id: img.id, assetId: img.imageAsset.id,
+            url: `https://drive.google.com/thumbnail?id=${img.imageAsset.driveFileId}&sz=w800`,
+            driveFileId: img.imageAsset.driveFileId, width: img.imageAsset.width || 0,
+            height: img.imageAsset.height || 0, mimeType: img.imageAsset.mimeType || "",
+            fileName: img.imageAsset.originalFileName, sortOrder: img.sortOrder,
+          })));
+        }
         setPaymentType(pageData.page.paymentType ?? "onetime");
         setProductName(pageData.page.productName ?? "");
         setProductPrice(String(pageData.page.productPrice ?? ""));
@@ -156,22 +179,70 @@ export default function EditLandingPage() {
     setGenerating(false);
   };
 
-  const save = async () => {
-    if (!title.trim() || !slug.trim()) {
-      setError("제목과 슬러그를 입력하세요.");
-      return;
+  // 이미지 업로드
+  const uploadFiles = async (files: FileList) => {
+    setUploading(true); setError("");
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.type.startsWith("image/")) continue;
+      if (file.size > 20 * 1024 * 1024) { setError(`${file.name}: 20MB 초과`); continue; }
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("landingPageId", id);
+      formData.append("sortOrder", String(images.length + i));
+      try {
+        const res = await fetch("/api/landing-pages/images", { method: "POST", body: formData });
+        const data = await res.json();
+        if (data.ok) setImages((prev) => [...prev, data.image]);
+        else setError(data.message ?? `${file.name} 업로드 실패`);
+      } catch { setError(`${file.name} 업로드 중 오류`); }
     }
+    setUploading(false);
+  };
+
+  const handleDragStart = (idx: number) => setDragIdx(idx);
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === idx) return;
+    const n = [...images]; const [m] = n.splice(dragIdx, 1); n.splice(idx, 0, m);
+    setImages(n); setDragIdx(idx);
+  };
+  const handleDragEnd = async () => {
+    setDragIdx(null);
+    await fetch("/api/landing-pages/images", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ landingPageId: id, imageIds: images.map((img) => img.id) }),
+    });
+  };
+  const removeImage = async (imgId: string) => {
+    await fetch("/api/landing-pages/images", {
+      method: "DELETE", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: imgId }),
+    });
+    setImages((prev) => prev.filter((img) => img.id !== imgId));
+  };
+
+  const buildHtmlFromImages = (): string => {
+    const imgTags = images.map((img) => {
+      const src = `https://lh3.googleusercontent.com/d/${img.driveFileId}=w1200`;
+      const ar = img.width && img.height ? `aspect-ratio:${img.width}/${img.height};` : "";
+      return `<img src="${src}" alt="랜딩페이지 이미지" style="width:100%;display:block;${ar}" loading="lazy" />`;
+    }).join("\n");
+    return `<div style="margin:0;padding:0;line-height:0;background:#fff;">\n${imgTags}\n</div>\n<form style="max-width:480px;margin:0 auto;padding:32px 20px 48px;background:#fff;font-family:'Pretendard',sans-serif;"><h3 style="text-align:center;font-size:22px;font-weight:700;color:#1a1a1a;margin:0 0 8px;">지금 바로 신청하세요</h3><p style="text-align:center;font-size:14px;color:#888;margin:0 0 24px;">상담 신청 후 담당자가 연락드립니다</p><input type="text" name="name" placeholder="이름" required style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;" /><input type="tel" name="phone" placeholder="연락처 (010-0000-0000)" required style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:16px;box-sizing:border-box;outline:none;" /><button type="submit" style="width:100%;padding:16px;background:#FF6B35;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;">신청하기</button></form>`;
+  };
+
+  const save = async () => {
+    if (!title.trim() || !slug.trim()) { setError("제목과 슬러그를 입력하세요."); return; }
     setSaving(true);
+    const content = editorMode === "image" ? buildHtmlFromImages() : html;
     const res = await fetch(`/api/landing-pages/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title, slug, htmlContent: html,
-        groupId: selectedGroupId || null,
-        paymentEnabled,
+        title, slug, htmlContent: content, editorMode,
+        groupId: selectedGroupId || null, paymentEnabled,
         ...(paymentEnabled ? {
-          paymentType,
-          productName: productName || null,
+          paymentType, productName: productName || null,
           productPrice: parseInt(productPrice) || null,
           ...(paymentType === "subscription" ? { cycleDay: parseInt(cycleDay), expireDate: expireDate || null } : {}),
         } : {}),
@@ -179,12 +250,8 @@ export default function EditLandingPage() {
     });
     const data = await res.json();
     setSaving(false);
-    if (data.ok) {
-      setSaveMsg("저장됐어요!");
-      setTimeout(() => setSaveMsg(""), 2000);
-    } else {
-      setError(data.message ?? "저장 실패");
-    }
+    if (data.ok) { setSaveMsg("저장됐어요!"); setTimeout(() => setSaveMsg(""), 2000); }
+    else { setError(data.message ?? "저장 실패"); }
   };
 
   if (loading) return <div className="h-screen bg-gray-50 animate-pulse" />;
@@ -223,6 +290,17 @@ export default function EditLandingPage() {
         </div>
         {tab === "editor" && (
           <>
+            {/* 모드 토글 */}
+            <div className="flex bg-gray-100 rounded-lg p-0.5">
+              <button onClick={() => setEditorMode("image")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${editorMode === "image" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500"}`}>
+                <ImageIcon className="w-3 h-3" /> 이미지형
+              </button>
+              <button onClick={() => setEditorMode("html")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${editorMode === "html" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500"}`}>
+                <Code className="w-3 h-3" /> HTML형
+              </button>
+            </div>
             <button onClick={() => setPreview(!preview)} className="text-gray-500 hover:text-navy-900 p-1.5">
               <Eye className="w-4 h-4" />
             </button>
@@ -299,9 +377,57 @@ export default function EditLandingPage() {
           </div>
           <div className="flex-1 overflow-hidden">
             {preview ? (
-              <iframe srcDoc={html} className="w-full h-full border-0" title="preview" sandbox="allow-scripts" />
-            ) : (
+              <iframe srcDoc={editorMode === "image" ? buildHtmlFromImages() : html} className="w-full h-full border-0" title="preview" sandbox="allow-scripts" />
+            ) : editorMode === "html" ? (
               <HtmlEditor value={html} onChange={setHtml} />
+            ) : (
+              /* 이미지형 에디터 */
+              <div className="h-full overflow-y-auto p-6 bg-gray-50">
+                <div className="max-w-2xl mx-auto">
+                  <div
+                    className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors mb-6 ${uploading ? "border-gold-400 bg-gold-50" : "border-gray-300 hover:border-gold-400 hover:bg-gray-100"}`}
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); }}
+                  >
+                    <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-gray-600">{uploading ? "업로드 중..." : "이미지를 드래그하거나 클릭하여 업로드"}</p>
+                    <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP → 자동 WebP 변환 / GIF → 압축 유지 / 최대 20MB</p>
+                    <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+                      onChange={(e) => { if (e.target.files) uploadFiles(e.target.files); e.target.value = ""; }} />
+                  </div>
+                  {images.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-sm font-medium text-gray-700">이미지 {images.length}장 — 드래그로 순서 변경</p>
+                      {images.map((img, idx) => (
+                        <div key={img.id} draggable onDragStart={() => handleDragStart(idx)}
+                          onDragOver={(e) => handleDragOver(e, idx)} onDragEnd={handleDragEnd}
+                          className={`flex items-center gap-3 bg-white rounded-xl border p-3 transition-all ${dragIdx === idx ? "border-gold-400 shadow-lg scale-[1.02]" : "border-gray-200 hover:border-gray-300"}`}>
+                          <GripVertical className="w-5 h-5 text-gray-300 cursor-grab shrink-0" />
+                          <div className="w-20 h-14 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                            <img src={img.url} alt="" className="w-full h-full object-cover" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800 truncate">{img.fileName}</p>
+                            <p className="text-xs text-gray-400">{img.width}x{img.height} · {img.mimeType}</p>
+                          </div>
+                          <span className="text-xs text-gray-400 shrink-0">#{idx + 1}</span>
+                          <button onClick={() => removeImage(img.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg shrink-0">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {images.length === 0 && !uploading && (
+                    <div className="text-center py-12 text-gray-400">
+                      <ImageIcon className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                      <p className="text-lg font-medium">이미지를 업로드하면 랜딩페이지가 자동으로 만들어집니다</p>
+                      <p className="text-sm mt-2">이미지가 세로로 쌓이고, 맨 아래에 신청 폼이 자동으로 붙습니다</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </>

@@ -126,11 +126,11 @@ function SignInContent() {
           {/* 프리마케터 간편 등록 */}
           <div className="mt-6 border-t border-slate-200 pt-5">
             <a
-              href="/register/free-marketer"
+              href="/landing"
               className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all"
               style={{ border: '2px solid #C9A84C', color: '#C9A84C', backgroundColor: 'white' }}
             >
-              프리마케터 간편 등록하기
+              프리마케터 간편 문의신청
             </a>
             <p className="text-center text-xs text-slate-400 mt-2">대한민국 최초 판매 CRM / CMS 프로그램</p>
           </div>

@@ -33,14 +33,32 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '랜딩페이지 생성 권한이 없습니다' }, { status: 403 });
     }
     const orgId = requireOrgId(ctx);
-    const { title, slug, htmlContent, groupId } = await req.json();
+    const { title, slug, htmlContent, groupId, editorMode, ...rest } = await req.json();
 
     if (!title?.trim() || !slug?.trim()) {
       return NextResponse.json({ ok: false, message: "제목과 슬러그는 필수입니다." }, { status: 400 });
     }
 
+    const mode = editorMode === 'image' ? 'image' : 'html';
+
     const page = await prisma.crmLandingPage.create({
-      data: { organizationId: orgId, title, slug, htmlContent: htmlContent ?? "", groupId: groupId ?? null },
+      data: {
+        organizationId: orgId, title, slug,
+        htmlContent: htmlContent ?? "",
+        groupId: groupId ?? null,
+        editorMode: mode,
+        // 결제 설정 (있으면)
+        ...(rest.paymentEnabled ? {
+          paymentEnabled: true,
+          paymentType: rest.paymentType ?? null,
+          productName: rest.productName ?? null,
+          productPrice: rest.productPrice ? parseInt(rest.productPrice) : null,
+          ...(rest.paymentType === 'subscription' ? {
+            cycleDay: rest.cycleDay ? parseInt(rest.cycleDay) : null,
+            expireDate: rest.expireDate ? new Date(rest.expireDate) : null,
+          } : {}),
+        } : {}),
+      },
     });
 
     logger.log("[POST /api/landing-pages] 생성", { id: page.id });

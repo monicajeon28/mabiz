@@ -243,6 +243,7 @@ export default function DashboardPage() {
   const [feedLoading, setFeedLoading] = useState(true);
   const [myOrgId, setMyOrgId] = useState<string>("");
   const [linkCopied, setLinkCopied] = useState(false);
+  const [regLinkCopied, setRegLinkCopied] = useState(false);
 
   useEffect(() => {
     fetch("/api/dashboard").then((r) => r.json()).then((d) => {
@@ -304,6 +305,34 @@ export default function DashboardPage() {
                   ? `${window.location.origin}/landing?ref=${myOrgId}`
                   : "로딩 중..."
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 프리마케터 간편 등록 링크 카드 — OWNER/AGENT */}
+      {(role === "GLOBAL_ADMIN" || role === "OWNER" || role === "AGENT") && (
+        <div className="bg-white border-2 border-gold-400 rounded-xl p-5 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-navy-900 mb-1">프리마케터 간편 등록 링크</p>
+              <p className="text-xs text-gray-500">이 링크를 공유하면 프리마케터가 직접 가입할 수 있습니다</p>
+            </div>
+            <button
+              onClick={() => {
+                const baseUrl = window.location.origin;
+                const link = `${baseUrl}/register/free-marketer`;
+                navigator.clipboard.writeText(link).then(() => {
+                  setRegLinkCopied(true);
+                  setTimeout(() => setRegLinkCopied(false), 2000);
+                }).catch(() => { window.prompt("링크를 복사하세요:", link); });
+              }}
+              className="flex items-center gap-2 bg-gold-500 hover:bg-gold-600 text-navy-900 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+            >
+              {regLinkCopied ? <><Check className="w-4 h-4 text-green-600" /> 복사됨!</> : <><Copy className="w-4 h-4" /> 링크 복사</>}
+            </button>
+          </div>
+          <div className="mt-3 bg-gray-50 rounded-lg px-3 py-2 text-xs font-mono text-gray-500 truncate">
+            {typeof window !== "undefined" && `${window.location.origin}/register/free-marketer`}
           </div>
         </div>
       )}

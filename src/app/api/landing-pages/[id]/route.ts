@@ -10,9 +10,22 @@ const PatchSchema = z.object({
   slug:           z.string().min(1).max(100).optional(),
   htmlContent:    z.string().optional(),
   isActive:       z.boolean().optional(),
+  isPublic:       z.boolean().optional(),
   groupId:        z.string().nullable().optional(),
   commentEnabled: z.boolean().optional(),
   autoFunnelId:   z.string().nullable().optional(),
+  // 에디터 고도화 필드
+  editorMode:       z.enum(["html", "image"]).optional(),
+  description:      z.string().nullable().optional(),
+  category:         z.string().nullable().optional(),
+  pageGroup:        z.string().nullable().optional(),
+  buttonTitle:      z.string().nullable().optional(),
+  completionPageUrl: z.string().nullable().optional(),
+  headerScript:     z.string().nullable().optional(),
+  exposureTitle:    z.string().nullable().optional(),
+  exposureImage:    z.string().nullable().optional(),
+  infoCollection:   z.boolean().optional(),
+  formConfig:       z.any().optional(),
   // 결제 설정 (페이앱 B2B)
   paymentEnabled: z.boolean().optional(),
   paymentType:    z.enum(["onetime", "subscription"]).optional(),
@@ -32,7 +45,14 @@ export async function GET(_req: Request, { params }: Params) {
 
     const page = await prisma.crmLandingPage.findFirst({
       where: { id, organizationId: orgId },
-      include: { _count: { select: { registrations: true } }, registrations: { orderBy: { createdAt: "desc" }, take: 50 } },
+      include: {
+        _count: { select: { registrations: true } },
+        registrations: { orderBy: { createdAt: "desc" }, take: 50 },
+        images: {
+          orderBy: { sortOrder: "asc" },
+          include: { imageAsset: { select: { id: true, driveFileId: true, originalFileName: true, mimeType: true, width: true, height: true } } },
+        },
+      },
     });
     if (!page) return NextResponse.json({ ok: false }, { status: 404 });
     return NextResponse.json({ ok: true, page });
@@ -58,20 +78,34 @@ export async function PATCH(req: Request, { params }: Params) {
     if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
 
     const {
-      title, slug, htmlContent, isActive, groupId, commentEnabled, autoFunnelId,
+      title, slug, htmlContent, isActive, isPublic, groupId, commentEnabled, autoFunnelId,
+      editorMode, description, category, pageGroup, buttonTitle, completionPageUrl,
+      headerScript, exposureTitle, exposureImage, infoCollection, formConfig,
       paymentEnabled, paymentType, productName, productPrice, cycleDay, expireDate,
     } = parsed.data;
     const sanitizedContent = htmlContent !== undefined ? sanitizeHtml(htmlContent) : undefined;
     const page = await prisma.crmLandingPage.update({
       where: { id },
       data: {
-        ...(title            !== undefined ? { title }                              : {}),
-        ...(slug             !== undefined ? { slug }                               : {}),
-        ...(sanitizedContent !== undefined ? { htmlContent: sanitizedContent }      : {}),
-        ...(isActive         !== undefined ? { isActive }                           : {}),
-        ...(groupId          !== undefined ? { groupId: groupId ?? null }           : {}),
-        ...(commentEnabled   !== undefined ? { commentEnabled }                     : {}),
-        ...(autoFunnelId     !== undefined ? { autoFunnelId: autoFunnelId ?? null } : {}),
+        ...(title             !== undefined ? { title }                                : {}),
+        ...(slug              !== undefined ? { slug }                                  : {}),
+        ...(sanitizedContent  !== undefined ? { htmlContent: sanitizedContent }         : {}),
+        ...(isActive          !== undefined ? { isActive }                              : {}),
+        ...(isPublic          !== undefined ? { isPublic }                              : {}),
+        ...(groupId           !== undefined ? { groupId: groupId ?? null }              : {}),
+        ...(commentEnabled    !== undefined ? { commentEnabled }                        : {}),
+        ...(autoFunnelId      !== undefined ? { autoFunnelId: autoFunnelId ?? null }    : {}),
+        ...(editorMode        !== undefined ? { editorMode }                            : {}),
+        ...(description       !== undefined ? { description: description ?? null }      : {}),
+        ...(category          !== undefined ? { category: category ?? null }            : {}),
+        ...(pageGroup         !== undefined ? { pageGroup: pageGroup ?? null }          : {}),
+        ...(buttonTitle       !== undefined ? { buttonTitle: buttonTitle ?? null }       : {}),
+        ...(completionPageUrl !== undefined ? { completionPageUrl: completionPageUrl ?? null } : {}),
+        ...(headerScript      !== undefined ? { headerScript: headerScript ?? null }    : {}),
+        ...(exposureTitle     !== undefined ? { exposureTitle: exposureTitle ?? null }   : {}),
+        ...(exposureImage     !== undefined ? { exposureImage: exposureImage ?? null }   : {}),
+        ...(infoCollection    !== undefined ? { infoCollection }                         : {}),
+        ...(formConfig        !== undefined ? { formConfig: formConfig ?? null }        : {}),
         ...(paymentEnabled   !== undefined ? { paymentEnabled }                     : {}),
         ...(paymentType      !== undefined ? { paymentType }                        : {}),
         ...(productName      !== undefined ? { productName: productName ?? null }   : {}),
