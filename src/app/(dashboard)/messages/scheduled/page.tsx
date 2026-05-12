@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { AlarmClock, X, CheckCircle, Clock, XCircle } from "lucide-react";
+import { AlarmClock, X, CheckCircle, Clock, XCircle, Pause, Play, RotateCcw } from "lucide-react";
 
 type ScheduledItem = {
   id: string;
@@ -17,11 +17,13 @@ type ScheduledItem = {
 };
 
 const STATUS_INFO: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  PENDING:   { label: "예약됨",   icon: <Clock      className="w-3.5 h-3.5" />, color: "bg-blue-100 text-blue-700" },
-  SENDING:   { label: "발송 중",  icon: <Clock      className="w-3.5 h-3.5" />, color: "bg-yellow-100 text-yellow-700" },
-  SENT:      { label: "발송 완료", icon: <CheckCircle className="w-3.5 h-3.5" />, color: "bg-green-100 text-green-700" },
-  FAILED:    { label: "실패",     icon: <XCircle    className="w-3.5 h-3.5" />, color: "bg-red-100 text-red-700" },
-  CANCELLED: { label: "취소됨",   icon: <X          className="w-3.5 h-3.5" />, color: "bg-gray-100 text-gray-500" },
+  PENDING:       { label: "예약됨",     icon: <Clock       className="w-3.5 h-3.5" />, color: "bg-blue-100 text-blue-700" },
+  SENDING:       { label: "발송 중",    icon: <Clock       className="w-3.5 h-3.5" />, color: "bg-yellow-100 text-yellow-700" },
+  SENT:          { label: "발송 완료",  icon: <CheckCircle className="w-3.5 h-3.5" />, color: "bg-green-100 text-green-700" },
+  FAILED:        { label: "실패",       icon: <XCircle     className="w-3.5 h-3.5" />, color: "bg-red-100 text-red-700" },
+  CANCELLED:     { label: "취소됨",     icon: <X           className="w-3.5 h-3.5" />, color: "bg-gray-100 text-gray-500" },
+  PAUSED:        { label: "일시정지",   icon: <Pause       className="w-3.5 h-3.5" />, color: "bg-orange-100 text-orange-700" },
+  NIGHT_BLOCKED: { label: "야간 대기",  icon: <Clock       className="w-3.5 h-3.5" />, color: "bg-purple-100 text-purple-700" },
 };
 
 export default function ScheduledSmsPage() {
@@ -46,6 +48,21 @@ export default function ScheduledSmsPage() {
     const data = await res.json();
     if (data.ok) setList((prev) => prev.filter((item) => item.id !== id));
     setCancelling(null);
+  };
+
+  const [acting, setActing] = useState<string | null>(null);
+
+  const doAction = async (id: string, action: "pause" | "resume" | "retry") => {
+    setActing(id);
+    const res = await fetch("/api/scheduled-sms", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action }),
+    });
+    const data = await res.json();
+    if (data.ok) load(filter);
+    else alert(data.message ?? "작업 실패");
+    setActing(null);
   };
 
   return (
@@ -135,17 +152,37 @@ export default function ScheduledSmsPage() {
                     )}
                   </div>
 
-                  {/* 취소 버튼 (PENDING만) */}
-                  {item.status === "PENDING" && (
-                    <button
-                      onClick={() => cancel(item.id)}
-                      disabled={cancelling === item.id}
-                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
-                      title="예약 취소"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
+                  {/* 액션 버튼 */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {/* 일시정지 (PENDING/NIGHT_BLOCKED) */}
+                    {(item.status === "PENDING" || item.status === "NIGHT_BLOCKED") && (
+                      <button onClick={() => doAction(item.id, "pause")} disabled={acting === item.id}
+                        className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors" title="일시정지">
+                        <Pause className="w-4 h-4" />
+                      </button>
+                    )}
+                    {/* 재개 (PAUSED) */}
+                    {item.status === "PAUSED" && (
+                      <button onClick={() => doAction(item.id, "resume")} disabled={acting === item.id}
+                        className="p-1.5 text-gray-400 hover:text-green-500 hover:bg-green-50 rounded-lg transition-colors" title="재개">
+                        <Play className="w-4 h-4" />
+                      </button>
+                    )}
+                    {/* 재발송 (FAILED) */}
+                    {item.status === "FAILED" && (
+                      <button onClick={() => doAction(item.id, "retry")} disabled={acting === item.id}
+                        className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="재발송">
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                    )}
+                    {/* 취소 (PENDING/PAUSED/NIGHT_BLOCKED) */}
+                    {(item.status === "PENDING" || item.status === "PAUSED" || item.status === "NIGHT_BLOCKED") && (
+                      <button onClick={() => cancel(item.id)} disabled={cancelling === item.id}
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="취소">
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );

@@ -404,8 +404,10 @@ model VipCareSequence {
   contactId    String
   funnelId     String?
   startDate    DateTime
-  status       String   @default("ACTIVE")
+  status       String   @default("ACTIVE")  // ACTIVE | PAUSED | CANCELLED
   currentStage Int      @default(0)
+  pausedAt     DateTime?
+  pausedBy     String?
   contact      Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
   logs         VipCareLog[]
 
@@ -421,12 +423,13 @@ model VipCareLog {
   stageOrder  Int
   scheduledAt DateTime
   sentAt      DateTime?
-  status      String          @default("PENDING")
+  status      String          @default("PENDING")  // PENDING | SENDING | SENT | FAILED | NIGHT_BLOCKED | OPTED_OUT | PAUSED | CANCELLED
   content     String?         @db.Text
   sequence    VipCareSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
 
   @@index([sequenceId])
   @@index([scheduledAt])
+  @@index([status])
 }
 
 // ─── 문자 템플릿 라이브러리 ────────────────────────────────────
@@ -621,11 +624,14 @@ model ScheduledSms {
   groupId        String?   // 그룹 발송 대상
   message        String    @db.Text
   scheduledAt    DateTime  // 발송 예정 시각 (KST 기준 UTC 저장)
-  status         String    @default("PENDING")  // PENDING | SENT | FAILED | CANCELLED
+  status         String    @default("PENDING")  // PENDING | SENDING | SENT | FAILED | CANCELLED | PAUSED | NIGHT_BLOCKED
   sentAt         DateTime?
   sentCount      Int       @default(0)
   failedCount    Int       @default(0)
   createdByUserId String?
+  pausedAt       DateTime?
+  pausedBy       String?
+  failureReason  String?
 
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
