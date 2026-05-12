@@ -38,11 +38,15 @@ export async function GET(req: NextRequest) {
     const toDate   = new Date(`${toStr}T23:59:59.999Z`);
 
     // 조직 ID 결정
-    const orgId = ctx.organizationId;
+    // GLOBAL_ADMIN은 ?orgId=xxx 쿼리 파라미터로 특정 조직 필터링 가능
+    const paramOrgId = searchParams.get('orgId');
+    const effectiveOrgId = ctx.role === 'GLOBAL_ADMIN'
+      ? (paramOrgId ?? undefined)   // undefined = 전체 (필터 없음)
+      : ctx.organizationId ?? undefined;
 
     // ── AGENT 역할 멤버 조회 ────────────────────────────────────
-    const agentWhere = orgId
-      ? { organizationId: orgId, isActive: true, role: 'AGENT' }
+    const agentWhere = effectiveOrgId
+      ? { organizationId: effectiveOrgId, isActive: true, role: 'AGENT' }
       : { isActive: true, role: 'AGENT' };
 
     const agents = await prisma.organizationMember.findMany({
@@ -64,14 +68,15 @@ export async function GET(req: NextRequest) {
     });
 
     // ── AGENT 리드 수 집계 (날짜 필터 적용) ─────────────────────
+    // Contact.assignedUserId = OrganizationMember.id (cuid) 기준으로 저장됨
     const agentLeadCountMap = new Map<string, number>();
     if (agents.length > 0) {
-      const userIds = agents.map((a) => a.userId);
+      const memberIds = agents.map((a) => a.id);
       const leadCounts = await prisma.contact.groupBy({
         by: ['assignedUserId'],
         where: {
-          assignedUserId: { in: userIds },
-          ...(orgId ? { organizationId: orgId } : {}),
+          assignedUserId: { in: memberIds },
+          ...(effectiveOrgId ? { organizationId: effectiveOrgId } : {}),
           createdAt: { gte: fromDate, lte: toDate },
         },
         _count: { _all: true },
@@ -84,6 +89,7 @@ export async function GET(req: NextRequest) {
     }
 
     // ── AGENT 판매 집계 (완료된 판매만) ────────────────────────
+    // AffiliateSale.affiliateUserId = OrganizationMember.userId 기준
     const salesMap = new Map<string, { count: number; salesCommission: number }>();
     if (agents.length > 0) {
       const userIds = agents.map((a) => a.userId);
@@ -92,7 +98,7 @@ export async function GET(req: NextRequest) {
         where: {
           affiliateUserId: { in: userIds },
           status: { in: ['EARNED', 'PAID'] },
-          ...(orgId ? { organizationId: orgId } : {}),
+          ...(effectiveOrgId ? { organizationId: effectiveOrgId } : {}),
         },
         _count: { _all: true },
         _sum: { commissionAmount: true },
@@ -110,7 +116,8 @@ export async function GET(req: NextRequest) {
     // ── AGENT 메트릭 조합 + 판매 수 기준 내림차순 정렬 ──────────
     const metrics = agents
       .map((agent) => {
-        const leadTotal = agentLeadCountMap.get(agent.userId) ?? 0;
+        // 리드: OrganizationMember.id 기준, 판매: OrganizationMember.userId 기준
+        const leadTotal = agentLeadCountMap.get(agent.id) ?? 0;
         const saleData  = salesMap.get(agent.userId);
         return {
           agent: {
@@ -130,9 +137,9 @@ export async function GET(req: NextRequest) {
 
     // ── FREE_SALES 멤버 조회 ────────────────────────────────────
     // OrganizationMember.phone → User.affiliateCode 조회 (Raw SQL)
-    // OWNER: 자기 org의 FREE_SALES만, GLOBAL_ADMIN: 전체
-    const fsOrgFilter = orgId
-      ? Prisma.sql`AND m."organizationId" = ${orgId}`
+    // OWNER: 자기 org의 FREE_SALES만, GLOBAL_ADMIN: effectiveOrgId 지정시 필터, 미지정시 전체
+    const fsOrgFilter = effectiveOrgId
+      ? Prisma.sql`AND m."organizationId" = ${effectiveOrgId}`
       : Prisma.sql``;
 
     const freeSalesRows = await prisma.$queryRaw<FreeSalesMemberRow[]>(Prisma.sql`
@@ -164,7 +171,7 @@ export async function GET(req: NextRequest) {
         by: ['affiliateCode', 'type'],
         where: {
           affiliateCode: { in: validAffiliateCodes },
-          ...(orgId ? { organizationId: orgId } : {}),
+          ...(effectiveOrgId ? { organizationId: effectiveOrgId } : {}),
           createdAt: { gte: fromDate, lte: toDate },
         },
         _count: { _all: true },
@@ -213,7 +220,7 @@ export async function GET(req: NextRequest) {
 
     logger.log('[team/agents] 판매원 리더보드 조회', {
       role: ctx.role,
-      orgId: orgId ?? 'global',
+      orgId: effectiveOrgId ?? 'global',
       agentCount: agents.length,
       freeSalesCount: freeSales.length,
       period: { from: fromStr, to: toStr },

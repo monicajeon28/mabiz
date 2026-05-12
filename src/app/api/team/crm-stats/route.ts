@@ -1,20 +1,42 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { getCache, setCache } from '@/lib/redis';
 
-const BONSA_ORG_ID = 'org_bonsa_cruisedot';
-
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const ctx = await getAuthContext();
     if (ctx.role === 'FREE_SALES') return NextResponse.json({ ok: false }, { status: 403 });
 
-    const orgId = ctx.role === 'GLOBAL_ADMIN' ? BONSA_ORG_ID : requireOrgId(ctx);
+    // ── query param 파싱 ──────────────────────────────────────
+    const paramOrgId = req.nextUrl.searchParams.get('orgId') ?? undefined;
 
-    // 캐시 조회
-    const cacheKey = `crm-stats:${orgId}:v1`;
+    // ── 조직 목록 조회 (GLOBAL_ADMIN만) ──────────────────────
+    const orgs =
+      ctx.role === 'GLOBAL_ADMIN'
+        ? await prisma.organization.findMany({
+            select: { id: true, name: true },
+            orderBy: { name: 'asc' },
+          })
+        : null;
+
+    // ── 집계에 사용할 실제 orgId 결정 ──────────────────────────
+    // GLOBAL_ADMIN + orgId 없음 → undefined (전체 집계, where 필터 없음)
+    // GLOBAL_ADMIN + orgId 있음 → 지정된 orgId
+    // OWNER/AGENT          → 자기 조직 ID
+    let effectiveOrgId: string | undefined;
+    if (ctx.role === 'GLOBAL_ADMIN') {
+      effectiveOrgId = paramOrgId; // 없으면 undefined → 전체 모드
+    } else {
+      effectiveOrgId = requireOrgId(ctx);
+    }
+
+    // ── 전체 모드(GLOBAL_ADMIN + orgId 없음) 여부 ────────────
+    const isGlobalAll = ctx.role === 'GLOBAL_ADMIN' && !effectiveOrgId;
+
+    // ── 캐시 키 (전체 모드는 'all', 조직 지정이면 orgId) ──────
+    const cacheKey = `crm-stats:${effectiveOrgId ?? 'all'}:v2`;
     const cached = await getCache(cacheKey);
     if (cached) {
       return NextResponse.json(cached, {
@@ -22,38 +44,53 @@ export async function GET() {
       });
     }
 
-    // KST 기준 이번 달 범위 계산
+    // ── KST 기준 이번 달 범위 계산 ───────────────────────────
     const kstOffset = 9 * 60 * 60 * 1000;
     const now = new Date(Date.now() + kstOffset);
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1) - kstOffset);
 
-    // 7-way Promise.all: members + 6개 count() 쿼리 병합
-    const [members, totalContacts, totalLeads, totalCustomers, monthLeads, monthCustomers, optOutCount] = await Promise.all([
-      prisma.organizationMember.findMany({
-        where: { organizationId: orgId, isActive: true },
-        select: { userId: true, displayName: true, role: true },
-      }),
-      prisma.contact.count({ where: { organizationId: orgId } }),
-      prisma.contact.count({ where: { organizationId: orgId, type: 'LEAD' } }),
-      prisma.contact.count({ where: { organizationId: orgId, type: 'CUSTOMER' } }),
-      prisma.contact.count({
-        where: { organizationId: orgId, type: 'LEAD', createdAt: { gte: monthStart } },
-      }),
-      prisma.contact.count({
-        where: { organizationId: orgId, purchasedAt: { gte: monthStart } },
-      }),
-      prisma.contact.count({
-        where: { organizationId: orgId, optOutAt: { not: null } },
-      }),
-    ]);
+    // ── organizationId 필터 (전체 모드에서는 필터 없음) ───────
+    const orgFilter = effectiveOrgId ? { organizationId: effectiveOrgId } : {};
+
+    // ── 7-way Promise.all: members + 6개 count() 쿼리 병합 ──
+    const [members, totalContacts, totalLeads, totalCustomers, monthLeads, monthCustomers, optOutCount] =
+      await Promise.all([
+        // 전체 모드에서는 멤버가 너무 많으므로 빈 배열 반환
+        isGlobalAll
+          ? Promise.resolve([])
+          : prisma.organizationMember.findMany({
+              where: { organizationId: effectiveOrgId!, isActive: true },
+              select: { userId: true, displayName: true, role: true },
+            }),
+        prisma.contact.count({ where: { ...orgFilter } }),
+        prisma.contact.count({ where: { ...orgFilter, type: 'LEAD' } }),
+        prisma.contact.count({ where: { ...orgFilter, type: 'CUSTOMER' } }),
+        prisma.contact.count({
+          where: { ...orgFilter, type: 'LEAD', createdAt: { gte: monthStart } },
+        }),
+        prisma.contact.count({
+          where: { ...orgFilter, purchasedAt: { gte: monthStart } },
+        }),
+        prisma.contact.count({
+          where: { ...orgFilter, optOutAt: { not: null } },
+        }),
+      ]);
 
     const conversionRate =
       totalLeads > 0 ? Math.round((totalCustomers / totalLeads) * 100 * 10) / 10 : 0;
 
-    logger.log('[TeamCrmStats]', { orgId, totalContacts, optOutCount });
+    logger.log('[TeamCrmStats]', {
+      role: ctx.role,
+      effectiveOrgId: effectiveOrgId ?? 'ALL',
+      totalContacts,
+      optOutCount,
+    });
 
     const responseData = {
       ok: true,
+      role: ctx.role,
+      // GLOBAL_ADMIN에게만 조직 목록 제공 (OWNER는 null)
+      ...(orgs !== null && { orgs }),
       members,
       summary: {
         totalContacts,

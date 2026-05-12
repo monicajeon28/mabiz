@@ -194,10 +194,12 @@ function LeaderboardSection({
   period,
   customFrom,
   customTo,
+  orgId,
 }: {
   period: Period;
   customFrom: string;
   customTo: string;
+  orgId: string;
 }) {
   const [agents, setAgents] = useState<AgentMetric[]>([]);
   const [loading, setLoading] = useState(true);
@@ -210,15 +212,16 @@ function LeaderboardSection({
     if (period === "custom" && (!range.from || !range.to)) return;
 
     setLoading(true);
-    const qs = new URLSearchParams({ from: range.from, to: range.to }).toString();
-    fetch(`/api/team/agents?${qs}`)
+    const qs = new URLSearchParams({ from: range.from, to: range.to });
+    if (orgId) qs.set("orgId", orgId);
+    fetch(`/api/team/agents?${qs.toString()}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) setAgents(d.metrics ?? []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [period, customFrom, customTo]);
+  }, [period, customFrom, customTo, orgId]);
 
   useEffect(() => {
     load();
@@ -418,15 +421,23 @@ export default function TeamPage() {
 
   const [activeTab, setActiveTab] = useState<"crm" | "leaderboard" | "freesales">("crm");
 
-  // CRM 성과 탭 데이터 (날짜 필터 없음 — 누적)
-  useEffect(() => {
-    fetch("/api/team/crm-stats")
+  // GLOBAL_ADMIN 조직 선택
+  const [role, setRole] = useState<string | null>(null);
+  const [orgs, setOrgs] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedOrgId, setSelectedOrgId] = useState<string>(""); // "" = 전체
+
+  // CRM 성과 탭 데이터
+  const loadCrmStats = useCallback(() => {
+    const qs = selectedOrgId ? `?orgId=${selectedOrgId}` : "";
+    fetch(`/api/team/crm-stats${qs}`)
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) {
           showError("팀 성과 데이터를 불러올 수 없습니다.");
           return;
         }
+        setRole(data.role ?? null);
+        setOrgs(data.orgs ?? []);
         setMembers(data.members ?? []);
         setSummary(data.summary ?? null);
       })
@@ -435,7 +446,11 @@ export default function TeamPage() {
         showError("서버 오류가 발생했습니다.");
       })
       .finally(() => setCrmLoading(false));
-  }, []);
+  }, [selectedOrgId]);
+
+  useEffect(() => {
+    loadCrmStats();
+  }, [loadCrmStats]);
 
   // 프리세일즈 데이터 — agents API 에서 freeSales 필드 사용
   const loadFreeSales = useCallback(() => {
@@ -443,15 +458,16 @@ export default function TeamPage() {
     if (period === "custom" && (!range.from || !range.to)) return;
 
     setFreeSalesLoading(true);
-    const qs = new URLSearchParams({ from: range.from, to: range.to }).toString();
-    fetch(`/api/team/agents?${qs}`)
+    const qs = new URLSearchParams({ from: range.from, to: range.to });
+    if (selectedOrgId) qs.set("orgId", selectedOrgId);
+    fetch(`/api/team/agents?${qs.toString()}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) setFreeSales(d.freeSales ?? []);
       })
       .catch(() => {})
       .finally(() => setFreeSalesLoading(false));
-  }, [period, customFrom, customTo]);
+  }, [period, customFrom, customTo, selectedOrgId]);
 
   // 프리세일즈 탭 활성화 시 or 필터 변경 시 로드
   useEffect(() => {
@@ -474,6 +490,23 @@ export default function TeamPage() {
         <h1 className="text-2xl font-bold text-navy-900">팀 성과</h1>
         <p className="text-sm text-gray-500 mt-1">조직 전체 CRM 실적 및 판매원 순위</p>
       </div>
+
+      {/* 조직 선택 드롭다운 — GLOBAL_ADMIN 전용 */}
+      {role === "GLOBAL_ADMIN" && orgs.length > 0 && (
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500">조직 선택</span>
+          <select
+            value={selectedOrgId}
+            onChange={(e) => setSelectedOrgId(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-navy-300 bg-white"
+          >
+            <option value="">전체 합산</option>
+            {orgs.map((o) => (
+              <option key={o.id} value={o.id}>{o.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* 탭 */}
       <div className="flex flex-wrap gap-2 border-b pb-3">
@@ -598,7 +631,7 @@ export default function TeamPage() {
             customTo={customTo}
             setCustomTo={setCustomTo}
           />
-          <LeaderboardSection period={period} customFrom={customFrom} customTo={customTo} />
+          <LeaderboardSection period={period} customFrom={customFrom} customTo={customTo} orgId={selectedOrgId} />
         </>
       )}
 
