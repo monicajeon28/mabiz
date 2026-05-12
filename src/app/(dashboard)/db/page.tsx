@@ -380,15 +380,27 @@ export default function DbPage() {
           </div>
         </div>
 
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".xlsx,.xls"
+          onChange={(e) => {
+            handleFileSelect(e);
+            handleImportNew(e);
+          }}
+          disabled={importing}
+          className="hidden"
+        />
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
+          onClick={() => !importing && fileRef.current?.click()}
           className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
             dragActive
               ? "border-blue-500 bg-blue-50"
               : importing
-              ? "border-gray-200 bg-gray-50"
+              ? "border-gray-200 bg-gray-50 cursor-not-allowed"
               : "border-gray-300 hover:border-gold-400 hover:bg-gold-50/30"
           }`}
         >
@@ -407,19 +419,6 @@ export default function DbPage() {
               )}
             </div>
           )}
-          <label className="absolute inset-0 flex items-center justify-center cursor-pointer">
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={(e) => {
-                handleFileSelect(e);
-                handleImportNew(e);
-              }}
-              disabled={importing}
-              className="hidden"
-            />
-          </label>
         </div>
           </div>
         )}

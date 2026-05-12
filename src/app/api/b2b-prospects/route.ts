@@ -13,12 +13,14 @@ export async function GET(req: Request) {
     const orgId = requireOrgId(ctx);
     const url = new URL(req.url);
 
-    const q     = url.searchParams.get('q');
-    const page  = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'));
-    const limit = Math.min(50, parseInt(url.searchParams.get('limit') ?? '20'));
+    const q       = url.searchParams.get('q');
+    const eduType = url.searchParams.get('eduType');
+    const page    = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'));
+    const limit   = Math.min(50, parseInt(url.searchParams.get('limit') ?? '20'));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = { organizationId: orgId };
+    if (eduType) where.eduType = eduType;
     if (q) {
       where.OR = [
         { name: { contains: q, mode: 'insensitive' } },
@@ -51,7 +53,8 @@ export async function POST(req: Request) {
     const orgId = requireOrgId(ctx);
     const body = await req.json();
 
-    const { name, phone, email, companyName, position, status, notes } = body;
+    const { name, phone, email, companyName, position, status, notes,
+            eduType, productName, paymentAmount, paymentDate } = body;
     if (!name || !phone) {
       return NextResponse.json({ ok: false, message: '이름과 전화번호는 필수입니다.' }, { status: 400 });
     }
@@ -64,6 +67,10 @@ export async function POST(req: Request) {
         position: position ?? null,
         status: status ?? 'NEW',
         notes: notes ?? null,
+        eduType: eduType ?? 'INQUIRER',
+        productName: productName ?? null,
+        paymentAmount: paymentAmount ?? null,
+        paymentDate: paymentDate ?? null,
       },
     });
     return NextResponse.json({ ok: true, prospect }, { status: 201 });

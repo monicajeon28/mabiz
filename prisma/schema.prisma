@@ -776,12 +776,20 @@ model B2BProspect {
   source          String?   // 유입 경로 (B2B_LANDING, DIRECT, REFERRAL 등)
   affiliateCode   String?   // 유입시킨 파트너 코드
 
+  // 구매자/문의자 구분
+  eduType         String    @default("INQUIRER")  // BUYER | INQUIRER
+  // B2B 구매 정보 (구매자 탭 전용)
+  productName     String?
+  paymentAmount   Int?
+  paymentDate     String?
+
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   @@index([organizationId, status])
+  @@index([organizationId, eduType])
   @@index([assignedUserId])
   @@index([affiliateCode])
   @@map("CrmB2BProspect")

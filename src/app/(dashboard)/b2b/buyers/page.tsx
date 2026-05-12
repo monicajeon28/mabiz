@@ -44,7 +44,7 @@ export default function BuyersPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: "30" });
+    const params = new URLSearchParams({ page: String(page), limit: "30", eduType: "BUYER" });
     if (filter) params.set("status", filter);
     if (q)      params.set("q", q);
     const res  = await fetch(`/api/b2b-prospects?${params}`);
