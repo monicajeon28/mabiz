@@ -444,6 +444,10 @@ function CruiseDotPartnersForm() {
       setErrorMsg('연락처를 입력해 주세요.');
       return;
     }
+    if (!email.trim() || !email.includes('@')) {
+      setErrorMsg('이메일을 입력해 주세요. 승인 시 아이디·임시 비밀번호가 이메일로 발송됩니다.');
+      return;
+    }
     if (!allConsents) {
       setErrorMsg('필수 동의 항목을 모두 확인해 주세요.');
       return;
@@ -790,7 +794,9 @@ function CruiseDotPartnersForm() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                이메일 <span className="text-red-500">*</span>
+              </label>
               <input
                 type="email"
                 value={email}
@@ -798,6 +804,9 @@ function CruiseDotPartnersForm() {
                 placeholder="example@email.com"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               />
+              <p className="text-xs text-blue-600 mt-1 font-medium">
+                ✉ 승인 완료 시 이메일로 아이디·임시 비밀번호가 발송됩니다.
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">주소</label>
