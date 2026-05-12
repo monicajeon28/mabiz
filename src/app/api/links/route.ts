@@ -28,21 +28,28 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    // GLOBAL_ADMIN은 BONSA_ORG_ID 사용
+    const orgId = ctx.role === 'GLOBAL_ADMIN'
+      ? (ctx.organizationId ?? (await import('@/lib/rbac').then(m => m.BONSA_ORG_ID)))
+      : requireOrgId(ctx);
     const body  = await req.json() as { targetUrl: string; title?: string; category?: string; contactId?: string; autoGroupId?: string };
 
     if (!body.targetUrl) return NextResponse.json({ ok: false, message: 'targetUrl 필수' }, { status: 400 });
 
-    // URL 유효성 + SSRF 방어
+    // URL 유효성 + SSRF 방어 (개발환경 localhost 허용)
+    const isDev = process.env.NODE_ENV === 'development';
     try {
       const parsed = new URL(body.targetUrl);
-      if (parsed.protocol !== 'https:') {
-        return NextResponse.json({ ok: false, message: 'https URL만 허용됩니다' }, { status: 400 });
-      }
       const h = parsed.hostname;
-      const isPrivate = /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1$|localhost$)/i.test(h);
-      if (isPrivate) {
-        return NextResponse.json({ ok: false, message: '내부 네트워크 URL은 허용되지 않습니다' }, { status: 400 });
+      const isLocalhost = /^(localhost|127\.0\.0\.1|::1)$/i.test(h);
+      if (!isDev || !isLocalhost) {
+        if (parsed.protocol !== 'https:') {
+          return NextResponse.json({ ok: false, message: 'https URL만 허용됩니다' }, { status: 400 });
+        }
+        const isPrivate = /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1$|localhost$)/i.test(h);
+        if (isPrivate) {
+          return NextResponse.json({ ok: false, message: '내부 네트워크 URL은 허용되지 않습니다' }, { status: 400 });
+        }
       }
     } catch { return NextResponse.json({ ok: false, message: '유효하지 않은 URL' }, { status: 400 }); }
 
