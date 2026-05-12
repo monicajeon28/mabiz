@@ -145,19 +145,39 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const created = await prisma.cabinInventory.createMany({
-      data: cabins.map((c: { cabinType: string; totalCount: number }) => ({
-        organizationId,
-        tripName,
-        tripCode: tripCode ?? null,
-        departureDate: departureDate ? new Date(departureDate) : null,
-        shipName: shipName ?? null,
-        cabinType: c.cabinType,
-        totalCount: c.totalCount,
-        bookedCount: 0,
-        status: 'AVAILABLE',
-      })),
-    });
+    // upsert: 같은 (organizationId, tripCode, cabinType)이 이미 있으면 totalCount 업데이트
+    const upsertResults = await Promise.all(
+      cabins.map((c: { cabinType: string; totalCount: number }) =>
+        prisma.cabinInventory.upsert({
+          where: {
+            organizationId_tripCode_cabinType: {
+              organizationId,
+              tripCode: tripCode ?? '',
+              cabinType: c.cabinType,
+            },
+          },
+          create: {
+            organizationId,
+            tripName,
+            tripCode: tripCode ?? null,
+            departureDate: departureDate ? new Date(departureDate) : null,
+            shipName: shipName ?? null,
+            cabinType: c.cabinType,
+            totalCount: c.totalCount,
+            bookedCount: 0,
+            status: 'AVAILABLE',
+          },
+          update: {
+            totalCount: c.totalCount,
+            tripName,
+            departureDate: departureDate ? new Date(departureDate) : null,
+            shipName: shipName ?? null,
+            status: 'AVAILABLE',
+          },
+        }),
+      ),
+    );
+    const created = { count: upsertResults.length };
 
     logger.info('[cabin-inventory] POST created', {
       organizationId,

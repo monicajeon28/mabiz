@@ -110,7 +110,9 @@ export async function GET(req: NextRequest) {
     // preview=1 이면 JSON 반환 (미리보기용)
     const isPreview = req.nextUrl.searchParams.get('preview') === '1';
 
-    // ── 1. GmTrip 조회 ──────────────────────────────────────────
+    // ── 1. Trip 조회 (없으면 CruiseProduct 폴백) ────────────────
+    let trip: TripRow;
+
     const trips = await prisma.$queryRaw<TripRow[]>`
       SELECT id, "productCode", "shipName", "departureDate", "cruiseName"
       FROM "Trip"
@@ -119,13 +121,31 @@ export async function GET(req: NextRequest) {
       LIMIT 10
     `;
 
-    if (trips.length === 0) {
-      return NextResponse.json({ ok: false, error: '해당 상품코드의 여행 일정을 찾을 수 없습니다.' }, { status: 404 });
+    if (trips.length > 0) {
+      const now = new Date();
+      trip = trips.find((t) => t.departureDate >= now) ?? trips[0]!;
+    } else {
+      // Trip 레코드 없음 → CruiseProduct에서 폴백
+      type CpRow = { id: number; productCode: string; shipName: string; startDate: Date | null; packageName: string | null };
+      const cpRows = await prisma.$queryRaw<CpRow[]>`
+        SELECT id, "productCode", "shipName", "startDate", "packageName"
+        FROM "CruiseProduct"
+        WHERE "productCode" = ${productCode}
+        LIMIT 1
+      `;
+      if (cpRows.length === 0) {
+        return NextResponse.json({ ok: false, error: '해당 상품코드를 찾을 수 없습니다.' }, { status: 404 });
+      }
+      const cp = cpRows[0]!;
+      // Trip 형태로 변환 (id = 0 더미, 예약 쿼리에서 0으로 검색하면 빈 결과)
+      trip = {
+        id: 0,
+        productCode: cp.productCode,
+        shipName: cp.shipName,
+        departureDate: cp.startDate ?? new Date(),
+        cruiseName: cp.packageName,
+      };
     }
-
-    // 가장 가까운 미래 출발일 우선, 없으면 첫 번째
-    const now = new Date();
-    const trip = trips.find((t) => t.departureDate >= now) ?? trips[0]!;
 
     // ── 2. 예약 목록 조회 ────────────────────────────────────────
     const reservations = await prisma.$queryRaw<ReservationRow[]>`

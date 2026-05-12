@@ -101,15 +101,43 @@ function formatPrice(price: number) {
 
 function DdayBadge({ daysLeft }: { daysLeft: number | null }) {
   if (daysLeft === null) return <span className="text-gray-400 text-xs">-</span>;
+
+  let badge: React.ReactNode;
   if (daysLeft === 0)
-    return <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white">D-day</span>;
-  if (daysLeft < 0)
-    return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-500">D+{Math.abs(daysLeft)}</span>;
-  if (daysLeft <= 7)
-    return <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">D-{daysLeft}</span>;
-  if (daysLeft <= 30)
-    return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">D-{daysLeft}</span>;
-  return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">D-{daysLeft}</span>;
+    badge = <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white">D-day</span>;
+  else if (daysLeft < 0)
+    badge = <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-500">D+{Math.abs(daysLeft)}</span>;
+  else if (daysLeft <= 7)
+    badge = <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">D-{daysLeft}</span>;
+  else if (daysLeft <= 30)
+    badge = <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">D-{daysLeft}</span>;
+  else
+    badge = <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">D-{daysLeft}</span>;
+
+  // 마일스톤 배지: 6개월(180일) ±2주, 3개월(90일) ±2주
+  let milestone: React.ReactNode = null;
+  if (daysLeft > 0) {
+    if (daysLeft >= 166 && daysLeft <= 180) {
+      milestone = (
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500 text-white leading-none">
+          6개월임박
+        </span>
+      );
+    } else if (daysLeft >= 76 && daysLeft <= 90) {
+      milestone = (
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-500 text-white leading-none">
+          3개월임박
+        </span>
+      );
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      {badge}
+      {milestone}
+    </div>
+  );
 }
 
 function SaleStatusBadge({ status }: { status: string | null }) {
