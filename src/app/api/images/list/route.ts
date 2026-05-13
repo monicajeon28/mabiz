@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgIdOrNull } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -10,7 +10,7 @@ import { logger } from '@/lib/logger';
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx);
 
     const { searchParams } = new URL(req.url);
     const category = searchParams.get('category');
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
 
     // WHERE 조건 구성
     const where = {
-      organizationId: orgId,
+      ...(orgId ? { organizationId: orgId } : {}),
       ...(category && { category }),
       ...(tags.length > 0 && { tags: { hasSome: tags } }),
       ...(search && {

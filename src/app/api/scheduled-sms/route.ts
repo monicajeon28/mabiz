@@ -1,20 +1,20 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId, resolveOrgIdOrNull } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 // GET /api/scheduled-sms?status=PENDING
 export async function GET(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx);
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status") ?? undefined;
 
     const list = await prisma.scheduledSms.findMany({
       where: {
-        organizationId: orgId,
+        ...(orgId ? { organizationId: orgId } : {}),
         ...(status ? { status } : {}),
       },
       orderBy: { scheduledAt: "asc" },
@@ -38,7 +38,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const body = await req.json() as {
       contactId?: string;

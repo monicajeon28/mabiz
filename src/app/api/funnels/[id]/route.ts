@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId, canDelete } from "@/lib/rbac";
+import { getAuthContext, resolveOrgIdOrNull, resolveOrgId, canDelete } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 type Params = { params: Promise<{ id: string }> };
@@ -9,11 +9,11 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx);
     const { id } = await params;
 
     const funnel = await prisma.funnel.findFirst({
-      where: { id, organizationId: orgId },
+      where: { id, ...(orgId ? { organizationId: orgId } : {}) },
       include: { stages: { orderBy: { order: "asc" } } },
     });
     if (!funnel) return NextResponse.json({ ok: false }, { status: 404 });
@@ -29,7 +29,7 @@ export async function GET(_req: Request, { params }: Params) {
 export async function PATCH(req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
     const existing = await prisma.funnel.findFirst({
@@ -64,7 +64,7 @@ export async function PATCH(req: Request, { params }: Params) {
 export async function DELETE(_req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
     if (!canDelete(ctx)) {

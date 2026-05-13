@@ -1010,7 +1010,7 @@ model GoldMember {
   memberCode     String   @unique   // 골드 업그레이드 코드 (6자리 대문자)
 
   // 코스 정보
-  courseType     String   // A | B | C
+  courseType     String   // A | B | C | HEALTH(건강)
 
   // 가입/납부 정보
   joinDate       DateTime

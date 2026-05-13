@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgIdOrNull } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 // GET /api/marketing/sales
 export async function GET() {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx);
 
     if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false }, { status: 403 });
@@ -21,8 +21,8 @@ export async function GET() {
     // 이 조직의 AffiliateSale(orderId 있는 것)을 기준으로 PayAppPayment를 조인
     const sales = await prisma.affiliateSale.findMany({
       where: {
-        organizationId: orgId,
-        orderId:        { not: null },
+        ...(orgId ? { organizationId: orgId } : {}),
+        orderId: { not: null },
       },
       select: { orderId: true },
     });
@@ -104,7 +104,7 @@ export async function GET() {
 
     const landingPages = landingIds.length > 0
       ? await prisma.crmLandingPage.findMany({
-          where: { id: { in: landingIds }, organizationId: orgId },
+          where: { id: { in: landingIds }, ...(orgId ? { organizationId: orgId } : {}) },
           select: { id: true, title: true },
         })
       : [];

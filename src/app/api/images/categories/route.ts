@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgIdOrNull } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -10,11 +10,12 @@ import { logger } from '@/lib/logger';
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx);
+    const orgWhere = orgId ? { organizationId: orgId } : {};
 
     // 카테고리 목록 조회
     const categories = await prisma.imageAsset.findMany({
-      where: { organizationId: orgId },
+      where: orgWhere,
       distinct: ['category'],
       select: { category: true },
       orderBy: { category: 'asc' },
@@ -25,7 +26,7 @@ export async function GET(req: Request) {
       categories.map(async (cat) => {
         const count = await prisma.imageAsset.count({
           where: {
-            organizationId: orgId,
+            ...orgWhere,
             category: cat.category,
           },
         });
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
 
     // 모든 태그 추출 (중복 제거)
     const allAssets = await prisma.imageAsset.findMany({
-      where: { organizationId: orgId },
+      where: orgWhere,
       select: { tags: true },
     });
 

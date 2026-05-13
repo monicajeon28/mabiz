@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { normalizePhone } from '@/lib/import-utils';
 import { logger } from '@/lib/logger';
 
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const { phone, content } = await req.json();
 

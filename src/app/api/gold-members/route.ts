@@ -102,8 +102,8 @@ export async function POST(req: NextRequest) {
     if (!name || !phone || !courseType || !joinDate) {
       return NextResponse.json({ ok: false, error: '이름, 전화번호, 코스, 가입날짜는 필수입니다.' }, { status: 400 });
     }
-    if (!['A', 'B', 'C'].includes(courseType)) {
-      return NextResponse.json({ ok: false, error: '코스는 A, B, C 중 하나여야 합니다.' }, { status: 400 });
+    if (!['A', 'B', 'C', 'HEALTH'].includes(courseType)) {
+      return NextResponse.json({ ok: false, error: '코스는 A, B, C, 건강 중 하나여야 합니다.' }, { status: 400 });
     }
 
     const organizationId = ctx.organizationId ?? (await prisma.organization.findFirst({ select: { id: true } }))?.id;
@@ -118,6 +118,9 @@ export async function POST(req: NextRequest) {
     }
     if (!memberCode) return NextResponse.json({ ok: false, error: '코드 생성 실패' }, { status: 500 });
 
+    // ABC코스: 의무납입 60회 기본, 건강코스: 의무납입 없음(0)
+    const defaultTotal = courseType === 'HEALTH' ? 0 : 60;
+
     const member = await prisma.goldMember.create({
       data: {
         organizationId,
@@ -128,7 +131,7 @@ export async function POST(req: NextRequest) {
         courseType,
         joinDate: new Date(joinDate),
         paymentDay: paymentDay ?? null,
-        totalPayments: totalPayments ?? 0,
+        totalPayments: courseType === 'HEALTH' ? 0 : (totalPayments ?? defaultTotal),
         paidCount: 0,
         memo: memo || null,
       },

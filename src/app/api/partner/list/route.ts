@@ -2,14 +2,14 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgIdOrNull } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 // GET /api/partner/list?month=5&year=2026
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx);
 
     const { searchParams } = new URL(req.url);
     const month = parseInt(searchParams.get('month') ?? String(new Date().getMonth() + 1));
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
     const partners = await prisma.partner.findMany({
       where: {
-        organizationId: orgId,
+        ...(orgId ? { organizationId: orgId } : {}),
         status: 'ACTIVE',
       },
       include: {

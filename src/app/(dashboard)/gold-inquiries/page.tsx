@@ -236,15 +236,19 @@ export default function GoldInquiriesPage() {
                         ) : converting === inq.id ? (
                           <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
                         ) : !['unavailable', 'refund'].includes(inq.status) ? (
-                          <div className="flex gap-1">
-                            {(['A', 'B', 'C'] as const).map((course) => (
+                          <div className="flex gap-1 flex-wrap">
+                            {(['A', 'B', 'C', 'HEALTH'] as const).map((course) => (
                               <button
                                 key={course}
                                 onClick={() => convertToMember(inq, course)}
-                                className="px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors"
-                                title={`${course}코스 골드회원 전환`}
+                                className={`px-1.5 py-0.5 rounded text-xs font-medium transition-colors ${
+                                  course === 'HEALTH'
+                                    ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                                    : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                                }`}
+                                title={`${course === 'HEALTH' ? '건강' : course + '코스'} 골드회원 전환`}
                               >
-                                {course}
+                                {course === 'HEALTH' ? '건강' : course}
                               </button>
                             ))}
                           </div>

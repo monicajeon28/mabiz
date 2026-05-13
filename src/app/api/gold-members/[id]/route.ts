@@ -57,7 +57,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (body.name        !== undefined) data.name         = body.name;
     if (body.phone       !== undefined) data.phone        = body.phone.replace(/[^0-9]/g, '');
     if (body.email       !== undefined) data.email        = body.email || null;
-    const VALID_COURSE_TYPES = ['A', 'B', 'C'];
+    const VALID_COURSE_TYPES = ['A', 'B', 'C', 'HEALTH'];
     const VALID_STATUSES = ['ACTIVE', 'SUSPENDED', 'CANCELLED'];
 
     if (body.courseType !== undefined && !VALID_COURSE_TYPES.includes(body.courseType)) {

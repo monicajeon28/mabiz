@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 // PATCH /api/partner/[id] — 파트너 정보 수정
@@ -11,7 +11,7 @@ export async function PATCH(
 ) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
     // 권한 확인: 해당 조직의 파트너인지
@@ -51,7 +51,7 @@ export async function DELETE(
 ) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
     // 권한 확인

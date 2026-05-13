@@ -13,6 +13,8 @@ type DashboardData = {
   monthRefundAmount?: number;
   pendingApprovalCount?: number;
   goldMemberCount?: number;
+  monthlyData?: Array<{ month: string; totalSales: number }>;
+  partnerApplicationsPending?: number;
   // OWNER
   teamAgentCount?: number;
   // AGENT
@@ -58,12 +60,12 @@ function relativeTime(iso: string): string {
 }
 
 function KpiCard({
-  title, value, sub, color = "", icon,
+  title, value, sub, color = "", icon, href,
 }: {
-  title: string; value: string | number; sub?: string; color?: string; icon?: React.ReactNode;
+  title: string; value: string | number; sub?: string; color?: string; icon?: React.ReactNode; href?: string;
 }) {
-  return (
-    <div className={`rounded-xl border p-5 shadow-sm ${color || "bg-white border-gray-200"}`}>
+  const content = (
+    <div className={`rounded-xl border p-5 shadow-sm ${color || "bg-white border-gray-200"} ${href ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}>
       <div className="flex items-start justify-between gap-2">
         <p className={`text-sm font-medium ${color ? "text-white/80" : "text-gray-500"}`}>{title}</p>
         {icon && <span className={color ? "text-white/60" : "text-gray-300"}>{icon}</span>}
@@ -74,6 +76,11 @@ function KpiCard({
       {sub && <p className={`text-xs mt-1 ${color ? "text-white/60" : "text-gray-400"}`}>{sub}</p>}
     </div>
   );
+
+  if (href) {
+    return <Link href={href}>{content}</Link>;
+  }
+  return content;
 }
 
 function PushCallNotification({ callDueCount }: { callDueCount: number }) {
@@ -274,7 +281,7 @@ export default function DashboardPage() {
       </div>
 
       {/* B2B 랜딩 링크 카드 — 관리자/점장(OWNER) */}
-      {(role === "GLOBAL_ADMIN" || role === "OWNER") && (
+      {false && (role === "GLOBAL_ADMIN" || role === "OWNER") && (
         <div className="bg-gradient-to-r from-navy-900 to-navy-800 text-white rounded-xl p-5 mb-6">
           <div className="flex items-center justify-between">
             <div>
@@ -310,7 +317,7 @@ export default function DashboardPage() {
       )}
 
       {/* 프리마케터 간편 등록 링크 카드 — OWNER/AGENT */}
-      {(role === "GLOBAL_ADMIN" || role === "OWNER" || role === "AGENT") && (
+      {false && (role === "GLOBAL_ADMIN" || role === "OWNER" || role === "AGENT") && (
         <div className="bg-white border-2 border-gold-400 rounded-xl p-5 mb-6">
           <div className="flex items-center justify-between">
             <div>
@@ -354,16 +361,16 @@ export default function DashboardPage() {
       {role === "GLOBAL_ADMIN" && data && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-3">
-            <KpiCard title="전체 판매원"  value={data.totalAgents ?? 0}          icon={<Users className="w-5 h-5" />} color="bg-navy-900" />
-            <KpiCard title="이번달 매출"  value={(data.monthSaleAmount ?? 0).toLocaleString() + "원"} icon={<TrendingUp className="w-5 h-5" />} />
-            <KpiCard title="이번달 환불"  value={(data.monthRefundAmount ?? 0).toLocaleString() + "원"} icon={<RotateCcw className="w-5 h-5" />} />
-            <KpiCard title="승인 대기"    value={data.pendingApprovalCount ?? 0} icon={<Clock className="w-5 h-5" />} />
-            <KpiCard title="골드회원"     value={data.goldMemberCount ?? 0}      icon={<Star className="w-5 h-5" />} />
-            <KpiCard title="오늘 콜"      value={data.callDueToday ?? 0}         icon={<Phone className="w-5 h-5" />} color="bg-rose-600" />
+            <KpiCard title="전체 판매원"  value={data.totalAgents ?? 0}          icon={<Users className="w-5 h-5" />} color="bg-navy-900" href="/team/affiliate" />
+            <KpiCard title="이번달 매출"  value={(data.monthSaleAmount ?? 0).toLocaleString() + "원"} icon={<TrendingUp className="w-5 h-5" />} href="/affiliate-sales" />
+            <KpiCard title="이번달 환불"  value={(data.monthRefundAmount ?? 0).toLocaleString() + "원"} icon={<RotateCcw className="w-5 h-5" />} href="/affiliate-sales" />
+            <KpiCard title="승인 대기"    value={data.pendingApprovalCount ?? 0} icon={<Clock className="w-5 h-5" />} href="/admin/organizations" />
+            <KpiCard title="골드회원"     value={data.goldMemberCount ?? 0}      icon={<Star className="w-5 h-5" />} href="/gold-members" />
+            <KpiCard title="오늘 콜"      value={data.callDueToday ?? 0}         icon={<Phone className="w-5 h-5" />} color="bg-rose-600" href="/contacts" />
           </div>
           <div className="grid grid-cols-2 gap-4 mb-8">
-            <KpiCard title="CRM 전체 고객"     value={data.totalContacts ?? 0}        icon={<Users className="w-5 h-5" />} color="bg-emerald-600" />
-            <KpiCard title="이번달 신규 고객"  value={data.newContactsThisMonth ?? 0} icon={<TrendingUp className="w-5 h-5" />} />
+            <KpiCard title="CRM 전체 고객"     value={data.totalContacts ?? 0}        icon={<Users className="w-5 h-5" />} color="bg-emerald-600" href="/contacts/all" />
+            <KpiCard title="이번달 신규 고객"  value={data.newContactsThisMonth ?? 0} icon={<TrendingUp className="w-5 h-5" />} href="/contacts" />
           </div>
         </>
       )}
@@ -414,18 +421,19 @@ export default function DashboardPage() {
       )}
 
       {/* 빠른 메뉴 */}
+      {false && (
       <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
         <h2 className="font-semibold text-navy-900 mb-4">빠른 이동</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { href: "/contacts/new",    label: "고객 추가",    bg: "bg-navy-900",    show: role !== "FREE_SALES" },
-            { href: "/affiliate-sales", label: "판매 관리",    bg: "bg-blue-600",    show: role === "GLOBAL_ADMIN" || role === "OWNER" },
-            { href: "/gold-members",    label: "골드회원",     bg: "bg-gold-500",    show: role !== "FREE_SALES" },
-            { href: "/gold-inquiries",  label: "골드문의",     bg: "bg-emerald-600", show: role !== "FREE_SALES" },
-            { href: "/my-sales",        label: "내 판매",      bg: "bg-purple-600",  show: true },
-            { href: "/payslips",        label: "급여명세",     bg: "bg-teal-600",    show: role !== "FREE_SALES" },
-            { href: "/team",            label: "팀 현황",      bg: "bg-indigo-600",  show: role === "GLOBAL_ADMIN" || role === "OWNER" },
-            { href: "/contacts",        label: "고객 목록",    bg: "bg-gray-700",    show: role !== "FREE_SALES" },
+            { href: "/contacts/new",    label: "고객 추가",    bg: "bg-navy-900",    show: false },
+            { href: "/affiliate-sales", label: "판매 관리",    bg: "bg-blue-600",    show: false },
+            { href: "/gold-members",    label: "골드회원",     bg: "bg-gold-500",    show: false },
+            { href: "/gold-inquiries",  label: "골드문의",     bg: "bg-emerald-600", show: false },
+            { href: "/my-sales",        label: "내 판매",      bg: "bg-purple-600",  show: false },
+            { href: "/payslips",        label: "급여명세",     bg: "bg-teal-600",    show: false },
+            { href: "/team",            label: "팀 현황",      bg: "bg-indigo-600",  show: false },
+            { href: "/contacts",        label: "고객 목록",    bg: "bg-gray-700",    show: false },
           ]
             .filter((m) => m.show)
             .map((m) => (
@@ -439,6 +447,7 @@ export default function DashboardPage() {
             ))}
         </div>
       </div>
+      )}
 
       {/* 최근 알림 */}
       <div className="bg-white rounded-2xl border border-gray-200 p-5">

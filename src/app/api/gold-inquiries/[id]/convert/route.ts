@@ -31,8 +31,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     const body = await req.json() as { courseType?: string; joinDate?: string };
     const courseType = body.courseType ?? 'A';
-    if (!['A', 'B', 'C'].includes(courseType)) {
-      return NextResponse.json({ ok: false, error: '코스는 A, B, C 중 하나여야 합니다.' }, { status: 400 });
+    if (!['A', 'B', 'C', 'HEALTH'].includes(courseType)) {
+      return NextResponse.json({ ok: false, error: '코스는 A, B, C, 건강 중 하나여야 합니다.' }, { status: 400 });
     }
 
     // ProductInquiry 원본 데이터 조회 (GMcruise 공유 DB)

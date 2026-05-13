@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { uploadImageToDrive, validateImageFile } from '@/lib/image-sync';
 import { extractImageDimensions } from '@/lib/image-metadata';
 import { logger } from '@/lib/logger';
@@ -11,7 +11,7 @@ import { logger } from '@/lib/logger';
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const formData = await req.formData();
     const file = formData.get('file') as File;

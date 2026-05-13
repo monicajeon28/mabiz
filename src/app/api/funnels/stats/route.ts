@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgIdOrNull } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 // GET /api/funnels/stats — 퍼널별 성과 지표
 export async function GET(_req: Request) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx);
 
     // 1. 조직의 모든 퍼널 + 연결된 그룹 수 + 그룹별 멤버 수
     const funnels = await prisma.funnel.findMany({
-      where: { organizationId: orgId },
+      where: { ...(orgId ? { organizationId: orgId } : {}) },
       select: {
         id: true, name: true, isActive: true,
         stages: { select: { id: true }, orderBy: { order: "asc" } },
@@ -20,7 +20,7 @@ export async function GET(_req: Request) {
 
     // 2. 그룹-퍼널 연결 현황 (퍼널별 등록 고객 수)
     const groups = await prisma.contactGroup.findMany({
-      where: { organizationId: orgId, funnelId: { not: null } },
+      where: { ...(orgId ? { organizationId: orgId } : {}), funnelId: { not: null } },
       select: {
         funnelId: true,
         _count: { select: { members: true } },
@@ -32,16 +32,16 @@ export async function GET(_req: Request) {
     const [smsByChannel, smsTotal, emailByStatus, emailTotal] = await Promise.all([
       prisma.smsLog.groupBy({
         by:    ["channel", "status"],
-        where: { organizationId: orgId, sentAt: { gte: since30d } },
+        where: { ...(orgId ? { organizationId: orgId } : {}), sentAt: { gte: since30d } },
         _count: { id: true },
       }),
-      prisma.smsLog.count({ where: { organizationId: orgId, sentAt: { gte: since30d } } }),
+      prisma.smsLog.count({ where: { ...(orgId ? { organizationId: orgId } : {}), sentAt: { gte: since30d } } }),
       prisma.emailLog.groupBy({
         by:    ["status"],
-        where: { organizationId: orgId, sentAt: { gte: since30d } },
+        where: { ...(orgId ? { organizationId: orgId } : {}), sentAt: { gte: since30d } },
         _count: { id: true },
       }),
-      prisma.emailLog.count({ where: { organizationId: orgId, sentAt: { gte: since30d } } }),
+      prisma.emailLog.count({ where: { ...(orgId ? { organizationId: orgId } : {}), sentAt: { gte: since30d } } }),
     ]);
 
     // 퍼널별 등록 고객 수 집계

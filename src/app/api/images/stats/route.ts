@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgIdOrNull } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -10,27 +10,28 @@ import { logger } from '@/lib/logger';
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx);
+    const orgWhere = orgId ? { organizationId: orgId } : {};
 
     // 5개 쿼리 병렬 실행 + aggregate로 전체 로드 제거
     const [sizeResult, totalImages, byCategory, byMime, recentUploads] = await Promise.all([
       prisma.imageAsset.aggregate({
-        where: { organizationId: orgId },
+        where: orgWhere,
         _sum: { fileSize: true },
       }),
-      prisma.imageAsset.count({ where: { organizationId: orgId } }),
+      prisma.imageAsset.count({ where: orgWhere }),
       prisma.imageAsset.groupBy({
         by: ['category'],
-        where: { organizationId: orgId },
+        where: orgWhere,
         _count: { id: true },
       }),
       prisma.imageAsset.groupBy({
         by: ['mimeType'],
-        where: { organizationId: orgId },
+        where: orgWhere,
         _count: { id: true },
       }),
       prisma.imageAsset.findMany({
-        where: { organizationId: orgId },
+        where: orgWhere,
         orderBy: { uploadedAt: 'desc' },
         take: 5,
         select: { id: true, originalFileName: true, uploadedAt: true },

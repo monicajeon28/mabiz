@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgIdOrNull } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 // GET /api/marketing/dashboard
@@ -12,11 +12,11 @@ export async function GET() {
       return NextResponse.json({ ok: false, message: "접근 권한이 없습니다." }, { status: 403 });
     }
 
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx);
 
     // ── 1. 조직 소유 랜딩페이지 목록 + viewCount 합계
     const pages = await prisma.crmLandingPage.findMany({
-      where: { organizationId: orgId },
+      where: { ...(orgId ? { organizationId: orgId } : {}) },
       select: {
         id: true,
         title: true,
@@ -32,7 +32,7 @@ export async function GET() {
     // ── 2. 퍼널 진입 수 (funnelStarted = true)
     const funnelEnteredResult = await prisma.crmLandingRegistration.count({
       where: {
-        landingPage: { organizationId: orgId },
+        ...(orgId ? { landingPage: { organizationId: orgId } } : {}),
         funnelStarted: true,
       },
     });
@@ -40,7 +40,7 @@ export async function GET() {
     // ── 3. 구매 전환 수 (Contact.purchasedAt IS NOT NULL, orgId 소속)
     const purchasedResult = await prisma.contact.count({
       where: {
-        organizationId: orgId,
+        ...(orgId ? { organizationId: orgId } : {}),
         purchasedAt: { not: null },
       },
     });
@@ -103,7 +103,7 @@ export async function GET() {
 
     const recentRegs = await prisma.crmLandingRegistration.findMany({
       where: {
-        landingPage: { organizationId: orgId },
+        ...(orgId ? { landingPage: { organizationId: orgId } } : {}),
         createdAt: { gte: sevenDaysAgo },
       },
       select: { createdAt: true },

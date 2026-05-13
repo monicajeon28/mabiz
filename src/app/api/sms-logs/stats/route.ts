@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgIdOrNull } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 /**
@@ -13,13 +13,13 @@ import { logger } from '@/lib/logger';
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx);
 
     const { searchParams } = new URL(req.url);
     const days = Math.min(90, Math.max(1, parseInt(searchParams.get('days') ?? '30') || 30));
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-    const where = { organizationId: orgId, sentAt: { gte: since } };
+    const where = { ...(orgId ? { organizationId: orgId } : {}), sentAt: { gte: since } };
 
     // 1. 상태별 집계 (병렬)
     const [byStatus, byChannel, byBlockReason, dailyRaw] = await Promise.all([
@@ -41,17 +41,28 @@ export async function GET(req: Request) {
         take: 5,
       }),
       // 일별 추이 (raw SQL — Prisma groupBy는 날짜 truncate 미지원)
-      prisma.$queryRaw<{ day: string; status: string; cnt: bigint }[]>`
-        SELECT
-          TO_CHAR("sentAt" AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS day,
-          status,
-          COUNT(*)::bigint AS cnt
-        FROM "CrmSmsLog"
-        WHERE "organizationId" = ${orgId}
-          AND "sentAt" >= ${since}
-        GROUP BY day, status
-        ORDER BY day ASC
-      `,
+      orgId
+        ? prisma.$queryRaw<{ day: string; status: string; cnt: bigint }[]>`
+            SELECT
+              TO_CHAR("sentAt" AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS day,
+              status,
+              COUNT(*)::bigint AS cnt
+            FROM "CrmSmsLog"
+            WHERE "organizationId" = ${orgId}
+              AND "sentAt" >= ${since}
+            GROUP BY day, status
+            ORDER BY day ASC
+          `
+        : prisma.$queryRaw<{ day: string; status: string; cnt: bigint }[]>`
+            SELECT
+              TO_CHAR("sentAt" AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS day,
+              status,
+              COUNT(*)::bigint AS cnt
+            FROM "CrmSmsLog"
+            WHERE "sentAt" >= ${since}
+            GROUP BY day, status
+            ORDER BY day ASC
+          `,
     ]);
 
     // 상태별 수치

@@ -28,12 +28,13 @@ type GoldMemberDetail = {
   createdAt: string;
 };
 
-const COURSE_LABEL: Record<string, string> = { A: "A코스", B: "B코스", C: "C코스" };
+const COURSE_LABEL: Record<string, string> = { A: "A코스", B: "B코스", C: "C코스", HEALTH: "건강" };
 
 const COURSE_BADGE: Record<string, string> = {
   A: "bg-blue-100 text-blue-700",
   B: "bg-purple-100 text-purple-700",
   C: "bg-indigo-100 text-indigo-700",
+  HEALTH: "bg-emerald-100 text-emerald-700",
 };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -227,22 +228,48 @@ export default function GoldMemberDetailPage() {
 
         {/* 납부 현황 */}
         <div className="mt-4">
-          <dt className="text-xs text-gray-400 mb-1.5">납부현황</dt>
-          <div className="flex items-center gap-3">
-            <div className="flex-1 bg-gray-100 rounded-full h-2.5">
-              <div
-                className="bg-yellow-400 h-2.5 rounded-full transition-all"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-            <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
-              {member.paidCount}
-              {member.totalPayments > 0 ? ` / ${member.totalPayments}회` : "회"}
-              {member.totalPayments > 0 && (
-                <span className="text-gray-400 ml-1">({progressPct}%)</span>
+          {member.courseType === "HEALTH" ? (
+            <>
+              <dt className="text-xs text-gray-400 mb-1.5">납부현황 <span className="text-emerald-500">(의무납입 없음 · 월 27,000원)</span></dt>
+              <div className="flex items-center gap-3">
+                <span className="text-lg font-bold text-emerald-600">{member.paidCount}회</span>
+                <span className="text-sm text-gray-400">납부 완료</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <dt className="text-xs text-gray-400 mb-1.5">
+                의무납입 현황
+                {member.totalPayments > 0 && member.paidCount >= member.totalPayments && (
+                  <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">의무납입 완료</span>
+                )}
+              </dt>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 bg-gray-100 rounded-full h-2.5">
+                  <div
+                    className={`h-2.5 rounded-full transition-all ${
+                      member.totalPayments > 0 && member.paidCount >= member.totalPayments
+                        ? "bg-green-500"
+                        : "bg-yellow-400"
+                    }`}
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+                <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                  {member.paidCount}
+                  {member.totalPayments > 0 ? ` / ${member.totalPayments}회` : "회"}
+                  {member.totalPayments > 0 && (
+                    <span className="text-gray-400 ml-1">({progressPct}%)</span>
+                  )}
+                </span>
+              </div>
+              {member.totalPayments > 0 && member.paidCount < member.totalPayments && (
+                <p className="mt-1 text-xs text-orange-500">
+                  남은 의무납입: {member.totalPayments - member.paidCount}회
+                </p>
               )}
-            </span>
-          </div>
+            </>
+          )}
         </div>
 
         {member.memo && (

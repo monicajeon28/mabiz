@@ -1,0 +1,67 @@
+{
+  "links": [
+    {
+      "code": "B12Qrn",
+      "url": "https://www.cruisedot.co.kr/affiliate/payment/SALES_AGENT?contractId=999999&phone=01012345678&name=%ED%85%8C%EC%8A%A4%ED%8A%B8",
+      "contractType": "SALES_AGENT",
+      "createdAt": "2025-11-18T02:15:34.245Z",
+      "clickCount": 0
+    },
+    {
+      "code": "GWPkLM",
+      "url": "https://www.cruisedot.co.kr/affiliate/payment/BRANCH_MANAGER?contractId=999999&phone=01012345678&name=%ED%85%8C%EC%8A%A4%ED%8A%B8",
+      "contractType": "BRANCH_MANAGER",
+      "createdAt": "2025-11-18T02:15:49.172Z",
+      "clickCount": 0
+    },
+    {
+      "code": "HwUjW0",
+      "url": "https://www.cruisedot.co.kr/affiliate/payment/CRUISE_STAFF?contractId=999999&phone=01012345678&name=%ED%85%8C%EC%8A%A4%ED%8A%B8",
+      "contractType": "CRUISE_STAFF",
+      "createdAt": "2025-11-18T02:17:46.106Z",
+      "clickCount": 0
+    },
+    {
+      "code": "AJc2Q4",
+      "url": "https://www.cruisedot.co.kr/affiliate/payment/PRIMARKETER?contractId=999999&phone=01012345678&name=%ED%85%8C%EC%8A%A4%ED%8A%B8",
+      "contractType": "PRIMARKETER",
+      "createdAt": "2025-11-18T02:17:50.842Z",
+      "clickCount": 0
+    },
+    {
+      "code": "trial-AFF-01024958013-EF8C-1763565362259",
+      "url": "https://www.cruisedot.co.kr/login-test?trial=trial-AFF-01024958013-EF8C-1763565362259&affiliate=AFF-01024958013-EF8C&manager=AFF-BOSS1-BECF",
+      "contractType": "trial-invite",
+      "createdAt": "2025-11-19T15:26:14.136Z",
+      "clickCount": 0
+    },
+    {
+      "code": "trial-AFF-BOSS1-BECF-1763550908884",
+      "url": "https://www.cruisedot.co.kr/login-test?trial=trial-AFF-BOSS1-BECF-1763550908884&affiliate=AFF-BOSS1-BECF",
+      "contractType": "trial-invite",
+      "createdAt": "2025-11-19T15:34:50.952Z",
+      "clickCount": 0
+    },
+    {
+      "code": "trial-AFF-BOSS1-BECF-1763578737917",
+      "url": "https://www.cruisedot.co.kr/login-test?trial=trial-AFF-BOSS1-BECF-1763578737917&affiliate=AFF-BOSS1-BECF",
+      "contractType": "trial-invite",
+      "createdAt": "2025-11-19T18:58:58.202Z",
+      "clickCount": 0
+    },
+    {
+      "code": "trial-AFF-BOSS1-4E7E-1763831953698",
+      "url": "https://www.cruisedot.co.kr/login-test?trial=trial-AFF-BOSS1-4E7E-1763831953698&affiliate=AFF-BOSS1-4E7E",
+      "contractType": "trial-invite",
+      "createdAt": "2025-11-22T17:19:13.997Z",
+      "clickCount": 0
+    },
+    {
+      "code": "trial-AFF-USER1-MICQ0GUV-1763989287553",
+      "url": "https://www.cruisedot.co.kr/login-test?trial=trial-AFF-USER1-MICQ0GUV-1763989287553&affiliate=AFF-USER1-MICQ0GUV&manager=AFF-BOSS1-MICQ0HEX",
+      "contractType": "trial-invite",
+      "createdAt": "2025-11-24T13:01:27.850Z",
+      "clickCount": 0
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+[
+  {
+    "name": "코스타세레나",
+    "description": "코스타세레나는 이탈리아 코스타 크루즈라인에서 운영하는 대형 크루즈입니다. 우아한 디자인과 최신 시설을 갖춘 프리미엄 크루즈로 유명합니다.",
+    "details": "총 톤수: 114,500톤, 승객 수용: 3,780명, 객실 수: 1,504개, 레스토랑: 4개, 바/라운지: 13개",
+    "imageUrl": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&h=600&fit=crop&auto=format"
+  },
+  {
+    "name": "코스타 세레나",
+    "description": "코스타 세레나는 코스타 크루즈라인의 대표적인 크루즈로, 이탈리아의 우아함과 현대적인 편의시설을 완벽하게 조화시킨 선박입니다.",
+    "details": "건조년도: 2007년, 길이: 290m, 폭: 35m, 최고속도: 23노트, 승무원: 1,100명",
+    "imageUrl": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&h=600&fit=crop&auto=format"
+  },
+  {
+    "name": "Costa Serena",
+    "description": "Costa Serena is a magnificent cruise ship operated by Costa Cruises, featuring luxurious amenities and world-class entertainment facilities.",
+    "details": "Ship Class: Concordia Class, Home Port: Savona, Italy, Maiden Voyage: May 2007",
+    "imageUrl": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&h=600&fit=crop&auto=format"
+  }
+]

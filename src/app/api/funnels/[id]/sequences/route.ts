@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgIdOrNull, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 type Params = { params: Promise<{ id: string }> };
@@ -11,12 +11,12 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx);
     const { id: funnelId } = await params;
 
     // 퍼널 소유권 확인
     const funnel = await prisma.funnel.findFirst({
-      where: { id: funnelId, organizationId: orgId },
+      where: { id: funnelId, ...(orgId ? { organizationId: orgId } : {}) },
       select: { id: true },
     });
     if (!funnel) return NextResponse.json({ ok: false }, { status: 404 });
@@ -59,7 +59,7 @@ export async function GET(_req: Request, { params }: Params) {
 export async function PATCH(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { id: funnelId } = await params;
     const body = await req.json() as { sequenceId: string; action: "pause" | "resume" | "cancel" };
 

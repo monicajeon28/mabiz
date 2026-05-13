@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgIdOrNull } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -21,12 +21,12 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx);
     const { id } = await params;
 
     // [보안] 소유권 검증 (IDOR 방지)
     const page = await prisma.crmLandingPage.findFirst({
-      where:  { id, organizationId: orgId },
+      where:  { id, ...(orgId ? { organizationId: orgId } : {}) },
       select: { id: true, viewCount: true, title: true },
     });
     if (!page) {
@@ -57,7 +57,7 @@ export async function GET(_req: Request, { params }: Params) {
     if (phoneList.length > 0) {
       // phone → contactId 조인 (같은 조직)
       const contacts = await prisma.contact.findMany({
-        where:  { organizationId: orgId, phone: { in: phoneList } },
+        where:  { ...(orgId ? { organizationId: orgId } : {}), phone: { in: phoneList } },
         select: { id: true, purchasedAt: true },
       });
 
@@ -68,7 +68,7 @@ export async function GET(_req: Request, { params }: Params) {
       if (contactIds.length > 0) {
         emailSent = await prisma.emailLog.count({
           where: {
-            organizationId: orgId,
+            ...(orgId ? { organizationId: orgId } : {}),
             contactId:      { in: contactIds },
             status:         'SENT',
           },

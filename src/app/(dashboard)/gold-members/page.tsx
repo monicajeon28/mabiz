@@ -23,7 +23,7 @@ type GoldMember = {
   createdAt: string;
 };
 
-const COURSE_LABEL: Record<string, string> = { A: "A코스", B: "B코스", C: "C코스" };
+const COURSE_LABEL: Record<string, string> = { A: "A코스", B: "B코스", C: "C코스", HEALTH: "건강" };
 
 const STATUS_COLOR: Record<string, string> = {
   ACTIVE:    "bg-green-100 text-green-700",
@@ -41,6 +41,7 @@ const COURSE_BADGE: Record<string, string> = {
   A: "bg-blue-100 text-blue-700",
   B: "bg-purple-100 text-purple-700",
   C: "bg-indigo-100 text-indigo-700",
+  HEALTH: "bg-emerald-100 text-emerald-700",
 };
 
 export default function GoldMembersPage() {
@@ -181,6 +182,7 @@ export default function GoldMembersPage() {
             { val: "A", label: "A코스" },
             { val: "B", label: "B코스" },
             { val: "C", label: "C코스" },
+            { val: "HEALTH", label: "건강" },
           ].map(({ val, label }) => (
             <button
               key={val}
@@ -261,8 +263,17 @@ export default function GoldMembersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-600 text-xs font-mono tracking-widest">{m.memberCode}</td>
-                    <td className="px-4 py-3 text-gray-600 text-xs">
-                      {m.totalPayments > 0 ? `${m.paidCount} / ${m.totalPayments}` : `${m.paidCount}회`}
+                    <td className="px-4 py-3 text-xs">
+                      {m.courseType === "HEALTH" ? (
+                        <span className="text-emerald-600 font-medium">{m.paidCount}회 납부</span>
+                      ) : m.totalPayments > 0 ? (
+                        <span className={m.paidCount >= m.totalPayments ? "text-green-600 font-medium" : "text-gray-600"}>
+                          {m.paidCount} / {m.totalPayments}회
+                          {m.paidCount >= m.totalPayments ? " ✓완료" : ""}
+                        </span>
+                      ) : (
+                        <span className="text-gray-600">{m.paidCount}회</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[m.status] ?? "bg-gray-100 text-gray-500"}`}>
@@ -380,21 +391,33 @@ export default function GoldMembersPage() {
                 <label className="block text-xs font-medium text-gray-700 mb-2">
                   코스 <span className="text-red-500">*</span>
                 </label>
-                <div className="flex gap-4">
-                  {(["A", "B", "C"] as const).map((c) => (
+                <div className="flex flex-wrap gap-4">
+                  {(["A", "B", "C", "HEALTH"] as const).map((c) => (
                     <label key={c} className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="radio"
                         name="courseType"
                         value={c}
                         checked={form.courseType === c}
-                        onChange={() => setForm(f => ({ ...f, courseType: c }))}
+                        onChange={() => setForm(f => ({
+                          ...f,
+                          courseType: c,
+                          // 건강코스 선택 시 의무납입 없으므로 총 횟수 초기화
+                          totalPayments: c === "HEALTH" ? "" : f.totalPayments,
+                        }))}
                         className="accent-navy-900"
                       />
-                      <span className="text-sm font-medium">{c}코스</span>
+                      <span className="text-sm font-medium">
+                        {c === "HEALTH" ? "건강" : `${c}코스`}
+                      </span>
                     </label>
                   ))}
                 </div>
+                {form.courseType === "HEALTH" ? (
+                  <p className="mt-2 text-xs text-emerald-600">월 27,000원 · 의무납입 없음</p>
+                ) : (
+                  <p className="mt-2 text-xs text-blue-600">의무납입 60회</p>
+                )}
               </div>
 
               {/* 가입날짜 */}
@@ -424,18 +447,21 @@ export default function GoldMembersPage() {
                 />
               </div>
 
-              {/* 총 납부 예정 횟수 */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">총 납부 예정 횟수</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={form.totalPayments}
-                  onChange={(e) => setForm(f => ({ ...f, totalPayments: e.target.value }))}
-                  placeholder="예: 12"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-900/20"
-                />
-              </div>
+              {/* 총 납부 예정 횟수 (ABC코스만) */}
+              {form.courseType !== "HEALTH" && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">의무납입 횟수</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.totalPayments}
+                    onChange={(e) => setForm(f => ({ ...f, totalPayments: e.target.value }))}
+                    placeholder="기본: 60회"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-900/20"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">비워두면 기본 60회로 설정됩니다.</p>
+                </div>
+              )}
 
               {/* 메모 */}
               <div>

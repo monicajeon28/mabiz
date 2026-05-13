@@ -66,6 +66,7 @@ export async function GET() {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg === 'UNAUTHORIZED') return NextResponse.json({ ok: false }, { status: 401 });
+    if (msg === 'ORGANIZATION_REQUIRED') return NextResponse.json({ ok: false, message: '조직 정보 필수' }, { status: 400 });
     logger.error('[GET /api/contacts/assign-stats]', { err });
     return NextResponse.json({ ok: false }, { status: 500 });
   }

@@ -46,7 +46,7 @@ export async function GET() {
     // ── GLOBAL_ADMIN ──────────────────────────────────────────
     if (ctx.role === 'GLOBAL_ADMIN') {
       const startOfMonth = new Date(`${yearMonth}-01T00:00:00.000Z`);
-      const [agentRows, saleRows, refundRows, pendingRows, goldCount, callDueRows, totalContactRows, newContactRows] = await Promise.all([
+      const [agentRows, saleRows, refundRows, pendingRows, goldCount, callDueRows, totalContactRows, newContactRows, monthlyDataRows, partnerAppRows] = await Promise.all([
         prisma.$queryRaw<CountRow[]>(Prisma.sql`
           SELECT COUNT(*)::bigint AS count FROM "AffiliateProfile" WHERE status != 'TERMINATED'
         `),
@@ -82,7 +82,26 @@ export async function GET() {
           SELECT COUNT(*)::bigint AS count FROM "Contact"
           WHERE "deletedAt" IS NULL AND "createdAt" >= ${startOfMonth}
         `),
+        // 월별 매출 (지난 12개월)
+        prisma.$queryRaw<{ month: string; total: bigint }[]>(Prisma.sql`
+          SELECT TO_CHAR("saleDate", 'YYYY-MM') AS month, COALESCE(SUM("saleAmount"), 0)::bigint AS total
+          FROM "AffiliateSale"
+          WHERE status IN ('APPROVED','CONFIRMED')
+            AND "saleDate" >= (NOW() - INTERVAL '12 months')
+          GROUP BY TO_CHAR("saleDate", 'YYYY-MM')
+          ORDER BY month ASC
+        `),
+        // 파트너 신청 대기 건수
+        prisma.$queryRaw<CountRow[]>(Prisma.sql`
+          SELECT COUNT(*)::bigint AS count FROM "GmAffiliateContract"
+          WHERE status = 'submitted'
+        `),
       ]);
+
+      const monthlyData = monthlyDataRows.map(r => ({
+        month: r.month,
+        totalSales: Number(r.total ?? 0),
+      }));
 
       logger.log('[GET /api/dashboard] GLOBAL_ADMIN', { yearMonth });
       return NextResponse.json({
@@ -95,6 +114,8 @@ export async function GET() {
         callDueToday:         Number(callDueRows[0]?.count    ?? 0),
         totalContacts:        Number(totalContactRows[0]?.count ?? 0),
         newContactsThisMonth: Number(newContactRows[0]?.count  ?? 0),
+        monthlyData,
+        partnerApplicationsPending: Number(partnerAppRows[0]?.count ?? 0),
       });
     }
 

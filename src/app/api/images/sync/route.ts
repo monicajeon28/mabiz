@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { syncDriveFolder } from '@/lib/image-sync';
 import { logger } from '@/lib/logger';
 
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const body = await req.json();
     const { category } = body;
 
