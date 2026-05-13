@@ -90,6 +90,14 @@ interface AligoRemainSummary {
   cash?: string;
 }
 
+interface AligoStatusResponse {
+  ok: boolean;
+  balance: number;
+  lastUpdated: string;
+  message?: string;
+  error?: string;
+}
+
 const STATUS_OPTIONS = [
   { value: 'all', label: '전체' },
   { value: 'submitted', label: '제출 완료' },
@@ -126,6 +134,8 @@ type SearchMatch = {
   customerStatus: string | null;
 };
 
+type SendMode = 'link' | 'message';
+
 export default function PassportRequestPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -156,6 +166,9 @@ export default function PassportRequestPage() {
   const [manualExpiresInHours, setManualExpiresInHours] = useState<number>(72);
   const [isGeneratingManual, setIsGeneratingManual] = useState(false);
   const [manualResult, setManualResult] = useState<{ link: string; message: string; token: string; submissionId: number; expiresAt: string } | null>(null);
+  const [sendMode, setSendMode] = useState<SendMode>('link');
+  const [aligoStatus, setAligoStatus] = useState<AligoStatusResponse | null>(null);
+  const [isLoadingAligoStatus, setIsLoadingAligoStatus] = useState(false);
 
   const selectedTemplates = useMemo(() => {
     if (selectedTemplateId === null) return null;
@@ -186,6 +199,34 @@ export default function PassportRequestPage() {
     });
     return stats;
   }, [customers]);
+
+  // 예상 SMS 발송 비용 계산 (SMS 기준: 메시지당 100원)
+  const estimatedCost = useMemo(() => {
+    if (channel !== 'SMS') {
+      // SMS가 아닌 경우 비용 계산 안 함 (알림톡은 별도 가격)
+      return {
+        count: selectedIds.length,
+        messageLength: messageBody.length,
+        costPerMessage: 0,
+        totalCost: 0,
+        isLowBalance: false,
+      };
+    }
+
+    const costPerMessage = 100; // SMS 메시지당 100원
+    const selectedCount = selectedIds.length;
+    const messageLength = messageBody.length;
+    const totalCost = selectedCount * costPerMessage;
+    const isLowBalance = aligoStatus ? totalCost > aligoStatus.balance : false;
+
+    return {
+      count: selectedCount,
+      messageLength,
+      costPerMessage,
+      totalCost,
+      isLowBalance,
+    };
+  }, [selectedIds.length, messageBody.length, channel, aligoStatus]);
 
   // 정렬된 고객 목록
   const sortedCustomers = useMemo(() => {
@@ -274,6 +315,29 @@ export default function PassportRequestPage() {
     }
   }, [roleFilter, search, statusFilter]);
 
+  const loadAligoStatus = useCallback(async () => {
+    setIsLoadingAligoStatus(true);
+    try {
+      const res = await fetch('/api/passport/admin/aligo-status', {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        throw new Error('Aligo 잔액 조회 실패');
+      }
+      const data = await res.json();
+      if (data.ok) {
+        setAligoStatus(data);
+      } else {
+        throw new Error(data.error || 'Aligo 잔액 조회 실패');
+      }
+    } catch (error) {
+      logger.error('[PassportRequest] Load Aligo status error:', { error: error instanceof Error ? error.message : String(error) });
+      setAligoStatus(null);
+    } finally {
+      setIsLoadingAligoStatus(false);
+    }
+  }, []);
+
   const handleDownloadApis = useCallback(async (tripId: number, cruiseName: string | null) => {
     setDownloadingApis(tripId);
     try {
@@ -306,7 +370,8 @@ export default function PassportRequestPage() {
 
   useEffect(() => {
     loadTemplates();
-  }, [loadTemplates]);
+    loadAligoStatus();
+  }, [loadTemplates, loadAligoStatus]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -599,6 +664,50 @@ export default function PassportRequestPage() {
             </div>
             <UserCheck className="h-9 w-9 text-blue-500" />
           </div>
+        </div>
+      </section>
+
+      {/* Aligo 잔액 카드 */}
+      <section className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl shadow-lg border-2 border-emerald-200 p-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <span className="text-4xl">💚</span>
+              <div>
+                <p className="text-sm font-semibold text-emerald-700">Aligo 잔액</p>
+                {isLoadingAligoStatus ? (
+                  <p className="text-2xl font-bold text-emerald-900 flex items-center gap-2">
+                    <RefreshCw className="h-5 w-5 animate-spin" /> 조회 중...
+                  </p>
+                ) : aligoStatus && aligoStatus.ok ? (
+                  <div>
+                    <p className="text-2xl font-bold text-emerald-900">
+                      {aligoStatus.balance.toLocaleString('ko-KR')}원
+                    </p>
+                    {aligoStatus.balance <= 5000 && (
+                      <p className="text-sm font-semibold text-red-600 mt-1">
+                        🚨 저잔액 경고 (5,000원 이하)
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-lg font-semibold text-red-600">조회 불가</p>
+                )}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={loadAligoStatus}
+            disabled={isLoadingAligoStatus}
+            className={`inline-flex items-center justify-center px-4 py-2.5 rounded-xl font-semibold shadow-md transition-colors ${
+              isLoadingAligoStatus
+                ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                : 'bg-emerald-600 text-white hover:bg-emerald-700'
+            }`}
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoadingAligoStatus ? 'animate-spin' : ''}`} />
+            <span className="ml-2">새로고침</span>
+          </button>
         </div>
       </section>
 
@@ -979,11 +1088,129 @@ export default function PassportRequestPage() {
         </div>
       </section>
 
+      {/* 링크로 직접 보내기 섹션 */}
+      <section className="bg-white rounded-2xl shadow-lg border border-green-100 p-6 space-y-6">
+        <h2 className="text-2xl font-bold text-green-800 flex items-center gap-3">
+          <span className="text-3xl">🔗</span>
+          링크로 직접 보내기 (비용 0원)
+        </h2>
+
+        <div className="bg-green-50 border-2 border-green-200 rounded-2xl p-4 flex items-center gap-3">
+          <UserCheck className="h-7 w-7 text-green-600" />
+          <div>
+            <p className="text-green-900 font-bold text-xl">선택된 고객</p>
+            <p className="text-green-700 text-lg">{selectedIds.length}명</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <label className="flex flex-col">
+            <span className="text-gray-700 font-semibold mb-2">링크 만료 시간 (시간 단위)</span>
+            <input
+              type="number"
+              min={1}
+              max={24 * 14}
+              value={expiresInHours}
+              onChange={(event) => setExpiresInHours(Math.max(1, Math.min(24 * 14, Number(event.target.value) || 1)))}
+              className="px-4 py-3 rounded-xl border-2 border-green-100 focus:border-green-500 focus:outline-none text-lg"
+            />
+            <span className="text-xs text-gray-500 mt-1">최대 14일(336시간)까지 지정 가능합니다.</span>
+          </label>
+
+          <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-sm text-green-800 leading-relaxed">
+            <p className="font-semibold mb-2">링크 생성 방식</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>SMS/카톡으로 보낼 고객을 선택하세요</li>
+              <li>링크 생성하기를 누르면 여권 제출 링크가 생성됩니다</li>
+              <li>생성된 링크를 복사해 고객에게 직접 전달하세요</li>
+              <li>제출이 완료되면 자동으로 현황이 갱신됩니다</li>
+            </ul>
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            if (selectedIds.length === 0) {
+              showError('먼저 발송할 고객을 선택해주세요.');
+              return;
+            }
+            setIsSending(true);
+            handleSend();
+          }}
+          disabled={isSending || selectedIds.length === 0}
+          className="w-full inline-flex items-center justify-center px-6 py-3 rounded-2xl text-lg font-bold text-white bg-gradient-to-r from-green-600 to-emerald-600 shadow-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-transform hover:scale-[1.02]"
+        >
+          {isSending ? (
+            <span className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 animate-spin" /> 링크 생성 중...
+            </span>
+          ) : (
+            <span className="flex items-center gap-2">
+              <Link className="h-5 w-5" /> 링크 생성하기
+            </span>
+          )}
+        </button>
+      </section>
+
       <section className="bg-white rounded-2xl shadow-lg border border-indigo-100 p-6 space-y-6">
         <h2 className="text-2xl font-bold text-indigo-800 flex items-center gap-3">
           <span className="text-3xl">📝</span>
           메시지 설정 및 발송
         </h2>
+
+        {/* 메시지/링크 탭 선택 */}
+        <div className="flex flex-wrap gap-3 items-center">
+          <span className="text-sm font-semibold text-gray-700">발송 방식 선택:</span>
+          <div className="flex gap-2">
+            <label className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 cursor-pointer transition-colors" style={{
+              borderColor: sendMode === 'link' ? '#10b981' : '#e5e7eb',
+              backgroundColor: sendMode === 'link' ? '#ecfdf5' : '#f9fafb',
+            }}>
+              <input
+                type="radio"
+                name="sendMode"
+                value="link"
+                checked={sendMode === 'link'}
+                onChange={(e) => setSendMode(e.target.value as SendMode)}
+                className="w-4 h-4"
+              />
+              <span className="text-sm font-semibold text-gray-700">링크만 전송</span>
+            </label>
+            <label className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 cursor-pointer transition-colors" style={{
+              borderColor: sendMode === 'message' ? '#6366f1' : '#e5e7eb',
+              backgroundColor: sendMode === 'message' ? '#eef2ff' : '#f9fafb',
+            }}>
+              <input
+                type="radio"
+                name="sendMode"
+                value="message"
+                checked={sendMode === 'message'}
+                onChange={(e) => setSendMode(e.target.value as SendMode)}
+                className="w-4 h-4"
+              />
+              <span className="text-sm font-semibold text-gray-700">메시지로 발송</span>
+            </label>
+          </div>
+        </div>
+
+        {/* 권장사항 표시 */}
+        {selectedIds.length < 10 && sendMode === 'link' && (
+          <div className="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4 text-sm text-blue-900">
+            <p className="font-semibold flex items-center gap-2">
+              <Info className="h-4 w-4" />
+              추천: 링크로 보내기가 가장 경제적입니다 (비용 0원)
+            </p>
+          </div>
+        )}
+
+        {selectedIds.length >= 10 && sendMode === 'message' && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-500 rounded-lg p-4 text-sm text-yellow-900">
+            <p className="font-semibold flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              {selectedIds.length}명에게 발송 시: 약 {Math.ceil(selectedIds.length / 60)}분 소요, SMS 비용 약 {selectedIds.length * 50}원 예상
+            </p>
+          </div>
+        )}
 
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-4">
@@ -1050,6 +1277,54 @@ export default function PassportRequestPage() {
             <span className="text-xs text-gray-500 mt-2">링크와 고객 이름이 자동으로 삽입됩니다.</span>
           </label>
         </div>
+
+        {/* SMS 예상 비용 섹션 */}
+        {sendMode === 'message' && channel === 'SMS' && (
+          <div className={`rounded-2xl p-6 ${estimatedCost.isLowBalance ? 'bg-red-50 border-2 border-red-200' : 'bg-blue-50 border border-blue-200'}`}>
+            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <span>📊</span> 예상 비용
+            </h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-gray-600">선택된 고객</p>
+                  <p className="text-xl font-bold text-gray-900">{estimatedCost.count}명</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">메시지 길이</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {estimatedCost.messageLength} / 90자
+                    <span className={`text-sm ml-2 ${estimatedCost.messageLength > 90 ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+                      {estimatedCost.messageLength > 90 ? `(LMS: ${Math.ceil(estimatedCost.messageLength / 150)}건 필요)` : '(SMS)'}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-gray-600">메시지당 비용</p>
+                  <p className="text-xl font-bold text-blue-600">{estimatedCost.costPerMessage}원</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-blue-200">
+                  <p className="text-sm text-gray-600">총 예상 비용</p>
+                  <p className={`text-2xl font-bold ${estimatedCost.isLowBalance ? 'text-red-600' : 'text-blue-600'}`}>
+                    {estimatedCost.totalCost.toLocaleString('ko-KR')}원
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 잔액 부족 경고 */}
+            {estimatedCost.isLowBalance && aligoStatus && (
+              <div className="mt-4 bg-red-100 border border-red-300 rounded-lg p-3">
+                <p className="text-sm font-semibold text-red-700 flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5" />
+                  잔액 부족: 현재 {aligoStatus.balance.toLocaleString('ko-KR')}원 / 필요 {estimatedCost.totalCost.toLocaleString('ko-KR')}원
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 flex items-center gap-3 text-gray-700 text-sm leading-relaxed">
