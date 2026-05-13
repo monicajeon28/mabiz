@@ -64,6 +64,46 @@ export async function GET(req: NextRequest) {
         role: true,
         customerStatus: true,
         createdAt: true,
+        tripCount: true,
+        trips: {
+          select: {
+            id: true,
+            productName: true,
+            cruiseName: true,
+            departureDate: true,
+            startDate: true,
+            endDate: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        passportSubmissions: {
+          select: {
+            id: true,
+            isSubmitted: true,
+            updatedAt: true,
+            submittedAt: true,
+            tokenExpiresAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        passportRequestsSent: {
+          select: {
+            id: true,
+            status: true,
+            sentAt: true,
+            messageChannel: true,
+            admin: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+          orderBy: { sentAt: 'desc' },
+          take: 1,
+        },
       },
     });
 

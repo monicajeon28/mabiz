@@ -132,9 +132,76 @@ type SearchMatch = {
   email: string | null;
   role: string;
   customerStatus: string | null;
+  createdAt: string;
+  tripCount: number;
+  trips: Array<{
+    id: number;
+    productName: string | null;
+    cruiseName: string | null;
+    departureDate: string;
+    startDate: string | null;
+    endDate: string | null;
+  }>;
+  passportSubmissions: Array<{
+    id: number;
+    isSubmitted: boolean;
+    updatedAt: string;
+    submittedAt: string | null;
+    tokenExpiresAt: string;
+  }>;
+  passportRequestsSent: Array<{
+    id: number;
+    status: string;
+    sentAt: string;
+    messageChannel: string;
+    admin: {
+      id: number;
+      name: string | null;
+    } | null;
+  }>;
 };
 
 type SendMode = 'link' | 'message';
+
+// 검색 API 응답을 고객 객체로 변환하는 헬퍼
+const convertSearchMatchToCustomer = (match: SearchMatch): PassportRequestCustomer => ({
+  id: match.id,
+  name: match.name,
+  phone: match.phone,
+  email: match.email,
+  role: match.role,
+  customerStatus: match.customerStatus,
+  createdAt: match.createdAt,
+  tripCount: match.tripCount,
+  latestTrip: match.trips && match.trips.length > 0 ? {
+    id: match.trips[0].id,
+    cruiseName: match.trips[0].cruiseName,
+    reservationCode: null,
+    productId: null,
+    startDate: match.trips[0].startDate,
+    endDate: match.trips[0].endDate,
+  } : null,
+  submission: match.passportSubmissions && match.passportSubmissions.length > 0 ? {
+    id: match.passportSubmissions[0].id,
+    tripId: null,
+    token: '',
+    tokenExpiresAt: match.passportSubmissions[0].tokenExpiresAt,
+    isSubmitted: match.passportSubmissions[0].isSubmitted,
+    submittedAt: match.passportSubmissions[0].submittedAt,
+    createdAt: match.createdAt,
+    updatedAt: match.passportSubmissions[0].updatedAt,
+  } : null,
+  lastRequest: match.passportRequestsSent && match.passportRequestsSent.length > 0 ? {
+    id: match.passportRequestsSent[0].id,
+    status: match.passportRequestsSent[0].status,
+    messageChannel: match.passportRequestsSent[0].messageChannel,
+    sentAt: match.passportRequestsSent[0].sentAt,
+    admin: match.passportRequestsSent[0].admin,
+  } : null,
+  submissionStatus: match.passportSubmissions && match.passportSubmissions.length > 0
+    ? (match.passportSubmissions[0].isSubmitted ? 'submitted' : 'pending')
+    : 'not_requested',
+});
 
 export default function PassportRequestPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -457,6 +524,22 @@ export default function PassportRequestPage() {
       setSearch(keyword);
     }
     setSelectedIds((prev) => (prev.includes(match.id) ? prev : [...prev, match.id]));
+
+    // 검색 결과로 고객 정보 구성
+    const searchResultCustomer = convertSearchMatchToCustomer(match);
+
+    // 고객 목록에 추가 또는 업데이트
+    setCustomers((prev) => {
+      const index = prev.findIndex((c) => c.id === match.id);
+      if (index >= 0) {
+        const updated = [...prev];
+        updated[index] = searchResultCustomer;
+        return updated;
+      } else {
+        return [...prev, searchResultCustomer];
+      }
+    });
+
     setIsSearchOpen(false);
     setSearchMatches([]);
     setSearchLoading(false);
@@ -474,6 +557,16 @@ export default function PassportRequestPage() {
   const handleAddMatches = () => {
     if (searchMatches.length === 0) return;
     setSelectedIds((prev) => Array.from(new Set([...prev, ...searchMatches.map((item) => item.id)])));
+
+    // 검색 결과 모두를 고객 목록에 추가
+    const searchResultCustomers = searchMatches.map(convertSearchMatchToCustomer);
+
+    setCustomers((prev) => {
+      const existingIds = new Set(prev.map((c) => c.id));
+      const newCustomers = searchResultCustomers.filter((c) => !existingIds.has(c.id));
+      return [...prev, ...newCustomers];
+    });
+
     setIsSearchOpen(false);
   };
 

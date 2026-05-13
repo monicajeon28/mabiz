@@ -41,6 +41,39 @@ const MAX_LIMIT = 200;
 
 type RoleFilter = 'all' | 'guide' | 'mall' | 'test';
 
+// ── 전화번호 마스킹 함수 ────────────────────────────────────────
+/**
+ * 전화번호를 마스킹합니다
+ * - GLOBAL_ADMIN: 전체 공개 (관리자 권한)
+ * - 그 외 (OWNER/AGENT): 모두 마스킹 (010-****-**** 형식)
+ *
+ * @param phone - 전화번호 (원본 형식: 01012345678, 010-1234-5678, 02-1234-5678 등)
+ * @param role - 사용자 역할
+ * @returns 마스킹된 전화번호 또는 null
+ */
+function maskPhoneNumber(phone: string | null, role: string): string | null {
+  if (!phone) return null;
+
+  // GLOBAL_ADMIN은 전체 번호 공개
+  if (role === 'GLOBAL_ADMIN') return phone;
+
+  // 숫자만 추출
+  const digits = phone.replace(/[^0-9]/g, '');
+
+  if (digits.length === 11) {
+    // 휴대전화: 010-****-****
+    return digits.slice(0, 3) + '-****-****';
+  }
+
+  if (digits.length === 10) {
+    // 지역번호 (02-1234-5678): 02-****-****
+    return digits.slice(0, 2) + '-****-****';
+  }
+
+  // 그 외: ***-****-****
+  return '***-****-****';
+}
+
 /**
  * GET /api/passport/admin/customers
  * 여권 요청 고객 목록 조회
@@ -67,7 +100,16 @@ export async function GET(req: NextRequest) {
 
     // ── 동적 WHERE 조건 빌드 (매개변수 바인딩) ───────────────────
     // SQL 인젝션 방지를 위해 Prisma.sql 사용
-    const whereConditions: Prisma.Sql[] = [Prisma.sql`u.role != 'admin'`];
+    const whereConditions: Prisma.Sql[] = [
+      Prisma.sql`u.role != 'admin'`,
+      // 구매 고객만 필터링: 확정된 예약 + 결제 완료
+      Prisma.sql`EXISTS(
+        SELECT 1 FROM "GmReservation" r
+        WHERE r."userId" = u.id
+        AND r.status = 'CONFIRMED'
+        AND r."paymentAmount" > 0
+      )`
+    ];
 
     // role 필터 조건 추가
     switch (roleFilterParam) {
@@ -104,6 +146,21 @@ export async function GET(req: NextRequest) {
       whereConditions.push(
         Prisma.sql`(${Prisma.join(orConditions, ' OR ')})`
       );
+    }
+
+    // statusFilter를 WHERE 절로 이동 (DB에서 필터링)
+    if (statusFilter) {
+      if (statusFilter === 'submitted') {
+        whereConditions.push(Prisma.sql`ps."isSubmitted" = true`);
+      } else if (statusFilter === 'pending') {
+        whereConditions.push(
+          Prisma.sql`ps.id IS NOT NULL AND ps."isSubmitted" = false`
+        );
+      } else if (statusFilter === 'not_requested') {
+        whereConditions.push(Prisma.sql`ps.id IS NULL`);
+      } else if (statusFilter === 'no_request') {
+        whereConditions.push(Prisma.sql`prl.id IS NULL`);
+      }
     }
 
     // ── Raw SQL로 한 번의 LEFT JOIN 쿼리 실행 ──────────────────
@@ -152,69 +209,53 @@ export async function GET(req: NextRequest) {
       LIMIT ${take} OFFSET ${skip}
     `;
 
-    // ── 결과 매핑 (메모리 집계) ────────────────────────────────
-    // Raw SQL 결과를 기존 응답 형식으로 변환
-    const recordMap = new Map<number, (typeof records)[0]>();
+    // ── 결과 매핑 (메모리 최적화: Map 제거, 직접 배열 변환) ──────────
+    // LEFT JOIN LATERAL는 이미 LIMIT 1이므로 중복 제거 불필요
+    const records = users.map((row) => {
+      const submissionStatus = row.submissionId
+        ? row.isSubmitted ? 'submitted' : 'pending'
+        : 'not_requested';
 
-    for (const row of users) {
-      if (!recordMap.has(row.id)) {
-        const submissionStatus = row.submissionId
-          ? row.isSubmitted ? 'submitted' : 'pending'
-          : 'not_requested';
+      return {
+        id: row.id,
+        name: row.name,
+        // 민감정보 마스킹: GLOBAL_ADMIN만 전체 공개, 그 외는 모두 마스킹
+        phone: maskPhoneNumber(row.phone, manager.role),
+        email: row.email,
+        role: row.role,
+        customerStatus: row.customerStatus,
+        createdAt: row.createdAt?.toISOString() ?? new Date().toISOString(),
+        tripCount: row.tripCount || 0,
+        latestTrip: row.tripId ? {
+          id: row.tripId,
+          cruiseName: row.cruiseName,
+          productCode: row.productCode,
+          shipName: row.shipName,
+          departureDate: row.departureDate?.toISOString() ?? null,
+        } : null,
+        submission: row.submissionId ? {
+          id: row.submissionId,
+          tripId: row.tripId_submission,
+          token: row.token,
+          tokenExpiresAt: row.tokenExpiresAt?.toISOString() ?? null,
+          isSubmitted: row.isSubmitted || false,
+          submittedAt: row.submittedAt?.toISOString() ?? null,
+          createdAt: row.submissionCreatedAt?.toISOString() ?? new Date().toISOString(),
+          updatedAt: row.submissionUpdatedAt?.toISOString() ?? new Date().toISOString(),
+        } : null,
+        lastRequest: row.logId ? {
+          id: row.logId,
+          status: row.logStatus,
+          messageChannel: row.messageChannel,
+          sentAt: row.sentAt?.toISOString() ?? null,
+          admin: row.adminId ? { id: row.adminId, name: row.adminName } : null,
+        } : null,
+        submissionStatus,
+      };
+    });
 
-        recordMap.set(row.id, {
-          id: row.id,
-          name: row.name,
-          // 민감정보 마스킹: OWNER는 전체 번호 못 봄
-          phone: manager.role === 'GLOBAL_ADMIN'
-            ? row.phone
-            : row.phone ? row.phone.slice(0, 3) + '****' + row.phone.slice(-4) : null,
-          email: row.email,
-          role: row.role,
-          customerStatus: row.customerStatus,
-          createdAt: row.createdAt?.toISOString() ?? new Date().toISOString(),
-          tripCount: row.tripCount || 0,
-          latestTrip: row.tripId ? {
-            id: row.tripId,
-            cruiseName: row.cruiseName,
-            productCode: row.productCode,
-            shipName: row.shipName,
-            departureDate: row.departureDate?.toISOString() ?? null,
-          } : null,
-          submission: row.submissionId ? {
-            id: row.submissionId,
-            tripId: row.tripId_submission,
-            token: row.token,
-            tokenExpiresAt: row.tokenExpiresAt?.toISOString() ?? null,
-            isSubmitted: row.isSubmitted || false,
-            submittedAt: row.submittedAt?.toISOString() ?? null,
-            createdAt: row.submissionCreatedAt?.toISOString() ?? new Date().toISOString(),
-            updatedAt: row.submissionUpdatedAt?.toISOString() ?? new Date().toISOString(),
-          } : null,
-          lastRequest: row.logId ? {
-            id: row.logId,
-            status: row.logStatus,
-            messageChannel: row.messageChannel,
-            sentAt: row.sentAt?.toISOString() ?? null,
-            admin: row.adminId ? { id: row.adminId, name: row.adminName } : null,
-          } : null,
-          submissionStatus,
-        });
-      }
-    }
-
-    const records = Array.from(recordMap.values());
-
-    // ── 상태 필터링 (메모리 필터) ──────────────────────────────
-    const filtered = statusFilter
-      ? records.filter((r) => {
-          if (statusFilter === 'submitted') return r.submissionStatus === 'submitted';
-          if (statusFilter === 'pending') return r.submissionStatus === 'pending';
-          if (statusFilter === 'not_requested') return r.submissionStatus === 'not_requested';
-          if (statusFilter === 'no_request') return r.lastRequest === null;
-          return true;
-        })
-      : records;
+    // statusFilter는 이제 DB에서 필터됨 (라인 151-164 WHERE 절)
+    const filtered = records;
 
     return NextResponse.json({
       ok: true,
