@@ -4042,6 +4042,7 @@ model GmUserGroup {
   createdAt DateTime            @default(now())
   updatedAt DateTime            @updatedAt
   members   GmUserGroupMember[]
+  // TODO [P1] 관계명 명시성 + 권한: groups 관계명 부자연스러움. @relation 지시자로 명시성 강화. createdByUserId 필드 추가하여 그룹 생성자/권한 관리
 
   @@map("GmUserGroup")
 }
@@ -4056,6 +4057,7 @@ model GmUserGroupMember {
 
   @@unique([groupId, gmUserId])
   @@index([gmUserId])
+  // TODO [P1] 인덱스: groupId 기준 조회 최적화를 위해 @@index([groupId]) 추가 권장
   @@map("GmUserGroupMember")
 }
 
