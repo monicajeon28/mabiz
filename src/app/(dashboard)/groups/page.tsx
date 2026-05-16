@@ -116,10 +116,10 @@ export default function GroupsPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: blastMsg, dryRun: true }),
       });
-      const data = await res.json();
+      const data = await res.json() as { ok: boolean; error?: string; message?: string; willSend?: number; isOverLimit?: boolean; overLimitMsg?: string | null };
       if (data.ok) setBlastPreview(data);
       else {
-        const msg = data.error ?? data.message ?? "대상 확인에 실패했습니다.";
+        const msg = data.message ?? data.error ?? "대상 확인에 실패했습니다.";
         setBlastError(msg);
         showError(msg);
       }
@@ -141,13 +141,13 @@ export default function GroupsPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: blastMsg, dryRun: false }),
       });
-      const data = await res.json();
+      const data = await res.json() as { ok: boolean; error?: string; message?: string; sentCount?: number; blockedCount?: number; failedCount?: number };
       if (data.ok) {
-        setBlastResult({ sentCount: data.sentCount, blockedCount: data.blockedCount, failedCount: data.failedCount });
+        setBlastResult({ sentCount: data.sentCount ?? 0, blockedCount: data.blockedCount ?? 0, failedCount: data.failedCount ?? 0 });
         setBlastPreview(null);
         setBlastConfirm(false); // 발송 후 상태 초기화
       } else {
-        const msg = data.error ?? data.message ?? "발송에 실패했습니다.";
+        const msg = data.message ?? data.error ?? "발송에 실패했습니다.";
         setBlastError(msg);
         showError(msg);
       }
@@ -185,8 +185,8 @@ export default function GroupsPage() {
           funnelId:    form.funnelId || null,
         }),
       });
-      const data = await res.json();
-      if (data.ok) {
+      const data = await res.json() as { ok: boolean; error?: string; message?: string; group?: { id: string; name: string; description?: string | null; color?: string | null; funnelId?: string | null } };
+      if (data.ok && data.group) {
         const funnelName = funnels.find((f) => f.id === form.funnelId)?.name ?? null;
         setGroups((prev) => [...prev, { ...data.group, funnelName, _count: { members: 0 } }]);
         setShowNew(false);
