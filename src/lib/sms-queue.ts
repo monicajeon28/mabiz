@@ -38,7 +38,7 @@ export async function addSmsLog(logData: Omit<SmsLogData, 'timestamp'>) {
 
     // Redis 리스트에 추가 (오른쪽에 push)
     await redis.rpush(SMS_QUEUE_KEY, JSON.stringify(data));
-    logger.debug('[SMS Queue] 로그 추가됨', { phone: logData.phone });
+    logger.log('[SMS Queue] 로그 추가됨', { phone: logData.phone });
   } catch (err) {
     logger.error('[SMS Queue] 큐 추가 실패', { err });
     // 큐 실패 시 로깅만 하고 계속 진행
@@ -57,7 +57,7 @@ export async function processSmsQueue() {
     // 이미 처리 중인지 확인
     const isProcessing = await redis.get(SMS_QUEUE_PROCESSING);
     if (isProcessing) {
-      logger.debug('[SMS Queue] 이미 처리 중입니다');
+      logger.log('[SMS Queue] 이미 처리 중입니다');
       return;
     }
 
@@ -68,7 +68,7 @@ export async function processSmsQueue() {
     const items = await redis.lrange(SMS_QUEUE_KEY, 0, SMS_QUEUE_BATCH_SIZE - 1);
 
     if (items.length === 0) {
-      logger.debug('[SMS Queue] 처리할 로그가 없습니다');
+      logger.log('[SMS Queue] 처리할 로그가 없습니다');
       await redis.del(SMS_QUEUE_PROCESSING);
       return;
     }

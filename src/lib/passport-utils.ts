@@ -98,7 +98,7 @@ export function decodePassportToken(shortToken: string): string {
 
 // ── 템플릿 유틸 ─────────────────────────────────────────────
 
-export const DEFAULT_PASSPORT_TEMPLATE_BODY = `[여권 발급 안내] 여행 준비를 완벽하게 도와드릴게요!\n\n{고객명}님, 안녕하세요.\n예약하신 {상품명} 일정({출발일} 출발)을 위해 필요한 여권 정보를 자동으로 수집하고 확인해드리고 있어요.\n\n지금 바로 진행해 주세요.\n1. 아래 링크를 눌러 여권 정보를 입력해 주세요.\n2. 제출 즉시 암호화된 자동 검증으로 담당 컨시어지가 확인합니다.\n3. 처리 상태와 추가 안내는 문자로 안내해 드릴게요.\n\n고객님의 정보는 전 과정에서 안전하게 암호화되어 저장됩니다.\n\n예상 확인 시간: 접수 후 최대 24시간 내\n\n감사합니다.\n크루즈 가이드 고객지원팀 드림\n\n- 여권 정보 제출하기: {링크}`;
+export const DEFAULT_PASSPORT_TEMPLATE_BODY = `{고객명}님, 여권 정보를 입력해주세요: {링크}`;
 
 /** 템플릿 변수 치환 */
 export function fillTemplate(

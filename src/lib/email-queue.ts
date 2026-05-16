@@ -36,7 +36,7 @@ export async function addEmailLog(logData: Omit<EmailLogData, 'timestamp'>) {
 
     // Redis 리스트에 추가 (오른쪽에 push)
     await redis.rpush(EMAIL_QUEUE_KEY, JSON.stringify(data));
-    logger.debug('[Email Queue] 로그 추가됨', { email: logData.email });
+    logger.log('[Email Queue] 로그 추가됨', { email: logData.email });
   } catch (err) {
     logger.error('[Email Queue] 큐 추가 실패', { err });
     // 큐 실패 시 로깅만 하고 계속 진행
@@ -55,7 +55,7 @@ export async function processEmailQueue() {
     // 이미 처리 중인지 확인
     const isProcessing = await redis.get(EMAIL_QUEUE_PROCESSING);
     if (isProcessing) {
-      logger.debug('[Email Queue] 이미 처리 중입니다');
+      logger.log('[Email Queue] 이미 처리 중입니다');
       return;
     }
 
@@ -66,7 +66,7 @@ export async function processEmailQueue() {
     const items = await redis.lrange(EMAIL_QUEUE_KEY, 0, EMAIL_QUEUE_BATCH_SIZE - 1);
 
     if (items.length === 0) {
-      logger.debug('[Email Queue] 처리할 로그가 없습니다');
+      logger.log('[Email Queue] 처리할 로그가 없습니다');
       await redis.del(EMAIL_QUEUE_PROCESSING);
       return;
     }
