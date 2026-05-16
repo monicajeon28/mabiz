@@ -34,19 +34,35 @@ export async function GET(_req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, error: '회원을 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // ContactChangeLog 이력 조회 (시간 역순)
-    const changeHistory = await prisma.contactChangeLog.findMany({
-      where: { gmUserId },
-      orderBy: { changedAt: 'desc' },
+    // groups 관계 조회
+    const userWithGroups = await prisma.gmUser.findUnique({
+      where: { id: gmUserId },
+      include: {
+        groupMemberships: {
+          include: { group: true },
+        },
+      },
     });
+
+    // ContactChangeLog 이력 조회 (시간 역순) — 실패해도 계속 진행
+    let changeHistory: any[] = [];
+    try {
+      changeHistory = await prisma.contactChangeLog.findMany({
+        where: { gmUserId },
+        orderBy: { changedAt: 'desc' },
+      });
+    } catch {
+      // ContactChangeLog 쿼리 실패 시 무시 (필드 미스매치 등)
+    }
 
     return NextResponse.json({
       ok: true,
-      user,
+      user: userWithGroups || user,
       changeHistory,
     });
   } catch (err) {
-    logger.error('[GET /api/members/[id]]', { err });
+    const errMsg = err instanceof Error ? err.message : JSON.stringify(err);
+    logger.error('[GET /api/members/[id]]', { err: errMsg, gmUserId });
     return NextResponse.json({ ok: false, error: '서버 오류가 발생했습니다.' }, { status: 500 });
   }
 }

@@ -124,6 +124,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       message: '여권 정보가 성공적으로 저장되었습니다.',
+      reservationId,
       updatedCount: updatedTravelers.length,
     });
   } catch (error) {

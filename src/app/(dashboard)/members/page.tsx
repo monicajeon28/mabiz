@@ -192,7 +192,6 @@ export default function MembersPage() {
     setTagInput("");
     setNewGroupName("");
     setShowNewGroupInput(false);
-    setSelectedGroups(new Set());
 
     try {
       // 상세 정보 + 변경 이력 조회
@@ -201,6 +200,9 @@ export default function MembersPage() {
       const detailJson = await detailRes.json();
       if (detailJson.ok) {
         setDetailData(detailJson);
+        // groupMemberships에서 배정된 그룹 ID 추출
+        const groupIds = new Set(detailJson.user.groupMemberships?.map((m: any) => m.groupId) ?? []);
+        setSelectedGroups(groupIds);
       }
 
       // 스태프 목록 조회 (담당자 드롭다운)
@@ -220,8 +222,8 @@ export default function MembersPage() {
         setStaffLoading(false);
       }
 
-      // 그룹 목록 조회
-      if (groups.length === 0) {
+      // 그룹 목록 조회 (조건 제거 - 매번 최신 목록 fetch)
+      try {
         setGroupsLoading(true);
         const groupRes = await fetch("/api/members/groups");
         if (groupRes.ok) {
@@ -230,6 +232,9 @@ export default function MembersPage() {
             setGroups(groupJson.groups);
           }
         }
+      } catch (err) {
+        // 그룹 로드 실패해도 계속 진행
+      } finally {
         setGroupsLoading(false);
       }
     } catch (err) {
@@ -307,31 +312,30 @@ export default function MembersPage() {
     }
   };
 
-  // 태그 추가
-  const handleAddTag = async () => {
-    if (!tagInput.trim() || memberTags.length >= 5) return;
-
-    const newTag = tagInput.trim();
-    if (memberTags.includes(newTag)) {
-      setTagInput("");
-      return;
-    }
-
-    const newTags = [...memberTags, newTag];
+  // 태그 추가 (Enter 키 또는 직접 호출)
+  const addTagDirectly = (tag: string) => {
+    if (memberTags.length >= 5 || memberTags.includes(tag)) return;
+    const newTags = [...memberTags, tag];
     setMemberTags(newTags);
     setTagInput("");
 
     if (!selectedMember) return;
 
-    try {
-      await fetch(`/api/members/${selectedMember.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ memberTags: newTags }),
-      });
-    } catch (err) {
-      setMemberTags(memberTags);
+    fetch(`/api/members/${selectedMember.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberTags: newTags }),
+    }).catch(() => setMemberTags(memberTags));
+  };
+
+  const handleAddTag = async () => {
+    if (!tagInput.trim() || memberTags.length >= 5) return;
+    const newTag = tagInput.trim();
+    if (memberTags.includes(newTag)) {
+      setTagInput("");
+      return;
     }
+    addTagDirectly(newTag);
   };
 
   // 태그 제거
@@ -365,9 +369,11 @@ export default function MembersPage() {
 
       if (res.ok) {
         setSelectedGroups((prev) => new Set([...prev, groupId]));
+      } else {
+        setAssignResult("그룹 배정에 실패했습니다.");
       }
     } catch (err) {
-      // error
+      setAssignResult("그룹 배정 중 오류가 발생했습니다.");
     }
   };
 
@@ -376,19 +382,23 @@ export default function MembersPage() {
     if (!selectedMember) return;
 
     try {
-      await fetch(`/api/members/groups/${groupId}/members`, {
+      const res = await fetch(`/api/members/groups/${groupId}/members`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ gmUserId: selectedMember.id }),
       });
 
-      setSelectedGroups((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(groupId);
-        return newSet;
-      });
+      if (res.ok) {
+        setSelectedGroups((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(groupId);
+          return newSet;
+        });
+      } else {
+        setAssignResult("그룹 제거에 실패했습니다.");
+      }
     } catch (err) {
-      // error
+      setAssignResult("그룹 제거 중 오류가 발생했습니다.");
     }
   };
 
@@ -396,6 +406,7 @@ export default function MembersPage() {
   const handleCreateAndAssignGroup = async () => {
     if (!newGroupName.trim() || !selectedMember) return;
 
+    setCreatingGroup(true);
     try {
       const createRes = await fetch("/api/members/groups", {
         method: "POST",
@@ -409,20 +420,29 @@ export default function MembersPage() {
 
         if (newGroupId) {
           // 배정
-          await fetch(`/api/members/groups/${newGroupId}/members`, {
+          const assignRes = await fetch(`/api/members/groups/${newGroupId}/members`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ gmUserId: selectedMember.id }),
           });
 
-          setGroups((prev) => [...prev, createJson.group]);
-          setSelectedGroups((prev) => new Set([...prev, newGroupId]));
-          setNewGroupName("");
-          setShowNewGroupInput(false);
+          if (assignRes.ok) {
+            setGroups((prev) => [...prev, createJson.group]);
+            setSelectedGroups((prev) => new Set([...prev, newGroupId]));
+            setNewGroupName("");
+            setShowNewGroupInput(false);
+            setAssignResult("✅ 그룹이 생성되고 배정되었습니다.");
+          } else {
+            setAssignResult("그룹 생성은 성공했으나 배정 실패");
+          }
         }
+      } else {
+        setAssignResult("그룹 생성에 실패했습니다.");
       }
     } catch (err) {
-      // error
+      setAssignResult("그룹 생성 중 오류가 발생했습니다.");
+    } finally {
+      setCreatingGroup(false);
     }
   };
 
@@ -711,7 +731,7 @@ export default function MembersPage() {
                           type="text"
                           value={tagInput}
                           onChange={(e) => setTagInput(e.target.value)}
-                          onKeyPress={(e) => e.key === "Enter" && handleAddTag()}
+                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddTag())}
                           placeholder="태그 입력 후 Enter"
                           className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                         />
@@ -724,7 +744,23 @@ export default function MembersPage() {
                         </button>
                       </div>
                     )}
-                    <div className="text-xs text-gray-500">추천: {SUGGEST_TAGS.join(", ")}</div>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {SUGGEST_TAGS.map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          disabled={memberTags.includes(tag) || memberTags.length >= 5}
+                          onClick={() => addTagDirectly(tag)}
+                          className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
+                            memberTags.includes(tag)
+                              ? "border-gray-200 text-gray-300 cursor-not-allowed bg-gray-50"
+                              : "border-blue-200 text-blue-600 hover:bg-blue-50 cursor-pointer"
+                          }`}
+                        >
+                          #{tag}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 

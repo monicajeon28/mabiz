@@ -565,6 +565,18 @@ export default function CustomerPassportPage() {
   }
 
   if (isSuccess) {
+    // 제출 후 PNR 페이지로 자동 리다이렉트
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        if (reservation?.id) {
+          router.push(`/pnr/${reservation.id}`);
+        } else {
+          router.push('/');
+        }
+      }, 2500);
+      return () => clearTimeout(timer);
+    }, [reservation?.id, router]);
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 px-4 py-12">
         <div className="mx-auto max-w-2xl">
@@ -572,14 +584,28 @@ export default function CustomerPassportPage() {
             <h1 className="mb-4 text-2xl font-bold text-gray-900">여권 정보 등록 완료</h1>
             <p className="mb-8 text-gray-600">
               입력하신 여권 정보가 성공적으로 저장되었습니다.<br />
-              담당자가 확인 후 처리하겠습니다.
+              <span className="text-sm text-gray-500">다음 단계(PNR 입력)로 진행 중입니다...</span>
             </p>
             <div className="space-y-3">
+              <div className="text-center text-gray-500 text-sm">
+                <div className="mb-4">곧 다음 페이지로 이동합니다 (2초 후)</div>
+                <div className="flex justify-center gap-1">
+                  <div className="h-2 w-2 rounded-full bg-blue-600 animate-bounce"></div>
+                  <div className="h-2 w-2 rounded-full bg-blue-600 animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="h-2 w-2 rounded-full bg-blue-600 animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+              </div>
               <button
-                onClick={() => router.push('/')}
+                onClick={() => {
+                  if (reservation?.id) {
+                    router.push(`/pnr/${reservation.id}`);
+                  } else {
+                    router.push('/');
+                  }
+                }}
                 className="w-full rounded-lg bg-blue-600 px-8 py-3 text-white hover:bg-blue-700 font-semibold"
               >
-                홈으로 돌아가기
+                지금 진행하기
               </button>
             </div>
           </div>

@@ -102,8 +102,8 @@ export async function GET(req: Request) {
           u."createdAt",
           u."isLocked",
           ap.type as "affiliateType",
-          NULL::text as "memberStatus",
-          '{}'::text[] as "memberTags",
+          u."memberStatus",
+          COALESCE(u."memberTags", ARRAY[]::text[]) as "memberTags",
           CASE
             WHEN u."mallUserId" LIKE 'kakao_%' THEN 'KAKAO'
             WHEN u."mallUserId" LIKE 'naver_%' THEN 'NAVER'
