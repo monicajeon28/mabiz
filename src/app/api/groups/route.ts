@@ -99,9 +99,18 @@ export async function POST(req: Request) {
         funnelId:    funnelId    ?? null,
         ownerId:     ctx.userId,  // 개인 그룹으로 생성
       },
+      include: {
+        funnel: { select: { name: true } },
+      },
     });
 
-    return NextResponse.json({ ok: true, group }, { status: 201 });
+    return NextResponse.json({
+      ok: true,
+      group: {
+        ...group,
+        funnelName: group.funnel?.name ?? null,
+      },
+    }, { status: 201 });
   } catch (err) {
     logger.error("[POST /api/groups]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
