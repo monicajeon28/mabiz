@@ -226,105 +226,193 @@ export default function B2BEditorEditPage() {
   }, [commentMsg]);
 
   // ── Save ─────────────────────────────────────────────────────
+
   const handleSave = async () => {
-    if (!title.trim()) { setError('제목을 입력하세요.'); return; }
-    setSaving(true); setError(''); setSaveMsg('');
+    if (!title.trim()) {
+      setError('제목을 입력하세요.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    setSaveMsg('');
+
     try {
-      const res = await fetch(`/api/b2b-landing/${id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title, slug: slug || undefined, htmlContent: html, isActive,
-          buttonTitle: buttonTitle || null, exposureTitle: exposureTitle || null,
-          exposureImage: exposureImage || null, description: description || null,
-          footerText: footerText || null, headerScript: headerScript || null,
-          completionPageUrl: completionPageUrl || null, commentEnabled, paymentEnabled,
-          ...(paymentEnabled ? {
-            paymentType, productName: productName || null,
+      // Build payment payload only if enabled
+      const paymentPayload = paymentEnabled
+        ? {
+            paymentType,
+            productName: productName || null,
             productPrice: parseInt(productPrice) || null,
-            ...(paymentType === 'subscription' ? { cycleDay: parseInt(cycleDay), expireDate: expireDate || null } : {}),
-          } : {}),
-          regEmailEnabled, regEmailSubject: regEmailSubject || null, regEmailContent: regEmailContent || null,
+            ...(paymentType === 'subscription'
+              ? { cycleDay: parseInt(cycleDay), expireDate: expireDate || null }
+              : {}),
+          }
+        : {};
+
+      const res = await fetch(`/api/b2b-landing/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          slug: slug || undefined,
+          htmlContent: html,
+          isActive,
+          buttonTitle: buttonTitle || null,
+          exposureTitle: exposureTitle || null,
+          exposureImage: exposureImage || null,
+          description: description || null,
+          footerText: footerText || null,
+          headerScript: headerScript || null,
+          completionPageUrl: completionPageUrl || null,
+          commentEnabled,
+          paymentEnabled,
+          ...paymentPayload,
+          regEmailEnabled,
+          regEmailSubject: regEmailSubject || null,
+          regEmailContent: regEmailContent || null,
         }),
       });
+
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (!data.ok) throw new Error(data.message || '저장 실패');
+
       setSaveMsg('저장 완료!');
     } catch (err) {
       setError(`저장 실패: ${err instanceof Error ? err.message : '알 수 없음'}`);
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ── Comments ─────────────────────────────────────────────────
+
   const generateComments = async (count: number) => {
-    setGenerating(true); setCommentMsg(''); setGenDropdownOpen(false);
+    setGenerating(true);
+    setCommentMsg('');
+    setGenDropdownOpen(false);
+
     try {
       const res = await fetch(`/api/b2b-landing/${id}/comments`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ generate: true, count }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
       const data = await res.json();
       if (data.ok && data.comments) {
         setComments((prev) => [...data.comments, ...prev]);
         setCommentMsg(`${data.comments.length}개 AI 후기 생성 완료`);
-      } else throw new Error(data.message || '생성 실패');
+      } else {
+        throw new Error(data.message || '생성 실패');
+      }
     } catch (err) {
-      setCommentMsg(`생성 실패: ${err instanceof Error ? err.message : '알 수 없음'}`);
-    } finally { setGenerating(false); }
+      setCommentMsg(
+        `생성 실패: ${err instanceof Error ? err.message : '알 수 없음'}`
+      );
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const deleteComment = async (commentId: string) => {
     if (!confirm('이 후기를 삭제하시겠습니까?')) return;
+
     try {
-      const res = await fetch(`/api/b2b-landing/${id}/comments?commentId=${encodeURIComponent(commentId)}`, { method: 'DELETE' });
+      const res = await fetch(
+        `/api/b2b-landing/${id}/comments?commentId=${encodeURIComponent(commentId)}`,
+        { method: 'DELETE' }
+      );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
       const data = await res.json();
-      if (data.ok) setComments((prev) => prev.filter((c) => c.id !== commentId));
-      else throw new Error(data.message || '삭제 실패');
+      if (data.ok) {
+        setComments((prev) => prev.filter((c) => c.id !== commentId));
+      } else {
+        throw new Error(data.message || '삭제 실패');
+      }
     } catch (err) {
-      setCommentMsg(`삭제 실패: ${err instanceof Error ? err.message : '알 수 없음'}`);
+      setCommentMsg(
+        `삭제 실패: ${err instanceof Error ? err.message : '알 수 없음'}`
+      );
     }
   };
 
   // ── Stats ────────────────────────────────────────────────────
+
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
     try {
       const res = await fetch(`/api/b2b-landing/${id}/stats`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (data.ok) setStats(data.stats);
-      else throw new Error(data.message || '통계 로딩 실패');
-    } catch { setStats(null); }
-    finally { setStatsLoading(false); }
+      if (data.ok) {
+        setStats(data.stats);
+      } else {
+        throw new Error(data.message || '통계 로딩 실패');
+      }
+    } catch {
+      setStats(null);
+    } finally {
+      setStatsLoading(false);
+    }
   }, [id]);
 
-  useEffect(() => { if (tab === 'stats') loadStats(); }, [tab, loadStats]);
+  useEffect(() => {
+    if (tab === 'stats') loadStats();
+  }, [tab, loadStats]);
 
   // ── Loading / Error states ───────────────────────────────────
-  if (loading) return (
-    <div className="flex items-center justify-center h-screen bg-gray-50">
-      <div className="flex flex-col items-center gap-3">
-        <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
-        <p className="text-sm text-gray-500">페이지 로딩 중...</p>
-      </div>
-    </div>
-  );
 
-  if (!page && error) return (
-    <div className="flex items-center justify-center h-screen bg-gray-50">
-      <div className="text-center">
-        <p className="text-red-500 mb-4">{error}</p>
-        <button onClick={() => router.back()} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">돌아가기</button>
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
+          <p className="text-sm text-gray-500">페이지 로딩 중...</p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
-  const tabCfg: { key: TabKey; label: string; icon: React.ReactNode; badge?: number }[] = [
+  if (!page && error) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center">
+          <p className="text-red-500 mb-4">{error}</p>
+          <button
+            onClick={() => router.back()}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300"
+          >
+            돌아가기
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Tab config ───────────────────────────────────────────────
+
+  const tabCfg: {
+    key: TabKey;
+    label: string;
+    icon: React.ReactNode;
+    badge?: number;
+  }[] = [
     { key: 'editor', label: '편집', icon: <Eye className="w-3.5 h-3.5" /> },
-    { key: 'registrations', label: '등록자', icon: <Users className="w-3.5 h-3.5" />, badge: registrations.length },
-    { key: 'comments', label: '후기', icon: <MessageSquare className="w-3.5 h-3.5" />, badge: comments.length },
+    {
+      key: 'registrations',
+      label: '등록자',
+      icon: <Users className="w-3.5 h-3.5" />,
+      badge: registrations.length,
+    },
+    {
+      key: 'comments',
+      label: '후기',
+      icon: <MessageSquare className="w-3.5 h-3.5" />,
+      badge: comments.length,
+    },
     { key: 'stats', label: '통계', icon: <BarChart2 className="w-3.5 h-3.5" /> },
   ];
 

@@ -240,7 +240,6 @@ export async function POST(req: Request, { params }: Params) {
           phone: formattedPhone,
           email: body.email?.trim() || null,
           type: 'LEAD',
-          status: 'ACTIVE',
           utmSource: body.utmSource || 'b2b_partner',
           affiliateCode,
         },
@@ -272,7 +271,7 @@ export async function POST(req: Request, { params }: Params) {
             utmSource: body.utmSource || null,
             utmMedium: body.utmMedium || null,
             utmCampaign: body.utmCampaign || null,
-            metadata: body.metadata || null,
+            metadata: body.metadata ? JSON.parse(JSON.stringify(body.metadata)) : undefined,
           },
           select: { id: true },
         });
@@ -294,7 +293,7 @@ export async function POST(req: Request, { params }: Params) {
           // 그룹에 연락처 추가
           await prisma.contactGroupMember.upsert({
             where: {
-              contactId_groupId: { contactId, groupId: lp.groupId },
+              groupId_contactId: { groupId: lp.groupId, contactId },
             },
             create: { contactId, groupId: lp.groupId },
             update: {},

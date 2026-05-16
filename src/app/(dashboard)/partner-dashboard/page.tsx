@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ShoppingCart, Users, CreditCard, UserPlus, GraduationCap,
   DollarSign, Crown, MessageSquare, Percent, Plane, FileText,
-  Clock, Loader2, CalendarDays, ChevronDown,
+  Clock, Loader2, CalendarDays, ChevronDown, X, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 
 /* ─────────────────── 타입 ─────────────────── */
@@ -135,12 +135,17 @@ function Badge({ status }: { status: string }) {
 /* ─────────────────── 공통 컴포넌트 ─────────────────── */
 
 function StatCard({
-  title, value, icon, suffix, trend,
+  title, value, icon, suffix, trend, onClick,
 }: {
-  title: string; value: string | number; icon: React.ReactNode; suffix?: string; trend?: number;
+  title: string; value: string | number; icon: React.ReactNode; suffix?: string; trend?: number; onClick?: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div
+      className={`rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all ${
+        onClick ? 'cursor-pointer hover:border-blue-300 hover:shadow-md active:scale-[0.98]' : ''
+      }`}
+      onClick={onClick}
+    >
       <div className="flex items-start justify-between">
         <p className="text-sm font-medium text-gray-500">{title}</p>
         <span className="text-gray-300">{icon}</span>
@@ -160,9 +165,12 @@ function StatCard({
           </span>
         )}
       </div>
-      {trend !== undefined && trend !== 0 && (
-        <p className="text-xs text-gray-400 mt-1">전월 대비</p>
-      )}
+      <div className="flex items-center justify-between mt-1">
+        {trend !== undefined && trend !== 0 ? (
+          <p className="text-xs text-gray-400">전월 대비</p>
+        ) : <span />}
+        {onClick && <p className="text-xs text-blue-500">상세보기 →</p>}
+      </div>
     </div>
   );
 }
@@ -205,9 +213,141 @@ function TableWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
+/* ─────────────────── 드릴다운 드로어 ─────────────────── */
+
+type DrilldownConfig = {
+  title: string;
+  apiUrl: string;
+  columns: { key: string; label: string; align?: 'left' | 'right' | 'center'; render?: (v: unknown, row: Record<string, unknown>) => React.ReactNode }[];
+  summaryRender?: (data: Record<string, unknown>) => React.ReactNode;
+};
+
+function DrilldownDrawer({
+  config, open, onClose,
+}: {
+  config: DrilldownConfig | null; open: boolean; onClose: () => void;
+}) {
+  const [items, setItems] = useState<Record<string, unknown>[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
+
+  useEffect(() => {
+    if (!open || !config) return;
+    setPage(1);
+    setItems([]);
+    setSummary(null);
+  }, [open, config]);
+
+  useEffect(() => {
+    if (!open || !config) return;
+    setLoading(true);
+    fetch(`${config.apiUrl}&page=${page}`, { credentials: 'include' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.ok && json.data) {
+          setItems(json.data.items ?? []);
+          setTotal(json.data.total ?? 0);
+          setTotalPages(json.data.totalPages ?? 1);
+          if (json.data.summary) setSummary(json.data.summary);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [open, config, page]);
+
+  if (!open || !config) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <div className="flex-1 bg-black/40" onClick={onClose} />
+      <div className="w-full max-w-2xl bg-white h-full overflow-y-auto shadow-xl flex flex-col">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
+          <div>
+            <h2 className="text-base font-bold text-gray-900">{config.title}</h2>
+            <p className="text-xs text-gray-400 mt-0.5">총 {total.toLocaleString()}건</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        {/* 요약 (있으면) */}
+        {summary && config.summaryRender && (
+          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+            {config.summaryRender(summary)}
+          </div>
+        )}
+
+        {/* 테이블 */}
+        <div className="flex-1 overflow-x-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+          ) : items.length === 0 ? (
+            <EmptyState message="데이터가 없습니다." />
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-500 text-xs uppercase sticky top-0">
+                <tr>
+                  {config.columns.map((col) => (
+                    <th key={col.key} className={`px-4 py-3 text-${col.align ?? 'left'} font-medium`}>
+                      {col.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {items.map((row, i) => (
+                  <tr key={(row.id as string) ?? i} className="hover:bg-gray-50 transition-colors">
+                    {config.columns.map((col) => (
+                      <td key={col.key} className={`px-4 py-3 text-${col.align ?? 'left'} ${col.align === 'right' ? 'text-gray-700' : ''}`}>
+                        {col.render ? col.render(row[col.key], row) : (
+                          <span className="text-gray-700">{String(row[col.key] ?? '-')}</span>
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* 페이징 */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-5 py-3 border-t border-gray-200 bg-white sticky bottom-0">
+            <p className="text-xs text-gray-400">{page} / {totalPages}</p>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────────── B2C 탭 ─────────────────── */
 
-function B2CTab({ data, loading }: { data: B2CData | null; loading: boolean }) {
+function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; loading: boolean; month: string; onDrilldown: (config: DrilldownConfig) => void }) {
   if (loading || !data) {
     return (
       <div className="space-y-6">
@@ -227,9 +367,40 @@ function B2CTab({ data, loading }: { data: B2CData | null; loading: boolean }) {
     <div className="space-y-6">
       {/* 통계 카드 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard title="총 판매액" value={`₩${formatWon(data.totalSalesAmount)}`} icon={<DollarSign className="h-5 w-5" />} trend={data.trends?.totalSalesAmount} />
-        <StatCard title="판매 건수" value={data.salesCount} icon={<ShoppingCart className="h-5 w-5" />} suffix="건" trend={data.trends?.salesCount} />
-        <StatCard title="예약 현황" value={data.reservationCount} icon={<Plane className="h-5 w-5" />} suffix="건" trend={data.trends?.reservationCount} />
+        <StatCard title="총 판매액" value={`₩${formatWon(data.totalSalesAmount)}`} icon={<DollarSign className="h-5 w-5" />} trend={data.trends?.totalSalesAmount} onClick={() => onDrilldown({
+          title: '판매 상세 내역',
+          apiUrl: `/api/partner/dashboard/b2c/detail?type=sales&month=${month}`,
+          columns: [
+            { key: 'productName', label: '상품명' },
+            { key: 'amount', label: '금액', align: 'right', render: (v) => `₩${(v as number)?.toLocaleString()}` },
+            { key: 'commission', label: '수수료', align: 'right', render: (v) => `₩${(v as number)?.toLocaleString()}` },
+            { key: 'status', label: '상태', align: 'center', render: (v) => <Badge status={v as string} /> },
+            { key: 'date', label: '날짜', align: 'right' },
+          ],
+        })} />
+        <StatCard title="판매 건수" value={data.salesCount} icon={<ShoppingCart className="h-5 w-5" />} suffix="건" trend={data.trends?.salesCount} onClick={() => onDrilldown({
+          title: '판매 상세 내역',
+          apiUrl: `/api/partner/dashboard/b2c/detail?type=sales&month=${month}`,
+          columns: [
+            { key: 'productName', label: '상품명' },
+            { key: 'amount', label: '금액', align: 'right', render: (v) => `₩${(v as number)?.toLocaleString()}` },
+            { key: 'commission', label: '수수료', align: 'right', render: (v) => `₩${(v as number)?.toLocaleString()}` },
+            { key: 'status', label: '상태', align: 'center', render: (v) => <Badge status={v as string} /> },
+            { key: 'date', label: '날짜', align: 'right' },
+          ],
+        })} />
+        <StatCard title="예약 현황" value={data.reservationCount} icon={<Plane className="h-5 w-5" />} suffix="건" trend={data.trends?.reservationCount} onClick={() => onDrilldown({
+          title: '예약 상세 내역',
+          apiUrl: `/api/partner/dashboard/b2c/detail?type=reservations&month=${month}`,
+          columns: [
+            { key: 'customerName', label: '고객명' },
+            { key: 'productName', label: '상품명' },
+            { key: 'passportStatus', label: '여권', align: 'center', render: (v) => <Badge status={v as string} /> },
+            { key: 'pnrStatus', label: 'PNR', align: 'center', render: (v) => <Badge status={v as string} /> },
+            { key: 'departureDate', label: '출발일', align: 'right' },
+            { key: 'date', label: '예약일', align: 'right' },
+          ],
+        })} />
       </div>
 
       {/* 최근 판매 */}

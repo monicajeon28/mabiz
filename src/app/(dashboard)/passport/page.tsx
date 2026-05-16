@@ -693,49 +693,69 @@ export default function PassportRequestPage() {
 
     setIsBulkGenerating(true);
     try {
-      // 1. 링크 생성 API 호출
-      const res = await fetch('/api/passport/admin/lead-link', {
+      // 1. 메시지 선택: "메시지로 발송" 모드일 때만 필요
+      let requestMessageBody = '';
+      if (sendMode === 'message') {
+        const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
+        const template = selectedTemplate || templates.find((t) => t.isDefault);
+        if (!template?.body) {
+          throw new Error('템플릿을 선택해주세요.');
+        }
+        requestMessageBody = template.body;
+      } else {
+        // "링크만 전송" - 메시지 없이 처리 (API에서 처리)
+        requestMessageBody = '';
+      }
+
+      // 2. 링크 생성 API 호출 (실제로는 send API가 링크도 생성)
+      const res = await fetch('/api/passport/admin/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           userIds: selectedIds,
+          templateId: sendMode === 'message' ? selectedTemplateId ?? undefined : undefined,
+          messageBody: requestMessageBody,
+          channel: 'SMS', // 링크 생성 시점에는 SMS로 지정하지 않음 (선택)
           expiresInHours,
         }),
       });
 
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        logger.error('[PassportRequest] Lead-link API error response:', { status: res.status, data });
+        logger.error('[PassportRequest] Send API error response:', { status: res.status, data });
         throw new Error(data.message || '링크 생성에 실패했습니다.');
       }
 
-      // 2. 메시지 렌더링
+      // 3. 첫 번째 사용자의 링크 정보 추출 (대표로 사용)
+      const firstResult = data.results?.[0];
+      if (!firstResult?.link) {
+        throw new Error('링크가 생성되지 않았습니다.');
+      }
+
+      // 4. 메시지 렌더링
       let renderedMessage = '';
       if (sendMode === 'message') {
-        // 선택한 템플릿 또는 기본 템플릿 로드
         const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
         const template = selectedTemplate || templates.find((t) => t.isDefault);
-
         if (template) {
+          // 기본 고객명/상품명으로 미리보기
           renderedMessage = template.body
             .replace(/{고객명}/g, '고객명')
-            .replace(/{링크}/g, data.data?.[0]?.link || '{링크}')
+            .replace(/{링크}/g, firstResult.link)
             .replace(/{상품명}/g, '상품명')
             .replace(/{출발일}/g, '출발일');
-        } else {
-          renderedMessage = `여권 제출 링크: ${data.data?.[0]?.link || '{링크}'}`;
         }
       } else {
         // "링크만 전송" 모드
-        renderedMessage = data.data?.[0]?.link || '';
+        renderedMessage = firstResult.link;
       }
 
-      // 3. 결과를 인라인 표시 상태에 저장
+      // 5. 결과를 인라인 표시 상태에 저장
       setBulkLinkResult({
-        link: data.data?.[0]?.link || '',
+        link: firstResult.link,
         message: renderedMessage,
-        expiresAt: data.data?.[0]?.expiresAt || new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString(),
+        expiresAt: firstResult.token ? new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString() : new Date().toISOString(),
         selectedSendMode: sendMode,
         templateId: sendMode === 'message' ? selectedTemplateId ?? undefined : undefined,
       });
