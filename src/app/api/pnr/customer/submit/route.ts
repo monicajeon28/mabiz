@@ -126,6 +126,15 @@ export async function POST(req: NextRequest) {
           updatedAt: new Date(),
         },
       });
+
+      // 4. APIS 큐에 자동 추가 (PNR 완료 후 자동으로 APIS 동기화)
+      await tx.gmApisSyncQueue.create({
+        data: {
+          targetType: 'Reservation',
+          targetId: reservationId,
+          status: 'PENDING',
+        },
+      });
     });
 
     // 업데이트된 예약 정보 반환

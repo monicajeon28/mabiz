@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
+import { fetchWithRetry } from '@/lib/fetch-utils';
 
 interface Traveler {
   id?: number;
@@ -275,23 +276,27 @@ export default function CustomerPnrPage({
     try {
       setIsSubmitting(true);
 
-      const response = await fetch('/api/pnr/customer/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetchWithRetry(
+        '/api/pnr/customer/submit',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            reservationId: parseInt(reservationId),
+            travelers: travelers.map((t) => ({
+              id: t.id,
+              korName: t.korName,
+              residentNum: t.residentNum || null,
+              phone: t.phone || null,
+              roomNumber: t.roomNumber,
+            })),
+          }),
         },
-        credentials: 'include',
-        body: JSON.stringify({
-          reservationId: parseInt(reservationId),
-          travelers: travelers.map((t) => ({
-            id: t.id,
-            korName: t.korName,
-            residentNum: t.residentNum || null,
-            phone: t.phone || null,
-            roomNumber: t.roomNumber,
-          })),
-        }),
-      });
+        { maxRetries: 3, timeoutMs: 15000 }
+      );
 
       const data = await response.json();
 
@@ -363,7 +368,12 @@ export default function CustomerPnrPage({
             <p className="mb-4 text-gray-600">
               동행자 및 방 배정 정보가 성공적으로 저장되었습니다.
             </p>
-            <div className="mb-8 rounded-lg bg-blue-50 p-4 text-left">
+            <div className="mb-4 rounded-lg bg-green-50 p-4 text-left border border-green-200">
+              <p className="text-sm text-green-800">
+                <strong>✓ 자동 처리 완료:</strong> PNR 정보가 APIS 시스템에 자동으로 등록되었습니다.
+              </p>
+            </div>
+            <div className="mb-8 rounded-lg bg-blue-50 p-4 text-left border border-blue-200">
               <p className="text-sm text-blue-800">
                 <strong>다음 단계:</strong> 여권 정보 등록이 필요합니다.<br />
                 담당자가 별도로 여권 등록 링크를 발송해드립니다.

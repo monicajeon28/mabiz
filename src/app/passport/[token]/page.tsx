@@ -19,6 +19,8 @@ interface Traveler {
   isScanning: boolean; // OCR 스캔 중
   roomNumber?: number;
   showAdditionalFields?: boolean; // Step 4 추가 정보 펼치기
+  scanError?: string; // 스캔 오류 메시지
+  showManualInput?: boolean; // 수동 입력 선택지 표시
 }
 
 interface Reservation {
@@ -346,7 +348,6 @@ export default function CustomerPassportPage() {
         };
 
         setTravelers(updatedTravelers);
-        alert('여권 정보가 자동으로 입력되었습니다!');
 
         // 여권 이미지를 구글 드라이브에 백업 (비동기)
         const travelerId = updatedTravelers[travelerIndex].id;
@@ -378,8 +379,10 @@ export default function CustomerPassportPage() {
         throw new Error(data.error || '여권 정보를 읽을 수 없습니다.');
       }
     } catch (err: any) {
-      alert(err.message || '여권 스캔 중 오류가 발생했습니다. 다시 시도해주세요.');
+      // 오류 발생 시 수동 입력 옵션 제공
       updatedTravelers[travelerIndex].isScanning = false;
+      updatedTravelers[travelerIndex].scanError = err.message || '여권 스캔 중 오류가 발생했습니다.';
+      updatedTravelers[travelerIndex].showManualInput = true;
       setTravelers(updatedTravelers);
     } finally {
       if (fileInputRefs.current[travelerIndex]) {
@@ -1010,6 +1013,37 @@ export default function CustomerPassportPage() {
                           여권 이미지를 AI가 분석하고 있습니다. 잠시만 기다려주세요...
                         </p>
                       )}
+
+                      {/* 스캔 오류 발생 시 */}
+                      {traveler.scanError && (
+                        <div className="mt-3 rounded-lg bg-red-50 p-4 border border-red-200">
+                          <p className="text-sm text-red-800 mb-3">
+                            <strong>⚠️ 스캔 실패:</strong> {traveler.scanError}
+                          </p>
+                          <div className="space-y-2">
+                            <button
+                              type="button"
+                              onClick={() => handlePassportScan(index)}
+                              className="w-full rounded-lg bg-orange-600 px-4 py-2 text-sm text-white hover:bg-orange-700 font-medium"
+                            >
+                              🔄 다시 시도하기
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = [...travelers];
+                                updated[index].scanError = '';
+                                updated[index].showManualInput = false;
+                                setTravelers(updated);
+                              }}
+                              className="w-full rounded-lg bg-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-300 font-medium"
+                            >
+                              ✏️ 수동으로 입력하기
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       <input
                         ref={(el) => {
                           fileInputRefs.current[index] = el;
