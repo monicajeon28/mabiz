@@ -246,6 +246,16 @@ export default function PassportRequestPage() {
   const [aligoStatus, setAligoStatus] = useState<AligoStatusResponse | null>(null);
   const [isLoadingAligoStatus, setIsLoadingAligoStatus] = useState(false);
 
+  // 일괄 링크 생성 결과 (인라인 표시용)
+  const [bulkLinkResult, setBulkLinkResult] = useState<{
+    link: string;
+    message: string;
+    expiresAt: string;
+    selectedSendMode: SendMode;
+    templateId?: number;
+  } | null>(null);
+  const [isBulkGenerating, setIsBulkGenerating] = useState(false);
+
   const selectedTemplates = useMemo(() => {
     if (selectedTemplateId === null) return null;
     return templates.find((tpl) => tpl.id === selectedTemplateId) ?? null;
@@ -680,8 +690,71 @@ export default function PassportRequestPage() {
       showError('먼저 발송할 고객을 선택해주세요.');
       return;
     }
-    if (!messageBody.trim()) {
-      showError('발송할 메시지 내용을 입력해주세요.');
+
+    setIsBulkGenerating(true);
+    try {
+      // 1. 링크 생성 API 호출
+      const res = await fetch('/api/passport/admin/lead-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          userIds: selectedIds,
+          expiresInHours,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        logger.error('[PassportRequest] Lead-link API error response:', { status: res.status, data });
+        throw new Error(data.message || '링크 생성에 실패했습니다.');
+      }
+
+      // 2. 메시지 렌더링
+      let renderedMessage = '';
+      if (sendMode === 'message') {
+        // 선택한 템플릿 또는 기본 템플릿 로드
+        const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
+        const template = selectedTemplate || templates.find((t) => t.isDefault);
+
+        if (template) {
+          renderedMessage = template.body
+            .replace(/{고객명}/g, '고객명')
+            .replace(/{링크}/g, data.data?.[0]?.link || '{링크}')
+            .replace(/{상품명}/g, '상품명')
+            .replace(/{출발일}/g, '출발일');
+        } else {
+          renderedMessage = `여권 제출 링크: ${data.data?.[0]?.link || '{링크}'}`;
+        }
+      } else {
+        // "링크만 전송" 모드
+        renderedMessage = data.data?.[0]?.link || '';
+      }
+
+      // 3. 결과를 인라인 표시 상태에 저장
+      setBulkLinkResult({
+        link: data.data?.[0]?.link || '',
+        message: renderedMessage,
+        expiresAt: data.data?.[0]?.expiresAt || new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString(),
+        selectedSendMode: sendMode,
+        templateId: sendMode === 'message' ? selectedTemplateId ?? undefined : undefined,
+      });
+
+      showSuccess(`${selectedIds.length}명에게 링크가 생성되었습니다.`);
+    } catch (error) {
+      logger.error('[PassportRequest] handleSend error:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      showError(error instanceof Error ? error.message : '링크 생성 중 오류가 발생했습니다.');
+    } finally {
+      setIsBulkGenerating(false);
+    }
+  };
+
+  // 링크 생성 후 SMS 발송
+  const handleBulkSendAfterLinkGeneration = async () => {
+    if (!bulkLinkResult) {
+      showError('먼저 링크를 생성해주세요.');
       return;
     }
 
@@ -693,25 +766,29 @@ export default function PassportRequestPage() {
         credentials: 'include',
         body: JSON.stringify({
           userIds: selectedIds,
-          templateId: selectedTemplateId ?? undefined,
-          messageBody,
-          channel,
+          templateId: bulkLinkResult.templateId ?? undefined,
+          messageBody: bulkLinkResult.message,
+          channel: 'SMS',
           expiresInHours,
         }),
       });
 
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        logger.error('[PassportRequest] Send API error response:', { status: res.status });
-        throw new Error('여권 요청 발송에 실패했습니다.');
+        logger.error('[PassportRequest] Send API error:', { status: res.status });
+        throw new Error(data.message || 'SMS 발송에 실패했습니다.');
       }
 
       setLastResult(data);
-      showSuccess(`총 ${selectedIds.length}명 중 ${data.results.filter((item: SendResultItem) => item.success).length}명에게 링크를 생성했습니다.`);
+      showSuccess(`${selectedIds.length}명에게 SMS가 발송되었습니다.`);
+      setBulkLinkResult(null);
+      setSelectedIds([]);
       setRefreshFlag((prev) => prev + 1);
     } catch (error) {
-      logger.error('[PassportRequest] Send error:', { error: error instanceof Error ? error.message : String(error) });
-      showError('여권 요청 발송 중 오류가 발생했습니다.');
+      logger.error('[PassportRequest] handleBulkSendAfterLinkGeneration error:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      showError(error instanceof Error ? error.message : 'SMS 발송 중 오류가 발생했습니다.');
     } finally {
       setIsSending(false);
     }
@@ -1274,6 +1351,105 @@ export default function PassportRequestPage() {
             </span>
           )}
         </button>
+
+        {/* 링크 생성 결과 인라인 표시 */}
+        {bulkLinkResult && (
+          <div className="mt-6 space-y-4 border border-green-200 bg-green-50 rounded-2xl p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-green-800 flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                ✅ 링크가 생성되었습니다
+              </h3>
+              <button
+                onClick={() => setBulkLinkResult(null)}
+                className="rounded-lg p-1 text-green-600 hover:bg-green-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* 메시지 미리보기 (메시지 모드인 경우만) */}
+            {bulkLinkResult.selectedSendMode === 'message' && (
+              <div className="space-y-2">
+                <label className="block">
+                  <p className="text-sm font-semibold text-green-800 mb-2">📝 완성된 메시지</p>
+                  <textarea
+                    value={bulkLinkResult.message}
+                    readOnly
+                    rows={6}
+                    className="w-full rounded-lg border border-green-200 bg-white px-3 py-2 text-sm text-green-900 font-mono"
+                  />
+                </label>
+                <button
+                  onClick={() => handleCopy(bulkLinkResult.message, '메시지')}
+                  className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 transition-colors"
+                >
+                  <Copy className="h-3 w-3" />
+                  메시지 복사
+                </button>
+              </div>
+            )}
+
+            {/* 링크 표시 */}
+            <div className="space-y-2">
+              <label className="block">
+                <p className="text-sm font-semibold text-green-800 mb-2">🔗 제출 링크</p>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    type="text"
+                    value={bulkLinkResult.link}
+                    readOnly
+                    className="flex-1 rounded-lg border border-green-200 bg-white px-3 py-2 text-sm text-green-900 font-mono"
+                  />
+                  <button
+                    onClick={() => handleCopy(bulkLinkResult.link, '링크')}
+                    className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition-colors whitespace-nowrap"
+                  >
+                    <Copy className="h-4 w-4" />
+                    링크 복사
+                  </button>
+                </div>
+              </label>
+              <p className="text-xs text-green-700">
+                ⏰ 만료: {new Date(bulkLinkResult.expiresAt).toLocaleString('ko-KR')}
+              </p>
+            </div>
+
+            {/* 다음 단계 선택 */}
+            <div className="border-t border-green-200 pt-4 space-y-3">
+              <p className="text-sm font-semibold text-green-800">📋 다음 단계</p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={() => setBulkLinkResult(null)}
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border-2 border-green-600 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-50 transition-colors"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  다시 선택
+                </button>
+                <button
+                  onClick={handleBulkSendAfterLinkGeneration}
+                  disabled={isSending}
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isSending ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      발송 중...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      SMS로 발송하기 ({selectedIds.length}명 × 100원)
+                    </>
+                  )}
+                </button>
+              </div>
+              <p className="text-xs text-green-700 bg-green-100/50 rounded p-2">
+                💡 복사 후 카톡/문자로 직접 보내도 됩니다.
+              </p>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="bg-white rounded-2xl shadow-lg border border-indigo-100 p-6 space-y-6">
