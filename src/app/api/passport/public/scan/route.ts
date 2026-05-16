@@ -4,6 +4,8 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import prisma from '@/lib/prisma';
+import { decodePassportToken } from '@/lib/passport-utils';
 import { logger } from '@/lib/logger';
 
 const apiKey = process.env.GEMINI_API_KEY || '';
@@ -12,6 +14,198 @@ const genAI = new GoogleGenerativeAI(apiKey);
 /** Gemini 모델명 결정 (환경변수 → 기본값) */
 function resolveGeminiModelName(): string {
   return process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+}
+
+/**
+ * GET /api/passport/public/scan?token=...&phone=...
+ * 토큰 기반 여권 제출 조회 및 본인확인
+ * phone 파라미터가 있으면 사용자 phone과 비교
+ * Public API — 인증 없음
+ */
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const token = searchParams.get('token');
+    const phone = searchParams.get('phone');
+
+    if (!token || token.length < 10) {
+      return NextResponse.json(
+        { ok: false, error: '잘못된 토큰입니다.' },
+        { status: 400 }
+      );
+    }
+
+    // base62로 인코딩된 토큰인 경우 디코딩
+    const originalToken = token;
+    let decodedToken = token;
+    try {
+      const decoded = decodePassportToken(token);
+      if (decoded && decoded !== token) {
+        logger.log('[Passport Scan] Token decoded:', { original: originalToken, decoded });
+        decodedToken = decoded;
+      } else {
+        logger.log('[Passport Scan] Token not decoded (already hex or same):', { original: originalToken, decoded });
+      }
+    } catch {
+      logger.warn('[Passport Scan] Token decode failed, using original');
+    }
+
+    logger.log('[Passport Scan] Searching for token:', { token: decodedToken, length: decodedToken.length });
+
+    // DB에서 토큰 조회
+    const submission = await prisma.gmPassportSubmission.findFirst({
+      where: { token: decodedToken },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+            role: true,
+            customerStatus: true,
+          },
+        },
+      },
+    });
+
+    if (!submission) {
+      return NextResponse.json(
+        { ok: false, error: '토큰이 유효하지 않습니다.' },
+        { status: 404 }
+      );
+    }
+
+    // phone 파라미터가 있으면 사용자 phone과 비교 (정규화하여 비교)
+    if (phone) {
+      const userPhone = submission.user?.phone || '';
+      const normalizePhone = (p: string) => p.replace(/[-\s()]/g, '');
+      const userPhoneNormalized = normalizePhone(userPhone);
+      const inputPhoneNormalized = normalizePhone(phone);
+
+      if (userPhoneNormalized !== inputPhoneNormalized) {
+        logger.warn('[Passport Scan] Phone mismatch:', { provided: phone, registered: userPhone });
+        return NextResponse.json(
+          { ok: false, error: '본인확인 실패: 등록된 전화번호가 일치하지 않습니다.' },
+          { status: 404 }
+        );
+      }
+      logger.log('[Passport Scan] Phone verification success:', { phone });
+    }
+
+    // tripId가 있으면 별도 조회
+    let trip: {
+      id: number;
+      cruiseName: string | null;
+      startDate: string | null;
+      endDate: string | null;
+    } | null = null;
+
+    if (submission.tripId) {
+      const tripData = await prisma.gmTrip.findUnique({
+        where: { id: submission.tripId },
+        select: {
+          id: true,
+          cruiseName: true,
+          startDate: true,
+          endDate: true,
+        },
+      });
+      if (tripData) {
+        trip = {
+          id: tripData.id,
+          cruiseName: tripData.cruiseName,
+          startDate: tripData.startDate?.toISOString() ?? null,
+          endDate: tripData.endDate?.toISOString() ?? null,
+        };
+      }
+    }
+
+    const now = new Date();
+    const isExpired = submission.tokenExpiresAt.getTime() < now.getTime();
+    const extraData =
+      submission.extraData && typeof submission.extraData === 'object'
+        ? (submission.extraData as Record<string, unknown>)
+        : {};
+    const passportFiles = Array.isArray(extraData?.passportFiles) ? extraData.passportFiles : [];
+    const storedGroups = Array.isArray(extraData?.groups) ? extraData.groups : [];
+
+    // guests 조회
+    let guests: {
+      id: number;
+      groupNumber: number;
+      name: string;
+      phone: string | null;
+      passportNumber: string | null;
+      nationality: string | null;
+      dateOfBirth: Date | null;
+      passportExpiryDate: Date | null;
+    }[] = [];
+    try {
+      const guestsData = await prisma.gmPassportSubmissionGuest.findMany({
+        where: { submissionId: submission.id },
+        orderBy: { groupNumber: 'asc' },
+        select: {
+          id: true,
+          groupNumber: true,
+          name: true,
+          phone: true,
+          passportNumber: true,
+          nationality: true,
+          dateOfBirth: true,
+          passportExpiryDate: true,
+        },
+      });
+      guests = guestsData;
+    } catch (guestError) {
+      logger.warn('[Passport Scan] Guests 조회 실패 (무시됨):', guestError as Record<string, unknown>);
+      guests = [];
+    }
+
+    return NextResponse.json({
+      ok: true,
+      submission: {
+        id: submission.id,
+        token: submission.token,
+        expiresAt: submission.tokenExpiresAt.toISOString(),
+        isExpired,
+        isSubmitted: submission.isSubmitted,
+        submittedAt: submission.submittedAt?.toISOString() ?? null,
+        driveFolderUrl: submission.driveFolderUrl,
+        extraData: {
+          passportFiles,
+          groups: storedGroups,
+          remarks: (extraData?.remarks as string) ?? '',
+        },
+      },
+      user: submission.user,
+      trip,
+      guests: guests.map((guest) => ({
+        id: guest.id,
+        groupNumber: guest.groupNumber,
+        name: guest.name,
+        phone: guest.phone,
+        passportNumber: guest.passportNumber,
+        nationality: guest.nationality,
+        dateOfBirth: guest.dateOfBirth?.toISOString() ?? null,
+        passportExpiryDate: guest.passportExpiryDate?.toISOString() ?? null,
+      })),
+    });
+  } catch (error) {
+    const err = error as Record<string, unknown>;
+    logger.error('[Passport Scan] GET error:', err);
+    const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    logger.error('[Passport Scan] GET error details:', { errorMessage, errorStack });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: '토큰 정보를 불러오지 못했습니다.',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+      },
+      { status: 500 }
+    );
+  }
 }
 
 /**

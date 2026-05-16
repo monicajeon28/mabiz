@@ -5,8 +5,8 @@ import prisma from '@/lib/prisma';
 import { requirePartnerContext } from '@/lib/passport-auth';
 
 /**
- * GET /api/partner/dashboard/b2c/detail?type=sales|reservations&month=2026-05&page=1
- * B2C 드릴다운: 전체 판매 목록 / 전체 예약 목록 (페이징)
+ * GET /api/partner/dashboard/b2c/detail?type=sales|reservations|passport-pending|passport-complete&month=2026-05&page=1
+ * B2C 드릴다운: 전체 판매 / 예약 / 여권PNR현황 / 여권PNR완료 (페이징)
  */
 export async function GET(req: Request) {
   try {
@@ -27,6 +27,7 @@ export async function GET(req: Request) {
     const endDate = new Date(year, month, 1);
 
     const isAdmin = ctx.sessionUser.role === 'admin';
+    // TODO [P1] 보안: ADMIN도 organizationId 제한 필요. 현재는 권한 없는 조직의 모든 데이터 조회 가능
     const orgFilter = isAdmin ? {} : { organizationId: ctx.organizationId! };
 
     if (type === 'sales') {
@@ -59,6 +60,200 @@ export async function GET(req: Request) {
           totalPages: Math.ceil(total / limit),
         },
       });
+    }
+
+    if (type === 'passport-pending') {
+      // 여권/PNR 현황 (대기 중): passportStatus != 'ISSUED' OR pnrStatus != 'CONFIRMED'
+      if (isAdmin) {
+        const [rows, total] = await Promise.all([
+          prisma.$queryRaw<Array<{
+            id: string; name: string | null; passportStatus: string; pnrStatus: string;
+            assignedName: string | null; commissionAmount: number | null; commissionRate: number | null;
+            finalConfirmStatus: string; createdAt: Date;
+          }>>`
+            SELECT r."id", u."name", r."passportStatus", r."pnrStatus",
+                   om."displayName" AS "assignedName", a."commissionAmount", a."commissionRate",
+                   r."finalConfirmStatus", r."createdAt"
+            FROM "Reservation" r
+            LEFT JOIN "User" u ON u."id" = r."mainUserId"
+            LEFT JOIN "CrmAffiliateSale" a ON a."orderId" = CAST(r."affiliateSaleId" AS TEXT)
+            LEFT JOIN "OrganizationMember" om ON om."userId" = a."affiliateUserId" AND om."organizationId" = a."organizationId"
+            WHERE (r."passportStatus" != 'ISSUED' OR r."pnrStatus" != 'CONFIRMED')
+            ORDER BY r."createdAt" DESC
+            LIMIT ${limit} OFFSET ${(page - 1) * limit}
+          `,
+          prisma.$queryRaw<[{ cnt: bigint }]>`
+            SELECT COUNT(*)::bigint AS cnt FROM "Reservation" r
+            WHERE (r."passportStatus" != 'ISSUED' OR r."pnrStatus" != 'CONFIRMED')
+          `,
+        ]);
+
+        const totalCount = Number(total[0]?.cnt ?? 0);
+        return NextResponse.json({
+          ok: true,
+          data: {
+            items: rows.map((r) => ({
+              id: r.id,
+              customerName: r.name ?? '-',
+              passportStatus: r.passportStatus ?? 'NONE',
+              pnrStatus: r.pnrStatus ?? 'NONE',
+              assignedName: r.assignedName ?? '-',
+              commissionAmount: r.commissionAmount ?? 0,
+              finalConfirmStatus: r.finalConfirmStatus ?? 'PENDING',
+              date: r.createdAt.toISOString().slice(0, 10),
+            })),
+            total: totalCount,
+            page,
+            totalPages: Math.ceil(totalCount / limit),
+          },
+        });
+      } else {
+        // OWNER: AffiliateSale 경유
+        const [rows, totalResult] = await Promise.all([
+          prisma.$queryRaw<Array<{
+            id: string; name: string | null; passportStatus: string; pnrStatus: string;
+            assignedName: string | null; commissionAmount: number | null; commissionRate: number | null;
+            finalConfirmStatus: string; createdAt: Date;
+          }>>`
+            SELECT r."id", u."name", r."passportStatus", r."pnrStatus",
+                   om."displayName" AS "assignedName", a."commissionAmount", a."commissionRate",
+                   r."finalConfirmStatus", r."createdAt"
+            FROM "Reservation" r
+            INNER JOIN "CrmAffiliateSale" a ON a."orderId" = CAST(r."affiliateSaleId" AS TEXT)
+            LEFT JOIN "User" u ON u."id" = r."mainUserId"
+            LEFT JOIN "OrganizationMember" om ON om."userId" = a."affiliateUserId" AND om."organizationId" = a."organizationId"
+            WHERE a."organizationId" = ${ctx.organizationId}
+              AND (r."passportStatus" != 'ISSUED' OR r."pnrStatus" != 'CONFIRMED')
+            ORDER BY r."createdAt" DESC
+            LIMIT ${limit} OFFSET ${(page - 1) * limit}
+          `,
+          prisma.$queryRaw<[{ cnt: bigint }]>`
+            SELECT COUNT(*)::bigint AS cnt FROM "Reservation" r
+            INNER JOIN "CrmAffiliateSale" a ON a."orderId" = CAST(r."affiliateSaleId" AS TEXT)
+            WHERE a."organizationId" = ${ctx.organizationId}
+              AND (r."passportStatus" != 'ISSUED' OR r."pnrStatus" != 'CONFIRMED')
+          `,
+        ]);
+
+        const totalCount = Number(totalResult[0]?.cnt ?? 0);
+        return NextResponse.json({
+          ok: true,
+          data: {
+            items: rows.map((r) => ({
+              id: r.id,
+              customerName: r.name ?? '-',
+              passportStatus: r.passportStatus ?? 'NONE',
+              pnrStatus: r.pnrStatus ?? 'NONE',
+              assignedName: r.assignedName ?? '-',
+              commissionAmount: r.commissionAmount ?? 0,
+              finalConfirmStatus: r.finalConfirmStatus ?? 'PENDING',
+              date: r.createdAt.toISOString().slice(0, 10),
+            })),
+            total: totalCount,
+            page,
+            totalPages: Math.ceil(totalCount / limit),
+          },
+        });
+      }
+    }
+
+    if (type === 'passport-complete') {
+      // 여권/PNR 완료: passportStatus = 'ISSUED' AND pnrStatus = 'CONFIRMED'
+      if (isAdmin) {
+        const [rows, total] = await Promise.all([
+          prisma.$queryRaw<Array<{
+            id: string; name: string | null; passportStatus: string; pnrStatus: string;
+            assignedName: string | null; commissionAmount: number | null; commissionRate: number | null;
+            finalConfirmStatus: string; createdAt: Date;
+          }>>`
+            SELECT r."id", u."name", r."passportStatus", r."pnrStatus",
+                   om."displayName" AS "assignedName", a."commissionAmount", a."commissionRate",
+                   r."finalConfirmStatus", r."createdAt"
+            FROM "Reservation" r
+            LEFT JOIN "User" u ON u."id" = r."mainUserId"
+            LEFT JOIN "CrmAffiliateSale" a ON a."orderId" = CAST(r."affiliateSaleId" AS TEXT)
+            LEFT JOIN "OrganizationMember" om ON om."userId" = a."affiliateUserId" AND om."organizationId" = a."organizationId"
+            WHERE r."passportStatus" = 'ISSUED' AND r."pnrStatus" = 'CONFIRMED'
+              AND r."createdAt" >= ${startDate} AND r."createdAt" < ${endDate}
+            ORDER BY r."createdAt" DESC
+            LIMIT ${limit} OFFSET ${(page - 1) * limit}
+          `,
+          prisma.$queryRaw<[{ cnt: bigint }]>`
+            SELECT COUNT(*)::bigint AS cnt FROM "Reservation" r
+            WHERE r."passportStatus" = 'ISSUED' AND r."pnrStatus" = 'CONFIRMED'
+              AND r."createdAt" >= ${startDate} AND r."createdAt" < ${endDate}
+          `,
+        ]);
+
+        const totalCount = Number(total[0]?.cnt ?? 0);
+        return NextResponse.json({
+          ok: true,
+          data: {
+            items: rows.map((r) => ({
+              id: r.id,
+              customerName: r.name ?? '-',
+              passportStatus: r.passportStatus ?? 'NONE',
+              pnrStatus: r.pnrStatus ?? 'NONE',
+              assignedName: r.assignedName ?? '-',
+              commissionAmount: r.commissionAmount ?? 0,
+              finalConfirmStatus: r.finalConfirmStatus ?? 'PENDING',
+              date: r.createdAt.toISOString().slice(0, 10),
+            })),
+            total: totalCount,
+            page,
+            totalPages: Math.ceil(totalCount / limit),
+          },
+        });
+      } else {
+        // OWNER: AffiliateSale 경유
+        const [rows, totalResult] = await Promise.all([
+          prisma.$queryRaw<Array<{
+            id: string; name: string | null; passportStatus: string; pnrStatus: string;
+            assignedName: string | null; commissionAmount: number | null; commissionRate: number | null;
+            finalConfirmStatus: string; createdAt: Date;
+          }>>`
+            SELECT r."id", u."name", r."passportStatus", r."pnrStatus",
+                   om."displayName" AS "assignedName", a."commissionAmount", a."commissionRate",
+                   r."finalConfirmStatus", r."createdAt"
+            FROM "Reservation" r
+            INNER JOIN "CrmAffiliateSale" a ON a."orderId" = CAST(r."affiliateSaleId" AS TEXT)
+            LEFT JOIN "User" u ON u."id" = r."mainUserId"
+            LEFT JOIN "OrganizationMember" om ON om."userId" = a."affiliateUserId" AND om."organizationId" = a."organizationId"
+            WHERE a."organizationId" = ${ctx.organizationId}
+              AND r."passportStatus" = 'ISSUED' AND r."pnrStatus" = 'CONFIRMED'
+              AND r."createdAt" >= ${startDate} AND r."createdAt" < ${endDate}
+            ORDER BY r."createdAt" DESC
+            LIMIT ${limit} OFFSET ${(page - 1) * limit}
+          `,
+          prisma.$queryRaw<[{ cnt: bigint }]>`
+            SELECT COUNT(*)::bigint AS cnt FROM "Reservation" r
+            INNER JOIN "CrmAffiliateSale" a ON a."orderId" = CAST(r."affiliateSaleId" AS TEXT)
+            WHERE a."organizationId" = ${ctx.organizationId}
+              AND r."passportStatus" = 'ISSUED' AND r."pnrStatus" = 'CONFIRMED'
+              AND r."createdAt" >= ${startDate} AND r."createdAt" < ${endDate}
+          `,
+        ]);
+
+        const totalCount = Number(totalResult[0]?.cnt ?? 0);
+        return NextResponse.json({
+          ok: true,
+          data: {
+            items: rows.map((r) => ({
+              id: r.id,
+              customerName: r.name ?? '-',
+              passportStatus: r.passportStatus ?? 'NONE',
+              pnrStatus: r.pnrStatus ?? 'NONE',
+              assignedName: r.assignedName ?? '-',
+              commissionAmount: r.commissionAmount ?? 0,
+              finalConfirmStatus: r.finalConfirmStatus ?? 'PENDING',
+              date: r.createdAt.toISOString().slice(0, 10),
+            })),
+            total: totalCount,
+            page,
+            totalPages: Math.ceil(totalCount / limit),
+          },
+        });
+      }
     }
 
     if (type === 'reservations') {

@@ -1,0 +1,343 @@
+{
+  "review_metadata": {
+    "scope": "파트너 현황 페이지 (/partner-dashboard)",
+    "reviewed_at": "2026-05-16",
+    "reviewer": "Senior Code Reviewer",
+    "total_files_reviewed": 9,
+    "files": [
+      "src/app/(dashboard)/partner-dashboard/page.tsx",
+      "src/app/api/partner/dashboard/b2c/route.ts",
+      "src/app/api/partner/dashboard/b2b/route.ts",
+      "src/app/api/partner/dashboard/gold/route.ts",
+      "src/app/api/partner/dashboard/b2c/detail/route.ts",
+      "src/app/api/partner/dashboard/b2b/detail/route.ts",
+      "src/app/api/partner/dashboard/gold/detail/route.ts",
+      "src/lib/passport-auth.ts",
+      "prisma/schema.prisma (AffiliateSale model)"
+    ]
+  },
+  "critical_issues": {
+    "security": [
+      {
+        "id": "SEC-001",
+        "severity": "CRITICAL",
+        "category": "권한 검증 부재",
+        "location": "src/app/api/partner/dashboard/b2c/route.ts:41",
+        "issue": "판매 목록(recentSalesRaw)를 조회할 때 organizationId 필터 미적용",
+        "code_snippet": "prisma.affiliateSale.findMany({ where: orgFilter, orderBy: { createdAt: 'desc' }, take: 10 })",
+        "problem": "orgFilter가 적용되었으나 다른 조직의 데이터 접근 가능성 검증 필요. SQL 쿼리 예약 조회(라인 58-69)에서는 명시적으로 organizationId 필터링",
+        "fix": "affiliateSale 쿼리의 권한 필터를 명시적으로 검증하거나 raw SQL로 변경",
+        "impact": "파트너가 다른 파트너의 판매 수수료 데이터 조회 가능"
+      },
+      {
+        "id": "SEC-002",
+        "severity": "CRITICAL",
+        "category": "수당(Commission) 데이터 무결성",
+        "location": "src/app/api/partner/dashboard/b2c/route.ts:33-40",
+        "issue": "commissionAmount와 commissionRate 필드가 데이터베이스에서 직접 반환되며, 수정 API 없이 UI에 표시",
+        "code_snippet": "commission: s.commissionAmount ?? 0, commissionRate: s.commissionRate",
+        "problem": "현재 파트너 대시보드는 '읽기 전용'이지만, AffiliateSale 테이블에 commissionAmount/commissionRate 필드가 있음. 향후 수당 수정 기능 추가 시 권한 검증 필요",
+        "fix": "수당 수정 API 추가 시: (1) GLOBAL_ADMIN만 승인, (2) 감사 로그 기록, (3) 타임스탬프 기록",
+        "impact": "수당 조작 위험 (현재는 낮음, 향후 고위험)"
+      },
+      {
+        "id": "SEC-003",
+        "severity": "HIGH",
+        "category": "전화번호 마스킹 불일치",
+        "location": "src/app/api/partner/dashboard/b2b/detail/route.ts:51, 77",
+        "issue": "전화번호 마스킹이 비일관성: '010-****-1234' 형식 사용",
+        "code_snippet": "phone: l.phone ? l.phone.slice(0, 3) + '-****-' + l.phone.slice(-4) : '-'",
+        "problem": "일반 리드 조회에서는 마스킹하지만, 메모리에서는 전체 노출. 보안 정책 불명확",
+        "fix": "마스킹 유틸 함수 통일: utils/maskPhone.ts 생성",
+        "impact": "고객 개인정보 노출 위험"
+      }
+    ],
+    "data_integrity": [
+      {
+        "id": "DATA-001",
+        "severity": "CRITICAL",
+        "category": "여권/PNR 데이터 구조 모호성",
+        "location": "src/app/(dashboard)/partner-dashboard/page.tsx:24-40, src/app/api/partner/dashboard/b2c/route.ts:57-86",
+        "issue": "여권/PNR 현황 데이터 저장 방식 불명확",
+        "details": {
+          "frontend_expects": "B2CPassport { passportStatus, pnrStatus, confirmedAt }",
+          "api_returns": "passportPnr[] with 5 latest records + passportSummary/pnrSummary aggregates",
+          "actual_storage": "Reservation 테이블에 passportStatus, pnrStatus, finalConfirmStatus 필드",
+          "problem": "finalConfirmStatus 필드 사용 미정의. 대시보드는 '확인 중'을 표시하지만 실제 데이터 모델 불명확"
+        },
+        "code_evidence": [
+          "page.tsx:29: confirmedAt: string | null (UI)",
+          "route.ts:102: confirmedAt: r.finalConfirmStatus || null (API)",
+          "route.ts:572: <Badge status={p.confirmedAt} /> (UI 렌더링 오류)"
+        ],
+        "fix": "Reservation 모델 명확화: finalConfirmStatus 정의 또는 제거, 추적 시간 추가",
+        "impact": "여권/PNR 진행 상황 추적 불가능"
+      },
+      {
+        "id": "DATA-002",
+        "severity": "HIGH",
+        "category": "예약 건수 계산 분기 오류",
+        "location": "src/app/api/partner/dashboard/b2c/route.ts:42-56",
+        "issue": "reservationCount를 2가지 방식으로 계산 (isAdmin 분기)",
+        "code_snippet": {
+          "admin": "prisma.gmReservation.count({ where: { createdAt: { gte: startDate, lt: endDate } } })",
+          "owner": "SELECT COUNT(*)::bigint AS cnt FROM \"Reservation\" r INNER JOIN \"CrmAffiliateSale\" a ON a.\"orderId\" = CAST(r.\"affiliateSaleId\" AS TEXT) WHERE a.\"organizationId\" = ${orgId}"
+        },
+        "problem": "두 쿼리 결과 불일치 가능성: (1) gmReservation vs Reservation 테이블 혼용, (2) affiliateSaleId 형변환 오류(TEXT 캐스팅), (3) 조직별 데이터 필터링 로직 복잡",
+        "impact": "파트너와 관리자가 보는 예약 건수 다름"
+      },
+      {
+        "id": "DATA-003",
+        "severity": "MEDIUM",
+        "category": "트렌드 계산 오류",
+        "location": "src/app/api/partner/dashboard/gold/route.ts:41-44",
+        "issue": "전월 활성 회원 계산 부정확",
+        "code_snippet": "createdAt: { lt: prevEnd } // 전월말까지 생성된 회원 중 현재 활성 회원",
+        "problem": "전월 말일(prevEnd)까지만 카운트하므로, 전월 첫날 생성된 회원이 중복 계산",
+        "fix": "prevMemberCount를 prevStart <= createdAt < prevEnd로 변경",
+        "impact": "전월 대비 골드회원 트렌드 오류"
+      }
+    ]
+  },
+  "high_severity_issues": {
+    "performance": [
+      {
+        "id": "PERF-001",
+        "severity": "HIGH",
+        "category": "N+1 쿼리",
+        "location": "src/app/api/partner/dashboard/gold/detail/route.ts:102-112",
+        "issue": "payment-breakdown 타입 조회 시 전체 활성 회원 로드 후 메모리 필터링",
+        "code_snippet": "const allActive = await prisma.goldMember.findMany({ where: { ...orgFilter, status: 'ACTIVE' } }); // 페이징 없음",
+        "problem": "회원이 10,000명 이상이면 메모리 오버플로우, 응답 시간 지수급 증가",
+        "fix": "SQL GROUP BY로 3가지 카테고리 동시 집계",
+        "impact": "골드회원 납부 분류 조회 시 UI 응답 시간 10초 이상"
+      },
+      {
+        "id": "PERF-002",
+        "severity": "MEDIUM",
+        "category": "불필요한 쿼리",
+        "location": "src/app/api/partner/dashboard/b2c/route.ts:71-86",
+        "issue": "여권/PNR 상태별 집계가 월별 필터링 없음",
+        "code_snippet": "SELECT r.\"passportStatus\" AS status, COUNT(*)::bigint AS cnt FROM \"Reservation\" r GROUP BY r.\"passportStatus\"",
+        "problem": "현재 월과 관계없이 전체 예약의 여권 상태를 집계. 대시보드에 표시되는 'passportSummary'가 선택한 월과 불일치",
+        "fix": "WHERE r.createdAt >= ${startDate} AND r.createdAt < ${endDate} 추가",
+        "impact": "대시보드 요약 통계 오류"
+      },
+      {
+        "id": "PERF-003",
+        "severity": "MEDIUM",
+        "category": "캐싱 미적용",
+        "location": "src/app/(dashboard)/partner-dashboard/page.tsx:912-951",
+        "issue": "프론트엔드 캐싱 로직이 있지만, 월별 데이터 캐시만 지원 (시간 기반 갱신 없음)",
+        "code_snippet": "cache.current[ym]?.[tab]",
+        "problem": "실시간 수당 데이터가 캐시되어 사용자가 최신 값을 못 봄. 페이지 새로고침 시에도 캐시 유지",
+        "fix": "5분 TTL 캐싱 또는 사용자 액션(새로고침 버튼) 추가",
+        "impact": "수당 실시간 반영 지연"
+      }
+    ]
+  },
+  "code_quality_issues": {
+    "maintainability": [
+      {
+        "id": "CODE-001",
+        "severity": "MEDIUM",
+        "category": "함수 길이 초과",
+        "location": "src/app/(dashboard)/partner-dashboard/page.tsx:889-1038",
+        "issue": "main component 함수가 150줄 초과",
+        "lines": "889-1038",
+        "problem": "상태 관리, 캐싱, 드릴다운 로직이 모두 한 곳에",
+        "fix": "useDashboardData 커스텀 훅 분리",
+        "impact": "테스트 불가, 로직 재사용 불가"
+      },
+      {
+        "id": "CODE-002",
+        "severity": "MEDIUM",
+        "category": "타입 안정성",
+        "location": "src/app/(dashboard)/partner-dashboard/page.tsx:254",
+        "issue": "DrilldownConfig 타입에서 render 함수 인자 타입이 'unknown'",
+        "code_snippet": "render?: (v: unknown, row: Record<string, unknown>) => React.ReactNode",
+        "problem": "TypeScript 보호 없음. 런타임 타입 오류 가능",
+        "fix": "제네릭 타입 추가: <T extends Record<string, unknown>>",
+        "impact": "드릴다운 커스텀 렌더 함수에서 타입 체크 불가"
+      },
+      {
+        "id": "CODE-003",
+        "severity": "MEDIUM",
+        "category": "오류 처리 부재",
+        "location": "src/app/(dashboard)/partner-dashboard/page.tsx:284-306",
+        "issue": "드릴다운 API fetch 오류 시 사용자 피드백 없음",
+        "code_snippet": ".catch((e) => { if (e.name !== 'AbortError') setItems([]);})",
+        "problem": "네트워크 오류 시 빈 테이블만 표시. 사용자가 로딩 실패를 모름",
+        "fix": "error state 추가: setError(e.message), 오류 메시지 표시",
+        "impact": "사용자 혼동"
+      },
+      {
+        "id": "CODE-004",
+        "severity": "LOW",
+        "category": "매직 숫자",
+        "location": "src/app/api/partner/dashboard/b2c/detail/route.ts:20, b2b/detail/route.ts:20, gold/detail/route.ts:20",
+        "issue": "limit = 30 하드코딩",
+        "code_snippet": "const limit = 30;",
+        "problem": "상수로 정의하지 않음",
+        "fix": "const PAGE_SIZE = 30",
+        "impact": "유지보수 어려움"
+      }
+    ],
+    "naming_conventions": [
+      {
+        "id": "NAMING-001",
+        "severity": "LOW",
+        "category": "일관성 없는 변수명",
+        "location": "src/app/api/partner/dashboard/",
+        "issue": "dateFilter vs orgFilter vs consultOrgFilter 등 불일관",
+        "examples": [
+          "b2b/route.ts:36-38: dateFilter, prevDateFilter, landingOrgFilter, orgFilter",
+          "gold/route.ts:33: orgFilter, consultOrgFilter (같은 객체인데 다른 이름)"
+        ],
+        "fix": "통일: type FilterProps = { org: Record<string, any>; date: Record<string, any> }",
+        "impact": "코드 가독성 저하"
+      }
+    ]
+  },
+  "business_logic_issues": [
+    {
+      "id": "BIZ-001",
+      "severity": "HIGH",
+      "category": "수당 상태 불명확",
+      "location": "src/app/(dashboard)/partner-dashboard/page.tsx:20, 477-481",
+      "issue": "commissionRate가 null인 경우를 '확인 중'으로 표시",
+      "code_snippet": "s.commissionRate == null ? <span className=\"text-xs text-yellow-600\">확인 중</span>",
+      "problem": "AffiliateSale.commissionRate 필드가 Int인데 null이 가능한가? 스키마 명확화 필요",
+      "fix": "schema.prisma에서 Int? 명시, 또는 기본값 설정",
+      "impact": "수당 상태 추적 로직 미정의"
+    },
+    {
+      "id": "BIZ-002",
+      "severity": "MEDIUM",
+      "category": "B2C/B2B 구분 미명확",
+      "location": "src/app/api/partner/dashboard/b2b/detail/route.ts:103-133",
+      "issue": "B2B 결제 목록이 payAppPayment 테이블을 직접 조회 (organizationId 필터 사용)",
+      "problem": "B2C는 affiliateSale 조회, B2B는 payAppPayment 조회로 데이터 출처 다름. 파트너가 두 결제 시스템을 모두 봐야 하는가?",
+      "fix": "비즈니스 정책 확인: B2B 결제를 affiliateSale에도 기록하는가?",
+      "impact": "수당 통일 계산 어려움"
+    }
+  ],
+  "placeholder_and_dummy_data": [],
+  "dead_code": [
+    {
+      "id": "DEAD-001",
+      "severity": "LOW",
+      "category": "미사용 상수",
+      "location": "src/app/(dashboard)/partner-dashboard/page.tsx:115-156",
+      "issue": "STATUS_COLORS.paid, STATUS_LABEL.refunded, cancelled 정의했으나 사용 여부 불명",
+      "code_snippet": "paid: 'bg-green-100 text-green-800', refunded: '환불', cancelled: '취소'",
+      "problem": "UI에서 사용하지 않는 상태 코드",
+      "impact": "혼동 유발"
+    }
+  ],
+  "recommendations": {
+    "immediate_actions": [
+      {
+        "priority": "P0",
+        "action": "권한 검증 강화",
+        "details": "AffiliateSale 조회 시 organizationId 필터 명시적 확인",
+        "files": ["src/app/api/partner/dashboard/b2c/route.ts:41"],
+        "timeline": "1일"
+      },
+      {
+        "priority": "P0",
+        "action": "여권/PNR 데이터 모델 정의",
+        "details": "Reservation.finalConfirmStatus 필드 용도 명확화 또는 제거",
+        "files": ["prisma/schema.prisma", "src/app/api/partner/dashboard/b2c/route.ts"],
+        "timeline": "2일"
+      },
+      {
+        "priority": "P1",
+        "action": "예약 건수 계산 통일",
+        "details": "gmReservation vs Reservation 테이블 혼용 정리",
+        "files": ["src/app/api/partner/dashboard/b2c/route.ts:42-56"],
+        "timeline": "2일"
+      },
+      {
+        "priority": "P1",
+        "action": "전화번호 마스킹 통일",
+        "details": "utils/maskPhone.ts 생성 후 모든 API에 적용",
+        "files": ["src/app/api/partner/dashboard/"],
+        "timeline": "1일"
+      }
+    ],
+    "future_enhancements": [
+      {
+        "priority": "P2",
+        "action": "수당 수정 API 보안 설계",
+        "details": "GLOBAL_ADMIN만 승인, 감사 로그 기록, 타임스탬프 추가",
+        "when": "수당 수정 기능 개발 시"
+      },
+      {
+        "priority": "P2",
+        "action": "캐싱 TTL 추가",
+        "details": "실시간 수당 반영을 위해 5분 TTL 캐싱 구현",
+        "when": "성능 개선 단계"
+      },
+      {
+        "priority": "P2",
+        "action": "컴포넌트 분해",
+        "details": "useDashboardData 훅 분리, 테스트 추가",
+        "when": "다음 리팩터링 사이클"
+      }
+    ]
+  },
+  "data_flow_summary": {
+    "b2c_data_sources": {
+      "sales": "AffiliateSale 테이블 (organizationId 필터)",
+      "commission": "AffiliateSale.commissionAmount, commissionRate (상태: null=확인중 또는 숫자=확정)",
+      "reservations": "Reservation 테이블 (affiliateSaleId로 AffiliateSale JOIN)",
+      "passport_pnr": "Reservation.passportStatus, pnrStatus, finalConfirmStatus (용도 미정의)"
+    },
+    "b2b_data_sources": {
+      "leads": "B2BProspect 테이블 (organizationId 필터)",
+      "registrations": "CrmLandingRegistration 테이블 (landingPage.organizationId 필터)",
+      "payments": "PayAppPayment 테이블 (organizationId 필터)"
+    },
+    "gold_data_sources": {
+      "members": "GoldMember 테이블 (organizationId 필터, status=ACTIVE)",
+      "consultations": "GoldMemberConsultation + GoldMember (organizationId 필터)",
+      "payment_rate": "GoldMember 집계 (SQL: AVG(paidCount / totalPayments))"
+    },
+    "critical_joins": [
+      {
+        "query": "예약 조회 (OWNER)",
+        "tables": "Reservation LEFT JOIN User LEFT JOIN Trip INNER JOIN CrmAffiliateSale",
+        "key": "CrmAffiliateSale.orderId = CAST(Reservation.affiliateSaleId AS TEXT)",
+        "risk": "TEXT 형변환으로 인한 인덱스 무효화, 성능 저하 가능"
+      }
+    ]
+  },
+  "security_summary": {
+    "authentication": "requirePartnerContext() 사용 - GLOBAL_ADMIN/OWNER만 접근 가능",
+    "authorization": {
+      "status": "부분 구현",
+      "issues": [
+        "organizationId 필터링 의존적 (SQL 인젝션 위험 낮음, 논리 오류 가능)",
+        "전화번호 마스킹 불일관"
+      ]
+    },
+    "data_protection": {
+      "pii": "고객명, 전화번호 노출 범위 확인 필요",
+      "sensitive": "수당 금액은 조직 소유자만 볼 수 있으나, 명시적 권한 체크 없음"
+    }
+  },
+  "deployment_readiness": {
+    "production_ready": false,
+    "blockers": [
+      "여권/PNR 데이터 모델 미정의",
+      "예약 건수 계산 분기 오류",
+      "권한 검증 불명확"
+    ],
+    "warnings": [
+      "N+1 쿼리 (금액 납부 분류)",
+      "캐싱 TTL 없음",
+      "오류 처리 부재"
+    ]
+  }
+}

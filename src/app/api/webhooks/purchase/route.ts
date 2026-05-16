@@ -151,6 +151,38 @@ export async function POST(req: NextRequest) {
         select: { id: true, departureDate: true },
       });
 
+      // ── 상품 마스터 upsert (productCode 기준) ──
+      // purchase 웹훅에서 받은 상품 정보를 CruiseProduct에 자동 저장
+      if (productCode && body.basePrice) {
+        const parsedBasePrice = parseInt(String(body.basePrice ?? 0)) || 0;
+        const startDate = departureDate ? new Date(departureDate) : null;
+
+        await tx.cruiseProduct.upsert({
+          where: { productCode },
+          create: {
+            productCode,
+            packageName:     productName ?? "크루즈 상품",
+            basePrice:       parsedBasePrice,
+            startDate,
+            cruiseLine:      body.cruiseLine ?? null,
+            shipName:        body.shipName ?? null,
+            nights:          body.nights ? parseInt(String(body.nights)) : null,
+            days:            body.days ? parseInt(String(body.days)) : null,
+            isActive:        true,
+            saleStatus:      "AVAILABLE",
+          },
+          update: {
+            packageName:     productName ? productName : undefined,
+            basePrice:       parsedBasePrice,
+            ...(startDate ? { startDate } : {}),
+            ...(body.cruiseLine ? { cruiseLine: body.cruiseLine } : {}),
+            ...(body.shipName ? { shipName: body.shipName } : {}),
+            ...(body.nights ? { nights: parseInt(String(body.nights)) } : {}),
+            ...(body.days ? { days: parseInt(String(body.days)) } : {}),
+          },
+        });
+      }
+
       // ── 판매 기록 upsert (orderId 기준) ──
       // 1단계: 신규 생성 (commissionRate: null 가능)
       // 2단계: 기존 레코드 업데이트 (commissionRate/commissionAmount 갱신)

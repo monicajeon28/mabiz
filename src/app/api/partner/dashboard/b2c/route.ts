@@ -54,19 +54,28 @@ export async function GET(req: Request) {
             INNER JOIN "CrmAffiliateSale" a ON a."orderId" = CAST(r."affiliateSaleId" AS TEXT)
             WHERE a."organizationId" = ${orgId} AND r."createdAt" >= ${prevStart} AND r."createdAt" < ${prevEnd}
           `.then(r => Number(r[0]?.cnt ?? 0)),
-      // 여권/PNR 최근 5건
+      // 여권/PNR 현황 (완료되지 않은 것들)
+      // TODO [P1] JOIN 순서 불일치: ADMIN은 LEFT JOIN, OWNER는 INNER JOIN 순서 다름. 일관성 개선 필요 (다음 PR)
       isAdmin
-        ? prisma.$queryRaw<Array<{ id: string; name: string | null; passportStatus: string; pnrStatus: string; finalConfirmStatus: string }>>`
-            SELECT r."id", u."name", r."passportStatus", r."pnrStatus", r."finalConfirmStatus"
-            FROM "Reservation" r LEFT JOIN "User" u ON u."id" = r."mainUserId"
-            ORDER BY r."createdAt" DESC LIMIT 5`
-        : prisma.$queryRaw<Array<{ id: string; name: string | null; passportStatus: string; pnrStatus: string; finalConfirmStatus: string }>>`
-            SELECT r."id", u."name", r."passportStatus", r."pnrStatus", r."finalConfirmStatus"
+        ? prisma.$queryRaw<Array<{ id: string; name: string | null; passportStatus: string; pnrStatus: string; finalConfirmStatus: string; assignedName: string | null; commissionAmount: number | null; commissionRate: number | null; saleStatus: string | null; saleId: string | null }>>`
+            SELECT r."id", u."name", r."passportStatus", r."pnrStatus", r."finalConfirmStatus",
+                   om."displayName" AS "assignedName", a."commissionAmount", a."commissionRate", a."status" AS "saleStatus", a."id" AS "saleId"
+            FROM "Reservation" r
+            LEFT JOIN "User" u ON u."id" = r."mainUserId"
+            LEFT JOIN "CrmAffiliateSale" a ON a."orderId" = CAST(r."affiliateSaleId" AS TEXT)
+            LEFT JOIN "OrganizationMember" om ON om."userId" = a."affiliateUserId" AND om."organizationId" = a."organizationId"
+            WHERE (r."passportStatus" != 'ISSUED' OR r."pnrStatus" != 'CONFIRMED')
+            ORDER BY r."createdAt" DESC LIMIT 100`
+        : prisma.$queryRaw<Array<{ id: string; name: string | null; passportStatus: string; pnrStatus: string; finalConfirmStatus: string; assignedName: string | null; commissionAmount: number | null; commissionRate: number | null; saleStatus: string | null; saleId: string | null }>>`
+            SELECT r."id", u."name", r."passportStatus", r."pnrStatus", r."finalConfirmStatus",
+                   om."displayName" AS "assignedName", a."commissionAmount", a."commissionRate", a."status" AS "saleStatus", a."id" AS "saleId"
             FROM "Reservation" r
             INNER JOIN "CrmAffiliateSale" a ON a."orderId" = CAST(r."affiliateSaleId" AS TEXT)
             LEFT JOIN "User" u ON u."id" = r."mainUserId"
+            LEFT JOIN "OrganizationMember" om ON om."userId" = a."affiliateUserId" AND om."organizationId" = a."organizationId"
             WHERE a."organizationId" = ${orgId}
-            ORDER BY r."createdAt" DESC LIMIT 5`,
+              AND (r."passportStatus" != 'ISSUED' OR r."pnrStatus" != 'CONFIRMED')
+            ORDER BY r."createdAt" DESC LIMIT 100`,
       // 여권 상태별 집계
       isAdmin
         ? prisma.$queryRaw<Array<{ status: string; cnt: bigint }>>`
@@ -96,10 +105,57 @@ export async function GET(req: Request) {
       date: s.createdAt.toISOString().slice(0, 10),
     }));
 
+    // ── 자동 동기화: 여권+PNR 완료 → finalConfirmStatus + 수당 대기 상태로 변환 ──
+    const autoConfirmIds = passportPnrRows
+      .filter(r => r.passportStatus === 'ISSUED' && r.pnrStatus === 'CONFIRMED' && r.finalConfirmStatus !== 'CONFIRMED')
+      .map(r => {
+        const parsed = parseInt(r.id, 10);
+        if (isNaN(parsed)) {
+          logger.warn('[b2c] invalid reservation id for auto-sync', { id: r.id });
+          return null;
+        }
+        return parsed;
+      })
+      .filter((id): id is number => id !== null);
+
+    if (autoConfirmIds.length > 0) {
+      try {
+        // Reservation들의 affiliateSaleId 조회
+        const reservationsWithSales = await prisma.gmReservation.findMany({
+          where: { id: { in: autoConfirmIds } },
+          select: { id: true, affiliateSaleId: true },
+        });
+
+        // Reservation finalConfirmStatus 일괄 업데이트
+        await prisma.gmReservation.updateMany({
+          where: { id: { in: autoConfirmIds } },
+          data: { finalConfirmStatus: 'CONFIRMED', finalConfirmApprovedAt: new Date() },
+        });
+
+        // AffiliateSale 상태 일괄 업데이트 (N+1 쿼리 제거)
+        const saleIds = reservationsWithSales
+          .filter(rv => rv.affiliateSaleId)
+          .map(rv => String(rv.affiliateSaleId));
+
+        if (saleIds.length > 0) {
+          await prisma.affiliateSale.updateMany({
+            where: { orderId: { in: saleIds } },
+            data: { status: 'PENDING_APPROVAL' },
+          });
+        }
+      } catch (e) {
+        // TODO [P1] 에러 로깅 개선: Error instanceof 체크 추가, stack trace 포함. 현재는 에러 객체 검증 부족
+        logger.error('[b2c] auto-sync error', { error: e });
+      }
+    }
+
     const passportPnr = passportPnrRows.map((r) => ({
       id: r.id, customerName: r.name ?? '-',
       passportStatus: r.passportStatus ?? 'NONE', pnrStatus: r.pnrStatus ?? 'NONE',
       confirmedAt: r.finalConfirmStatus || null,
+      assignedName: r.assignedName || '-',
+      commissionAmount: r.commissionAmount ?? 0,
+      saleId: r.saleId || null,
     }));
 
     const toMap = (rows: Array<{ status: string; cnt: bigint }>) => {
@@ -111,6 +167,7 @@ export async function GET(req: Request) {
     const calcTrend = (curr: number, prev: number) =>
       prev === 0 ? (curr > 0 ? 100 : 0) : Math.round(((curr - prev) / prev) * 100);
 
+    // TODO [P1] 타입 변환 일관성: 이미 Number 변환된 totalSalesAmount를 다시 Number()로 변환. 불필요한 타입 캐스트 제거 필요
     return NextResponse.json({
       ok: true,
       data: {

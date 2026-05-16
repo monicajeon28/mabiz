@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, CheckCircle, RefreshCw, Search, Send, UserCheck, Download, FileText, Link, Copy, X, Info } from 'lucide-react';
+import { AlertCircle, CheckCircle, RefreshCw, Search, Send, UserCheck, Download, FileText, Link, Copy, X, Info, RotateCcw } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import { logger } from '@/lib/logger';
 

@@ -27,6 +27,9 @@ type B2CPassport = {
   passportStatus: string;
   pnrStatus: string;
   confirmedAt: string | null;
+  assignedName?: string;
+  commissionAmount?: number;
+  saleId?: string | null;
 };
 type TrendValues = Record<string, number>;
 type B2CData = {
@@ -395,6 +398,8 @@ function DrilldownDrawer({
 /* ─────────────────── B2C 탭 ─────────────────── */
 
 function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; loading: boolean; month: string; onDrilldown: (config: DrilldownConfig) => void }) {
+  const [passportSubTab, setPassportSubTab] = useState<'pending' | 'complete'>('pending');
+
   if (loading || !data) {
     return (
       <div className="space-y-6">
@@ -477,7 +482,12 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
                     {s.commissionRate == null ? (
                       <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full">확인 중</span>
                     ) : (
-                      <span className="text-gray-700">₩{s.commission.toLocaleString()} <span className="text-gray-400 text-xs">({s.commissionRate}%)</span></span>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <span className="text-gray-700">₩{s.commission.toLocaleString()} <span className="text-gray-400 text-xs">({s.commissionRate}%)</span></span>
+                        {s.status === 'COMPLETED' && (
+                          <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full whitespace-nowrap">완료</span>
+                        )}
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-3 text-center"><Badge status={s.status} /></td>
@@ -489,34 +499,79 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
         )}
       </TableWrapper>
 
-      {/* 여권/PNR 현황 — 요약 카드 + 최근 목록 */}
+      {/* 여권/PNR 현황 — 서브탭 + 확장된 테이블 */}
       <TableWrapper>
         <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-700">여권 / PNR 현황</h3>
-          <button
-            onClick={() => onDrilldown({
-              title: '예약 전체 내역',
-              apiUrl: `/api/partner/dashboard/b2c/detail?type=reservations&month=${month}`,
-              columns: [
-                { key: 'customerName', label: '고객명' },
-                { key: 'productName', label: '상품명' },
-                { key: 'passportStatus', label: '여권', align: 'center', render: (v) => <Badge status={v as string} /> },
-                { key: 'pnrStatus', label: 'PNR', align: 'center', render: (v) => <Badge status={v as string} /> },
-                { key: 'departureDate', label: '출발일', align: 'right' },
-                { key: 'date', label: '예약일', align: 'right' },
-              ],
-            })}
-            className="text-xs text-blue-600 hover:underline"
-          >
-            전체보기 →
-          </button>
+          <div className="flex items-center gap-4">
+            <h3 className="text-sm font-semibold text-gray-700">여권 / PNR 현황</h3>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPassportSubTab('pending')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  passportSubTab === 'pending'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                현황
+              </button>
+              <button
+                onClick={() => setPassportSubTab('complete')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  passportSubTab === 'complete'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                완료
+              </button>
+            </div>
+          </div>
+          {passportSubTab === 'pending' && (
+            <button
+              onClick={() => onDrilldown({
+                title: '여권/PNR 현황 전체',
+                apiUrl: `/api/partner/dashboard/b2c/detail?type=passport-pending&month=${month}`,
+                columns: [
+                  { key: 'customerName', label: '고객명' },
+                  { key: 'passportStatus', label: '여권', align: 'center', render: (v) => <Badge status={v as string} /> },
+                  { key: 'pnrStatus', label: 'PNR', align: 'center', render: (v) => <Badge status={v as string} /> },
+                  { key: 'finalConfirmStatus', label: '최종확인', align: 'center', render: (v) => <Badge status={v as string} /> },
+                  { key: 'assignedName', label: '담당자' },
+                  { key: 'commissionAmount', label: '수당', align: 'right', render: (v) => v ? `₩${(v as number).toLocaleString()}` : '-' },
+                  { key: 'date', label: '날짜', align: 'right' },
+                ],
+              })}
+              className="text-xs text-blue-600 hover:underline"
+            >
+              전체보기 →
+            </button>
+          )}
+          {passportSubTab === 'complete' && (
+            <button
+              onClick={() => onDrilldown({
+                title: '여권/PNR 완료 목록',
+                apiUrl: `/api/partner/dashboard/b2c/detail?type=passport-complete&month=${month}`,
+                columns: [
+                  { key: 'customerName', label: '고객명' },
+                  { key: 'passportStatus', label: '여권', align: 'center', render: (v) => <Badge status={v as string} /> },
+                  { key: 'pnrStatus', label: 'PNR', align: 'center', render: (v) => <Badge status={v as string} /> },
+                  { key: 'assignedName', label: '담당자' },
+                  { key: 'commissionAmount', label: '수당', align: 'right', render: (v) => v ? `₩${(v as number).toLocaleString()}` : '-' },
+                  { key: 'date', label: '완료일', align: 'right' },
+                ],
+              })}
+              className="text-xs text-blue-600 hover:underline"
+            >
+              전체보기 →
+            </button>
+          )}
         </div>
 
-        {/* 상태별 숫자 요약 */}
-        {(data.passportSummary || data.pnrSummary) && (
+        {/* 상태별 숫자 요약 (현황 탭에서만) */}
+        {passportSubTab === 'pending' && (data.passportSummary || data.pnrSummary) && (
           <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
             <div className="grid grid-cols-2 gap-4">
-              {/* 여권 상태 */}
               <div>
                 <p className="text-xs font-medium text-gray-500 mb-2">여권 상태</p>
                 <div className="flex flex-wrap gap-2">
@@ -531,7 +586,6 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
                   )}
                 </div>
               </div>
-              {/* PNR 상태 */}
               <div>
                 <p className="text-xs font-medium text-gray-500 mb-2">PNR 상태</p>
                 <div className="flex flex-wrap gap-2">
@@ -550,30 +604,108 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
           </div>
         )}
 
-        {/* 최근 5건 테이블 */}
-        {data.passportPnr.length === 0 ? (
-          <EmptyState message="여권/PNR 데이터가 없습니다." />
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-              <tr>
-                <th className="px-4 py-3 text-left">고객명</th>
-                <th className="px-4 py-3 text-center">여권</th>
-                <th className="px-4 py-3 text-center">PNR</th>
-                <th className="px-4 py-3 text-right">최종확인</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {data.passportPnr.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-gray-900">{p.customerName}</td>
-                  <td className="px-4 py-3 text-center"><Badge status={p.passportStatus} /></td>
-                  <td className="px-4 py-3 text-center"><Badge status={p.pnrStatus} /></td>
-                  <td className="px-4 py-3 text-right text-gray-500">{p.confirmedAt ? <Badge status={p.confirmedAt} /> : '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* 테이블 (현황 탭) */}
+        {passportSubTab === 'pending' && (
+          <>
+            {data.passportPnr.length === 0 ? (
+              <EmptyState message="대기 중인 여권/PNR 데이터가 없습니다." />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                    <tr>
+                      <th className="px-4 py-3 text-left">고객명</th>
+                      <th className="px-4 py-3 text-center">여권</th>
+                      <th className="px-4 py-3 text-center">PNR</th>
+                      <th className="px-4 py-3 text-center">최종확인</th>
+                      <th className="px-4 py-3 text-left">담당자</th>
+                      <th className="px-4 py-3 text-right">수당</th>
+                      <th className="px-4 py-3 text-center">액션</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {data.passportPnr.map((p) => (
+                      <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3 font-medium text-gray-900">
+                          <button className="text-blue-600 hover:underline">{p.customerName}</button>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Badge status={p.passportStatus} />
+                            <a href={`/passport?customerId=${p.id}`} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-600 text-xs">
+                              📎
+                            </a>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Badge status={p.pnrStatus} />
+                            <a href={`/passport?customerId=${p.id}&tab=pnr`} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-600 text-xs">
+                              📎
+                            </a>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">{p.confirmedAt ? <Badge status={p.confirmedAt} /> : '-'}</td>
+                        <td className="px-4 py-3 text-gray-600 text-xs">{p.assignedName || '-'}</td>
+                        <td className="px-4 py-3 text-right text-gray-700">{p.commissionAmount ? `₩${(p.commissionAmount).toLocaleString()}` : '-'}</td>
+                        <td className="px-4 py-3 text-center">
+                          {p.saleId && (
+                            <button
+                              onClick={() => {
+                                fetch(`/api/partner/dashboard/b2c/confirm`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ saleId: p.saleId }),
+                                  credentials: 'include',
+                                })
+                                  .then((res) => res.json())
+                                  .then((json) => {
+                                    if (json.ok) {
+                                      alert('수당 승인이 완료되었습니다.');
+                                      window.location.reload();
+                                    } else {
+                                      alert(`오류: ${json.error}`);
+                                    }
+                                  })
+                                  .catch(() => alert('요청 실패'));
+                              }}
+                              className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors whitespace-nowrap"
+                            >
+                              검토완료
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* 테이블 (완료 탭) — 드릴다운으로 표시 */}
+        {passportSubTab === 'complete' && (
+          <div className="px-5 py-6 text-center">
+            <p className="text-sm text-gray-500 mb-3">완료된 여권/PNR 목록을 확인하려면 아래 버튼을 클릭하세요.</p>
+            <button
+              onClick={() => onDrilldown({
+                title: '여권/PNR 완료 목록',
+                apiUrl: `/api/partner/dashboard/b2c/detail?type=passport-complete&month=${month}`,
+                columns: [
+                  { key: 'customerName', label: '고객명' },
+                  { key: 'passportStatus', label: '여권', align: 'center', render: (v) => <Badge status={v as string} /> },
+                  { key: 'pnrStatus', label: 'PNR', align: 'center', render: (v) => <Badge status={v as string} /> },
+                  { key: 'assignedName', label: '담당자' },
+                  { key: 'commissionAmount', label: '수당', align: 'right', render: (v) => v ? `₩${(v as number).toLocaleString()}` : '-' },
+                  { key: 'date', label: '완료일', align: 'right' },
+                ],
+              })}
+              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              완료 목록 보기
+            </button>
+          </div>
         )}
       </TableWrapper>
     </div>
