@@ -7,7 +7,7 @@ import {
   FileText, Wrench, Database, Link2, Settings, LogOut,
   AlarmClock, TrendingUp, Building2, ClipboardList, CreditCard,
   BookOpen, Newspaper, FolderOpen, BarChart2, BarChart,
-  Calculator, Phone, ShoppingBag, Award, Star, Receipt, Stamp, Images,
+  Calculator, Phone, ShoppingBag, Award, Star, Receipt, Stamp, Images, Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/components/layout/NotificationBell";
@@ -34,6 +34,7 @@ const navSections: NavSection[] = [
     items: [
       { href: "/dashboard",             icon: LayoutDashboard, label: "대시보드" },
       { href: "/contacts",              icon: Users,        label: "고객 관리" },
+      { href: "/groups",                icon: Tag,          label: "그룹 관리" },
       { href: "/contacts/inquiries",    icon: Phone,        label: "문의 고객" },
       { href: "/contacts/purchased",    icon: ShoppingBag,  label: "구매 고객" },
       { href: "/db",                    icon: Database,     label: "DB 관리" },
