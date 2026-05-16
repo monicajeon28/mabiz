@@ -92,17 +92,19 @@ async function recordEmailLog(params: {
 }) {
   const { addEmailLog } = await import("@/lib/email-queue");
 
-  addEmailLog({
-    organizationId: params.organizationId,
-    contactId:      params.contactId ?? null,
-    email:          params.to,
-    subject:        params.subject,
-    status:         params.status,
-    blockReason:    params.blockReason ?? null,
-    channel:        params.channel,
-  }).catch((err) => {
+  try {
+    await addEmailLog({
+      organizationId: params.organizationId,
+      contactId:      params.contactId ?? null,
+      email:          params.to,
+      subject:        params.subject,
+      status:         params.status,
+      blockReason:    params.blockReason ?? null,
+      channel:        params.channel,
+    });
+  } catch (err) {
     logger.error("[Email] EmailLog 큐 추가 실패", { err });
-  });
+  }
 }
 
 // ─── 퍼널용 이메일 발송 (sendSms와 동일한 응답 인터페이스) ─────────

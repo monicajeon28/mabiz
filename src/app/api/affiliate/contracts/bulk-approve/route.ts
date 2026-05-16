@@ -246,9 +246,9 @@ export async function PUT(req: NextRequest) {
 
               await sendFunnelEmail({
                 organizationId,
-                toEmail: contract.email,
+                to: contract.email,
                 subject,
-                htmlContent: html,
+                html,
               });
             }
           }

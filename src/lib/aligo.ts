@@ -52,19 +52,21 @@ async function recordSmsLog(params: {
 }) {
   const { addSmsLog } = await import("@/lib/sms-queue");
 
-  addSmsLog({
-    organizationId: params.organizationId,
-    contactId:      params.contactId ?? null,
-    phone:          params.phone,
-    msg:            params.msg,
-    status:         params.status,
-    blockReason:    params.blockReason ?? null,
-    resultCode:     params.resultCode ?? null,
-    msgId:          params.msgId ?? null,
-    channel:        params.channel,
-  }).catch((err) => {
+  try {
+    await addSmsLog({
+      organizationId: params.organizationId,
+      contactId:      params.contactId ?? null,
+      phone:          params.phone,
+      msg:            params.msg,
+      status:         params.status,
+      blockReason:    params.blockReason ?? null,
+      resultCode:     params.resultCode ?? null,
+      msgId:          params.msgId ?? null,
+      channel:        params.channel,
+    });
+  } catch (err) {
     logger.error("[Aligo] SmsLog 큐 추가 실패", { err });
-  });
+  }
 }
 
 export async function sendSms(params: SendSmsParams): Promise<AligoResponse> {

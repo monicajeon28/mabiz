@@ -263,9 +263,9 @@ export async function PUT(
 
           const emailResult = await sendFunnelEmail({
             organizationId,
-            toEmail: contract.email,
+            to: contract.email,
             subject,
-            htmlContent: html,
+            html,
           });
           emailSent = emailResult.result_code === 1;
         }
