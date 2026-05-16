@@ -27,6 +27,8 @@ import {
   getPriceTierInfo,
 } from '@/lib/affiliate/priceTiers';
 import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
+import { sendFunnelEmail } from '@/lib/email';
+import { renderPartnerWelcomeEmail } from '@/lib/email-templates';
 
 // ── PUT: 계약 승인 ────────────────────────────────────────────────
 export async function PUT(
@@ -196,6 +198,37 @@ export async function PUT(
       });
     }
 
+    // 9. 이메일 발송 — 환영 메시지 + 대리점 코드
+    let emailSent = false;
+    try {
+      if (contract.email) {
+        const { subject, html } = renderPartnerWelcomeEmail({
+          name: contract.name,
+          tier: tierInfo.label,
+          managerCode: provisionResult.manager.affiliateCode,
+          managerLink: provisionResult.manager.linkUrl,
+          agentCode: provisionResult.agent?.affiliateCode,
+          agentLink: provisionResult.agent?.linkUrl,
+          appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://mabizcruisedot.com',
+        });
+
+        const emailResult = await sendFunnelEmail({
+          organizationId,
+          toEmail: contract.email,
+          subject,
+          htmlContent: html,
+        });
+        emailSent = emailResult.result_code === 1;
+      }
+    } catch (emailErr) {
+      // 이메일 실패는 계약 승인을 취소하지 않음 — 로그만 남김
+      logger.warn('[AFFILIATE-PROVISION] 환영 이메일 발송 실패', {
+        contractId,
+        email: contract.email,
+        error: emailErr instanceof Error ? emailErr.message : String(emailErr),
+      });
+    }
+
     logger.info('[AFFILIATE-PROVISION] 계약 승인 완료', {
       contractId,
       amount,
@@ -231,6 +264,7 @@ export async function PUT(
           linkUrl: provisionResult.agent.linkUrl,
         },
         smsSent,
+        emailSent,
       },
     });
   } catch (err) {

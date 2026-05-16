@@ -205,3 +205,79 @@ export function renderInviteLinkEmail(p: InviteLinkEmailParams): { subject: stri
 
   return { subject, html: wrapEmail(body) };
 }
+
+// ── renderPartnerWelcomeEmail ─────────────────────────────────────
+export interface PartnerWelcomeEmailParams {
+  name:           string;
+  tier:           string;
+  managerCode:    string;
+  managerLink:    string;
+  agentCode?:     string;
+  agentLink?:     string;
+  appUrl:         string;
+}
+
+export function renderPartnerWelcomeEmail(p: PartnerWelcomeEmailParams): { subject: string; html: string } {
+  const subject = `[크루즈닷] 계약 승인 완료 - ${p.tier} 계정이 생성되었습니다`;
+
+  const body = `
+    <h2 style="margin:0 0 8px;color:#111827;font-size:22px;font-weight:700;">
+      계약이 승인되었습니다! 🎉
+    </h2>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">
+      ${p.name}님, 귀사의 ${p.tier} 계약이 승인되었습니다.
+      아래의 대리점 코드로 CRM 시스템에 접속할 수 있습니다.
+    </p>
+
+    <div style="background:#f0f7ff;border-radius:10px;padding:20px;margin:24px 0;">
+      <p style="margin:0 0 12px;color:#1e3a5f;font-size:13px;font-weight:600;">
+        📋 대리점 정보
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        ${infoRow('계약 등급', p.tier)}
+        ${infoRow('대리점 코드', p.managerCode)}
+        ${p.agentCode ? infoRow('판매원 코드', p.agentCode) : ''}
+      </table>
+    </div>
+
+    <div style="background:#eff6ff;border-radius:10px;padding:16px;margin:20px 0;border-left:4px solid #3b82f6;">
+      <p style="margin:0 0 8px;color:#1e40af;font-size:12px;font-weight:600;">
+        💡 다음 단계
+      </p>
+      <ol style="margin:0;padding-left:20px;color:#1e40af;font-size:13px;">
+        <li style="margin:4px 0;">임시 비밀번호는 SMS로 발송되었습니다</li>
+        <li style="margin:4px 0;">CRM 로그인 후 비밀번호를 변경해주세요</li>
+        <li style="margin:4px 0;"><a href="${p.appUrl}/login" style="color:#3b82f6;text-decoration:none;font-weight:500;">CRM 로그인하기</a></li>
+      </ol>
+    </div>
+
+    ${p.managerLink ? `
+    <div style="margin:20px 0;">
+      <p style="margin:0 0 8px;color:#6b7280;font-size:12px;">
+        대리점 링크 (고객 공유용)
+      </p>
+      <p style="margin:0;word-break:break-all;">
+        <a href="${p.managerLink}" style="color:#3b82f6;font-size:12px;">${p.managerLink}</a>
+      </p>
+    </div>` : ''}
+
+    ${p.agentLink ? `
+    <div style="margin:20px 0;">
+      <p style="margin:0 0 8px;color:#6b7280;font-size:12px;">
+        판매원 링크 (고객 공유용)
+      </p>
+      <p style="margin:0;word-break:break-all;">
+        <a href="${p.agentLink}" style="color:#3b82f6;font-size:12px;">${p.agentLink}</a>
+      </p>
+    </div>` : ''}
+
+    <div style="margin-top:28px;padding-top:20px;border-top:1px solid #e5e7eb;">
+      <p style="margin:0;color:#6b7280;font-size:12px;line-height:1.8;">
+        문의 사항이 있으신가요?<br />
+        <a href="mailto:jmonica@cruisedot.co.kr" style="color:#1e3a5f;font-weight:600;">고객 지원팀</a>으로 연락주세요.
+      </p>
+    </div>
+  `;
+
+  return { subject, html: wrapEmail(body) };
+}

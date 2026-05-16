@@ -241,6 +241,7 @@ export async function GET(req: Request) {
         FROM "AffiliateLead" b
         WHERE b.status = 'NEW'
           AND b."createdAt" >= ${sinceDate}
+          AND b."organizationId" = ${orgId}
       `);
 
       // ── NEW_CONTACT (조직 필터) ──
