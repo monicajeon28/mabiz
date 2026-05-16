@@ -108,7 +108,9 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ ok: true, images: result });
   } catch (err) {
-    logger.error("[GET /api/image-library]", { err });
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    logger.error("[GET /api/image-library]", { message, stack });
     return NextResponse.json({ ok: false, images: [] }, { status: 500 });
   }
 }
@@ -174,17 +176,21 @@ export async function POST(req: Request) {
     let height: number | undefined;
 
     if (isGif) {
-      // GIF: 최대 1200px 리사이즈, 포맷 유지
+      // GIF: EXIF 회전 후 최대 1200px 리사이즈, 포맷 유지
       const sharpMeta = await sharp(inputBuffer, { animated: true }).metadata();
       const origWidth = sharpMeta.width ?? 0;
 
       if (origWidth > 1200) {
         outputBuffer = await sharp(inputBuffer, { animated: true })
+          .rotate()
           .resize({ width: 1200, withoutEnlargement: true })
           .gif()
           .toBuffer();
       } else {
-        outputBuffer = inputBuffer;
+        outputBuffer = await sharp(inputBuffer, { animated: true })
+          .rotate()
+          .gif()
+          .toBuffer();
       }
 
       outputMimeType = "image/gif";
@@ -196,8 +202,9 @@ export async function POST(req: Request) {
       width  = meta.width;
       height = meta.height;
     } else {
-      // 나머지: WebP 변환 (quality 85, 최대 1600px)
+      // 나머지: EXIF 회전 후 WebP 변환 (quality 85, 최대 1600px)
       const pipeline = sharp(inputBuffer)
+        .rotate()
         .resize({ width: 1600, withoutEnlargement: true })
         .webp({ quality: 85 });
 
@@ -248,7 +255,9 @@ export async function POST(req: Request) {
       },
     });
   } catch (err) {
-    logger.error("[POST /api/image-library]", { err });
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    logger.error("[POST /api/image-library]", { message, stack, userId: ctx.userId });
     return NextResponse.json({ ok: false, error: "업로드 실패" }, { status: 500 });
   }
 }
