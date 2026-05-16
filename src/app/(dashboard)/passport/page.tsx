@@ -149,15 +149,11 @@ type SearchMatch = {
     submittedAt: string | null;
     tokenExpiresAt: string;
   }>;
-  passportRequestsSent: Array<{
+  passportRequestLogs: Array<{
     id: number;
     status: string;
     sentAt: string;
     messageChannel: string;
-    admin: {
-      id: number;
-      name: string | null;
-    } | null;
   }>;
 };
 
@@ -198,12 +194,11 @@ const convertSearchMatchToCustomer = (match: SearchMatch): PassportRequestCustom
     createdAt: match.createdAt,
     updatedAt: match.passportSubmissions[0].updatedAt,
   } : null,
-  lastRequest: match.passportRequestsSent && match.passportRequestsSent.length > 0 ? {
-    id: match.passportRequestsSent[0].id,
-    status: match.passportRequestsSent[0].status,
-    messageChannel: match.passportRequestsSent[0].messageChannel,
-    sentAt: match.passportRequestsSent[0].sentAt,
-    admin: match.passportRequestsSent[0].admin,
+  lastRequest: match.passportRequestLogs && match.passportRequestLogs.length > 0 ? {
+    id: match.passportRequestLogs[0].id,
+    status: match.passportRequestLogs[0].status,
+    messageChannel: match.passportRequestLogs[0].messageChannel,
+    sentAt: match.passportRequestLogs[0].sentAt,
   } : null,
   submissionStatus: match.passportSubmissions && match.passportSubmissions.length > 0
     ? (match.passportSubmissions[0].isSubmitted ? 'submitted' : 'pending')

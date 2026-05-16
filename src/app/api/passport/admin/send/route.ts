@@ -218,7 +218,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const users = (await prisma.gmUser.findMany({
+    const users = await prisma.gmUser.findMany({
       where: {
         id: { in: userIds },
         role: { not: 'admin' },
@@ -249,7 +249,7 @@ export async function POST(req: NextRequest) {
           },
         },
       },
-    })) as unknown as PassportSendUser[];
+    }) as PassportSendUser[];
 
     const usersById = new Map<number, PassportSendUser>(users.map((user) => [user.id, user]));
     const missingUserIds = userIds.filter((id) => !usersById.has(id));

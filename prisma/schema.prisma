@@ -1269,6 +1269,11 @@ model GmUser {
   nextActionDate              DateTime?
   nextActionNote              String?
 
+  // Relationships
+  trips                       GmTrip[]
+  passportSubmissions         GmPassportSubmission[]
+  passportRequestLogs         GmPassportRequestLog[]
+
   @@index([createdAt])
   @@index([customerStatus])
   @@index([isHibernated, lastActiveAt])
@@ -1303,6 +1308,10 @@ model GmTrip {
   departureDate   DateTime  @default(now())
   googleFolderId  String?
   spreadsheetId   String?
+
+  // Relationships
+  user            GmUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passportSubmissions GmPassportSubmission[]
 
   @@index([createdAt])
   @@index([startDate])
@@ -1616,6 +1625,10 @@ model GmPassportSubmission {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @default(now()) @updatedAt
 
+  // Relationships
+  user           GmUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trip           GmTrip?   @relation(fields: [tripId], references: [id], onDelete: SetNull)
+
   @@unique([userId, tripId])
   @@index([userId])
   @@index([isSubmitted, updatedAt])
@@ -1645,13 +1658,16 @@ model GmPassportSubmissionGuest {
 model GmPassportRequestLog {
   id             Int      @id @default(autoincrement())
   userId         Int
-  adminId        Int
+  adminId        Int?
   templateId     Int?
   messageBody    String
   messageChannel String   @default("SMS")
   status         String   @default("PENDING")
   errorReason    String?
   sentAt         DateTime @default(now())
+
+  // Relationships
+  user           GmUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([adminId, sentAt])
   @@index([status, sentAt])

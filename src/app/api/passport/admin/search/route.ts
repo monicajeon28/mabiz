@@ -106,18 +106,12 @@ export async function GET(req: NextRequest) {
           orderBy: { createdAt: 'desc' },
           take: 1,
         },
-        passportRequestsSent: {
+        passportRequestLogs: {
           select: {
             id: true,
             status: true,
             sentAt: true,
             messageChannel: true,
-            admin: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
           },
           orderBy: { sentAt: 'desc' },
           take: 1,
