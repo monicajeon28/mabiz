@@ -7,16 +7,20 @@ import { logger } from '@/lib/logger';
 // 크루즈닷 회원 그룹 목록 조회
 export async function GET(_req: Request) {
   try {
-    // 권한 확인 — GLOBAL_ADMIN 전용
+    // 로그인 확인
     const session = await getMabizSession();
     if (!session) {
       return NextResponse.json({ ok: false, error: '로그인이 필요합니다.' }, { status: 401 });
     }
-    if (session.role !== 'GLOBAL_ADMIN') {
-      return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
-    }
+
+    // GLOBAL_ADMIN: 모든 그룹 조회, 일반 유저: 자신의 그룹만
+    const where =
+      session.role === 'GLOBAL_ADMIN'
+        ? {}
+        : { createdByUserId: parseInt(session.userId, 10) };
 
     const groups = await prisma.gmUserGroup.findMany({
+      where,
       include: {
         _count: { select: { members: true } },
       },
@@ -44,13 +48,10 @@ export async function GET(_req: Request) {
 // 새 그룹 생성
 export async function POST(req: Request) {
   try {
-    // 권한 확인 — GLOBAL_ADMIN 전용
+    // 로그인 확인
     const session = await getMabizSession();
     if (!session) {
       return NextResponse.json({ ok: false, error: '로그인이 필요합니다.' }, { status: 401 });
-    }
-    if (session.role !== 'GLOBAL_ADMIN') {
-      return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
     }
 
     const body = await req.json();
@@ -64,6 +65,7 @@ export async function POST(req: Request) {
       data: {
         name: name.trim(),
         color: color || '#6B7280',
+        createdByUserId: parseInt(session.userId, 10),
       },
     });
 

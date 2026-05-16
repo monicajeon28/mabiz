@@ -9,13 +9,10 @@ type Params = { params: Promise<{ id: string }> };
 // 그룹에 회원 추가 (upsert)
 export async function POST(req: Request, { params }: Params) {
   try {
-    // 권한 확인 — GLOBAL_ADMIN 전용
+    // 권한 확인 — 로그인 필수
     const session = await getMabizSession();
     if (!session) {
       return NextResponse.json({ ok: false, error: '로그인이 필요합니다.' }, { status: 401 });
-    }
-    if (session.role !== 'GLOBAL_ADMIN') {
-      return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
     }
 
     const { id } = await params;
@@ -32,6 +29,12 @@ export async function POST(req: Request, { params }: Params) {
 
     if (!group) {
       return NextResponse.json({ ok: false, error: '그룹을 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    // 권한 검증: 그룹 소유자 또는 GLOBAL_ADMIN만 수정 가능
+    const userId = parseInt(session.userId, 10);
+    if (group.createdByUserId !== userId && session.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json({ ok: false, error: '이 그룹을 수정할 권한이 없습니다.' }, { status: 403 });
     }
 
     const body = await req.json();
@@ -81,13 +84,10 @@ export async function POST(req: Request, { params }: Params) {
 // 그룹에서 회원 제거
 export async function DELETE(req: Request, { params }: Params) {
   try {
-    // 권한 확인 — GLOBAL_ADMIN 전용
+    // 권한 확인 — 로그인 필수
     const session = await getMabizSession();
     if (!session) {
       return NextResponse.json({ ok: false, error: '로그인이 필요합니다.' }, { status: 401 });
-    }
-    if (session.role !== 'GLOBAL_ADMIN') {
-      return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
     }
 
     const { id } = await params;
@@ -95,6 +95,21 @@ export async function DELETE(req: Request, { params }: Params) {
 
     if (isNaN(groupId)) {
       return NextResponse.json({ ok: false, error: '잘못된 그룹 ID입니다.' }, { status: 400 });
+    }
+
+    // 그룹 존재 확인
+    const group = await prisma.gmUserGroup.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group) {
+      return NextResponse.json({ ok: false, error: '그룹을 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    // 권한 검증: 그룹 소유자 또는 GLOBAL_ADMIN만 수정 가능
+    const userId = parseInt(session.userId, 10);
+    if (group.createdByUserId !== userId && session.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json({ ok: false, error: '이 그룹을 수정할 권한이 없습니다.' }, { status: 403 });
     }
 
     const body = await req.json();
