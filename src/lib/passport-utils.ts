@@ -100,6 +100,26 @@ export function decodePassportToken(shortToken: string): string {
 
 export const DEFAULT_PASSPORT_TEMPLATE_BODY = `{고객명}님, 여권 정보를 입력해주세요: {링크}`;
 
+// 링크만 전송 모드용 메시지 (SMS 비용 무관, 복사용)
+export const LINK_ONLY_PASSPORT_MESSAGE = `[여권 발급 안내] 여행 준비를 완벽하게 도와드릴게요!
+
+{고객명}님, 안녕하세요.
+예약하신 {상품명} 일정({출발일} 출발)을 위해 필요한 여권 정보를 자동으로 수집하고 확인해드리고 있어요.
+
+지금 바로 진행해 주세요.
+1. 아래 링크를 눌러 여권 정보를 입력해 주세요.
+2. 제출 즉시 암호화된 자동 검증으로 담당 컨시어지가 확인합니다.
+3. 처리 상태와 추가 안내는 문자로 안내해 드릴게요.
+
+고객님의 정보는 전 과정에서 안전하게 암호화되어 저장됩니다.
+
+예상 확인 시간: 접수 후 최대 24시간 내
+
+감사합니다.
+크루즈 가이드 고객지원팀 드림
+
+- 여권 정보 제출하기: {링크}`;
+
 /** 템플릿 변수 치환 */
 export function fillTemplate(
   template: string,

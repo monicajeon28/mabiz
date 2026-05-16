@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle, RefreshCw, Search, Send, UserCheck, Download, FileText, Link, Copy, X, Info, RotateCcw } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import { logger } from '@/lib/logger';
+import { fillTemplate, LINK_ONLY_PASSPORT_MESSAGE } from '@/lib/passport-utils';
 
 interface PassportRequestTemplate {
   id: number;
@@ -754,8 +755,15 @@ export default function PassportRequestPage() {
             .replace(/{출발일}/g, '출발일');
         }
       } else {
-        // "링크만 전송" 모드
-        renderedMessage = firstResult.link;
+        // "링크만 전송" 모드 - 긴 메시지 + 링크 (복사용)
+        const firstCustomer = selectedCustomers[0];
+        const firstTrip = firstCustomer?.latestTrip;
+        renderedMessage = fillTemplate(LINK_ONLY_PASSPORT_MESSAGE, {
+          고객명: firstCustomer?.name ? `${firstCustomer.name}님` : '고객님',
+          링크: firstResult.link,
+          상품명: firstTrip?.cruiseName ?? '',
+          출발일: firstTrip?.startDate ? firstTrip.startDate.split('T')[0] : '',
+        });
       }
 
       // 5. 결과를 인라인 표시 상태에 저장
@@ -1413,36 +1421,36 @@ export default function PassportRequestPage() {
               </button>
             </div>
 
-            {/* 메시지 미리보기 (메시지 모드인 경우만) */}
-            {bulkLinkResult.selectedSendMode === 'message' && (
-              <div className="space-y-2">
-                <label className="block">
-                  <p className="text-sm font-semibold text-green-800 mb-2">📝 완성된 메시지</p>
-                  <textarea
-                    value={bulkLinkResult.message}
-                    readOnly
-                    rows={6}
-                    className="w-full rounded-lg border border-green-200 bg-white px-3 py-2 text-sm text-green-900 font-mono"
-                  />
-                </label>
-                <button
-                  onClick={() => handleCopy(bulkLinkResult.message, '메시지', 'bulk-message')}
-                  className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 transition-colors"
-                >
-                  {copiedButtonId === 'bulk-message' ? (
-                    <>
-                      <CheckCircle className="h-3 w-3" />
-                      복사됨
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-3 w-3" />
-                      메시지 복사
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
+            {/* 메시지 (링크만 전송/메시지 발송 모두) */}
+            <div className="space-y-2">
+              <label className="block">
+                <p className="text-sm font-semibold text-green-800 mb-2">
+                  {bulkLinkResult.selectedSendMode === 'message' ? '📝 완성된 메시지' : '📋 복사할 메시지 (고객에게 전달)'}
+                </p>
+                <textarea
+                  value={bulkLinkResult.message}
+                  readOnly
+                  rows={bulkLinkResult.selectedSendMode === 'message' ? 6 : 12}
+                  className="w-full rounded-lg border border-green-200 bg-white px-3 py-2 text-sm text-green-900 font-mono whitespace-pre-wrap"
+                />
+              </label>
+              <button
+                onClick={() => handleCopy(bulkLinkResult.message, '메시지', 'bulk-message')}
+                className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 transition-colors"
+              >
+                {copiedButtonId === 'bulk-message' ? (
+                  <>
+                    <CheckCircle className="h-3 w-3" />
+                    복사됨
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3 w-3" />
+                    메시지 복사
+                  </>
+                )}
+              </button>
+            </div>
 
             {/* 링크 표시 */}
             <div className="space-y-2">
