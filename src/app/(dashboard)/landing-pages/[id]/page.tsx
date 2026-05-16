@@ -25,6 +25,7 @@ const HtmlEditor = dynamic(
 type UploadedImage = {
   id: string; assetId: string; url: string; driveFileId: string;
   width: number; height: number; mimeType: string; fileName: string; sortOrder: number;
+  altText?: string;
 };
 
 export default function EditLandingPage() {
@@ -49,6 +50,8 @@ export default function EditLandingPage() {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState("");
   const [saveMsg, setSaveMsg]   = useState("");
+  const [uploadProgress, setUploadProgress] = useState({ processed: 0, total: 0, percent: 0 });
+  const [success, setSuccess]   = useState("");
 
   // 이미지 모드
   const [images, setImages]     = useState<UploadedImage[]>([]);
@@ -131,11 +134,21 @@ export default function EditLandingPage() {
     gender: "성별", birthDate: "생년월일", address: "주소", marketingConsent: "마케팅동의",
   };
 
+  // Task 1-5: 초기 데이터 로딩 — HTTP 에러 처리 추가
   useEffect(() => {
     Promise.all([
-      fetch(`/api/landing-pages/${id}`).then((r) => r.json()),
-      fetch("/api/groups").then((r) => r.json()),
-      fetch("/api/org/members").then((r) => r.json()).catch(() => ({ ok: false })),
+      fetch(`/api/landing-pages/${id}`).then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      }).catch(() => ({ ok: false })),
+      fetch("/api/groups").then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      }).catch(() => ({ ok: false })),
+      fetch("/api/org/members").then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      }).catch(() => ({ ok: false })),
     ]).then(([pageData, groupData, membersData]) => {
       if (pageData.ok && pageData.page) {
         setTitle(pageData.page.title ?? "");
@@ -189,20 +202,26 @@ export default function EditLandingPage() {
     }).catch(() => setLoading(false));
   }, [id]);
 
+  // Task 1-5: loadStats — HTTP 에러 처리 추가
   const loadStats = async () => {
     setStatsLoading(true);
     try {
       const res  = await fetch(`/api/landing-pages/${id}/stats`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.ok) setStats(data.stats);
+    } catch {
+      setError("통계를 불러오지 못했습니다.");
     } finally {
       setStatsLoading(false);
     }
   };
 
+  // Task 1-5: loadShares — HTTP 에러 처리 추가
   const loadShares = async () => {
     try {
       const res  = await fetch(`/api/landing-pages/${id}/share`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.ok) setShares(data.shares ?? []);
     } catch { /* 권한 없는 역할은 조용히 무시 */ }
@@ -210,14 +229,18 @@ export default function EditLandingPage() {
 
   const saveEmailSettings = async () => {
     setEmailSaveMsg("");
-    const res = await fetch(`/api/landing-pages/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ regEmailEnabled, regEmailSubject: regEmailSubject || null, regEmailContent: regEmailContent || null }),
-    });
-    const data = await res.json();
-    setEmailSaveMsg(data.ok ? "저장됐어요!" : "저장 실패");
-    setTimeout(() => setEmailSaveMsg(""), 2500);
+    try {
+      const res = await fetch(`/api/landing-pages/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ regEmailEnabled, regEmailSubject: regEmailSubject || null, regEmailContent: regEmailContent || null }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setEmailSaveMsg(data.ok ? "저장됐어요!" : "저장 실패");
+    } catch (err) {
+      setEmailSaveMsg(`저장 실패: ${err instanceof Error ? err.message : "알 수 없음"}`);
+    }
   };
 
   const addShare = async () => {
@@ -236,18 +259,26 @@ export default function EditLandingPage() {
     } else {
       setShareMsg(data.message ?? "공유 실패");
     }
-    setTimeout(() => setShareMsg(""), 2500);
+    // Task 1-4: setTimeout 제거 (useEffect cleanup에서 통합 관리)
   };
 
+  // Task 1-5: removeShare — HTTP 에러 처리 추가
   const removeShare = async (userId: string) => {
-    await fetch(`/api/landing-pages/${id}/share?userId=${encodeURIComponent(userId)}`, { method: "DELETE" });
-    setShares((prev) => prev.filter((s) => s.userId !== userId));
+    try {
+      const res = await fetch(`/api/landing-pages/${id}/share?userId=${encodeURIComponent(userId)}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setShares((prev) => prev.filter((s) => s.userId !== userId));
+    } catch {
+      setError("공유 취소 실패");
+    }
   };
 
+  // Task 1-5: loadRegistrations — HTTP 에러 처리 추가
   const loadRegistrations = async (p: number) => {
     setRegLoading(true);
     try {
       const res = await fetch(`/api/landing-pages/${id}/registrations?page=${p}&limit=20`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.ok) {
         setRegistrations(data.registrations);
@@ -261,6 +292,29 @@ export default function EditLandingPage() {
     }
   };
 
+  // Task 1-4: 메모리 누수 수정 — setTimeout cleanup 통합
+  useEffect(() => {
+    const timeoutIds: NodeJS.Timeout[] = [];
+
+    if (emailSaveMsg) {
+      const timerId = setTimeout(() => setEmailSaveMsg(""), 2500);
+      timeoutIds.push(timerId);
+    }
+    if (shareMsg) {
+      const timerId = setTimeout(() => setShareMsg(""), 2500);
+      timeoutIds.push(timerId);
+    }
+    if (saveMsg) {
+      const timerId = setTimeout(() => setSaveMsg(""), 2000);
+      timeoutIds.push(timerId);
+    }
+
+    // cleanup 함수에서 clearTimeout
+    return () => {
+      timeoutIds.forEach((id) => clearTimeout(id));
+    };
+  }, [emailSaveMsg, shareMsg, saveMsg]);
+
   useEffect(() => {
     if (tab === "registrations") loadRegistrations(1);
     if (tab === "comments")      loadComments();
@@ -269,9 +323,11 @@ export default function EditLandingPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, id]);
 
+  // Task 1-5: loadComments — HTTP 에러 처리 추가
   const loadComments = async () => {
     try {
       const res = await fetch(`/api/landing-pages/${id}/comments`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.ok) setComments(data.comments);
     } catch {
@@ -279,59 +335,133 @@ export default function EditLandingPage() {
     }
   };
 
+  // Task 1-5: deleteComment — HTTP 에러 처리 추가
   const deleteComment = async (commentId: string) => {
-    const res = await fetch(`/api/landing-pages/${id}/comments?commentId=${commentId}`, { method: "DELETE" });
-    const data = await res.json();
-    if (data.ok) setComments((prev) => prev.filter((c) => c.id !== commentId));
+    try {
+      const res = await fetch(`/api/landing-pages/${id}/comments?commentId=${commentId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.ok) setComments((prev) => prev.filter((c) => c.id !== commentId));
+    } catch {
+      setCommentMsg("삭제 실패");
+    }
   };
 
+  // Task 1-5: toggleCommentEnabled — HTTP 에러 처리 추가
   const toggleCommentEnabled = async () => {
     const next = !commentEnabled;
-    const res = await fetch(`/api/landing-pages/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ commentEnabled: next }),
-    });
-    const data = await res.json();
-    if (data.ok) setCommentEnabled(next);
+    try {
+      const res = await fetch(`/api/landing-pages/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commentEnabled: next }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.ok) setCommentEnabled(next);
+    } catch {
+      setCommentMsg("변경 실패");
+    }
   };
 
+  // Task 1-5: generateComments — HTTP 에러 처리 추가
   const generateComments = async () => {
     setGenerating(true);
     setCommentMsg("");
-    const res = await fetch(`/api/landing-pages/${id}/comments/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ count: genCount }),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      setComments((prev) => [...data.comments, ...prev]);
-      setCommentMsg(`✅ ${data.comments.length}개 AI 후기 생성 완료`);
-    } else {
-      setCommentMsg("생성 실패. 다시 시도하세요.");
+    try {
+      const res = await fetch(`/api/landing-pages/${id}/comments/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ count: genCount }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.ok) {
+        setComments((prev) => [...data.comments, ...prev]);
+        setCommentMsg(`✅ ${data.comments.length}개 AI 후기 생성 완료`);
+      } else {
+        setCommentMsg("생성 실패. 다시 시도하세요.");
+      }
+    } catch {
+      setCommentMsg("생성 중 오류 발생");
+    } finally {
+      setGenerating(false);
     }
-    setGenerating(false);
   };
 
-  // 이미지 업로드
-  const uploadFiles = async (files: FileList) => {
-    setUploading(true); setError("");
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (!file.type.startsWith("image/")) continue;
-      if (file.size > 20 * 1024 * 1024) { setError(`${file.name}: 20MB 초과`); continue; }
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("landingPageId", id);
-      formData.append("sortOrder", String(images.length + i));
-      try {
-        const res = await fetch("/api/landing-pages/images", { method: "POST", body: formData });
-        const data = await res.json();
-        if (data.ok) setImages((prev) => [...prev, data.image]);
-        else setError(data.message ?? `${file.name} 업로드 실패`);
-      } catch { setError(`${file.name} 업로드 중 오류`); }
+  // Task 1-2 & 1-5: 이미지 업로드 — 배치 처리 + HTTP 에러 처리 + Race Condition 해결
+  const uploadSingleFile = async (file: File, sortOrder: number): Promise<{ ok: boolean; image?: UploadedImage; error?: string }> => {
+    if (!file.type.startsWith("image/")) return { ok: false, error: `${file.name}: 이미지 형식 아님` };
+    if (file.size > 20 * 1024 * 1024) return { ok: false, error: `${file.name}: 20MB 초과` };
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("landingPageId", id);
+    formData.append("sortOrder", String(sortOrder));
+
+    try {
+      const res = await fetch("/api/landing-pages/images", { method: "POST", body: formData });
+      // Task 1-5: res.ok 체크 추가
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      // JSON parsing 에러 처리
+      if (!data.ok) return { ok: false, error: data.message ?? `${file.name} 업로드 실패` };
+      return { ok: true, image: data.image };
+    } catch (err) {
+      return { ok: false, error: `${file.name} 업로드 중 오류: ${err instanceof Error ? err.message : '알 수 없음'}` };
     }
+  };
+
+  const uploadFiles = async (files: FileList) => {
+    setUploading(true);
+    setError("");
+    setUploadProgress({ processed: 0, total: files.length, percent: 0 });
+
+    const successImages: UploadedImage[] = [];
+    const failedErrors: string[] = [];
+    const validFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
+
+    // Task 1-2: 배치 처리 (3개씩)
+    for (let i = 0; i < validFiles.length; i += 3) {
+      const batch = validFiles.slice(i, i + 3);
+      const sortOrder = images.length + successImages.length;
+
+      // Task 1-2: Promise.allSettled() 사용
+      const results = await Promise.allSettled(
+        batch.map((file, idx) => uploadSingleFile(file, sortOrder + idx))
+      );
+
+      results.forEach((result, idx) => {
+        if (result.status === "fulfilled") {
+          if (result.value.ok && result.value.image) {
+            successImages.push(result.value.image);
+          } else if (result.value.error) {
+            failedErrors.push(result.value.error);
+          }
+        } else {
+          failedErrors.push(`${batch[idx].name}: 업로드 실패`);
+        }
+      });
+
+      // Task 1-2: 진행률 상태 업데이트
+      const processed = Math.min(i + 3, validFiles.length);
+      const percent = Math.round((processed / validFiles.length) * 100);
+      setUploadProgress({ processed, total: validFiles.length, percent });
+    }
+
+    // Task 1-2: 결과 수집 및 메시지 표시
+    if (successImages.length > 0) {
+      setImages((prev) => [...prev, ...successImages]);
+      if (failedErrors.length > 0) {
+        setSuccess(`✅ ${successImages.length}개 성공, ❌ ${failedErrors.length}개 실패: ${failedErrors.slice(0, 2).join(", ")}${failedErrors.length > 2 ? "..." : ""}`);
+      } else {
+        setSuccess(`✅ ${successImages.length}개 모두 업로드 완료`);
+      }
+    } else {
+      setError(failedErrors.length > 0 ? failedErrors[0] : "업로드 실패");
+    }
+
+    // Task 1-2: setUploading(false)는 루프 완료 후에만
     setUploading(false);
   };
 
@@ -342,65 +472,169 @@ export default function EditLandingPage() {
     const n = [...images]; const [m] = n.splice(dragIdx, 1); n.splice(idx, 0, m);
     setImages(n); setDragIdx(idx);
   };
+
+  // Task 1-3 & 1-5: handleDragEnd — 상태 불일치 수정 + HTTP 에러 처리
   const handleDragEnd = async () => {
     setDragIdx(null);
-    await fetch("/api/landing-pages/images", {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ landingPageId: id, imageIds: images.map((img) => img.id) }),
-    });
+    const previousImages = [...images]; // Task 1-3: previousImages 백업
+
+    try {
+      const res = await fetch("/api/landing-pages/images", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ landingPageId: id, imageIds: images.map((img) => img.id) }),
+      });
+      // Task 1-5: res.ok 체크 추가
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      // Task 1-3: data.ok 체크 추가
+      if (!data.ok) throw new Error(data.message ?? "순서 변경 실패");
+
+      setSuccess("이미지 순서가 변경되었습니다.");
+    } catch (err) {
+      // Task 1-3: 실패 시 setImages(previousImages) 롤백
+      setImages(previousImages);
+      setError(`순서 변경 실패: ${err instanceof Error ? err.message : "알 수 없음"}`);
+    }
   };
+
+  // Task 1-3 & 1-5: removeImage — 상태 불일치 수정 + HTTP 에러 처리
   const removeImage = async (imgId: string) => {
-    await fetch("/api/landing-pages/images", {
-      method: "DELETE", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: imgId }),
+    const previousImages = [...images]; // Task 1-3: previousImages 백업
+    setImages((prev) => prev.filter((img) => img.id !== imgId)); // Task 1-3: 낙관적 업데이트
+
+    try {
+      const res = await fetch("/api/landing-pages/images", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: imgId }),
+      });
+      // Task 1-5: res.ok 체크 추가
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      // Task 1-3: data.ok 체크 추가
+      if (!data.ok) throw new Error(data.message ?? "삭제 실패");
+
+      setSuccess("이미지가 삭제되었습니다.");
+    } catch (err) {
+      // Task 1-3: 실패 시 setImages(previousImages) 롤백
+      setImages(previousImages);
+      setError(`이미지 삭제 실패: ${err instanceof Error ? err.message : "알 수 없음"}`);
+    }
+  };
+
+  // Task 1-1: encodeHtml 함수 추가 (HTML 엔티티 인코딩으로 XSS 방지)
+  const encodeHtml = (text: string): string => {
+    const map: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return text.replace(/[&<>"']/g, (char) => map[char]);
+  };
+
+  // Task 1-1: buildFormFields 재사용 함수 (폼 필드 동적 생성)
+  const buildFormFields = (): string => {
+    let html = "";
+    Object.entries(formFields).forEach(([key, val]) => {
+      if (!val.enabled) return;
+      const label = FIELD_LABELS[key] || key;
+      const required = val.required ? "required" : "";
+
+      if (key === "name") {
+        html += `<input type="text" name="name" placeholder="${encodeHtml(label)}" ${required} style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;" />`;
+      } else if (key === "phone") {
+        html += `<input type="tel" name="phone" placeholder="${encodeHtml(label)}" ${required} style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;" />`;
+      } else if (key === "email") {
+        html += `<input type="email" name="email" placeholder="${encodeHtml(label)}" ${required} style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;" />`;
+      } else if (key === "birthDate") {
+        html += `<input type="date" name="birthDate" placeholder="${encodeHtml(label)}" ${required} style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;" />`;
+      } else if (key === "gender") {
+        html += `<select name="gender" ${required} style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;"><option value="">성별 선택</option><option value="M">남성</option><option value="F">여성</option></select>`;
+      } else if (key === "address") {
+        html += `<input type="text" name="address" placeholder="${encodeHtml(label)}" ${required} style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;" />`;
+      } else if (key === "marketingConsent") {
+        html += `<label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><input type="checkbox" name="marketingConsent" style="width:16px;height:16px;" /><span style="font-size:13px;color:#666;">마케팅 정보 수신 동의</span></label>`;
+      }
     });
-    setImages((prev) => prev.filter((img) => img.id !== imgId));
+    return html;
   };
 
+  // Task 1-1: buildHtmlFromImages 수정 — XSS 방지 + 동적 폼 생성
   const buildHtmlFromImages = (): string => {
-    const imgTags = images.map((img) => {
-      const src = `https://lh3.googleusercontent.com/d/${img.driveFileId}=w1200`;
+    const imgTags = images.map((img, idx) => {
+      // Task 1-1: img.driveFileId 인코딩
+      const encodedFileId = encodeHtml(img.driveFileId);
+      // Task 1-1: altText 동적화
+      const altText = encodeHtml(img.altText || `이미지 ${idx + 1}/${images.length}`);
+      const src = `https://lh3.googleusercontent.com/d/${encodedFileId}=w1200`;
       const ar = img.width && img.height ? `aspect-ratio:${img.width}/${img.height};` : "";
-      return `<img src="${src}" alt="랜딩페이지 이미지" style="width:100%;display:block;${ar}" loading="lazy" />`;
+      return `<img src="${src}" alt="${altText}" style="width:100%;display:block;${ar}" loading="lazy" />`;
     }).join("\n");
-    return `<div style="margin:0;padding:0;line-height:0;background:#fff;">\n${imgTags}\n</div>\n<form style="max-width:480px;margin:0 auto;padding:32px 20px 48px;background:#fff;font-family:'Pretendard',sans-serif;"><h3 style="text-align:center;font-size:22px;font-weight:700;color:#1a1a1a;margin:0 0 8px;">지금 바로 신청하세요</h3><p style="text-align:center;font-size:14px;color:#888;margin:0 0 24px;">상담 신청 후 담당자가 연락드립니다</p><input type="text" name="name" placeholder="이름" required style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;" /><input type="tel" name="phone" placeholder="연락처 (010-0000-0000)" required style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:16px;box-sizing:border-box;outline:none;" /><button type="submit" style="width:100%;padding:16px;background:#FF6B35;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;">신청하기</button></form>`;
+
+    // Task 1-1: 더미 데이터 제거, 동적 폼 생성, footer 텍스트 사용
+    const formFieldsHtml = buildFormFields();
+    const encodedButtonTitle = encodeHtml(buttonTitle || "신청하기");
+    const encodedFooter = footer ? encodeHtml(footer) : "";
+
+    return `<div style="margin:0;padding:0;line-height:0;background:#fff;">\n${imgTags}\n</div>\n<form style="max-width:480px;margin:0 auto;padding:32px 20px 48px;background:#fff;font-family:'Pretendard',sans-serif;"><h3 style="text-align:center;font-size:22px;font-weight:700;color:#1a1a1a;margin:0 0 8px;">지금 바로 신청하세요</h3><p style="text-align:center;font-size:14px;color:#888;margin:0 0 24px;">상담 신청 후 담당자가 연락드립니다</p>${formFieldsHtml}<button type="submit" style="width:100%;padding:16px;background:#FF6B35;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;">${encodedButtonTitle}</button>${encodedFooter ? `<p style="text-align:center;font-size:12px;color:#999;margin-top:12px;">${encodedFooter}</p>` : ""}</form>`;
   };
 
+  // Task 1-5: save 함수 — HTTP 에러 처리 추가
   const save = async () => {
     if (!title.trim() || !slug.trim()) { setError("제목과 슬러그를 입력하세요."); return; }
     setSaving(true);
-    const content = editorMode === "image" ? buildHtmlFromImages() : html;
-    const res = await fetch(`/api/landing-pages/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title, slug, htmlContent: content, editorMode,
-        groupId: selectedGroupId || null, paymentEnabled,
-        infoCollection: true,
-        formConfig: {
-          ...(b2bEduType ? { b2bEduType } : {}),
-          fields: formFields,
-          ...(footer ? { footer } : {}),
-        },
-        ...(exposureTitle     ? { exposureTitle }                     : { exposureTitle: null }),
-        ...(exposureImage     ? { exposureImage }                     : { exposureImage: null }),
-        ...(buttonTitle       ? { buttonTitle }                       : { buttonTitle: null }),
-        ...(completionPageUrl ? { completionPageUrl }                 : { completionPageUrl: null }),
-        ...(headerScript      ? { headerScript }                      : { headerScript: null }),
-        ...(description       ? { description }                       : { description: null }),
-        commentEnabled,
-        commentConfig: commentEnabled ? { count: commentCount, dateFrom: commentDateFrom, dateTo: commentDateTo } : undefined,
-        ...(paymentEnabled ? {
-          paymentType, productName: productName || null,
-          productPrice: parseInt(productPrice) || null,
-          ...(paymentType === "subscription" ? { cycleDay: parseInt(cycleDay), expireDate: expireDate || null } : {}),
-        } : {}),
-      }),
-    });
-    const data = await res.json();
-    setSaving(false);
-    if (data.ok) { setSaveMsg("저장됐어요!"); setTimeout(() => setSaveMsg(""), 2000); }
-    else { setError(data.message ?? "저장 실패"); }
+    setError("");
+
+    try {
+      const content = editorMode === "image" ? buildHtmlFromImages() : html;
+      const res = await fetch(`/api/landing-pages/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title, slug, htmlContent: content, editorMode,
+          groupId: selectedGroupId || null, paymentEnabled,
+          infoCollection: true,
+          formConfig: {
+            ...(b2bEduType ? { b2bEduType } : {}),
+            fields: formFields,
+            ...(footer ? { footer } : {}),
+          },
+          ...(exposureTitle     ? { exposureTitle }                     : { exposureTitle: null }),
+          ...(exposureImage     ? { exposureImage }                     : { exposureImage: null }),
+          ...(buttonTitle       ? { buttonTitle }                       : { buttonTitle: null }),
+          ...(completionPageUrl ? { completionPageUrl }                 : { completionPageUrl: null }),
+          ...(headerScript      ? { headerScript }                      : { headerScript: null }),
+          ...(description       ? { description }                       : { description: null }),
+          commentEnabled,
+          commentConfig: commentEnabled ? { count: commentCount, dateFrom: commentDateFrom, dateTo: commentDateTo } : undefined,
+          ...(paymentEnabled ? {
+            paymentType, productName: productName || null,
+            productPrice: parseInt(productPrice) || null,
+            ...(paymentType === "subscription" ? { cycleDay: parseInt(cycleDay), expireDate: expireDate || null } : {}),
+          } : {}),
+        }),
+      });
+      // Task 1-5: res.ok 체크 추가
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      if (data.ok) {
+        setSaveMsg("저장됐어요!");
+        setTimeout(() => setSaveMsg(""), 2000);
+      } else {
+        throw new Error(data.message ?? "저장 실패");
+      }
+    } catch (err) {
+      setSaveMsg("");
+      setError(`저장 실패: ${err instanceof Error ? err.message : "알 수 없음"}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) return <div className="h-screen bg-gray-50 animate-pulse" />;
@@ -884,13 +1118,4 @@ export default function EditLandingPage() {
                         className="text-xs text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded"
                       >취소</button>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+     

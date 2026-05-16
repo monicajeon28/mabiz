@@ -27,12 +27,14 @@ type B2CPassport = {
   pnrStatus: string;
   confirmedAt: string | null;
 };
+type TrendValues = Record<string, number>;
 type B2CData = {
   totalSalesAmount: number;
   salesCount: number;
   reservationCount: number;
   recentSales: B2CSale[];
   passportPnr: B2CPassport[];
+  trends?: TrendValues;
 };
 
 // B2B
@@ -57,6 +59,7 @@ type B2BData = {
   paymentAmount: number;
   recentLeads: B2BLead[];
   recentPayments: B2BPayment[];
+  trends?: TrendValues;
 };
 
 // Gold
@@ -80,6 +83,7 @@ type GoldData = {
   paymentRate: number;
   members: GoldMember[];
   recentConsultations: GoldConsultation[];
+  trends?: TrendValues;
 };
 
 /* ─────────────────── 유틸 ─────────────────── */
@@ -131,9 +135,9 @@ function Badge({ status }: { status: string }) {
 /* ─────────────────── 공통 컴포넌트 ─────────────────── */
 
 function StatCard({
-  title, value, icon, suffix,
+  title, value, icon, suffix, trend,
 }: {
-  title: string; value: string | number; icon: React.ReactNode; suffix?: string;
+  title: string; value: string | number; icon: React.ReactNode; suffix?: string; trend?: number;
 }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -141,10 +145,24 @@ function StatCard({
         <p className="text-sm font-medium text-gray-500">{title}</p>
         <span className="text-gray-300">{icon}</span>
       </div>
-      <p className="mt-1 text-3xl font-bold text-gray-900">
-        {typeof value === 'number' ? value.toLocaleString() : value}
-        {suffix && <span className="ml-1 text-lg font-medium text-gray-400">{suffix}</span>}
-      </p>
+      <div className="mt-1 flex items-end gap-2">
+        <p className="text-3xl font-bold text-gray-900">
+          {typeof value === 'number' ? value.toLocaleString() : value}
+          {suffix && <span className="ml-1 text-lg font-medium text-gray-400">{suffix}</span>}
+        </p>
+        {trend !== undefined && trend !== 0 && (
+          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full mb-1 ${
+            trend > 0
+              ? 'bg-green-50 text-green-600'
+              : 'bg-red-50 text-red-600'
+          }`}>
+            {trend > 0 ? '↑' : '↓'} {Math.abs(trend)}%
+          </span>
+        )}
+      </div>
+      {trend !== undefined && trend !== 0 && (
+        <p className="text-xs text-gray-400 mt-1">전월 대비</p>
+      )}
     </div>
   );
 }
@@ -209,9 +227,9 @@ function B2CTab({ data, loading }: { data: B2CData | null; loading: boolean }) {
     <div className="space-y-6">
       {/* 통계 카드 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard title="총 판매액" value={`₩${formatWon(data.totalSalesAmount)}`} icon={<DollarSign className="h-5 w-5" />} />
-        <StatCard title="판매 건수" value={data.salesCount} icon={<ShoppingCart className="h-5 w-5" />} suffix="건" />
-        <StatCard title="예약 현황" value={data.reservationCount} icon={<Plane className="h-5 w-5" />} suffix="건" />
+        <StatCard title="총 판매액" value={`₩${formatWon(data.totalSalesAmount)}`} icon={<DollarSign className="h-5 w-5" />} trend={data.trends?.totalSalesAmount} />
+        <StatCard title="판매 건수" value={data.salesCount} icon={<ShoppingCart className="h-5 w-5" />} suffix="건" trend={data.trends?.salesCount} />
+        <StatCard title="예약 현황" value={data.reservationCount} icon={<Plane className="h-5 w-5" />} suffix="건" trend={data.trends?.reservationCount} />
       </div>
 
       {/* 최근 판매 */}
@@ -302,9 +320,9 @@ function B2BTab({ data, loading }: { data: B2BData | null; loading: boolean }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard title="신규 리드" value={data.newLeads} icon={<UserPlus className="h-5 w-5" />} suffix="명" />
-        <StatCard title="교육 신청자" value={data.eduApplicants} icon={<GraduationCap className="h-5 w-5" />} suffix="명" />
-        <StatCard title="결제 현황" value={`₩${formatWon(data.paymentAmount)}`} icon={<CreditCard className="h-5 w-5" />} />
+        <StatCard title="신규 리드" value={data.newLeads} icon={<UserPlus className="h-5 w-5" />} suffix="명" trend={data.trends?.newLeads} />
+        <StatCard title="교육 신청자" value={data.eduApplicants} icon={<GraduationCap className="h-5 w-5" />} suffix="명" trend={data.trends?.eduApplicants} />
+        <StatCard title="결제 현황" value={`₩${formatWon(data.paymentAmount)}`} icon={<CreditCard className="h-5 w-5" />} trend={data.trends?.paymentAmount} />
       </div>
 
       {/* 최근 리드 */}
@@ -395,8 +413,8 @@ function GoldTab({ data, loading }: { data: GoldData | null; loading: boolean })
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard title="골드 회원 수" value={data.goldMemberCount} icon={<Crown className="h-5 w-5" />} suffix="명" />
-        <StatCard title="신규 문의" value={data.newInquiries} icon={<MessageSquare className="h-5 w-5" />} suffix="건" />
+        <StatCard title="골드 회원 수" value={data.goldMemberCount} icon={<Crown className="h-5 w-5" />} suffix="명" trend={data.trends?.goldMemberCount} />
+        <StatCard title="신규 문의" value={data.newInquiries} icon={<MessageSquare className="h-5 w-5" />} suffix="건" trend={data.trends?.newInquiries} />
         <StatCard title="납부율" value={data.paymentRate} icon={<Percent className="h-5 w-5" />} suffix="%" />
       </div>
 

@@ -39,7 +39,7 @@ interface RawCustomerRecord {
 
 const MAX_LIMIT = 200;
 
-type RoleFilter = 'all' | 'guide' | 'mall' | 'test';
+// RoleFilter 제거: 모든 구매 고객을 표시하므로 역할 필터 불필요
 
 // ── 전화번호 마스킹 함수 ────────────────────────────────────────
 /**
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search')?.trim() ?? '';
     const statusFilter = searchParams.get('status')?.trim() ?? '';
-    const roleFilterParam = (searchParams.get('role')?.trim() ?? 'all') as RoleFilter;
+    // roleFilterParam 제거: 모든 구매 고객을 표시하므로 역할 필터 불필요
     const productCodeParam = searchParams.get('productCode')?.trim() ?? '';
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1);
     const limitParam = parseInt(searchParams.get('limit') ?? '100', 10);
@@ -104,30 +104,14 @@ export async function GET(req: NextRequest) {
     const whereConditions: Prisma.Sql[] = [
       Prisma.sql`u.role != 'admin'`,
       // 구매 고객만 필터링: 확정된 예약 + 결제 완료
-      // GmTrip을 통해 JOIN (GmReservation.mainUserId로 주인 연결)
+      // GmTrip과 GmReservation의 관계 확인: GmReservation(tripId) → GmTrip(id), GmReservation(mainUserId) → GmUser(id)
       Prisma.sql`EXISTS(
-        SELECT 1 FROM "GmTrip" t2
-        JOIN "GmReservation" r ON r."tripId" = t2.id
-        WHERE t2."userId" = u.id
+        SELECT 1 FROM "GmReservation" r
+        WHERE r."mainUserId" = u.id
         AND r.status = 'CONFIRMED'
         AND r."paymentAmount" > 0
       )`
     ];
-
-    // role 필터 조건 추가
-    switch (roleFilterParam) {
-      case 'guide':
-        whereConditions.push(
-          Prisma.sql`u.role = 'user' AND (u."customerStatus" IS NULL OR u."customerStatus" != 'test')`
-        );
-        break;
-      case 'mall':
-        whereConditions.push(Prisma.sql`u.role = 'community'`);
-        break;
-      case 'test':
-        whereConditions.push(Prisma.sql`u.role = 'user' AND u."customerStatus" = 'test'`);
-        break;
-    }
 
     // search 필터 조건 추가
     if (search) {

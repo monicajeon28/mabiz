@@ -218,7 +218,7 @@ export default function PassportRequestPage() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
+  // roleFilter 제거: 모든 구매 고객을 표시하므로 역할 구분 불필요
   const [productCodeFilter, setProductCodeFilter] = useState<string>('all');
   const [productCodes, setProductCodes] = useState<ProductCode[]>([]);
   const [sortBy, setSortBy] = useState<'status' | 'name' | 'submittedAt'>('status');
@@ -368,8 +368,8 @@ export default function PassportRequestPage() {
       const params = new URLSearchParams();
       if (search.trim()) params.set('search', search.trim());
       if (statusFilter !== 'all') params.set('status', statusFilter);
-      if (roleFilter !== 'all') params.set('role', roleFilter);
       if (productCodeFilter !== 'all') params.set('productCode', productCodeFilter);
+      // roleFilter 제거: 모든 구매 고객을 조회하므로 역할 필터 불필요
 
       const res = await fetch(`/api/passport/admin/customers?${params.toString()}`, {
         credentials: 'include',
@@ -390,7 +390,7 @@ export default function PassportRequestPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [roleFilter, search, statusFilter, productCodeFilter]);
+  }, [search, statusFilter, productCodeFilter]);
 
   const loadAligoStatus = useCallback(async () => {
     setIsLoadingAligoStatus(true);
@@ -929,20 +929,6 @@ export default function PassportRequestPage() {
                   {option.label}
                 </option>
               ))}
-            </select>
-          </label>
-
-          <label className="flex flex-col">
-            <span className="text-gray-700 font-semibold mb-2">고객 유형</span>
-            <select
-              value={roleFilter}
-              onChange={(event) => setRoleFilter(event.target.value as RoleFilter)}
-              className="px-4 py-3 rounded-xl border-2 border-blue-100 focus:border-blue-500 focus:outline-none text-lg"
-            >
-              <option value="all">전체</option>
-              <option value="guide">크루즈가이드 고객</option>
-              <option value="mall">크루즈몰 고객</option>
-              <option value="test">크루즈테스트 고객</option>
             </select>
           </label>
 
