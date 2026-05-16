@@ -203,7 +203,7 @@ export async function POST(req: NextRequest) {
               where: {
                 organizationId_tripCode_cabinType: {
                   organizationId,
-                  tripCode: tripCode ?? '',
+                  tripCode: tripCode ?? null,
                   cabinType: c.cabinType,
                 },
               },
@@ -215,8 +215,8 @@ export async function POST(req: NextRequest) {
                 shipName: shipName ?? null,
                 cabinType: c.cabinType,
                 totalCount: c.totalCount,
-                bookedCount: 0,
-                status: 'AVAILABLE',
+                bookedCount: sold,
+                status: c.totalCount <= sold ? 'SOLD_OUT' : 'AVAILABLE',
               },
               update: {
                 totalCount: c.totalCount,
@@ -232,10 +232,12 @@ export async function POST(req: NextRequest) {
       });
     } catch (txErr) {
       const msg = txErr instanceof Error ? txErr.message : 'Transaction error';
-      if (msg.includes('이미')) {
+      logger.error('[cabin-inventory] POST transaction error', { error: msg });
+
+      if (msg.includes('이미') || msg.includes('판매')) {
         return NextResponse.json({ ok: false, error: msg }, { status: 400 });
       }
-      throw txErr;
+      return NextResponse.json({ ok: false, error: '객실 등록에 실패했습니다.' }, { status: 500 });
     }
 
     logger.info('[cabin-inventory] POST created', {
@@ -324,7 +326,7 @@ export async function PUT(req: NextRequest) {
 
 /**
  * DELETE /api/cabin-inventory
- * 여행 삭제 (GLOBAL_ADMIN만)
+ * 여행 삭제 (GLOBAL_ADMIN만, OWNER는 불가)
  */
 export async function DELETE(req: NextRequest) {
   try {
