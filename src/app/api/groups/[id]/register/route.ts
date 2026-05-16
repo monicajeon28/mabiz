@@ -137,12 +137,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           });
 
           if (funnelStages.length > 0) {
-            await tx.funnelEntry.create({
+            await tx.contactFunnelState.create({
               data: {
+                organizationId: group.organizationId,
                 contactId: contact.id,
-                funnelId: group.funnelId,
-                currentStageId: funnelStages[0].id,
                 status: 'ACTIVE',
+                metadata: { funnelId: group.funnelId, stageId: funnelStages[0].id },
               },
             });
             funnelStarted = true;

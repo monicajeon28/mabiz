@@ -105,12 +105,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       data: { active: false },
     });
 
-    // 새 토큰 생성
-    const seq = crypto.randomBytes(6).toString('hex');
+    // 새 토큰 생성 (자동 생성 ID 사용, C2 타입 일관성 수정)
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const token = await prisma.groupToken.create({
-      data: { id: seq, groupId, expiresAt, active: true },
+      data: { groupId, expiresAt, active: true },
       select: { id: true, expiresAt: true, createdAt: true },
     });
 
