@@ -338,6 +338,16 @@ export default function PassportRequestPage() {
     return sorted;
   }, [customers, sortBy, sortOrder]);
 
+  // sendTarget 기준 필터링된 고객 목록
+  const filteredCustomers = useMemo(() => {
+    if (sendTarget === 'pnr') {
+      return sortedCustomers.filter(
+        (customer) => customer.latestTrip?.id && customer.latestTrip?.reservationId
+      );
+    }
+    return sortedCustomers;
+  }, [sortedCustomers, sendTarget]);
+
   const loadTemplates = useCallback(async () => {
     try {
       const res = await fetch('/api/passport/admin/templates', {
@@ -1076,8 +1086,14 @@ export default function PassportRequestPage() {
                 <th className="px-4 py-3 text-left text-sm font-semibold text-blue-900">
                   <input
                     type="checkbox"
-                    checked={selectedIds.length > 0 && selectedIds.length === sortedCustomers.length}
-                    onChange={toggleSelectAll}
+                    checked={filteredCustomers.length > 0 && selectedIds.length === filteredCustomers.length}
+                    onChange={() => {
+                      if (selectedIds.length === filteredCustomers.length) {
+                        setSelectedIds([]);
+                      } else {
+                        setSelectedIds(filteredCustomers.map((customer) => customer.id));
+                      }
+                    }}
                     className="w-5 h-5"
                     aria-label="전체 선택"
                   />
@@ -1140,14 +1156,16 @@ export default function PassportRequestPage() {
                     데이터를 불러오는 중입니다...
                   </td>
                 </tr>
-              ) : sortedCustomers.length === 0 ? (
+              ) : filteredCustomers.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-6 text-center text-lg text-gray-500">
-                    조건에 맞는 고객이 없습니다.
+                    {sendTarget === 'pnr'
+                      ? 'PNR 정보가 있는 고객이 없습니다.'
+                      : '조건에 맞는 고객이 없습니다.'}
                   </td>
                 </tr>
               ) : (
-                sortedCustomers.map((customer) => {
+                filteredCustomers.map((customer) => {
                   const isSelected = selectedIds.includes(customer.id);
                   const submission = customer.submission;
                   const lastRequest = customer.lastRequest;

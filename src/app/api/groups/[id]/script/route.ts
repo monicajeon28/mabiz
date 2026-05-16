@@ -7,10 +7,10 @@ import { logger } from '@/lib/logger';
 
 // GET /api/groups/[id]/script - 기존 토큰으로 등록 스크립트 조회 (토큰 없으면 404)
 // PERF-003 + SCALE-003: 토큰 생성은 POST로 분리 (캐싱 가능하게 함)
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id: groupId } = await params;
     const ctx = await getAuthContext();
-    const groupId = params.id;
     const { origin } = new URL(req.url);
 
     const group = await prisma.contactGroup.findFirst({
@@ -81,10 +81,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
 // POST /api/groups/[id]/script - 새 토큰 생성
 // PERF-003 + SCALE-003: 토큰 생성을 POST로 분리
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id: groupId } = await params;
     const ctx = await getAuthContext();
-    const groupId = params.id;
 
     const group = await prisma.contactGroup.findFirst({
       where: { id: groupId, organizationId: ctx.organizationId },

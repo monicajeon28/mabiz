@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { MessageSquare, Phone, BookOpen, User, Copy, Check, Loader2, Upload, FileText, BookMarked } from "lucide-react";
 import { CompressorModal } from "@/components/ui/CompressorModal";
-import { QaLibrary } from "@/components/tools/QaLibrary";
+// import { QaLibrary } from "@/components/tools/QaLibrary";
 
 type Template = { id: string; category: string; title: string; content: string; triggerOffset: number | null };
 type Playbook  = { id: string; type: string; title: string; content: string; priority: number };
@@ -423,8 +423,31 @@ export default function ToolsPage() {
 
       {/* Q&A 라이브러리 */}
       {mainTab === "qa-library" && (
-        <div>
-          <QaLibrary />
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-navy-900 mb-4">Q&A 라이브러리</h2>
+
+          {/* 검색 */}
+          <div className="flex gap-2 mb-4">
+            <input
+              type="text"
+              placeholder="질문 검색..."
+              className="flex-1 px-4 py-2 border rounded-lg text-sm"
+            />
+            <button className="px-4 py-2 bg-navy-900 text-white rounded-lg text-sm">검색</button>
+          </div>
+
+          {/* 카테고리 필터 */}
+          <div className="flex flex-wrap gap-2">
+            <button className="px-3 py-1.5 text-sm rounded-full bg-navy-900 text-white">전체</button>
+            <button className="px-3 py-1.5 text-sm rounded-full bg-gray-100 text-gray-600">정책&수수료</button>
+            <button className="px-3 py-1.5 text-sm rounded-full bg-gray-100 text-gray-600">탑승&수속</button>
+            <button className="px-3 py-1.5 text-sm rounded-full bg-gray-100 text-gray-600">객실&카드</button>
+          </div>
+
+          {/* 결과 */}
+          <div className="bg-white border rounded-xl p-4 text-center text-gray-500">
+            <p>준비 중입니다 (275개 Q&A 로드 예정)</p>
+          </div>
         </div>
       )}
     </div>

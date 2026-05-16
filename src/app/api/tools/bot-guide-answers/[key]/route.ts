@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 
 /**
  * GET /api/tools/bot-guide-answers/[key]
@@ -7,10 +7,11 @@ import { prisma } from "@/lib/prisma";
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { key: string } }
+  { params }: { params: Promise<{ key: string }> }
 ) {
   try {
-    const key = decodeURIComponent(params.key);
+    const { key: rawKey } = await params;
+    const key = decodeURIComponent(rawKey);
 
     const data = await prisma.botGuideAnswer.findUnique({
       where: { key },
@@ -55,10 +56,11 @@ export async function GET(
  */
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { key: string } }
+  { params }: { params: Promise<{ key: string }> }
 ) {
   try {
-    const key = decodeURIComponent(params.key);
+    const { key: rawKey } = await params;
+    const key = decodeURIComponent(rawKey);
     const body = await req.json();
 
     // 기존 데이터 확인
@@ -128,10 +130,11 @@ export async function PUT(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { key: string } }
+  { params }: { params: Promise<{ key: string }> }
 ) {
   try {
-    const key = decodeURIComponent(params.key);
+    const { key: rawKey } = await params;
+    const key = decodeURIComponent(rawKey);
     const { searchParams } = new URL(req.url);
     const hardDelete = searchParams.get("hard") === "true";
 

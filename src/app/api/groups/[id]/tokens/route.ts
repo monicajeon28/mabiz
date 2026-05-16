@@ -6,10 +6,10 @@ import { logger } from '@/lib/logger';
 import crypto from 'crypto';
 
 // GET /api/groups/[id]/tokens - 토큰 목록 조회
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id: groupId } = await params;
     const ctx = await getAuthContext();
-    const groupId = params.id;
 
     // [SEC-002] IDOR 방지: organizationId 필터 추가 (groupId만으로는 다른 조직 접근 가능)
     const group = await prisma.contactGroup.findFirst({
@@ -60,10 +60,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 // POST /api/groups/[id]/tokens - 새 토큰 생성
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id: groupId } = await params;
     const ctx = await getAuthContext();
-    const groupId = params.id;
 
     // [SEC-002] IDOR 방지: organizationId 필터 추가
     const group = await prisma.contactGroup.findFirst({
@@ -82,15 +82,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ ok: false, error: 'FORBIDDEN' }, { status: 403 });
     }
 
-    const seq = crypto.randomBytes(6).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const token = await prisma.groupToken.create({
-      data: { id: seq, groupId, expiresAt, active: true },
+      data: { groupId, expiresAt, active: true },
       select: { id: true, expiresAt: true, active: true, createdAt: true },
     });
 
-    logger.log('[CreateGroupToken]', { groupId, seq });
+    logger.log('[CreateGroupToken]', { groupId, tokenId: token.id });
 
     return NextResponse.json({
       ok: true,
@@ -105,11 +104,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 // PATCH /api/groups/[id]/tokens/[tokenId] - 토큰 상태 변경 (활성화/비활성화 또는 갱신)
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: groupId } = await params;
     const ctx = await getAuthContext();
-    const groupId = params.id;
     const body = await req.json();
     const { tokenId, action } = body; // action: 'refresh' | 'deactivate'
 

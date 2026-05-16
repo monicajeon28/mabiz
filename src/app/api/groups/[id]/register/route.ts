@@ -6,8 +6,9 @@ import { checkRateLimit } from '@/lib/rate-limit';
 
 // POST /api/groups/[id]/register
 // seq 토큰으로 그룹 등록하고 연락처 추가
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const body = await req.json();
     const { seq, name, phone, email, recaptchaToken } = body;
 

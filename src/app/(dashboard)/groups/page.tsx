@@ -74,19 +74,19 @@ export default function GroupsPage() {
 
   const cloneGroup = async (id: string) => {
     const res = await fetch(`/api/groups/${id}/clone`, { method: 'POST' });
-    const d   = await res.json() as { ok: boolean; group?: { name: string } };
+    const d   = await res.json() as { ok: boolean; group?: { name: string }; message?: string };
     if (d.ok) { await loadGroups(); }
-    else showError('복제 실패');
+    else showError(d.message || '복제 실패');
   };
 
   const exportGroup = async (id: string) => {
     const res = await fetch(`/api/groups/${id}/export`);
-    const d   = await res.json() as { ok: boolean; data?: unknown };
+    const d   = await res.json() as { ok: boolean; data?: unknown; message?: string };
     if (d.ok) {
       await navigator.clipboard.writeText(JSON.stringify(d.data, null, 2));
       setCopiedExportId(id);
       setTimeout(() => setCopiedExportId(null), 2000);
-    } else showError('내보내기 실패');
+    } else showError(d.message || '내보내기 실패');
   };
 
   // 일괄 발송 상태
@@ -192,7 +192,7 @@ export default function GroupsPage() {
         setShowNew(false);
         setForm({ name: "", description: "", color: "#6B7280", funnelId: "" });
       } else {
-        setFormError(data.error ?? "그룹 생성에 실패했습니다.");
+        setFormError(data.message || data.error || "그룹 생성에 실패했습니다.");
       }
     } catch {
       setFormError("네트워크 오류가 발생했습니다.");
