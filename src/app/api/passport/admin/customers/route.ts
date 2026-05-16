@@ -181,10 +181,10 @@ export async function GET(req: NextRequest) {
         prl.id as "logId", prl.status as "logStatus",
         prl."messageChannel", prl."sentAt", prl."adminId",
         a.name as "adminName"
-      FROM "GmUser" u
+      FROM "User" u
       LEFT JOIN LATERAL (
         SELECT id, "userId", "cruiseName", "productCode", "shipName", "departureDate"
-        FROM "GmTrip"
+        FROM "Trip"
         WHERE "userId" = u.id
         ORDER BY "departureDate" DESC
         LIMIT 1
@@ -192,19 +192,19 @@ export async function GET(req: NextRequest) {
       LEFT JOIN LATERAL (
         SELECT id, "userId", "tripId", token, "tokenExpiresAt",
                 "isSubmitted", "submittedAt", "createdAt", "updatedAt"
-        FROM "GmPassportSubmission"
+        FROM "PassportSubmission"
         WHERE "userId" = u.id
         ORDER BY "updatedAt" DESC
         LIMIT 1
       ) ps ON true
       LEFT JOIN LATERAL (
         SELECT id, "userId", status, "messageChannel", "sentAt", "adminId"
-        FROM "GmPassportRequestLog"
+        FROM "PassportRequestLog"
         WHERE "userId" = u.id
         ORDER BY "sentAt" DESC
         LIMIT 1
       ) prl ON true
-      LEFT JOIN "GmUser" a ON prl."adminId" = a.id
+      LEFT JOIN "User" a ON prl."adminId" = a.id
       ${whereClause}
       ORDER BY u."createdAt" DESC
       LIMIT ${take} OFFSET ${skip}

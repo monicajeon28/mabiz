@@ -32,8 +32,8 @@ export async function GET() {
     const productCodes = await prisma.$queryRaw<ProductCodeResult[]>(Prisma.sql`
       SELECT DISTINCT t."productCode", t."cruiseName", t."shipName",
              COUNT(DISTINCT r."mainUserId")::bigint as "customerCount"
-      FROM "GmTrip" t
-      JOIN "GmReservation" r ON r."tripId" = t.id
+      FROM "Trip" t
+      JOIN "Reservation" r ON r."tripId" = t.id
       WHERE r.status = 'CONFIRMED'
         AND r."paymentAmount" > 0
         AND t."productCode" != ''
