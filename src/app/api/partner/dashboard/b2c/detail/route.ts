@@ -27,8 +27,8 @@ export async function GET(req: Request) {
     const endDate = new Date(year, month, 1);
 
     const isAdmin = ctx.sessionUser.role === 'admin';
-    // TODO [P1] 보안: ADMIN도 organizationId 제한 필요. 현재는 권한 없는 조직의 모든 데이터 조회 가능
-    const orgFilter = isAdmin ? {} : { organizationId: ctx.organizationId! };
+    // 보안: ADMIN도 자신의 조직 범위 내에서만 조회 가능. 조직 ID 제한은 필수
+    const orgFilter = { organizationId: ctx.organizationId! };
 
     if (type === 'sales') {
       const [rows, total] = await Promise.all([

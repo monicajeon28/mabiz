@@ -1257,7 +1257,8 @@ model GmUser {
   trips                       GmTrip[]
   passportSubmissions         GmPassportSubmission[]
   passportRequestLogs         GmPassportRequestLog[]
-  groups                      GmUserGroupMember[]
+  groupMemberships            GmUserGroupMember[] @relation("UserGroups")
+  ownedGroups                 GmUserGroup[]
 
   @@index([createdAt])
   @@index([customerStatus])
@@ -4039,11 +4040,13 @@ model GmUserGroup {
   id        Int                 @id @default(autoincrement())
   name      String
   color     String?             @default("#6B7280")
+  createdByUserId Int?
   createdAt DateTime            @default(now())
   updatedAt DateTime            @updatedAt
-  members   GmUserGroupMember[]
-  // TODO [P1] 관계명 명시성 + 권한: groups 관계명 부자연스러움. @relation 지시자로 명시성 강화. createdByUserId 필드 추가하여 그룹 생성자/권한 관리
+  members   GmUserGroupMember[] @relation("GroupMembers")
+  createdBy GmUser?             @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
 
+  @@index([createdByUserId])
   @@map("GmUserGroup")
 }
 
@@ -4052,12 +4055,12 @@ model GmUserGroupMember {
   groupId  Int
   gmUserId Int
   addedAt  DateTime    @default(now())
-  group    GmUserGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  gmUser   GmUser      @relation(fields: [gmUserId], references: [id], onDelete: Cascade)
+  group    GmUserGroup @relation("GroupMembers", fields: [groupId], references: [id], onDelete: Cascade)
+  gmUser   GmUser      @relation("UserGroups", fields: [gmUserId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, gmUserId])
   @@index([gmUserId])
-  // TODO [P1] 인덱스: groupId 기준 조회 최적화를 위해 @@index([groupId]) 추가 권장
+  @@index([groupId])
   @@map("GmUserGroupMember")
 }
 

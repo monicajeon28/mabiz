@@ -54,8 +54,7 @@ export async function GET(req: Request) {
             INNER JOIN "CrmAffiliateSale" a ON a."orderId" = CAST(r."affiliateSaleId" AS TEXT)
             WHERE a."organizationId" = ${orgId} AND r."createdAt" >= ${prevStart} AND r."createdAt" < ${prevEnd}
           `.then(r => Number(r[0]?.cnt ?? 0)),
-      // 여권/PNR 현황 (완료되지 않은 것들)
-      // TODO [P1] JOIN 순서 불일치: ADMIN은 LEFT JOIN, OWNER는 INNER JOIN 순서 다름. 일관성 개선 필요 (다음 PR)
+      // 여권/PNR 현황 (완료되지 않은 것들) — JOIN 순서 통일 (r → u → a → om)
       isAdmin
         ? prisma.$queryRaw<Array<{ id: string; name: string | null; passportStatus: string; pnrStatus: string; finalConfirmStatus: string; assignedName: string | null; commissionAmount: number | null; commissionRate: number | null; saleStatus: string | null; saleId: string | null }>>`
             SELECT r."id", u."name", r."passportStatus", r."pnrStatus", r."finalConfirmStatus",
@@ -70,8 +69,8 @@ export async function GET(req: Request) {
             SELECT r."id", u."name", r."passportStatus", r."pnrStatus", r."finalConfirmStatus",
                    om."displayName" AS "assignedName", a."commissionAmount", a."commissionRate", a."status" AS "saleStatus", a."id" AS "saleId"
             FROM "Reservation" r
-            INNER JOIN "CrmAffiliateSale" a ON a."orderId" = CAST(r."affiliateSaleId" AS TEXT)
             LEFT JOIN "User" u ON u."id" = r."mainUserId"
+            INNER JOIN "CrmAffiliateSale" a ON a."orderId" = CAST(r."affiliateSaleId" AS TEXT)
             LEFT JOIN "OrganizationMember" om ON om."userId" = a."affiliateUserId" AND om."organizationId" = a."organizationId"
             WHERE a."organizationId" = ${orgId}
               AND (r."passportStatus" != 'ISSUED' OR r."pnrStatus" != 'CONFIRMED')
@@ -143,9 +142,10 @@ export async function GET(req: Request) {
             data: { status: 'PENDING_APPROVAL' },
           });
         }
-      } catch (e) {
-        // TODO [P1] 에러 로깅 개선: Error instanceof 체크 추가, stack trace 포함. 현재는 에러 객체 검증 부족
-        logger.error('[b2c] auto-sync error', { error: e });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const stack = error instanceof Error ? error.stack : undefined;
+        logger.error('[b2c] auto-sync error', { message, stack });
       }
     }
 
@@ -167,7 +167,8 @@ export async function GET(req: Request) {
     const calcTrend = (curr: number, prev: number) =>
       prev === 0 ? (curr > 0 ? 100 : 0) : Math.round(((curr - prev) / prev) * 100);
 
-    // TODO [P1] 타입 변환 일관성: 이미 Number 변환된 totalSalesAmount를 다시 Number()로 변환. 불필요한 타입 캐스트 제거 필요
+    const prevSalesAmount = Number(prevSalesAgg._sum.saleAmount ?? 0);
+
     return NextResponse.json({
       ok: true,
       data: {
@@ -177,7 +178,7 @@ export async function GET(req: Request) {
         passportSummary: toMap(passportAggRows),
         pnrSummary: toMap(pnrAggRows),
         trends: {
-          totalSalesAmount: calcTrend(Number(totalSalesAmount), Number(prevSalesAgg._sum.saleAmount ?? 0)),
+          totalSalesAmount: calcTrend(totalSalesAmount as number, prevSalesAmount),
           salesCount: calcTrend(salesCount, prevSalesAgg._count),
           reservationCount: calcTrend(reservationCount as number, prevReservationCount as number),
         },

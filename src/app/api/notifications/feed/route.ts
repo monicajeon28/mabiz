@@ -131,13 +131,13 @@ export async function GET(req: Request) {
         SELECT
           'B2B_LEAD'::text             AS type,
           b.id::text                   AS id,
-          b.name                       AS name,
-          b.phone                      AS phone,
-          b."companyName"              AS detail,
+          b."customerName"             AS name,
+          b."customerPhone"            AS phone,
+          b.source                     AS detail,
           NULL::bigint                 AS amount,
           '/b2b'::text                 AS link_path,
           b."createdAt"                AS created_at
-        FROM "CrmB2BProspect" b
+        FROM "AffiliateLead" b
         WHERE b.status = 'NEW'
           AND b."createdAt" >= ${sinceDate}
       `);
@@ -232,15 +232,14 @@ export async function GET(req: Request) {
         SELECT
           'B2B_LEAD'::text             AS type,
           b.id::text                   AS id,
-          b.name                       AS name,
-          b.phone                      AS phone,
-          b."companyName"              AS detail,
+          b."customerName"             AS name,
+          b."customerPhone"            AS phone,
+          b.source                     AS detail,
           NULL::bigint                 AS amount,
           '/b2b'::text                 AS link_path,
           b."createdAt"                AS created_at
-        FROM "CrmB2BProspect" b
-        WHERE b."organizationId" = ${orgId}
-          AND b.status = 'NEW'
+        FROM "AffiliateLead" b
+        WHERE b.status = 'NEW'
           AND b."createdAt" >= ${sinceDate}
       `);
 

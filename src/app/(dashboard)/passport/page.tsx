@@ -250,6 +250,7 @@ export default function PassportRequestPage() {
     templateId?: number;
   } | null>(null);
   const [isBulkGenerating, setIsBulkGenerating] = useState(false);
+  const [copiedButtonId, setCopiedButtonId] = useState<string | null>(null);
 
   const selectedTemplates = useMemo(() => {
     if (selectedTemplateId === null) return null;
@@ -671,10 +672,14 @@ export default function PassportRequestPage() {
     }
   };
 
-  const handleCopy = async (value: string, label: string) => {
+  const handleCopy = async (value: string, label: string, buttonId?: string) => {
     try {
       await navigator.clipboard.writeText(value);
       showSuccess(`${label} 복사 완료`);
+      if (buttonId) {
+        setCopiedButtonId(buttonId);
+        setTimeout(() => setCopiedButtonId(null), 2000);
+      }
     } catch {
       showError('클립보드에 복사하지 못했습니다. 직접 선택해서 복사해주세요.');
     }
@@ -1350,18 +1355,11 @@ export default function PassportRequestPage() {
         </div>
 
         <button
-          onClick={() => {
-            if (selectedIds.length === 0) {
-              showError('먼저 발송할 고객을 선택해주세요.');
-              return;
-            }
-            setIsSending(true);
-            handleSend();
-          }}
-          disabled={isSending || selectedIds.length === 0}
+          onClick={handleSend}
+          disabled={isBulkGenerating || selectedIds.length === 0}
           className="w-full inline-flex items-center justify-center px-6 py-3 rounded-2xl text-lg font-bold text-white bg-gradient-to-r from-green-600 to-emerald-600 shadow-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-transform hover:scale-[1.02]"
         >
-          {isSending ? (
+          {isBulkGenerating ? (
             <span className="flex items-center gap-2">
               <RefreshCw className="h-5 w-5 animate-spin" /> 링크 생성 중...
             </span>
