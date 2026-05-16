@@ -8,7 +8,7 @@ import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
 const MAX_RECIPIENTS = 200; // Vercel 타임아웃 방지 (10건 배치 × 20회 ≈ 2초)
 const BATCH_SIZE     = 10;
 const MAX_SMS_LENGTH = 90;
-const DISALLOWED_CHARS = /[\x00-\x1F\x7F]/g;
+const DISALLOWED_CHARS = /[\x00-\x1F\x7F​-⁯﻿]/;
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -133,7 +133,7 @@ export async function POST(req: Request, { params }: Params) {
 
       const results = await Promise.allSettled(
         batch.map(async (m) => {
-          const personalizedMsg = message
+          const personalizedMsg = trimmedMsg
             .replace(/\[고객명\]/g, m.contact.name)
             .replace(/\[이름\]/g,   m.contact.name);
 

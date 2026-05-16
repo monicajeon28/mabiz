@@ -100,6 +100,7 @@ export async function POST(req: Request) {
         ownerId:     ctx.userId,  // 개인 그룹으로 생성
       },
       include: {
+        _count: { select: { members: true } },
         funnel: { select: { name: true } },
       },
     });
