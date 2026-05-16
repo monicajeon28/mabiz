@@ -1,370 +1,507 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Save, RefreshCw, Eye, Trash2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Plus,
+  Search,
+  Globe,
+  Copy,
+  Trash2,
+  FileText,
+  Eye,
+  Users,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+} from "lucide-react";
 
-const DEFAULT_TEMPLATE = `<!-- FORM_TOP -->
-<section class="text-center pt-12 pb-20 px-4">
-  <div class="max-w-4xl mx-auto">
-    <h1 class="text-4xl md:text-6xl font-black leading-tight my-8">
-      <span class="text-yellow-400">"비교불가 차원이 다른 압도적인 시스템"</span>
-      <span class="block text-2xl md:text-3xl font-bold mt-4 text-gray-200">
-        고객을 '인솔'하고 '관리'하는<br />
-        크루즈 마케터 전문가 과정
-      </span>
-    </h1>
-  </div>
-</section>
-<!-- FORM_MIDDLE -->
-`;
+// ─── Types ─────────────────────────────────────────────
+type B2BPage = {
+  id: string;
+  partnerId: string | null;
+  title: string;
+  slug: string;
+  isActive: boolean;
+  viewCount: number;
+  editorMode: string;
+  paymentEnabled: boolean;
+  commentEnabled: boolean;
+  registrationCount: number;
+  commentCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
 
-interface Partner {
-  id: number;
+type Partner = {
+  id: string;
   name: string | null;
-  phone: string | null;
-  mallUserId: string | null;
-  affiliateType: string | null;
+};
+
+// ─── Skeleton Card ─────────────────────────────────────
+function SkeletonCard() {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-3 h-3 rounded-full bg-gray-200" />
+          <div>
+            <div className="h-5 w-40 bg-gray-200 rounded mb-2" />
+            <div className="h-3.5 w-52 bg-gray-100 rounded" />
+          </div>
+        </div>
+        <div className="h-6 w-16 bg-gray-100 rounded-full" />
+      </div>
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="h-16 bg-gray-50 rounded-lg" />
+        <div className="h-16 bg-gray-50 rounded-lg" />
+        <div className="h-16 bg-gray-50 rounded-lg" />
+      </div>
+      <div className="flex gap-2">
+        <div className="h-9 flex-1 bg-gray-100 rounded-lg" />
+        <div className="h-9 w-9 bg-gray-100 rounded-lg" />
+        <div className="h-9 w-9 bg-gray-100 rounded-lg" />
+      </div>
+    </div>
+  );
 }
 
-export default function B2BEditorPage() {
-  const [html, setHtml] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{
-    type: 'success' | 'error';
-    text: string;
-  } | null>(null);
-  const [previewPartnerId, setPreviewPartnerId] = useState('test');
+// ─── Empty State ───────────────────────────────────────
+function EmptyState({ onCreateClick }: { onCreateClick: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 text-center">
+      <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-6">
+        <FileText className="w-10 h-10 text-gray-400" />
+      </div>
+      <h3 className="text-lg font-semibold text-gray-700 mb-2">
+        등록된 B2B 랜딩 페이지가 없습니다
+      </h3>
+      <p className="text-sm text-gray-500 mb-6 max-w-sm">
+        새 페이지를 만들어 파트너 모집을 시작하세요. 템플릿을 활용하면 빠르게
+        만들 수 있습니다.
+      </p>
+      <button
+        onClick={onCreateClick}
+        className="inline-flex items-center gap-2 px-5 py-2.5 bg-navy-900 bg-[#1e293b] text-white rounded-lg hover:bg-[#0f172a] transition font-medium text-sm"
+      >
+        <Plus className="w-4 h-4" />
+        새 페이지 만들기
+      </button>
+    </div>
+  );
+}
 
-  // Partner Selection State
+// ─── Main Page Component ───────────────────────────────
+export default function B2BEditorListPage() {
+  const router = useRouter();
+
+  // Data
+  const [pages, setPages] = useState<B2BPage[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
-  const [selectedPartnerId, setSelectedPartnerId] = useState<string>('global');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [totalCount, setTotalCount] = useState(0);
 
-  useEffect(() => {
-    fetchPartners();
-    fetchTemplate('global');
-  }, []);
+  // Filters & pagination
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterPartnerId, setFilterPartnerId] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const limit = 20;
 
-  const fetchPartners = async () => {
-    try {
-      const res = await fetch('/api/members?affiliateType=affiliate&limit=200', {
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (data.ok && data.members) {
-        setPartners(
-          data.members.map((m: Record<string, unknown>) => ({
-            id: m.id,
-            name: m.name,
-            phone: m.phone,
-            mallUserId: m.mallUserId,
-            affiliateType: m.affiliateType,
-          }))
-        );
-      }
-    } catch (e) {
-      console.error('Failed to fetch partners', e);
-    }
-  };
+  // UI states
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const fetchTemplate = async (targetId: string) => {
+  // ─── Fetch pages ──────────────────────────────────────
+  const fetchPages = useCallback(async () => {
     setLoading(true);
     try {
-      const partnerId = targetId !== 'global' ? targetId : undefined;
-      const url = partnerId
-        ? `/api/b2b/templates?partnerId=${encodeURIComponent(partnerId)}`
-        : '/api/b2b/templates';
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        limit: String(limit),
+      });
+      if (searchQuery.trim()) params.set("q", searchQuery.trim());
+      if (filterPartnerId) params.set("partnerId", filterPartnerId);
 
-      const res = await fetch(url, { credentials: 'include' });
+      const res = await fetch(`/api/b2b-landing?${params.toString()}`, {
+        credentials: "include",
+      });
       const data = await res.json();
 
-      if (data.ok && data.config?.configValue) {
-        setHtml(data.config.configValue);
-      } else if (targetId !== 'global') {
-        // 파트너별 템플릿이 없으면 전역 템플릿을 base로 불러오기
-        console.log('No custom template found, loading global template as base');
-        const globalRes = await fetch('/api/b2b/templates', {
-          credentials: 'include',
-        });
-        const globalData = await globalRes.json();
-        if (globalData.ok && globalData.config?.configValue) {
-          setHtml(globalData.config.configValue);
-        } else {
-          setHtml(DEFAULT_TEMPLATE);
-        }
-      } else {
-        setHtml(DEFAULT_TEMPLATE);
+      if (res.ok) {
+        setPages(data.pages ?? data.data ?? []);
+        setTotalCount(data.total ?? data.totalCount ?? 0);
       }
     } catch (err) {
-      console.error(err);
-      setMessage({ type: 'error', text: '템플릿 로드 실패' });
+      console.error("페이지 목록 로드 실패:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, searchQuery, filterPartnerId]);
 
-  const handlePartnerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newId = e.target.value;
-    setSelectedPartnerId(newId);
-    fetchTemplate(newId);
-
-    if (newId === 'global') {
-      setPreviewPartnerId('test');
-    } else {
-      const partner = partners.find((p) => p.id.toString() === newId);
-      if (partner) {
-        setPreviewPartnerId(
-          partner.mallUserId || partner.phone || 'test'
+  // ─── Fetch partners for filter ────────────────────────
+  const fetchPartners = useCallback(async () => {
+    try {
+      const res = await fetch("/api/partner/list?limit=200", {
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.ok && data.partners) {
+        setPartners(
+          data.partners.map((p: Record<string, unknown>) => ({
+            id: String(p.id),
+            name: (p.name as string) || null,
+          }))
         );
       }
+    } catch {
+      // silent
     }
+  }, []);
+
+  useEffect(() => {
+    fetchPartners();
+  }, [fetchPartners]);
+
+  useEffect(() => {
+    fetchPages();
+  }, [fetchPages]);
+
+  // ─── Handlers ─────────────────────────────────────────
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCurrentPage(1);
+    // fetchPages triggers via useEffect
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    setMessage(null);
-    try {
-      const body: { htmlContent: string; partnerId?: string } = {
-        htmlContent: html,
-      };
-      if (selectedPartnerId !== 'global') {
-        body.partnerId = selectedPartnerId;
-      }
+  const handleDelete = async (id: string, title: string) => {
+    const confirmed = window.confirm(
+      `"${title}" 페이지를 삭제하시겠습니까?\n\n삭제하면 복구할 수 없습니다.`
+    );
+    if (!confirmed) return;
 
-      const res = await fetch('/api/b2b/templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(body),
+    setDeleting(id);
+    try {
+      const res = await fetch(`/api/b2b-landing/${id}`, {
+        method: "DELETE",
+        credentials: "include",
       });
-
-      const data = await res.json();
-      if (data.ok) {
-        setMessage({
-          type: 'success',
-          text:
-            selectedPartnerId === 'global'
-              ? '전역 템플릿이 저장되었습니다. 모든 파트너에게 반영됩니다.'
-              : '해당 파트너의 개별 템플릿이 저장되었습니다.',
-        });
+      if (res.ok) {
+        setPages((prev) => prev.filter((p) => p.id !== id));
+        setTotalCount((prev) => prev - 1);
       } else {
-        throw new Error(data.message || data.error);
+        const data = await res.json().catch(() => ({}));
+        alert(data.message || "삭제에 실패했습니다.");
       }
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      setMessage({ type: 'error', text: `저장 실패: ${errMsg}` });
+    } catch {
+      alert("네트워크 오류가 발생했습니다.");
     } finally {
-      setSaving(false);
+      setDeleting(null);
     }
   };
 
-  const handleReset = async () => {
-    if (selectedPartnerId === 'global') return;
-    if (
-      !confirm(
-        '이 파트너의 개별 템플릿을 삭제하고 전역 템플릿을 사용하시겠습니까?'
-      )
-    )
-      return;
-
-    setSaving(true);
+  const handleCopyLink = async (slug: string, id: string) => {
+    const url = `${window.location.origin}/b2b/p/${slug}`;
     try {
-      const res = await fetch(
-        `/api/b2b/templates?partnerId=${encodeURIComponent(selectedPartnerId)}`,
-        {
-          method: 'DELETE',
-          credentials: 'include',
-        }
-      );
-      const data = await res.json();
-      if (data.ok) {
-        setMessage({
-          type: 'success',
-          text: '개별 템플릿이 삭제되었습니다. 전역 템플릿을 불러옵니다.',
-        });
-        fetchTemplate('global');
-      } else {
-        throw new Error(data.message || data.error);
-      }
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      setMessage({ type: 'error', text: `초기화 실패: ${errMsg}` });
-    } finally {
-      setSaving(false);
+      await navigator.clipboard.writeText(url);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      // fallback
+      const input = document.createElement("input");
+      input.value = url;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      document.body.removeChild(input);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
     }
   };
 
-  const filteredPartners = partners.filter(
-    (p) =>
-      (p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
-      (p.phone?.includes(searchTerm) ?? false) ||
-      (p.mallUserId?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false)
-  );
+  const handleCreate = () => {
+    router.push("/b2b-editor/new");
+  };
 
+  // ─── Derived values ───────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+
+  const getConversionRate = (views: number, registrations: number) => {
+    if (views === 0) return "0.0";
+    return ((registrations / views) * 100).toFixed(1);
+  };
+
+  const formatDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("ko-KR", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // ─── Render ───────────────────────────────────────────
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">
-            B2B 유입 랜딩페이지 편집기
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {selectedPartnerId === 'global'
-              ? '모든 파트너에게 적용되는 기본 템플릿을 수정합니다.'
-              : '선택한 파트너에게만 적용되는 개별 템플릿을 수정합니다.'}
-          </p>
+    <div className="min-h-screen bg-gray-50/80">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* ── Header ─────────────────────────────────── */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              B2B 랜딩 관리
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              파트너 모집용 랜딩 페이지를 관리하고 성과를 확인하세요
+            </p>
+          </div>
+          <button
+            onClick={handleCreate}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1e293b] text-white rounded-lg hover:bg-[#0f172a] transition font-medium text-sm shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            새 페이지
+          </button>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          {/* Partner Selector */}
-          <div className="relative">
+        {/* ── Filters ────────────────────────────────── */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+          <div className="relative sm:w-48">
+            <select
+              value={filterPartnerId}
+              onChange={(e) => {
+                setFilterPartnerId(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2.5 pr-10 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">전체 파트너</option>
+              {partners.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name || `파트너 ${p.id}`}
+                </option>
+              ))}
+            </select>
+            <Users className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          </div>
+
+          <form onSubmit={handleSearch} className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="파트너 검색..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full md:w-64 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white mb-1 text-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="페이지 제목 또는 슬러그로 검색..."
+              className="w-full bg-white border border-gray-300 rounded-lg pl-10 pr-4 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-            <select
-              value={selectedPartnerId}
-              onChange={handlePartnerChange}
-              className="w-full md:w-64 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
-            >
-              <option value="global">전역 기본 템플릿 (Global)</option>
-              <optgroup label="대리점장 선택">
-                {filteredPartners.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name || '이름없음'} ({p.mallUserId || p.phone || p.id})
-                  </option>
-                ))}
-              </optgroup>
-            </select>
-          </div>
-
-          <div className="flex gap-2">
-            <a
-              href={`/b2b/p/${previewPartnerId}?preview=true`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center gap-2 text-sm font-medium"
-            >
-              <Eye className="w-4 h-4" />
-              <span className="hidden sm:inline">미리보기</span>
-            </a>
-            {selectedPartnerId !== 'global' && (
-              <button
-                onClick={handleReset}
-                className="px-4 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200 flex items-center gap-2"
-                title="전역 템플릿으로 초기화"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span className="hidden sm:inline">초기화</span>
-              </button>
-            )}
-            <button
-              onClick={() => fetchTemplate(selectedPartnerId)}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 flex items-center gap-2"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
-              />
-              <span className="hidden sm:inline">새로고침</span>
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
-            >
-              <Save className="w-4 h-4" />
-              {saving ? '저장 중...' : '저장하기'}
-            </button>
-          </div>
+          </form>
         </div>
-      </div>
 
-      {/* Message */}
-      {message && (
-        <div
-          className={`p-4 mb-6 rounded-lg ${
-            message.type === 'success'
-              ? 'bg-green-100 text-green-700'
-              : 'bg-red-100 text-red-700'
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
+        {/* ── Content ────────────────────────────────── */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        ) : pages.length === 0 ? (
+          <EmptyState onCreateClick={handleCreate} />
+        ) : (
+          <>
+            {/* Page count */}
+            <p className="text-sm text-gray-500 mb-4">
+              총 <span className="font-semibold text-gray-700">{totalCount}</span>개 페이지
+            </p>
 
-      {/* Guide */}
-      <div className="mb-4 text-sm text-gray-600 bg-yellow-50 p-4 rounded border border-yellow-200">
-        <h3 className="font-bold text-yellow-800 text-lg mb-2">
-          HTML 편집 가이드 (필독)
-        </h3>
-        <div className="space-y-3">
-          <div>
-            <p className="font-bold text-gray-800">
-              1. 입력폼 자동 생성 (이름, 연락처)
-            </p>
-            <p className="mt-1">
-              아래의 <strong>주석 코드</strong>를 원하는 위치에 붙여넣으면,
-              해당 위치에{' '}
-              <span className="text-blue-600 font-bold">
-                이름 입력칸, 연락처 입력칸, 신청하기 버튼
-              </span>
-              이 자동으로 생성됩니다.
-            </p>
-            <div className="mt-2 p-2 bg-gray-800 text-yellow-300 font-mono rounded text-xs">
-              {'<!-- FORM_TOP -->'}
-              <span className="text-gray-400">
-                {' // 상단용 입력폼 (주로 메인 비주얼 아래)'}
-              </span>
-              <br />
-              {'<!-- FORM_MIDDLE -->'}
-              <span className="text-gray-400">
-                {' // 중간용 입력폼 (설명 섹션 사이)'}
-              </span>
+            {/* Card grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {pages.map((page) => (
+                <div
+                  key={page.id}
+                  className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group"
+                >
+                  {/* Card header */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      <span
+                        className={`mt-1.5 w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                          page.isActive ? "bg-green-500" : "bg-gray-300"
+                        }`}
+                        title={page.isActive ? "활성" : "비활성"}
+                      />
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-gray-900 truncate text-sm leading-6">
+                          {page.title}
+                        </h3>
+                        <p className="text-xs text-gray-400 truncate mt-0.5">
+                          /b2b/p/{page.partnerId || page.slug}
+                        </p>
+                      </div>
+                    </div>
+                    {page.partnerId && (
+                      <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
+                        <Users className="w-3 h-3" />
+                        파트너
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Stats row */}
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    <div className="bg-gray-50 rounded-lg px-3 py-2.5 text-center">
+                      <div className="flex items-center justify-center gap-1 mb-1">
+                        <Eye className="w-3.5 h-3.5 text-gray-400" />
+                      </div>
+                      <p className="text-lg font-bold text-gray-800 leading-none">
+                        {page.viewCount.toLocaleString()}
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-1">조회수</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg px-3 py-2.5 text-center">
+                      <div className="flex items-center justify-center gap-1 mb-1">
+                        <Users className="w-3.5 h-3.5 text-gray-400" />
+                      </div>
+                      <p className="text-lg font-bold text-gray-800 leading-none">
+                        {page.registrationCount.toLocaleString()}
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-1">신청수</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg px-3 py-2.5 text-center">
+                      <div className="flex items-center justify-center gap-1 mb-1">
+                        <Globe className="w-3.5 h-3.5 text-gray-400" />
+                      </div>
+                      <p className="text-lg font-bold text-gray-800 leading-none">
+                        {getConversionRate(page.viewCount, page.registrationCount)}
+                        <span className="text-xs font-normal">%</span>
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-1">전환율</p>
+                    </div>
+                  </div>
+
+                  {/* Meta */}
+                  <p className="text-xs text-gray-400 mb-3">
+                    {formatDate(page.createdAt)} 생성
+                    {page.editorMode && (
+                      <span className="ml-2 px-1.5 py-0.5 bg-gray-100 rounded text-gray-500 text-[10px]">
+                        {page.editorMode}
+                      </span>
+                    )}
+                    {page.paymentEnabled && (
+                      <span className="ml-1 px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[10px]">
+                        결제
+                      </span>
+                    )}
+                    {page.commentEnabled && (
+                      <span className="ml-1 px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded text-[10px]">
+                        댓글
+                      </span>
+                    )}
+                  </p>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => router.push(`/b2b-editor/${page.id}`)}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-[#1e293b] text-white rounded-lg hover:bg-[#0f172a] transition text-xs font-medium"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      편집
+                    </button>
+                    <button
+                      onClick={() =>
+                        handleCopyLink(page.partnerId || page.slug, page.id)
+                      }
+                      className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border transition text-xs ${
+                        copiedId === page.id
+                          ? "bg-green-50 border-green-300 text-green-600"
+                          : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+                      }`}
+                      title="링크 복사"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(page.id, page.title)}
+                      disabled={deleting === page.id}
+                      className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-400 hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition disabled:opacity-50"
+                      title="삭제"
+                    >
+                      {deleting === page.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-            <p className="mt-1 text-red-600 text-xs font-bold">
-              * 주의: 직접 &lt;input&gt; 태그를 작성하지 마세요! 위 주석
-              코드만 넣으면 시스템이 알아서 입력폼을 만들어줍니다.
-            </p>
-          </div>
 
-          <div className="border-t border-yellow-200 pt-2">
-            <p className="font-bold text-gray-800">2. 적용 범위</p>
-            <p>
-              전역 템플릿을 수정하면{' '}
-              <strong>모든 파트너(대리점장, 판매원)</strong>의 B2B
-              랜딩페이지에 공통으로 적용됩니다. 파트너를 선택하면 해당
-              파트너에게만 적용되는 개별 템플릿을 수정합니다.
-            </p>
-          </div>
+            {/* ── Pagination ────────────────────────────── */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-8">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
 
-          <div className="border-t border-yellow-200 pt-2">
-            <p className="font-bold text-gray-800">3. 스타일링</p>
-            <p>
-              Tailwind CSS 클래스를 자유롭게 사용하여 디자인할 수
-              있습니다.
-            </p>
-          </div>
-        </div>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => {
+                    if (totalPages <= 7) return true;
+                    if (p === 1 || p === totalPages) return true;
+                    if (Math.abs(p - currentPage) <= 1) return true;
+                    return false;
+                  })
+                  .reduce<(number | "ellipsis")[]>((acc, p, idx, arr) => {
+                    if (idx > 0) {
+                      const prev = arr[idx - 1];
+                      if (p - prev > 1) acc.push("ellipsis");
+                    }
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    item === "ellipsis" ? (
+                      <span
+                        key={`ellipsis-${idx}`}
+                        className="w-9 h-9 flex items-center justify-center text-gray-400 text-sm"
+                      >
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        key={item}
+                        onClick={() => setCurrentPage(item)}
+                        className={`inline-flex items-center justify-center w-9 h-9 rounded-lg text-sm font-medium transition ${
+                          currentPage === item
+                            ? "bg-[#1e293b] text-white shadow-sm"
+                            : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                        }`}
+                      >
+                        {item}
+                      </button>
+                    )
+                  )}
+
+                <button
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
-
-      {/* Editor */}
-      {loading ? (
-        <div className="h-96 flex items-center justify-center text-gray-500">
-          로딩 중...
-        </div>
-      ) : (
-        <textarea
-          value={html}
-          onChange={(e) => setHtml(e.target.value)}
-          className="w-full h-[800px] font-mono text-sm p-4 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-900 text-gray-100"
-          spellCheck={false}
-        />
-      )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   CopyIcon,
   CheckIcon,
   DownloadIcon,
+  Check,
 } from 'lucide-react';
 import { formatFileSize } from '@/lib/image-metadata';
 
@@ -51,6 +52,7 @@ export default function ImageLibraryPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string>('');
+  const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -181,6 +183,30 @@ export default function ImageLibraryPage() {
     e.preventDefault();
     dropZoneRef.current?.classList.remove('border-blue-500', 'bg-blue-50');
     handleUpload(e.dataTransfer.files);
+  };
+
+  /**
+   * 이미지 선택/해제 토글
+   */
+  const toggleAssetSelection = (assetId: string) => {
+    const newSelected = new Set(selectedAssets);
+    if (newSelected.has(assetId)) {
+      newSelected.delete(assetId);
+    } else {
+      newSelected.add(assetId);
+    }
+    setSelectedAssets(newSelected);
+  };
+
+  /**
+   * 전체 선택/해제
+   */
+  const toggleSelectAll = () => {
+    if (selectedAssets.size === assets.length) {
+      setSelectedAssets(new Set());
+    } else {
+      setSelectedAssets(new Set(assets.map((a) => a.id)));
+    }
   };
 
   /**
@@ -375,14 +401,53 @@ export default function ImageLibraryPage() {
             </div>
           ) : assets.length > 0 ? (
             <>
+              {/* 선택 UI */}
+              {assets.length > 0 && (
+                <div className="mb-6 flex items-center justify-between border-b pb-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedAssets.size === assets.length && assets.length > 0}
+                      indeterminate={selectedAssets.size > 0 && selectedAssets.size < assets.length}
+                      onChange={toggleSelectAll}
+                      className="w-5 h-5 cursor-pointer"
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      {selectedAssets.size > 0 ? (
+                        <>
+                          <span className="text-blue-600 font-semibold">{selectedAssets.size}개</span> 선택됨
+                        </>
+                      ) : (
+                        '선택 없음'
+                      )}
+                    </span>
+                  </div>
+                  {selectedAssets.size > 0 && (
+                    <button
+                      onClick={() => setSelectedAssets(new Set())}
+                      className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded hover:bg-gray-50"
+                    >
+                      선택 해제
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
-                {assets.map((asset) => (
+                {assets.map((asset) => {
+                  const isSelected = selectedAssets.has(asset.id);
+                  return (
                   <div
                     key={asset.id}
-                    className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition"
+                    className={`border rounded-lg overflow-hidden hover:shadow-lg transition cursor-pointer ${
+                      isSelected
+                        ? 'border-blue-500 bg-blue-50 shadow-md'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => toggleAssetSelection(asset.id)}
                   >
-                    {/* 썸네일 */}
-                    <div className="bg-gray-100 h-48 flex items-center justify-center overflow-hidden">
+                    {/* 썸네일 + 체크박스 */}
+                    <div className="bg-gray-100 h-48 flex items-center justify-center overflow-hidden relative">
                       <img
                         src={asset.thumbnailUrl}
                         alt={asset.fileName}
@@ -392,6 +457,18 @@ export default function ImageLibraryPage() {
                             'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23f0f0f0" width="200" height="200"/%3E%3Ctext x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="14" fill="%23999"%3EImage%3C/text%3E%3C/svg%3E';
                         }}
                       />
+                      {/* 체크박스 오버레이 */}
+                      <div className="absolute top-3 right-3">
+                        <div
+                          className={`w-6 h-6 rounded border-2 flex items-center justify-center transition ${
+                            isSelected
+                              ? 'bg-blue-500 border-blue-500'
+                              : 'bg-white border-gray-400 hover:border-blue-400'
+                          }`}
+                        >
+                          {isSelected && <Check className="w-4 h-4 text-white" />}
+                        </div>
+                      </div>
                     </div>
 
                     {/* 정보 */}
@@ -449,7 +526,10 @@ export default function ImageLibraryPage() {
                       {/* 버튼 */}
                       <div className="flex gap-2 flex-wrap">
                         <button
-                          onClick={() => copyLink(asset.driveUrl, asset.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyLink(asset.driveUrl, asset.id);
+                          }}
                           className="flex-1 px-3 py-2 bg-blue-500 text-white text-sm rounded font-medium hover:bg-blue-600 flex items-center justify-center gap-1"
                         >
                           {copiedId === asset.id ? (
@@ -466,6 +546,7 @@ export default function ImageLibraryPage() {
                         </button>
                         <a
                           href={`/api/images/${asset.id}/download`}
+                          onClick={(e) => e.stopPropagation()}
                           className="px-3 py-2 bg-gray-500 text-white text-sm rounded font-medium hover:bg-gray-600 flex items-center gap-1"
                           title="원본 다운로드"
                         >
@@ -476,6 +557,7 @@ export default function ImageLibraryPage() {
                             href={`https://drive.google.com/file/d/${asset.webpDriveFileId}`}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
                             className="px-3 py-2 bg-green-500 text-white text-sm rounded font-medium hover:bg-green-600 flex items-center gap-1"
                             title="워터마크 WebP 보기"
                           >
@@ -485,7 +567,8 @@ export default function ImageLibraryPage() {
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* 페이지네이션 */}

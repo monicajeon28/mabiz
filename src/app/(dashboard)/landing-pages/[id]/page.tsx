@@ -974,8 +974,23 @@ export default function EditLandingPage() {
                     onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); }}
                   >
                     <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-                    <p className="text-sm font-medium text-gray-600">{uploading ? "업로드 중..." : "이미지를 드래그하거나 클릭하여 업로드"}</p>
+                    <p className="text-sm font-medium text-gray-600">
+                      {uploading
+                        ? `업로드 중... (${uploadProgress.processed}/${uploadProgress.total}) ${uploadProgress.percent}%`
+                        : "이미지를 드래그하거나 클릭하여 업로드"}
+                    </p>
+                    {uploading && uploadProgress.total > 0 && (
+                      <div className="w-full bg-gray-200 rounded-full h-2 my-3">
+                        <div
+                          style={{ width: `${uploadProgress.percent}%` }}
+                          className="bg-gold-500 h-full rounded-full transition-all duration-300"
+                        />
+                      </div>
+                    )}
                     <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP → 자동 WebP 변환 / GIF → 압축 유지 / 최대 20MB</p>
+                    {!uploading && (
+                      <p className="text-xs text-blue-600 mt-2">💡 팁: 최대 5개씩 선택하면 빠릅니다. (3~5개 동시 처리)</p>
+                    )}
                     <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
                       onChange={(e) => { if (e.target.files) uploadFiles(e.target.files); e.target.value = ""; }} />
                   </div>
