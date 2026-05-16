@@ -91,6 +91,9 @@ export async function POST(req: NextRequest) {
     // 서명 이미지 (base64 dataURL)
     const signatureImageUrl: string | undefined = typeof body.signatureImageUrl === 'string' ? body.signatureImageUrl : undefined;
 
+    // displayName (프로필명)
+    let displayName: string | undefined = typeof body.displayName === 'string' ? body.displayName.trim() : undefined;
+
     // 동의 항목
     const consentPrivacy: boolean = body.consentPrivacy === true;
     const consentNonCompete: boolean = body.consentNonCompete === true;
@@ -115,6 +118,26 @@ export async function POST(req: NextRequest) {
     if (!phone || phone.length < 9) {
       return NextResponse.json({ ok: false, message: '연락처를 입력해 주세요.' }, { status: 400 });
     }
+
+    // displayName 검증 (길이, 특수문자)
+    if (displayName) {
+      if (displayName.length > 20) {
+        return NextResponse.json(
+          { ok: false, message: '프로필명은 20자 이내여야 합니다.' },
+          { status: 400 },
+        );
+      }
+      // 특수문자 필터링 (한글, 영문, 숫자, 기본 기호만 허용)
+      const sanitizedName = displayName.replace(/[^\p{L}\p{N}\s\-\.·]/gu, '').trim();
+      if (!sanitizedName) {
+        return NextResponse.json(
+          { ok: false, message: '프로필명에는 유효한 문자가 필요합니다.' },
+          { status: 400 },
+        );
+      }
+      displayName = sanitizedName;
+    }
+
     // CRUISE_PARTNER(크루즈닷 파트너스)는 프론트에서 모두 true로 보내므로 개인정보 동의만 검증
     if (contractType === 'CRUISE_PARTNER') {
       if (!consentPrivacy) {
@@ -142,6 +165,7 @@ export async function POST(req: NextRequest) {
     if (tierKey) metadata.tierKey = tierKey;
     if (amount) metadata.amount = amount;
     if (stampImageUrl) metadata.stampImageUrl = stampImageUrl;
+    if (displayName) metadata.displayName = displayName;
 
     // body.metadata 추가 필드 병합 (크루즈닷 파트너스 등 확장 필드)
     const allowedMetaKeys = [
