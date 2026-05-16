@@ -34,7 +34,6 @@ const navSections: NavSection[] = [
     items: [
       { href: "/dashboard",             icon: LayoutDashboard, label: "대시보드" },
       { href: "/contacts",              icon: Users,        label: "고객 관리" },
-      { href: "/groups",                icon: Tag,          label: "그룹 관리" },
       { href: "/contacts/inquiries",    icon: Phone,        label: "문의 고객" },
       { href: "/contacts/purchased",    icon: ShoppingBag,  label: "구매 고객" },
       { href: "/db",                    icon: Database,     label: "DB 관리" },
@@ -77,6 +76,13 @@ const navSections: NavSection[] = [
       { href: "/links",                 icon: Link2,        label: "상담 링크" },
       { href: "/news-links",            icon: Newspaper,    label: "뉴스 링크" },
       { href: "/image-library",         icon: Images,       label: "이미지 라이브러리" },
+    ],
+  },
+  {
+    label: "그룹관리",
+    roles: ["GLOBAL_ADMIN", "OWNER", "AGENT"],
+    items: [
+      { href: "/groups",                icon: Tag,          label: "그룹 관리" },
     ],
   },
   {
