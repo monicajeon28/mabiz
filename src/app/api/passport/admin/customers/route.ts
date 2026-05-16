@@ -21,6 +21,7 @@ interface RawCustomerRecord {
   productCode: string | null;
   shipName: string | null;
   departureDate: Date | null;
+  reservationId: number | null;
   submissionId: number | null;
   tripId_submission: number | null;
   token: string | null;
@@ -174,6 +175,7 @@ export async function GET(req: NextRequest) {
         u."tripCount", u."customerStatus",
         t.id as "tripId", t."cruiseName", t."productCode",
         t."shipName", t."departureDate",
+        r.id as "reservationId",
         ps.id as "submissionId", ps."tripId" as "tripId_submission",
         ps.token, ps."tokenExpiresAt", ps."isSubmitted",
         ps."submittedAt", ps."createdAt" as "submissionCreatedAt",
@@ -189,6 +191,13 @@ export async function GET(req: NextRequest) {
         ORDER BY "departureDate" DESC
         LIMIT 1
       ) t ON true
+      LEFT JOIN LATERAL (
+        SELECT id, "tripId"
+        FROM "Reservation"
+        WHERE "tripId" = t.id
+        ORDER BY "createdAt" DESC
+        LIMIT 1
+      ) r ON true
       LEFT JOIN LATERAL (
         SELECT id, "userId", "tripId", token, "tokenExpiresAt",
                 "isSubmitted", "submittedAt", "createdAt", "updatedAt"
@@ -229,6 +238,7 @@ export async function GET(req: NextRequest) {
         tripCount: row.tripCount || 0,
         latestTrip: row.tripId ? {
           id: row.tripId,
+          reservationId: row.reservationId,
           cruiseName: row.cruiseName,
           productCode: row.productCode,
           shipName: row.shipName,

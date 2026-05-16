@@ -64,6 +64,7 @@ interface SendPassportRequestBody {
   messageBody?: string;
   channel?: string;
   expiresInHours?: number;
+  sendTarget?: 'passport' | 'pnr';
 }
 
 type SendResultItem = {
@@ -82,6 +83,7 @@ type PassportSendUser = {
   id: number;
   name: string | null;
   phone: string | null;
+  email: string | null;
   role: string;
   trips: Array<{
     id: number;
@@ -138,6 +140,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const sendTarget = body.sendTarget ?? 'passport';
+    if (!['passport', 'pnr'].includes(sendTarget)) {
+      return NextResponse.json(
+        { ok: false, message: 'Invalid sendTarget. Must be "passport" or "pnr".' },
+        { status: 400 }
+      );
+    }
+
     const expiresInHours = Math.max(1, Math.min(body.expiresInHours ?? DEFAULT_EXPIRES_HOURS, 24 * 14));
     const channel = (body.channel || 'SMS').toUpperCase();
     const messageChannel = VALID_CHANNELS.has(channel) ? channel : 'SMS';
@@ -150,41 +160,12 @@ export async function POST(req: NextRequest) {
     }
 
     let template: { id: number; title: string; body: string; isDefault: boolean } | null = null;
-    if (body.templateId) {
-      template = await prisma.gmPassportRequestTemplate.findUnique({
-        where: { id: body.templateId },
-        select: {
-          id: true,
-          title: true,
-          body: true,
-          isDefault: true,
-        },
-      });
-      if (!template) {
-        return NextResponse.json(
-          { ok: false, message: 'Template not found.' },
-          { status: 404 }
-        );
-      }
-    } else {
-      template = await prisma.gmPassportRequestTemplate.findFirst({
-        where: { isDefault: true },
-        orderBy: { updatedAt: 'desc' },
-        select: {
-          id: true,
-          title: true,
-          body: true,
-          isDefault: true,
-        },
-      });
 
-      if (!template) {
-        template = await prisma.gmPassportRequestTemplate.create({
-          data: {
-            title: '여권 제출 안내',
-            body: DEFAULT_PASSPORT_TEMPLATE_BODY,
-            isDefault: true,
-          },
+    // 여권 발송 시에만 template 로드
+    if (sendTarget === 'passport') {
+      if (body.templateId) {
+        template = await prisma.gmPassportRequestTemplate.findUnique({
+          where: { id: body.templateId },
           select: {
             id: true,
             title: true,
@@ -192,17 +173,50 @@ export async function POST(req: NextRequest) {
             isDefault: true,
           },
         });
-      }
-    }
-
-    if (template) {
-      const sanitizedBody = sanitizeLegacyTemplateBody(template.body);
-      if (sanitizedBody !== template.body) {
-        await prisma.gmPassportRequestTemplate.update({
-          where: { id: template.id },
-          data: { body: sanitizedBody },
+        if (!template) {
+          return NextResponse.json(
+            { ok: false, message: 'Template not found.' },
+            { status: 404 }
+          );
+        }
+      } else {
+        template = await prisma.gmPassportRequestTemplate.findFirst({
+          where: { isDefault: true },
+          orderBy: { updatedAt: 'desc' },
+          select: {
+            id: true,
+            title: true,
+            body: true,
+            isDefault: true,
+          },
         });
-        template = { ...template, body: sanitizedBody };
+
+        if (!template) {
+          template = await prisma.gmPassportRequestTemplate.create({
+            data: {
+              title: '여권 제출 안내',
+              body: DEFAULT_PASSPORT_TEMPLATE_BODY,
+              isDefault: true,
+            },
+            select: {
+              id: true,
+              title: true,
+              body: true,
+              isDefault: true,
+            },
+          });
+        }
+      }
+
+      if (template) {
+        const sanitizedBody = sanitizeLegacyTemplateBody(template.body);
+        if (sanitizedBody !== template.body) {
+          await prisma.gmPassportRequestTemplate.update({
+            where: { id: template.id },
+            data: { body: sanitizedBody },
+          });
+          template = { ...template, body: sanitizedBody };
+        }
       }
     }
 
@@ -249,9 +263,39 @@ export async function POST(req: NextRequest) {
           },
         },
       },
-    }) as PassportSendUser[];
+    });
 
-    const usersById = new Map<number, PassportSendUser>(users.map((user) => [user.id, user]));
+    // PNR 발송 시 각 user의 tripId → reservationId 매핑
+    const reservationIds = new Map<number, number | null>();
+    if (sendTarget === 'pnr') {
+      const tripIds = users
+        .flatMap(u => u.trips.map(t => t.id))
+        .filter((id, idx, arr) => arr.indexOf(id) === idx);
+
+      if (tripIds.length > 0) {
+        const reservations = await prisma.gmReservation.findMany({
+          where: { tripId: { in: tripIds } },
+          select: { id: true, tripId: true },
+          orderBy: { createdAt: 'desc' },
+          distinct: ['tripId'],
+        });
+
+        for (const res of reservations) {
+          reservationIds.set(res.tripId, res.id);
+        }
+      }
+
+      for (const user of users) {
+        const tripId = user.trips[0]?.id;
+        if (tripId && !reservationIds.has(tripId)) {
+          reservationIds.set(tripId, null);
+        }
+      }
+    }
+
+    const usersData = users as PassportSendUser[];
+
+    const usersById = new Map<number, PassportSendUser>(usersData.map((user) => [user.id, user]));
     const missingUserIds = userIds.filter((id) => !usersById.has(id));
 
     const results: Array<SendResultItem> = [];
@@ -275,86 +319,101 @@ export async function POST(req: NextRequest) {
       try {
         const latestTrip = user.trips[0] ?? null;
         const existingSubmission = user.passportSubmissions[0] ?? null;
-        token = generateToken();
-        const tokenExpiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
-        link = buildPassportLink(token);
-
-        const personalizedMessage = fillTemplate(baseMessage, {
-          고객명: user.name ? `${user.name}님` : '고객님',
-          링크: link,
-          상품명: latestTrip?.cruiseName ?? '',
-          출발일: formatDate(latestTrip?.startDate ?? null),
-        });
-
         const normalizedPhone = normalizePhone(user.phone);
+
         if (!normalizedPhone) {
           const errorMessage = '유효한 전화번호가 없습니다.';
-          await recordPassportLog({
-            userId: user.id,
-            managerId: manager.id,
-            templateId: template?.id ?? null,
-            messageBody: personalizedMessage,
-            messageChannel,
-            status: 'FAILED',
-            errorReason: errorMessage,
-          });
           results.push({ userId: user.id, success: false, error: errorMessage });
           continue;
         }
 
-        if (existingSubmission && !existingSubmission.isSubmitted) {
-          // 새로운 Trip이 있으면 그것을 사용, 없으면 기존 tripId 유지
-          let nextTripId = existingSubmission.tripId;
-          if (latestTrip?.id) {
-            // Trip이 실제로 존재하는지 확인 (FK 제약 조건 위반 방지)
-            const tripExists = await prisma.gmTrip.count({
-              where: { id: latestTrip.id },
-            });
-            if (tripExists > 0) {
-              nextTripId = latestTrip.id;
-            }
-          }
+        // 여권 또는 PNR 발송에 따른 분기
+        let personalizedMessage = '';
+        if (sendTarget === 'passport') {
+          // ── 여권 발송 ──
+          token = generateToken();
+          const tokenExpiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
+          link = buildPassportLink(token);
 
-          const updated = await prisma.gmPassportSubmission.update({
-            where: { id: existingSubmission.id },
-            data: {
-              token,
-              tokenExpiresAt,
-              tripId: nextTripId,
-              isSubmitted: false,
-              updatedAt: new Date(),
-              extraData: Prisma.JsonNull,
-            },
+          personalizedMessage = fillTemplate(baseMessage, {
+            고객명: user.name ? `${user.name}님` : '고객님',
+            링크: link,
+            상품명: latestTrip?.cruiseName ?? '',
+            출발일: formatDate(latestTrip?.startDate ?? null),
           });
-          submissionId = updated.id;
         } else {
-          const now = new Date();
-          const createData: any = {
-            userId: user.id,
-            token,
-            tokenExpiresAt,
-            isSubmitted: false,
-            driveFolderUrl: null,
-            extraData: Prisma.JsonNull,
-            updatedAt: now,
-          };
+          // ── PNR 발송 ──
+          const tripId = latestTrip?.id;
+          const reservationId = tripId ? reservationIds.get(tripId) : null;
 
-          // latestTrip?.id가 있으면 설정하되, FK 제약 확인
-          if (latestTrip?.id) {
-            // Trip이 실제로 존재하는지 확인 (FK 제약 조건 위반 방지)
-            const tripExists = await prisma.gmTrip.count({
-              where: { id: latestTrip.id },
-            });
-            if (tripExists > 0) {
-              createData.tripId = latestTrip.id;
-            }
-            // Trip이 없으면 tripId를 설정하지 않음 (null로 유지)
+          if (!reservationId) {
+            const errorMessage = '예약 정보가 없습니다.';
+            results.push({ userId: user.id, success: false, error: errorMessage });
+            continue;
           }
 
-          const created = await prisma.gmPassportSubmission.create({
-            data: createData,
-          });
-          submissionId = created.id;
+          link = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/pnr/${reservationId}`;
+          personalizedMessage = `${user.name ? `${user.name}님` : '고객님'}의 여행 정보 입력을 위한 링크입니다. 아래 링크를 통해 객실 정보 등을 입력해 주세요.\n${link}`;
+        }
+
+        // 여권 발송 시에만 PassportSubmission 업데이트
+        if (sendTarget === 'passport') {
+          const tokenExpiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
+
+          if (existingSubmission && !existingSubmission.isSubmitted) {
+            // 새로운 Trip이 있으면 그것을 사용, 없으면 기존 tripId 유지
+            let nextTripId = existingSubmission.tripId;
+            if (latestTrip?.id) {
+              // Trip이 실제로 존재하는지 확인 (FK 제약 조건 위반 방지)
+              const tripExists = await prisma.gmTrip.count({
+                where: { id: latestTrip.id },
+              });
+              if (tripExists > 0) {
+                nextTripId = latestTrip.id;
+              }
+            }
+
+            const updated = await prisma.gmPassportSubmission.update({
+              where: { id: existingSubmission.id },
+              data: {
+                token: token!,
+                tokenExpiresAt,
+                tripId: nextTripId,
+                isSubmitted: false,
+                updatedAt: new Date(),
+                extraData: Prisma.JsonNull,
+              },
+            });
+            submissionId = updated.id;
+          } else {
+            const now = new Date();
+            const createData: any = {
+              userId: user.id,
+              token: token!,
+              tokenExpiresAt,
+              isSubmitted: false,
+              driveFolderUrl: null,
+              extraData: Prisma.JsonNull,
+              updatedAt: now,
+            };
+
+            // latestTrip?.id가 있으면 설정하되, FK 제약 확인
+            if (latestTrip?.id) {
+              // Trip이 실제로 존재하는지 확인 (FK 제약 조건 위반 방지)
+              const tripExists = await prisma.gmTrip.count({
+                where: { id: latestTrip.id },
+              });
+              if (tripExists > 0) {
+                createData.tripId = latestTrip.id;
+              }
+              // Trip이 없으면 tripId를 설정하지 않음 (null로 유지)
+            }
+
+            const created = await prisma.gmPassportSubmission.create({
+              data: createData,
+            });
+            submissionId = created.id;
+          }
         }
 
         const messageByteLength = new Blob([personalizedMessage]).size;

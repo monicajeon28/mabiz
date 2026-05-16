@@ -251,6 +251,7 @@ export default function PassportRequestPage() {
   } | null>(null);
   const [isBulkGenerating, setIsBulkGenerating] = useState(false);
   const [copiedButtonId, setCopiedButtonId] = useState<string | null>(null);
+  const [sendTarget, setSendTarget] = useState<'passport' | 'pnr'>('passport');
 
   const selectedTemplates = useMemo(() => {
     if (selectedTemplateId === null) return null;
@@ -718,6 +719,7 @@ export default function PassportRequestPage() {
           messageBody: requestMessageBody,
           channel: 'SMS', // 링크 생성 시점에는 SMS로 지정하지 않음 (선택)
           expiresInHours,
+          sendTarget,
         }),
       });
 
@@ -1321,6 +1323,31 @@ export default function PassportRequestPage() {
           링크로 직접 보내기 (비용 0원)
         </h2>
 
+        <div className="flex gap-4 border-b border-gray-200 pb-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="sendTarget"
+              value="passport"
+              checked={sendTarget === 'passport'}
+              onChange={() => setSendTarget('passport')}
+              className="w-5 h-5"
+            />
+            <span className="text-lg font-semibold text-gray-700">여권 링크 발송</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="sendTarget"
+              value="pnr"
+              checked={sendTarget === 'pnr'}
+              onChange={() => setSendTarget('pnr')}
+              className="w-5 h-5"
+            />
+            <span className="text-lg font-semibold text-gray-700">PNR 링크 발송</span>
+          </label>
+        </div>
+
         <div className="bg-green-50 border-2 border-green-200 rounded-2xl p-4 flex items-center gap-3">
           <UserCheck className="h-7 w-7 text-green-600" />
           <div>
@@ -1365,7 +1392,7 @@ export default function PassportRequestPage() {
             </span>
           ) : (
             <span className="flex items-center gap-2">
-              <Link className="h-5 w-5" /> 링크 생성하기
+              <Link className="h-5 w-5" /> {sendTarget === 'passport' ? '여권' : 'PNR'} 링크 생성하기
             </span>
           )}
         </button>
@@ -1420,7 +1447,7 @@ export default function PassportRequestPage() {
             {/* 링크 표시 */}
             <div className="space-y-2">
               <label className="block">
-                <p className="text-sm font-semibold text-green-800 mb-2">🔗 제출 링크</p>
+                <p className="text-sm font-semibold text-green-800 mb-2">🔗 {sendTarget === 'passport' ? '여권 제출' : 'PNR'} 링크</p>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     type="text"
@@ -1680,7 +1707,7 @@ export default function PassportRequestPage() {
               </span>
             ) : (
               <span className="flex items-center gap-2">
-                <Send className="h-5 w-5" /> {selectedIds.length}명에게 여권 링크 발송하기
+                <Send className="h-5 w-5" /> {selectedIds.length}명에게 {sendTarget === 'passport' ? '여권' : 'PNR'} 링크 발송하기
               </span>
             )}
           </button>
