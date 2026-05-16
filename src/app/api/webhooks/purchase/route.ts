@@ -147,6 +147,94 @@ export async function POST(req: NextRequest) {
         select: { id: true, departureDate: true },
       });
 
+      // ── 크루즈닷몰 구매 고객 연동 (GmUser → GmTrip → GmReservation) ──
+      // 웹훅에서 productCode가 있을 때만 처리
+      let reservationId: number | null = null;
+      if (productCode) {
+        // 1. GmUser 조회 또는 생성 (전화번호 기반)
+        const gmUser = await tx.gmUser.upsert({
+          where: { phone: normalizedPhone },
+          create: {
+            phone: normalizedPhone,
+            name,
+            role: 'user',
+            // 최소 필드만 설정 (productCode, saleAmount 등은 GmTrip/GmReservation에 저장)
+          },
+          update: {
+            name, // 기존 이름 업데이트
+          },
+          select: { id: true },
+        });
+
+        // 2. GmTrip 조회 또는 생성 (productCode 기반)
+        // 같은 productCode로 출발일이 같은 Trip 찾기
+        const departureDateTime = departureDate ? new Date(departureDate) : new Date();
+        const departureYYYYMMDD = departureDateTime.toISOString().split('T')[0];
+
+        let gmTrip = await tx.gmTrip.findFirst({
+          where: {
+            productCode,
+            userId: gmUser.id,
+            // startDate가 같은 날인 것 찾기
+            startDate: {
+              gte: new Date(`${departureYYYYMMDD}T00:00:00Z`),
+              lt: new Date(`${departureYYYYMMDD}T23:59:59Z`),
+            },
+          },
+          select: { id: true },
+        });
+
+        // Trip이 없으면 생성
+        if (!gmTrip) {
+          gmTrip = await tx.gmTrip.create({
+            data: {
+              userId: gmUser.id,
+              productCode,
+              cruiseName: productName ?? '-',
+              shipName: productName ?? '-',
+              departureDate: departureDateTime,
+              startDate: departureDateTime,
+              // endDate, nights, days는 웹훅에 없으므로 null 또는 기본값
+              status: 'Upcoming',
+            },
+            select: { id: true },
+          });
+        }
+
+        // 3. GmReservation 생성 (tripId + mainUserId 조합 기반)
+        const parsedHeadcount = parseInt(String(headcount)) || 1;
+
+        // 같은 Trip+User 조합의 Reservation이 이미 있는지 확인
+        const existingReservation = await tx.gmReservation.findFirst({
+          where: {
+            tripId: gmTrip.id,
+            mainUserId: gmUser.id,
+            status: 'CONFIRMED',
+          },
+          select: { id: true },
+        });
+
+        if (!existingReservation) {
+          const newReservation = await tx.gmReservation.create({
+            data: {
+              tripId: gmTrip.id,
+              mainUserId: gmUser.id,
+              totalPeople: parsedHeadcount,
+              paymentAmount: finalSaleAmount,
+              paymentDate: new Date(),
+              status: 'CONFIRMED',
+              cabinType: null,
+              roomNumber: null,
+              mainTravelerName: name,
+            },
+            select: { id: true },
+          });
+          reservationId = newReservation.id;
+        } else {
+          reservationId = existingReservation.id;
+        }
+      }
+
       // 어필리에이트 판매 이력 기록 (조건부)
       if (affiliateCode && finalSaleAmount > 0) {
         await tx.affiliateSale.upsert({
@@ -208,9 +296,12 @@ export async function POST(req: NextRequest) {
       vipGroup: vipGroup?.name ?? '없음',
       funnelStarted,
       affiliateCode: affiliateCode ?? '없음',
+      productCode: productCode ?? '없음',
+      // GmUser/GmTrip/GmReservation 생성 여부는 productCode 존재 여부로 판단
+      cruiseDataCreated: productCode ? true : false,
     });
 
-    return NextResponse.json({ ok: true, contactId: contact.id, funnelStarted });
+    return NextResponse.json({ ok: true, contactId: contact.id, funnelStarted, productCode: productCode ?? null });
   } catch (err) {
     logger.error('[PurchaseWebhook] 처리 실패', { err });
     await enqueueDLQ('purchase', body, err instanceof Error ? err.message : String(err)).catch(() => {});
