@@ -20,6 +20,7 @@ import { randomInt } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
+import { checkEmailTokenRateLimit } from '@/lib/affiliate-rate-limit';
 
 interface EmailTokenRecord {
   email: string;
@@ -55,6 +56,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { ok: false, message: '유효한 이메일을 입력해 주세요.' },
         { status: 400 },
+      );
+    }
+
+    // 레이트 제한 확인 (3회/30분)
+    const rateLimitResult = checkEmailTokenRateLimit(email);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: `너무 많은 요청입니다. ${Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000)}초 후 다시 시도해 주세요.`,
+        },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000)) } },
       );
     }
 

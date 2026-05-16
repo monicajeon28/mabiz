@@ -36,6 +36,7 @@ import {
 import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
 import { sendFunnelEmail } from '@/lib/email';
 import { renderPartnerWelcomeEmail } from '@/lib/email-templates';
+import { checkSmsRateLimit, checkEmailRateLimit } from '@/lib/affiliate-rate-limit';
 
 export async function PUT(req: NextRequest) {
   try {
@@ -186,22 +187,32 @@ export async function PUT(req: NextRequest) {
         // 5d. SMS 발송 (실패해도 계속 진행)
         try {
           if (contract.phone) {
-            const smsConfig = await getOrgSmsConfig(organizationId);
-            if (smsConfig) {
-              const msg = [
-                `[마비즈] ${contract.name} 대리점장님, 계약이 승인되었습니다.`,
-                `대리점 코드: ${provisionResult.manager.affiliateCode}`,
-                `임시 비밀번호: ${provisionResult.managerTempPassword}`,
-                `로그인: ${process.env.NEXT_PUBLIC_APP_URL}/login`,
-              ].join('\n');
-
-              await sendSms({
-                config: { key: smsConfig.aligoKey, userId: smsConfig.aligoUserId, sender: smsConfig.senderPhone },
-                receiver: contract.phone,
-                msg,
-                msgType: 'LMS',
-                organizationId,
+            // Rate Limit 검증 — SMS 발송 전
+            const smsLimitResult = checkSmsRateLimit(contract.phone, 'phone');
+            if (!smsLimitResult.allowed) {
+              logger.warn('[AFFILIATE-BULK-APPROVE] SMS 발송 Rate Limit 초과', {
+                contractId,
+                phone: contract.phone,
+                resetAt: new Date(smsLimitResult.resetAt),
               });
+            } else {
+              const smsConfig = await getOrgSmsConfig(organizationId);
+              if (smsConfig) {
+                const msg = [
+                  `[마비즈] ${contract.name} 대리점장님, 계약이 승인되었습니다.`,
+                  `대리점 코드: ${provisionResult.manager.affiliateCode}`,
+                  `임시 비밀번호: ${provisionResult.managerTempPassword}`,
+                  `로그인: ${process.env.NEXT_PUBLIC_APP_URL}/login`,
+                ].join('\n');
+
+                await sendSms({
+                  config: { key: smsConfig.aligoKey, userId: smsConfig.aligoUserId, sender: smsConfig.senderPhone },
+                  receiver: contract.phone,
+                  msg,
+                  msgType: 'LMS',
+                  organizationId,
+                });
+              }
             }
           }
         } catch (smsErr) {
@@ -214,22 +225,32 @@ export async function PUT(req: NextRequest) {
         // 5e. 이메일 발송 (실패해도 계속 진행)
         try {
           if (contract.email) {
-            const { subject, html } = renderPartnerWelcomeEmail({
-              name: contract.name,
-              tier: tierInfo.label,
-              managerCode: provisionResult.manager.affiliateCode,
-              managerLink: provisionResult.manager.linkUrl,
-              agentCode: provisionResult.agent?.affiliateCode,
-              agentLink: provisionResult.agent?.linkUrl,
-              appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://mabizcruisedot.com',
-            });
+            // Rate Limit 검증 — 이메일 발송 전
+            const emailLimitResult = checkEmailRateLimit(contract.email, 'email');
+            if (!emailLimitResult.allowed) {
+              logger.warn('[AFFILIATE-BULK-APPROVE] 이메일 발송 Rate Limit 초과', {
+                contractId,
+                email: contract.email,
+                resetAt: new Date(emailLimitResult.resetAt),
+              });
+            } else {
+              const { subject, html } = renderPartnerWelcomeEmail({
+                name: contract.name,
+                tier: tierInfo.label,
+                managerCode: provisionResult.manager.affiliateCode,
+                managerLink: provisionResult.manager.linkUrl,
+                agentCode: provisionResult.agent?.affiliateCode,
+                agentLink: provisionResult.agent?.linkUrl,
+                appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://mabizcruisedot.com',
+              });
 
-            await sendFunnelEmail({
-              organizationId,
-              toEmail: contract.email,
-              subject,
-              htmlContent: html,
-            });
+              await sendFunnelEmail({
+                organizationId,
+                toEmail: contract.email,
+                subject,
+                htmlContent: html,
+              });
+            }
           }
         } catch (emailErr) {
           logger.warn('[AFFILIATE-BULK-APPROVE] 이메일 발송 실패', {

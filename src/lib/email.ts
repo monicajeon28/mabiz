@@ -79,9 +79,9 @@ export async function getOrgEmailConfig(organizationId: string) {
   return prisma.orgEmailConfig.findUnique({ where: { organizationId } });
 }
 
-// ─── 이메일 로그 기록 (fire-and-forget, SmsLog 패턴 동일) ──────────
+// ─── 이메일 로그 기록 (Redis 큐 기반, fire-and-forget) ──────────
 
-function recordEmailLog(params: {
+async function recordEmailLog(params: {
   organizationId: string;
   contactId?: string;
   to: string;
@@ -90,23 +90,18 @@ function recordEmailLog(params: {
   blockReason?: string;
   channel: string;
 }) {
-  const maskedEmail = params.to.slice(0, 5) + "***";
-  const subjectPreview = params.subject.slice(0, 50);
+  const { addEmailLog } = await import("@/lib/email-queue");
 
-  import("@/lib/prisma").then(({ default: prisma }) =>
-    prisma.emailLog.create({
-      data: {
-        organizationId: params.organizationId,
-        contactId:      params.contactId ?? null,
-        email:          maskedEmail,
-        subjectPreview,
-        status:         params.status,
-        blockReason:    params.blockReason ?? null,
-        channel:        params.channel,
-      },
-    })
-  ).catch((err) => {
-    logger.error("[Email] EmailLog 저장 실패", { err });
+  addEmailLog({
+    organizationId: params.organizationId,
+    contactId:      params.contactId ?? null,
+    email:          params.to,
+    subject:        params.subject,
+    status:         params.status,
+    blockReason:    params.blockReason ?? null,
+    channel:        params.channel,
+  }).catch((err) => {
+    logger.error("[Email] EmailLog 큐 추가 실패", { err });
   });
 }
 

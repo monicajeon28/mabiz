@@ -38,8 +38,8 @@ function isNightTime(): boolean {
   return kstHour >= 21 || kstHour < 8;
 }
 
-// SmsLog fire-and-forget 기록 (실패해도 발송에 영향 없음)
-function recordSmsLog(params: {
+// SmsLog Redis 큐 기록 (fire-and-forget, DB 오버로드 방지)
+async function recordSmsLog(params: {
   organizationId: string;
   contactId?: string;
   phone: string;
@@ -50,25 +50,20 @@ function recordSmsLog(params: {
   msgId?: string;
   channel: string;
 }) {
-  const maskedPhone = params.phone.substring(0, 4) + "***";
-  const contentPreview = params.msg.slice(0, 30);
+  const { addSmsLog } = await import("@/lib/sms-queue");
 
-  import("@/lib/prisma").then(({ default: prisma }) =>
-    prisma.smsLog.create({
-      data: {
-        organizationId: params.organizationId,
-        contactId:      params.contactId ?? null,
-        phone:          maskedPhone,
-        contentPreview,
-        status:         params.status,
-        blockReason:    params.blockReason ?? null,
-        resultCode:     params.resultCode ?? null,
-        msgId:          params.msgId ?? null,
-        channel:        params.channel,
-      },
-    })
-  ).catch((err) => {
-    logger.error("[Aligo] SmsLog 저장 실패", { err });
+  addSmsLog({
+    organizationId: params.organizationId,
+    contactId:      params.contactId ?? null,
+    phone:          params.phone,
+    msg:            params.msg,
+    status:         params.status,
+    blockReason:    params.blockReason ?? null,
+    resultCode:     params.resultCode ?? null,
+    msgId:          params.msgId ?? null,
+    channel:        params.channel,
+  }).catch((err) => {
+    logger.error("[Aligo] SmsLog 큐 추가 실패", { err });
   });
 }
 

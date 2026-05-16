@@ -7,6 +7,11 @@ import { findOrCreateOrganization } from '@/lib/organization';
 /**
  * GET /api/admin/organizations
  * GLOBAL_ADMIN only: 전체 대리점 목록 (멤버 수 포함)
+ *
+ * 최적화 (배치 쿼리):
+ * 1. findMany로 조직 정보 + 리드/계약/멤버 카운트 조회 (1번)
+ * 2. 배치 쿼리로 모든 조직의 OWNER 멤버 조회 (1번)
+ * 총 2 쿼리로 고정 (조직 수 무관)
  */
 export async function GET(req: NextRequest) {
   try {
@@ -20,6 +25,7 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const search = url.searchParams.get('search');
 
+    // [Query 1] 조직 기본 정보 + 카운트
     const orgs = await prisma.organization.findMany({
       where: search ? {
         OR: [
@@ -38,18 +44,39 @@ export async function GET(req: NextRequest) {
         _count: {
           select: { members: true, contacts: true },
         },
-        // OWNER 멤버 정보
-        members: {
-          where: { role: 'OWNER', isActive: true },
-          select: { displayName: true, phone: true, email: true, userId: true },
-          take: 1,
-        },
       },
       orderBy: { createdAt: 'desc' },
     });
 
+    // [Query 2 - 배치] 모든 조직의 OWNER 멤버를 한 번에 조회
+    const orgIds = orgs.map(o => o.id);
+    const ownerMembers = orgIds.length > 0
+      ? await prisma.organizationMember.findMany({
+          where: {
+            organizationId: { in: orgIds },
+            role: 'OWNER',
+            isActive: true,
+          },
+          select: {
+            organizationId: true,
+            displayName: true,
+            phone: true,
+            email: true,
+            userId: true,
+          },
+        })
+      : [];
+
+    // ownerMembers를 organizationId로 맵핑 (가장 먼저 생성된 OWNER 1명만)
+    const ownerMap = new Map<string, typeof ownerMembers[0]>();
+    for (const member of ownerMembers) {
+      if (!ownerMap.has(member.organizationId)) {
+        ownerMap.set(member.organizationId, member);
+      }
+    }
+
     const result = orgs.map((org) => {
-      const owner = org.members[0] ?? null;
+      const owner = ownerMap.get(org.id) ?? null;
       return {
         id:           org.id,
         name:         org.name,

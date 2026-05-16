@@ -1575,6 +1575,7 @@ export default function PassportRequestPage() {
           </div>
         )}
 
+        {sendMode === 'message' && (
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <label className="flex flex-col">
@@ -1640,6 +1641,7 @@ export default function PassportRequestPage() {
             <span className="text-xs text-gray-500 mt-2">링크와 고객 이름이 자동으로 삽입됩니다.</span>
           </label>
         </div>
+        )}
 
         {/* SMS 예상 비용 섹션 */}
         {sendMode === 'message' && channel === 'SMS' && (

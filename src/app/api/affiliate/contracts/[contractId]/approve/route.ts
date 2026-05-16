@@ -29,6 +29,7 @@ import {
 import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
 import { sendFunnelEmail } from '@/lib/email';
 import { renderPartnerWelcomeEmail } from '@/lib/email-templates';
+import { checkSmsRateLimit, checkEmailRateLimit } from '@/lib/affiliate-rate-limit';
 
 // ── PUT: 계약 승인 ────────────────────────────────────────────────
 export async function PUT(
@@ -197,23 +198,34 @@ export async function PUT(
     let smsSent = false;
     try {
       if (contract.phone) {
-        const smsConfig = await getOrgSmsConfig(organizationId);
-        if (smsConfig) {
-          const msg = [
-            `[마비즈] ${contract.name} 대리점장님, 계약이 승인되었습니다.`,
-            `대리점 코드: ${provisionResult.manager.affiliateCode}`,
-            `임시 비밀번호: ${provisionResult.managerTempPassword}`,
-            `로그인: ${process.env.NEXT_PUBLIC_APP_URL}/login`,
-          ].join('\n');
-
-          const smsResult = await sendSms({
-            config: { key: smsConfig.aligoKey, userId: smsConfig.aligoUserId, sender: smsConfig.senderPhone },
-            receiver: contract.phone,
-            msg,
-            msgType: 'LMS',
-            organizationId,
+        // Rate Limit 검증 — SMS 발송 전
+        const smsLimitResult = checkSmsRateLimit(contract.phone, 'phone');
+        if (!smsLimitResult.allowed) {
+          logger.warn('[AFFILIATE-PROVISION] SMS 발송 Rate Limit 초과', {
+            contractId,
+            phone: contract.phone,
+            resetAt: new Date(smsLimitResult.resetAt),
           });
-          smsSent = Number(smsResult.result_code) === 1;
+          // SMS 실패는 계약 승인을 취소하지 않음 — 로그만 남김
+        } else {
+          const smsConfig = await getOrgSmsConfig(organizationId);
+          if (smsConfig) {
+            const msg = [
+              `[마비즈] ${contract.name} 대리점장님, 계약이 승인되었습니다.`,
+              `대리점 코드: ${provisionResult.manager.affiliateCode}`,
+              `임시 비밀번호: ${provisionResult.managerTempPassword}`,
+              `로그인: ${process.env.NEXT_PUBLIC_APP_URL}/login`,
+            ].join('\n');
+
+            const smsResult = await sendSms({
+              config: { key: smsConfig.aligoKey, userId: smsConfig.aligoUserId, sender: smsConfig.senderPhone },
+              receiver: contract.phone,
+              msg,
+              msgType: 'LMS',
+              organizationId,
+            });
+            smsSent = Number(smsResult.result_code) === 1;
+          }
         }
       }
     } catch (smsErr) {
@@ -229,23 +241,34 @@ export async function PUT(
     let emailSent = false;
     try {
       if (contract.email) {
-        const { subject, html } = renderPartnerWelcomeEmail({
-          name: contract.name,
-          tier: tierInfo.label,
-          managerCode: provisionResult.manager.affiliateCode,
-          managerLink: provisionResult.manager.linkUrl,
-          agentCode: provisionResult.agent?.affiliateCode,
-          agentLink: provisionResult.agent?.linkUrl,
-          appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://mabizcruisedot.com',
-        });
+        // Rate Limit 검증 — 이메일 발송 전
+        const emailLimitResult = checkEmailRateLimit(contract.email, 'email');
+        if (!emailLimitResult.allowed) {
+          logger.warn('[AFFILIATE-PROVISION] 이메일 발송 Rate Limit 초과', {
+            contractId,
+            email: contract.email,
+            resetAt: new Date(emailLimitResult.resetAt),
+          });
+          // 이메일 실패는 계약 승인을 취소하지 않음 — 로그만 남김
+        } else {
+          const { subject, html } = renderPartnerWelcomeEmail({
+            name: contract.name,
+            tier: tierInfo.label,
+            managerCode: provisionResult.manager.affiliateCode,
+            managerLink: provisionResult.manager.linkUrl,
+            agentCode: provisionResult.agent?.affiliateCode,
+            agentLink: provisionResult.agent?.linkUrl,
+            appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://mabizcruisedot.com',
+          });
 
-        const emailResult = await sendFunnelEmail({
-          organizationId,
-          toEmail: contract.email,
-          subject,
-          htmlContent: html,
-        });
-        emailSent = emailResult.result_code === 1;
+          const emailResult = await sendFunnelEmail({
+            organizationId,
+            toEmail: contract.email,
+            subject,
+            htmlContent: html,
+          });
+          emailSent = emailResult.result_code === 1;
+        }
       }
     } catch (emailErr) {
       // 이메일 실패는 계약 승인을 취소하지 않음 — 로그만 남김

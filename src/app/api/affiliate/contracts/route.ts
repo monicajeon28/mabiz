@@ -10,6 +10,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { getAuthContext } from '@/lib/rbac';
 import { CONTRACT_PRICE_TIERS } from '@/lib/affiliate/priceTiers';
+import { checkContractApplicationRateLimit } from '@/lib/affiliate-rate-limit';
 
 export async function GET(req: NextRequest) {
   try {
@@ -79,6 +80,12 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
+    // Rate Limit: 클라이언트 IP 추출
+    const clientIp =
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+      req.headers.get('x-real-ip') ??
+      'unknown';
+
     // 기본 정보
     const name: string | undefined = typeof body.name === 'string' ? body.name.trim() : undefined;
     const phone: string | undefined = typeof body.phone === 'string' ? body.phone.trim() : undefined;
@@ -115,11 +122,47 @@ export async function POST(req: NextRequest) {
     const bodyMeta = body.metadata && typeof body.metadata === 'object' ? body.metadata as Record<string, unknown> : {};
     const contractType: string = typeof bodyMeta.type === 'string' ? bodyMeta.type : 'SALES_AGENT';
 
+    // Rate Limit 검증 — IP 기반 (시간당 10회)
+    const ipLimitResult = checkContractApplicationRateLimit(clientIp, 'ip');
+    if (!ipLimitResult.allowed) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: '너무 많은 신청이 들어왔습니다. 잠시 후 다시 시도해 주세요.',
+          retryAfter: Math.ceil((ipLimitResult.resetAt - Date.now()) / 1000),
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil((ipLimitResult.resetAt - Date.now()) / 1000)),
+          },
+        },
+      );
+    }
+
     if (!name || name.length < 2) {
       return NextResponse.json({ ok: false, message: '이름을 입력해 주세요.' }, { status: 400 });
     }
     if (!phone || phone.length < 9) {
       return NextResponse.json({ ok: false, message: '연락처를 입력해 주세요.' }, { status: 400 });
+    }
+
+    // Rate Limit 검증 — 전화번호 기반 (일일 3회, 중복 신청 방지)
+    const phoneLimitResult = checkContractApplicationRateLimit(phone, 'phone');
+    if (!phoneLimitResult.allowed) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: '동일한 연락처로 너무 많은 신청이 있습니다. 담당자에게 문의해 주세요.',
+          retryAfter: Math.ceil((phoneLimitResult.resetAt - Date.now()) / 1000),
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil((phoneLimitResult.resetAt - Date.now()) / 1000)),
+          },
+        },
+      );
     }
 
     // displayName 검증 (길이, 특수문자)

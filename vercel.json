@@ -39,6 +39,14 @@
     {
       "path": "/api/images/batch-process",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/queues/sms-process",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/queues/email-process",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
