@@ -17,6 +17,7 @@ interface Traveler {
   isSubmitLater: boolean; // 추후 제출 체크박스
   isScanning: boolean; // OCR 스캔 중
   roomNumber?: number;
+  showAdditionalFields?: boolean; // Step 4 추가 정보 펼치기
 }
 
 interface Reservation {
@@ -106,6 +107,7 @@ export default function CustomerPassportPage() {
           isSubmitLater: false,
           isScanning: false,
           roomNumber: t.roomNumber,
+          showAdditionalFields: false,
         });
       });
     } else {
@@ -122,6 +124,7 @@ export default function CustomerPassportPage() {
           phone: i === 0 ? (data.reservation.user?.phone || '') : '',
           isSubmitLater: false,
           isScanning: false,
+          showAdditionalFields: false,
         });
       }
     }
@@ -396,6 +399,7 @@ export default function CustomerPassportPage() {
         phone: '',
         isSubmitLater: false,
         isScanning: false,
+        showAdditionalFields: false,
       },
     ]);
   };
@@ -988,8 +992,8 @@ export default function CustomerPassportPage() {
                       />
                     </div>
 
-                    {/* 필수 정보 */}
-                    <div className="grid gap-4 md:grid-cols-2">
+                    {/* 필수 정보만 (korName, passportNo) */}
+                    <div className="mb-4 grid gap-4 md:grid-cols-2">
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">
                           한글 성명 <span className="text-red-500">*</span>
@@ -1000,32 +1004,6 @@ export default function CustomerPassportPage() {
                           onChange={(e) => updateTraveler(index, 'korName', e.target.value)}
                           className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                           required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">
-                          영문 성
-                        </label>
-                        <input
-                          type="text"
-                          value={traveler.engSurname}
-                          onChange={(e) => updateTraveler(index, 'engSurname', e.target.value.toUpperCase())}
-                          className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                          placeholder="HONG"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">
-                          영문 이름
-                        </label>
-                        <input
-                          type="text"
-                          value={traveler.engGivenName}
-                          onChange={(e) => updateTraveler(index, 'engGivenName', e.target.value.toUpperCase())}
-                          className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                          placeholder="GILDONG"
                         />
                       </div>
 
@@ -1043,63 +1021,107 @@ export default function CustomerPassportPage() {
                           placeholder="M12345678"
                         />
                       </div>
+                    </div>
 
-                      <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">
-                          생년월일
-                        </label>
-                        <input
-                          type="date"
-                          value={traveler.dateOfBirth}
-                          onChange={(e) => updateTraveler(index, 'dateOfBirth', e.target.value)}
-                          disabled={traveler.isSubmitLater}
-                          className={`w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 ${traveler.isSubmitLater ? 'bg-gray-100' : ''
-                            }`}
-                        />
-                      </div>
+                    {/* 추가 정보 (접기/펼치기) */}
+                    <div className="border-t border-gray-200 pt-4">
+                      <button
+                        type="button"
+                        onClick={() => updateTraveler(index, 'showAdditionalFields', !traveler.showAdditionalFields)}
+                        className="mb-4 flex items-center gap-2 text-blue-600 hover:text-blue-700"
+                      >
+                        <span className="text-lg">{traveler.showAdditionalFields ? '▼' : '▶'}</span>
+                        <span className="text-sm font-medium">추가 정보 {traveler.showAdditionalFields ? '숨기기' : '보기'}</span>
+                      </button>
 
-                      <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">
-                          여권 만료일
-                        </label>
-                        <input
-                          type="date"
-                          value={traveler.passportExpiryDate}
-                          onChange={(e) => updateTraveler(index, 'passportExpiryDate', e.target.value)}
-                          disabled={traveler.isSubmitLater}
-                          className={`w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 ${traveler.isSubmitLater ? 'bg-gray-100' : ''
-                            }`}
-                        />
-                      </div>
+                      {traveler.showAdditionalFields && (
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div>
+                            <label className="mb-1 block text-sm font-medium text-gray-700">
+                              영문 성
+                            </label>
+                            <input
+                              type="text"
+                              value={traveler.engSurname}
+                              onChange={(e) => updateTraveler(index, 'engSurname', e.target.value.toUpperCase())}
+                              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                              placeholder="HONG"
+                              disabled={traveler.isSubmitLater}
+                            />
+                          </div>
 
-                      <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">
-                          국적
-                        </label>
-                        <input
-                          type="text"
-                          value={traveler.nationality}
-                          onChange={(e) => updateTraveler(index, 'nationality', e.target.value)}
-                          disabled={traveler.isSubmitLater}
-                          className={`w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 ${traveler.isSubmitLater ? 'bg-gray-100' : ''
-                            }`}
-                          placeholder="KOR"
-                        />
-                      </div>
+                          <div>
+                            <label className="mb-1 block text-sm font-medium text-gray-700">
+                              영문 이름
+                            </label>
+                            <input
+                              type="text"
+                              value={traveler.engGivenName}
+                              onChange={(e) => updateTraveler(index, 'engGivenName', e.target.value.toUpperCase())}
+                              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                              placeholder="GILDONG"
+                              disabled={traveler.isSubmitLater}
+                            />
+                          </div>
 
-                      <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">
-                          연락처 {index === 0 && <span className="text-red-500">*</span>}
-                        </label>
-                        <input
-                          type="tel"
-                          value={traveler.phone}
-                          onChange={(e) => updateTraveler(index, 'phone', e.target.value)}
-                          className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                          placeholder="010-1234-5678"
-                          required={index === 0}
-                        />
-                      </div>
+                          <div>
+                            <label className="mb-1 block text-sm font-medium text-gray-700">
+                              생년월일
+                            </label>
+                            <input
+                              type="date"
+                              value={traveler.dateOfBirth}
+                              onChange={(e) => updateTraveler(index, 'dateOfBirth', e.target.value)}
+                              disabled={traveler.isSubmitLater}
+                              className={`w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 ${traveler.isSubmitLater ? 'bg-gray-100' : ''
+                                }`}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-1 block text-sm font-medium text-gray-700">
+                              여권 만료일
+                            </label>
+                            <input
+                              type="date"
+                              value={traveler.passportExpiryDate}
+                              onChange={(e) => updateTraveler(index, 'passportExpiryDate', e.target.value)}
+                              disabled={traveler.isSubmitLater}
+                              className={`w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 ${traveler.isSubmitLater ? 'bg-gray-100' : ''
+                                }`}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-1 block text-sm font-medium text-gray-700">
+                              국적
+                            </label>
+                            <input
+                              type="text"
+                              value={traveler.nationality}
+                              onChange={(e) => updateTraveler(index, 'nationality', e.target.value)}
+                              disabled={traveler.isSubmitLater}
+                              className={`w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 ${traveler.isSubmitLater ? 'bg-gray-100' : ''
+                                }`}
+                              placeholder="KOR"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-1 block text-sm font-medium text-gray-700">
+                              연락처 {index === 0 && <span className="text-red-500">*</span>}
+                            </label>
+                            <input
+                              type="tel"
+                              value={traveler.phone}
+                              onChange={(e) => updateTraveler(index, 'phone', e.target.value)}
+                              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                              placeholder="010-1234-5678"
+                              required={index === 0}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* 추후 제출 체크박스 */}

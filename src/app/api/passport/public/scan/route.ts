@@ -7,6 +7,9 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import prisma from '@/lib/prisma';
 import { decodePassportToken } from '@/lib/passport-utils';
 import { logger } from '@/lib/logger';
+import { getDriveClient, findOrCreateFolder } from '@/lib/drive-client';
+import sharp from 'sharp';
+import { Readable } from 'stream';
 
 const apiKey = process.env.GEMINI_API_KEY || '';
 const genAI = new GoogleGenerativeAI(apiKey);
@@ -221,6 +224,10 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    // query에서 token 받기
+    const { searchParams } = new URL(req.url);
+    const token = searchParams.get('token');
 
     const formData = await req.formData();
     // 프론트엔드에서 'file' 또는 'passportImage' 둘 다 지원
@@ -438,11 +445,113 @@ Key rules:
       logger.warn(`[Passport Scan] 일부 정보 누락: ${warnings.join(', ')}`);
     }
 
+    // Google Drive에 webp로 변환하여 저장 (비동기, 실패해도 스캔 결과는 반환)
+    let uploadedFileInfo: { fileId: string; url: string; fileName: string } | null = null;
+
+    if (token) {
+      try {
+        // token으로 GmPassportSubmission 조회
+        const submission = await prisma.gmPassportSubmission.findFirst({
+          where: { token },
+          select: { id: true },
+        });
+
+        if (submission) {
+          const bytes = await file.arrayBuffer();
+          const buffer = Buffer.from(bytes);
+
+          // 이미지를 webp로 변환
+          logger.info('[Passport Scan] 이미지 webp 변환 시작...');
+          const webpBuffer = await sharp(buffer)
+            .webp({ quality: 85 })
+            .toBuffer();
+
+          logger.info(`[Passport Scan] webp 변환 완료 (${webpBuffer.length} bytes)`);
+
+          // Google Drive에 업로드
+          const drive = getDriveClient();
+          const passportFolderId = process.env.PASSPORT_DRIVE_FOLDER_ID || '';
+
+          if (passportFolderId) {
+            const submissionFolderName = `passport_submission_${submission.id}`;
+            const submissionFolderId = await findOrCreateFolder(submissionFolderName, passportFolderId);
+
+            const readable = Readable.from([webpBuffer]);
+            const safeFileName = `${Date.now()}_passport.webp`;
+
+            const driveResponse = await drive.files.create({
+              requestBody: {
+                name: safeFileName,
+                parents: [submissionFolderId],
+                mimeType: 'image/webp',
+              },
+              media: {
+                mimeType: 'image/webp',
+                body: readable,
+              },
+              fields: 'id,webViewLink',
+            });
+
+            const uploadedFileId = driveResponse.data.id;
+            const uploadedUrl = driveResponse.data.webViewLink || `https://drive.google.com/file/d/${uploadedFileId}/view`;
+
+            if (uploadedFileId) {
+              // extraData에 저장된 이미지 목록에 추가
+              const existing = await prisma.gmPassportSubmission.findUnique({
+                where: { id: submission.id },
+                select: { extraData: true },
+              });
+
+              const existingExtra =
+                existing?.extraData && typeof existing.extraData === 'object'
+                  ? (existing.extraData as Record<string, unknown>)
+                  : {};
+
+              const passportFiles = Array.isArray(existingExtra.passportFiles)
+                ? (existingExtra.passportFiles as any[])
+                : [];
+
+              passportFiles.push({
+                fileName: safeFileName,
+                url: uploadedUrl,
+                fileId: uploadedFileId,
+                uploadedAt: new Date().toISOString(),
+                source: 'scan',
+              });
+
+              await prisma.gmPassportSubmission.update({
+                where: { id: submission.id },
+                data: {
+                  extraData: {
+                    ...(existingExtra ?? {}),
+                    passportFiles,
+                  } as any,
+                },
+              });
+
+              uploadedFileInfo = {
+                fileId: uploadedFileId,
+                url: uploadedUrl,
+                fileName: safeFileName,
+              };
+
+              logger.info('[Passport Scan] Google Drive 저장 성공:', uploadedFileInfo);
+            }
+          }
+        }
+      } catch (uploadError) {
+        const err = uploadError as Record<string, unknown>;
+        logger.warn('[Passport Scan] Google Drive 저장 실패 (무시됨):', err);
+        // 이미지 저장 실패는 로그만 기록하고 계속 진행
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       data: normalizedData,
       warnings: warnings.length > 0 ? `일부 정보를 읽지 못했습니다: ${warnings.join(', ')}. 수동으로 입력해주세요.` : null,
-      rawText: text
+      rawText: text,
+      uploadedFile: uploadedFileInfo,
     });
   } catch (error) {
     const err = error as Record<string, unknown>;
