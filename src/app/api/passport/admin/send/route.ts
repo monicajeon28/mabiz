@@ -520,7 +520,7 @@ async function recordPassportLog(params: {
     await prisma.gmPassportRequestLog.create({
       data: {
         userId,
-        adminId: managerId,
+        adminId: managerId > 0 ? managerId : null, // ← managerId가 0이면 null로 처리 (FK 제약 조건 회피)
         templateId,
         messageBody,
         messageChannel,

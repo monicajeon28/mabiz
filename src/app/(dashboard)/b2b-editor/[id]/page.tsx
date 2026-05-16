@@ -109,6 +109,11 @@ export default function B2BEditorEditPage() {
   const [completionPageUrl, setCompletionPageUrl] = useState('');
   const [footerText, setFooterText] = useState('');
 
+  // ✨ NEW: 카테고리 관리
+  const [category, setCategory] = useState('');
+  const [categories, setCategories] = useState<string[]>([]);
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+
   // Editor fields - SEO / exposure
   const [exposureTitle, setExposureTitle] = useState('');
   const [exposureImage, setExposureImage] = useState('');
@@ -197,6 +202,9 @@ export default function B2BEditorEditPage() {
       setRegEmailSubject(p.regEmailSubject ?? '');
       setRegEmailContent(p.regEmailContent ?? '');
 
+      // ✨ NEW: 카테고리
+      setCategory(p.category ?? '');
+
       // Related data
       setRegistrations(p.registrations ?? []);
       setComments(p.comments ?? []);
@@ -210,6 +218,27 @@ export default function B2BEditorEditPage() {
   useEffect(() => {
     loadPage();
   }, [loadPage]);
+
+  // ✨ NEW: 카테고리 목록 로드
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        // org ID를 가져오려면 page 데이터가 필요
+        if (!page?.organizationId) return;
+
+        const res = await fetch(`/api/b2b-landing/categories?orgId=${page.organizationId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const catNames = data.data?.categories?.map((c: { name: string }) => c.name) || [];
+          setCategories(catNames);
+        }
+      } catch (err) {
+        console.error('카테고리 로드 실패:', err);
+      }
+    };
+
+    loadCategories();
+  }, [page?.organizationId]);
 
   // Clear save message after 2s
   useEffect(() => {
@@ -264,6 +293,7 @@ export default function B2BEditorEditPage() {
           footerText: footerText || null,
           headerScript: headerScript || null,
           completionPageUrl: completionPageUrl || null,
+          category: category || null,
           commentEnabled,
           paymentEnabled,
           ...paymentPayload,
@@ -458,9 +488,58 @@ export default function B2BEditorEditPage() {
                   <Field label="제목"><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="랜딩페이지 제목" className={inputCls} /></Field>
                   <Field label="슬러그"><input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="url-slug" className={`${inputCls} font-mono`} /></Field>
                 </div>
+
+                {/* ✨ NEW: 카테고리 드롭다운 */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="카테고리">
+                    <div className="flex gap-2">
+                      <select
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        className={`flex-1 ${inputCls}`}
+                      >
+                        <option value="">선택 안 함</option>
+                        {categories.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => {
+                          const newCat = prompt('새 카테고리 이름:');
+                          if (newCat && page?.organizationId) {
+                            fetch('/api/b2b-landing/categories', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                orgId: page.organizationId,
+                                name: newCat,
+                              }),
+                            })
+                              .then((res) => res.json())
+                              .then((data) => {
+                                if (data.ok) {
+                                  setCategories([...categories, newCat]);
+                                  setCategory(newCat);
+                                } else {
+                                  alert(`추가 실패: ${data.message}`);
+                                }
+                              })
+                              .catch((err) => alert(`오류: ${err.message}`));
+                          }
+                        }}
+                        className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 shrink-0"
+                      >
+                        + 새로
+                      </button>
+                    </div>
+                  </Field>
+                </div>
+
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                    <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="w-4 h-4 rounded border-gray-300" /> 페이지 활성화
+                    <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="w-4 h-4 rounded border-gray-300" /> ✅ 활성 (보여짐)
                   </label>
                   <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                     <input type="checkbox" checked={commentEnabled} onChange={(e) => setCommentEnabled(e.target.checked)} className="w-4 h-4 rounded border-gray-300" /> 후기 표시

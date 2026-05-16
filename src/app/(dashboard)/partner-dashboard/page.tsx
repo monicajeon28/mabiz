@@ -455,7 +455,22 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
             </thead>
             <tbody className="divide-y divide-gray-100">
               {data.passportPnr.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                <tr
+                  key={p.id}
+                  className="hover:bg-blue-50 transition-colors cursor-pointer"
+                  onClick={() => onDrilldown({
+                    title: `${p.customerName} — 예약 상세`,
+                    apiUrl: `/api/partner/dashboard/b2c/detail?type=reservations&month=${month}`,
+                    columns: [
+                      { key: 'customerName', label: '고객명' },
+                      { key: 'productName', label: '상품명' },
+                      { key: 'passportStatus', label: '여권', align: 'center', render: (v) => <Badge status={v as string} /> },
+                      { key: 'pnrStatus', label: 'PNR', align: 'center', render: (v) => <Badge status={v as string} /> },
+                      { key: 'departureDate', label: '출발일', align: 'right' },
+                      { key: 'date', label: '예약일', align: 'right' },
+                    ],
+                  })}
+                >
                   <td className="px-4 py-3 font-medium text-gray-900">{p.customerName}</td>
                   <td className="px-4 py-3 text-center"><Badge status={p.passportStatus} /></td>
                   <td className="px-4 py-3 text-center"><Badge status={p.pnrStatus} /></td>
@@ -596,7 +611,7 @@ function B2BTab({ data, loading, month, onDrilldown }: { data: B2BData | null; l
 
 /* ─────────────────── 골드 탭 ─────────────────── */
 
-function GoldTab({ data, loading }: { data: GoldData | null; loading: boolean }) {
+function GoldTab({ data, loading, month, onDrilldown }: { data: GoldData | null; loading: boolean; month: string; onDrilldown: (config: DrilldownConfig) => void }) {
   if (loading || !data) {
     return (
       <div className="space-y-6">
@@ -615,9 +630,80 @@ function GoldTab({ data, loading }: { data: GoldData | null; loading: boolean })
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard title="골드 회원 수" value={data.goldMemberCount} icon={<Crown className="h-5 w-5" />} suffix="명" trend={data.trends?.goldMemberCount} />
-        <StatCard title="신규 문의" value={data.newInquiries} icon={<MessageSquare className="h-5 w-5" />} suffix="건" trend={data.trends?.newInquiries} />
-        <StatCard title="납부율" value={data.paymentRate} icon={<Percent className="h-5 w-5" />} suffix="%" />
+        <StatCard title="골드 회원 수" value={data.goldMemberCount} icon={<Crown className="h-5 w-5" />} suffix="명" trend={data.trends?.goldMemberCount} onClick={() => onDrilldown({
+          title: '전체 활성 회원',
+          apiUrl: `/api/partner/dashboard/gold/detail?type=members&month=${month}`,
+          columns: [
+            { key: 'name', label: '이름' },
+            { key: 'phone', label: '연락처' },
+            { key: 'courseType', label: '코스', align: 'center', render: (v) => {
+              const labels: Record<string, string> = { A: 'A코스', B: 'B코스', C: 'C코스', HEALTH: '건강' };
+              const colors: Record<string, string> = { A: 'bg-blue-100 text-blue-700', B: 'bg-purple-100 text-purple-700', C: 'bg-indigo-100 text-indigo-700', HEALTH: 'bg-emerald-100 text-emerald-700' };
+              const key = v as string;
+              return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[key] ?? 'bg-gray-100'}`}>{labels[key] ?? key}</span>;
+            }},
+            { key: 'paidCount', label: '납부', align: 'center', render: (_v, row) => {
+              const paid = row.paidCount as number;
+              const total = row.totalPayments as number;
+              return total > 0 ? `${paid}/${total}` : `${paid}회`;
+            }},
+            { key: 'joinDate', label: '가입일', align: 'right' },
+          ],
+        })} />
+        <StatCard title="신규 문의" value={data.newInquiries} icon={<MessageSquare className="h-5 w-5" />} suffix="건" trend={data.trends?.newInquiries} onClick={() => onDrilldown({
+          title: '상담 전체 내역',
+          apiUrl: `/api/partner/dashboard/gold/detail?type=consultations&month=${month}`,
+          columns: [
+            { key: 'memberName', label: '회원명' },
+            { key: 'memberCode', label: '코드' },
+            { key: 'content', label: '내용', render: (v) => {
+              const s = String(v ?? '');
+              return <span className="max-w-[200px] truncate block">{s.length > 40 ? s.slice(0, 40) + '...' : s}</span>;
+            }},
+            { key: 'date', label: '날짜', align: 'right' },
+          ],
+        })} />
+        <StatCard title="납부율" value={data.paymentRate} icon={<Percent className="h-5 w-5" />} suffix="%" onClick={() => onDrilldown({
+          title: '납부 현황 분류',
+          apiUrl: `/api/partner/dashboard/gold/detail?type=payment-breakdown&month=${month}`,
+          columns: [
+            { key: 'name', label: '이름' },
+            { key: 'courseType', label: '코스', align: 'center', render: (v) => {
+              const labels: Record<string, string> = { A: 'A', B: 'B', C: 'C', HEALTH: '건강' };
+              return labels[v as string] ?? v;
+            }},
+            { key: 'paidCount', label: '납부', align: 'center', render: (_v, row) => {
+              const paid = row.paidCount as number;
+              const total = row.totalPayments as number;
+              return total > 0 ? `${paid}/${total}` : `${paid}회`;
+            }},
+            { key: 'category', label: '분류', align: 'center', render: (v) => {
+              const map: Record<string, { label: string; cls: string }> = {
+                completed: { label: '의무완료', cls: 'bg-green-100 text-green-700' },
+                inProgress: { label: '진행중', cls: 'bg-yellow-100 text-yellow-700' },
+                health: { label: '건강', cls: 'bg-emerald-100 text-emerald-700' },
+              };
+              const m = map[v as string];
+              return m ? <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${m.cls}`}>{m.label}</span> : '-';
+            }},
+          ],
+          summaryRender: (summary) => (
+            <div className="flex gap-4 text-sm">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                <span className="text-gray-600">의무완료 <strong>{String(summary.completedCount)}명</strong></span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+                <span className="text-gray-600">진행중 <strong>{String(summary.inProgressCount)}명</strong></span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <span className="text-gray-600">건강 <strong>{String(summary.healthCourseCount)}명</strong></span>
+              </div>
+            </div>
+          ),
+        })} />
       </div>
 
       {/* 회원 목록 */}
@@ -717,6 +803,14 @@ export default function PartnerDashboardPage() {
   const [b2cData, setB2cData] = useState<B2CData | null>(null);
   const [b2bData, setB2bData] = useState<B2BData | null>(null);
   const [goldData, setGoldData] = useState<GoldData | null>(null);
+
+  // 드릴다운 드로어
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerConfig, setDrawerConfig] = useState<DrilldownConfig | null>(null);
+  const openDrilldown = useCallback((config: DrilldownConfig) => {
+    setDrawerConfig(config);
+    setDrawerOpen(true);
+  }, []);
 
   const monthOptions = getMonthOptions();
 
@@ -840,9 +934,12 @@ export default function PartnerDashboardPage() {
       </div>
 
       {/* 탭 콘텐츠 */}
-      {activeTab === 'b2c' && <B2CTab data={b2cData} loading={loading && !b2cData} />}
-      {activeTab === 'b2b' && <B2BTab data={b2bData} loading={loading && !b2bData} />}
-      {activeTab === 'gold' && <GoldTab data={goldData} loading={loading && !goldData} />}
+      {activeTab === 'b2c' && <B2CTab data={b2cData} loading={loading && !b2cData} month={month} onDrilldown={openDrilldown} />}
+      {activeTab === 'b2b' && <B2BTab data={b2bData} loading={loading && !b2bData} month={month} onDrilldown={openDrilldown} />}
+      {activeTab === 'gold' && <GoldTab data={goldData} loading={loading && !goldData} month={month} onDrilldown={openDrilldown} />}
+
+      {/* 드릴다운 드로어 */}
+      <DrilldownDrawer config={drawerConfig} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </div>
   );
 }

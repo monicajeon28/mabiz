@@ -109,6 +109,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (body.headerScript     !== undefined) data.headerScript     = body.headerScript ?? null;
     if (body.completionPageUrl !== undefined) data.completionPageUrl = body.completionPageUrl ?? null;
     if (body.partnerId        !== undefined) data.partnerId        = body.partnerId ?? null;
+    if (body.category         !== undefined) data.category         = body.category ?? null;
 
     const page = await prisma.b2BLandingPage.update({
       where: { id },
