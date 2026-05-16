@@ -170,6 +170,7 @@ export default function EditLandingPage() {
             driveFileId: img.imageAsset.driveFileId, width: img.imageAsset.width || 0,
             height: img.imageAsset.height || 0, mimeType: img.imageAsset.mimeType || "",
             fileName: img.imageAsset.originalFileName, sortOrder: img.sortOrder,
+            altText: img.altText,
           })));
         }
         setPaymentType(pageData.page.paymentType ?? "onetime");
@@ -246,20 +247,24 @@ export default function EditLandingPage() {
   const addShare = async () => {
     if (!shareUserId) return;
     setShareMsg("");
-    const res = await fetch(`/api/landing-pages/${id}/share`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: shareUserId }),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      setShareMsg("공유 완료!");
-      setShareUserId("");
-      loadShares();
-    } else {
-      setShareMsg(data.message ?? "공유 실패");
+    try {
+      const res = await fetch(`/api/landing-pages/${id}/share`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: shareUserId }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.ok) {
+        setShareMsg("공유 완료!");
+        setShareUserId("");
+        loadShares();
+      } else {
+        setShareMsg(data.message ?? "공유 실패");
+      }
+    } catch (err) {
+      setShareMsg(`공유 실패: ${err instanceof Error ? err.message : "알 수 없음"}`);
     }
-    // Task 1-4: setTimeout 제거 (useEffect cleanup에서 통합 관리)
   };
 
   // Task 1-5: removeShare — HTTP 에러 처리 추가
@@ -421,10 +426,21 @@ export default function EditLandingPage() {
     const failedErrors: string[] = [];
     const validFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
 
+    // Task 6: 빈 배열 검증
+    if (validFiles.length === 0) {
+      setError("이미지 파일이 없습니다.");
+      setUploading(false);
+      return;
+    }
+
+    // Task 3: Race condition 방지 - 루프 시작 전에 초기 이미지 개수 고정
+    const initialImageCount = images.length;
+
     // Task 1-2: 배치 처리 (3개씩)
     for (let i = 0; i < validFiles.length; i += 3) {
       const batch = validFiles.slice(i, i + 3);
-      const sortOrder = images.length + successImages.length;
+      // Task 3: Race condition 해결 - initialImageCount 고정값 사용
+      const sortOrder = initialImageCount + successImages.length;
 
       // Task 1-2: Promise.allSettled() 사용
       const results = await Promise.allSettled(
@@ -624,8 +640,8 @@ export default function EditLandingPage() {
 
       const data = await res.json();
       if (data.ok) {
+        // Task 1: setTimeout 제거 - useEffect cleanup이 자동으로 처리함 (줄 291-311)
         setSaveMsg("저장됐어요!");
-        setTimeout(() => setSaveMsg(""), 2000);
       } else {
         throw new Error(data.message ?? "저장 실패");
       }
@@ -1118,4 +1134,13 @@ export default function EditLandingPage() {
                         className="text-xs text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded"
                       >취소</button>
                     </div>
-     
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
