@@ -12,6 +12,7 @@ const PUBLIC_PATHS = [
   "/api/webhooks",
   "/api/public",
   "/p/",
+  "/passport/",
   "/join/",
   "/b2b/",
   "/l/",
