@@ -41,6 +41,7 @@ model Organization {
   scriptPatterns             ScriptPattern[]
   shortLinks                 ShortLink[]
   smsTemplates               SmsTemplate[]
+  b2bProspects               B2BProspect[]
 }
 
 model OrgSmsConfig {
@@ -4170,4 +4171,28 @@ enum PaymentStatus {
   partial_refunded
   refund_pending
   pending_vbank
+}
+
+model B2BProspect {
+  id                String       @id @default(cuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  eduType           String       // 'BUYER' | 'INQUIRER'
+  name              String
+  phone             String
+  email             String?
+  productName       String?
+  paymentAmount     Int?
+  paymentDate       DateTime?
+  notes             String?
+  status            String       // Custom statuses: '잠재고객', '문자', '부재', etc.
+
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  deletedAt         DateTime?    // Soft delete
+
+  @@unique([organizationId, phone, eduType], where: { deletedAt: null })
+  @@index([organizationId, createdAt])
+  @@index([organizationId, eduType])
 }

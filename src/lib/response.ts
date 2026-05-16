@@ -1,8 +1,31 @@
 import { NextResponse } from 'next/server';
+import type { ApiErrorResponse } from '@/types/api';
 
 /** 성공 응답 */
 export function ok<T extends Record<string, unknown>>(data: T, status = 200) {
   return NextResponse.json({ ok: true, ...data }, { status });
+}
+
+/** 검증 에러 응답 */
+export function errorResponse(
+  message: string,
+  status: number = 400,
+  options?: {
+    error?: string;
+    errors?: Record<string, string>;
+    details?: unknown;
+  }
+): NextResponse<ApiErrorResponse> {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: options?.error,
+      message,
+      errors: options?.errors,
+      details: options?.details,
+    },
+    { status }
+  );
 }
 
 /** 에러 응답 */
