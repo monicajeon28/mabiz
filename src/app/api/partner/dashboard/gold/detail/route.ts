@@ -114,6 +114,9 @@ export async function GET(req: Request) {
       return NextResponse.json({
         ok: true,
         data: {
+          total: allActive.length,
+          page: 1,
+          totalPages: 1,
           summary: {
             completedCount: completed.length,
             inProgressCount: inProgress.length,

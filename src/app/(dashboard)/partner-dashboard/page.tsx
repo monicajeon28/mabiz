@@ -17,6 +17,7 @@ type B2CSale = {
   productName: string;
   amount: number;
   commission: number;
+  commissionRate: number | null;  // null=확인 중, 숫자=확정
   status: string;
   date: string;
 };
@@ -34,6 +35,8 @@ type B2CData = {
   reservationCount: number;
   recentSales: B2CSale[];
   passportPnr: B2CPassport[];
+  passportSummary?: Record<string, number>;
+  pnrSummary?: Record<string, number>;
   trends?: TrendValues;
 };
 
@@ -121,13 +124,43 @@ const STATUS_COLORS: Record<string, string> = {
   LOST:       'bg-gray-100 text-gray-500',
   ACTIVE:     'bg-green-100 text-green-800',
   PAUSED:     'bg-yellow-100 text-yellow-800',
+  NONE:       'bg-gray-100 text-gray-500',
+  SUBMITTED:  'bg-blue-100 text-blue-800',
+  VERIFIED:   'bg-green-100 text-green-800',
+  REJECTED:   'bg-red-100 text-red-800',
+  ISSUED:     'bg-green-100 text-green-800',
+  paid:       'bg-green-100 text-green-800',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  PENDING:    '대기',
+  COMPLETED:  '완료',
+  CONFIRMED:  '확인됨',
+  CANCELLED:  '취소',
+  SENT:       '발송됨',
+  NEW:        '신규',
+  CONTACTED:  '연락완료',
+  WON:        '성사',
+  LOST:       '이탈',
+  ACTIVE:     '활성',
+  PAUSED:     '일시정지',
+  NONE:       '미등록',
+  SUBMITTED:  '제출됨',
+  VERIFIED:   '확인완료',
+  REJECTED:   '반려',
+  ISSUED:     '발급됨',
+  paid:       '결제완료',
+  pending:    '대기',
+  refunded:   '환불',
+  cancelled:  '취소',
 };
 
 function Badge({ status }: { status: string }) {
   const cls = STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-600';
+  const label = STATUS_LABEL[status] ?? status;
   return (
     <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>
-      {status}
+      {label}
     </span>
   );
 }
@@ -234,29 +267,43 @@ function DrilldownDrawer({
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
 
+  // config를 ref로 저장 (객체 참조 변경에 의한 무한 루프 방지)
+  const configRef = useRef(config);
+  configRef.current = config;
+  const apiUrl = config?.apiUrl ?? '';
+
+  // apiUrl 변경 시 페이지 리셋
   useEffect(() => {
-    if (!open || !config) return;
+    if (!open || !apiUrl) return;
     setPage(1);
     setItems([]);
     setSummary(null);
-  }, [open, config]);
+  }, [open, apiUrl]);
 
+  // 데이터 fetch — apiUrl(문자열)로 의존하여 무한 루프 방지
   useEffect(() => {
-    if (!open || !config) return;
+    if (!open || !apiUrl) return;
+    const ctrl = new AbortController();
     setLoading(true);
-    fetch(`${config.apiUrl}&page=${page}`, { credentials: 'include' })
-      .then((r) => r.json())
+    fetch(`${apiUrl}&page=${page}`, { credentials: 'include', signal: ctrl.signal })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((json) => {
         if (json.ok && json.data) {
           setItems(json.data.items ?? []);
-          setTotal(json.data.total ?? 0);
+          setTotal(json.data.total ?? json.data.items?.length ?? 0);
           setTotalPages(json.data.totalPages ?? 1);
           if (json.data.summary) setSummary(json.data.summary);
         }
       })
-      .catch(() => {})
+      .catch((e) => {
+        if (e.name !== 'AbortError') setItems([]);
+      })
       .finally(() => setLoading(false));
-  }, [open, config, page]);
+    return () => ctrl.abort();
+  }, [open, apiUrl, page]);
 
   if (!open || !config) return null;
 
@@ -426,7 +473,13 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
                 <tr key={s.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-gray-900 max-w-[200px] truncate">{s.productName}</td>
                   <td className="px-4 py-3 text-right text-gray-700">₩{s.amount.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-right text-gray-700">₩{s.commission.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right">
+                    {s.commissionRate == null ? (
+                      <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full">확인 중</span>
+                    ) : (
+                      <span className="text-gray-700">₩{s.commission.toLocaleString()} <span className="text-gray-400 text-xs">({s.commissionRate}%)</span></span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-center"><Badge status={s.status} /></td>
                   <td className="px-4 py-3 text-right text-gray-500">{s.date}</td>
                 </tr>
@@ -436,11 +489,68 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
         )}
       </TableWrapper>
 
-      {/* 여권/PNR 현황 */}
+      {/* 여권/PNR 현황 — 요약 카드 + 최근 목록 */}
       <TableWrapper>
-        <div className="px-5 py-3 border-b border-gray-100">
+        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-700">여권 / PNR 현황</h3>
+          <button
+            onClick={() => onDrilldown({
+              title: '예약 전체 내역',
+              apiUrl: `/api/partner/dashboard/b2c/detail?type=reservations&month=${month}`,
+              columns: [
+                { key: 'customerName', label: '고객명' },
+                { key: 'productName', label: '상품명' },
+                { key: 'passportStatus', label: '여권', align: 'center', render: (v) => <Badge status={v as string} /> },
+                { key: 'pnrStatus', label: 'PNR', align: 'center', render: (v) => <Badge status={v as string} /> },
+                { key: 'departureDate', label: '출발일', align: 'right' },
+                { key: 'date', label: '예약일', align: 'right' },
+              ],
+            })}
+            className="text-xs text-blue-600 hover:underline"
+          >
+            전체보기 →
+          </button>
         </div>
+
+        {/* 상태별 숫자 요약 */}
+        {(data.passportSummary || data.pnrSummary) && (
+          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+            <div className="grid grid-cols-2 gap-4">
+              {/* 여권 상태 */}
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-2">여권 상태</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(data.passportSummary ?? {}).map(([status, count]) => (
+                    <div key={status} className="flex items-center gap-1.5">
+                      <Badge status={status} />
+                      <span className="text-sm font-bold text-gray-900">{count}건</span>
+                    </div>
+                  ))}
+                  {Object.keys(data.passportSummary ?? {}).length === 0 && (
+                    <span className="text-xs text-gray-400">데이터 없음</span>
+                  )}
+                </div>
+              </div>
+              {/* PNR 상태 */}
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-2">PNR 상태</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(data.pnrSummary ?? {}).map(([status, count]) => (
+                    <div key={status} className="flex items-center gap-1.5">
+                      <Badge status={status} />
+                      <span className="text-sm font-bold text-gray-900">{count}건</span>
+                    </div>
+                  ))}
+                  {Object.keys(data.pnrSummary ?? {}).length === 0 && (
+                    <span className="text-xs text-gray-400">데이터 없음</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 최근 5건 테이블 */}
         {data.passportPnr.length === 0 ? (
           <EmptyState message="여권/PNR 데이터가 없습니다." />
         ) : (
@@ -455,26 +565,11 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
             </thead>
             <tbody className="divide-y divide-gray-100">
               {data.passportPnr.map((p) => (
-                <tr
-                  key={p.id}
-                  className="hover:bg-blue-50 transition-colors cursor-pointer"
-                  onClick={() => onDrilldown({
-                    title: `${p.customerName} — 예약 상세`,
-                    apiUrl: `/api/partner/dashboard/b2c/detail?type=reservations&month=${month}`,
-                    columns: [
-                      { key: 'customerName', label: '고객명' },
-                      { key: 'productName', label: '상품명' },
-                      { key: 'passportStatus', label: '여권', align: 'center', render: (v) => <Badge status={v as string} /> },
-                      { key: 'pnrStatus', label: 'PNR', align: 'center', render: (v) => <Badge status={v as string} /> },
-                      { key: 'departureDate', label: '출발일', align: 'right' },
-                      { key: 'date', label: '예약일', align: 'right' },
-                    ],
-                  })}
-                >
+                <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-gray-900">{p.customerName}</td>
                   <td className="px-4 py-3 text-center"><Badge status={p.passportStatus} /></td>
                   <td className="px-4 py-3 text-center"><Badge status={p.pnrStatus} /></td>
-                  <td className="px-4 py-3 text-right text-gray-500">{p.confirmedAt ?? '-'}</td>
+                  <td className="px-4 py-3 text-right text-gray-500">{p.confirmedAt ? <Badge status={p.confirmedAt} /> : '-'}</td>
                 </tr>
               ))}
             </tbody>
@@ -855,18 +950,16 @@ export default function PartnerDashboardPage() {
     setLoading(false);
   }, []);
 
-  // 탭 또는 월 변경 시 fetch
+  // 탭 또는 월 변경 시 fetch — 단일 effect로 통합 (이중 렌더 방지)
   useEffect(() => {
-    fetchTab(activeTab, month);
-  }, [activeTab, month, fetchTab]);
-
-  // 월 변경 시 캐시된 데이터 세팅 or null
-  useEffect(() => {
+    // 월 변경 시 캐시된 데이터 즉시 세팅 (깜빡임 방지)
     const c = cache.current[month];
     setB2cData((c?.b2c as B2CData) ?? null);
     setB2bData((c?.b2b as B2BData) ?? null);
     setGoldData((c?.gold as GoldData) ?? null);
-  }, [month]);
+    // 현재 탭 데이터 fetch
+    fetchTab(activeTab, month);
+  }, [activeTab, month, fetchTab]);
 
   if (authError) {
     return (
