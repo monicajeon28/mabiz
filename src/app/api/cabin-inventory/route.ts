@@ -35,7 +35,9 @@ export async function GET(req: NextRequest) {
     }
 
     if (search) {
-      where.tripName = { contains: search, mode: 'insensitive' };
+      // LIKE 와일드카드 이스케이프
+      const escapedSearch = search.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+      where.tripName = { contains: escapedSearch, mode: 'insensitive' };
     }
 
     const cabins = await prisma.cabinInventory.findMany({
@@ -149,7 +151,9 @@ export async function POST(req: NextRequest) {
     const existingCabins = await prisma.cabinInventory.findMany({
       where: {
         organizationId,
-        tripCode: tripCode ?? null,
+        ...(tripCode
+          ? { tripCode }
+          : { tripCode: null, tripName }),
       },
       select: { cabinType: true, bookedCount: true },
     });

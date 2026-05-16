@@ -30,7 +30,7 @@ export async function GET() {
 
     // ── 구매 고객이 있는 유니크한 productCode 목록 조회 ──────────
     const productCodes = await prisma.$queryRaw<ProductCodeResult[]>(Prisma.sql`
-      SELECT DISTINCT t."productCode", t."cruiseName", t."shipName",
+      SELECT t."productCode", t."cruiseName", t."shipName",
              COUNT(DISTINCT r."mainUserId")::bigint as "customerCount"
       FROM "Trip" t
       JOIN "Reservation" r ON r."tripId" = t.id

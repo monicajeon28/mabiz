@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
         FROM "CruiseProduct" p
         ${whereClause}
         ORDER BY p."startDate" DESC NULLS LAST, p."createdAt" DESC
-        LIMIT ${limit} OFFSET ${offset}
+        LIMIT 50 OFFSET ${offset}
       `),
       prisma.$queryRaw<[{ total: bigint }]>(Prisma.sql`
         SELECT COUNT(*)::bigint AS total FROM "CruiseProduct" p ${whereClause}

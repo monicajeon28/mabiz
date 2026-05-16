@@ -58,12 +58,11 @@ const navSections: NavSection[] = [
       { href: "/products",          icon: ShoppingBag,   label: "상품 관리",    roles: ["GLOBAL_ADMIN"] },
       { href: "/members",           icon: Users,         label: "크루즈닷 회원관리", roles: ["GLOBAL_ADMIN"] },
       { href: "/passport",          icon: Stamp,         label: "여권 관리",    roles: ["GLOBAL_ADMIN", "OWNER"] },
-      { href: "/b2b-editor",        icon: FileText,      label: "B2B 랜딩",     roles: ["GLOBAL_ADMIN", "OWNER"] },
       { href: "/partner-dashboard", icon: BarChart,      label: "파트너 현황",  roles: ["GLOBAL_ADMIN", "OWNER"] },
     ],
   },
   {
-    label: "마케팅 자동화",
+    label: "마케팅 캠페인",
     roles: ["GLOBAL_ADMIN", "OWNER"],
     items: [
       { href: "/marketing",             icon: BarChart2,    label: "마케팅 대시보드" },

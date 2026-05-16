@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
@@ -163,17 +164,19 @@ export async function GET(req: NextRequest) {
     const reservationMap = new Map(reservations.map((r) => [r.id, r]));
 
     // ── 3. 탑승자 목록 조회 ─────────────────────────────────────
-    const travelers = await prisma.$queryRaw<TravelerRow[]>`
-      SELECT id, "reservationId", "roomNumber",
-             "engSurname", "engGivenName", "korName",
-             "residentNum", gender, "birthDate",
-             "passportNo", "issueDate", "expiryDate",
-             phone, "companionGroupId", "roomingGroupId",
-             notes, "passportDriveUrl"
-      FROM "Traveler"
-      WHERE "reservationId" = ANY(${reservationIds}::int[])
-      ORDER BY "reservationId" ASC, id ASC
-    `;
+    const travelers = reservationIds.length === 0
+      ? []
+      : await prisma.$queryRaw<TravelerRow[]>(Prisma.sql`
+          SELECT id, "reservationId", "roomNumber",
+                 "engSurname", "engGivenName", "korName",
+                 "residentNum", gender, "birthDate",
+                 "passportNo", "issueDate", "expiryDate",
+                 phone, "companionGroupId", "roomingGroupId",
+                 notes, "passportDriveUrl"
+          FROM "Traveler"
+          WHERE "reservationId" = ANY(ARRAY[${Prisma.join(reservationIds)}]::int[])
+          ORDER BY "reservationId" ASC, id ASC
+        `);
 
     // ── 4. 엑셀 데이터 조합 ─────────────────────────────────────
     const depDateStr = (() => {

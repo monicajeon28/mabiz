@@ -24,7 +24,6 @@ model Organization {
   sentTransfers              ContactTransferLog[]    @relation("FromOrg")
   receivedTransfers          ContactTransferLog[]    @relation("ToOrg")
   affiliateSales             AffiliateSale[]
-  b2bProspects               B2BProspect[]
   landingPages               CrmLandingPage[]
   documents                  Document[]
   funnels                    Funnel[]
@@ -660,39 +659,6 @@ model AffiliateSale {
   @@index([affiliateUserId])
   @@index([status])
   @@map("CrmAffiliateSale")
-}
-
-model B2BProspect {
-  id              String       @id @default(cuid())
-  organizationId  String
-  name            String
-  phone           String
-  email           String?
-  companyName     String?
-  position        String?
-  groupSize       Int?
-  packageInterest String?
-  budget          String?
-  preferredDate   String?
-  destination     String?
-  status          String       @default("NEW")
-  notes           String?
-  assignedUserId  String?
-  source          String?
-  affiliateCode   String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  eduType         String       @default("INQUIRER")
-  productName     String?
-  paymentAmount   Int?
-  paymentDate     String?
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId, status])
-  @@index([assignedUserId])
-  @@index([affiliateCode])
-  @@index([organizationId, eduType], map: "idx_b2b_prospect_org_edutype")
-  @@map("CrmB2BProspect")
 }
 
 model AiCallLog {

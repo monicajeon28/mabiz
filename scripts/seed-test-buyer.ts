@@ -1,77 +1,112 @@
 /**
  * 여권 관리 테스트용 구매 고객 데이터 생성 스크립트
- * 실행: npx tsx scripts/seed-test-buyer.ts
+ * 실행: set -a && source .env.local && npx tsx scripts/seed-test-buyer.ts
  */
 
 import prisma from '@/lib/prisma';
+import { normalizePhone } from '@/lib/phone-normalize';
 
-async function main() {
-  console.log('🌱 테스트 구매 고객 데이터 생성 중...');
+const TEST_EMAIL = 'test@example.com';
+const TEST_PHONE = '01012345678';
+const TEST_PRODUCT_CODE = 'TEST001';
 
+async function seedTestBuyer() {
   try {
-    // 1. GmUser 테스트 고객 생성
-    const timestamp = Date.now();
-    const user = await prisma.gmUser.create({
-      data: {
-        name: '테스트 구매자',
-        phone: `0101111${timestamp.toString().slice(-4)}`, // 고유 전화번호
-        email: `test-buyer-${timestamp}@example.com`, // 고유 이메일
-        password: 'test123456', // 테스트용 비밀번호
+    console.log('🌱 테스트 구매 고객 생성 시작...\n');
+
+    // 1. GmUser 생성 또는 조회
+    const gmUser = await prisma.gmUser.upsert({
+      where: { email: TEST_EMAIL },
+      create: {
+        phone: normalizePhone(TEST_PHONE),
+        name: '테스트고객',
+        email: TEST_EMAIL,
         role: 'user',
-        customerStatus: null,
-        tripCount: 1,
-        createdAt: new Date(),
+        password: 'test-password-hash',
+        grade: 'REGULAR',
+      },
+      update: {
+        phone: normalizePhone(TEST_PHONE),
+        name: '테스트고객',
       },
     });
-    console.log(`✓ GmUser 생성: ${user.name} (ID: ${user.id})`);
+    console.log(`✅ GmUser 생성/조회: ID ${gmUser.id} (${gmUser.name})`);
 
-    // 2. GmTrip 생성 (productCode='TEST001' 포함)
-    const trip = await prisma.gmTrip.create({
-      data: {
-        userId: user.id,
-        productCode: 'TEST001',
-        shipName: '테스트크루즈',
-        departureDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30일 뒤
-        cruiseName: '테스트크루즈 알래스카',
-        startDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        endDate: new Date(Date.now() + 37 * 24 * 60 * 60 * 1000),
-        nights: 7,
-        days: 8,
-        status: 'Upcoming',
-        updatedAt: new Date(),
+    // 2. GmTrip 생성 또는 조회
+    const departureDate = new Date('2026-08-15');
+    const existingTrip = await prisma.gmTrip.findFirst({
+      where: {
+        userId: gmUser.id,
+        productCode: TEST_PRODUCT_CODE,
       },
     });
-    console.log(`✓ GmTrip 생성: ${trip.shipName} (ID: ${trip.id})`);
 
-    // 3. GmReservation 생성 (status='CONFIRMED', paymentAmount > 0)
-    const reservation = await prisma.gmReservation.create({
-      data: {
-        tripId: trip.id,
-        mainUserId: user.id,
-        totalPeople: 2,
-        paymentDate: new Date(),
-        paymentMethod: 'CREDIT_CARD',
-        paymentAmount: 1000000, // 100만원
-        status: 'CONFIRMED',
-        passportStatus: 'PENDING',
-        pnrStatus: 'PENDING',
-        finalConfirmStatus: 'PENDING',
+    let gmTrip = existingTrip;
+    if (!gmTrip) {
+      gmTrip = await prisma.gmTrip.create({
+        data: {
+          userId: gmUser.id,
+          productCode: TEST_PRODUCT_CODE,
+          cruiseName: '지중해 7박 MSC 크루즈 (테스트)',
+          shipName: 'MSC Seaview',
+          departureDate,
+          startDate: departureDate,
+          status: 'Upcoming',
+          nights: 7,
+          days: 8,
+          updatedAt: new Date(),
+        },
+      });
+      console.log(`✅ GmTrip 생성: ID ${gmTrip.id} (${gmTrip.productCode})`);
+    } else {
+      console.log(`ℹ️  GmTrip 이미 존재: ID ${gmTrip.id}`);
+    }
+
+    // 3. GmReservation 생성
+    const existingReservation = await prisma.gmReservation.findFirst({
+      where: {
+        tripId: gmTrip.id,
+        mainUserId: gmUser.id,
       },
     });
-    console.log(`✓ GmReservation 생성: ${reservation.paymentAmount.toLocaleString()}원 (ID: ${reservation.id})`);
 
-    console.log('\n✅ 테스트 데이터 생성 완료!');
-    console.log(`\n📋 생성된 데이터:`);
-    console.log(`  - 고객: ${user.name} (${user.phone})`);
-    console.log(`  - 여행: ${trip.shipName} (${trip.productCode})`);
-    console.log(`  - 예약: ${reservation.paymentAmount.toLocaleString()}원 (CONFIRMED)`);
-    console.log(`\n🧪 여권 관리 페이지에서 확인할 수 있습니다.`);
+    if (existingReservation) {
+      console.log(`ℹ️  GmReservation 이미 존재: ID ${existingReservation.id}`);
+    } else {
+      const gmReservation = await prisma.gmReservation.create({
+        data: {
+          tripId: gmTrip.id,
+          mainUserId: gmUser.id,
+          totalPeople: 2,
+          paymentAmount: 5000000,
+          paymentDate: new Date(),
+          status: 'CONFIRMED',
+        },
+      });
+      console.log(`✅ GmReservation 생성: ID ${gmReservation.id}`);
+    }
+
+    // 4. 상태 확인
+    const tripCount = await prisma.gmTrip.count({
+      where: { userId: gmUser.id },
+    });
+    const reservationCount = await prisma.gmReservation.count({
+      where: { mainUserId: gmUser.id, status: 'CONFIRMED' },
+    });
+
+    console.log(`\n📊 최종 상태:`);
+    console.log(`   • GmUser ID: ${gmUser.id}`);
+    console.log(`   • 전화번호: ${gmUser.phone}`);
+    console.log(`   • Trip 수: ${tripCount}개`);
+    console.log(`   • Reservation (CONFIRMED): ${reservationCount}개`);
+    console.log(`\n✨ 성공! 여권 관리 페이지에서 "${gmUser.name}" 고객이 표시됩니다.`);
+    console.log(`   검색: 전화번호 "${gmUser.phone}" 또는 이름 "${gmUser.name}"`);
   } catch (error) {
-    console.error('❌ 오류 발생:', error);
+    console.error('❌ 에러:', error instanceof Error ? error.message : error);
     process.exit(1);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-main();
+seedTestBuyer();
