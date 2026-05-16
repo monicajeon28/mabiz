@@ -303,12 +303,24 @@ export async function POST(req: NextRequest) {
         }
 
         if (existingSubmission && !existingSubmission.isSubmitted) {
+          // 새로운 Trip이 있으면 그것을 사용, 없으면 기존 tripId 유지
+          let nextTripId = existingSubmission.tripId;
+          if (latestTrip?.id) {
+            // Trip이 실제로 존재하는지 확인 (FK 제약 조건 위반 방지)
+            const tripExists = await prisma.gmTrip.count({
+              where: { id: latestTrip.id },
+            });
+            if (tripExists > 0) {
+              nextTripId = latestTrip.id;
+            }
+          }
+
           const updated = await prisma.gmPassportSubmission.update({
             where: { id: existingSubmission.id },
             data: {
               token,
               tokenExpiresAt,
-              tripId: latestTrip?.id ?? existingSubmission.tripId,
+              tripId: nextTripId,
               isSubmitted: false,
               updatedAt: new Date(),
               extraData: Prisma.JsonNull,
@@ -327,8 +339,16 @@ export async function POST(req: NextRequest) {
             updatedAt: now,
           };
 
+          // latestTrip?.id가 있으면 설정하되, FK 제약 확인
           if (latestTrip?.id) {
-            createData.tripId = latestTrip.id;
+            // Trip이 실제로 존재하는지 확인 (FK 제약 조건 위반 방지)
+            const tripExists = await prisma.gmTrip.count({
+              where: { id: latestTrip.id },
+            });
+            if (tripExists > 0) {
+              createData.tripId = latestTrip.id;
+            }
+            // Trip이 없으면 tripId를 설정하지 않음 (null로 유지)
           }
 
           const created = await prisma.gmPassportSubmission.create({

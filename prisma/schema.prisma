@@ -1850,7 +1850,7 @@ model GmPassportSubmissionGuest {
 model GmPassportRequestLog {
   id             Int      @id @default(autoincrement())
   userId         Int
-  adminId        Int
+  adminId        Int?
   templateId     Int?
   messageBody    String
   messageChannel String
@@ -1859,7 +1859,7 @@ model GmPassportRequestLog {
   sentAt         DateTime @default(now())
 
   user           GmUser   @relation("PassportRequestLog_userIdToUser", fields: [userId], references: [id])
-  admin          GmUser   @relation("PassportRequestLog_adminIdToUser", fields: [adminId], references: [id])
+  admin          GmUser?  @relation("PassportRequestLog_adminIdToUser", fields: [adminId], references: [id])
 
   @@index([userId])
   @@index([adminId])
