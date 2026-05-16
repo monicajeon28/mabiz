@@ -93,6 +93,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search')?.trim() ?? '';
     const statusFilter = searchParams.get('status')?.trim() ?? '';
     const roleFilterParam = (searchParams.get('role')?.trim() ?? 'all') as RoleFilter;
+    const productCodeParam = searchParams.get('productCode')?.trim() ?? '';
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1);
     const limitParam = parseInt(searchParams.get('limit') ?? '100', 10);
     const take = Math.min(Math.max(limitParam || 100, 1), MAX_LIMIT);
@@ -103,9 +104,11 @@ export async function GET(req: NextRequest) {
     const whereConditions: Prisma.Sql[] = [
       Prisma.sql`u.role != 'admin'`,
       // 구매 고객만 필터링: 확정된 예약 + 결제 완료
+      // GmTrip을 통해 JOIN (GmReservation.mainUserId로 주인 연결)
       Prisma.sql`EXISTS(
-        SELECT 1 FROM "GmReservation" r
-        WHERE r."userId" = u.id
+        SELECT 1 FROM "GmTrip" t2
+        JOIN "GmReservation" r ON r."tripId" = t2.id
+        WHERE t2."userId" = u.id
         AND r.status = 'CONFIRMED'
         AND r."paymentAmount" > 0
       )`
@@ -161,6 +164,20 @@ export async function GET(req: NextRequest) {
       } else if (statusFilter === 'no_request') {
         whereConditions.push(Prisma.sql`prl.id IS NULL`);
       }
+    }
+
+    // productCode 필터 (상품별 고객 필터링)
+    if (productCodeParam && productCodeParam !== 'all') {
+      whereConditions.push(
+        Prisma.sql`EXISTS(
+          SELECT 1 FROM "GmTrip" t3
+          JOIN "GmReservation" r2 ON r2."tripId" = t3.id
+          WHERE t3."userId" = u.id
+            AND t3."productCode" = ${productCodeParam}
+            AND r2.status = 'CONFIRMED'
+            AND r2."paymentAmount" > 0
+        )`
+      );
     }
 
     // ── Raw SQL로 한 번의 LEFT JOIN 쿼리 실행 ──────────────────

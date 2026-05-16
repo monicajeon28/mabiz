@@ -163,6 +163,13 @@ type SearchMatch = {
 
 type SendMode = 'link' | 'message';
 
+interface ProductCode {
+  code: string;
+  cruiseName: string | null;
+  shipName: string;
+  customerCount: number;
+}
+
 // 검색 API 응답을 고객 객체로 변환하는 헬퍼
 const convertSearchMatchToCustomer = (match: SearchMatch): PassportRequestCustomer => ({
   id: match.id,
@@ -212,6 +219,8 @@ export default function PassportRequestPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
+  const [productCodeFilter, setProductCodeFilter] = useState<string>('all');
+  const [productCodes, setProductCodes] = useState<ProductCode[]>([]);
   const [sortBy, setSortBy] = useState<'status' | 'name' | 'submittedAt'>('status');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
@@ -360,6 +369,7 @@ export default function PassportRequestPage() {
       if (search.trim()) params.set('search', search.trim());
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (roleFilter !== 'all') params.set('role', roleFilter);
+      if (productCodeFilter !== 'all') params.set('productCode', productCodeFilter);
 
       const res = await fetch(`/api/passport/admin/customers?${params.toString()}`, {
         credentials: 'include',
@@ -380,7 +390,7 @@ export default function PassportRequestPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [roleFilter, search, statusFilter]);
+  }, [roleFilter, search, statusFilter, productCodeFilter]);
 
   const loadAligoStatus = useCallback(async () => {
     setIsLoadingAligoStatus(true);
@@ -438,6 +448,25 @@ export default function PassportRequestPage() {
   useEffect(() => {
     loadTemplates();
     loadAligoStatus();
+
+    // 상품 코드 목록 로드
+    const loadProductCodes = async () => {
+      try {
+        const res = await fetch('/api/passport/admin/product-codes', {
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ok && Array.isArray(data.productCodes)) {
+            setProductCodes(data.productCodes);
+          }
+        }
+      } catch (error) {
+        logger.error('[PassportRequest] Load product codes error:', { error });
+      }
+    };
+
+    loadProductCodes();
   }, [loadTemplates, loadAligoStatus]);
 
   useEffect(() => {
@@ -914,6 +943,22 @@ export default function PassportRequestPage() {
               <option value="guide">크루즈가이드 고객</option>
               <option value="mall">크루즈몰 고객</option>
               <option value="test">크루즈테스트 고객</option>
+            </select>
+          </label>
+
+          <label className="flex flex-col">
+            <span className="text-gray-700 font-semibold mb-2">상품별</span>
+            <select
+              value={productCodeFilter}
+              onChange={(event) => setProductCodeFilter(event.target.value)}
+              className="px-4 py-3 rounded-xl border-2 border-blue-100 focus:border-blue-500 focus:outline-none text-lg"
+            >
+              <option value="all">전체 상품</option>
+              {productCodes.map((pc) => (
+                <option key={pc.code} value={pc.code}>
+                  {pc.cruiseName || pc.shipName || pc.code} ({pc.customerCount}명)
+                </option>
+              ))}
             </select>
           </label>
 
