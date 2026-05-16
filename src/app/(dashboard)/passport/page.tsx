@@ -1399,11 +1399,20 @@ export default function PassportRequestPage() {
                   />
                 </label>
                 <button
-                  onClick={() => handleCopy(bulkLinkResult.message, '메시지')}
+                  onClick={() => handleCopy(bulkLinkResult.message, '메시지', 'bulk-message')}
                   className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 transition-colors"
                 >
-                  <Copy className="h-3 w-3" />
-                  메시지 복사
+                  {copiedButtonId === 'bulk-message' ? (
+                    <>
+                      <CheckCircle className="h-3 w-3" />
+                      복사됨
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3" />
+                      메시지 복사
+                    </>
+                  )}
                 </button>
               </div>
             )}
@@ -1420,11 +1429,20 @@ export default function PassportRequestPage() {
                     className="flex-1 rounded-lg border border-green-200 bg-white px-3 py-2 text-sm text-green-900 font-mono"
                   />
                   <button
-                    onClick={() => handleCopy(bulkLinkResult.link, '링크')}
+                    onClick={() => handleCopy(bulkLinkResult.link, '링크', 'bulk-link')}
                     className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition-colors whitespace-nowrap"
                   >
-                    <Copy className="h-4 w-4" />
-                    링크 복사
+                    {copiedButtonId === 'bulk-link' ? (
+                      <>
+                        <CheckCircle className="h-4 w-4" />
+                        복사됨
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4" />
+                        링크 복사
+                      </>
+                    )}
                   </button>
                 </div>
               </label>
@@ -1830,11 +1848,20 @@ export default function PassportRequestPage() {
                       className="w-full rounded-xl border border-green-200 bg-white px-4 py-3 text-sm text-green-900"
                     />
                     <button
-                      onClick={() => handleCopy(manualResult.message, '메시지')}
+                      onClick={() => handleCopy(manualResult.message, '메시지', 'manual-message')}
                       className="mt-2 inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 transition-colors"
                     >
-                      <Copy className="h-3 w-3" />
-                      메시지 복사
+                      {copiedButtonId === 'manual-message' ? (
+                        <>
+                          <CheckCircle className="h-3 w-3" />
+                          복사됨
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3" />
+                          메시지 복사
+                        </>
+                      )}
                     </button>
                   </div>
                   <div>
@@ -1847,11 +1874,20 @@ export default function PassportRequestPage() {
                         className="flex-1 rounded-xl border border-green-200 bg-white px-4 py-2 text-sm text-green-900"
                       />
                       <button
-                        onClick={() => handleCopy(manualResult.link, '링크')}
+                        onClick={() => handleCopy(manualResult.link, '링크', 'manual-link')}
                         className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition-colors"
                       >
-                        <Copy className="h-4 w-4" />
-                        링크 복사
+                        {copiedButtonId === 'manual-link' ? (
+                          <>
+                            <CheckCircle className="h-4 w-4" />
+                            복사됨
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4" />
+                            링크 복사
+                          </>
+                        )}
                       </button>
                     </div>
                     <p className="mt-1 text-xs text-green-700">
