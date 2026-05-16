@@ -22,6 +22,7 @@ export async function GET() {
   try {
     const manager = await requireCrmManager();
     if (!manager) {
+      logger.error('[product-codes] 인증 실패', { managerId: undefined });
       return NextResponse.json(
         { ok: false, message: '인증이 필요합니다.' },
         { status: 403 }
@@ -59,14 +60,9 @@ export async function GET() {
       productCodes: formattedCodes,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg === 'UNAUTHORIZED') {
-      return NextResponse.json(
-        { ok: false, message: '권한이 없습니다.' },
-        { status: 401 }
-      );
-    }
-    logger.error('[GET /api/passport/admin/product-codes]', { err });
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    logger.error('[GET /api/passport/admin/product-codes]', { message, stack });
     return NextResponse.json(
       { ok: false, error: '서버 오류' },
       { status: 500 }

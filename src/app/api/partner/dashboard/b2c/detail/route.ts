@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import { requirePartnerContext } from '@/lib/passport-auth';
 
 /**
@@ -12,6 +13,10 @@ export async function GET(req: Request) {
   try {
     const ctx = await requirePartnerContext();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 403 });
+
+    if (!ctx.organizationId) {
+      return NextResponse.json({ ok: false, error: '조직 정보 없음' }, { status: 403 });
+    }
 
     const { searchParams } = new URL(req.url);
     const type = searchParams.get('type') ?? 'sales';
@@ -26,9 +31,9 @@ export async function GET(req: Request) {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 1);
 
-    const isAdmin = ctx.sessionUser.role === 'admin';
+    const isAdmin = ctx.sessionUser?.role === 'admin';
     // 보안: ADMIN도 자신의 조직 범위 내에서만 조회 가능. 조직 ID 제한은 필수
-    const orgFilter = { organizationId: ctx.organizationId! };
+    const orgFilter = { organizationId: ctx.organizationId };
 
     if (type === 'sales') {
       const [rows, total] = await Promise.all([
@@ -348,6 +353,9 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ ok: false, error: '유효하지 않은 type' }, { status: 400 });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
+    logger.error('[b2c/detail] 조회 오류', { message, stack, userId: ctx.sessionUser?.id });
     return NextResponse.json({ ok: false, error: '서버 오류' }, { status: 500 });
   }
 }

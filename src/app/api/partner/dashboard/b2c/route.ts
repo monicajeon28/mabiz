@@ -10,6 +10,11 @@ export async function GET(req: Request) {
     const ctx = await requirePartnerContext();
     if (!ctx) return NextResponse.json({ ok: false, error: '인증이 필요합니다' }, { status: 403 });
 
+    if (!ctx.organizationId) {
+      logger.error('[b2c] organizationId 없음', { userId: ctx.sessionUser?.id });
+      return NextResponse.json({ ok: false, error: '조직 정보 없음. 관리자에게 문의하세요.' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const monthParam = searchParams.get('month');
     const now = new Date();
@@ -21,7 +26,7 @@ export async function GET(req: Request) {
     const prevEnd = startDate;
 
     const isAdmin = ctx.sessionUser.role === 'admin';
-    const orgFilter = isAdmin ? {} : { organizationId: ctx.organizationId! };
+    const orgFilter = { organizationId: ctx.organizationId };
     const orgId = ctx.organizationId;
 
     // ── 9개 쿼리 전부 병렬 ──
@@ -186,7 +191,7 @@ export async function GET(req: Request) {
     });
   } catch (error) {
     const err = error as Record<string, unknown>;
-    logger.error('[dashboard/b2c] 오류', { message: err.message, stack: err.stack });
+    logger.error('[dashboard/b2c] 오류', { message: err.message, stack: err.stack, userId: ctx.sessionUser?.id });
     return NextResponse.json({ ok: false, error: '서버 오류가 발생했습니다' }, { status: 500 });
   }
 }
