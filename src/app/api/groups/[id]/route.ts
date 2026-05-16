@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import type { ContactGroup } from '@prisma/client';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -36,10 +37,50 @@ export async function PATCH(req: Request, { params }: Params) {
       );
     }
 
-    const updateData: any = {};
-    if (name !== undefined) updateData.name = name;
-    if (description !== undefined) updateData.description = description;
-    if (funnelId !== undefined) updateData.funnelId = funnelId || null;
+    // SEC-004: 화이트리스트 검증
+    const allowedFields = ['name', 'description', 'funnelId'] as const;
+    type UpdateData = Pick<ContactGroup, typeof allowedFields[number]>;
+    const updateData: Partial<UpdateData> = {};
+
+    if (name !== undefined) {
+      if (typeof name === 'string' && name.trim().length > 0) {
+        updateData.name = name.trim();
+      } else if (name !== null) {
+        return NextResponse.json(
+          { ok: false, error: 'INVALID_INPUT', message: '그룹명은 공백이 아닌 문자열이어야 합니다.' },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (description !== undefined) {
+      if (description === null || (typeof description === 'string' && description.length <= 500)) {
+        updateData.description = description;
+      } else {
+        return NextResponse.json(
+          { ok: false, error: 'INVALID_INPUT', message: '설명은 500자 이하여야 합니다.' },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (funnelId !== undefined) {
+      if (funnelId === null || typeof funnelId === 'string') {
+        updateData.funnelId = funnelId;
+      } else {
+        return NextResponse.json(
+          { ok: false, error: 'INVALID_INPUT', message: '펀넬ID는 문자열 또는 null이어야 합니다.' },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { ok: false, error: 'NO_UPDATE', message: '변경할 필드가 없습니다.' },
+        { status: 400 }
+      );
+    }
 
     const updated = await prisma.contactGroup.update({
       where: { id: groupId },

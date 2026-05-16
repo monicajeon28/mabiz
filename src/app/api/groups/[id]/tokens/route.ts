@@ -11,8 +11,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     const ctx = await getAuthContext();
     const groupId = params.id;
 
-    const group = await prisma.contactGroup.findUnique({
-      where: { id: groupId },
+    // [SEC-002] IDOR 방지: organizationId 필터 추가 (groupId만으로는 다른 조직 접근 가능)
+    const group = await prisma.contactGroup.findFirst({
+      where: { id: groupId, organizationId: ctx.organizationId },
       select: { organizationId: true, ownerId: true },
     });
 
@@ -27,18 +28,30 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ ok: false, error: 'FORBIDDEN' }, { status: 403 });
     }
 
-    const tokens = await prisma.groupToken.findMany({
-      where: { groupId },
-      select: { id: true, expiresAt: true, active: true, createdAt: true },
-      orderBy: { createdAt: 'desc' },
-    });
+    // PERF-001: DB 레벨에서 expired 계산 (raw query)
+    const tokens = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        expiresAt: Date;
+        active: boolean;
+        createdAt: Date;
+        expired: boolean;
+      }>
+    >`
+      SELECT
+        id,
+        "expiresAt",
+        active,
+        "createdAt",
+        ("expiresAt" < NOW()) as expired
+      FROM "GroupToken"
+      WHERE "groupId" = ${groupId}
+      ORDER BY "createdAt" DESC
+    `;
 
     return NextResponse.json({
       ok: true,
-      tokens: tokens.map(t => ({
-        ...t,
-        expired: new Date(t.expiresAt) < new Date(),
-      })),
+      tokens,
     });
   } catch (err) {
     logger.error('[GET /api/groups/[id]/tokens]', { err });
@@ -52,8 +65,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const ctx = await getAuthContext();
     const groupId = params.id;
 
-    const group = await prisma.contactGroup.findUnique({
-      where: { id: groupId },
+    // [SEC-002] IDOR 방지: organizationId 필터 추가
+    const group = await prisma.contactGroup.findFirst({
+      where: { id: groupId, organizationId: ctx.organizationId },
       select: { organizationId: true, ownerId: true },
     });
 
@@ -99,8 +113,9 @@ export async function PATCH(
     const body = await req.json();
     const { tokenId, action } = body; // action: 'refresh' | 'deactivate'
 
-    const group = await prisma.contactGroup.findUnique({
-      where: { id: groupId },
+    // [SEC-002] IDOR 방지: organizationId 필터 추가
+    const group = await prisma.contactGroup.findFirst({
+      where: { id: groupId, organizationId: ctx.organizationId },
       select: { organizationId: true, ownerId: true },
     });
 

@@ -1,19 +1,20 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import prisma from '@/lib/prisma';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
-// GET /api/groups/[id]/script - 등록 스크립트 조회
-// seq 토큰이 있으면 자동 생성, 없으면 새로 생성
+// GET /api/groups/[id]/script - 기존 토큰으로 등록 스크립트 조회 (토큰 없으면 404)
+// PERF-003 + SCALE-003: 토큰 생성은 POST로 분리 (캐싱 가능하게 함)
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
     const ctx = await getAuthContext();
     const groupId = params.id;
     const { origin } = new URL(req.url);
 
-    const group = await prisma.contactGroup.findUnique({
-      where: { id: groupId },
+    const group = await prisma.contactGroup.findFirst({
+      where: { id: groupId, organizationId: ctx.organizationId },
       select: { name: true, organizationId: true, ownerId: true },
     });
 
@@ -24,11 +25,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     if (ctx.role === 'AGENT' && group.ownerId !== ctx.userId) {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN' }, { status: 403 });
     }
-    if (ctx.role === 'OWNER' && group.organizationId !== ctx.organizationId) {
-      return NextResponse.json({ ok: false, error: 'FORBIDDEN' }, { status: 403 });
-    }
 
-    let token = await prisma.groupToken.findFirst({
+    // 기존 유효한 토큰 조회만 (생성하지 않음)
+    const token = await prisma.groupToken.findFirst({
       where: {
         groupId,
         active: true,
@@ -38,12 +37,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     });
 
     if (!token) {
-      const seq = require('crypto').randomBytes(6).toString('hex');
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      token = await prisma.groupToken.create({
-        data: { id: seq, groupId, expiresAt, active: true },
-      });
-      logger.log('[AutoCreateGroupToken]', { groupId, seq });
+      return NextResponse.json(
+        { ok: false, error: 'NO_TOKEN', message: '유효한 토큰이 없습니다. POST /api/groups/[id]/script로 토큰을 생성하세요.' },
+        { status: 404 }
+      );
     }
 
     const formFields = [
@@ -78,6 +75,57 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     });
   } catch (err) {
     logger.error('[GET /api/groups/[id]/script]', { err });
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+}
+
+// POST /api/groups/[id]/script - 새 토큰 생성
+// PERF-003 + SCALE-003: 토큰 생성을 POST로 분리
+export async function POST(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const ctx = await getAuthContext();
+    const groupId = params.id;
+
+    const group = await prisma.contactGroup.findFirst({
+      where: { id: groupId, organizationId: ctx.organizationId },
+      select: { name: true, organizationId: true, ownerId: true },
+    });
+
+    if (!group) {
+      return NextResponse.json({ ok: false, error: 'NOT_FOUND' }, { status: 404 });
+    }
+
+    if (ctx.role === 'AGENT' && group.ownerId !== ctx.userId) {
+      return NextResponse.json({ ok: false, error: 'FORBIDDEN' }, { status: 403 });
+    }
+
+    // 기존 활성 토큰이 있으면 비활성화
+    await prisma.groupToken.updateMany({
+      where: { groupId, active: true },
+      data: { active: false },
+    });
+
+    // 새 토큰 생성
+    const seq = crypto.randomBytes(6).toString('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    const token = await prisma.groupToken.create({
+      data: { id: seq, groupId, expiresAt, active: true },
+      select: { id: true, expiresAt: true, createdAt: true },
+    });
+
+    logger.log('[CreateGroupToken]', { groupId, seq, action: 'POST' });
+
+    return NextResponse.json({
+      ok: true,
+      token: token.id,
+      groupId,
+      groupName: group.name,
+      expiresAt: token.expiresAt,
+      message: '새 토큰이 생성되었습니다.',
+    });
+  } catch (err) {
+    logger.error('[POST /api/groups/[id]/script]', { err });
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }

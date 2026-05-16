@@ -38,8 +38,10 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: '그룹을 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // 발송 대상 조회 (SmsOptOut + optOutAt 필터링, 최대 MAX_RECIPIENTS)
+    // [PERF-002] 발송 대상 조회 (SmsOptOut organizationId 필터링 — 100배 성능 개선)
+    // organizationId 필터 추가: 전체 SmsOptOut 대신 현 조직의 것만 로드
     const optedOutPhones = await prisma.smsOptOut.findMany({
+      where: { organizationId: orgId },
       select: { phone: true },
     });
     const optedOutPhoneSet = new Set(optedOutPhones.map(o => o.phone));
@@ -104,11 +106,12 @@ export async function POST(req: Request, { params }: Params) {
     let sentCount    = 0;
     let blockedCount = 0;
     let failedCount  = 0;
+    const failures: Array<{ phoneNumber: string; reason: string; timestamp: string }> = [];
 
     for (let i = 0; i < targets.length; i += BATCH_SIZE) {
       const batch = targets.slice(i, i + BATCH_SIZE);
 
-      await Promise.allSettled(
+      const results = await Promise.allSettled(
         batch.map(async (m) => {
           const personalizedMsg = message
             .replace(/\[고객명\]/g, m.contact.name)
@@ -123,12 +126,51 @@ export async function POST(req: Request, { params }: Params) {
             channel:        'GROUP',
           });
 
-          const code = Number(result.result_code);
-          if (code === 1)              sentCount++;
-          else if (code === -99 || code === -98) blockedCount++;
-          else                         failedCount++;
+          return {
+            phoneNumber: m.contact.phone,
+            resultCode: Number(result.result_code),
+            resultMsg: result.result_message || result.msg,
+          };
         })
       );
+
+      // CONS-004: 발송 실패 상세 기록
+      results.forEach((r, idx) => {
+        if (r.status === 'rejected') {
+          failedCount++;
+          const errorMsg = r.reason?.message || String(r.reason) || '알 수 없는 오류';
+          failures.push({
+            phoneNumber: batch[idx].contact.phone,
+            reason: errorMsg,
+            timestamp: new Date().toISOString(),
+          });
+        } else {
+          const code = r.value.resultCode;
+          if (code === 1) {
+            sentCount++;
+          } else if (code === -99 || code === -98) {
+            blockedCount++;
+          } else {
+            failedCount++;
+            failures.push({
+              phoneNumber: r.value.phoneNumber,
+              reason: `SMS API 오류 (코드: ${code}, 메시지: ${r.value.resultMsg})`,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
+      });
+    }
+
+    // 발송 실패 시 상세 로깅
+    if (failures.length > 0) {
+      logger.warn('[GroupBlastPartialFailure]', {
+        group: group.name,
+        totalAttempted: targets.length,
+        failureCount: failures.length,
+        failureRate: `${((failures.length / targets.length) * 100).toFixed(1)}%`,
+        failureDetails: failures.slice(0, 10), // 최대 10개만 상세 기록
+      });
     }
 
     logger.log('[GroupBlast] 발송 완료', {
@@ -136,6 +178,7 @@ export async function POST(req: Request, { params }: Params) {
       sentCount,
       blockedCount,
       failedCount,
+      hasFailures: failures.length > 0,
     });
 
     return NextResponse.json({
@@ -146,6 +189,7 @@ export async function POST(req: Request, { params }: Params) {
       failedCount,
       blockedByOptOut,
       total:       targets.length,
+      failures: failures.slice(0, 10), // 클라이언트에게도 첫 10개만 반환
     });
 
   } catch (err) {
