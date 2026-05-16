@@ -147,69 +147,101 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 기존 판매 현황 먼저 조회 (bookedCount 절대 수정 금지)
-    const existingCabins = await prisma.cabinInventory.findMany({
-      where: {
-        organizationId,
-        ...(tripCode
-          ? { tripCode }
-          : { tripCode: null, tripName }),
-      },
-      select: { cabinType: true, bookedCount: true },
-    });
-    const bookedMap = new Map(existingCabins.map((c) => [c.cabinType, c.bookedCount]));
-
-    // 판매수보다 적게 수정 시도 → 에러
-    for (const c of cabins as { cabinType: string; totalCount: number }[]) {
-      const sold = bookedMap.get(c.cabinType) ?? 0;
-      if (c.totalCount < sold) {
-        return NextResponse.json(
-          { ok: false, error: `${c.cabinType}: 이미 ${sold}실 판매됨 (PNR 기준) — 총 수량은 ${sold} 이상이어야 합니다.` },
-          { status: 400 },
-        );
-      }
-    }
-
-    // upsert: bookedCount 유지, totalCount만 업데이트, status 재계산
-    const upsertResults = await Promise.all(
-      (cabins as { cabinType: string; totalCount: number }[]).map((c) => {
-        const sold = bookedMap.get(c.cabinType) ?? 0;
-        const newStatus = c.totalCount <= sold ? 'SOLD_OUT' : 'AVAILABLE';
-        return prisma.cabinInventory.upsert({
+    // 원자적 처리: 트랜잭션으로 검증+upsert 함께 수행
+    let created = { count: 0 };
+    try {
+      created = await prisma.$transaction(async (tx) => {
+        // 기존 판매 현황 먼저 조회 (bookedCount 절대 수정 금지)
+        const existingCabins = await tx.cabinInventory.findMany({
           where: {
-            organizationId_tripCode_cabinType: {
-              organizationId,
-              tripCode: tripCode ?? '',
-              cabinType: c.cabinType,
-            },
-          },
-          create: {
             organizationId,
-            tripName,
-            tripCode: tripCode ?? null,
-            departureDate: departureDate ? new Date(departureDate) : null,
-            shipName: shipName ?? null,
-            cabinType: c.cabinType,
-            totalCount: c.totalCount,
-            bookedCount: 0,           // 신규: 판매수 0부터 시작
-            status: 'AVAILABLE',
+            ...(tripCode
+              ? { tripCode }
+              : { tripCode: null, tripName }),
           },
-          update: {
-            totalCount: c.totalCount, // totalCount만 수정
-            // bookedCount 절대 손대지 않음
-            tripName,
-            departureDate: departureDate ? new Date(departureDate) : null,
-            shipName: shipName ?? null,
-            status: newStatus,        // 판매수 기준 재계산
-          },
+          select: { cabinType: true, bookedCount: true },
         });
-      }),
-    );
-    const created = { count: upsertResults.length };
+        const bookedMap = new Map(existingCabins.map((c) => [c.cabinType, c.bookedCount]));
+
+        // 실제 예약 수 집계 (tripCode 기준)
+        let reservationMap = new Map<string, number>();
+        if (tripCode) {
+          const reservationGroups = await tx.gmReservation.groupBy({
+            by: ['cabinType'],
+            where: {
+              trip: { productCode: tripCode },
+              status: 'CONFIRMED',
+              pnrStatus: 'COMPLETED',
+            },
+            _count: { id: true },
+          });
+          reservationMap = new Map(
+            reservationGroups.map((r) => [r.cabinType ?? 'unknown', r._count.id])
+          );
+        }
+
+        // 판매수보다 적게 수정 시도 → 에러 (수동 bookedCount와 실제 예약수 중 큰 값 사용)
+        for (const c of cabins as { cabinType: string; totalCount: number }[]) {
+          const manualBooked = bookedMap.get(c.cabinType) ?? 0;
+          const actualBooked = reservationMap.get(c.cabinType) ?? 0;
+          const sold = Math.max(manualBooked, actualBooked);
+          if (c.totalCount < sold) {
+            throw new Error(
+              `${c.cabinType}: 이미 ${sold}실 판매됨 — 총 수량은 ${sold} 이상이어야 합니다.`
+            );
+          }
+        }
+
+        // upsert: bookedCount 유지, totalCount만 업데이트, status 재계산
+        const upsertResults = await Promise.all(
+          (cabins as { cabinType: string; totalCount: number }[]).map((c) => {
+            const manualBooked = bookedMap.get(c.cabinType) ?? 0;
+            const actualBooked = reservationMap.get(c.cabinType) ?? 0;
+            const sold = Math.max(manualBooked, actualBooked);
+            const newStatus = c.totalCount <= sold ? 'SOLD_OUT' : 'AVAILABLE';
+            return tx.cabinInventory.upsert({
+              where: {
+                organizationId_tripCode_cabinType: {
+                  organizationId,
+                  tripCode: tripCode ?? '',
+                  cabinType: c.cabinType,
+                },
+              },
+              create: {
+                organizationId,
+                tripName,
+                tripCode: tripCode ?? null,
+                departureDate: departureDate ? new Date(departureDate) : null,
+                shipName: shipName ?? null,
+                cabinType: c.cabinType,
+                totalCount: c.totalCount,
+                bookedCount: 0,
+                status: 'AVAILABLE',
+              },
+              update: {
+                totalCount: c.totalCount,
+                tripName,
+                departureDate: departureDate ? new Date(departureDate) : null,
+                shipName: shipName ?? null,
+                status: newStatus,
+              },
+            });
+          }),
+        );
+        return { count: upsertResults.length };
+      });
+    } catch (txErr) {
+      const msg = txErr instanceof Error ? txErr.message : 'Transaction error';
+      if (msg.includes('이미')) {
+        return NextResponse.json({ ok: false, error: msg }, { status: 400 });
+      }
+      throw txErr;
+    }
 
     logger.info('[cabin-inventory] POST created', {
       organizationId,
       tripName,
+      tripCode,
       count: created.count,
     });
 
@@ -226,14 +258,14 @@ export async function POST(req: NextRequest) {
 
 /**
  * PUT /api/cabin-inventory
- * 객실 수량 수정 (GLOBAL_ADMIN만)
+ * 객실 수량 수정 (GLOBAL_ADMIN + OWNER)
  * - bookedCount >= totalCount이면 자동 SOLD_OUT
  */
 export async function PUT(req: NextRequest) {
   try {
     const ctx = await getAuthContext();
 
-    if (ctx.role !== 'GLOBAL_ADMIN') {
+    if (ctx.role !== 'GLOBAL_ADMIN' && ctx.role !== 'OWNER') {
       return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
     }
 
@@ -248,6 +280,11 @@ export async function PUT(req: NextRequest) {
     const existing = await prisma.cabinInventory.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ ok: false, error: '해당 객실을 찾을 수 없습니다' }, { status: 404 });
+    }
+
+    // OWNER는 자기 조직만 수정 가능
+    if (ctx.role === 'OWNER' && existing.organizationId !== ctx.organizationId) {
+      return NextResponse.json({ ok: false, error: '자기 조직의 객실만 수정 가능합니다' }, { status: 403 });
     }
 
     const newTotalCount = typeof totalCount === 'number' ? totalCount : existing.totalCount;

@@ -151,7 +151,7 @@ function CabinSummaryCell({ summary, productCode, onRegister }: {
   ];
 
   return (
-    <div className="space-y-0.5 min-w-[110px]">
+    <div className="space-y-0.5 min-w-[110px] min-h-[100px]">
       {all.map(({ key, label, entry }) => {
         const isSoldOut = entry.remaining <= 0;
         return (
@@ -218,6 +218,7 @@ function CabinRegisterModal({ productCode, productName, organizationId, cabinSum
     }
     return init;
   });
+  const [customTypes, setCustomTypes] = useState<Array<{ id: string; name: string; count: string }>>([]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -244,9 +245,14 @@ function CabinRegisterModal({ productCode, productName, organizationId, cabinSum
       }
     }
 
-    const cabins = CABIN_TYPE_CONFIG
-      .map(({ key }) => ({ cabinType: key, totalCount: parseInt(counts[key] ?? "", 10) }))
-      .filter((c) => !isNaN(c.totalCount) && c.totalCount > 0);
+    const cabins = [
+      ...CABIN_TYPE_CONFIG
+        .map(({ key }) => ({ cabinType: key, totalCount: parseInt(counts[key] ?? "", 10) }))
+        .filter((c) => !isNaN(c.totalCount) && c.totalCount > 0),
+      ...customTypes
+        .map((ct) => ({ cabinType: ct.name, totalCount: parseInt(ct.count ?? "", 10) }))
+        .filter((c) => !isNaN(c.totalCount) && c.totalCount > 0),
+    ];
 
     if (cabins.length === 0) {
       setErr("최소 한 가지 객실 타입의 수량을 입력해 주세요.");
@@ -330,6 +336,52 @@ function CabinRegisterModal({ productCode, productName, organizationId, cabinSum
               </div>
             );
           })}
+
+          {/* 커스텀 객실 타입 */}
+          {customTypes.map((ct, idx) => (
+            <div key={ct.id} className="space-y-0.5">
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={ct.name}
+                  onChange={(e) => {
+                    setCustomTypes((p) => p.map((t, i) => (i === idx ? { ...t, name: e.target.value } : t)));
+                    setErr(null);
+                  }}
+                  placeholder="예: 디럭스, 프리미엄"
+                  className="text-sm text-gray-700 w-[140px] shrink-0 px-2 py-1 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+                <div className="relative flex-1">
+                  <input
+                    type="number"
+                    min="0"
+                    value={ct.count}
+                    onChange={(e) => {
+                      setCustomTypes((p) => p.map((t, i) => (i === idx ? { ...t, count: e.target.value } : t)));
+                      setErr(null);
+                    }}
+                    placeholder="0"
+                    className="w-full pr-6 pl-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">실</span>
+                </div>
+                <button
+                  onClick={() => setCustomTypes((p) => p.filter((_, i) => i !== idx))}
+                  className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {/* 커스텀 추가 버튼 */}
+          <button
+            onClick={() => setCustomTypes((p) => [...p, { id: crypto.randomUUID(), name: '', count: '' }])}
+            className="w-full py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+          >
+            + 기타 객실 타입 추가
+          </button>
         </div>
 
         {err && <p className="text-sm text-red-600 mb-3">{err}</p>}
@@ -888,6 +940,17 @@ export default function ProductsPage() {
           {error}
         </div>
       )}
+
+      {/* 새로고침 버튼 */}
+      <div className="flex justify-end mb-2">
+        <button
+          onClick={() => fetchProducts(page, searchQuery, activeFilter)}
+          className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-600 hover:text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <RefreshCw size={14} />
+          새로고침
+        </button>
+      </div>
 
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
