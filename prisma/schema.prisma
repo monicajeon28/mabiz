@@ -1118,6 +1118,7 @@ model ImageAsset {
   fileSize         BigInt?
   width            Int?
   height           Int?
+  orientation      Int          @default(1)
   tags             String[]
   category         String?
   uploadedBy       String
@@ -2153,12 +2154,18 @@ model BotGuideAnswer {
   key       String   @unique
   question  String
   answer    String
+  category  String   @default("기타")
   source    String   @default("ai-generated")
+  type      String   @default("상담기록")
+  salesTone Json     @default("{\"primary\":\"neutral\",\"secondary\":[],\"confidence\":0}")
+  keywords  Json     @default("[]")
   isActive  Boolean  @default(false)
   createdAt DateTime @default(now())
-  updatedAt DateTime
+  updatedAt DateTime @updatedAt
 
-  @@index([isActive, updatedAt])
+  @@index([isActive, category])
+  @@index([category, updatedAt])
+  @@index([key, isActive])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -4054,6 +4061,8 @@ model Wishlist {
   @@index([cruiseProductId])
   @@index([userId])
 }
+
+/// 세일즈봇 Q&A 라이브러리
 
 model prisma_migrations {
   id             Int       @id @default(dbgenerated("nextval('_prisma_migrations_id_seq'::regclass)"))

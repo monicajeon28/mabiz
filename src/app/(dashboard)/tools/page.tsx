@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { MessageSquare, Phone, BookOpen, User, Copy, Check, Loader2, Upload, FileText } from "lucide-react";
+import { MessageSquare, Phone, BookOpen, User, Copy, Check, Loader2, Upload, FileText, BookMarked } from "lucide-react";
 import { CompressorModal } from "@/components/ui/CompressorModal";
+import { QaLibrary } from "@/components/tools/QaLibrary";
 
 type Template = { id: string; category: string; title: string; content: string; triggerOffset: number | null };
 type Playbook  = { id: string; type: string; title: string; content: string; priority: number };
@@ -36,7 +37,7 @@ const PLAYBOOK_TABS = [
 
 export default function ToolsPage() {
   const [showCompressor, setShowCompressor] = useState(false);
-  const [mainTab,  setMainTab]   = useState<"sms" | "playbook" | "call-feedback">("sms");
+  const [mainTab,  setMainTab]   = useState<"sms" | "playbook" | "call-feedback" | "qa-library">("sms");
   const [smsTab,   setSmsTab]    = useState("CARE_VIP");
   const [pbTab,    setPbTab]     = useState("REJECTION");
 
@@ -121,16 +122,17 @@ export default function ToolsPage() {
       )}
 
       {/* 메인 탭 */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6">
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 overflow-x-auto">
         {[
           { key: "sms",           label: "📱 문자 템플릿" },
           { key: "playbook",      label: "📖 세일즈 플레이북" },
           { key: "call-feedback", label: "📞 콜 피드백 AI" },
+          { key: "qa-library",    label: "📚 Q&A 라이브러리" },
         ].map((t) => (
           <button
             key={t.key}
             onClick={() => setMainTab(t.key as typeof mainTab)}
-            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
+            className={`flex-1 min-w-max py-2 px-3 text-sm font-medium rounded-lg transition-colors ${
               mainTab === t.key ? "bg-white text-navy-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
             }`}
           >
@@ -416,6 +418,13 @@ export default function ToolsPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Q&A 라이브러리 */}
+      {mainTab === "qa-library" && (
+        <div>
+          <QaLibrary />
         </div>
       )}
     </div>
