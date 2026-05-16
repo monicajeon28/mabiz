@@ -93,6 +93,7 @@ export default function GroupsPage() {
   const [blastGroupId,  setBlastGroupId]  = useState<string | null>(null);
   const [blastMsg,      setBlastMsg]      = useState("");
   const [blastPreview,  setBlastPreview]  = useState<{ willSend: number; isOverLimit: boolean; overLimitMsg: string | null } | null>(null);
+  const [blastConfirm,  setBlastConfirm]  = useState(false); // UX-004: 최종 확인 체크박스
   const [blasting,      setBlasting]      = useState(false);
   const [blastResult,   setBlastResult]   = useState<{ sentCount: number; blockedCount: number; failedCount: number } | null>(null);
   const [checkingBlast, setCheckingBlast] = useState(false);
@@ -132,7 +133,8 @@ export default function GroupsPage() {
   };
 
   const sendBlast = async () => {
-    if (!blastGroupId || !blastMsg.trim() || blasting) return;
+    // UX-004: 최종 확인 체크박스 검증
+    if (!blastGroupId || !blastMsg.trim() || blasting || !blastConfirm) return;
     setBlasting(true);
     try {
       const res  = await fetch(`/api/groups/${blastGroupId}/blast`, {
@@ -143,6 +145,7 @@ export default function GroupsPage() {
       if (data.ok) {
         setBlastResult({ sentCount: data.sentCount, blockedCount: data.blockedCount, failedCount: data.failedCount });
         setBlastPreview(null);
+        setBlastConfirm(false); // 발송 후 상태 초기화
       } else {
         const msg = data.error ?? data.message ?? "발송에 실패했습니다.";
         setBlastError(msg);
@@ -463,13 +466,32 @@ export default function GroupsPage() {
                       )}
 
                       {blastPreview && (
-                        <div className="bg-blue-50 rounded-lg p-3 text-sm">
-                          <p className="font-medium text-blue-800">발송 예정: {blastPreview.willSend}명</p>
-                          {blastPreview.isOverLimit && (
-                            <p className="text-xs text-orange-600 mt-1">
-                              ⚠️ 200명 초과 — 첫 200명만 발송됩니다
-                            </p>
-                          )}
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 space-y-3 text-sm">
+                          <div>
+                            <p className="font-semibold text-yellow-800">📢 발송 최종 확인</p>
+                            <div className="mt-2 space-y-1 text-yellow-700">
+                              <p>✓ <span className="font-medium">대상:</span> {blastPreview.willSend}명</p>
+                              <p>✓ <span className="font-medium">메시지:</span> {blastMsg.substring(0, 50)}{blastMsg.length > 50 ? '...' : ''}</p>
+                            </div>
+                            {blastPreview.isOverLimit && (
+                              <p className="text-xs text-orange-600 mt-2">
+                                ⚠️ 200명 초과 — 첫 200명만 발송됩니다
+                              </p>
+                            )}
+                          </div>
+
+                          {/* UX-004: 최종 확인 체크박스 */}
+                          <label className="flex items-start gap-2 pt-2 border-t border-yellow-200">
+                            <input
+                              type="checkbox"
+                              checked={blastConfirm}
+                              onChange={(e) => setBlastConfirm(e.target.checked)}
+                              className="w-4 h-4 rounded border-yellow-300 text-yellow-600 mt-0.5"
+                            />
+                            <span className="text-xs text-yellow-800">
+                              위의 내용으로 <span className="font-semibold">{blastPreview.willSend}명</span>에게 발송하는 것을 확인합니다.
+                            </span>
+                          </label>
                         </div>
                       )}
 
@@ -483,20 +505,38 @@ export default function GroupsPage() {
                             {checkingBlast ? "확인 중..." : "대상 확인"}
                           </button>
                         ) : (
+                          <>
+                            <button
+                              onClick={() => {
+                                setBlastPreview(null);
+                                setBlastConfirm(false);
+                                setBlastMsg("");
+                              }}
+                              className="flex-1 border border-gray-300 text-gray-600 py-1.5 rounded-lg text-sm hover:bg-gray-50"
+                            >
+                              수정
+                            </button>
+                            <button
+                              onClick={sendBlast}
+                              disabled={blasting || !blastConfirm}
+                              className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                                blastConfirm && !blasting
+                                  ? 'bg-red-600 text-white hover:bg-red-700'
+                                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                              }`}
+                            >
+                              {blasting ? "발송 중..." : `발송 (${blastPreview.willSend}명)`}
+                            </button>
+                          </>
+                        )}
+                        {!blastPreview && (
                           <button
-                            onClick={sendBlast}
-                            disabled={blasting}
-                            className="flex-1 bg-navy-900 text-white py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
+                            onClick={() => setBlastGroupId(null)}
+                            className="flex-1 bg-gray-100 text-gray-600 py-1.5 rounded-lg text-sm"
                           >
-                            {blasting ? "발송 중..." : `${blastPreview.willSend}명에게 발송`}
+                            취소
                           </button>
                         )}
-                        <button
-                          onClick={() => setBlastGroupId(null)}
-                          className="flex-1 bg-gray-100 text-gray-600 py-1.5 rounded-lg text-sm"
-                        >
-                          취소
-                        </button>
                       </div>
                     </>
                   )}
