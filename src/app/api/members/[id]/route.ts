@@ -25,16 +25,9 @@ export async function GET(_req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, error: '잘못된 ID입니다.' }, { status: 400 });
     }
 
-    // GmUser 조회 (groups 포함)
+    // GmUser 조회
     const user = await prisma.gmUser.findUnique({
       where: { id: gmUserId },
-      include: {
-        groups: {
-          include: {
-            group: true,
-          },
-        },
-      },
     });
 
     if (!user) {

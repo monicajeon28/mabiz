@@ -192,7 +192,7 @@ export default function MembersPage() {
     setTagInput("");
     setNewGroupName("");
     setShowNewGroupInput(false);
-    setSelectedGroups(new Set(member.groups?.map((g) => g.groupId) || []));
+    setSelectedGroups(new Set());
 
     try {
       // 상세 정보 + 변경 이력 조회
