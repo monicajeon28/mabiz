@@ -71,7 +71,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    if (ctx.role === 'FREE_SALES' || ctx.role === 'AGENT') {
+    if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '랜딩페이지 생성 권한이 없습니다' }, { status: 403 });
     }
     // GLOBAL_ADMIN은 organizationId가 null → DB에서 실제 첫 번째 조직 사용
@@ -83,7 +83,14 @@ export async function POST(req: Request) {
     } else {
       orgId = resolveOrgId(ctx);
     }
-    const { title, slug, htmlContent, groupId, editorMode, commentEnabled, ...rest } = await req.json();
+
+    // AGENT는 자기 조직만 생성 가능
+    const body = await req.json();
+    if (ctx.role === 'AGENT' && body.organizationId && body.organizationId !== ctx.organizationId) {
+      return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '자기 조직만 랜딩페이지 생성 가능합니다' }, { status: 403 });
+    }
+
+    const { title, slug, htmlContent, groupId, editorMode, commentEnabled, ...rest } = body;
 
     if (!title?.trim() || !slug?.trim()) {
       return NextResponse.json({ ok: false, message: "제목과 슬러그는 필수입니다." }, { status: 400 });

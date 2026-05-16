@@ -49,7 +49,7 @@ export default function MessagesPage() {
     <div className="p-6 max-w-2xl">
       <Card>
         <CardHeader>
-          <CardTitle>메시지 발송</CardTitle>
+          <CardTitle>단일 SMS 발송</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* 메시지 타입 선택 */}
@@ -101,13 +101,15 @@ export default function MessagesPage() {
 
       {/* 그룹 대량 발송 안내 */}
       <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-sm font-medium text-blue-800">그룹 대량 발송</p>
-        <p className="text-xs text-blue-600 mt-1">
-          고객 관리 → 그룹 선택 → &quot;그룹 SMS&quot; 버튼으로 최대 200명에게 한번에 발송할 수 있습니다.
+        <p className="text-sm font-medium text-blue-800">💡 더 많은 고객에게 한 번에 발송하시나요?</p>
+        <p className="text-xs text-blue-600 mt-2">
+          <strong>그룹 대량 발송</strong>을 사용하면 최대 200명에게 한 번에 발송할 수 있습니다.
         </p>
-        <a href="/contacts" className="inline-block mt-2 text-xs font-medium text-blue-700 hover:text-blue-900 underline">
-          고객 관리로 이동 →
-        </a>
+        <ol className="text-xs text-blue-600 mt-2 ml-4 space-y-1 list-decimal">
+          <li><a href="/contacts" className="font-medium text-blue-700 hover:text-blue-900 underline">고객 관리</a>에서 고객 선택</li>
+          <li>&quot;그룹 생성&quot;으로 그룹 만들기</li>
+          <li>그룹 선택 → &quot;그룹 SMS 발송&quot; 버튼 클릭</li>
+        </ol>
       </div>
     </div>
   );

@@ -11,9 +11,16 @@ export async function POST(_req: Request, { params }: Params) {
     const orgId = requireOrgId(ctx);
     const { id } = await params;
 
-    // 원본 그룹 조회 (소유권 검증)
+    // 현재 사용자 ID 조회
+    const userId = ctx.userId || ctx.memberId;
+    if (!userId) {
+      return NextResponse.json({ ok: false, message: '인증 필요' }, { status: 401 });
+    }
+
+    // 원본 그룹 조회 (소유권 검증) + 멤버 포함
     const original = await prisma.contactGroup.findFirst({
       where: { id, organizationId: orgId },
+      include: { members: { select: { contactId: true } } },
     });
     if (!original) return NextResponse.json({ ok: false }, { status: 404 });
 
@@ -22,7 +29,20 @@ export async function POST(_req: Request, { params }: Params) {
     if (original.funnelId) {
       const originalFunnel = await prisma.funnel.findFirst({
         where: { id: original.funnelId, organizationId: orgId },
-        include: { stages: { orderBy: { order: 'asc' } } },
+        include: {
+          stages: {
+            select: {
+              name: true,
+              order: true,
+              triggerType: true,
+              triggerOffset: true,
+              channel: true,
+              messageContent: true,
+              linkUrl: true,
+            },
+            orderBy: { order: 'asc' },
+          },
+        },
       });
 
       if (originalFunnel) {
@@ -51,17 +71,45 @@ export async function POST(_req: Request, { params }: Params) {
       }
     }
 
-    // 그룹 복제
+    // 그룹 복제 (ownerId 포함)
     const newGroup = await prisma.contactGroup.create({
       data: {
         organizationId: orgId,
         name:     `[복제] ${original.name}`,
         funnelId: newFunnelId,
+        ownerId:  userId,
       },
       select: { id: true, name: true },
     });
 
-    logger.log('[GroupClone] 복제 완료', { originalId: id, newGroupId: newGroup.id });
+    // 멤버 배치 복사 (기존 멤버 전체)
+    if (original.members.length > 0) {
+      await prisma.contactGroupMember.createMany({
+        data: original.members.map((m) => ({
+          groupId:  newGroup.id,
+          contactId: m.contactId,
+        })),
+        skipDuplicates: true, // 중복 방지
+      });
+    }
+
+    // GroupToken 생성 (7일 유효)
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    await prisma.groupToken.create({
+      data: {
+        groupId:  newGroup.id,
+        expiresAt,
+      },
+    });
+
+    logger.log('[GroupClone] 복제 완료', {
+      originalId: id,
+      newGroupId: newGroup.id,
+      memberCount: original.members.length,
+      ownerId: userId,
+    });
     return NextResponse.json({ ok: true, group: newGroup });
   } catch (e) {
     logger.log('[GroupClone] 오류', { error: e instanceof Error ? e.message : String(e) });

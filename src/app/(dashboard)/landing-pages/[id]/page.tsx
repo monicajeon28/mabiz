@@ -6,6 +6,7 @@ import { ArrowLeft, Eye, Users, MessageSquare, ImageIcon, Code, Upload, X, GripV
 import dynamic from "next/dynamic";
 import { RegistrationsTab } from "./components/RegistrationsTab";
 import { CommentsTab } from "./components/CommentsTab";
+import FormBuilder, { FormField } from "@/components/forms/FormBuilder";
 
 type Registration = {
   id: string;
@@ -118,17 +119,11 @@ export default function EditLandingPage() {
   const [commentDateFrom, setCommentDateFrom]   = useState("2024-01-01");
   const [commentDateTo, setCommentDateTo]       = useState("2025-12-31");
   const [showAdvanced, setShowAdvanced]         = useState(false);
-
-  type FieldToggle = { enabled: boolean; required: boolean };
-  const [formFields, setFormFields] = useState<Record<string, FieldToggle>>({
-    phone:            { enabled: true,  required: true  },
-    name:             { enabled: true,  required: true  },
-    email:            { enabled: false, required: false },
-    gender:           { enabled: false, required: false },
-    birthDate:        { enabled: false, required: false },
-    address:          { enabled: false, required: false },
-    marketingConsent: { enabled: false, required: false },
-  });
+  const [formFields, setFormFields] = useState<FormField[]>([
+    { id: 'name', name: 'name', label: '이름', type: 'text', required: true, placeholder: '이름을 입력하세요' },
+    { id: 'phone', name: 'phone', label: '전화번호', type: 'tel', required: true, placeholder: '010-0000-0000' },
+    { id: 'email', name: 'email', label: '이메일', type: 'email', required: false, placeholder: 'example@email.com' },
+  ]);
   const FIELD_LABELS: Record<string, string> = {
     phone: "연락처", name: "이름", email: "이메일",
     gender: "성별", birthDate: "생년월일", address: "주소", marketingConsent: "마케팅동의",
@@ -178,9 +173,9 @@ export default function EditLandingPage() {
         setProductPrice(String(pageData.page.productPrice ?? ""));
         setCycleDay(String(pageData.page.cycleDay ?? "1"));
         setExpireDate(pageData.page.expireDate ? pageData.page.expireDate.split("T")[0] : "");
-        const fc = pageData.page.formConfig as { b2bEduType?: string; fields?: Record<string, FieldToggle>; footer?: string } | null;
+        const fc = pageData.page.formConfig as { b2bEduType?: string; fields?: FormField[]; footer?: string } | null;
         setB2bEduType((fc?.b2bEduType as "" | "INQUIRER" | "BUYER") ?? "");
-        if (fc?.fields) setFormFields(fc.fields);
+        if (fc?.fields && Array.isArray(fc.fields)) setFormFields(fc.fields);
         if (fc?.footer) setFooter(fc.footer);
         // 추가 편집 필드
         setExposureTitle(pageData.page.exposureTitle ?? "");
@@ -556,25 +551,17 @@ export default function EditLandingPage() {
   // Task 1-1: buildFormFields 재사용 함수 (폼 필드 동적 생성)
   const buildFormFields = (): string => {
     let html = "";
-    Object.entries(formFields).forEach(([key, val]) => {
-      if (!val.enabled) return;
-      const label = FIELD_LABELS[key] || key;
-      const required = val.required ? "required" : "";
+    formFields.forEach((field) => {
+      const placeholder = encodeHtml(field.placeholder || field.label);
+      const required = field.required ? "required" : "";
 
-      if (key === "name") {
-        html += `<input type="text" name="name" placeholder="${encodeHtml(label)}" ${required} style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;" />`;
-      } else if (key === "phone") {
-        html += `<input type="tel" name="phone" placeholder="${encodeHtml(label)}" ${required} style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;" />`;
-      } else if (key === "email") {
-        html += `<input type="email" name="email" placeholder="${encodeHtml(label)}" ${required} style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;" />`;
-      } else if (key === "birthDate") {
-        html += `<input type="date" name="birthDate" placeholder="${encodeHtml(label)}" ${required} style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;" />`;
-      } else if (key === "gender") {
-        html += `<select name="gender" ${required} style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;"><option value="">성별 선택</option><option value="M">남성</option><option value="F">여성</option></select>`;
-      } else if (key === "address") {
-        html += `<input type="text" name="address" placeholder="${encodeHtml(label)}" ${required} style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;" />`;
-      } else if (key === "marketingConsent") {
-        html += `<label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><input type="checkbox" name="marketingConsent" style="width:16px;height:16px;" /><span style="font-size:13px;color:#666;">마케팅 정보 수신 동의</span></label>`;
+      if (field.type === "text" || field.type === "tel" || field.type === "email") {
+        html += `<input type="${field.type}" name="${field.name}" placeholder="${placeholder}" ${required} style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;" />`;
+      } else if (field.type === "select") {
+        const options = field.options?.map(opt => `<option value="${encodeHtml(opt)}">${encodeHtml(opt)}</option>`).join('') || '';
+        html += `<select name="${field.name}" ${required} style="width:100%;padding:14px 16px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;"><option value="">선택하세요</option>${options}</select>`;
+      } else if (field.type === "checkbox") {
+        html += `<label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><input type="checkbox" name="${field.name}" style="width:16px;height:16px;" /><span style="font-size:13px;color:#666;">${encodeHtml(field.label)}</span></label>`;
       }
     });
     return html;
@@ -811,33 +798,13 @@ export default function EditLandingPage() {
             </button>
             {showAdvanced && (
               <div className="px-4 py-3 bg-white space-y-3">
-                {/* 폼 필드 설정 */}
+                {/* 폼 필드 빌더 */}
                 <div>
-                  <p className="text-xs font-semibold text-gray-600 mb-1.5">신청 폼 필드</p>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(formFields).map(([key, val]) => (
-                      <label key={key} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={val.enabled}
-                          onChange={(e) => setFormFields((prev) => ({ ...prev, [key]: { ...val, enabled: e.target.checked } }))}
-                          className="w-3 h-3"
-                        />
-                        <span>{FIELD_LABELS[key] ?? key}</span>
-                        {val.enabled && (
-                          <label className="flex items-center gap-0.5 text-[10px] text-red-500 ml-1">
-                            <input
-                              type="checkbox"
-                              checked={val.required}
-                              onChange={(e) => setFormFields((prev) => ({ ...prev, [key]: { ...val, required: e.target.checked } }))}
-                              className="w-2.5 h-2.5"
-                            />
-                            필수
-                          </label>
-                        )}
-                      </label>
-                    ))}
-                  </div>
+                  <p className="text-xs font-semibold text-gray-600 mb-1.5">신청 폼 필드 (드래그로 순서 변경 가능)</p>
+                  <FormBuilder
+                    initialFields={formFields}
+                    onChange={setFormFields}
+                  />
                 </div>
                 {/* 푸터 */}
                 <div className="flex items-center gap-2">

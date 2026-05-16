@@ -186,9 +186,23 @@ model ContactGroup {
   ownerId        String?
   organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   members        ContactGroupMember[]
+  landingPages   CrmLandingPage[]
+  tokens         GroupToken[]
 
   @@index([organizationId])
   @@index([ownerId])
+}
+
+model GroupToken {
+  id             String       @id @default(cuid())
+  groupId        String
+  expiresAt      DateTime
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  group          ContactGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+  @@index([expiresAt])
 }
 
 model ContactGroupMember {
@@ -243,7 +257,9 @@ model CrmLandingPage {
   autoFunnelId      String?
   groupId           String?
   commentEnabled    Boolean                  @default(false)
+  group             ContactGroup?            @relation(fields: [groupId], references: [id], onDelete: SetNull)
   createdAt         DateTime                 @default(now())
+  createdByUserId   String?
   updatedAt         DateTime                 @updatedAt
   description       String?
   category          String?
@@ -272,6 +288,7 @@ model CrmLandingPage {
 
   @@unique([slug, organizationId])
   @@index([organizationId])
+  @@index([organizationId, createdByUserId, createdAt])
   @@map("CrmLandingPage")
 }
 
@@ -530,6 +547,7 @@ model PayAppPayment {
   landingPageId  String?
   paidAt         DateTime?
   createdAt      DateTime  @default(now())
+  createdByUserId String?
   productName    String?
   customerEmail  String?
   mulNo          String?
@@ -547,6 +565,7 @@ model PayAppPayment {
   @@index([landingPageId])
   @@index([mulNo])
   @@index([status])
+  @@index([organizationId, createdByUserId, createdAt])
   @@map("CrmPayAppPayment")
 }
 

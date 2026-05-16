@@ -38,7 +38,12 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: '그룹을 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // 발송 대상 조회 (수신거부 제외, 최대 MAX_RECIPIENTS)
+    // 발송 대상 조회 (SmsOptOut + optOutAt 필터링, 최대 MAX_RECIPIENTS)
+    const optedOutPhones = await prisma.smsOptOut.findMany({
+      select: { phone: true },
+    });
+    const optedOutPhoneSet = new Set(optedOutPhones.map(o => o.phone));
+
     const members = await prisma.contactGroupMember.findMany({
       where: {
         groupId,
@@ -54,13 +59,19 @@ export async function POST(req: Request, { params }: Params) {
       take: MAX_RECIPIENTS + 1, // +1로 초과 여부 감지
     });
 
+    // SmsOptOut 테이블에 등록된 번호 필터링
+    const filteredMembers = members.filter(m => !optedOutPhoneSet.has(m.contact.phone));
+
     const totalInGroup = await prisma.contactGroupMember.count({ where: { groupId } });
-    const isOverLimit  = members.length > MAX_RECIPIENTS;
-    const targets      = members.slice(0, MAX_RECIPIENTS);
+    const isOverLimit  = filteredMembers.length > MAX_RECIPIENTS;
+    const targets      = filteredMembers.slice(0, MAX_RECIPIENTS);
+    const blockedByOptOut = members.length - filteredMembers.length;
 
     logger.log('[GroupBlast] 대상 파악', {
       group:      group.name,
       total:      totalInGroup,
+      filtered:   filteredMembers.length,
+      blockedByOptOut,
       targets:    targets.length,
       dryRun,
     });
@@ -73,6 +84,7 @@ export async function POST(req: Request, { params }: Params) {
         groupName:   group.name,
         total:       totalInGroup,
         willSend:    targets.length,
+        blockedByOptOut,
         isOverLimit,
         overLimitMsg: isOverLimit
           ? `200명 제한 초과 — 첫 ${MAX_RECIPIENTS}명에게만 발송됩니다.`
@@ -132,6 +144,7 @@ export async function POST(req: Request, { params }: Params) {
       sentCount,
       blockedCount,
       failedCount,
+      blockedByOptOut,
       total:       targets.length,
     });
 

@@ -57,6 +57,24 @@ export default function FunnelsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const createBlankFunnel = async () => {
+    setCreating(true);
+    const res = await fetch("/api/funnels", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "새 퍼널",
+        description: "처음부터 시작하는 커스텀 퍼널입니다. 스테이지를 추가하고 메시지를 작성하세요.",
+        stages: [],
+      }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      setFunnels((prev) => [data.funnel, ...prev]);
+    }
+    setCreating(false);
+  };
+
   const createVipCareFunnel = async () => {
     setCreating(true);
     const res = await fetch("/api/funnels", {
@@ -113,11 +131,18 @@ export default function FunnelsPage() {
             </button>
           )}
           <button
-            onClick={createVipCareFunnel}
+            onClick={createBlankFunnel}
             disabled={creating}
             className="flex items-center gap-1.5 bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 disabled:opacity-50"
           >
             <Plus className="w-4 h-4" /> 새 퍼널
+          </button>
+          <button
+            onClick={createVipCareFunnel}
+            disabled={creating}
+            className="flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+          >
+            🚢 VIP 케어 템플릿
           </button>
         </div>
       </div>

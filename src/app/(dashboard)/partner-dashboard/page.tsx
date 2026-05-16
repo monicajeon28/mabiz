@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ShoppingCart, Users, CreditCard, UserPlus, GraduationCap,
@@ -399,6 +400,7 @@ function DrilldownDrawer({
 
 function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; loading: boolean; month: string; onDrilldown: (config: DrilldownConfig) => void }) {
   const [passportSubTab, setPassportSubTab] = useState<'pending' | 'complete'>('pending');
+  const router = useRouter();
 
   if (loading || !data) {
     return (
@@ -417,6 +419,75 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
 
   return (
     <div className="space-y-6">
+      {/* 매출 분석 카드 */}
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">이달의 매출 현황</h3>
+            <p className="text-xs text-gray-500 mt-1">{month} 기준</p>
+          </div>
+          <DollarSign className="h-5 w-5 text-gray-300" />
+        </div>
+
+        {/* 핵심 지표 (3개 열) */}
+        <div className="grid grid-cols-3 gap-4 mb-6 pb-6 border-b border-gray-100">
+          <div>
+            <p className="text-xs font-medium text-gray-500 mb-1">전체 수익</p>
+            <p className="text-2xl font-bold text-gray-900">₩{formatWon(data.totalSalesAmount)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-500 mb-1">판매 건수</p>
+            <p className="text-2xl font-bold text-gray-900">{data.salesCount}</p>
+            <p className="text-xs text-gray-400 mt-1">건</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-500 mb-1">평균 금액</p>
+            <p className="text-2xl font-bold text-gray-900">
+              ₩{data.salesCount > 0 ? formatWon(Math.floor(data.totalSalesAmount / data.salesCount)) : '0'}
+            </p>
+          </div>
+        </div>
+
+        {/* TOP 3 인기상품 */}
+        <div className="mb-6">
+          <p className="text-xs font-semibold text-gray-700 mb-3">인기 상품 TOP 3</p>
+          {data.recentSales.length === 0 ? (
+            <p className="text-xs text-gray-400">상품 판매 데이터가 없습니다.</p>
+          ) : (
+            <div className="space-y-2">
+              {(() => {
+                const grouped: Record<string, number> = {};
+                data.recentSales.forEach((s) => {
+                  grouped[s.productName] = (grouped[s.productName] ?? 0) + 1;
+                });
+                return Object.entries(grouped)
+                  .sort(([, a], [, b]) => b - a)
+                  .slice(0, 3)
+                  .map(([name, count], i) => (
+                    <div key={name} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
+                          {i + 1}
+                        </span>
+                        <span className="text-gray-700 truncate">{name}</span>
+                      </div>
+                      <span className="text-gray-500 whitespace-nowrap">{count}건</span>
+                    </div>
+                  ));
+              })()}
+            </div>
+          )}
+        </div>
+
+        {/* CTA 버튼 */}
+        <button
+          onClick={() => router.push('/partner/my-sales')}
+          className="w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors active:scale-[0.98]"
+        >
+          상세 분석 보기 →
+        </button>
+      </div>
+
       {/* 통계 카드 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard title="총 판매액" value={`₩${formatWon(data.totalSalesAmount)}`} icon={<DollarSign className="h-5 w-5" />} trend={data.trends?.totalSalesAmount} onClick={() => onDrilldown({
