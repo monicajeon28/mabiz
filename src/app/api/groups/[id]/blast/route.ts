@@ -7,6 +7,8 @@ import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
 
 const MAX_RECIPIENTS = 200; // Vercel 타임아웃 방지 (10건 배치 × 20회 ≈ 2초)
 const BATCH_SIZE     = 10;
+const MAX_SMS_LENGTH = 90;
+const DISALLOWED_CHARS = /[\x00-\x1F\x7F]/g;
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -21,12 +23,30 @@ export async function POST(req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
     const orgId = requireOrgId(ctx);
+    if (!orgId) {
+      logger.error('[GroupBlast] 조직 정보 없음', { userId: ctx?.userId });
+      return NextResponse.json({ ok: false, message: '조직 정보 없음. 관리자에게 문의하세요.' }, { status: 403 });
+    }
     const { id: groupId } = await params;
 
     const { message, dryRun = false } = await req.json();
 
     if (!message?.trim()) {
       return NextResponse.json({ ok: false, message: '메시지를 입력하세요.' }, { status: 400 });
+    }
+
+    const trimmedMsg = message.trim();
+    if (trimmedMsg.length > MAX_SMS_LENGTH) {
+      return NextResponse.json(
+        { ok: false, error: 'MESSAGE_TOO_LONG', message: '메시지는 90자 이내여야 합니다.' },
+        { status: 400 }
+      );
+    }
+    if (DISALLOWED_CHARS.test(trimmedMsg)) {
+      return NextResponse.json(
+        { ok: false, error: 'INVALID_CHARS', message: '사용할 수 없는 문자가 포함되어 있습니다.' },
+        { status: 400 }
+      );
     }
 
     // [보안] 그룹 소유권 검증 (IDOR 방지 — 조항 3)
