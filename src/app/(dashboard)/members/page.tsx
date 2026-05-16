@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, CheckCircle, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, CheckCircle, Loader2, ChevronLeft, ChevronRight, X, Clock } from "lucide-react";
 
 type Member = {
   id: number;
@@ -15,6 +15,25 @@ type Member = {
   isLocked: boolean;
   affiliateType: string | null;
   provider: "KAKAO" | "NAVER" | "GOOGLE" | "DIRECT";
+};
+
+type ContactChangeLog = {
+  id: number;
+  gmUserId: number | null;
+  contactId: string | null;
+  field: string;
+  oldValue: string | null;
+  newValue: string | null;
+  reason: string | null;
+  changedBy: string;
+  changedAt: string;
+};
+
+type Staff = {
+  id: string;
+  displayName: string | null;
+  loginId: string;
+  orgName: string;
 };
 
 const PROVIDER_BADGE: Record<string, { label: string; color: string }> = {
@@ -52,6 +71,18 @@ export default function MembersPage() {
   const [provider, setProvider] = useState("");
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
+
+  // 모달 관련 상태
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailData, setDetailData] = useState<{ user: any; changeHistory: ContactChangeLog[] } | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState("");
+  const [assignReason, setAssignReason] = useState("");
+  const [assigning, setAssigning] = useState(false);
+  const [assignResult, setAssignResult] = useState("");
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const totalPages  = Math.max(1, Math.ceil(total / LIMIT));
@@ -119,6 +150,90 @@ export default function MembersPage() {
   const handleProviderChange = (val: string) => {
     setProvider(val);
     setPage(1);
+  };
+
+  // 회원 상세 모달 열기
+  const openDetailModal = async (member: Member) => {
+    setSelectedMember(member);
+    setShowDetailModal(true);
+    setDetailLoading(true);
+    setAssignResult("");
+    setSelectedStaff("");
+    setAssignReason("");
+
+    try {
+      // 상세 정보 + 변경 이력 조회
+      const detailRes = await fetch(`/api/members/${member.id}`);
+      if (!detailRes.ok) throw new Error(String(detailRes.status));
+      const detailJson = await detailRes.json();
+      if (detailJson.ok) {
+        setDetailData(detailJson);
+      }
+
+      // 스태프 목록 조회 (담당자 드롭다운)
+      if (staffList.length === 0) {
+        setStaffLoading(true);
+        const staffRes = await fetch("/api/org/agents");
+        if (staffRes.ok) {
+          const staffJson = await staffRes.json();
+          if (staffJson.ok && staffJson.sections) {
+            const allStaff: Staff[] = [];
+            for (const section of staffJson.sections) {
+              allStaff.push(...section.members);
+            }
+            setStaffList(allStaff);
+          }
+        }
+        setStaffLoading(false);
+      }
+    } catch (err) {
+      setAssignResult("상세 정보를 불러올 수 없습니다.");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  // 담당자 지정
+  const handleAssignStaff = async () => {
+    if (!selectedMember || !selectedStaff) {
+      setAssignResult("담당자를 선택해주세요.");
+      return;
+    }
+
+    setAssigning(true);
+    setAssignResult("");
+
+    try {
+      const res = await fetch(`/api/members/${selectedMember.id}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assignedUserId: selectedStaff,
+          reason: assignReason || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json();
+        setAssignResult(json.error || "담당자 지정에 실패했습니다.");
+        return;
+      }
+
+      const json = await res.json();
+      if (json.ok) {
+        setAssignResult("✅ 담당자가 지정되었습니다.");
+        // 상세 정보 다시 로드
+        setTimeout(() => {
+          openDetailModal(selectedMember);
+        }, 500);
+      } else {
+        setAssignResult(json.error || "담당자 지정에 실패했습니다.");
+      }
+    } catch (err) {
+      setAssignResult("서버 연결에 실패했습니다.");
+    } finally {
+      setAssigning(false);
+    }
   };
 
   return (
@@ -198,7 +313,11 @@ export default function MembersPage() {
                   const rowNum         = (page - 1) * LIMIT + idx + 1;
 
                   return (
-                    <tr key={String(m.id)} className="hover:bg-gray-50 transition-colors">
+                    <tr
+                      key={String(m.id)}
+                      onClick={() => openDetailModal(m)}
+                      className="hover:bg-blue-50 transition-colors cursor-pointer"
+                    >
                       <td className="px-4 py-3 text-gray-400 text-xs">{rowNum}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">
                         {m.name ?? <span className="text-gray-400 font-normal">이름없음</span>}
@@ -267,6 +386,169 @@ export default function MembersPage() {
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 회원 상세 모달 */}
+      {showDetailModal && selectedMember && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-auto">
+            {/* 헤더 */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">
+                  {selectedMember.name || "이름없음"}
+                </h2>
+                <p className="text-sm text-gray-500">{selectedMember.email || "-"}</p>
+              </div>
+              <button
+                onClick={() => setShowDetailModal(false)}
+                className="p-1 rounded-lg hover:bg-gray-100 text-gray-400"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {detailLoading ? (
+              <div className="flex items-center justify-center py-20 gap-2 text-gray-400">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="text-sm">불러오는 중...</span>
+              </div>
+            ) : (
+              <div className="p-6 space-y-6">
+                {/* 기본 정보 */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">📋 기본 정보</h3>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-gray-500">가입경로</p>
+                      <p className="font-medium text-gray-900">
+                        {PROVIDER_BADGE[selectedMember.provider]?.label || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">가입일</p>
+                      <p className="font-medium text-gray-900">{formatDate(selectedMember.createdAt)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">전화번호</p>
+                      <p className="font-medium text-gray-900 font-mono">{selectedMember.phone || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">카카오채널</p>
+                      <p className="font-medium text-gray-900">
+                        {selectedMember.kakaoChannelAdded ? "✅ 추가됨" : "-"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 담당자 지정 */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">👤 담당자 지정</h3>
+                  <div className="space-y-3">
+                    {staffLoading ? (
+                      <p className="text-sm text-gray-500">담당자 목록을 불러오는 중...</p>
+                    ) : (
+                      <div>
+                        <label className="text-xs text-gray-600 mb-2 block">담당자 선택</label>
+                        <select
+                          value={selectedStaff}
+                          onChange={(e) => setSelectedStaff(e.target.value)}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                        >
+                          <option value="">— 담당자 선택 —</option>
+                          {staffList.length > 0 ? (
+                            staffList.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.displayName || s.loginId} [{s.id}]
+                              </option>
+                            ))
+                          ) : (
+                            <option disabled>담당자가 없습니다.</option>
+                          )}
+                        </select>
+                      </div>
+                    )}
+                    <div>
+                      <label className="text-xs text-gray-600 mb-2 block">변경 이유 (선택)</label>
+                      <textarea
+                        value={assignReason}
+                        onChange={(e) => setAssignReason(e.target.value)}
+                        placeholder="예: 팀 이동, 지역 담당 변경 등"
+                        rows={2}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 타임라인 */}
+                {detailData && detailData.changeHistory.length > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4" />
+                      변경 이력
+                    </h3>
+                    <div className="space-y-2">
+                      {detailData.changeHistory.map((log) => (
+                        <div
+                          key={log.id}
+                          className="flex items-start gap-3 p-2 rounded-lg hover:bg-white/50 transition-colors"
+                        >
+                          <span className="mt-0.5 text-gold-500 shrink-0 text-lg">✨</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-900">
+                              <span className="font-medium">{log.newValue}</span>
+                              {log.reason && (
+                                <>
+                                  <br />
+                                  <span className="text-gray-600">이유: {log.reason}</span>
+                                </>
+                              )}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {new Date(log.changedAt).toLocaleString("ko-KR")}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 결과 메시지 */}
+                {assignResult && (
+                  <div
+                    className={`px-4 py-3 rounded-lg text-sm ${
+                      assignResult.startsWith("✅")
+                        ? "bg-green-50 text-green-700 border border-green-200"
+                        : "bg-red-50 text-red-600 border border-red-200"
+                    }`}
+                  >
+                    {assignResult}
+                  </div>
+                )}
+
+                {/* 액션 버튼 */}
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={() => setShowDetailModal(false)}
+                    className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleAssignStaff}
+                    disabled={!selectedStaff || assigning}
+                    className="px-4 py-2 bg-blue-600 rounded-lg text-sm font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {assigning ? "저장 중..." : "저장"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

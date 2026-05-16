@@ -634,6 +634,22 @@ model ContactTransferLog {
   @@map("ContactTransferLog")
 }
 
+model ContactChangeLog {
+  id        Int       @id @default(autoincrement())
+  contactId String?
+  gmUserId  Int?
+  field     String
+  oldValue  String?
+  newValue  String?
+  reason    String?
+  changedBy String
+  changedAt DateTime  @default(now())
+
+  @@index([gmUserId])
+  @@index([contactId])
+  @@map("ContactChangeLog")
+}
+
 model AffiliateSale {
   id                String          @id @default(cuid())
   organizationId    String
