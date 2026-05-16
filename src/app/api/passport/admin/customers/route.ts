@@ -44,20 +44,20 @@ const MAX_LIMIT = 200;
 // ── 전화번호 마스킹 함수 ────────────────────────────────────────
 /**
  * 전화번호를 마스킹합니다
- * - GLOBAL_ADMIN: 전체 공개 (관리자 권한)
- * - 그 외 (OWNER/AGENT): 모두 마스킹 (010-****-**** 형식)
+ * - GLOBAL_ADMIN, OWNER, AGENT: 전체 공개 (관리자/대리점장 권한)
+ * - 그 외: 마스킹 (010-****-**** 형식) — 외부 노출 시에만
  *
  * @param phone - 전화번호 (원본 형식: 01012345678, 010-1234-5678, 02-1234-5678 등)
  * @param role - 사용자 역할
- * @returns 마스킹된 전화번호 또는 null
+ * @returns 전체 번호 또는 마스킹된 전화번호 또는 null
  */
 function maskPhoneNumber(phone: string | null, role: string): string | null {
   if (!phone) return null;
 
-  // GLOBAL_ADMIN은 전체 번호 공개
-  if (role === 'GLOBAL_ADMIN') return phone;
+  // 관리자, 대리점장, 정식판매원: 전체 번호 공개
+  if (['GLOBAL_ADMIN', 'OWNER', 'AGENT'].includes(role)) return phone;
 
-  // 숫자만 추출
+  // 기타 역할: 숫자만 추출하여 마스킹
   const digits = phone.replace(/[^0-9]/g, '');
 
   if (digits.length === 11) {

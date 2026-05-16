@@ -8,6 +8,24 @@ import { logger } from '@/lib/logger';
 
 const MAX_MATCHES = 20;
 
+/**
+ * 전화번호를 마스킹합니다
+ * - GLOBAL_ADMIN, OWNER, AGENT: 전체 공개 (관리자/대리점장 권한)
+ * - 그 외: 마스킹 (010-****-**** 형식) — 외부 노출 시에만
+ */
+function maskPhoneNumber(phone: string | null, role: string): string | null {
+  if (!phone) return null;
+
+  // 관리자, 대리점장, 정식판매원: 전체 번호 공개
+  if (['GLOBAL_ADMIN', 'OWNER', 'AGENT'].includes(role)) return phone;
+
+  // 기타 역할: 마스킹
+  const digits = phone.replace(/[^0-9]/g, '');
+  if (digits.length === 11) return digits.slice(0, 3) + '-****-****';
+  if (digits.length === 10) return digits.slice(0, 2) + '-****-****';
+  return '***-****-****';
+}
+
 export async function GET(req: NextRequest) {
   try {
     const manager = await requireCrmManager();
@@ -107,7 +125,13 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ ok: true, data: matches });
+    // 응답 데이터에서 전화번호 마스킹 적용
+    const maskedData = matches.map(user => ({
+      ...user,
+      phone: maskPhoneNumber(user.phone, manager.role),
+    }));
+
+    return NextResponse.json({ ok: true, data: maskedData });
   } catch (error) {
     logger.error('[PassportRequest] GET /search error:', error as Record<string, unknown>);
     return NextResponse.json(
