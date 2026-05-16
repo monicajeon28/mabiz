@@ -65,7 +65,20 @@ export async function PATCH(req: Request, { params }: Params) {
     }
 
     if (funnelId !== undefined) {
-      if (funnelId === null || typeof funnelId === 'string') {
+      if (funnelId === null) {
+        updateData.funnelId = null;
+      } else if (typeof funnelId === 'string') {
+        // TYPE-001: 펀널 소유권 검증 추가
+        const funnel = await prisma.funnel.findFirst({
+          where: { id: funnelId, organizationId: orgId },
+          select: { id: true },
+        });
+        if (!funnel) {
+          return NextResponse.json(
+            { ok: false, error: 'INVALID_FUNNEL', message: '펀널을 찾을 수 없거나 접근 권한이 없습니다.' },
+            { status: 400 }
+          );
+        }
         updateData.funnelId = funnelId;
       } else {
         return NextResponse.json(
