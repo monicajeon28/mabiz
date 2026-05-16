@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
         trips: {
           select: {
             id: true,
-            productName: true,
+            productCode: true,
             cruiseName: true,
             departureDate: true,
             startDate: true,

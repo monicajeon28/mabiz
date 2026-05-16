@@ -136,7 +136,7 @@ type SearchMatch = {
   tripCount: number;
   trips: Array<{
     id: number;
-    productName: string | null;
+    productCode: string | null;
     cruiseName: string | null;
     departureDate: string;
     startDate: string | null;
