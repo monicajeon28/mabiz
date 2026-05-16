@@ -24,8 +24,9 @@ export async function uploadImageToDrive(params: {
   tags?: string[];
   width?: number;
   height?: number;
+  orientation?: number;
 }) {
-  const { organizationId, userId, orgName, buffer, fileName, mimeType, category, tags, width, height } = params;
+  const { organizationId, userId, orgName, buffer, fileName, mimeType, category, tags, width, height, orientation } = params;
 
   try {
     const drive = getDriveClient();
@@ -73,6 +74,7 @@ export async function uploadImageToDrive(params: {
         fileSize: BigInt(buffer.length),
         width: width || null,
         height: height || null,
+        orientation: orientation || 1,
         category: category || 'Other',
         tags: tags || [],
         uploadedBy: userId,
@@ -154,6 +156,7 @@ export async function syncDriveFolder(params: {
             fileSize: file.size ? BigInt(file.size) : null,
             width: null,
             height: null,
+            orientation: 1,
             category,
             tags: [],
             uploadedBy: 'system',

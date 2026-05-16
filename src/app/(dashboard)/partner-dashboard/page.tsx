@@ -733,7 +733,9 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
                                   .then((json) => {
                                     if (json.ok) {
                                       alert('수당 승인이 완료되었습니다.');
-                                      window.location.reload();
+                                      // ✅ window.location.reload() 제거
+                                      // ✅ 현재 월 데이터 백그라운드 갱신
+                                      fetchTab(activeTab, month);
                                     } else {
                                       alert(`오류: ${json.error}`);
                                     }
@@ -1163,6 +1165,13 @@ export default function PartnerDashboardPage() {
     // 현재 탭 데이터 fetch
     fetchTab(activeTab, month);
   }, [activeTab, month, fetchTab]);
+
+  // ✅ Component unmount 시 캐시 정리 (메모리 누수 방지)
+  useEffect(() => {
+    return () => {
+      cache.current = {};
+    };
+  }, []);
 
   if (authError) {
     return (

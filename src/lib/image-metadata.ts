@@ -5,11 +5,12 @@
  */
 
 /**
- * Buffer에서 이미지 크기 추출 (jpeg, png, gif, webp)
+ * Buffer에서 이미지 메타데이터 추출 (크기, EXIF Orientation)
+ * 반환: { width, height, orientation }
  */
 export function extractImageDimensions(
   buffer: Buffer
-): { width: number; height: number } | null {
+): { width: number; height: number; orientation: number } | null {
   try {
     // JPEG 시그니처: FF D8 FF
     if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
@@ -49,29 +50,46 @@ export function extractImageDimensions(
       return extractWebpDimensions(buffer);
     }
 
-    return null;
+    // 기본값 (EXIF 없음)
+    return { width: 0, height: 0, orientation: 1 };
   } catch {
-    return null;
+    return { width: 0, height: 0, orientation: 1 };
   }
 }
 
 /**
- * JPEG 크기 추출
+ * JPEG 크기 & EXIF Orientation 추출
  */
-function extractJpegDimensions(buffer: Buffer): { width: number; height: number } | null {
+function extractJpegDimensions(buffer: Buffer): { width: number; height: number; orientation: number } | null {
   let offset = 2;
+  let width = 0;
+  let height = 0;
+  let orientation = 1; // 기본값
 
   while (offset < buffer.length) {
     if (buffer[offset] !== 0xff) break;
     const marker = buffer[offset + 1];
     offset += 2;
 
+    // EXIF 세그먼트 (APP1, 0xFFE1)
+    if (marker === 0xe1) {
+      const segmentLength = (buffer[offset] << 8) | buffer[offset + 1];
+      const exifOrientation = extractExifOrientation(buffer.subarray(offset, offset + segmentLength));
+      if (exifOrientation !== null) {
+        orientation = exifOrientation;
+      }
+      offset += segmentLength;
+      continue;
+    }
+
     // SOF 마커 (Start of Frame)
     if ((marker >= 0xc0 && marker <= 0xc3) || (marker >= 0xc5 && marker <= 0xc7) ||
         (marker >= 0xc9 && marker <= 0xcb) || (marker >= 0xcd && marker <= 0xcf)) {
-      const height = (buffer[offset + 3] << 8) | buffer[offset + 4];
-      const width = (buffer[offset + 5] << 8) | buffer[offset + 6];
-      return { width, height };
+      height = (buffer[offset + 3] << 8) | buffer[offset + 4];
+      width = (buffer[offset + 5] << 8) | buffer[offset + 6];
+      // SOF를 찾았으면 계속 EXIF 찾기 (이후 세그먼트)
+      offset += 1;
+      continue;
     }
 
     // 세그먼트 길이
@@ -79,33 +97,86 @@ function extractJpegDimensions(buffer: Buffer): { width: number; height: number 
     offset += length;
   }
 
-  return null;
+  return width > 0 && height > 0 ? { width, height, orientation } : null;
 }
 
 /**
- * PNG 크기 추출
+ * JPEG EXIF 데이터에서 Orientation 값 추출 (Tag 0x0112)
  */
-function extractPngDimensions(buffer: Buffer): { width: number; height: number } | null {
+function extractExifOrientation(exifBuffer: Buffer): number | null {
+  try {
+    // "Exif\0\0" 시그니처 확인 (offset 4-9)
+    if (exifBuffer.length < 16) return null;
+    if (exifBuffer[4] !== 0x45 || exifBuffer[5] !== 0x78 ||
+        exifBuffer[6] !== 0x69 || exifBuffer[7] !== 0x66) {
+      return null;
+    }
+
+    // TIFF 헤더 (offset 6)
+    let offset = 6;
+    const littleEndian = exifBuffer[offset + 1] === 0x49; // 'I' = little-endian
+
+    // IFD0 오프셋
+    const ifdOffset = littleEndian
+      ? exifBuffer.readUInt32LE(offset + 4)
+      : exifBuffer.readUInt32BE(offset + 4);
+
+    if (ifdOffset + 6 > exifBuffer.length) return null;
+
+    // IFD0 진입점
+    const ifdPos = offset + ifdOffset;
+    const numEntries = littleEndian
+      ? exifBuffer.readUInt16LE(ifdPos)
+      : exifBuffer.readUInt16BE(ifdPos);
+
+    // IFD 항목 순회 (각 항목 12바이트)
+    for (let i = 0; i < numEntries; i++) {
+      const entryPos = ifdPos + 2 + i * 12;
+      if (entryPos + 12 > exifBuffer.length) break;
+
+      const tag = littleEndian
+        ? exifBuffer.readUInt16LE(entryPos)
+        : exifBuffer.readUInt16BE(entryPos);
+
+      // Orientation 태그 (0x0112 = 274)
+      if (tag === 0x0112) {
+        const value = littleEndian
+          ? exifBuffer.readUInt16LE(entryPos + 8)
+          : exifBuffer.readUInt16BE(entryPos + 8);
+        return value >= 1 && value <= 8 ? value : 1;
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * PNG 크기 추출 (orientation 기본값 1)
+ */
+function extractPngDimensions(buffer: Buffer): { width: number; height: number; orientation: number } | null {
   if (buffer.length < 24) return null;
   const width = buffer.readUInt32BE(16);
   const height = buffer.readUInt32BE(20);
-  return { width, height };
+  return { width, height, orientation: 1 };
 }
 
 /**
- * GIF 크기 추출
+ * GIF 크기 추출 (orientation 기본값 1)
  */
-function extractGifDimensions(buffer: Buffer): { width: number; height: number } | null {
+function extractGifDimensions(buffer: Buffer): { width: number; height: number; orientation: number } | null {
   if (buffer.length < 10) return null;
   const width = buffer.readUInt16LE(6);
   const height = buffer.readUInt16LE(8);
-  return { width, height };
+  return { width, height, orientation: 1 };
 }
 
 /**
- * WebP 크기 추출
+ * WebP 크기 추출 (orientation 기본값 1)
  */
-function extractWebpDimensions(buffer: Buffer): { width: number; height: number } | null {
+function extractWebpDimensions(buffer: Buffer): { width: number; height: number; orientation: number } | null {
   try {
     // "VP8 " 청크 찾기 (손실 압축) 또는 "VP8L" (무손실)
     const vp8Index = buffer.indexOf('VP8', 12);
@@ -117,7 +188,7 @@ function extractWebpDimensions(buffer: Buffer): { width: number; height: number 
       const frameTag = buffer.readUIntLE(offset, 3);
       const width = ((frameTag >> 0) & 0x3fff) + 1;
       const height = ((frameTag >> 14) & 0x3fff) + 1;
-      return { width, height };
+      return { width, height, orientation: 1 };
     }
 
     // VP8L 손실 없음 크기 추출
@@ -126,7 +197,7 @@ function extractWebpDimensions(buffer: Buffer): { width: number; height: number 
       const bits = buffer.readUInt32LE(offset);
       const width = ((bits & 0x3fff) + 1);
       const height = (((bits >> 14) & 0x3fff) + 1);
-      return { width, height };
+      return { width, height, orientation: 1 };
     }
   } catch {
     return null;

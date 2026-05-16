@@ -158,7 +158,7 @@ export async function GET(req: NextRequest) {
       balance:          Number(r.balance),
     }));
 
-    logger.log('[GET /api/commission-ledger]', { role: ctx.role, total, page });
+    logger.log('[GET /api/commission-ledger]', { role: ctx.role, total, page, yearMonth });
     return NextResponse.json({
       ok: true,
       ledger,
@@ -172,6 +172,7 @@ export async function GET(req: NextRequest) {
       total,
       page,
       totalPages: Math.ceil(total / limit),
+      requestedYearMonth: yearMonth,
     });
 
   } catch (err) {

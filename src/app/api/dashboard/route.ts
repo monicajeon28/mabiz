@@ -125,7 +125,11 @@ export async function GET() {
 
       // CRM 전용 대리점장 — affiliateProfileId 없어도 CRM 통계로 대시보드 표시
       if (!profileId) {
-        const orgId = ctx.organizationId!;
+        if (!ctx.organizationId) {
+          logger.error('[GET /api/dashboard] OWNER 조직 정보 없음', { userId: ctx.userId });
+          return NextResponse.json({ ok: false, error: '조직 정보 없음. 관리자에게 문의하세요.' }, { status: 403 });
+        }
+        const orgId = ctx.organizationId;
         const startOfMonth = new Date(`${yearMonth}-01T00:00:00.000Z`);
         const [totalContacts, newThisMonth, callDueRows] = await Promise.all([
           prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
@@ -207,7 +211,11 @@ export async function GET() {
 
       // CRM 전용 판매원 — affiliateProfileId 없어도 CRM 통계로 대시보드 표시
       if (!profileId) {
-        const orgId = ctx.organizationId!;
+        if (!ctx.organizationId) {
+          logger.error('[GET /api/dashboard] AGENT 조직 정보 없음', { userId: ctx.userId });
+          return NextResponse.json({ ok: false, error: '조직 정보 없음. 관리자에게 문의하세요.' }, { status: 403 });
+        }
+        const orgId = ctx.organizationId;
         const startOfMonth = new Date(`${yearMonth}-01T00:00:00.000Z`);
         const [totalContacts, newThisMonth, callDueRows] = await Promise.all([
           prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`

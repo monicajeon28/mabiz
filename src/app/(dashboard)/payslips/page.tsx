@@ -33,6 +33,7 @@ export default function PayslipsPage() {
   const [status,    setStatus]    = useState("");
   const [yearMonth, setYearMonth] = useState("");
   const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const totalPages = Math.ceil(total / 20);
@@ -53,18 +54,25 @@ export default function PayslipsPage() {
     const controller = new AbortController();
     abortRef.current = controller;
     setLoading(true);
+    setError(null);
     const params = new URLSearchParams({ page: String(page), limit: "20" });
     if (status)    params.set("status",    status);
     if (yearMonth) params.set("yearMonth", yearMonth);
     fetch(`/api/payslips?${params}`, { signal: controller.signal })
       .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        if (!r.ok) throw new Error(`서버 오류 (HTTP ${r.status})`);
         return r.json();
       })
       .then((d) => {
-        if (d.ok) { setPayslips(d.payslips ?? []); setTotal(d.total ?? 0); }
+        if (d.ok) { setPayslips(d.payslips ?? []); setTotal(d.total ?? 0); setError(null); }
+        else { setError(d.error || "데이터를 불러올 수 없습니다."); }
       })
-      .catch((e) => { if (e.name !== "AbortError") console.error("[payslips]", e); })
+      .catch((e) => {
+        if (e.name !== "AbortError") {
+          console.error("[payslips]", e);
+          setError(e.message || "데이터를 불러올 수 없습니다.");
+        }
+      })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
   }, [page, status, yearMonth]);
 
@@ -113,6 +121,12 @@ export default function PayslipsPage() {
         </select>
       </div>
 
+      {error && (
+        <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          {error}
+        </div>
+      )}
+
       {loading ? (
         <div className="space-y-3">
           {[...Array(5)].map((_, i) => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}
@@ -152,7 +166,7 @@ export default function PayslipsPage() {
                       <td className="px-4 py-3 text-gray-600 text-xs font-mono">{p.yearMonth}</td>
                       <td className="px-4 py-3 text-right text-gray-700">{p.baseCommission.toLocaleString()}원</td>
                       <td className="px-4 py-3 text-right text-green-600 text-sm">
-                        {p.bonus != null ? `+${p.bonus.toLocaleString()}원` : "-"}
+                        {p.bonus !== null && p.bonus !== undefined ? `+${p.bonus.toLocaleString()}원` : "-"}
                       </td>
                       <td className="px-4 py-3 text-right text-red-500 text-sm">
                         {p.deduction != null ? `-${p.deduction.toLocaleString()}원` : "-"}

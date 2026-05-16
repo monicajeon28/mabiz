@@ -52,7 +52,24 @@ export async function GET(req: Request) {
       { headers: { Authorization: `Bearer ${token}` } },
     );
 
-    if (!driveRes.ok) return new NextResponse(null, { status: 404 });
+    if (!driveRes.ok) {
+      if (driveRes.status === 401) {
+        return new NextResponse(JSON.stringify({ error: '이미지를 불러올 수 없습니다' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (driveRes.status === 403) {
+        return new NextResponse(JSON.stringify({ error: '이미지를 불러올 수 없습니다' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return new NextResponse(JSON.stringify({ error: '이미지를 불러올 수 없습니다' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
     // Drive가 content-type 안 주거나 octet-stream인 경우 파일 ID로 추정
     const rawCT = driveRes.headers.get('content-type') ?? '';
@@ -66,6 +83,9 @@ export async function GET(req: Request) {
       },
     });
   } catch {
-    return new NextResponse(null, { status: 404 });
+    return new NextResponse(JSON.stringify({ error: '이미지를 불러올 수 없습니다' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }

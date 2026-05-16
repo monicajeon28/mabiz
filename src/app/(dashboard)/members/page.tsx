@@ -254,6 +254,12 @@ export default function MembersPage() {
     setAssigning(true);
     setAssignResult("");
 
+    // Optimistic update: 즉시 UI에 반영
+    const selectedStaffData = staffList.find((s) => s.id === selectedStaff);
+    if (selectedStaffData && detailData) {
+      setAssignResult(`✅ 담당자: ${selectedStaffData.displayName || selectedStaffData.loginId}로 지정 중...`);
+    }
+
     try {
       const res = await fetch(`/api/members/${selectedMember.id}/assign`, {
         method: "POST",
@@ -273,7 +279,7 @@ export default function MembersPage() {
       const json = await res.json();
       if (json.ok) {
         setAssignResult("✅ 담당자가 지정되었습니다.");
-        // 상세 정보 다시 로드
+        // 상세 정보 다시 로드 (변경 이력 갱신)
         setTimeout(() => {
           openDetailModal(selectedMember);
         }, 500);
@@ -745,7 +751,9 @@ export default function MembersPage() {
                       </div>
                     )}
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {SUGGEST_TAGS.map((tag) => (
+                      {SUGGEST_TAGS.filter((tag) =>
+                        tag.toLowerCase().includes(tagInput.toLowerCase())
+                      ).map((tag) => (
                         <button
                           key={tag}
                           type="button"
@@ -756,6 +764,7 @@ export default function MembersPage() {
                               ? "border-gray-200 text-gray-300 cursor-not-allowed bg-gray-50"
                               : "border-blue-200 text-blue-600 hover:bg-blue-50 cursor-pointer"
                           }`}
+                          title={memberTags.includes(tag) ? "이미 추가됨" : "클릭하여 추가"}
                         >
                           #{tag}
                         </button>

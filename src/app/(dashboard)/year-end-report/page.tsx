@@ -282,7 +282,7 @@ export default function YearEndReportPage() {
                         </span>
                       </td>
                       <td className={`px-4 py-3 text-right tabular-nums font-semibold ${isHighRefund ? "text-red-600" : "text-gray-600"}`}>
-                        {agent.refundRate.toFixed(1)}%
+                        {agent.refundRate}%
                         {isHighRefund && (
                           <span className="ml-1 text-xs text-red-500" title="환불율 30% 초과">!</span>
                         )}

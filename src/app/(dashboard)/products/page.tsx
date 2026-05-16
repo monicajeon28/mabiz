@@ -14,6 +14,7 @@ import {
   MapPin,
   FileSpreadsheet,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 
 type CabinEntry = { total: number; booked: number; remaining: number };
@@ -66,7 +67,9 @@ const CABIN_TYPE_CONFIG = [
 
 function formatDate(iso: string) {
   const d = new Date(iso);
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  // KST(UTC+9) 기준으로 날짜 변환
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  return `${kst.getUTCFullYear()}-${String(kst.getUTCMonth() + 1).padStart(2, "0")}-${String(kst.getUTCDate()).padStart(2, "0")}`;
 }
 
 function formatPrice(price: number) {

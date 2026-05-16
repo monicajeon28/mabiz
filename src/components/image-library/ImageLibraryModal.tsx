@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, X, Copy, Check, Link2, Play, Trash2, FolderPlus, Loader2 } from "lucide-react";
+import { Search, X, Copy, Check, Link2, Play, Trash2, FolderPlus, Loader2, RefreshCw } from "lucide-react";
 
 interface ImageItem {
   id: string;
@@ -31,6 +31,7 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
   const [q, setQ]               = useState("");
   const [folder, setFolder]     = useState("전체");
   const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string | null>(null);
   const [selected, setSelected] = useState<ImageItem | null>(null);
   const [copied, setCopied]     = useState(false);
 
@@ -56,13 +57,29 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
 
   const fetchImages = useCallback(async () => {
     setLoading(true);
+    setError(null);
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (folder !== "전체") params.set("folder", folder);
-    const res  = await fetch(`/api/image-library?${params}`);
-    const data = await res.json();
-    if (data.ok) setItems(data.images);
-    setLoading(false);
+    try {
+      const res  = await fetch(`/api/image-library?${params}`);
+      if (!res.ok) {
+        setError("이미지를 불러올 수 없습니다");
+        setLoading(false);
+        return;
+      }
+      const data = await res.json();
+      if (data.ok) {
+        setItems(data.images);
+        setError(null);
+      } else {
+        setError(data.error || "이미지를 불러올 수 없습니다");
+      }
+    } catch {
+      setError("이미지를 불러올 수 없습니다");
+    } finally {
+      setLoading(false);
+    }
   }, [q, folder]);
 
   useEffect(() => {
@@ -333,11 +350,28 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                 </div>
               </div>
 
-              {loading ? (
-                <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
-                  {[...Array(8)].map((_, i) => (
-                    <div key={i} className="aspect-square bg-gray-100 rounded-lg animate-pulse" />
-                  ))}
+              {error ? (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                  <p className="text-red-700 text-sm font-medium">오류 발생</p>
+                  <p className="text-red-600 text-xs mt-1">{error}</p>
+                  <button
+                    onClick={() => fetchImages()}
+                    className="mt-3 px-3 py-1.5 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors"
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              ) : loading ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-center gap-2 py-8">
+                    <RefreshCw className="w-5 h-5 animate-spin text-navy-900" />
+                    <p className="text-sm text-gray-600">이미지 로드 중... (최대 10초)</p>
+                  </div>
+                  <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+                    {[...Array(12)].map((_, i) => (
+                      <div key={i} className="aspect-square bg-gray-100 rounded-lg animate-pulse" />
+                    ))}
+                  </div>
                 </div>
               ) : items.length === 0 ? (
                 <div className="text-center py-12 text-gray-400">

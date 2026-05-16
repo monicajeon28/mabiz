@@ -9,6 +9,10 @@ export async function GET(_req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
     const orgId = requireOrgId(ctx);
+    if (!orgId) {
+      logger.error('[GroupExport] 조직 정보 없음', { userId: ctx?.userId });
+      return NextResponse.json({ ok: false, message: '조직 정보 없음. 관리자에게 문의하세요.' }, { status: 403 });
+    }
     const { id } = await params;
 
     const group = await prisma.contactGroup.findFirst({

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import sharp from 'sharp';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { uploadImageToDrive, validateImageFile } from '@/lib/image-sync';
 import { extractImageDimensions } from '@/lib/image-metadata';
@@ -43,23 +44,39 @@ export async function POST(req: Request) {
       );
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    let buffer = Buffer.from(await file.arrayBuffer());
 
     // 이미지 메타데이터 추출
     const dimensions = extractImageDimensions(buffer);
+
+    // Sharp로 EXIF 기반 자동 회전 적용
+    let finalBuffer = buffer;
+    if (file.type.startsWith('image/')) {
+      try {
+        finalBuffer = await sharp(buffer).rotate().toBuffer();
+        logger.info('[POST /api/images/upload] Sharp 자동 회전 완료', { fileName: file.name });
+      } catch (rotateErr) {
+        logger.warn('[POST /api/images/upload] Sharp 회전 실패, 원본 사용', {
+          fileName: file.name,
+          err: rotateErr instanceof Error ? rotateErr.message : String(rotateErr),
+        });
+        finalBuffer = buffer; // 실패 시 원본 사용
+      }
+    }
 
     // Drive 업로드 수행
     const asset = await uploadImageToDrive({
       organizationId: orgId,
       userId: ctx.userId!,
       orgName: orgId,
-      buffer,
+      buffer: finalBuffer,
       fileName: file.name,
       mimeType: file.type,
       category,
       tags,
       width: dimensions?.width,
       height: dimensions?.height,
+      orientation: dimensions?.orientation,
     });
 
     logger.info('[POST /api/images/upload] 이미지 업로드 성공', {

@@ -59,13 +59,33 @@ export default function AffiliateSalesPage() {
     setActing(id);
     try {
       const r = await fetch(`/api/affiliate-sales/${id}/${action}`, { method: "POST" });
+
+      // ✅ HTTP 상태 코드 확인
+      if (!r.ok) {
+        const errorMsg = await r.text().catch(() => `HTTP ${r.status}`);
+        console.warn(`[affiliate-sales] ${action} 실패`, { id, status: r.status, error: errorMsg });
+        alert(`요청 실패 (${r.status}): ${errorMsg}`);
+        setActing(null);
+        return;
+      }
+
       const d = await r.json().catch(() => ({ ok: false }));
-      if (!d.ok) console.warn("[affiliate-sales] action 실패", { id, action });
-    } catch {
-      console.warn("[affiliate-sales] action 네트워크 오류", { id, action });
-    } finally {
-      setActing(null);
+
+      if (!d.ok) {
+        console.warn("[affiliate-sales] action 실패", { id, action, message: d.message });
+        alert(`${action} 실패: ${d.message || '서버 오류'}`);
+        setActing(null);
+        return;
+      }
+
+      // ✅ 성공 메시지
+      alert(`${action} 완료되었습니다`);
       load();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '네트워크 오류';
+      console.warn("[affiliate-sales] action 네트워크 오류", { id, action, err: msg });
+      alert(`네트워크 오류: ${msg}`);
+      setActing(null);
     }
   };
 
@@ -77,7 +97,7 @@ export default function AffiliateSalesPage() {
           <p className="text-sm text-gray-500 mt-0.5">GMcruise AffiliateSale 승인/거절/환불</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {["", "PENDING_APPROVAL", "APPROVED", "CONFIRMED", "REFUNDED"].map((s) => (
+          {["", "PENDING", "PENDING_APPROVAL", "APPROVED", "CONFIRMED", "REJECTED", "REFUNDED", "CANCELLED"].map((s) => (
             <button
               key={s}
               onClick={() => { setStatus(s); setPage(1); }}

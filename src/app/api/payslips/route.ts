@@ -136,8 +136,9 @@ export async function GET(req: NextRequest) {
       agentMallUserId:  r.agentMallUserId,
     }));
 
-    logger.log('[GET /api/payslips]', { role: ctx.role, total, page });
-    return NextResponse.json({ ok: true, payslips, total, page, totalPages: Math.ceil(total / limit) });
+    const totalPages = Math.ceil(total / limit);
+    logger.log('[GET /api/payslips]', { role: ctx.role, total, page, totalPages });
+    return NextResponse.json({ ok: true, payslips, total, page, totalPages });
 
   } catch (err) {
     logger.error('[GET /api/payslips]', { err });

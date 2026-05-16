@@ -107,7 +107,7 @@ export async function GET(req: NextRequest) {
         confirmedCount:       Number(r.confirmedCount),
         unsetCommissionCount: Number(r.unsetCommissionCount),
         refundRate:           totalSaleAmount > 0
-          ? Math.round((totalRefund / totalSaleAmount) * 1000) / 10
+          ? Number((totalRefund / totalSaleAmount * 100).toFixed(1))
           : 0,
       };
     });
@@ -122,6 +122,10 @@ export async function GET(req: NextRequest) {
       }),
       { totalSaleAmount: 0, totalCommission: 0, totalRefund: 0, confirmedCount: 0, unsetCommissionCount: 0 }
     );
+
+    // NOTE: FREE_SALES 판매원(affiliateCode 기반) 수당 통합 필요
+    // 현재는 AffiliateProfile(지점장/본사/영업직원) 기반만 집계됨
+    // TODO: FreeSales 또는 별도 affiliateCode 집계 로직 추가 (스키마 명확화 후)
 
     logger.log('[GET /api/year-end-report]', { role: ctx.role, year, agentCount: agents.length });
     return NextResponse.json({ ok: true, year, agents, grandTotal });

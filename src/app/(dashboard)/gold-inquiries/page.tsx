@@ -80,13 +80,36 @@ export default function GoldInquiriesPage() {
 
   const changeStatus = async (id: number, newStatus: string) => {
     setActing(id);
-    await fetch(`/api/gold-inquiries/${id}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
-    });
-    setActing(null);
-    load();
+    try {
+      const r = await fetch(`/api/gold-inquiries/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      // ✅ HTTP 상태 확인
+      if (!r.ok) {
+        console.warn(`[gold-inquiries] 상태 변경 실패`, { id, status: r.status });
+        alert(`상태 변경 실패 (${r.status})`);
+        setActing(null);
+        return;
+      }
+
+      const d = await r.json() as { ok: boolean; error?: string };
+
+      if (d.ok) {
+        alert(`상태가 변경되었습니다`);
+        load();
+      } else {
+        alert(d.error ?? '상태 변경 실패');
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '네트워크 오류';
+      console.warn("[gold-inquiries] changeStatus 네트워크 오류", { err: msg });
+      alert(`네트워크 오류: ${msg}`);
+    } finally {
+      setActing(null);
+    }
   };
 
   const convertToMember = async (inq: GoldInquiry, courseType: string) => {
@@ -97,15 +120,44 @@ export default function GoldInquiriesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ courseType }),
       });
-      const d = await r.json() as { ok: boolean; memberId?: string; alreadyExists?: boolean; error?: string };
+
+      // ✅ HTTP 상태 확인
+      if (!r.ok) {
+        const errorMsg = await r.text().catch(() => `HTTP ${r.status}`);
+        console.warn(`[gold-inquiries] 회원 전환 실패`, { id: inq.id, status: r.status });
+        alert(`요청 실패 (${r.status}): ${errorMsg}`);
+        setConverting(null);
+        return;
+      }
+
+      const d = await r.json() as {
+        ok: boolean;
+        memberId?: string;
+        memberCode?: string;
+        alreadyExists?: boolean;
+        error?: string;
+      };
+
       if (d.ok && d.memberId) {
         setConvertedIds((prev) => ({ ...prev, [inq.id]: d.memberId! }));
-        if (d.alreadyExists) alert('이미 골드회원으로 등록된 고객입니다.');
+        // ✅ 성공 메시지 개선
+        const msg = d.memberCode
+          ? `${d.memberCode}로 골드회원 전환되었습니다`
+          : '골드회원으로 전환되었습니다';
+        alert(msg);
+        // 데이터 재로드
+        load();
       } else {
-        alert(d.error ?? '전환 실패');
+        // ✅ 실패 메시지
+        const msg = d.alreadyExists
+          ? '이미 골드회원으로 등록된 고객입니다'
+          : (d.error ?? '회원 전환 실패');
+        alert(msg);
       }
-    } catch {
-      alert('네트워크 오류');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '네트워크 오류';
+      console.warn("[gold-inquiries] convertToMember 네트워크 오류", { err: msg });
+      alert(`네트워크 오류: ${msg}`);
     } finally {
       setConverting(null);
     }

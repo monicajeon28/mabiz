@@ -51,28 +51,36 @@ export default function MySalesPage() {
   const [payslipLoading, setPayslipLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
+    // ✅ Promise.allSettled: 각 API의 성공/실패를 독립적으로 처리
+    Promise.allSettled([
       fetch("/api/my/sales").then((r) => r.json()),
       fetch("/api/my/affiliate").then((r) => r.json()),
-    ]).then(([salesData, affiliateData]) => {
-      if (salesData.ok) {
-        setSales(salesData.sales ?? []);
-        setSummary(salesData.summary ?? []);
+      fetch("/api/my/payslip-summary").then((r) => r.json()),
+    ]).then(([salesResult, affiliateResult, payslipResult]) => {
+      // 각각 독립적으로 처리
+      if (salesResult.status === 'fulfilled' && salesResult.value.ok) {
+        setSales(salesResult.value.sales ?? []);
+        setSummary(salesResult.value.summary ?? []);
+      } else if (salesResult.status === 'rejected') {
+        console.error('[my-sales] sales API 실패:', salesResult.reason);
       }
-      if (affiliateData.ok) {
-        setAffiliateCode(affiliateData.affiliateCode);
-        setLink(affiliateData.cruisemallLink);
-      }
-      setLoading(false);
-    }).catch(() => setLoading(false));
 
-    fetch("/api/my/payslip-summary")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.ok) setPayslips(data.payslips ?? []);
-      })
-      .catch(() => {})
-      .finally(() => setPayslipLoading(false));
+      if (affiliateResult.status === 'fulfilled' && affiliateResult.value.ok) {
+        setAffiliateCode(affiliateResult.value.affiliateCode);
+        setLink(affiliateResult.value.cruisemallLink);
+      } else if (affiliateResult.status === 'rejected') {
+        console.error('[my-sales] affiliate API 실패:', affiliateResult.reason);
+      }
+
+      if (payslipResult.status === 'fulfilled' && payslipResult.value.ok) {
+        setPayslips(payslipResult.value.payslips ?? []);
+      } else if (payslipResult.status === 'rejected') {
+        console.error('[my-sales] payslip API 실패:', payslipResult.reason);
+      }
+
+      setLoading(false);
+      setPayslipLoading(false);
+    });
   }, []);
 
   const copyLink = () => {
@@ -82,12 +90,16 @@ export default function MySalesPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // 요약 집계
-  const totalSale       = summary.reduce((a, r) => a + (r._sum.saleAmount ?? 0), 0);
-  const totalCommission = summary.reduce((a, r) => a + (r._sum.commissionAmount ?? 0), 0);
-  const earnedRow       = summary.find((r) => r.status === "EARNED");
-  const paidRow         = summary.find((r) => r.status === "PAID");
-  const earned          = (earnedRow?._sum.commissionAmount ?? 0) + (paidRow?._sum.commissionAmount ?? 0);
+  // ✅ 요약 집계 (안전한 null 처리)
+  const safeSum = (rows: SummaryRow[], statuses: string[]): number => {
+    return rows
+      .filter(r => statuses.includes(r.status))
+      .reduce((acc, r) => acc + (r._sum?.commissionAmount ?? 0), 0);
+  };
+
+  const totalSale       = summary.reduce((a, r) => a + (r._sum?.saleAmount ?? 0), 0);
+  const totalCommission = summary.reduce((a, r) => a + (r._sum?.commissionAmount ?? 0), 0);
+  const earned          = safeSum(summary, ['EARNED', 'PAID']);
 
   if (loading) return (
     <div className="p-6 space-y-4">

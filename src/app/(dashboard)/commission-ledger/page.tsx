@@ -37,11 +37,12 @@ function formatDate(iso: string) {
 }
 
 function formatAmount(type: string, amount: number) {
-  const negative = type === "WITHHOLDING";
+  const absAmount = Math.abs(amount);
+  const isNegative = type === "WITHHOLDING" || amount < 0;
   return (
-    <span className={negative ? "text-red-500 font-medium" : "text-green-600 font-medium"}>
-      {negative ? "-" : "+"}
-      {Math.abs(amount).toLocaleString("ko-KR")}원
+    <span className={isNegative ? "text-red-500 font-medium" : "text-green-600 font-medium"}>
+      {isNegative ? "-" : "+"}
+      {absAmount.toLocaleString("ko-KR")}원
     </span>
   );
 }
@@ -77,6 +78,7 @@ export default function CommissionLedgerPage() {
   const [type,       setType]       = useState("");
   const [yearMonth,  setYearMonth]  = useState("");
   const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(() => {
@@ -84,12 +86,13 @@ export default function CommissionLedgerPage() {
     const controller = new AbortController();
     abortRef.current = controller;
     setLoading(true);
+    setError(null);
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     if (type)      params.set("type",      type);
     if (yearMonth) params.set("yearMonth", yearMonth);
     fetch(`/api/commission-ledger?${params}`, { signal: controller.signal })
       .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        if (!r.ok) throw new Error(`서버 오류 (HTTP ${r.status})`);
         return r.json();
       })
       .then((d) => {
@@ -98,9 +101,17 @@ export default function CommissionLedgerPage() {
           setSummary(d.summary ?? null);
           setTotal(d.total ?? 0);
           setTotalPages(d.totalPages ?? 1);
+          setError(null);
+        } else {
+          setError(d.error || "데이터를 불러올 수 없습니다.");
         }
       })
-      .catch((e) => { if (e.name !== "AbortError") console.error("[commission-ledger]", e); })
+      .catch((e) => {
+        if (e.name !== "AbortError") {
+          console.error("[commission-ledger]", e);
+          setError(e.message || "데이터를 불러올 수 없습니다.");
+        }
+      })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
   }, [page, type, yearMonth]);
 
@@ -157,6 +168,13 @@ export default function CommissionLedgerPage() {
           </p>
         </div>
       </div>
+
+      {/* Error message */}
+      {error && (
+        <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          {error}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-5">
