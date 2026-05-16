@@ -729,8 +729,13 @@ export default function PassportRequestPage() {
 
       // 3. 첫 번째 사용자의 링크 정보 추출 (대표로 사용)
       const firstResult = data.results?.[0];
-      if (!firstResult?.link) {
-        throw new Error('링크가 생성되지 않았습니다.');
+      if (!firstResult) {
+        throw new Error('결과를 받지 못했습니다.');
+      }
+
+      // API 에러인 경우 (링크는 생성되었지만 SMS 발송 실패 등)
+      if (!firstResult.link) {
+        throw new Error(firstResult.error || '링크 생성에 실패했습니다.');
       }
 
       // 4. 메시지 렌더링

@@ -46,6 +46,7 @@ model Organization {
   imageAssets       ImageAsset[]
   importLogs        ImportLog[]
   b2bLandingPages   B2BLandingPage[]
+  b2bLandingCategories B2BLandingCategory[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -1094,6 +1095,9 @@ model B2BLandingPage {
   headerScript   String?  @db.Text
   completionPageUrl String?
 
+  // ✨ NEW: 카테고리 관리
+  category       String?  // 카테고리 (예: "크루즈", "교육", "이벤트")
+
   organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   registrations  B2BLandingRegistration[]
   comments       B2BLandingComment[]
@@ -1104,6 +1108,8 @@ model B2BLandingPage {
 
   @@unique([slug, organizationId])
   @@index([organizationId])
+  @@index([organizationId, category])
+  @@index([organizationId, isActive])
   @@index([partnerId])
   @@map("CrmB2BLandingPage")
 }
@@ -1140,6 +1146,23 @@ model B2BLandingComment {
 
   @@index([landingPageId])
   @@map("CrmB2BLandingComment")
+}
+
+// ✨ NEW: B2B 랜딩 카테고리 메타데이터
+model B2BLandingCategory {
+  id              String @id @default(cuid())
+  organizationId  String
+  name            String
+  description     String?
+  usageCount      Int @default(0)  // 캐시: 이 카테고리를 사용하는 활성 페이지 수
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("CrmB2BLandingCategory")
 }
 
 model B2BLandingPageImage {

@@ -472,7 +472,7 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
 
 /* ─────────────────── B2B 탭 ─────────────────── */
 
-function B2BTab({ data, loading }: { data: B2BData | null; loading: boolean }) {
+function B2BTab({ data, loading, month, onDrilldown }: { data: B2BData | null; loading: boolean; month: string; onDrilldown: (config: DrilldownConfig) => void }) {
   if (loading || !data) {
     return (
       <div className="space-y-6">
@@ -491,9 +491,40 @@ function B2BTab({ data, loading }: { data: B2BData | null; loading: boolean }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard title="신규 리드" value={data.newLeads} icon={<UserPlus className="h-5 w-5" />} suffix="명" trend={data.trends?.newLeads} />
-        <StatCard title="교육 신청자" value={data.eduApplicants} icon={<GraduationCap className="h-5 w-5" />} suffix="명" trend={data.trends?.eduApplicants} />
-        <StatCard title="결제 현황" value={`₩${formatWon(data.paymentAmount)}`} icon={<CreditCard className="h-5 w-5" />} trend={data.trends?.paymentAmount} />
+        <StatCard title="신규 리드" value={data.newLeads} icon={<UserPlus className="h-5 w-5" />} suffix="명" trend={data.trends?.newLeads} onClick={() => onDrilldown({
+          title: '신규 리드 전체',
+          apiUrl: `/api/partner/dashboard/b2b/detail?type=leads&month=${month}`,
+          columns: [
+            { key: 'name', label: '이름' },
+            { key: 'phone', label: '연락처' },
+            { key: 'interestedPackage', label: '관심 패키지' },
+            { key: 'source', label: '출처' },
+            { key: 'status', label: '상태', align: 'center', render: (v) => <Badge status={v as string} /> },
+            { key: 'date', label: '날짜', align: 'right' },
+          ],
+        })} />
+        <StatCard title="교육 신청자" value={data.eduApplicants} icon={<GraduationCap className="h-5 w-5" />} suffix="명" trend={data.trends?.eduApplicants} onClick={() => onDrilldown({
+          title: '랜딩 등록자 전체',
+          apiUrl: `/api/partner/dashboard/b2b/detail?type=registrations&month=${month}`,
+          columns: [
+            { key: 'name', label: '이름' },
+            { key: 'phone', label: '연락처' },
+            { key: 'landingPageTitle', label: '랜딩페이지' },
+            { key: 'utmSource', label: 'UTM 출처' },
+            { key: 'date', label: '날짜', align: 'right' },
+          ],
+        })} />
+        <StatCard title="결제 현황" value={`₩${formatWon(data.paymentAmount)}`} icon={<CreditCard className="h-5 w-5" />} trend={data.trends?.paymentAmount} onClick={() => onDrilldown({
+          title: '결제 상세 내역',
+          apiUrl: `/api/partner/dashboard/b2b/detail?type=payments&month=${month}`,
+          columns: [
+            { key: 'productName', label: '상품명' },
+            { key: 'amount', label: '금액', align: 'right', render: (v) => `₩${(v as number)?.toLocaleString()}` },
+            { key: 'customerPhone', label: '고객 연락처' },
+            { key: 'status', label: '상태', align: 'center', render: (v) => <Badge status={v as string} /> },
+            { key: 'date', label: '결제일', align: 'right' },
+          ],
+        })} />
       </div>
 
       {/* 최근 리드 */}
