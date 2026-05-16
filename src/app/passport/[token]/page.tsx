@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { fetchWithRetry, saveTravelersDraft, loadTravelersDraft, clearTravelersDraft } from '@/lib/fetch-utils';
 
 interface Traveler {
   id?: number;
@@ -85,6 +86,17 @@ export default function CustomerPassportPage() {
   const [isVerifying, setIsVerifying] = useState(false);
 
   const fileInputRefs = useRef<{ [key: number]: HTMLInputElement | null }>({});
+
+  // localStorage 자동 저장 (30초마다)
+  useEffect(() => {
+    if (!token || !travelers.length) return;
+
+    const interval = setInterval(() => {
+      saveTravelersDraft(token, travelers);
+    }, 30000); // 30초
+
+    return () => clearInterval(interval);
+  }, [token, travelers]);
 
   // 여행자 배열 초기화 헬퍼
   const initializeTravelers = (data: any): Traveler[] => {
@@ -307,10 +319,14 @@ export default function CustomerPassportPage() {
       const formData = new FormData();
       formData.append('file', compressedFile);
 
-      const response = await fetch(`/api/passport/public/scan?token=${encodeURIComponent(token)}`, {
-        method: 'POST',
-        body: formData,
-      });
+      const response = await fetchWithRetry(
+        `/api/passport/public/scan?token=${encodeURIComponent(token)}`,
+        {
+          method: 'POST',
+          body: formData,
+        },
+        { maxRetries: 2, timeoutMs: 30000 } // 스캔은 오래 걸릴 수 있으니 30초
+      );
 
       const data = await response.json();
 
@@ -338,14 +354,18 @@ export default function CustomerPassportPage() {
         if (reservation?.id) uploadParams.set('reservationId', String(reservation.id));
         if (travelerId) uploadParams.set('travelerId', String(travelerId));
 
-        fetch(`/api/passport/customer/upload?${uploadParams.toString()}`, {
-          method: 'POST',
-          body: (() => {
-            const uploadFormData = new FormData();
-            uploadFormData.append('file', compressedFile);
-            return uploadFormData;
-          })(),
-        }).then((uploadResponse) => {
+        fetchWithRetry(
+          `/api/passport/customer/upload?${uploadParams.toString()}`,
+          {
+            method: 'POST',
+            body: (() => {
+              const uploadFormData = new FormData();
+              uploadFormData.append('file', compressedFile);
+              return uploadFormData;
+            })(),
+          },
+          { maxRetries: 2, timeoutMs: 15000 }
+        ).then((uploadResponse) => {
           if (uploadResponse.ok) {
             console.log('[Passport] 구글 드라이브 백업 완료');
           } else {
@@ -451,36 +471,41 @@ export default function CustomerPassportPage() {
     try {
       setIsSubmitting(true);
 
-      const response = await fetch('/api/passport/public/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetchWithRetry(
+        '/api/passport/public/submit',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            token,
+            reservationId: reservation?.id,
+            travelers: travelers.map((t, index) => ({
+              id: t.id,
+              korName: t.korName,
+              engSurname: t.engSurname || null,
+              engGivenName: t.engGivenName || null,
+              passportNo: t.passportNo || null,
+              residentNum: t.residentNum || null,
+              nationality: t.nationality || null,
+              dateOfBirth: t.dateOfBirth || null,
+              passportExpiryDate: t.passportExpiryDate || null,
+              phone: t.phone || null,
+              isSubmitLater: t.isSubmitLater,
+              roomNumber: t.roomNumber || index + 1,
+            })),
+          }),
         },
-        body: JSON.stringify({
-          token,
-          reservationId: reservation?.id,
-          travelers: travelers.map((t, index) => ({
-            id: t.id,
-            korName: t.korName,
-            engSurname: t.engSurname || null,
-            engGivenName: t.engGivenName || null,
-            passportNo: t.passportNo || null,
-            residentNum: t.residentNum || null,
-            nationality: t.nationality || null,
-            dateOfBirth: t.dateOfBirth || null,
-            passportExpiryDate: t.passportExpiryDate || null,
-            phone: t.phone || null,
-            isSubmitLater: t.isSubmitLater,
-            roomNumber: t.roomNumber || index + 1,
-          })),
-        }),
-      });
+        { maxRetries: 3, timeoutMs: 15000 } // 제출은 중요하니까 3회 재시도
+      );
 
       const data = await response.json();
 
       console.log('[Customer Passport] Submit Response:', data);
 
       if (data.ok) {
+        clearTravelersDraft(token); // 제출 성공 시 localStorage 삭제
         setIsSuccess(true);
       } else {
         const errorMsg = data.message || data.error || '저장에 실패했습니다.';
@@ -511,19 +536,23 @@ export default function CustomerPassportPage() {
     try {
       setSubmittingHelp(true);
 
-      const response = await fetch('/api/passport/customer/request', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetchWithRetry(
+        '/api/passport/customer/request',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            token,
+            userId: reservation?.user.id,
+            reservationId: reservation?.id,
+            requesterName: helpName,
+            requesterPhone: helpPhone,
+          }),
         },
-        body: JSON.stringify({
-          token,
-          userId: reservation?.user.id,
-          reservationId: reservation?.id,
-          requesterName: helpName,
-          requesterPhone: helpPhone,
-        }),
-      });
+        { maxRetries: 2, timeoutMs: 10000 }
+      );
 
       const data = await response.json();
 

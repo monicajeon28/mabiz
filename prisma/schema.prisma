@@ -1385,6 +1385,7 @@ model GmTraveler {
 model GmAffiliateLead {
   id                    Int       @id @default(autoincrement())
   linkId                Int?
+  organizationId        String?
   managerId             Int?
   agentId               Int?
   customerName          String?
@@ -1411,6 +1412,7 @@ model GmAffiliateLead {
   registeredBySystem    Boolean   @default(false)
 
   @@index([status])
+  @@index([organizationId, status, createdAt])
   @@map("AffiliateLead")
 }
 
@@ -1427,6 +1429,8 @@ model GmAffiliateRelation {
   updatedAt      DateTime  @db.Timestamp(6)
   overrideRate   Float?
 
+  @@index([managerId, status, createdAt])
+  @@index([agentId, status])
   @@map("AffiliateRelation")
 }
 
@@ -1581,6 +1585,38 @@ model GmAffiliateContract {
   updatedAt               DateTime  @default(now()) @updatedAt
 
   @@map("AffiliateContract")
+}
+
+model GmAffiliateContractAudit {
+  id            Int      @id @default(autoincrement())
+  contractId    Int      @map("contract_id")
+  action        String   @db.VarChar(50)
+  approvedBy    Int?     @map("approved_by")
+  approvalTier  String?  @db.VarChar(50)
+  metadata      Json?
+  reason        String?
+  ipAddress     String?  @db.VarChar(45)
+  userAgent     String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([contractId, createdAt])
+  @@index([action, createdAt])
+  @@map("AffiliateContractAudit")
+}
+
+model GmAffiliateSignatureToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique @db.VarChar(64)
+  contractId Int     @map("contract_id")
+  expiresAt DateTime @map("expires_at")
+  signedAt  DateTime? @map("signed_at")
+  signedBy  String?  @db.VarChar(200)
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([token])
+  @@index([contractId, expiresAt])
+  @@map("AffiliateSignatureToken")
 }
 
 model GmApisSyncQueue {

@@ -6,7 +6,7 @@
 import bcrypt from 'bcryptjs';
 import { createHash, timingSafeEqual } from 'crypto';
 
-const ROUNDS = 12;
+const ROUNDS = 14;
 
 export async function hashPassword(plain: string): Promise<string> {
   if (!plain || plain.length < 8) {
