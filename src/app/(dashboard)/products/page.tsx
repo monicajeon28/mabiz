@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import type { ApisRow } from "@/app/api/admin/apis/excel/route";
 import {
   ShoppingBag,
   ChevronLeft,
@@ -14,33 +15,6 @@ import {
   FileSpreadsheet,
   Loader2,
 } from "lucide-react";
-type ApisRow = {
-  seq: number;
-  rv: string;
-  cabin: string | number;
-  groupId: string | number;
-  roomingGroupId: string | number;
-  cabinType: string;
-  engSurname: string;
-  engGivenName: string;
-  korName: string;
-  residentNum: string;
-  gender: string;
-  birthDate: string;
-  passportNo: string;
-  issueDate: string;
-  expiryDate: string;
-  phone: string;
-  airline: string;
-  paymentDate: string;
-  paymentMethod: string;
-  paymentAmount: string | number;
-  agentName: string;
-  remarks: string;
-  groupMemo: string;
-  notes: string;
-  passportDriveUrl: string;
-};
 
 type CabinEntry = { total: number; booked: number; remaining: number };
 type CabinSummary = Record<string, CabinEntry>;
@@ -82,13 +56,13 @@ type ActiveFilter = "all" | "true" | "false";
 
 const LIMIT = 20;
 
-// 객실 타입 한글 레이블 (순서 고정)
-const CABIN_LABELS: { key: string; label: string }[] = [
-  { key: "inside",    label: "내측" },
-  { key: "oceanview", label: "오션뷰" },
-  { key: "balcony",   label: "발코니" },
-  { key: "suite",     label: "스위트" },
-];
+// 객실 타입 설정 (단일 원본)
+const CABIN_TYPE_CONFIG = [
+  { key: "inside",    label: "내측",    longLabel: "내측 (Inside)" },
+  { key: "oceanview", label: "오션뷰",  longLabel: "오션뷰 (Ocean View)" },
+  { key: "balcony",   label: "발코니",  longLabel: "발코니 (Balcony)" },
+  { key: "suite",     label: "스위트",  longLabel: "스위트 (Suite)" },
+] as const;
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -169,8 +143,8 @@ function CabinSummaryCell({ summary, productCode, onRegister }: {
     );
   }
 
-  const known = CABIN_LABELS.filter(({ key }) => key in summary);
-  const extra = Object.keys(summary).filter((k) => !CABIN_LABELS.some((l) => l.key === k));
+  const known = CABIN_TYPE_CONFIG.filter(({ key }) => key in summary);
+  const extra = Object.keys(summary).filter((k) => !CABIN_TYPE_CONFIG.some((l) => l.key === k));
   const all = [
     ...known.map(({ key, label }) => ({ key, label, entry: summary[key]! })),
     ...extra.map((key) => ({ key, label: key, entry: summary[key]! })),
@@ -233,13 +207,6 @@ interface CabinRegisterModalProps {
   onSaved: () => void;
 }
 
-const DEFAULT_CABIN_TYPES = [
-  { key: "inside",    label: "내측 (Inside)" },
-  { key: "oceanview", label: "오션뷰 (Ocean View)" },
-  { key: "balcony",   label: "발코니 (Balcony)" },
-  { key: "suite",     label: "스위트 (Suite)" },
-];
-
 function CabinRegisterModal({ productCode, productName, organizationId, cabinSummary, onClose, onSaved }: CabinRegisterModalProps) {
   const [counts, setCounts] = useState<Record<string, string>>(() => {
     // 기존 totalCount 로 미리 채우기
@@ -254,18 +221,30 @@ function CabinRegisterModal({ productCode, productName, organizationId, cabinSum
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  useEffect(() => {
+    const handle = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handle);
+    return () => window.removeEventListener("keydown", handle);
+  }, [onClose]);
+
   async function handleSave() {
+    // organizationId 빈값 체크
+    if (!organizationId || organizationId.trim() === '') {
+      setErr("조직 정보가 없습니다. 페이지를 새로고침해주세요.");
+      return;
+    }
+
     // UI 단에서도 판매수 미만 입력 차단
-    for (const { key, label } of DEFAULT_CABIN_TYPES) {
+    for (const { key, longLabel } of CABIN_TYPE_CONFIG) {
       const val = parseInt(counts[key] ?? "", 10);
       const sold = cabinSummary?.[key]?.booked ?? 0;
       if (!isNaN(val) && val > 0 && val < sold) {
-        setErr(`${label}: 이미 ${sold}실 판매됨 (PNR 기준) — ${sold}실 이상으로 입력해 주세요.`);
+        setErr(`${longLabel}: 이미 ${sold}실 판매됨 (PNR 기준) — ${sold}실 이상으로 입력해 주세요.`);
         return;
       }
     }
 
-    const cabins = DEFAULT_CABIN_TYPES
+    const cabins = CABIN_TYPE_CONFIG
       .map(({ key }) => ({ cabinType: key, totalCount: parseInt(counts[key] ?? "", 10) }))
       .filter((c) => !isNaN(c.totalCount) && c.totalCount > 0);
 
@@ -319,14 +298,14 @@ function CabinRegisterModal({ productCode, productName, organizationId, cabinSum
         <p className="text-xs text-gray-400 mb-4">PNR(그룹) 기준 · 판매된 실수는 수정 불가</p>
 
         <div className="space-y-3 mb-4">
-          {DEFAULT_CABIN_TYPES.map(({ key, label }) => {
+          {CABIN_TYPE_CONFIG.map(({ key, longLabel }) => {
             const sold = cabinSummary?.[key]?.booked ?? 0;
             const val = parseInt(counts[key] ?? "", 10);
             const isTooLow = !isNaN(val) && val > 0 && val < sold;
             return (
               <div key={key} className="space-y-0.5">
                 <div className="flex items-center gap-3">
-                  <label className="text-sm text-gray-700 w-[140px] shrink-0">{label}</label>
+                  <label className="text-sm text-gray-700 w-[140px] shrink-0">{longLabel}</label>
                   <div className="relative flex-1">
                     <input
                       type="number"
@@ -432,6 +411,12 @@ function RefundModal({ product, onClose }: RefundModalProps) {
   const [amountInput, setAmountInput] = useState(
     product.price > 0 ? String(product.price) : ""
   );
+
+  useEffect(() => {
+    const handle = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handle);
+    return () => window.removeEventListener("keydown", handle);
+  }, [onClose]);
 
   const amount = parseInt(amountInput.replace(/,/g, ""), 10) || 0;
   const daysLeft = product.daysLeft ?? 0;
@@ -555,19 +540,33 @@ function RefundModal({ product, onClose }: RefundModalProps) {
 
 // ── APIS 미리보기 모달 ────────────────────────────────────────────
 
-const APIS_HEADERS = [
-  "순번","RV","CABIN","일행","루밍","카테고리",
-  "영문성","영문이름","성명","주민번호","성별","생년월일",
-  "여권번호","여권발급","여권만료","연락처",
-  "항공","결제일","결제방법","결제금액","담당자","비고",
+const APIS_COLUMNS: { key: keyof ApisRow; label: string }[] = [
+  { key: "seq",           label: "순번" },
+  { key: "rv",            label: "RV" },
+  { key: "cabin",         label: "CABIN" },
+  { key: "groupId",       label: "일행" },
+  { key: "roomingGroupId", label: "루밍" },
+  { key: "cabinType",     label: "카테고리" },
+  { key: "engSurname",    label: "영문성" },
+  { key: "engGivenName",  label: "영문이름" },
+  { key: "korName",       label: "성명" },
+  { key: "residentNum",   label: "주민번호" },
+  { key: "gender",        label: "성별" },
+  { key: "birthDate",     label: "생년월일" },
+  { key: "passportNo",    label: "여권번호" },
+  { key: "issueDate",     label: "여권발급" },
+  { key: "expiryDate",    label: "여권만료" },
+  { key: "phone",         label: "연락처" },
+  { key: "airline",       label: "항공" },
+  { key: "paymentDate",   label: "결제일" },
+  { key: "paymentMethod", label: "결제방법" },
+  { key: "paymentAmount", label: "결제금액" },
+  { key: "agentName",     label: "담당자" },
+  { key: "remarks",       label: "비고" },
 ];
 
-const APIS_KEYS: (keyof ApisRow)[] = [
-  "seq","rv","cabin","groupId","roomingGroupId","cabinType",
-  "engSurname","engGivenName","korName","residentNum","gender","birthDate",
-  "passportNo","issueDate","expiryDate","phone",
-  "airline","paymentDate","paymentMethod","paymentAmount","agentName","remarks",
-];
+const APIS_HEADERS = APIS_COLUMNS.map(c => c.label);
+const APIS_KEYS = APIS_COLUMNS.map(c => c.key);
 
 interface ApisModalProps {
   product: Product;
@@ -582,36 +581,58 @@ function ApisModal({ product, onClose }: ApisModalProps) {
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/admin/apis/excel?productCode=${encodeURIComponent(product.code)}&preview=1`)
-      .then((r) => r.json())
-      .then((d) => {
+    const handle = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handle);
+    return () => window.removeEventListener("keydown", handle);
+  }, [onClose]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`/api/admin/apis/excel?productCode=${encodeURIComponent(product.code)}&preview=1`);
+        if (!res.ok) {
+          setError(`요청 실패: ${res.status}`);
+          return;
+        }
+        const d = await res.json();
         if (d.ok) {
           setRows(d.rows ?? []);
           setTripTitle(d.tripTitle ?? product.name);
         } else {
           setError(d.error ?? "데이터를 불러오지 못했습니다.");
         }
-      })
-      .catch(() => setError("네트워크 오류"))
-      .finally(() => setLoading(false));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "데이터를 불러오지 못했습니다.");
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [product.code, product.name]);
 
   async function handleDownload() {
     setDownloading(true);
+    let objectUrl: string | null = null;
     try {
       const res = await fetch(`/api/admin/apis/excel?productCode=${encodeURIComponent(product.code)}`);
-      if (!res.ok) { alert("다운로드 실패"); return; }
+      if (!res.ok) { setError("다운로드에 실패했습니다."); return; }
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-      a.href = url;
+      a.href = objectUrl;
       a.download = `APIS_${product.code}_${dateStr}.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
+      // 지연 revoke: 브라우저가 파일을 취득할 때간 확보
+      const revokingUrl = objectUrl;
+      objectUrl = null;
+      setTimeout(() => URL.revokeObjectURL(revokingUrl), 100);
+    } catch {
+      setError("네트워크 오류가 발생했습니다.");
     } finally {
+      // 예외 경로에서 정리
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
       setDownloading(false);
     }
   }
@@ -740,14 +761,19 @@ export default function ProductsPage() {
       setLoading(true);
       setError(null);
 
+      const controller = new AbortController();
+
       const params = new URLSearchParams();
       params.set("page", String(currentPage));
       params.set("limit", String(LIMIT));
       if (q) params.set("q", q);
       if (isActive !== "all") params.set("isActive", isActive);
 
-      fetch(`/api/products?${params.toString()}`)
-        .then((res) => res.json())
+      fetch(`/api/products?${params.toString()}`, { signal: controller.signal })
+        .then(async (res) => {
+          if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
+          return res.json();
+        })
         .then((data: ApiResponse) => {
           if (data.ok) {
             setProducts(data.products ?? []);
@@ -758,14 +784,22 @@ export default function ProductsPage() {
             setError("데이터를 불러오지 못했습니다.");
           }
         })
-        .catch(() => setError("네트워크 오류가 발생했습니다."))
+        .catch((err: unknown) => {
+          // AbortController 취소 시 AbortError는 무시
+          if (err instanceof Error && err.name === 'AbortError') return;
+          setError(err instanceof Error ? err.message : "네트워크 오류가 발생했습니다.");
+        })
         .finally(() => setLoading(false));
+
+      // cleanup: 이전 요청 취소
+      return () => controller.abort();
     },
     []
   );
 
   useEffect(() => {
-    fetchProducts(page, searchQuery, activeFilter);
+    const cleanup = fetchProducts(page, searchQuery, activeFilter);
+    return cleanup;
   }, [fetchProducts, page, searchQuery, activeFilter]);
 
   function handleFilterChange(filter: ActiveFilter) {
@@ -932,7 +966,7 @@ export default function ProductsPage() {
                       <CabinSummaryCell
                         summary={product.cabinSummary}
                         productCode={product.code}
-                        onRegister={(code) => canRegisterCabin && setCabinRegisterCode(code)}
+                        onRegister={(code) => { if (canRegisterCabin) setCabinRegisterCode(code); }}
                       />
                     </td>
 
@@ -1028,11 +1062,11 @@ export default function ProductsPage() {
       )}
 
       {/* 객실 등록 모달 */}
-      {cabinRegisterProduct && (
+      {cabinRegisterProduct && orgId && (
         <CabinRegisterModal
           productCode={cabinRegisterProduct.code}
           productName={cabinRegisterProduct.name}
-          organizationId={orgId ?? ''}
+          organizationId={orgId}
           cabinSummary={cabinRegisterProduct.cabinSummary}
           onClose={() => setCabinRegisterCode(null)}
           onSaved={() => {
