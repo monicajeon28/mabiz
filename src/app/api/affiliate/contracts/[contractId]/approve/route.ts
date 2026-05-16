@@ -145,7 +145,33 @@ export async function PUT(
       );
     }
 
-    // 7. 계정 생성 (단일 트랜잭션 — 실패 시 전체 롤백)
+    // 7. 담당자 자동 할당 (agentCode 파라미터가 있으면 매니저ID 자동 조회)
+    let managerId: number | undefined;
+    const contractMeta = contract.metadata as Record<string, any> | null;
+    if (contractMeta?.agentCode) {
+      try {
+        const referrer = await prisma.gmAffiliateProfile.findUnique({
+          where: { affiliateCode: contractMeta.agentCode },
+          select: { userId: true },
+        });
+        if (referrer) {
+          managerId = referrer.userId;
+          logger.info('[AFFILIATE-PROVISION] agentCode로 매니저 자동 할당', {
+            contractId,
+            agentCode: contractMeta.agentCode,
+            managerId,
+          });
+        }
+      } catch (err) {
+        logger.warn('[AFFILIATE-PROVISION] agentCode 매니저 조회 실패', {
+          contractId,
+          agentCode: contractMeta.agentCode,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    // 8. 계정 생성 (단일 트랜잭션 — 실패 시 전체 롤백)
     let provisionResult;
     try {
       provisionResult = await provisionAffiliateAccounts({
@@ -156,6 +182,7 @@ export async function PUT(
         commissionRate: tierInfo.commissionRate,
         organizationId,
         approvedByMemberId: ctx.userId,
+        managerId,
       });
     } catch (provisionErr) {
       // 프로비저닝 실패 시 계약 상태 원복
@@ -166,7 +193,7 @@ export async function PUT(
       throw provisionErr;
     }
 
-    // 8. SMS 발송 — 임시 비밀번호는 SMS로만 전달 (API 응답 절대 불포함)
+    // 9. SMS 발송 — 임시 비밀번호는 SMS로만 전달 (API 응답 절대 불포함)
     let smsSent = false;
     try {
       if (contract.phone) {
@@ -198,7 +225,7 @@ export async function PUT(
       });
     }
 
-    // 9. 이메일 발송 — 환영 메시지 + 대리점 코드
+    // 10. 이메일 발송 — 환영 메시지 + 대리점 코드
     let emailSent = false;
     try {
       if (contract.email) {

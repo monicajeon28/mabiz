@@ -74,6 +74,9 @@ export async function GET(req: NextRequest) {
 // ── POST: 가입 신청서 제출 (공개 — 인증 불필요) ───────────────────
 export async function POST(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const agentCode = searchParams.get('agentCode')?.trim();
+
     const body = await req.json();
 
     // 기본 정보
@@ -166,6 +169,7 @@ export async function POST(req: NextRequest) {
     if (amount) metadata.amount = amount;
     if (stampImageUrl) metadata.stampImageUrl = stampImageUrl;
     if (displayName) metadata.displayName = displayName;
+    if (agentCode) metadata.agentCode = agentCode;
 
     // body.metadata 추가 필드 병합 (크루즈닷 파트너스 등 확장 필드)
     const allowedMetaKeys = [
