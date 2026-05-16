@@ -98,7 +98,7 @@ export function decodePassportToken(shortToken: string): string {
 
 // ── 템플릿 유틸 ─────────────────────────────────────────────
 
-export const DEFAULT_PASSPORT_TEMPLATE_BODY = `{고객명}님, 여권 정보를 입력해주세요: {링크}`;
+export const DEFAULT_PASSPORT_TEMPLATE_BODY = `{고객명}님, 크루즈닷 {상품명} 여행을 위해 여권 정보를 입력해주세요: {링크}`;
 
 // 링크만 전송 모드용 메시지 (SMS 비용 무관, 복사용)
 export const LINK_ONLY_PASSPORT_MESSAGE = `[여권 발급 안내] 여행 준비를 완벽하게 도와드릴게요!
