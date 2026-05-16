@@ -1250,11 +1250,14 @@ model GmUser {
   customerGroupId             Int?
   nextActionDate              DateTime?
   nextActionNote              String?
+  memberStatus                String?
+  memberTags                  String[]  @default([])
 
   // Relationships
   trips                       GmTrip[]
   passportSubmissions         GmPassportSubmission[]
   passportRequestLogs         GmPassportRequestLog[]
+  groups                      GmUserGroupMember[]
 
   @@index([createdAt])
   @@index([customerStatus])
@@ -4030,6 +4033,30 @@ model cron_rate_limit_logs {
   timestamp DateTime @default(now())
 
   @@index([clientIp, endpoint, timestamp])
+}
+
+model GmUserGroup {
+  id        Int                 @id @default(autoincrement())
+  name      String
+  color     String?             @default("#6B7280")
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  members   GmUserGroupMember[]
+
+  @@map("GmUserGroup")
+}
+
+model GmUserGroupMember {
+  id       Int         @id @default(autoincrement())
+  groupId  Int
+  gmUserId Int
+  addedAt  DateTime    @default(now())
+  group    GmUserGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  gmUser   GmUser      @relation(fields: [gmUserId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, gmUserId])
+  @@index([gmUserId])
+  @@map("GmUserGroupMember")
 }
 
 enum AffiliateActionType {

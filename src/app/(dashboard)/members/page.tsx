@@ -15,6 +15,9 @@ type Member = {
   isLocked: boolean;
   affiliateType: string | null;
   provider: "KAKAO" | "NAVER" | "GOOGLE" | "DIRECT";
+  memberStatus: string | null;
+  memberTags: string[];
+  groups?: { id: number; groupId: number; group: { id: number; name: string; color: string | null } }[];
 };
 
 type ContactChangeLog = {
@@ -50,6 +53,17 @@ const AFFILIATE_BADGE: Record<string, { label: string; color: string }> = {
   SALES_AGENT:    { label: "영업직원",   color: "bg-orange-100 text-orange-700" },
 };
 
+const STATUS_BADGE: Record<string, { label: string; color: string }> = {
+  "잠재고객": { label: "잠재고객", color: "bg-blue-100 text-blue-700" },
+  "소통":     { label: "소통",     color: "bg-purple-100 text-purple-700" },
+  "구매완료": { label: "구매완료", color: "bg-green-100 text-green-700" },
+  "VIP":      { label: "VIP",      color: "bg-yellow-100 text-yellow-800 font-bold" },
+  "수신거부": { label: "수신거부", color: "bg-gray-100 text-gray-500" },
+};
+
+const STATUS_OPTIONS = ["잠재고객", "소통", "구매완료", "VIP", "수신거부"];
+const SUGGEST_TAGS = ["VIP관심", "상담중", "장기검토", "재문의", "크루즈입문"];
+
 const LIMIT = 30;
 
 function formatDate(val: string | Date | null | undefined): string {
@@ -83,6 +97,18 @@ export default function MembersPage() {
   const [assignReason, setAssignReason] = useState("");
   const [assigning, setAssigning] = useState(false);
   const [assignResult, setAssignResult] = useState("");
+
+  // 상태/태그/그룹 관련 상태
+  const [memberStatus, setMemberStatus] = useState<string>("");
+  const [memberTags, setMemberTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
+  const [groups, setGroups] = useState<{ id: number; name: string; color: string | null; memberCount: number }[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [selectedGroups, setSelectedGroups] = useState<Set<number>>(new Set());
+  const [newGroupName, setNewGroupName] = useState("");
+  const [showNewGroupInput, setShowNewGroupInput] = useState(false);
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [statusUpdateMsg, setStatusUpdateMsg] = useState("");
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const totalPages  = Math.max(1, Math.ceil(total / LIMIT));
@@ -158,8 +184,15 @@ export default function MembersPage() {
     setShowDetailModal(true);
     setDetailLoading(true);
     setAssignResult("");
+    setStatusUpdateMsg("");
     setSelectedStaff("");
     setAssignReason("");
+    setMemberStatus(member.memberStatus || "");
+    setMemberTags(member.memberTags || []);
+    setTagInput("");
+    setNewGroupName("");
+    setShowNewGroupInput(false);
+    setSelectedGroups(new Set(member.groups?.map((g) => g.groupId) || []));
 
     try {
       // 상세 정보 + 변경 이력 조회
@@ -185,6 +218,19 @@ export default function MembersPage() {
           }
         }
         setStaffLoading(false);
+      }
+
+      // 그룹 목록 조회
+      if (groups.length === 0) {
+        setGroupsLoading(true);
+        const groupRes = await fetch("/api/members/groups");
+        if (groupRes.ok) {
+          const groupJson = await groupRes.json();
+          if (groupJson.ok && groupJson.groups) {
+            setGroups(groupJson.groups);
+          }
+        }
+        setGroupsLoading(false);
       }
     } catch (err) {
       setAssignResult("상세 정보를 불러올 수 없습니다.");
@@ -233,6 +279,150 @@ export default function MembersPage() {
       setAssignResult("서버 연결에 실패했습니다.");
     } finally {
       setAssigning(false);
+    }
+  };
+
+  // 상태 변경
+  const handleStatusChange = async (status: string) => {
+    if (!selectedMember) return;
+
+    setMemberStatus(status);
+    setStatusUpdateMsg("");
+
+    try {
+      const res = await fetch(`/api/members/${selectedMember.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memberStatus: status || null,
+        }),
+      });
+
+      if (res.ok) {
+        setStatusUpdateMsg("✅ 상태가 저장되었습니다.");
+        setTimeout(() => setStatusUpdateMsg(""), 2000);
+      }
+    } catch (err) {
+      setStatusUpdateMsg("❌ 저장 실패");
+    }
+  };
+
+  // 태그 추가
+  const handleAddTag = async () => {
+    if (!tagInput.trim() || memberTags.length >= 5) return;
+
+    const newTag = tagInput.trim();
+    if (memberTags.includes(newTag)) {
+      setTagInput("");
+      return;
+    }
+
+    const newTags = [...memberTags, newTag];
+    setMemberTags(newTags);
+    setTagInput("");
+
+    if (!selectedMember) return;
+
+    try {
+      await fetch(`/api/members/${selectedMember.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberTags: newTags }),
+      });
+    } catch (err) {
+      setMemberTags(memberTags);
+    }
+  };
+
+  // 태그 제거
+  const handleRemoveTag = async (tag: string) => {
+    const newTags = memberTags.filter((t) => t !== tag);
+    setMemberTags(newTags);
+
+    if (!selectedMember) return;
+
+    try {
+      await fetch(`/api/members/${selectedMember.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberTags: newTags }),
+      });
+    } catch (err) {
+      setMemberTags(memberTags);
+    }
+  };
+
+  // 그룹 배정
+  const handleAssignGroup = async (groupId: number) => {
+    if (!selectedMember) return;
+
+    try {
+      const res = await fetch(`/api/members/groups/${groupId}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gmUserId: selectedMember.id }),
+      });
+
+      if (res.ok) {
+        setSelectedGroups((prev) => new Set([...prev, groupId]));
+      }
+    } catch (err) {
+      // error
+    }
+  };
+
+  // 그룹 제거
+  const handleRemoveGroup = async (groupId: number) => {
+    if (!selectedMember) return;
+
+    try {
+      await fetch(`/api/members/groups/${groupId}/members`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gmUserId: selectedMember.id }),
+      });
+
+      setSelectedGroups((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(groupId);
+        return newSet;
+      });
+    } catch (err) {
+      // error
+    }
+  };
+
+  // 새 그룹 생성 + 배정
+  const handleCreateAndAssignGroup = async () => {
+    if (!newGroupName.trim() || !selectedMember) return;
+
+    try {
+      const createRes = await fetch("/api/members/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newGroupName.trim() }),
+      });
+
+      if (createRes.ok) {
+        const createJson = await createRes.json();
+        const newGroupId = createJson.group?.id;
+
+        if (newGroupId) {
+          // 배정
+          await fetch(`/api/members/groups/${newGroupId}/members`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ gmUserId: selectedMember.id }),
+          });
+
+          setGroups((prev) => [...prev, createJson.group]);
+          setSelectedGroups((prev) => new Set([...prev, newGroupId]));
+          setNewGroupName("");
+          setShowNewGroupInput(false);
+        }
+      }
+    } catch (err) {
+      // error
     }
   };
 
@@ -301,6 +491,8 @@ export default function MembersPage() {
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">전화번호</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">이메일</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">가입경로</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">상태</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">태그</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">파트너유형</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">카카오채널</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">가입일</th>
@@ -335,6 +527,35 @@ export default function MembersPage() {
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${providerBadge.color}`}>
                           {providerBadge.label}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {m.memberStatus && STATUS_BADGE[m.memberStatus] ? (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[m.memberStatus].color}`}>
+                            {STATUS_BADGE[m.memberStatus].label}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300 text-xs">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1 flex-wrap">
+                          {m.memberTags && m.memberTags.length > 0 ? (
+                            <>
+                              {m.memberTags.slice(0, 2).map((tag) => (
+                                <span key={tag} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-xs rounded">
+                                  #{tag}
+                                </span>
+                              ))}
+                              {m.memberTags.length > 2 && (
+                                <span className="px-1.5 py-0.5 text-gray-500 text-xs">
+                                  +{m.memberTags.length - 2}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-gray-300 text-xs">-</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         {affiliateBadge ? (
@@ -441,6 +662,153 @@ export default function MembersPage() {
                         {selectedMember.kakaoChannelAdded ? "✅ 추가됨" : "-"}
                       </p>
                     </div>
+                  </div>
+                </div>
+
+                {/* 상태 */}
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">📊 상태</h3>
+                  <select
+                    value={memberStatus}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                  >
+                    <option value="">— 상태 미설정 —</option>
+                    {STATUS_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                  {statusUpdateMsg && (
+                    <p className="text-xs text-gray-600 mt-2">{statusUpdateMsg}</p>
+                  )}
+                </div>
+
+                {/* 태그 */}
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">🏷️ 태그 (최대 5개)</h3>
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {memberTags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full"
+                        >
+                          #{tag}
+                          <button
+                            onClick={() => handleRemoveTag(tag)}
+                            className="hover:text-blue-900 font-bold"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    {memberTags.length < 5 && (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={tagInput}
+                          onChange={(e) => setTagInput(e.target.value)}
+                          onKeyPress={(e) => e.key === "Enter" && handleAddTag()}
+                          placeholder="태그 입력 후 Enter"
+                          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        />
+                        <button
+                          onClick={handleAddTag}
+                          disabled={!tagInput.trim()}
+                          className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          추가
+                        </button>
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-500">추천: {SUGGEST_TAGS.join(", ")}</div>
+                  </div>
+                </div>
+
+                {/* 그룹 */}
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">👥 그룹</h3>
+                  <div className="space-y-3">
+                    {selectedGroups.size > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {Array.from(selectedGroups).map((groupId) => {
+                          const group = groups.find((g) => g.id === groupId);
+                          return group ? (
+                            <span
+                              key={groupId}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium text-white"
+                              style={{ backgroundColor: group.color || "#6B7280" }}
+                            >
+                              {group.name}
+                              <button
+                                onClick={() => handleRemoveGroup(groupId)}
+                                className="opacity-70 hover:opacity-100"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
+                    )}
+                    <div>
+                      <label className="text-xs text-gray-600 mb-2 block">그룹 추가</label>
+                      <select
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            handleAssignGroup(parseInt(e.target.value, 10));
+                            e.target.value = "";
+                          }
+                        }}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                      >
+                        <option value="">— 그룹 선택 —</option>
+                        {groups
+                          .filter((g) => !selectedGroups.has(g.id))
+                          .map((g) => (
+                            <option key={g.id} value={g.id}>
+                              {g.name}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    {!showNewGroupInput ? (
+                      <button
+                        onClick={() => setShowNewGroupInput(true)}
+                        className="w-full px-3 py-2 text-sm border border-dashed border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50"
+                      >
+                        + 새 그룹 만들기
+                      </button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newGroupName}
+                          onChange={(e) => setNewGroupName(e.target.value)}
+                          placeholder="그룹 이름"
+                          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        />
+                        <button
+                          onClick={handleCreateAndAssignGroup}
+                          disabled={!newGroupName.trim() || creatingGroup}
+                          className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          생성
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowNewGroupInput(false);
+                            setNewGroupName("");
+                          }}
+                          className="px-3 py-2 border border-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-50"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 

@@ -20,6 +20,8 @@ type RawMember = {
   isLocked: boolean;
   affiliateType: string | null;
   provider: Provider;
+  memberStatus: string | null;
+  memberTags: string[];
 };
 
 type RawCount = { total: bigint };
@@ -100,6 +102,8 @@ export async function GET(req: Request) {
           u."createdAt",
           u."isLocked",
           ap.type as "affiliateType",
+          u."memberStatus",
+          u."memberTags",
           CASE
             WHEN u."mallUserId" LIKE 'kakao_%' THEN 'KAKAO'
             WHEN u."mallUserId" LIKE 'naver_%' THEN 'NAVER'
