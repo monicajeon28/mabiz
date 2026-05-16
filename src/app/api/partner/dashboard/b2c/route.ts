@@ -72,7 +72,7 @@ export async function GET(req: Request) {
       const [curr, prev] = await Promise.all([
         prisma.$queryRaw<[{ cnt: bigint }]>`
           SELECT COUNT(*)::bigint AS cnt
-          FROM "GmReservation" r
+          FROM "Reservation" r
           INNER JOIN "CrmAffiliateSale" a ON a."orderId" = CAST(r."affiliateSaleId" AS TEXT)
           WHERE a."organizationId" = ${ctx.organizationId}
             AND r."createdAt" >= ${startDate}
@@ -80,7 +80,7 @@ export async function GET(req: Request) {
         `,
         prisma.$queryRaw<[{ cnt: bigint }]>`
           SELECT COUNT(*)::bigint AS cnt
-          FROM "GmReservation" r
+          FROM "Reservation" r
           INNER JOIN "CrmAffiliateSale" a ON a."orderId" = CAST(r."affiliateSaleId" AS TEXT)
           WHERE a."organizationId" = ${ctx.organizationId}
             AND r."createdAt" >= ${prevStart}
@@ -122,8 +122,8 @@ export async function GET(req: Request) {
         Array<{ id: string; name: string | null; passportStatus: string; pnrStatus: string; finalConfirmStatus: string }>
       >`
         SELECT r."id", u."name", r."passportStatus", r."pnrStatus", r."finalConfirmStatus"
-        FROM "GmReservation" r
-        INNER JOIN "GmUser" u ON u."id" = r."mainUserId"
+        FROM "Reservation" r
+        INNER JOIN "User" u ON u."id" = r."mainUserId"
         WHERE CAST(r."affiliateSaleId" AS TEXT) = ANY(${orderIds})
         ORDER BY r."createdAt" DESC
         LIMIT 5

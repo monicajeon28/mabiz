@@ -104,9 +104,9 @@ export async function GET(req: NextRequest) {
     const whereConditions: Prisma.Sql[] = [
       Prisma.sql`u.role != 'admin'`,
       // 구매 고객만 필터링: 확정된 예약 + 결제 완료
-      // GmTrip과 GmReservation의 관계 확인: GmReservation(tripId) → GmTrip(id), GmReservation(mainUserId) → GmUser(id)
+      // Reservation(tripId) → Trip(id), Reservation(mainUserId) → User(id)
       Prisma.sql`EXISTS(
-        SELECT 1 FROM "GmReservation" r
+        SELECT 1 FROM "Reservation" r
         WHERE r."mainUserId" = u.id
         AND r.status = 'CONFIRMED'
         AND r."paymentAmount" > 0
@@ -154,8 +154,8 @@ export async function GET(req: NextRequest) {
     if (productCodeParam && productCodeParam !== 'all') {
       whereConditions.push(
         Prisma.sql`EXISTS(
-          SELECT 1 FROM "GmTrip" t3
-          JOIN "GmReservation" r2 ON r2."tripId" = t3.id
+          SELECT 1 FROM "Trip" t3
+          JOIN "Reservation" r2 ON r2."tripId" = t3.id
           WHERE t3."userId" = u.id
             AND t3."productCode" = ${productCodeParam}
             AND r2.status = 'CONFIRMED'
