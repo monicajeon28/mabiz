@@ -19,6 +19,17 @@ export async function GET(req: Request) {
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1') || 1);
     const limit = 30;
 
+    // Query Injection 방지: type 파라미터 화이트리스트 검증
+    const validTypes = ['leads', 'registrations', 'payments'];
+    if (!validTypes.includes(type)) {
+      return NextResponse.json({ ok: false, error: 'Invalid type parameter' }, { status: 400 });
+    }
+
+    // page 파라미터 범위 검증
+    if (page < 1 || page > 10000) {
+      return NextResponse.json({ ok: false, error: 'Invalid page parameter' }, { status: 400 });
+    }
+
     const now = new Date();
     const [year, month] = monthParam
       ? monthParam.split('-').map(Number)
