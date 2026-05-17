@@ -34,7 +34,7 @@ export async function GET(req: Request, { params }: Params) {
 
     // 쿼리 파라미터 파싱
     const { searchParams } = new URL(req.url);
-    const skip = Math.max(0, parseInt(searchParams.get('skip') ?? '0') || 0);
+    const skip = Math.min(10000, Math.max(0, parseInt(searchParams.get('skip') ?? '0') || 0));
     const rawLimit = parseInt(searchParams.get('limit') ?? '10') || 10;
     const limit = Math.min(50, Math.max(1, rawLimit));
 

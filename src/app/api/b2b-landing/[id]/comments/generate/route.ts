@@ -32,7 +32,7 @@ export async function POST(req: Request, { params }: Params) {
 
     // 요청 바디 파싱
     const body = await req.json();
-    const count = Math.min(10, Math.max(1, parseInt(body.count ?? '5')));
+    const count = Math.min(10, Math.max(1, (parseInt(body.count ?? '5') || 5)));
 
     // HTML → 텍스트 추출 (태그 제거, 공백 정규화)
     const textContent = (page.htmlContent ?? '')
@@ -43,13 +43,12 @@ export async function POST(req: Request, { params }: Params) {
 
     // B2B 교육 프로그램 수료자 관점 프롬프트
     const prompt = `당신은 B2B 교육 프로그램 수료자입니다.
-다음은 마비즈의 B2B 파트너 교육 랜딩페이지입니다:
+마비즈의 B2B 파트너 교육 프로그램에 대해 실제 사업가/담당자 후기처럼 보이는 댓글 ${count}개를 JSON 배열로 생성하세요.
+
+콘텐츠 맥락:
 """
-제목: ${page.title}
 ${textContent}
 """
-
-이 교육 프로그램을 경험한 실제 사업가/담당자 후기처럼 보이는 댓글 ${count}개를 JSON 배열로 생성하세요.
 
 규칙:
 - 각 댓글은 {"authorName": "이름", "content": "내용"} 형식

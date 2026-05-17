@@ -167,23 +167,6 @@ export async function POST(req: Request, { params }: Params) {
 
     const formattedPhone = normalizedPhone.replace(/^(\d{3})(\d{4})(\d{4})$/, '$1-$2-$3');
 
-    // ── B2BLandingRegistration 중복 체크 ──
-    if (body.landingPageId) {
-      const existingReg = await prisma.b2BLandingRegistration.findUnique({
-        where: { landingPageId_phone: { landingPageId: body.landingPageId, phone: formattedPhone } },
-      }).catch((err) => {
-        if (err.code === 'P2025') return null; // 레코드 없음
-        throw err;
-      });
-      if (existingReg) {
-        return NextResponse.json({
-          ok: false,
-          message: '이미 신청이 접수되었습니다. 담당자가 곧 연락드리겠습니다.',
-          duplicate: true,
-        }, { status: 409 });
-      }
-    }
-
     // ── B2BProspect 중복 체크 (48시간) ──
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
     const duplicateProspect = await prisma.b2BProspect.findFirst({
@@ -213,81 +196,106 @@ export async function POST(req: Request, { params }: Params) {
       ? String(org.externalAffiliateProfileId) : null;
 
     // ── 트랜잭션: 핵심 3단계 ──
-    const { prospect, registration, contactId } = await prisma.$transaction(async (tx) => {
-      // 1) B2BProspect 생성
-      const prospect = await tx.b2BProspect.create({
-        data: {
-          organizationId:  org.id,
-          name:            body.name.trim(),
-          phone:           formattedPhone,
-          email:           body.email?.trim() || null,
-          companyName:     body.company?.trim() || null,
-          packageInterest: body.packageInterest || null,
-          source:          'B2B_PARTNER',
-          status:          'NEW',
-          assignedUserId:  ownerMember?.userId || null,
-          affiliateCode,
-          notes:           `파트너 B2B 랜딩 유입 (partnerId: ${partnerId})`,
-        },
-        select: { id: true },
-      });
+    let prospect: { id: string } | null = null;
+    let registration: { id: string } | null = null;
+    let contactId: string | null = null;
 
-      // 2) CRM Contact 자동 생성/업데이트
-      let contactId: string | null = null;
-      try {
-        const contact = await tx.contact.upsert({
-          where: {
-            phone_organizationId: {
-              phone: formattedPhone,
-              organizationId: org.id,
-            },
-          },
-          create: {
-            organizationId: org.id,
-            name: body.name.trim(),
-            phone: formattedPhone,
-            email: body.email?.trim() || null,
-            type: 'LEAD',
-            utmSource: body.utmSource || 'b2b_partner',
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        // 1) B2BProspect 생성
+        const prospect = await tx.b2BProspect.create({
+          data: {
+            organizationId:  org.id,
+            name:            body.name.trim(),
+            phone:           formattedPhone,
+            email:           body.email?.trim() || null,
+            companyName:     body.company?.trim() || null,
+            packageInterest: body.packageInterest || null,
+            source:          'B2B_PARTNER',
+            status:          'NEW',
+            assignedUserId:  ownerMember?.userId || null,
             affiliateCode,
-          },
-          update: {
-            name: body.name.trim(),
-            ...(body.email?.trim() ? { email: body.email.trim() } : {}),
-            utmSource: body.utmSource || 'b2b_partner',
+            notes:           `파트너 B2B 랜딩 유입 (partnerId: ${partnerId})`,
           },
           select: { id: true },
         });
-        contactId = contact.id;
-      } catch (e) {
-        logger.error('[B2B Lead] Contact upsert 실패 (비치명적)', { err: e });
-      }
 
-      // 3) B2BLandingRegistration 생성
-      let registration = null;
-      if (body.landingPageId) {
+        // 2) CRM Contact 자동 생성/업데이트
+        let contactId: string | null = null;
         try {
-          registration = await tx.b2BLandingRegistration.create({
-            data: {
-              landingPageId: body.landingPageId,
+          const contact = await tx.contact.upsert({
+            where: {
+              phone_organizationId: {
+                phone: formattedPhone,
+                organizationId: org.id,
+              },
+            },
+            create: {
+              organizationId: org.id,
               name: body.name.trim(),
               phone: formattedPhone,
               email: body.email?.trim() || null,
-              utmSource: body.utmSource || null,
-              utmMedium: body.utmMedium || null,
-              utmCampaign: body.utmCampaign || null,
-              metadata: body.metadata ? JSON.parse(JSON.stringify(body.metadata)) : undefined,
+              type: 'LEAD',
+              utmSource: body.utmSource || 'b2b_partner',
+              affiliateCode,
+            },
+            update: {
+              name: body.name.trim(),
+              ...(body.email?.trim() ? { email: body.email.trim() } : {}),
+              utmSource: body.utmSource || 'b2b_partner',
             },
             select: { id: true },
           });
-        } catch (err) {
-          // unique constraint violation = 중복, 무시 (P2002)
-          logger.warn('[B2B Lead] Registration 중복 (비치명적)', { err });
+          contactId = contact.id;
+        } catch (e) {
+          logger.error('[B2B Lead] Contact upsert 실패 (비치명적)', { err: e });
         }
-      }
 
-      return { prospect, registration, contactId };
-    });
+        // 3) B2BLandingRegistration 생성
+        let registration = null;
+        if (body.landingPageId) {
+          try {
+            registration = await tx.b2BLandingRegistration.create({
+              data: {
+                landingPageId: body.landingPageId,
+                name: body.name.trim(),
+                phone: formattedPhone,
+                email: body.email?.trim() || null,
+                utmSource: body.utmSource || null,
+                utmMedium: body.utmMedium || null,
+                utmCampaign: body.utmCampaign || null,
+                metadata: body.metadata ? JSON.parse(JSON.stringify(body.metadata)) : undefined,
+              },
+              select: { id: true },
+            });
+          } catch (err) {
+            // unique constraint violation = 중복 (P2002), 또는 트랜잭션 충돌
+            if (err instanceof Error && (err.message.includes('P2002') || err.message.includes('DUPLICATE_REGISTRATION'))) {
+              throw new Error('DUPLICATE_REGISTRATION');
+            }
+            logger.warn('[B2B Lead] Registration 생성 오류 (비치명적)', { err });
+          }
+        }
+
+        return { prospect, registration, contactId };
+      });
+
+      ({ prospect, registration, contactId } = result);
+    } catch (txErr) {
+      if (txErr instanceof Error && txErr.message === 'DUPLICATE_REGISTRATION') {
+        return NextResponse.json({
+          ok: false,
+          message: '이미 신청이 접수되었습니다. 담당자가 곧 연락드리겠습니다.',
+          duplicate: true,
+        }, { status: 409 });
+      }
+      throw txErr;
+    }
+
+    // 트랜잭션이 성공해야 prospect가 null이 아님
+    if (!prospect) {
+      return NextResponse.json({ ok: false, message: '처리 중 오류가 발생했습니다.' }, { status: 500 });
+    }
 
     // ── 리드 점수 +30 (트랜잭션 외부) ──
     if (contactId) {
