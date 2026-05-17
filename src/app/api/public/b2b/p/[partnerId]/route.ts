@@ -5,6 +5,7 @@ import { checkBotGuard } from '@/lib/bot-guard';
 import { checkOrigin } from '@/lib/origin-guard';
 import { addLeadScore } from '@/lib/lead-score';
 import { triggerGroupFunnel } from '@/lib/funnel-trigger';
+import { NotFoundError, ConflictError, ValidationError, B2BError } from '@/lib/b2b/errors';
 
 type Params = { params: Promise<{ partnerId: string }> };
 
@@ -50,7 +51,7 @@ export async function GET(req: Request, { params }: Params) {
     const { searchParams } = new URL(req.url);
     const org = await resolveOrganization(partnerId);
     if (!org) {
-      return NextResponse.json({ ok: false, message: '파트너를 찾을 수 없습니다.' }, { status: 404 });
+      throw new NotFoundError('파트너');
     }
 
     const affiliateCode = org.externalAffiliateProfileId
@@ -109,8 +110,23 @@ export async function GET(req: Request, { params }: Params) {
       } : null,
     });
   } catch (err) {
+    if (err instanceof NotFoundError) {
+      return NextResponse.json(
+        { ok: false, error: err.code, message: err.message },
+        { status: err.statusCode }
+      );
+    }
+    if (err instanceof B2BError) {
+      return NextResponse.json(
+        { ok: false, error: err.code, message: err.message },
+        { status: err.statusCode }
+      );
+    }
     logger.error('[GET /api/public/b2b/p/[partnerId]]', { err });
-    return NextResponse.json({ ok: false, message: '조회 중 오류가 발생했습니다.' }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: 'SERVER_ERROR', message: '조회 중 오류가 발생했습니다.' },
+      { status: 500 }
+    );
   }
 }
 
@@ -121,13 +137,16 @@ export async function GET(req: Request, { params }: Params) {
 export async function POST(req: Request, { params }: Params) {
   try {
     if (!checkOrigin(req, 'B2BPartnerLead')) {
-      return NextResponse.json({ ok: false, message: '허용되지 않은 요청입니다.' }, { status: 403 });
+      return NextResponse.json(
+        { ok: false, error: 'FORBIDDEN', message: '접근 권한이 없습니다.' },
+        { status: 403 }
+      );
     }
 
     const { partnerId } = await params;
     const org = await resolveOrganization(partnerId);
     if (!org) {
-      return NextResponse.json({ ok: false, message: '유효하지 않은 파트너 링크입니다.' }, { status: 404 });
+      throw new NotFoundError('파트너');
     }
 
     // ── 바디 파싱 ──
@@ -156,13 +175,13 @@ export async function POST(req: Request, { params }: Params) {
 
     // ── 필수 필드 검증 ──
     if (!body.name?.trim() || !body.phone?.trim()) {
-      return NextResponse.json({ ok: false, message: '이름과 전화번호는 필수입니다.' }, { status: 400 });
+      throw new ValidationError('이름과 전화번호는 필수입니다.');
     }
 
     // ── 폰 검증: 숫자만 추출 후 10-11자 ──
     const normalizedPhone = body.phone.replace(/[^0-9]/g, '');
     if (normalizedPhone.length < 10 || normalizedPhone.length > 11) {
-      return NextResponse.json({ ok: false, message: '올바른 연락처를 입력해주세요.' }, { status: 400 });
+      throw new ValidationError('올바른 연락처를 입력해주세요.');
     }
 
     const formattedPhone = normalizedPhone.replace(/^(\d{3})(\d{4})(\d{4})$/, '$1-$2-$3');
@@ -179,11 +198,7 @@ export async function POST(req: Request, { params }: Params) {
     });
 
     if (duplicateProspect) {
-      return NextResponse.json({
-        ok: false,
-        message: '이미 신청이 접수되었습니다.',
-        duplicate: true,
-      }, { status: 409 });
+      throw new ConflictError('이미 신청이 접수되었습니다. (48시간 내)');
     }
 
     // ── OWNER 멤버 ──
@@ -283,18 +298,14 @@ export async function POST(req: Request, { params }: Params) {
       ({ prospect, registration, contactId } = result);
     } catch (txErr) {
       if (txErr instanceof Error && txErr.message === 'DUPLICATE_REGISTRATION') {
-        return NextResponse.json({
-          ok: false,
-          message: '이미 신청이 접수되었습니다. 담당자가 곧 연락드리겠습니다.',
-          duplicate: true,
-        }, { status: 409 });
+        throw new ConflictError('이미 신청이 접수되었습니다. 담당자가 곧 연락드리겠습니다.');
       }
       throw txErr;
     }
 
     // 트랜잭션이 성공해야 prospect가 null이 아님
     if (!prospect) {
-      return NextResponse.json({ ok: false, message: '처리 중 오류가 발생했습니다.' }, { status: 500 });
+      throw new Error('처리 중 오류가 발생했습니다.');
     }
 
     // ── 리드 점수 +30 (트랜잭션 외부) ──
@@ -360,10 +371,34 @@ export async function POST(req: Request, { params }: Params) {
       registration: registration ? { id: registration.id } : null,
     });
   } catch (err) {
-    if (err instanceof Error && err.message === 'NOT_FOUND') {
-      return NextResponse.json({ ok: false, message: '파트너를 찾을 수 없습니다.' }, { status: 404 });
+    if (err instanceof NotFoundError) {
+      return NextResponse.json(
+        { ok: false, error: err.code, message: err.message },
+        { status: err.statusCode }
+      );
+    }
+    if (err instanceof ConflictError) {
+      return NextResponse.json(
+        { ok: false, error: err.code, message: err.message, duplicate: true },
+        { status: err.statusCode }
+      );
+    }
+    if (err instanceof ValidationError) {
+      return NextResponse.json(
+        { ok: false, error: err.code, message: err.message },
+        { status: err.statusCode }
+      );
+    }
+    if (err instanceof B2BError) {
+      return NextResponse.json(
+        { ok: false, error: err.code, message: err.message },
+        { status: err.statusCode }
+      );
     }
     logger.error('[POST /api/public/b2b/p/[partnerId]]', { err });
-    return NextResponse.json({ ok: false, message: '신청 처리 중 오류가 발생했습니다.' }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: 'SERVER_ERROR', message: '신청 처리 중 오류가 발생했습니다.' },
+      { status: 500 }
+    );
   }
 }

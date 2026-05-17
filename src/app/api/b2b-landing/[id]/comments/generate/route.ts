@@ -3,6 +3,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+import { checkOrigin } from '@/lib/origin-guard';
+import { getCache, setCache } from '@/lib/redis';
+import { NotFoundError, RateLimitError, ServerError, B2BError } from '@/lib/b2b/errors';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -16,7 +19,15 @@ type Params = { params: Promise<{ id: string }> };
  * Response: { ok: true, comments: [...] }
  */
 export async function POST(req: Request, { params }: Params) {
+  const startTime = Date.now();
   try {
+    if (!checkOrigin(req, 'B2BCommentsGenerate')) {
+      return NextResponse.json(
+        { ok: false, error: 'FORBIDDEN', message: '접근 권한이 없습니다.' },
+        { status: 403 }
+      );
+    }
+
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
     const { id } = await params;
@@ -27,12 +38,30 @@ export async function POST(req: Request, { params }: Params) {
       select: { id: true, title: true, htmlContent: true },
     });
     if (!page) {
-      return NextResponse.json({ ok: false }, { status: 404 });
+      throw new NotFoundError('랜딩페이지');
     }
 
     // 요청 바디 파싱
     const body = await req.json();
     const count = Math.min(10, Math.max(1, (parseInt(body.count ?? '5') || 5)));
+
+    // [Rate Limiting] 1시간당 5회 제한 (Claude API 비용 폭증 방지)
+    const rateLimitKey = `b2b:comments:generate:${orgId}:${id}`;
+    const requestCount = await getCache<number>(rateLimitKey);
+
+    if (requestCount !== null && requestCount >= 5) {
+      logger.warn('[POST /api/b2b-landing/[id]/comments/generate] Rate limit exceeded', {
+        landingPageId: id,
+        orgId,
+        requestCount,
+        durationMs: Date.now() - startTime,
+      });
+      throw new RateLimitError('시간당 5회 이상 생성할 수 없습니다. (1시간 후 다시 시도)');
+    }
+
+    // Rate limit 카운터 증가 (초기: 1, TTL: 3600초 = 1시간)
+    const nextCount = (requestCount ?? 0) + 1;
+    await setCache(rateLimitKey, nextCount, 3600);
 
     // HTML → 텍스트 추출 (태그 제거, 공백 정규화)
     const textContent = (page.htmlContent ?? '')
@@ -60,11 +89,13 @@ ${textContent}
 - JSON 배열만 반환`;
 
     // Claude API 호출
+    const apiStartTime = Date.now();
     const message = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }],
     });
+    const apiDurationMs = Date.now() - apiStartTime;
 
     // API 응답에서 텍스트 추출
     const raw = (message.content[0] as { type: string; text: string }).text.trim();
@@ -72,11 +103,17 @@ ${textContent}
     // JSON 파싱 (배열 추출)
     const jsonMatch = raw.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-      logger.error('[B2B generate comments] JSON 파싱 실패', {
-        raw: raw.slice(0, 200),
+      logger.error('[POST /api/b2b-landing/[id]/comments/generate] JSON parsing failed', {
+        landingPageId: id,
+        orgId,
+        requestedCount: count,
+        rawLength: raw.length,
+        rawSnippet: raw.slice(0, 200),
+        durationMs: Date.now() - startTime,
+        apiDurationMs,
       });
       return NextResponse.json(
-        { ok: false, message: 'AI 응답 파싱 실패' },
+        { ok: false, error: 'PARSE_ERROR', message: 'AI 응답 파싱 실패' },
         { status: 500 }
       );
     }
@@ -106,15 +143,50 @@ ${textContent}
       )
     );
 
-    logger.log('[POST /api/b2b-landing/[id]/comments/generate]', {
+    const totalDurationMs = Date.now() - startTime;
+    logger.log('[POST /api/b2b-landing/[id]/comments/generate] Success', {
       landingPageId: id,
-      count: created.length,
       orgId,
+      requestedCount: count,
+      generatedCount: created.length,
+      apiDurationMs,
+      totalDurationMs,
+      tokenUsage: {
+        inputTokens: message.usage?.input_tokens || 0,
+        outputTokens: message.usage?.output_tokens || 0,
+      },
+      model: 'claude-haiku-4-5-20251001',
     });
 
-    return NextResponse.json({ ok: true, comments: created });
+    return NextResponse.json({ ok: true, data: created });
   } catch (err) {
-    logger.error('[POST /api/b2b-landing/[id]/comments/generate]', { err });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    if (err instanceof NotFoundError) {
+      return NextResponse.json(
+        { ok: false, error: err.code, message: err.message },
+        { status: err.statusCode }
+      );
+    }
+    if (err instanceof RateLimitError) {
+      return NextResponse.json(
+        { ok: false, error: err.code, message: err.message },
+        { status: err.statusCode }
+      );
+    }
+    if (err instanceof B2BError) {
+      return NextResponse.json(
+        { ok: false, error: err.code, message: err.message },
+        { status: err.statusCode }
+      );
+    }
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    logger.error('[POST /api/b2b-landing/[id]/comments/generate] Error', {
+      error: errorMsg,
+      stack: err instanceof Error ? err.stack?.split('\n').slice(0, 3).join('\n') : undefined,
+      durationMs: Date.now() - startTime,
+    });
+    return NextResponse.json(
+      { ok: false, error: 'SERVER_ERROR', message: '서버 오류가 발생했습니다.' },
+      { status: 500 }
+    );
   }
 }

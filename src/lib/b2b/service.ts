@@ -39,13 +39,24 @@ export async function getB2BProspects(
       ];
     }
 
-    // Fetch data in parallel
+    // Fetch data in parallel with optimized select (list view needs only essential fields)
     const [prospects, total] = await Promise.all([
       prisma.b2BProspect.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+          status: true,
+          eduType: true,
+          createdAt: true,
+          productName: true,
+          paymentAmount: true,
+        },
       }),
       prisma.b2BProspect.count({ where }),
     ]);

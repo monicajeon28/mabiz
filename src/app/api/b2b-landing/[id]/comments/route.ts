@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+import { getCache, setCache } from '@/lib/redis';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -29,7 +30,7 @@ export async function GET(req: Request, { params }: Params) {
       select: { id: true },
     });
     if (!page) {
-      return NextResponse.json({ ok: false }, { status: 404 });
+      return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: '랜딩페이지를 찾을 수 없습니다.' }, { status: 404 });
     }
 
     // 쿼리 파라미터 파싱
@@ -37,6 +38,14 @@ export async function GET(req: Request, { params }: Params) {
     const skip = Math.min(10000, Math.max(0, parseInt(searchParams.get('skip') ?? '0') || 0));
     const rawLimit = parseInt(searchParams.get('limit') ?? '10') || 10;
     const limit = Math.min(50, Math.max(1, rawLimit));
+
+    // [캐싱] Redis에서 5분 TTL로 캐시된 댓글 목록 조회
+    const cacheKey = `b2b:comments:${id}:${skip}:${limit}`;
+    const cachedComments = await getCache<any>(cacheKey);
+    if (cachedComments) {
+      logger.log('[B2B comments] 캐시에서 조회', { id, orgId, skip, limit });
+      return NextResponse.json(cachedComments);
+    }
 
     // 전체 댓글 수
     const total = await prisma.b2BLandingComment.count({
@@ -69,14 +78,25 @@ export async function GET(req: Request, { params }: Params) {
       returned: comments.length,
     });
 
-    return NextResponse.json({
+    const response = {
       ok: true,
-      comments,
+      data: comments,
       total,
       totalPages,
-    });
+    };
+
+    // [캐싱] 응답을 5분 TTL로 Redis에 캐시
+    await setCache(cacheKey, response, 300);
+
+    return NextResponse.json(response);
   } catch (err) {
-    logger.error('[GET /api/b2b-landing/[id]/comments]', { err });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    const errorCode = err instanceof Error && 'code' in err ? (err as any).code : 'UNKNOWN';
+    logger.error('[GET /api/b2b-landing/[id]/comments] Error', {
+      error: errorMsg,
+      errorCode,
+      stack: err instanceof Error ? err.stack?.split('\n').slice(0, 3).join('\n') : undefined,
+    });
+    return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR', message: '댓글을 불러오지 못했습니다.' }, { status: 500 });
   }
 }

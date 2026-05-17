@@ -16,7 +16,7 @@ export async function POST(_req: Request, { params }: Params) {
     const original = await prisma.b2BLandingPage.findFirst({
       where: { id, organizationId: orgId },
     });
-    if (!original) return NextResponse.json({ ok: false, error: 'NOT_FOUND' }, { status: 404 });
+    if (!original) return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: '원본 페이지를 찾을 수 없습니다.' }, { status: 404 });
 
     // partnerId가 있으면 " (복사)" 추가, 없으면 제목만 추가
     const newPartnerName = original.partnerId ? `${original.partnerId} (복사)` : null;
@@ -38,7 +38,7 @@ export async function POST(_req: Request, { params }: Params) {
       sourceId: id, newId: cloned.id, orgId,
     });
 
-    return NextResponse.json({ ok: true, page: cloned });
+    return NextResponse.json({ ok: true, data: cloned, page: cloned });
   } catch (err) {
     logger.error("[POST /api/b2b-landing/[id]/clone]", { err });
     return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR' }, { status: 500 });

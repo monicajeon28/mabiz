@@ -28,19 +28,24 @@ export async function GET(_req: Request, { params }: Params) {
     const orgId = resolveOrgIdOrNull(ctx);
     const { id } = await params;
 
+    // 상세 조회 — 에디터/폼 등 모든 필드 필요
     const page = await prisma.b2BLandingPage.findFirst({
       where: { id, ...(orgId ? { organizationId: orgId } : {}) },
       include: {
         _count: { select: { registrations: true } },
-        registrations: { orderBy: { createdAt: "desc" }, take: 50 },
+        registrations: {
+          orderBy: { createdAt: "desc" },
+          take: 50,
+          select: { id: true, name: true, phone: true, email: true, createdAt: true, funnelStarted: true },
+        },
         images: {
           orderBy: { sortOrder: "asc" },
           include: { imageAsset: { select: { id: true, driveFileId: true, originalFileName: true, mimeType: true, width: true, height: true } } },
         },
       },
     });
-    if (!page) return NextResponse.json({ ok: false, error: 'NOT_FOUND' }, { status: 404 });
-    return NextResponse.json({ ok: true, page });
+    if (!page) return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: '랜딩페이지를 찾을 수 없습니다.' }, { status: 404 });
+    return NextResponse.json({ ok: true, data: page, page });
   } catch (err) {
     logger.error("[GET /api/b2b-landing/[id]]", { err });
     return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR' }, { status: 500 });
@@ -60,7 +65,7 @@ export async function PATCH(req: Request, { params }: Params) {
     }
 
     const existing = await prisma.b2BLandingPage.findFirst({ where: { id, organizationId: orgId } });
-    if (!existing) return NextResponse.json({ ok: false, error: 'NOT_FOUND' }, { status: 404 });
+    if (!existing) return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: '랜딩페이지를 찾을 수 없습니다.' }, { status: 404 });
 
     const {
       title, htmlContent, partnerId, isActive, groupId, commentEnabled, autoFunnelId,
@@ -86,7 +91,7 @@ export async function PATCH(req: Request, { params }: Params) {
         ...(formConfig        !== undefined ? { formConfig: formConfig ?? null }        : {}),
       },
     });
-    return NextResponse.json({ ok: true, page });
+    return NextResponse.json({ ok: true, data: page, page });
   } catch (err) {
     logger.error("[PATCH /api/b2b-landing/[id]]", { err });
     return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR' }, { status: 500 });
@@ -110,7 +115,7 @@ export async function DELETE(_req: Request, { params }: Params) {
     if (!existing) return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: "페이지를 찾을 수 없습니다." }, { status: 404 });
 
     await prisma.b2BLandingPage.delete({ where: { id } });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, data: null, message: '삭제되었습니다.' });
   } catch (err) {
     logger.error("[DELETE /api/b2b-landing/[id]]", { err });
     return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR' }, { status: 500 });

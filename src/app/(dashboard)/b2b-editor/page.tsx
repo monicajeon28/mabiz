@@ -347,8 +347,11 @@ export default function B2BEditorPage() {
     setLoadingStats(pageId);
     try {
       const res  = await fetch(`/api/b2b-landing/${pageId}/stats`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.ok) setStatsMap((prev) => ({ ...prev, [pageId]: data.stats }));
+    } catch (err) {
+      console.error(`[loadStats] Failed to load stats for ${pageId}:`, err);
     } finally {
       setLoadingStats(null);
     }

@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis';
+import { logger } from '@/lib/logger';
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -9,7 +10,8 @@ const redis = new Redis({
 export async function getCache<T>(key: string): Promise<T | null> {
   try {
     return await redis.get<T>(key);
-  } catch {
+  } catch (err) {
+    logger.warn('[Redis getCache error]', { key, error: (err as Error).message });
     return null;
   }
 }

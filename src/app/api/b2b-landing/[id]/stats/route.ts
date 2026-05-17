@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { checkOrigin } from '@/lib/origin-guard';
+import { getCache, setCache } from '@/lib/redis';
+import { NotFoundError, B2BError } from '@/lib/b2b/errors';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -18,11 +21,27 @@ type Params = { params: Promise<{ id: string }> };
  *   purchased      - 구매 전환 수 (phone 조인 + purchasedAt IS NOT NULL)
  *   rates:         - 각 단계 전환율 %
  */
-export async function GET(_req: Request, { params }: Params) {
+export async function GET(req: Request, { params }: Params) {
+  const startTime = Date.now();
   try {
+    if (!checkOrigin(req, 'B2BLandingStats')) {
+      return NextResponse.json(
+        { ok: false, error: 'FORBIDDEN', message: '접근 권한이 없습니다.' },
+        { status: 403 }
+      );
+    }
+
     const ctx   = await getAuthContext();
     const orgId = requireOrgId(ctx);
     const { id } = await params;
+
+    // [캐싱] Redis에서 5분 TTL로 캐시된 통계 조회
+    const cacheKey = `b2b:stats:${id}`;
+    const cachedStats = await getCache<any>(cacheKey);
+    if (cachedStats) {
+      logger.log('[B2BLandingStats] 캐시에서 조회', { id, orgId });
+      return NextResponse.json(cachedStats);
+    }
 
     // [보안] 소유권 검증 (IDOR 방지)
     const page = await prisma.b2BLandingPage.findFirst({
@@ -30,7 +49,7 @@ export async function GET(_req: Request, { params }: Params) {
       select: { id: true, viewCount: true, title: true },
     });
     if (!page) {
-      return NextResponse.json({ ok: false, message: '랜딩페이지를 찾을 수 없습니다.' }, { status: 404 });
+      throw new NotFoundError('랜딩페이지');
     }
 
     // 등록 수 + 퍼널 진입 수 + 전화번호 목록 — 단일 쿼리
@@ -61,16 +80,16 @@ export async function GET(_req: Request, { params }: Params) {
         select: { id: true, purchasedAt: true },
       });
 
-      const contactIds = contacts.map(c => c.id);
       purchased = contacts.filter(c => c.purchasedAt !== null).length;
 
-      // 신청자 contactId 기준 이메일 발송 수
-      if (contactIds.length > 0) {
+      // 이메일 발송 수 병렬 처리
+      if (contacts.length > 0) {
+        const contactIds = contacts.map(c => c.id);
         emailSent = await prisma.emailLog.count({
           where: {
             organizationId: orgId,
-            contactId:      { in: contactIds },
-            status:         'SENT',
+            contactId: { in: contactIds },
+            status: 'SENT',
           },
         });
       }
@@ -95,20 +114,53 @@ export async function GET(_req: Request, { params }: Params) {
       },
     };
 
-    logger.log('[B2BLandingStats] 조회', { id, orgId, ...stats });
+    const startTime = Date.now();
+    logger.log('[GET /api/b2b-landing/[id]/stats] Success', {
+      landingPageId: id,
+      orgId,
+      viewCount: page.viewCount,
+      registered,
+      emailSent,
+      funnelEntered,
+      purchased,
+      phoneListLength: phoneList.length,
+      durationMs: Date.now() - startTime,
+    });
 
-    return NextResponse.json({
+    const response = {
       ok: true,
       stats,
       title: page.title,
       note: { purchased: 'phone 기반 근사치', emailSent: 'contactId 기반 — 해당 신청자에게 발송된 전체 이메일' },
-    });
+    };
+
+    // [캐싱] 응답을 5분 TTL로 Redis에 캐시
+    await setCache(cacheKey, response, 300);
+
+    return NextResponse.json(response);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('401') || msg.includes('Unauthorized')) {
-      return NextResponse.json({ ok: false }, { status: 401 });
+    if (err instanceof NotFoundError) {
+      return NextResponse.json(
+        { ok: false, error: err.code, message: err.message },
+        { status: err.statusCode }
+      );
     }
-    logger.error('[B2BLandingStats] 조회 실패', { err });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    if (err instanceof B2BError) {
+      return NextResponse.json(
+        { ok: false, error: err.code, message: err.message },
+        { status: err.statusCode }
+      );
+    }
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    const errorCode = err instanceof Error && 'code' in err ? (err as any).code : 'UNKNOWN';
+    logger.error('[GET /api/b2b-landing/[id]/stats] Error', {
+      error: errorMsg,
+      errorCode,
+      stack: err instanceof Error ? err.stack?.split('\n').slice(0, 3).join('\n') : undefined,
+    });
+    return NextResponse.json(
+      { ok: false, error: 'SERVER_ERROR', message: '서버 오류가 발생했습니다.' },
+      { status: 500 }
+    );
   }
 }

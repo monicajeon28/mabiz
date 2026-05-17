@@ -3911,11 +3911,13 @@ model B2BLandingPage {
 
   @@index([organizationId])
   @@index([partnerId])
+  @@index([organizationId, isActive, createdAt])
   @@map("CrmB2BLandingPage")
 }
 
 model B2BLandingRegistration {
   id              String             @id @default(cuid())
+  organizationId  String
   landingPageId   String
   name            String
   phone           String
@@ -3933,6 +3935,9 @@ model B2BLandingRegistration {
 
   @@unique([landingPageId, phone])
   @@index([landingPageId])
+  @@index([organizationId, createdAt])
+  @@index([landingPageId, createdAt])
+  @@index([landingPageId, funnelStarted])
   @@map("CrmB2BLandingRegistration")
 }
 
