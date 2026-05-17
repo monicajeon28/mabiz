@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, MessageSquare, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, MessageSquare, CheckCircle, AlertCircle, Loader2, User, Building2, Unlink } from "lucide-react";
 import Link from "next/link";
 
-type Config = {
+type OrgConfig = {
   id?:             string;
   aligoUserId?:    string;
   senderPhone?:    string;
@@ -16,8 +16,20 @@ type Config = {
   updatedAt?:      string;
 };
 
+type UserConfig = {
+  id:             string;
+  aligoUserId:    string;
+  senderPhone:    string;
+  aligoKeyTail:   string;
+  senderVerified: boolean;
+  verifiedAt:     string | null;
+  isActive:       boolean;
+  updatedAt:      string;
+} | null;
+
 export default function SmsSettingsPage() {
-  const [config, setConfig]       = useState<Config>({});
+  // ── 조직 설정 ──
+  const [config, setConfig]       = useState<OrgConfig>({});
   const [form, setForm]           = useState({ aligoKey: "", aligoUserId: "", senderPhone: "" });
   const [testPhone, setTestPhone] = useState("");
   const [saving, setSaving]         = useState(false);
@@ -29,6 +41,18 @@ export default function SmsSettingsPage() {
   const [reEngageMsg2, setReEngageMsg2] = useState("");
   const [savingReEngage, setSavingReEngage] = useState(false);
 
+  // ── 개인 설정 ──
+  const [userConfig, setUserConfig]   = useState<UserConfig>(null);
+  const [userForm, setUserForm]       = useState({ aligoKey: "", aligoUserId: "", senderPhone: "" });
+  const [userLoading, setUserLoading] = useState(true);
+  const [userSaving, setUserSaving]   = useState(false);
+  const [userDeleting, setUserDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [userVerifying, setUserVerifying]   = useState(false);
+  const [userVerifyStep, setUserVerifyStep] = useState<"idle" | "requested" | "done">("idle");
+  const [userMsg, setUserMsg]   = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  // ── 초기 로드 ──
   useEffect(() => {
     fetch("/api/settings/sms")
       .then((r) => r.json())
@@ -43,9 +67,27 @@ export default function SmsSettingsPage() {
           setReEngageMsg1(d.config.reEngageMsg1 ?? "");
           setReEngageMsg2(d.config.reEngageMsg2 ?? "");
         }
-      });
+      })
+      .catch(() => setMsg({ type: "err", text: "조직 SMS 설정 로드 실패" }));
+
+    fetch("/api/settings/sms-config")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) {
+          setUserConfig(d.config ?? null);
+          if (d.config) {
+            setUserForm((f) => ({
+              ...f,
+              aligoUserId: d.config.aligoUserId ?? "",
+              senderPhone: d.config.senderPhone  ?? "",
+            }));
+          }
+        }
+      })
+      .finally(() => setUserLoading(false));
   }, []);
 
+  // ── 조직 설정 저장 ──
   const save = async () => {
     setSaving(true);
     setMsg(null);
@@ -113,6 +155,97 @@ export default function SmsSettingsPage() {
     setTesting(false);
   };
 
+  // ── 개인 설정 저장 ──
+  const saveUserConfig = async () => {
+    if (!userForm.aligoKey.trim() && !userConfig) {
+      setUserMsg({ type: "err", text: "API Key를 입력해주세요." }); return;
+    }
+    if (!userForm.aligoUserId.trim() || !userForm.senderPhone.trim()) {
+      setUserMsg({ type: "err", text: "User ID와 발신번호는 필수입니다." }); return;
+    }
+    setUserSaving(true); setUserMsg(null);
+    try {
+      const res = await fetch("/api/settings/sms-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          aligoKey:    userForm.aligoKey.trim() || undefined,
+          aligoUserId: userForm.aligoUserId.trim(),
+          senderPhone: userForm.senderPhone.trim(),
+        }),
+      });
+      const data = await res.json() as { ok: boolean; message?: string };
+      if (data.ok) {
+        setUserMsg({ type: "ok", text: "내 알리고 계정이 연결되었습니다." });
+        setUserForm((f) => ({ ...f, aligoKey: "" }));
+        // 갱신
+        const r2 = await fetch("/api/settings/sms-config");
+        const d2 = await r2.json() as { ok: boolean; config: UserConfig };
+        if (d2.ok) setUserConfig(d2.config ?? null);
+      } else {
+        setUserMsg({ type: "err", text: data.message ?? "저장 실패" });
+      }
+    } catch {
+      setUserMsg({ type: "err", text: "저장 중 오류가 발생했습니다." });
+    } finally {
+      setUserSaving(false);
+    }
+  };
+
+  const deleteUserConfig = async () => {
+    setUserDeleting(true); setUserMsg(null);
+    try {
+      const res = await fetch("/api/settings/sms-config", { method: "DELETE" });
+      const data = await res.json() as { ok: boolean };
+      if (data.ok) {
+        setUserConfig(null);
+        setUserForm({ aligoKey: "", aligoUserId: "", senderPhone: "" });
+        setUserVerifyStep("idle");
+        setConfirmDelete(false);
+        setUserMsg({ type: "ok", text: "알리고 연결이 해제되었습니다." });
+      }
+    } catch {
+      setUserMsg({ type: "err", text: "해제 중 오류가 발생했습니다." });
+    } finally {
+      setUserDeleting(false);
+    }
+  };
+
+  const requestUserVerify = async () => {
+    setUserVerifying(true); setUserMsg(null);
+    try {
+      const res = await fetch("/api/settings/sms-config/verify", { method: "POST" });
+      const data = await res.json() as { ok: boolean; message?: string };
+      if (data.ok) {
+        setUserVerifyStep("requested");
+        setUserMsg({ type: "ok", text: data.message ?? "Aligo 콘솔에서 발신번호 등록 후 인증 완료 버튼을 눌러주세요." });
+      } else {
+        setUserMsg({ type: "err", text: data.message ?? "인증 요청 실패" });
+      }
+    } catch {
+      setUserMsg({ type: "err", text: "인증 요청 중 오류가 발생했습니다." });
+    } finally {
+      setUserVerifying(false);
+    }
+  };
+
+  const confirmUserVerify = async () => {
+    setUserVerifying(true); setUserMsg(null);
+    try {
+      const res = await fetch("/api/settings/sms-config/verify", { method: "PUT" });
+      const data = await res.json() as { ok: boolean; message?: string };
+      if (data.ok) {
+        setUserVerifyStep("done");
+        setUserConfig((c) => c ? { ...c, senderVerified: true, verifiedAt: new Date().toISOString() } : c);
+        setUserMsg({ type: "ok", text: data.message ?? "발신번호 인증이 완료되었습니다." });
+      } else {
+        setUserMsg({ type: "err", text: data.message ?? "인증 실패" });
+      }
+    } finally {
+      setUserVerifying(false);
+    }
+  };
+
   return (
     <div className="max-w-lg mx-auto p-4 md:p-6">
       {/* 헤더 */}
@@ -126,6 +259,174 @@ export default function SmsSettingsPage() {
         </div>
       </div>
 
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          내 개인 알리고 연결
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <User className="w-4 h-4 text-blue-500" />
+          <h2 className="text-base font-semibold text-gray-800">내 개인 알리고 연결</h2>
+          <span className="px-2 py-0.5 bg-blue-100 text-blue-600 text-xs rounded-full">개인</span>
+        </div>
+        <p className="text-xs text-gray-500 mb-3">
+          내 알리고 계정을 연결하면 문자 발송 시 내 발신번호가 사용됩니다.
+          연결하지 않으면 조직 공용 계정으로 발송됩니다.
+        </p>
+
+        {/* 연결 상태 배너 */}
+        {userLoading ? (
+          <div className="h-14 bg-gray-100 rounded-xl animate-pulse mb-3" />
+        ) : userConfig ? (
+          <div className="border rounded-xl p-3.5 mb-3 bg-green-50 border-green-200 flex items-center gap-3">
+            <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
+            <div className="flex-1 text-sm">
+              <p className="font-medium text-green-800">✅ 내 알리고 계정 연결됨</p>
+              <p className="text-green-600 text-xs mt-0.5">
+                ID: {userConfig.aligoUserId} · 발신번호: {userConfig.senderPhone} · API Key: ****{userConfig.aligoKeyTail}
+                {userConfig.senderVerified && " · 인증완료"}
+              </p>
+            </div>
+            {confirmDelete ? (
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="text-xs text-red-600">정말요?</span>
+                <button onClick={deleteUserConfig} disabled={userDeleting}
+                  className="px-2 py-1 text-xs bg-red-600 text-white rounded disabled:opacity-50 flex items-center gap-1">
+                  {userDeleting && <Loader2 className="w-3 h-3 animate-spin" />}예
+                </button>
+                <button onClick={() => setConfirmDelete(false)}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded">아니오</button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmDelete(true)} disabled={userDeleting}
+                className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50">
+                <Unlink className="w-3 h-3" /> 해제
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="border rounded-xl p-3.5 mb-3 bg-amber-50 border-amber-200 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+            <p className="text-sm text-amber-700">내 알리고 계정이 연결되지 않았습니다. 아래에서 연결하세요.</p>
+          </div>
+        )}
+
+        {/* 개인 연결 폼 */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Aligo API Key {!userConfig && <span className="text-red-500">*</span>}
+            </label>
+            <input
+              type="password"
+              value={userForm.aligoKey}
+              onChange={(e) => setUserForm({ ...userForm, aligoKey: e.target.value })}
+              placeholder={userConfig ? "변경 시에만 입력 (****" + userConfig.aligoKeyTail + ")" : "내 Aligo API Key"}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Aligo User ID <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={userForm.aligoUserId}
+              onChange={(e) => setUserForm({ ...userForm, aligoUserId: e.target.value })}
+              placeholder="내 aligo 아이디"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              발신번호 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="tel"
+              value={userForm.senderPhone}
+              onChange={(e) => setUserForm({ ...userForm, senderPhone: e.target.value })}
+              placeholder="010-1234-5678"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400"
+            />
+            <p className="text-xs text-gray-400 mt-1">내 Aligo 계정에 등록된 발신번호와 동일해야 합니다.</p>
+          </div>
+          <button
+            onClick={saveUserConfig}
+            disabled={userSaving}
+            className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {userSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+            {userConfig ? "계정 정보 업데이트" : "내 알리고 연결"}
+          </button>
+        </div>
+
+        {/* 개인 발신번호 인증 */}
+        {userConfig && !userConfig.senderVerified && (
+          <div className="bg-white rounded-xl border border-yellow-200 p-4 mt-3 space-y-2">
+            <h3 className="text-xs font-semibold text-gray-700">📞 발신번호 인증 (필수)</h3>
+            <p className="text-xs text-gray-500">
+              Aligo 콘솔에서 발신번호 등록 후 ARS 인증을 완료하세요.
+            </p>
+            {userVerifyStep === "idle" && (
+              <button
+                onClick={requestUserVerify}
+                disabled={userVerifying}
+                className="w-full border border-yellow-400 text-yellow-800 py-2 rounded-lg text-xs font-medium hover:bg-yellow-50 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {userVerifying && <Loader2 className="w-3 h-3 animate-spin" />}
+                Aligo 콘솔에서 인증 완료 안내 보기
+              </button>
+            )}
+            {userVerifyStep === "requested" && (
+              <div className="space-y-2">
+                <a
+                  href="https://smartsms.aligo.in"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full border border-blue-400 text-blue-700 py-2 rounded-lg text-xs font-medium hover:bg-blue-50 flex items-center justify-center gap-2"
+                >
+                  Aligo 콘솔 열기
+                </a>
+                <button
+                  onClick={confirmUserVerify}
+                  disabled={userVerifying}
+                  className="w-full bg-green-600 text-white py-2 rounded-lg text-xs font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {userVerifying && <Loader2 className="w-3 h-3 animate-spin" />}
+                  인증 완료 확인
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 개인 설정 결과 메시지 */}
+        {userMsg && (
+          <div className={`flex items-center gap-2 p-3 rounded-xl mt-2 text-xs ${
+            userMsg.type === "ok"
+              ? "bg-green-50 text-green-700 border border-green-200"
+              : "bg-red-50 text-red-700 border border-red-200"
+          }`}>
+            {userMsg.type === "ok"
+              ? <CheckCircle className="w-4 h-4 shrink-0" />
+              : <AlertCircle className="w-4 h-4 shrink-0" />}
+            {userMsg.text}
+          </div>
+        )}
+      </div>
+
+      {/* 구분선 */}
+      <div className="flex items-center gap-3 mb-5">
+        <div className="flex-1 border-t border-gray-200" />
+        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+          <Building2 className="w-3.5 h-3.5" /> 조직 공용 설정
+        </div>
+        <div className="flex-1 border-t border-gray-200" />
+      </div>
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          조직 공용 알리고 설정 (기존)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+
       {/* 현재 상태 */}
       {config.id && (
         <div className={`border rounded-xl p-4 mb-5 flex items-center gap-3 ${
@@ -138,7 +439,7 @@ export default function SmsSettingsPage() {
             : <AlertCircle className="w-5 h-5 text-yellow-500 shrink-0" />}
           <div className="text-sm flex-1">
             <p className={`font-medium ${config.senderVerified ? "text-green-800" : "text-yellow-800"}`}>
-              {config.senderVerified ? "✅ 발신번호 인증 완료" : "⚠️ 발신번호 미인증 — 문자 발송이 차단될 수 있습니다"}
+              {config.senderVerified ? "✅ 조직 발신번호 인증 완료" : "⚠️ 조직 발신번호 미인증 — 문자 발송이 차단될 수 있습니다"}
             </p>
             <p className={`mt-0.5 ${config.senderVerified ? "text-green-600" : "text-yellow-700"}`}>
               발신번호: {config.senderPhone}
@@ -277,7 +578,7 @@ export default function SmsSettingsPage() {
         </div>
       )}
 
-      {/* 재진입 메시지 커스터마이즈 (WO-26) */}
+      {/* 재진입 메시지 커스터마이즈 */}
       {config.id && (
         <div className="bg-white rounded-xl border border-gray-200 p-5 mt-4 space-y-4">
           <div>
@@ -320,7 +621,7 @@ export default function SmsSettingsPage() {
         </div>
       )}
 
-      {/* 결과 메시지 */}
+      {/* 조직 결과 메시지 */}
       {msg && (
         <div className={`flex items-center gap-2 p-3 rounded-xl mt-3 text-sm ${
           msg.type === "ok"

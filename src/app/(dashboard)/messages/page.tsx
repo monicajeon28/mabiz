@@ -171,7 +171,7 @@ function SmsTab() {
                 <span className="text-sm font-medium text-amber-700">알리고 미연결</span>
               </div>
               <p className="text-xs text-amber-600 mb-2">내 알리고 계정을 연결해야 SMS를 보낼 수 있습니다.</p>
-              <a href="/settings?tab=sms" className="text-xs text-blue-600 underline flex items-center gap-1">
+              <a href="/settings/sms" className="text-xs text-blue-600 underline flex items-center gap-1">
                 <Settings className="w-3 h-3" /> 알리고 계정 연결하기
               </a>
             </div>
@@ -467,7 +467,7 @@ function EmailTab() {
           ) : (
             <div>
               <p className="text-xs text-amber-600 mb-2">이메일 설정이 필요합니다.</p>
-              <a href="/settings?tab=email" className="text-xs text-blue-600 underline flex items-center gap-1">
+              <a href="/settings/email" className="text-xs text-blue-600 underline flex items-center gap-1">
                 <Settings className="w-3 h-3" /> 이메일 설정하기
               </a>
             </div>
