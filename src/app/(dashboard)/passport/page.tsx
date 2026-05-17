@@ -807,8 +807,8 @@ export default function PassportRequestPage() {
         body: JSON.stringify({
           userIds: selectedIds,
           templateId: bulkLinkResult.templateId ?? undefined,
-          messageBody: bulkLinkResult.message,
-          channel: 'SMS',
+          messageBody: bulkLinkResult.items[0]?.message ?? '',
+          channel,
           expiresInHours,
         }),
       });
@@ -1424,80 +1424,82 @@ export default function PassportRequestPage() {
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-green-800 flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-green-600" />
-                ✅ 링크가 생성되었습니다
+                ✅ {bulkLinkResult.items.length}명의 링크가 생성되었습니다
               </h3>
               <button
                 onClick={() => setBulkLinkResult(null)}
+                aria-label="모달 닫기"
                 className="rounded-lg p-1 text-green-600 hover:bg-green-100"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* 메시지 (링크만 전송/메시지 발송 모두) */}
-            <div className="space-y-2">
-              <label className="block">
-                <p className="text-sm font-semibold text-green-800 mb-2">
-                  {bulkLinkResult.selectedSendMode === 'message' ? '📝 완성된 메시지' : '📋 복사할 메시지 (고객에게 전달)'}
-                </p>
-                <textarea
-                  value={bulkLinkResult.message}
-                  readOnly
-                  rows={bulkLinkResult.selectedSendMode === 'message' ? 6 : 12}
-                  className="w-full rounded-lg border border-green-200 bg-white px-3 py-2 text-sm text-green-900 font-mono whitespace-pre-wrap"
-                />
-              </label>
-              <button
-                onClick={() => handleCopy(bulkLinkResult.message, '메시지', 'bulk-message')}
-                className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 transition-colors"
-              >
-                {copiedButtonId === 'bulk-message' ? (
-                  <>
-                    <CheckCircle className="h-3 w-3" />
-                    복사됨
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-3 w-3" />
-                    메시지 복사
-                  </>
-                )}
-              </button>
-            </div>
+            <p className="text-xs text-green-700">
+              ⏰ 만료: {new Date(bulkLinkResult.expiresAt).toLocaleString('ko-KR')}
+            </p>
 
-            {/* 링크 표시 */}
-            <div className="space-y-2">
-              <label className="block">
-                <p className="text-sm font-semibold text-green-800 mb-2">🔗 {sendTarget === 'passport' ? '여권 제출' : 'PNR'} 링크</p>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <input
-                    type="text"
-                    value={bulkLinkResult.link}
-                    readOnly
-                    className="flex-1 rounded-lg border border-green-200 bg-white px-3 py-2 text-sm text-green-900 font-mono"
-                  />
-                  <button
-                    onClick={() => handleCopy(bulkLinkResult.link, '링크', 'bulk-link')}
-                    className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition-colors whitespace-nowrap"
-                  >
-                    {copiedButtonId === 'bulk-link' ? (
-                      <>
-                        <CheckCircle className="h-4 w-4" />
-                        복사됨
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-4 w-4" />
-                        링크 복사
-                      </>
-                    )}
-                  </button>
+            {/* 단일 고객 — 기존 메시지+링크 표시 */}
+            {bulkLinkResult.items.length === 1 && (() => {
+              const item = bulkLinkResult.items[0];
+              return (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-green-800">
+                      {bulkLinkResult.selectedSendMode === 'message' ? '📝 완성된 메시지' : '📋 복사할 메시지'}
+                    </p>
+                    <textarea
+                      value={item.message}
+                      readOnly
+                      rows={bulkLinkResult.selectedSendMode === 'message' ? 6 : 12}
+                      className="w-full rounded-lg border border-green-200 bg-white px-3 py-2 text-sm text-green-900 font-mono whitespace-pre-wrap"
+                    />
+                    <button
+                      onClick={() => handleCopy(item.message, '메시지', 'bulk-message')}
+                      className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 transition-colors"
+                    >
+                      {copiedButtonId === 'bulk-message' ? <><CheckCircle className="h-3 w-3" />복사됨</> : <><Copy className="h-3 w-3" />메시지 복사</>}
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <input type="text" value={item.link} readOnly
+                      className="flex-1 rounded-lg border border-green-200 bg-white px-3 py-2 text-sm text-green-900 font-mono" />
+                    <button
+                      onClick={() => handleCopy(item.link, '링크', 'bulk-link')}
+                      className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition-colors whitespace-nowrap"
+                    >
+                      {copiedButtonId === 'bulk-link' ? <><CheckCircle className="h-4 w-4" />복사됨</> : <><Copy className="h-4 w-4" />링크 복사</>}
+                    </button>
+                  </div>
                 </div>
-              </label>
-              <p className="text-xs text-green-700">
-                ⏰ 만료: {new Date(bulkLinkResult.expiresAt).toLocaleString('ko-KR')}
-              </p>
-            </div>
+              );
+            })()}
+
+            {/* 복수 고객 — 전체 링크 목록 */}
+            {bulkLinkResult.items.length > 1 && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-green-800">🔗 고객별 링크 목록</p>
+                <div className="max-h-72 overflow-y-auto rounded-xl border border-green-200 bg-white divide-y divide-green-100">
+                  {bulkLinkResult.items.map((item, idx) => (
+                    <div key={item.userId} className="flex items-center gap-2 px-3 py-2">
+                      <span className="text-xs text-gray-400 w-5 shrink-0">{idx + 1}</span>
+                      <span className="text-sm font-medium text-gray-700 w-20 shrink-0 truncate">
+                        {item.name ?? '(이름없음)'}
+                      </span>
+                      <input type="text" value={item.link} readOnly
+                        className="flex-1 min-w-0 rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 font-mono" />
+                      <button
+                        onClick={() => handleCopy(item.link, `${item.name ?? ''}링크`, `bulk-link-${item.userId}`)}
+                        className="shrink-0 rounded px-2 py-1 text-xs bg-green-600 text-white hover:bg-green-700 flex items-center gap-1"
+                      >
+                        {copiedButtonId === `bulk-link-${item.userId}` ? <><CheckCircle className="h-3 w-3" />완료</> : <><Copy className="h-3 w-3" />복사</>}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-green-600">💡 각 고객에게 고유한 링크를 개별로 전달하세요.</p>
+              </div>
+            )}
 
             {/* 다음 단계 선택 */}
             <div className="border-t border-green-200 pt-4 space-y-3">
