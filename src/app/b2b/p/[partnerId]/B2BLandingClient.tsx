@@ -156,12 +156,12 @@ function validateFormData(nameVal: string, phoneVal: string): string | null {
  *
  * @param partnerId 파트너 ID
  * @param data 신청 데이터
- * @returns API 응답 JSON
+ * @returns API 응답 { ok: boolean, duplicate?: boolean, message?: string, ... }
  */
 async function submitRegistration(
   partnerId: string,
   data: Record<string, unknown>
-): Promise<Record<string, unknown>> {
+): Promise<{ ok?: boolean; duplicate?: boolean; message?: string }> {
   const res = await fetch(`/api/public/b2b/p/${partnerId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
