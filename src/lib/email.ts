@@ -1,34 +1,17 @@
 import { logger } from "@/lib/logger";
 import { createTransport } from "nodemailer";
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import { encrypt, decrypt } from "@/lib/crypto";
 
-const _RAW_KEY = process.env.EMAIL_ENCRYPT_KEY;
-if (!_RAW_KEY || _RAW_KEY.length < 32) {
+if (!process.env.EMAIL_ENCRYPT_KEY || process.env.EMAIL_ENCRYPT_KEY.length < 32) {
   if (process.env.NODE_ENV === 'production') console.error("[FATAL] EMAIL_ENCRYPT_KEY 미설정 — 조직 SMTP 불동작");
 }
-const ENCRYPT_KEY = _RAW_KEY ?? "";
 
-
-// SMTP 비밀번호 암호화
 export function encryptSmtpPassword(plain: string): string {
-  const iv = randomBytes(16);
-  const key = Buffer.from(ENCRYPT_KEY.substring(0, 32));
-  const cipher = createCipheriv("aes-256-cbc", key, iv);
-  const encrypted = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
-  return iv.toString("hex") + ":" + encrypted.toString("hex");
+  return encrypt(plain, "EMAIL_ENCRYPT_KEY");
 }
 
-// SMTP 비밀번호 복호화
 export function decryptSmtpPassword(encrypted: string): string {
-  const [ivHex, encHex] = encrypted.split(":");
-  const iv = Buffer.from(ivHex, "hex");
-  const key = Buffer.from(ENCRYPT_KEY.substring(0, 32));
-  const decipher = createDecipheriv("aes-256-cbc", key, iv);
-  const decrypted = Buffer.concat([
-    decipher.update(Buffer.from(encHex, "hex")),
-    decipher.final(),
-  ]);
-  return decrypted.toString("utf8");
+  return decrypt(encrypted, "EMAIL_ENCRYPT_KEY");
 }
 
 interface SendEmailParams {

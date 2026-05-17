@@ -42,6 +42,7 @@ model Organization {
   shortLinks                 ShortLink[]
   smsTemplates               SmsTemplate[]
   b2bProspects               B2BProspect[]
+  b2bLandingPages            B2BLandingPage[]
   partnerSuspensions         PartnerSuspension[]
 }
 
@@ -59,6 +60,23 @@ model OrgSmsConfig {
   reEngageMsg2   String?
   updatedAt      DateTime     @updatedAt
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model UserSmsConfig {
+  id                String             @id @default(cuid())
+  userId            String
+  organizationId    String
+  aligoKeyEncrypted String
+  aligoUserId       String
+  senderPhone       String
+  senderVerified    Boolean            @default(false)
+  verifiedAt        DateTime?
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
 }
 
 model OrgEmailConfig {
@@ -81,11 +99,12 @@ model OrganizationMember {
   userId         String
   phone          String?
   passwordHash   String?
-  role           String       @default("AGENT")
-  displayName    String?
-  isActive       Boolean      @default(true)
-  email          String?
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role              String       @default("AGENT")
+  displayName       String?
+  isActive          Boolean      @default(true)
+  email             String?
+  emailSenderName   String?
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, userId])
   @@index([organizationId])
@@ -186,10 +205,11 @@ model ContactGroup {
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
   ownerId        String?
-  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  members        ContactGroupMember[]
-  landingPages   CrmLandingPage[]
-  tokens         GroupToken[]
+  organization      Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members           ContactGroupMember[]
+  landingPages      CrmLandingPage[]
+  b2bLandingPages   B2BLandingPage[]
+  tokens            GroupToken[]
 
   @@index([organizationId])
   @@index([ownerId])
@@ -3850,6 +3870,109 @@ model SmsQueue {
   @@index([userId])
 }
 
+// ============ B2B 랜딩페이지 모델 (완전 리빌드) ============
+
+model B2BLandingPage {
+  id                String                     @id @default(cuid())
+  organizationId    String
+  title             String
+  partnerId         String?
+  htmlContent       String?
+  isActive          Boolean                    @default(true)
+  viewCount         Int                        @default(0)
+  autoFunnelId      String?
+  groupId           String?
+  commentEnabled    Boolean                    @default(false)
+  editorMode        String                     @default("image")
+  formConfig        Json?
+  footerText        String?
+  paymentEnabled    Boolean                    @default(false)
+  paymentType       String?
+  productName       String?
+  productPrice      Int?
+  cycleDay          Int?
+  expireDate        DateTime?
+  regEmailEnabled   Boolean                    @default(false)
+  regEmailSubject   String?
+  regEmailContent   String?
+  exposureTitle     String?
+  exposureImage     String?
+  buttonTitle       String?
+  completionPageUrl String?
+  headerScript      String?
+  description       String?
+  createdByUserId   String?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  organization      Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  group             ContactGroup?              @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  registrations     B2BLandingRegistration[]
+  comments          B2BLandingComment[]
+
+  @@index([organizationId])
+  @@index([partnerId])
+  @@map("CrmB2BLandingPage")
+}
+
+model B2BLandingRegistration {
+  id              String             @id @default(cuid())
+  landingPageId   String
+  name            String
+  phone           String
+  email           String?
+  company         String?
+  packageInterest String?
+  utmSource       String?
+  utmMedium       String?
+  utmCampaign     String?
+  metadata        Json?
+  funnelStarted   Boolean            @default(false)
+  prospectId      String?
+  createdAt       DateTime           @default(now())
+  landingPage     B2BLandingPage     @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+
+  @@unique([landingPageId, phone])
+  @@index([landingPageId])
+  @@map("CrmB2BLandingRegistration")
+}
+
+model B2BLandingComment {
+  id              String         @id @default(cuid())
+  landingPageId   String
+  authorName      String
+  content         String
+  passwordHash    String?
+  isAutoGenerated Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  landingPage     B2BLandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+
+  @@index([landingPageId])
+  @@map("CrmB2BLandingComment")
+}
+
+model B2BLandingView {
+  id            String   @id @default(cuid())
+  landingPageId String
+  ipHash        String
+  viewedAt      DateTime @default(now())
+
+  @@unique([landingPageId, ipHash])
+  @@map("CrmB2BLandingView")
+}
+
+model B2BLandingPageImage {
+  id            String   @id @default(dbgenerated("gen_random_uuid()"))
+  landingPageId String
+  imageAssetId  String
+  sortOrder     Int      @default(0)
+  altText       String?
+  createdAt     DateTime @default(now())
+
+  @@unique([landingPageId, imageAssetId])
+  @@index([landingPageId, sortOrder])
+  @@map("CrmB2BLandingPageImage")
+}
+
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model SubscriptionPreference {
   id                Int       @id @default(autoincrement())
@@ -4174,6 +4297,13 @@ enum PaymentStatus {
   pending_vbank
 }
 
+enum RecaptchaVerificationStatus {
+  PENDING
+  SUCCESS
+  BLOCKED
+  FAILED
+}
+
 model B2BProspect {
   id                String       @id @default(cuid())
   organizationId    String
@@ -4230,4 +4360,28 @@ model PartnerSuspension {
   @@index([suspendedAt])
   @@index([resolvedAt])
   @@map("PartnerSuspension")
+}
+
+model RecaptchaVerification {
+  id                    String                          @id @default(cuid())
+  organizationId        String
+  contactId             String?
+  groupId               String?
+  recaptchaToken        String
+  recaptchaScore        Float
+  verificationStatus    RecaptchaVerificationStatus     @default(PENDING)
+  verifiedAt            DateTime?                       @db.Timestamptz(6)
+  callbackStatus        String?                         // SUCCESS | FAILED | PENDING
+  expiresAt             DateTime                        @db.Timestamptz(6)
+  createdAt             DateTime                        @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime                        @updatedAt @db.Timestamptz(6)
+
+  // Note: Relationships removed due to missing back-relations in Organization, Contact, ContactGroup
+  // Foreign keys are sufficient for data integrity at the database level
+
+  @@index([organizationId, verificationStatus])
+  @@index([contactId, verificationStatus])
+  @@index([expiresAt])
+  @@index([createdAt])
+  @@map("RecaptchaVerification")
 }

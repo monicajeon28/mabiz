@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getOrgId } from "@/lib/org";
+import { getMabizSession } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { encryptSmtpPassword } from "@/lib/email";
 
 // GET /api/settings/email
 export async function GET() {
   try {
-    const orgId = await getOrgId();
+    const [orgId, session] = await Promise.all([getOrgId(), getMabizSession()]);
     const config = await prisma.orgEmailConfig.findUnique({
       where: { organizationId: orgId },
       select: {
@@ -19,12 +20,21 @@ export async function GET() {
         smtpUser: true,
         isActive: true,
         updatedAt: true,
-        // 비밀번호 제외
         smtpPassEncrypted: false,
       },
     });
 
-    return NextResponse.json({ ok: true, config });
+    // 멤버별 발신자 이름 조회
+    let memberSenderName: string | null = null;
+    if (session?.userId && session.organizationId) {
+      const member = await prisma.organizationMember.findUnique({
+        where: { organizationId_userId: { organizationId: session.organizationId, userId: session.userId } },
+        select: { emailSenderName: true },
+      });
+      memberSenderName = member?.emailSenderName ?? null;
+    }
+
+    return NextResponse.json({ ok: true, config, memberSenderName });
   } catch (err) {
     logger.error("[GET /api/settings/email]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });

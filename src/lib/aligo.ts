@@ -149,6 +149,47 @@ export async function getOrgSmsConfig(organizationId: string) {
   return prisma.orgSmsConfig.findUnique({ where: { organizationId } });
 }
 
+/**
+ * 사용자 → 조직 → 환경변수 순으로 알리고 설정 resolve
+ * userId가 없으면 조직/환경변수 fallback
+ */
+export async function resolveUserSmsConfig(
+  organizationId: string,
+  userId?: string
+): Promise<AligoConfig | null> {
+  const { default: prisma } = await import("@/lib/prisma");
+  const { decrypt } = await import("@/lib/crypto");
+
+  // 1. 개인 알리고 설정
+  if (userId) {
+    const userCfg = await prisma.userSmsConfig.findUnique({
+      where: { userId_organizationId: { userId, organizationId } },
+    });
+    if (userCfg?.isActive) {
+      try {
+        const key = decrypt(userCfg.aligoKeyEncrypted, "SMS_ENCRYPT_KEY");
+        return { key, userId: userCfg.aligoUserId, sender: userCfg.senderPhone };
+      } catch (err) {
+        logger.error("[aligo] UserSmsConfig 복호화 실패 — OrgSmsConfig로 fallback", { userId, err });
+      }
+    }
+  }
+
+  // 2. 조직 알리고 설정
+  const orgCfg = await prisma.orgSmsConfig.findUnique({ where: { organizationId } });
+  if (orgCfg?.isActive) {
+    return { key: orgCfg.aligoKey, userId: orgCfg.aligoUserId, sender: orgCfg.senderPhone };
+  }
+
+  // 3. 환경변수 fallback
+  const key = process.env.ALIGO_API_KEY;
+  const aligoUserId = process.env.ALIGO_USER_ID;
+  const sender = process.env.ALIGO_SENDER_PHONE;
+  if (key && aligoUserId && sender) return { key, userId: aligoUserId, sender };
+
+  return null;
+}
+
 /** Aligo에 등록된 발신번호 목록 조회 후 검증 */
 export async function verifySenderNumber(config: AligoConfig): Promise<boolean> {
   try {
