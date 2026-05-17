@@ -42,6 +42,7 @@ model Organization {
   shortLinks                 ShortLink[]
   smsTemplates               SmsTemplate[]
   b2bProspects               B2BProspect[]
+  partnerSuspensions         PartnerSuspension[]
 }
 
 model OrgSmsConfig {
@@ -4195,4 +4196,38 @@ model B2BProspect {
   @@unique([organizationId, phone, eduType], where: { deletedAt: null })
   @@index([organizationId, createdAt])
   @@index([organizationId, eduType])
+}
+
+model PartnerSuspension {
+  id                    String       @id @default(cuid())
+  organizationId        String
+  partnerId             String?
+  partnerName           String
+  partnerRole           String       // MANAGER | SALESPERSON | PRESALES
+
+  suspensionStatus      String       @default("SUSPENDED")  // SUSPENDED | APPEALING | RESOLVED
+  suspensionReason      String       // HIGH_REFUND | NO_REVENUE | MANUAL
+  reasonDetails         Json?        // { refundRate?: number, monthsAffected?: number[], ... }
+
+  suspendedAt           DateTime     @db.Timestamptz(6)
+  suspendedByAdminId    String?
+
+  appealedAt            DateTime?    @db.Timestamptz(6)
+  appealMessage         String?
+
+  resolvedAt            DateTime?    @db.Timestamptz(6)
+  resolutionNotes       String?
+
+  contractRef           String?
+
+  createdAt             DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime     @updatedAt @db.Timestamptz(6)
+
+  organization          Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, partnerId])
+  @@index([organizationId, suspensionStatus])
+  @@index([suspendedAt])
+  @@index([resolvedAt])
+  @@map("PartnerSuspension")
 }
