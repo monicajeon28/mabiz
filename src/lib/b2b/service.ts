@@ -1,6 +1,48 @@
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { B2BProspectCreateInput, B2BProspectUpdateInput } from './validation';
+import { DuplicateProspectError, ProspectNotFoundError } from './errors';
+
+// Type definitions for type safety
+interface WhereInput {
+  organizationId: string;
+  deletedAt: null;
+  eduType?: string;
+  status?: string;
+  OR?: Array<{
+    name?: { contains: string; mode: 'insensitive' };
+    phone?: { contains: string; mode: 'insensitive' };
+    email?: { contains: string; mode: 'insensitive' };
+    productName?: { contains: string; mode: 'insensitive' };
+  }>;
+}
+
+type UpdateData = Partial<{
+  name: string;
+  email: string | null;
+  productName: string | null;
+  paymentAmount: number | null;
+  paymentDate: Date | null;
+  notes: string | null;
+  status: string;
+}>;
+
+// Type for the formatProspect function input (Prisma select projection)
+interface ProspectFormatInput {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  status: string;
+  eduType: string;
+  createdAt: Date;
+  productName: string | null;
+  paymentAmount: number | null;
+  paymentDate?: Date | null;
+  notes?: string | null;
+  organizationId?: string;
+  updatedAt?: Date;
+}
 
 export async function getB2BProspects(
   organizationId: string,
@@ -17,7 +59,7 @@ export async function getB2BProspects(
     const skip = (page - 1) * limit;
 
     // Build where clause
-    const where: any = {
+    const where: WhereInput = {
       organizationId,
       deletedAt: null,
     };
@@ -93,9 +135,7 @@ export async function createB2BProspect(
     });
 
     if (existing) {
-      const error = new Error('DuplicateProspect');
-      (error as any).code = 'DUPLICATE_PROSPECT';
-      throw error;
+      throw new DuplicateProspectError();
     }
 
     // Normalize empty strings to null/undefined
@@ -135,13 +175,11 @@ export async function updateB2BProspect(
     // Verify ownership
     const prospect = await prisma.b2BProspect.findUnique({ where: { id } });
     if (!prospect || prospect.organizationId !== organizationId || prospect.deletedAt !== null) {
-      const error = new Error('NotFound');
-      (error as any).code = 'PROSPECT_NOT_FOUND';
-      throw error;
+      throw new ProspectNotFoundError();
     }
 
     // Prepare update data
-    const updateData: any = {};
+    const updateData: UpdateData = {};
     if (data.name !== undefined) updateData.name = data.name;
     if (data.email !== undefined) updateData.email = data.email ? data.email.trim() : null;
     if (data.productName !== undefined) updateData.productName = data.productName ? data.productName.trim() : null;
@@ -170,9 +208,7 @@ export async function deleteB2BProspect(organizationId: string, id: string) {
     // Verify ownership
     const prospect = await prisma.b2BProspect.findUnique({ where: { id } });
     if (!prospect || prospect.organizationId !== organizationId || prospect.deletedAt !== null) {
-      const error = new Error('NotFound');
-      (error as any).code = 'PROSPECT_NOT_FOUND';
-      throw error;
+      throw new ProspectNotFoundError();
     }
 
     // Soft delete
@@ -191,20 +227,16 @@ export async function deleteB2BProspect(organizationId: string, id: string) {
   }
 }
 
-function formatProspect(prospect: any) {
+function formatProspect(prospect: ProspectFormatInput) {
   return {
     id: prospect.id,
-    organizationId: prospect.organizationId,
-    eduType: prospect.eduType,
     name: prospect.name,
     phone: prospect.phone,
     email: prospect.email,
+    status: prospect.status,
+    eduType: prospect.eduType,
+    createdAt: prospect.createdAt.toISOString(),
     productName: prospect.productName,
     paymentAmount: prospect.paymentAmount,
-    paymentDate: prospect.paymentDate?.toISOString?.() ?? null,
-    notes: prospect.notes,
-    status: prospect.status,
-    createdAt: prospect.createdAt?.toISOString?.() ?? new Date(prospect.createdAt).toISOString(),
-    updatedAt: prospect.updatedAt?.toISOString?.() ?? new Date(prospect.updatedAt).toISOString(),
   };
 }

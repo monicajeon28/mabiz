@@ -10,6 +10,24 @@ import { NotFoundError, B2BError } from '@/lib/b2b/errors';
 type Params = { params: Promise<{ id: string }> };
 
 /**
+ * B2B 랜딩페이지 통계 타입
+ */
+interface B2BStats {
+  viewCount: number;
+  registered: number;
+  emailSent: number;
+  funnelEntered: number;
+  purchased: number;
+  rates: {
+    visitToRegister: number;
+    registerToEmail: number;
+    registerToFunnel: number;
+    funnelToPurchase: number;
+    visitToPurchase: number;
+  };
+}
+
+/**
  * GET /api/b2b-landing/[id]/stats
  * 5단 퍼널 지표 조회 (내 조직 소유 랜딩만)
  *
@@ -37,7 +55,7 @@ export async function GET(req: Request, { params }: Params) {
 
     // [캐싱] Redis에서 5분 TTL로 캐시된 통계 조회
     const cacheKey = `b2b:stats:${id}`;
-    const cachedStats = await getCache<any>(cacheKey);
+    const cachedStats = await getCache<{ ok: boolean; stats: B2BStats; title: string; note: Record<string, string> }>(cacheKey);
     if (cachedStats) {
       logger.log('[B2BLandingStats] 캐시에서 조회', { id, orgId });
       return NextResponse.json(cachedStats);
@@ -114,7 +132,6 @@ export async function GET(req: Request, { params }: Params) {
       },
     };
 
-    const startTime = Date.now();
     logger.log('[GET /api/b2b-landing/[id]/stats] Success', {
       landingPageId: id,
       orgId,
@@ -152,7 +169,10 @@ export async function GET(req: Request, { params }: Params) {
       );
     }
     const errorMsg = err instanceof Error ? err.message : String(err);
-    const errorCode = err instanceof Error && 'code' in err ? (err as any).code : 'UNKNOWN';
+    const errorCode =
+      err instanceof Error && 'code' in err
+        ? String((err as Record<string, unknown>).code)
+        : 'UNKNOWN';
     logger.error('[GET /api/b2b-landing/[id]/stats] Error', {
       error: errorMsg,
       errorCode,

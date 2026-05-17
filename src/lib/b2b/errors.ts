@@ -63,3 +63,17 @@ export class ValidationError extends B2BError {
     Object.setPrototypeOf(this, ValidationError.prototype);
   }
 }
+
+export class DuplicateProspectError extends B2BError {
+  constructor(message: string = '중복된 prospect입니다.') {
+    super('DUPLICATE_PROSPECT', 409, message);
+    Object.setPrototypeOf(this, DuplicateProspectError.prototype);
+  }
+}
+
+export class ProspectNotFoundError extends B2BError {
+  constructor(message: string = '해당 prospect를 찾을 수 없습니다.') {
+    super('PROSPECT_NOT_FOUND', 404, message);
+    Object.setPrototypeOf(this, ProspectNotFoundError.prototype);
+  }
+}
