@@ -52,6 +52,125 @@ type Comment = {
 };
 
 /**
+ * 폼 필드 값 추출 헬퍼 함수
+ * Issue 17 (Agent J): Form 필드 선택자 패턴 통일 — 반복 코드 제거
+ * name 어트리뷰트 → placeholder fallback → type 기반 순서
+ *
+ * @param form HTML form 엘리먼트
+ * @param fieldName 필드 이름 (name 어트리뷰트)
+ * @param fallbackPatterns placeholder에서 찾을 패턴들
+ * @returns trim된 필드 값 또는 빈 문자열
+ */
+function getFormFieldValue(
+  form: HTMLFormElement,
+  fieldName: string,
+  fallbackPatterns: string[]
+): string {
+  // 첫 번째: name 어트리뷰트로 정확히 찾기
+  const byName = form.querySelector(
+    `input[name="${fieldName}"]`
+  ) as HTMLInputElement | null;
+  if (byName && byName.value?.trim()) {
+    return byName.value.trim();
+  }
+
+  // 두 번째: placeholder 패턴 매칭
+  for (const pattern of fallbackPatterns) {
+    const byPlaceholder = form.querySelector(
+      `input[placeholder*="${pattern}"]`
+    ) as HTMLInputElement | null;
+    if (byPlaceholder && byPlaceholder.value?.trim()) {
+      return byPlaceholder.value.trim();
+    }
+  }
+
+  return "";
+}
+
+/**
+ * formConfig 검증 및 필드 추출 헬퍼 함수
+ * P1 버그 수정: formConfig 타입 안전성 강화 — as 타입 어설션 제거, 런타임 검증 추가
+ * DRY 원칙: L227-236, L247-259 반복 코드 통합
+ *
+ * @param fc 폼 설정 객체 (Record<string, unknown> | null)
+ * @returns 검증된 FormField 배열 (유효하지 않으면 [])
+ */
+function validateAndExtractFields(fc: unknown): FormField[] {
+  if (!fc || typeof fc !== 'object') return [];
+  if (!('fields' in fc)) return [];
+
+  const fields = (fc as Record<string, unknown>).fields;
+  if (!Array.isArray(fields)) return [];
+
+  return fields.filter((f: unknown) => {
+    if (!f || typeof f !== 'object') return false;
+    if (!('id' in f) || !('name' in f)) return false;
+    return true;
+  }) as FormField[];
+}
+
+/**
+ * 봇 방어: honeypot + 시간 기반 검증
+ * P1 P0: handleSubmit 함수 분해 — 보안 검증 분리
+ *
+ * @param form HTML form 엘리먼트
+ * @param loadedAt 페이지 로드 시간
+ * @returns 봇이 아니면 true, 봇으로 판단되면 false
+ */
+function validateBotDefense(form: HTMLFormElement, loadedAt: number): boolean {
+  const hpVal = (form.querySelector('input[name="website"]') as HTMLInputElement)?.value ?? "";
+  if (hpVal.trim()) return false;
+  if (Date.now() - loadedAt < 1500) return false;
+  return true;
+}
+
+/**
+ * 폼 데이터 검증 (이름, 전화번호 등)
+ * P1 P0: handleSubmit 함수 분해 — 입력 검증 분리
+ *
+ * @param nameVal 이름
+ * @param phoneVal 전화번호
+ * @returns 검증 오류 메시지 또는 null (유효함)
+ */
+function validateFormData(nameVal: string, phoneVal: string): string | null {
+  if (!nameVal.trim()) {
+    return "이름을 입력해 주세요.";
+  }
+
+  const trimmedPhone = phoneVal.trim();
+  if (!trimmedPhone) {
+    return "연락처를 입력해 주세요.";
+  }
+
+  const rawPhone = trimmedPhone.replace(/[^0-9]/g, "");
+  if (!rawPhone || !/^01[016789]\d{7,8}$/.test(rawPhone)) {
+    return "올바른 휴대폰 번호를 입력해 주세요. (예: 010-1234-5678)";
+  }
+
+  return null;
+}
+
+/**
+ * B2B 신청 API 호출
+ * P1 P0: handleSubmit 함수 분해 — API 호출 분리
+ *
+ * @param partnerId 파트너 ID
+ * @param data 신청 데이터
+ * @returns API 응답 JSON
+ */
+async function submitRegistration(
+  partnerId: string,
+  data: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  const res = await fetch(`/api/public/b2b/p/${partnerId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+/**
  * B2B 공개 랜딩페이지 클라이언트 컴포넌트
  * - HTML/이미지 콘텐츠 렌더링
  * - 동적 폼 필드 렌더링 (formConfig 기반)
@@ -172,106 +291,62 @@ export function B2BLandingClient({
 
       const form = e.target as HTMLFormElement;
 
-      // [WO-15] Honeypot 체크
-      const hpVal =
-        (form.querySelector('input[name="website"]') as HTMLInputElement)
-          ?.value ?? "";
-      if (hpVal.trim()) {
-        setDone(true); // 조용히 성공 처리
+      // 단계 1: 봇 방어 검증
+      if (!validateBotDefense(form, loadTimeRef.current)) {
+        setDone(true); // 봇으로 판단 → 조용히 성공 처리
         return;
       }
 
-      // [WO-15] 시간 기반 방어 (1.5초 미만 = 봇)
-      if (Date.now() - loadTimeRef.current < 1500) {
-        setDone(true);
-        return;
-      }
+      // 단계 2: 폼 필드 수집
+      const fields = validateAndExtractFields(formConfigRef.current);
+      const nameVal = getFormFieldValue(form, "name", ["이름", "성명", "name"]);
+      const phoneVal = getFormFieldValue(form, "phone", ["전화", "휴대", "연락", "phone"]);
+      const emailVal = (form.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? "";
+      const companyVal = (form.querySelector('input[name="company"]') as HTMLInputElement | null)?.value ?? "";
 
-      // formConfig.fields 기반 동적 필드 수집 (formConfigRef 사용)
-      const fc = formConfigRef.current as FormConfigType | null;
-      const fieldsMap = new Map<string, FormField>();
-      if (fc?.fields) {
-        fc.fields.forEach((f) => fieldsMap.set(f.id, f));
-      }
-
-      // name 우선순위: name 어트리뷰트 → placeholder 포함 → type=text 첫번째
-      const name =
-        (form.querySelector('input[name="name"]') as HTMLInputElement | null) ??
-        (form.querySelector('input[placeholder*="이름"]') as HTMLInputElement | null) ??
-        (form.querySelector('input[type="text"]') as HTMLInputElement | null);
-
-      // phone 우선순위
-      const phone =
-        (form.querySelector('input[name="phone"]') as HTMLInputElement | null) ??
-        (form.querySelector('input[type="tel"]') as HTMLInputElement | null) ??
-        (form.querySelector(
-          'input[placeholder*="연락"], input[placeholder*="전화"]'
-        ) as HTMLInputElement | null);
-
-      const email = form.querySelector(
-        'input[type="email"]'
-      ) as HTMLInputElement | null;
-      const company = form.querySelector(
-        'input[name="company"]'
-      ) as HTMLInputElement | null;
-
-      const nameVal = name?.value ?? "";
-      const phoneVal = phone?.value ?? "";
-      const emailVal = email?.value ?? "";
-      const companyVal = company?.value ?? "";
-
-      // 커스텀 필드 수집 (formConfig.fields 기반)
+      // 커스텀 필드 수집
       const customFields: Record<string, string> = {};
-      if (fc?.fields) {
-        fc.fields.forEach((f) => {
-          const el = form.querySelector(
-            `input[name="field_${f.id}"], textarea[name="field_${f.id}"], select[name="field_${f.id}"]`
-          ) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
-          if (el && el.value?.trim()) {
-            customFields[f.id] = el.value.trim();
-          }
-        });
-      }
+      fields.forEach((f: FormField) => {
+        const el = form.querySelector(
+          `input[name="field_${f.id}"], textarea[name="field_${f.id}"], select[name="field_${f.id}"]`
+        ) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+        if (el && el.value?.trim()) {
+          customFields[f.id] = el.value.trim();
+        }
+      });
 
-      // metadata 조립
       const metadata: Record<string, unknown> = {};
       if (Object.keys(customFields).length) {
         metadata.customFields = customFields;
       }
       const hasMetadata = Object.keys(metadata).length > 0;
 
-      // [WO-15] 전화번호 형식 사전 검증
-      const rawPhone = phoneVal.replace(/[^0-9]/g, "");
-      if (rawPhone && !/^01[016789]\d{7,8}$/.test(rawPhone)) {
-        setPhoneError(
-          "올바른 휴대폰 번호를 입력해 주세요. (예: 010-1234-5678)"
-        );
+      // 단계 3: 입력 검증
+      const validationError = validateFormData(nameVal, phoneVal);
+      if (validationError) {
+        if (validationError.includes("이름")) {
+          setFieldError(validationError);
+        } else {
+          setPhoneError(validationError);
+        }
         return;
       }
       setPhoneError("");
-
-      if (!nameVal.trim() || !phoneVal.trim()) {
-        setFieldError("이름과 연락처를 입력해 주세요.");
-        return;
-      }
       setFieldError("");
 
+      // 단계 4: API 호출
       submittingRef.current = true;
       setSubmitting(true);
       try {
-        const res = await fetch(`/api/public/b2b/p/${partnerId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: nameVal,
-            phone: phoneVal,
-            email: emailVal || undefined,
-            company: companyVal || undefined,
-            loadedAt: loadTimeRef.current,
-            ...(hasMetadata ? { metadata } : {}),
-          }),
+        const data = await submitRegistration(partnerId, {
+          name: nameVal,
+          phone: phoneVal,
+          email: emailVal || undefined,
+          company: companyVal || undefined,
+          loadedAt: loadTimeRef.current,
+          ...(hasMetadata ? { metadata } : {}),
         });
-        const data = await res.json();
+
         if (data.ok) {
           setIsDuplicate(!!data.duplicate);
           setRegisteredName(nameVal);
@@ -506,7 +581,7 @@ export function B2BLandingClient({
                 <input
                   type="tel"
                   name="phone"
-                  placeholder="010-0000-0000"
+                  placeholder="010-1234-5678"
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-blue-500"
                   required
                 />
@@ -519,7 +594,7 @@ export function B2BLandingClient({
                 <input
                   type="email"
                   name="email"
-                  placeholder="email@example.com"
+                  placeholder="user@company.co.kr"
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-blue-500"
                 />
               </div>
@@ -537,13 +612,14 @@ export function B2BLandingClient({
               </div>
 
               {/* formConfig.fields 기반 커스텀 필드들 */}
-              {(formConfig as FormConfigType)?.fields?.map((field) => {
-                const fieldKey = `field_${field.id}`;
-                const requiredMark = field.required ? (
-                  <span className="text-red-500">*</span>
-                ) : null;
+              {formConfig && typeof formConfig === 'object' && 'fields' in formConfig && Array.isArray((formConfig as any).fields)
+                ? (formConfig as any).fields.map((field: FormField) => {
+                  const fieldKey = `field_${field.id}`;
+                  const requiredMark = field.required ? (
+                    <span className="text-red-500">*</span>
+                  ) : null;
 
-                if (field.type === "select" && field.options) {
+                  if (field.type === "select" && field.options) {
                   return (
                     <div key={field.id}>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -597,7 +673,8 @@ export function B2BLandingClient({
                     />
                   </div>
                 );
-              })}
+                })
+                : null}
 
               <button
                 type="submit"
