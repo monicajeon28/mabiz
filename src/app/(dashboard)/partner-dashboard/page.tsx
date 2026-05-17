@@ -1,12 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   ShoppingCart, Users, CreditCard, UserPlus, GraduationCap,
   DollarSign, Crown, MessageSquare, Percent, Plane, FileText,
   Clock, Loader2, CalendarDays, ChevronDown, X, ChevronLeft, ChevronRight, AlertCircle,
 } from 'lucide-react';
+import { maskPhoneNumber, maskCustomerName } from '@/lib/pii-mask';
+import { genericApiResponseSchema } from '@/lib/schemas/partner-api';
 
 /* ─────────────────── 타입 ─────────────────── */
 
@@ -402,6 +404,32 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
   const [passportSubTab, setPassportSubTab] = useState<'pending' | 'complete'>('pending');
   const router = useRouter();
 
+  // 드릴다운 config들을 useMemo로 메모이제이션 (month 변경 시만 재생성)
+  const salesConfig = useMemo(() => ({
+    title: '판매 상세 내역',
+    apiUrl: `/api/partner/dashboard/b2c/detail?type=sales&month=${month}`,
+    columns: [
+      { key: 'productName', label: '상품명' },
+      { key: 'amount', label: '금액', align: 'right' as const, render: (v: unknown) => `₩${(v as number)?.toLocaleString()}` },
+      { key: 'commission', label: '수수료', align: 'right' as const, render: (v: unknown) => `₩${(v as number)?.toLocaleString()}` },
+      { key: 'status', label: '상태', align: 'center' as const, render: (v: unknown) => <Badge status={v as string} /> },
+      { key: 'date', label: '날짜', align: 'right' as const },
+    ],
+  }), [month]);
+
+  const reservationConfig = useMemo(() => ({
+    title: '예약 상세 내역',
+    apiUrl: `/api/partner/dashboard/b2c/detail?type=reservations&month=${month}`,
+    columns: [
+      { key: 'customerName', label: '고객명' },
+      { key: 'productName', label: '상품명' },
+      { key: 'passportStatus', label: '여권', align: 'center' as const, render: (v: unknown) => <Badge status={v as string} /> },
+      { key: 'pnrStatus', label: 'PNR', align: 'center' as const, render: (v: unknown) => <Badge status={v as string} /> },
+      { key: 'departureDate', label: '출발일', align: 'right' as const },
+      { key: 'date', label: '예약일', align: 'right' as const },
+    ],
+  }), [month]);
+
   if (loading || !data) {
     return (
       <div className="space-y-6">
@@ -490,40 +518,9 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
 
       {/* 통계 카드 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard title="총 판매액" value={`₩${formatWon(data.totalSalesAmount)}`} icon={<DollarSign className="h-5 w-5" />} trend={data.trends?.totalSalesAmount} onClick={() => onDrilldown({
-          title: '판매 상세 내역',
-          apiUrl: `/api/partner/dashboard/b2c/detail?type=sales&month=${month}`,
-          columns: [
-            { key: 'productName', label: '상품명' },
-            { key: 'amount', label: '금액', align: 'right', render: (v) => `₩${(v as number)?.toLocaleString()}` },
-            { key: 'commission', label: '수수료', align: 'right', render: (v) => `₩${(v as number)?.toLocaleString()}` },
-            { key: 'status', label: '상태', align: 'center', render: (v) => <Badge status={v as string} /> },
-            { key: 'date', label: '날짜', align: 'right' },
-          ],
-        })} />
-        <StatCard title="판매 건수" value={data.salesCount} icon={<ShoppingCart className="h-5 w-5" />} suffix="건" trend={data.trends?.salesCount} onClick={() => onDrilldown({
-          title: '판매 상세 내역',
-          apiUrl: `/api/partner/dashboard/b2c/detail?type=sales&month=${month}`,
-          columns: [
-            { key: 'productName', label: '상품명' },
-            { key: 'amount', label: '금액', align: 'right', render: (v) => `₩${(v as number)?.toLocaleString()}` },
-            { key: 'commission', label: '수수료', align: 'right', render: (v) => `₩${(v as number)?.toLocaleString()}` },
-            { key: 'status', label: '상태', align: 'center', render: (v) => <Badge status={v as string} /> },
-            { key: 'date', label: '날짜', align: 'right' },
-          ],
-        })} />
-        <StatCard title="예약 현황" value={data.reservationCount} icon={<Plane className="h-5 w-5" />} suffix="건" trend={data.trends?.reservationCount} onClick={() => onDrilldown({
-          title: '예약 상세 내역',
-          apiUrl: `/api/partner/dashboard/b2c/detail?type=reservations&month=${month}`,
-          columns: [
-            { key: 'customerName', label: '고객명' },
-            { key: 'productName', label: '상품명' },
-            { key: 'passportStatus', label: '여권', align: 'center', render: (v) => <Badge status={v as string} /> },
-            { key: 'pnrStatus', label: 'PNR', align: 'center', render: (v) => <Badge status={v as string} /> },
-            { key: 'departureDate', label: '출발일', align: 'right' },
-            { key: 'date', label: '예약일', align: 'right' },
-          ],
-        })} />
+        <StatCard title="총 판매액" value={`₩${formatWon(data.totalSalesAmount)}`} icon={<DollarSign className="h-5 w-5" />} trend={data.trends?.totalSalesAmount} onClick={() => onDrilldown(salesConfig)} />
+        <StatCard title="판매 건수" value={data.salesCount} icon={<ShoppingCart className="h-5 w-5" />} suffix="건" trend={data.trends?.salesCount} onClick={() => onDrilldown(salesConfig)} />
+        <StatCard title="예약 현황" value={data.reservationCount} icon={<Plane className="h-5 w-5" />} suffix="건" trend={data.trends?.reservationCount} onClick={() => onDrilldown(reservationConfig)} />
       </div>
 
       {/* 최근 판매 */}
@@ -811,7 +808,7 @@ function B2BTab({ data, loading, month, onDrilldown }: { data: B2BData | null; l
           apiUrl: `/api/partner/dashboard/b2b/detail?type=leads&month=${month}`,
           columns: [
             { key: 'name', label: '이름' },
-            { key: 'phone', label: '연락처' },
+            { key: 'phone', label: '연락처', render: (v) => maskPhoneNumber(v as string) },
             { key: 'interestedPackage', label: '관심 패키지' },
             { key: 'source', label: '출처' },
             { key: 'status', label: '상태', align: 'center', render: (v) => <Badge status={v as string} /> },
@@ -823,7 +820,7 @@ function B2BTab({ data, loading, month, onDrilldown }: { data: B2BData | null; l
           apiUrl: `/api/partner/dashboard/b2b/detail?type=registrations&month=${month}`,
           columns: [
             { key: 'name', label: '이름' },
-            { key: 'phone', label: '연락처' },
+            { key: 'phone', label: '연락처', render: (v) => maskPhoneNumber(v as string) },
             { key: 'landingPageTitle', label: '랜딩페이지' },
             { key: 'utmSource', label: 'UTM 출처' },
             { key: 'date', label: '날짜', align: 'right' },
@@ -835,7 +832,7 @@ function B2BTab({ data, loading, month, onDrilldown }: { data: B2BData | null; l
           columns: [
             { key: 'productName', label: '상품명' },
             { key: 'amount', label: '금액', align: 'right', render: (v) => `₩${(v as number)?.toLocaleString()}` },
-            { key: 'customerPhone', label: '고객 연락처' },
+            { key: 'customerPhone', label: '고객 연락처', render: (v) => maskPhoneNumber(v as string) },
             { key: 'status', label: '상태', align: 'center', render: (v) => <Badge status={v as string} /> },
             { key: 'date', label: '결제일', align: 'right' },
           ],
@@ -1150,12 +1147,20 @@ export default function PartnerDashboardPage() {
       }
 
       const json = await res.json();
-      if (!json.ok) {
+
+      // Zod 검증으로 응답 구조 확인
+      const validated = genericApiResponseSchema.safeParse(json);
+      if (!validated.success || !validated.data.ok) {
         setLoading(false);
         return;
       }
 
-      const d = json.data;
+      const d = validated.data.data;
+      if (!d) {
+        setLoading(false);
+        return;
+      }
+
       if (!cache.current[ym]) cache.current[ym] = {} as Record<Tab, unknown>;
       cache.current[ym][tab] = d;
 

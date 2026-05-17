@@ -181,17 +181,19 @@ function PageCard({
             {page._count && (
               <>
                 <span>📋 등록 {page._count.registrations}명</span>
-                {page.viewCount > 0 ? (
-                  <span className={`font-semibold px-1.5 py-0.5 rounded ${
-                    (page._count.registrations / page.viewCount) >= 0.05
-                      ? "bg-green-100 text-green-700"
-                      : (page._count.registrations / page.viewCount) >= 0.02
-                      ? "bg-yellow-100 text-yellow-700"
-                      : "bg-red-100 text-red-700"
-                  }`}>
-                    전환율 {(page._count.registrations / page.viewCount * 100).toFixed(1)}%
-                  </span>
-                ) : (
+                {page.viewCount > 0 ? (() => {
+                  const conversionRate = page._count.registrations / page.viewCount;
+                  const statusColor = conversionRate >= 0.05
+                    ? "bg-green-100 text-green-700"
+                    : conversionRate >= 0.02
+                    ? "bg-yellow-100 text-yellow-700"
+                    : "bg-red-100 text-red-700";
+                  return (
+                    <span className={`font-semibold px-1.5 py-0.5 rounded ${statusColor}`}>
+                      전환율 {(conversionRate * 100).toFixed(1)}%
+                    </span>
+                  );
+                })() : (
                   <span className="text-gray-300">방문 없음</span>
                 )}
               </>

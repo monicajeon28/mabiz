@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { AlertCircle, CheckCircle, Clock, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -23,6 +24,7 @@ interface Suspension {
 }
 
 export default function PartnerSuspensionsPage() {
+  const router = useRouter();
   const [suspensions, setSuspensions] = useState<Suspension[]>([]);
   const [filter, setFilter] = useState<SuspensionStatus>('SUSPENDED');
   const [loading, setLoading] = useState(true);
@@ -30,10 +32,34 @@ export default function PartnerSuspensionsPage() {
   const [resolveNotes, setResolveNotes] = useState('');
   const [processing, setProcessing] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // 권한 확인 (GLOBAL_ADMIN만)
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!res.ok) {
+          router.push('/');
+          return;
+        }
+        const ctx = await res.json();
+        if (ctx.role !== 'GLOBAL_ADMIN') {
+          router.push('/');
+          return;
+        }
+        setAuthChecked(true);
+      } catch {
+        router.push('/');
+      }
+    };
+    checkAuth();
+  }, [router]);
 
   useEffect(() => {
+    if (!authChecked) return;
     fetchSuspensions();
-  }, [filter]);
+  }, [filter, authChecked]);
 
   const fetchSuspensions = async () => {
     setLoading(true);

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   ChevronLeft, ChevronRight, Loader2, Calendar, FileText, TrendingUp,
 } from 'lucide-react';
+import { maskCustomerName } from '@/lib/pii-mask';
 
 /* ─────────────────── 타입 정의 ─────────────────── */
 
@@ -376,7 +377,7 @@ function DetailView({
                   <tbody className="divide-y divide-gray-100">
                     {paginatedCustomers.map((customer, i) => (
                       <tr key={`${customer.customerName}-${i}`} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 font-medium text-gray-900">{customer.customerName}</td>
+                        <td className="px-4 py-3 font-medium text-gray-900">{maskCustomerName(customer.customerName)}</td>
                         <td className="px-4 py-3 text-gray-700 max-w-[200px] truncate">{customer.productName}</td>
                         <td className="px-4 py-3 text-right text-gray-700">₩{formatWon(customer.amount)}</td>
                         <td className="px-4 py-3 text-right text-gray-500">{customer.paymentDate}</td>

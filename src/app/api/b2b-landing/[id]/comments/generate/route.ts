@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
@@ -10,6 +11,14 @@ import { NotFoundError, RateLimitError, ServerError, B2BError } from '@/lib/b2b/
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 type Params = { params: Promise<{ id: string }> };
+
+/**
+ * Claude API 응답 타입 정의
+ */
+interface ClaudeContent {
+  type: 'text' | 'image' | 'tool_use';
+  text?: string;
+}
 
 /**
  * POST /api/b2b-landing/[id]/comments/generate
@@ -46,22 +55,36 @@ export async function POST(req: Request, { params }: Params) {
     const count = Math.min(10, Math.max(1, (parseInt(body.count ?? '5') || 5)));
 
     // [Rate Limiting] 1시간당 5회 제한 (Claude API 비용 폭증 방지)
-    const rateLimitKey = `b2b:comments:generate:${orgId}:${id}`;
+    // Issue 30: 클라이언트 fingerprint 추가 (IP + User-Agent 해시) — rate limit 우회 방지
+    const clientIp = (req.headers.get('x-forwarded-for') || '')
+      .split(',')[0]
+      .trim() || req.headers.get('x-real-ip') || 'unknown';
+    const userAgent = req.headers.get('user-agent') || '';
+    const clientFingerprint = crypto
+      .createHash('sha256')
+      .update(`${clientIp}:${userAgent}`)
+      .digest('hex')
+      .slice(0, 8);
+
+    const rateLimitKey = `b2b:comments:generate:${orgId}:${id}:${clientFingerprint}`;
     const requestCount = await getCache<number>(rateLimitKey);
 
-    if (requestCount !== null && requestCount >= 5) {
+    // [ENV] Rate Limit: 시간당 최대 요청 횟수
+    const rateLimitMaxCount = parseInt(process.env.RATE_LIMIT_COMMENTS_COUNT || '5');
+    if (requestCount !== null && requestCount >= rateLimitMaxCount) {
       logger.warn('[POST /api/b2b-landing/[id]/comments/generate] Rate limit exceeded', {
         landingPageId: id,
         orgId,
         requestCount,
         durationMs: Date.now() - startTime,
       });
-      throw new RateLimitError('시간당 5회 이상 생성할 수 없습니다. (1시간 후 다시 시도)');
+      throw new RateLimitError(`시간당 ${rateLimitMaxCount}회 이상 생성할 수 없습니다. (1시간 후 다시 시도)`);
     }
 
-    // Rate limit 카운터 증가 (초기: 1, TTL: 3600초 = 1시간)
+    // [ENV] Rate limit 카운터 증가 (초기: 1, TTL: 환경변수 RATE_LIMIT_TTL_SECONDS)
+    const rateLimitTtlSeconds = parseInt(process.env.RATE_LIMIT_TTL_SECONDS || '3600');
     const nextCount = (requestCount ?? 0) + 1;
-    await setCache(rateLimitKey, nextCount, 3600);
+    await setCache(rateLimitKey, nextCount, rateLimitTtlSeconds);
 
     // HTML → 텍스트 추출 (태그 제거, 공백 정규화)
     const textContent = (page.htmlContent ?? '')
@@ -88,22 +111,28 @@ ${textContent}
 - 마케팅 문구 같지 않게, 실제 전문가 느낌
 - JSON 배열만 반환`;
 
-    // Claude API 호출
+    // [ENV] Claude API 호출 (모델명: ANTHROPIC_MODEL)
+    const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
     const apiStartTime = Date.now();
     const message = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: anthropicModel,
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }],
     });
     const apiDurationMs = Date.now() - apiStartTime;
 
     // API 응답에서 텍스트 추출
-    const raw = (message.content[0] as { type: string; text: string }).text.trim();
+    const content = message.content[0] as ClaudeContent;
+    if (!content || content.type !== 'text' || !content.text) {
+      throw new ServerError('Claude 응답 형식 오류: text 타입의 응답이 필요합니다');
+    }
+    const raw = content.text.trim();
 
     // JSON 파싱 (배열 추출)
+    // Issue 26: JSON 파싱 실패 처리 강화 — 테스트 케이스: 유효하지 않은 JSON, 불완전한 배열
     const jsonMatch = raw.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-      logger.error('[POST /api/b2b-landing/[id]/comments/generate] JSON parsing failed', {
+      logger.error('[POST /api/b2b-landing/[id]/comments/generate] JSON parsing failed - no array found', {
         landingPageId: id,
         orgId,
         requestedCount: count,
@@ -113,15 +142,59 @@ ${textContent}
         apiDurationMs,
       });
       return NextResponse.json(
-        { ok: false, error: 'PARSE_ERROR', message: 'AI 응답 파싱 실패' },
+        { ok: false, error: 'PARSE_ERROR', message: 'AI 응답이 유효한 JSON 배열을 포함하지 않습니다' },
         { status: 500 }
       );
     }
 
-    const generated = JSON.parse(jsonMatch[0]) as {
-      authorName: string;
-      content: string;
-    }[];
+    let generated: { authorName: string; content: string }[];
+    try {
+      generated = JSON.parse(jsonMatch[0]) as { authorName: string; content: string }[];
+    } catch (parseErr) {
+      logger.error('[POST /api/b2b-landing/[id]/comments/generate] JSON parse error', {
+        landingPageId: id,
+        orgId,
+        requestedCount: count,
+        parseError: parseErr instanceof Error ? parseErr.message : String(parseErr),
+        jsonSnippet: jsonMatch[0].slice(0, 300),
+        durationMs: Date.now() - startTime,
+      });
+      return NextResponse.json(
+        { ok: false, error: 'PARSE_ERROR', message: 'AI 응답 JSON 파싱 중 오류 발생' },
+        { status: 500 }
+      );
+    }
+
+    // 각 댓글의 필수 필드 검증
+    if (!Array.isArray(generated) || generated.length === 0) {
+      logger.error('[POST /api/b2b-landing/[id]/comments/generate] Empty or invalid array', {
+        landingPageId: id,
+        orgId,
+        isArray: Array.isArray(generated),
+        length: generated?.length ?? 'N/A',
+      });
+      return NextResponse.json(
+        { ok: false, error: 'PARSE_ERROR', message: '생성된 댓글이 없습니다' },
+        { status: 500 }
+      );
+    }
+
+    // 각 댓글의 필수 필드 검증 (authorName, content)
+    for (let i = 0; i < generated.length; i++) {
+      const comment = generated[i];
+      if (!comment.authorName?.trim() || !comment.content?.trim()) {
+        logger.error('[POST /api/b2b-landing/[id]/comments/generate] Invalid comment structure', {
+          landingPageId: id,
+          index: i,
+          hasAuthorName: !!comment.authorName?.trim(),
+          hasContent: !!comment.content?.trim(),
+        });
+        return NextResponse.json(
+          { ok: false, error: 'PARSE_ERROR', message: `댓글 ${i + 1}의 필드가 불완전합니다 (필수: 이름, 내용)` },
+          { status: 500 }
+        );
+      }
+    }
 
     // 트랜잭션으로 여러 댓글 동시 생성
     const created = await prisma.$transaction(
@@ -155,7 +228,7 @@ ${textContent}
         inputTokens: message.usage?.input_tokens || 0,
         outputTokens: message.usage?.output_tokens || 0,
       },
-      model: 'claude-haiku-4-5-20251001',
+      model: anthropicModel,
     });
 
     return NextResponse.json({ ok: true, data: created });

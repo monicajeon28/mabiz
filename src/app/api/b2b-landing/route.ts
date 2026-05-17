@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, BONSA_ORG_ID } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { ForbiddenError, ValidationError, B2BError } from "@/lib/b2b/errors";
+import { handleB2BError } from "@/lib/b2b/response-handler";
 
 // GET /api/b2b-landing
 export async function GET() {
@@ -26,17 +27,7 @@ export async function GET() {
 
     return NextResponse.json({ ok: true, pages });
   } catch (err) {
-    if (err instanceof B2BError) {
-      return NextResponse.json(
-        { ok: false, error: err.code, message: err.message },
-        { status: err.statusCode }
-      );
-    }
-    logger.error("[GET /api/b2b-landing]", { err });
-    return NextResponse.json(
-      { ok: false, error: 'SERVER_ERROR', message: '서버 오류가 발생했습니다.' },
-      { status: 500 }
-    );
+    return handleB2BError(err, "GET /api/b2b-landing");
   }
 }
 
@@ -89,16 +80,6 @@ export async function POST(req: Request) {
     logger.log("[POST /api/b2b-landing] 생성", { id: page.id, orgId });
     return NextResponse.json({ ok: true, page }, { status: 201 });
   } catch (err: unknown) {
-    if (err instanceof B2BError) {
-      return NextResponse.json(
-        { ok: false, error: err.code, message: err.message },
-        { status: err.statusCode }
-      );
-    }
-    logger.error("[POST /api/b2b-landing]", { err });
-    return NextResponse.json(
-      { ok: false, error: 'SERVER_ERROR', message: 'B2B 랜딩페이지 생성 중 오류 발생' },
-      { status: 500 }
-    );
+    return handleB2BError(err, "POST /api/b2b-landing");
   }
 }

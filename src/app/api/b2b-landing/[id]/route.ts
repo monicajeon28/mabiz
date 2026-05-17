@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, canDelete } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
+import { handleB2BError } from "@/lib/b2b/response-handler";
 
 const PatchSchema = z.object({
   title:          z.string().min(1).max(200).optional(),
@@ -17,7 +18,7 @@ const PatchSchema = z.object({
   headerScript:     z.string().nullable().optional(),
   exposureTitle:    z.string().nullable().optional(),
   exposureImage:    z.string().nullable().optional(),
-  formConfig:       z.any().optional(),
+  formConfig:       z.record(z.string(), z.unknown()).nullable().optional(),
 }).strict();
 
 type Params = { params: Promise<{ id: string }> };
@@ -47,8 +48,7 @@ export async function GET(_req: Request, { params }: Params) {
     if (!page) return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: '랜딩페이지를 찾을 수 없습니다.' }, { status: 404 });
     return NextResponse.json({ ok: true, data: page, page });
   } catch (err) {
-    logger.error("[GET /api/b2b-landing/[id]]", { err });
-    return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR' }, { status: 500 });
+    return handleB2BError(err, "GET /api/b2b-landing/[id]");
   }
 }
 
@@ -93,8 +93,7 @@ export async function PATCH(req: Request, { params }: Params) {
     });
     return NextResponse.json({ ok: true, data: page, page });
   } catch (err) {
-    logger.error("[PATCH /api/b2b-landing/[id]]", { err });
-    return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR' }, { status: 500 });
+    return handleB2BError(err, "PATCH /api/b2b-landing/[id]");
   }
 }
 
@@ -117,7 +116,6 @@ export async function DELETE(_req: Request, { params }: Params) {
     await prisma.b2BLandingPage.delete({ where: { id } });
     return NextResponse.json({ ok: true, data: null, message: '삭제되었습니다.' });
   } catch (err) {
-    logger.error("[DELETE /api/b2b-landing/[id]]", { err });
-    return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR' }, { status: 500 });
+    return handleB2BError(err, "DELETE /api/b2b-landing/[id]");
   }
 }

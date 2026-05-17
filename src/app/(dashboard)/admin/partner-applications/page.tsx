@@ -2,10 +2,11 @@
 
 /**
  * /admin/partner-applications — 크루즈닷 파트너스 신청 관리
- * 접근: GLOBAL_ADMIN + OWNER + AGENT (담당 신청만)
+ * 접근: GLOBAL_ADMIN만
  */
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { CheckCircle, XCircle, Clock, Eye, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 
 type ContractStatus = 'submitted' | 'PROCESSING' | 'APPROVED' | 'rejected';
@@ -311,17 +312,41 @@ function RejectModal({
 // ── 메인 페이지 ──────────────────────────────────────────────────────
 
 export default function PartnerApplicationsPage() {
+  const router = useRouter();
   const [applications, setApplications] = useState<Application[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'all' | ContractStatus>('submitted');
   const [rejectTarget, setRejectTarget] = useState<{ id: number; name: string } | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [toastMsg, setToastMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
 
   const showToast = (text: string, type: 'success' | 'error') => {
     setToastMsg({ text, type });
     setTimeout(() => setToastMsg(null), 3000);
   };
+
+  // 권한 확인 (GLOBAL_ADMIN만)
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!res.ok) {
+          router.push('/');
+          return;
+        }
+        const ctx = await res.json();
+        if (ctx.role !== 'GLOBAL_ADMIN') {
+          router.push('/');
+          return;
+        }
+        setAuthChecked(true);
+      } catch {
+        router.push('/');
+      }
+    };
+    checkAuth();
+  }, [router]);
 
   const loadApplications = async () => {
     setIsLoading(true);
@@ -343,9 +368,10 @@ export default function PartnerApplicationsPage() {
   };
 
   useEffect(() => {
+    if (!authChecked) return;
     loadApplications();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [statusFilter, authChecked]);
 
   const handleApprove = async (contractId: number) => {
     if (!confirm('이 신청을 승인하시겠습니까?')) return;
