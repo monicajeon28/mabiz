@@ -118,124 +118,98 @@ export default function NewB2BPage() {
   };
 
   // ──────────────────────────────────────────────
-  // buildPreviewHtml: 현재 state → 완전한 HTML 문서
+  // buildFieldHtml: 폼 필드별 HTML 생성 헬퍼
   // ──────────────────────────────────────────────
-  const buildPreviewHtml = useCallback((): string => {
-    const req = (r: boolean) => r ? " <span style='color:#e53e3e;font-size:11px'>*</span>" : "";
+  const buildFieldHtml = useCallback(
+    (key: string, required: boolean, label?: string): string => {
+      const req = (r: boolean) => r ? " <span style='color:#e53e3e;font-size:11px'>*</span>" : "";
 
-    const fieldHtmls = Object.entries(formFields)
+      if (key === "marketingConsent") {
+        return `<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#555;cursor:pointer;padding:6px 0;"><input type="checkbox" checked style="margin-top:2px;width:16px;height:16px;accent-color:#1E2D4E;"><span>마케팅 정보 수신에 동의합니다</span></label>`;
+      }
+
+      if (key === "gender") {
+        return `<div style="margin-bottom:12px"><label style="display:block;font-size:13px;font-weight:600;color:#333;margin-bottom:5px">${label || FIELD_LABELS[key]}${req(required)}</label><select style="width:100%;padding:11px 13px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:15px;background:#fff;outline:none" ${required ? "required" : ""}><option value="">선택해주세요</option><option value="male">남성</option><option value="female">여성</option></select></div>`;
+      }
+
+      const type = key === "email" ? "email" : key === "birthDate" ? "date" : key === "phone" ? "tel" : "text";
+      const displayLabel = label || FIELD_LABELS[key];
+      const ph = key === "phone" ? "010-1234-5678" : key === "email" ? "user@company.co.kr" : `${displayLabel} 입력`;
+
+      return `<div style="margin-bottom:12px"><label style="display:block;font-size:13px;font-weight:600;color:#333;margin-bottom:5px">${displayLabel}${req(required)}</label><input type="${type}" placeholder="${ph}" style="width:100%;padding:11px 13px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box" ${required ? "required" : ""}></div>`;
+    },
+    []
+  );
+
+  // ──────────────────────────────────────────────
+  // buildFormHtml: 섹션별 함수 분리
+  // ──────────────────────────────────────────────
+  const buildFormHtml = useCallback((): string => {
+    const fieldHtmls: string[] = [];
+
+    Object.entries(formFields)
       .filter(([, v]) => v.enabled)
-      .map(([key, val]) => {
-        if (key === "marketingConsent") return `
-<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#555;cursor:pointer;padding:6px 0;">
-  <input type="checkbox" checked style="margin-top:2px;width:16px;height:16px;accent-color:#1E2D4E;">
-  <span>마케팅 정보 수신에 동의합니다</span>
-</label>`;
-        if (key === "gender") return `
-<div style="margin-bottom:12px">
-  <label style="display:block;font-size:13px;font-weight:600;color:#333;margin-bottom:5px">${FIELD_LABELS[key]}${req(val.required)}</label>
-  <select style="width:100%;padding:11px 13px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:15px;background:#fff;outline:none" ${val.required ? "required" : ""}>
-    <option value="">선택해주세요</option><option value="male">남성</option><option value="female">여성</option>
-  </select>
-</div>`;
-        const type = key === "email" ? "email" : key === "birthDate" ? "date" : key === "phone" ? "tel" : "text";
-        const ph   = key === "phone" ? "010-0000-0000" : key === "email" ? "example@email.com" : `${FIELD_LABELS[key]} 입력`;
-        return `
-<div style="margin-bottom:12px">
-  <label style="display:block;font-size:13px;font-weight:600;color:#333;margin-bottom:5px">${FIELD_LABELS[key]}${req(val.required)}</label>
-  <input type="${type}" placeholder="${ph}" style="width:100%;padding:11px 13px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box" ${val.required ? "required" : ""}>
-</div>`;
+      .forEach(([key, val]) => {
+        fieldHtmls.push(buildFieldHtml(key, val.required));
       });
 
     additionalFields.forEach((f) => {
-      if (!f.name.trim()) return;
-      fieldHtmls.push(`
-<div style="margin-bottom:12px">
-  <label style="display:block;font-size:13px;font-weight:600;color:#333;margin-bottom:5px">${f.name}${req(f.required)}</label>
-  <input type="text" placeholder="${f.name} 입력" style="width:100%;padding:11px 13px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box" ${f.required ? "required" : ""}>
-</div>`);
+      if (f.name.trim()) {
+        fieldHtmls.push(buildFieldHtml("text", f.required, f.name));
+      }
     });
 
-    const paymentBlock = paymentEnabled ? `
-<div style="margin:16px 0 12px;padding:14px 16px;background:#fffbeb;border-radius:10px;border:1px solid #f0d060">
-  <p style="font-size:12px;font-weight:600;color:#7c5700;margin:0 0 3px">결제 금액</p>
-  <p style="font-size:24px;font-weight:800;color:#1a1a1a;margin:0">${Number(productPrice || "0").toLocaleString()}원${paymentType === "subscription" ? "/월" : ""}</p>
-  ${productName ? `<p style="font-size:12px;color:#666;margin:3px 0 0">${productName}</p>` : ""}
-</div>` : "";
+    const paymentBlock = paymentEnabled ? `<div style="margin:16px 0 12px;padding:14px 16px;background:#fffbeb;border-radius:10px;border:1px solid #f0d060"><p style="font-size:12px;font-weight:600;color:#7c5700;margin:0 0 3px">결제 금액</p><p style="font-size:24px;font-weight:800;color:#1a1a1a;margin:0">${Number(productPrice || "0").toLocaleString()}원${paymentType === "subscription" ? "/월" : ""}</p>${productName ? `<p style="font-size:12px;color:#666;margin:3px 0 0">${productName}</p>` : ""}</div>` : "";
 
-    const formBlock = fieldHtmls.length > 0 || paymentEnabled ? `
-<div style="max-width:480px;margin:0 auto;padding:28px 20px 48px;background:#fff;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif">
-  <form>
-    ${fieldHtmls.join("\n    ")}
-    ${paymentBlock}
-    <button type="submit" style="width:100%;padding:15px;background:#1E2D4E;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;margin-top:6px">${buttonTitle || "신청하기"}</button>
-  </form>
-</div>` : "";
+    if (fieldHtmls.length === 0 && !paymentEnabled) return "";
 
-    let bodyContent: string;
+    return `<div style="max-width:480px;margin:0 auto;padding:28px 20px 48px;background:#fff;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif"><form>${fieldHtmls.join("")}${paymentBlock}<button type="submit" style="width:100%;padding:15px;background:#1E2D4E;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;margin-top:6px">${buttonTitle || "신청하기"}</button></form></div>`;
+  }, [formFields, additionalFields, paymentEnabled, productName, productPrice, paymentType, buttonTitle, buildFieldHtml]);
+
+  const buildBodyHtml = useCallback((): string => {
     if (editorMode === "html") {
-      bodyContent = html.trim() || `<div style="height:180px;display:flex;align-items:center;justify-content:center;background:#f7f8fc;color:#bbb;font-family:sans-serif;font-size:13px">HTML을 입력하면 여기에 표시됩니다</div>`;
-    } else {
-      bodyContent = images.length > 0
-        ? `<div style="line-height:0">${images.map((img) => {
-            const ar = img.width && img.height ? `aspect-ratio:${img.width}/${img.height};` : "";
-            const previewUrl = img.driveFileId
-              ? `/api/landing-pages/images/proxy?id=${img.driveFileId}`
-              : img.url;
-            return `<img src="${previewUrl}" alt="" style="width:100%;display:block;${ar}" loading="lazy">`;
-          }).join("\n")}</div>`
-        : `<div style="height:180px;display:flex;align-items:center;justify-content:center;background:#f7f8fc;color:#bbb;font-family:sans-serif;font-size:13px">이미지를 업로드하면 여기에 표시됩니다</div>`;
+      return html.trim() || `<div style="height:180px;display:flex;align-items:center;justify-content:center;background:#f7f8fc;color:#bbb;font-family:sans-serif;font-size:13px">HTML을 입력하면 여기에 표시됩니다</div>`;
     }
+    if (images.length > 0) {
+      const imgHtml = images.map((img) => {
+        const ar = img.width && img.height ? `aspect-ratio:${img.width}/${img.height};` : "";
+        const previewUrl = img.driveFileId ? `/api/landing-pages/images/proxy?id=${img.driveFileId}` : img.url;
+        return `<img src="${previewUrl}" alt="" style="width:100%;display:block;${ar}" loading="lazy">`;
+      }).join("\n");
+      return `<div style="line-height:0">${imgHtml}</div>`;
+    }
+    return `<div style="height:180px;display:flex;align-items:center;justify-content:center;background:#f7f8fc;color:#bbb;font-family:sans-serif;font-size:13px">이미지를 업로드하면 여기에 표시됩니다</div>`;
+  }, [editorMode, html, images]);
 
+  const buildCommentHtml = useCallback((): string => {
+    if (!commentEnabled) return "";
     const SAMPLE_NAMES = ["김미영", "박준호", "이수진", "최지원", "정현석", "한소희", "임재현", "오지영", "서민준", "윤지영", "강태양", "신예진", "조현우", "백지수", "류하은"];
-    const SAMPLE_TEXTS = [
-      "정말 잊지 못할 여행이었어요! 서비스도 친절하고 너무 좋았습니다.",
-      "가족들과 함께 다녀왔는데 모두 만족했어요. 강력 추천합니다 😊",
-      "크루즈 여행이 이렇게 좋은 줄 몰랐어요. 다음에도 꼭 이용할게요!",
-      "직원분들이 너무 친절하셨어요. 식사도 맛있고 즐거웠습니다.",
-      "처음 크루즈 여행인데 이렇게 편안할 수 없었어요. 꼭 다시 오고 싶어요!",
-      "일정이 알차고 가이드 설명도 정말 좋았어요. 다음에 또 올게요.",
-      "깨끗하고 넓은 객실, 맛있는 음식, 최고의 여행이었습니다.",
-      "아이들도 너무 좋아했어요. 가족 여행으로 완벽한 선택이었습니다.",
-      "가격 대비 퀄리티가 너무 좋아요. 친구들에게도 추천했어요!",
-      "담당자분이 꼼꼼하게 안내해 주셔서 처음인데도 전혀 불안하지 않았어요.",
-      "경치가 정말 아름다웠어요. 사진도 엄청 찍었어요 📸",
-      "음식이 정말 다양하고 맛있었어요. 매일 뷔페가 기다려졌어요.",
-      "처음부터 끝까지 완벽한 서비스였어요. 다음에 또 예약할게요.",
-      "가족 모두 잊지 못할 추억을 만들었어요. 정말 감사합니다!",
-      "여행 계획부터 귀국까지 세심하게 챙겨주셔서 너무 편했어요.",
-    ];
+    const SAMPLE_TEXTS = ["정말 잊지 못할 여행이었어요! 서비스도 친절하고 너무 좋았습니다.", "가족들과 함께 다녀왔는데 모두 만족했어요. 강력 추천합니다 😊", "크루즈 여행이 이렇게 좋은 줄 몰랐어요. 다음에도 꼭 이용할게요!", "직원분들이 너무 친절하셨어요. 식사도 맛있고 즐거웠습니다.", "처음 크루즈 여행인데 이렇게 편안할 수 없었어요. 꼭 다시 오고 싶어요!", "일정이 알차고 가이드 설명도 정말 좋았어요. 다음에 또 올게요.", "깨끗하고 넓은 객실, 맛있는 음식, 최고의 여행이었습니다.", "아이들도 너무 좋아했어요. 가족 여행으로 완벽한 선택이었습니다.", "가격 대비 퀄리티가 너무 좋아요. 친구들에게도 추천했어요!", "담당자분이 꼼꼼하게 안내해 주셔서 처음인데도 전혀 불안하지 않았어요.", "경치가 정말 아름다웠어요. 사진도 엄청 찍었어요 📸", "음식이 정말 다양하고 맛있었어요. 매일 뷔페가 기다려졌어요.", "처음부터 끝까지 완벽한 서비스였어요. 다음에 또 예약할게요.", "가족 모두 잊지 못할 추억을 만들었어요. 정말 감사합니다!", "여행 계획부터 귀국까지 세심하게 챙겨주셔서 너무 편했어요."];
     const fromMs = new Date(commentDateFrom || "2024-01-01").getTime();
-    const toMs   = new Date(commentDateTo   || "2025-12-31").getTime();
-    const safeRange = isNaN(fromMs) || isNaN(toMs) || fromMs > toMs
-      ? { from: new Date("2024-01-01").getTime(), to: new Date("2025-12-31").getTime() }
-      : { from: fromMs, to: toMs };
+    const toMs = new Date(commentDateTo || "2025-12-31").getTime();
+    const safeRange = isNaN(fromMs) || isNaN(toMs) || fromMs > toMs ? { from: new Date("2024-01-01").getTime(), to: new Date("2025-12-31").getTime() } : { from: fromMs, to: toMs };
     const commentItems = Array.from({ length: Math.min(Math.max(1, commentCount || 5), 15) }, (_, i) => {
-      const seed    = (i * 1234567) % 1000000;
-      const ratio   = (seed % 997) / 997;
-      const ts      = safeRange.from + Math.floor(ratio * (safeRange.to - safeRange.from));
-      const d       = new Date(ts);
+      const seed = (i * 1234567) % 1000000;
+      const ratio = (seed % 997) / 997;
+      const ts = safeRange.from + Math.floor(ratio * (safeRange.to - safeRange.from));
+      const d = new Date(ts);
       const dateStr = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
       return { name: SAMPLE_NAMES[i % SAMPLE_NAMES.length], text: SAMPLE_TEXTS[i % SAMPLE_TEXTS.length], date: dateStr };
     });
-    const commentBlock = commentEnabled ? `
-<div style="max-width:480px;margin:0 auto;padding:24px 20px 40px;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif">
-  <h3 style="font-size:16px;font-weight:700;color:#1a1a1a;margin:0 0 16px;padding-bottom:12px;border-bottom:2px solid #f0f0f0">💬 고객 후기</h3>
-  ${commentItems.map(c => `<div style="padding:12px 0;border-bottom:1px solid #f5f5f5">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-      <div style="width:28px;height:28px;border-radius:50%;background:#1E2D4E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">${c.name[0]}</div>
-      <span style="font-size:13px;font-weight:600;color:#333">${c.name}</span>
-      <span style="font-size:11px;color:#bbb;margin-left:auto">${c.date}</span>
-    </div>
-    <p style="font-size:13px;color:#555;line-height:1.6;margin:0">${c.text}</p>
-  </div>`).join("")}
-  <p style="font-size:11px;color:#bbb;text-align:center;margin-top:14px">저장 후 AI 후기 자동 생성 가능</p>
-</div>` : "";
+    const commentHtml = commentItems.map(c => `<div style="padding:12px 0;border-bottom:1px solid #f5f5f5"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="width:28px;height:28px;border-radius:50%;background:#1E2D4E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">${c.name[0]}</div><span style="font-size:13px;font-weight:600;color:#333">${c.name}</span><span style="font-size:11px;color:#bbb;margin-left:auto">${c.date}</span></div><p style="font-size:13px;color:#555;line-height:1.6;margin:0">${c.text}</p></div>`).join("");
+    return `<div style="max-width:480px;margin:0 auto;padding:24px 20px 40px;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif"><h3 style="font-size:16px;font-weight:700;color:#1a1a1a;margin:0 0 16px;padding-bottom:12px;border-bottom:2px solid #f0f0f0">💬 고객 후기</h3>${commentHtml}<p style="font-size:11px;color:#bbb;text-align:center;margin-top:14px">저장 후 AI 후기 자동 생성 가능</p></div>`;
+  }, [commentEnabled, commentCount, commentDateFrom, commentDateTo]);
 
-    const footerBlock = footerText.trim() ? `
-<footer style="max-width:480px;margin:0 auto;padding:20px 20px 40px;text-align:center;font-size:11px;color:#aaa;line-height:1.9;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif;border-top:1px solid #f0f0f0">
-  ${footerText.replace(/\n/g, "<br>")}
-</footer>` : "";
+  const buildFooterHtml = useCallback((): string => {
+    if (!footerText.trim()) return "";
+    return `<footer style="max-width:480px;margin:0 auto;padding:20px 20px 40px;text-align:center;font-size:11px;color:#aaa;line-height:1.9;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif;border-top:1px solid #f0f0f0">${footerText.replace(/\n/g, "<br>")}</footer>`;
+  }, [footerText]);
+
+  const buildPreviewHtml = useCallback((): string => {
+    const bodyContent = buildBodyHtml();
+    const formBlock = buildFormHtml();
+    const commentBlock = buildCommentHtml();
+    const footerBlock = buildFooterHtml();
 
     return `<!DOCTYPE html>
 <html lang="ko">
@@ -251,7 +225,7 @@ ${commentBlock}
 ${footerBlock}
 </body>
 </html>`;
-  }, [editorMode, html, images, formFields, additionalFields, paymentEnabled, productName, productPrice, paymentType, buttonTitle, headerScript, commentEnabled, commentCount, commentDateFrom, commentDateTo, footerText]);
+  }, [buildBodyHtml, buildFormHtml, buildCommentHtml, buildFooterHtml, headerScript]);
 
   // state 변경 시 즉시 재계산 — srcDoc prop 변경으로 브라우저가 iframe 재렌더링
   const previewHtml = useMemo(() => buildPreviewHtml(), [buildPreviewHtml]);
