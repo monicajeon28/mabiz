@@ -216,7 +216,14 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json({ ok: true, data: result });
+    return NextResponse.json({
+      ok: true,
+      data: result,
+      total: result.length,
+      page: 1,
+      limit: result.length,
+      totalPages: 1,
+    });
   } catch (err) {
     logger.error('[GET /api/admin/affiliate-sales]', { err });
     if (err instanceof Error && err.message === 'UNAUTHORIZED') {

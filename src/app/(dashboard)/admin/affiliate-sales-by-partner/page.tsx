@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { CalendarDays, Loader2, DollarSign, TrendingUp, ShoppingCart } from 'lucide-react';
+import type { AdminAffiliateSalesResponse } from '@/lib/affiliate/types';
 
 type AffiliateData = {
   affiliateUserId: string;
@@ -119,19 +120,24 @@ export default function AdminAffiliateSalesPage() {
 
       if (!res.ok) throw new Error('데이터 로드 실패');
 
-      const json = await res.json();
+      const json: AdminAffiliateSalesResponse | { ok: false; error?: string } = await res.json();
       if (!json.ok) throw new Error(json.error || '알 수 없는 오류');
 
       // API 응답 형식에 맞춰 변환
-      const affiliates = (json.data || []).map((item: any) => ({
-        affiliateUserId: String(item.affiliateUserId),
-        affiliateName: item.affiliateName,
-        totalRevenue: item.totalRevenue,
-        conversionRate: item.conversionRate,
-        avgOrderAmount: item.avgOrderAmount,
-        pageCount: item.pageCount,
-        status: item.status,
-      }));
+      const affiliates = (json.data || []).map((item) => {
+        // Type safety check — status 필드 유효성 검증
+        const validStatus = ['active', 'inactive'].includes(item.status) ? item.status : 'inactive';
+
+        return {
+          affiliateUserId: String(item.affiliateUserId),
+          affiliateName: item.affiliateName,
+          totalRevenue: Number(item.totalRevenue) || 0,
+          conversionRate: Number(item.conversionRate) || 0,
+          avgOrderAmount: Number(item.avgOrderAmount) || 0,
+          pageCount: Number(item.pageCount) || 0,
+          status: validStatus as 'active' | 'inactive',
+        } as AffiliateData;
+      });
 
       setData(affiliates);
     } catch (err) {

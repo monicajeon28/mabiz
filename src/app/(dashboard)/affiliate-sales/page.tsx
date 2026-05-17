@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import type { AffiliateSalesResponse } from "@/lib/affiliate/types";
 
 type Sale = {
   id: number;
@@ -44,7 +45,7 @@ export default function AffiliateSalesPage() {
     const params = new URLSearchParams({ page: String(page), limit: "20" });
     if (status) params.set("status", status);
     fetch(`/api/affiliate-sales?${params}`)
-      .then((r) => r.json())
+      .then((r) => r.json() as Promise<AffiliateSalesResponse | { ok: false }>)
       .then((d) => {
         if (d.ok) { setSales(d.sales ?? []); setTotal(d.total ?? 0); }
         else { setSales([]); setTotal(0); }

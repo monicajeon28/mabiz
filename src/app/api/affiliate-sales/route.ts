@@ -125,7 +125,14 @@ export async function GET(req: NextRequest) {
     }));
 
     logger.log('[GET /api/affiliate-sales]', { role: ctx.role, total });
-    return NextResponse.json({ ok: true, sales, total, page, totalPages: Math.ceil(total / limit) });
+    const totalPages = Math.ceil(total / limit);
+    return NextResponse.json({
+      ok: true,
+      sales,
+      total,
+      page,
+      totalPages,
+    });
 
   } catch (err) {
     logger.error('[GET /api/affiliate-sales]', { err });
