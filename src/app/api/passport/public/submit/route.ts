@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 /**
  * POST /api/passport/public/submit
@@ -10,6 +11,12 @@ import { logger } from '@/lib/logger';
  * Public API — 예약ID 기반, 인증 없음
  */
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+  const { allowed } = checkRateLimit(`passport-submit:${ip}`, 15, 60_000);
+  if (!allowed) {
+    return NextResponse.json({ ok: false, message: '요청이 너무 많습니다. 잠시 후 다시 시도하세요.' }, { status: 429 });
+  }
+
   try {
     const body = await req.json();
     const { reservationId, travelers } = body;

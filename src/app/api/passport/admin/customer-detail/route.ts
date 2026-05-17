@@ -212,17 +212,14 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 403 });
     }
 
-    const putBody = await req.json();
-    const userId = parseInt(String(putBody.userId));
+    const { userId: rawUserId, travelerId, korName, engGivenName, engSurname, passportNo, birthDate, expiryDate } = await req.json();
+    const userId = parseInt(String(rawUserId));
     if (isNaN(userId)) {
       return NextResponse.json(
         { ok: false, error: 'Invalid user ID' },
         { status: 400 }
       );
     }
-
-    const body = await req.json();
-    const { travelerId, korName, engGivenName, engSurname, passportNo, birthDate, expiryDate } = body;
 
     // Traveler ID 필수
     if (!travelerId) {

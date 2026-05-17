@@ -251,6 +251,7 @@ export default function DashboardPage() {
   const [myOrgId, setMyOrgId] = useState<string>("");
   const [linkCopied, setLinkCopied] = useState(false);
   const [regLinkCopied, setRegLinkCopied] = useState(false);
+  const [suspendedPartnerCount, setSuspendedPartnerCount] = useState<number>(0);
 
   useEffect(() => {
     // Promise.allSettled로 변경: 하나 실패해도 다른 요청은 완료될 때까지 기다림
@@ -258,6 +259,7 @@ export default function DashboardPage() {
       fetch("/api/dashboard").then((r) => r.json()),
       fetch("/api/auth/me", { credentials: "include" }).then((r) => r.json()),
       fetch('/api/notifications/feed?limit=5').then(r => r.json()),
+      fetch('/api/admin/partner-suspensions?status=SUSPENDED&limit=1').then(r => r.json()),
     ]).then(results => {
       // Dashboard 데이터
       if (results[0].status === 'fulfilled' && results[0].value?.ok) {
@@ -274,6 +276,11 @@ export default function DashboardPage() {
         setFeed(results[2].value.items ?? []);
       } else if (results[2].status === 'rejected') {
         console.error('알림 피드 로드 실패:', results[2].reason);
+      }
+
+      // 정지된 파트너 수
+      if (results[3].status === 'fulfilled' && results[3].value?.ok) {
+        setSuspendedPartnerCount(results[3].value.data.total ?? 0);
       }
 
       setFeedLoading(false);
@@ -370,6 +377,24 @@ export default function DashboardPage() {
       {/* GLOBAL_ADMIN KPI */}
       {role === "GLOBAL_ADMIN" && data && (
         <>
+          {/* 정지된 파트너 알람 */}
+          {suspendedPartnerCount > 0 && (
+            <Link href="/admin/partner-suspensions">
+              <div className="bg-red-50 border-2 border-red-300 rounded-xl p-5 mb-6 cursor-pointer hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-red-700">정지된 파트너</p>
+                      <p className="text-2xl font-bold text-red-800">{suspendedPartnerCount}명</p>
+                    </div>
+                  </div>
+                  <span className="text-red-600 font-semibold">상세보기 →</span>
+                </div>
+              </div>
+            </Link>
+          )}
+
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-3">
             <KpiCard title="전체 판매원"  value={data.totalAgents ?? 0}          icon={<Users className="w-5 h-5" />} color="bg-navy-900" href="/team/affiliate" />
             <KpiCard title="이번달 매출"  value={(data.monthSaleAmount ?? 0).toLocaleString() + "원"} icon={<TrendingUp className="w-5 h-5" />} href="/affiliate-sales" />

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { enqueueRecaptchaVerification } from '@/lib/recaptcha-queue';
 
 // POST /api/groups/[id]/register
 // seq 토큰으로 그룹 등록하고 연락처 추가
@@ -31,31 +32,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       );
     }
 
-    // [SEC-001] ReCAPTCHA v3 검증 (환경변수가 있는 경우)
-    if (process.env.RECAPTCHA_SECRET_KEY && recaptchaToken) {
-      try {
-        const recaptchaResponse = await fetch('https://www.google.com/recaptcha/api/siteverify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: `secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${recaptchaToken}`,
-        });
-        const recaptchaData = await recaptchaResponse.json();
-
-        // ReCAPTCHA v3: score > 0.5는 사람, < 0.5는 봇으로 판단
-        if (!recaptchaData.success || recaptchaData.score < 0.5) {
-          return NextResponse.json(
-            { ok: false, error: 'RECAPTCHA_FAILED', message: '인증에 실패했습니다' },
-            { status: 400 }
-          );
-        }
-      } catch (err) {
-        logger.error('[GroupRegister] ReCAPTCHA 검증 실패', { err });
-        return NextResponse.json(
-          { ok: false, error: 'RECAPTCHA_ERROR', message: '인증 처리 중 오류가 발생했습니다' },
-          { status: 500 }
-        );
-      }
-    }
 
     if (!seq || !name?.trim() || !phone?.trim()) {
       return NextResponse.json(
@@ -91,7 +67,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       );
     }
 
-    const groupId = token.groupId;
+    const groupId: string = token.groupId;
     const group = token.group;
 
     // [CONS-001] 트랜잭션 보호: Contact.upsert 성공 후 ContactGroupMember 실패 방지
@@ -158,8 +134,38 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return { contact, funnelStarted };
     });
 
+    // [ASYNC] ReCAPTCHA 검증을 비동기 큐에 등록 (트랜잭션 성공 후)
+    let recaptchaTaskId: string | undefined;
+    if (recaptchaToken) {
+      try {
+        const response = await enqueueRecaptchaVerification({
+          organizationId: group.organizationId,
+          contactId: contact.id,
+          groupId,
+          recaptchaToken,
+        });
+        recaptchaTaskId = response.taskId;
+        logger.log('[GroupRegister] ReCAPTCHA 검증 큐 등록 완료', {
+          taskId: recaptchaTaskId,
+          contactId: contact.id,
+          groupId,
+        });
+      } catch (err) {
+        logger.error('[GroupRegister] ReCAPTCHA 큐 등록 실패', { err });
+        // 비동기 실패는 사용자 응답에 포함하지 않음
+        // Contact/GroupMember는 이미 성공적으로 생성됨
+      }
+    }
+
     return NextResponse.json(
-      { ok: true, contact, funnelStarted, groupId },
+      {
+        ok: true,
+        contact,
+        funnelStarted,
+        groupId,
+        recaptchaTaskId,
+        message: recaptchaToken ? '그룹 등록 완료. 인증 중...' : '그룹 등록 완료',
+      },
       { status: 201 }
     );
   } catch (err) {

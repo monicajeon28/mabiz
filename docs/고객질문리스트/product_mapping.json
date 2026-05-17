@@ -1,0 +1,2347 @@
+{
+  "generated_at": "1778943212.0328276",
+  "total_questions": 275,
+  "mappings": [
+    {
+      "question_id": "q0002",
+      "question": "--------------- 2026년 5월 9일 토요일 --------------- 모니카님이 들어왔습니다.타인, 기관 등의 사칭에 유의해 주세요. 금전 또는개인정보를 요구 받을",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        },
+        {
+          "product_id": "Policy",
+          "relevance": 0.75,
+          "category": "Policy"
+        }
+      ]
+    },
+    {
+      "question_id": "q0003",
+      "question": "도쿄 크루즈 터미널을 처음 이용해보시는 분들이",
+      "category": "기타",
+      "products": [
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0004",
+      "question": "당황해 하지 않도록 크루즈 터미널 관련 정보를 정리해둔 정보를 공유해 드리니 참고 부탁드립니다~!ㅎㅎ [팽원준 맥스 점장 (크루즈 전문)] [오후 9:19] 사진 [팽원준 맥스 .",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        }
+      ]
+    },
+    {
+      "question_id": "q0005",
+      "question": "1층 외부에서 크루즈 패키징을 나눠드릴 예정입니다. ▶ 나눠드리는 장소는 변경될 수 있습니다. ▶ 크루즈닷 로고가 있는 붉은 후드티를 입고 있습니다. [팽원준 맥스 점장 (크루즈 ",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Activity",
+          "relevance": 0.8,
+          "category": "Activity"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        }
+      ]
+    },
+    {
+      "question_id": "q0006",
+      "question": "사우나까지 잇고 아니 호텔60만이면 차라리 혼자서 세부를 한번 더가지 10시즘 나가야겟내용 [★아테나여신★] [오전 6:30] 택시한번 안타구 지하철로 댕겼구 20만이면 가성비있.",
+      "category": "기술&앱",
+      "products": [
+        {
+          "product_id": "320",
+          "relevance": 0.95,
+          "category": "TIP"
+        },
+        {
+          "product_id": "Activity",
+          "relevance": 0.75,
+          "category": "Activity"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        },
+        {
+          "product_id": "Document",
+          "relevance": 0.85,
+          "category": "Document"
+        },
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        },
+        {
+          "product_id": "Policy",
+          "relevance": 0.75,
+          "category": "Policy"
+        }
+      ]
+    },
+    {
+      "question_id": "q0007",
+      "question": "4. [kb j] [오전 9:33] 우리 스탭은 따로 잇는지요? [크루즈_김윤미] [오전 9:42] 'MSC for Me'에 대해 알아보세요 - [링크]",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "320",
+          "relevance": 0.95,
+          "category": "TIP"
+        },
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.9,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0008",
+      "question": "미리 다운받아 가시는것 추천드립니다 [크루즈_김윤미] [오전 9:47] 사진 [크루즈_김윤미] [오전 9:47] 크루즈닷 빨간 후드티를 입고 여러분을 맞이할꺼예요 [팽원준 맥스 .",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        }
+      ]
+    },
+    {
+      "question_id": "q0009",
+      "question": "1층 외부에서 크루즈 패키징을 나눠드릴 예정입니다. ▶ 나눠드리는 장소와 시간은 조금 변경될 수 있습니다. ▶ 크루즈닷 로고가 있는 붉은 후드티를 입은 스탭이 나눠드립니다. [팽원",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Activity",
+          "relevance": 0.9,
+          "category": "Activity"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        },
+        {
+          "product_id": "Document",
+          "relevance": 0.8,
+          "category": "Document"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0010",
+      "question": "🚨 냉장고 안에 있는 음료는 유료입니다",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Beverage",
+          "relevance": 0.9,
+          "category": "Beverage"
+        }
+      ]
+    },
+    {
+      "question_id": "q0011",
+      "question": "➡️ 크루즈 티켓, 택이 필요하신 분들은 제가 도와드릴게요 조금만 기다려주세요. 열심히 가고 있습니다💦 [팽원준 맥스 점장 (크루즈 전문)] [오전 11:55] 먼저 승선하시는 .",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Activity",
+          "relevance": 0.9,
+          "category": "Activity"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        },
+        {
+          "product_id": "Document",
+          "relevance": 0.8,
+          "category": "Document"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.9,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0012",
+      "question": "■ 초간단! MSC 벨리시마 카드 등록 [링크] [팽원준 맥스 점장 (크루즈 전문)] [오후 1:15] 사진 [팽원준 ...",
+      "category": "기타",
+      "products": [
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0013",
+      "question": "파우치 안에도 지도가 있습니다^^ 크루즈 타신분들은 객실에서 객실카드 챙기시고 15층에서 식사하세요^^ [김응기] [오후 1:16] 방에 바로 들어가면 되나요? [장근영(페르)].",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Activity",
+          "relevance": 0.9,
+          "category": "Activity"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.9,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0015",
+      "question": "[ju bong] [오후 1:47] 네 [팽원준 맥스 점장 (크루즈 전문)] [오후 1:53] @김대호 김대호님~ 저에게 카톡 전화주세요~~!!! [팽원준 맥스 점장 (크루즈 전문",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Activity",
+          "relevance": 0.9,
+          "category": "Activity"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.9,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0018",
+      "question": "🚨예약하신 분은 공연 시작 30분 전부터 입장이 가능하며, 5분 전까지 좌석이 보장됩니다. 이후에는 미예약 좌석이 해제되고 모든 관객에게 개방됩니다.",
+      "category": "선상활동",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        },
+        {
+          "product_id": "Activity",
+          "relevance": 0.85,
+          "category": "Activity"
+        }
+      ]
+    },
+    {
+      "question_id": "q0019",
+      "question": "본 공연 관람은 예약이 필수입니다. 김경란님이 들어왔습니다. [신영미] [오후 6:37] 정찬은 오늘 하루만 있나요? [팽원준 맥스 점장 (크루즈 전문)] [오후 6:37] 사진 ",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Activity",
+          "relevance": 0.85,
+          "category": "Activity"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        },
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0020",
+      "question": "내일아침 레스토랑까지 가기 귀찮으신분들을 위해 객실에서 조식신청할 수 있는 방법 공유해 드립니다~!ㅎㅎ",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        }
+      ]
+    },
+    {
+      "question_id": "q0022",
+      "question": "※ 꼭 새벽 2시전까지 객실문앞에 걸어주세요~! [★아테나여신★] [오후 8:26] 미니바는 생수제외인가요? 생수도 유료? [모니카] [오후 8:31] 생수 유료입니다~~~ [신홍",
+      "category": "객실&카드",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        }
+      ]
+    },
+    {
+      "question_id": "q0023",
+      "question": "문앞에 붙여주세요~! 예쁘게 꾸민 모습 카톡방에 올려주세오~^^ [★아테나여신★] [오후 9:41] 우하 호달달 난 입구컷 표지딱 왼쪽 발걸음 10발자국이 내 방이지롱♡♡♡ [★아",
+      "category": "객실&카드",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0024",
+      "question": "음료수도 잘 안마심 ♡♡♡ [팽원준 맥스 점장 (크루즈 전문)] [오후 10:24] 동영상 [팽원준 맥스 점장 (크루즈 전문)] [오후 10:24] 5층, 6층 갤러리아로 오세요 ",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Beverage",
+          "relevance": 0.9,
+          "category": "Beverage"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        },
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0025",
+      "question": "안하면 불이익? [★아테나여신★] [오전 10:27] 사진 [케로로] [오전 10:27] 금일 나가서 음료를 사서 들어오는건 문제 없나요? [팽원준 맥스 점장 (크루즈 전문)] [",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Beverage",
+          "relevance": 0.9,
+          "category": "Beverage"
+        }
+      ]
+    },
+    {
+      "question_id": "q0027",
+      "question": "[★아테나여신★] [오전 10:31] 원준 점장님 6층에 잠시 메인계단 면담좀 [팽원준 맥스 점장 (크루즈 전문)] [오전 10:32] @all 객실카드에 신용카드 연동 못하신..",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.9,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0028",
+      "question": "물어볽것이 [★아테나여신★] [오전 10:32] 지금갈게유 [팽원준 맥스 점장 (크루즈 전문)] [오전 10:33] 네네~! [★아테나여신★] [오전 11:35] 동영상 [★아테나",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Activity",
+          "relevance": 0.85,
+          "category": "Activity"
+        }
+      ]
+    },
+    {
+      "question_id": "q0029",
+      "question": "ㅡ 뷔페 오전11시 ~ 오후3시 ㅡ정찬 식당 오전 11시30분 ~ 오후1시 (지정 좌석 아님)",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        }
+      ]
+    },
+    {
+      "question_id": "q0030",
+      "question": "맛있는 식사 되세요^-^ [★아테나여신★] [오후 12:02] 동영상 [★아테나여신★] [오후 12:03] 동영상 [★아테나여신★] [오후 12:55] 마술은 예약안함 못봐용",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        }
+      ]
+    },
+    {
+      "question_id": "q0031",
+      "question": "? [팽원준 맥스 점장 (크루즈 전문)] [오후 1:02] 좌석이 다 예약차면 보실수 없기에 예약하시는걸 추천합니다 [신영미] [오후 1:07] 요금정산서 받았는데 잘못된건 어디.",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "320",
+          "relevance": 0.95,
+          "category": "TIP"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Policy",
+          "relevance": 0.75,
+          "category": "Policy"
+        }
+      ]
+    },
+    {
+      "question_id": "q0032",
+      "question": "참고 하실 수 있는 이미지 첨부해 드릴게요~!ㅎㅎ [장근영(페르)] [오후 4:04] 사진 [팽원준 맥스 점장 (크루즈 전문)] [오후 4:05] 간단하게 레고 동상 보이는 18층",
+      "category": "기항지&투어",
+      "products": [
+        {
+          "product_id": "320",
+          "relevance": 0.95,
+          "category": "TIP"
+        }
+      ]
+    },
+    {
+      "question_id": "q0039",
+      "question": "12일엔 반드시 여유롭게 오후 4시반까지 크루즈에 탑승하세요.",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        }
+      ]
+    },
+    {
+      "question_id": "q0041",
+      "question": "행복한 일본 여행 되세요😆 [우주청소] [오후 5:22] 오늘11일 외출후 승선하려면 오후10시이전에 승선 하면 되나요. [팽원준 맥스 점장 (크루즈 전문)] [오후 5:24] 시",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        }
+      ]
+    },
+    {
+      "question_id": "q0042",
+      "question": "사람다 나갔으니 나좀 먹어보자고 꼬심 [★아테나여신★] [오후 10:35] 사진 --------------- 2026년 5월 12일 화요일 --------------- [★아테나여",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        }
+      ]
+    },
+    {
+      "question_id": "q0048",
+      "question": "🚨 오후 4시30분까지는 여유롭게 크루즈에 탑승해주세요. 5시반에 가까워질수록 승선할때 사람들이 몰릴 확률이 높습니다.",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        }
+      ]
+    },
+    {
+      "question_id": "q0050",
+      "question": "✅️ 여권은 크루즈 탈 때 직원이 가져갑니다.",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Document",
+          "relevance": 0.85,
+          "category": "Document"
+        }
+      ]
+    },
+    {
+      "question_id": "q0051",
+      "question": "오늘도 행복한 여행되세요^-^ [★아테나여신★] [오전 11:33] 출국심사 완료 크루즈 들어올때보다 빡셔유 회수됏구 난 못나감 이따 사람몰리면 장난아닐듯 [★아테나여신★] [오전",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        }
+      ]
+    },
+    {
+      "question_id": "q0052",
+      "question": "이 시간에 진행됩니다. 각자 객실 카드를 안전교육 때 바코드 찍어주셔야 돼요^-^ [팽원준 맥스 점장 (크루즈 전문)] [오후 3:31] 사진 [팽원준 맥스 점장 (크루즈 전문)]",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        },
+        {
+          "product_id": "Port",
+          "relevance": 0.8,
+          "category": "Port"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.9,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0053",
+      "question": "탑승하셨으면 숫자 1주세용 메시지가 삭제되었습니다. [팽원준 맥스 점장 (크루즈 전문)] [오후 5:46] @kb j 정기복님 아까 3시40분쯤 복도에서 저랑 인사했는데 그 이후.",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Beverage",
+          "relevance": 0.9,
+          "category": "Beverage"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        }
+      ]
+    },
+    {
+      "question_id": "q0055",
+      "question": "꼭 참석해주세요. ^-^ [케로로] [오전 9:06] 전원참석인가요? 방마다 한명만가도되나요? [팽원준 맥스 점장 (크루즈 전문)] [오전 9:07] @all 방마다 한 명씩만 참",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0056",
+      "question": "▶ 1. 하선 짐싸기 = 수하물 택이 객실로 배달됩니다.",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.75,
+          "category": "Boarding"
+        }
+      ]
+    },
+    {
+      "question_id": "q0057",
+      "question": "🚨🚨🚨 위탁 수하물로 내놓는 캐리어에서 여권 / 객실카드 / 아침에 입을 옷 / 비상약 / 칫솔 등은 빼주세요!!! 자칫하다간 잠옷으로 하선하십니다 ^-^",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Document",
+          "relevance": 0.85,
+          "category": "Document"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.9,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0058",
+      "question": "▶ 2. 캐리어 문앞에 내놓기 = 택을 붙인 캐리어는 저녁11시까지 문 앞에 놓습니다. 혹시 모르니 문앞에 놓은 사진 찍어놓으세요. 택에 있는 부분 떼어내서 카드 뒷면에 붙이세요.",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0060",
+      "question": "▶ 3. 영수증 확인하기 MSC 어플에서 역을 확인하세요. 🚨 반드시!!! 계산서를 확인하세요! 하루 18달러 (4박 총 $72)의 선상팁과 일본 관광세 $5.79 선내에서 사용.",
+      "category": "기항지&투어",
+      "products": [
+        {
+          "product_id": "320",
+          "relevance": 0.95,
+          "category": "TIP"
+        }
+      ]
+    },
+    {
+      "question_id": "q0063",
+      "question": "▶ 4. 객실 카드 🚨 객실 카드는 내일 아침 하선시 반드시 필요합니다. 꼭 잘 챙겨두시기 바랍니다. (객실카드는 소장하셔도 됩니다) [팽원준 맥스 점장 (크루즈 전문)] [오후 ",
+      "category": "객실&카드",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.9,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0065",
+      "question": "▶ 🍽 아침 식사 시간 = 라이트 하우스 식당 6층 . 06:30 ~ 08:00 = 뷔페 15층 . 06:00 ~ 11:00",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        }
+      ]
+    },
+    {
+      "question_id": "q0066",
+      "question": "▶ 6층 중앙 에너지바에서 휴대용 가방 보관 가능 9:00 ~ 11:00 ▶ 객실은 오전 9시까지 비워주세요!! ▶ 우리는 ✨️W Cruise 그룹✨️으로 오전 11시에 하선 ..",
+      "category": "객실&카드",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0067",
+      "question": "방송 순서대로 천천히 차근차근 내려주세요. ▶ 내리신 후에 터미널에서 🧳 캐리어를 찾아 안전하게 귀가하시면 됩니다 ^-^",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0070",
+      "question": "오늘도 남은 시간 즐거운 여행되세요. 감사합니다! ^-^ -크루즈닷 드림- [팽원준 맥스 점장 (크루즈 전문)] [오후 7:06] @혜원 김혜원님, 김대호님 연락을 안받으셔서 톡.",
+      "category": "객실&카드",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0071",
+      "question": "[핸드폰] 팽원준 점장 으로 카톡 연락 부탁드려요~! [크루즈_김윤미] [오후 7:18] 아마 와이파이 신청을 안했을 수 있어요 [김경란] [오후 7:50] 지금 정...",
+      "category": "기술&앱",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Document",
+          "relevance": 0.85,
+          "category": "Document"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.9,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0072",
+      "question": "▶ 6층 중앙 에지바에서 휴대용 가방 보관 가능 🧳",
+      "category": "선상활동",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0073",
+      "question": "9:00 ~ 11:00 ▶ 객실은 오전 9시까지 비워주세요!! ▶ 우리는 ✨️W Cruise 그룹✨️으로 오전 11시에 하선 시작! 모임 시간 = 10시50분까지 모임 장소 =..",
+      "category": "객실&카드",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0076",
+      "question": "😆 여행의 진짜 완성은 '추억 나누기'라고 하죠? ㅎㅎㅎ ^^ 짐 정리가 끝나시고 여유가 되실 때, 여기 카톡방에 📷 즐거웠던 여행 후기 한 줄과 인생샷 한 장 툭! 남겨주시면 .",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.75,
+          "category": "Boarding"
+        }
+      ]
+    },
+    {
+      "question_id": "q0080",
+      "question": "심홍석 점장님 감사합니다 쿠루즈닷 사이트 후기도 쓸수 잇으모 카피닷 또 올리려고 함 [정승원] [오전 9:12] 아테나님 대단해요 ㅎ [★아테나여신★] [오전 9:12] 어제 정.",
+      "category": "선상활동",
+      "products": [
+        {
+          "product_id": "320",
+          "relevance": 0.95,
+          "category": "TIP"
+        },
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Document",
+          "relevance": 0.85,
+          "category": "Document"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0082",
+      "question": "작년에 들고 나가시다가 검색대에 걸려서 벌금 낼뻔한 사례가 있었습니다~! [팽원준 맥스 점장 (크루즈 전문)] [오전 10:34] 6층 런던극장에 들어오셔서 대기 가능하십니다~! ",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0085",
+      "question": "--------------- 2026년 5월 11일 월요일 --------------- 모니카님이 들어왔습니다.타인, 기관 등의 사칭에 유의해 주세요. 금전 또는개인정보를 요구 받",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        },
+        {
+          "product_id": "Policy",
+          "relevance": 0.75,
+          "category": "Policy"
+        }
+      ]
+    },
+    {
+      "question_id": "q0087",
+      "question": "행복한 여행이 되시길 여행 끝날때까지 날씨요정과 건강무탈 기원하며 함께 여행마무리까지 즐겨보아요~~~^^ [모니카] [오후 4:25] 이모티콘 [장근영(페르)] [오후 4:25..",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        },
+        {
+          "product_id": "Beverage",
+          "relevance": 0.9,
+          "category": "Beverage"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.75,
+          "category": "Boarding"
+        },
+        {
+          "product_id": "Document",
+          "relevance": 0.8,
+          "category": "Document"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0088",
+      "question": "또하나 기항지투어할 때 기고시마에서 어디로 투어할지는 승선해야 알 수 있나요? 택시비가 비싸다고 하셔서 저희가 생각하는 루트랑 맞는지 보려고요. [전정철] [오후 5:56] 아~~",
+      "category": "기항지&투어",
+      "products": [
+        {
+          "product_id": "Activity",
+          "relevance": 0.85,
+          "category": "Activity"
+        },
+        {
+          "product_id": "Port",
+          "relevance": 0.85,
+          "category": "Port"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0089",
+      "question": "1. 항구에서 시내 주요 지점까지만 이동하거나 ,3~4시간 정도의 짧은 핵심 관광프로그램 이 약 50~70$ 정도 됩니다.",
+      "category": "기항지&투어",
+      "products": [
+        {
+          "product_id": "Port",
+          "relevance": 0.8,
+          "category": "Port"
+        }
+      ]
+    },
+    {
+      "question_id": "q0091",
+      "question": "모든 일정이나 프로그램은 현지 상황 및 조건에 따라 차이는 있습니다~! [정수정] [오후 6:15] 참고하겠습니다^^ [장근영(페르)] [오후 6:17] 일본 출국세 같은 경우는 ",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.9,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0093",
+      "question": "행복한 여행이 되시길 여행 끝날때까지 날씨요정과 건강무탈 기원하며 함께 여행마무리까지 즐겨보아요~~~^^ [팽원준 맥스 점장 (크루즈 전문)] [오후 1:45] @all 크루...",
+      "category": "선상활동",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        },
+        {
+          "product_id": "Activity",
+          "relevance": 0.85,
+          "category": "Activity"
+        },
+        {
+          "product_id": "Document",
+          "relevance": 0.8,
+          "category": "Document"
+        },
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0099",
+      "question": "⭐여권은 필수 입니다!⭐ 텀블러, 신용카드(해외결제가능) 챙겨주세요",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "Document",
+          "relevance": 0.85,
+          "category": "Document"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0101",
+      "question": "크루즈 타자마자 유럽에 온 착각이 들겁니다^-^ [팽원준 맥스 점장 (크루즈 전문)] [오후 1:06] 내일 타시면 춤도, 수영도, 썬텐도 무조건 적극적으로 참여하세요.^-^ [장",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Document",
+          "relevance": 0.85,
+          "category": "Document"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0102",
+      "question": "참고해 주세요~!^^ [장근영(페르)] [오후 7:01] 사진 24장 [장근영(페르)] [오후 7:03] ※ 각종 바&라운지에 입장하시는것은 비용을 받지않으나 주류나 해당 서비스를",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        },
+        {
+          "product_id": "Document",
+          "relevance": 0.85,
+          "category": "Document"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0103",
+      "question": "🚨 냉장고 안에 있는 음료는 유료입니다 [전정철] [오후 1:21] 파우치 받고 체크인 하는곳에 있어요 [부산맨] [오후 1:35] 사진 [팽원준 맥스 점장 (크루즈 전문)] ..",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Beverage",
+          "relevance": 0.9,
+          "category": "Beverage"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.9,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0104",
+      "question": "물, 우유, 아메리카노를 무료로 드실수 있습니다^^ [팽원준 맥스 점장 (크루즈 전문)] [오후 2:43] 사진 5장 [sein이혜경] [오후 2:51] 아까 객실 가기전에 티켓으",
+      "category": "객실&카드",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Document",
+          "relevance": 0.8,
+          "category": "Document"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.9,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0105",
+      "question": "핸드폰에 등록된 카드로 등록하는 부분은 5층 메인 안내 데스크에 문의해주세요~!! [sein이혜경] [오후 3:01] 오키요 [[이메일]] [오후 3:02]...",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.9,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0106",
+      "question": "■ 초간단! MSC 벨리시마 카드 등록 [링크] [팽원준 맥스 점장 (크루즈 전문)] [오후 3:23] @all 객실...",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "320",
+          "relevance": 0.95,
+          "category": "TIP"
+        },
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Activity",
+          "relevance": 0.9,
+          "category": "Activity"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.9,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0107",
+      "question": "기네스북과 MSC는 스폰서 관계라 도전자가 신기록을 갱신한다면 실시간으로 세계기록이 바뀌는 현장을 직접 보실 수 있습니다~^^ [장근영(페르)] [오전 12:28] 크루즈를 돌아다",
+      "category": "기항지&투어",
+      "products": [
+        {
+          "product_id": "320",
+          "relevance": 0.95,
+          "category": "TIP"
+        },
+        {
+          "product_id": "Activity",
+          "relevance": 0.85,
+          "category": "Activity"
+        },
+        {
+          "product_id": "Port",
+          "relevance": 0.8,
+          "category": "Port"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0108",
+      "question": "특히 가고시마는 일본 전국 IC카드 호환이 조금 복잡한 편이라",
+      "category": "기타",
+      "products": [
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0109",
+      "question": "스이카나 파시모가 일부 구간에서는 안 되는 경우가 있고, 현금만 받는 버스·철도도 존재합니당.. 참고해 주세요~! [김창헌] [오전 12:46] 혹시 기항지에서 시티투어 패스권을 ",
+      "category": "기항지&투어",
+      "products": [
+        {
+          "product_id": "Activity",
+          "relevance": 0.85,
+          "category": "Activity"
+        },
+        {
+          "product_id": "Port",
+          "relevance": 0.85,
+          "category": "Port"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0110",
+      "question": "✅ 오후에 크루즈에 방송을 잘 따라서 관광 준비를 해주세요 ^-^",
+      "category": "기항지&투어",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0112",
+      "question": "오늘도 행복한 크루즈 여행 되세요^-^ 메시지가 삭제되었습니다. [부산맨] [오전 11:58] 일행마다 배 내리는.시간이 달라서 그런데 같이 맞춰서 내려갈 방법이 없ㄴ요? [부산맨",
+      "category": "객실&카드",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0113",
+      "question": "가실때 여권과 크루즈 카드도 꼭챙기세요~~! [신동환] [오후 12:00] 같은 일행인데 방배정이 달라서 번호가 달라요 [신동환] [오후 12:01] 같이 움직여야 할려는데... ",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        },
+        {
+          "product_id": "Document",
+          "relevance": 0.85,
+          "category": "Document"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0114",
+      "question": "18시까지 늦지않게 승선해주시는게 좋습니다~!^^ [자랑하는 라이언] [오후 12:20] 19시30분아닌가요?? [sein이혜경] [오후 12:22] 여러분들 굳모닝입니다~ [s.",
+      "category": "기항지&투어",
+      "products": [
+        {
+          "product_id": "Document",
+          "relevance": 0.8,
+          "category": "Document"
+        }
+      ]
+    },
+    {
+      "question_id": "q0115",
+      "question": "[sein이혜경] [오후 12:24] 사진 [팽원준 맥스 점장 (크루즈 전문)] [오후 12:28] 네. 가고시마 셔틀버스는 유료입니다 성인 18달러이고, 이용시 객실카드로 자동 ",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Beverage",
+          "relevance": 0.9,
+          "category": "Beverage"
+        },
+        {
+          "product_id": "Document",
+          "relevance": 0.8,
+          "category": "Document"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.9,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0116",
+      "question": "[모니카] [오후 1:45] 크루즈선 다시 들어갈때 X-ray 다 하고 들어갑니다~~ [모니카] [오후 1:45] 다 확인해요~! [김현진] [오후 2:40] 저희는 오늘 하선..",
+      "category": "기타",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0117",
+      "question": "오늘 입국 수속을 해야 된다라면 방송에서 모든 승객이 입국 수속을 하라고 나옵니다.",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        }
+      ]
+    },
+    {
+      "question_id": "q0118",
+      "question": "더 정확한 건 5층 리셉션에서 확인해주시면 감사하겠습니다. ^-^ [모니카] [오후 2:47] 하선 안해도 보통 입국 심사 하고 다시 들어오라고 하고는 있어요~~~~ [노래하는..",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        }
+      ]
+    },
+    {
+      "question_id": "q0124",
+      "question": "1. 맡기실 캐리어는 수화물라벨 작성 및 부착하여 오늘 밤 11시까지 객실입구에 놓아주시면 됩니다~!^^",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0125",
+      "question": "* 맡기실 캐리어에 절대 여권과 크루즈 카드를 넣으시면 안됩니다!!!!",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Document",
+          "relevance": 0.85,
+          "category": "Document"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0127",
+      "question": "3. 객실은 내일 오전 7시 30분까지 비워주셔야 합니다~!!",
+      "category": "객실&카드",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0129",
+      "question": "5. 카지노에서 칩을 환전 하실분들은 오늘 밤 12시 까지 꼭 환전을 하시는게 좋습니다~^^ [장근영(페르)] [오전 11:22] 사진 [장근영(페르)] [오전 11:22] 오늘 ",
+      "category": "객실&카드",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0130",
+      "question": "이것도 작성후 내리실때 꼭! 지참하셔야 됩니다~!! [장근영(페르)] [오전 11:24] 사진 [장근영(페르)] [오전 11:32] 내일 아침은 객실에서 조식 신청 룸서비스는 불.",
+      "category": "객실&카드",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0131",
+      "question": "6시 30분 부터 15층 뷔페나 6층에 라이트 하우스 레스토랑 이용이 가능합니다~! [자랑하는 라이언] [오전 11:36] 내일도쿄내리는 곳 주소가 어떻게될까요? [장근영(페르)]",
+      "category": "선상활동",
+      "products": [
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Activity",
+          "relevance": 0.85,
+          "category": "Activity"
+        },
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0132",
+      "question": "도쿄 하선시간은 8시부터 순차적으로 진행 되니 참고 부탁 드립니다~!^^ [장근영(페르)] [오후 2:35] 사진 [장근영(페르)] [오후 2:35] 휴대품 별송품 신고서 작성 양",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0135",
+      "question": "도쿄 도착시간이 지연됨에따라 크루즈 하선시간 조정이 있었습니다.",
+      "category": "기타",
+      "products": [
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0137",
+      "question": "■ 도쿄 도착시간: 08:00 ■ 하선 시작시간: 08:15",
+      "category": "기타",
+      "products": [
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0138",
+      "question": "* 시간표 보다 더 빨리 하선을 하셔야 하는분은 08시 15분까지 모든 짐을 직접 소지 후",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Boarding",
+          "relevance": 0.75,
+          "category": "Boarding"
+        }
+      ]
+    },
+    {
+      "question_id": "q0139",
+      "question": "5층 포시도니아 레스토랑으로 이동 해 주시면 됩니다~! [자랑하는 라이언] [오후 9:33] 9시쯤에 하선원하면 그쯤에 5층가두될까요? 시간표보다 이른시간이면 무조건 8시15분까지",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        }
+      ]
+    },
+    {
+      "question_id": "q0141",
+      "question": "객실은 오전 7시 30분까지 비워 주시고 식사나 라운지에서 쉬시다가",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        }
+      ]
+    },
+    {
+      "question_id": "q0143",
+      "question": "무조건 8시 15분까지 캐리어를 직접 가지고 5층 포시도니아 레스토랑으로 와 주시면 됩니다.^^",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        }
+      ]
+    },
+    {
+      "question_id": "q0144",
+      "question": "9시 40분에 내리셔도 되시는분들께서는 9시 40분까지 6층 런던극장으로 와주시면 됩니다~!! [부산맨] [오후 9:50] 8시 15분에 내리면 셔틀이 없나요? [장근영(페르)] ",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        }
+      ]
+    },
+    {
+      "question_id": "q0145",
+      "question": "어머니와 올 9월에 서부지중해 크루즈 여행을 가려고 합니다. 바르셀로나 공항에 당일 오전 8시 도착해서 오후 5시 크루즈 승선인데 크게 걱정하지 않아도 되겠죠? 항공이 연착이 되도",
+      "category": "기항지&투어",
+      "products": [
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        }
+      ]
+    },
+    {
+      "question_id": "q0149",
+      "question": "공연볼때 실내 온도나 습도는 어떤가요? 굉장히 가보고싶은 크루즈 여행입니다 ㅠㅠ 야외 습도와 온도도 궁금하네요 ! 그리고 객실에 에어컨이 작동되는지 궁금합니다 ㅠ",
+      "category": "객실&카드",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Beverage",
+          "relevance": 0.75,
+          "category": "Beverage"
+        },
+        {
+          "product_id": "Activity",
+          "relevance": 0.85,
+          "category": "Activity"
+        }
+      ]
+    },
+    {
+      "question_id": "q0150",
+      "question": "부모님이랑 가족여행으로 크루즈여행이 좋다길래 영상 찾아보고있는데요... 보면 즐길거리가 많아보이긴하는데 대부분 컨텐츠가 50대 미만이나 즐길법한 컨텐츠들인것 같아서요. 60~70대",
+      "category": "선상활동",
+      "products": [
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Activity",
+          "relevance": 0.85,
+          "category": "Activity"
+        }
+      ]
+    },
+    {
+      "question_id": "q0151",
+      "question": "초등학생 아이들과 함께 크루즈 여행을 가보고자 하는데, 크루즈 내 컨텐츠에 아이가 접근 못 하는 컨텐츠들이 많나요? 공연이라거나 공간이라거나요.",
+      "category": "선상활동",
+      "products": [
+        {
+          "product_id": "Activity",
+          "relevance": 0.85,
+          "category": "Activity"
+        }
+      ]
+    },
+    {
+      "question_id": "q0153",
+      "question": "저렇게여러나라를들렀다오는크루즈는 나라여행도가능한건가요?? 정박하고몇일몇시에출발합니다~이런건지. 아니면그냥그정박하는곳앞쪽만 볼수있는건지궁금해요",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        }
+      ]
+    },
+    {
+      "question_id": "q0154",
+      "question": "1인당 금액이 280인가요? ()",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "320",
+          "relevance": 0.95,
+          "category": "TIP"
+        },
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Port",
+          "relevance": 0.85,
+          "category": "Port"
+        },
+        {
+          "product_id": "Policy",
+          "relevance": 0.75,
+          "category": "Policy"
+        }
+      ]
+    },
+    {
+      "question_id": "q0159",
+      "question": "크루즈 여행이 너무 가고싶어요 ㅠ_ㅠ 요즘 꽃남에서 보면 맨날 배타고 띵까띵까놀고 저 푸른 바다에 완전 환상적인 생활이다싶고, ㅋㅋ 너무너무너무너무 완소 완소 크루즈여행 요즘 크루",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0160",
+      "question": "크루즈 여행 하면요 보통 몇백명에서 몇천명의 관광객이있잖아요... 기항지에 정박하고 관광할때요. 사람이 한두명이 아닌데 누가 나가고 누가 제시간까지 배로 안돌아 왔는지 어떻게 알죠",
+      "category": "기항지&투어",
+      "products": [
+        {
+          "product_id": "Port",
+          "relevance": 0.85,
+          "category": "Port"
+        }
+      ]
+    },
+    {
+      "question_id": "q0161",
+      "question": "크루즈 경험분 안녕하세요 크루즈 여행시에 크루즈내에서 사용하는 승선카드와 관련입니다. 승선카드를 신용카드와 연계 시킬때 승선카드는 각각 개인별 발부인가요?? 아니면 객실당 발부를 ",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    },
+    {
+      "question_id": "q0166",
+      "question": "안녕하세요 부모님 팔순 생신기념으로 가족들과 처음으로 크루즈여행 다녀오려고합니다. 해외여행은 다녀본적이 별로 없어 아는 것이 없는 상태라 블로그 찾아보는데 더 혼란스럽네요 지중해(",
+      "category": "선상활동",
+      "products": [
+        {
+          "product_id": "320",
+          "relevance": 0.95,
+          "category": "TIP"
+        }
+      ]
+    },
+    {
+      "question_id": "q0171",
+      "question": "크루즈여행 뷔페 식사할때 조식 중식 석식 아무때나 가서 먹을껀데 드레스코드가 따로 있나요? 디너 정찬 레스토랑은 무조건 정장이나 드레스 입어야 되는걸로 알고있는데 일반 뷔페 레스토",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        }
+      ]
+    },
+    {
+      "question_id": "q0173",
+      "question": "크루즈여행의 문제점, 그리고 그 문제점에 대한 해결방안좀 알려주세요~~",
+      "category": "기타",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0176",
+      "question": "안녕하세요. 내년초 크루즈여행 예약중입니다. 그런데 상품안내에 보면 공항세, 항구세, 제세공과금, 관광진흥개발기금, 관광세, 전쟁보험료 및 유류할증료가 별도 청구되어 있습니다. 보",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "320",
+          "relevance": 0.95,
+          "category": "TIP"
+        },
+        {
+          "product_id": "Port",
+          "relevance": 0.85,
+          "category": "Port"
+        }
+      ]
+    },
+    {
+      "question_id": "q0180",
+      "question": "제가 크루즈 여행이 처음이고 생각 중 인데 크루즈 여행 하신 분들 께 이렇게 질문을 합니다. 1.블로그 나 카페 등등 에서 후기글 올린거 봤는데 예를 들어 한국 애서 미국 도착해서",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Beverage",
+          "relevance": 0.75,
+          "category": "Beverage"
+        }
+      ]
+    },
+    {
+      "question_id": "q0187",
+      "question": "크루즈 여행에 대해 알게 되었어요.선박여행이란거 알겠는데..상품이 멕시코와 카리브해의...먼 곳에만 있던데요?이렇게 먼 곳 말고 다른 방향으로가는 크루즈상",
+      "category": "기타",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0196",
+      "question": "크루즈여행이요 해외 각 나라들 가는데 크루즈 여행은 그 나라에 도착해도 한번도 안내리나요? 배 안에만 몇박 며칠동안 있고 여러 나라들에 도착해도 내리지도 못하고 바다+하늘만 볼텐데",
+      "category": "선상활동",
+      "products": [
+        {
+          "product_id": "Activity",
+          "relevance": 0.85,
+          "category": "Activity"
+        }
+      ]
+    },
+    {
+      "question_id": "q0197",
+      "question": "크루즈 여행을 생각중입니다. 1. 크루즈로 여행하는 게 가장 이득인 코스는 어디인가요? (검색해보니 알래스카, 동유럽, 북유럽, 서유럽 등등 많긴하던데 홈쇼핑이나 이런데에서는 알래",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0198",
+      "question": "(1) 세계일주도 있고, 특정지역만 가는 것도 있는데, 각각의 장기단점이 있을 거 같은데 어떤가요? (2) 세계일주, 특정지역 등 크루즈 여행 내용에 따라 가격이 다를 거 같은데,",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0202",
+      "question": "안녕하세요~ 5월에 지중해 크루즈로 가게 될 예정인데요. 크루즈는 처음이라 아는정보가 너무 없어서요!!ㅠㅠ 업체에서 2월에 스케줄이 나온다고 하여 기다리고 있습니다. 업체에 문의하",
+      "category": "기항지&투어",
+      "products": [
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Port",
+          "relevance": 0.8,
+          "category": "Port"
+        }
+      ]
+    },
+    {
+      "question_id": "q0203",
+      "question": "말 그대로 태평양 횡단 크루즈 여행을 하고 싶습니다. 1.횡단하는 크루즈는 없다고 하던데, 검색해보면 도쿄-벤쿠버 북태평양 횡단 크루즈 여행을 하신 분이 계시더라구요. 있나요 없나",
+      "category": "기항지&투어",
+      "products": [
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        },
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0206",
+      "question": "돈모아서 2020년쯤에 크루즈 여행 계획하고 있는데 크루즈 여행이란것도 최근에 알게 되었고 아는것도 아무것도 없어서 크루즈 여행에 대해 좀더 자세히 알고 싶습니다! 상세히 답변주시",
+      "category": "기항지&투어",
+      "products": [
+        {
+          "product_id": "Document",
+          "relevance": 0.8,
+          "category": "Document"
+        },
+        {
+          "product_id": "Port",
+          "relevance": 0.85,
+          "category": "Port"
+        }
+      ]
+    },
+    {
+      "question_id": "q0208",
+      "question": "올해 여름방학때 4인 가족 크루즈 여행을 알아보고 있는데 어떻게 알아봐야 할까요? 휴양지 였으면 좋겠습니다. 현재 해외여행 가능한가요?",
+      "category": "기타",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0213",
+      "question": "안녕하세요. 내년초 크루즈여행 예약중입니다. 그런데 상품안내에 보면 공항세, 항구세, 제세공과금, 관광진흥개발기금, 관광세, 전쟁보험료 및 유류할증료가 별도 청구되어 있습니다. 보",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "320",
+          "relevance": 0.95,
+          "category": "TIP"
+        },
+        {
+          "product_id": "Port",
+          "relevance": 0.85,
+          "category": "Port"
+        }
+      ]
+    },
+    {
+      "question_id": "q0214",
+      "question": "저희는 70대 부부입니다. 2018년 5~6월경에 동부지중해크루즈 여행을 계획하고 있습니다. . 어떻게 하면 보다 알차고 멋있는 여행을 할 수있는지 그 방법을 자세히 알려주시기 알",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0226",
+      "question": "오베이션호 인터넷 금액과 주류패키지 구성 알 수 있을까요?",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Beverage",
+          "relevance": 0.9,
+          "category": "Beverage"
+        }
+      ]
+    },
+    {
+      "question_id": "q0227",
+      "question": "9/5 상품 예약가능한가요? (내측 성인2 아이2 예상) 잔여객실이 있나요?",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        },
+        {
+          "product_id": "Policy",
+          "relevance": 0.75,
+          "category": "Policy"
+        }
+      ]
+    },
+    {
+      "question_id": "q0228",
+      "question": "9/5 만4세, 7세는 가격이 어떻게 되나요?",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "Policy",
+          "relevance": 0.75,
+          "category": "Policy"
+        }
+      ]
+    },
+    {
+      "question_id": "q0230",
+      "question": "10월 홍콩 피아노랜드 크루즈 패키지 성인 3번째 아이 3,4번째 6개월~2세미만 싱글 각 비용도 알 수 있을까요?",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        },
+        {
+          "product_id": "Policy",
+          "relevance": 0.75,
+          "category": "Policy"
+        }
+      ]
+    },
+    {
+      "question_id": "q0231",
+      "question": "홍콩 피아노랜드 크루즈 패키지 부산 제주 출발 가능한가요? 아니면 아직 확정전인가요?",
+      "category": "기타",
+      "products": [
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0236",
+      "question": "추석 일정인줄 알았는데 추석은 안되나요?",
+      "category": "선상활동",
+      "products": [
+        {
+          "product_id": "Dining",
+          "relevance": 0.85,
+          "category": "Dining"
+        },
+        {
+          "product_id": "Activity",
+          "relevance": 0.85,
+          "category": "Activity"
+        }
+      ]
+    },
+    {
+      "question_id": "q0237",
+      "question": "(크루즈 갔다와 본 사람, 다짜고짜 가격에 대해 물어봄) 그래서 발코니 있는 방은 얼마인가요?",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        },
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0241",
+      "question": "상담원의 멘트 중간에 말을 가로채며, 상품의 상세 안내 페이지를 원하는 경우 ex) 알겠고 제품 상세 일정을 어디서 확인할수있습니까?? 정보, 자료를 달라",
+      "category": "기타",
+      "products": [
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0242",
+      "question": "3명이서 가는데 한 방에서 지낼 수 있나요?",
+      "category": "객실&카드",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0243",
+      "question": "연로하신 부모님이랑 가는거라, 홍콩에서 한국으로 귀국할 때 비행기로 가면 힘드실 것 같아요.",
+      "category": "기타",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.7,
+          "category": "Room"
+        },
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0244",
+      "question": "패키지 상품은 항공권 예약만 해주는 걸까요 아니면 하선 이후 공항까지 안내해주는 가이드가 있을까요?",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Cabin",
+          "relevance": 0.95,
+          "category": "Cabin"
+        },
+        {
+          "product_id": "Dining",
+          "relevance": 0.9,
+          "category": "Dining"
+        }
+      ]
+    },
+    {
+      "question_id": "q0247",
+      "question": "(니즈 파악 질문하니) 설문하는건가요?",
+      "category": "기타",
+      "products": [
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0249",
+      "question": "크루즈야에서 직접 계약하는 거랑 상담사를 통해서 하는거랑 뭐가 달라요?",
+      "category": "객실&카드",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0253",
+      "question": "술은 얼마인가요? 주류 패키지는 얼마인가요?",
+      "category": "식사&음료",
+      "products": [
+        {
+          "product_id": "Beverage",
+          "relevance": 0.9,
+          "category": "Beverage"
+        }
+      ]
+    },
+    {
+      "question_id": "q0254",
+      "question": "10인이상 단체예약시 할인되는 부분이있을까요??",
+      "category": "객실&카드",
+      "products": [
+        {
+          "product_id": "Room",
+          "relevance": 0.95,
+          "category": "Room"
+        }
+      ]
+    },
+    {
+      "question_id": "q0255",
+      "question": "홍콩에서 내린뒤에 한국으로 돌아오는 비행기는 몇시꺼부터 알아보는게 좋을까요??",
+      "category": "기타",
+      "products": [
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0256",
+      "question": "돌아올 때는 그럼 비행기 따로 예약해야 하나요?",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0258",
+      "question": "비행기를 따로 예약을 해야하구나? 비행기 예약이랑 숙박도 문제다",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0260",
+      "question": "추가로 드는 돈은 없어요?",
+      "category": "기항지&투어",
+      "products": [
+        {
+          "product_id": "320",
+          "relevance": 0.95,
+          "category": "TIP"
+        }
+      ]
+    },
+    {
+      "question_id": "q0261",
+      "question": "크루즈 내려서 따로 또 홍콩에서 즐겨야 하는 일정이 힘들 것 같아서 안될 것 같아요. 홍콩에서 2중으로 돈이 들어가서 싫다",
+      "category": "선상활동",
+      "products": [
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0267",
+      "question": "환불규정에서 저희는예약금을 안받고 전액 결제잖아요. 그럼 8월21일 전까지는 다 돌려받는건가요?",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "Policy",
+          "relevance": 0.75,
+          "category": "Policy"
+        }
+      ]
+    },
+    {
+      "question_id": "q0268",
+      "question": "홍콩 자유여행할건데 비자 필요해요?",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Document",
+          "relevance": 0.85,
+          "category": "Document"
+        },
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0271",
+      "question": "팁도 내야해요? 팁은 왜이렇게 비싸요?",
+      "category": "정책&수수료",
+      "products": [
+        {
+          "product_id": "320",
+          "relevance": 0.95,
+          "category": "TIP"
+        },
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        }
+      ]
+    },
+    {
+      "question_id": "q0273",
+      "question": "연세많으신 할머님께서 컨디션으로 여행 못가게 되셨을 때, 여행자 변경되는지도 말씀 부탁드립니다~~!!",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Document",
+          "relevance": 0.85,
+          "category": "Document"
+        }
+      ]
+    },
+    {
+      "question_id": "q0277",
+      "question": "클래식, 프리미엄 구분 ?",
+      "category": "기타",
+      "products": [
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0278",
+      "question": "크루즈야 패키지에서 가이드, 인솔자와 함께 움직이는 인원은?",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0279",
+      "question": "크루즈야 패키지에서 한국 공항까지 인솔자가 안내하나요?",
+      "category": "탑승&수속",
+      "products": [
+        {
+          "product_id": "Boarding",
+          "relevance": 0.85,
+          "category": "Boarding"
+        },
+        {
+          "product_id": "Destination",
+          "relevance": 0.85,
+          "category": "Destination"
+        }
+      ]
+    },
+    {
+      "question_id": "q0280",
+      "question": "카드번호로 결제할 때 무이자는 어떻게 돼요?",
+      "category": "기항지&투어",
+      "products": [
+        {
+          "product_id": "Card",
+          "relevance": 0.8,
+          "category": "Card"
+        }
+      ]
+    }
+  ],
+  "matched_count": 140
+}

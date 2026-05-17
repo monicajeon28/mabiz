@@ -1,0 +1,36 @@
+◇ injected env (118) from .env.local // tip: ⌘ suppress logs { quiet: true }
+◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+Loaded Prisma config from prisma.config.ts.
+
+Prisma schema loaded from prisma\schema.prisma.
+Datasource "db": PostgreSQL database "neondb", schema "public" at "ep-divine-shape-ai1u1c8e-pooler.c-4.us-east-1.aws.neon.tech"
+
+
+Error: Prisma schema validation - (validate wasm)
+Error code: P1012
+error: Error validating field `group` in model `B2BLandingPage`: The relation field `group` on model `B2BLandingPage` is missing an opposite relation field on the model `ContactGroup`. Either run `prisma format` or add it manually.
+  -->  prisma\schema.prisma:3907
+   | 
+3906 |   organization      Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+3907 |   group             ContactGroup?              @relation(fields: [groupId], references: [id], onDelete: SetNull)
+3908 |   registrations     B2BLandingRegistration[]
+   | 
+error: Error validating field `views` in model `B2BLandingPage`: The relation field `views` on model `B2BLandingPage` is missing an opposite relation field on the model `B2BLandingView`. Either run `prisma format` or add it manually.
+  -->  prisma\schema.prisma:3910
+   | 
+3909 |   comments          B2BLandingComment[]
+3910 |   views             B2BLandingView[]
+3911 |   images            B2BLandingPageImage[]
+   | 
+error: Error validating field `images` in model `B2BLandingPage`: The relation field `images` on model `B2BLandingPage` is missing an opposite relation field on the model `B2BLandingPageImage`. Either run `prisma format` or add it manually.
+  -->  prisma\schema.prisma:3911
+   | 
+3910 |   views             B2BLandingView[]
+3911 |   images            B2BLandingPageImage[]
+3912 | 
+   | 
+
+Validation Error Count: 3
+[Context: validate]
+
+Prisma CLI Version : 7.8.0

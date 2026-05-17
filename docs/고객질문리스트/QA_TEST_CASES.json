@@ -1,0 +1,202 @@
+{
+  "test_scenarios": [
+    {
+      "id": "INT_001",
+      "name": "선상팁 정책 질문",
+      "question": "선상팁이 뭐예요?",
+      "expected_category": "정책&수수료",
+      "expected_tone": "friendly",
+      "expected_products": [320],
+      "description": "고객이 선상팁의 정의와 규정에 대해 묻는 상황",
+      "customer_segment": "신규 고객",
+      "intent": "Policy & Fee Information",
+      "success_criteria": {
+        "category_match": true,
+        "tone_match": true,
+        "product_match": true
+      }
+    },
+    {
+      "id": "INT_002",
+      "name": "객실 변경 가능성",
+      "question": "객실 변경 가능한가요?",
+      "expected_category": "객실&카드",
+      "expected_tone": "friendly",
+      "expected_products": ["cabin_change"],
+      "description": "고객이 예약한 객실을 변경할 수 있는지 확인하는 상황",
+      "customer_segment": "예약 고객",
+      "intent": "Room Service & Modification",
+      "success_criteria": {
+        "category_match": true,
+        "tone_match": true,
+        "product_match": true
+      }
+    },
+    {
+      "id": "INT_003",
+      "name": "긴급 탑승 시간",
+      "question": "지금 바로 탑승해야 하나요?",
+      "expected_category": "탑승&수속",
+      "expected_tone": "urgent",
+      "expected_products": ["boarding_schedule"],
+      "description": "시간 제약이 있는 상황에서 탑승 시간 확인",
+      "customer_segment": "긴급 고객",
+      "intent": "Time-Sensitive Boarding Information",
+      "success_criteria": {
+        "category_match": true,
+        "tone_match": true,
+        "urgency_flag": true
+      }
+    },
+    {
+      "id": "INT_004",
+      "name": "음식 알레르기 대응",
+      "question": "해산물 알레르기 있으면 어떻게 하나요?",
+      "expected_category": "식사&음료",
+      "expected_tone": "empathetic",
+      "expected_products": ["dietary_accommodation"],
+      "description": "고객의 음식 알레르기에 대한 배려 필요 상황",
+      "customer_segment": "특별 요청 고객",
+      "intent": "Dietary Accommodation & Special Needs",
+      "success_criteria": {
+        "category_match": true,
+        "tone_match": true,
+        "empathy_shown": true
+      }
+    },
+    {
+      "id": "INT_005",
+      "name": "카드 결제 수단 안내",
+      "question": "어떤 카드 사용 가능해요?",
+      "expected_category": "객실&카드",
+      "expected_tone": "professional",
+      "expected_products": ["payment_methods"],
+      "description": "결제 수단에 대한 정책 설명이 필요한 상황",
+      "customer_segment": "결제 예정 고객",
+      "intent": "Payment Method Information",
+      "success_criteria": {
+        "category_match": true,
+        "tone_match": true,
+        "information_complete": true
+      }
+    },
+    {
+      "id": "INT_006",
+      "name": "비자(Visa) 요구사항",
+      "question": "비자 필요해요?",
+      "expected_category": "탑승&수속",
+      "expected_tone": "professional",
+      "expected_products": ["visa_requirements"],
+      "description": "입출국 서류 요구사항 확인",
+      "customer_segment": "예약 확정 고객",
+      "intent": "Documentation Requirements",
+      "success_criteria": {
+        "category_match": true,
+        "tone_match": true,
+        "legal_information": true
+      }
+    },
+    {
+      "id": "INT_007",
+      "name": "아이 동반 액티비티 추천",
+      "question": "아이랑 즐길 수 있는 액티비티 뭐 있어요?",
+      "expected_category": "선상활동",
+      "expected_tone": "friendly",
+      "expected_products": ["family_activities"],
+      "description": "가족 고객에게 맞는 활동 추천",
+      "customer_segment": "가족 고객",
+      "intent": "Activity Recommendations & Entertainment",
+      "success_criteria": {
+        "category_match": true,
+        "tone_match": true,
+        "family_focused": true
+      }
+    },
+    {
+      "id": "INT_008",
+      "name": "항구 방문 시간",
+      "question": "항구에 몇 시간 있어요?",
+      "expected_category": "기항지&투어",
+      "expected_tone": "factual",
+      "expected_products": ["port_schedule"],
+      "description": "기항지 체류 시간 정보 제공",
+      "customer_segment": "여행 계획 고객",
+      "intent": "Port Information & Schedule",
+      "success_criteria": {
+        "category_match": true,
+        "tone_match": true,
+        "specific_data": true
+      }
+    },
+    {
+      "id": "INT_009",
+      "name": "음료 무료 제공 범위",
+      "question": "음료는 몇 잔까지 무료예요?",
+      "expected_category": "식사&음료",
+      "expected_tone": "professional",
+      "expected_products": ["beverage_policy"],
+      "description": "음료 포함 정책 설명",
+      "customer_segment": "서비스 정책 확인 고객",
+      "intent": "Beverage & Dining Policy",
+      "success_criteria": {
+        "category_match": true,
+        "tone_match": true,
+        "policy_clarity": true
+      }
+    },
+    {
+      "id": "INT_010",
+      "name": "취소 환불 정책",
+      "question": "취소하면 돈 돌려줘요?",
+      "expected_category": "정책&수수료",
+      "expected_tone": "professional",
+      "expected_products": ["cancellation_policy"],
+      "description": "환불 정책에 대한 명확한 설명 필요",
+      "customer_segment": "위험 회피 고객",
+      "intent": "Cancellation & Refund Policy",
+      "success_criteria": {
+        "category_match": true,
+        "tone_match": true,
+        "transparency": true
+      }
+    }
+  ],
+  "test_categories": {
+    "by_tone": {
+      "friendly": ["INT_001", "INT_002", "INT_007"],
+      "urgent": ["INT_003"],
+      "empathetic": ["INT_004"],
+      "professional": ["INT_005", "INT_006", "INT_009", "INT_010"],
+      "factual": ["INT_008"]
+    },
+    "by_customer_segment": {
+      "신규_고객": ["INT_001"],
+      "예약_고객": ["INT_002", "INT_006"],
+      "긴급_고객": ["INT_003"],
+      "특별요청_고객": ["INT_004"],
+      "결제예정_고객": ["INT_005"],
+      "가족_고객": ["INT_007"],
+      "여행계획_고객": ["INT_008"],
+      "정책확인_고객": ["INT_009"],
+      "위험회피_고객": ["INT_010"]
+    },
+    "by_category": {
+      "정책&수수료": ["INT_001", "INT_010"],
+      "객실&카드": ["INT_002", "INT_005"],
+      "탑승&수속": ["INT_003", "INT_006"],
+      "식사&음료": ["INT_004", "INT_009"],
+      "선상활동": ["INT_007"],
+      "기항지&투어": ["INT_008"]
+    }
+  },
+  "test_metrics": {
+    "total_scenarios": 10,
+    "coverage": {
+      "categories": 6,
+      "tones": 5,
+      "customer_segments": 9
+    },
+    "expected_pass_rate": 0.8,
+    "minimum_accuracy": 0.75
+  }
+}

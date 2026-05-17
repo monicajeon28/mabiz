@@ -97,13 +97,6 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // 여전히 못 찾으면, 해당 예약의 Traveler 중 첫 번째 항목 업데이트 (fallback)
-        if (!traveler && reservation.travelers.length > 0) {
-          const firstTraveler = reservation.travelers[0];
-          traveler = await tx.gmTraveler.findUnique({ where: { id: firstTraveler.id } });
-          logger.warn(`[Chatbot Sync] 정확한 Traveler를 찾지 못해 첫 번째 Traveler를 업데이트합니다: ${firstTraveler.id}`);
-        }
-
         if (!traveler) {
           logger.warn(`[Chatbot Sync] Traveler를 찾을 수 없습니다: ${korName}`);
           continue;

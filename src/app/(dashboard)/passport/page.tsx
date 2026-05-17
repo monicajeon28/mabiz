@@ -244,8 +244,7 @@ export default function PassportRequestPage() {
 
   // 일괄 링크 생성 결과 (인라인 표시용)
   const [bulkLinkResult, setBulkLinkResult] = useState<{
-    link: string;
-    message: string;
+    items: Array<{ userId: number; name: string | null; link: string; message: string }>;
     expiresAt: string;
     selectedSendMode: SendMode;
     templateId?: number;
@@ -342,7 +341,7 @@ export default function PassportRequestPage() {
   const filteredCustomers = useMemo(() => {
     if (sendTarget === 'pnr') {
       return sortedCustomers.filter(
-        (customer) => customer.latestTrip?.id && customer.latestTrip?.reservationId
+        (customer) => customer.latestTrip?.id && customer.latestTrip?.reservationCode
       );
     }
     return sortedCustomers;
@@ -728,7 +727,7 @@ export default function PassportRequestPage() {
           userIds: selectedIds,
           templateId: sendMode === 'message' ? selectedTemplateId ?? undefined : undefined,
           messageBody: requestMessageBody,
-          channel: 'SMS', // 링크 생성 시점에는 SMS로 지정하지 않음 (선택)
+          channel,
           expiresInHours,
           sendTarget,
         }),
@@ -740,47 +739,43 @@ export default function PassportRequestPage() {
         throw new Error(data.message || '링크 생성에 실패했습니다.');
       }
 
-      // 3. 첫 번째 사용자의 링크 정보 추출 (대표로 사용)
-      const firstResult = data.results?.[0];
-      if (!firstResult) {
-        throw new Error('결과를 받지 못했습니다.');
+      // 3. 전체 결과에서 링크 생성 성공 항목만 추출
+      const successResults: SendResultItem[] = (data.results ?? []).filter(
+        (r: SendResultItem) => r.link
+      );
+      if (successResults.length === 0) {
+        const firstErr = (data.results?.[0] as SendResultItem | undefined);
+        throw new Error(firstErr?.error || '링크 생성에 실패했습니다.');
       }
 
-      // API 에러인 경우 (링크는 생성되었지만 SMS 발송 실패 등)
-      if (!firstResult.link) {
-        throw new Error(firstResult.error || '링크 생성에 실패했습니다.');
-      }
+      // 4. 고객별 메시지 렌더링
+      const selectedTemplate = templates.find((t) => t.id === selectedTemplateId)
+        ?? templates.find((t) => t.isDefault);
 
-      // 4. 메시지 렌더링
-      let renderedMessage = '';
-      if (sendMode === 'message') {
-        const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
-        const template = selectedTemplate || templates.find((t) => t.isDefault);
-        if (template) {
-          // 기본 고객명/상품명으로 미리보기
-          renderedMessage = template.body
-            .replace(/{고객명}/g, '고객명')
-            .replace(/{링크}/g, firstResult.link)
-            .replace(/{상품명}/g, '상품명')
-            .replace(/{출발일}/g, '출발일');
+      const items = successResults.map((r: SendResultItem) => {
+        const customer = customers.find((c) => c.id === r.userId);
+        let msg = '';
+        if (sendMode === 'message' && selectedTemplate) {
+          msg = selectedTemplate.body
+            .replace(/{고객명}/g, customer?.name ?? '고객님')
+            .replace(/{링크}/g, r.link!)
+            .replace(/{상품명}/g, customer?.latestTrip?.cruiseName ?? '')
+            .replace(/{출발일}/g, customer?.latestTrip?.startDate?.split('T')[0] ?? '');
+        } else {
+          msg = fillTemplate(LINK_ONLY_PASSPORT_MESSAGE, {
+            고객명: customer?.name ? `${customer.name}님` : '고객님',
+            링크: r.link!,
+            상품명: customer?.latestTrip?.cruiseName ?? '',
+            출발일: customer?.latestTrip?.startDate?.split('T')[0] ?? '',
+          });
         }
-      } else {
-        // "링크만 전송" 모드 - 긴 메시지 + 링크 (복사용)
-        const firstCustomer = selectedCustomers[0];
-        const firstTrip = firstCustomer?.latestTrip;
-        renderedMessage = fillTemplate(LINK_ONLY_PASSPORT_MESSAGE, {
-          고객명: firstCustomer?.name ? `${firstCustomer.name}님` : '고객님',
-          링크: firstResult.link,
-          상품명: firstTrip?.cruiseName ?? '',
-          출발일: firstTrip?.startDate ? firstTrip.startDate.split('T')[0] : '',
-        });
-      }
+        return { userId: r.userId, name: customer?.name ?? null, link: r.link!, message: msg };
+      });
 
       // 5. 결과를 인라인 표시 상태에 저장
       setBulkLinkResult({
-        link: firstResult.link,
-        message: renderedMessage,
-        expiresAt: firstResult.token ? new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString() : new Date().toISOString(),
+        items,
+        expiresAt: new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString(),
         selectedSendMode: sendMode,
         templateId: sendMode === 'message' ? selectedTemplateId ?? undefined : undefined,
       });

@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ShoppingCart, Users, CreditCard, UserPlus, GraduationCap,
   DollarSign, Crown, MessageSquare, Percent, Plane, FileText,
-  Clock, Loader2, CalendarDays, ChevronDown, X, ChevronLeft, ChevronRight,
+  Clock, Loader2, CalendarDays, ChevronDown, X, ChevronLeft, ChevronRight, AlertCircle,
 } from 'lucide-react';
 
 /* ─────────────────── 타입 ─────────────────── */
@@ -1091,6 +1091,13 @@ const API_MAP: Record<Tab, string> = {
   gold: '/api/partner/dashboard/gold',
 };
 
+interface SuspensionInfo {
+  status: 'SUSPENDED' | 'APPEALING' | 'RESOLVED' | 'ACTIVE';
+  suspensionReason?: string;
+  reasonDetails?: Record<string, any>;
+  appealMessage?: string;
+}
+
 export default function PartnerDashboardPage() {
   const [activeTab, setActiveTab] = useState<Tab>('b2c');
   const [month, setMonth] = useState(() => getMonthOptions()[0].value);
@@ -1103,6 +1110,12 @@ export default function PartnerDashboardPage() {
   const [b2cData, setB2cData] = useState<B2CData | null>(null);
   const [b2bData, setB2bData] = useState<B2BData | null>(null);
   const [goldData, setGoldData] = useState<GoldData | null>(null);
+
+  // 정지 상태
+  const [suspensionInfo, setSuspensionInfo] = useState<SuspensionInfo | null>(null);
+  const [showAppealForm, setShowAppealForm] = useState(false);
+  const [appealText, setAppealText] = useState('');
+  const [appealSubmitting, setAppealSubmitting] = useState(false);
 
   // 드릴다운 드로어
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -1173,12 +1186,158 @@ export default function PartnerDashboardPage() {
     };
   }, []);
 
+  // 정지 상태 조회
+  useEffect(() => {
+    fetch('/api/partner/suspension-status')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.ok) {
+          setSuspensionInfo(data.data);
+        }
+      })
+      .catch(() => setSuspensionInfo({ status: 'ACTIVE' }));
+  }, []);
+
+  // 이의 제기 제출
+  const handleSubmitAppeal = async () => {
+    if (appealText.length < 10) {
+      alert('최소 10자 이상 입력하세요');
+      return;
+    }
+
+    setAppealSubmitting(true);
+    try {
+      const res = await fetch('/api/partner/suspension-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: appealText }),
+      });
+
+      if (res.ok) {
+        alert('이의가 접수되었습니다');
+        setShowAppealForm(false);
+        setAppealText('');
+        // 정지 상태 갱신
+        const data = await fetch('/api/partner/suspension-status').then((r) =>
+          r.json()
+        );
+        if (data.ok) {
+          setSuspensionInfo(data.data);
+        }
+      } else {
+        const error = await res.json();
+        alert(error.error || '제출 실패');
+      }
+    } catch (err) {
+      console.error('오류:', err);
+      alert('오류가 발생했습니다');
+    } finally {
+      setAppealSubmitting(false);
+    }
+  };
+
   if (authError) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center space-y-2">
           <p className="text-lg font-semibold text-red-600">접근 권한이 없습니다</p>
           <p className="text-sm text-gray-500">GLOBAL_ADMIN 또는 OWNER 권한이 필요합니다.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 정지 상태인 경우 배너 표시
+  if (suspensionInfo?.status === 'SUSPENDED') {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border-2 border-red-300 rounded-xl p-8 mb-6">
+          <div className="flex items-start gap-4">
+            <AlertCircle className="w-8 h-8 text-red-600 flex-shrink-0 mt-1" />
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold text-red-700 mb-2">계약이 일시 정지되었습니다</h2>
+              <p className="text-red-600 mb-4 text-lg">
+                {suspensionInfo.suspensionReason === 'HIGH_REFUND'
+                  ? `높은 환불율(${suspensionInfo.reasonDetails?.refundRate?.toFixed(1) || '?'}%)로 인해 정지되었습니다.`
+                  : suspensionInfo.suspensionReason === 'NO_REVENUE'
+                    ? `${suspensionInfo.reasonDetails?.monthsAffected?.length || 5}개월 연속 매출 부진으로 정지되었습니다.`
+                    : '계약이 정지되었습니다.'}
+              </p>
+              <div className="flex gap-3 mb-6">
+                <button
+                  onClick={() => setShowAppealForm(!showAppealForm)}
+                  className="px-6 py-3 border-2 border-red-600 text-red-600 font-semibold rounded-lg hover:bg-red-50 transition-colors"
+                >
+                  이의 제기
+                </button>
+                <a
+                  href="https://support.mabiz.io/help/suspension"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-6 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  안내 보기
+                </a>
+              </div>
+
+              {/* 이의 제기 폼 */}
+              {showAppealForm && (
+                <div className="mt-6 p-6 bg-white border-2 border-red-200 rounded-lg">
+                  <h3 className="font-bold text-lg text-gray-900 mb-3">이의 제기</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    정지 사유에 대한 이의가 있으신 경우, 아래에 상세한 사유를 작성해주세요.
+                  </p>
+                  <textarea
+                    value={appealText}
+                    onChange={(e) => setAppealText(e.target.value)}
+                    placeholder="정지 사유에 대한 이의를 입력하세요 (최소 10자)"
+                    className="w-full p-3 border-2 border-gray-300 rounded-lg mb-4 focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-200 text-gray-900"
+                    rows={5}
+                  />
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleSubmitAppeal}
+                      disabled={appealSubmitting || appealText.length < 10}
+                      className="px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {appealSubmitting ? '제출 중...' : '제출'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAppealForm(false);
+                        setAppealText('');
+                      }}
+                      className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      취소
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 이의 제기 중 상태
+  if (suspensionInfo?.status === 'APPEALING') {
+    return (
+      <div className="p-6">
+        <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-8 mb-6">
+          <div className="flex items-start gap-4">
+            <Clock className="w-8 h-8 text-yellow-600 flex-shrink-0 mt-1" />
+            <div>
+              <h2 className="text-2xl font-bold text-yellow-700 mb-2">이의 제기 대기 중</h2>
+              <p className="text-yellow-600 mb-4 text-lg">
+                귀사의 이의 제기가 접수되었습니다. 관리자가 검토 후 연락드리겠습니다.
+              </p>
+              <p className="text-sm text-yellow-700 bg-white/50 p-3 rounded-lg">
+                <strong>이의 제기 내용:</strong> {suspensionInfo.appealMessage}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );

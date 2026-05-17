@@ -3,6 +3,20 @@ import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
+// serializeGroup 헬퍼 함수
+const serializeGroup = (group: any) => {
+  if (!group) throw new Error('Group object is null or undefined');
+  return {
+    id: group.id,
+    name: group.name,
+    description: group.description,
+    color: group.color,
+    funnelId: group.funnelId,
+    funnelName: group.funnel?.name ?? null,
+    _count: { members: group._count?.members ?? 0 },
+  };
+};
+
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(_req: Request, { params }: Params) {
@@ -86,7 +100,10 @@ export async function POST(_req: Request, { params }: Params) {
             funnelId: newFunnelId,
             ownerId:  userId,
           },
-          select: { id: true, name: true },
+          include: {
+            _count: { select: { members: true } },
+            funnel: { select: { name: true } },
+          },
         });
 
         // 멤버 배치 복사 (기존 멤버 전체)
@@ -131,7 +148,7 @@ export async function POST(_req: Request, { params }: Params) {
     });
     return NextResponse.json({
       ok: true,
-      group: result.newGroup,
+      group: serializeGroup(result.newGroup),
       memberCount: result.memberCount,
       token: result.token.id,
     });

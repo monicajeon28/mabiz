@@ -10,6 +10,9 @@ import { logger } from '@/lib/logger';
 import { getDriveClient, findOrCreateFolder } from '@/lib/drive-client';
 import sharp from 'sharp';
 import { Readable } from 'stream';
+import { checkRateLimit } from '@/lib/rate-limit';
+
+const MAX_OCR_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 const apiKey = process.env.GEMINI_API_KEY || '';
 const genAI = new GoogleGenerativeAI(apiKey);
@@ -225,6 +228,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+    const { allowed } = checkRateLimit(`passport-ocr:${ip}`, 10, 5 * 60_000);
+    if (!allowed) {
+      return NextResponse.json({ ok: false, error: '요청이 너무 많습니다. 잠시 후 다시 시도하세요.' }, { status: 429 });
+    }
+
     // query에서 token 받기
     const { searchParams } = new URL(req.url);
     const token = searchParams.get('token');
@@ -237,6 +246,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { ok: false, error: '이미지 파일이 필요합니다.' },
         { status: 400 }
+      );
+    }
+
+    if (file.size > MAX_OCR_FILE_SIZE) {
+      return NextResponse.json(
+        { ok: false, error: '파일 크기는 10MB 이하여야 합니다.' },
+        { status: 413 }
       );
     }
 

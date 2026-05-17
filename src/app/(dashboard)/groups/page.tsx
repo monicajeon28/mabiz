@@ -5,8 +5,12 @@ import { Plus, Users, GitBranch, Settings, ArrowRight, Zap, Upload } from "lucid
 import { showError } from "@/components/ui/Toast";
 
 type Group = {
-  id: string; name: string; description: string | null;
-  color: string | null; funnelId: string | null; funnelName: string | null;
+  id: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  funnelId: string | null;
+  funnelName: string | null;
   _count: { members: number };
 };
 type Funnel = { id: string; name: string };
@@ -19,6 +23,7 @@ export default function GroupsPage() {
   const [form, setForm]       = useState({ name: "", description: "", color: "#6B7280", funnelId: "" });
   const [saving, setSaving]   = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // 지역 그룹 초기화 상태
   const [setupMsg,     setSetupMsg]     = useState<string | null>(null);
@@ -174,6 +179,7 @@ export default function GroupsPage() {
     if (!form.name.trim()) return;
     setSaving(true);
     setFormError(null);
+    setFieldErrors({});
     try {
       const res  = await fetch("/api/groups", {
         method: "POST",
@@ -185,17 +191,29 @@ export default function GroupsPage() {
           funnelId:    form.funnelId || null,
         }),
       });
-      const data = await res.json() as { ok: boolean; error?: string; message?: string; group?: { id: string; name: string; description?: string | null; color?: string | null; funnelId?: string | null } };
+      const data = await res.json() as {
+        ok: boolean;
+        error?: string;
+        message?: string;
+        errors?: Record<string, string>;
+        group?: Group;
+      };
       if (data.ok && data.group) {
-        const funnelName = funnels.find((f) => f.id === form.funnelId)?.name ?? null;
-        setGroups((prev) => [...prev, { ...data.group, funnelName, _count: { members: 0 } }]);
+        setGroups((prev) => [...prev, data.group]);
         setShowNew(false);
         setForm({ name: "", description: "", color: "#6B7280", funnelId: "" });
       } else {
-        setFormError(data.message || data.error || "그룹 생성에 실패했습니다.");
+        if (data.errors) {
+          setFieldErrors(data.errors);
+          showError("입력값을 확인해주세요.");
+        } else {
+          setFormError(data.message || data.error || "그룹 생성에 실패했습니다.");
+          showError(data.message || data.error || "그룹 생성에 실패했습니다.");
+        }
       }
     } catch {
       setFormError("네트워크 오류가 발생했습니다.");
+      showError("네트워크 오류가 발생했습니다.");
     } finally {
       setSaving(false);
     }
@@ -278,25 +296,41 @@ export default function GroupsPage() {
           <h3 className="font-semibold text-gray-900 mb-4">새 그룹 만들기</h3>
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">그룹 이름 *</label>
+              <label htmlFor="group-name" className="block text-sm font-medium text-gray-700 mb-1">그룹 이름 *</label>
               <input
+                id="group-name"
                 type="text"
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onChange={(e) => { setForm({ ...form, name: e.target.value }); setFieldErrors({ ...fieldErrors, name: '' }); }}
                 placeholder="예: 지중해 관심 고객"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
+                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+                  fieldErrors.name ? 'border-red-500 focus:border-red-500' : 'border-gray-200 focus:border-gold-500'
+                }`}
+                aria-invalid={!!fieldErrors.name}
+                aria-describedby={fieldErrors.name ? "error-name" : undefined}
               />
+              {fieldErrors.name && (
+                <p id="error-name" className="text-sm text-red-600 mt-1">{fieldErrors.name}</p>
+              )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">설명</label>
+              <label htmlFor="group-description" className="block text-sm font-medium text-gray-700 mb-1">설명</label>
               <input
+                id="group-description"
                 type="text"
                 value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                onChange={(e) => { setForm({ ...form, description: e.target.value }); setFieldErrors({ ...fieldErrors, description: '' }); }}
                 placeholder="이 그룹에 대한 간단한 설명"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
+                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+                  fieldErrors.description ? 'border-red-500 focus:border-red-500' : 'border-gray-200 focus:border-gold-500'
+                }`}
+                aria-invalid={!!fieldErrors.description}
+                aria-describedby={fieldErrors.description ? "error-description" : undefined}
               />
+              {fieldErrors.description && (
+                <p id="error-description" className="text-sm text-red-600 mt-1">{fieldErrors.description}</p>
+              )}
             </div>
 
             {/* 색상 선택 */}
@@ -306,30 +340,42 @@ export default function GroupsPage() {
                 {COLOR_OPTIONS.map((c) => (
                   <button
                     key={c}
-                    onClick={() => setForm({ ...form, color: c })}
+                    onClick={() => { setForm({ ...form, color: c }); setFieldErrors({ ...fieldErrors, color: '' }); }}
                     className={`w-7 h-7 rounded-full transition-transform ${form.color === c ? "scale-125 ring-2 ring-offset-1 ring-gray-400" : ""}`}
                     style={{ backgroundColor: c }}
+                    aria-label={`색상 ${c} 선택`}
                   />
                 ))}
               </div>
+              {fieldErrors.color && (
+                <p className="text-sm text-red-600 mt-1">{fieldErrors.color}</p>
+              )}
             </div>
 
             {/* 퍼널 연결 — 핵심 설정 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="group-funnel" className="block text-sm font-medium text-gray-700 mb-1">
                 연결할 퍼널 <span className="text-xs text-gray-400 ml-1">(그룹 배정 시 자동 시작)</span>
               </label>
               <select
+                id="group-funnel"
                 value={form.funnelId}
-                onChange={(e) => setForm({ ...form, funnelId: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-gold-500"
+                onChange={(e) => { setForm({ ...form, funnelId: e.target.value }); setFieldErrors({ ...fieldErrors, funnelId: '' }); }}
+                className={`w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none ${
+                  fieldErrors.funnelId ? 'border-red-500 focus:border-red-500' : 'border-gray-200 focus:border-gold-500'
+                }`}
+                aria-invalid={!!fieldErrors.funnelId}
+                aria-describedby={fieldErrors.funnelId ? "error-funnelId" : undefined}
               >
                 <option value="">퍼널 없음 (수동 발송만)</option>
                 {funnels.map((f) => (
                   <option key={f.id} value={f.id}>{f.name}</option>
                 ))}
               </select>
-              {form.funnelId && (
+              {fieldErrors.funnelId && (
+                <p id="error-funnelId" className="text-sm text-red-600 mt-1">{fieldErrors.funnelId}</p>
+              )}
+              {form.funnelId && !fieldErrors.funnelId && (
                 <p className="text-xs text-green-600 mt-1">
                   ✅ 이 그룹에 고객 배정 시 즉시 퍼널 시작
                 </p>

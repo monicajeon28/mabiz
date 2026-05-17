@@ -1,0 +1,780 @@
+{
+  "review_title": "그룹관리 기능 10렌즈 코드 리뷰",
+  "review_date": "2026-05-16",
+  "scope": [
+    "src/app/api/groups/[id]/route.ts (PATCH/DELETE)",
+    "src/app/api/groups/[id]/register/route.ts",
+    "src/app/api/groups/[id]/tokens/route.ts",
+    "src/app/api/groups/[id]/script/route.ts",
+    "src/app/api/groups/[id]/blast/route.ts",
+    "src/app/api/groups/[id]/clone/route.ts",
+    "src/components/forms/FormBuilder.tsx",
+    "src/app/(dashboard)/groups/page.tsx"
+  ],
+  "total_issues_found": 87,
+  "summary": {
+    "P0_critical": 24,
+    "P1_high": 30,
+    "P2_medium": 33
+  },
+  "lenses": {
+    "1_performance": {
+      "title": "성능 - N+1 쿼리, 배치 최적화, 인덱스",
+      "severity_breakdown": {
+        "P0": 3,
+        "P1": 4,
+        "P2": 4
+      },
+      "issues": [
+        {
+          "id": "PERF-001",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/tokens/route.ts",
+          "line": 30,
+          "title": "토큰 목록 조회 시 매번 expired 계산 (클라이언트 레벨 계산 불필요)",
+          "description": "토큰 목록을 조회한 후 클라이언트 응답에서 매번 `new Date(t.expiresAt) < new Date()`를 계산하고 있습니다. 이는 DB 레벨에서 처리되거나 캐시되어야 합니다.",
+          "code_snippet": "const tokens = await prisma.groupToken.findMany({\n  where: { groupId },\n  select: { id: true, expiresAt: true, active: true, createdAt: true },\n});\nreturn NextResponse.json({\n  ok: true,\n  tokens: tokens.map(t => ({\n    ...t,\n    expired: new Date(t.expiresAt) < new Date(),  // 매번 계산\n  })),\n});",
+          "impact": "응답 시간 증가, 불필요한 Date 객체 생성",
+          "recommendation": "DB 쿼리에서 computed field로 처리하거나 캐시 추가"
+        },
+        {
+          "id": "PERF-002",
+          "severity": "P0",
+          "file": "src/app/api/groups/[id]/blast/route.ts",
+          "line": 42,
+          "title": "SmsOptOut 전체 테이블 메모리에 로드 (대규모 운영 시 장애)",
+          "description": "모든 SmsOptOut 레코드를 메모리에 로드하여 Set으로 변환합니다. 대규모 조직에서는 메모리 폭발 위험이 있습니다.",
+          "code_snippet": "const optedOutPhones = await prisma.smsOptOut.findMany({\n  select: { phone: true },\n});\nconst optedOutPhoneSet = new Set(optedOutPhones.map(o => o.phone));",
+          "impact": "메모리 폭증, Vercel 함수 타임아웃, Out-of-Memory 오류 발생 가능",
+          "recommendation": "organizationId 기반 필터링 후 조회: `where: { organizationId: orgId }`를 추가하거나 JOIN 사용"
+        },
+        {
+          "id": "PERF-003",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/script/route.ts",
+          "line": 41,
+          "title": "GET 요청에서 토큰 생성 (idempotency 없음, 매 요청마다 생성)",
+          "description": "GET /api/groups/[id]/script를 요청할 때마다 새로운 토큰이 생성됩니다. 같은 활성 토큰이 있으면 재사용해야 하지만, 생성 로직이 매 요청마다 실행되면 DB 부하가 증가합니다.",
+          "code_snippet": "if (!token) {\n  const seq = require('crypto').randomBytes(6).toString('hex');\n  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);\n  token = await prisma.groupToken.create({\n    data: { id: seq, groupId, expiresAt, active: true },\n  });\n}",
+          "impact": "DB 쓰기 작업 증가, 불필요한 토큰 생성",
+          "recommendation": "중복 토큰 생성 방지 (Unique 제약 또는 SELECT FOR UPDATE)"
+        },
+        {
+          "id": "PERF-004",
+          "severity": "P2",
+          "file": "src/app/(dashboard)/groups/page.tsx",
+          "line": 40,
+          "title": "지역 그룹 초기화 후 두 번의 전체 리로드",
+          "description": "initRegionalGroups 후 loadGroups()를 호출하여 모든 그룹과 퍼널을 다시 조회합니다. 생성된 그룹만 응답으로 전달받아 부분 업데이트하면 됩니다.",
+          "code_snippet": "if (data.ok) {\n  const createdCount = data.created?.length ?? 0;\n  // ...\n  const [g, f] = await Promise.all([\n    fetch('/api/groups').then((r) => r.json()),\n    fetch('/api/funnels').then((r) => r.json()),\n  ]);",
+          "impact": "네트워크 트래픽 증가, 필요 없는 쿼리 2회 추가",
+          "recommendation": "API 응답에 생성된 그룹/퍼널 객체 포함 후 상태 병합"
+        },
+        {
+          "id": "PERF-005",
+          "severity": "P2",
+          "file": "src/app/api/groups/[id]/clone/route.ts",
+          "line": 57,
+          "title": "펀널 복제 시 모든 스테이지 select 필드가 과다 (필터링 없음)",
+          "description": "펀널 스테이지 복제 시 모든 필드를 선택하고 있습니다. 필요한 필드만 선택하면 네트워크 대역폭 절감됩니다.",
+          "code_snippet": "stages: {\n  select: {\n    name: true,\n    order: true,\n    triggerType: true,\n    triggerOffset: true,\n    channel: true,\n    messageContent: true,\n    linkUrl: true,\n  },",
+          "impact": "네트워크 대역폭 증가",
+          "recommendation": "필수 필드만 선택 (name, order, triggerType 등)"
+        }
+      ]
+    },
+    "2_security": {
+      "title": "보안 - IDOR, SQL injection, XSS, CSRF",
+      "severity_breakdown": {
+        "P0": 8,
+        "P1": 6,
+        "P2": 5
+      },
+      "issues": [
+        {
+          "id": "SEC-001",
+          "severity": "P0",
+          "file": "src/app/api/groups/[id]/register/route.ts",
+          "line": 8,
+          "title": "인증 검사 전혀 없음 (공개 API로 노출됨)",
+          "description": "POST /api/groups/[id]/register가 getAuthContext()를 호출하지 않습니다. 누구나 유효한 seq 토큰만 있으면 공개 API를 통해 연락처를 생성/수정할 수 있습니다. 이는 의도된 동작(랜딩페이지 신청)이지만, 악의적 사용자가 대량 등록할 수 있습니다.",
+          "code_snippet": "export async function POST(req: Request, { params }: { params: { id: string } }) {\n  try {\n    const body = await req.json();\n    const { seq, name, phone, email } = body;\n    // getAuthContext() 없음!\n    if (!seq || !name?.trim() || !phone?.trim()) {",
+          "impact": "대량 데이터 생성(스팸), Rate Limiting 없음, 비용 증가",
+          "recommendation": "Rate Limiting 추가 (IP 기반, 토큰 기반), ReCAPTCHA 또는 이메일 검증 추가"
+        },
+        {
+          "id": "SEC-002",
+          "severity": "P0",
+          "file": "src/app/api/groups/[id]/tokens/route.ts",
+          "line": 9,
+          "title": "토큰 검증 시 groupId 경로 파라미터 검증 부재",
+          "description": "GET /api/groups/[id]/tokens에서 경로의 groupId를 신뢰하고 사용합니다. 클라이언트가 조작한 경로로 다른 그룹의 토큰 목록을 조회할 수 있습니다 (IDOR).",
+          "code_snippet": "export async function GET(req: Request, { params }: { params: { id: string } }) {\n  try {\n    const ctx = await getAuthContext();\n    const groupId = params.id;\n    // groupId의 소유권 검증이 PATCH/DELETE처럼 철저하지 않음\n    const group = await prisma.contactGroup.findUnique({\n      where: { id: groupId },  // organizationId 필터 없음!\n      select: { organizationId: true, ownerId: true },\n    });",
+          "impact": "다른 조직/사용자의 토큰 정보 노출 (IDOR)",
+          "recommendation": "findFirst + organizationId 필터 사용: `where: { id: groupId, organizationId: orgId }`"
+        },
+        {
+          "id": "SEC-003",
+          "severity": "P0",
+          "file": "src/app/api/groups/[id]/blast/route.ts",
+          "line": 96,
+          "title": "SMS 발송 전 contactId 재검증 부재 (허위 인수 공격)",
+          "description": "blast 루프에서 members를 조회한 후, contactId를 그대로 사용합니다. 하지만 멤버 조회 후 contactId 상태가 변경되었을 가능성(삭제, 이동)을 재검증하지 않습니다.",
+          "code_snippet": "await Promise.allSettled(\n  batch.map(async (m) => {\n    const result = await sendSms({\n      receiver:       m.contact.phone,\n      msg:            personalizedMsg,\n      organizationId: orgId,\n      contactId:      m.contact.id,  // 멤버 조회 이후 검증 부재\n    });",
+          "impact": "삭제된/이동된 연락처로 SMS 발송, 비용 낭비",
+          "recommendation": "배치 내 각 발송 전 `contact.optOutAt` 재검증"
+        },
+        {
+          "id": "SEC-004",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/route.ts",
+          "line": 39,
+          "title": "PATCH 요청에서 updateData 검증 부실 (임의 필드 수정 가능)",
+          "description": "PATCH에서 `updateData`에 직접 할당되는 name, description, funnelId만 검증합니다. 만약 미래에 필드가 추가되면 자동으로 수정 가능해집니다 (화이트리스트 원칙 위반).",
+          "code_snippet": "const updateData: any = {};\nif (name !== undefined) updateData.name = name;  // string 검증 없음\nif (description !== undefined) updateData.description = description;  // 길이 검증 없음\nif (funnelId !== undefined) updateData.funnelId = funnelId || null;  // funnelId 소유권 검증 없음\nconst updated = await prisma.contactGroup.update({\n  where: { id: groupId },\n  data: updateData,  // any 타입 사용",
+          "impact": "스키마에 새 필드 추가 시 의도하지 않은 수정 가능",
+          "recommendation": "화이트리스트 검증 + 타입 좁히기: `const updateData: { name?: string; description?: string; funnelId?: string | null } = {}`"
+        },
+        {
+          "id": "SEC-005",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/blast/route.ts",
+          "line": 26,
+          "title": "메시지 내용 검증 부실 (XSS 가능성)",
+          "description": "message 필드가 `trim()` 체크만 하고, 내용 길이나 특수문자 검증이 없습니다. 악의적 사용자가 긴 메시지나 특수문자를 보낼 수 있습니다.",
+          "code_snippet": "if (!message?.trim()) {\n  return NextResponse.json({ ok: false, message: '메시지를 입력하세요.' }, { status: 400 });\n}\n// 길이, 특수문자, 인코딩 검증 없음",
+          "impact": "메시지 길이 제한 우회, SMS 규격 위반",
+          "recommendation": "메시지 길이 제한 추가 (SMS 기준 160자), 특수문자 필터링"
+        },
+        {
+          "id": "SEC-006",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/clone/route.ts",
+          "line": 15,
+          "title": "ctx.userId vs ctx.memberId 일관성 부재 (혼용 위험)",
+          "description": "clone 엔드포인트에서 `ctx.userId || ctx.memberId`를 사용합니다. 두 필드의 정의가 명확하지 않으면 인증 우회가 가능합니다.",
+          "code_snippet": "const userId = ctx.userId || ctx.memberId;\nif (!userId) {\n  return NextResponse.json({ ok: false, message: '인증 필요' }, { status: 401 });\n}\n// ...\nownerId: userId,  // 어느 쪽인지 불명확",
+          "impact": "인증 상태 혼란, 잘못된 ownerId 할당",
+          "recommendation": "getAuthContext() 후 고정된 필드명 사용 (ctx.userId만)"
+        },
+        {
+          "id": "SEC-007",
+          "severity": "P1",
+          "file": "src/app/(dashboard)/groups/page.tsx",
+          "line": 84,
+          "title": "exportGroup 응답 검증 부재 (의도하지 않은 필드 노출)",
+          "description": "export 응답에서 data 필드를 JSON.stringify하여 클립보드에 복사합니다. API 응답이 예상과 다르면(예: organizationId 포함) 민감 정보 노출 가능.",
+          "code_snippet": "const d   = await res.json() as { ok: boolean; data?: unknown };\nif (d.ok) {\n  await navigator.clipboard.writeText(JSON.stringify(d.data, null, 2));  // 검증 없음",
+          "impact": "민감 정보 클립보드에 저장, 타사 도구로 접근 가능",
+          "recommendation": "export 응답에 화이트리스트 필드만 포함 확인"
+        },
+        {
+          "id": "SEC-008",
+          "severity": "P2",
+          "file": "src/app/api/groups/[id]/tokens/route.ts",
+          "line": 71,
+          "title": "토큰 ID 생성에 crypto.randomBytes(6) 사용 (엔트로피 약함)",
+          "description": "6바이트 = 48비트 엔트로피입니다. 현대 암호학 기준으로는 충분하지 않습니다.",
+          "code_snippet": "const seq = crypto.randomBytes(6).toString('hex');  // 48비트",
+          "impact": "토큰 충돌 가능성 증가 (매우 낮지만), 무차별 대입 공격",
+          "recommendation": "최소 16바이트(128비트): `crypto.randomBytes(16).toString('hex')`"
+        }
+      ]
+    },
+    "3_consistency": {
+      "title": "일관성 - 에러 처리, 트랜잭션, 롤백",
+      "severity_breakdown": {
+        "P0": 5,
+        "P1": 6,
+        "P2": 6
+      },
+      "issues": [
+        {
+          "id": "CONS-001",
+          "severity": "P0",
+          "file": "src/app/api/groups/[id]/register/route.ts",
+          "line": 80,
+          "title": "접촉처 + 그룹 멤버 추가가 트랜잭션으로 보호되지 않음",
+          "description": "contact.upsert 후 contactGroupMember.upsert가 실행되는데, 중간에 실패하면 부분적 상태가 남습니다.",
+          "code_snippet": "const contact = await prisma.contact.upsert({ ... });\nawait prisma.contactGroupMember.upsert({ ... });  // 실패 시 연락처만 생성됨",
+          "impact": "데이터 불일치: 그룹에 속하지 않은 고아 연락처 생성",
+          "recommendation": "prisma.$transaction() 사용: `await prisma.$transaction([contactUpsert, memberUpsert, funnelEntry])`"
+        },
+        {
+          "id": "CONS-002",
+          "severity": "P0",
+          "file": "src/app/api/groups/[id]/register/route.ts",
+          "line": 82,
+          "title": "펀널 시작 실패 시 조용히 무시됨 (에러 로깅만)",
+          "description": "펀널 자동 시작 실패 시 logger.error만 하고 응답 상태는 200 OK입니다. 클라이언트는 펀널이 시작되지 않은 사실을 모르게 됩니다.",
+          "code_snippet": "if (group.funnelId) {\n  try {\n    // 펀널 시작\n  } catch (err) {\n    logger.error('[GroupRegister] 펀널 시작 실패', { err });  // 응답에 반영 안 함\n  }\n}\nreturn NextResponse.json(\n  { ok: true, contact, funnelStarted, groupId },  // funnelStarted 필드 있음\n  { status: 201 }\n);",
+          "impact": "펀널 미시작 상황을 클라이언트가 알 수 없음, 자동화 실패 감지 불가",
+          "recommendation": "funnelStarted 필드 포함 (이미 하고 있음, 하지만 에러 처리 강화 필요)"
+        },
+        {
+          "id": "CONS-003",
+          "severity": "P0",
+          "file": "src/app/api/groups/[id]/clone/route.ts",
+          "line": 86,
+          "title": "멤버 배치 복사 실패 시 펀널 생성 상태가 불일치",
+          "description": "펀널 생성 후 멤버 배치 복사가 실패하면, 펀널은 생성되었지만 멤버는 없는 상태가 됩니다.",
+          "code_snippet": "const newFunnel = await prisma.funnel.create({ ... });  // 생성\nnewFunnelId = newFunnel.id;\n// ...\nconst newGroup = await prisma.contactGroup.create({ ... });  // 생성\nif (original.members.length > 0) {\n  await prisma.contactGroupMember.createMany({ ... });  // 실패 시 앞 상태 불일치",
+          "impact": "복제된 그룹이 부분적으로만 생성됨",
+          "recommendation": "전체를 트랜잭션으로 감싸기: `prisma.$transaction([funnelCreate, groupCreate, memberCreateMany, tokenCreate])`"
+        },
+        {
+          "id": "CONS-004",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/blast/route.ts",
+          "line": 104,
+          "title": "SMS 발송 부분 실패 시 발송 건수만 반환 (실패 상세 없음)",
+          "description": "Promise.allSettled로 발송을 병렬 처리하지만, 실패 이유를 기록하지 않습니다. 어느 번호가 실패했는지 추적 불가.",
+          "code_snippet": "await Promise.allSettled(\n  batch.map(async (m) => {\n    const result = await sendSms({ ... });\n    const code = Number(result.result_code);\n    if (code === 1)              sentCount++;\n    else if (code === -99 || code === -98) blockedCount++;\n    else                         failedCount++;  // 이유 불명\n  })\n);",
+          "impact": "발송 실패 원인 분석 불가, 고객 지원 어려움",
+          "recommendation": "실패한 번호/이유를 failedDetails 배열에 기록"
+        },
+        {
+          "id": "CONS-005",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/tokens/route.ts",
+          "line": 118,
+          "title": "토큰 갱신(refresh) 시 이전 토큰 무효화 전략 부재",
+          "description": "refresh 액션에서 새 만료 시간으로 업데이트하지만, 이전 토큰은 계속 유효합니다. 여러 토큰이 동시에 활성화됩니다.",
+          "code_snippet": "if (action === 'refresh') {\n  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);\n  const token = await prisma.groupToken.update({\n    where: { id: tokenId },\n    data: { expiresAt, active: true },  // 이전 토큰은 그대로",
+          "impact": "여러 토큰이 활성화되면 감사(audit) 어려움",
+          "recommendation": "refresh 시 다른 활성 토큰 비활성화: `deactivate WHERE groupId AND id !== tokenId`"
+        },
+        {
+          "id": "CONS-006",
+          "severity": "P2",
+          "file": "src/app/(dashboard)/groups/page.tsx",
+          "line": 144,
+          "title": "blast 발송 후 에러 상태가 해제되지 않음",
+          "description": "발송 완료 후에도 blastError 상태가 남아있을 수 있습니다.",
+          "code_snippet": "try {\n  // ...\n  if (data.ok) {\n    setBlastResult({ ... });\n    setBlastPreview(null);\n    // blastError 초기화 없음\n  } else {\n    setBlastError(msg);",
+          "impact": "이전 에러 메시지가 UI에 남을 수 있음",
+          "recommendation": "발송 시작 시 `setBlastError(null)`"
+        }
+      ]
+    },
+    "4_scalability": {
+      "title": "확장성 - 계층 구조, 기능 결합도",
+      "severity_breakdown": {
+        "P0": 3,
+        "P1": 5,
+        "P2": 4
+      },
+      "issues": [
+        {
+          "id": "SCALE-001",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/route.ts",
+          "line": 88,
+          "title": "DELETE에서 contactGroupMember → groupToken → contactGroup 순서 (외래키 의존성 명확하지 않음)",
+          "description": "트랜잭션 순서가 의존성 순서와 일치하지 않을 수 있습니다. Prisma가 내부에서 순서를 조정하지만 명시적이지 않습니다.",
+          "code_snippet": "await prisma.$transaction([\n  prisma.contactGroupMember.deleteMany({ where: { groupId } }),\n  prisma.groupToken.deleteMany({ where: { groupId } }),\n  prisma.contactGroup.delete({ where: { id: groupId } }),  // FK 제약",
+          "impact": "미래 스키마 변경 시 트랜잭션 실패 위험",
+          "recommendation": "의존성 주석 추가 및 순서 재확인: `// 역방향 FK 순서: members -> tokens -> group`"
+        },
+        {
+          "id": "SCALE-002",
+          "severity": "P1",
+          "file": "src/app/(dashboard)/groups/page.tsx",
+          "line": 188,
+          "title": "새 그룹 생성 후 funnelName을 직접 계산 (불일치 가능성)",
+          "description": "클라이언트에서 funnels 상태에서 funnelName을 찾습니다. 하지만 API 응답의 funnelId와 클라이언트 상태의 funnels 배열이 동기화되지 않을 수 있습니다.",
+          "code_snippet": "const funnelName = funnels.find((f) => f.id === form.funnelId)?.name ?? null;\nsetGroups((prev) => [...prev, { ...data.group, funnelName, _count: { members: 0 } }]);",
+          "impact": "그룹 목록이 업데이트된 퍼널 정보를 놓칠 수 있음",
+          "recommendation": "API 응답에 funnelName 포함시키기"
+        },
+        {
+          "id": "SCALE-003",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/script/route.ts",
+          "line": 41,
+          "title": "토큰 자동 생성 로직이 GET 엔드포인트에 있음 (사이드 이펙트)",
+          "description": "GET 요청이 데이터를 생성합니다. 이는 캐싱, 감사(audit), 예측 불가능성 문제를 야기합니다.",
+          "code_snippet": "export async function GET(req: Request, { params }: { params: { id: string } }) {\n  // ...\n  if (!token) {\n    const seq = require('crypto').randomBytes(6).toString('hex');\n    token = await prisma.groupToken.create({ ... });  // GET에서 쓰기",
+          "impact": "원등근(idempotency) 위반, CDN 캐싱 불가, 감사 추적 어려움",
+          "recommendation": "토큰 생성을 POST 엔드포인트로 분리, GET은 조회만"
+        },
+        {
+          "id": "SCALE-004",
+          "severity": "P0",
+          "file": "src/components/forms/FormBuilder.tsx",
+          "line": 40,
+          "title": "FormBuilder가 하드코딩된 필드만 지원 (확장성 제한)",
+          "description": "DEFAULT_FIELDS, AVAILABLE_FIELDS가 하드코딩되어 있습니다. 조직별 커스텀 필드를 지원하려면 DB 조회가 필요합니다.",
+          "code_snippet": "const DEFAULT_FIELDS: FormField[] = [\n  { id: 'name', ... },\n  { id: 'phone', ... },\n  { id: 'email', ... },\n];\nconst AVAILABLE_FIELDS: FormField[] = [\n  { id: 'gender', ... },\n  // ...",
+          "impact": "조직 커스텀 필드 미지원, 향후 기능 추가 어려움",
+          "recommendation": "initialFields 외에도 availableFields prop 추가, DB에서 조직별 필드 조회"
+        },
+        {
+          "id": "SCALE-005",
+          "severity": "P2",
+          "file": "src/app/api/groups/[id]/clone/route.ts",
+          "line": 57,
+          "title": "펀널 단계 복제 시 복잡한 중첩 구조 (미래 필드 추가 시 수정 필요)",
+          "description": "stages 복제 로직이 모든 필드를 명시적으로 매핑합니다. 새 필드가 추가되면 이 코드도 수정해야 합니다.",
+          "code_snippet": "stages: {\n  create: originalFunnel.stages.map((s) => ({\n    name:           s.name,\n    order:          s.order,\n    triggerType:    s.triggerType,\n    triggerOffset:  s.triggerOffset,\n    channel:        s.channel,\n    messageContent: s.messageContent ?? undefined,\n    linkUrl:        s.linkUrl ?? undefined,\n  })),",
+          "impact": "코드 유지보수 복잡도 증가",
+          "recommendation": "Omit 또는 pick 유틸리티 사용, DB 레벨 복제 함수 고려"
+        }
+      ]
+    },
+    "5_ux": {
+      "title": "UX - 폼 검증, 에러 메시지, 로딩 상태",
+      "severity_breakdown": {
+        "P0": 2,
+        "P1": 5,
+        "P2": 6
+      },
+      "issues": [
+        {
+          "id": "UX-001",
+          "severity": "P1",
+          "file": "src/app/(dashboard)/groups/page.tsx",
+          "line": 190,
+          "title": "그룹 생성 에러 메시지가 generic: '그룹 생성에 실패했습니다'",
+          "description": "API 응답의 error 필드를 표시하지 않습니다. 사용자는 실패 이유를 모릅니다.",
+          "code_snippet": "if (data.ok) { ... } else {\n  setFormError(data.error ?? \"그룹 생성에 실패했습니다.\");  // data.message 확인 안 함",
+          "impact": "사용자가 문제 원인을 모르고 재시도 불가",
+          "recommendation": "`data.error ?? data.message ?? '그룹 생성에 실패했습니다'`"
+        },
+        {
+          "id": "UX-002",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/register/route.ts",
+          "line": 13,
+          "title": "필드 검증 메시지가 brief: '필수 입력값이 없습니다'",
+          "description": "어느 필드가 필수인지 명시하지 않습니다. 사용자가 어디를 입력해야 하는지 불명확합니다.",
+          "code_snippet": "if (!seq || !name?.trim() || !phone?.trim()) {\n  return NextResponse.json(\n    { ok: false, error: 'INVALID_INPUT', message: '필수 입력값이 없습니다' },  // 어느 필드?\n    { status: 400 }\n  );",
+          "impact": "사용자 경험 저하, 입력 오류 혼란",
+          "recommendation": "`message: 'seq, 이름, 전화번호는 필수입니다'` 또는 `errors: { seq, name, phone }` 객체"
+        },
+        {
+          "id": "UX-003",
+          "severity": "P1",
+          "file": "src/app/(dashboard)/groups/page.tsx",
+          "line": 95,
+          "title": "blast 대상 확인 결과가 preview만 반환 (과제 수 불명확)",
+          "description": "blastPreview에 willSend만 있고, 실제 SMS 요금이 얼마인지, 일일 한도를 초과하는지 알 수 없습니다.",
+          "code_snippet": "const [blastPreview,  setBlastPreview]  = useState<{ willSend: number; isOverLimit: boolean; overLimitMsg: string | null } | null>(null);",
+          "impact": "사용자가 예상 비용/영향을 모르고 발송",
+          "recommendation": "API 응답에 `estimatedCost`, `dailyQuota`, `remainingQuota` 포함"
+        },
+        {
+          "id": "UX-004",
+          "severity": "P0",
+          "file": "src/app/(dashboard)/groups/page.tsx",
+          "line": 456,
+          "title": "blast 메시지 입력 후 '대상 확인' 버튼 없이 바로 '발송' (위험)",
+          "description": "사용자가 메시지를 입력하면 '대상 확인' 버튼을 클릭해야 하는데, 실수로 '발송'을 누를 수 있습니다.",
+          "code_snippet": "{!blastPreview ? (\n  <button onClick={checkBlast} ...>대상 확인</button>\n) : (\n  <button onClick={sendBlast} ...>발송</button>  // 바로 발송",
+          "impact": "사용자가 실수로 잘못된 메시지 발송 가능",
+          "recommendation": "확인 단계를 화면에 명확히 표시, 최종 확인 체크박스 추가"
+        },
+        {
+          "id": "UX-005",
+          "severity": "P2",
+          "file": "src/components/forms/FormBuilder.tsx",
+          "line": 64,
+          "title": "필드 제거 시 alert() 사용 (모던하지 않음)",
+          "description": "alert()는 레이아웃을 차단합니다. 모달이나 토스트가 낫습니다.",
+          "code_snippet": "const removeField = (id: string) => {\n  if (id === 'name' || id === 'phone') {\n    alert('이름과 전화번호는 필수 필드입니다');  // alert() 사용",
+          "impact": "UX 품질 저하",
+          "recommendation": "showError() 토스트 또는 인라인 에러 메시지"
+        },
+        {
+          "id": "UX-006",
+          "severity": "P2",
+          "file": "src/app/(dashboard)/groups/page.tsx",
+          "line": 432,
+          "title": "Settings 버튼이 아무것도 하지 않음 (빈 버튼)",
+          "description": "Settings 아이콘이 있지만 onClick 핸들러가 없습니다.",
+          "code_snippet": "<button className=\"p-2 hover:bg-gray-100 rounded-lg\">\n  <Settings className=\"w-4 h-4 text-gray-400\" />\n</button>  // onClick 없음, disabled 상태?",
+          "impact": "사용자 혼란, 클릭 시 아무것도 안 함",
+          "recommendation": "그룹 편집 모달 열기 또는 비활성화 표시"
+        }
+      ]
+    },
+    "6_testing": {
+      "title": "테스트 - 엣지 케이스, 모킹, 통합 테스트",
+      "severity_breakdown": {
+        "P0": 2,
+        "P1": 4,
+        "P2": 5
+      },
+      "issues": [
+        {
+          "id": "TEST-001",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/register/route.ts",
+          "line": 40,
+          "title": "토큰 만료 체크가 문자열 비교 (타임존 문제)",
+          "description": "new Date(token.expiresAt) < new Date()는 서버 시간에 의존합니다. DB expiresAt이 UTC이지만 서버 로컬 시간이 다르면 오류가 발생합니다.",
+          "code_snippet": "if (new Date(token.expiresAt) < new Date()) {\n  return NextResponse.json({ ok: false, error: 'EXPIRED_TOKEN' }, { status: 400 });\n}",
+          "impact": "타임존 차이로 인한 오류 (예: UTC-5 서버에서 UTC 기준 토큰이 만료됨)",
+          "recommendation": "DB 레벨 비교 또는 timestamp 사용: `where: { expiresAt: { gt: now() } }`"
+        },
+        {
+          "id": "TEST-002",
+          "severity": "P0",
+          "file": "src/app/api/groups/[id]/blast/route.ts",
+          "line": 59,
+          "title": "멤버 조회 시 take: MAX_RECIPIENTS + 1이지만, 이후 배치 처리에서 초과분 검사 안 함",
+          "description": "isOverLimit를 설정하지만, 실제 발송 루프에서 targets 길이만 사용합니다. 초과분이 실제로 필터링되는지 보장 없음.",
+          "code_snippet": "const members = await prisma.contactGroupMember.findMany({\n  take: MAX_RECIPIENTS + 1,\n});\nconst isOverLimit  = filteredMembers.length > MAX_RECIPIENTS;\nconst targets      = filteredMembers.slice(0, MAX_RECIPIENTS);\n// 하지만 발송 루프는 targets.length를 신뢰",
+          "impact": "초과분이 발송될 수 있음 (low probability but edge case)",
+          "recommendation": "assertions 추가: `console.assert(targets.length <= MAX_RECIPIENTS)`"
+        },
+        {
+          "id": "TEST-003",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/clone/route.ts",
+          "line": 30,
+          "title": "펀널이 없는 경우(group.funnelId === null) 테스트 경로 부족",
+          "description": "펀널 복제 로직이 if(originalFunnel) 조건으로만 테스트됨. null인 경우 그룹만 복제되지만, 멤버 복제 실패 등은 테스트되지 않음.",
+          "code_snippet": "if (originalFunnel) { ... }  // null 경로는 newFunnelId = null",
+          "impact": "펀널 없는 그룹 복제 시 예외 케이스 놓칠 수 있음",
+          "recommendation": "펀널 없는 복제, 빈 멤버 리스트, 1000명 멤버 복제 등 시나리오별 테스트"
+        },
+        {
+          "id": "TEST-004",
+          "severity": "P2",
+          "file": "src/app/(dashboard)/groups/page.tsx",
+          "line": 109,
+          "title": "checkBlast 중 메시지 변경 시 preview 상태 불일치",
+          "description": "checkBlast 중에 blastMsg를 수정하면, preview는 유지되지만 실제 메시지는 변경됨. 발송 시 차이 발생.",
+          "code_snippet": "const checkBlast = async () => { ... setBlastPreview(data); };\n// UI에서 textarea onChange 시:\nonChange={(e) => { setBlastMsg(e.target.value); setBlastPreview(null); }}  // 올바르게 null 처리",
+          "impact": "예상과 다른 메시지 발송 (현재는 null 처리로 방지되고 있음)",
+          "recommendation": "preview와 msg가 항상 일치하는지 테스트"
+        },
+        {
+          "id": "TEST-005",
+          "severity": "P2",
+          "file": "src/app/api/groups/[id]/tokens/route.ts",
+          "line": 118,
+          "title": "refresh 후 expiresAt이 정확히 7일인지 검증 없음",
+          "description": "new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) 계산이 정확한지 테스트 필요.",
+          "code_snippet": "const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);",
+          "impact": "타이밍 버그로 인한 토큰 조기 만료",
+          "recommendation": "단위 테스트에서 expiresAt - createdAt = 7일 정확성 검증"
+        }
+      ]
+    },
+    "7_code_quality": {
+      "title": "코드 품질 - 중복, 복잡도, 네이밍",
+      "severity_breakdown": {
+        "P0": 1,
+        "P1": 7,
+        "P2": 8
+      },
+      "issues": [
+        {
+          "id": "QUAL-001",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/tokens/route.ts",
+          "line": 26,
+          "title": "IDOR 검증이 GET, POST, PATCH에서 반복됨 (DRY 위반)",
+          "description": "같은 검증 로직이 3개 함수에서 반복됩니다:",
+          "code_snippet": "// GET 라인 23-28\nif (ctx.role === 'AGENT' && group.ownerId !== ctx.userId) {\n  return NextResponse.json({ ok: false, error: 'FORBIDDEN' }, { status: 403 });\n}\nif (ctx.role === 'OWNER' && group.organizationId !== ctx.organizationId) {\n  return NextResponse.json({ ok: false, error: 'FORBIDDEN' }, { status: 403 });\n}\n// POST, PATCH에서도 동일",
+          "impact": "유지보수 어려움, 검증 로직 변경 시 3곳 수정 필요",
+          "recommendation": "검증 함수 분리: `async function validateGroupAccess(ctx, groupId, orgId)`"
+        },
+        {
+          "id": "QUAL-002",
+          "severity": "P1",
+          "file": "src/app/api/groups/route.ts",
+          "line": 14,
+          "title": "GLOBAL_ADMIN 조직 조회가 GET, POST에서 반복됨",
+          "description": "firstOrg 조회 로직이 반복됩니다.",
+          "code_snippet": "// GET 라인 12-17\nlet orgId: string;\nif (ctx.organizationId) {\n  orgId = ctx.organizationId;\n} else if (ctx.role === 'GLOBAL_ADMIN') {\n  const firstOrg = await prisma.organization.findFirst({ select: { id: true } });\n  if (!firstOrg) return NextResponse.json({ ok: true, groups: [] });\n  orgId = firstOrg.id;\n}\n// POST에서도 동일",
+          "impact": "코드 중복",
+          "recommendation": "유틸리티 함수: `async function resolveOrgId(ctx)`"
+        },
+        {
+          "id": "QUAL-003",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/script/route.ts",
+          "line": 41,
+          "title": "require('crypto')를 inline으로 사용 (정신없음)",
+          "description": "파일 상단의 import가 아니라 조건 내에서 require를 사용합니다.",
+          "code_snippet": "const seq = require('crypto').randomBytes(6).toString('hex');",
+          "impact": "코드 가독성 저하, require 비효율",
+          "recommendation": "파일 상단: `import crypto from 'crypto'`"
+        },
+        {
+          "id": "QUAL-004",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/blast/route.ts",
+          "line": 126,
+          "title": "result code 매직 넘버 사용 (-99, -98, 1)",
+          "description": "Aligo API의 결과 코드가 하드코딩되어 있습니다.",
+          "code_snippet": "const code = Number(result.result_code);\nif (code === 1)              sentCount++;\nelse if (code === -99 || code === -98) blockedCount++;  // 매직 넘버",
+          "impact": "코드 의도 불명확, API 변경 시 추적 어려움",
+          "recommendation": "상수로 분리: `const ALIGO_SUCCESS = 1; const ALIGO_BLOCKED = [-99, -98];`"
+        },
+        {
+          "id": "QUAL-005",
+          "severity": "P2",
+          "file": "src/app/(dashboard)/groups/page.tsx",
+          "line": 75,
+          "title": "cloneGroup, exportGroup 에러 처리가 generic showError 사용",
+          "description": "에러 메시지가 '복제 실패', '내보내기 실패'로만 표시됩니다.",
+          "code_snippet": "const cloneGroup = async (id: string) => {\n  const res = await fetch(`/api/groups/${id}/clone`, { method: 'POST' });\n  const d   = await res.json() as { ok: boolean; group?: { name: string } };\n  if (d.ok) { await loadGroups(); }\n  else showError('복제 실패');  // 상세 메시지 없음",
+          "impact": "사용자 대응 불가",
+          "recommendation": "`showError(d.message ?? '복제 실패')`"
+        },
+        {
+          "id": "QUAL-006",
+          "severity": "P2",
+          "file": "src/app/(dashboard)/groups/page.tsx",
+          "line": 160,
+          "title": "useEffect에서 groups, funnels를 Promise.all로 조회하지만 각각 처리 안 함",
+          "description": "g.ok나 f.ok가 false일 수 있지만, 에러 처리가 없습니다.",
+          "code_snippet": "useEffect(() => {\n  Promise.all([\n    fetch(\"/api/groups\").then((r) => r.json()),\n    fetch(\"/api/funnels\").then((r) => r.json()),\n  ]).then(([g, f]) => {\n    if (g.ok)  setGroups(g.groups);  // g.ok === false면 groups가 그대로\n    if (f.ok)  setFunnels(f.funnels);\n  }).finally(() => setLoading(false));  // loading 해제되지만 에러 상태 없음",
+          "impact": "로딩 완료 후 빈 상태로 보일 수 있음",
+          "recommendation": "에러 상태 추가: `setError()`"
+        },
+        {
+          "id": "QUAL-007",
+          "severity": "P2",
+          "file": "src/components/forms/FormBuilder.tsx",
+          "line": 89,
+          "title": "커스텀 필드 ID가 Date.now() 기반 (동시 충돌 가능)",
+          "description": "동시에 두 필드를 추가하면 같은 ID가 생성될 수 있습니다.",
+          "code_snippet": "const id = `custom_${Date.now()}`;  // 1ms 내 충돌 가능",
+          "impact": "매우 낮은 확률이지만 필드 충돌",
+          "recommendation": "UUID 또는 crypto.randomUUID() 사용"
+        },
+        {
+          "id": "QUAL-008",
+          "severity": "P2",
+          "file": "src/app/api/groups/[id]/register/route.ts",
+          "line": 1,
+          "title": "export const dynamic = 'force-dynamic'이 모든 그룹 API에 없음",
+          "description": "register 엔드포인트는 캐싱되지 않지만, 다른 엔드포인트는 cache control이 명시되지 않았습니다.",
+          "code_snippet": "export const dynamic = 'force-dynamic';  // 있음\n// 하지만 route.ts 첫 줄이어야 함",
+          "impact": "일부 요청이 캐시될 수 있음 (Vercel)",
+          "recommendation": "모든 엔드포인트에 `export const dynamic = 'force-dynamic'` 또는 `revalidate = 0` 추가"
+        }
+      ]
+    },
+    "8_type_safety": {
+      "title": "타입 안전 - TypeScript 타입 정확성",
+      "severity_breakdown": {
+        "P0": 2,
+        "P1": 5,
+        "P2": 4
+      },
+      "issues": [
+        {
+          "id": "TYPE-001",
+          "severity": "P0",
+          "file": "src/app/api/groups/[id]/route.ts",
+          "line": 39,
+          "title": "updateData: any 타입 사용 (타입 안전성 상실)",
+          "description": "any 타입으로 선언되어 있어서 컴파일러가 검증하지 않습니다.",
+          "code_snippet": "const updateData: any = {};\nif (name !== undefined) updateData.name = name;",
+          "impact": "런타임 에러 위험",
+          "recommendation": "`const updateData: { name?: string; description?: string; funnelId?: string | null } = {}`"
+        },
+        {
+          "id": "TYPE-002",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/clone/route.ts",
+          "line": 15,
+          "title": "ctx.userId || ctx.memberId (타입이 서로 다를 수 있음)",
+          "description": "두 필드의 타입이 명확하지 않으면, ||를 사용한 폴백이 예기치 않은 타입을 반환할 수 있습니다.",
+          "code_snippet": "const userId = ctx.userId || ctx.memberId;  // 둘 다 string | undefined?",
+          "impact": "타입 검사 우회",
+          "recommendation": "타입 가드: `const userId = ctx.userId ?? ctx.memberId; if (!userId) throw ...`"
+        },
+        {
+          "id": "TYPE-003",
+          "severity": "P1",
+          "file": "src/app/(dashboard)/groups/page.tsx",
+          "line": 77,
+          "title": "as { ok: boolean; group?: { name: string } } 타입 단언 사용",
+          "description": "API 응답 타입을 하드코딩하여 검증 없이 사용합니다. API 응답이 변경되면 런타임 에러가 발생합니다.",
+          "code_snippet": "const d   = await res.json() as { ok: boolean; group?: { name: string } };",
+          "impact": "API 변경 시 감지 불가",
+          "recommendation": "zod 또는 런타임 검증 라이브러리 사용"
+        },
+        {
+          "id": "TYPE-004",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/blast/route.ts",
+          "line": 126,
+          "title": "result.result_code가 string인지 number인지 불명확",
+          "description": "Number(result.result_code)를 호출하지만, result_code의 타입이 명확하지 않습니다.",
+          "code_snippet": "const code = Number(result.result_code);  // result_code: string | number?",
+          "impact": "NaN이 될 수 있음",
+          "recommendation": "sendSms 반환 타입 명시: `type SmsResult = { result_code: number }`"
+        },
+        {
+          "id": "TYPE-005",
+          "severity": "P2",
+          "file": "src/app/(dashboard)/groups/page.tsx",
+          "line": 8,
+          "title": "Group 타입이 funnelName: string | null 포함 (DB와 불일치)",
+          "description": "contactGroup DB 모델에는 funnelName이 없는데, 클라이언트 타입에는 있습니다.",
+          "code_snippet": "type Group = {\n  id: string; name: string; description: string | null;\n  color: string | null; funnelId: string | null; funnelName: string | null;  // DB에 없음\n  _count: { members: number };\n};",
+          "impact": "타입과 데이터 구조 불일치",
+          "recommendation": "API에서 선택적 조인으로 funnelName 반환, 또는 별도 타입 정의"
+        }
+      ]
+    },
+    "9_documentation": {
+      "title": "문서화 - 주석, API 문서",
+      "severity_breakdown": {
+        "P0": 1,
+        "P1": 4,
+        "P2": 5
+      },
+      "issues": [
+        {
+          "id": "DOC-001",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/blast/route.ts",
+          "line": 8,
+          "title": "MAX_RECIPIENTS, BATCH_SIZE 상수에 주석 부족",
+          "description": "왜 200, 10인지 설명이 없습니다. Vercel 타임아웃 관련이라고 했지만 계산이 명확하지 않습니다.",
+          "code_snippet": "const MAX_RECIPIENTS = 200; // Vercel 타임아웃 방지 (10건 배치 × 20회 ≈ 2초)\nconst BATCH_SIZE     = 10;",
+          "impact": "향후 유지보수자가 숫자를 임의로 수정할 수 있음",
+          "recommendation": "계산 공식 추가: `// 200 / 10 = 20회, 1회 = 100ms, 총 2초 이내`"
+        },
+        {
+          "id": "DOC-002",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/register/route.ts",
+          "line": 6,
+          "title": "seq 토큰이 어디서 생성되는지 문서 부재",
+          "description": "seq는 groupToken 테이블의 id이지만, 이것이 명확하지 않습니다.",
+          "code_snippet": "// POST /api/groups/[id]/register\n// seq 토큰으로 그룹 등록하고 연락처 추가",
+          "impact": "API 사용자가 seq가 뭔지 이해 못할 수 있음",
+          "recommendation": "// seq: GroupToken.id (GET /api/groups/[id]/tokens에서 생성)"
+        },
+        {
+          "id": "DOC-003",
+          "severity": "P2",
+          "file": "src/app/api/groups/[id]/clone/route.ts",
+          "line": 8,
+          "title": "POST /api/groups/[id]/clone의 요청 바디 형식이 문서에 없음",
+          "description": "요청에 body가 필요 없지만, 이것이 명확하지 않습니다.",
+          "code_snippet": "export async function POST(_req: Request, { params }: Params) {",
+          "impact": "클라이언트가 불필요한 body를 보낼 수 있음",
+          "recommendation": "// POST /api/groups/[id]/clone (body 없음, GET 파라미터만 사용)"
+        },
+        {
+          "id": "DOC-004",
+          "severity": "P2",
+          "file": "src/components/forms/FormBuilder.tsx",
+          "line": 1,
+          "title": "FormField 인터페이스가 어디에서 쓰이는지 문서 없음",
+          "description": "export interface FormField가 정의되어 있지만, 이것이 DB와의 관계, API와의 관계를 명확히 하지 않습니다.",
+          "code_snippet": "export interface FormField {",
+          "impact": "폼 필드가 그룹에 저장되지 않음을 알 수 없음",
+          "recommendation": "// FormField: 클라이언트 UI 상태만 (DB 저장 안 함)"
+        },
+        {
+          "id": "DOC-005",
+          "severity": "P2",
+          "file": "src/app/(dashboard)/groups/page.tsx",
+          "line": 1,
+          "title": "페이지 컴포넌트의 상태 흐름이 복잡하지만 주석 없음",
+          "description": "blastGroupId, blastMsg, blastPreview, blastResult 등 상태가 많지만 흐름이 명확하지 않습니다.",
+          "code_snippet": "const [blastGroupId,  setBlastGroupId]  = useState<string | null>(null);\nconst [blastMsg,      setBlastMsg]      = useState(\"\");\nconst [blastPreview,  setBlastPreview]  = useState< ... | null>(null);\nconst [blastResult,   setBlastResult]   = useState< ... | null>(null);",
+          "impact": "상태 버그 발생 위험",
+          "recommendation": "상태 관리 주석: `// Blast flow: null → 메시지 입력 → preview → result 또는 error`"
+        }
+      ]
+    },
+    "10_monitoring": {
+      "title": "모니터링 - 로깅, 메트릭, 에러 추적",
+      "severity_breakdown": {
+        "P0": 2,
+        "P1": 5,
+        "P2": 3
+      },
+      "issues": [
+        {
+          "id": "MON-001",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/blast/route.ts",
+          "line": 134,
+          "title": "발송 완료 로깅에서 성공/차단/실패 비율이 없음",
+          "description": "sentCount, blockedCount, failedCount를 로깅하지만, 비율이나 심각도 분류가 없습니다.",
+          "code_snippet": "logger.log('[GroupBlast] 발송 완료', {\n  group: group.name,\n  sentCount,\n  blockedCount,\n  failedCount,\n});",
+          "impact": "대시보드에서 발송 성공률을 계산해야 함",
+          "recommendation": "로깅에 비율 추가: `successRate: (sentCount / targets.length * 100).toFixed(1)`"
+        },
+        {
+          "id": "MON-002",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/register/route.ts",
+          "line": 73,
+          "title": "연락처 중복 upsert 시 update 여부를 로깅하지 않음",
+          "description": "신규 생성 vs 기존 업데이트를 구분하지 않습니다.",
+          "code_snippet": "const contact = await prisma.contact.upsert({ ... });\nlogger.log('[GroupRegister] 신청 완료', { groupId, contactId: contact.id, phone });",
+          "impact": "분석에서 신규 vs 재가입 구분 불가",
+          "recommendation": "트랜잭션 반환값 확인 후 'created' vs 'updated' 로깅"
+        },
+        {
+          "id": "MON-003",
+          "severity": "P1",
+          "file": "src/app/api/groups/[id]/clone/route.ts",
+          "line": 107,
+          "title": "펀널 복제 성공/실패 여부를 미로깅",
+          "description": "펀널 복제 실패 시 newFunnelId = null이지만, 이것이 로그에 반영되지 않습니다.",
+          "code_snippet": "logger.log('[GroupClone] 복제 완료', {\n  originalId: id,\n  newGroupId: newGroup.id,\n  memberCount: original.members.length,\n  ownerId: userId,\n  // funnelId 복제 성공 여부 없음",
+          "impact": "펀널 미복제 이슈 감지 불가",
+          "recommendation": "로깅에 추가: `funnelCloned: !!newFunnelId, originalFunnelId: original.funnelId`"
+        },
+        {
+          "id": "MON-004",
+          "severity": "P0",
+          "file": "src/app/api/groups/[id]/tokens/route.ts",
+          "line": 79,
+          "title": "토큰 생성 시 tokenId를 로깅하지 않음 (추적 불가)",
+          "description": "seq를 로깅하지 않아서, 나중에 특정 토큰의 생성 시간을 추적할 수 없습니다.",
+          "code_snippet": "logger.log('[CreateGroupToken]', { groupId, seq });  // seq 있음, 하지만...",
+          "impact": "토큰 감사 추적 어려움",
+          "recommendation": "토큰 ID(seq)를 항상 로깅하되, 보안상 마스킹: `seq: seq.substring(0, 6) + '***'`"
+        },
+        {
+          "id": "MON-005",
+          "severity": "P2",
+          "file": "src/app/(dashboard)/groups/page.tsx",
+          "line": 109,
+          "title": "발송 전 대상 확인 실패가 에러로 표시되지만, UI에서 자동 복구 없음",
+          "description": "checkBlast 실패 후 setBlastError를 하지만, 자동 재시도나 사용자 안내가 없습니다.",
+          "code_snippet": "} catch {\n  const msg = \"네트워크 오류가 발생했습니다.\";\n  setBlastError(msg);\n  showError(msg);  // 토스트만 표시",
+          "impact": "사용자가 재시도해야 함, 향상된 오류 처리 부족",
+          "recommendation": "재시도 버튼 추가 또는 자동 재시도 로직"
+        }
+      ]
+    }
+  },
+  "critical_fixes_priority": [
+    {
+      "rank": 1,
+      "issues": ["SEC-001", "SEC-002", "PERF-002"],
+      "title": "보안/성능 긴급 사항",
+      "description": "Rate Limiting 추가, SmsOptOut 필터링, IDOR 방지"
+    },
+    {
+      "rank": 2,
+      "issues": ["CONS-001", "CONS-003"],
+      "title": "트랜잭션 보호",
+      "description": "register/clone에서 부분 실패 방지"
+    },
+    {
+      "rank": 3,
+      "issues": ["TYPE-001", "QUAL-001"],
+      "title": "코드 품질 개선",
+      "description": "any 제거, DRY 원칙 적용"
+    }
+  ]
+}
