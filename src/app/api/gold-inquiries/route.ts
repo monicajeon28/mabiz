@@ -40,7 +40,18 @@ export async function GET(req: NextRequest) {
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
     if (ctx.role === 'FREE_SALES') {
-      return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
+      return NextResponse.json(
+        { ok: false, error: 'FORBIDDEN', message: '이 기능에 접근할 권한이 없습니다.' },
+        { status: 403 }
+      );
+    }
+
+    // OWNER/AGENT는 organizationId가 필수
+    if ((ctx.role === 'OWNER' || ctx.role === 'AGENT') && !ctx.organizationId) {
+      return NextResponse.json(
+        { ok: false, error: 'FORBIDDEN', message: '조직 정보가 없습니다.' },
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(req.url);
@@ -108,6 +119,9 @@ export async function GET(req: NextRequest) {
 
   } catch (err) {
     logger.error('[GET /api/gold-inquiries]', { err });
-    return NextResponse.json({ ok: false, error: '서버 오류' }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: 'SERVER_ERROR', message: '문의 목록 조회 중 오류가 발생했습니다.' },
+      { status: 500 }
+    );
   }
 }

@@ -27,7 +27,7 @@ export function QaSearchBar({
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [tone, setTone] = useState("all");
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
 
   const handleSearch = (q: string = query, cat: string = category, t: string = tone) => {
     onSearch(q, cat, t);

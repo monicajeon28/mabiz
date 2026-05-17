@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
@@ -19,44 +20,38 @@ export async function GET() {
     }
     const orgId = requireOrgId(ctx);
 
-    // 병렬: 담당자별 groupBy + 조직 멤버 목록 + 미배정 수
-    const [grouped, members, unassigned] = await Promise.all([
-      prisma.contact.groupBy({
-        by: ['assignedUserId'],
-        where: { organizationId: orgId, deletedAt: null, assignedUserId: { not: null } },
-        _count: { id: true },
-      }),
-      prisma.organizationMember.findMany({
-        where: { organizationId: orgId, isActive: true },
-        select: { userId: true, displayName: true, role: true },
-      }),
+    // 단일 쿼리: LEFT JOIN으로 담당자별 고객 수 + 미배정 카운트
+    const [memberStats, unassignedCount] = await Promise.all([
+      prisma.$queryRaw<{ userId: string; displayName: string | null; role: string; count: bigint }[]>(
+        Prisma.sql`
+          SELECT
+            om."userId",
+            om."displayName",
+            om.role,
+            COALESCE(COUNT(c.id), 0)::bigint as count
+          FROM "OrganizationMember" om
+          LEFT JOIN "Contact" c ON c."assignedUserId" = om."userId"
+            AND c."organizationId" = ${orgId}
+            AND c."deletedAt" IS NULL
+          WHERE om."organizationId" = ${orgId}
+            AND om."isActive" = true
+          GROUP BY om."userId", om."displayName", om.role
+          ORDER BY count DESC
+        `
+      ),
       prisma.contact.count({
         where: { organizationId: orgId, deletedAt: null, assignedUserId: null },
       }),
     ]);
 
-    // 멤버 맵
-    const memberMap = new Map(members.map((m) => [m.userId, m]));
+    const stats = memberStats.map((row) => ({
+      userId: row.userId,
+      displayName: row.displayName ?? '알 수 없음',
+      role: row.role,
+      count: Number(row.count),
+    }));
 
-    const stats = grouped
-      .filter((g) => g.assignedUserId)
-      .map((g) => {
-        const member = memberMap.get(g.assignedUserId!);
-        return {
-          userId: g.assignedUserId!,
-          displayName: member?.displayName ?? '알 수 없음',
-          role: member?.role ?? 'AGENT',
-          count: g._count.id,
-        };
-      })
-      .sort((a, b) => b.count - a.count);
-
-    // 할당 안 된 멤버도 count=0으로 추가
-    for (const m of members) {
-      if (!stats.find((s) => s.userId === m.userId)) {
-        stats.push({ userId: m.userId, displayName: m.displayName ?? m.userId, role: m.role, count: 0 });
-      }
-    }
+    const unassigned = unassignedCount;
 
     const total = stats.reduce((a, b) => a + b.count, 0) + unassigned;
 

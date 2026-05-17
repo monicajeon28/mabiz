@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getMabizSession } from "@/lib/auth";
 import { SidebarNav } from "@/components/layout/SidebarNav";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
+import { FloatingChatbot } from "@/components/layout/FloatingChatbot";
 
 export default async function DashboardLayout({
   children,
@@ -25,6 +26,9 @@ export default async function DashboardLayout({
 
       {/* 모바일: 하단 탭 */}
       <BottomTabBar className="md:hidden" />
+
+      {/* 플로팅 세일즈봇 */}
+      <FloatingChatbot />
     </div>
   );
 }

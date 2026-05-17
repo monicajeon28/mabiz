@@ -5,6 +5,20 @@ import { logger } from "@/lib/logger";
 import { GroupFormSchema } from "@/schemas/forms";
 import { errorResponse } from "@/lib/response";
 
+// Step 1: serializeGroup 헬퍼 함수
+const serializeGroup = (group: any) => {
+  if (!group) throw new Error('Group object is null or undefined');
+  return {
+    id: group.id,
+    name: group.name,
+    description: group.description,
+    color: group.color,
+    funnelId: group.funnelId,
+    funnelName: group.funnel?.name ?? null,
+    _count: { members: group._count?.members ?? 0 },
+  };
+};
+
 // GET /api/groups — 그룹 목록
 export async function GET() {
   try {
@@ -32,29 +46,12 @@ export async function GET() {
       where: { organizationId: orgId, ...ownerFilter },
       include: {
         _count: { select: { members: true } },
+        funnel: { select: { name: true } },
       },
       orderBy: { createdAt: "asc" },
     });
 
-    // 퍼널 이름 조회 (funnelId 있는 경우)
-    const funnelIds = groups
-      .filter((g) => g.funnelId)
-      .map((g) => g.funnelId!);
-
-    const funnels =
-      funnelIds.length > 0
-        ? await prisma.funnel.findMany({
-            where: { id: { in: funnelIds } },
-            select: { id: true, name: true },
-          })
-        : [];
-
-    const funnelMap = Object.fromEntries(funnels.map((f) => [f.id, f.name]));
-
-    const result = groups.map((g) => ({
-      ...g,
-      funnelName: g.funnelId ? (funnelMap[g.funnelId] ?? null) : null,
-    }));
+    const result = groups.map(serializeGroup);
 
     return NextResponse.json({ ok: true, groups: result });
   } catch (err) {
@@ -99,6 +96,28 @@ export async function POST(req: Request) {
 
     const { name, description, color, funnelId } = validation.data;
 
+    // ✅ funnelId 검증: 제공되었다면 해당 funnel이 존재하는지 확인
+    if (funnelId) {
+      const funnel = await prisma.funnel.findUnique({
+        where: { id: funnelId },
+        select: { id: true, organizationId: true },
+      });
+
+      if (!funnel) {
+        return NextResponse.json(
+          { ok: false, error: 'INVALID_FUNNEL', message: '존재하지 않는 퍼널입니다.' },
+          { status: 400 }
+        );
+      }
+
+      if (funnel.organizationId !== orgId) {
+        return NextResponse.json(
+          { ok: false, error: 'FORBIDDEN', message: '해당 조직의 퍼널이 아닙니다.' },
+          { status: 403 }
+        );
+      }
+    }
+
     const group = await prisma.contactGroup.create({
       data: {
         organizationId: orgId,
@@ -116,10 +135,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ok: true,
-      group: {
-        ...group,
-        funnelName: group.funnel?.name ?? null,
-      },
+      group: serializeGroup(group),
     }, { status: 201 });
   } catch (err) {
     logger.error("[POST /api/groups]", { err });
