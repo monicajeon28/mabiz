@@ -253,21 +253,31 @@ export default function DashboardPage() {
   const [regLinkCopied, setRegLinkCopied] = useState(false);
 
   useEffect(() => {
-    fetch("/api/dashboard").then((r) => r.json()).then((d) => {
-      if (d.ok) setData(d);
-    });
-    fetch("/api/auth/me", { credentials: "include" }).then((r) => r.json()).then((d) => {
-      if (d.ok && d.organizationId) setMyOrgId(d.organizationId);
-    }).catch(() => {});
+    // Promise.allSettled로 변경: 하나 실패해도 다른 요청은 완료될 때까지 기다림
+    Promise.allSettled([
+      fetch("/api/dashboard").then((r) => r.json()),
+      fetch("/api/auth/me", { credentials: "include" }).then((r) => r.json()),
+      fetch('/api/notifications/feed?limit=5').then(r => r.json()),
+    ]).then(results => {
+      // Dashboard 데이터
+      if (results[0].status === 'fulfilled' && results[0].value?.ok) {
+        setData(results[0].value);
+      }
 
-    fetch('/api/notifications/feed?limit=5')
-      .then(r => r.json())
-      .then(d => { if (d.ok) setFeed(d.items ?? []); })
-      .catch(err => {
-        console.error('알림 피드 로드 실패:', err);
-        // Optional: toast 라이브러리 사용 가능
-      })
-      .finally(() => setFeedLoading(false));
+      // Auth 데이터
+      if (results[1].status === 'fulfilled' && results[1].value?.ok && results[1].value?.organizationId) {
+        setMyOrgId(results[1].value.organizationId);
+      }
+
+      // Feed 데이터
+      if (results[2].status === 'fulfilled' && results[2].value?.ok) {
+        setFeed(results[2].value.items ?? []);
+      } else if (results[2].status === 'rejected') {
+        console.error('알림 피드 로드 실패:', results[2].reason);
+      }
+
+      setFeedLoading(false);
+    });
   }, []);
 
   const role = data?.role;

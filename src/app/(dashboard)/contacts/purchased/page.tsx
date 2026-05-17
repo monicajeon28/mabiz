@@ -69,6 +69,9 @@ export default function PurchasedPage() {
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
+  // 의존성: 필터 변경 시 페이지 초기화
+  useEffect(() => { setPage(1); }, [channelFilter, sortBy]);
+
   useEffect(() => {
     fetch("/api/groups").then(r => r.json()).then(d => { if (d.ok) setGroups(d.groups ?? []); });
   }, []);

@@ -91,6 +91,9 @@ export default function InquiriesPage() {
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
+  // 의존성: q와 selectedTags가 변경될 때 페이지 초기화
+  useEffect(() => { setPage(1); }, [q, selectedTags]);
+
   useEffect(() => {
     fetch("/api/groups").then(r => r.json()).then(d => { if (d.ok) setGroups(d.groups ?? []); });
   }, []);

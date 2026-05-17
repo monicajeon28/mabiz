@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { GroupFormSchema } from "@/schemas/forms";
+import { errorResponse } from "@/lib/response";
 
 // GET /api/groups — 그룹 목록
 export async function GET() {
@@ -78,17 +80,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '조직 정보가 없습니다' }, { status: 403 });
     }
 
-    const { name, description, color, funnelId } = await req.json();
+    const body = await req.json();
+    const validation = GroupFormSchema.safeParse(body);
 
-    if (!name?.trim()) {
-      return NextResponse.json({ ok: false, message: "그룹 이름은 필수입니다." }, { status: 400 });
+    if (!validation.success) {
+      const fieldErrors = Object.fromEntries(
+        validation.error.issues.map((issue) => [
+          issue.path.join('.'),
+          issue.message,
+        ])
+      );
+      return errorResponse(
+        "입력값 검증에 실패했습니다.",
+        400,
+        { errors: fieldErrors }
+      );
     }
-    if (name.length > 100) {
-      return NextResponse.json({ ok: false, message: "그룹 이름은 100자 이하여야 합니다." }, { status: 400 });
-    }
-    if (color && !/^#[0-9a-fA-F]{6}$/.test(color)) {
-      return NextResponse.json({ ok: false, message: "color는 #RRGGBB 형식이어야 합니다." }, { status: 400 });
-    }
+
+    const { name, description, color, funnelId } = validation.data;
 
     const group = await prisma.contactGroup.create({
       data: {

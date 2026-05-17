@@ -292,6 +292,9 @@ export default function ContactsPage() {
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
   useEffect(() => { setPage(1); }, [filterGroupId, filterAssignedTo, selectedTags]);
 
+  // 담당자 할당 통계와 그룹 로드 (의존성: 없음 - 마운트 시 1회만)
+  // 그룹/담당자 정보는 자주 변경되지 않으므로, 필요시 수동으로 갱신
+
   // 할당 통계 + 그룹 목록 로드
   useEffect(() => {
     fetch("/api/groups").then(r => r.json()).then(d => { if (d.ok) setGroups(d.groups ?? []); });
