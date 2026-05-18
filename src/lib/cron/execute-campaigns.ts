@@ -20,6 +20,10 @@ import { logger } from "../logger";
 import type { SendingStatus, SendingFailureReason } from "@prisma/client";
 import { sendSms, resolveUserSmsConfig } from "../aligo";
 import { sendFunnelEmail } from "../email";
+import {
+  mapSendingToExecutionFailureReason,
+  mapSendingToExecutionStatus,
+} from "../enum-mapping";
 
 interface ExecutionCampaignParams {
   campaignId: string;
@@ -29,6 +33,7 @@ interface ExecutionCampaignParams {
   messageBody: string;
   messageSubject?: string;
   contactIds: string[];
+  campaignTitle?: string; // Phase 3-γ: ExecutionLog sourceName용
 }
 
 interface SendingRecord {
