@@ -29,11 +29,11 @@ async function runBenchmarks(): Promise<BenchmarkResult[]> {
     logger.info('[Benchmark] ExecutionLog 성능 측정 시작');
 
     // 1. today-stats API: 오늘 캠페인 통계 (groupBy)
-    const start1 = Date.now();
+    performance.mark('q1-start');
     const campaignStats = await prisma.executionLog.groupBy({
       by: ['sourceId'],
       where: {
-        organizationId: { not: 'test' }, // 테스트 데이터 제외
+        organizationId: { not: 'test_org_benchmark' }, // 테스트 데이터 격리
         sourceType: 'CAMPAIGN',
         scheduledAt: {
           gte: new Date(new Date().setHours(0, 0, 0, 0)),
@@ -42,7 +42,9 @@ async function runBenchmarks(): Promise<BenchmarkResult[]> {
       },
       _count: { id: true },
     });
-    const duration1 = Date.now() - start1;
+    performance.mark('q1-end');
+    const measure1 = performance.measure('q1', 'q1-start', 'q1-end');
+    const duration1 = Math.round(measure1.duration * 100) / 100;
     results.push({
       query: 'groupBy (today-stats)',
       duration: duration1,
@@ -51,16 +53,19 @@ async function runBenchmarks(): Promise<BenchmarkResult[]> {
     });
 
     // 2. Cron 재시도 검색 (RETRY_SCHEDULED)
-    const start2 = Date.now();
+    performance.mark('q2-start');
     const retryTargets = await prisma.executionLog.count({
       where: {
+        organizationId: { not: 'test_org_benchmark' },
         status: 'RETRY_SCHEDULED',
         nextRetryAt: {
           lte: new Date(),
         },
       },
     });
-    const duration2 = Date.now() - start2;
+    performance.mark('q2-end');
+    const measure2 = performance.measure('q2', 'q2-start', 'q2-end');
+    const duration2 = Math.round(measure2.duration * 100) / 100;
     results.push({
       query: 'count (retry targets)',
       duration: duration2,
@@ -69,11 +74,11 @@ async function runBenchmarks(): Promise<BenchmarkResult[]> {
     });
 
     // 3. 캠페인별 상태 조회 (campaign-specific)
-    const start3 = Date.now();
+    performance.mark('q3-start');
     const campaignStatus = await prisma.executionLog.groupBy({
       by: ['status', 'channel'],
       where: {
-        organizationId: { not: 'test' },
+        organizationId: { not: 'test_org_benchmark' },
         sourceType: 'CAMPAIGN',
         createdAt: {
           gte: new Date(new Date().getTime() - 7 * 24 * 60 * 60 * 1000), // 7일
@@ -81,7 +86,9 @@ async function runBenchmarks(): Promise<BenchmarkResult[]> {
       },
       _count: { id: true },
     });
-    const duration3 = Date.now() - start3;
+    performance.mark('q3-end');
+    const measure3 = performance.measure('q3', 'q3-start', 'q3-end');
+    const duration3 = Math.round(measure3.duration * 100) / 100;
     results.push({
       query: 'groupBy (campaign status)',
       duration: duration3,
@@ -90,21 +97,24 @@ async function runBenchmarks(): Promise<BenchmarkResult[]> {
     });
 
     // 4. Contact별 발송이력 (contact-specific)
-    const start4 = Date.now();
+    performance.mark('q4-start');
     const firstContact = await prisma.contact.findFirst({
-      where: { organizationId: { not: 'test' } },
+      where: { organizationId: { not: 'test_org_benchmark' } },
       select: { id: true },
     });
 
     if (firstContact) {
       const contactHistory = await prisma.executionLog.findMany({
         where: {
+          organizationId: { not: 'test_org_benchmark' },
           contactId: firstContact.id,
         },
         select: { id: true, status: true, executeMonth: true },
         take: 100,
       });
-      const duration4 = Date.now() - start4;
+      performance.mark('q4-end');
+      const measure4 = performance.measure('q4', 'q4-start', 'q4-end');
+      const duration4 = Math.round(measure4.duration * 100) / 100;
       results.push({
         query: 'findMany (contact history)',
         duration: duration4,
@@ -114,14 +124,16 @@ async function runBenchmarks(): Promise<BenchmarkResult[]> {
     }
 
     // 5. 상태별 조회 (status filtering)
-    const start5 = Date.now();
+    performance.mark('q5-start');
     const pendingCount = await prisma.executionLog.count({
       where: {
-        organizationId: { not: 'test' },
+        organizationId: { not: 'test_org_benchmark' },
         status: 'PENDING',
       },
     });
-    const duration5 = Date.now() - start5;
+    performance.mark('q5-end');
+    const measure5 = performance.measure('q5', 'q5-start', 'q5-end');
+    const duration5 = Math.round(measure5.duration * 100) / 100;
     results.push({
       query: 'count (pending status)',
       duration: duration5,
