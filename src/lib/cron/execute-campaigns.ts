@@ -57,6 +57,12 @@ import {
   selectVariantBatch,
   getVariantContentBatch,
 } from "../campaign-variant";
+// Phase 4 Track 1: 렌탈 발송 추적 import
+import {
+  isRentalProduct,
+  getSegmentVariation,
+  getRentalSendingData,
+} from "../rental-sending-helper";
 
 // Redis 인스턴스 (분산 락용)
 const redis = new Redis({
@@ -131,6 +137,13 @@ export async function executeCampaignMessages(
       totalCount: contactIds.length,
     });
 
+    // Phase 4 Track 1: 캠페인 정보 조회 (렌탈 판별용)
+    const campaign = await db.crmMarketingCampaign.findUnique({
+      where: { id: campaignId },
+      select: { id: true, title: true },
+    });
+    const isRental = campaign ? isRentalProduct(campaign) : false;
+
     // Phase 3-γ Wave 2: Variant 선택 (배치 전에 미리 수행)
     const variantKey = await selectVariant(campaignId);
     const variantContent = await getVariantContent(campaignId, variantKey);
@@ -202,6 +215,8 @@ export async function executeCampaignMessages(
             campaignTitle,
             variantKey,
             emailBody: finalEmailBody,
+            // Phase 4 Track 1: 렌탈 발송 정보 전달
+            isRental,
             // Phase 3-β: P1-2 Contact snapshot 전달 (재시도 시 N+1 제거)
             contactSnapshot: preloadedContact ? {
               id: preloadedContact.id,
@@ -258,8 +273,9 @@ async function sendSingleMessage(params: {
   campaignTitle?: string; // Phase 3-β: ExecutionLog sourceName용
   variantKey?: string | null; // Phase 3-γ Wave 2: A/B Variant 키
   emailBody?: string; // Phase 3-γ Wave 2: Email body (Variant용)
+  isRental?: boolean; // Phase 4 Track 1: 렌탈 발송 여부
 }): Promise<{ contactId: string; status: SendingStatus; failureReason?: SendingFailureReason }> {
-  const { campaignId, organizationId, contactId, channel, messageBody, messageSubject, preloadedContact, campaignTitle, variantKey, emailBody } = params;
+  const { campaignId, organizationId, contactId, channel, messageBody, messageSubject, preloadedContact, campaignTitle, variantKey, emailBody, isRental } = params;
 
   try {
     // Phase 3-β: Feature Flag 체크 - 래퍼 함수 사용 여부
@@ -290,8 +306,11 @@ async function sendSingleMessage(params: {
     // Contact: 프리로드된 연락처 사용, 또는 개별 조회 (재시도 케이스)
     const contact = preloadedContact || await db.contact.findUnique({
       where: { id: contactId },
-      select: { id: true, phone: true, email: true },
+      select: { id: true, phone: true, email: true, tags: true },  // Phase 4 Track 1: tags 추가
     });
+
+    // Phase 4 Track 1: 세그먼트 변형 결정
+    const segmentVariation = contact ? getSegmentVariation(contact) : "A";
 
     if (!contact) {
       logger.warn("[Cron] Contact 없음", { contactId });
@@ -316,6 +335,8 @@ async function sendSingleMessage(params: {
           organizationId,
           messageBody,
           variantKey,
+          isRental,
+          segmentVariation,
         });
         return { contactId, status: "SKIPPED", failureReason: "INVALID_PHONE" };
       }
@@ -332,6 +353,8 @@ async function sendSingleMessage(params: {
           organizationId,
           messageBody,
           variantKey,
+          isRental,
+          segmentVariation,
         });
         return { contactId, status: "FAILED", failureReason: "SYSTEM_ERROR" };
       }
@@ -370,6 +393,8 @@ async function sendSingleMessage(params: {
           messageBody,
           messageSubject,
           variantKey,
+          isRental,
+          segmentVariation,
         });
         return { contactId, status: "SKIPPED", failureReason: "INVALID_EMAIL" };
       }
@@ -404,6 +429,8 @@ async function sendSingleMessage(params: {
       messageSubject,
       sentAt: sendResult.status === "SENT" ? new Date() : undefined,
       variantKey,
+      isRental,
+      segmentVariation,
     });
 
     return { contactId, status: sendResult.status, failureReason: sendResult.failureReason };
@@ -860,6 +887,8 @@ async function createSendingHistory(params: {
   campaignTitle?: string;
   executionLogId?: string;
   variantKey?: string | null; // Phase 3-γ Wave 2: A/B Variant 키
+  isRental?: boolean; // Phase 4 Track 1: 렌탈 발송 여부
+  segmentVariation?: string; // Phase 4 Track 1: 세그먼트 변형 (A/B/C)
 }): Promise<{ id: string } | null> {
   // Phase 3-γ: P1-1, P1-2 트랜잭션 타임아웃 + finally 정리
   let tx = null;
@@ -890,6 +919,11 @@ async function createSendingHistory(params: {
             scheduledAt: new Date(),
             sendingType: "CAMPAIGN",
             variantKey: params.variantKey ?? null, // Phase 3-γ Wave 2: A/B Variant 키 저장
+            // Phase 4 Track 1: 렌탈 발송 추적 필드
+            isRentalPurchase: params.isRental ?? false,
+            isDeltaSmsEligible: params.isRental ?? false,
+            deltaDay: 0,  // 초기값: 발송일
+            segmentVariation: params.segmentVariation ?? "A",  // 기본값: A (자유여행)
           },
         });
 

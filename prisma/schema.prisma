@@ -498,8 +498,10 @@ model SmsTemplate {
   category       String
   title          String
   content        String
-  triggerType    String?
-  triggerOffset  Int?
+  triggerType    String?       // PURCHASE, ABANDONED, WAKE_UP, OTHER
+  triggerOffset  Int?          // Day 0~30 offset in minutes (0=immediate, 1440=1day, 2880=2days, 4320=3days)
+  segmentCode    String?       // A(자유여행), B(크루즈), C(호텔)
+  psychologyTag  String?       // Loss Aversion, Scarcity, Social Proof, Narrative Transportation, etc.
   isSystem       Boolean       @default(false)
   usageCount     Int           @default(0)
   createdAt      DateTime      @default(now())
@@ -508,6 +510,9 @@ model SmsTemplate {
 
   @@index([organizationId])
   @@index([category])
+  @@index([organizationId, segmentCode])
+  @@index([organizationId, triggerType, triggerOffset])
+  @@index([organizationId, psychologyTag])
 }
 
 model SmsOptOut {
@@ -2024,6 +2029,12 @@ model SendingHistory {
   // A/B 테스트 추적 (Phase 3 추가)
   variantKey        String?                // null = 단일 메시지, "A" | "B"
 
+  // 렌탈 발송 추적 (Phase 4 Track 1 추가)
+  isRentalPurchase  Boolean                @default(false) // 렌탈 상품 발송 여부
+  isDeltaSmsEligible Boolean               @default(false) // Delta SMS 3일 시퀀스 대상 여부
+  deltaDay          Int?                                    // Delta Day (0=발송일, 1=+1일, 2=+2일)
+  segmentVariation  String?                @db.VarChar(1)  // A/B/C 세그먼트 변형
+
   // 관계 (Phase 2 추가)
   campaign          CrmMarketingCampaign?  @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
@@ -2037,6 +2048,10 @@ model SendingHistory {
   @@index([organizationId, createdAt(sort: Desc)], map: "idx_sending_history_org_time")
   @@index([status, retryCount], map: "idx_sending_history_status_retry")
   @@index([variantKey, status], map: "idx_sending_history_variant_status")
+  // Phase 4 Track 1: 렌탈 발송 추적 인덱스
+  @@index([isRentalPurchase], map: "idx_sendinghistory_isrentalpur")
+  @@index([isDeltaSmsEligible], map: "idx_sendinghistory_isdeltasmselig")
+  @@index([isDeltaSmsEligible, deltaDay], map: "idx_sendinghistory_deltatemp")
   // Phase 2 P0 Blocker 3: Unique 제약을 조건부 인덱스(ix_sending_history_dedup)로 변경
   // 수동 발송(campaignId=NULL)도 중복 방지하기 위해 CASE 식 사용
   @@map("SendingHistory")
