@@ -15,10 +15,10 @@
  * 3: PENDING (대기)
  */
 
-export const dynamic = 'force-dynamic';
-import { NextRequest, NextResponse } from 'next/server';
-import { logger } from '@/lib/logger';
-import { enqueueDLQ } from '@/lib/mabiz-dlq';
+export const dynamic = "force-dynamic";
+import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
+import { enqueueDLQ } from "@/lib/mabiz-dlq";
 import {
   isProcessedWebhook,
   markWebhookProcessed,
@@ -27,7 +27,7 @@ import {
   getAligoUserMessage,
   getSendingHistoryByMessageId,
   updateSendingStatus,
-} from '@/lib/webhook-execution';
+} from "@/lib/webhook-execution";
 
 interface AligoStatusParams {
   msg_id: string;
@@ -46,15 +46,15 @@ export async function GET(req: NextRequest) {
     // 1. 쿼리 파라미터 파싱
     const searchParams = req.nextUrl.searchParams;
     params = {
-      msg_id: searchParams.get('msg_id') || '',
-      stat: searchParams.get('stat') || '',
-      result: searchParams.get('result') || '',
-      dest: searchParams.get('dest') || undefined,
-      send_time: searchParams.get('send_time') || undefined,
-      receive_time: searchParams.get('receive_time') || undefined,
+      msg_id: searchParams.get("msg_id") || "",
+      stat: searchParams.get("stat") || "",
+      result: searchParams.get("result") || "",
+      dest: searchParams.get("dest") || undefined,
+      send_time: searchParams.get("send_time") || undefined,
+      receive_time: searchParams.get("receive_time") || undefined,
     };
 
-    logger.info('[AligoStatusWebhook] 수신', {
+    logger.info("[AligoStatusWebhook] 수신", {
       msg_id: params.msg_id,
       stat: params.stat,
       result: params.result,
@@ -62,27 +62,27 @@ export async function GET(req: NextRequest) {
 
     // 2. 필수 파라미터 검증
     if (!params.msg_id) {
-      logger.warn('[AligoStatusWebhook] msg_id 누락');
+      logger.warn("[AligoStatusWebhook] msg_id 누락");
       return NextResponse.json(
-        { ok: false, error: 'msg_id 필수' },
-        { status: 400 }
+        { ok: false, error: "msg_id 필수" },
+        { status: 400 },
       );
     }
 
     if (!params.stat || !params.result) {
-      logger.warn('[AligoStatusWebhook] stat/result 누락', {
+      logger.warn("[AligoStatusWebhook] stat/result 누락", {
         msg_id: params.msg_id,
       });
       return NextResponse.json(
-        { ok: false, error: 'stat, result 필수' },
-        { status: 400 }
+        { ok: false, error: "stat, result 필수" },
+        { status: 400 },
       );
     }
 
     // 3. 멱등성: msg_id를 eventId로 사용하여 중복 확인
     const eventId = `aligo-${params.msg_id}`;
     if (await isProcessedWebhook(eventId)) {
-      logger.info('[AligoStatusWebhook] 중복 콜백 (멱등성)', {
+      logger.info("[AligoStatusWebhook] 중복 콜백 (멱등성)", {
         msg_id: params.msg_id,
       });
       // 이미 처리된 콜백은 200 OK로 반환 (멱등성)
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
           status: params.stat,
           duplicate: true,
         },
-        { status: 200 }
+        { status: 200 },
       );
     }
 
@@ -104,33 +104,33 @@ export async function GET(req: NextRequest) {
     // 5. result 코드 → SendingFailureReason 변환 (실패 시)
     const result = params.result;
     const failureReason =
-      sendingStatus === 'FAILED' ? mapAligoResultToReason(result) : undefined;
+      sendingStatus === "FAILED" ? mapAligoResultToReason(result) : undefined;
     const failureUserMsg =
-      sendingStatus === 'FAILED'
+      sendingStatus === "FAILED"
         ? getAligoUserMessage(stat, result)
         : undefined;
 
     // 6. SendingHistory 조회 (messageId = msg_id)
     const sending = await getSendingHistoryByMessageId(params.msg_id);
     if (!sending) {
-      logger.warn('[AligoStatusWebhook] SendingHistory 없음', {
+      logger.warn("[AligoStatusWebhook] SendingHistory 없음", {
         msg_id: params.msg_id,
       });
       // msg_id가 없으면 처리 기록만 하고 200 OK 반환
       // (Aligo는 콜백 응답 상태를 보지 않으므로 재시도하지 않음)
       try {
-        await markWebhookProcessed(eventId, 'aligo_status');
+        await markWebhookProcessed(eventId, "aligo_status");
       } catch (error) {
-        logger.error('[AligoStatusWebhook] 처리 기록 실패', { eventId });
+        logger.error("[AligoStatusWebhook] 처리 기록 실패", { eventId });
       }
       return NextResponse.json(
         {
           ok: true,
           msg_id: params.msg_id,
           status: params.stat,
-          note: 'SendingHistory를 찾을 수 없음 (이미 삭제됨 또는 존재하지 않음)',
+          note: "SendingHistory를 찾을 수 없음 (이미 삭제됨 또는 존재하지 않음)",
         },
-        { status: 200 }
+        { status: 200 },
       );
     }
 
@@ -139,13 +139,13 @@ export async function GET(req: NextRequest) {
       sending.id,
       sendingStatus,
       failureReason,
-      failureUserMsg
+      failureUserMsg,
     );
 
     // 8. ProcessedWebhookEvent 기록 (멱등성)
-    await markWebhookProcessed(eventId, 'aligo_status');
+    await markWebhookProcessed(eventId, "aligo_status");
 
-    logger.info('[AligoStatusWebhook] 처리 완료', {
+    logger.info("[AligoStatusWebhook] 처리 완료", {
       msg_id: params.msg_id,
       sendingId: sending.id,
       status: sendingStatus,
@@ -160,10 +160,10 @@ export async function GET(req: NextRequest) {
         status: sendingStatus,
         updatedAt: new Date().toISOString(),
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
-    logger.error('[AligoStatusWebhook] 예외 발생', {
+    logger.error("[AligoStatusWebhook] 예외 발생", {
       error,
       msg_id: params && params.msg_id,
     });
@@ -172,19 +172,19 @@ export async function GET(req: NextRequest) {
     if (params && params.msg_id) {
       try {
         await enqueueDLQ({
-          service: 'webhook-aligo-status',
+          service: "webhook-aligo-status",
           payload: params,
           error: String(error),
         });
       } catch (dlqError) {
-        logger.error('[AligoStatusWebhook] DLQ 등록 실패', { dlqError });
+        logger.error("[AligoStatusWebhook] DLQ 등록 실패", { dlqError });
       }
     }
 
     // Aligo는 응답 상태를 보지 않으므로 200 OK 반환
     return NextResponse.json(
-      { ok: false, error: '서버 오류' },
-      { status: 500 }
+      { ok: false, error: "서버 오류" },
+      { status: 500 },
     );
   }
 }
