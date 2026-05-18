@@ -153,6 +153,7 @@ function PageCard({
           onClick={() => onToggle(page)}
           disabled={togglingId === page.id}
           title={page.isActive ? "비활성화" : "활성화"}
+          aria-label={page.isActive ? "페이지 비활성화" : "페이지 활성화"}
           className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 transition-colors ${
             page.isActive ? "bg-green-400 hover:bg-green-600" : "bg-gray-300 hover:bg-gray-500"
           } disabled:opacity-50`}
@@ -251,6 +252,7 @@ function PageCard({
             onClick={() => onCreateShortLink(page)}
             className="flex items-center gap-1 px-2 py-1.5 hover:bg-gray-100 rounded-lg text-gray-500 text-xs"
             title="숏링크 만들기"
+            aria-label="숏링크 만들기"
           >
             {copiedLinkId === page.id ? (
               <><Check className="w-4 h-4 text-green-500" /><span className="text-green-500">복사됨</span></>
@@ -265,6 +267,7 @@ function PageCard({
               rel="noopener noreferrer"
               className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
               title="새 탭에서 열기"
+              aria-label="새 탭에서 페이지 열기"
             >
               <Globe className="w-4 h-4" />
             </a>
@@ -273,6 +276,7 @@ function PageCard({
             onClick={() => onCopyLink(page.partnerId)}
             className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
             title="링크 복사"
+            aria-label="페이지 링크 복사"
           >
             {copied === previewKey
               ? <span className="text-xs text-green-500 font-medium">복사됨</span>
@@ -283,6 +287,7 @@ function PageCard({
             disabled={cloningId === page.id}
             className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 disabled:opacity-50"
             title="복제 (사본 만들기)"
+            aria-label="페이지 복제"
           >
             {cloningId === page.id ? <span className="text-xs text-blue-500">복제중...</span> : <Files className="w-4 h-4" />}
           </button>
@@ -290,6 +295,7 @@ function PageCard({
             onClick={() => onLoadStats(page.id)}
             className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
             title={statsMap[page.id] ? "그래프 새로고침" : "퍼널 그래프 보기"}
+            aria-label={statsMap[page.id] ? "그래프 새로고침" : "퍼널 그래프 보기"}
           >
             {loadingStats === page.id
               ? <span className="text-[10px] text-blue-400">로딩</span>
@@ -299,6 +305,7 @@ function PageCard({
             href={`/b2b-editor/${page.id}`}
             className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
             title="편집"
+            aria-label="페이지 편집"
           >
             <Pencil className="w-4 h-4" />
           </Link>
@@ -307,6 +314,7 @@ function PageCard({
             disabled={deletingId === page.id}
             className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 disabled:opacity-50"
             title="삭제"
+            aria-label="페이지 삭제"
           >
             {deletingId === page.id ? <span className="text-xs text-red-400">삭제중...</span> : <Trash2 className="w-4 h-4" />}
           </button>
@@ -353,6 +361,7 @@ export default function B2BEditorPage() {
       const data = await res.json();
       if (data.ok) setStatsMap((prev) => ({ ...prev, [pageId]: data.stats }));
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error(`[loadStats] Failed to load stats for ${pageId}:`, err);
     } finally {
       setLoadingStats(null);
@@ -468,6 +477,7 @@ export default function B2BEditorPage() {
         <Link
           href="/b2b-editor/new"
           className="flex items-center gap-1.5 bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 transition-colors"
+          aria-label="새 B2B 페이지 생성"
         >
           <Plus className="w-4 h-4" /> 새 페이지
         </Link>

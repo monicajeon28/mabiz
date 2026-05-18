@@ -598,7 +598,7 @@ export default function EditB2BPage() {
     <div className="flex flex-col h-screen bg-gray-50">
       {/* 헤더 */}
       <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 shrink-0">
-        <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-700">
+        <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-700" aria-label="뒤로 가기">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <input
@@ -637,15 +637,17 @@ export default function EditB2BPage() {
             {/* 모드 토글 */}
             <div className="flex bg-gray-100 rounded-lg p-0.5">
               <button onClick={() => setEditorMode("image")}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${editorMode === "image" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500"}`}>
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${editorMode === "image" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500"}`}
+                aria-label="이미지형 에디터 선택">
                 <ImageIcon className="w-3 h-3" /> 이미지형
               </button>
               <button onClick={() => setEditorMode("html")}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${editorMode === "html" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500"}`}>
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${editorMode === "html" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500"}`}
+                aria-label="HTML형 에디터 선택">
                 <Code className="w-3 h-3" /> HTML형
               </button>
             </div>
-            <button onClick={() => setPreview(!preview)} className="text-gray-500 hover:text-navy-900 p-1.5">
+            <button onClick={() => setPreview(!preview)} className="text-gray-500 hover:text-navy-900 p-1.5" aria-label={preview ? "미리보기 종료" : "미리보기 시작"}>
               <Eye className="w-4 h-4" />
             </button>
             {error && <span className="text-xs text-red-500">{error}</span>}
