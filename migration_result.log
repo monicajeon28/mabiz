@@ -1,0 +1,32 @@
+◇ injected env (127) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+Loaded Prisma config from prisma.config.ts.
+
+Prisma schema loaded from prisma\schema.prisma.
+Datasource "db": PostgreSQL database "neondb", schema "public" at "ep-divine-shape-ai1u1c8e-pooler.c-4.us-east-1.aws.neon.tech"
+
+40 migrations found in prisma/migrations
+
+Applying migration `20260518185649_fix_sending_history_unique_constraint`
+Error: P3018
+
+A migration failed to apply. New migrations cannot be applied before the error is recovered from. Read more about how to resolve migration issues in a production database: https://pris.ly/d/migrate-resolve
+
+Migration name: 20260518185649_fix_sending_history_unique_constraint
+
+Database error code: 42601
+
+Database error:
+ERROR: syntax error at or near "CASE"
+
+Position:
+[1m  6[0m ALTER TABLE "SendingHistory" DROP CONSTRAINT IF EXISTS "unique_sending_history_campaign_contact";
+[1m  7[0m
+[1m  8[0m -- 2. 조건부 Unique 인덱스 생성
+[1m  9[0m -- campaignId가 있을 때: campaignId + contactId로 중복 방지
+[1m 10[0m -- campaignId가 NULL일 때: 'manual'::uuid + contactId로 중복 방지
+[1m 11[1;31m CREATE UNIQUE INDEX IF NOT EXISTS ix_sending_history_dedup[0m
+
+DbError { severity: "ERROR", parsed_severity: Some(Error), code: SqlState(E42601), message: "syntax error at or near \"CASE\"", detail: None, hint: None, position: Some(Original(219)), where_: None, schema: None, table: None, column: None, datatype: None, constraint: None, file: Some("scan.l"), line: Some(1244), routine: Some("scanner_yyerror") }
+
+

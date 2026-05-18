@@ -14,8 +14,3 @@ WHERE "status" = 'RETRY_SCHEDULED' AND "nextRetryAt" IS NOT NULL;
 -- 3. Contact 추적성 (contactId + executeMonth)
 -- 사용처: Contact별 발송 이력 분석
 CREATE INDEX "idx_execution_contact_monthly" ON "ExecutionLog"("contactId", "executeMonth", "status");
-
--- 4. 일괄 상태 업데이트용 (updateMany에서 IN 절 사용)
--- 사용처: batch status update, 재시도 처리
-CREATE INDEX "idx_execution_batch_update" ON "ExecutionLog"("status", "updatedAt")
-WHERE "status" IN ('PENDING', 'RETRY_SCHEDULED', 'FAILED');

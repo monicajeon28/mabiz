@@ -47,6 +47,10 @@
     {
       "path": "/api/queues/email-process",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/execute-campaigns",
+      "schedule": "*/2 * * * *"
     }
   ]
 }

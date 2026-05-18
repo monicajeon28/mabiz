@@ -24,6 +24,21 @@ import {
   mapSendingToExecutionFailureReason,
   mapSendingToExecutionStatus,
 } from "../enum-mapping";
+// Phase 3-β: 래퍼 함수 import
+import { sendToContactByTemplate } from "../services/contact-template-sender";
+import { getFeatureFlag } from "../config/feature-flags";
+// Phase 3-δ: SMS Rate Limiter import
+import { waitForSmsCapacity } from "../sms-rate-limiter";
+// Phase 3-γ: Redis 분산 락 + 캐시 import
+import { getCache, setCache, invalidateCache } from "../redis";
+// Redis 직접 import (setex 등 저수준 명령어 사용)
+import { Redis } from '@upstash/redis';
+
+// Redis 인스턴스 (분산 락용)
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
 
 interface ExecutionCampaignParams {
   campaignId: string;
@@ -60,8 +75,9 @@ const RETRY_DELAYS = [
 export async function executeCampaignMessages(
   params: ExecutionCampaignParams
 ): Promise<SendingRecord> {
-  const { campaignId, organizationId, groupId, channel, messageBody, messageSubject, contactIds } = params;
-  const BATCH_SIZE = 50;
+  const { campaignId, organizationId, groupId, channel, messageBody, messageSubject, contactIds, campaignTitle } = params;
+  // Phase 3-δ: 배치 크기 증가 (50 → 150) - Rate Limiter로 인한 지연 보상
+  const BATCH_SIZE = 150;
 
   if (contactIds.length === 0) {
     logger.log("[Cron] 발송 대상 없음", { campaignId, channel });
@@ -100,6 +116,7 @@ export async function executeCampaignMessages(
             messageBody,
             messageSubject,
             preloadedContact: contactMap.get(contactId),
+            campaignTitle, // Phase 3-β: ExecutionLog sourceName용
           });
           return result;
         })
@@ -134,6 +151,7 @@ export async function executeCampaignMessages(
 /**
  * 개별 메시지 발송 (내부 함수)
  * @param preloadedContact - 배치-로드된 contact (N+1 쿼리 최적화)
+ * Phase 3-β: Feature Flag 기반 래퍼 함수로 호출 가능
  */
 async function sendSingleMessage(params: {
   campaignId: string;
@@ -143,10 +161,36 @@ async function sendSingleMessage(params: {
   messageBody: string;
   messageSubject?: string;
   preloadedContact?: { id: string; phone: string | null; email: string | null };
+  campaignTitle?: string; // Phase 3-β: ExecutionLog sourceName용
 }): Promise<{ contactId: string; status: SendingStatus; failureReason?: SendingFailureReason }> {
-  const { campaignId, organizationId, contactId, channel, messageBody, messageSubject, preloadedContact } = params;
+  const { campaignId, organizationId, contactId, channel, messageBody, messageSubject, preloadedContact, campaignTitle } = params;
 
   try {
+    // Phase 3-β: Feature Flag 체크 - 래퍼 함수 사용 여부
+    if (getFeatureFlag("ENABLE_EXECUTION_LOG_WRAPPER")) {
+      // 래퍼 함수 사용 (ExecutionLog + SendingHistory 병행)
+      const result = await sendToContactByTemplate({
+        contactId,
+        channel,
+        messageBody,
+        messageSubject,
+        organizationId,
+        campaignId,
+        sourceType: "CAMPAIGN",
+        sourceId: campaignId,
+        sourceName: campaignTitle,
+        sendingType: "CAMPAIGN",
+        useExecutionLog: true,
+      });
+
+      return {
+        contactId,
+        status: result.status,
+        failureReason: result.failureReason,
+      };
+    }
+
+    // Feature Flag OFF: 기존 로직 유지
     // Contact: 프리로드된 연락처 사용, 또는 개별 조회 (재시도 케이스)
     const contact = preloadedContact || await db.contact.findUnique({
       where: { id: contactId },
@@ -193,6 +237,9 @@ async function sendSingleMessage(params: {
         });
         return { contactId, status: "FAILED", failureReason: "SYSTEM_ERROR" };
       }
+
+      // Phase 3-δ: Rate Limit 확인 (Aligo API 초당 3건)
+      await waitForSmsCapacity();
 
       const smsResult = await sendSms({
         config: smsConfig,
@@ -434,6 +481,8 @@ export async function retrySendingMessage(sendingId: string): Promise<void> {
  * - executeCampaignMessages() 호출
  * - nextExecutionAt 업데이트 (repeatRule 기반)
  * - 재시도 대상 처리
+ *
+ * Phase 3-γ: P0-3 솔루션 - Redis 분산 락으로 중복 실행 방지
  */
 export async function executePendingCampaigns() {
   const startTime = Date.now();
@@ -462,70 +511,96 @@ export async function executePendingCampaigns() {
     let totalFailed = 0;
 
     for (const campaign of campaigns) {
+      // Phase 3-γ: P0-3 Redis 분산 락 - 캠페인별 중복 실행 방지
+      const lockKey = `campaign:${campaign.id}:executing`;
+      const lockTTL = 300; // 5분 (캠페인 발송 최대 시간)
+
       try {
-        logger.info("[Cron] 캠페인 발송 시작", {
-          campaignId: campaign.id,
-          title: campaign.title,
-        });
+        // Redis SET NX (존재하지 않을 때만 설정) - 분산 락
+        const lockAcquired = await acquireDistributedLock(lockKey, lockTTL);
 
-        // ContactGroup에서 대상 연락처 조회
-        const contactIds = await db.contactGroupMember.findMany({
-          where: { groupId: campaign.groupId },
-          select: { contactId: true },
-        });
-
-        const contactIdList = contactIds.map((m) => m.contactId);
-
-        // SMS 발송
-        if (campaign.sendSms && campaign.smsBody) {
-          const smsResult = await executeCampaignMessages({
+        if (!lockAcquired) {
+          logger.info(`[Cron] 캠페인 ${campaign.id} 이미 실행 중, 스킵`, {
             campaignId: campaign.id,
-            organizationId: campaign.organizationId,
-            groupId: campaign.groupId,
-            channel: "SMS",
-            messageBody: campaign.smsBody,
-            contactIds: contactIdList,
+            title: campaign.title,
           });
-
-          totalSent += smsResult.sent;
-          totalFailed += smsResult.failed;
+          continue; // 다음 캠페인으로
         }
 
-        // Email 발송
-        if (campaign.sendEmail && campaign.emailBody) {
-          const emailResult = await executeCampaignMessages({
+        try {
+          logger.info("[Cron] 캠페인 발송 시작", {
             campaignId: campaign.id,
-            organizationId: campaign.organizationId,
-            groupId: campaign.groupId,
-            channel: "EMAIL",
-            messageBody: campaign.emailBody,
-            messageSubject: campaign.emailSubject,
-            contactIds: contactIdList,
+            title: campaign.title,
           });
 
-          totalSent += emailResult.sent;
-          totalFailed += emailResult.failed;
+          // ContactGroup에서 대상 연락처 조회
+          const contactIds = await db.contactGroupMember.findMany({
+            where: { groupId: campaign.groupId },
+            select: { contactId: true },
+          });
+
+          const contactIdList = contactIds.map((m) => m.contactId);
+
+          // SMS 발송
+          if (campaign.sendSms && campaign.smsBody) {
+            const smsResult = await executeCampaignMessages({
+              campaignId: campaign.id,
+              organizationId: campaign.organizationId,
+              groupId: campaign.groupId,
+              channel: "SMS",
+              messageBody: campaign.smsBody,
+              contactIds: contactIdList,
+              campaignTitle: campaign.title, // Phase 3-β: ExecutionLog sourceName용
+            });
+
+            totalSent += smsResult.sent;
+            totalFailed += smsResult.failed;
+          }
+
+          // Email 발송
+          if (campaign.sendEmail && campaign.emailBody) {
+            const emailResult = await executeCampaignMessages({
+              campaignId: campaign.id,
+              organizationId: campaign.organizationId,
+              groupId: campaign.groupId,
+              channel: "EMAIL",
+              messageBody: campaign.emailBody,
+              messageSubject: campaign.emailSubject,
+              contactIds: contactIdList,
+              campaignTitle: campaign.title, // Phase 3-β: ExecutionLog sourceName용
+            });
+
+            totalSent += emailResult.sent;
+            totalFailed += emailResult.failed;
+          }
+
+          // nextExecutionAt 업데이트 (repeatRule 기반)
+          const nextExecutionAt = calculateNextExecution(campaign.repeatRule, campaign.sendAt);
+
+          await db.crmMarketingCampaign.update({
+            where: { id: campaign.id },
+            data: {
+              nextExecutionAt,
+              sentCount: campaign.sentCount + totalSent,
+              updatedAt: new Date(),
+            },
+          });
+
+          logger.info("[Cron] 캠페인 발송 완료", {
+            campaignId: campaign.id,
+            sentCount: totalSent,
+            failedCount: totalFailed,
+          });
+        } finally {
+          // 락 해제 (finally로 항상 실행)
+          await releaseDistributedLock(lockKey);
         }
-
-        // nextExecutionAt 업데이트 (repeatRule 기반)
-        const nextExecutionAt = calculateNextExecution(campaign.repeatRule, campaign.sendAt);
-
-        await db.crmMarketingCampaign.update({
-          where: { id: campaign.id },
-          data: {
-            nextExecutionAt,
-            sentCount: campaign.sentCount + totalSent,
-            updatedAt: new Date(),
-          },
-        });
-
-        logger.info("[Cron] 캠페인 발송 완료", {
-          campaignId: campaign.id,
-          sentCount: totalSent,
-          failedCount: totalFailed,
-        });
       } catch (err) {
         logger.error("[Cron] 캠페인 처리 실패", { campaignId: campaign.id, err });
+        // 락 정리 (에러 발생 시에도)
+        await releaseDistributedLock(lockKey).catch(() => {
+          // 정리 실패는 무시 (5분 후 자동 해제)
+        });
       }
     }
 
@@ -563,6 +638,48 @@ export async function executePendingCampaigns() {
   } catch (err) {
     logger.error("[Cron] 캠페인 자동 발송 실패", { err });
     throw err;
+  }
+}
+
+/**
+ * 헬퍼: Redis 분산 락 획득
+ * Phase 3-γ: P0-3 솔루션 - SET NX (원자적 설정)
+ * Upstash Redis SET NX EX: "SET key value NX EX ttl"
+ */
+async function acquireDistributedLock(lockKey: string, ttlSeconds: number): Promise<boolean> {
+  try {
+    const lockValue = `lock:${Date.now()}:${Math.random()}`;
+    // Upstash Redis: SET with NX and EX options
+    const result = await redis.set(lockKey, lockValue, {
+      nx: true,
+      ex: ttlSeconds,
+    });
+
+    // result is null if key already exists (NX failed)
+    // result is "OK" if key was set successfully
+    const acquired = result === "OK" || result !== null;
+
+    if (acquired) {
+      logger.debug("[Cron] 분산 락 획득 성공", { lockKey });
+    }
+
+    return acquired;
+  } catch (err) {
+    logger.warn("[Cron] 분산 락 획득 실패", { lockKey, error: (err as Error).message });
+    return false;
+  }
+}
+
+/**
+ * 헬퍼: Redis 분산 락 해제
+ * Phase 3-γ: P0-3 솔루션 - DEL
+ */
+async function releaseDistributedLock(lockKey: string): Promise<void> {
+  try {
+    await redis.del(lockKey);
+    logger.debug("[Cron] 분산 락 해제 완료", { lockKey });
+  } catch (err) {
+    logger.warn("[Cron] 분산 락 해제 실패 (5분 후 자동 해제됨)", { lockKey, error: (err as Error).message });
   }
 }
 
@@ -637,7 +754,11 @@ function mapEmailErrorToFailureReason(resultCode: number): SendingFailureReason 
 }
 
 /**
- * 헬퍼: SendingHistory 생성
+ * 헬퍼: SendingHistory + ExecutionLog 생성 (트랜잭션)
+ * Phase 3-γ: P0-1 솔루션 - db.$transaction으로 원자성 보장
+ * - SendingHistory 생성 (필수)
+ * - ExecutionLog 생성 시도 (선택, 실패해도 SendingHistory는 남음)
+ * - 부분 실패 처리 (ExecutionLog 생성 실패는 경고만, SendingHistory는 정상 생성)
  */
 async function createSendingHistory(params: {
   campaignId: string;
@@ -649,28 +770,70 @@ async function createSendingHistory(params: {
   messageBody?: string;
   messageSubject?: string;
   sentAt?: Date;
-}) {
+  campaignTitle?: string;
+  executionLogId?: string;
+}): Promise<{ id: string } | null> {
   try {
-    await db.sendingHistory.create({
-      data: {
-        campaignId: params.campaignId,
-        contactId: params.contactId,
-        channel: params.channel,
-        status: params.status,
-        failureReason: params.failureReason,
-        organizationId: params.organizationId,
-        body: params.messageBody || "",
-        subject: params.messageSubject || undefined,
-        sentAt: params.sentAt,
-        retryCount: 0,
-        maxRetries: 3,
-        nextRetryAt: null,
-        scheduledAt: new Date(),
-        sendingType: "CAMPAIGN",
-      },
+    // Phase 3-γ: P0-1 트랜잭션으로 원자성 보장
+    const result = await db.$transaction(async (tx) => {
+      // Step 1: SendingHistory 생성 (필수)
+      const sendingHistory = await tx.sendingHistory.create({
+        data: {
+          campaignId: params.campaignId,
+          contactId: params.contactId,
+          channel: params.channel,
+          status: params.status,
+          failureReason: params.failureReason,
+          organizationId: params.organizationId,
+          body: params.messageBody || "",
+          subject: params.messageSubject || undefined,
+          sentAt: params.sentAt,
+          retryCount: 0,
+          maxRetries: 3,
+          nextRetryAt: null,
+          scheduledAt: new Date(),
+          sendingType: "CAMPAIGN",
+        },
+      });
+
+      // Phase 3-γ: P0-2 반환값 검증 - sendingHistory ID 필수 체크
+      if (!sendingHistory?.id) {
+        throw new Error("SendingHistory 생성 실패: ID가 없음");
+      }
+
+      // Step 2: ExecutionLog 생성 시도 (선택, Feature Flag 체크)
+      if (getFeatureFlag("ENABLE_EXECUTION_LOG_WRAPPER")) {
+        try {
+          await tx.executionLog.create({
+            data: {
+              id: params.executionLogId || sendingHistory.id, // 동일 ID로 추적
+              organizationId: params.organizationId,
+              sourceType: "CAMPAIGN",
+              sourceId: params.campaignId,
+              sourceName: params.campaignTitle || "",
+              campaignId: params.campaignId,
+              contactId: params.contactId,
+              channel: params.channel,
+              status: mapSendingToExecutionStatus(params.status),
+              executeMonth: new Date().toISOString().slice(0, 7), // YYYY-MM
+            },
+          });
+        } catch (executionErr) {
+          // ExecutionLog 실패는 경고만 - SendingHistory는 정상 생성됨 (원자성 보장)
+          logger.warn("[Cron] ExecutionLog 생성 실패 (SendingHistory는 생성됨)", {
+            sendingHistoryId: sendingHistory.id,
+            error: (executionErr as Error).message,
+          });
+        }
+      }
+
+      return sendingHistory;
     });
+
+    return result;
   } catch (err) {
     logger.error("[Cron] SendingHistory 생성 실패", { err, params });
+    return null;
   }
 }
 

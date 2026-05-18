@@ -91,6 +91,7 @@ model Organization {
   b2bLandingPages            B2BLandingPage[]
   partnerSuspensions         PartnerSuspension[]
   marketingCampaigns         CrmMarketingCampaign[]       @relation("CrmMarketing")
+  campaignCosts              CampaignCost[]
   executionLogs              ExecutionLog[]
 }
 
@@ -590,6 +591,10 @@ model ExecutionLog {
   @@index([organizationId, status, scheduledAt], name: "idx_execution_cron_scan")
   // Phase 2: 캠페인 통계 쿼리 성능 (group by status, channel)
   @@index([organizationId, sourceType, status, createdAt], name: "idx_execution_campaign_stats")
+  // Phase 3-α: 부분 인덱스 (마이그레이션에서 정의)
+  @@index([organizationId, status, scheduledAt], name: "idx_execution_campaign_partial")
+  @@index([organizationId, nextRetryAt, status], name: "idx_execution_retry_partial")
+  @@index([contactId, executeMonth, status], name: "idx_execution_contact_monthly")
   @@index([status], name: "idx_execution_status")
   @@index([contactId], name: "idx_execution_contact")
   @@index([sourceId], name: "idx_execution_source")
@@ -2016,6 +2021,9 @@ model SendingHistory {
   // 메타정보
   metadata          Json?                  // 추가 속성
 
+  // A/B 테스트 추적 (Phase 3 추가)
+  variantKey        String?                // null = 단일 메시지, "A" | "B"
+
   // 관계 (Phase 2 추가)
   campaign          CrmMarketingCampaign?  @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
@@ -2028,6 +2036,7 @@ model SendingHistory {
   @@index([campaignId, status], map: "idx_sending_history_campaign_status")
   @@index([organizationId, createdAt(sort: Desc)], map: "idx_sending_history_org_time")
   @@index([status, retryCount], map: "idx_sending_history_status_retry")
+  @@index([variantKey, status], map: "idx_sending_history_variant_status")
   // Phase 2 P0 Blocker 3: Unique 제약을 조건부 인덱스(ix_sending_history_dedup)로 변경
   // 수동 발송(campaignId=NULL)도 중복 방지하기 위해 CASE 식 사용
   @@map("SendingHistory")
@@ -4591,7 +4600,9 @@ model CrmMarketingCampaign {
   organization      Organization          @relation("CrmMarketing", fields: [organizationId], references: [id], onDelete: Cascade)
   group             ContactGroup          @relation("CrmMarketing", fields: [groupId], references: [id], onDelete: Cascade)
   sendingHistories  SendingHistory[]
+  campaignCost      CampaignCost?
   executionLogs     ExecutionLog[]        @relation("ExecutionLogToCampaign")
+  variants          CampaignVariant[]     @relation("CampaignVariants")
 
   @@index([organizationId])
   @@index([groupId])
@@ -4601,3 +4612,60 @@ model CrmMarketingCampaign {
   @@map("CrmMarketingCampaign")
 }
 
+model CampaignCost {
+  id              String   @id @default(cuid())
+  campaignId      String   @unique
+  organizationId  String
+
+  // 발송 통계
+  smsSent         Int      @default(0)
+  smsRateCurrent  Float    @default(0.01)        // KRW per SMS
+  smsCostTotal    Float    @default(0)
+
+  emailSent       Int      @default(0)
+  emailRateCurrent Float   @default(0.001)       // KRW per Email
+  emailCostTotal  Float    @default(0)
+
+  // 성공/실패 분석
+  successCount    Int      @default(0)           // SENT + DELIVERED
+  failureCount    Int      @default(0)           // FAILED
+  costPerSuccess  Float    @default(0)           // (SMS + Email) / successCount
+
+  // ROI
+  estimatedRevenue Float  @default(0)            // 예상 수익
+  estimatedRoi    Float   @default(0)            // revenue / cost
+
+  // Metadata
+  actualCostTotal Float   @default(0)            // smsCost + emailCost
+  calculatedAt    DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  campaign        CrmMarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, organizationId])
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("CampaignCost")
+}
+
+
+// Phase 3: A/B 테스트 변형 관리 (Wave 1)
+model CampaignVariant {
+  id           String   @id @default(cuid())
+  campaignId   String
+  variantKey   String   // "A" | "B"
+  smsBody      String?
+  emailSubject String?
+  emailBody    String?
+  trafficSplit Float    @default(0.5)  // A를 받을 비율 (0.0~1.0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  campaign     CrmMarketingCampaign @relation("CampaignVariants", fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, variantKey])
+  @@index([campaignId, isActive])
+  @@map("CampaignVariant")
+}
