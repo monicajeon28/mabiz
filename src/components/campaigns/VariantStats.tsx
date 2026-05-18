@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { RefreshCw } from 'lucide-react';
 import {
   BarChart,
@@ -102,36 +100,32 @@ export function VariantStats({ stats, onRefresh }: VariantStatsProps) {
       {/* 신뢰도 배지 */}
       <div className="flex gap-2 items-center flex-wrap">
         <span className="text-sm font-semibold">신뢰도:</span>
-        <Badge
-          variant={
-            stats.analysis.confidence === 'HIGH'
-              ? 'default'
-              : stats.analysis.confidence === 'MEDIUM'
-              ? 'secondary'
-              : 'outline'
-          }
-        >
+        <span className={`px-3 py-1 rounded text-sm font-medium ${
+          stats.analysis.confidence === 'HIGH'
+            ? 'bg-green-100 text-green-800'
+            : stats.analysis.confidence === 'MEDIUM'
+            ? 'bg-blue-100 text-blue-800'
+            : 'bg-gray-100 text-gray-800'
+        }`}>
           {stats.analysis.confidence}
-        </Badge>
+        </span>
         {stats.analysis.recommendation && (
-          <Badge variant="outline">
+          <span className="px-3 py-1 rounded border border-gray-300 text-sm">
             🎯 추천: Variant {stats.analysis.recommendation}
-          </Badge>
+          </span>
         )}
       </div>
 
       {/* 해석 */}
-      <Alert>
-        <AlertDescription>{stats.analysis.interpretation}</AlertDescription>
-      </Alert>
+      <div className="border border-gray-200 bg-gray-50 p-4 rounded text-gray-700">
+        {stats.analysis.interpretation}
+      </div>
 
       {/* 샘플 크기 경고 */}
       {stats.metadata.sampleSizeRecommendation && (
-        <Alert className="border-yellow-200 bg-yellow-50">
-          <AlertDescription className="text-yellow-800">
-            {stats.metadata.sampleSizeRecommendation}
-          </AlertDescription>
-        </Alert>
+        <div className="border border-yellow-200 bg-yellow-50 p-4 rounded text-yellow-800">
+          {stats.metadata.sampleSizeRecommendation}
+        </div>
       )}
 
       {/* KPI 카드 */}

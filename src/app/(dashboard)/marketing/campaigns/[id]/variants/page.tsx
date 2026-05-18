@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VariantCard } from '@/components/campaigns/VariantCard';
 import { VariantStats } from '@/components/campaigns/VariantStats';
 import { logger } from '@/lib/logger';
@@ -209,53 +207,61 @@ export default function VariantPage() {
 
       {/* DRAFT 아님 경고 */}
       {campaign?.status !== 'DRAFT' && (
-        <Alert className="border-yellow-200 bg-yellow-50">
-          <AlertDescription className="text-yellow-800">
-            발송 중이거나 완료된 캠페인입니다. Variant를 수정할 수 없습니다. 새 캠페인을 만들어주세요.
-          </AlertDescription>
-        </Alert>
+        <div className="border border-yellow-200 bg-yellow-50 text-yellow-800 p-4 rounded">
+          발송 중이거나 완료된 캠페인입니다. Variant를 수정할 수 없습니다. 새 캠페인을 만들어주세요.
+        </div>
       )}
 
       {/* 탭 */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="manage">✏️ Variant 관리</TabsTrigger>
-          <TabsTrigger value="stats">📊 성과 분석</TabsTrigger>
-        </TabsList>
+      <div className="space-y-4">
+        <div className="flex gap-2 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('manage')}
+            className={`px-4 py-2 border-b-2 transition ${activeTab === 'manage' ? 'border-blue-500 text-blue-600 font-semibold' : 'border-transparent text-gray-600 hover:text-gray-900'}`}
+          >
+            ✏️ Variant 관리
+          </button>
+          <button
+            onClick={() => setActiveTab('stats')}
+            className={`px-4 py-2 border-b-2 transition ${activeTab === 'stats' ? 'border-blue-500 text-blue-600 font-semibold' : 'border-transparent text-gray-600 hover:text-gray-900'}`}
+          >
+            📊 성과 분석
+          </button>
+        </div>
 
-        <TabsContent value="manage" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <VariantCard
-              variant="A"
-              data={variantA}
-              onSave={(content) => handleCreateVariant('A', content)}
-              onUpdate={(content) => handleUpdateVariant('A', content)}
-              onDelete={() => handleDeleteVariant('A')}
-              isLoading={saving}
-              isDraftOnly={campaign?.status === 'DRAFT'}
-            />
-            <VariantCard
-              variant="B"
-              data={variantB}
-              onSave={(content) => handleCreateVariant('B', content)}
-              onUpdate={(content) => handleUpdateVariant('B', content)}
-              onDelete={() => handleDeleteVariant('B')}
-              isLoading={saving}
-              isDraftOnly={campaign?.status === 'DRAFT'}
-            />
+        {activeTab === 'manage' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <VariantCard
+                variant="A"
+                data={variantA}
+                isDraft={campaign?.status === 'DRAFT'}
+                onSave={(content) => handleCreateVariant('A', content)}
+                onDelete={() => handleDeleteVariant('A')}
+              />
+              <VariantCard
+                variant="B"
+                data={variantB}
+                isDraft={campaign?.status === 'DRAFT'}
+                onSave={(content) => handleCreateVariant('B', content)}
+                onDelete={() => handleDeleteVariant('B')}
+              />
+            </div>
           </div>
-        </TabsContent>
+        )}
 
-        <TabsContent value="stats" className="space-y-6">
-          {stats ? (
-            <VariantStats stats={stats} onRefresh={loadData} />
-          ) : (
-            <Alert>
-              <AlertDescription>발송 이력이 없어서 통계를 표시할 수 없습니다.</AlertDescription>
-            </Alert>
-          )}
-        </TabsContent>
-      </Tabs>
+        {activeTab === 'stats' && (
+          <div className="space-y-6">
+            {stats ? (
+              <VariantStats stats={stats} onRefresh={loadData} />
+            ) : (
+              <div className="border border-gray-200 bg-gray-50 text-gray-600 p-4 rounded">
+                발송 이력이 없어서 통계를 표시할 수 없습니다.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

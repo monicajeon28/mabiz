@@ -23,16 +23,19 @@ import { UpdateVariantSchema } from '@/schemas/campaign-variant';
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string; key: string } }
+  { params }: { params: Promise<{ id: string; key: string }> }
 ) {
   try {
     // 1. 인증 확인
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
 
+    // params가 Promise 인 경우 await
+    const resolvedParams = await params;
+
     // 2. IDOR 방지: Campaign의 organizationId 확인
     const campaign = await prisma.crmMarketingCampaign.findUnique({
-      where: { id: params.id },
+      where: { id: resolvedParams.id },
       select: {
         id: true,
         organizationId: true,
@@ -42,7 +45,7 @@ export async function PATCH(
 
     if (!campaign) {
       logger.warn(
-        `[PATCH /variants/[key]] Campaign not found: ${params.id}`,
+        `[PATCH /variants/[key]] Campaign not found: ${resolvedParams.id}`,
         { orgId }
       );
       return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
@@ -51,7 +54,7 @@ export async function PATCH(
     if (campaign.organizationId !== orgId) {
       logger.warn(
         `[PATCH /variants/[key]] IDOR attempt`,
-        { campaignId: params.id, orgId }
+        { campaignId: resolvedParams.id, orgId }
       );
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -63,7 +66,7 @@ export async function PATCH(
     if (campaign.status !== 'DRAFT') {
       logger.warn(
         `[PATCH /variants/[key]] Cannot update variant for non-DRAFT campaign`,
-        { campaignId: params.id, status: campaign.status }
+        { campaignId: resolvedParams.id, status: campaign.status }
       );
       return NextResponse.json(
         { error: `DRAFT 상태의 캠페인만 Variant를 수정할 수 있습니다 (현재: ${campaign.status})` },
@@ -75,8 +78,8 @@ export async function PATCH(
     const variant = await prisma.campaignVariant.findUnique({
       where: {
         campaignId_variantKey: {
-          campaignId: params.id,
-          variantKey: params.key as 'A' | 'B',
+          campaignId: resolvedParams.id,
+          variantKey: resolvedParams.key as 'A' | 'B',
         },
       },
     });
@@ -84,7 +87,7 @@ export async function PATCH(
     if (!variant) {
       logger.warn(
         `[PATCH /variants/[key]] Variant not found`,
-        { campaignId: params.id, key: params.key }
+        { campaignId: resolvedParams.id, key: resolvedParams.key }
       );
       return NextResponse.json(
         { error: 'Variant not found' },
@@ -117,8 +120,8 @@ export async function PATCH(
     const updated = await prisma.campaignVariant.update({
       where: {
         campaignId_variantKey: {
-          campaignId: params.id,
-          variantKey: params.key as 'A' | 'B',
+          campaignId: resolvedParams.id,
+          variantKey: resolvedParams.key as 'A' | 'B',
         },
       },
       data: {
@@ -142,7 +145,7 @@ export async function PATCH(
 
     logger.info(
       `[PATCH /variants/[key]] Variant updated`,
-      { campaignId: params.id, key: params.key, orgId }
+      { campaignId: resolvedParams.id, key: resolvedParams.key, orgId }
     );
 
     return NextResponse.json({
@@ -153,7 +156,7 @@ export async function PATCH(
     logger.error(
       '[PATCH /variants/[key]] Unexpected error',
       error,
-      { campaignId: params.id, key: params.key }
+      { campaignId: resolvedParams.id, key: resolvedParams.key }
     );
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -174,16 +177,19 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; key: string } }
+  { params }: { params: Promise<{ id: string; key: string }> }
 ) {
   try {
     // 1. 인증 확인
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
 
+    // params가 Promise인 경우 await
+    const resolvedParams = await params;
+
     // 2. IDOR 방지
     const campaign = await prisma.crmMarketingCampaign.findUnique({
-      where: { id: params.id },
+      where: { id: resolvedParams.id },
       select: {
         id: true,
         organizationId: true,
@@ -193,7 +199,7 @@ export async function DELETE(
 
     if (!campaign) {
       logger.warn(
-        `[DELETE /variants/[key]] Campaign not found: ${params.id}`,
+        `[DELETE /variants/[key]] Campaign not found: ${resolvedParams.id}`,
         { orgId }
       );
       return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
@@ -202,7 +208,7 @@ export async function DELETE(
     if (campaign.organizationId !== orgId) {
       logger.warn(
         `[DELETE /variants/[key]] IDOR attempt`,
-        { campaignId: params.id, orgId }
+        { campaignId: resolvedParams.id, orgId }
       );
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -214,7 +220,7 @@ export async function DELETE(
     if (campaign.status !== 'DRAFT') {
       logger.warn(
         `[DELETE /variants/[key]] Cannot delete variant from non-DRAFT campaign`,
-        { campaignId: params.id, status: campaign.status }
+        { campaignId: resolvedParams.id, status: campaign.status }
       );
       return NextResponse.json(
         { error: `DRAFT 상태의 캠페인만 Variant를 삭제할 수 있습니다 (현재: ${campaign.status})` },
@@ -227,26 +233,26 @@ export async function DELETE(
       await prisma.campaignVariant.delete({
         where: {
           campaignId_variantKey: {
-            campaignId: params.id,
-            variantKey: params.key as 'A' | 'B',
+            campaignId: resolvedParams.id,
+            variantKey: resolvedParams.key as 'A' | 'B',
           },
         },
       });
 
       logger.info(
         `[DELETE /variants/[key]] Variant deleted`,
-        { campaignId: params.id, key: params.key, orgId }
+        { campaignId: resolvedParams.id, key: resolvedParams.key, orgId }
       );
 
       return NextResponse.json({
         ok: true,
-        message: `Variant ${params.key} deleted`,
+        message: `Variant ${resolvedParams.key} deleted`,
       });
     } catch (deleteError) {
       if ((deleteError as any).code === 'P2025') {
         logger.warn(
           `[DELETE /variants/[key]] Variant not found during deletion`,
-          { campaignId: params.id, key: params.key }
+          { campaignId: resolvedParams.id, key: resolvedParams.key }
         );
         return NextResponse.json(
           { error: 'Variant not found' },
@@ -259,7 +265,7 @@ export async function DELETE(
     logger.error(
       '[DELETE /variants/[key]] Unexpected error',
       error,
-      { campaignId: params.id, key: params.key }
+      { campaignId: resolvedParams.id, key: resolvedParams.key }
     );
     return NextResponse.json(
       { error: 'Internal server error' },

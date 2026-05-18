@@ -4663,7 +4663,7 @@ model CampaignVariant {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  campaign     CrmMarketingCampaign @relation("CampaignVariants", fields: [campaignId], references: [id], onDelete: Cascade)
+  campaign     CrmMarketingCampaign @relation("CampaignVariants", fields: [campaignId], references: [id], onDelete: Restrict)
 
   @@unique([campaignId, variantKey])
   @@index([campaignId, isActive])

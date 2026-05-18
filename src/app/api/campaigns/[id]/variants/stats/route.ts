@@ -59,16 +59,19 @@ import {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // 1. 인증 확인
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
 
+    // params가 Promise인 경우 await
+    const resolvedParams = await params;
+
     // 2. IDOR 방지: Campaign의 organizationId 확인
     const campaign = await prisma.crmMarketingCampaign.findUnique({
-      where: { id: params.id },
+      where: { id: resolvedParams.id },
       select: {
         id: true,
         organizationId: true,
@@ -79,7 +82,7 @@ export async function GET(
 
     if (!campaign || campaign.organizationId !== orgId) {
       logger.warn('[GET /variants/stats] Campaign not found or unauthorized', {
-        campaignId: params.id,
+        campaignId: resolvedParams.id,
         orgId,
       });
       return NextResponse.json(
@@ -91,7 +94,7 @@ export async function GET(
     // 3. SendingHistory에서 variantKey, status별 집계
     const stats = await prisma.sendingHistory.groupBy({
       by: ['variantKey', 'status'],
-      where: { campaignId: params.id },
+      where: { campaignId: resolvedParams.id },
       _count: { id: true },
     });
 
@@ -201,7 +204,7 @@ export async function GET(
     const response = {
       ok: true,
       campaign: {
-        id: params.id,
+        id: resolvedParams.id,
         title: campaign.title,
         status: campaign.status,
       },
@@ -220,7 +223,7 @@ export async function GET(
     };
 
     logger.info('[GET /variants/stats] Analysis complete', {
-      campaignId: params.id,
+      campaignId: resolvedParams.id,
       variantCount: Object.keys(variantData).length,
       recommendation,
       significance: chiSquareResult?.isSignificant,
@@ -230,7 +233,7 @@ export async function GET(
   } catch (error) {
     logger.error('[GET /variants/stats] Error', {
       error,
-      campaignId: params.id,
+      campaignId: resolvedParams.id,
     });
 
     return NextResponse.json(

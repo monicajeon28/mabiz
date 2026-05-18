@@ -32,16 +32,19 @@ import {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // 1. 인증 확인
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
 
+    // params가 Promise인 경우 await
+    const resolvedParams = await params;
+
     // 2. IDOR 방지: Campaign의 organizationId 확인
     const campaign = await prisma.crmMarketingCampaign.findUnique({
-      where: { id: params.id },
+      where: { id: resolvedParams.id },
       select: {
         id: true,
         organizationId: true,
@@ -50,7 +53,7 @@ export async function GET(
 
     if (!campaign) {
       logger.warn(
-        `[GET /variants] Campaign not found: ${params.id}`,
+        `[GET /variants] Campaign not found: ${resolvedParams.id}`,
         { orgId }
       );
       return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
@@ -59,7 +62,7 @@ export async function GET(
     if (campaign.organizationId !== orgId) {
       logger.warn(
         `[GET /variants] IDOR attempt: user orgId=${orgId}, campaign orgId=${campaign.organizationId}`,
-        { campaignId: params.id }
+        { campaignId: resolvedParams.id }
       );
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -69,7 +72,7 @@ export async function GET(
 
     // 3. Variant 조회
     const variants = await prisma.campaignVariant.findMany({
-      where: { campaignId: params.id },
+      where: { campaignId: resolvedParams.id },
       select: {
         id: true,
         variantKey: true,
@@ -85,7 +88,7 @@ export async function GET(
 
     logger.info(
       `[GET /variants] Retrieved ${variants.length} variants`,
-      { campaignId: params.id, orgId }
+      { campaignId: resolvedParams.id, orgId }
     );
 
     return NextResponse.json({
@@ -95,7 +98,7 @@ export async function GET(
     });
   } catch (error) {
     logger.error('[GET /variants] Unexpected error', error, {
-      campaignId: params.id,
+      campaignId: resolvedParams.id,
     });
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -123,16 +126,19 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // 1. 인증 확인
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
 
+    // params가 Promise인 경우 await
+    const resolvedParams = await params;
+
     // 2. IDOR 방지 + 캠페인 상태 확인
     const campaign = await prisma.crmMarketingCampaign.findUnique({
-      where: { id: params.id },
+      where: { id: resolvedParams.id },
       select: {
         id: true,
         organizationId: true,
@@ -142,7 +148,7 @@ export async function POST(
 
     if (!campaign) {
       logger.warn(
-        `[POST /variants] Campaign not found: ${params.id}`,
+        `[POST /variants] Campaign not found: ${resolvedParams.id}`,
         { orgId }
       );
       return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
@@ -151,7 +157,7 @@ export async function POST(
     if (campaign.organizationId !== orgId) {
       logger.warn(
         `[POST /variants] IDOR attempt`,
-        { campaignId: params.id, orgId }
+        { campaignId: resolvedParams.id, orgId }
       );
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -163,7 +169,7 @@ export async function POST(
     if (campaign.status !== 'DRAFT') {
       logger.warn(
         `[POST /variants] Cannot create variant for non-DRAFT campaign`,
-        { campaignId: params.id, status: campaign.status }
+        { campaignId: resolvedParams.id, status: campaign.status }
       );
       return NextResponse.json(
         { error: `DRAFT 상태의 캠페인만 Variant를 생성할 수 있습니다 (현재: ${campaign.status})` },
@@ -199,7 +205,7 @@ export async function POST(
     const existing = await prisma.campaignVariant.findUnique({
       where: {
         campaignId_variantKey: {
-          campaignId: params.id,
+          campaignId: resolvedParams.id,
           variantKey: variantKey,
         },
       },
@@ -208,7 +214,7 @@ export async function POST(
     if (existing) {
       logger.warn(
         `[POST /variants] Variant already exists`,
-        { campaignId: params.id, variantKey }
+        { campaignId: resolvedParams.id, variantKey }
       );
       return NextResponse.json(
         { error: `Variant ${variantKey}는 이미 존재합니다` },
@@ -219,7 +225,7 @@ export async function POST(
     // 6. Variant 생성
     const variant = await prisma.campaignVariant.create({
       data: {
-        campaignId: params.id,
+        campaignId: resolvedParams.id,
         variantKey,
         smsBody: smsBody || null,
         emailSubject: emailSubject || null,
@@ -231,7 +237,7 @@ export async function POST(
 
     logger.info(
       `[POST /variants] Variant created`,
-      { campaignId: params.id, variantKey, orgId }
+      { campaignId: resolvedParams.id, variantKey, orgId }
     );
 
     return NextResponse.json(
@@ -245,7 +251,7 @@ export async function POST(
     logger.error(
       '[POST /variants] Unexpected error',
       error,
-      { campaignId: params.id }
+      { campaignId: resolvedParams.id }
     );
     return NextResponse.json(
       { error: 'Internal server error' },

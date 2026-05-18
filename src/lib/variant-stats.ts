@@ -124,7 +124,7 @@ export function determineConfidenceLevel(
     return "LOW";  // p >= 0.05: 차이 없음
   }
 
-  if (cramersV > 0.3) {
+  if (cramersV >= 0.3) {
     return "HIGH";  // 유의미 + 효과 크기 큼
   }
 
