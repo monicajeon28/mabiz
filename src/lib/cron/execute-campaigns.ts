@@ -48,6 +48,7 @@ const RETRY_DELAYS = [
  * 함수 1: 캠페인 메시지 배치 발송
  * - SMS/Email 실제 발송
  * - 배치 처리 (50건씩, Promise.all)
+ * - 배치-로드 패턴으로 N+1 쿼리 최적화
  * - SendingHistory에 기록
  * - 반환: { sent, failed, skipped }
  */
@@ -76,6 +77,14 @@ export async function executeCampaignMessages(
     // 배치 단위로 처리
     for (let i = 0; i < contactIds.length; i += BATCH_SIZE) {
       const batch = contactIds.slice(i, i + BATCH_SIZE);
+
+      // 배치-로드: 이번 배치의 모든 contact를 한 번에 조회 (N+1 최적화)
+      const contacts = await db.contact.findMany({
+        where: { id: { in: batch } },
+        select: { id: true, phone: true, email: true },
+      });
+      const contactMap = new Map(contacts.map(c => [c.id, c]));
+
       const results = await Promise.allSettled(
         batch.map(async (contactId) => {
           const result = await sendSingleMessage({
@@ -85,6 +94,7 @@ export async function executeCampaignMessages(
             channel,
             messageBody,
             messageSubject,
+            preloadedContact: contactMap.get(contactId),
           });
           return result;
         })
@@ -118,6 +128,7 @@ export async function executeCampaignMessages(
 
 /**
  * 개별 메시지 발송 (내부 함수)
+ * @param preloadedContact - 배치-로드된 contact (N+1 쿼리 최적화)
  */
 async function sendSingleMessage(params: {
   campaignId: string;
@@ -126,12 +137,13 @@ async function sendSingleMessage(params: {
   channel: "SMS" | "EMAIL";
   messageBody: string;
   messageSubject?: string;
+  preloadedContact?: { id: string; phone: string | null; email: string | null };
 }): Promise<{ contactId: string; status: SendingStatus; failureReason?: SendingFailureReason }> {
-  const { campaignId, organizationId, contactId, channel, messageBody, messageSubject } = params;
+  const { campaignId, organizationId, contactId, channel, messageBody, messageSubject, preloadedContact } = params;
 
   try {
-    // Contact 조회
-    const contact = await db.contact.findUnique({
+    // Contact: 프리로드된 연락처 사용, 또는 개별 조회 (재시도 케이스)
+    const contact = preloadedContact || await db.contact.findUnique({
       where: { id: contactId },
       select: { id: true, phone: true, email: true },
     });
