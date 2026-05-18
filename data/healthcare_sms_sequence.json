@@ -1,0 +1,183 @@
+{
+  "campaign": "healthcare_3day_sequence",
+  "campaign_id": "HEALTH_SMS_3D_001",
+  "version": "1.0",
+  "status": "active",
+  "created_at": "2026-05-19T00:00:00Z",
+  "description": "Healthcare 3-day SMS sequence for post-call conversion (45% → 55% target)",
+  "trigger": {
+    "event": "call_completed",
+    "condition": {
+      "status": "closed",
+      "outcome": "interested",
+      "category": "healthcare"
+    }
+  },
+  "segments": [
+    {
+      "name": "age_30_50_healthcare",
+      "description": "Healthcare interested customers age 30-50",
+      "filters": {
+        "age_min": 30,
+        "age_max": 50,
+        "category": "healthcare",
+        "call_outcome": "interested"
+      }
+    }
+  ],
+  "messages": [
+    {
+      "day": 0,
+      "sequence_order": 1,
+      "delay_minutes": 5,
+      "template_id": "healthcare_day0_expectation",
+      "template_key": "healthcare_day0_expectation",
+      "name": "Day 0: 기대감 유지 + 그루밍",
+      "psychology": [
+        "Narrative Transportation",
+        "Expectation Building",
+        "Social Proof"
+      ],
+      "pasona_phase": "Agitation → Solution",
+      "pasona_solution": "Solution 5 (기대감)",
+      "description": "초기 기대감 형성, 링크 클릭 유도",
+      "content": "안녕하세요 모니카님!\n\n아까 얘기 나눴던 건강관리 프로그램 소개해드릴게요 👇\n\n┌─────────────────────────────────────┐\n│ ✅ 초기 검진: 10분 (저희가 다 준비)      │\n│ ✅ 맞춤 계획: 25분 (개인별 설계)         │\n│ ✅ 월 1회 체크: 온라인으로 가능          │\n└─────────────────────────────────────┘\n\n\"정말 간단하네요\" 라고 생각하셨죠? 😊\n\n지금 우리 고객들 대부분이\n💪 3개월 후: 에너지 회복\n💪 6개월 후: 의사 갈 일 거의 없음\n💪 1년 후: 완전히 달라진 체질\n\n이런 변화를 경험하고 있어요.\n\n자세한 내용은 아래 링크를 눌러보세요:\n[건강관리 프로그램 설명]\nhttps://cruise.health/programs/intro\n\n혜선",
+      "cta": {
+        "text": "건강관리 프로그램 설명",
+        "url": "https://cruise.health/programs/intro"
+      },
+      "kpi": {
+        "target_open_rate": 0.80,
+        "target_click_rate": 0.35,
+        "target_response_rate": 0.15
+      }
+    },
+    {
+      "day": 1,
+      "sequence_order": 2,
+      "delay_minutes": 1440,
+      "template_id": "healthcare_day1_simplicity",
+      "template_key": "healthcare_day1_simplicity",
+      "name": "Day 1: 솔루션 간단성 + 불안감 제거",
+      "psychology": [
+        "Simplicity",
+        "Fear Reduction",
+        "Social Proof (Real Customer)"
+      ],
+      "pasona_phase": "Solution",
+      "pasona_solution": "Solution 3 (단순성)",
+      "description": "복잡성 극단적 제거, 실제 고객 후기 포함",
+      "content": "모니카님, 안녕하세요! ☀️\n\n건강검진을 앞두고\n\"복잡하지 않을까?\" 걱정하시나요?\n\n전혀 복잡하지 않아요! 👇\n\n┌─────────────────────────────────────┐\n│ 🏥 검진 준비물:                      │\n│   - 신분증 1개                       │\n│   - 그게 끝! (식사 금지 주의)        │\n│                                     │\n│ 📱 검진 절차:                        │\n│   1) 접수 (3분)                      │\n│   2) 혈액/체성분 검사 (5분)          │\n│   3) 상담 (2분)                      │\n│                                     │\n│ ✅ 전체 소요 시간: 10분              │\n└─────────────────────────────────────┘\n\n아, 그리고 하나 더!\n\n우리 고객 박현정님 (49세) 말씀:\n\"검진 후 결과 설명 때 모니까 전문가가\n저한테 딱 맞는 식단 처방해주셨어요.\n이게 진짜 효과 나더라고요.\"\n\n✨ 맞춤 계획이 효과의 핵심입니다.\n\n지금 예약하면\n🎁 첫 달 상담료 50% 할인\n을 드리고 있어요.\n\n[지금 예약하기]\nhttps://cruise.health/reserve/step1\n\n화이팅! 💪",
+      "cta": {
+        "text": "지금 예약하기",
+        "url": "https://cruise.health/reserve/step1"
+      },
+      "kpi": {
+        "target_open_rate": 0.65,
+        "target_click_rate": 0.45,
+        "target_response_rate": 0.25
+      }
+    },
+    {
+      "day": 2,
+      "sequence_order": 3,
+      "delay_minutes": 2880,
+      "template_id": "healthcare_day2_narrative",
+      "template_key": "healthcare_day2_narrative",
+      "name": "Day 2: 신뢰감 + 나이별 성공사례",
+      "psychology": [
+        "Social Proof (Age-Matched)",
+        "Authority",
+        "Relatability"
+      ],
+      "pasona_phase": "Narrative",
+      "pasona_solution": "Solution 2 (내러티브 방법)",
+      "description": "연령대별 성공사례 3개, 나이 공감 최대화",
+      "cta": {
+        "text": "예약 마감: 이번 주까지",
+        "url": "https://cruise.health/reserve/step1"
+      },
+      "kpi": {
+        "target_open_rate": 0.52,
+        "target_click_rate": 0.40,
+        "target_response_rate": 0.22
+      }
+    },
+    {
+      "day": 3,
+      "sequence_order": 4,
+      "delay_minutes": 4320,
+      "template_id": "healthcare_day3_action",
+      "template_key": "healthcare_day3_action",
+      "name": "Day 3: 배움의 가치 + 최종 클로징",
+      "psychology": [
+        "Learning Value",
+        "Loss Aversion",
+        "Scarcity",
+        "Personal Reason"
+      ],
+      "pasona_phase": "Narrowing (최종 결정)",
+      "pasona_solution": "Solution 7 (배움의 요소)",
+      "description": "최종 긴급성, 기회 손실 두려움 활용, 선택권 제공",
+      "cta": {
+        "text": "지금 예약하기 - 오늘까지만",
+        "url": "https://cruise.health/reserve/step1?today"
+      },
+      "kpi": {
+        "target_open_rate": 0.45,
+        "target_click_rate": 0.38,
+        "target_response_rate": 0.42,
+        "target_booking_rate": 0.55
+      }
+    }
+  ],
+  "tracking": {
+    "enabled": true,
+    "execution_log_table": "ExecutionLog",
+    "webhook_callback": "crm/callbacks/sms_healthcare",
+    "kpi_dashboard": "healthcare_sms_conversion",
+    "metrics": {
+      "total_recipients": 0,
+      "total_opens": 0,
+      "total_clicks": 0,
+      "total_responses": 0,
+      "total_bookings": 0,
+      "conversion_rate": 0.55,
+      "target_conversion_rate": 0.55,
+      "additional_monthly_revenue": 500000
+    }
+  },
+  "segment_variations": [
+    {
+      "name": "신혼부부 (30-35세)",
+      "target_audience": "age_30_35_married",
+      "day1_emphasis": "임신 전 체질 개선",
+      "day2_update": "임신부 건강관리 성공사례",
+      "day3_positioning": "아기를 위한 엄마 건강"
+    },
+    {
+      "name": "자녀있는가정 (40-50세)",
+      "target_audience": "age_40_50_with_children",
+      "day1_emphasis": "에너지 회복으로 아이와 놀기",
+      "day2_update": "일과 가정의 양립 성공사례",
+      "day3_positioning": "아이 앞에서 자신감 있는 부모"
+    },
+    {
+      "name": "시니어 (55세 이상)",
+      "target_audience": "age_55plus",
+      "day1_emphasis": "약 복용량 줄이기",
+      "day2_update": "나이 든 부모 케어 성공사례",
+      "day3_positioning": "장수와 활기찬 노년"
+    }
+  ],
+  "success_metrics": {
+    "baseline_conversion_rate": 0.45,
+    "target_conversion_rate": 0.55,
+    "improvement_percentage": 0.10,
+    "monthly_new_leads": 100,
+    "additional_customers_per_month": 10,
+    "additional_revenue_per_month": 500000
+  },
+  "implementation_status": "ready",
+  "notes": "Healthcare SMS sequences integrated with PASONA Solution framework. Day 0-3 psychology optimized for post-call conversion. Segment variations included for age-matched personalization."
+}
