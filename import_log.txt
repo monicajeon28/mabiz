@@ -1,0 +1,33 @@
+(node:36524) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/mabiz-crm/scripts/import-bot-guide-answers.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\mabiz-crm\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+D:\mabiz-crm\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:336
+        throw new PrismaClientInitializationError(
+              ^
+PrismaClientInitializationError: `PrismaClient` needs to be constructed with a non-empty, valid `PrismaClientOptions`:
+
+```
+new PrismaClient({
+  ...
+})
+```
+
+or
+
+```
+constructor() {
+  super({ ... });
+}
+```
+          
+    at new t (D:\mabiz-crm\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:336:15)
+    at file:///D:/mabiz-crm/scripts/import-bot-guide-answers.ts:42:14
+    at ModuleJob.run (node:internal/modules/esm/module_job:430:25)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:661:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  clientVersion: '7.8.0',
+  errorCode: undefined,
+  retryable: undefined
+}

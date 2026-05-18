@@ -44,6 +44,7 @@ model Organization {
   b2bProspects               B2BProspect[]
   b2bLandingPages            B2BLandingPage[]
   partnerSuspensions         PartnerSuspension[]
+  marketingCampaigns         CrmMarketingCampaign[]       @relation("CrmMarketing")
 }
 
 model OrgSmsConfig {
@@ -210,6 +211,7 @@ model ContactGroup {
   landingPages      CrmLandingPage[]
   b2bLandingPages   B2BLandingPage[]
   tokens            GroupToken[]
+  marketingCampaigns CrmMarketingCampaign[]  @relation("CrmMarketing")
 
   @@index([organizationId])
   @@index([ownerId])
@@ -4389,4 +4391,33 @@ model RecaptchaVerification {
   @@index([expiresAt])
   @@index([createdAt])
   @@map("RecaptchaVerification")
+}
+
+model CrmMarketingCampaign {
+  id               String                @id @default(cuid())
+  organizationId   String
+  groupId          String
+  title            String
+  sendEmail        Boolean               @default(false)
+  emailSubject     String?
+  emailBody        String?
+  sendSms          Boolean               @default(false)
+  smsBody          String?
+  includeLanding   Boolean               @default(false)
+  landingUrl       String?
+  landingLinkText  String?
+  sendAt           DateTime
+  repeatRule       String?
+  totalCount       Int                   @default(0)
+  sentCount        Int                   @default(0)
+  status           String                @default("DRAFT")
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  organization     Organization          @relation("CrmMarketing", fields: [organizationId], references: [id], onDelete: Cascade)
+  group            ContactGroup          @relation("CrmMarketing", fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([groupId])
+  @@index([status])
+  @@map("CrmMarketingCampaign")
 }

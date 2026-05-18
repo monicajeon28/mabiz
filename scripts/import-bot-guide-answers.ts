@@ -42,12 +42,21 @@ async function main() {
   console.log("🚀 세일즈봇 Q&A 데이터 임포트 시작...");
 
   try {
-    // JSON 파일 읽기
-    const dataPath = path.join(
+    // JSON 파일 읽기 - MSC 2026-05 데이터
+    let dataPath = path.join(
       __dirname,
       "..",
-      "docs/고객질문리스트/questions_rag_memory_with_tone.json"
+      "docs/고객질문리스트/questions_rag_msc_2026_05.json"
     );
+
+    // MSC 파일이 없으면 기본 파일 사용
+    if (!require("fs").existsSync(dataPath)) {
+      dataPath = path.join(
+        __dirname,
+        "..",
+        "docs/고객질문리스트/questions_rag_memory_with_tone.json"
+      );
+    }
 
     if (!fs.existsSync(dataPath)) {
       console.error(`❌ 데이터 파일을 찾을 수 없습니다: ${dataPath}`);

@@ -21,8 +21,13 @@ export default function NewCampaignPage() {
     groupId: '',
     title: '',
     sendEmail: false,
+    emailSubject: '',
+    emailBody: '',
     sendSms: true,
+    smsBody: '',
     includeLanding: true,
+    landingUrl: '',
+    landingLinkText: '',
     sendAt: new Date().toISOString().slice(0, 16),
     repeatRule: '',
   });
@@ -55,6 +60,18 @@ export default function NewCampaignPage() {
     }
     if (!formData.sendEmail && !formData.sendSms && !formData.includeLanding) {
       alert('최소 하나의 메시지 채널을 선택하세요.');
+      return;
+    }
+    if (formData.sendEmail && (!formData.emailSubject || !formData.emailBody)) {
+      alert('이메일 제목과 본문을 입력하세요.');
+      return;
+    }
+    if (formData.sendSms && !formData.smsBody) {
+      alert('문자 본문을 입력하세요.');
+      return;
+    }
+    if (formData.includeLanding && (!formData.landingUrl || !formData.landingLinkText)) {
+      alert('랜딩 URL과 표시 텍스트를 입력하세요.');
       return;
     }
 
@@ -134,48 +151,117 @@ export default function NewCampaignPage() {
         </div>
       )}
 
-      {/* 메시지 선택 단계 */}
+      {/* 메시지 선택 및 작성 단계 */}
       {step === 'message' && (
         <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-          <h2 className="text-xl font-semibold">2단계: 메시지 선택</h2>
-          <p className="text-gray-600">어떤 채널로 메시지를 보낼지 선택하세요. (복수 선택 가능)</p>
+          <h2 className="text-xl font-semibold">2단계: 메시지 선택 및 작성</h2>
+          <p className="text-gray-600">각 채널별로 메시지 내용을 작성하세요.</p>
 
-          <div className="space-y-3">
-            <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.sendEmail}
-                onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
-              />
-              <div>
-                <div className="font-medium">📧 이메일</div>
-                <div className="text-sm text-gray-600">메일 주소로 메시지 발송</div>
-              </div>
-            </label>
+          <div className="space-y-6">
+            {/* 📧 이메일 */}
+            <div className="border rounded-lg p-4 space-y-3">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.sendEmail}
+                  onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
+                />
+                <span className="font-medium">📧 이메일</span>
+              </label>
 
-            <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.sendSms}
-                onChange={(e) => setFormData({ ...formData, sendSms: e.target.checked })}
-              />
-              <div>
-                <div className="font-medium">💬 문자 (SMS)</div>
-                <div className="text-sm text-gray-600">휴대폰으로 문자 발송</div>
-              </div>
-            </label>
+              {formData.sendEmail && (
+                <div className="ml-6 space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">제목</label>
+                    <input
+                      type="text"
+                      value={formData.emailSubject}
+                      onChange={(e) => setFormData({ ...formData, emailSubject: e.target.value })}
+                      placeholder="예: 5월 특별 할인 안내"
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">본문</label>
+                    <textarea
+                      value={formData.emailBody}
+                      onChange={(e) => setFormData({ ...formData, emailBody: e.target.value })}
+                      placeholder="이메일 본문을 작성하세요..."
+                      rows={4}
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
 
-            <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.includeLanding}
-                onChange={(e) => setFormData({ ...formData, includeLanding: e.target.checked })}
-              />
-              <div>
-                <div className="font-medium">🔗 랜딩 링크</div>
-                <div className="text-sm text-gray-600">추적 가능한 랜딩 페이지 링크 포함</div>
-              </div>
-            </label>
+            {/* 💬 문자 */}
+            <div className="border rounded-lg p-4 space-y-3">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.sendSms}
+                  onChange={(e) => setFormData({ ...formData, sendSms: e.target.checked })}
+                />
+                <span className="font-medium">💬 문자 (SMS)</span>
+              </label>
+
+              {formData.sendSms && (
+                <div className="ml-6 space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">본문</label>
+                    <textarea
+                      value={formData.smsBody}
+                      onChange={(e) => setFormData({ ...formData, smsBody: e.target.value.slice(0, 90) })}
+                      placeholder="문자 본문 (한글 최대 90자)"
+                      maxLength={90}
+                      rows={2}
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {formData.smsBody.length}/90자
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 🔗 랜딩 링크 */}
+            <div className="border rounded-lg p-4 space-y-3">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.includeLanding}
+                  onChange={(e) => setFormData({ ...formData, includeLanding: e.target.checked })}
+                />
+                <span className="font-medium">🔗 랜딩 링크</span>
+              </label>
+
+              {formData.includeLanding && (
+                <div className="ml-6 space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">링크 URL</label>
+                    <input
+                      type="url"
+                      value={formData.landingUrl}
+                      onChange={(e) => setFormData({ ...formData, landingUrl: e.target.value })}
+                      placeholder="https://example.com"
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">표시 텍스트</label>
+                    <input
+                      type="text"
+                      value={formData.landingLinkText}
+                      onChange={(e) => setFormData({ ...formData, landingLinkText: e.target.value })}
+                      placeholder="예: 지금 신청하기"
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex gap-2">
@@ -184,7 +270,12 @@ export default function NewCampaignPage() {
             </Button>
             <Button
               onClick={() => setStep('schedule')}
-              disabled={!formData.sendEmail && !formData.sendSms && !formData.includeLanding}
+              disabled={
+                (!formData.sendEmail && !formData.sendSms && !formData.includeLanding) ||
+                (formData.sendEmail && (!formData.emailSubject || !formData.emailBody)) ||
+                (formData.sendSms && !formData.smsBody) ||
+                (formData.includeLanding && (!formData.landingUrl || !formData.landingLinkText))
+              }
               className="flex-1"
             >
               다음
@@ -270,7 +361,30 @@ export default function NewCampaignPage() {
                   .join(' + ')}
               </p>
             </div>
-            <div>
+
+            {formData.sendEmail && (
+              <div className="border-t pt-3">
+                <p className="text-sm text-gray-600">📧 이메일</p>
+                <p className="text-sm font-medium">제목: {formData.emailSubject}</p>
+                <p className="text-sm whitespace-pre-wrap">{formData.emailBody}</p>
+              </div>
+            )}
+
+            {formData.sendSms && (
+              <div className="border-t pt-3">
+                <p className="text-sm text-gray-600">💬 문자</p>
+                <p className="text-sm whitespace-pre-wrap">{formData.smsBody}</p>
+              </div>
+            )}
+
+            {formData.includeLanding && (
+              <div className="border-t pt-3">
+                <p className="text-sm text-gray-600">🔗 랜딩 링크</p>
+                <p className="text-sm">{formData.landingLinkText} → {formData.landingUrl}</p>
+              </div>
+            )}
+
+            <div className="border-t pt-3">
               <p className="text-sm text-gray-600">발송 시각</p>
               <p className="font-medium">{new Date(formData.sendAt).toLocaleString('ko-KR')}</p>
             </div>

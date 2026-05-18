@@ -1,0 +1,2897 @@
+{
+  "version": "2026-05-18",
+  "updated": "2026-05-18T08:47:56.670950",
+  "total": 145,
+  "categories": [
+    "객실&카드",
+    "기술&앱",
+    "기타",
+    "기항지&투어",
+    "선상활동",
+    "식사&음료",
+    "정책&수수료",
+    "탑승&수속"
+  ],
+  "questions": [
+    {
+      "id": "msc2605_1_0001",
+      "question": "[실전문제] 2026.05.10 MSC 벨리시마호 1항차 여행을 하며 마주한 문제 기록",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "MSC",
+        "벨리시마호",
+        "탑승",
+        "2026.05.10"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0002",
+      "question": "[실전문제] 매일 식당(뷔페, 정찬) 메뉴가 다른것도 모름",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "식당(뷔페,",
+        "메뉴가",
+        "정찬)",
+        "매일"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0003",
+      "question": "[실전문제] 조식 룸서비스 무료 이용 모름\n\n(조식 룸서비스 무료였던건 항차마다 다른걸로 알아요 이번 항차가 조식 무료서비스 되는 거였어서 무료였어요)",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "무료",
+        "이용",
+        "조식",
+        "식사"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0004",
+      "question": "[실전문제] 수건(비치타올) 다시 객시로 가져와야되는지 몰라서 벌금",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "객실&카드",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "카드",
+        "수건(비치타올)",
+        "가져와야되는지",
+        "객실",
+        "[실전문제]"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0005",
+      "question": "[실전문제] 공연 예약하는 방법을 몰라서 우왕자왕",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "선상활동",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "예약",
+        "예약하는",
+        "공연",
+        "워터슬라이드",
+        "몰라서"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0006",
+      "question": "[실전문제] 정찬 식당 무료인지 모름 (너무 고급스러워서)",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "무료인지",
+        "탑승",
+        "식당",
+        "모름"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0007",
+      "question": "[실전문제] 정찬식당 아침, 점심에도 운영을 안하는줄 알고 못즐김",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "아침,",
+        "운영을",
+        "점심에도",
+        "정찬식당"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0008",
+      "question": "[실전문제] 뷔페 시간이 정해져 있는줄 알고, 충분히 못즐김",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "뷔페",
+        "시간이",
+        "탑승",
+        "정해져"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0009",
+      "question": "[실전문제] 워터슬라이드, 워터파크 어디로 가야되는지 모르고, 길 헤매느라 다리 아프고 시간 버림",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "워터슬라이드,",
+        "탑승",
+        "워터파크",
+        "어디로"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0010",
+      "question": "[실전문제] 와이파이 연결하는 방법을 모름",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "와이파이",
+        "탑승",
+        "연결하는",
+        "모름"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0011",
+      "question": "[실전문제] 와이파이 유료 결제하고 싶은데 방법을 모름",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "정책&수수료",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "팁",
+        "와이파이",
+        "결제하고",
+        "250달러",
+        "유료"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0012",
+      "question": "[실전문제] 유료와이파이를 꼭 해야만 어플 이용할 수 있다고 생각함. (어플은 무료로 사용 가능, 식사메뉴, 식사시간, 지도, 공지사항, 중요 소식, 셔틀버스 운영, 크루즈에서 결제 내역, 채팅 등)",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "정책&수수료",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "팁",
+        "어플",
+        "이용할",
+        "250달러",
+        "해야만"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0013",
+      "question": "[실전문제] 크루즈 타기 전에 어플조차 다운 받지 않고 와서 어플 무료사용과 와이파이 결제를 못함 (배가 바다 한가운데에 있으면 로밍, 이심도 안되기 떄문에 어플 설치가 불가능)",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "기술&앱",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "와이파이",
+        "어플",
+        "어플조차",
+        "크루즈",
+        "타기"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0014",
+      "question": "[실전문제] 기항지 관광지에 도착해서 언제 돌아와야 되는지 모름",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "기항지&투어",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "가고시마",
+        "기항지",
+        "언제",
+        "관광지에",
+        "도착해서"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0015",
+      "question": "[실전문제] 기항지에서 입국 수속과 출국 수속을 어떻게 해야되는지 과정을 몰라서 두려움",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "탑승",
+        "입국",
+        "출국",
+        "기항지에서"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0016",
+      "question": "[실전문제] 안전교육을 받아야 되는데, 방법을 모름.",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "받아야",
+        "탑승",
+        "안전교육을",
+        "되는데,"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0017",
+      "question": "[실전문제] 안전교육을 하선 전날까지 받아도 되는데, 아침먹다가 갑자기 방송나와서 부랴부랴 이동하느라 스트레스 받음",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "탑승",
+        "안전교육을",
+        "받아도",
+        "하선"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0018",
+      "question": "[실전문제] 정찬레스토랑에서 점심, 저녁시간 때는 물이 무료인줄 알았는데 유료인걸 뒤늦게 알게 됨. (웨이터가 물 줄까? 하는데 여기서 받으면 유료임. 물 1병씩 계산됨)",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "정찬레스토랑에서",
+        "때는",
+        "저녁시간",
+        "식사"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0019",
+      "question": "[실전문제] 정찬레스토랑에서 아침에는 커피, 쥬스(파인애플, 사과), 우유, 초코라떼, 물이 무료인걸 몰라서 못즐김",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "정찬레스토랑에서",
+        "커피,",
+        "쥬스(파인애플,",
+        "식사"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0020",
+      "question": "[실전문제] 정찬레스토랑에서 먹고 싶은 메뉴 더 시켜먹을 수 있는데 추가 주문하면 유료인줄 알고 눈치보느라 누리지 못함",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "먹고",
+        "정찬레스토랑에서",
+        "싶은",
+        "메뉴"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0021",
+      "question": "[실전문제] 크루즈 쉽투어가 없어서 , 사전에 내가 즐기고 싶은 시설(극장, 식당, 워터파크, 풀장 등)이 어디있는지 몰라서 하루, 이틀을 길 잃어버리는데 시간 버림.",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "선상활동",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "예약",
+        "사전에",
+        "크루즈",
+        "공연",
+        "워터슬라이드"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0022",
+      "question": "[실전문제] 잘모르는 힐링장소를 알지 못해서 크루즈 200% 못즐김",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "잘모르는",
+        "탑승",
+        "힐링장소를",
+        "알지"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0023",
+      "question": "[실전문제] 창문 없는 오션뷰 뷔페 자리",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "뷔페",
+        "탑승",
+        "없는",
+        "창문"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0024",
+      "question": "[실전문제] 탁 트인 하늘, 바다를 예쁜 풀장이 어우러진 경치를 보며 앉아서 힐링하는 자리",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "바다를",
+        "탑승",
+        "트인",
+        "예쁜"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0025",
+      "question": "[실전문제] 휠체어 빌리는 방법을 몰라서 헤맴.",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "탑승",
+        "휠체어",
+        "몰라서",
+        "빌리는"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0026",
+      "question": "[실전문제] 객실 카드에 신용카드 등록방법을 모름",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "객실&카드",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "카드",
+        "등록방법을",
+        "객실",
+        "[실전문제]",
+        "신용카드"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0027",
+      "question": "[실전문제] 첫 크루즈 여행에서 체크인을 하고 크루즈에 탑승하면 뭐부터 해야되는지 몰라서 우왕자왕하고, 시간과 에너지 버림",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "탑승",
+        "크루즈",
+        "체크인을",
+        "여행에서"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0028",
+      "question": "[실전문제] 기항지 관광에서 현지 지역에서 운영하는 무료 셔틀 버스가 있는지 정보 확인을 못함.",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "기항지&투어",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "가고시마",
+        "현지",
+        "기항지",
+        "지역에서",
+        "관광에서"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0029",
+      "question": "[실전문제] 무료 셔틀이 없을때, 선사에서 제공하는 유료 셔틀버스를 어떻게 이용해야되는지 모름.",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "정책&수수료",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "팁",
+        "무료",
+        "250달러",
+        "셔틀이",
+        "선사에서"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0030",
+      "question": "[실전문제]  어플에 체크안 안된다고 뜨는건 벨리시마 와이파이 접속을 해야뜸!!",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "기술&앱",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "어플에",
+        "와이파이",
+        "어플",
+        "앱",
+        "뜨는건"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0031",
+      "question": "[실전문제] 고객들중에 뭐가 유료고 뭐가 무료인지 모름",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "정책&수수료",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "팁",
+        "250달러",
+        "뭐가",
+        "고객들중에",
+        "수수료"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0032",
+      "question": "[실전문제] 250달러로 한번에 미리 긁히는건 사용자의 카드사, 카드한도, 신용등급에 기인한걸로 사료됨",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "정책&수수료",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "긁히는건",
+        "팁",
+        "한번에",
+        "250달러로",
+        "250달러"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0033",
+      "question": "[실전문제] 일부 고객 선상팁과 별개로 돈이 빠져나가는거 먼저 긁히고 긁힌 금액이 먼저 차감되서 250보다 덜쓰면 덜받고 더쓰면 더받는 형식임",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "탑승",
+        "일부",
+        "고객",
+        "별개로"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0034",
+      "question": "[실전문제] 다 그런건 아니지만 자유여행을 하시는분들은 추가적인 비용지출에 대한 고통이 있음.(와이파이 음료 등등)",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "자유여행을",
+        "탑승",
+        "아니지만",
+        "그런건"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0035",
+      "question": "[실전문제] 가고시마는 무조건 투어 신청하는게 이득임.\n(크루즈 터미널이 공업항구에 설치되어 있다면 지역불문하고 통용되는 말임)",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "기항지&투어",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "가고시마",
+        "투어",
+        "신청하는게",
+        "기항지",
+        "[실전문제]"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0036",
+      "question": "[실전문제] MSC콘시어지는 한국어로 적어도 인식가능함(어플)",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "기술&앱",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "와이파이",
+        "어플",
+        "한국어로",
+        "인식가능함(어플)",
+        "앱"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0037",
+      "question": "[실전문제] * 객실은 멀고 화장실은 급할때 배중앙 메인엘리베이터 뒷편이 화장실임",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "탑승",
+        "멀고",
+        "급할때",
+        "화장실은"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_1_0038",
+      "question": "[실전문제] 새벽 1시부터 모든 구역에서 청소를 시작함\n그리고 메인안내데스크(리셉션 데스크)는 1명만 남고 퇴근함 ",
+      "answer": "이것은 MSC 크루즈 탑승 관련 문제입니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 교육자료",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "새벽",
+        "탑승",
+        "1시부터",
+        "모든"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0001",
+      "question": "정찬복장은 굳이 안입어도 출입이 가능한가요?",
+      "answer": "될 수 있으면 입고가는게 좋아요. 그렇다고 왠만해서 제지하지는 않는데, 반바지 입고 슬리퍼 신고 오신분은 입구에서 막히는건 봤습니다",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "가능한가요?",
+        "출입이",
+        "굳이",
+        "정찬복장은"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0002",
+      "question": "정찬레스토랑은 하루에 한 번만 이용 가능한가요? 아침에도 하나요?",
+      "answer": "아침, 점심은 자유 좌석으로 가능합니다. 저녁에는 지정좌석에서 식사를 하셔야 됩니다 \n\n- 아침, 점심은 항차마다 라이트하우스에서 먹기도하고, 옆 레스토랑에서 먹게하기도함. 2026.05.10 크루즈에서는 일리레스토랑에서 먹게함\n- 점심, 저녁에 지정식당과 지정 좌석에서 먹어야 될때도 있음",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "하루에",
+        "가능한가요?",
+        "이용",
+        "번만"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0003",
+      "question": "배 안에서 휠체어도 빌릴 수 있나요?",
+      "answer": "휠체어는 비상시에만 사용가능 하기에 경량 휠체어를 미리 준비하시는게 좋습니다\n아래 크루즈 여행할때 많이 찾으셨던 휠체어 상세페이지도 공유해 드립니다~~!\n https://m.smartstore.naver.com/the-camp/products/8815870269?nl-query=%EC%A0%91%EC%9D%B4%EC%8B%9D+%ED%9C%A0%EC%B2%B4%EC%96%B4+%EA%B0%80%EA%B2%A9&nl-ts-pid=jv%2BOcdqosKwssc89WJ8ssssstQs-113228\n\n\n- 2026.05.10 MSC 벨리시마호에서는 휠체어를 빌려주는 장소와 빌려주는 직원도 있었음",
+      "category": "기타",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "휠체어도",
+        "있나요?",
+        "안에서",
+        "빌릴"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0004",
+      "question": "크루즈 티켓은 언제 받나요?",
+      "answer": "개인정보가 담긴 티켓이라 담당매니저께서 소통해드리고 전달드리고 있습니다",
+      "category": "기타",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "크루즈",
+        "티켓은",
+        "언제",
+        "받나요?"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0005",
+      "question": "선내 전압코드는 220v인가요?",
+      "answer": "220V, 110V 모두 사용 가능합니다.\n\n(전기 콘센트 정보 있는 이미지 캡쳐)",
+      "category": "기타",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "220v인가요?",
+        "전압코드는",
+        "선내"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0006",
+      "question": "카드 목걸이는 주나요?",
+      "answer": "자유여해이기때문에 개인이 준비하셔야 됩니다. 혹시 몰라 저희가 준비해가지만, 개인이 준비하시면 좋습니다.",
+      "category": "객실&카드",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "카드",
+        "객실",
+        "주나요?",
+        "목걸이는",
+        "신용카드"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0007",
+      "question": "기항지에서 여권 받을 수 있나요?",
+      "answer": "크루즈 특성상 기항지에서 여권을 받을 수 없습니다.\n\n- 2026.05.10 도쿄 출발 크루즈는 여권을 가져가지 않음. 5월12일 고베에서 기항지 관광을 하고 승선할때 크루즈에서 여권을 가져감. 그리고 하선 전날 객실로 사람이 가서 여권을 나눠줌. 하지만 객실에 사람이 없으면 안내데스크로 가서 직접 찾아가야됨. 이때 객실카드 반드시 필요.\n- 2026.05.14 부산 출발 크루즈는 \n(페르 확인 필요)\n\n",
+      "category": "기항지&투어",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "가고시마",
+        "있나요?",
+        "기항지",
+        "받을",
+        "기항지에서"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0008",
+      "question": "수하물 태그가 없으면 짐 못맡기나요?",
+      "answer": "네. 태그가 있어야 맡길 수 있어요. / 핸드캐리도 가능합니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "못맡기나요?",
+        "탑승",
+        "수하물",
+        "태그가"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0009",
+      "question": "크루즈 타면 바로 객실에 들어가면 되나요?",
+      "answer": "먼저 크루즈 탑승하신분들은 들어가서 객실로 가주세요. 객실 문고리에 객실카드가 든 봉투가 걸려있습니다. 반드시 본인 것은 본인이 가지고 있어주세요.  그리고 냉장고 안에 있는 음료, 물은 유료입니다.",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "들어가면",
+        "크루즈",
+        "타면",
+        "객실에"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0010",
+      "question": "정찬은 오늘 하루만 있나요?",
+      "answer": "아니에요. 매일 있습니다. 선상신문에 운영시간이 있으니 참고해주세요",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "정찬은",
+        "뷔페",
+        "하루만",
+        "있나요?",
+        "식사"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0011",
+      "question": "도쿄 크루즈 터미널 1층에서 나눠준 번호 스티커는 뭔가요?",
+      "answer": "도쿄 크루즈 터미널에서 빠른 체크인을 위해 해당 번호의 라인에서 수속을 하시라고 드렸던 스티커입니다. 크루즈 승선하셨으니 없으셔도 됩니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "1층에서",
+        "탑승",
+        "크루즈",
+        "터미널"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0012",
+      "question": "미니바는 생수도 유료인가요?",
+      "answer": "생수는 뷔페를 제외하고 모두 유료입니다. 물은 뷔페에서 무료이니 텀블러로 드시는걸 추천드려요",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "생수도",
+        "미니바는",
+        "식사",
+        "유료인가요?"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0013",
+      "question": "입국 수속, 출국 수속을 안하면 불이익을 받나요?",
+      "answer": "항차마다 다르기 때문에 방송 안내를 꼭 따라주세요. 5월 11일에는 입국, 출국 수속이 없었지만, 5월12일은 모든 분들이 대면 출입국 심사르 받으셔야 됩니다. 고베 여행 계획하실때 참고해주세요",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "수속,",
+        "탑승",
+        "입국",
+        "출국"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0014",
+      "question": "기항지에 나가서 음료를 사서 들어오는건 괜찮은가요?",
+      "answer": "항차마다 현장마다 달라지는데, 그동안 경험에서 말씀드리면 개봉하지 않은거라면 무리 없습니다. 다만 고가의 술이라면 승선시 직원이 보관해놓았다가 하선할때 다시 돌려드립니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "탑승",
+        "사서",
+        "들어오는건",
+        "음료를"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0015",
+      "question": "공연은 예약 안하면 못보나요?",
+      "answer": "좌석이 다 차면 못보시거나 뒤에서 서서 공연을 보셔야 됩니다. 따라서 예약하시는걸 추천드려요",
+      "category": "선상활동",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "예약",
+        "공연은",
+        "못보나요?",
+        "공연",
+        "안하면"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0016",
+      "question": "요금 정산서 받았는데 잘모된건 어디가서 정산하나요? 라이트하우스 정찬때 맥주한잔 72달러 청구되었네요",
+      "answer": "72달러는 선상팁으로 모든 사람에게 부여되는 금액입니다. 어플에서 정산 내역을 자세히 보실 수 있고, 혹은 5층 카운터에서 정산 내역을 종이로 뽑아서 확인할 수 있습니다",
+      "category": "정책&수수료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "정산서",
+        "팁",
+        "요금",
+        "잘모된건",
+        "어디가서"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0017",
+      "question": "셔틀버스 운행구간이 어떻게 되나요? 산노미야역까지 가나요?",
+      "answer": "고베 무료 셔틀버스는 고베 항만청의 후원으로 승객과 승무원을 위해 고베 크루즈 터미널과 시내 중심가 (모토마치 지역) 간 무료 셔틀 버스 서비스가 제공됩니다. 이 서비스는 MSC 크루즈에서 운영하는 것이 아니빈다.\n셔틀버스는 교통 상황에 따라 평균 5~10분 간격으로 18:30 ~ 21:00까지 운행됩니다.",
+      "category": "기항지&투어",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "가고시마",
+        "기항지",
+        "운행구간이",
+        "산노미야역까지",
+        "되나요?"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0018",
+      "question": "오늘 11일 기항지 하선 후에 다시 승선하려면 오후 10시 이전에 승선해야되나요?",
+      "answer": "시간 상관없이 출입 가능합니다. 오늘저녁 10시~오전8시까지 크루즈 안에서 X레이 보안 검색이 진행됩니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "탑승",
+        "기항지",
+        "후에",
+        "승선"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0019",
+      "question": "셔틀버스 타는 곳은 어디인가요?",
+      "answer": "셔틀버스는 크루즈 터미널 3츠응로 올라가시면 정문 바로 앞에 있습니다.",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "타는",
+        "곳은",
+        "식사",
+        "셔틀버스"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0020",
+      "question": "선상신문 오늘은 안나오나요?",
+      "answer": "선상신문이 안나온 경우엔 5층 메인 안내 데스크에가면 도움을 받으실 수있습니다.",
+      "category": "기타",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "선상신문",
+        "오늘은",
+        "안나오나요?"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0021",
+      "question": "안전교육 바코드는 어디서 찍나요?",
+      "answer": "곳곳에 안전 교육 캡 모자 쓴 직원들에게 세이프티 라고 말하면서 객실카드를 보여주세요. 그럼 친절하게 안내해줍니다.\n보통 첫날에 거의 하루 종일 6층 갤러리아 거리에 안전교육 직원들이 배치되어있습니다. 따라서 첫날 바코드 찍는걸 추천드립니다.",
+      "category": "객실&카드",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "카드",
+        "안전교육",
+        "찍나요?",
+        "객실",
+        "바코드는"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0022",
+      "question": "첫날 안전교육 안받으면 문제가 되나요?",
+      "answer": "문제가 되지는 않지만, 객실로 경고장이 배달됩니다. 다음날에도 안전교육을 받을 수 있으나 시간이 정해져 있기 때문에 놀거나 식사중에 안전교육하러 나가야되는 불편함이 생길 수 있습니다.",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "첫날",
+        "안전교육",
+        "문제가",
+        "안받으면"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0023",
+      "question": "오늘 정찬메뉴 먼저 알 수 있나요?",
+      "answer": "어플에서 확인 가능합니다. 어플로 들어가면 메뉴를 이미지로 보실 수있습니다.",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "먼저",
+        "있나요?",
+        "식사",
+        "정찬메뉴"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0024",
+      "question": "하선설명회는 전원 참석인가요? 방마다 한 명만 가도 되나요?",
+      "answer": "객실마다 한 명씩만 참석하셔서 내용을 전달하셔도 됩니다",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "하선설명회는",
+        "참석인가요?",
+        "탑승",
+        "방마다"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0025",
+      "question": "하선하는 날 캐리어를 직접 가지고 내릴 경우는 오늘 나눠준 캐리어택에 정보기록하고 매달기는 안해도 되나요?",
+      "answer": "직접 가지고 내리는 가방에는 택을 하지 않아도 됩니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "하선하는",
+        "탑승",
+        "내릴",
+        "캐리어를"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0026",
+      "question": "하선하는 날 9시 이후에 개인 캐리어를 맡아둘 곳이 있나요? 없다면 뷔페 식사 때 가지고 가도 되나요?",
+      "answer": "9시 이후에 가방 맡을수 있어요^-^ 뷔페 식사때 가지고 가셔도 됩니다",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "9시",
+        "이후에",
+        "하선하는",
+        "탑승"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0027",
+      "question": "크루즈 타기 전에 어플 설치했는데, 카드나 기타 등록은 안해도 되나요?",
+      "answer": "등록은 크루즈에 승선 후 가능해서 내일 등록하시면 됩니다",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "탑승",
+        "어플",
+        "크루즈",
+        "타기"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0028",
+      "question": "선상에서 무료로 제공하는 범위는 어디까지인가요?",
+      "answer": "무료와 유료 유무가 포함된 이번 MSC 벨리시마 크루즈 자료 공유해 드립니다~!\n\n참고해 주세요~!^^\n\n(무료 유료 이미지 전달)",
+      "category": "정책&수수료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "범위는",
+        "팁",
+        "제공하는",
+        "선상에서",
+        "250달러"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0029",
+      "question": "일본 가고시마에서 내리면 패스권이나 여러가지 결제시 카드로 가능한가요? 일본은 현금 안가지고가면 많이 불편한가요?",
+      "answer": "일본은 주로 대형 쇼핑몰이나 상점가 그리고 시내 관광을하는 노면전차나 시티뷰 버스 같은곳은 카드 사용이 가능합니다~!\n\n단, 아날로그의 나라답게 로컬 맛집이나 노포 사찰 등등 여전히 현금만 받는곳도 많아서 엔화를 소량이라도 지참하시는게 좋습니다~!^^",
+      "category": "기항지&투어",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "가고시마에서",
+        "패스권이나",
+        "가고시마",
+        "기항지",
+        "내리면"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0030",
+      "question": "6시에 배가 출발이죠? 12시까지 영도항으로 가야하나요?",
+      "answer": "네 맞습니다~!ㅎㅎ\n출발하시기전에 여권을 꼭! 확인해주세요~!",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "배가",
+        "12시까지",
+        "탑승",
+        "출발이죠?"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0031",
+      "question": "승선하는 날 중식은 따로 제공되나요? 아니면 터미널에서 각자 해결인가요?",
+      "answer": "배에 들어오시면 \n객실에서 카드 챙기시고\n15층 뷔페에서 식사 가능하세요^-^",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "승선하는",
+        "제공되나요?",
+        "아니면",
+        "식사"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0032",
+      "question": "승선시간은 몇시쯤 승선하나요?",
+      "answer": "12시부터 수속이 열립니다.\n현장 상황에 따라 수시로 변하기 때문에\n현장을 따라주시면 좋습니다^-^",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "몇시쯤",
+        "탑승",
+        "승선하나요?",
+        "승선"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0033",
+      "question": "집합장소는 터미널 2층인가요?",
+      "answer": "네 맞습니다~~! 제가 2분 거리에 있어서 곧 도착하는데 1층에서 파우치 나눠 드리겠습니다~^^",
+      "category": "기타",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "터미널",
+        "집합장소는",
+        "2층인가요?"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0034",
+      "question": "크루즈 카드에 지정 레스토랑 적혀있는데, 무료 정찬레스토랑 중에 지정만 가능한가요? 그외는 안되나요?",
+      "answer": "객실 룸카드 룸 손잡이에 걸려있을 수 있어요 아직 객실 들어가지 않으셨다면 참고하세요\n네. 지정으로 가능합니다. (어떤 항차에서는 저녁만 가능, 어떤때는 점심,저녁 모두 지정석)\n뷔페는 지정석이 아니니 뷔페도 같이 즐기셔도 좋습니다.\n\n레스토랑 위치를 변경하고 싶으신 경우 웨이터에게 요청해보셔도 좋아요.",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "크루즈",
+        "적혀있는데,",
+        "지정",
+        "식사"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0035",
+      "question": "각 레스토랑마다 음식이 다른가요?",
+      "answer": "유료 레스토랑이 각각 있는데 음식이 다르구요~\n무료 정찬도 매일 매일 다릅니다.\n또한 뷔페도 조금씩 매일 다르게 나옵니다.",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "레스토랑마다",
+        "음식이",
+        "식사",
+        "정찬"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0036",
+      "question": "무료 정찬레스토랑이 몇군데 있는데 각 식당마다 음식은 비슷한가요? 위치 이름만 다른건가요?",
+      "answer": "식당마다 제공되는 식사 메뉴는 전부 동일합니다~!",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "식당마다",
+        "뷔페",
+        "있는데",
+        "정찬레스토랑이",
+        "무료"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0037",
+      "question": "뷔페 와서 식사하려고 하는데 주류나 탄산 음료들은 패키지에 포함이 안되어 있어서 추가 지출을 해야한다고 하던데, 주류나 이런건 포함이 안되어 있나요?",
+      "answer": "주류는 무료가 아닙니다. 뷔페에 있는 티랑 물이 무료입니다. 조식의 경우에는 음료가 무료로 제공될 때가 있습니다\n(실제 2026.05.10, 14 항차에는 아침에 음료가 무료였음)",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "식사하려고",
+        "하는데",
+        "와서",
+        "주류나"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0038",
+      "question": "카드 등록은 핸드폰으로는 안되나요? 실물카드가 있어야 되나요?",
+      "answer": "실문카드로는 단말기에서 등록이 가능한데\n\n핸드폰에 등록된 카드로 등록하는 부분은 5층 메인 안내 데스크에 문의해주세요~!!",
+      "category": "객실&카드",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "카드",
+        "등록은",
+        "객실",
+        "핸드폰으로는",
+        "안되나요?"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0039",
+      "question": "카드룸키에 신용카드등록은 어떻게 하나요?",
+      "answer": "6층 키오스크에서 가능합니다. 한글 지원도 해주고 있고, 방법도 정말 쉽습니다",
+      "category": "객실&카드",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "카드",
+        "객실",
+        "하나요?",
+        "카드룸키에",
+        "어떻게"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0040",
+      "question": "MSC앱에 들어가서 와이파이 연결하려고하는데, 비번이 있나요?",
+      "answer": "카지노, 면세점, MSC 기념품 샵 같은곳은 배가 출항한 이후에 서비스를 받으실 수 있습니다 ㅎㅎ",
+      "category": "기술&앱",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "와이파이",
+        "어플",
+        "들어가서",
+        "앱",
+        "비번이"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0041",
+      "question": "드링크 패키지 설명해주던데, 혹시 관련해서 설명 더 해주실수 있을까요?",
+      "answer": "드링크 패키지는 일정마다 비용이 달라서 직원분에게 가격이 얼마냐고 물어보면 직원분이 정확하게 알려주실거에요~ 유료이고, 객실 모두가 드링크패키지를 전일정으로 결제 하셔야하는것으로 알고 있습니당",
+      "category": "정책&수수료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "패키지",
+        "설명해주던데,",
+        "팁",
+        "드링크",
+        "혹시"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0042",
+      "question": "msc 어플에서 체크인이 안되는데 어떻게 해야되나요? 일행중 2명은 체크인이 안돼요",
+      "answer": "msc 어플을 켜기 전에 와이파이 설정에서 MSC를 선택해야됩니다. 그리고 어플을 실행시키고, 부킹넘버와 성함을 넣으면 됩니다. 만약 오류가 난다면 다시 어플을 종료했다가 실행시키면 정상적으로 작동 됩니다.",
+      "category": "기술&앱",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "어플에서",
+        "와이파이",
+        "어플",
+        "안되는데",
+        "체크인이"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0043",
+      "question": "드링크 패키지 비용은 직원에게 들었는데, 패키지에 스무디 아이스크림, 프리미엄 주류 메뉴 등, 사용처도 다양하고, 어려워요",
+      "answer": "네 맞아용  조건들이죵 옵션들이에용   내가 원하는 옵션을 고르시면되는데 자주 이용하고싶은 주류가 있으시면 내가 원하는 주류는 이거다 나는 이걸 자주 이용하고싶다 라고하면 직원이 어떤걸 하셔야 한다 라고 안내도 해 주실거에요\n이게 일정마다 선사가 이벤트로 하는 옵션들이라 저희가 아는 옵션과 다를 수 있어서 , 직원분과 직접 소통하시는게 더 정확하실거에요. 일정마다 크루즈는 이벤트를 하거든요 ~!  저희 스탭분이 인포메이션에 같이 있으니 확인하고 도움 부탁드려도 되십니당",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "패키지",
+        "뷔페",
+        "들었는데,",
+        "드링크",
+        "식사"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0044",
+      "question": "카드 등록하니까 250불 결제되네요, 이건 뭔가요?",
+      "answer": "이 카드가 정상 작동하는지 확인하기위해 일정금액 결제 후 다시 결제를 취소합니다. 그러니 안심하셔도 됩니다. 나중에 어플에서 결제 내역 자세히 확인 가능합니다. \n\n(어플 화면에서 요금확인하는 이미지 첨부)",
+      "category": "정책&수수료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "카드",
+        "팁",
+        "등록하니까",
+        "결제되네요,",
+        "250달러"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0045",
+      "question": "객실 내에 미니바의 물은 공짜인가요?",
+      "answer": "아니요! 유료입니다. 그래서 뷔페에 있는 물을 텀블러에 담아 마시는걸 추천합니다.\n무료 = 뷔폐 물 만입니다",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "물은",
+        "객실",
+        "내에",
+        "미니바의"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0046",
+      "question": "룸 앞에 캐리어가 도착 했는데, 러기지 하나가 안왔어요. 어디다 물어봐야 되나요?",
+      "answer": "인포메이션에 물어보시면 되세요~~~ 문제가 있어 보관하는거 아니면 , 늦게 오는거 둘중 하나입니당",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "탑승",
+        "했는데,",
+        "앞에",
+        "러기지"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0047",
+      "question": "기항지 투어 예약은 5층에서 해야되나요?",
+      "answer": "네 5층 가운데 올려드린 사진있는 곳에서 도움 받으실수 있으세요~!\n\n(5층 EXCURSIONS 모니터에서 예약 가능 혹은 어플에서도 예약 가능)",
+      "category": "기항지&투어",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "가고시마",
+        "투어",
+        "기항지",
+        "5층에서",
+        "해야되나요?"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0048",
+      "question": "카드 등록은 했는데, msc 재단에 등록하라는 버튼을 잘못 눌렀는데, 그걸 취소하거나 카드 자체를 취소 후 재등록하는 방법이 있나요?",
+      "answer": "이건 5층 리셉션(인포메이션)에서 직접 알아봐주세요^-^",
+      "category": "객실&카드",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "카드",
+        "등록은",
+        "객실",
+        "했는데,",
+        "재단에"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0049",
+      "question": "msc 에서 가족끼리 채팅은 어떻게 하나요? QR을 읽으니 택스트 전환만 됩니다.",
+      "answer": "어플 실행 ㅡ 상단 채팅 모양 클릭 ㅡ 더하기모양 클릭ㅡ채팅자 추가\n\n스캔할 상대방 QR코드는 채팅ㅡ프로필 누르면 나옵니다!\n\n(관련 캡쳐 이미지 4장 첨부)",
+      "category": "기술&앱",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "와이파이",
+        "어플",
+        "가족끼리",
+        "앱",
+        "채팅은"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0050",
+      "question": "카드사마다 결제되는 금액이 다른가요? 제 동생은 비자카드였고 250달러가 결제되고, 저는 마스터카드인데 1달러 계산되었어요",
+      "answer": "놀라셨군요. 카드사마다 다릅니다^-^\n실제 계산 인정된건 어플에서 확인 가능합니다.",
+      "category": "정책&수수료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "팁",
+        "카드사마다",
+        "동생은",
+        "250달러",
+        "금액이"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0051",
+      "question": "와이파이 이중 결제 했는데 결제 취소는 5층으로 가서 해결해야되나요?",
+      "answer": "네 그렇습니다",
+      "category": "정책&수수료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "팁",
+        "와이파이",
+        "250달러",
+        "결제",
+        "했는데"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0052",
+      "question": "뷔페는 몇시인가요?",
+      "answer": "뷔폐시간은 선상신문에 매일매일 시간을 정해서 나오고 있어용",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "뷔페는",
+        "식사",
+        "정찬",
+        "몇시인가요?"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0053",
+      "question": "뷔페 운영시간 끝나면 물 뜨러 못가나요?",
+      "answer": "뷔페에서 물 뜨는건 언제든 가능합니다",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "뜨러",
+        "뷔페",
+        "못가나요?",
+        "끝나면",
+        "운영시간"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0054",
+      "question": "런던시어터에서 하는 기네스 세계기록쇼는 혹시 어떤건가요?",
+      "answer": "우리가 흔히 알고있는 새로운 도전을 통해 기네스북에 등재될수 있는 기록을 말하는건데요!\n\n기네스북과 MSC는 스폰서 관계라 도전자가 신기록을 갱신한다면 실시간으로 세계기록이 바뀌는 현장을 직접 보실 수 있습니다~^^",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "세계기록쇼는",
+        "혹시",
+        "런던시어터에서",
+        "기네스"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0055",
+      "question": "쉽투어 참석을 못했어요. 어떤건가요?",
+      "answer": "크루즈를 돌아다니며 부대시설 별 특징과 꿀팁,무료 유료 유무 등에 관한 투어였습니다~!!ㅎㅎ",
+      "category": "선상활동",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "예약",
+        "공연",
+        "못했어요.",
+        "쉽투어",
+        "워터슬라이드"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0056",
+      "question": "가고시마에 도착하는 항구는 어디인가요?",
+      "answer": "내일은 마린포트 가고시마 입니다~^^\n\n(항구 정보 있는 이미지 자료 첨부)",
+      "category": "기항지&투어",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "가고시마",
+        "기항지",
+        "항구는",
+        "가고시마에",
+        "고베"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0057",
+      "question": "가고시마에서 패스권(교통카드) 구매 가능한가요?",
+      "answer": "아~ 터미널에서 구매는 불가능하세요..ㅜㅜ\n\n특히 가고시마는 일본 전국 IC카드 호환이 조금 복잡한 편이라\n\n스이카나 파시모가 일부 구간에서는 안 되는 경우가 있고, 현금만 받는 버스·철도도 존재합니당.. 참고해 주세요~!",
+      "category": "객실&카드",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "카드",
+        "가고시마에서",
+        "가능한가요?",
+        "객실",
+        "구매"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0058",
+      "question": "가고시마 트램은 신용카드 1장으로 성인 2명 결제되나요?",
+      "answer": "가고시마 트램은 역무원에게 물으시는게 정확하실거에요 ",
+      "category": "객실&카드",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "카드",
+        "1장으로",
+        "가고시마",
+        "객실",
+        "트램은"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0059",
+      "question": "기항지에서 시티투어 패스권을 안끊고 주변에 구경할만한게 있을까요? 살펴보고 시티투어 결정하고 싶어서요",
+      "answer": "자유여행이니 여행은 여러분 자유롭게 선택이셔서 기항지 근처 지도는 이렇게 나옵니다 . 참고하시면 좋을거 같아요 \n지도를 조금더 넓게 보면 근처에 쇼핑몰이랑 녹지공원 있네요~ 자유롭게 선택하셔서 움직이시고 출항시간 1시간전에 무조건 일찍 오시는걸 추천드리겠습니다~\n\n\n이번 여행은 패키지가 아닌 자유여행입니다^-^\n그래서 자유롭게 계획하시고, 선택하시면 됩니다.\n조금이나마 도움드리고자 \n가고시마 관광 가이드맵 정보를 공유합니다!\n\n✅ 오후에 크루즈에 방송을 잘 따라서\n관광 준비를 해주세요 ^-^\n\n✅ 출항시간 1시간 전에 무조건 들어와주세요.\n(교통 정체나 여러 변수로 늦어져서 못타는 사례도 있습니다)\n\n오늘도 행복한 크루즈 여행 되세요^-^\n\n\n(가고시마 관광 자료 이미지 첨부)",
+      "category": "기항지&투어",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "시티투어",
+        "가고시마",
+        "패스권을",
+        "안끊고",
+        "기항지"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0060",
+      "question": "기항지 내리는 날, 하선하는 날에 일행마다 배 내리는 시간이 다른데, 같이 맞추서 내려갈 방법이 없을까요? 같은 일행인데, 방배정이 달라서 하선하는 순서 번호가 달라요. 같이 움직이려구요",
+      "answer": "네 맞습니다.객실마다 모이는 장소랑 시간이 달라서 크루즈에서 정해준 시간 과 장소에 늦지 않게 모여서 가야됩니다~!\n가실때 여권과 크루즈 카드도 꼭챙기세요~~!\n\n\n입국 심사할때 사람들이 엄청 많아요 혼선이 생기지 않도록 그 번호에 맞게 선사 직원과 함께 나가게 됩니다 ^-^\n이것도 MSC 선사에서 막 지정하는거라  저희도 아쉬워요. 만약 변경을 원하신다면 5층 리셉션에서 변경 가능합니다!",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "탑승",
+        "하선하는",
+        "날,",
+        "기항지"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0061",
+      "question": "기항지에서 배 출항하는 시간은 언제인가요? 언제까지 타야되나요?",
+      "answer": "19시에 크루즈가 출발하니!\n\n18시까지 늦지않게 승선해주시는게 좋습니다~!^^",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "시간은",
+        "탑승",
+        "언제까지",
+        "기항지에서"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0062",
+      "question": "객실에 셔틀버스 티켓을 받았는데 유료인가요?",
+      "answer": "네. 가고시마 셔틀버스는 유료입니다\n성인 18달러이고, 이용시 객실카드로 자동 청구될 예정입니다\n셔틀 버스 이용은 선택이니\n여러분들의 자유여행 계획에 참고 하시면 됩니다 ^^\n즐겁고, 안전한 가고시마 여행되세요~!",
+      "category": "객실&카드",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "카드",
+        "객실",
+        "객실에",
+        "받았는데",
+        "셔틀버스"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0063",
+      "question": "셔틀버스 어디서 내리나요?",
+      "answer": "티켓 이용하는 셔틀버스는 msc측에서 운영하는 것이라서 출구로 나가시면 선사측 직원들이 안내 도와드릴거에요~! 나가시면서 직원들에게 티켓 보여주시면 됩니다!!",
+      "category": "기항지&투어",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "가고시마",
+        "어디서",
+        "기항지",
+        "내리나요?",
+        "셔틀버스"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0064",
+      "question": "기항지 관광 후에 음식물 반입이 되나요?",
+      "answer": "안됩니다~~~~ 비행기 들어갈때랑 똑같다고 보심 되세용~ 단, 음료는 괜찮습니당 이거는 저의 경험담이요...ㅎㅎ.육포 이런거 절대 안되십니당. 마시면서 들어가심 당연 안되구 , 봉지로 가져가세요~  ",
+      "category": "식사&음료",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "뷔페",
+        "반입이",
+        "음식물",
+        "관광",
+        "기항지"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0065",
+      "question": "면세로 산 현지술은 입선시 절차가 어떻게 되나요? 예를들어 돈키호테 고구마술 면세 밀봉 구입해온걸 승선시 객실까지 가져갈 수있나요?",
+      "answer": "규정상 구입한 술은 방으로 가지고 들어갈 수 없어요\n보안 검색대에서 주류를 보여주고, 보관을 맡기시면 됩니다\n그럼 하선때 객실로 배달해주거나 \n지정된 장소에서 받을 수 있습니다 ^^\n\n크루즈선 다시 들어갈때 X-ray  다 하고 들어갑니다~~ 다 확인해요~! ",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "현지술은",
+        "면세로",
+        "탑승",
+        "절차가"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0066",
+      "question": "중간 기항지에서 하선 안하는데 안하는 사람도 입국 심사를 해야되나요?",
+      "answer": "이 부분도 일정마다 달라져서\n현장에서 나오는 방송에 따라주셔야됩니다\n\n오늘 입국 수속을 해야 된다라면 \n방송에서 모든 승객이 입국 수속을 하라고 나옵니다.\n\n더 정확한 건 \n5층 리셉션에서 확인해주시면 감사하겠습니다. ^-^\n\n하선 안해도 보통 입국 심사 하고 다시 들어오라고 하고는 있어요~~~~ ",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "탑승",
+        "중간",
+        "안하는데",
+        "기항지에서"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0067",
+      "question": "도쿄 하선하는 주소가 어떻게 될까요?",
+      "answer": "일본 〒135-0064 Tokyo, Koto City, Aomi, 2 Chome−8, 地先 東京国際クルーズターミナル\n복사하실수 있게 글로 로 작성해드립니당~!!^^",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "하선하는",
+        "탑승",
+        "주소가",
+        "도쿄"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0068",
+      "question": "9시쯤에 하선원하면 그쯤에 5층가면 될까요? 시간표보다 이른시간이면 무조건 8시15분까지 가야하나요?",
+      "answer": "9시쯤에 하선을 원하시더라도 하선 순서는 정해져있습니다!..ㅜㅜ\n\n객실은 오전 7시 30분까지 비워 주시고 식사나  라운지에서 쉬시다가\n\n저희 하선 시간은 9시 40분으로\n9시 40분보다 빨리 하선을 하셔야 되시는분은 \n\n무조건 8시 15분까지 캐리어를 직접 가지고 5층 포시도니아 레스토랑으로 와 주시면 됩니다.^^\n\n9시 40분에 내리셔도 되시는분들께서는\n9시 40분까지 6층 런던극장으로 와주시면 됩니다~!!",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "탑승",
+        "9시쯤에",
+        "하선원하면",
+        "그쯤에"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0069",
+      "question": "내일 하선후에 도쿄국제크루즈 터미널역에서 유리카모메선 전철을 타고 싶은데 걸어서 가면 얼마나 걸리나요?",
+      "answer": "네 이거리는 보도로 10분정도 소요되기 때문에 가볍게 산책한다 생각하고 걸어나가셔도 됩니다!~^^",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "도쿄국제크루즈",
+        "탑승",
+        "터미널역에서",
+        "내일"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0070",
+      "question": "하선하는날 셔틀버스는 몇시부터 하나요? 8시 15분에 내리면 셔틀이 없나요?",
+      "answer": "아뇨 8시 15분부터 탑승가능 하다고 저도 5층 메인데스크에 한번 더 확인했습니다.",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "탑승",
+        "하나요?",
+        "몇시부터",
+        "8시"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_2_0071",
+      "question": "수하물 태그는 7번인데, 내리는 그룹은 18번의 시간으로 모이라고 해요. 내일 그룹에 따라 모이나요? 수하물 태그 번호로 모일까요?",
+      "answer": "현장에서 어떻게 했는지 확인 필요\n\n(페르 확인 필요)",
+      "category": "탑승&수속",
+      "source": "MSC 2026-05 Q&A",
+      "type": "qa",
+      "keywords": [
+        "수속",
+        "그룹은",
+        "탑승",
+        "수하물",
+        "태그는"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_3_0001",
+      "question": "[꿀팁] MSC 꿀팁?",
+      "answer": "MSC 꿀팁",
+      "category": "정책&수수료",
+      "source": "MSC 크루즈 꿀팁",
+      "type": "tip",
+      "keywords": [
+        "MSC",
+        "팁",
+        "250달러",
+        "수수료",
+        "꿀팁"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_3_0002",
+      "question": "[꿀팁] 250달러로 한번에 미리 긁히는건 사용자의 카드사, 카드한도, 신용등급에 기인한걸로 사료됨?",
+      "answer": "250달러로 한번에 미리 긁히는건 사용자의 카드사, 카드한도, 신용등급에 기인한걸로 사료됨",
+      "category": "정책&수수료",
+      "source": "MSC 크루즈 꿀팁",
+      "type": "tip",
+      "keywords": [
+        "긁히는건",
+        "팁",
+        "한번에",
+        "사용자의",
+        "250달러로"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_3_0003",
+      "question": "[꿀팁] 일부 고객 선상팁과 별개로 돈이 빠져나가는거 먼저 긁히고 긁힌 금액이 먼저 차감되서 250?",
+      "answer": "일부 고객 선상팁과 별개로 돈이 빠져나가는거 먼저 긁히고 긁힌 금액이 먼저 차감되서 250보다 덜쓰면 덜받고 더쓰면 더받는 형식임",
+      "category": "정책&수수료",
+      "source": "MSC 크루즈 꿀팁",
+      "type": "tip",
+      "keywords": [
+        "팁",
+        "선상팁과",
+        "일부",
+        "250달러",
+        "고객"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_3_0004",
+      "question": "[꿀팁] 가고시마는 무조건 투어 신청하는게 이득임.\n(크루즈 터미널이 공업항구에 설치되어 있다면 지?",
+      "answer": "가고시마는 무조건 투어 신청하는게 이득임.\n(크루즈 터미널이 공업항구에 설치되어 있다면 지역불문하고 통용되는 말임)",
+      "category": "기항지&투어",
+      "source": "MSC 크루즈 꿀팁",
+      "type": "tip",
+      "keywords": [
+        "가고시마",
+        "투어",
+        "신청하는게",
+        "이득임.",
+        "기항지"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_3_0005",
+      "question": "[꿀팁] MSC콘시어지는 한국어로 적어도 인식가능함(어플)?",
+      "answer": "MSC콘시어지는 한국어로 적어도 인식가능함(어플)",
+      "category": "기술&앱",
+      "source": "MSC 크루즈 꿀팁",
+      "type": "tip",
+      "keywords": [
+        "와이파이",
+        "어플",
+        "한국어로",
+        "인식가능함(어플)",
+        "앱"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_3_0006",
+      "question": "[꿀팁] * 객실은 멀고 화장실은 급할때 배중앙 메인엘리베이터 뒷편이 화장실임?",
+      "answer": "* 객실은 멀고 화장실은 급할때 배중앙 메인엘리베이터 뒷편이 화장실임",
+      "category": "객실&카드",
+      "source": "MSC 크루즈 꿀팁",
+      "type": "tip",
+      "keywords": [
+        "카드",
+        "객실",
+        "멀고",
+        "급할때",
+        "배중앙"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_3_0007",
+      "question": "[꿀팁] 새벽 1시부터 모든 구역에서 청소를 시작함\n그리고 메인안내데스크(리셉션 데스크)는 1명만 ?",
+      "answer": "새벽 1시부터 모든 구역에서 청소를 시작함\n그리고 메인안내데스크(리셉션 데스크)는 1명만 남고 퇴근함 ",
+      "category": "정책&수수료",
+      "source": "MSC 크루즈 꿀팁",
+      "type": "tip",
+      "keywords": [
+        "팁",
+        "새벽",
+        "1시부터",
+        "250달러",
+        "모든"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_3_0008",
+      "question": "[꿀팁] 새벽 1시가 넘어가더라도 모든 부대시설에 노래랑 불빛이 꺼지지않음?",
+      "answer": "새벽 1시가 넘어가더라도 모든 부대시설에 노래랑 불빛이 꺼지지않음",
+      "category": "선상활동",
+      "source": "MSC 크루즈 꿀팁",
+      "type": "tip",
+      "keywords": [
+        "예약",
+        "새벽",
+        "공연",
+        "모든",
+        "넘어가더라도"
+      ],
+      "sales_tone": {
+        "primary": "friendly",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_4_0001",
+      "question": "[건의] 건의사항?",
+      "answer": "건의사항 (작성자: 작성자)",
+      "category": "기타",
+      "source": "고객 건의사항",
+      "type": "feedback",
+      "keywords": [
+        "건의사항"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_4_0002",
+      "question": "[건의] 파티할때 야광링 가지고오신분들 없었음?",
+      "answer": "파티할때 야광링 가지고오신분들 없었음 (작성자: 페르)",
+      "category": "기타",
+      "source": "고객 건의사항",
+      "type": "feedback",
+      "keywords": [
+        "파티할때",
+        "가지고오신분들",
+        "야광링",
+        "없었음"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_4_0003",
+      "question": "[건의] 승선 안내문처럼 하선 안내문도 만들고\n빈칸 블랭크 해두고 변경사항 생기면 기입해서 주는게 ?",
+      "answer": "승선 안내문처럼 하선 안내문도 만들고\n빈칸 블랭크 해두고 변경사항 생기면 기입해서 주는게 좋을듯.(와이파이 없으신분들은 소통이안됨 뒷북을 시속 300키로 속도로때리심..) 추가로 젤아래 비고 칸 만들고 나눠주면 좋을듯 (작성자: 페르)",
+      "category": "탑승&수속",
+      "source": "고객 건의사항",
+      "type": "feedback",
+      "keywords": [
+        "수속",
+        "탑승",
+        "만들고",
+        "안내문도",
+        "하선"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_4_0004",
+      "question": "[건의] 일본은 화이트보드를 세워서 보드에 그날 주요 일정, 식사 시간  적어두면 할머니들이 사진 ?",
+      "answer": "일본은 화이트보드를 세워서 보드에 그날 주요 일정, 식사 시간  적어두면 할머니들이 사진 찍어감 물어보지도않음\n( 이건 우리가 참고 할만함 ) (작성자: 페르)",
+      "category": "식사&음료",
+      "source": "고객 건의사항",
+      "type": "feedback",
+      "keywords": [
+        "뷔페",
+        "세워서",
+        "화이트보드를",
+        "일본은",
+        "식사"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_4_0005",
+      "question": "[건의] 자료를 주어도 읽지않고, 톡방이나 안내데스크로 와서 물어봄. 아예 읽도록 하는 요소가 있으?",
+      "answer": "자료를 주어도 읽지않고, 톡방이나 안내데스크로 와서 물어봄. 아예 읽도록 하는 요소가 있으면 함. 예) 크루즈 여행 이틀 전에 우리가 전달해준 자료에서 중요한 부분 퀴즈를 내서 맞춘 사람은 파우치에 야광봉이나 문꾸미기 선물을 주기???? (작성자: 맥스)",
+      "category": "식사&음료",
+      "source": "고객 건의사항",
+      "type": "feedback",
+      "keywords": [
+        "안내데스크로",
+        "뷔페",
+        "주어도",
+        "자료를",
+        "식사"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_4_0006",
+      "question": "[건의] 와이파이가 안되는 사람들만을 위해서 객실로 전달할 수 있는 프린트를 해가고, 변경되는 내용?",
+      "answer": "와이파이가 안되는 사람들만을 위해서 객실로 전달할 수 있는 프린트를 해가고, 변경되는 내용 수정하고 전달할수 있게 하면? (작성자: 맥스)",
+      "category": "객실&카드",
+      "source": "고객 건의사항",
+      "type": "feedback",
+      "keywords": [
+        "카드",
+        "객실",
+        "위해서",
+        "안되는",
+        "객실로"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0001",
+      "question": "톡방 초대 전 달아놓을 공지내용",
+      "answer": "❣  <필독> 슬기로운 크루즈 이용 꿀TIP ❣\n\n★★★★★모두 다 읽으신 후,\n[확인완료] 댓글을 달아주세요 ^^★★★★★\nㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ\n✅ 자유투어는 \"자유롭게 즐기기\" 이기 때문에 \n✅ 크루즈 특성상 처음이거나 어려움이 있을때 \n도움이 필요로 할 수 있는 부분까지\n저희가 도움되고자 만든 카톡방입니다 ^-^\n\n어려움 있음 도움 요청 하시고\n즐겁고 풍요로운 크루즈여행이 되시길 바라는 마음으로 만들었습니다^-^ \n\n✅ 서로 정보 교환도 하시고 \n알찬 여행 되시길 바랍니다😊\nㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ\n\n❤ 5/10 크루즈 ❤\n\n✅ 장소 :\n도쿄 크루즈 터미널\n✅ 주소 :\n일본 〒135-0064 Tokyo, Koto City, Aomi, 2 Chome−8, 地先 東京国際クルーズターミナル\n\n✅ 수속 : 오후 12시~ 3시까지 (시간 지켜주세요.)\n\n* 크루즈 터미널 1층에서 \n승선 파우치 나눠드릴 예정입니다. ^-^\n\nㅡㅡㅡㅡㅡㅡㅡㅡ\n★ 5/10 MSC 크루즈 OT영상입니다.★\n반드시!!! 봐주셔야 됩니다.\n▶ https://youtu.be/joVRaONhrk0\n\n\n\n✅ [1일차] 5/10\n▶ 크루즈에 들어갈때 여권을 선사 직원에게 제출하고 입장.\n▶ 크루즈에 들어가면 각자 객실로 가시면됩니다\n▶ 객실 안에 선상카드(객실키, 신용카드, 여권대용) 챙기세요.\n▶ 객실 카드 뒷면에 \"Assembly station 알파벳\"을 확인해주세요!\n▶ 비상벨 울리면 객실 카드 꼭 챙겨서\n카드 뒷면에 적힌 알파벳 위치로 가시면됩니다.\n선사 직원들이 친절히 안내해주니 안심하세요 ^^\n\n안전교육을 받은 후 다시 객실로 돌아와\n선상신문을 보고 참여할 프로그램 체크해서 참여하며 즐겨주세요 ^-^\n\n\n\n✅ [2일차] 5/11\n일본 고베 도착 및 정박\n\n▶ 오후 6시에 고베 도착\n🚨🚨🚨하선할때 반드시 챙겨야 될 것\n① 객실 카드 (잊어버리시면 안돼요!!!!)\n\n▶ 크루즈는 24시간 문이 열려 있어, 언제든 탑승 하선 가능\n\n\n\n✅ [3일차] 5/12\n크루즈 출항\n\n🚨🚨🚨 반드시 오후 4시까지 크루즈에 탑승해주세요!!!\n(교통체증, 여러 변수 등을 고려하여 안전하게 미리 승선해주세요.)\n\n▶ 오후 5시 출항\n크루즈는 늦은 고객을 기다려주지 않고, 정시간에 출발해버립니다.\n\n\n\n✅ [4일차] 5/13\n바다의 날 / 하선 준비\n\n▶ 오전, 오후 신나게 즐기기\n\n▶ 1. 하선 짐싸기\n= 수하물 택이 객실로 배달됩니다.\n\n🚨🚨🚨 위탁 수하물로 내놓는 캐리어에서\n여권 / 아침에 입을 옷 / 비상약 / 칫솔 등은 빼주세요!!!\n자칫하다간 잠옷으로 하선하십니다 ^-^\n\n▶ 2. 캐리어 문앞에 내놓기\n= 택을 붙인 캐리어는 저녁11시까지 문 앞에 놓습니다.\n혹시 모르니 문앞에 놓은 사진 찍어놓으세요.\n\n✅ 나는 캐리어 들고 내리겠다 하신다면 문앞에 내놓지 않으셔도 됩니다 ^-^\n✅ 캐리어 택에는 이름,주소  영문으로 써주세요\n\n\n▶ 3. 영수증 확인하기\nMSC 어플에서 역을 확인하세요.\n🚨 반드시!!! 계산서를 확인하세요!\n하루 18달러 (4박 총 $72)의 선상팁과\n일본 관광세 $5.79\n선내에서 사용하신 쇼핑이나 주류, 물 등.\n\n➡ 계산이 맞으시면 그냥 계셔도 됩니다.\n➡ 계산이 틀릴경우\n선상신문에 나와있는 장소에서\n재정산가능합니다.\n\n🚨 꼭 하선전 체크바랍니다.\n하선후에는 계산서 체크가 불가능합니다.\n\n▶ 4. 객실 카드\n🚨 객실 카드는\n내일 아침 하선시 반드시 필요합니다.\n꼭 잘 챙겨두시기 바랍니다.\n(객실카드는 소장하셔도 됩니다)\n\n\n\n\n✅ [5일차] 5/14\n부산 도착 오전 7시\n\n▶ 🍽 아침 식사 시간\n= 라이트 하우스 식당 6층  . 06:30 ~ 08:00\n= 뷔페 15층 . 06:00 ~ 11:00\n\n▶ 6층 중앙 에너지바에서 휴대용 가방 보관 가능\n9:00 ~ 11:00\n▶ 객실은 오전 9시까지 비워주세요!!\n▶ 우리는 \n✨️W Cruise 그룹✨️으로 \n오전 11시에 하선 시작!\n모임 시간 = 10시50분까지\n모임 장소 = 6층 런던극장 \n\n방송 순서대로 천천히 차근차근 내려주세요.\n▶ 내리신 후에 터미널에서 🧳\n캐리어를 찾아 안전하게 귀가하시면 됩니다 ^-^\n\n(캐리어를 찾는 장소는 그때 그때 달라지기 때문에\n현장에 있는 터미널 직원 안내를 따라주세요)",
+      "category": "탑승&수속",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "수속",
+        "달아놓을",
+        "탑승",
+        "초대",
+        "톡방"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0002",
+      "question": "탑승전 파우치 전달 받는 장소",
+      "answer": "내일 크루즈 터미널에서 전달 드릴 예정이니\n편한 마음으로 오시면 됩니다.\n\n✅ 예상 미팅 장소는 \n도쿄 크루즈 터미널 1층 외부입니다.\n상황에 따라서 장소는 변동될 수 있습니다 ^-^\n추후 계속 내용 업데이트 해드릴게요",
+      "category": "탑승&수속",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "수속",
+        "탑승전",
+        "파우치",
+        "장소",
+        "탑승"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0003",
+      "question": "여행 전날\n크루즈 터미널 승선 과정 정보",
+      "answer": "안녕하세요~!^^\n드디어 내일 기다려왔던 크루즈 여행 출발일 입니다~!\n\n도쿄 크루즈 터미널을 처음 이용해보시는 분들이\n\n당황해 하지 않도록  크루즈 터미널 관련 정보를 정리해둔 정보를 공유해 드리니 참고 부탁드립니다~!ㅎㅎ\n\n(도쿄 크루즈 터미널 승선 과정 이미지 자료 첨부)",
+      "category": "탑승&수속",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "수속",
+        "탑승",
+        "크루즈",
+        "터미널",
+        "전날"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0004",
+      "question": "크루즈 승선날",
+      "answer": "5/10 월요일\n✅ 수속 : 오후 12시~ 3시\n\n1층 외부에서 크루즈 패키징을 나눠드릴 예정입니다.\n▶ 나눠드리는 장소는 변경될 수 있습니다.\n▶ 크루즈닷 로고가 있는 붉은 후드티를 입고 있습니다.",
+      "category": "탑승&수속",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "수속",
+        "승선날",
+        "탑승",
+        "크루즈",
+        "승선"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0005",
+      "question": "크루즈 탑승 후",
+      "answer": "➡️ 먼저 크루즈 탑승하실분들은\n들어가서\n크루즈 객실로 가주세요.\n객실 문고리에\n✅크루즈 카드가 담긴 봉투가 걸려있습니다.\n✅반드시 본인 카드는 본인이 가지고 있어주세요. ^-^\n\n🚨 냉장고 안에 있는 음료는 유료입니다",
+      "category": "객실&카드",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "카드",
+        "탑승",
+        "객실",
+        "크루즈",
+        "신용카드"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0006",
+      "question": "신용카드 등록 방법",
+      "answer": "신용카드랑 크루즈카드를 연동시키는\n방법입니다!^^\n엄~~~~청 간단해요!!!\n\n신용카드 등록은 천천히 하셔도 괜찮습니다.\n기계에 한국어 번역도 있어요\n\n■ 초간단! MSC 벨리시마 카드 등록\nhttps://youtube.com/shorts/j5Sm01zAx",
+      "category": "객실&카드",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "카드",
+        "객실",
+        "방법",
+        "신용카드",
+        "등록"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0007",
+      "question": "크루즈 지도",
+      "answer": "지도에 간단히 포인트 표시해드립니다!\n\n파우치 안에도 지도가 있습니다^^\n크루즈 타신분들은 \n객실에서 객실카드 챙기시고\n15층에서 식사하세요^^\n\n(지도에서 포인트 시설 체크한 이미지 자료 첨부)",
+      "category": "객실&카드",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "카드",
+        "객실",
+        "크루즈",
+        "지도",
+        "신용카드"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0008",
+      "question": "쉽투어 공지",
+      "answer": "오후4시 30분\n수속한곳에서 쉽투어 1차 해드릴게요\n객실당 1명만 오셔도 됩니다.\n참석하고 싶은 분 오셔요.",
+      "category": "탑승&수속",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "수속",
+        "탑승",
+        "공지",
+        "쉽투어",
+        "승선"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0009",
+      "question": "공연 예약",
+      "answer": "[예약 순서]\n\n배 와이파이(MSC HOTSPOT) 연결 후 'MSC for Me' 어플 실행\n\n화면 하단 메뉴에서 달력 모양의 'Daily Planner(일정표)' 또는 'Entertainment(엔터테인먼트/마스크 모양 아이콘)' 클릭\n\n날짜를 선택하고 원하는 'Theater Show(극장 공연)'를 찾아서 클릭\n\n'Book(예약하기)' 버튼 누르기\n\n원하는 시간대(보통 1부, 2부, 3부로 나뉨) 선택\n\n일행(같은 객실을 쓰는 가족) 목록이 뜨면, 같이 볼 사람들을 모두 체크\n\n'Confirm(예약 확정)' 버튼을 누르면 끝! (어플 내 'My Agenda'에 예약 내역이 뜹니다.)",
+      "category": "선상활동",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "공연",
+        "예약",
+        "워터슬라이드"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0010",
+      "question": "첫날 저녁 식사 후 공지",
+      "answer": "다들 즐거운 저녁식사는하셨나요~!?^^\n\n내일아침 레스토랑까지 가기 귀찮으신분들을 위해 객실에서 조식신청할 수 있는 방법 공유해 드립니다~!ㅎㅎ\n\nhttps://www.youtube.com/shorts/GzEj4603sy8\n\n※ 꼭 새벽 2시전까지 객실문앞에 걸어주세요~!",
+      "category": "식사&음료",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "뷔페",
+        "첫날",
+        "공지",
+        "식사",
+        "정찬"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0011",
+      "question": "기항지 관광하는 날 출입국 수속 공지",
+      "answer": "5월12일에는\n🚨모든 분들이 대면 출입국 심사를 받으셔야됩니다.\n고베 여행 계획하실 때 참고해주세요^-^\nㅡㅡㅡㅡㅡㅡ\n\n\n🗓 5월 11일 (월)\n오늘 내리실분들은\n\n준비물\n= 여권, 객실카드\n\n\n🗓 5월 12일 (화) \n오전 11시 이후 출입국 심사 시작.\n\n🚨한번도 안내린 고객과\n12일 오전11시 이전에 타셨던 고객은\n반드시\n12일 오전 11시 이후, \n터미널로 가서 출국절차를 완료하세요.\n(왜냐하면, 모든 사람이\n일본 대면 출국 심사를 받아야되기 때문이에요)\n\n12일엔\n반드시 여유롭게 오후 4시반까지 \n크루즈에 탑승하세요.\n\n🚨 12일 출국 심사를 받고\n크루즈에 들어오신 분들은\n다시 나가실수 없으세요.^-^\n\n행복한 일본 여행 되세요😆",
+      "category": "탑승&수속",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "수속",
+        "탑승",
+        "기항지",
+        "공지",
+        "출입국"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0012",
+      "question": "셔틀버스 공지",
+      "answer": "오늘 셔틀버스 전달합니다\n\n셔틀버스는 교통 상황에 따라 평균 5~10분 간격으로\n➡️ 08:30부터 16:30까지 운행됩니다. \n\n(MSC 크루즈에서 운영하는 것이 아니라 별도로 운영됩니다.)",
+      "category": "기항지&투어",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "가고시마",
+        "기항지",
+        "공지",
+        "셔틀버스",
+        "고베"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0013",
+      "question": "기항지 마지막날",
+      "answer": "여행 잘 즐기고 계시나요?\n\n오늘 일본 고베를 떠나는 날입니다. ^-^\n\n오전 11시부터\n고베 크루즈 터미널에서 출국심사가 진행됩니다!\n\n🚨 고베터미널에서 출국심사 받지 않은 분들은\n반드시 받으셔야 됩니다.\n\n🚨 오후 4시30분까지는 여유롭게 크루즈에 탑승해주세요.\n5시반에 가까워질수록 승선할때 사람들이 몰릴 확률이 높습니다.\n\n✅️ 출국심사를 받은 후에는 고베에 다시 내릴수 없습니다)\n\n✅️ 여권은 크루즈 탈 때 직원이 가져갑니다.\n\n오늘도 행복한 여행되세요^-^",
+      "category": "탑승&수속",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "수속",
+        "탑승",
+        "기항지",
+        "마지막날",
+        "승선"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0014",
+      "question": "하선 설명회 공지",
+      "answer": "안녕하세요. 좋은 아침입니다^-^\n크루즈 여행 4번째 날입니다.\n이제 내일이면 부산에 도착합니다.\n\n오늘 오후 2시 \n런던극장에서\n내일 하선에 관한 중요한 공지가\n있습니다.\n\n꼭 참석해주세요. ^-^",
+      "category": "탑승&수속",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "수속",
+        "탑승",
+        "설명회",
+        "공지",
+        "승선"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0015",
+      "question": "하선 시간 공지",
+      "answer": "저희 크루즈닷은 \" W CRUISE \" 그룹입니다! ^-^\n하선시간 체크해주세요^^\n\n(선상에서 제공한 스케쥴 사진 찍어서 공유)",
+      "category": "탑승&수속",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "수속",
+        "탑승",
+        "공지",
+        "승선",
+        "시간"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0016",
+      "question": "하선 설명회 요약",
+      "answer": "@all \n✅ 오늘 5/13 하선 준비 공지\n반드시 읽어주세요.\n\n▶ 1. 하선 짐싸기\n= 수하물 택이 객실로 배달됩니다.\n\n🚨🚨🚨 위탁 수하물로 내놓는 캐리어에서\n여권 / 객실카드 / 아침에 입을 옷 / 비상약 / 칫솔 등은 빼주세요!!!\n자칫하다간 잠옷으로 하선하십니다 ^-^\n\n▶ 2. 캐리어 문앞에 내놓기\n= 택을 붙인 캐리어는 저녁11시까지 문 앞에 놓습니다.\n혹시 모르니 문앞에 놓은 사진 찍어놓으세요.\n 택에 있는 부분 떼어내서 카드 뒷면에 붙이세요.\n\n✅ 나는 캐리어 들고 내리겠다 하신다면 문앞에 내놓지 않으셔도 됩니다 ^-^\n✅ 캐리어 택에는 이름,주소  영문으로 써주세요\n\n\n▶ 3. 영수증 확인하기\nMSC 어플에서 역을 확인하세요.\n🚨 반드시!!! 계산서를 확인하세요!\n하루 18달러 (4박 총 $72)의 선상팁과\n일본 관광세 $5.79\n선내에서 사용하신 쇼핑이나 주류, 물 등.\n\n➡ 계산이 맞으시면 그냥 계셔도 됩니다.\n➡ 계산이 틀릴경우\n선상신문에 나와있는 장소에서\n재정산가능합니다.\n\n🚨 꼭 하선전 체크바랍니다.\n하선후에는 계산서 체크가 불가능합니다.\n\n▶ 4. 객실 카드\n🚨 객실 카드는\n내일 아침 하선시 반드시 필요합니다.\n꼭 잘 챙겨두시기 바랍니다.\n(객실카드는 소장하셔도 됩니다)\n\n🇰🇷🇰🇷🇰🇷내일 5/14\n부산 도착 오전 7시\n\n▶ 🍽 아침 식사 시간\n= 라이트 하우스 식당 6층  . 06:30 ~ 08:00\n= 뷔페 15층 . 06:00 ~ 11:00\n\n▶ 6층 중앙 에너지바에서 휴대용 가방 보관 가능\n9:00 ~ 11:00\n▶ 객실은 오전 9시까지 비워주세요!!\n▶ 우리는 \n✨️W Cruise 그룹✨️으로 \n오전 11시에 하선 시작!\n모임 시간 = 10시50분까지\n모임 장소 = 6층 런던극장 \n\n방송 순서대로 천천히 차근차근 내려주세요.\n▶ 내리신 후에 터미널에서 🧳\n캐리어를 찾아 안전하게 귀가하시면 됩니다 ^-^\n\n(캐리어를 찾는 장소는 그때 그때 달라지기 때문에\n현장에 있는 터미널 직원 안내를 따라주세요)",
+      "category": "탑승&수속",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "수속",
+        "탑승",
+        "설명회",
+        "승선",
+        "요약"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0017",
+      "question": "휴대품 별송품 신고서 작성 양식 공유",
+      "answer": "X",
+      "category": "기타",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "휴대품",
+        "작성",
+        "별송품",
+        "신고서",
+        "양식"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_5_0018",
+      "question": "하선 전날 여권 수령 공지",
+      "answer": "아직 여권이 객실로 배송되지 않은 고객은 \n객실카드 가지고\n5층 안내 데스크로 가시면 받을 수 있습니다.\n자정 전까지 가시면 \n바로 받으실 수 있습니다",
+      "category": "탑승&수속",
+      "source": "MSC 공지사항",
+      "type": "notice",
+      "keywords": [
+        "수속",
+        "탑승",
+        "공지",
+        "전날",
+        "승선"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_6_0001",
+      "question": "[스탭준비] 목록",
+      "answer": "세부사항",
+      "category": "기타",
+      "source": "스탭 준비 가이드",
+      "type": "guide",
+      "keywords": [
+        "목록"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_6_0002",
+      "question": "[스탭준비] 2주전, 크루즈 스탭으로 가는 사람들과 OT 반드시 하기",
+      "answer": "1. 크루즈 스탭의 역할 명확히 전달\n\n2. 크루즈 안에 안내데스크가 생겼을때 운영시간 / 교대 시간 / 만약 자리를 비울 시 고객들이 건의사항 적을 수 있는 표 프린트 / ",
+      "category": "기타",
+      "source": "스탭 준비 가이드",
+      "type": "guide",
+      "keywords": [
+        "크루즈",
+        "가는",
+        "2주전,",
+        "사람들과",
+        "스탭으로"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_6_0003",
+      "question": "[스탭준비] 파우치",
+      "answer": "카드목걸이 / 승선 서류 / 캐리어 택 / 방문 꾸미기 패키지 / 꼭 알아야 될 안내문 / 크루즈 지도 / 편지 / 야광봉",
+      "category": "탑승&수속",
+      "source": "스탭 준비 가이드",
+      "type": "guide",
+      "keywords": [
+        "수속",
+        "파우치",
+        "승선",
+        "탑승"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    },
+    {
+      "id": "msc2605_6_0004",
+      "question": "[스탭준비] 준비 서류",
+      "answer": "객실 표시된 크루즈 지도 프린트 / 승객 객실 번호 / 연락처 / ",
+      "category": "객실&카드",
+      "source": "스탭 준비 가이드",
+      "type": "guide",
+      "keywords": [
+        "준비",
+        "카드",
+        "서류",
+        "객실",
+        "신용카드"
+      ],
+      "sales_tone": {
+        "primary": "professional",
+        "secondary": [],
+        "confidence": 0.8
+      }
+    }
+  ]
+}
