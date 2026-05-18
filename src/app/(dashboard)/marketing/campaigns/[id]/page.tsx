@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
 
@@ -30,6 +31,7 @@ interface ConversionRates {
 
 export default function CampaignDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const campaignId = params.id as string;
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
@@ -129,7 +131,7 @@ export default function CampaignDetailPage() {
             생성일: {new Date(campaign.createdAt).toLocaleString('ko-KR')}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <span className={`px-3 py-1 rounded-lg font-medium ${getStatusColor(campaign.status)}`}>
             {campaign.status === 'PENDING' && '대기 중'}
             {campaign.status === 'SENDING' && '발송 중'}
@@ -137,6 +139,12 @@ export default function CampaignDetailPage() {
             {campaign.status === 'FAILED' && '실패'}
             {campaign.status === 'CANCELLED' && '취소됨'}
           </span>
+          <Button
+            variant="outline"
+            onClick={() => router.push(`/marketing/campaigns/${campaignId}/variants`)}
+          >
+            🔬 A/B 테스트
+          </Button>
           {campaign.status === 'PENDING' && (
             <Button onClick={handleSend} className="bg-green-600 hover:bg-green-700">
               지금 발송
