@@ -1,117 +1,269 @@
 export const dynamic = 'force-dynamic';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { z } from 'zod';
 
 type Params = { params: Promise<{ orgId: string }> };
 
+// ============================================================================
+// Zod Schemas
+// ============================================================================
+
+const ChannelCostSchema = z.object({
+  sent: z.number().nonnegative(),
+  cost: z.number().nonnegative(),
+  roi: z.number(),
+});
+
+const MonthlyCostSchema = z.object({
+  month: z.string(), // YYYY-MM
+  campaigns: z.number().nonnegative(),
+  sent: z.number().nonnegative(),
+  cost: z.number().nonnegative(),
+  roi: z.number(),
+});
+
+const SummaryStatsSchema = z.object({
+  totalCampaigns: z.number().nonnegative(),
+  totalSent: z.number().nonnegative(),
+  totalCost: z.number().nonnegative(),
+  avgCostPerCampaign: z.number().nonnegative(),
+  avgRoi: z.number(),
+});
+
+const ReportResponseSchema = z.object({
+  ok: z.literal(true),
+  organizationId: z.string(),
+  organizationName: z.string(),
+  reportPeriod: z.object({
+    startMonth: z.string(),
+    endMonth: z.string(),
+  }),
+  summary: SummaryStatsSchema,
+  byMonth: z.array(MonthlyCostSchema),
+  byChannel: z.object({
+    SMS: ChannelCostSchema.optional(),
+    Email: ChannelCostSchema.optional(),
+  }),
+});
+
+type ReportResponse = z.infer<typeof ReportResponseSchema>;
+
 /**
- * GET /api/organizations/[orgId]/campaigns/cost/report
- * 조직의 월별 캠페인 비용 리포트
+ * 기본값: 현재 월 기준 3개월 전 ~ 현재 월
  */
-export async function GET(
-  request: NextRequest,
-  { params }: Params
-) {
+function getDefaultDateRange(): { startMonth: string; endMonth: string } {
+  const now = new Date();
+  const endMonth = now.toISOString().substring(0, 7);
+
+  const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+  const startMonth = threeMonthsAgo.toISOString().substring(0, 7);
+
+  return { startMonth, endMonth };
+}
+
+/**
+ * YYYY-MM 형식 검증
+ */
+function isValidYearMonth(str: string): boolean {
+  return /^\d{4}-\d{2}$/.test(str);
+}
+
+// ============================================================================
+// GET /api/organizations/[orgId]/campaigns/cost/report — 조직별 비용 리포트
+// ============================================================================
+export async function GET(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
-    const currentOrgId = requireOrgId(ctx);
+    const authOrgId = requireOrgId(ctx);
     const { orgId } = await params;
 
-    // IDOR 방지: 현재 조직 확인
-    if (currentOrgId !== orgId) {
+    // ✅ IDOR 보안: 요청 orgId와 인증 orgId 일치 확인
+    if (orgId !== authOrgId) {
       return NextResponse.json(
-        { ok: false, error: 'FORBIDDEN', message: '접근 권한이 없습니다.' },
+        { ok: false, error: 'FORBIDDEN', message: '다른 조직의 데이터에 접근할 수 없습니다.' },
         { status: 403 }
       );
     }
 
-    // 쿼리 파라미터에서 month 필터 (선택사항)
-    const url = new URL(request.url);
-    const monthParam = url.searchParams.get('month'); // YYYY-MM 형식
+    // ✅ 조직 조회
+    const organization = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { id: true, name: true },
+    });
 
-    let dateFilter: any = undefined;
-
-    if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
-      // 특정 월의 데이터만 조회
-      const [year, month] = monthParam.split('-').map(Number);
-      const startDate = new Date(year, month - 1, 1);
-      const endDate = new Date(year, month, 0, 23, 59, 59);
-      dateFilter = { gte: startDate, lte: endDate };
+    if (!organization) {
+      return NextResponse.json(
+        { ok: false, error: 'NOT_FOUND', message: '조직을 찾을 수 없습니다.' },
+        { status: 404 }
+      );
     }
 
-    // 전체 조직 비용 통계 (월별 또는 전체)
-    const costs = await prisma.campaignCost.findMany({
+    // ✅ 쿼리 파라미터 추출
+    const url = new URL(req.url);
+    const queryStartMonth = url.searchParams.get('startMonth');
+    const queryEndMonth = url.searchParams.get('endMonth');
+
+    // ✅ 기본값 설정
+    const { startMonth: defaultStart, endMonth: defaultEnd } = getDefaultDateRange();
+    const startMonth = queryStartMonth || defaultStart;
+    const endMonth = queryEndMonth || defaultEnd;
+
+    // ✅ 쿼리 파라미터 검증
+    if (!isValidYearMonth(startMonth) || !isValidYearMonth(endMonth)) {
+      return NextResponse.json(
+        { ok: false, error: 'INVALID_INPUT', message: '기간은 YYYY-MM 형식이어야 합니다.' },
+        { status: 400 }
+      );
+    }
+
+    if (startMonth > endMonth) {
+      return NextResponse.json(
+        { ok: false, error: 'INVALID_INPUT', message: 'startMonth는 endMonth 이전이어야 합니다.' },
+        { status: 400 }
+      );
+    }
+
+    // ✅ CampaignCost 조회 (월별 범위 필터)
+    const campaignCosts = await prisma.campaignCost.findMany({
       where: {
         organizationId: orgId,
-        ...(dateFilter ? { createdAt: dateFilter } : {})
+        calculatedAt: {
+          gte: new Date(`${startMonth}-01`),
+          lt: new Date(`${endMonth}-32`), // 월의 마지막 날을 포함하기 위해
+        },
       },
       select: {
+        smsSent: true,
         smsCostTotal: true,
+        emailSent: true,
         emailCostTotal: true,
         successCount: true,
-        failureCount: true,
         actualCostTotal: true,
-        createdAt: true,
-        campaign: {
-          select: {
-            title: true,
-            status: true
-          }
-        }
+        estimatedRoi: true,
+        calculatedAt: true,
+      },
+    });
+
+    // ✅ 월별 & 채널별 집계
+    const monthlyMap = new Map<string, any>();
+    let totalSmsSent = 0;
+    let totalSmsCost = 0;
+    let totalEmailSent = 0;
+    let totalEmailCost = 0;
+    let totalSuccessCount = 0;
+    let totalCost = 0;
+    let totalRoiSum = 0;
+
+    campaignCosts.forEach((cost) => {
+      const month = cost.calculatedAt.toISOString().substring(0, 7);
+
+      if (!monthlyMap.has(month)) {
+        monthlyMap.set(month, {
+          month,
+          campaigns: 0,
+          sent: 0,
+          cost: 0,
+          roiSum: 0,
+        });
       }
+
+      const monthData = monthlyMap.get(month);
+      monthData.campaigns += 1;
+      monthData.sent += cost.smsSent + cost.emailSent;
+      monthData.cost += cost.actualCostTotal;
+      monthData.roiSum += cost.estimatedRoi;
+
+      totalSmsSent += cost.smsSent;
+      totalSmsCost += cost.smsCostTotal;
+      totalEmailSent += cost.emailSent;
+      totalEmailCost += cost.emailCostTotal;
+      totalSuccessCount += cost.successCount;
+      totalCost += cost.actualCostTotal;
+      totalRoiSum += cost.estimatedRoi;
     });
 
-    // 집계 계산
-    const totalCost = costs.reduce((sum, c) => sum + c.actualCostTotal, 0);
-    const totalSuccess = costs.reduce((sum, c) => sum + c.successCount, 0);
-    const totalFailure = costs.reduce((sum, c) => sum + c.failureCount, 0);
-    const smsCost = costs.reduce((sum, c) => sum + c.smsCostTotal, 0);
-    const emailCost = costs.reduce((sum, c) => sum + c.emailCostTotal, 0);
+    // ✅ 월별 평균 ROI 계산
+    const byMonth: MonthlyCostSchema[] = Array.from(monthlyMap.values()).map((data) => ({
+      month: data.month,
+      campaigns: data.campaigns,
+      sent: data.sent,
+      cost: data.cost,
+      roi: data.campaigns > 0 ? data.roiSum / data.campaigns : 0,
+    }));
 
-    const costPerSuccess = totalSuccess > 0 ? totalCost / totalSuccess : 0;
-    const successRate = (totalSuccess + totalFailure) > 0
-      ? (totalSuccess / (totalSuccess + totalFailure)) * 100
-      : 0;
+    // ✅ 채널별 통계 계산
+    const byChannel: any = {};
+    if (totalSmsSent > 0) {
+      byChannel.SMS = {
+        sent: totalSmsSent,
+        cost: totalSmsCost,
+        roi: totalSmsCost > 0 ? (totalSmsSent * 100) / totalSmsCost : 0, // 단순화된 ROI
+      };
+    }
+    if (totalEmailSent > 0) {
+      byChannel.Email = {
+        sent: totalEmailSent,
+        cost: totalEmailCost,
+        roi: totalEmailCost > 0 ? (totalEmailSent * 100) / totalEmailCost : 0,
+      };
+    }
 
-    logger.log('[GET /api/organizations/[orgId]/campaigns/cost/report]', {
-      orgId,
-      campaignCount: costs.length,
-      totalCost
-    });
+    // ✅ 요약 통계 계산
+    const totalCampaigns = campaignCosts.length;
+    const avgCostPerCampaign = totalCampaigns > 0 ? totalCost / totalCampaigns : 0;
+    const avgRoi = totalCampaigns > 0 ? totalRoiSum / totalCampaigns : 0;
 
-    return NextResponse.json({
+    // ✅ 응답 데이터 구성
+    const response: ReportResponse = {
       ok: true,
-      period: {
-        start: monthParam
-          ? `${monthParam}-01`
-          : new Date(0).toISOString().split('T')[0],
-        end: new Date().toISOString().split('T')[0]
+      organizationId: organization.id,
+      organizationName: organization.name,
+      reportPeriod: {
+        startMonth,
+        endMonth,
       },
-      aggregate: {
-        campaignCount: costs.length,
+      summary: {
+        totalCampaigns,
+        totalSent: totalSmsSent + totalEmailSent,
         totalCost,
-        smsCost,
-        emailCost,
-        totalSuccess,
-        totalFailure,
-        successRate: Math.round(successRate * 100) / 100,
-        costPerSuccess: Math.round(costPerSuccess * 100) / 100
+        avgCostPerCampaign,
+        avgRoi,
       },
-      campaigns: costs.map(c => ({
-        title: c.campaign.title,
-        status: c.campaign.status,
-        cost: c.actualCostTotal,
-        success: c.successCount,
-        failure: c.failureCount,
-        createdAt: c.createdAt
-      }))
+      byMonth,
+      byChannel,
+    };
+
+    // ✅ Zod 검증
+    const validation = ReportResponseSchema.safeParse(response);
+    if (!validation.success) {
+      logger.error('COST_REPORT_VALIDATION_ERROR', {
+        orgId,
+        errors: validation.error.issues,
+      });
+      return NextResponse.json(
+        { ok: false, error: 'INTERNAL_ERROR', message: '응답 검증에 실패했습니다.' },
+        { status: 500 }
+      );
+    }
+
+    logger.info('ORGANIZATION_COST_REPORT_RETRIEVED', {
+      orgId,
+      organizationName: organization.name,
+      totalCampaigns,
+      totalCost,
+      period: `${startMonth} ~ ${endMonth}`,
     });
-  } catch (err) {
-    logger.error('[GET /api/organizations/[orgId]/campaigns/cost/report]', { err });
+
+    return NextResponse.json(response, { status: 200 });
+  } catch (error) {
+    logger.error('ORGANIZATION_COST_REPORT_ERROR', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
-      { ok: false, error: 'SERVER_ERROR', message: '서버 오류가 발생했습니다.' },
+      { ok: false, error: 'INTERNAL_ERROR', message: '요청 처리 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }
