@@ -7,13 +7,18 @@ datasource db {
   provider = "postgresql"
 }
 
-// Phase 0: 발송 실패 원인 분류 (정확성 + 사용자 친화)
+// Phase 0+2: 발송 실패 원인 분류 (통합 - SendingFailureReason 8가지)
+// Menu #25(자동화) + Menu #38(캠페인) 모두 사용
 enum ExecutionFailureReason {
-  QUOTA_EXCEEDED    // 일일/월간 발송 한도 초과
-  INVALID_CONTACT   // 유효하지 않은 번호/이메일
-  OPT_OUT          // 수신거부 고객
-  SYSTEM_ERROR     // CRM 내부 오류
-  PROVIDER_ERROR   // SMS/Email 서비스 오류
+  INVALID_EMAIL      // 유효하지 않은 이메일
+  INVALID_PHONE      // 유효하지 않은 휴대폰
+  INVALID_CONTACT    // 기타 유효하지 않은 연락처 (자동화용)
+  OPT_OUT            // 수신거부 고객
+  QUOTA_EXCEEDED     // 일일/월간 발송 한도 초과
+  SYSTEM_ERROR       // CRM 내부 오류
+  PROVIDER_ERROR     // SMS/Email 서비스 오류
+  NETWORK_ERROR      // 네트워크 오류
+  BOUNCE             // 이메일 반송
 }
 
 // Phase 0: 실행 상태 추적
@@ -529,19 +534,22 @@ model SmsLog {
   @@map("CrmSmsLog")
 }
 
-// Phase 0: 통합 발송 기록 (퍼널 시퀀스 + 자동화 규칙)
-// SMS + Email 채널 지원, 중복 방지 (월별 반복)
+// Phase 0+2: 통합 발송 기록 (퍼널 시퀀스 + 자동화 규칙 + 캠페인)
+// SMS + Email 채널 지원, 중복 방지 (월별 반복), 상호작용 추적
 model ExecutionLog {
   id                String                    @id @default(cuid())
   organizationId    String
 
-  // 퍼널 vs 자동화 구분
-  sourceType        String                    // FUNNEL_SEQUENCE | AUTOMATION_RULE
-  sourceId          String                    // sequenceId or ruleId
-  sourceName        String                    // 규칙/시퀀스명 (발송 시점 스냅샷)
+  // 발송 소스 (자동화 규칙 / 퍼널 시퀀스 / 캠페인)
+  sourceType        String                    // FUNNEL_SEQUENCE | AUTOMATION_RULE | CAMPAIGN
+  sourceId          String                    // sequenceId or ruleId or campaignId
+  sourceName        String                    // 규칙/시퀀스/캠페인명 (발송 시점 스냅샷)
+  campaignId        String?                   // 캠페인 발송인 경우만 설정 (sourceType='CAMPAIGN')
 
-  // 수신자
+  // 수신자 (Contact 스냅샷)
   contactId         String
+  email             String?                   // 발송 시점의 이메일 스냅샷
+  phone             String?                   // 발송 시점의 휴대폰 스냅샷
 
   // 채널 & 상태
   channel           String                    // SMS | EMAIL
@@ -553,8 +561,9 @@ model ExecutionLog {
   sentAt            DateTime?
   nextRetryAt       DateTime?                 // 다음 재시도 예정시간
 
-  // 메시지 참조 (S3/Blob URL만 저장)
-  contentUrl        String?                   // "s3://bucket/exec-logs/2025-01-15/log-xyz.txt"
+  // 메시지 참조
+  contentUrl        String?                   // S3/Blob URL (subject + body JSON)
+  messageId         String?                   // SMS/Email 공급자 ID (Aligo msg_id, Email provider ID)
 
   // 실패 추적 (Enum 기반)
   failureReason     ExecutionFailureReason?
@@ -562,19 +571,29 @@ model ExecutionLog {
   retryCount        Int                       @default(0)
   maxRetries        Int                       @default(3)
 
+  // 상호작용 추적 (Phase 2 - 캠페인 성과 분석용)
+  emailOpenedAt     DateTime?                 // 이메일 오픈 시간
+  linkClickedAt     DateTime?                 // 랜딩 링크 클릭 시간
+  registeredAt      DateTime?                 // 상품 등록 시간
+  landingPageViewId String?                   // 랜딩 페이지 방문 기록 ID
+
   createdAt         DateTime                  @default(now())
   updatedAt         DateTime                  @updatedAt
 
   organization      Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaign          CrmMarketingCampaign?     @relation("ExecutionLogToCampaign", fields: [campaignId], references: [id], onDelete: SetNull)
 
   // 중복 방지: 같은 규칙, 같은 고객, 같은 월 → 한 번만 실행
   @@unique([sourceType, sourceId, contactId, executeMonth], name: "uq_execution_monthly")
 
   // 성능: Cron 조회
   @@index([organizationId, status, scheduledAt], name: "idx_execution_cron_scan")
+  // Phase 2: 캠페인 통계 쿼리 성능 (group by status, channel)
+  @@index([organizationId, sourceType, status, createdAt], name: "idx_execution_campaign_stats")
   @@index([status], name: "idx_execution_status")
   @@index([contactId], name: "idx_execution_contact")
   @@index([sourceId], name: "idx_execution_source")
+  @@index([campaignId], name: "idx_execution_campaign")
 
   @@map("ExecutionLog")
 }
@@ -2009,7 +2028,8 @@ model SendingHistory {
   @@index([campaignId, status], map: "idx_sending_history_campaign_status")
   @@index([organizationId, createdAt(sort: Desc)], map: "idx_sending_history_org_time")
   @@index([status, retryCount], map: "idx_sending_history_status_retry")
-  @@unique([campaignId, contactId], map: "unique_sending_history_campaign_contact")
+  // Phase 2 P0 Blocker 3: Unique 제약을 조건부 인덱스(ix_sending_history_dedup)로 변경
+  // 수동 발송(campaignId=NULL)도 중복 방지하기 위해 CASE 식 사용
   @@map("SendingHistory")
 }
 
@@ -4568,9 +4588,10 @@ model CrmMarketingCampaign {
   status           String                @default("DRAFT")
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
-  organization     Organization          @relation("CrmMarketing", fields: [organizationId], references: [id], onDelete: Cascade)
-  group            ContactGroup          @relation("CrmMarketing", fields: [groupId], references: [id], onDelete: Cascade)
-  sendingHistories SendingHistory[]
+  organization      Organization          @relation("CrmMarketing", fields: [organizationId], references: [id], onDelete: Cascade)
+  group             ContactGroup          @relation("CrmMarketing", fields: [groupId], references: [id], onDelete: Cascade)
+  sendingHistories  SendingHistory[]
+  executionLogs     ExecutionLog[]        @relation("ExecutionLogToCampaign")
 
   @@index([organizationId])
   @@index([groupId])
