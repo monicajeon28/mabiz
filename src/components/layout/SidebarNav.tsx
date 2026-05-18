@@ -95,6 +95,7 @@ const navSections: NavSection[] = [
     label: "영업 도구",
     items: [
       { href: "/tools",                    icon: Wrench,     label: "영업 도구함" },
+      { href: "/call-scripts",             icon: BookOpen,   label: "콜 스크립트" },
       { href: "/playbook",                 icon: BookOpen,   label: "콜 플레이북" },
       { href: "/tools/profit-calculator",  icon: Calculator, label: "수익 계산기" },
     ],

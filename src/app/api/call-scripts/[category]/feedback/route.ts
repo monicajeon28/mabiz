@@ -1,0 +1,65 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getMabizSession } from "@/lib/auth";
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { category: string } }
+) {
+  try {
+    const session = await getMabizSession();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { category } = params;
+    const body = await req.json();
+    const {
+      phase,
+      segment,
+      effectiveness,
+      difficulties,
+      improvements,
+      callDuration,
+      callOutcome,
+    } = body;
+
+    // TODO: DB에 피드백 저장
+    // await db.callScriptFeedback.create({
+    //   organizationId: session.user.organizationId,
+    //   userId: session.user.id,
+    //   category,
+    //   scriptPhase: phase,
+    //   segment,
+    //   effectiveness,
+    //   difficulties: JSON.stringify(difficulties),
+    //   improvements,
+    //   callDuration,
+    //   callOutcome,
+    // });
+
+    // 현재는 로그만 기록
+    console.log("[CallScriptFeedback]", {
+      userId: session.user.id,
+      category,
+      phase,
+      segment,
+      effectiveness,
+      callOutcome,
+      timestamp: new Date().toISOString(),
+    });
+
+    return NextResponse.json({
+      ok: true,
+      message: "Feedback submitted successfully",
+    });
+  } catch (error) {
+    console.error("Error submitting feedback:", error);
+    return NextResponse.json(
+      { ok: false, error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
