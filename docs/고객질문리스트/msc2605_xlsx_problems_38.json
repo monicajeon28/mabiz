@@ -1,0 +1,538 @@
+{
+  "sheet": "안내 없이, 여행에서 마주하는 문제",
+  "items": 38,
+  "data": [
+    {
+      "id": "msc2605_1_0001",
+      "question": "2026.05.10 MSC 벨리시마호 1항차 여행을 하며 마주한 문제 기록",
+      "answer": "2026.05.10 MSC 벨리시마호 1항차 여행을 하며 마주한 문제 기록",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0002",
+      "question": "매일 식당(뷔페, 정찬) 메뉴가 다른것도 모름",
+      "answer": "매일 식당(뷔페, 정찬) 메뉴가 다른것도 모름",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0003",
+      "question": "조식 룸서비스 무료 이용 모름\n\n(조식 룸서비스 무료였던건 항차마다 다른걸로 알아요 이번 항차가 조식 무료서비스 되는 거였어서 무료였어요)",
+      "answer": "조식 룸서비스 무료 이용 모름\n\n(조식 룸서비스 무료였던건 항차마다 다른걸로 알아요 이번 항차가 조식 무료서비스 되는 거였어서 무료였어요)",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0004",
+      "question": "수건(비치타올) 다시 객시로 가져와야되는지 몰라서 벌금",
+      "answer": "수건(비치타올) 다시 객시로 가져와야되는지 몰라서 벌금",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0005",
+      "question": "공연 예약하는 방법을 몰라서 우왕자왕",
+      "answer": "공연 예약하는 방법을 몰라서 우왕자왕",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0006",
+      "question": "정찬 식당 무료인지 모름 (너무 고급스러워서)",
+      "answer": "정찬 식당 무료인지 모름 (너무 고급스러워서)",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0007",
+      "question": "정찬식당 아침, 점심에도 운영을 안하는줄 알고 못즐김",
+      "answer": "정찬식당 아침, 점심에도 운영을 안하는줄 알고 못즐김",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0008",
+      "question": "뷔페 시간이 정해져 있는줄 알고, 충분히 못즐김",
+      "answer": "뷔페 시간이 정해져 있는줄 알고, 충분히 못즐김",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0009",
+      "question": "워터슬라이드, 워터파크 어디로 가야되는지 모르고, 길 헤매느라 다리 아프고 시간 버림",
+      "answer": "워터슬라이드, 워터파크 어디로 가야되는지 모르고, 길 헤매느라 다리 아프고 시간 버림",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0010",
+      "question": "와이파이 연결하는 방법을 모름",
+      "answer": "와이파이 연결하는 방법을 모름",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0011",
+      "question": "와이파이 유료 결제하고 싶은데 방법을 모름",
+      "answer": "와이파이 유료 결제하고 싶은데 방법을 모름",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0012",
+      "question": "유료와이파이를 꼭 해야만 어플 이용할 수 있다고 생각함. (어플은 무료로 사용 가능, 식사메뉴, 식사시간, 지도, 공지사항, 중요 소식, 셔틀버",
+      "answer": "유료와이파이를 꼭 해야만 어플 이용할 수 있다고 생각함. (어플은 무료로 사용 가능, 식사메뉴, 식사시간, 지도, 공지사항, 중요 소식, 셔틀버스 운영, 크루즈에서 결제 내역, 채팅 등)",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0013",
+      "question": "크루즈 타기 전에 어플조차 다운 받지 않고 와서 어플 무료사용과 와이파이 결제를 못함 (배가 바다 한가운데에 있으면 로밍, 이심도 안되기 떄문에",
+      "answer": "크루즈 타기 전에 어플조차 다운 받지 않고 와서 어플 무료사용과 와이파이 결제를 못함 (배가 바다 한가운데에 있으면 로밍, 이심도 안되기 떄문에 어플 설치가 불가능)",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0014",
+      "question": "기항지 관광지에 도착해서 언제 돌아와야 되는지 모름",
+      "answer": "기항지 관광지에 도착해서 언제 돌아와야 되는지 모름",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0015",
+      "question": "기항지에서 입국 수속과 출국 수속을 어떻게 해야되는지 과정을 몰라서 두려움",
+      "answer": "기항지에서 입국 수속과 출국 수속을 어떻게 해야되는지 과정을 몰라서 두려움",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0016",
+      "question": "안전교육을 받아야 되는데, 방법을 모름.",
+      "answer": "안전교육을 받아야 되는데, 방법을 모름.",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0017",
+      "question": "안전교육을 하선 전날까지 받아도 되는데, 아침먹다가 갑자기 방송나와서 부랴부랴 이동하느라 스트레스 받음",
+      "answer": "안전교육을 하선 전날까지 받아도 되는데, 아침먹다가 갑자기 방송나와서 부랴부랴 이동하느라 스트레스 받음",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0018",
+      "question": "정찬레스토랑에서 점심, 저녁시간 때는 물이 무료인줄 알았는데 유료인걸 뒤늦게 알게 됨. (웨이터가 물 줄까? 하는데 여기서 받으면 유료임. 물 ",
+      "answer": "정찬레스토랑에서 점심, 저녁시간 때는 물이 무료인줄 알았는데 유료인걸 뒤늦게 알게 됨. (웨이터가 물 줄까? 하는데 여기서 받으면 유료임. 물 1병씩 계산됨)",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0019",
+      "question": "정찬레스토랑에서 아침에는 커피, 쥬스(파인애플, 사과), 우유, 초코라떼, 물이 무료인걸 몰라서 못즐김",
+      "answer": "정찬레스토랑에서 아침에는 커피, 쥬스(파인애플, 사과), 우유, 초코라떼, 물이 무료인걸 몰라서 못즐김",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0020",
+      "question": "정찬레스토랑에서 먹고 싶은 메뉴 더 시켜먹을 수 있는데 추가 주문하면 유료인줄 알고 눈치보느라 누리지 못함",
+      "answer": "정찬레스토랑에서 먹고 싶은 메뉴 더 시켜먹을 수 있는데 추가 주문하면 유료인줄 알고 눈치보느라 누리지 못함",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0021",
+      "question": "크루즈 쉽투어가 없어서 , 사전에 내가 즐기고 싶은 시설(극장, 식당, 워터파크, 풀장 등)이 어디있는지 몰라서 하루, 이틀을 길 잃어버리는데 ",
+      "answer": "크루즈 쉽투어가 없어서 , 사전에 내가 즐기고 싶은 시설(극장, 식당, 워터파크, 풀장 등)이 어디있는지 몰라서 하루, 이틀을 길 잃어버리는데 시간 버림.",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0022",
+      "question": "잘모르는 힐링장소를 알지 못해서 크루즈 200% 못즐김",
+      "answer": "잘모르는 힐링장소를 알지 못해서 크루즈 200% 못즐김",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0023",
+      "question": "창문 없는 오션뷰 뷔페 자리",
+      "answer": "창문 없는 오션뷰 뷔페 자리",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0024",
+      "question": "탁 트인 하늘, 바다를 예쁜 풀장이 어우러진 경치를 보며 앉아서 힐링하는 자리",
+      "answer": "탁 트인 하늘, 바다를 예쁜 풀장이 어우러진 경치를 보며 앉아서 힐링하는 자리",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0025",
+      "question": "휠체어 빌리는 방법을 몰라서 헤맴.",
+      "answer": "휠체어 빌리는 방법을 몰라서 헤맴.",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0026",
+      "question": "객실 카드에 신용카드 등록방법을 모름",
+      "answer": "객실 카드에 신용카드 등록방법을 모름",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0027",
+      "question": "첫 크루즈 여행에서 체크인을 하고 크루즈에 탑승하면 뭐부터 해야되는지 몰라서 우왕자왕하고, 시간과 에너지 버림",
+      "answer": "첫 크루즈 여행에서 체크인을 하고 크루즈에 탑승하면 뭐부터 해야되는지 몰라서 우왕자왕하고, 시간과 에너지 버림",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0028",
+      "question": "기항지 관광에서 현지 지역에서 운영하는 무료 셔틀 버스가 있는지 정보 확인을 못함.",
+      "answer": "기항지 관광에서 현지 지역에서 운영하는 무료 셔틀 버스가 있는지 정보 확인을 못함.",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0029",
+      "question": "무료 셔틀이 없을때, 선사에서 제공하는 유료 셔틀버스를 어떻게 이용해야되는지 모름.",
+      "answer": "무료 셔틀이 없을때, 선사에서 제공하는 유료 셔틀버스를 어떻게 이용해야되는지 모름.",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0030",
+      "question": "어플에 체크안 안된다고 뜨는건 벨리시마 와이파이 접속을 해야뜸!!",
+      "answer": "어플에 체크안 안된다고 뜨는건 벨리시마 와이파이 접속을 해야뜸!!",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0031",
+      "question": "고객들중에 뭐가 유료고 뭐가 무료인지 모름",
+      "answer": "고객들중에 뭐가 유료고 뭐가 무료인지 모름",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0032",
+      "question": "250달러로 한번에 미리 긁히는건 사용자의 카드사, 카드한도, 신용등급에 기인한걸로 사료됨",
+      "answer": "250달러로 한번에 미리 긁히는건 사용자의 카드사, 카드한도, 신용등급에 기인한걸로 사료됨",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0033",
+      "question": "일부 고객 선상팁과 별개로 돈이 빠져나가는거 먼저 긁히고 긁힌 금액이 먼저 차감되서 250보다 덜쓰면 덜받고 더쓰면 더받는 형식임",
+      "answer": "일부 고객 선상팁과 별개로 돈이 빠져나가는거 먼저 긁히고 긁힌 금액이 먼저 차감되서 250보다 덜쓰면 덜받고 더쓰면 더받는 형식임",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0034",
+      "question": "다 그런건 아니지만 자유여행을 하시는분들은 추가적인 비용지출에 대한 고통이 있음.(와이파이 음료 등등)",
+      "answer": "다 그런건 아니지만 자유여행을 하시는분들은 추가적인 비용지출에 대한 고통이 있음.(와이파이 음료 등등)",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0035",
+      "question": "가고시마는 무조건 투어 신청하는게 이득임.\n(크루즈 터미널이 공업항구에 설치되어 있다면 지역불문하고 통용되는 말임)",
+      "answer": "가고시마는 무조건 투어 신청하는게 이득임.\n(크루즈 터미널이 공업항구에 설치되어 있다면 지역불문하고 통용되는 말임)",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0036",
+      "question": "MSC콘시어지는 한국어로 적어도 인식가능함(어플)",
+      "answer": "MSC콘시어지는 한국어로 적어도 인식가능함(어플)",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0037",
+      "question": "* 객실은 멀고 화장실은 급할때 배중앙 메인엘리베이터 뒷편이 화장실임",
+      "answer": "* 객실은 멀고 화장실은 급할때 배중앙 메인엘리베이터 뒷편이 화장실임",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0038",
+      "question": "새벽 1시부터 모든 구역에서 청소를 시작함\n그리고 메인안내데스크(리셉션 데스크)는 1명만 남고 퇴근함",
+      "answer": "새벽 1시부터 모든 구역에서 청소를 시작함\n그리고 메인안내데스크(리셉션 데스크)는 1명만 남고 퇴근함",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "keywords": [
+        "MSC",
+        "크루즈"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마",
+      "salesTone": "neutral"
+    }
+  ]
+}

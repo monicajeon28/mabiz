@@ -1,0 +1,45 @@
+{
+  "sheet": "크루즈 스탭 준비 사항",
+  "items": 3,
+  "data": [
+    {
+      "id": "msc2605_6_0001",
+      "question": "2주전, 크루즈 스탭으로 가는 사람들과 OT 반드시 하기",
+      "answer": "2주전, 크루즈 스탭으로 가는 사람들과 OT 반드시 하기",
+      "type": "운영정보",
+      "category": "자동분류대기",
+      "keywords": [
+        "스탭"
+      ],
+      "travelPhase": "여행전",
+      "source": "MSC벨리시마톡방",
+      "salesTone": "professional"
+    },
+    {
+      "id": "msc2605_6_0002",
+      "question": "파우치",
+      "answer": "파우치",
+      "type": "운영정보",
+      "category": "자동분류대기",
+      "keywords": [
+        "스탭"
+      ],
+      "travelPhase": "여행전",
+      "source": "MSC벨리시마톡방",
+      "salesTone": "professional"
+    },
+    {
+      "id": "msc2605_6_0003",
+      "question": "준비 서류",
+      "answer": "준비 서류",
+      "type": "운영정보",
+      "category": "자동분류대기",
+      "keywords": [
+        "스탭"
+      ],
+      "travelPhase": "여행전",
+      "source": "MSC벨리시마톡방",
+      "salesTone": "professional"
+    }
+  ]
+}

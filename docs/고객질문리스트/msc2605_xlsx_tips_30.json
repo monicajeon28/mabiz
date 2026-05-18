@@ -1,0 +1,110 @@
+{
+  "sheet": "알아낸 꿀팁",
+  "items": 8,
+  "data": [
+    {
+      "id": "msc2605_3_0001",
+      "question": "MSC 꿀팁",
+      "answer": "MSC 꿀팁",
+      "type": "꿀팁",
+      "category": "자동분류대기",
+      "keywords": [
+        "꿀팁"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마톡방",
+      "salesTone": "friendly"
+    },
+    {
+      "id": "msc2605_3_0002",
+      "question": "250달러로 한번에 미리 긁히는건 사용자의 카드사, 카드한도, 신용등급에 기인한걸로 사료됨",
+      "answer": "250달러로 한번에 미리 긁히는건 사용자의 카드사, 카드한도, 신용등급에 기인한걸로 사료됨",
+      "type": "꿀팁",
+      "category": "자동분류대기",
+      "keywords": [
+        "꿀팁"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마톡방",
+      "salesTone": "friendly"
+    },
+    {
+      "id": "msc2605_3_0003",
+      "question": "일부 고객 선상팁과 별개로 돈이 빠져나가는거 먼저 긁히고 긁힌 금액이 먼저 차감되서 250보다 덜쓰면 덜받고",
+      "answer": "일부 고객 선상팁과 별개로 돈이 빠져나가는거 먼저 긁히고 긁힌 금액이 먼저 차감되서 250보다 덜쓰면 덜받고 더쓰면 더받는 형식임",
+      "type": "꿀팁",
+      "category": "자동분류대기",
+      "keywords": [
+        "꿀팁"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마톡방",
+      "salesTone": "friendly"
+    },
+    {
+      "id": "msc2605_3_0004",
+      "question": "가고시마는 무조건 투어 신청하는게 이득임.\n(크루즈 터미널이 공업항구에 설치되어 있다면 지역불문하고 통용되는",
+      "answer": "가고시마는 무조건 투어 신청하는게 이득임.\n(크루즈 터미널이 공업항구에 설치되어 있다면 지역불문하고 통용되는 말임)",
+      "type": "꿀팁",
+      "category": "자동분류대기",
+      "keywords": [
+        "꿀팁"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마톡방",
+      "salesTone": "friendly"
+    },
+    {
+      "id": "msc2605_3_0005",
+      "question": "MSC콘시어지는 한국어로 적어도 인식가능함(어플)",
+      "answer": "MSC콘시어지는 한국어로 적어도 인식가능함(어플)",
+      "type": "꿀팁",
+      "category": "자동분류대기",
+      "keywords": [
+        "꿀팁"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마톡방",
+      "salesTone": "friendly"
+    },
+    {
+      "id": "msc2605_3_0006",
+      "question": "* 객실은 멀고 화장실은 급할때 배중앙 메인엘리베이터 뒷편이 화장실임",
+      "answer": "* 객실은 멀고 화장실은 급할때 배중앙 메인엘리베이터 뒷편이 화장실임",
+      "type": "꿀팁",
+      "category": "자동분류대기",
+      "keywords": [
+        "꿀팁"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마톡방",
+      "salesTone": "friendly"
+    },
+    {
+      "id": "msc2605_3_0007",
+      "question": "새벽 1시부터 모든 구역에서 청소를 시작함\n그리고 메인안내데스크(리셉션 데스크)는 1명만 남고 퇴근함",
+      "answer": "새벽 1시부터 모든 구역에서 청소를 시작함\n그리고 메인안내데스크(리셉션 데스크)는 1명만 남고 퇴근함",
+      "type": "꿀팁",
+      "category": "자동분류대기",
+      "keywords": [
+        "꿀팁"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마톡방",
+      "salesTone": "friendly"
+    },
+    {
+      "id": "msc2605_3_0008",
+      "question": "새벽 1시가 넘어가더라도 모든 부대시설에 노래랑 불빛이 꺼지지않음",
+      "answer": "새벽 1시가 넘어가더라도 모든 부대시설에 노래랑 불빛이 꺼지지않음",
+      "type": "꿀팁",
+      "category": "자동분류대기",
+      "keywords": [
+        "꿀팁"
+      ],
+      "travelPhase": "여행중",
+      "source": "MSC벨리시마톡방",
+      "salesTone": "friendly"
+    }
+  ]
+}
