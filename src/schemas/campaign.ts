@@ -54,6 +54,34 @@ export const CampaignListQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
+/**
+ * Phase 4: Delta SMS 캠페인 설정 스키마
+ */
+export const CreateDeltaCampaignSchema = z.object({
+  campaignId: z.string()
+    .cuid("유효한 캠페인 ID여야 합니다."),
+  triggerType: z.enum(['PURCHASE', 'ABANDONED'], {
+    errorMap: () => ({ message: "PURCHASE 또는 ABANDONED 중 선택해주세요." })
+  }).default('PURCHASE'),
+  deltaDay0Message: z.string()
+    .max(90, "Day 0 메시지는 90자 이하여야 합니다.")
+    .optional(),
+  deltaDay1Message: z.string()
+    .max(160, "Day 1 메시지는 160자 이하여야 합니다.")
+    .optional(),
+  deltaDay2Message: z.string()
+    .max(160, "Day 2 메시지는 160자 이하여야 합니다.")
+    .optional(),
+  deltaDay3Message: z.string()
+    .max(160, "Day 3 메시지는 160자 이하여야 합니다.")
+    .optional(),
+});
+
+export const UpdateDeltaCampaignSchema = CreateDeltaCampaignSchema.partial().omit({ campaignId: true });
+
+export type CreateDeltaCampaignData = z.infer<typeof CreateDeltaCampaignSchema>;
+export type UpdateDeltaCampaignData = z.infer<typeof UpdateDeltaCampaignSchema>;
+
 export type CampaignCreateData = z.infer<typeof CampaignCreateSchema>;
 export type CampaignUpdateData = z.infer<typeof CampaignUpdateSchema>;
 export type CampaignListQuery = z.infer<typeof CampaignListQuerySchema>;
