@@ -2036,7 +2036,8 @@ model SendingHistory {
   segmentVariation  String?                @db.VarChar(1)  // A/B/C 세그먼트 변형
 
   // 관계 (Phase 2 추가)
-  campaign          CrmMarketingCampaign?  @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  // P0 Fix: onDelete: Restrict (캠페인 삭제 시 SendingHistory가 있으면 오류 = 데이터 무결성 보호)
+  campaign          CrmMarketingCampaign?  @relation(fields: [campaignId], references: [id], onDelete: Restrict)
 
   @@index([organizationId, status])
   @@index([contactId, status])
@@ -4634,24 +4635,24 @@ model CampaignCost {
 
   // 발송 통계
   smsSent         Int      @default(0)
-  smsRateCurrent  Float    @default(0.01)        // KRW per SMS
-  smsCostTotal    Float    @default(0)
+  smsRateCurrent  Decimal  @default(0.01) @db.Decimal(10, 2)     // KRW per SMS (P0 Fix: Float → Decimal)
+  smsCostTotal    Decimal  @default(0) @db.Decimal(12, 2)        // P0 Fix: Float → Decimal (금융 정밀도)
 
   emailSent       Int      @default(0)
-  emailRateCurrent Float   @default(0.001)       // KRW per Email
-  emailCostTotal  Float    @default(0)
+  emailRateCurrent Decimal @default(0.001) @db.Decimal(10, 4)    // KRW per Email (P0 Fix: Float → Decimal)
+  emailCostTotal  Decimal  @default(0) @db.Decimal(12, 2)        // P0 Fix: Float → Decimal
 
   // 성공/실패 분석
   successCount    Int      @default(0)           // SENT + DELIVERED
   failureCount    Int      @default(0)           // FAILED
-  costPerSuccess  Float    @default(0)           // (SMS + Email) / successCount
+  costPerSuccess  Decimal  @default(0) @db.Decimal(12, 2)        // P0 Fix: Float → Decimal
 
   // ROI
-  estimatedRevenue Float  @default(0)            // 예상 수익
-  estimatedRoi    Float   @default(0)            // revenue / cost
+  estimatedRevenue Decimal @default(0) @db.Decimal(15, 2)        // 예상 수익 (P0 Fix: Float → Decimal)
+  estimatedRoi    Decimal  @default(0) @db.Decimal(7, 2)         // revenue / cost (P0 Fix: Float → Decimal, 최대 99,999.99%)
 
   // Metadata
-  actualCostTotal Float   @default(0)            // smsCost + emailCost
+  actualCostTotal Decimal  @default(0) @db.Decimal(12, 2)        // smsCost + emailCost (P0 Fix: Float → Decimal)
   calculatedAt    DateTime @default(now())
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

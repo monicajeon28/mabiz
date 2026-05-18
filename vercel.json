@@ -51,6 +51,18 @@
     {
       "path": "/api/cron/execute-campaigns",
       "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/delta-sms?schedule=morning",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/delta-sms?schedule=afternoon",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/delta-sms?schedule=evening",
+      "schedule": "0 19 * * *"
     }
   ]
 }
