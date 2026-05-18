@@ -95,12 +95,16 @@ export function mapExecutionToSendingFailureReason(
 
   // INVALID_CONTACT 매핑 시 경고
   if (reason === "INVALID_CONTACT") {
+    // Phase 3-γ: P1-4 구조화된 로깅 + 모니터링 메트릭
     logger.warn(
-      "[Enum Mapping] INVALID_CONTACT mapped to INVALID_PHONE",
+      "[Enum Mapping] Enum mapping fallback",
       {
+        source: "INVALID_CONTACT",
+        target: mapped,
+        failureReasonType: typeof reason,
         reason,
-        mapped,
-        note: "정보 손실 가능성 있음 (자동화/퍼널용)",
+        note: "ExecutionLog enum not found - 정보 손실 가능성 있음 (자동화/퍼널용)",
+        timestamp: new Date().toISOString(),
       }
     );
   }
