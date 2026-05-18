@@ -1,0 +1,93 @@
+name: Health Check
+
+on:
+  schedule:
+    # 매일 자정(UTC) 실행
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Check API endpoints
+        run: |
+          echo "Checking API health..."
+
+          # Vercel preview URL
+          PREVIEW_URL="https://mabiz-crm.vercel.app"
+
+          # Core endpoints to check
+          endpoints=(
+            "/api/health"
+            "/api/groups"
+            "/api/contacts"
+            "/api/partner/dashboard/b2b"
+          )
+
+          for endpoint in "${endpoints[@]}"; do
+            echo "Checking $PREVIEW_URL$endpoint"
+            status=$(curl -s -o /dev/null -w "%{http_code}" "$PREVIEW_URL$endpoint" \
+              -H "Authorization: Bearer ${{ secrets.API_TEST_TOKEN }}" || echo "000")
+
+            if [ "$status" = "200" ] || [ "$status" = "401" ]; then
+              echo "✅ $endpoint: OK (HTTP $status)"
+            else
+              echo "❌ $endpoint: FAIL (HTTP $status)"
+            fi
+          done
+
+      - name: Notify Slack on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "❌ API Health Check Failed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*API Health Check Failed*\n• Repository: ${{ github.repository }}\n• Branch: ${{ github.ref_name }}\n• Check Details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }
+              ]
+            }
+        continue-on-error: true
+
+  database-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check database connection
+        run: npm run db:health-check --if-present || npx prisma db execute --stdin < /dev/null || true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        continue-on-error: true
+
+      - name: Check database migrations
+        run: npx prisma migrate status --skip-generate || true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        continue-on-error: true

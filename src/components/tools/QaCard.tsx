@@ -63,22 +63,22 @@ export function QaCard({ item, onClick, highlight }: QaCardProps) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          {/* 판매톤 뱃지 */}
+          {/* 판매톤 뱃지 - 50대 사용자 개선 */}
           <div className="flex items-center gap-2 mb-2">
             <span
-              className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${toneInfo.bg} ${toneInfo.text} shrink-0`}
+              className={`inline-block px-2.5 py-1 rounded-full text-sm font-semibold ${toneInfo.bg} ${toneInfo.text} shrink-0`}
             >
               {toneInfo.label}
             </span>
             <span className="text-xs text-gray-500">{item.category}</span>
           </div>
 
-          {/* 질문 */}
-          <p className="text-sm font-medium text-gray-900 mb-1 line-clamp-2 group-hover:text-blue-600 transition-colors">
+          {/* 질문 - 50대 사용자 개선 */}
+          <p className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
             {truncate(item.question, 90)}
           </p>
 
-          {/* 답변 미리보기 */}
+          {/* 답변 미리보기 - 50대 사용자 개선 */}
           <p className="text-sm text-gray-600 line-clamp-2 mb-2">
             {truncate(item.answer, 100)}
           </p>

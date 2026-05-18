@@ -1,7 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 const PAGE_SIZE = 20;
+
+// [SEC-005] Rate Limiting: 공개 API 보호
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1분
+const RATE_LIMIT_MAX_REQUESTS = 10; // 1분당 10회
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimitPublic(clientIp: string): { allowed: boolean; resetAt?: number } {
+  const now = Date.now();
+  const key = `api:bot-guide:${clientIp}`;
+  const entry = rateLimitMap.get(key);
+
+  if (!entry || now >= entry.resetAt) {
+    // 새로운 윈도우 시작
+    rateLimitMap.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true };
+  }
+
+  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return { allowed: false, resetAt: entry.resetAt };
+  }
+
+  entry.count++;
+  return { allowed: true };
+}
 
 /**
  * GET /api/tools/bot-guide-answers
@@ -113,6 +138,27 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
+    // [SEC-005] Rate Limiting: 공개 API 스팸 방지
+    const clientIp = req.headers.get("x-forwarded-for") ||
+                     req.headers.get("x-real-ip") ||
+                     "unknown";
+    const rateLimit = checkRateLimitPublic(clientIp);
+
+    if (!rateLimit.allowed) {
+      logger.warn("[BotGuideAnswers] Rate limit exceeded", {
+        clientIp,
+        resetAt: new Date(rateLimit.resetAt!).toISOString(),
+      });
+      return NextResponse.json(
+        {
+          ok: false,
+          message: `요청이 너무 많습니다. ${Math.ceil((rateLimit.resetAt! - Date.now()) / 1000)}초 후 다시 시도하세요.`,
+          resetAt: rateLimit.resetAt,
+        },
+        { status: 429 }
+      );
+    }
+
     let body: any = {};
     try {
       body = await req.json();

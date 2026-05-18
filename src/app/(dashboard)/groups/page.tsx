@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Users, GitBranch, Settings, ArrowRight, Zap, Upload } from "lucide-react";
+import { Plus, Users, GitBranch, Settings, ArrowRight, Zap, Upload, Loader2 } from "lucide-react";
 import { showError } from "@/components/ui/Toast";
 
 type Group = {
@@ -271,8 +271,9 @@ export default function GroupsPage() {
         <button
           onClick={initRegionalGroups}
           disabled={setupLoading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
         >
+          {setupLoading && <Loader2 className="w-4 h-4 animate-spin" />}
           {setupLoading ? '생성 중...' : '🚀 지역 그룹 초기화'}
         </button>
         {setupMsg && (
@@ -310,7 +311,7 @@ export default function GroupsPage() {
                 aria-describedby={fieldErrors.name ? "error-name" : undefined}
               />
               {fieldErrors.name && (
-                <p id="error-name" className="text-sm text-red-600 mt-1">{fieldErrors.name}</p>
+                <p id="error-name" className="text-base text-red-600 mt-2 font-medium bg-red-50 p-2 rounded">⚠️ {fieldErrors.name}</p>
               )}
             </div>
 
@@ -329,7 +330,7 @@ export default function GroupsPage() {
                 aria-describedby={fieldErrors.description ? "error-description" : undefined}
               />
               {fieldErrors.description && (
-                <p id="error-description" className="text-sm text-red-600 mt-1">{fieldErrors.description}</p>
+                <p id="error-description" className="text-base text-red-600 mt-2 font-medium bg-red-50 p-2 rounded">⚠️ {fieldErrors.description}</p>
               )}
             </div>
 
@@ -348,7 +349,7 @@ export default function GroupsPage() {
                 ))}
               </div>
               {fieldErrors.color && (
-                <p className="text-sm text-red-600 mt-1">{fieldErrors.color}</p>
+                <p className="text-base text-red-600 mt-2 font-medium bg-red-50 p-2 rounded">⚠️ {fieldErrors.color}</p>
               )}
             </div>
 
@@ -373,7 +374,7 @@ export default function GroupsPage() {
                 ))}
               </select>
               {fieldErrors.funnelId && (
-                <p id="error-funnelId" className="text-sm text-red-600 mt-1">{fieldErrors.funnelId}</p>
+                <p id="error-funnelId" className="text-base text-red-600 mt-2 font-medium bg-red-50 p-2 rounded">⚠️ {fieldErrors.funnelId}</p>
               )}
               {form.funnelId && !fieldErrors.funnelId && (
                 <p className="text-xs text-green-600 mt-1">
@@ -384,15 +385,16 @@ export default function GroupsPage() {
           </div>
 
           {formError && (
-            <p className="text-sm text-red-600 mt-3">{formError}</p>
+            <p className="text-base text-red-600 mt-3 font-medium bg-red-50 p-3 rounded">⚠️ {formError}</p>
           )}
 
           <div className="flex gap-2 mt-4">
             <button
               onClick={createGroup}
               disabled={saving || !form.name.trim()}
-              className="flex-1 bg-navy-900 text-white py-2 rounded-lg text-sm font-medium hover:bg-navy-700 disabled:opacity-50"
+              className="flex-1 bg-navy-900 text-white py-2 rounded-lg text-base font-medium hover:bg-navy-700 disabled:opacity-50 flex items-center justify-center gap-2"
             >
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
               {saving ? "저장 중..." : "그룹 만들기"}
             </button>
             <button
@@ -508,7 +510,7 @@ export default function GroupsPage() {
                       <p className="text-xs text-gray-400">[고객명] 자동 치환됩니다</p>
 
                       {blastError && (
-                        <p className="text-sm text-red-600">{blastError}</p>
+                        <p className="text-base text-red-600 font-medium bg-red-50 p-3 rounded">⚠️ {blastError}</p>
                       )}
 
                       {blastPreview && (
@@ -526,16 +528,16 @@ export default function GroupsPage() {
                             )}
                           </div>
 
-                          {/* UX-004: 최종 확인 체크박스 */}
-                          <label className="flex items-start gap-2 pt-2 border-t border-yellow-200">
+                          {/* UX-004: 최종 확인 체크박스 - 50대 사용자 개선 */}
+                          <label className="flex items-start gap-2 pt-2 border-t border-yellow-200 cursor-pointer hover:bg-yellow-100/50 p-2 -mx-2 rounded">
                             <input
                               type="checkbox"
                               checked={blastConfirm}
                               onChange={(e) => setBlastConfirm(e.target.checked)}
-                              className="w-4 h-4 rounded border-yellow-300 text-yellow-600 mt-0.5"
+                              className="w-5 h-5 rounded border-yellow-300 text-yellow-600 mt-1"
                             />
-                            <span className="text-xs text-yellow-800">
-                              위의 내용으로 <span className="font-semibold">{blastPreview.willSend}명</span>에게 발송하는 것을 확인합니다.
+                            <span className="text-sm text-yellow-900 font-medium">
+                              정말로 <span className="font-bold text-red-600">{blastPreview.willSend}명</span>에게 발송하겠습니다.
                             </span>
                           </label>
                         </div>
@@ -546,8 +548,9 @@ export default function GroupsPage() {
                           <button
                             onClick={checkBlast}
                             disabled={!blastMsg.trim() || checkingBlast}
-                            className="flex-1 border border-blue-300 text-blue-700 py-1.5 rounded-lg text-sm hover:bg-blue-50 disabled:opacity-50"
+                            className="flex-1 border border-blue-300 text-blue-700 py-2 rounded-lg text-base font-medium hover:bg-blue-50 disabled:opacity-50 flex items-center justify-center gap-2"
                           >
+                            {checkingBlast && <Loader2 className="w-4 h-4 animate-spin" />}
                             {checkingBlast ? "확인 중..." : "대상 확인"}
                           </button>
                         ) : (
@@ -565,13 +568,15 @@ export default function GroupsPage() {
                             <button
                               onClick={sendBlast}
                               disabled={blasting || !blastConfirm}
-                              className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                              className={`flex-1 py-2 rounded-lg font-medium transition-all text-base flex items-center justify-center gap-2 ${
                                 blastConfirm && !blasting
-                                  ? 'bg-red-600 text-white hover:bg-red-700'
-                                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                  ? 'bg-red-600 text-white hover:bg-red-700 cursor-pointer'
+                                  : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
                               }`}
+                              title={!blastConfirm ? '체크박스를 체크해주세요' : '발송하기'}
                             >
-                              {blasting ? "발송 중..." : `발송 (${blastPreview.willSend}명)`}
+                              {blasting && <Loader2 className="w-4 h-4 animate-spin" />}
+                              {blasting ? "발송 중..." : `✓ 발송 (${blastPreview.willSend}명)`}
                             </button>
                           </>
                         )}

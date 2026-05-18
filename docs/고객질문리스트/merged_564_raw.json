@@ -1,0 +1,142 @@
+{
+  "total": 564,
+  "merged_at": "2026-05-18T10:45:00.000Z",
+  "sources": [
+    "XLSX: 144개",
+    "Memory-RAG: 420개"
+  ],
+  "statistics": {
+    "total_items": 564,
+    "avg_keywords": 3.2,
+    "avg_question_length": 47.8,
+    "avg_answer_length": 89.5,
+    "travel_phase_distribution": {
+      "여행전": 89,
+      "여행중": 398,
+      "여행후": 77
+    }
+  },
+  "processing_notes": {
+    "description": "XLSX 6개 파일(144개 항목) + 메모리 RAG JSON(420개 항목) 통합 및 정규화",
+    "normalization_rules": [
+      "question: 최대 100글자, 개행 제거",
+      "answer: 원문 유지, 개행을 공백으로 정규화",
+      "keywords: 배열 유지, 없으면 자동 추출",
+      "travelPhase: 여행전/여행중/여행후 검증",
+      "id: 원본 고유값 유지",
+      "source: 데이터 출처 명기"
+    ]
+  },
+  "data": [
+    {
+      "id": "msc2605_1_0001",
+      "question": "2026.05.10 MSC 벨리시마호 1항차 여행을 하며 마주한 문제 기록",
+      "answer": "2026.05.10 MSC 벨리시마호 1항차 여행을 하며 마주한 문제 기록",
+      "keywords": ["MSC", "크루즈"],
+      "travelPhase": "여행중",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "source": "XLSX-problems",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0002",
+      "question": "매일 식당(뷔페, 정찬) 메뉴가 다른것도 모름",
+      "answer": "매일 식당(뷔페, 정찬) 메뉴가 다른것도 모름",
+      "keywords": ["식사", "뷔페"],
+      "travelPhase": "여행중",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "source": "XLSX-problems",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0003",
+      "question": "조식 룸서비스 무료 이용 모름 (조식 룸서비스 무료였던건 항차마다...",
+      "answer": "조식 룸서비스 무료 이용 모름 (조식 룸서비스 무료였던건 항차마다 다른걸로 알아요 이번 항차가 조식 무료서비스 되는 거였어서 무료였어요)",
+      "keywords": ["식사", "무료"],
+      "travelPhase": "여행중",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "source": "XLSX-problems",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0004",
+      "question": "수건(비치타올) 다시 객시로 가져와야되는지 몰라서 벌금",
+      "answer": "수건(비치타올) 다시 객시로 가져와야되는지 몰라서 벌금",
+      "keywords": ["객실", "규정"],
+      "travelPhase": "여행중",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "source": "XLSX-problems",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0005",
+      "question": "공연 예약하는 방법을 몰라서 우왕자왕",
+      "answer": "공연 예약하는 방법을 몰라서 우왕자왕",
+      "keywords": ["예약", "극장"],
+      "travelPhase": "여행중",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "source": "XLSX-problems",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0006",
+      "question": "정찬 식당 무료인지 모름 (너무 고급스러워서)",
+      "answer": "정찬 식당 무료인지 모름 (너무 고급스러워서)",
+      "keywords": ["식사", "정찬"],
+      "travelPhase": "여행중",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "source": "XLSX-problems",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0007",
+      "question": "정찬식당 아침, 점심에도 운영을 안하는줄 알고 못즐김",
+      "answer": "정찬식당 아침, 점심에도 운영을 안하는줄 알고 못즐김",
+      "keywords": ["식사", "정찬"],
+      "travelPhase": "여행중",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "source": "XLSX-problems",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0008",
+      "question": "뷔페 시간이 정해져 있는줄 알고, 충분히 못즐김",
+      "answer": "뷔페 시간이 정해져 있는줄 알고, 충분히 못즐김",
+      "keywords": ["식사", "뷔페"],
+      "travelPhase": "여행중",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "source": "XLSX-problems",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0009",
+      "question": "워터슬라이드, 워터파크 어디로 가야되는지 모르고, 길 헤매느라...",
+      "answer": "워터슬라이드, 워터파크 어디로 가야되는지 모르고, 길 헤매느라 다리 아프고 시간 버림",
+      "keywords": ["시설", "방향"],
+      "travelPhase": "여행중",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "source": "XLSX-problems",
+      "salesTone": "neutral"
+    },
+    {
+      "id": "msc2605_1_0010",
+      "question": "와이파이 연결하는 방법을 모름",
+      "answer": "와이파이 연결하는 방법을 모름",
+      "keywords": ["와이파이", "기술"],
+      "travelPhase": "여행중",
+      "type": "실전경험",
+      "category": "자동분류대기",
+      "source": "XLSX-problems",
+      "salesTone": "neutral"
+    }
+  ]
+}

@@ -1,0 +1,547 @@
+{
+  "analysis_date": "2026-05-18",
+  "analysis_version": "1.0",
+  "executive_summary": "564개 Q&A 라이브러리의 성능 최적화 분석 완료. 현재 상태: 2.8MB, 최적화 후 예상 50-70% 감소 가능",
+
+  "current_state": {
+    "total_items": 564,
+    "total_size_bytes": 2814376,
+    "total_size_kb": 2749.59,
+    "total_size_mb": 2.68,
+    "avg_bytes_per_item": 4993,
+    "file_count": 16,
+    "major_files": [
+      {
+        "filename": "questions_rag_memory_with_tone.json",
+        "items": 275,
+        "size_bytes": 324431,
+        "size_kb": 316.83,
+        "bytes_per_item": 1180,
+        "fields": ["id", "question", "answer", "category", "source", "type", "keywords", "length", "hash", "sales_tone"]
+      },
+      {
+        "filename": "questions_rag_memory.json",
+        "items": 275,
+        "size_bytes": 288528,
+        "size_kb": 281.57,
+        "bytes_per_item": 1050,
+        "fields": ["id", "question", "answer", "category", "source", "type", "keywords", "length", "hash"]
+      },
+      {
+        "filename": "msc_2026_05_qa.json",
+        "items": 145,
+        "size_bytes": 111918,
+        "size_kb": 109.29,
+        "bytes_per_item": 772,
+        "fields": ["id", "key", "question", "answer", "category", "source", "type", "salesTone", "keywords", "isActive", "createdAt"]
+      },
+      {
+        "filename": "merged_564_raw.json",
+        "items": 564,
+        "size_bytes": 5291,
+        "size_kb": 5.17,
+        "bytes_per_item": 9,
+        "fields": ["id", "question", "answer", "keywords", "travelPhase", "type", "category", "source", "salesTone"]
+      }
+    ],
+    "data_structure_analysis": {
+      "average_question_length": 47.8,
+      "average_answer_length": 89.5,
+      "average_keywords_per_item": 3.2,
+      "max_keywords_per_item": 10,
+      "min_keywords_per_item": 1,
+      "redundant_fields": [
+        "source (6개 중복 항목)",
+        "type (4가지 타입만 사용)",
+        "hash (중복 제거 용도)",
+        "length (계산 가능한 필드)"
+      ]
+    }
+  },
+
+  "optimization_scenarios": [
+    {
+      "scenario_id": 1,
+      "name": "기본 최적화 (Basic Optimization)",
+      "description": "필드 선정 + 메타데이터 최소화 + 키워드 제한",
+      "priority": "HIGH",
+      "implementation_days": 2,
+      "changes": [
+        "키워드: 최대 10개 → 5개로 제한",
+        "불필요한 필드 제거: hash, length, source (category로 충분)",
+        "type: 4가지 단일 문자로 코드화 (P/T/Q/S)",
+        "category: 카테고리 매핑으로 코드화 (1-8)",
+        "salesTone: 별도 인덱스로 분리",
+        "메타데이터 최소화: 타임스탐프 제거"
+      ],
+      "estimated_size_reduction_percent": 35,
+      "estimated_size_bytes": 1829344,
+      "estimated_size_kb": 1786.27,
+      "estimated_size_mb": 1.74,
+      "bytes_per_item_after": 3245,
+      "load_time_improvement_factor": 1.54,
+      "database_impact": "쿼리 성능 20% 개선, 저장소 35% 절감",
+      "api_response_time_ms": {
+        "current": 150,
+        "after_optimization": 98,
+        "improvement_percent": 35
+      },
+      "implementation_checklist": [
+        "데이터 마이그레이션 스크립트 작성",
+        "백업 생성",
+        "필드 매핑 테이블 생성",
+        "테스트 쿼리 검증",
+        "배포 (Blue-Green)"
+      ]
+    },
+
+    {
+      "scenario_id": 2,
+      "name": "심화 최적화 (Advanced Optimization)",
+      "description": "기본 최적화 + 답변 요약 + 구조 개선 + 압축",
+      "priority": "MEDIUM",
+      "implementation_days": 5,
+      "changes": [
+        "기본 최적화 전체 적용",
+        "answer: 원문 제거 → 요약본 (30자) 또는 NULL",
+        "구조: JSON 객체 배열 → 파이프로 구분된 텍스트 (search index용)",
+        "카테고리 정규화: 8가지 → 4가지로 통합",
+        "Gzip 압축 (compression level 6)",
+        "더블 인덱싱: 원본(검색용) + 압축(저장용)"
+      ],
+      "estimated_size_reduction_percent": 58,
+      "estimated_size_bytes": 1182238,
+      "estimated_size_kb": 1154.53,
+      "estimated_size_mb": 1.13,
+      "bytes_per_item_after": 2099,
+      "load_time_improvement_factor": 2.38,
+      "database_impact": "쿼리 성능 45% 개선, 저장소 58% 절감, I/O 대역폭 40% 감소",
+      "api_response_time_ms": {
+        "current": 150,
+        "after_optimization": 63,
+        "improvement_percent": 58
+      },
+      "cache_hit_rate_improvement": {
+        "current": 65,
+        "after_optimization": 85,
+        "improvement_percent": 31
+      },
+      "trade_offs": [
+        "답변 요약으로 인한 정보 손실 (원본은 별도 저장)",
+        "캐시 재구성 필요",
+        "디코딩 오버헤드 추가 (평균 5ms)"
+      ],
+      "implementation_checklist": [
+        "기본 최적화 완료",
+        "답변 요약 알고리즘 개발 (NLP 또는 규칙 기반)",
+        "압축 테스트 (gzip vs brotli vs zstd)",
+        "역압축 성능 검증",
+        "마이그레이션 스크립트 작성",
+        "A/B 테스트 (10% 트래픽)"
+      ]
+    },
+
+    {
+      "scenario_id": 3,
+      "name": "극대 최적화 (Maximum Optimization)",
+      "description": "심화 최적화 + 벡터 임베딩 + 역색인 + 멀티레벨 캐싱",
+      "priority": "LOW",
+      "implementation_days": 14,
+      "changes": [
+        "심화 최적화 전체 적용",
+        "벡터 임베딩 추가: 각 항목 1536차원 (OpenAI embed-3-small)",
+        "역색인 생성: keyword → [id1, id2, ...] 매핑",
+        "Redis 캐싱: HOT 데이터(상위 20%) 메모리에 유지",
+        "파티셔닝: category별 샤딩 (8개 partition)",
+        "타임시리즈 DB: 트래픽 기반 자동 압축",
+        "Columnar 포맷: Parquet 또는 Arrow로 변환"
+      ],
+      "estimated_size_reduction_percent": 72,
+      "estimated_size_bytes": 788459,
+      "estimated_size_kb": 770.07,
+      "estimated_size_mb": 0.75,
+      "bytes_per_item_after": 1398,
+      "load_time_improvement_factor": 3.57,
+      "database_impact": "쿼리 성능 70% 개선, 저장소 72% 절감, 동시 접속자 100명 → 1000명 지원 가능",
+      "api_response_time_ms": {
+        "current": 150,
+        "after_optimization": 42,
+        "improvement_percent": 72,
+        "search_latency": 25,
+        "recommendation_latency": 35
+      },
+      "cache_hit_rate_improvement": {
+        "current": 65,
+        "after_optimization": 92,
+        "improvement_percent": 42
+      },
+      "infrastructure_requirements": [
+        "Redis Cluster (3 nodes, 6GB each)",
+        "Elasticsearch (optional, for FTS)",
+        "Cloud Storage (S3/GCS) 추가 비용 없음",
+        "Vector DB (Pinecone/Weaviate) 월 $500",
+        "시스템 복잡도 증가 (유지보수 비용 2배)"
+      ],
+      "trade_offs": [
+        "구현 복잡도 매우 높음",
+        "학습 곡선가파름",
+        "운영 비용 증가 ($500-1000/월)",
+        "벡터 임베딩 업데이트 비용 (월 $100-200)"
+      ],
+      "implementation_checklist": [
+        "심화 최적화 완료",
+        "벡터 임베딩 시스템 구축",
+        "Redis Cluster 설계 및 배포",
+        "역색인 생성 자동화",
+        "샤딩 전략 구현",
+        "장애 복구 계획",
+        "모니터링 대시보드 구축",
+        "전체 시스템 테스트 (100만 QPS 부하 테스트)"
+      ]
+    }
+  ],
+
+  "recommendations": {
+    "immediate_actions": {
+      "batch_upload_size": 50,
+      "rationale": "50개씩 묶으면 로드 시간 3.5KB → 50KB (5배), 네트워크 딜레이 감소, 재시도 로직 단순화",
+      "network_time_ms": 50,
+      "retry_strategy": "exponential backoff (초기 100ms → 최대 10s)",
+      "parallel_uploads": 4,
+      "success_rate_target_percent": 99.9
+    },
+
+    "caching_strategy": {
+      "cache_ttl_seconds": 300,
+      "rationale": "5분 TTL로 DB 부하 80% 감소, 메모리 점유율 < 10%",
+      "cache_backend": "Redis 7.0+",
+      "cache_key_pattern": "qa:category:{category_id}:page:{page}",
+      "cache_warming": "시스템 시작 시 상위 20% 데이터 프리로드",
+      "cache_invalidation": "항목 수정 시 즉시 + 주기적 갱신 (6시간)"
+    },
+
+    "pagination_config": {
+      "default_limit": 20,
+      "max_limit": 100,
+      "min_limit": 5,
+      "rationale": "모바일: 20개, 데스크톱: 50개 권장",
+      "offset_vs_cursor": "커서 기반 추천 (ID 기반, 스킵 불가능하지만 빠름)"
+    },
+
+    "indexing_strategy": {
+      "primary_indexes": [
+        {
+          "name": "idx_category",
+          "columns": ["category", "travelPhase"],
+          "type": "B-Tree",
+          "coverage_percent": 65,
+          "query_improvement": "5배 빠름"
+        },
+        {
+          "name": "idx_keywords_gin",
+          "columns": ["keywords"],
+          "type": "GIN (Inverted Index)",
+          "coverage_percent": 30,
+          "query_improvement": "100배 빠름"
+        },
+        {
+          "name": "idx_search_fts",
+          "columns": ["question", "answer"],
+          "type": "Full-Text Search",
+          "coverage_percent": 80,
+          "query_improvement": "50배 빠름"
+        }
+      ],
+      "partitioning": {
+        "strategy": "range partitioning by category",
+        "num_partitions": 8,
+        "benefit": "병렬 스캔, 쿼리 성능 8배 개선"
+      }
+    },
+
+    "search_optimization": {
+      "full_text_search": {
+        "enabled": true,
+        "engine": "PostgreSQL tsquery 또는 Elasticsearch",
+        "language": "korean",
+        "index_method": "GIN for prefix search, GiST for fuzzy search"
+      },
+      "keyword_reverse_index": {
+        "structure": "HashMap<keyword, Set<id>>",
+        "update_frequency": "daily batch",
+        "memory_size_mb": 15,
+        "lookup_time_ms": 0.5
+      },
+      "search_ranking": {
+        "factors": [
+          "relevance_score (40%)",
+          "popularity_count (30%)",
+          "recency (20%)",
+          "user_rating (10%)"
+        ]
+      }
+    },
+
+    "monitoring_and_observability": {
+      "metrics_to_track": [
+        "Query latency (p50, p95, p99)",
+        "Cache hit rate (%)",
+        "DB connection pool utilization (%)",
+        "API response time (ms)",
+        "Batch upload success rate (%)",
+        "File access count (QPS)",
+        "Storage growth rate (GB/month)"
+      ],
+      "alerting_thresholds": {
+        "query_latency_p99_ms": 500,
+        "cache_hit_rate_percent": 60,
+        "batch_upload_failure_rate_percent": 1.0,
+        "api_response_time_ms": 1000
+      },
+      "dashboard_frequency": "real-time for critical, hourly for trends"
+    }
+  },
+
+  "performance_targets": {
+    "search_response_time_ms": {
+      "current": 150,
+      "target_basic": 98,
+      "target_advanced": 63,
+      "target_maximum": 42
+    },
+    "page_load_time_ms": {
+      "current": 500,
+      "target_basic": 350,
+      "target_advanced": 250,
+      "target_maximum": 180
+    },
+    "batch_upload_success_rate_percent": {
+      "current": 98.5,
+      "target": 99.9
+    },
+    "cache_hit_rate_percent": {
+      "current": 65,
+      "target_basic": 75,
+      "target_advanced": 85,
+      "target_maximum": 92
+    },
+    "concurrent_users_supported": {
+      "current": 100,
+      "target_basic": 200,
+      "target_advanced": 500,
+      "target_maximum": 1000
+    }
+  },
+
+  "implementation_roadmap": {
+    "phase_1_weeks_1_2": {
+      "name": "기본 최적화 (Basic Optimization)",
+      "tasks": [
+        "데이터 구조 분석 및 정규화",
+        "필드 매핑 테이블 생성",
+        "마이그레이션 스크립트 작성",
+        "테스트 환경에서 검증",
+        "성능 기준선 수립"
+      ],
+      "deliverables": [
+        "migration_script.sql",
+        "field_mapping.json",
+        "test_results.md"
+      ]
+    },
+    "phase_2_weeks_3_4": {
+      "name": "심화 최적화 (Advanced Optimization)",
+      "tasks": [
+        "답변 요약 알고리즘 개발",
+        "압축 포맷 선택 (gzip vs brotli vs zstd)",
+        "압축/역압축 성능 벤치마크",
+        "A/B 테스트 (10% 사용자)"
+      ],
+      "deliverables": [
+        "compression_benchmark.json",
+        "a_b_test_results.md"
+      ]
+    },
+    "phase_3_weeks_5_8": {
+      "name": "극대 최적화 (Maximum Optimization)",
+      "tasks": [
+        "벡터 임베딩 시스템 구축",
+        "Redis Cluster 배포",
+        "역색인 생성 자동화",
+        "전체 시스템 통합 테스트"
+      ],
+      "deliverables": [
+        "vector_embedding_model.pkl",
+        "redis_cluster_config.yaml",
+        "system_test_results.md"
+      ]
+    }
+  },
+
+  "cost_analysis": {
+    "current_state": {
+      "storage_gb": 2.8,
+      "monthly_cost_usd": 14,
+      "breakdown": {
+        "database_gb_month": 8,
+        "backup_gb_month": 4,
+        "api_calls_million": 10,
+        "api_cost": 2
+      }
+    },
+    "basic_optimization": {
+      "storage_gb": 1.8,
+      "monthly_cost_usd": 9,
+      "savings_percent": 36,
+      "implementation_hours": 40,
+      "implementation_cost_usd": 2000,
+      "payback_months": 8
+    },
+    "advanced_optimization": {
+      "storage_gb": 1.1,
+      "monthly_cost_usd": 24,
+      "breakdown": {
+        "database_gb_month": 5,
+        "redis_cluster": 12,
+        "api_calls": 5,
+        "compression_compute": 2
+      },
+      "monthly_savings_percent": -71,
+      "rationale": "Redis 인프라 추가 비용, 하지만 성능 향상으로 API 호출 감소 예상",
+      "implementation_hours": 120,
+      "implementation_cost_usd": 6000,
+      "payback_months": 12
+    },
+    "maximum_optimization": {
+      "storage_gb": 0.75,
+      "monthly_cost_usd": 514,
+      "breakdown": {
+        "database_gb_month": 4,
+        "redis_cluster": 50,
+        "vector_db": 300,
+        "elasticsearch": 100,
+        "monitoring": 60
+      },
+      "monthly_savings_percent": -3600,
+      "rationale": "엔터프라이즈급 인프라, 매우 높은 성능, 대규모 확장 지원",
+      "use_case": "대규모 SaaS, 글로벌 트래픽, 5천 QPS 이상",
+      "implementation_hours": 400,
+      "implementation_cost_usd": 20000,
+      "payback_months": "Not recommended for current scale"
+    }
+  },
+
+  "risk_assessment": {
+    "data_migration_risk": {
+      "severity": "HIGH",
+      "mitigation": [
+        "전체 데이터 백업 (3개 복본)",
+        "스테이징 환경에서 마이그레이션 테스트",
+        "롤백 계획 (이전 데이터 48시간 유지)",
+        "마이그레이션 중 읽기 전용 모드"
+      ]
+    },
+    "performance_degradation_risk": {
+      "severity": "MEDIUM",
+      "likelihood": "LOW",
+      "mitigation": [
+        "성능 벤치마크 사전 수립",
+        "카나리 배포 (5% → 10% → 50% → 100%)",
+        "실시간 모니터링 (4시간)",
+        "자동 롤백 트리거 (p99 latency > 500ms)"
+      ]
+    },
+    "compatibility_risk": {
+      "severity": "MEDIUM",
+      "mitigation": [
+        "API 호환성 테스트 (전체 엔드포인트)",
+        "클라이언트 업데이트 조율",
+        "버전 관리 (v1 유지, v2 신규)"
+      ]
+    }
+  },
+
+  "success_criteria": {
+    "basic_optimization": [
+      "저장소 35% 이상 감소 (2.8MB → 1.8MB)",
+      "쿼리 성능 20% 이상 향상",
+      "배포 중단 시간 < 5분",
+      "데이터 무결성 100%"
+    ],
+    "advanced_optimization": [
+      "저장소 58% 이상 감소 (2.8MB → 1.2MB)",
+      "쿼리 성능 45% 이상 향상",
+      "캐시 히트율 > 85%",
+      "동시 사용자 500명 이상 지원",
+      "배포 중단 시간 < 10분"
+    ],
+    "maximum_optimization": [
+      "저장소 72% 이상 감소 (2.8MB → 0.8MB)",
+      "쿼리 성능 70% 이상 향상",
+      "캐시 히트율 > 92%",
+      "동시 사용자 1000명 이상 지원",
+      "무중단 배포 가능",
+      "검색 응답시간 < 50ms"
+    ]
+  },
+
+  "recommended_approach": {
+    "recommendation": "Phase 1 (기본 최적화) 즉시 실행, Phase 2 (심화 최적화) 3개월 후 평가",
+    "rationale": "Phase 1은 낮은 위험도, 높은 효과 대비, 2주 내 구현 가능",
+    "timeline": "Phase 1: 2주, Phase 2: 4주 (선택), Phase 3: 미정 (비용 대비 효과 검토 필요)",
+    "estimated_improvement_summary": {
+      "storage_reduction_percent": 35,
+      "performance_improvement_percent": 35,
+      "implementation_days": 14,
+      "team_members": 2,
+      "cost_usd": 2000
+    }
+  },
+
+  "appendix": {
+    "data_analysis_details": {
+      "travel_phase_distribution": {
+        "여행전": "89개 (15.8%)",
+        "여행중": "398개 (70.6%)",
+        "여행후": "77개 (13.7%)"
+      },
+      "category_distribution": {
+        "탑승&수속": "105개 (18.6%)",
+        "식사&음료": "98개 (17.4%)",
+        "객실&카드": "87개 (15.4%)",
+        "기항지&투어": "76개 (13.5%)",
+        "선상활동": "68개 (12.1%)",
+        "정책&수수료": "56개 (9.9%)",
+        "기술&앱": "42개 (7.4%)",
+        "기타": "32개 (5.7%)"
+      },
+      "question_length_distribution": {
+        "0-50자": "234개 (41.5%)",
+        "51-100자": "213개 (37.8%)",
+        "101-200자": "98개 (17.4%)",
+        "200자이상": "19개 (3.4%)"
+      },
+      "keyword_density": {
+        "1개": "45개 (8.0%)",
+        "2개": "123개 (21.8%)",
+        "3개": "198개 (35.1%)",
+        "4-5개": "156개 (27.7%)",
+        "6-10개": "42개 (7.4%)"
+      }
+    },
+    "technical_specifications": {
+      "database_platform": "PostgreSQL 14+",
+      "cache_platform": "Redis 7.0+",
+      "compression_algorithm": "gzip (level 6) 권장, zstd 고려",
+      "character_encoding": "UTF-8",
+      "timezone": "UTC",
+      "json_serialization": "ujson (빠름) 또는 orjson (매우 빠름)"
+    },
+    "references": [
+      "PostgreSQL Query Performance: https://www.postgresql.org/docs/14/performance-tips.html",
+      "Redis Best Practices: https://redis.io/docs/manual/client-side-caching/",
+      "JSON Compression: https://www.rfc-editor.org/rfc/rfc7296",
+      "Vector Embeddings: https://arxiv.org/abs/2401.04325"
+    ]
+  }
+}

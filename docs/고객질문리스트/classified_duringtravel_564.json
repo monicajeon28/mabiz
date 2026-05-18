@@ -1,0 +1,885 @@
+{
+  "phase": "여행중",
+  "created": "2026-05-18",
+  "source_files": [
+    "questions_rag_memory.json (275개)",
+    "msc_2026_05_qa.json (145개)",
+    "synthetic data (144개)"
+  ],
+  "categories": {
+    "탑승/객실": [
+      {
+        "id": "q0004",
+        "question": "당황해 하지 않도록 크루즈 터미널 관련 정보를 정리해둔 정보를 공유해 드리니 참고 부탁드립니다~!ㅎㅎ [팽원준 맥스...",
+        "original_category": "탑승&수속",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "q0005",
+        "question": "1층 외부에서 크루즈 패키징을 나눠드릴 예정입니다. ▶ 나눠드리는 장소는 변경될 수 있습니다. ▶ 크루즈닷 로고...",
+        "original_category": "탑승&수속",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "msc2605_1_0001",
+        "question": "[실전문제] 2026.05.10 MSC 벨리시마호 1항차 여행을 하며 마주한 문제 기록",
+        "original_category": "탑승&수속",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "q0045",
+        "question": "객실 카드키를 받고 어떻게 사용해야 하나요? 전자 잠금장치 작동방식은?",
+        "original_category": "객실&카드",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "q0067",
+        "question": "객실 내 미니바 음료는 유료인가요? 냉장고 이용은 자유로운가요?",
+        "original_category": "객실&카드",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "q0089",
+        "question": "객실 체크인 절차와 필요한 서류는 무엇인가요?",
+        "original_category": "탑승&수속",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "synthetic_420_0",
+        "question": "[상세] 객실 수건 교체는 매일 해주나요? 추가로 필요하면 언제 요청하나요?",
+        "original_category": "객실&카드",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "synthetic_420_1",
+        "question": "[빠른질문] 객실 키카드 분실했어요 어떻게 하나요?",
+        "original_category": "탑승&수속",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "synthetic_420_2",
+        "question": "[관련질문] 객실 체크인 후 짐은 어디에 놓나요?",
+        "original_category": "탑승&수속",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "q0110",
+        "question": "객실 엘리베이터는 24시간 운영되나요? 문제 발생시 연락처는?",
+        "original_category": "기술&앱",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "q0123",
+        "question": "더블/싱글 침구류 선택이 가능한가요? 추가 베개는 요청할 수 있나요?",
+        "original_category": "객실&카드",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "q0145",
+        "question": "객실 안전금고는 어떻게 사용하나요? 비밀번호 설정은?",
+        "original_category": "객실&카드",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "synthetic_420_3",
+        "question": "[상세] 객실 샤워실/욕실 시설 안내를 받을 수 있나요?",
+        "original_category": "객실&카드",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "synthetic_420_4",
+        "question": "[빠른질문] 객실 온도조절 방법을 알려주세요",
+        "original_category": "객실&카드",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "q0167",
+        "question": "발코니 객실이란 어떤 객실인가요? 바다 전망이 보이나요?",
+        "original_category": "객실&카드",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "q0189",
+        "question": "스위트룸 예약 시 특별 혜택이 있나요?",
+        "original_category": "객실&카드",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "synthetic_420_5",
+        "question": "[관련질문] 객실 규모는 어느 정도인가요? 캐리어 보관 공간이 충분한가요?",
+        "original_category": "객실&카드",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "q0201",
+        "question": "장애인 편의 객실은 사전 예약이 필요한가요?",
+        "original_category": "객실&카드",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "q0223",
+        "question": "객실 청소 서비스 시간을 조정할 수 있나요?",
+        "original_category": "객실&카드",
+        "assigned_category": "탑승/객실"
+      },
+      {
+        "id": "synthetic_420_6",
+        "question": "[상세] 객실 내 전자기기 충전 포트는 몇 개인가요? 멀티탭 사용 가능한가요?",
+        "original_category": "기술&앱",
+        "assigned_category": "탑승/객실"
+      }
+    ],
+    "식사/음료": [
+      {
+        "id": "msc2605_1_0002",
+        "question": "[실전문제] 매일 식당(뷔페, 정찬) 메뉴가 다른것도 모름",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "msc2605_1_0003",
+        "question": "[실전문제] 조식 룸서비스 무료 이용 모름",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "q0245",
+        "question": "크루즈 선상 식당은 몇 개가 있나요? 예약이 필요한가요?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "q0267",
+        "question": "뷔페 식당 운영 시간과 메뉴 구성은 어떻게 되나요?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "q0289",
+        "question": "정찬 식당 드레스코드는 어떻게 되나요? 캐주얼복 가능한가요?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "synthetic_420_7",
+        "question": "[상세] 음식 알러지가 있는데 미리 알려야 하나요?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "q0301",
+        "question": "룸서비스 음식 배달은 24시간 가능한가요? 추가 요금이 있나요?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "synthetic_420_8",
+        "question": "[빠른질문] 조식은 객실에서 먹을 수 있나요?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "q0323",
+        "question": "선상 바(Bar)와 라운지(Lounge)는 별도 요금인가요?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "q0345",
+        "question": "와인 테이스팅 행사에 참가하려면 사전 예약이 필요한가요?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "synthetic_420_9",
+        "question": "[관련질문] 카페에서 커피는 무료인가요? 프리미엄 음료는 유료인가요?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "q0367",
+        "question": "스페셜 다이닝 추가 요금은 얼마인가요?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "q0389",
+        "question": "어린이 식사 메뉴는 따로 있나요?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "synthetic_420_10",
+        "question": "[상세] 생일 축하 케이크 준비를 요청할 수 있나요?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "q0401",
+        "question": "식당 예약은 어떻게 하나요? 온라인으로도 가능한가요?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "synthetic_420_11",
+        "question": "[빠른질문] 비건/베지테리언 옵션이 있나요?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "q0423",
+        "question": "글루텐 프리 식사가 가능한가요?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "q0445",
+        "question": "늦은 저녁 음식은 어디서 먹을 수 있나요?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "synthetic_420_12",
+        "question": "[관련질문] 스페셜 음료 패키지는 뭔가요? 얼마인가요?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      },
+      {
+        "id": "q0467",
+        "question": "피크닉 도시락을 준비해주나요? 기항지 여행 시?",
+        "original_category": "식사&음료",
+        "assigned_category": "식사/음료"
+      }
+    ],
+    "선상활동": [
+      {
+        "id": "msc2605_1_0004",
+        "question": "[실전문제] 선상 공연/엔터테인먼트 어디서 언제 하는지 불명",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "q0489",
+        "question": "선상 공연은 매일 있나요? 좌석 예약은 필요한가요?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "q0501",
+        "question": "풀장은 계절마다 가열하나요? 수심은 얼마인가요?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "synthetic_420_13",
+        "question": "[상세] 스파 마사지 예약은 언제 받나요? 가격은?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "q0523",
+        "question": "피트니스 클래스는 무료인가요? 강사는 배치되나요?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "synthetic_420_14",
+        "question": "[빠른질문] 키즈클럽은 몇 살부터 가능한가요?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "q0545",
+        "question": "스포츠 토너먼트에 참가하려면 사전 등록이 필요한가요?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "q0567",
+        "question": "밤 클럽과 디스코의 차이는 뭔가요? 드레스코드는?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "synthetic_420_15",
+        "question": "[관련질문] 워터슬라이드는 어디에 있나요? 안전 장비는?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "q0589",
+        "question": "갑판에서 야외 영화를 상영하나요?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "synthetic_420_16",
+        "question": "[상세] 아이 애니메이션 쇼는 언제 열리나요? 무료인가요?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "q0601",
+        "question": "요가 클래스는 아침/저녁 언제 있나요?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "q0623",
+        "question": "카지노는 몇 살부터 이용 가능한가요?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "synthetic_420_17",
+        "question": "[빠른질문] 스쿠터 타기나 번지점프 같은 극한 스포츠는?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "q0645",
+        "question": "요리 클래스에 참가하려면 요리 경험이 필요한가요?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "q0667",
+        "question": "라이브 밴드는 언제/어디서 공연하나요?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "synthetic_420_18",
+        "question": "[관련질문] 스포츠 장비 대여는 어디서 하나요?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "q0689",
+        "question": "야외 체어 예약제인가요? 아침 일찍 와야 하나요?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "q0701",
+        "question": "사우나/스팀룸 이용은 별도 요금인가요?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      },
+      {
+        "id": "synthetic_420_19",
+        "question": "[상세] VIP 클럽 멤버만 참여하는 행사는 뭐가 있나요?",
+        "original_category": "선상활동",
+        "assigned_category": "선상활동"
+      }
+    ],
+    "기항지/투어": [
+      {
+        "id": "msc2605_1_0005",
+        "question": "[실전문제] 기항지 정보 및 투어 어디서 구매하는지 불명",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "q0003",
+        "question": "도쿄 크루즈 터미널을 처음 이용해보시는 분들이",
+        "original_category": "기타",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "q0723",
+        "question": "도쿄 기항지에서 추천할 관광지는?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "synthetic_420_20",
+        "question": "[상세] 고베는 얼마나 머물러요? 뭘 볼 수 있나요?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "q0745",
+        "question": "부산 항구에서 내려서 어디를 먼저 가봐야 할까요?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "synthetic_420_21",
+        "question": "[빠른질문] 쇼핑은 기항지에서만 가능한가요? 배에서도?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "q0767",
+        "question": "투어 예약은 배 위에서도 가능한가요? 가격 차이는?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "q0789",
+        "question": "자유로운 기항지 여행을 하려면 뭘 준비해야 하나요?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "synthetic_420_22",
+        "question": "[관련질문] 기항지에서 미니버스 투어는 얼마예요?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "q0801",
+        "question": "여권을 꼭 챙겨야 하나요? 배에 두고 나가도 되나요?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "synthetic_420_23",
+        "question": "[상세] 기항지 화폐는 어디서 환전하나요?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "q0823",
+        "question": "기항지 카드 결제가 가능한가요? 환율은?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "q0845",
+        "question": "관광 명소 입장료는 투어에 포함되나요?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "synthetic_420_24",
+        "question": "[빠른질문] 박물관/갤러리 입장시간은?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "q0867",
+        "question": "기항지 투어 중 배가 떠나갈 시간을 놓치면?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "q0889",
+        "question": "항구 근처 호텔/숙박은 어디서 구할 수 있나요?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "synthetic_420_25",
+        "question": "[관련질문] 음식은 투어에 포함되나요? 아니면 별도요금?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "q0901",
+        "question": "현지 가이드는 영어를 말하나요?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "q0923",
+        "question": "사진 촬영 명소는 어디인가요?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      },
+      {
+        "id": "synthetic_420_26",
+        "question": "[상세] 야간 투어도 가능한가요? 보안은 안전한가요?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기항지/투어"
+      }
+    ],
+    "기술/편의": [
+      {
+        "id": "msc2605_1_0006",
+        "question": "[실전문제] 크루즈닷 모바일 앱 기능 미활용 및 와이파이 불편",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "q0945",
+        "question": "선상 와이파이 속도는 어떤가요? 동영상 스트리밍 가능한가요?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "synthetic_420_27",
+        "question": "[빠른질문] 와이파이 연결에 문제가 있어요. 어떻게 해야 하나요?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "q0967",
+        "question": "크루즈닷 앱은 어디서 다운로드하나요? iOS/Android 모두 있나요?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "q0989",
+        "question": "앱의 주요 기능은 뭔가요?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "synthetic_420_28",
+        "question": "[상세] 키오스크에서 뭘 할 수 있나요? 어디에 있나요?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "q1001",
+        "question": "선상 결제는 어떻게 하나요? 현금도 가능한가요?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "q1023",
+        "question": "선상 통신은 따로 신청해야 하나요?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "synthetic_420_29",
+        "question": "[관련질문] 국제 로밍은 어디서 신청하나요?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "q1045",
+        "question": "안내데스크 전화번호는 뭔가요?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "synthetic_420_30",
+        "question": "[빠른질문] 밤중에 도움이 필요하면 누구한테 연락하나요?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "q1067",
+        "question": "선상 방송은 어느 채널인가요?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "q1089",
+        "question": "객실 TV는 스트리밍이 가능한가요?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "synthetic_420_31",
+        "question": "[상세] USB 포트는 객실에 몇 개나 있나요?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "q1101",
+        "question": "QR 코드로 뭘 할 수 있나요?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "q1123",
+        "question": "디지털 메뉴는 어떻게 보나요?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "synthetic_420_32",
+        "question": "[관련질문] 배 위에서 카메라 충전할 수 있나요?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "q1145",
+        "question": "배 위에서 자주 묻는 질문 FAQ는?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "q1167",
+        "question": "앱 알림 설정은 어떻게 하나요?",
+        "original_category": "기술&앱",
+        "assigned_category": "기술/편의"
+      },
+      {
+        "id": "synthetic_420_33",
+        "question": "[빠른질문] 기항지 정보는 앱에서 미리 볼 수 있나요?",
+        "original_category": "기항지&투어",
+        "assigned_category": "기술/편의"
+      }
+    ],
+    "하선/귀환": [
+      {
+        "id": "msc2605_1_0007",
+        "question": "[실전문제] 하선/체크아웃 절차 불명",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "q1189",
+        "question": "마지막 밤 피드백 설문지는 어디서 받나요?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "synthetic_420_34",
+        "question": "[상세] 체크아웃 절차는 몇 시부터 시작되나요?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "q1201",
+        "question": "짐을 먼저 내보낼 수 있나요? 언제까지?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "synthetic_420_35",
+        "question": "[빠른질문] 수하물 잘못 받아간 것 같은데?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "q1223",
+        "question": "귀환 절차 중 여권 확인은?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "q1245",
+        "question": "짐을 배에 두고 나중에 받을 수 있나요?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "synthetic_420_36",
+        "question": "[관련질문] 여행 후 불편한 사항은 어디에 제보하나요?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "q1267",
+        "question": "아침 일찍 내려가야 하면 조식은?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "q1289",
+        "question": "내릴 때 배우 앞에 사진 촬영하는 건가요?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "synthetic_420_37",
+        "question": "[상세] 짐 검사는 왜 하는건가요? 뭘 확인하나요?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "q1301",
+        "question": "기념품은 짐에 넣어서 보낼 수 있나요?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "q1323",
+        "question": "상금이나 경품을 받았으면 신고해야 하나요?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "synthetic_420_38",
+        "question": "[빠른질문] 크루즈 탑승권은 하선 후에도 필요한가요?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "q1345",
+        "question": "피드백에서 좋은 평가를 준 직원을 따로 추천할 수 있나요?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "q1367",
+        "question": "귀환 후 여행 기념 앨범이 배송되나요?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "synthetic_420_39",
+        "question": "[관련질문] 배에서 구매한 물품은 하선 시에 수령하나요?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "q1389",
+        "question": "짐 분실 신고는 어떻게 하나요?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "q1401",
+        "question": "다음 항차 예약에 할인이 있나요?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      },
+      {
+        "id": "synthetic_420_40",
+        "question": "[상세] 회원 가입은 하선 후에 해도 되나요?",
+        "original_category": "하선&귀환",
+        "assigned_category": "하선/귀환"
+      }
+    ],
+    "기타": [
+      {
+        "id": "q0001",
+        "question": "크루즈닷 MSC 5/10 크루즈 여행 기록",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "q0002",
+        "question": "여행 관련 기본 안내 및 정책",
+        "original_category": "정책&수수료",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "q1423",
+        "question": "여행 보험은 누가 들어주나요?",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "q1445",
+        "question": "환불 정책은 어떻게 되나요?",
+        "original_category": "정책&수수료",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "synthetic_420_41",
+        "question": "[상세] 선상 수수료(팁)는 어떻게 내나요?",
+        "original_category": "정책&수수료",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "q1467",
+        "question": "개인 요청사항은 어디에 말하나요?",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "q1489",
+        "question": "특별한 날 축하 서비스가 있나요?",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "synthetic_420_42",
+        "question": "[빠른질문] 크루즈 여행 전에 준비물 체크리스트는?",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "q1501",
+        "question": "아이들을 위한 베이비케어 서비스가 있나요?",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "q1523",
+        "question": "약품이 필요하면 선상 약국이 있나요?",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "synthetic_420_43",
+        "question": "[관련질문] 의료 응급 상황이면?",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "q1545",
+        "question": "동반자가 갑자기 아파지면?",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "q1567",
+        "question": "여행 일정 변경이 가능한가요?",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "synthetic_420_44",
+        "question": "[상세] 이전 여행 사진을 다시 받을 수 있나요?",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "q1589",
+        "question": "여행 후 후기는 어디에 남기나요?",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "q1601",
+        "question": "친구 초대 할인이 있나요?",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "synthetic_420_45",
+        "question": "[빠른질문] 혼자 여행하는 사람들 모임이 있나요?",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "q1623",
+        "question": "싱글룸이 있나요? 추가 요금은?",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "q1645",
+        "question": "동반 동물은 탑승 가능한가요?",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "synthetic_420_46",
+        "question": "[관련질문] 배 위에서 일하고 싶어요. 지원하려면?",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      },
+      {
+        "id": "q1667",
+        "question": "환경보호 프로그램은 뭔가요?",
+        "original_category": "기타",
+        "assigned_category": "기타"
+      }
+    ]
+  },
+  "stats": {
+    "total": 564,
+    "by_category": {
+      "탑승/객실": 80,
+      "식사/음료": 80,
+      "선상활동": 80,
+      "기항지/투어": 80,
+      "기술/편의": 80,
+      "하선/귀환": 80,
+      "기타": 84
+    },
+    "unclassified": 84,
+    "classification_rate": "85.1%"
+  }
+}

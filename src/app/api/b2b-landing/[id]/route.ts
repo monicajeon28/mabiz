@@ -46,6 +46,13 @@ export async function GET(_req: Request, { params }: Params) {
       },
     });
     if (!page) return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: '랜딩페이지를 찾을 수 없습니다.' }, { status: 404 });
+
+    // [SEC-002] 권한 검증 강화: 명시적 확인
+    // orgId가 없으면 (public 사용자) 공개 페이지 접근만 허용
+    if (orgId && page.organizationId !== orgId) {
+      return NextResponse.json({ ok: false, error: 'UNAUTHORIZED', message: '이 페이지에 접근할 권한이 없습니다.' }, { status: 403 });
+    }
+
     return NextResponse.json({ ok: true, data: page, page });
   } catch (err) {
     return handleB2BError(err, "GET /api/b2b-landing/[id]");

@@ -14,6 +14,8 @@
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
     "test:e2e": "cypress run",
+    "test:e2e:groups": "cypress run --spec 'cypress/e2e/group-management.cy.ts'",
+    "test:e2e:groups:3x": "node scripts/run-e2e-3x.js",
     "test:all": "npm test && npm run test:e2e"
   },
   "dependencies": {

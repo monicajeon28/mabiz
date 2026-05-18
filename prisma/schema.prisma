@@ -7,6 +7,25 @@ datasource db {
   provider = "postgresql"
 }
 
+// Phase 0: 발송 실패 원인 분류 (정확성 + 사용자 친화)
+enum ExecutionFailureReason {
+  QUOTA_EXCEEDED    // 일일/월간 발송 한도 초과
+  INVALID_CONTACT   // 유효하지 않은 번호/이메일
+  OPT_OUT          // 수신거부 고객
+  SYSTEM_ERROR     // CRM 내부 오류
+  PROVIDER_ERROR   // SMS/Email 서비스 오류
+}
+
+// Phase 0: 실행 상태 추적
+enum ExecutionStatus {
+  PENDING            // 발송 대기
+  SENT               // 발송 성공
+  FAILED             // 발송 실패
+  SKIPPED            // 건너뜀 (조건 미충족)
+  RETRY_SCHEDULED    // 재시도 예정
+  ABANDONED          // 최대 재시도 초과
+}
+
 model Organization {
   id                         String                  @id @default(cuid())
   name                       String
@@ -45,6 +64,7 @@ model Organization {
   b2bLandingPages            B2BLandingPage[]
   partnerSuspensions         PartnerSuspension[]
   marketingCampaigns         CrmMarketingCampaign[]       @relation("CrmMarketing")
+  executionLogs              ExecutionLog[]
 }
 
 model OrgSmsConfig {
@@ -485,6 +505,56 @@ model SmsLog {
   @@index([organizationId, sentAt])
   @@index([contactId, sentAt])
   @@map("CrmSmsLog")
+}
+
+// Phase 0: 통합 발송 기록 (퍼널 시퀀스 + 자동화 규칙)
+// SMS + Email 채널 지원, 중복 방지 (월별 반복)
+model ExecutionLog {
+  id                String                    @id @default(cuid())
+  organizationId    String
+
+  // 퍼널 vs 자동화 구분
+  sourceType        String                    // FUNNEL_SEQUENCE | AUTOMATION_RULE
+  sourceId          String                    // sequenceId or ruleId
+  sourceName        String                    // 규칙/시퀀스명 (발송 시점 스냅샷)
+
+  // 수신자
+  contactId         String
+
+  // 채널 & 상태
+  channel           String                    // SMS | EMAIL
+  status            ExecutionStatus           @default(PENDING)
+
+  // 발송 일정 (월별 반복 지원)
+  executeMonth      String                    // "2025-01" (YYYY-MM 형식)
+  scheduledAt       DateTime
+  sentAt            DateTime?
+  nextRetryAt       DateTime?                 // 다음 재시도 예정시간
+
+  // 메시지 참조 (S3/Blob URL만 저장)
+  contentUrl        String?                   // "s3://bucket/exec-logs/2025-01-15/log-xyz.txt"
+
+  // 실패 추적 (Enum 기반)
+  failureReason     ExecutionFailureReason?
+  failureUserMsg    String?                   // "일일 발송 한도 초과" (UI 표시용 - 한국어)
+  retryCount        Int                       @default(0)
+  maxRetries        Int                       @default(3)
+
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  organization      Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // 중복 방지: 같은 규칙, 같은 고객, 같은 월 → 한 번만 실행
+  @@unique([sourceType, sourceId, contactId, executeMonth], name: "uq_execution_monthly")
+
+  // 성능: Cron 조회
+  @@index([organizationId, status, scheduledAt], name: "idx_execution_cron_scan")
+  @@index([status], name: "idx_execution_status")
+  @@index([contactId], name: "idx_execution_contact")
+  @@index([sourceId], name: "idx_execution_source")
+
+  @@map("ExecutionLog")
 }
 
 model SalesPlaybook {

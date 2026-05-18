@@ -123,9 +123,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
               },
             });
             funnelStarted = true;
+          } else {
+            // [LOG-001] 펀널 단계 미존재: 운영팀이 펀널을 생성했지만 단계를 설정하지 않음
+            logger.warn('[GroupRegister] 펀널 단계 없음', {
+              groupId,
+              funnelId: group.funnelId,
+              contactId: contact.id,
+              timestamp: new Date().toISOString(),
+            });
           }
         } catch (err) {
-          logger.error('[GroupRegister] 펀널 시작 실패', { err, groupId, contactId: contact.id });
+          // [LOG-002] 펀널 시작 오류: 자세한 오류 정보 기록
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          logger.error('[GroupRegister] 펀널 시작 실패', {
+            groupId,
+            funnelId: group.funnelId,
+            contactId: contact.id,
+            errorMessage,
+            errorCode: err instanceof Error && 'code' in err ? (err as any).code : undefined,
+            timestamp: new Date().toISOString(),
+          });
           // 펀널 실패는 트랜잭션을 롤백하지 않음 (Contact/GroupMember는 성공)
           // funnelStarted = false로 유지
         }
