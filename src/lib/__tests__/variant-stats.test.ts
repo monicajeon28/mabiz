@@ -235,7 +235,8 @@ describe('Variant Statistics Library', () => {
 
       expect(chi2Result.isSignificant).toBe(true);
       expect(recommendation).toBe('A');
-      expect(confidence).toBe('HIGH');
+      // Cramer's V ≈ 0.12이므로 MEDIUM (0.1 ~ 0.3 범위)
+      expect(confidence).toBe('MEDIUM');
       expect(interpretation).toContain('A');
       expect(sampleRec).toBeNull();  // 충분한 샘플
     });

@@ -1,0 +1,23 @@
+
+> mabiz@0.1.0 build
+> next build
+
+▲ Next.js 16.2.3 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 18.6s
+  Running TypeScript ...
+Failed to type check.
+
+./src/app/api/admin/verification/status/route.ts:11:10
+Type error: Module '"@/lib/auth"' has no exported member 'verifyAdminToken'.
+
+   9 | import { getFeatureFlagStatus } from "@/lib/middleware/feature-flag-middleware";
+  10 | import { getRollbackStatus } from "@/lib/services/rollback-handler";
+> 11 | import { verifyAdminToken } from "@/lib/auth";
+     |          ^
+  12 |
+  13 | export async function GET(req: NextRequest) {
+  14 |   try {
+Next.js build worker exited with code: 1 and signal: null

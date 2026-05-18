@@ -93,6 +93,7 @@ model Organization {
   marketingCampaigns         CrmMarketingCampaign[]       @relation("CrmMarketing")
   campaignCosts              CampaignCost[]
   executionLogs              ExecutionLog[]
+  deltaConfigs               DeltaCampaignConfig[]        @relation("DeltaConfigs")
 }
 
 model OrgSmsConfig {
@@ -4619,6 +4620,7 @@ model CrmMarketingCampaign {
   campaignCost      CampaignCost?
   executionLogs     ExecutionLog[]        @relation("ExecutionLogToCampaign")
   variants          CampaignVariant[]     @relation("CampaignVariants")
+  deltaConfig       DeltaCampaignConfig?  @relation("DeltaConfig")
 
   @@index([organizationId])
   @@index([groupId])
@@ -4684,4 +4686,32 @@ model CampaignVariant {
   @@unique([campaignId, variantKey])
   @@index([campaignId, isActive])
   @@map("CampaignVariant")
+}
+
+// Phase 4 Track 1: Delta SMS 3일 시퀀스 설정 관리
+model DeltaCampaignConfig {
+  id               String   @id @default(cuid())
+  campaignId       String   @unique
+  organizationId   String
+
+  // 트리거 타입 & 설정
+  triggerType      String   @default("PURCHASE")  // PURCHASE | RENTAL_BOOKING | etc
+
+  // Day 0-3 메시지
+  day0Message      String   // Day 0: 구매 직후
+  day1Message      String   // Day 1: +1일
+  day2Message      String   // Day 2: +2일
+  day3Message      String?  // Day 3: +3일 (선택)
+
+  // 메타정보
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  campaign         CrmMarketingCampaign @relation("DeltaConfig", fields: [campaignId], references: [id], onDelete: Cascade)
+  organization     Organization @relation("DeltaConfigs", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([campaignId])
+  @@map("DeltaCampaignConfig")
 }

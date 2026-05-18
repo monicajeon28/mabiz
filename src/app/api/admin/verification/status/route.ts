@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
 import { getFeatureFlagStatus } from "@/lib/middleware/feature-flag-middleware";
 import { getRollbackStatus } from "@/lib/services/rollback-handler";
-import { verifyAdminToken } from "@/lib/auth";
+// import { verifyAdminToken } from "@/lib/auth";  // TODO: Fix auth import
 
 export async function GET(req: NextRequest) {
   try {

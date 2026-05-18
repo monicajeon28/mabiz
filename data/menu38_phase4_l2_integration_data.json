@@ -1,0 +1,465 @@
+{
+  "lens": {
+    "id": "L2",
+    "name": "준비 부담형 (Preparation Burden)",
+    "targetConversionRate": 0.45,
+    "currentConversionRate": 0.28,
+    "improvementTarget": 0.17,
+    "improvementPercent": 61,
+    "description": "여행 준비 복잡도에 대한 오해를 극복하는 렌즈"
+  },
+
+  "customer_profile": {
+    "primary_personas": [
+      {
+        "id": "P2",
+        "name": "업무 바쁜 신혼",
+        "age_range": "30-40",
+        "key_pain": "시간 부족 + 준비 복잡도",
+        "l2_score": 0.9,
+        "characteristics": [
+          "해외 여행 경험 1-2회",
+          "직장 업무 바쁨",
+          "여행 준비를 여행사에 위임하길 원함"
+        ]
+      },
+      {
+        "id": "P6",
+        "name": "50대 직장인",
+        "age_range": "50-60",
+        "key_pain": "첫 경험 불안 + 준비 미숙",
+        "l2_score": 0.85,
+        "characteristics": [
+          "해외 여행 처음 또는 1회",
+          "정년 임박",
+          "자신감 부족"
+        ]
+      },
+      {
+        "id": "P9",
+        "name": "60대 은퇴 부부",
+        "age_range": "60-70",
+        "key_pain": "준비 능력 부족 + 불안감",
+        "l2_score": 0.95,
+        "characteristics": [
+          "해외 여행 경험 거의 없음",
+          "여권 갱신 경험 없음",
+          "극도의 불안감"
+        ]
+      },
+      {
+        "id": "P15",
+        "name": "글로벌 기업 직원",
+        "age_range": "35-50",
+        "key_pain": "시간 부족 + 절차 복잡도",
+        "l2_score": 0.75,
+        "characteristics": [
+          "해외 경험 많음",
+          "매우 바쁜 업무",
+          "절차 간소화 원함"
+        ]
+      }
+    ],
+    "secondary_traits": {
+      "travel_experience_level": "Low to Moderate",
+      "time_availability": "Busy to Moderate",
+      "preparation_confidence": "Low",
+      "decision_driver": "Ease & Simplicity",
+      "anxiety_level": "High"
+    }
+  },
+
+  "pain_points": [
+    {
+      "id": "PP1",
+      "category": "호텔 예약",
+      "description": "선실 예약을 자신이 해야 하나?",
+      "psychological_principle": "Activation Energy 높음",
+      "severity": 8,
+      "l2_solution": "선실 이미 예약됨 + 우리가 관리"
+    },
+    {
+      "id": "PP2",
+      "category": "비자/여권",
+      "description": "비자 신청, 여권 갱신 절차 불명확",
+      "psychological_principle": "Unknown Risk (미지의 위험)",
+      "severity": 9,
+      "l2_solution": "6개월 전 단계별 가이드 + 대행 옵션(VIP)"
+    },
+    {
+      "id": "PP3",
+      "category": "짐 준비",
+      "description": "뭘 챙겨야 하나? 얼마나 챙겨야 하나?",
+      "psychological_principle": "Overwhelm (과부하)",
+      "severity": 7,
+      "l2_solution": "짐 체크리스트 + 1주일 전 안내"
+    },
+    {
+      "id": "PP4",
+      "category": "일정 계획",
+      "description": "기항지에서 뭐 할까? 미리 예약할까?",
+      "psychological_principle": "Planning Paralysis",
+      "severity": 7,
+      "l2_solution": "추천 일정 5가지 + 배에서 현지가이드 이용"
+    },
+    {
+      "id": "PP5",
+      "category": "식사 예약",
+      "description": "식사 좋은 자리 미리 예약해야 하나?",
+      "psychological_principle": "Coordination Burden",
+      "severity": 5,
+      "l2_solution": "배에서 자유로운 식사 + 스페셜 예약 가능"
+    },
+    {
+      "id": "PP6",
+      "category": "첫 경험 불안",
+      "description": "배에서 혼자면? 무언가 문제 생기면?",
+      "psychological_principle": "First-Time Anxiety",
+      "severity": 8,
+      "l2_solution": "5000명 타는 배 + 한국인 500-1000명 + 24h 지원"
+    }
+  ],
+
+  "conversion_logic": {
+    "core_message": "준비 0시간 (모든 게 이미 준비돼 있음)",
+    "frame_shift": {
+      "before": "여행 준비 = 복잡하고 오래 걸린다",
+      "after": "크루즈 = 따라만 하면 된다"
+    },
+    "key_proof": {
+      "preparation_time_comparison": {
+        "general_travel_hours": 12,
+        "cruise_hours": 0.58,
+        "time_saved_percent": 99.25
+      },
+      "activation_energy": "극도로 낮음 (5-10분 액션 반복)",
+      "support_model": "6개월 단계별 가이드 + 24h Q&A"
+    }
+  },
+
+  "call_scripts": {
+    "phase_0_opening": {
+      "strategy": "준비 부담 인식 확인 + 준비 0시간 개념 제시",
+      "duration_minutes": 2,
+      "variants": [
+        {
+          "name": "ScriptA_PreparedNeed",
+          "trigger": "고객이 준비 불안 언급",
+          "opening": "혹시 지금 여행 준비로 고민이 많으신가요?",
+          "key_points": [
+            "비자, 여권, 호텔, 짐싸기 등 걱정",
+            "크루즈는 준비할 게 딱 3가지",
+            "호텔→선실 이미 예약, 식사→메뉴 이미 정함, 일정→배가 자동 이동"
+          ]
+        },
+        {
+          "name": "ScriptB_FirstTrip",
+          "trigger": "고객이 첫 여행이라고 언급",
+          "opening": "처음 해외 여행이신가요?",
+          "key_points": [
+            "일반 여행: 비행기, 호텔, 식사, 가이드, 일정 계획 많음",
+            "크루즈: 배 타기, 짐 싸기, 여권만 챙기기",
+            "딱 3개"
+          ]
+        }
+      ]
+    },
+    "phase_1_discovery": {
+      "strategy": "고객의 구체적 준비 불안 파악 + 준비 난이도 측정",
+      "duration_minutes": 2,
+      "spin_application": {
+        "situation": "혹시 지금까지 해외 여행 가본 적 있으세요?",
+        "problem": "지난번에 준비하면서 가장 어려웠던 게 뭐였어요?",
+        "implication": "혹시 여권 갱신이 제일 어려워요? 아니면 짐 준비?",
+        "need_payoff": "각각 5분짜리 일인데, 우리가 6개월 전부터 단계별로 가이드해드리니까 따라하면 돼요"
+      }
+    },
+    "phase_2_desire": {
+      "strategy": "준비 0시간 개념 증명 + 일반여행과 극적 비교",
+      "duration_minutes": 3,
+      "key_comparisons": [
+        {
+          "category": "일반 여행 준비",
+          "months_needed": 6,
+          "total_hours": 40,
+          "items": ["여권갱신", "비자신청", "호텔검색", "가이드예약", "식사예약", "짐준비"]
+        },
+        {
+          "category": "크루즈 준비",
+          "months_needed": 6,
+          "total_hours": 0.58,
+          "items": ["여권확인(5분)", "예방접종(10분)", "짐싸기(30분)", "탑승권(3분)"]
+        }
+      ],
+      "messaging": "차이: 40시간 vs 30분, 시간 절약 99.25%"
+    },
+    "phase_3_product": {
+      "strategy": "구체적 준비 가이드 + 단계별 지원 방식",
+      "duration_minutes": 2,
+      "packages": [
+        {
+          "id": "PKG_A",
+          "name": "기본 패키지",
+          "price": 0,
+          "includes": [
+            "6개월 전: 여권 갱신 안내",
+            "3개월 전: 예방접종 가이드",
+            "1개월 전: 기항지별 추천 일정",
+            "1주일 전: 짐 싸기 가이드",
+            "PDF 가이드 4개",
+            "동영상 튜토리얼",
+            "카톡 실시간 답변 (24h)"
+          ],
+          "recommended_for": "대부분의 고객"
+        },
+        {
+          "id": "PKG_B",
+          "name": "멘토링 패키지",
+          "price": 50000,
+          "price_per_person": true,
+          "includes": [
+            "기본 패키지 전체",
+            "1:1 멘토 배정 (3개월)",
+            "월 1회 화상 상담 (30분)",
+            "긴급 질문 우선 응답 (4시간 내)"
+          ],
+          "recommended_for": ["첫 여행", "외국 여행 경험 없음", "60대 이상"]
+        },
+        {
+          "id": "PKG_C",
+          "name": "VIP 풀 서비스",
+          "price": 100000,
+          "price_per_person": true,
+          "includes": [
+            "멘토링 패키지 전체",
+            "여권 갱신 수수료 대행",
+            "예방접종 예약 대행",
+            "현지 가이드 사전 예약",
+            "짐 미리 픽업 & 배송"
+          ],
+          "recommended_for": ["임원급 시간부족", "70대 이상", "준비 능력 매우 낮음"]
+        }
+      ]
+    },
+    "phase_4_objections": {
+      "strategy": "Objection Handling + Risk Removal + Reassurance",
+      "duration_minutes": 2,
+      "common_objections": [
+        {
+          "question": "정말 비자가 필요 없나요?",
+          "answer": "나라마다 달라요. 일본/홍콩/마카오/태국은 무비자. 베트남/필리핀은 온라인 E-visa (간단). VIP는 대행 가능."
+        },
+        {
+          "question": "짐을 너무 많이 챙겨야 하나요?",
+          "answer": "아니요, 적게 챙겨야. 선실 짐장 제한 있음. 우리 체크리스트 10개 항목만 챙기면 됨. 배에도 다 있어요."
+        },
+        {
+          "question": "배에서 혼자면?",
+          "answer": "5000명 탐. 한국인 500-1000명. 테이블에서 자동으로 사람 만남. 이벤트 매일 있음. 혼자가 아님."
+        },
+        {
+          "question": "준비 중 모르는 게 생기면?",
+          "answer": "카톡 실시간 답변. 기본은 24h, 멘토링은 우선. 혼자가 아님."
+        }
+      ]
+    },
+    "phase_5_closing": {
+      "strategy": "신민형 5STEP + 3가지 선택지",
+      "duration_minutes": 3,
+      "steps": [
+        {
+          "step": 1,
+          "action": "주도권 탈취",
+          "language": "그럼 한 가지부터 정하기로 할까요?"
+        },
+        {
+          "step": 2,
+          "action": "비교 명확화",
+          "language": "기본 가이드(무료)가 맞을 것 같은데, 혹시 멘토링이 필요해 보이세요?"
+        },
+        {
+          "step": 3,
+          "action": "손실 앵커",
+          "language": "지금 안 가입하면 6개월 혼자 알아서 하기. 지금 가입하면 우리가 단계별 안내."
+        },
+        {
+          "step": 4,
+          "action": "삼중 선택",
+          "choices": ["기본 + 멘토링", "기본만", "VIP 풀서비스"],
+          "language": "어느 게 가장 마음에 와요?"
+        },
+        {
+          "step": 5,
+          "action": "즉시 행동",
+          "language": "좋아요. 오늘 가입, 내일 여권 가이드 발송, 모레부터 단계별 안내."
+        }
+      ]
+    }
+  },
+
+  "sms_sequences": {
+    "day_0": {
+      "trigger": "콜 종료 30분 후",
+      "subject": "준비 부담 제거",
+      "tone": "안도감, 공감",
+      "psychology": ["Activation Energy 최소화", "Reassurance"],
+      "content": "준비 0시간 증명 (일반여행 12시간 vs 크루즈 35분)",
+      "cta": "가입하고 첫 가이드 받기",
+      "open_rate_target": 0.82,
+      "click_rate_target": 0.48
+    },
+    "day_1": {
+      "trigger": "콜 종료 24시간 후",
+      "subject": "구체적 가이드 + 첫 액션",
+      "tone": "자신감, 실행감",
+      "psychology": ["Narrative Transportation", "Self-Efficacy"],
+      "content": "여권부터 시작 (5분 확인 + 1시간 갱신)",
+      "cta": "동영상 가이드 보기",
+      "open_rate_target": 0.78,
+      "click_rate_target": 0.42,
+      "expected_action": "여권 갱신 시작율 35%"
+    },
+    "day_2": {
+      "trigger": "콜 종료 48시간 후",
+      "subject": "6개월 일정표 + 다음 단계",
+      "tone": "신뢰, 안심",
+      "psychology": ["Planning Clarity", "Timeline Effect"],
+      "content": "Month -6 ~ 1 Week Before 상세 일정표",
+      "cta": "멘토링 패키지 선택하기",
+      "open_rate_target": 0.76,
+      "click_rate_target": 0.38,
+      "expected_action": "멘토링 가입율 25%"
+    },
+    "day_3": {
+      "trigger": "콜 종료 72시간 후",
+      "subject": "긴급성 + 최종 액션",
+      "tone": "긴박, 손실회피",
+      "psychology": ["Scarcity", "Loss Aversion", "Deadline Effect"],
+      "content": "모든 우려 정리 + 손실 계산 (혼자할 경우 6시간)",
+      "cta": "지금 바로 가입하기 (오늘 자정까지)",
+      "open_rate_target": 0.88,
+      "click_rate_target": 0.52,
+      "expected_action": "최종 전환율 45-55%"
+    }
+  },
+
+  "crm_classification": {
+    "questions": [
+      {
+        "question_id": "Q1",
+        "text": "해외 여행 경험?",
+        "options": [
+          {"value": 1, "text": "처음이에요", "l2_score": 0.9},
+          {"value": 2, "text": "1-2회 경험", "l2_score": 0.6},
+          {"value": 3, "text": "자주 다녀봤어요", "l2_score": 0.2}
+        ]
+      },
+      {
+        "question_id": "Q2",
+        "text": "여행 준비에 대한 느낌?",
+        "options": [
+          {"value": 1, "text": "복잡할까봐 걱정돼요", "l2_score": 0.95},
+          {"value": 2, "text": "조금 번거롭긴 한데", "l2_score": 0.6},
+          {"value": 3, "text": "크게 어렵지 않아요", "l2_score": 0.1}
+        ]
+      },
+      {
+        "question_id": "Q3",
+        "text": "여행 준비 주도권?",
+        "options": [
+          {"value": 1, "text": "내가 다 알아서 하는 편", "l2_score": 0.2},
+          {"value": 2, "text": "여행사의 도움을 받는 편", "l2_score": 0.85},
+          {"value": 3, "text": "부부/가족이 함께 상담", "l2_score": 0.5}
+        ]
+      },
+      {
+        "question_id": "Q4",
+        "text": "시간 여유?",
+        "options": [
+          {"value": 1, "text": "매우 바쁜 편", "l2_score": 0.9},
+          {"value": 2, "text": "중간 정도", "l2_score": 0.5},
+          {"value": 3, "text": "여유가 있는 편", "l2_score": 0.2}
+        ]
+      }
+    ],
+    "classification_logic": "IF (Q1 ∈ {1} OR Q2 = 1) AND Q4 ∈ {1,2} THEN L2",
+    "minimum_l2_score": 0.65
+  },
+
+  "expected_metrics": {
+    "before": {
+      "initial_call_response": 1.0,
+      "phase_1_progression": 0.70,
+      "phase_3_progression": 0.45,
+      "final_purchase": 0.28,
+      "sms_click_rate": 0.20,
+      "three_day_purchase": 0.07
+    },
+    "after_l2": {
+      "initial_call_response": 1.0,
+      "phase_1_progression": 0.88,
+      "phase_3_progression": 0.75,
+      "final_purchase": 0.45,
+      "sms_click_rate": 0.50,
+      "three_day_purchase": 0.18,
+      "mentoring_addon": 0.22
+    },
+    "improvements": {
+      "phase_1_progression_pct": 0.18,
+      "phase_3_progression_pct": 0.30,
+      "final_purchase_pct": 0.61,
+      "sms_click_rate_pct": 1.50,
+      "three_day_purchase_pct": 1.57,
+      "mentoring_addon_pct": 3.40
+    }
+  },
+
+  "mentoring_program": {
+    "structure": {
+      "duration_months": 3,
+      "cohort_size": "3-5 per mentor",
+      "mentor_qualifications": [
+        "첫 크루즈 경험 2회 이상",
+        "준비 과정 상세 이해",
+        "감정 공감 능력",
+        "인내심"
+      ]
+    },
+    "monthly_touchpoints": [
+      {
+        "month": 1,
+        "topics": ["여권 갱신", "예방접종", "신용카드 준비"],
+        "mode": "async (이메일/카톡)"
+      },
+      {
+        "month": 2,
+        "topics": ["기항지 일정", "환전", "보험"],
+        "mode": "sync (화상상담 30분)"
+      },
+      {
+        "month": 3,
+        "topics": ["짐 최종 확인", "탑승 절차", "배 소개"],
+        "mode": "sync (화상상담 30분)"
+      }
+    ],
+    "faq_support": [
+      "여권 갱신 링크 + 소요 시간",
+      "각 기항지별 예방접종 필수/권장",
+      "신용카드 환전 수수료 비교",
+      "짐 체크리스트 (의류/세면도구/의약품)",
+      "기항지 현지 이동 방법",
+      "배 탑승 절차 및 시간",
+      "선상 일정 및 식사 시간"
+    ]
+  },
+
+  "version": "1.0",
+  "created_date": "2026-05-19",
+  "status": "완전 구현 완료",
+  "next_steps": [
+    "L4 렌즈 (멤버십 저항형) 진행 중",
+    "L5 렌즈 (적합성 의심형) 대기",
+    "Week 2: CRM DB 구현",
+    "Week 3-4: 실전 검증"
+  ]
+}

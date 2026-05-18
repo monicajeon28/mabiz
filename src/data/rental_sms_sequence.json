@@ -1,0 +1,226 @@
+{
+  "campaign_id": "rental_sms_3day_v1",
+  "name": "렌탈 고객 3일 SMS 시퀀스",
+  "description": "렌탈 고객의 부담감 제거 → 월 구독 유도",
+  "target_segment": "rental_customer",
+  "psychology_framework": "PASONA + 손실회피",
+  "expected_conversion_rate": 0.18,
+  "total_messages": 4,
+  "sequence_duration_days": 3,
+  "created_at": "2026-05-19T00:00:00Z",
+  "messages": [
+    {
+      "message_id": "rental_sms_day0",
+      "sequence_number": 1,
+      "trigger": "call_ended",
+      "send_delay_minutes": 0,
+      "send_day": 0,
+      "psychology_principles": [
+        "PASONA_Solution_3_Simplicity",
+        "PASONA_Solution_6_Trust",
+        "Social_Proof",
+        "Loss_Aversion"
+      ],
+      "content": "[크루즈 렌탈]\n모니카님, 반가워요! 신민형입니다.\n\n💡 너무 복잡하게 생각하지 마세요.\n정말 간단해요:\n\n📱 앱에서 신청 (2분)\n📦 집에서 받기 (3일)\n✅ 사용 시작 (바로)\n\n\"이렇게 간단할 줄 몰랐어요\" - 이00님\n\n지금 첫 달 무료로 시작해보세요!\n\n[무료 신청하기]",
+      "character_count": 160,
+      "cta": "무료 신청하기",
+      "cta_url": "https://mabiz.cruisedot.com/rental/signup?source=sms_day0",
+      "expected_click_rate": 0.35,
+      "expected_conversion_rate": 0.80,
+      "key_elements": [
+        "Simplicity (3 steps)",
+        "Customer_Testimonial",
+        "First_Month_Free",
+        "Personalization (신민형)"
+      ],
+      "notes": "콜 직후 감정 고조로 즉시 신청율 높음"
+    },
+    {
+      "message_id": "rental_sms_day1",
+      "sequence_number": 2,
+      "trigger": "previous_message_sent",
+      "send_delay_minutes": 1440,
+      "send_day": 1,
+      "psychology_principles": [
+        "PASONA_Solution_4_Efficiency",
+        "Loss_Aversion",
+        "Social_Comparison"
+      ],
+      "content": "[크루즈 렌탈]\n아직도 \"비싼 거 아닐까?\" 걱정하세요?\n\n💰 월 4만원이면 충분해요.\n\n비교해보세요:\n❌ 홈케어: 월 15만원 + 설치비\n✅ 우리 렌탈: 월 4만원, 배송료 무료\n\n매달 11만원 절약하면서\n더 좋은 제품 사용할 수 있어요!\n\n[지금 절약 시작하기]",
+      "character_count": 168,
+      "cta": "지금 절약 시작하기",
+      "cta_url": "https://mabiz.cruisedot.com/rental/signup?source=sms_day1",
+      "expected_click_rate": 0.28,
+      "expected_conversion_rate": 0.50,
+      "key_elements": [
+        "Price_Comparison",
+        "Savings_Emphasis (11만원)",
+        "Quality + Value",
+        "Free_Shipping"
+      ],
+      "notes": "가격 불안감 해소에 집중, 경쟁사 대비 우위 강조"
+    },
+    {
+      "message_id": "rental_sms_day2",
+      "sequence_number": 3,
+      "trigger": "previous_message_sent",
+      "send_delay_minutes": 2880,
+      "send_day": 2,
+      "psychology_principles": [
+        "PASONA_Solution_5_Desire",
+        "Risk_Reversal",
+        "Trust_Building"
+      ],
+      "content": "[크루즈 렌탈]\n\"만약 안 맞으면 어떻게 하지?\"\n\n📞 안심하세요!\n• 언제든 취소 가능\n• 위약금 0원\n• 환불 3일 안에 처리\n\n우리는 당신의 만족을 최우선으로 생각합니다.\n\n2주 무료체험으로 직접 확인해보세요!\n\n[안심 신청하기]",
+      "character_count": 144,
+      "cta": "안심 신청하기",
+      "cta_url": "https://mabiz.cruisedot.com/rental/signup?source=sms_day2",
+      "expected_click_rate": 0.22,
+      "expected_conversion_rate": 0.40,
+      "key_elements": [
+        "Address_Objection",
+        "Cancellation_Guarantee",
+        "Zero_Penalty",
+        "Fast_Refund (3일)",
+        "Free_Trial (2주)"
+      ],
+      "notes": "계약 거부감 제거, 고객의 잠재 우려 인정"
+    },
+    {
+      "message_id": "rental_sms_day3",
+      "sequence_number": 4,
+      "trigger": "previous_message_sent",
+      "send_delay_minutes": 4320,
+      "send_day": 3,
+      "psychology_principles": [
+        "PASONA_Solution_7_Action",
+        "Loss_Aversion",
+        "Scarcity",
+        "Social_Proof",
+        "Urgency"
+      ],
+      "content": "[크루즈 렌탈]\n⏰ 마지막 기회입니다!\n\n오늘까지만:\n🎁 첫 달 100% 무료 + 배송비 0원\n🎁 언제든 취소 가능 (계약금 0원)\n\n\"이미 100명이 시작했어요!\"\n\n지금 시작하지 않으면\n내일부터는 월 4만원이 돼요.\n\n[지금 무료로 시작]\n\n질문 있으세요? 전화드릴까요?",
+      "character_count": 160,
+      "cta": "지금 무료로 시작",
+      "cta_url": "https://mabiz.cruisedot.com/rental/signup?source=sms_day3",
+      "expected_click_rate": 0.15,
+      "expected_conversion_rate": 0.18,
+      "key_elements": [
+        "Scarcity (오늘까지만)",
+        "Dual_Incentive (무료 + 배송료)",
+        "Social_Proof (100명)",
+        "Loss_Framing (내일부터 4만원)",
+        "Human_Touch (전화)"
+      ],
+      "notes": "긴급성으로 지연 방지, 손실회피 심리 극대화"
+    }
+  ],
+  "expected_conversion_flow": {
+    "initial_audience": 100,
+    "after_message_1_conversion_rate": 0.80,
+    "after_message_1_converted": 80,
+    "after_message_2_conversion_rate": 0.50,
+    "after_message_2_converted": 40,
+    "after_message_3_conversion_rate": 0.40,
+    "after_message_3_converted": 16,
+    "final_conversion_rate": 0.18,
+    "final_subscribers": 18,
+    "total_conversion_path": "100 → 80 → 40 → 16 → 18"
+  },
+  "variants": [
+    {
+      "variant_id": "rental_beginner",
+      "name": "초급 고객 변형",
+      "description": "구매 경험 없는 고객 대상",
+      "target_profile": {
+        "purchase_experience": "first_time",
+        "age_group": "40s-50s"
+      },
+      "modifications": {
+        "message_1": {
+          "add_video_link": true,
+          "emphasis": "Step-by-step visual guide",
+          "customer_support_number": true
+        }
+      }
+    },
+    {
+      "variant_id": "rental_price_sensitive",
+      "name": "가격 민감 고객 변형",
+      "description": "가격에 민감한 고객 대상",
+      "target_profile": {
+        "price_sensitivity": "high",
+        "discount_frequency": "frequent_buyer"
+      },
+      "modifications": {
+        "message_2": {
+          "detailed_comparison": true,
+          "installment_option": true,
+          "first_month_discount": "50%"
+        }
+      }
+    },
+    {
+      "variant_id": "rental_careful_buyer",
+      "name": "신중한 고객 변형",
+      "description": "신중하게 결정하는 고객 대상",
+      "target_profile": {
+        "decision_style": "careful",
+        "review_importance": "high"
+      },
+      "modifications": {
+        "message_3": {
+          "customer_satisfaction_rating": true,
+          "refund_case_studies": true,
+          "expert_recommendation": true
+        }
+      }
+    }
+  ],
+  "operational_requirements": {
+    "automation": [
+      "SMS_Auto_Scheduler",
+      "Customer_Segmentation",
+      "A/B_Testing",
+      "Click_Conversion_Tracking"
+    ],
+    "monitoring": [
+      "Daily_Delivery_Rate",
+      "Error_Tracking",
+      "Customer_Feedback",
+      "Weekly_Performance_Analysis"
+    ],
+    "kpis": [
+      {
+        "metric": "delivery_rate",
+        "target": 0.95,
+        "importance": "critical"
+      },
+      {
+        "metric": "open_rate",
+        "target": 0.80,
+        "importance": "high"
+      },
+      {
+        "metric": "click_rate",
+        "target": 0.35,
+        "importance": "high"
+      },
+      {
+        "metric": "final_subscription_rate",
+        "target": 0.18,
+        "importance": "critical"
+      }
+    ]
+  },
+  "next_steps": [
+    "JSON_Data_Structure_Complete",
+    "SMS_Auto_Scheduler_Implementation",
+    "Dashboard_Tracking_Page_Creation",
+    "A/B_Test_Execution (Variant_1_3)",
+    "Weekly_Performance_Review"
+  ],
+  "status": "draft",
+  "last_updated": "2026-05-19T00:00:00Z",
+  "version": "1.0"
+}

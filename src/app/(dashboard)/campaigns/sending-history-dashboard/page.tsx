@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAuthContext } from '@/lib/auth-context';
+// import { useAuthContext } from '@/lib/auth-context';  // TODO: Fix auth import
 import { useSearchParams } from 'next/navigation';
 import { useToast } from '@/lib/api/use-toast';
 

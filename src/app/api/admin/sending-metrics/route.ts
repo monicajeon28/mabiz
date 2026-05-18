@@ -336,7 +336,7 @@ export async function GET(req: Request) {
     });
 
   } catch (err) {
-    logger.error('[GET /api/admin/sending-metrics] Error:', err);
+    logger.error('[GET /api/admin/sending-metrics] Error:', err as object);
     return NextResponse.json(
       {
         ok: false,

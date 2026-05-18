@@ -16,8 +16,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import db from "../../../../../src/lib/prisma";
-import { logger } from "../../../../../src/lib/logger";
+import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 import { Redis } from "@upstash/redis";
 
 const redis = new Redis({
@@ -148,7 +148,7 @@ async function getConsistencyMetric(): Promise<{
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     // SendingHistory 조회 (ExecutionLog와 비교)
-    const sendingHistories = await db.sendingHistory.findMany({
+    const sendingHistories = await prisma.sendingHistory.findMany({
       where: {
         createdAt: { gte: sevenDaysAgo },
       },
@@ -162,7 +162,7 @@ async function getConsistencyMetric(): Promise<{
     });
 
     // ExecutionLog 조회
-    const executionLogs = await db.executionLog.findMany({
+    const executionLogs = await prisma.executionLog.findMany({
       where: {
         createdAt: { gte: sevenDaysAgo },
       },

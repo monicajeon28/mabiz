@@ -1,0 +1,385 @@
+{
+  "campaign": {
+    "id": "menu_38_phase4_track1_delta_inactive_db_sms",
+    "name": "Menu #38 Phase 4 Track 1-δ: 부재중 DB 신규 상품 3일 SMS 시퀀스",
+    "phase": 4,
+    "track": "1-delta",
+    "description": "부재중 고객 재활성화 → 신규 상품(v2.0) 재구매 유도",
+    "created_at": "2026-05-19T00:00:00Z",
+    "status": "decision_stage",
+    "estimated_conversion_rate": 0.32,
+    "comparison_to_new_db": {
+      "new_db_conversion_rate": 0.15,
+      "inactive_db_conversion_rate": 0.32,
+      "multiplier": 2.1
+    }
+  },
+  "target_audience": {
+    "database_type": "inactive",
+    "criteria": {
+      "last_purchase_days_ago": ">90",
+      "status": "inactive",
+      "recent_call": true,
+      "purchase_history": ">0"
+    },
+    "estimated_size": {
+      "min": 5000,
+      "max": 10000,
+      "unit": "customers"
+    }
+  },
+  "product": {
+    "name": "v2.0 신제품",
+    "improvements": [
+      {
+        "aspect": "효과 기간",
+        "before": "4주",
+        "after": "2주",
+        "improvement_percent": 50
+      },
+      {
+        "aspect": "사용감",
+        "before": "기존",
+        "after": "30% 개선",
+        "improvement_percent": 30
+      },
+      {
+        "aspect": "가격",
+        "before": "5만원",
+        "after": "2.5만원",
+        "improvement_percent": -50
+      }
+    ],
+    "pricing": {
+      "original_price": 50000,
+      "special_price": 25000,
+      "existing_customer_discount_additional": 0.20,
+      "currency": "KRW"
+    }
+  },
+  "messages": [
+    {
+      "day": 0,
+      "message_number": 1,
+      "send_timing": {
+        "condition": "After call completion",
+        "hours_offset": 1,
+        "preferred_hour": 16
+      },
+      "message_key": "DAY0_WELCOME_SAMPLE",
+      "tone": "따뜻하고 반갑게, 업그레이드의 느낌",
+      "content": {
+        "template": "[크루즈 상품]\n모니카님, 반가워요! \n\n\"요즘 어떻게 지내세요?\" 물어보고 싶어서 연락했어요.\n\n💝 그동안 저희가 이런 걸 만들었어요:\n\n✨ v2.0 (신제품)\n• 더 빠른 효과 (2주 → 1주)\n• 더 나은 사용감 (30% 개선)\n• 더 저렴한 가격 (50% 할인)\n\n기존 고객분들이 가장 환영한 버전이에요!\n\n[무료 샘플 신청하기]\nhttps://crm.example.com/sample/v2-0",
+        "personalization": {
+          "customer_name": true,
+          "product_name": true
+        }
+      },
+      "psychology": {
+        "primary": "PASONA_Solution_5_upgrade_expectation",
+        "secondary": ["Priming_familiarity", "Reduction_emotional_distance"],
+        "description": "부재중 기간의 감정적 거리 복구 + 신제품 기대감"
+      },
+      "cta": {
+        "primary": "SAMPLE_REQUEST",
+        "url": "https://crm.example.com/sample/v2-0",
+        "barrier_level": "low",
+        "next_action": "Convert to upgrade request"
+      },
+      "metrics": {
+        "expected_open_rate": 0.85,
+        "expected_click_rate": 0.50,
+        "reasoning": "기존고객의 높은 관심도"
+      }
+    },
+    {
+      "day": 1,
+      "message_number": 2,
+      "send_timing": {
+        "condition": "24 hours after Day 0",
+        "hours_offset": 24,
+        "preferred_hour": 14
+      },
+      "message_key": "DAY1_UPGRADE_PROOF",
+      "tone": "구체적이고 증거 중심, 사회적 증명",
+      "content": {
+        "template": "[크루즈 상품]\nv2.0 무엇이 달라졌을까요?\n\n📊 고객 후기:\n\n\"2주만에 효과를 봤어요!\" - 김00님\n\"훨씬 편해졌어요!\" - 이00님\n\"가격도 내려가서 깜짝 놀랐어요!\" - 박00님\n\n실제로:\n✅ 효과 기간: 4주 → 2주 (50% 단축)\n✅ 사용감: 소개할 정도로 개선\n✅ 가격: 5만원 → 2.5만원 (50% 할인)\n\n[업그레이드 신청하기]\nhttps://crm.example.com/upgrade/v2-0-day1",
+        "social_proof": {
+          "customer_testimonials": [
+            {
+              "quote": "2주만에 효과를 봤어요!",
+              "customer_initial": "김00님",
+              "aspect": "speed"
+            },
+            {
+              "quote": "훨씬 편해졌어요!",
+              "customer_initial": "이00님",
+              "aspect": "usability"
+            },
+            {
+              "quote": "가격도 내려가서 깜짝 놀랐어요!",
+              "customer_initial": "박00님",
+              "aspect": "pricing"
+            }
+          ]
+        }
+      },
+      "psychology": {
+        "primary": "PASONA_Solution_7_learning_growth",
+        "secondary": ["SocialProof_real_names", "PASONA_Solution_2_concrete_method", "Quantified_improvement"],
+        "description": "사회적 증명(실명) + 구체적 수치화된 개선"
+      },
+      "cta": {
+        "primary": "UPGRADE_REQUEST",
+        "url": "https://crm.example.com/upgrade/v2-0-day1",
+        "barrier_level": "medium",
+        "next_action": "Lead to purchase conversion"
+      },
+      "metrics": {
+        "expected_click_rate": 0.60,
+        "click_rate_vs_day0": 0.70,
+        "reasoning": "Day 1 대비 70% 감소는 자연스러움 (추적 목적, 구체적 검증)"
+      }
+    },
+    {
+      "day": 2,
+      "message_number": 3,
+      "send_timing": {
+        "condition": "48 hours after Day 0",
+        "hours_offset": 48,
+        "preferred_hour": 14
+      },
+      "message_key": "DAY2_EXCLUSIVE_PRICE",
+      "tone": "배타적이고 긴급하게, 기존고객 우대 강조",
+      "content": {
+        "template": "[크루즈 상품]\n이런 기회 자주 없어요!\n\n💰 기존 고객만의 특별 가격:\n\n일반가: 5만원\n→ 특가: 2.5만원 (50% 할인)\n→ 기존고객: 추가 1개 20% 할인\n\n\"기존 고객 우대\" 정책으로\n가장 많이 신청하신 상품이에요.\n\n[지금 신청하면 무료배송]\nhttps://crm.example.com/special/existing-customer-only",
+        "pricing_breakdown": {
+          "general_price": {
+            "amount": 50000,
+            "label": "일반가"
+          },
+          "special_price": {
+            "amount": 25000,
+            "label": "특가",
+            "discount_percent": 50
+          },
+          "existing_customer_price": {
+            "amount": 20000,
+            "label": "기존고객 추가 할인 (추가 1개)",
+            "discount_percent": 20
+          }
+        }
+      },
+      "psychology": {
+        "primary": "PASONA_Solution_4_efficiency",
+        "secondary": ["PASONA_Solution_6_scarcity_exclusivity", "Existing_customer_privilege"],
+        "description": "배타성(희소성) + 기존고객 우대로 즉각적 행동 유도"
+      },
+      "cta": {
+        "primary": "SPECIAL_OFFER",
+        "secondary": "FREE_SHIPPING",
+        "url": "https://crm.example.com/special/existing-customer-only",
+        "barrier_level": "low",
+        "next_action": "Immediate purchase decision"
+      },
+      "incentive": {
+        "primary": "free_shipping",
+        "value": "estimated_5000_krw"
+      },
+      "metrics": {
+        "expected_click_rate": 0.55,
+        "reasoning": "배타성 + 기존고객 우대 프레임이 강력"
+      }
+    },
+    {
+      "day": 3,
+      "message_number": 4,
+      "send_timing": {
+        "condition": "72 hours after Day 0",
+        "hours_offset": 72,
+        "preferred_hour": 14
+      },
+      "message_key": "DAY3_FINAL_CLOSE",
+      "tone": "긴급하고 감정적, 손실회피 극대화",
+      "content": {
+        "template": "[크루즈 상품]\n모니카님, 이건 정말 마지막이에요.\n\n🎁 오늘까지만:\n• v2.0 특가 2.5만원\n• 추가 1개 20% 할인\n• 무료배송 + 특급 배송\n\n\"왜 더 빨리 말 안 했어?\" 하실 거예요.\n\n지금 시작하면 1주 뒤\n\"아, 내가 잘 했다!\" 생각하실 거고...\n\n내일부터는 또 원래 가격이 돼요.\n\n[마지막 신청하기]\nhttps://crm.example.com/final/day3-close\n\n아니면 전화 드릴까요?\n[통화 예약하기]\nhttps://crm.example.com/call/book-now",
+        "narrative_elements": {
+          "future_regret": "\"왜 더 빨리 말 안 했어?\" 하실 거예요.",
+          "future_satisfaction": "1주 뒤 \"아, 내가 잘 했다!\" 생각하실 거고...",
+          "deadline": "내일부터는 또 원래 가격이 돼요."
+        }
+      },
+      "psychology": {
+        "primary": "PASONA_Solution_5_expectation_maximization",
+        "secondary": ["PASONA_Solution_1_loss_aversion", "NarrativeTransportation_regret", "Future_projection"],
+        "description": "손실회피 + 기대감 극대화 + 미래 후회를 현재에 투영"
+      },
+      "cta": {
+        "primary": ["FINAL_PURCHASE", "CALL_BOOKING"],
+        "primary_url": "https://crm.example.com/final/day3-close",
+        "secondary_url": "https://crm.example.com/call/book-now",
+        "barrier_level": "high",
+        "multi_channel": ["digital", "phone"],
+        "next_action": "Final conversion or scheduled consultation"
+      },
+      "incentive": {
+        "primary": "time_limited_special_price",
+        "secondary": "expedited_shipping",
+        "tertiary": "phone_consultation"
+      },
+      "metrics": {
+        "expected_conversion_rate": 0.32,
+        "expected_call_booking_rate": 0.08,
+        "reasoning": "손실회피 극대화 + 전화 채널 추가로 최종 클로징"
+      }
+    }
+  ],
+  "execution_plan": {
+    "phase_1_segmentation": {
+      "step": "부재중 DB 세분화",
+      "timing": "사전",
+      "sql_conditions": {
+        "last_purchase_days_ago": ">90",
+        "status": "inactive",
+        "recent_call_completed": true,
+        "purchase_history_count": ">0"
+      },
+      "estimated_audience_size": {
+        "min": 5000,
+        "max": 10000
+      }
+    },
+    "phase_2_scheduling": {
+      "step": "SMS 일정 수립",
+      "timeline": {
+        "day_0": {
+          "time": "16:00",
+          "message": "Message 1",
+          "purpose": "Sample request"
+        },
+        "day_1": {
+          "time": "14:00",
+          "message": "Message 2",
+          "purpose": "Upgrade request"
+        },
+        "day_2": {
+          "time": "14:00",
+          "message": "Message 3",
+          "purpose": "Special offer"
+        },
+        "day_3": {
+          "time": "14:00",
+          "message": "Message 4",
+          "purpose": "Final close"
+        }
+      }
+    },
+    "phase_3_monitoring": {
+      "step": "실시간 모니터링",
+      "metrics": [
+        "open_rate_per_message",
+        "click_rate_per_cta",
+        "conversion_rate_purchase",
+        "call_booking_rate",
+        "sms_unsubscribe_rate"
+      ],
+      "reporting_schedule": "Daily at 09:00"
+    },
+    "phase_4_optimization": {
+      "step": "A/B 테스트 (선택)",
+      "test_groups": {
+        "control": {
+          "name": "Standard sequence",
+          "allocation": 1.0
+        },
+        "variant_a": {
+          "name": "Personalized message after call",
+          "allocation": 0.0,
+          "note": "Optional"
+        },
+        "variant_b": {
+          "name": "Limited quantity on Day 2",
+          "allocation": 0.0,
+          "note": "Optional"
+        }
+      },
+      "sample_size_minimum": 1000
+    }
+  },
+  "performance_projections": {
+    "funnel": {
+      "day_0": {
+        "message": "Message 1",
+        "open_rate": 0.85,
+        "click_rate": 0.50,
+        "metric_name": "Sample Interest"
+      },
+      "day_1": {
+        "message": "Message 2",
+        "click_rate": 0.60,
+        "metric_name": "Upgrade Interest"
+      },
+      "day_2": {
+        "message": "Message 3",
+        "click_rate": 0.55,
+        "metric_name": "Special Offer Interest"
+      },
+      "day_3": {
+        "message": "Message 4",
+        "conversion_rate": 0.32,
+        "metric_name": "Final Purchase"
+      }
+    },
+    "revenue_simulation": {
+      "audience_size": 5000,
+      "inactive_db_conversion_rate": 0.32,
+      "purchasers": 1600,
+      "additional_product_purchasers": 800,
+      "average_order_value": 75000,
+      "total_revenue": 2400000,
+      "currency": "KRW",
+      "comparison_new_db": {
+        "audience_size": 5000,
+        "new_db_conversion_rate": 0.15,
+        "purchasers": 750,
+        "average_order_value": 50000,
+        "total_revenue": 3750000,
+        "additional_revenue_from_inactive": 2450000,
+        "roi_multiplier": 3.0
+      }
+    }
+  },
+  "risk_mitigation": {
+    "sms_unsubscribe": {
+      "risk": "High unsubscribe rate from frequent messages",
+      "mitigation": "Existing customers already opted-in from call",
+      "expected_unsubscribe_rate": 0.005,
+      "monitoring": "Real-time CRM updates"
+    },
+    "message_fatigue": {
+      "risk": "4 messages in 3 days may cause fatigue",
+      "mitigation": "Each message has distinct psychology and value prop",
+      "distribution": "Spread over 3 days, different times",
+      "monitoring": "Click-through rate trends"
+    },
+    "trust_erosion": {
+      "risk": "\"Limited time\" messaging may feel inauthentic",
+      "mitigation": "Based on real policy (existing customer discount)",
+      "authenticity": "Genuine price reduction from 50K to 25K",
+      "monitoring": "Customer feedback and complaints"
+    }
+  },
+  "next_steps": {
+    "phase_4_track_2": "신규 상품 신규 DB 3일 시퀀스",
+    "phase_4_track_3": "다양한 상품군별 시퀀스 (스킨케어/영양제)",
+    "phase_4_track_4": "시즈널 캠페인 (계절 상품 런칭)",
+    "performance_review": "1주일 후 32% 검증 및 최적화"
+  },
+  "metadata": {
+    "version": "1.0",
+    "created_at": "2026-05-19T00:00:00Z",
+    "status": "decision_stage",
+    "author": "Claude Code (Menu #38 Phase 4 Agent)",
+    "approval_status": "Pending user decision"
+  }
+}
