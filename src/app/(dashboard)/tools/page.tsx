@@ -39,7 +39,7 @@ const PLAYBOOK_TABS = [
 export default function ToolsPage() {
   const searchParams = useSearchParams();
   const [showCompressor, setShowCompressor] = useState(false);
-  const [mainTab,  setMainTab]   = useState<"sms" | "playbook" | "call-feedback" | "qa-library">("sms");
+  const [mainTab,  setMainTab]   = useState<"sms" | "playbook" | "call-feedback" | "qa-library">("playbook");
   const [smsTab,   setSmsTab]    = useState("CARE_VIP");
   const [pbTab,    setPbTab]     = useState("REJECTION");
 
@@ -134,8 +134,8 @@ export default function ToolsPage() {
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 overflow-x-auto">
         {[
           { key: "sms",           label: "📱 문자 템플릿" },
-          { key: "playbook",      label: "📖 세일즈 플레이북" },
-          { key: "call-feedback", label: "📞 콜 피드백 AI" },
+          { key: "playbook",      label: "📞 콜 플레이북" },
+          { key: "call-feedback", label: "📊 콜 피드백 AI" },
           { key: "qa-library",    label: "📚 Q&A 라이브러리" },
         ].map((t) => (
           <button
@@ -210,31 +210,42 @@ export default function ToolsPage() {
       {/* 세일즈 플레이북 */}
       {mainTab === "playbook" && (
         <div>
-          <div className="flex gap-2 mb-4 flex-wrap">
-            {PLAYBOOK_TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setPbTab(t.key)}
-                className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
-                  pbTab === t.key
-                    ? "bg-navy-900 text-white border-navy-900"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-navy-900"
-                }`}
-              >
-                {t.label} ({playbooks.filter((p) => p.type === t.key).length})
-              </button>
-            ))}
+          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+            <div className="flex gap-2 flex-wrap">
+              {PLAYBOOK_TABS.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setPbTab(t.key)}
+                  className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
+                    pbTab === t.key
+                      ? "bg-navy-900 text-white border-navy-900"
+                      : "bg-white text-gray-600 border-gray-200 hover:border-navy-900"
+                  }`}
+                >
+                  {t.label} ({playbooks.filter((p) => p.type === t.key).length})
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => window.open('/tools/playbook-viewer', '_blank', 'width=1400,height=900')}
+              className="flex items-center gap-1.5 px-3 py-2 bg-navy-900 text-white rounded-lg text-sm font-medium hover:bg-navy-800 transition-colors whitespace-nowrap"
+              title="새 창에서 전체 플레이북 뷰어 열기"
+            >
+              <BookMarked className="w-4 h-4" />
+              전체 플레이북 ↗
+            </button>
           </div>
 
           <div className="space-y-3">
             {filteredPlaybooks
               .sort((a, b) => a.priority - b.priority)
+              .slice(0, 5)
               .map((pb) => (
                 <div key={pb.id} className="bg-white border border-gray-200 rounded-xl p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1">
                       <h3 className="font-semibold text-gray-900 mb-2">{pb.title}</h3>
-                      <pre className="text-sm text-gray-600 whitespace-pre-wrap font-sans leading-relaxed">
+                      <pre className="text-sm text-gray-600 whitespace-pre-wrap font-sans leading-relaxed line-clamp-3">
                         {pb.content}
                       </pre>
                     </div>
@@ -251,6 +262,14 @@ export default function ToolsPage() {
                   </div>
                 </div>
               ))}
+            {filteredPlaybooks.length > 5 && (
+              <button
+                onClick={() => window.open('/tools/playbook-viewer', '_blank', 'width=1400,height=900')}
+                className="w-full py-3 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+              >
+                모두 보기 ({filteredPlaybooks.length}개)
+              </button>
+            )}
             {filteredPlaybooks.length === 0 && (
               <p className="text-center text-gray-400 py-8 text-sm">항목이 없습니다.</p>
             )}

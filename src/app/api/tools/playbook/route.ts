@@ -3,21 +3,32 @@ import prisma from "@/lib/prisma";
 import { getAuthContext } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
-// GET /api/tools/playbook?scriptTab=GENERAL&productCode=ALL&type=OBJECTION
+// GET /api/tools/playbook?phase=X&customerSegment=Y&type=Z
 export async function GET(req: Request) {
   try {
     await getAuthContext();
     const { searchParams } = new URL(req.url);
-    const type        = searchParams.get("type");
-    const scriptTab   = searchParams.get("scriptTab")   ?? "GENERAL";
-    const productCode = searchParams.get("productCode") ?? "ALL";
+    const phase           = searchParams.get("phase");
+    const customerSegment = searchParams.get("customerSegment");
+    const type            = searchParams.get("type");
+    const scriptTab       = searchParams.get("scriptTab")   ?? "GENERAL";
+    const productCode     = searchParams.get("productCode") ?? "ALL";
+
+    // phase를 sectionOrder로 매핑 (0-9)
+    const phaseFilters = phase ? { sectionOrder: parseInt(phase) } : {};
+
+    // customerSegment를 productCode로 매핑
+    const segmentFilters = customerSegment && customerSegment !== "ALL"
+      ? { productCode: { in: [customerSegment, "ALL"] } }
+      : { productCode: { in: [productCode, "ALL"] } };
 
     const items = await prisma.salesPlaybook.findMany({
       where: {
         isActive: true,
         scriptTab,
-        productCode: { in: [productCode, "ALL"] },
+        ...segmentFilters,
         ...(type ? { type } : {}),
+        ...phaseFilters,
       },
       orderBy: [
         { productCode: "desc" },
