@@ -478,8 +478,8 @@ export function B2BLandingClient({
                     : "결제하기"}
               </button>
               <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
-                판매자: 마비즈스쿨 원격평생교육원 | 사업자번호: 851-67-00338 |
-                대표: 전혜선
+                판매자: 마비즈스쿨 원격평생교육원 | 사업자번호: {process.env.NEXT_PUBLIC_B2B_BUSINESS_ID} |
+                대표: {process.env.NEXT_PUBLIC_B2B_ADMIN_NAME}
                 <br />
                 통신판매업: 제 2024-대전서구-2845 호
               </p>
@@ -488,7 +488,7 @@ export function B2BLandingClient({
 
           <div className="mt-4 space-y-3">
             <a
-              href="https://pf.kakao.com/_cruisedot"
+              href={`https://pf.kakao.com/${process.env.NEXT_PUBLIC_B2B_KAKAO_CHANNEL_ID}`}
               target="_blank"
               rel="noopener noreferrer"
               className="block w-full bg-yellow-400 text-gray-900 min-h-[44px] flex items-center justify-center rounded-xl text-sm font-bold hover:bg-yellow-300 transition-colors"
@@ -496,10 +496,10 @@ export function B2BLandingClient({
               카카오톡 상담 시작하기
             </a>
             <a
-              href="tel:1899-4798"
+              href={`tel:${process.env.NEXT_PUBLIC_B2B_PHONE}`}
               className="block w-full bg-blue-900 text-white min-h-[44px] flex items-center justify-center rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors"
             >
-              전화 상담 (1899-4798)
+              전화 상담 ({process.env.NEXT_PUBLIC_B2B_PHONE})
             </a>
           </div>
           {alreadyRegistered && (
@@ -542,7 +542,11 @@ export function B2BLandingClient({
         aria-label="B2B 랜딩페이지 콘텐츠"
       >
         {editorMode === "html" ? (
-          <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(htmlContent) }} />
+          <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(htmlContent, {
+            ALLOWED_TAGS: ['b', 'i', 'u', 'p', 'br', 'strong', 'em', 'a', 'img', 'h1', 'h2', 'h3', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'span', 'div'],
+            ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'style'],
+            KEEP_CONTENT: true
+          }) }} />
         ) : (
           // 이미지 모드: htmlContent를 이미지로 취급
           htmlContent && (
