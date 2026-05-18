@@ -349,7 +349,6 @@ export async function retrySendingMessage(sendingId: string): Promise<void> {
     const sending = await db.sendingHistory.findUnique({
       where: { id: sendingId },
       include: {
-        contact: { select: { id: true, phone: true, email: true } },
         campaign: {
           select: { id: true, organizationId: true, smsBody: true, emailSubject: true, emailBody: true },
         },
@@ -366,17 +365,29 @@ export async function retrySendingMessage(sendingId: string): Promise<void> {
       return;
     }
 
+    // Contact 별도 조회
+    const contact = await db.contact.findUnique({
+      where: { id: sending.contactId },
+      select: { id: true, phone: true, email: true },
+    });
+
+    if (!contact) {
+      logger.warn("[Cron] Contact 없음", { contactId: sending.contactId });
+      await updateSendingStatus(sendingId, "FAILED", "INVALID_EMAIL", sending.retryCount);
+      return;
+    }
+
     const result = await sendSingleMessage({
-      campaignId: sending.campaign.id,
-      organizationId: sending.campaign.organizationId,
-      contactId: sending.contact.id,
+      campaignId: sending.campaignId!,
+      organizationId: sending.organizationId,
+      contactId: contact.id,
       channel: sending.channel as "SMS" | "EMAIL",
       messageBody:
         sending.channel === "SMS"
-          ? sending.campaign.smsBody || ""
-          : sending.campaign.emailBody || "",
+          ? sending.campaign?.smsBody || ""
+          : sending.campaign?.emailBody || "",
       messageSubject:
-        sending.channel === "EMAIL" ? sending.campaign.emailSubject : undefined,
+        sending.channel === "EMAIL" ? sending.campaign?.emailSubject : undefined,
     });
 
     // 성공 시: 상태 업데이트만
