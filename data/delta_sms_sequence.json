@@ -1,0 +1,98 @@
+[
+  {
+    "day": 0,
+    "triggerType": "PURCHASE",
+    "triggerOffset": 0,
+    "sendTime": "09:00",
+    "message": "✅ 예약 완료되었습니다.\n\n환불 정책: 30일 이내 100% 환불 가능합니다.\n확인 사항: [링크]\n질문 있으시면 1:1 상담 전화: 1544-1234",
+    "psychology": "손실회피 + 불안해소",
+    "psychologyTag": "Loss Aversion + Reassurance",
+    "template": "Day0_RentalPurchase_Reassurance",
+    "segmentVariations": {
+      "A": {
+        "segment": "자유여행 고객",
+        "message": "✅ 자유여행 예약이 완료되었습니다.\n\n여행 일정 확인: [링크]\n환불 정책: 30일 이내 100% 환불 가능합니다.\n자유 일정 변경 정책도 확인하세요!"
+      },
+      "B": {
+        "segment": "크루즈 고객",
+        "message": "✅ 크루즈 예약이 완료되었습니다.\n\n크루즈 확인서: [링크]\n환불 정책: 출항 30일 전 100% 환불 가능합니다.\n탑승 안내는 예약 3주 전에 발송됩니다."
+      },
+      "C": {
+        "segment": "호텔 고객",
+        "message": "✅ 호텔 예약이 완료되었습니다.\n\n객실 정보 확인: [링크]\n환불 정책: 체크인 30일 전 100% 환불 가능합니다.\n더 좋은 객실로 업그레이드할 기회가 있습니다!"
+      }
+    }
+  },
+  {
+    "day": 1,
+    "triggerType": "PURCHASE",
+    "triggerOffset": 1440,
+    "sendTime": "10:00",
+    "message": "여행 준비 팁 📋\n\n자유여행 vs 크루즈? 당신에게 맞는 선택은?\n비교표 확인: [링크]\n\n패킹 리스트 다운로드: [링크]",
+    "psychology": "선택 고민 해결 + 추가 가치 제공",
+    "psychologyTag": "Narrative Transportation + Social Proof",
+    "template": "Day1_RentalPrep_DecisionSupport",
+    "segmentVariations": {
+      "A": {
+        "segment": "자유여행 고객",
+        "message": "🌍 자유여행 준비 가이드\n\n[Day 1] 비자/여권 확인하셨나요?\n✓ 여권 유효기간: 6개월 이상\n✓ 비자 신청: [링크]\n\n현지 택시 앱 다운로드: Uber, Grab 등\n현지 심카드 구입 가이드: [링크]"
+      },
+      "B": {
+        "segment": "크루즈 고객",
+        "message": "⛴️ 크루즈 승선 준비 체크리스트\n\n[Day 1] 출항까지 29일 남았습니다.\n✓ 탑승 수속 서류\n✓ 여권/신분증\n✓ 선실 위치 확인: [링크]\n\n짐 포장 팁: [링크]"
+      },
+      "C": {
+        "segment": "호텔 고객",
+        "message": "🏨 호텔 체크인 준비 안내\n\n[Day 1] 체크인까지 29일 남았습니다.\n✓ 선호하는 객실층/뷰 선택\n✓ 조식 예약\n✓ 공항 픽업 서비스: [링크]\n\n주변 관광지 추천: [링크]"
+      }
+    }
+  },
+  {
+    "day": 2,
+    "triggerType": "PURCHASE",
+    "triggerOffset": 2880,
+    "sendTime": "14:00",
+    "message": "🏨 인기 객실 2개 남음!\n\n지금 업그레이드하면:\n✨ 오션뷰 +20%\n✨ 조식 포함 무료\n✨ 조기 체크인 제공\n\n업그레이드: [링크]",
+    "psychology": "희소성 트리거 + 손실회피 + 즉시성",
+    "psychologyTag": "Scarcity + Urgency + Loss Aversion",
+    "template": "Day2_RentalUpgrade_Scarcity",
+    "segmentVariations": {
+      "A": {
+        "segment": "자유여행 고객",
+        "message": "🌟 인기 지역 2개 패키지 남음!\n\n[특가] 지금 구매하면:\n✨ 현지 가이드 투어 50% 할인\n✨ 환전 수수료 면제\n✨ 24시간 핫라인 서비스 무료\n\n마감 48시간: [링크]"
+      },
+      "B": {
+        "segment": "크루즈 고객",
+        "message": "⛴️ 스위트 선실 2개 남음!\n\n[기간한정] 지금 업그레이드하면:\n✨ 프라이빗 발코니\n✨ 라운지 이용권\n✨ 신발값 $200 크레딧\n\n마감 시간: 14:00 ~ 22:00\n업그레이드: [링크]"
+      },
+      "C": {
+        "segment": "호텔 고객",
+        "message": "🏩 스위트룸 2개 남음!\n\n[한정 오퍼] 지금 업그레이드하면:\n✨ 라운지 접근권\n✨ 스파 50% 할인권\n✨ 저녁 칵테일 무료\n\n마감: 오늘 22:00까지\n업그레이드: [링크]"
+      }
+    }
+  },
+  {
+    "day": 3,
+    "triggerType": "PURCHASE",
+    "triggerOffset": 4320,
+    "sendTime": "19:00",
+    "message": "📅 여행까지 남은 시간: D-25일\n\n최종 확인 및 변경:\n✓ 예약 변경: [링크]\n✓ 환불 정책 재확인: [링크]\n✓ 여행보험 추가: [링크]\n\n문제 발생 시: 고객센터 1544-1234",
+    "psychology": "행동 유도 + 안심 + 클로징",
+    "psychologyTag": "Call-to-Action + Reassurance + Commitment",
+    "template": "Day3_RentalFinal_Confirmation",
+    "segmentVariations": {
+      "A": {
+        "segment": "자유여행 고객",
+        "message": "✈️ 자유여행 출발까지 D-25일\n\n최종 체크리스트:\n☑ 비자 발급 상태\n☑ 항공권 확인\n☑ 숙소 예약 확인\n☑ 렌터카 예약\n\n문제 발생 또는 변경: [링크]\n24시간 상담: 1544-1234"
+      },
+      "B": {
+        "segment": "크루즈 고객",
+        "message": "⛴️ 크루즈 출항까지 D-25일\n\n탑승 최종 준비:\n☑ 탑승권 다운로드\n☑ 탑승 시간 확인\n☑ 짐 규격 재확인\n☑ 선상 액티비티 미리 예약\n\n문제 발생 또는 변경: [링크]\n24시간 상담: 1544-1234"
+      },
+      "C": {
+        "segment": "호텔 고객",
+        "message": "🏨 호텔 체크인까지 D-25일\n\n체크인 최종 준비:\n☑ 예약 번호 저장\n☑ 특별한 요청사항 전달\n☑ 공항 픽업 최종 확인\n☑ 객실 업그레이드 신청\n\n문제 발생 또는 변경: [링크]\n24시간 상담: 1544-1234"
+      }
+    }
+  }
+]
