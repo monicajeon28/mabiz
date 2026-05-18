@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, TrendingUp, RotateCcw, Clock, Star, Phone, Settings, Send, AlertCircle, Copy, Check } from "lucide-react";
+import { Users, TrendingUp, RotateCcw, Clock, Star, Phone, Settings, Send, AlertCircle, Copy, Check, Calendar } from "lucide-react";
 import Link from "next/link";
 
 type DashboardData = {
@@ -26,6 +26,10 @@ type DashboardData = {
   newContactsThisMonth?: number;
   // 오늘 콜 (모든 역할)
   callDueToday?: number;
+  // 캠페인 발송 현황 (OWNER/AGENT)
+  campaignScheduledToday?: number;
+  campaignInProgress?: number;
+  campaignCompletedToday?: number;
 };
 
 type FeedItem = {
@@ -81,6 +85,51 @@ function KpiCard({
     return <Link href={href}>{content}</Link>;
   }
   return content;
+}
+
+function CampaignStatusCard({
+  scheduledToday,
+  inProgress,
+  completedToday,
+}: {
+  scheduledToday: number;
+  inProgress: number;
+  completedToday: number;
+}) {
+  return (
+    <Link href="/marketing/campaigns">
+      <div className="rounded-xl border bg-gradient-to-br from-indigo-50 to-blue-50 border-indigo-200 p-5 mb-6 cursor-pointer hover:shadow-md transition-shadow">
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-indigo-600" />
+            <h3 className="font-semibold text-indigo-900">📅 오늘 예약 발송</h3>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white rounded-lg p-3 border border-indigo-100">
+            <p className="text-xs text-gray-600 mb-1">예정</p>
+            <p className="text-2xl font-bold text-indigo-600">{scheduledToday}</p>
+            <p className="text-xs text-gray-400 mt-1">개</p>
+          </div>
+          <div className="bg-white rounded-lg p-3 border border-amber-100">
+            <p className="text-xs text-gray-600 mb-1">진행중</p>
+            <p className="text-2xl font-bold text-amber-600">{inProgress}</p>
+            <p className="text-xs text-gray-400 mt-1">개</p>
+          </div>
+          <div className="bg-white rounded-lg p-3 border border-green-100">
+            <p className="text-xs text-gray-600 mb-1">완료</p>
+            <p className="text-2xl font-bold text-green-600">{completedToday}</p>
+            <p className="text-xs text-gray-400 mt-1">개</p>
+          </div>
+        </div>
+
+        <div className="mt-4 text-right">
+          <span className="text-sm text-indigo-600 font-medium">자세히 보기 →</span>
+        </div>
+      </div>
+    </Link>
+  );
 }
 
 function PushCallNotification({ callDueCount }: { callDueCount: number }) {
@@ -260,6 +309,7 @@ export default function DashboardPage() {
       fetch("/api/auth/me", { credentials: "include" }).then((r) => r.json()),
       fetch('/api/notifications/feed?limit=5').then(r => r.json()),
       fetch('/api/admin/partner-suspensions?status=SUSPENDED&limit=1').then(r => r.json()),
+      fetch('/api/marketing/campaigns/today-stats').then(r => r.json()),
     ]).then(results => {
       // Dashboard 데이터
       if (results[0].status === 'fulfilled' && results[0].value?.ok) {
@@ -281,6 +331,17 @@ export default function DashboardPage() {
       // 정지된 파트너 수
       if (results[3].status === 'fulfilled' && results[3].value?.ok) {
         setSuspendedPartnerCount(results[3].value.data.total ?? 0);
+      }
+
+      // 캠페인 발송 현황
+      if (results[4].status === 'fulfilled' && results[4].value?.ok) {
+        const campaignStats = results[4].value;
+        setData(prev => prev ? {
+          ...prev,
+          campaignScheduledToday: campaignStats.scheduledToday ?? 0,
+          campaignInProgress: campaignStats.inProgress ?? 0,
+          campaignCompletedToday: campaignStats.completedToday ?? 0,
+        } : prev);
       }
 
       setFeedLoading(false);
@@ -448,6 +509,15 @@ export default function DashboardPage() {
           <KpiCard title="이번달 신규 고객" value={data.newContactsThisMonth ?? 0}   icon={<TrendingUp className="w-5 h-5" />} />
           <KpiCard title="오늘 콜"        value={data.callDueToday ?? 0}         icon={<Phone className="w-5 h-5" />} color="bg-rose-600" />
         </div>
+      )}
+
+      {/* 캠페인 발송 현황 카드 — OWNER/AGENT */}
+      {data && (role === "OWNER" || role === "AGENT") && (
+        <CampaignStatusCard
+          scheduledToday={data.campaignScheduledToday ?? 0}
+          inProgress={data.campaignInProgress ?? 0}
+          completedToday={data.campaignCompletedToday ?? 0}
+        />
       )}
 
       {/* 푸시 알림 콜 전송 */}

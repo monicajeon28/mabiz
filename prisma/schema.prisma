@@ -4456,7 +4456,8 @@ model CrmMarketingCampaign {
   landingUrl       String?
   landingLinkText  String?
   sendAt           DateTime
-  repeatRule       String?
+  repeatRule       String?               @default("ONCE")
+  nextExecutionAt  DateTime?
   totalCount       Int                   @default(0)
   sentCount        Int                   @default(0)
   status           String                @default("DRAFT")
@@ -4468,5 +4469,7 @@ model CrmMarketingCampaign {
   @@index([organizationId])
   @@index([groupId])
   @@index([status])
+  @@index([nextExecutionAt])
+  @@index([organizationId, createdAt(sort: Desc)], map: "idx_campaign_org_created_desc")
   @@map("CrmMarketingCampaign")
 }
