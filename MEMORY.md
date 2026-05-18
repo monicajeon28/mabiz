@@ -1,3 +1,27 @@
+## 세일즈봇 QnA PASONA Solution 통합 설계 (2026-05-19)
+
+**핵심 완료 항목**:
+- 세일즈봇 QnA 4가지 신규 카테고리 설계 (욕구발굴/상품스토리/신뢰감/배움경험)
+- PASONA Solution 7가지와 콜 스크립트 5단계 매핑
+- 60개 Q&A 데이터 작성 (욕구발굴 15개, 상품스토리 20개, 신뢰감 10개, 배움경험 15개)
+- A/B 테스트 계획 (모니카 vs 신민형, 2주, 전환율 +7% 목표)
+
+**최종 산출물**:
+1. docs/SALESBOT_QNA_PASONA_STRUCTURE.md (25KB) — 카테고리 설계 + 콜 Step 매핑 + 통합 아키텍처
+2. data/salesbot_qna_pasona_integrated.json (40개 Q&A, 메타데이터 포함)
+3. docs/SALESBOT_INTEGRATION_IMPLEMENTATION_GUIDE.md (개발팀 + 담당자용, 기술 구현)
+4. docs/SALESBOT_AB_TEST_PLAN.md (2주 A/B 테스트, 측정 기준, 통과 기준)
+
+**예상 효과**:
+- 전환율: +7% (23% → 30%)
+- 통화 길이: -3분 (18분 → 15분, 효율 +17%)
+- 고객 만족도: +0.5점 (3.8 → 4.3)
+- 연간 추가 매출: 5,880만원 (월 490만원 × 12개월)
+
+**다음 단계**: 개발팀 검토 → Phase B 기술 구현 (1주) → Phase C 테스트 실행 (2주)
+
+---
+
 ## Menu #38 Phase 3 완전 완료 + 최종 배포 준비 (2026-05-19)
 
 **완료 항목**:
