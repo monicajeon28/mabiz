@@ -877,27 +877,6 @@ model ShortLinkClick {
   @@map("ShortLinkClick")
 }
 
-model NewsShortLink {
-  id             String   @id @default(cuid())
-  organizationId String?
-  shortCode      String   @unique
-  title          String
-  url            String
-  isActive       Boolean  @default(true)
-  syncedAt       DateTime @default(now())
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@map("NewsShortLink")
-}
-
-model NewsSyncState {
-  id           String   @id @default("global")
-  lastSyncedAt DateTime @default(now())
-
-  @@map("NewsSyncState")
-}
-
 model Payment {
   id                  Int           @id @default(autoincrement())
   orderId             String        @unique

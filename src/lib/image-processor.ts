@@ -3,8 +3,21 @@
  * - 워터마크 추가 (크루즈닷 로고, 회색 음영)
  * - WebP 변환
  * - sharp 기반 (Next.js 의존성으로 이미 설치됨)
+ *
+ * P0 이슈 #7: 타임아웃 설정으로 무한 대기 방지
  */
 import sharp from 'sharp';
+
+/**
+ * Promise.race를 사용한 타임아웃 구현
+ * sharp는 내부 타임아웃이 없으므로 이를 통해 처리
+ */
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, operationName: string): Promise<T> {
+  const timeoutPromise = new Promise<T>((_, reject) =>
+    setTimeout(() => reject(new Error(`${operationName} timeout (${timeoutMs}ms)`)), timeoutMs)
+  );
+  return Promise.race([promise, timeoutPromise]);
+}
 
 /** 이미지 크기에 맞는 워터마크 SVG 동적 생성 */
 function getWatermarkSvg(width: number, height: number): Buffer {
@@ -32,38 +45,61 @@ function getWatermarkSvg(width: number, height: number): Buffer {
   return Buffer.from(svg);
 }
 
-/** 워터마크 추가 */
+/**
+ * 워터마크 추가
+ * Issue #7: 10초 타임아웃 설정
+ */
 export async function addWatermark(inputBuffer: Buffer): Promise<Buffer> {
-  const metadata = await sharp(inputBuffer).metadata();
-  const w = metadata.width || 800;
-  const h = metadata.height || 600;
-  const watermarkSvg = getWatermarkSvg(w, h);
+  const { webpBuffer, width, height } = await processImageForLibrary(inputBuffer);
+  const watermarkSvg = getWatermarkSvg(width, height);
 
-  return sharp(inputBuffer)
-    .composite([{ input: watermarkSvg, gravity: 'center', blend: 'over' }])
-    .toBuffer();
+  return withTimeout(
+    sharp(webpBuffer)
+      .composite([{ input: watermarkSvg, gravity: 'center', blend: 'over' }])
+      .toBuffer(),
+    10000,
+    'Watermark processing'
+  );
 }
 
-/** WebP 변환 */
+/**
+ * WebP 변환
+ * Issue #7: 10초 타임아웃 설정
+ */
 export async function convertToWebP(inputBuffer: Buffer, quality = 85): Promise<Buffer> {
-  return sharp(inputBuffer).webp({ quality }).toBuffer();
+  return withTimeout(
+    sharp(inputBuffer).webp({ quality }).toBuffer(),
+    10000,
+    'WebP conversion'
+  );
 }
 
-/** 원스텝 처리: 워터마크 + WebP 변환 + 메타데이터 추출 */
+/**
+ * 원스텝 처리: 워터마크 + WebP 변환 + 메타데이터 추출
+ * Issue #7: 10초 타임아웃 설정 (메타데이터 읽기 + 처리)
+ */
 export async function processImageForLibrary(inputBuffer: Buffer): Promise<{
   webpBuffer: Buffer;
   width: number;
   height: number;
 }> {
   // 워터마크 SVG 생성을 위해 원본 크기만 먼저 조회 (헤더만 읽음)
-  const { width: w = 800, height: h = 600 } = await sharp(inputBuffer).metadata();
+  const { width: w = 800, height: h = 600 } = await withTimeout(
+    sharp(inputBuffer).metadata(),
+    10000,
+    'Image metadata extraction'
+  );
   const watermarkSvg = getWatermarkSvg(w, h);
 
   // 합성 + WebP 변환을 한 파이프라인으로 실행, 출력 메타데이터도 함께 수집
-  const { data: webpBuffer, info } = await sharp(inputBuffer)
-    .composite([{ input: watermarkSvg, gravity: 'center', blend: 'over' }])
-    .webp({ quality: 85 })
-    .toBuffer({ resolveWithObject: true });
+  const { data: webpBuffer, info } = await withTimeout(
+    sharp(inputBuffer)
+      .composite([{ input: watermarkSvg, gravity: 'center', blend: 'over' }])
+      .webp({ quality: 85 })
+      .toBuffer({ resolveWithObject: true }),
+    10000,
+    'Image processing (composite + WebP)'
+  );
 
   return { webpBuffer, width: info.width, height: info.height };
 }

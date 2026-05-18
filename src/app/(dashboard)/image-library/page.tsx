@@ -79,7 +79,7 @@ export default function ImageLibraryPage() {
       params.append('offset', offset.toString());
       params.append('limit', limit.toString());
 
-      const res = await fetch(`/api/images/list?${params}`, {
+      const res = await fetch(`/api/image-library?${params}`, {
         method: 'GET',
       });
 
@@ -147,7 +147,7 @@ export default function ImageLibraryPage() {
 
           xhr.addEventListener('error', () => reject(new Error('Upload error')));
 
-          xhr.open('POST', '/api/images/upload');
+          xhr.open('POST', '/api/image-library');
           xhr.send(formData);
         });
 

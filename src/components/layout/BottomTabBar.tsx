@@ -16,7 +16,6 @@ import {
   Building2,
   CreditCard,
   Link2,
-  Newspaper,
   FolderOpen,
   Settings,
   LogOut,
@@ -48,7 +47,6 @@ const extraMenus = [
   { href: "/contracts",          icon: ClipboardList, label: "계약서" },
   { href: "/documents",          icon: FolderOpen,    label: "서류" },
   { href: "/links",              icon: Link2,         label: "상담링크" },
-  { href: "/news-links",         icon: Newspaper,     label: "뉴스링크" },
   { href: "/settings",           icon: Settings,      label: "설정" },
   { href: '/tools/profit-calculator', icon: Calculator, label: '수익계산기' },
 ] as const;

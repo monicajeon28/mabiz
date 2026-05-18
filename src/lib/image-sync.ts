@@ -97,6 +97,11 @@ export async function uploadImageToDrive(params: {
 
 /**
  * Drive 폴더를 스캔하여 DB에 동기화 (배치)
+ *
+ * P0 이슈 해결:
+ * - Issue #5: 배치 처리 (페이지 단위)로 메모리 누수 방지 (pageSize 100→1000)
+ * - Issue #6: 부분 실패 추적 (failed 배열 + 명확한 로깅)
+ * - Issue #7: Drive API 호출 타임아웃 30초 설정
  */
 export async function syncDriveFolder(params: {
   organizationId: string;
@@ -119,73 +124,105 @@ export async function syncDriveFolder(params: {
       targetFolderId = await findOrCreateFolder(category, orgFolder);
     }
 
-    // nextPageToken 루프로 전체 파일 수집 (100개 제한 해제)
-    const allFiles: drive_v3.Schema$File[] = [];
+    // Issue #5: 배치 처리 - 페이지 단위로 즉시 upsert (전체 배열 메모리 누수 방지)
+    // pageSize 100 → 1000 (API 호출 10배 감소, 메모리 최대 1000개만 동시 적재)
     let pageToken: string | undefined;
+    let totalProcessed = 0;
+    const failed: Array<{ fileId: string; fileName?: string; error: string }> = [];
+
     do {
-      const response = await drive.files.list({
-        q: `'${targetFolderId}' in parents and mimeType contains 'image/' and not mimeType = 'image/svg+xml' and trashed=false`,
-        fields: 'nextPageToken, files(id, name, mimeType, size)',
-        corpora: 'allDrives',
-        includeItemsFromAllDrives: true,
-        pageSize: 100,
-        pageToken,
-        supportsAllDrives: true,
-      });
-      allFiles.push(...(response.data.files || []));
+      const response = await drive.files.list(
+        {
+          q: `'${targetFolderId}' in parents and mimeType contains 'image/' and not mimeType = 'image/svg+xml' and trashed=false`,
+          fields: 'nextPageToken, files(id, name, mimeType, size)',
+          corpora: 'allDrives',
+          includeItemsFromAllDrives: true,
+          pageSize: 1000, // Issue #5: 100 → 1000 (API 호출 10배 감소)
+          pageToken,
+          supportsAllDrives: true,
+        },
+        { timeout: 30000 } // Issue #7: Drive API 타임아웃 30초
+      );
+
+      const files = response.data.files || [];
+
+      // Issue #5: 페이지 단위로 즉시 upsert (배치 처리)
+      for (const file of files) {
+        try {
+          await prisma.imageAsset.upsert({
+            where: {
+              organizationId_driveFileId: {
+                organizationId,
+                driveFileId: file.id!,
+              },
+            },
+            create: {
+              organizationId,
+              originalFileName: file.name!,
+              driveFileId: file.id!,
+              drivePath: targetFolderId,
+              mimeType: file.mimeType || undefined,
+              fileSize: file.size ? BigInt(file.size) : null,
+              width: null,
+              height: null,
+              orientation: 1,
+              category,
+              tags: [],
+              uploadedBy: 'system',
+            },
+            update: {
+              lastAccessedAt: new Date(),
+            },
+          });
+
+          totalProcessed++;
+        } catch (err) {
+          // Issue #6: 부분 실패 추적 (failed 배열)
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          failed.push({
+            fileId: file.id!,
+            fileName: file.name,
+            error: errorMsg,
+          });
+
+          logger.warn('[image-sync] 개별 파일 동기화 실패', {
+            fileName: file.name,
+            driveFileId: file.id,
+            error: errorMsg,
+          });
+        }
+      }
+
       pageToken = response.data.nextPageToken ?? undefined;
     } while (pageToken);
 
-    const upserted = [];
-
-    for (const file of allFiles) {
-      try {
-        const asset = await prisma.imageAsset.upsert({
-          where: {
-            organizationId_driveFileId: {
-              organizationId,
-              driveFileId: file.id!,
-            },
-          },
-          create: {
-            organizationId,
-            originalFileName: file.name!,
-            driveFileId: file.id!,
-            drivePath: targetFolderId,
-            mimeType: file.mimeType || undefined,
-            fileSize: file.size ? BigInt(file.size) : null,
-            width: null,
-            height: null,
-            orientation: 1,
-            category,
-            tags: [],
-            uploadedBy: 'system',
-          },
-          update: {
-            lastAccessedAt: new Date(),
-          },
-        });
-
-        upserted.push(asset);
-      } catch (err) {
-        logger.warn('[image-sync] 개별 파일 동기화 실패', {
-          fileName: file.name,
-          driveFileId: file.id,
-          err,
-        });
-      }
+    // Issue #6: 부분 실패 요약 로깅
+    if (failed.length > 0) {
+      logger.warn('[image-sync] 부분 실패 요약', {
+        organizationId,
+        category,
+        failedCount: failed.length,
+        failedIds: failed.map(f => f.fileId).slice(0, 10), // 처음 10개만 로깅
+        failedDetails: failed.slice(0, 5), // 상세 정보 처음 5개만
+      });
     }
 
     logger.info('[image-sync] 폴더 동기화 완료', {
       organizationId,
       category,
-      syncedCount: upserted.length,
-      totalScanned: allFiles.length,
+      processedCount: totalProcessed,
+      failedCount: failed.length,
     });
 
-    return upserted;
+    return {
+      processedCount: totalProcessed,
+      failedCount: failed.length,
+      failed, // 재시도 가능하도록 반환
+    };
   } catch (err) {
-    logger.error('[image-sync] 폴더 동기화 실패', { err });
+    logger.error('[image-sync] 폴더 동기화 실패', {
+      err: err instanceof Error ? err.message : String(err),
+    });
     throw err;
   }
 }

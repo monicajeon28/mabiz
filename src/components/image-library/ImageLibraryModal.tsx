@@ -33,7 +33,7 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [selected, setSelected] = useState<ImageItem | null>(null);
-  const [copied, setCopied]     = useState(false);
+  const [copiedItemId, setCopiedItemId] = useState<string | null>(null);
 
   // 직접 URL 입력
   const [urlInput, setUrlInput]   = useState("");
@@ -86,6 +86,17 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
     if (open && tab === "library") fetchImages();
   }, [open, tab, fetchImages]);
 
+  // 클립보드 복사 타이머 정리 (메모리 누수 방지)
+  useEffect(() => {
+    if (!copiedItemId) return;
+
+    const timeoutId = setTimeout(() => {
+      setCopiedItemId(null);
+    }, 2000);
+
+    return () => clearTimeout(timeoutId);
+  }, [copiedItemId]);
+
   // YouTube videoId 추출
   const extractYtId = (url: string) => {
     const m = url.match(/(?:youtu\.be\/|v=|embed\/)([A-Za-z0-9_-]{11})/);
@@ -121,10 +132,9 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
     return `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;max-width:${ytWidth};">\n  <iframe src="https://www.youtube.com/embed/${id}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;" allowfullscreen loading="lazy" title="YouTube video"></iframe>\n</div>`;
   };
 
-  const handleCopy = (html: string) => {
+  const handleCopy = (itemId: string | null, html: string) => {
     navigator.clipboard.writeText(html);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedItemId(itemId);
   };
 
   const handleInsert = (html: string) => {
@@ -452,11 +462,11 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                         {/* 호버 액션 */}
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded-xl">
                           <button
-                            onClick={(e) => { e.stopPropagation(); handleCopy(html); }}
+                            onClick={(e) => { e.stopPropagation(); handleCopy(item.id, html); }}
                             className="p-2 bg-white rounded-lg text-gray-700 hover:bg-gold-100"
                             title="HTML 코드 복사"
                           >
-                            {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                            {copiedItemId === item.id ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleInsert(html); }}
@@ -529,11 +539,11 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
 
               <div className="flex gap-2">
                 <button
-                  onClick={() => handleCopy(buildUrlHtml())}
+                  onClick={() => handleCopy("url", buildUrlHtml())}
                   disabled={!urlInput}
                   className="flex-1 flex items-center justify-center gap-2 border border-gray-200 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-40"
                 >
-                  {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                  {copiedItemId === "url" ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                   코드 복사
                 </button>
                 <button
@@ -600,11 +610,11 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
 
               <div className="flex gap-2">
                 <button
-                  onClick={() => handleCopy(buildYtHtml())}
+                  onClick={() => handleCopy("youtube", buildYtHtml())}
                   disabled={!extractYtId(ytInput)}
                   className="flex-1 flex items-center justify-center gap-2 border border-gray-200 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-40"
                 >
-                  {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                  {copiedItemId === "youtube" ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                   코드 복사
                 </button>
                 <button
@@ -627,10 +637,10 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
             </div>
             <p className="text-sm font-medium text-gray-700 flex-1 truncate">{selected.title}</p>
             <button
-              onClick={() => handleCopy(buildImageHtml(selected))}
+              onClick={() => handleCopy(selected.id, buildImageHtml(selected))}
               className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-sm hover:bg-white"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+              {copiedItemId === selected.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
               코드 복사
             </button>
             <button

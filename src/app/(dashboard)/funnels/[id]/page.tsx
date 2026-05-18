@@ -467,9 +467,6 @@ export default function FunnelEditPage() {
                       )}
                     </div>
                     {/* 뉴스 링크 빠른 선택 */}
-                    <NewsLinkPicker onSelect={(url) => updateStage(idx, "linkUrl", url)} />
-                  </div>
-                </div>
               )}
             </div>
           );
@@ -506,47 +503,6 @@ export default function FunnelEditPage() {
 }
 
 // ── 뉴스 링크 빠른 선택 패널 ─────────────────────────────────────────
-function NewsLinkPicker({ onSelect }: { onSelect: (url: string) => void }) {
-  const [open,  setOpen]  = useState(false);
-  const [links, setLinks] = useState<{ id: string; title: string; url: string }[]>([]);
-
-  const load = () => {
-    if (links.length > 0) return;
-    fetch('/api/tools/news-links').then(r => r.json())
-      .then(d => { if (d.ok) setLinks(d.links ?? []); });
-  };
-
-  return (
-    <div className="mt-1.5">
-      <button
-        type="button"
-        onClick={() => { setOpen(!open); load(); }}
-        className="text-xs text-blue-600 flex items-center gap-1 hover:underline"
-      >
-        <Zap className="w-3 h-3" />
-        {open ? '뉴스 링크 닫기' : '크루즈닷 뉴스에서 선택'}
-      </button>
-      {open && (
-        <div className="mt-2 border rounded-xl bg-gray-50 max-h-40 overflow-y-auto">
-          {links.length === 0 ? (
-            <p className="text-xs text-gray-400 p-3">동기화된 뉴스가 없습니다</p>
-          ) : (
-            links.map((l) => (
-              <button
-                key={l.id}
-                type="button"
-                onClick={() => { onSelect(l.url); setOpen(false); }}
-                className="w-full text-left px-3 py-2 text-xs hover:bg-white border-b last:border-0 truncate"
-              >
-                📰 {l.title}
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ── 고객 퍼널 등록 모달 ─────────────────────────────────────────────
 function EnrollModal({

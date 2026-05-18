@@ -117,8 +117,9 @@ export async function GET(req: Request) {
 
 // POST /api/image-library  (multipart/form-data: file, folder?, title?)
 export async function POST(req: Request) {
+  let ctx: any;
   try {
-    const ctx = await getAuthContext();
+    ctx = await getAuthContext();
 
     // ── GLOBAL_ADMIN org 패턴 ─────────────────────────────
     let orgId: string;

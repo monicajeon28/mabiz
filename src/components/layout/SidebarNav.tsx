@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, Users2, MessageSquare, GitBranch,
   FileText, Wrench, Database, Link2, Settings, LogOut,
   AlarmClock, TrendingUp, Building2, ClipboardList, CreditCard,
-  BookOpen, Newspaper, FolderOpen, BarChart2, BarChart,
+  BookOpen, FolderOpen, BarChart2, BarChart,
   Calculator, Phone, ShoppingBag, Award, Star, Receipt, Stamp, Images, Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -74,7 +74,6 @@ const navSections: NavSection[] = [
       { href: "/landing-pages",         icon: FileText,     label: "랜딩페이지" },
       { href: "/payments",              icon: CreditCard,   label: "결제 관리" },
       { href: "/links",                 icon: Link2,        label: "상담 링크" },
-      { href: "/news-links",            icon: Newspaper,    label: "뉴스 링크" },
       { href: "/image-library",         icon: Images,       label: "이미지 라이브러리" },
     ],
   },

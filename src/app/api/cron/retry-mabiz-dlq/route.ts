@@ -80,7 +80,6 @@ function getWebhookSecret(webhookType: string): string | undefined {
     'inquiry': process.env.MABIZ_INQUIRY_WEBHOOK_SECRET,
     'gold-inquiry': process.env.MABIZ_GOLD_INQUIRY_WEBHOOK_SECRET,
     'partner-signup': process.env.MABIZ_PARTNER_SIGNUP_WEBHOOK_SECRET,
-    'news-sync': process.env.MABIZ_NEWS_WEBHOOK_SECRET,
     'cruise-purchase': process.env.MABIZ_PURCHASE_WEBHOOK_SECRET,
     'payapp': process.env.MABIZ_PURCHASE_WEBHOOK_SECRET,
   };

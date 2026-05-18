@@ -70,6 +70,25 @@ export async function PATCH(
 
     const body = await req.json() as { title?: string; folder?: string };
 
+    // 입력 검증: title과 folder
+    const CATEGORIES = ["전체", "지중해", "카리브해", "알래스카", "선박", "객실", "후기", "기타"];
+
+    const title = body.title?.trim() ?? null;
+    if (title !== null && !/^[a-zA-Z0-9가-힣\s\-_.]{1,255}$/.test(title)) {
+      return NextResponse.json(
+        { ok: false, error: "제목은 1-255자, 영문/숫자/한글/공백/-/_/.만 허용됩니다" },
+        { status: 400 }
+      );
+    }
+
+    const folder = body.folder?.trim();
+    if (folder && !CATEGORIES.includes(folder)) {
+      return NextResponse.json(
+        { ok: false, error: `폴더는 다음 중 선택해야 합니다: ${CATEGORIES.join(", ")}` },
+        { status: 400 }
+      );
+    }
+
     // ImageAsset 조회 + 조직 소유권 확인
     const asset = await prisma.imageAsset.findUnique({ where: { id } });
 
@@ -84,8 +103,8 @@ export async function PATCH(
     const updated = await prisma.imageAsset.update({
       where: { id },
       data: {
-        ...(body.title  !== undefined ? { originalFileName: body.title  } : {}),
-        ...(body.folder !== undefined ? { category:         body.folder } : {}),
+        ...(title !== null ? { originalFileName: title } : {}),
+        ...(folder ? { category: folder } : {}),
       },
     });
 
