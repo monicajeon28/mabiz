@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { calculateEstimatedRoi } from '@/lib/cost-utils';
 import { z } from 'zod';
 
 type Params = { params: Promise<{ orgId: string }> };
@@ -71,6 +72,17 @@ function isValidYearMonth(str: string): boolean {
   return /^\d{4}-\d{2}$/.test(str);
 }
 
+/**
+ * 월의 마지막 날 이후 날짜 계산
+ * "2026-05" → 2026-06-01 (다음 달 1일)
+ * lt 필터에 사용하여 월 범위를 안정적으로 처리
+ */
+function getMonthEndDate(yearMonth: string): Date {
+  const [year, month] = yearMonth.split('-').map(Number);
+  // month는 이미 1-12 범위이므로 그대로 new Date에 전달 (month 매개변수는 0-11이므로 -1)
+  return new Date(year, month, 1); // 다음 달의 1일
+}
+
 // ============================================================================
 // GET /api/organizations/[orgId]/campaigns/cost/report — 조직별 비용 리포트
 // ============================================================================
@@ -132,7 +144,7 @@ export async function GET(req: Request, { params }: Params) {
         organizationId: orgId,
         calculatedAt: {
           gte: new Date(`${startMonth}-01`),
-          lt: new Date(`${endMonth}-32`), // 월의 마지막 날을 포함하기 위해
+          lt: getMonthEndDate(endMonth), // ✅ P0 #1 수정: 안정적인 월 범위 처리
         },
       },
       select: {
@@ -194,20 +206,24 @@ export async function GET(req: Request, { params }: Params) {
       roi: data.campaigns > 0 ? data.roiSum / data.campaigns : 0,
     }));
 
-    // ✅ 채널별 통계 계산
+    // ✅ 채널별 통계 계산 (P0 #2 수정: cost-utils와 통일된 ROI 계산)
     const byChannel: any = {};
     if (totalSmsSent > 0) {
+      // SMS 채널: 예상 수익 기반 ROI (건당 평균 거래금액 가정: 150,000원)
+      const estimatedSmsRevenue = totalSmsSent * 150000;
       byChannel.SMS = {
         sent: totalSmsSent,
         cost: totalSmsCost,
-        roi: totalSmsCost > 0 ? (totalSmsSent * 100) / totalSmsCost : 0, // 단순화된 ROI
+        roi: calculateEstimatedRoi(totalSmsCost, estimatedSmsRevenue),
       };
     }
     if (totalEmailSent > 0) {
+      // Email 채널: 예상 수익 기반 ROI (건당 평균 거래금액 가정: 150,000원)
+      const estimatedEmailRevenue = totalEmailSent * 150000;
       byChannel.Email = {
         sent: totalEmailSent,
         cost: totalEmailCost,
-        roi: totalEmailCost > 0 ? (totalEmailSent * 100) / totalEmailCost : 0,
+        roi: calculateEstimatedRoi(totalEmailCost, estimatedEmailRevenue),
       };
     }
 
