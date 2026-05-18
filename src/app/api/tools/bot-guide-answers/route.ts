@@ -173,17 +173,17 @@ export async function POST(req: NextRequest) {
 
       for (const item of itemsToLoad) {
         try {
+          // key 생성 (id 또는 key 사용)
+          const key = item.key || item.id;
+
           // 데이터 검증
-          if (!item.key || !item.question || !item.answer) {
+          if (!key || !item.question || !item.answer) {
             errors.push({
-              key: item.key || item.id,
-              error: "필수 필드 누락 (key, question, answer)",
+              key: key || "unknown",
+              error: "필수 필드 누락 (key/id, question, answer)",
             });
             continue;
           }
-
-          // key 생성 (id 또는 key 사용)
-          const key = item.key || item.id;
 
           const record = await tx.botGuideAnswer.upsert({
             where: { key },
@@ -225,10 +225,13 @@ export async function POST(req: NextRequest) {
             action: "upserted",
           });
         } catch (itemError) {
+          const errorMsg = itemError instanceof Error
+            ? itemError.message
+            : String(itemError);
+          console.error(`[bot-guide-answers] Item error for ${item.key || item.id}:`, errorMsg);
           errors.push({
             key: item.key || item.id,
-            error:
-              itemError instanceof Error ? itemError.message : "Unknown error",
+            error: errorMsg,
           });
         }
       }
@@ -254,9 +257,13 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error("[bot-guide-answers POST]", error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error("[bot-guide-answers POST] Error:", errorMsg);
+    if (error instanceof Error && error.stack) {
+      console.error("[bot-guide-answers POST] Stack:", error.stack);
+    }
     return NextResponse.json(
-      { ok: false, message: "업로드 중 오류가 발생했습니다." },
+      { ok: false, message: "업로드 중 오류가 발생했습니다.", error: errorMsg },
       { status: 500 }
     );
   }
