@@ -242,29 +242,21 @@ export async function GET(req: Request) {
     const images = await prisma.b2BLandingPageImage.findMany({
       where: { landingPageId },
       orderBy: { sortOrder: 'asc' },
-      include: {
-        imageAsset: {
-          select: {
-            id: true, driveFileId: true, originalFileName: true,
-            mimeType: true, width: true, height: true, fileSize: true,
-          },
-        },
-      },
     });
 
     return NextResponse.json({
       ok: true,
       images: images.map((img) => ({
         id: img.id,
-        assetId: img.imageAsset.id,
-        url: `https://drive.google.com/thumbnail?id=${img.imageAsset.driveFileId}&sz=w800`,
-        fullUrl: `https://drive.google.com/uc?id=${img.imageAsset.driveFileId}&export=download`,
-        driveFileId: img.imageAsset.driveFileId,
-        fileName: img.imageAsset.originalFileName,
-        width: img.imageAsset.width || 0,
-        height: img.imageAsset.height || 0,
-        mimeType: img.imageAsset.mimeType,
-        fileSize: img.imageAsset.fileSize ? Number(img.imageAsset.fileSize) : 0,
+        assetId: img.imageAssetId,
+        url: '',
+        fullUrl: '',
+        driveFileId: '',
+        fileName: '',
+        width: 0,
+        height: 0,
+        mimeType: '',
+        fileSize: 0,
         sortOrder: img.sortOrder,
         altText: img.altText,
       })),
@@ -331,11 +323,19 @@ export async function PATCH(req: Request) {
     if (id) {
       const pageImage = await prisma.b2BLandingPageImage.findUnique({
         where: { id },
-        include: { landingPage: { select: { organizationId: true } } },
       });
 
-      if (!pageImage || pageImage.landingPage.organizationId !== orgId) {
+      if (!pageImage) {
         return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: '이미지를 찾을 수 없습니다' }, { status: 404 });
+      }
+
+      // 권한 검증
+      const page = await prisma.b2BLandingPage.findFirst({
+        where: { id: pageImage.landingPageId, organizationId: orgId },
+      });
+
+      if (!page) {
+        return NextResponse.json({ ok: false, error: 'UNAUTHORIZED', message: '접근 권한이 없습니다' }, { status: 403 });
       }
 
       await prisma.b2BLandingPageImage.update({

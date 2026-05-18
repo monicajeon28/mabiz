@@ -170,9 +170,9 @@ export async function POST(req: NextRequest) {
       if (bonusaOrgId) {
         await sendFunnelEmail({
           organizationId: bonusaOrgId,
-          toEmail: email,
+          to: email,
           subject: '[크루즈닷] 이메일 인증번호: ' + pin,
-          htmlContent,
+          html: htmlContent,
         });
       } else {
         logger.warn('[EMAIL-TOKEN] BONSA_ORG_ID 미설정 — 이메일 미발송', { email });

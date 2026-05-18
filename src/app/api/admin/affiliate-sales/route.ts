@@ -150,7 +150,7 @@ export async function GET(req: NextRequest) {
     }>();
 
     for (const payment of payments) {
-      const affiliateCode = payment.metadata?.affiliateCode as string | null;
+      const affiliateCode = (payment.metadata as any)?.affiliateCode as string | null;
       if (!affiliateCode || !affiliateMap.has(affiliateCode)) continue;
 
       const current = affiliateSalesMap.get(affiliateCode) ?? {

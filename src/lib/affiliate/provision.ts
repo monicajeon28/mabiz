@@ -39,6 +39,7 @@ interface ProvisionInput {
   commissionRate: number;
   organizationId: string; // CRM 조직 ID (대리점이 속할 조직)
   approvedByMemberId: string; // 승인한 관리자 ID
+  managerId?: number; // 담당 매니저 ID (선택사항)
 }
 
 /**

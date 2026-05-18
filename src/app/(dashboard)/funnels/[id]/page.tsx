@@ -466,7 +466,8 @@ export default function FunnelEditPage() {
                         </button>
                       )}
                     </div>
-                    {/* 뉴스 링크 빠른 선택 */}
+                  </div>
+                </div>
               )}
             </div>
           );

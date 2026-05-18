@@ -61,7 +61,8 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
-    logger.error('파트너 정지 목록 조회 오류:', err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    logger.error('파트너 정지 목록 조회 오류:' + errMsg);
     return NextResponse.json(
       { ok: false, error: 'Internal server error' },
       { status: 500 }

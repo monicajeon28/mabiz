@@ -122,7 +122,7 @@ export default function GroupsPage() {
         body: JSON.stringify({ message: blastMsg, dryRun: true }),
       });
       const data = await res.json() as { ok: boolean; error?: string; message?: string; willSend?: number; isOverLimit?: boolean; overLimitMsg?: string | null };
-      if (data.ok) setBlastPreview(data);
+      if (data.ok) setBlastPreview({ willSend: data.willSend ?? 0, isOverLimit: data.isOverLimit ?? false, overLimitMsg: data.overLimitMsg ?? null });
       else {
         const msg = data.message ?? data.error ?? "대상 확인에 실패했습니다.";
         setBlastError(msg);
@@ -199,7 +199,7 @@ export default function GroupsPage() {
         group?: Group;
       };
       if (data.ok && data.group) {
-        setGroups((prev) => [...prev, data.group]);
+        setGroups((prev) => [...prev, data.group!]);
         setShowNew(false);
         setForm({ name: "", description: "", color: "#6B7280", funnelId: "" });
       } else {

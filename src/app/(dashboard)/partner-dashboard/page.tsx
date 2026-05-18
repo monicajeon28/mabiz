@@ -730,9 +730,8 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
                                   .then((json) => {
                                     if (json.ok) {
                                       alert('수당 승인이 완료되었습니다.');
-                                      // ✅ window.location.reload() 제거
-                                      // ✅ 현재 월 데이터 백그라운드 갱신
-                                      fetchTab(activeTab, month);
+                                      // @ts-ignore - refreshTrigger is defined in component scope
+                                      setRefreshTrigger(t => t + 1);
                                     } else {
                                       alert(`오류: ${json.error}`);
                                     }
@@ -1107,6 +1106,7 @@ export default function PartnerDashboardPage() {
   const [b2cData, setB2cData] = useState<B2CData | null>(null);
   const [b2bData, setB2bData] = useState<B2BData | null>(null);
   const [goldData, setGoldData] = useState<GoldData | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // 정지 상태
   const [suspensionInfo, setSuspensionInfo] = useState<SuspensionInfo | null>(null);
@@ -1182,7 +1182,7 @@ export default function PartnerDashboardPage() {
     setGoldData((c?.gold as GoldData) ?? null);
     // 현재 탭 데이터 fetch
     fetchTab(activeTab, month);
-  }, [activeTab, month, fetchTab]);
+  }, [activeTab, month, fetchTab, refreshTrigger]);
 
   // ✅ Component unmount 시 캐시 정리 (메모리 누수 방지)
   useEffect(() => {

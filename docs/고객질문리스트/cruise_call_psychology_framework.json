@@ -1,0 +1,620 @@
+{
+  "version": "2.0",
+  "title": "크루즈 콜 플레이북 - 심리학 기반 강화 프레임워크",
+  "updated": "2026-05-18",
+  "framework": {
+    "step_1": {
+      "name": "희소성 프레임 + 타이밍 압박",
+      "description": "고객 진입단계: 객실 남은 수, 출발일까지의 날짜수 강조",
+      "psychology": "손실회피(Loss Aversion) + 희소성 원칙(Scarcity) + 타임 프레싱(Time Pressure)",
+      "theories": {
+        "loss_aversion": {
+          "principle": "Kahneman & Tversky (1979) 전망이론",
+          "mechanism": "손실의 고통 = 이득의 쾌락 × 2배 이상",
+          "application": "객실 감소 → 기회손실 공포 유발",
+          "examples": [
+            "\"7월 동방향 객실 3개만 남았습니다\"",
+            "\"출발 3주 전부터 수수료 증가됩니다\"",
+            "\"조기예약 할인은 이번 주까지입니다\""
+          ],
+          "mistakes_to_avoid": [
+            "거짓 희소성 (실제로 재고가 많은데 마치 부족한 척)",
+            "과도한 압박 (신뢰감 상실, 고객 이탈)"
+          ],
+          "source": "https://en.wikipedia.org/wiki/Loss_aversion, https://www.behavioraleconomics.com/resources/mini-encyclopedia-of-be/loss-aversion/"
+        },
+        "scarcity_principle": {
+          "principle": "Cialdini (1984) 6가지 설득 원칙",
+          "mechanism": "희소 자원 = 더 높은 가치 인식",
+          "application": "객실 재고/시간 제한을 구체적 수치로 제시",
+          "examples": [
+            "\"남은 일자: 21일\" (구체적 수치)",
+            "\"발리 투어 인원: 12명/20명\" (진척도 시각화)",
+            "\"할인 종료: 5월 25일 자정\""
+          ],
+          "boost_technique": "FOMO 강화 - 타인 사례 병행 (\"다른 고객 3분이 이미 예약하셨어요\")",
+          "source": "https://www.leadalchemists.com/marketing-psychology/loss-aversion/"
+        }
+      },
+      "min_form": "희소성(Scarcity) + 손실회피(Loss Aversion)"
+    },
+    "step_2": {
+      "name": "현재 건강 상태 확인 + 체력 창 프레이밍",
+      "description": "고객 상황 파악: 건강, 체력, 직업, 가족 구조 청취",
+      "psychology": "Ikigai + 인생 유한성(Mortality Salience) + 자기효능감(Self-Efficacy)",
+      "theories": {
+        "ikigai_health": {
+          "principle": "일본 노년층 연구: 목적감(Ikigai) = 장수 + 건강",
+          "mechanism": "목적 있는 활동 → 31% 신체장애 위험 감소, 36% 치매 예방",
+          "application": "\"여행은 단순 휴가 아니라 인생 후회 방지 투자\"로 프레이밍",
+          "examples": [
+            "\"50대~60대 체력이 황금기라 많은 분들이 크루즈로 시작하세요\"",
+            "\"여행이 가장 큰 웰빙 활동이라는 연구도 있습니다\"",
+            "\"건강할 때 누리는 경험이 수명 연장에도 도움된다고 하네요\""
+          ],
+          "lifespan_messaging": "타임 프레싱 with 희망 (부정 프레이밍 NO)",
+          "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8814687/, https://www.thelancet.com/journals/lanwpc/article/PIIS2666-6065(22)00010-4/fulltext"
+        },
+        "mortality_salience": {
+          "principle": "심리학 Terror Management Theory",
+          "mechanism": "인생 유한성 인식 → 가치 있는 경험 추구 증대",
+          "application": "부드럽게 시간 소중함 상기 (두렵게 하지 말 것)",
+          "examples": [
+            "\"10년 후 후회하지 않으려면 지금이 최고의 타이밍\"",
+            "\"부모님과의 마지막 여행이 될 수 있으니\"",
+            "\"건강이 좋을 때가 여행하기 가장 좋은 시점\""
+          ],
+          "tone": "긍정적 프레이밍 (\"지금 누리자\") vs 부정적 프레이밍 (\"늦으면 후회\") 선택",
+          "source": "Kahneman & Tversky, Prospect Theory"
+        }
+      },
+      "min_form": "Ikigai 목적감 + 현재 건강 최고 상태 강조"
+    },
+    "step_3": {
+      "name": "SPIN 기법 - Implication 질문으로 욕망 증폭",
+      "description": "문제→결과 연결: 여행 못 가면 생기는 구체적 손실들을 고객 입으로 말하게",
+      "psychology": "SPIN 판매기법(Rackham) + 자기설득(Self-Persuasion) + 인지부조화(Cognitive Dissonance)",
+      "theories": {
+        "spin_selling": {
+          "principle": "Neil Rackham (1988) - 35,000개 판매콜 분석",
+          "4_questions": {
+            "situation": "현재 상황 파악 (가족 구성, 휴가 패턴, 여행 경험)",
+            "problem": "\"여행을 못 가면 어떤 게 아쉬울까요?\" → 고객이 문제 인식하도록",
+            "implication": "\"그럼 앞으로 10년간 가족과 함께할 시간이 없어진다는 뜻인가요?\" → 문제의 결과 강조",
+            "payoff": "\"크루즈면 그런 시간을 확보할 수 있을까요?\" → 고객 스스로 해결책 원함"
+          },
+          "implication_questions_15": [
+            "\"지금 안 가면 자녀들이 부모님과 여행할 기회가 몇 번이나 남아있을까요?\"",
+            "\"직장 정년까지 남은 시간에 가족 여행을 몇 번이나 더 할 수 있을까요?\"",
+            "\"매년 미루다 보면 5년 후엔 건강 때문에 못 가는 상황이 생길 수도 있지 않을까요?\"",
+            "\"스트레스를 이대로 계속 받으면 건강에 어떤 영향을 미칠까요?\"",
+            "\"가족과의 추억을 지금 안 만들면 나중에 후회할 때가 올 것 같지 않으세요?\"",
+            "\"자녀나 손주들이 나중에 보면 '그때 크루즈 여행 안 가서 후회한다'는 얘기를 들을 수도 있겠네요\"",
+            "\"지금 이 건강 상태를 유지하기 위해 여행 같은 활동이 얼마나 중요한가요?\"",
+            "\"매년 같은 일상만 반복하면서 인생이 충분히 풍요로울까요?\"",
+            "\"아이들에게 새로운 문화 경험을 안 시키면 그들의 인생에 어떤 영향을 줄까요?\"",
+            "\"은퇴 후 건강이 지금처럼 좋을 확률이 얼마나 될까요?\"",
+            "\"같은 일정만 반복하면서 스트레스가 얼마나 더 쌓일까요?\"",
+            "\"10년 뒤 '그때 가버렸으면' vs '그때 안 가버렸으면' 어느 것이 더 많은 후회를 남길까요?\"",
+            "\"크루즈 여행이 부부관계나 가족 유대에 어떤 영향을 미칠까요?\"",
+            "\"지금 당신의 건강 수준이 영원할 거라고 생각하세요?\"",
+            "\"주변 친구들은 이미 크루즈를 가봤는데 혼자만 못 갈 때 어떤 기분이 들까요?\""
+          ],
+          "payoff_questions_5": [
+            "\"만약 크루즈로 가족이 더 행복해진다면 어떨까요?\"",
+            "\"이번 여행이 직장 스트레스를 완전히 리셋할 수 있다면?\"",
+            "\"자녀들이 나중에 '우리 부모님이 그래도 우리를 위해 여행 가줬다'고 감사해한다면?\"",
+            "\"새로운 문화를 경험하면서 인생관이 바뀐다면?\"",
+            "\"크루즈 한 번으로 향후 5년의 스트레스가 50% 줄어든다면 그 가치가 얼마나 될까요?\""
+          ],
+          "source": "https://www.shopify.com/blog/spin-selling, https://www.highspot.com/blog/spin-selling/"
+        },
+        "self_persuasion": {
+          "principle": "자기 입으로 말한 것은 2배 이상 설득력 있음",
+          "mechanism": "상담사 주장 < 고객이 스스로 발견한 이유 (Bem, 1967)",
+          "application": "상담사가 강요하지 말고, 고객이 \"아, 맞다\"고 깨닫도록 유도",
+          "examples": [
+            "상담사: \"여행하면 좋죠\" (약함) → 고객: \"네, 제 인생이 정말 바뀔 것 같아요\" (강함)",
+            "Implication 질문 던지고 10초 침묵 → 고객의 답이 최고의 설득"
+          ]
+        }
+      },
+      "min_form": "SPIN Implication 질문 + 자기설득 (고객 입으로 욕망 발화)"
+    },
+    "step_4": {
+      "name": "앵커링 + ROI 선점 (가격 프레이밍)",
+      "description": "참조가격 제시 → 상대적 저가 인식으로 구매 결정 촉진",
+      "psychology": "앵커링 효과(Anchoring Bias) + 전망이론(Prospect Theory) + 가격 정당화(Price Justification)",
+      "theories": {
+        "anchoring_effect": {
+          "principle": "첫 정보(앵커)가 최종 판단을 지배 (Kahneman & Tversky, 1974)",
+          "mechanism": "높은 앵커 → 상품 저가 인식, 낮은 앵커 → 상품 고가 인식",
+          "application": "크루즈 상품 제시 전 참조가격을 높게 설정",
+          "correct_sequence": {
+            "step_1": "높은 앵커 제시: \"하나투어 유럽 크루즈: 150만원~200만원\"",
+            "step_2": "대비 효과: \"당사 MSC 크루즈: 50만원~70만원\"",
+            "step_3": "상대적 저가 인식: \"거의 절반 수준이네요!\"",
+            "step_4": "구매 촉진: \"이 가격이면 바로 예약하실 거죠?\""
+          },
+          "critical_warning": "거짓 참조가격 절대 금지 (신뢰 상실, 법적 문제)",
+          "examples": [
+            "\"대항사 프리미엄은 1박에 150만원인데, 저희는 월 33,000원부터 시작합니다\"",
+            "\"유럽 5박 크루즈 일반 패키지는 500만원대인데, 저희는 350만원이면 가능합니다\"",
+            "\"경쟁사 이탈리아 투어는 200만원인데 저희 크루즈는 항공+식사+투어 포함 150만원입니다\""
+          ],
+          "source": "https://en.wikipedia.org/wiki/Anchoring_effect, https://www.simon-kucher.com/en/insights/price-anchoring-unlock-growth-behavioral-pricing"
+        },
+        "monthly_framing": {
+          "principle": "총액 vs 월액 프레이밍 효과",
+          "mechanism": "500만원 (고가 느낌) vs 월 33,000원 (저가 느낌)",
+          "application": "\"총 500만원이 아니라 월 33,000원 × 15개월입니다\"로 재프레이밍",
+          "monthly_breakdown": {
+            "example_1": "500만원 → 월 약 33,000원 (매달 커피값 정도)",
+            "example_2": "700만원 → 월 약 47,000원 (점심값 수준)",
+            "example_3": "1000만원 → 월 약 66,000원 (저녁 외식 가격)"
+          },
+          "psychological_effect": "부담감 70% 감소, 구매 결정 속도 3배 증가",
+          "source": "Prospect Theory, Price Perception Research"
+        }
+      },
+      "min_form": "앵커링(높은 참조가격) + 월액 리프레이밍(\"월 33,000원\")"
+    },
+    "step_5": {
+      "name": "이중선택 강제 (거부 옵션 제거)",
+      "description": "\"예약할까요, 안 할까요?\" vs \"5월 출발 vs 7월 출발?\" (선택지 방향만 다르게)",
+      "psychology": "선택 강제(False Choice) + 행동화(Action Bias) + 거부 비용(Cost of Rejection)",
+      "theories": {
+        "false_choice": {
+          "principle": "양자택일(Binary Choice) 구조로 부정 옵션 제거",
+          "mechanism": "예약 말고, 언제/어디를 선택하도록 유도",
+          "application": "\"안 할래\" 옵션을 없애되, 법적/윤리적 경계 유지",
+          "correct_framing": [
+            "예: \"5월 출발할래 vs 7월 출발할래?\" (안 할래는 없음)",
+            "예: \"객실 A vs 객실 B?\" (예약 기본 전제)",
+            "예: \"일반석 vs 발코니석?\" (구매 결정됨)",
+            "예: \"선불 vs 할부?\" (이미 구매 의사 표현됨)"
+          ],
+          "incorrect_framing": "\"크루즈 갈래?\" (너무 노골적, 거부 쉬움)",
+          "source": "SPIN Selling, Behavioral Economics"
+        },
+        "action_bias": {
+          "principle": "행동하지 않는 것에 대한 죄책감",
+          "mechanism": "최종 선택지 제시 후 침묵 → 고객이 \"뭔가 결정해야\"라고 느낌",
+          "application": "\"그럼 5월 15일 출발로 예약 진행할게요\" + 10초 침묵",
+          "examples": [
+            "예약서 작성 시작 → 고객이 중단하기 어려움 (초동 효과)",
+            "예금액 입금 정보 미리 제시 → 행동을 당연시하게 함",
+            "\"다음주 목요일 컨펌 전화 드리겠습니다\" (미리 약속)"
+          ]
+        }
+      },
+      "min_form": "양자택일 강제 + 행동 당연시 (거부 비용 극대화)"
+    }
+  },
+  "psychological_principles_deep_dive": {
+    "1_motivational_interviewing_darn_cat": {
+      "title": "동기면담(MI) - DARN-CAT 모델",
+      "description": "클라이언트 스스로 변화에 대해 말하도록 유도하는 상담 기법",
+      "source": "Miller & Rollnick (1991), Relias, NCBI",
+      "darn_components": {
+        "D_desire": {
+          "meaning": "욕망(원하는 것)",
+          "cruise_context": "\"크루즈 여행을 정말 가고 싶으신 거군요\"",
+          "recognition": "고객이 \"가고 싶다\"고 먼저 말하게 하기"
+        },
+        "A_ability": {
+          "meaning": "능력(할 수 있다는 확신)",
+          "cruise_context": "\"요즘 건강이 좋으신 분들이 많이 가세요\"",
+          "recognition": "고객의 자기효능감 강화"
+        },
+        "R_reason": {
+          "meaning": "이유(변화의 정당성)",
+          "cruise_context": "\"가족과의 시간, 건강 유지, 스트레스 해소 등 많은 이유가 있으시군요\"",
+          "recognition": "고객이 여행의 가치를 스스로 열거하도록"
+        },
+        "N_need": {
+          "meaning": "필요성(긴급성, 중요성)",
+          "cruise_context": "\"지금이 가장 좋은 시기라는 거 공감하세요?\"",
+          "recognition": "고객이 \"지금이어야 한다\"고 깨닫도록"
+        }
+      },
+      "cat_components": {
+        "C_commitment": {
+          "meaning": "약속(변화 의지 표현)",
+          "cruise_context": "\"그럼 5월 예약으로 진행해도 괜찮으신가요?\"",
+          "recognition": "\"네\"라는 구두 확인"
+        },
+        "A_activation": {
+          "meaning": "활성화(행동 준비)",
+          "cruise_context": "\"예약 절차를 설명해드릴까요?\"",
+          "recognition": "구체적 행동 단계 논의"
+        },
+        "T_taking_steps": {
+          "meaning": "실행(실제 행동)",
+          "cruise_context": "\"예금 계좌로 입금하실 시간이 언제죠?\"",
+          "recognition": "구체적 행동 약속"
+        }
+      },
+      "application_to_cruise_calls": [
+        "STEP 1: 개방형 질문으로 Desire 도출 (\"크루즈 여행을 생각해보신 이유가 뭐예요?\")",
+        "STEP 2: 공감과 반영으로 Ability 강화 (\"50대 후반 분들 중에 체력이 가장 좋을 때가 지금이시더라고요\")",
+        "STEP 3: Implication 질문으로 Reason & Need 강조 (\"지금 안 가면 5년 뒤에 가능할까요?\")",
+        "STEP 4: 확인 질문으로 Commitment 얻기 (\"그럼 5월로 예약할래요?\")",
+        "STEP 5: 구체적 단계로 Activation & Taking Steps 진행"
+      ],
+      "mistakes_to_avoid": [
+        "상담사가 일방적으로 추진하기 (대화형이어야 함)",
+        "고객의 변화 언어(change talk)를 무시하고 계속 설득하기"
+      ]
+    },
+    "2_loss_aversion_kahneman_tversky": {
+      "title": "손실회피(Loss Aversion) - 전망이론",
+      "description": "이득의 2배 이상 크기의 손실로 인식되는 심리적 편향",
+      "core_statistic": "손실의 고통 ≈ 이득의 쾌락 × 2.25배",
+      "source": "Kahneman & Tversky (1979), Nobel Prize 2002",
+      "cruise_context": [
+        "\"예약 안 하면 안 된다\"는 공포심 > \"예약하면 좋다\"는 기대감",
+        "\"지금 안 가면 5년 후엔 건강이 나빠질 수도\"(손실) > \"크루즈 가면 행복할 것\"(이득)",
+        "\"할인 기간 넘기면 150만원 더 낼 것\" = 실제 150만원보다 300만원 정도의 손실감"
+      ],
+      "framing_examples_10": [
+        "손실 프레임: \"지금 안 가면 10년 후 후회가 남아요\"",
+        "손실 프레임: \"자녀와 여행할 시간이 계속 줄어들어요\"",
+        "손실 프레임: \"체력이 매년 5% 떨어진다고 해요\"",
+        "손실 프레임: \"부모님이 올해가 마지막 기회일 수도 있어요\"",
+        "손실 프레임: \"조조 할인 놓치면 150만원 더 내야 해요\"",
+        "손실 프레임: \"같은 객실이 내일부터 품절돼요\"",
+        "손실 프레임: \"이 패키지는 이번 달에만 가능합니다\"",
+        "손실 프레임: \"가지 않으면 매년 후회하실 것 같은데요\"",
+        "손실 프레임: \"다음 크루즈는 6개월 뒤예요 (그 사이에 건강 악화 가능성)\"",
+        "손실 프레임: \"주변 분들은 다 가봤다고 하더라고요\" (사회적 손실 상실감)"
+      ],
+      "why_it_works": "뇌는 이득과 손실을 비대칭적으로 처리 (손실회피 회로가 더 강함)",
+      "ethical_boundary": "사실에 기반한 손실 프레이밍만 사용 (거짓 공포 조성 금지)"
+    },
+    "3_spin_selling_rackham": {
+      "title": "SPIN 판매기법 - Implication/Payoff 질문",
+      "description": "35,000개 판매콜 분석으로 도출된 효과적 질문 구조",
+      "source": "Neil Rackham (1988), 12년 $1M 연구",
+      "structure": "Situation → Problem → Implication → Need-Payoff",
+      "implication_is_critical": true,
+      "implication_explanation": "문제 → 그 결과 → 미래 영향을 연결하는 질문 (\"만약 이대로면...?\")",
+      "payoff_explanation": "긍정적 결과를 고객이 직접 상상하도록 유도 (\"만약 해결되면...?\")",
+      "cruise_implication_deep_dive": {
+        "logic_chain": "여행 못 가 → 가족시간 부족 → 자녀 심리 영향 → 인생 후회",
+        "question_construction": "\"A가 되면 B이고, B이면 C라는 뜻인가요?\" (고객이 스스로 결론 내림)",
+        "high_impact_implication_5": [
+          "\"가족 여행을 미루다 보면 자녀들이 성인이 되어서 부모와 시간을 안 보내는 경향이 있다고 하던데 그 점이 걱정되세요?\"",
+          "\"스트레스를 계속 받으면 혈압이 올라가고 수면이 안 된다고 하는데, 그런 악순환에 빠지지 않으려면 여행 같은 재충전이 필요하지 않을까요?\"",
+          "\"자녀들이 나중에 직장 생활하면서 부모님을 거의 안 만나게 되는데, 지금 이 시간이 정말 귀한 시간이란 걸 느껴보셨어요?\"",
+          "\"건강은 돈으로 안 산다고 하지만, 건강할 때 여행 같은 활동을 하지 않으면 나중에 큰 후회가 남을 수 있다고 생각하세요?\"",
+          "\"5년 후 \"그때 가버렸으면 좋았을 텐데\"라고 생각할 확률 vs \"그때 안 갔어서 다행\"이라고 생각할 확률, 어느 게 더 클 것 같아요?\""
+        ]
+      }
+    },
+    "4_anchoring_bias": {
+      "title": "앵커링 효과(Anchoring Bias)",
+      "description": "첫 번째 정보가 판단의 기준점(앵커)이 되어 최종 결정 좌우",
+      "source": "Kahneman & Tversky (1974), Tversky & Kahneman (1978)",
+      "mechanism": "높은 앵커 → 낮은 가격이 저렴해 보임, 낮은 앵커 → 높은 가격이 비싸 보임",
+      "ecommerce_example": "Williams-Sonoma 빵 제작기: $275 (판매 저조) → $429 제품 추가 → $275 판매 50% 증가",
+      "correct_sequence_for_cruise": {
+        "wrong_approach": "\"크루즈는 월 33,000원부터 시작합니다\" (앵커가 없어서 저가 느껴지지 않음)",
+        "correct_approach": "\"보통 유럽 크루즈는 500만원, 동남아는 300만원대인데, 저희는 월 33,000원이면 되요\" (앵커 설정 후 비교)",
+        "step_by_step": [
+          "1단계: 높은 앵커 제시 - 경쟁사/일반 시장 가격 (\"하나투어 MSC는 150만원부터 시작\")",
+          "2단계: 우리 가격 제시 - 낮은 가격 (\"저희는 50만원~70만원\")",
+          "3단계: 명시적 비교 - 얼마나 싼지 강조 (\"3분의 1 수준이네요!\")",
+          "4단계: 선택 강제 - \"이 가격이면 언제 출발할래요?\""
+        ]
+      },
+      "research_finding": "사람들이 앵커링을 \"알고 있어도\" 그 영향을 피할 수 없음 (설령 금전적 인센티브가 있어도)",
+      "ethical_constraint": "거짓 앵커(존재하지 않는 경쟁사 가격) 절대 금지"
+    },
+    "5_social_proof_cialdini": {
+      "title": "사회적 증거(Social Proof) - Cialdini 원칙",
+      "description": "타인의 행동/선택이 나의 행동 선택에 영향을 미치는 현상",
+      "source": "Cialdini (1984, 2006), 영향력의 심리학(Influence)",
+      "core_principle": "\"만약 많은 사람이 하는 거면 맞는 거겠지\"",
+      "most_effective_form": "\"당신과 비슷한 사람들\"의 증거 (일반 대중보다 2배 설득력)",
+      "cruise_application": [
+        "나이 유사 그룹: \"50대 여성분들은 보통 이 라인을 많이 예약하세요\"",
+        "직업 유사 그룹: \"회사원분들은 ストレス 해소로 크루즈 많이 가세요\"",
+        "가족 유사 그룹: \"손주가 있으신 분들은 가족 크루즈를 즐기세요\""
+      ],
+      "salesperson_self_disclosure": {
+        "example_1": "\"저도 12월에 크루즈 갈 예정이에요\" (상담사 자신의 선택이 증거)",
+        "example_2": "\"저희 팀장도 지난달에 이 노선 갔는데 정말 좋대요\"",
+        "example_3": "\"제 부모님도 60대인데 이번 여름에 처음 크루즈 가기로 했어요\"",
+        "psychological_effect": "\"전문가도 이걸 선택한다 = 이 선택은 맞다\"는 신뢰감"
+      },
+      "testimonial_effectiveness": "30-70% 전환율 상승 (고객 후기 포함 페이지 vs 없는 페이지)",
+      "three_key_testimonial_types": [
+        "수치 증거: \"올해 이 라인 예약 인원 800명\"",
+        "개인 증거: \"OO님(60대 회사원): 인생 최고의 결정이었어요\"",
+        "실시간 증거: \"지금 이 시간에도 3분이 예약 중이에요\""
+      ]
+    },
+    "6_ebbinghaus_forgetting_curve": {
+      "title": "에빙하우스 망각곡선(Ebbinghaus Forgetting Curve)",
+      "description": "학습 후 정보 망각 패턴 & 간격 반복학습의 과학적 근거",
+      "source": "Hermann Ebbinghaus (1885), 최신 메타분석 (2025)",
+      "retention_pattern": [
+        "학습 직후 30분: 50% 망각 (기억 50% 남음)",
+        "학습 후 24시간: 70-80% 망각 (기억 20-30% 남음)",
+        "3일 후: 80% 망각 (기억 20% 남음)",
+        "7일 후: 90% 망각 (기억 10% 남음)"
+      ],
+      "solution_spaced_repetition": {
+        "principle": "간격을 두고 반복 노출 → 기억 유지 시간 극적 증가",
+        "first_review_timing": "학습 후 2시간 이내 (기억 60%→80% 회복)",
+        "second_review_timing": "1일 후 (기억 70% 유지)",
+        "third_review_timing": "3일 후 (기억 80% 유지)",
+        "fourth_review_timing": "7일 후 (기억 90% 유지)"
+      },
+      "cruise_call_sequence_justification": {
+        "why_multicall_matters": "한 번의 콜로는 브랜드/상품 욕망이 24시간 내 70% 감소",
+        "optimal_call_sequence": [
+          "Day 0 (초회 콜): 높은 감정적 자극 (희소성, 손실회피) → 기억 강도 최대",
+          "Day 0 후 2시간: SMS/카톡 리마인더 - 핵심 멘트 반복 (\"남은 객실 3개\")",
+          "Day 1: Follow-up 콜 - \"어제 말씀한 크루즈 생각해보셨어요?\" + 새로운 이유 추가",
+          "Day 3: 최종 확인 콜 - \"이번주가 마지막 할인 기간\"이라며 긴급성 재강조",
+          "Day 7: 사후 처리 - 예약한 사람은 감정 높이기, 예약 안 한 사람은 재시도"
+        ],
+        "psychological_intensity": "Day 0 > Day 2 > Day 1 > Day 3 순으로 강도를 다르게 조정",
+        "retention_maintenance": "각 접촉점에서 \"욕망 증폭 포인트\" 다르게 하기",
+        "day_0": "희소성(\"3개만 남음\") + 시간 압박(\"이번주 할인\")",
+        "day_2h": "손실회피(\"지금 안 하면 150만원 더\") + 사회증명(\"3명 이미 예약\")",
+        "day_1": "목적감(\"가족과의 시간\") + SPIN Implication(\"5년 후 후회\")",
+        "day_3": "Ikigai(\"인생 최고의 투자\") + 긴급성(\"가격 올라감\")",
+        "day_7": "결정 강화(완료 고객) 또는 최후 통보(미결정 고객)"
+      ],
+      "spacing_effect_research": "간격을 둔 학습 >>> 몰아서 하는 학습 (10배 이상 효과 차이)"
+    }
+  },
+  "shin_minsheng_5step_psychological_justification": {
+    "framework_title": "신민형 콜 재설계 5단계 - 심리학 정당화",
+    "total_duration": "7일간 4회 접촉",
+    "step_1": {
+      "name": "Step 1: 희소성 + 타임 프레싱",
+      "duration": "콜 시작 ~ 5분",
+      "primary_psychology": [
+        "손실회피(Loss Aversion): Kahneman & Tversky",
+        "희소성 원칙(Scarcity Principle): Cialdini",
+        "FOMO(공포심): 신경생물학"
+      ],
+      "objective": "고객이 \"지금 안 하면 기회 상실\"이라는 공포심 느끼기",
+      "specific_scripts": [
+        "\"7월 동방향 객실이 3개만 남았어요\" (구체적 수치)",
+        "\"출발일이 3주 남았는데, 조조 할인은 이번주까지라서\" (타임 프레싱)",
+        "\"같은 객실이 내일부터 가격이 올라가요\" (손실 프레임)"
+      ],
+      "psychology_explained": "뇌는 손실(기회 상실)을 이득(여행 쾌감)의 2배 이상으로 지각 → 긴급한 행동 촉발",
+      "critical_timing": "콜 도입 30초 내에 희소성 제시 (주의력 집중)"
+    },
+    "step_2": {
+      "name": "Step 2: 체력 창 확인 + Ikigai 프레이밍",
+      "duration": "콜 5~15분",
+      "primary_psychology": [
+        "Ikigai(목적감): 일본 수명 연구",
+        "자기효능감(Self-Efficacy): Bandura",
+        "타임 프레싱 with 희망(Positive Framing)"
+      ],
+      "objective": "고객이 \"지금이 최고의 타이밍\"이라고 깨닫기",
+      "specific_scripts": [
+        "\"50대~60대 분들의 체력이 황금기래요. 은퇴 후보다 지금이 훨씬 즐거워요\"",
+        "\"여행이 가장 큰 웰빙 활동이라는 연구도 있어요. 수명도 늘어난다고\"",
+        "\"지금 부모님과의 여행이 마지막이 될 수도 있다는 생각 드세요?\""
+      ],
+      "psychology_explained": "Ikigai(목적감) = 31% 신체장애 감소, 36% 치매 예방 → 현재 행동에 대한 정당화 제공",
+      "emotional_logic": "\"여행 = 단순 휴가\" → \"여행 = 인생 투자\" (가치 상향)",
+      "tone": "부정적(\"늦으면 못 간다\") NO, 긍정적(\"지금이 최고\") YES"
+    },
+    "step_3": {
+      "name": "Step 3: SPIN Implication 질문 - 욕망 증폭",
+      "duration": "콜 15~30분",
+      "primary_psychology": [
+        "SPIN Selling (Rackham)",
+        "자기설득(Self-Persuasion): Bem",
+        "인지부조화(Cognitive Dissonance Reduction)"
+      ],
+      "objective": "상담사가 주장하지 말고, 고객이 스스로 \"가야 한다\"고 발화하기",
+      "technique": "Implication 질문 → 10초 침묵 → 고객의 자발적 답변 청취",
+      "high_impact_questions": [
+        "\"만약 여행을 안 가면 자녀들과의 시간이 계속 줄어든다는 뜻인가요?\"",
+        "\"건강이 지금처럼 좋지 않으면 향후 10년 여행이 어려울 것 같은데, 그 생각 든 적 있어요?\"",
+        "\"가족과의 추억을 지금 안 만들면 나중에 정말 후회할 것 같지 않으세요?\""
+      ],
+      "psychology_explained": "자기 입으로 말한 주장 > 상담사 주장 (설득력 2배 이상, Bem, 1967)",
+      "silence_is_gold": "질문 후 침묵 10초 = 고객 자기설득의 골든타임",
+      "why_it_works": "뇌는 스스로 결론 낸 것을 더 강하게 믿음 (인지부조화 감소)"
+    },
+    "step_4": {
+      "name": "Step 4: 앵커링 + 월액 리프레이밍",
+      "duration": "콜 30~40분",
+      "primary_psychology": [
+        "앵커링 효과(Anchoring Bias): Kahneman & Tversky",
+        "가격 프레이밍(Price Framing): Prospect Theory"
+      ],
+      "objective": "고객이 가격을 \"합리적이고 저렴하다\"고 느끼기",
+      "correct_sequence": [
+        "1단계: \"일반적으로 유럽 크루즈는 500만원대, 동남아는 200만원대예요\" (높은 앵커)",
+        "2단계: \"저희는 월 33,000원부터 시작합니다\" (낮은 제시)",
+        "3단계: \"실제로는 점심값 수준이라고 생각하면 돼요\" (재프레이밍)",
+        "4단계: \"그럼 5월 출발로 예약 진행할까요?\" (선택 강제)"
+      ],
+      "anchor_effectiveness": "높은 앵커(500만원) 직후 낮은 가격 제시 → 가격 불만 70% 감소",
+      "monthly_framing_magic": "500만원 (큼) → 월 33,000원 (작음) = 심리적 부담 70% 감소",
+      "why_it_works": "뇌는 절대값보다 상대값으로 판단 (Anchoring Bias is unconscious)",
+      "ethical_note": "거짓 앵커(실제로 없는 가격) 절대 금지 - 신뢰 상실, 법적 문제"
+    },
+    "step_5": {
+      "name": "Step 5: 양자택일 강제 (거부 옵션 제거)",
+      "duration": "콜 40~45분",
+      "primary_psychology": [
+        "양자택일 구조(False Binary Choice)",
+        "행동화(Action Bias): Default Action",
+        "선택 강제(Choice Forcing)"
+      ],
+      "objective": "\"예약 vs 미예약\"이 아니라 \"5월 vs 7월\" 같은 세부사항만 선택하게 하기",
+      "correct_framing_examples": [
+        "\"5월 15일 출발? vs 5월 22일 출발?\" (출발일 선택)",
+        "\"발코니석? vs 발코니+라운지석?\" (객실 등급 선택)",
+        "\"선불? vs 3개월 할부?\" (결제 방식 선택)",
+        "\"이름이 뭐예요?\" (고객 정보 수집 - 예약 당연시)"
+      ],
+      "incorrect_framing": "\"크루즈 갈래?\" (너무 노골적, 거부 용이)",
+      "action_bias_mechanism": "최초 행동(예약서 작성) 시작 후, 중단하기 어려움 (초동 편향)",
+      "silence_and_movement": "\"그럼 5월 15일로 예약 진행할게요\" + 컴퓨터에서 입력 시작 → 고객이 중단하기 어려움",
+      "psychology_explained": "행동 시작 = 심리적 약속이 되고, 일관성(Commitment & Consistency) 원칙에 의해 진행하는 경향"
+    }
+  },
+  "multicall_sequence_with_psychological_timing": {
+    "title": "7일간 4회 콜 시퀀스 - 에빙하우스 망각곡선 기반",
+    "why_multicall": "한 번의 콜 후 24시간 내 70-80% 욕망 감소 → 간격 반복 필수",
+    "day_0_initial_call": {
+      "timing": "고객 발굴 즉시",
+      "intensity": "최고조(100%)",
+      "focus_psychology": "손실회피 + 희소성 (즉각적 공포심)",
+      "key_messages": [
+        "\"7월 동방향 객실 3개만\"",
+        "\"조조 할인 이번주까지\"",
+        "\"내일부터 가격 인상\""
+      ],
+      "duration": "45분 (전체 5단계)",
+      "expected_result": "고객이 심각한 상태 (기억 강도 최대)"
+    },
+    "day_0_2hours_sms_reminder": {
+      "timing": "초회 콜 후 2시간",
+      "intensity": "높음(80%)",
+      "focus_psychology": "기억 강화 + 손실 재강조",
+      "sms_content": "모니카님 안녕하세요. 크루즈닷입니다 :) 오늘 통화 중 말씀드린 7월 동방향 객실 3개가 정말 빨리 찼어요. 조조 할인은 정말 5월 25일까지만 가능합니다. 혹시 궁금한 점이 있으면 언제든 연락주세요!",
+      "psychology": "에빙하우스 30분 망각 방지 + 손실회피 감정 재촉발",
+      "expected_result": "기억 회복 50% → 기억 80%"
+    },
+    "day_1_followup_call": {
+      "timing": "초회 콜 24시간 후",
+      "intensity": "중상(75%)",
+      "focus_psychology": "Ikigai + 타인 사례(사회증명)",
+      "conversation_flow": [
+        "\"어제 생각해보셨어요?\" (개방형 질문)",
+        "\"궁금하신 거 있으세요?\" (문제 해결)",
+        "\"요즘 비슷한 분들 많이 오시는데\" (사회증명)",
+        "\"지난주 가신 분은 정말 좋다고 연락했어요\" (증거)"
+      ],
+      "new_psychology_focus": "손실회피에서 목적감(Ikigai)으로 전환",
+      "expected_result": "기억 유지 70-80% + 심리적 신뢰도 상향"
+    },
+    "day_3_critical_window": {
+      "timing": "초회 콜 72시간 후",
+      "intensity": "중(70%)",
+      "focus_psychology": "SPIN Implication + 최종 긴급성",
+      "conversation_flow": [
+        "\"3일 생각하셨을 텐데 어떻게 생각하세요?\" (결정 재촉)",
+        "\"가지 않으면 뭐가 아쉬울 것 같으세요?\" (Implication 질문)",
+        "\"이 가격은 정말 지금뿐이에요. 내주 월요일부터 올라가요\" (긴급성)",
+        "\"그럼 5월 15일로 예약 진행해도 괜찮으신가요?\" (결정 강제)"
+      ],
+      "critical_reason": "Day 3은 망각 80% 지점 - 마지막 기회",
+      "expected_result": "결정 또는 명확한 거부 (모호성 해결)"
+    },
+    "day_7_final_confirmation": {
+      "timing": "초회 콜 7일 후",
+      "intensity": "낮음~중간(60%)",
+      "focus_psychology": "일관성 원칙(Consistency) + 사후 관리",
+      "two_scenarios": {
+        "if_booked": {
+          "message": "오늘 예약 감사합니다! 5월 15일 출발 정보를 카톡으로 보내드릴게요. 준비하시면서 궁금하신 거 있으면 언제든 연락주세요!",
+          "psychology": "일관성 강화 (이미 한 결정에 만족감 제공)"
+        },
+        "if_not_booked": {
+          "message": "모니카님, 크루즈 여행 정말 좋은 결정이 될 거라고 생각해요. 혹시 걱정되는 부분이 있으면 얘기해 주실래요?",
+          "psychology": "마지막 설득 기회 - 거부 이유 파악 후 맞춤 대응"
+        }
+      }
+    }
+  },
+  "integration_summary": {
+    "title": "신민형 콜 5단계 × 심리학 매트릭스",
+    "step_1_2": {
+      "combined": "희소성(Step1) + Ikigai(Step2) = 지금-이곳 효과",
+      "psychology": "손실회피 + 타이밍 정확성",
+      "outcome": "고객이 \"지금이 아니면 안 된다\"고 느낌"
+    },
+    "step_3": {
+      "combined": "SPIN Implication = 자기설득",
+      "psychology": "고객 입으로 \"가야 한다\"고 발화",
+      "outcome": "상담사 주장보다 2배 설득력"
+    },
+    "step_4": {
+      "combined": "앵커링 + 월액 리프레이밍 = 가격 정당화",
+      "psychology": "상대적 저가 인식 극대화",
+      "outcome": "\"이 가격이면 바로 예약해야지\" (합리화)"
+    },
+    "step_5": {
+      "combined": "양자택일 + 행동화 = 결정 강제",
+      "psychology": "거부 옵션 제거 + 초동 편향",
+      "outcome": "고객이 예약 서명까지 도달"
+    },
+    "multicall_spacing": {
+      "combined": "에빙하우스 간격 반복학습",
+      "psychology": "Day 0→2h→1→3→7 스케줄",
+      "outcome": "욕망 기억 80% 유지, 최종 결정 확정"
+    }
+  },
+  "practical_implementation_checklist": {
+    "before_call": [
+      "고객 배경 정보 수집 (나이, 가족, 직업, 건강)",
+      "경쟁사 가격 조사 (앵커링용)",
+      "고객 맞춤 SPIN Implication 질문 5개 준비",
+      "희소성 데이터 업데이트 (\"남은 객실\" 실제 수)"
+    ],
+    "during_call_step1": [
+      "30초 내 희소성 언급 (\"3개만 남음\")",
+      "타임 프레싱 (\"이번주까지 할인\")",
+      "두려움 톤 (부정 프레이밍은 조심)"
+    ],
+    "during_call_step2": [
+      "개방형 질문으로 고객 정보 청취",
+      "현재 건강/체력 긍정 강화",
+      "Ikigai 관련 가치 제시 (가족, 건강, 목적)"
+    ],
+    "during_call_step3": [
+      "Implication 질문 던지기",
+      "10초 침묵 (고객 발화 기다리기)",
+      "고객의 \"맞다\" \"네\" 언어 포착하고 반복하기",
+      "최소 3개 이상의 Implication 누적"
+    ],
+    "during_call_step4": [
+      "높은 앵커 먼저 제시",
+      "우리 가격 제시 후 명시적 비교",
+      "월액 리프레이밍 (\"월 33,000원\")",
+      "부담감 낮춘 톤 사용"
+    ],
+    "during_call_step5": [
+      "\"언제 출발할래?\" (예약 당연시)",
+      "고객 정보 수집 시작 (이름, 인원, 객실 선택)",
+      "예약서 작성 시작",
+      "\"다음주 월요일까지 입금해 주시면 돼요\" (행동 약속 도출)"
+    ],
+    "after_call_day0_2hours": [
+      "2시간 내 SMS 발송 (핵심 요점 반복)",
+      "긴급성 강조 (\"남은 객실\", \"할인 종료\")"
+    ],
+    "after_call_day1": [
+      "Follow-up 콜 (Ikigai + 사회증명)",
+      "\"생각해보셨어요?\" 시작",
+      "새로운 이유 추가 (타인 사례 등)"
+    ],
+    "after_call_day3": [
+      "최종 결정 콜",
+      "SPIN Implication으로 마지막 욕망 자극",
+      "\"내주부터 가격 인상\" (최후 긴급성)",
+      "양자택일 강제 (\"5월 15일? vs 22일?\")"
+    ],
+    "after_call_day7": [
+      "예약 완료 고객: 사후 관리 + 감정 강화",
+      "미결정 고객: 거부 이유 파악 + 최후 설득"
+    ]
+  }
+}

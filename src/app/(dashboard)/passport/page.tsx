@@ -200,6 +200,7 @@ const convertSearchMatchToCustomer = (match: SearchMatch): PassportRequestCustom
     status: match.passportRequestLogs[0].status,
     messageChannel: match.passportRequestLogs[0].messageChannel,
     sentAt: match.passportRequestLogs[0].sentAt,
+    admin: null,
   } : null,
   submissionStatus: match.passportSubmissions && match.passportSubmissions.length > 0
     ? (match.passportSubmissions[0].isSubmitted ? 'submitted' : 'pending')

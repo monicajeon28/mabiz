@@ -13,7 +13,7 @@ import {
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const ctx = await requirePartnerContext();
@@ -24,7 +24,7 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: '조직 정보 없음' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     if (!id || typeof id !== 'string') {
       return NextResponse.json(
         { ok: false, error: 'ID가 필요합니다' },
@@ -64,7 +64,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const ctx = await requirePartnerContext();
@@ -75,7 +75,7 @@ export async function DELETE(
       return NextResponse.json({ ok: false, error: '조직 정보 없음' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     if (!id || typeof id !== 'string') {
       return NextResponse.json(
         { ok: false, error: 'ID가 필요합니다' },

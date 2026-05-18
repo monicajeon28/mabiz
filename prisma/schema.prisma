@@ -26,6 +26,28 @@ enum ExecutionStatus {
   ABANDONED          // 최대 재시도 초과
 }
 
+// Phase 2: 캠페인 발송 상태 추적
+enum SendingStatus {
+  PENDING            // 발송 대기
+  SENT               // 발송 성공
+  FAILED             // 발송 실패
+  SKIPPED            // 건너뜀 (조건 미충족)
+  RETRY_SCHEDULED    // 재시도 예정
+  ABANDONED          // 최대 재시도 초과
+}
+
+// Phase 2: 발송 실패 원인 분류 (캠페인 중심)
+enum SendingFailureReason {
+  INVALID_EMAIL      // 유효하지 않은 이메일
+  INVALID_PHONE      // 유효하지 않은 휴대폰
+  OPT_OUT           // 수신거부 고객
+  QUOTA_EXCEEDED    // 일일/월간 발송 한도 초과
+  SYSTEM_ERROR      // CRM 내부 오류
+  PROVIDER_ERROR    // SMS/Email 서비스 오류
+  NETWORK_ERROR     // 네트워크 오류
+  BOUNCE            // 이메일 반송
+}
+
 model Organization {
   id                         String                  @id @default(cuid())
   name                       String
@@ -1911,6 +1933,84 @@ model ScheduledEmail {
   @@index([organizationId, scheduledAt])
   @@index([status, scheduledAt])
   @@map("CrmScheduledEmail")
+}
+
+// Phase 2: 메뉴 #38 SMS 템플릿 / 마케팅 자동화 / 캠페인 발송 이력
+model SendingHistory {
+  id                String                 @id @default(cuid())
+  organizationId    String
+
+  // 발송 타입 & 식별자
+  sendingType       String                 // TEMPLATE | AUTOMATION | CAMPAIGN
+  sourceId          String?                // templateId | automationId | campaignId
+  campaignId        String?                // campaignId (Phase 2 추가)
+
+  // 수신자
+  contactId         String
+  phone             String?                // 스냅샷 (타겟 시점의 번호)
+  email             String?
+
+  // 채널
+  channel           String                 // SMS | EMAIL
+
+  // 메시지 내용
+  subject           String?                // EMAIL 제목
+  body              String                 // 발송된 메시지 본문
+
+  // 상태
+  status            SendingStatus          @default(PENDING)
+  failureReason     SendingFailureReason?
+  failureUserMsg    String?                // "일일 한도 초과" (UI용 한국어)
+
+  // 공급자 추적
+  messageId         String?                // Aligo msg_id / Email provider ID
+  deliveredAt       DateTime?
+
+  // 재시도 로직 (Phase 2 추가)
+  retryCount        Int                    @default(0)
+  maxRetries        Int                    @default(3)
+  nextRetryAt       DateTime?              // 다음 재시도 예정 시간
+  failureMessage    String?                // 상세 에러 메시지
+
+  // 채널별 상태 추적 (Phase 2 추가)
+  emailStatus       String?                // PENDING | SENT | BOUNCE | COMPLAINT
+  emailSentAt       DateTime?
+  emailOpenedAt     DateTime?
+  smsStatus         String?                // PENDING | SENT | DELIVERY_FAIL
+  smsSentAt         DateTime?
+
+  // 상호작용 추적 (Phase 2 추가)
+  linkClickedAt     DateTime?              // 랜딩 링크 클릭 시간
+  registeredAt      DateTime?              // 상품 등록 시간
+  landingPageViewId String?                // 랜딩 페이지 방문 기록 ID
+
+  // WebHook 재시도
+  webhookAttempts   Int                    @default(0)
+  lastWebhookAt     DateTime?
+
+  // 타이밍
+  scheduledAt       DateTime
+  sentAt            DateTime?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  // 메타정보
+  metadata          Json?                  // 추가 속성
+
+  // 관계 (Phase 2 추가)
+  campaign          CrmMarketingCampaign?  @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@index([contactId, status])
+  @@index([messageId])
+  @@index([sendingType, sourceId])
+  @@index([createdAt(sort: Desc)])
+  @@index([status, nextRetryAt], map: "idx_sending_history_retry_scan")
+  @@index([campaignId, status], map: "idx_sending_history_campaign_status")
+  @@index([organizationId, createdAt(sort: Desc)], map: "idx_sending_history_org_time")
+  @@index([status, retryCount], map: "idx_sending_history_status_retry")
+  @@unique([campaignId, contactId], map: "unique_sending_history_campaign_contact")
+  @@map("SendingHistory")
 }
 
 model ProcessedWebhookEvent {
@@ -4460,11 +4560,17 @@ model CrmMarketingCampaign {
   nextExecutionAt  DateTime?
   totalCount       Int                   @default(0)
   sentCount        Int                   @default(0)
+  failedCount      Int                   @default(0)
+  skippedCount     Int                   @default(0)
+  openCount        Int                   @default(0)
+  clickCount       Int                   @default(0)
+  registeredCount  Int                   @default(0)
   status           String                @default("DRAFT")
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
   organization     Organization          @relation("CrmMarketing", fields: [organizationId], references: [id], onDelete: Cascade)
   group            ContactGroup          @relation("CrmMarketing", fields: [groupId], references: [id], onDelete: Cascade)
+  sendingHistories SendingHistory[]
 
   @@index([organizationId])
   @@index([groupId])
@@ -4473,3 +4579,4 @@ model CrmMarketingCampaign {
   @@index([organizationId, createdAt(sort: Desc)], map: "idx_campaign_org_created_desc")
   @@map("CrmMarketingCampaign")
 }
+

@@ -407,8 +407,10 @@ export default function ImageLibraryPage() {
                   <div className="flex items-center gap-3">
                     <input
                       type="checkbox"
+                      ref={(el) => {
+                        if (el) el.indeterminate = selectedAssets.size > 0 && selectedAssets.size < assets.length;
+                      }}
                       checked={selectedAssets.size === assets.length && assets.length > 0}
-                      indeterminate={selectedAssets.size > 0 && selectedAssets.size < assets.length}
                       onChange={toggleSelectAll}
                       className="w-5 h-5 cursor-pointer"
                     />

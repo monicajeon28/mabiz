@@ -39,10 +39,6 @@ export async function GET(_req: Request, { params }: Params) {
           take: 50,
           select: { id: true, name: true, phone: true, email: true, createdAt: true, funnelStarted: true },
         },
-        images: {
-          orderBy: { sortOrder: "asc" },
-          include: { imageAsset: { select: { id: true, driveFileId: true, originalFileName: true, mimeType: true, width: true, height: true } } },
-        },
       },
     });
     if (!page) return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: '랜딩페이지를 찾을 수 없습니다.' }, { status: 404 });
@@ -81,22 +77,24 @@ export async function PATCH(req: Request, { params }: Params) {
 
     const sanitizedContent = htmlContent !== undefined ? sanitizeHtml(htmlContent) : undefined;
 
+    const updateData: any = {
+      ...(title             !== undefined ? { title }                                : {}),
+      ...(sanitizedContent  !== undefined ? { htmlContent: sanitizedContent }         : {}),
+      ...(partnerId         !== undefined ? { partnerId: partnerId ?? null }          : {}),
+      ...(isActive          !== undefined ? { isActive }                              : {}),
+      ...(groupId           !== undefined ? { groupId: groupId ?? null }              : {}),
+      ...(commentEnabled    !== undefined ? { commentEnabled }                        : {}),
+      ...(autoFunnelId      !== undefined ? { autoFunnelId: autoFunnelId ?? null }    : {}),
+      ...(description       !== undefined ? { description: description ?? null }      : {}),
+      ...(headerScript      !== undefined ? { headerScript: headerScript ?? null }    : {}),
+      ...(exposureTitle     !== undefined ? { exposureTitle: exposureTitle ?? null }   : {}),
+      ...(exposureImage     !== undefined ? { exposureImage: exposureImage ?? null }   : {}),
+      ...(formConfig        !== undefined ? { formConfig: formConfig ?? null }        : {}),
+    };
+
     const page = await prisma.b2BLandingPage.update({
       where: { id },
-      data: {
-        ...(title             !== undefined ? { title }                                : {}),
-        ...(sanitizedContent  !== undefined ? { htmlContent: sanitizedContent }         : {}),
-        ...(partnerId         !== undefined ? { partnerId: partnerId ?? null }          : {}),
-        ...(isActive          !== undefined ? { isActive }                              : {}),
-        ...(groupId           !== undefined ? { groupId: groupId ?? null }              : {}),
-        ...(commentEnabled    !== undefined ? { commentEnabled }                        : {}),
-        ...(autoFunnelId      !== undefined ? { autoFunnelId: autoFunnelId ?? null }    : {}),
-        ...(description       !== undefined ? { description: description ?? null }      : {}),
-        ...(headerScript      !== undefined ? { headerScript: headerScript ?? null }    : {}),
-        ...(exposureTitle     !== undefined ? { exposureTitle: exposureTitle ?? null }   : {}),
-        ...(exposureImage     !== undefined ? { exposureImage: exposureImage ?? null }   : {}),
-        ...(formConfig        !== undefined ? { formConfig: formConfig ?? null }        : {}),
-      },
+      data: updateData,
     });
     return NextResponse.json({ ok: true, data: page, page });
   } catch (err) {

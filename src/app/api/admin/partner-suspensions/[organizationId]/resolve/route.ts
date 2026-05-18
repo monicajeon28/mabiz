@@ -9,7 +9,7 @@ import { logger } from '@/lib/logger';
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { organizationId: string } }
+  { params }: { params: Promise<{ organizationId: string }> }
 ) {
   try {
     const ctx = await getAuthContext();
@@ -19,6 +19,7 @@ export async function POST(
     }
 
     const { action, notes } = await req.json() as { action: string; notes?: string };
+    const { organizationId } = await params;
 
     // action: 'UNSUSPEND' | 'DENY_APPEAL'
     if (!['UNSUSPEND', 'DENY_APPEAL'].includes(action)) {
@@ -28,8 +29,8 @@ export async function POST(
       );
     }
 
-    const suspension = await prisma.partnerSuspension.findUnique({
-      where: { organizationId: params.organizationId },
+    const suspension = await prisma.partnerSuspension.findFirst({
+      where: { organizationId },
     });
 
     if (!suspension) {
@@ -42,7 +43,7 @@ export async function POST(
     // 액션 처리
     if (action === 'UNSUSPEND') {
       await prisma.partnerSuspension.update({
-        where: { organizationId: params.organizationId },
+        where: { id: suspension.id },
         data: {
           suspensionStatus: 'RESOLVED',
           resolvedAt: new Date(),
@@ -51,7 +52,7 @@ export async function POST(
       });
     } else if (action === 'DENY_APPEAL') {
       await prisma.partnerSuspension.update({
-        where: { organizationId: params.organizationId },
+        where: { id: suspension.id },
         data: {
           suspensionStatus: 'SUSPENDED',
           appealedAt: null,
@@ -66,7 +67,8 @@ export async function POST(
       message: '처리되었습니다',
     });
   } catch (err) {
-    logger.error('파트너 정지 해제 오류:', err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    logger.error('파트너 정지 해제 오류:' + errMsg);
     return NextResponse.json(
       { ok: false, error: 'Internal server error' },
       { status: 500 }

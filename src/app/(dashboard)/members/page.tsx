@@ -201,7 +201,7 @@ export default function MembersPage() {
       if (detailJson.ok) {
         setDetailData(detailJson);
         // groupMemberships에서 배정된 그룹 ID 추출
-        const groupIds = new Set(detailJson.user.groupMemberships?.map((m: any) => m.groupId) ?? []);
+        const groupIds = new Set<number>(detailJson.user.groupMemberships?.map((m: any) => m.groupId as number) ?? []);
         setSelectedGroups(groupIds);
       }
 
