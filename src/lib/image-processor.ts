@@ -107,19 +107,19 @@ export async function processImageForLibrary(inputBuffer: Buffer): Promise<{
     10000,
     'Image metadata extraction'
   );
-  const w = (metadata?.width as number) ?? 800;
-  const h = (metadata?.height as number) ?? 600;
+  const w = ((metadata as unknown as { width?: number })?.width) ?? 800;
+  const h = ((metadata as unknown as { height?: number })?.height) ?? 600;
   const watermarkSvg = getWatermarkSvg(w, h);
 
   // 합성 + WebP 변환을 한 파이프라인으로 실행, 출력 메타데이터도 함께 수집
-  const result = await withTimeout(
+  const result = (await withTimeout(
     sharp(inputBuffer)
       .composite([{ input: watermarkSvg, gravity: 'center', blend: 'over' }])
       .webp({ quality: 85 })
-      .toBuffer({ resolveWithObject: true }) as Promise<{ data: Buffer; info: { width: number; height: number } }>,
+      .toBuffer({ resolveWithObject: true }),
     10000,
     'Image processing (composite + WebP)'
-  );
+  )) as unknown as { data: Buffer; info: { width: number; height: number } };
 
   return { webpBuffer: result.data, width: result.info.width, height: result.info.height };
 }
