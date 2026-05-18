@@ -136,15 +136,35 @@ export function getRentalSendingHistoryFilter(
 /**
  * 세그먼트별 렌탈 발송 통계
  *
+ * 렌탈 캠페인 발송을 세그먼트(A/B/C)별로 집계
+ * - organizationId 필터: 해당 조직의 발송만
+ * - isDeltaSmsEligible 필터: 렌탈 발송만
+ * - 그룹핑: segmentVariation (A/B/C) + status
+ *
+ * 응답 구조:
+ * [
+ *   { segmentVariation: 'A', status: 'SENT', _count: { id: 123 } },
+ *   { segmentVariation: 'A', status: 'FAILED', _count: { id: 5 } },
+ *   { segmentVariation: 'B', status: 'SENT', _count: { id: 89 } },
+ *   ...
+ * ]
+ *
  * @param organizationId 조직 ID
- * @returns 세그먼트별 발송 건수 집계
+ * @returns 세그먼트별 발송 건수 집계 (groupBy 응답)
  */
 export async function getRentalSendingStatsBySegment(organizationId: string) {
-  // 아직 구현 대기 - Step 4에서 필요 시 추가
-  // prisma.sendingHistory.groupBy({
-  //   by: ['segmentVariation', 'status'],
-  //   where: { organizationId, isDeltaSmsEligible: true },
-  //   _count: { id: true },
-  // });
-  return {};
+  const { db } = await import('@/lib/db');
+
+  const stats = await db.sendingHistory.groupBy({
+    by: ['segmentVariation', 'status'],
+    where: {
+      organizationId,
+      isDeltaSmsEligible: true,  // 렌탈 발송만 필터
+    },
+    _count: {
+      id: true,  // 발송 건수
+    },
+  });
+
+  return stats;
 }
