@@ -660,7 +660,7 @@ async function acquireDistributedLock(lockKey: string, ttlSeconds: number): Prom
     const acquired = result === "OK" || result !== null;
 
     if (acquired) {
-      logger.debug("[Cron] 분산 락 획득 성공", { lockKey });
+      logger.log("[Cron] 분산 락 획득 성공", { lockKey });
     }
 
     return acquired;
@@ -677,7 +677,7 @@ async function acquireDistributedLock(lockKey: string, ttlSeconds: number): Prom
 async function releaseDistributedLock(lockKey: string): Promise<void> {
   try {
     await redis.del(lockKey);
-    logger.debug("[Cron] 분산 락 해제 완료", { lockKey });
+    logger.log("[Cron] 분산 락 해제 완료", { lockKey });
   } catch (err) {
     logger.warn("[Cron] 분산 락 해제 실패 (5분 후 자동 해제됨)", { lockKey, error: (err as Error).message });
   }
@@ -816,6 +816,7 @@ async function createSendingHistory(params: {
               channel: params.channel,
               status: mapSendingToExecutionStatus(params.status),
               executeMonth: new Date().toISOString().slice(0, 7), // YYYY-MM
+              scheduledAt: new Date(),
             },
           });
         } catch (executionErr) {
