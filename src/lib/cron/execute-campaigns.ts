@@ -541,10 +541,21 @@ export async function retrySendingMessage(sendingId: string): Promise<void> {
         select: { id: true, phone: true, email: true, name: true },
       });
 
-    if (!contact) {
-      logger.warn("[Cron] Contact 없음", { contactId: sending.contactId });
-      await updateSendingStatus(sendingId, "FAILED", "INVALID_EMAIL", sending.retryCount);
-      return;
+      if (!dbContact) {
+        logger.warn("[Cron] Contact 없음", { contactId: sending.contactId });
+        await updateSendingStatus(sendingId, "FAILED", "INVALID_EMAIL", sending.retryCount);
+        return;
+      }
+
+      contact = {
+        id: dbContact.id,
+        phone: dbContact.phone,
+        email: dbContact.email,
+        name: dbContact.name,
+      };
+
+      // Redis 캐시에 저장 (다음 재시도를 위해)
+      await cacheContactSnapshotToRedis(sending.contactId, contact, redis);
     }
 
     const result = await sendSingleMessage({
@@ -558,6 +569,8 @@ export async function retrySendingMessage(sendingId: string): Promise<void> {
           : sending.campaign?.emailBody || "",
       messageSubject:
         sending.channel === "EMAIL" ? sending.campaign?.emailSubject : undefined,
+      // Phase 3-β: P1-2 Contact snapshot 전달
+      contactSnapshot: contact,
     });
 
     // 성공 시: 상태 업데이트만

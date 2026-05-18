@@ -23,6 +23,11 @@ import {
   mapSendingToExecutionStatus,
   mapSendingToExecutionFailureReason,
 } from "../enum-mapping";
+// Phase 3-β: P1-1 에러 매핑 중앙화 import
+import {
+  mapAligoErrorToFailureReason,
+  mapEmailErrorToFailureReason,
+} from "./error-mapper";
 
 // ─────────────────────────────────────────────────────────────────
 // TYPE DEFINITIONS
@@ -475,39 +480,7 @@ async function scheduleRetry(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// 헬퍼: 에러 매핑 (중앙화)
-// ─────────────────────────────────────────────────────────────────
-
-function mapAligoErrorToFailureReason(resultCode: number): SendingFailureReason {
-  switch (resultCode) {
-    case -99:
-      return "OPT_OUT";
-    case -98:
-      return "SYSTEM_ERROR"; // 야간 차단
-    case -96:
-      return "INVALID_PHONE";
-    case -97:
-      return "SYSTEM_ERROR"; // 설정 미완료
-    case 0:
-      return "PROVIDER_ERROR"; // 일반 오류
-    default:
-      return resultCode !== 1 ? "PROVIDER_ERROR" : "SYSTEM_ERROR";
-  }
-}
-
-function mapEmailErrorToFailureReason(resultCode: number): SendingFailureReason {
-  switch (resultCode) {
-    case 1:
-      return "SYSTEM_ERROR"; // 성공 (에러 아님, 이 케이스는 호출 전에 처리됨)
-    case -96:
-      return "INVALID_EMAIL";
-    case -97:
-      return "SYSTEM_ERROR"; // 설정 미완료
-    default:
-      return "PROVIDER_ERROR";
-  }
-}
+// Phase 3-β: P1-1 에러 매핑 함수 제거 (src/lib/services/error-mapper.ts에서 import)
 
 // ─────────────────────────────────────────────────────────────────
 // 헬퍼: Feature Flag (설정)
