@@ -6,17 +6,35 @@
  *
  * P0 이슈 #7: 타임아웃 설정으로 무한 대기 방지
  */
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 import sharp from 'sharp';
 
 /**
  * Promise.race를 사용한 타임아웃 구현
  * sharp는 내부 타임아웃이 없으므로 이를 통해 처리
+ * @template T 반환 값의 타입
  */
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, operationName: string): Promise<T> {
-  const timeoutPromise = new Promise<T>((_, reject) =>
-    setTimeout(() => reject(new Error(`${operationName} timeout (${timeoutMs}ms)`)), timeoutMs)
-  );
-  return Promise.race([promise, timeoutPromise]);
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  operationName: string
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = setTimeout(
+      () => reject(new Error(`${operationName} timeout (${timeoutMs}ms)`)),
+      timeoutMs
+    );
+
+    promise
+      .then((result) => {
+        clearTimeout(timeoutId);
+        resolve(result);
+      })
+      .catch((err) => {
+        clearTimeout(timeoutId);
+        reject(err);
+      });
+  });
 }
 
 /** 이미지 크기에 맞는 워터마크 SVG 동적 생성 */
@@ -84,22 +102,24 @@ export async function processImageForLibrary(inputBuffer: Buffer): Promise<{
   height: number;
 }> {
   // 워터마크 SVG 생성을 위해 원본 크기만 먼저 조회 (헤더만 읽음)
-  const { width: w = 800, height: h = 600 } = await withTimeout(
+  const metadata = await withTimeout(
     sharp(inputBuffer).metadata(),
     10000,
     'Image metadata extraction'
   );
+  const w = (metadata?.width as number) ?? 800;
+  const h = (metadata?.height as number) ?? 600;
   const watermarkSvg = getWatermarkSvg(w, h);
 
   // 합성 + WebP 변환을 한 파이프라인으로 실행, 출력 메타데이터도 함께 수집
-  const { data: webpBuffer, info } = await withTimeout(
+  const result = await withTimeout(
     sharp(inputBuffer)
       .composite([{ input: watermarkSvg, gravity: 'center', blend: 'over' }])
       .webp({ quality: 85 })
-      .toBuffer({ resolveWithObject: true }),
+      .toBuffer({ resolveWithObject: true }) as Promise<{ data: Buffer; info: { width: number; height: number } }>,
     10000,
     'Image processing (composite + WebP)'
   );
 
-  return { webpBuffer, width: info.width, height: info.height };
+  return { webpBuffer: result.data, width: result.info.width, height: result.info.height };
 }
