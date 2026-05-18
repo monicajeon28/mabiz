@@ -24,9 +24,12 @@ import {
   mapSendingToExecutionFailureReason,
 } from "../enum-mapping";
 // Phase 3-β: P1-1 에러 매핑 중앙화 import
+// Phase 3-β: P2-3 에러 분류 import
 import {
   mapAligoErrorToFailureReason,
   mapEmailErrorToFailureReason,
+  classifyError,
+  type ClassifiedError,
 } from "./error-mapper";
 
 // ─────────────────────────────────────────────────────────────────
@@ -70,7 +73,33 @@ export interface SendingResult {
  * 4. ExecutionLog 기록 (선택적, Feature Flag)
  * 5. 재시도 상태 판단 (일시적 오류 시)
  *
- * @returns SendingResult { status, failureReason, sendingHistoryId, executionLogId }
+ * @param params - 발송 매개변수
+ * @param params.contactId - 수신자 Contact ID
+ * @param params.channel - 발송 채널 ("SMS" | "EMAIL")
+ * @param params.messageBody - 메시지 본문 (SMS: 최대 140자, Email: HTML 가능)
+ * @param params.messageSubject - 메시지 제목 (Email 전용)
+ * @param params.organizationId - 조직 ID
+ * @param params.campaignId - Campaign ID (발송 추적용, 선택적)
+ * @param params.sourceType - 메시지 소스 타입 ("FUNNEL_SEQUENCE" | "AUTOMATION_RULE" | "CAMPAIGN")
+ * @param params.sourceId - 소스 ID (campaignId 또는 manualId)
+ * @param params.sourceName - 소스 이름 (Campaign 제목 또는 운영자명)
+ * @param params.sendingType - SendingHistory용 타입 ("TEMPLATE" | "AUTOMATION" | "CAMPAIGN")
+ * @param params.useExecutionLog - Feature Flag 오버라이드 (선택적, 기본값: 환경변수)
+ * @returns {Promise<SendingResult>} 발송 결과 { status, failureReason, messageId, sendingHistoryId, executionLogId }
+ * @throws 예외 없음 (error catch로 SYSTEM_ERROR 반환)
+ *
+ * @example
+ * const result = await sendToContactByTemplate({
+ *   contactId: "c123",
+ *   channel: "EMAIL",
+ *   messageBody: "환영합니다!",
+ *   messageSubject: "회원가입 완료",
+ *   organizationId: "org456",
+ *   campaignId: "camp789",
+ *   sourceType: "CAMPAIGN",
+ *   sourceId: "camp789",
+ *   sourceName: "신규 회원 환영",
+ * });
  */
 export async function sendToContactByTemplate(
   params: SendToContactByTemplateParams
@@ -147,7 +176,7 @@ export async function sendToContactByTemplate(
     let executionLogId: string | undefined;
 
     if (useExecutionLog && sourceId && sourceName) {
-      const executionMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
+      const executeMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
       executionLogId = await recordExecutionLog({
         contactId,
         channel,
@@ -181,7 +210,24 @@ export async function sendToContactByTemplate(
       executionLogId,
     };
   } catch (err) {
-    logger.error("[Wrapper] 발송 중 예외 발생", { contactId, channel, err });
+    // Phase 3-β: P2-3 에러 분류 적용
+    const classified = classifyError(err);
+    logger.error("[Wrapper] 발송 중 예외 발생", {
+      contactId,
+      channel,
+      errorCategory: classified.category,
+      errorMessage: classified.message,
+      retryable: classified.retryable,
+    });
+
+    // 재시도 가능한 에러는 로그 레벨을 높임
+    if (classified.retryable) {
+      logger.warn("[Wrapper] 재시도 가능한 오류 (자동 재시도 권장)", {
+        contactId,
+        category: classified.category,
+      });
+    }
+
     return {
       contactId,
       status: "FAILED",
@@ -194,6 +240,27 @@ export async function sendToContactByTemplate(
 // 함수 2: SMS 발송 (내부)
 // ─────────────────────────────────────────────────────────────────
 
+/**
+ * Contact에게 SMS 발송 (Aligo 기반)
+ *
+ * 역할:
+ * - 휴대폰 번호 유효성 검증
+ * - SMS 설정 확인 (조직 레벨)
+ * - Aligo API 호출 및 결과 매핑
+ * - 에러 코드 → SendingFailureReason 변환
+ *
+ * @param params - SMS 발송 매개변수
+ * @param params.contact - Contact 객체 { id, phone, email }
+ * @param params.messageBody - 메시지 본문
+ * @param params.organizationId - 조직 ID (SMS 설정 조회용)
+ * @param params.contactId - Contact ID (로깅용)
+ * @returns {Promise<{status, failureReason?, messageId?}>} 발송 결과
+ * @returns {string} status - SendingStatus ("SENT" | "FAILED" | "SKIPPED")
+ * @returns {SendingFailureReason} failureReason - 실패 사유 (실패 시에만)
+ * @returns {string} messageId - Aligo 메시지 ID (성공 시에만)
+ *
+ * @internal 외부에서 직접 호출 금지, sendToContactByTemplate에서만 사용
+ */
 async function sendSmsInternal(params: {
   contact: { id: string; phone: string | null; email: string | null };
   messageBody: string;
@@ -257,6 +324,28 @@ async function sendSmsInternal(params: {
 // 함수 3: Email 발송 (내부)
 // ─────────────────────────────────────────────────────────────────
 
+/**
+ * Contact에게 Email 발송 (Funnel 채널)
+ *
+ * 역할:
+ * - 이메일 주소 유효성 검증
+ * - HTML 포매팅 (messageBody 감싸기)
+ * - 이메일 제공자 API 호출 및 결과 매핑
+ * - 에러 코드 → SendingFailureReason 변환
+ *
+ * @param params - Email 발송 매개변수
+ * @param params.contact - Contact 객체 { id, phone, email }
+ * @param params.messageBody - 메시지 본문 (평문, 내부에서 HTML로 변환)
+ * @param params.messageSubject - 메시지 제목
+ * @param params.organizationId - 조직 ID
+ * @param params.contactId - Contact ID (로깅용)
+ * @returns {Promise<{status, failureReason?, messageId?}>} 발송 결과
+ * @returns {string} status - SendingStatus ("SENT" | "FAILED" | "SKIPPED")
+ * @returns {SendingFailureReason} failureReason - 실패 사유 (실패 시에만)
+ * @returns {string} messageId - 이메일 제공자 메시지 ID (성공 시에만)
+ *
+ * @internal 외부에서 직접 호출 금지, sendToContactByTemplate에서만 사용
+ */
 async function sendEmailInternal(params: {
   contact: { id: string; phone: string | null; email: string | null };
   messageBody: string;
@@ -310,6 +399,30 @@ async function sendEmailInternal(params: {
 // 함수 4: SendingHistory 기록
 // ─────────────────────────────────────────────────────────────────
 
+/**
+ * 발송 이력을 SendingHistory 테이블에 기록
+ *
+ * 역할:
+ * - 모든 발송 이벤트 (성공/실패/스킵) 기록
+ * - 재시도 추적용 메타데이터 저장 (retryCount, nextRetryAt, maxRetries)
+ * - 발송 통계/분석 데이터 수집
+ *
+ * @param params - SendingHistory 레코드 매개변수
+ * @param params.contactId - 수신자 Contact ID
+ * @param params.channel - 발송 채널 ("SMS" | "EMAIL")
+ * @param params.status - 발송 상태 (SENT, FAILED, SKIPPED, RETRY_SCHEDULED, ABANDONED)
+ * @param params.failureReason - 실패 사유 (실패 시에만)
+ * @param params.organizationId - 조직 ID
+ * @param params.campaignId - Campaign ID (선택적)
+ * @param params.sendingType - 발송 타입 (TEMPLATE, AUTOMATION, CAMPAIGN)
+ * @param params.messageBody - 메시지 본문 (스냅샷)
+ * @param params.messageSubject - 메시지 제목 (Email 전용)
+ * @param params.messageId - 발송자 메시지 ID (성공 시에만)
+ * @param params.sentAt - 발송 시간 (성공 시에만)
+ * @returns {Promise<string | undefined>} 생성된 SendingHistory ID (실패 시 undefined)
+ *
+ * @internal 발송 함수 내부에서만 호출
+ */
 async function recordSendingHistory(params: {
   contactId: string;
   channel: "SMS" | "EMAIL";
@@ -341,7 +454,9 @@ async function recordSendingHistory(params: {
         maxRetries: 3,
         nextRetryAt: null,
         scheduledAt: new Date(),
-        phone: undefined, // TODO: snapshot 추가 필요
+        // 주의: phone/email snapshot은 Contact 조회 시점의 값을 저장
+        // Phase 4에서 contact.phone/email 추가 예정
+        phone: undefined,
         email: undefined,
       },
     });
@@ -359,9 +474,35 @@ async function recordSendingHistory(params: {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 함수 5: ExecutionLog 기록 (선택적)
+// 함수 5: ExecutionLog 기록 (선택적, Feature Flag 기반)
 // ─────────────────────────────────────────────────────────────────
 
+/**
+ * 자동화 발송 이력을 ExecutionLog 테이블에 기록 (Feature Flag)
+ *
+ * 역할:
+ * - Feature Flag (ENABLE_EXECUTION_LOG_WRAPPER)가 활성화된 경우에만 호출
+ * - SendingHistory와 다른 메타데이터 구조 (sourceType, sourceId, sourceName)
+ * - SendingStatus → ExecutionStatus 변환 (enum-mapping.ts)
+ * - 월별 분할 쿼리 최적화 (executeMonth 파티션)
+ *
+ * @param params - ExecutionLog 레코드 매개변수
+ * @param params.contactId - 수신자 Contact ID
+ * @param params.channel - 발송 채널 ("SMS" | "EMAIL")
+ * @param params.status - 발송 상태 (SENT, FAILED, SKIPPED 등)
+ * @param params.failureReason - 실패 사유 (실패 시에만)
+ * @param params.organizationId - 조직 ID
+ * @param params.campaignId - Campaign ID (선택적)
+ * @param params.sourceType - 자동화 소스 타입 ("FUNNEL_SEQUENCE" | "AUTOMATION_RULE" | "CAMPAIGN")
+ * @param params.sourceId - 자동화 소스 ID (campaignId 또는 automationRuleId)
+ * @param params.sourceName - 자동화 소스 이름 (Campaign 제목, Rule 이름 등)
+ * @param params.messageId - 발송자 메시지 ID (성공 시에만)
+ * @param params.executeMonth - 실행 월 (YYYY-MM 포맷, 파티션용)
+ * @param params.sentAt - 발송 시간 (성공 시에만)
+ * @returns {Promise<string | undefined>} 생성된 ExecutionLog ID (실패 시 undefined)
+ *
+ * @internal 발송 함수 내부에서만 호출, Feature Flag 조건부
+ */
 async function recordExecutionLog(params: {
   contactId: string;
   channel: "SMS" | "EMAIL";
@@ -486,9 +627,16 @@ async function scheduleRetry(
 // 헬퍼: Feature Flag (설정)
 // ─────────────────────────────────────────────────────────────────
 
+/**
+ * 환경변수 기반 Feature Flag 조회
+ *
+ * @param flagName - Feature Flag 이름 (ENABLE_EXECUTION_LOG_WRAPPER 등)
+ * @returns {boolean} Feature Flag 활성화 여부
+ *
+ * @note 프로덕션에서는 lib/config/feature-flags.ts의 중앙화된 함수 사용 권장
+ * @see src/lib/config/feature-flags.ts
+ */
 function getFeatureFlag(flagName: string): boolean {
-  // TODO: lib/config/feature-flags.ts에서 로드
-  // 임시: 환경변수 또는 DB에서 읽기
   const env = process.env[`FEATURE_${flagName}`] || "false";
   return env === "true";
 }

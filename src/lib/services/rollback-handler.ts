@@ -20,6 +20,8 @@ import type { RollbackEvent } from "@/types/rollback";
 
 const ROLLBACK_KEY = "crm:rollback_state";
 const FEATURE_FLAG_KEY = "crm:feature_flags:enable_execution_log";
+const ROLLBACK_COUNT_KEY = "crm:metrics:rollback_count";
+const ROLLBACK_MONTHLY_PREFIX = "crm:metrics:rollback_monthly:";
 
 /**
  * 1. Feature Flag 조회 (Redis)
@@ -226,6 +228,9 @@ export async function rollbackToSendingHistory(
       timestamp: new Date().toISOString(),
     });
 
+    // Step 6: P2-1 메트릭 기록 (롤백 횟수 누적)
+    await incrementRollbackMetrics();
+
     const duration = Date.now() - startTime;
 
     const result = {
@@ -291,6 +296,68 @@ export async function enableExecutionLogFeature(): Promise<void> {
 }
 
 /**
+ * P2-1 메트릭: 롤백 횟수 누적 기록
+ * - 전체 누적 카운트
+ * - 월별 카운트 (e.g., crm:metrics:rollback_monthly:202605)
+ */
+async function incrementRollbackMetrics(): Promise<void> {
+  try {
+    // 전체 누적 카운트 증가
+    await getCache(ROLLBACK_COUNT_KEY); // 존재 여부 확인
+    const currentCount = await getCache<number>(ROLLBACK_COUNT_KEY);
+    const newCount = (currentCount ?? 0) + 1;
+    await setCache(ROLLBACK_COUNT_KEY, newCount, 365 * 24 * 60 * 60); // 1년 유지
+
+    // 월별 카운트 증가
+    const now = new Date();
+    const monthKey = `${ROLLBACK_MONTHLY_PREFIX}${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const currentMonthCount = await getCache<number>(monthKey);
+    const newMonthCount = (currentMonthCount ?? 0) + 1;
+    await setCache(monthKey, newMonthCount, 30 * 24 * 60 * 60); // 한 달 유지
+
+    logger.info("[Metrics] 롤백 카운트 증가", {
+      totalCount: newCount,
+      monthlyCount: newMonthCount,
+      month: monthKey,
+    });
+  } catch (error) {
+    logger.warn("[Metrics] 롤백 카운트 기록 실패", { error });
+    // 메트릭 기록 실패는 비핵심 → 무시
+  }
+}
+
+/**
+ * P2-1 메트릭: 롤백 통계 조회
+ */
+export async function getRollbackMetrics(): Promise<{
+  totalRollbacks: number;
+  monthlyRollbacks: number;
+  currentMonth: string;
+}> {
+  try {
+    const totalRollbacks = (await getCache<number>(ROLLBACK_COUNT_KEY)) ?? 0;
+
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const monthKey = `${ROLLBACK_MONTHLY_PREFIX}${currentMonth}`;
+    const monthlyRollbacks = (await getCache<number>(monthKey)) ?? 0;
+
+    return {
+      totalRollbacks,
+      monthlyRollbacks,
+      currentMonth,
+    };
+  } catch (error) {
+    logger.warn("[Metrics] 롤백 통계 조회 실패", { error });
+    return {
+      totalRollbacks: 0,
+      monthlyRollbacks: 0,
+      currentMonth: "",
+    };
+  }
+}
+
+/**
  * 롤백 상태 대시보드 조회
  */
 export async function getRollbackStatus(): Promise<{
@@ -298,14 +365,17 @@ export async function getRollbackStatus(): Promise<{
   rollbackState: any;
   lastRollbackAt?: string;
   recoveryInProgress: boolean;
+  metrics?: { totalRollbacks: number; monthlyRollbacks: number; currentMonth: string };
 }> {
   const isEnabled = await isExecutionLogEnabled();
   const state = await getRollbackState();
+  const metrics = await getRollbackMetrics();
 
   return {
     isExecutionLogEnabled: isEnabled,
     rollbackState: state,
     lastRollbackAt: state?.triggeredAt,
     recoveryInProgress: !isEnabled && state?.recoveryTarget === "SENDING_HISTORY",
+    metrics,
   };
 }

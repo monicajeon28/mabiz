@@ -107,12 +107,147 @@ export function mapEmailErrorToFailureReason(
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 헬퍼: 에러 타입 분류
+// 헬퍼: 에러 분류 (Category & Retryability)
 // ─────────────────────────────────────────────────────────────────
 
 /**
- * JavaScript 에러 객체를 ErrorType으로 분류
+ * 에러 카테고리 정의
  *
+ * @category NETWORK - 네트워크 오류 (DNS, 타임아웃, 연결 실패)
+ * @category VALIDATION - 입력 검증 오류 (invalid email, phone)
+ * @category RATE_LIMIT - 속도 제한 (Aligo, Email provider)
+ * @category STORAGE - 저장소 오류 (DB, Redis)
+ * @category TYPE_ERROR - TypeScript 타입 오류 (typeof 불일치)
+ * @category RUNTIME_ERROR - 런타임 오류 (일반 Error)
+ * @category UNKNOWN - 알 수 없는 오류
+ */
+export type ErrorCategory =
+  | "NETWORK"
+  | "VALIDATION"
+  | "RATE_LIMIT"
+  | "STORAGE"
+  | "TYPE_ERROR"
+  | "RUNTIME_ERROR"
+  | "UNKNOWN";
+
+/**
+ * 에러 분류 정보 인터페이스
+ *
+ * @property category - 에러 카테고리
+ * @property retryable - 재시도 가능 여부
+ * @property code - 에러 코드 (Aligo, Email provider 등)
+ * @property message - 에러 메시지
+ */
+export interface ClassifiedError {
+  category: ErrorCategory;
+  retryable: boolean;
+  code?: string | number;
+  message: string;
+}
+
+/**
+ * JavaScript 에러 객체를 ErrorCategory로 분류
+ *
+ * 재시도 가능 여부도 함께 판단:
+ * - NETWORK: ✅ 재시도 가능 (임시 오류)
+ * - VALIDATION: ❌ 재시도 불가 (영구 오류)
+ * - RATE_LIMIT: ✅ 재시도 가능 (지수 백오프)
+ * - STORAGE: ⚠️ 경우에 따라 (락, 데드락 가능)
+ * - TYPE_ERROR: ❌ 재시도 불가 (코드 버그)
+ * - RUNTIME_ERROR: ⚠️ 경우에 따라 (메모리 부족 등)
+ *
+ * @param err - 에러 객체
+ * @param code - 에러 코드 (Aligo, Email provider 등, 선택적)
+ * @returns {ClassifiedError} 분류된 에러 정보
+ *
+ * @example
+ * try {
+ *   await sendSms(params);
+ * } catch (err) {
+ *   const classified = classifyError(err, -99);
+ *   if (classified.retryable) {
+ *     await scheduleRetry(id, retryCount);
+ *   } else {
+ *     logger.warn(`[Unretryable] ${classified.category}: ${classified.message}`);
+ *   }
+ * }
+ */
+export function classifyError(
+  err: unknown,
+  code?: string | number
+): ClassifiedError {
+  // 1. TypeError 체크
+  if (err instanceof TypeError) {
+    return {
+      category: "TYPE_ERROR",
+      retryable: false,
+      code,
+      message: err instanceof Error ? err.message : "Type mismatch",
+    };
+  }
+
+  // 2. 특정 에러 메시지 패턴으로 분류
+  const message = getErrorMessage(err);
+
+  if (
+    message.includes("ENOTFOUND") ||
+    message.includes("ECONNREFUSED") ||
+    message.includes("ETIMEDOUT") ||
+    message.includes("EHOSTUNREACH")
+  ) {
+    return {
+      category: "NETWORK",
+      retryable: true,
+      code,
+      message,
+    };
+  }
+
+  if (message.includes("429") || message.includes("rate limit")) {
+    return {
+      category: "RATE_LIMIT",
+      retryable: true,
+      code,
+      message,
+    };
+  }
+
+  if (
+    message.includes("database") ||
+    message.includes("deadlock") ||
+    message.includes("transaction")
+  ) {
+    return {
+      category: "STORAGE",
+      retryable: true,
+      code,
+      message,
+    };
+  }
+
+  // 3. 일반 Error
+  if (err instanceof Error) {
+    return {
+      category: "RUNTIME_ERROR",
+      retryable: true,
+      code,
+      message: err.message,
+    };
+  }
+
+  // 4. 불명확한 경우
+  return {
+    category: "UNKNOWN",
+    retryable: false,
+    code,
+    message: typeof err === "string" ? err : "Unknown error",
+  };
+}
+
+/**
+ * JavaScript 에러 객체를 ErrorType으로 분류 (하위 호환성)
+ *
+ * @deprecated classifyError() 사용 권장
  * @param err - 에러 객체
  * @returns ErrorType ("TYPE_ERROR" | "REFERENCE_ERROR" | "RUNTIME_ERROR" | "UNKNOWN_ERROR")
  */

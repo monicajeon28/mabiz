@@ -12,7 +12,7 @@
  * - 데이터 무결성: Variant 개수 검증 (예상 2개)
  */
 
-import { prisma } from "@/lib/prisma";
+import db from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 
 /**
@@ -24,7 +24,7 @@ import { logger } from "@/lib/logger";
  */
 export async function selectVariant(campaignId: string): Promise<string | null> {
   try {
-    const variants = await prisma.campaignVariant.findMany({
+    const variants = await db.campaignVariant.findMany({
       where: { campaignId, isActive: true },
       select: { variantKey: true, trafficSplit: true },
     });
@@ -80,7 +80,7 @@ export async function getVariantContent(
   try {
     if (!variantKey) {
       // 단일 메시지: CrmMarketingCampaign의 기본 메시지 사용
-      return await prisma.crmMarketingCampaign.findUnique({
+      return await db.crmMarketingCampaign.findUnique({
         where: { id: campaignId },
         select: {
           smsBody: true,
@@ -91,7 +91,7 @@ export async function getVariantContent(
     }
 
     // A/B Variant의 메시지 사용
-    const variant = await prisma.campaignVariant.findUnique({
+    const variant = await db.campaignVariant.findUnique({
       where: {
         campaignId_variantKey: { campaignId, variantKey },
       },

@@ -5,11 +5,11 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { selectVariant, getVariantContent } from "@/lib/campaign-variant";
-import { prisma } from "@/lib/prisma";
+import db from "@/lib/prisma";
 
 // Prisma를 mocking
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", () => {
+  const mockDb = {
     campaignVariant: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -17,8 +17,11 @@ vi.mock("@/lib/prisma", () => ({
     crmMarketingCampaign: {
       findUnique: vi.fn(),
     },
-  },
-}));
+  };
+  return {
+    default: mockDb,
+  };
+});
 
 describe("selectVariant()", () => {
   beforeEach(() => {
@@ -26,8 +29,8 @@ describe("selectVariant()", () => {
   });
 
   it("should return null for campaign without variants", async () => {
-    const mockPrisma = prisma as any;
-    mockPrisma.campaignVariant.findMany.mockResolvedValue([]);
+    const mockDb = db as any;
+    mockDb.campaignVariant.findMany.mockResolvedValue([]);
 
     const result = await selectVariant("cmp_no_variant");
 
@@ -35,7 +38,7 @@ describe("selectVariant()", () => {
   });
 
   it("should return A or B for campaign with variants", async () => {
-    const mockPrisma = prisma as any;
+    const mockDb = db as any;
     mockPrisma.campaignVariant.findMany.mockResolvedValue([
       { variantKey: "A", trafficSplit: 0.5 },
       { variantKey: "B", trafficSplit: 0.5 },
@@ -47,7 +50,7 @@ describe("selectVariant()", () => {
   });
 
   it("should return A when random < trafficSplit", async () => {
-    const mockPrisma = prisma as any;
+    const mockDb = db as any;
     mockPrisma.campaignVariant.findMany.mockResolvedValue([
       { variantKey: "A", trafficSplit: 0.9 }, // 90% A
       { variantKey: "B", trafficSplit: 0.1 },
@@ -64,7 +67,7 @@ describe("selectVariant()", () => {
   });
 
   it("should return B when random >= trafficSplit", async () => {
-    const mockPrisma = prisma as any;
+    const mockDb = db as any;
     mockPrisma.campaignVariant.findMany.mockResolvedValue([
       { variantKey: "A", trafficSplit: 0.1 }, // 10% A
       { variantKey: "B", trafficSplit: 0.9 },
@@ -81,7 +84,7 @@ describe("selectVariant()", () => {
   });
 
   it("should handle campaign with unexpected variant count", async () => {
-    const mockPrisma = prisma as any;
+    const mockDb = db as any;
     // 3개의 variant (예상: 2개)
     mockPrisma.campaignVariant.findMany.mockResolvedValue([
       { variantKey: "A", trafficSplit: 0.5 },
@@ -96,7 +99,7 @@ describe("selectVariant()", () => {
   });
 
   it("should return null when missing A or B variant", async () => {
-    const mockPrisma = prisma as any;
+    const mockDb = db as any;
     // A나 B 중 하나만 존재
     mockPrisma.campaignVariant.findMany.mockResolvedValue([
       { variantKey: "A", trafficSplit: 0.5 },
@@ -114,21 +117,21 @@ describe("getVariantContent()", () => {
   });
 
   it("should return campaign content for null variantKey", async () => {
-    const mockPrisma = prisma as any;
+    const mockDb = db as any;
     const expectedContent = {
       smsBody: "Test SMS",
       emailSubject: "Test Subject",
       emailBody: "Test Email Body",
     };
 
-    mockPrisma.crmMarketingCampaign.findUnique.mockResolvedValue(
+    mockDb.crmMarketingCampaign.findUnique.mockResolvedValue(
       expectedContent
     );
 
     const result = await getVariantContent("cmp_123", null);
 
     expect(result).toEqual(expectedContent);
-    expect(mockPrisma.crmMarketingCampaign.findUnique).toHaveBeenCalledWith({
+    expect(mockDb.crmMarketingCampaign.findUnique).toHaveBeenCalledWith({
       where: { id: "cmp_123" },
       select: {
         smsBody: true,
@@ -139,7 +142,7 @@ describe("getVariantContent()", () => {
   });
 
   it("should return variant content for A", async () => {
-    const mockPrisma = prisma as any;
+    const mockDb = db as any;
     const expectedVariant = {
       smsBody: "Variant A SMS",
       emailSubject: "Variant A Subject",
@@ -151,7 +154,7 @@ describe("getVariantContent()", () => {
     const result = await getVariantContent("cmp_123", "A");
 
     expect(result).toEqual(expectedVariant);
-    expect(mockPrisma.campaignVariant.findUnique).toHaveBeenCalledWith({
+    expect(mockDb.campaignVariant.findUnique).toHaveBeenCalledWith({
       where: {
         campaignId_variantKey: { campaignId: "cmp_123", variantKey: "A" },
       },
@@ -164,7 +167,7 @@ describe("getVariantContent()", () => {
   });
 
   it("should return variant content for B", async () => {
-    const mockPrisma = prisma as any;
+    const mockDb = db as any;
     const expectedVariant = {
       smsBody: "Variant B SMS",
       emailSubject: "Variant B Subject",
@@ -179,8 +182,8 @@ describe("getVariantContent()", () => {
   });
 
   it("should return null when variant not found", async () => {
-    const mockPrisma = prisma as any;
-    mockPrisma.campaignVariant.findUnique.mockResolvedValue(null);
+    const mockDb = db as any;
+    mockDb.campaignVariant.findUnique.mockResolvedValue(null);
 
     const result = await getVariantContent("cmp_123", "A");
 
@@ -188,8 +191,8 @@ describe("getVariantContent()", () => {
   });
 
   it("should handle errors gracefully", async () => {
-    const mockPrisma = prisma as any;
-    mockPrisma.campaignVariant.findUnique.mockRejectedValue(
+    const mockDb = db as any;
+    mockDb.campaignVariant.findUnique.mockRejectedValue(
       new Error("DB Error")
     );
 
@@ -201,7 +204,7 @@ describe("getVariantContent()", () => {
 
 describe("traffic split distribution (probabilistic)", () => {
   it("should approximately respect 50:50 traffic split", async () => {
-    const mockPrisma = prisma as any;
+    const mockDb = db as any;
     mockPrisma.campaignVariant.findMany.mockResolvedValue([
       { variantKey: "A", trafficSplit: 0.5 },
       { variantKey: "B", trafficSplit: 0.5 },
@@ -225,7 +228,7 @@ describe("traffic split distribution (probabilistic)", () => {
   });
 
   it("should respect 30:70 traffic split", async () => {
-    const mockPrisma = prisma as any;
+    const mockDb = db as any;
     mockPrisma.campaignVariant.findMany.mockResolvedValue([
       { variantKey: "A", trafficSplit: 0.3 }, // 30% A
       { variantKey: "B", trafficSplit: 0.7 },
