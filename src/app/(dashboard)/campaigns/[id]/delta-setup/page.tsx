@@ -4,6 +4,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { useDeltaWizard } from '@/hooks/useDeltaWizard';
 import TriggerSelector from '@/components/delta-setup/TriggerSelector';
 import MessageSelector from '@/components/delta-setup/MessageSelector';
+import MessagePreview from '@/components/delta-setup/MessagePreview';
+import ScheduleVisualizer from '@/components/delta-setup/ScheduleVisualizer';
 import { Button } from '@/components/ui/button';
 
 /**
@@ -117,88 +119,15 @@ export default function DeltaSetupPage() {
       )}
 
       {state.currentStep === 3 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold">Step 3: 메시지 미리보기</h2>
-            <p className="text-sm text-gray-600 mt-1">저장 전 메시지 내용을 확인하세요.</p>
-          </div>
-
-          <div className="space-y-4">
-            {[
-              { day: 0, label: '📲 Day 0: 구매 직후' },
-              { day: 1, label: '📤 Day 1: +1일' },
-              { day: 2, label: '⏰ Day 2: +2일' },
-              { day: 3, label: '🚨 Day 3: +3일' },
-            ].map(({ day, label }) => {
-              const dayKey = `day${day}` as 'day0' | 'day1' | 'day2' | 'day3';
-              const content = state.useDefaultMessages
-                ? defaultMessages[dayKey]
-                : state.messages[dayKey];
-
-              return (
-                <div key={dayKey} className="border rounded-lg p-4 bg-gray-50">
-                  <h3 className="font-medium text-gray-900 mb-2">{label}</h3>
-                  <div className="bg-white border border-gray-200 rounded p-3 text-sm text-gray-700 break-words">
-                    {content}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    {content.length}자 ({content.length <= 90 ? 'SMS' : 'LMS'})
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-800">
-              ✓ 메시지 내용을 확인했습니다. "다음 단계"를 클릭하여 계속하세요.
-            </p>
-          </div>
-        </div>
+        <MessagePreview
+          messages={
+            state.useDefaultMessages ? defaultMessages : state.messages
+          }
+        />
       )}
 
       {state.currentStep === 4 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold">Step 4: 발송 스케줄</h2>
-            <p className="text-sm text-gray-600 mt-1">자동 발송 일정을 확인하세요.</p>
-          </div>
-
-          <div className="space-y-3">
-            {[
-              { day: 0, icon: '📲', time: '09:00', trigger: 'PURCHASE' },
-              { day: 1, icon: '📤', time: '09:00', days: '+1' },
-              { day: 2, icon: '⏰', time: '09:00', days: '+2' },
-              { day: 3, icon: '🚨', time: '09:00', days: '+3' },
-            ].map(({ day, icon, time }) => (
-              <div
-                key={day}
-                className="flex items-center gap-4 border rounded-lg p-4 bg-blue-50 border-blue-200"
-              >
-                <div className="text-2xl">{icon}</div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">Day {day}</p>
-                  <p className="text-sm text-gray-600">
-                    {state.triggerType === 'PURCHASE'
-                      ? '구매 직후'
-                      : day === 0
-                      ? '이탈 감지 직후'
-                      : `이탈 감지 후 ${day}일`}
-                    {' '}
-                    <span className="text-blue-700 font-medium">{time}</span>에 발송
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <h3 className="font-medium text-green-900 mb-2">설정 완료 준비됨</h3>
-            <p className="text-sm text-green-800">
-              모든 단계를 완료했습니다. "저장"을 클릭하면 렌탈 SMS 자동화가 활성화됩니다.
-            </p>
-          </div>
-        </div>
+        <ScheduleVisualizer triggerType={state.triggerType} />
       )}
 
       {/* 에러 메시지 */}
