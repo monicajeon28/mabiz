@@ -4,10 +4,10 @@ const CALL_SCRIPTS_DATA: any = {};
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { category: string; segment: string; phase: string } }
+  { params }: { params: Promise<{ category: string; segment: string; phase: string }> }
 ) {
   try {
-    const { category, segment, phase } = params;
+    const { category, segment, phase } = await params;
     const decodedSegment = decodeURIComponent(segment);
 
     // Mock data에서 스크립트 조회
