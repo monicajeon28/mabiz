@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { Copy, Check, ChevronDown, BookOpen, Loader2 } from "lucide-react";
 import { detectSegment, SEGMENT_PROFILES, SEGMENT_RECOMMENDED_TECHNIQUES } from "@/lib/segment-detector";
 import { CRUISE_PRODUCTS, PRODUCT_CODES } from "@/constants/products";
+import { ERROR_MESSAGES } from "@/lib/error-messages";
+import { logger } from "@/lib/logger";
 import type { Segment } from "@/lib/segment-detector";
 import type { ProductCode } from "@/constants/products";
 
@@ -122,11 +124,20 @@ export default function PlaybookViewerPage() {
           setSelectedItem(null);
         }
       } else {
-        setError("스크립트 데이터를 불러오지 못했습니다.");
+        setError(ERROR_MESSAGES.PLAYBOOK_PARSE_ERROR);
+        logger.error("[PlaybookViewer]", {
+          action: "fetch-playbooks",
+          status: "error",
+          error: "API returned error",
+        });
       }
     } catch (err) {
-      console.error("Failed to fetch playbooks:", err);
-      setError("스크립트를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+      logger.error("[PlaybookViewer]", {
+        action: "fetch-playbooks",
+        status: "error",
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
+      setError(ERROR_MESSAGES.PLAYBOOK_LOAD_FAILED);
     } finally {
       setLoading(false);
     }
