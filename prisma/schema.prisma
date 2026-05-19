@@ -233,6 +233,7 @@ model Contact {
   shortLinks      ShortLink[]
   shortLinkClicks ShortLinkClick[]
   vipSequences    VipCareSequence[]
+  lensMetadata    Json? @default("{\"decisionLevel\": 0, \"readinessScore\": 0}")
 
   @@unique([phone, organizationId])
   @@index([organizationId])
@@ -583,6 +584,7 @@ model ExecutionLog {
   linkClickedAt     DateTime?                 // 랜딩 링크 클릭 시간
   registeredAt      DateTime?                 // 상품 등록 시간
   landingPageViewId String?                   // 랜딩 페이지 방문 기록 ID
+  lensMetadata      Json?                     // 렌즈 분류 메타데이터 (Phase 4)
 
   createdAt         DateTime                  @default(now())
   updatedAt         DateTime                  @updatedAt
@@ -610,19 +612,31 @@ model ExecutionLog {
 }
 
 model SalesPlaybook {
-  id           String   @id @default(cuid())
-  type         String
-  title        String
-  content      String
-  priority     Int      @default(0)
-  isActive     Boolean  @default(true)
-  scriptTab    String   @default("GENERAL")
-  productCode  String   @default("ALL")
-  sectionOrder Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                  String    @id @default(cuid())
+  key                 String?   // JSON "key" 필드 추가
+  phase               String?   // JSON "phase" 필드 추가 (sectionOrder 대신)
+  type                String    // OPENING|NEEDS|AMPLIFY|...
+  script              String?   // JSON "script" 필드 (content 대신)
+  trigger             String?   // 고객 발화 트리거
+  customerSegment     String?   // A|B|C|D|E|ALL (productCode 대신)
+  psychology          String?   // 심리학 이론 (Kahneman|Cialdini|...)
+  shinminStep         String?   // 신민형 5단계 (1-5)
+  monikaAmplifyLevel  String?   // 모니카 욕망 증폭 (1-4, AMPLIFY type만)
+  source              String?   // 데이터 소스 (신민형콜|모니카코칭|...)
+  notes               String?   // 사용 조건/주의사항
+  priority            Int       @default(0)
+  isActive            Boolean   @default(true)
+  scriptTab           String    @default("GENERAL")
+  title               String
+  content             String    // 호환성: 기존 필드 유지
+  productCode         String    @default("ALL")
+  sectionOrder        Int       @default(0)
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   @@index([type])
+  @@map("SalesPlaybook")
 }
 
 model ImageCache {
@@ -4621,6 +4635,7 @@ model CrmMarketingCampaign {
   executionLogs     ExecutionLog[]        @relation("ExecutionLogToCampaign")
   variants          CampaignVariant[]     @relation("CampaignVariants")
   deltaConfig       DeltaCampaignConfig?  @relation("DeltaConfig")
+  lensMetadata      Json?
 
   @@index([organizationId])
   @@index([groupId])
