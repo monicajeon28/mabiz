@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Copy, Check, ChevronDown, BookOpen } from "lucide-react";
+import { Copy, Check, ChevronDown, BookOpen, Loader2 } from "lucide-react";
 
 type PlaybookItem = {
   id: string;
@@ -76,6 +76,7 @@ export default function PlaybookViewerPage() {
   const [copied, setCopied] = useState<string | null>(null);
   const [closingSignals, setClosingSignals] = useState<ClosingSignal[]>(CLOSING_SIGNALS);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>("");
 
   useEffect(() => {
     fetchPlaybooks();
@@ -84,6 +85,7 @@ export default function PlaybookViewerPage() {
   const fetchPlaybooks = async () => {
     try {
       setLoading(true);
+      setError("");
       const params = new URLSearchParams();
       if (selectedPhase !== null) params.append("phase", selectedPhase.toString());
       if (selectedSegment && selectedSegment !== "ALL") {
@@ -94,13 +96,19 @@ export default function PlaybookViewerPage() {
       const data = await res.json();
       if (data.ok) {
         setItems(data.items || []);
-        // 첫 번째 아이템 자동 선택
-        if (data.items?.length > 0) {
+        // 현재 선택 아이템 유지 (가능한 경우)
+        const isCurrentItemInResults = (data.items || []).some(item => item.id === selectedItem?.id);
+        if (!isCurrentItemInResults && data.items?.length > 0) {
           setSelectedItem(data.items[0]);
+        } else if (!data.items?.length) {
+          setSelectedItem(null);
         }
+      } else {
+        setError("스크립트 데이터를 불러오지 못했습니다.");
       }
     } catch (err) {
       console.error("Failed to fetch playbooks:", err);
+      setError("스크립트를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
     } finally {
       setLoading(false);
     }
@@ -194,15 +202,30 @@ export default function PlaybookViewerPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 좌측: 스크립트 카드 목록 */}
           <div className="lg:col-span-2 space-y-3">
-            {loading ? (
+            {loading && (
               <div className="flex items-center justify-center h-64">
-                <p className="text-gray-400">로딩 중...</p>
+                <Loader2 className="w-6 h-6 animate-spin text-navy-900 mr-3" />
+                <span className="text-gray-600 font-medium">스크립트 로드 중...</span>
               </div>
-            ) : filteredItems.length === 0 ? (
-              <div className="bg-white rounded-xl p-8 text-center">
-                <p className="text-gray-400">선택된 필터에 맞는 스크립트가 없습니다.</p>
+            )}
+
+            {error && (
+              <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-sm text-red-800">
+                  <span className="font-semibold">⚠️ 오류:</span> {error}
+                </p>
               </div>
-            ) : (
+            )}
+
+            {!loading && !error && filteredItems.length === 0 && (
+              <div className="text-center p-8">
+                <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                <p className="text-gray-500">검색 결과가 없습니다.</p>
+                <p className="text-xs text-gray-400 mt-1">다른 필터를 시도해주세요.</p>
+              </div>
+            )}
+
+            {!loading && !error && filteredItems.length > 0 && (
               filteredItems.map((item) => (
                 <div
                   key={item.id}

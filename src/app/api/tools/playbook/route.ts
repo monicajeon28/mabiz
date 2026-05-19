@@ -14,37 +14,35 @@ export async function GET(req: Request) {
     const scriptTab       = searchParams.get("scriptTab")   ?? "GENERAL";
     const productCode     = searchParams.get("productCode") ?? "ALL";
 
-    // phase를 sectionOrder로 매핑 (0-9)
-    const phaseFilters = phase ? { sectionOrder: parseInt(phase) } : {};
-
-    // customerSegment를 productCode로 매핑
-    const segmentFilters = customerSegment && customerSegment !== "ALL"
-      ? { productCode: { in: [customerSegment, "ALL"] } }
-      : { productCode: { in: [productCode, "ALL"] } };
-
     const items = await prisma.salesPlaybook.findMany({
       where: {
         isActive: true,
         scriptTab,
-        ...segmentFilters,
+        ...(phase !== undefined && { sectionOrder: parseInt(phase) }),
+        ...(customerSegment && customerSegment !== "ALL" && { customerSegment }),
         ...(type ? { type } : {}),
-        ...phaseFilters,
       },
-      orderBy: [
-        { productCode: "desc" },
-        { sectionOrder: "asc" },
-        { priority: "asc" },
-      ],
       select: {
         id: true,
+        key: true,
+        phase: true,
         type: true,
-        title: true,
-        content: true,
+        script: true,
+        trigger: true,
+        customerSegment: true,
+        psychology: true,
+        shinminStep: true,
+        monikaAmplifyLevel: true,
+        source: true,
+        notes: true,
         priority: true,
         scriptTab: true,
-        productCode: true,
         sectionOrder: true,
+        title: true,
+        content: true,
+        productCode: true,
       },
+      orderBy: { sectionOrder: "asc" },
     });
 
     return NextResponse.json({ ok: true, items });

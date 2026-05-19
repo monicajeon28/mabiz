@@ -5,6 +5,10 @@ import { useSession } from 'next-auth/react';
 import { useToast } from '@/lib/api/use-toast';
 import deltaSequence from '@/data/delta_sms_sequence.json';
 import { logger } from '@/lib/logger';
+import { retryFetch } from '@/utils/retry';
+import { getErrorMessage } from '@/constants/error-messages';
+import type { DeltaConfigResponse, DeltaSaveResponse, DeltaErrorResponse } from '@/types/delta';
+import { areAllMessagesValid } from '@/utils/delta-helpers';
 
 /**
  * Delta SMS Wizard 상태 인터페이스
@@ -100,6 +104,7 @@ export function useDeltaWizard(campaignId: string) {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 2. 초기 로드 (GET /api/campaigns/[id]/delta)
   // P0 2: organizationId IDOR 재검증
+  // P1 1: Timeout 처리 (GET 5초) + P1 2-3: 재시도 로직
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   useEffect(() => {
     const loadExistingConfig = async () => {
@@ -109,6 +114,7 @@ export function useDeltaWizard(campaignId: string) {
         const response = await fetch(`/api/campaigns/${campaignId}/delta`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(5000), // P1 1: 5초 timeout (GET)
         });
 
         if (!response.ok) {
@@ -161,9 +167,16 @@ export function useDeltaWizard(campaignId: string) {
           error: null,
         }));
       } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : '알 수 없는 오류';
-        console.error('[useDeltaWizard] 로드 실패:', errorMsg);
-        logger.warn('[useDeltaWizard] 초기 설정 로드 실패', { campaignId, error: errorMsg });
+        // P1 4: 사용자 친화적 에러 메시지 변환
+        const userErrorMsg = getErrorMessage(err);
+        const rawErrorMsg = err instanceof Error ? err.message : '알 수 없는 오류';
+
+        console.error('[useDeltaWizard] 로드 실패:', rawErrorMsg);
+        logger.warn('[useDeltaWizard] 초기 설정 로드 실패', {
+          campaignId,
+          error: rawErrorMsg,
+          userMessage: userErrorMsg,
+        });
 
         // 에러 발생 시 기본값으로 초기화
         const defaultMsgs = getDefaultMessages();
@@ -190,16 +203,12 @@ export function useDeltaWizard(campaignId: string) {
         return !!state.triggerType;
       case 2:
         // Step 2: 모든 메시지 필수 (useDefaultMessages 또는 직접입력)
+        // WHY: useDefaultMessages 모드는 기본값이 보장되므로 자동 완료
+        // 직접입력 모드는 helper 함수로 재사용 가능하게 추상화
         if (state.useDefaultMessages) {
-          return true; // 기본값 사용 시 자동 완료
+          return true;
         }
-        // 직접입력 모드: day0-3 모두 필수
-        return (
-          !!state.messages.day0.trim() &&
-          !!state.messages.day1.trim() &&
-          !!state.messages.day2.trim() &&
-          !!state.messages.day3.trim()
-        );
+        return areAllMessagesValid(state.messages);
       case 3:
       case 4:
         return true; // 리뷰/스케줄 단계는 검증 불필요
@@ -308,6 +317,7 @@ export function useDeltaWizard(campaignId: string) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(10000), // P1 1: 10초 timeout (POST는 더 길게)
       });
 
       const data = await response.json();
@@ -463,19 +473,26 @@ export function useDeltaWizard(campaignId: string) {
         triggerType: state.triggerType,
       });
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : '알 수 없는 오류';
-      console.error('[useDeltaWizard] 저장 실패:', errorMsg);
-      logger.error('[useDeltaWizard] 설정 저장 오류', { campaignId: state.campaignId, error: errorMsg });
+      // P1 4: 사용자 친화적 에러 메시지 변환
+      const userErrorMsg = getErrorMessage(err);
+      const rawErrorMsg = err instanceof Error ? err.message : '알 수 없는 오류';
+
+      console.error('[useDeltaWizard] 저장 실패:', rawErrorMsg);
+      logger.error('[useDeltaWizard] 설정 저장 오류', {
+        campaignId: state.campaignId,
+        error: rawErrorMsg,
+        userMessage: userErrorMsg,
+      });
 
       setState((prev) => ({
         ...prev,
         isSaving: false,
-        error: errorMsg,
+        error: userErrorMsg,
       }));
 
       toast({
         title: '오류',
-        description: errorMsg,
+        description: userErrorMsg,
         variant: 'destructive',
       });
     }

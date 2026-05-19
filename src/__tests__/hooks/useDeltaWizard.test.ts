@@ -479,4 +479,197 @@ describe('useDeltaWizard', () => {
       expect(result.current.defaultMessages.day3).toBeTruthy();
     });
   });
+
+  // ===== 엣지 케이스 테스트 =====
+  describe('Edge Cases: Message Input', () => {
+    it('should handle empty message correctly', () => {
+      const { result } = renderHook(() => useDeltaWizard(mockCampaignId));
+
+      act(() => {
+        result.current.toggleDefault(); // 기본값 비활성화
+        result.current.setMessage('day0', '');
+      });
+
+      expect(result.current.state.messages.day0).toBe('');
+      expect(result.current.isStepValid(2)).toBe(false);
+    });
+
+    it('should treat whitespace-only message as empty', () => {
+      const { result } = renderHook(() => useDeltaWizard(mockCampaignId));
+
+      act(() => {
+        result.current.toggleDefault(); // 기본값 비활성화
+        result.current.setMessage('day0', '   ');
+        result.current.setMessage('day1', '   ');
+        result.current.setMessage('day2', '   ');
+        result.current.setMessage('day3', '   ');
+      });
+
+      // 공백만 있는 메시지는 검증 실패
+      expect(result.current.isStepValid(2)).toBe(false);
+    });
+
+    it('should handle special characters in message', () => {
+      const { result } = renderHook(() => useDeltaWizard(mockCampaignId));
+      const specialMessage = '안녕하세요! 🎉 50% 할인 [링크] #크루즈';
+
+      act(() => {
+        result.current.toggleDefault();
+        result.current.setMessage('day0', specialMessage);
+        result.current.setMessage('day1', 'Test 1');
+        result.current.setMessage('day2', 'Test 2');
+        result.current.setMessage('day3', 'Test 3');
+      });
+
+      expect(result.current.state.messages.day0).toBe(specialMessage);
+      expect(result.current.isStepValid(2)).toBe(true);
+    });
+
+    it('should handle unicode characters in message', () => {
+      const { result } = renderHook(() => useDeltaWizard(mockCampaignId));
+      const unicodeMessage = '여행 🛳️ 예약 완료! 감사합니다.';
+
+      act(() => {
+        result.current.toggleDefault();
+        result.current.setMessage('day0', unicodeMessage);
+        result.current.setMessage('day1', 'Test');
+        result.current.setMessage('day2', 'Test');
+        result.current.setMessage('day3', 'Test');
+      });
+
+      expect(result.current.state.messages.day0).toBe(unicodeMessage);
+      expect(result.current.isStepValid(2)).toBe(true);
+    });
+
+    it('should handle newline characters in message', () => {
+      const { result } = renderHook(() => useDeltaWizard(mockCampaignId));
+      const messageWithNewlines = '안녕하세요!\n감사합니다.';
+
+      act(() => {
+        result.current.toggleDefault();
+        result.current.setMessage('day0', messageWithNewlines);
+        result.current.setMessage('day1', 'Test');
+        result.current.setMessage('day2', 'Test');
+        result.current.setMessage('day3', 'Test');
+      });
+
+      expect(result.current.state.messages.day0).toBe(messageWithNewlines);
+      expect(result.current.isStepValid(2)).toBe(true);
+    });
+
+    it('should truncate message longer than maxLength (Day 0: 90 chars)', () => {
+      const { result } = renderHook(() => useDeltaWizard(mockCampaignId));
+      const longMessage = 'a'.repeat(200); // 200자 > 90자 제한
+
+      act(() => {
+        result.current.toggleDefault();
+        result.current.setMessage('day0', longMessage);
+        result.current.setMessage('day1', 'Test');
+        result.current.setMessage('day2', 'Test');
+        result.current.setMessage('day3', 'Test');
+      });
+
+      // 메시지는 저장되지만 검증 시 길이 확인 필요
+      expect(result.current.state.messages.day0.length).toBe(200);
+    });
+
+    it('should handle exact maxLength boundary (Day 0: exactly 90 chars)', () => {
+      const { result } = renderHook(() => useDeltaWizard(mockCampaignId));
+      const exactMessage = 'a'.repeat(90); // Day 0 정확히 90자
+
+      act(() => {
+        result.current.toggleDefault();
+        result.current.setMessage('day0', exactMessage);
+        result.current.setMessage('day1', 'b'.repeat(160)); // Day 1: 160자
+        result.current.setMessage('day2', 'c'.repeat(160)); // Day 2: 160자
+        result.current.setMessage('day3', 'd'.repeat(160)); // Day 3: 160자
+      });
+
+      expect(result.current.state.messages.day0).toBe(exactMessage);
+      expect(result.current.state.messages.day0.length).toBe(90);
+      expect(result.current.isStepValid(2)).toBe(true);
+    });
+
+    it('should handle Day 1 maxLength boundary (160 chars)', () => {
+      const { result } = renderHook(() => useDeltaWizard(mockCampaignId));
+      const exact160 = 'a'.repeat(160);
+
+      act(() => {
+        result.current.toggleDefault();
+        result.current.setMessage('day0', 'Test');
+        result.current.setMessage('day1', exact160);
+        result.current.setMessage('day2', 'Test');
+        result.current.setMessage('day3', 'Test');
+      });
+
+      expect(result.current.state.messages.day1.length).toBe(160);
+      expect(result.current.isStepValid(2)).toBe(true);
+    });
+
+    it('should handle Day 2 and Day 3 maxLength boundary (160 chars)', () => {
+      const { result } = renderHook(() => useDeltaWizard(mockCampaignId));
+      const exact160 = 'a'.repeat(160);
+
+      act(() => {
+        result.current.toggleDefault();
+        result.current.setMessage('day0', 'Test');
+        result.current.setMessage('day1', 'Test');
+        result.current.setMessage('day2', exact160);
+        result.current.setMessage('day3', exact160);
+      });
+
+      expect(result.current.state.messages.day2.length).toBe(160);
+      expect(result.current.state.messages.day3.length).toBe(160);
+      expect(result.current.isStepValid(2)).toBe(true);
+    });
+
+    it('should handle mixed whitespace and content', () => {
+      const { result } = renderHook(() => useDeltaWizard(mockCampaignId));
+
+      act(() => {
+        result.current.toggleDefault();
+        result.current.setMessage('day0', '  Hello  ');
+        result.current.setMessage('day1', '\tWorld\t');
+        result.current.setMessage('day2', '\n\nTest\n\n');
+        result.current.setMessage('day3', '   Fine   ');
+      });
+
+      // 메시지는 저장되지만 trim()으로 검증할 때만 공백 제거
+      expect(result.current.state.messages.day0).toBe('  Hello  ');
+      expect(result.current.isStepValid(2)).toBe(true);
+    });
+
+    it('should handle very long message with special characters', () => {
+      const { result } = renderHook(() => useDeltaWizard(mockCampaignId));
+      const complexMessage = '🎉 특별 할인 50% 🎉 지금 예약하세요! [링크] #여행 #크루즈 @여행사 😍';
+
+      act(() => {
+        result.current.toggleDefault();
+        result.current.setMessage('day0', complexMessage);
+        result.current.setMessage('day1', complexMessage);
+        result.current.setMessage('day2', complexMessage);
+        result.current.setMessage('day3', complexMessage);
+      });
+
+      expect(result.current.state.messages.day0).toBe(complexMessage);
+      expect(result.current.isStepValid(2)).toBe(true);
+    });
+
+    it('should handle null-like string values', () => {
+      const { result } = renderHook(() => useDeltaWizard(mockCampaignId));
+
+      act(() => {
+        result.current.toggleDefault();
+        // 문자열 "null"이나 "undefined" 설정 (실제 null/undefined는 아님)
+        result.current.setMessage('day0', 'null');
+        result.current.setMessage('day1', 'undefined');
+        result.current.setMessage('day2', 'Test');
+        result.current.setMessage('day3', 'Test');
+      });
+
+      expect(result.current.state.messages.day0).toBe('null');
+      expect(result.current.state.messages.day1).toBe('undefined');
+      expect(result.current.isStepValid(2)).toBe(true);
+    });
+  });
 });

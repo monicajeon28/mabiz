@@ -94,6 +94,9 @@ model Organization {
   campaignCosts              CampaignCost[]
   executionLogs              ExecutionLog[]
   deltaConfigs               DeltaCampaignConfig[]        @relation("DeltaConfigs")
+  contactLensClassifications ContactLensClassification[]
+  contactLensSequences       ContactLensSequence[]
+  lensTemplates              LensTemplate[]
 }
 
 model OrgSmsConfig {
@@ -234,6 +237,8 @@ model Contact {
   shortLinkClicks ShortLinkClick[]
   vipSequences    VipCareSequence[]
   lensMetadata    Json? @default("{\"decisionLevel\": 0, \"readinessScore\": 0}")
+  contactLensClassifications ContactLensClassification[]
+  contactLensSequences       ContactLensSequence[]
 
   @@unique([phone, organizationId])
   @@index([organizationId])
@@ -244,6 +249,131 @@ model Contact {
   @@index([organizationId, assignedUserId], map: "idx_contact_org_assigned")
   @@index([organizationId, channel], map: "idx_contact_org_channel")
   @@index([organizationId, type], map: "idx_contact_org_type")
+}
+
+model ContactLensClassification {
+  id                    String    @id @default(cuid())
+  organizationId        String
+  contactId             String
+
+  lensType              String    @db.VarChar(3)
+  lensLabel             String?   @db.VarChar(50)
+  confidenceScore       Int       @default(0)
+  identificationMethod  String?   @db.VarChar(20)
+  questionnaireResponses Json?
+
+  decisionLevel         Int       @default(0)
+  readinessScore        Int       @default(0)
+
+  priorityLevel         String?   @db.VarChar(10)
+  status                String    @default("ACTIVE") @db.VarChar(20)
+
+  identifiedAt          DateTime  @default(now())
+  lastUpdated           DateTime  @updatedAt
+  convertedAt           DateTime?
+
+  notes                 String?
+  tags                  String[]  @default([])
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact               Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  sequences             ContactLensSequence[]
+
+  @@unique([organizationId, contactId, lensType])
+  @@index([organizationId, lensType])
+  @@index([organizationId, priorityLevel, status])
+  @@index([organizationId, confidenceScore(sort: Desc)])
+  @@index([contactId])
+  @@map("ContactLensClassification")
+}
+
+model ContactLensSequence {
+  id                    String    @id @default(cuid())
+  contactId             String
+  organizationId        String
+  classificationId      String
+
+  sequenceType          String    @db.VarChar(20)
+  lensType              String?   @db.VarChar(3)
+
+  day0Sent              Boolean   @default(false)
+  day0SentAt            DateTime?
+  day0Clicked           Boolean   @default(false)
+  day0ClickedAt         DateTime?
+  day0ConvertedAt       DateTime?
+
+  day1Sent              Boolean   @default(false)
+  day1SentAt            DateTime?
+  day1Clicked           Boolean   @default(false)
+  day1ClickedAt         DateTime?
+  day1ConvertedAt       DateTime?
+
+  day2Sent              Boolean   @default(false)
+  day2SentAt            DateTime?
+  day2Clicked           Boolean   @default(false)
+  day2ClickedAt         DateTime?
+  day2ConvertedAt       DateTime?
+
+  day3Sent              Boolean   @default(false)
+  day3SentAt            DateTime?
+  day3Clicked           Boolean   @default(false)
+  day3ClickedAt         DateTime?
+  day3ConvertedAt       DateTime?
+
+  overallConverted      Boolean   @default(false)
+  conversionDate        DateTime?
+  conversionRevenue     Decimal?  @db.Decimal(15, 2)
+
+  status                String    @default("PENDING") @db.VarChar(20)
+  failureReason         String?   @db.VarChar(100)
+  retryCount            Int       @default(0)
+
+  startedAt             DateTime  @default(now())
+  completedAt           DateTime?
+
+  classification        ContactLensClassification @relation(fields: [classificationId], references: [id], onDelete: Cascade)
+  contact               Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([contactId, lensType])
+  @@index([organizationId, classificationId, status])
+  @@index([organizationId, overallConverted])
+  @@map("ContactLensSequence")
+}
+
+model LensTemplate {
+  id                         String    @id @default(cuid())
+  organizationId             String
+
+  templateType               String    @db.VarChar(20)
+  lensType                   String    @db.VarChar(3)
+  day                        Int       @default(0)
+  phase                      Int?
+
+  title                      String?   @db.VarChar(100)
+  body                       String
+
+  smsLength                  Int?
+  expectedClickRate          Decimal?  @db.Decimal(5, 2)
+  sendDelayMinutes           Int?
+
+  psychologyPrinciple        String?   @db.VarChar(50)
+  estimatedDurationSeconds   Int?
+  stepNumber                 Int?
+
+  status                     String    @default("ACTIVE") @db.VarChar(20)
+  version                    Int       @default(1)
+  isSystemTemplate           Boolean   @default(false)
+  customizations             Json?
+
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+
+  organization               Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, lensType, templateType])
+  @@index([lensType, day])
+  @@map("LensTemplate")
 }
 
 model ContactGroup {

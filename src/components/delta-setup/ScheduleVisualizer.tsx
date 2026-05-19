@@ -1,7 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { logger } from '@/lib/logger';
+import { getErrorMessage } from '@/constants/error-messages';
 
 /**
  * Delta SMS ScheduleVisualizer Component
@@ -88,7 +90,7 @@ function estimateSendingCount(hour: number): { estimate: string; variance: strin
 /**
  * 시간대별 스케줄 카드 컴포넌트
  */
-function ScheduleCard({
+const ScheduleCard = React.memo(function ScheduleCard({
   schedule,
   triggerType,
 }: {
@@ -98,10 +100,13 @@ function ScheduleCard({
   const isDay2Or3 = schedule.hour === 19;
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
       className="border rounded-lg p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200"
       role="region"
-      aria-label={`${schedule.time} 스케줄: ${schedule.description}`}
+      aria-label={`${formatTimeKST(schedule.hour)} (한국 기준) 스케줄: ${schedule.description}, 예상 발송 건수 ${estimateSendingCount(schedule.hour).estimate}`}
     >
       {/* 시간 + 설명 */}
       <div className="flex items-start justify-between mb-3">
@@ -173,9 +178,9 @@ function ScheduleCard({
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
-}
+});
 
 /**
  * 메인 ScheduleVisualizer 컴포넌트
@@ -187,48 +192,69 @@ export default function ScheduleVisualizer({
   const [schedules, setSchedules] = useState<CronSchedule[]>(memoizedSchedules);
   // P0 3: 발송 건수 로드 실패 처리
   const [error, setError] = useState<string | null>(null);
+  // P1 6: 성공 토스트 피드백 (3초 자동 닫힘)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // P1 6: 재시도 함수를 외부로 분리하여 재사용 가능하게 함
+  const loadStats = useCallback(async () => {
+    try {
+      // P1 9: setSchedules 배칭 (1회 setState 호출)
+      // 로딩 상태를 true로 설정
+      setError(null);
+      setSchedules((prev) =>
+        prev.map((s) => ({ ...s, isLoading: true }))
+      );
+
+      // P1 11: 실제 API 호출 (0.5초 setTimeout 제거)
+      // P1 1: Timeout 처리 (GET 5초)
+      const response = await fetch('/api/campaigns/delta/stats', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(5000), // 5초 timeout
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // P1 10: 배칭: 1회 setState 호출로 로딩 완료 + 예상 발송 건수 업데이트
+      setSchedules((prev) =>
+        prev.map((s) => {
+          const count = data.estimatesByHour?.[s.hour];
+          return {
+            ...s,
+            isLoading: false,
+            expectedCount: count,
+          };
+        })
+      );
+
+      logger.info('[ScheduleVisualizer] 예상 발송 건수 로드 완료', {
+        triggerType,
+      });
+    } catch (err) {
+      // P1 4: 사용자 친화적 에러 메시지 변환
+      const userErrorMsg = getErrorMessage(err);
+      const rawErrorMsg = err instanceof Error ? err.message : '알 수 없는 오류';
+
+      setError(userErrorMsg);
+      logger.warn('[ScheduleVisualizer] 통계 로드 실패', {
+        triggerType,
+        error: rawErrorMsg,
+        userMessage: userErrorMsg,
+      });
+      // 에러가 발생해도 로딩 상태 해제 (배칭)
+      setSchedules((prev) =>
+        prev.map((s) => ({ ...s, isLoading: false }))
+      );
+    }
+  }, [triggerType]);
 
   useEffect(() => {
-    const loadStats = async () => {
-      try {
-        // 로드 시뮬레이션
-        setError(null);
-        setSchedules((prev) =>
-          prev.map((s) => ({ ...s, isLoading: true }))
-        );
-
-        // 실제 API 호출 (현재는 시뮬레이션)
-        // const res = await fetch(`/api/campaigns/${campaignId}/delta/stats`);
-        // if (!res.ok) {
-        //   throw new Error(`HTTP ${res.status}`);
-        // }
-        // const data = await res.json();
-
-        // 0.5초 후 완료 시뮬레이션
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        setSchedules((prev) =>
-          prev.map((s) => ({ ...s, isLoading: false }))
-        );
-        logger.info('[ScheduleVisualizer] 예상 발송 건수 로드 완료', {
-          triggerType,
-        });
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : '알 수 없는 오류';
-        setError('발송 통계를 조회할 수 없습니다.');
-        logger.warn('[ScheduleVisualizer] 통계 로드 실패', {
-          triggerType,
-          error: errorMsg,
-        });
-        // 에러가 발생해도 로딩 상태 해제
-        setSchedules((prev) =>
-          prev.map((s) => ({ ...s, isLoading: false }))
-        );
-      }
-    };
-
     loadStats();
-  }, [triggerType]);
+  }, [loadStats]);
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-6">
@@ -244,14 +270,34 @@ export default function ScheduleVisualizer({
 
       {/* P0 3: 에러 메시지 표시 */}
       {error && (
-        <div
-          className="bg-red-50 border border-red-200 rounded-lg p-4"
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.2 }}
+          className="bg-red-50 border-2 border-red-300 rounded-lg p-4 animate-pulse"
           role="alert"
-          aria-live="polite"
+          aria-live="assertive"
+          aria-atomic="true"
         >
           <h3 className="font-medium text-red-900 mb-2">⚠️ 오류 발생</h3>
           <p className="text-sm text-red-800">{error}</p>
-        </div>
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={() => loadStats()}
+              className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm transition-colors"
+              aria-label="통계 조회 다시 시도"
+            >
+              재시도
+            </button>
+            <button
+              onClick={() => setError(null)}
+              className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm transition-colors"
+              aria-label="오류 메시지 닫기"
+            >
+              닫기
+            </button>
+          </div>
+        </motion.div>
       )}
 
       {/* 발송 일정 요약 */}

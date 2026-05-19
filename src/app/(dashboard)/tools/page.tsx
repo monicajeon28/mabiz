@@ -133,10 +133,10 @@ export default function ToolsPage() {
       {/* 메인 탭 */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 overflow-x-auto">
         {[
-          { key: "sms",           label: "📱 문자 템플릿" },
-          { key: "playbook",      label: "📞 콜 플레이북" },
-          { key: "call-feedback", label: "📊 콜 피드백 AI" },
-          { key: "call-playbook", label: "📚 콜 플레이북" },
+          { key: "sms",           label: "📱 SMS 템플릿" },
+          { key: "playbook",      label: "📋 플레이북 (DB)" },
+          { key: "call-feedback", label: "🎤 콜 피드백" },
+          { key: "call-playbook", label: "📚 플레이북 (전체)" },
           { key: "qa-library",    label: "❓ Q&A 라이브러리" },
         ].map((t) => (
           <button
@@ -479,7 +479,9 @@ export default function ToolsPage() {
           {/* 스크린샷/소개 */}
           <div className="bg-gray-50 rounded-lg p-6 text-center">
             <BookOpen className="w-12 h-12 text-navy-900 mx-auto mb-3" />
-            <h3 className="text-lg font-semibold text-navy-900 mb-2">61개의 검증된 콜 스크립트</h3>
+            <h3 className="text-lg font-semibold text-navy-900 mb-2">
+              {playbooks.filter(p => p.type !== "OPENING").length || "60+"}개의 검증된 콜 스크립트
+            </h3>
             <p className="text-gray-600 max-w-2xl mx-auto">
               신민형 5단계 통합 스크립트 + 모니카 욕망 증폭 원칙 + 심리학 이론(손실회피, 사회적증거, 내러티브, 희소성, 약속의일관성)을 모두 포함한 최고품질 플레이북 라이브러리.
             </p>

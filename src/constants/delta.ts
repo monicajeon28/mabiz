@@ -281,6 +281,43 @@ export function isTriggerTypeEnabled(triggerType: TriggerType): boolean {
 }
 
 // ============================================================================
+// 5-1. MESSAGE_INPUT_CONFIG (MessageSelector용 상수화)
+// ============================================================================
+
+export const MESSAGE_INPUT_CONFIG = [
+  {
+    day: 'day0' as const,
+    label: '📲 Day 0: 구매 직후',
+    description: '구매 당일 오전 - 불안감 해소 + 문제인식',
+    maxLength: MESSAGE_LIMITS.DAY_0,
+    required: true,
+  },
+  {
+    day: 'day1' as const,
+    label: '📤 Day 1: +1일',
+    description: '구매 다음날 - 사회적 증거 + 구체적 수치',
+    maxLength: MESSAGE_LIMITS.DAY_1,
+    required: true,
+  },
+  {
+    day: 'day2' as const,
+    label: '⏰ Day 2: +2일',
+    description: '구매 3일 후 - 긴급성 + 희소성 + 보상',
+    maxLength: MESSAGE_LIMITS.DAY_2,
+    required: true,
+  },
+  {
+    day: 'day3' as const,
+    label: '🚨 Day 3: +3일',
+    description: '구매 4일 후 - 최종 긴급성 + 손실회피',
+    maxLength: MESSAGE_LIMITS.DAY_3,
+    required: true,
+  },
+] as const;
+
+export type MessageInputConfig = (typeof MESSAGE_INPUT_CONFIG)[number];
+
+// ============================================================================
 // 6. 심리학 프레임워크 설정
 // ============================================================================
 
@@ -355,3 +392,81 @@ export const MESSAGE_TYPES = {
 } as const;
 
 export type MessageType = keyof typeof MESSAGE_TYPES;
+
+// ============================================================================
+// 8. Day 4+ 동적 확장 가이드 (EXTENSIBILITY)
+// ============================================================================
+
+/**
+ * DAY_CONFIG와 MESSAGE_INPUT_CONFIG는 배열 기반으로 설계되어
+ * Day 4, Day 5 등 새로운 Day를 추가하기 쉬운 구조입니다.
+ *
+ * 추가 방법:
+ *
+ * 1. MESSAGE_LIMITS에 새 Day의 제한값 추가:
+ *    ```typescript
+ *    export const MESSAGE_LIMITS = {
+ *      DAY_0: 90,
+ *      DAY_1: 160,
+ *      DAY_2: 160,
+ *      DAY_3: 160,
+ *      DAY_4: 160,  // 새로 추가
+ *    } as const;
+ *    ```
+ *
+ * 2. DAY_CONFIG 배열에 새 객체 추가:
+ *    ```typescript
+ *    export const DAY_CONFIG = [
+ *      // ... 기존 Day 0-3
+ *      {
+ *        day: 4,
+ *        label: 'Day 4',
+ *        title: '+4일',
+ *        description: '최종 리마인더',
+ *        emoji: '💬',
+ *        maxLength: MESSAGE_LIMITS.DAY_4,
+ *        psychology: 'Commitment (약속)',
+ *        triggerType: 'PURCHASE' as const,
+ *        isRequired: false,  // 선택사항
+ *      },
+ *    ] as const;
+ *    ```
+ *
+ * 3. MESSAGE_INPUT_CONFIG 배열에 새 객체 추가:
+ *    ```typescript
+ *    export const MESSAGE_INPUT_CONFIG = [
+ *      // ... 기존 Day 0-3
+ *      {
+ *        day: 'day4' as const,
+ *        label: '💬 Day 4: +4일',
+ *        description: '구매 5일 후 - 최종 리마인더',
+ *        maxLength: MESSAGE_LIMITS.DAY_4,
+ *        required: false,
+ *      },
+ *    ] as const;
+ *    ```
+ *
+ * 4. useDeltaWizard.ts에서 WizardState.messages 타입 확장:
+ *    ```typescript
+ *    interface WizardState {
+ *      // ...
+ *      messages: {
+ *        day0: string;
+ *        day1: string;
+ *        day2: string;
+ *        day3: string;
+ *        day4?: string;  // 새로 추가
+ *      };
+ *    }
+ *    ```
+ *
+ * 5. API 응답 (types/delta.ts)은 동적이므로 자동 반영됨:
+ *    ```typescript
+ *    schedule: Array<{ day: number; message: string }>;
+ *    // schedule[4]가 자동으로 포함 가능
+ *    ```
+ *
+ * 테스트 추가:
+ * - src/__tests__/hooks/useDeltaWizard.test.ts: Day 4 검증 테스트 추가
+ * - src/__tests__/components/MessagePreview.test.tsx: Day 4 렌더링 테스트 추가
+ */
