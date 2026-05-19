@@ -66,6 +66,7 @@ export function useDeltaWizard(campaignId: string) {
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 1. State 초기화
+  // P0 에러 처리: HTTP 상태별 메시지 + 필드별 오류 + Cron 설정 상세화
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const [state, setState] = useState<WizardState>({
     currentStep: 1,
