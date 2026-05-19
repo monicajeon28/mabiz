@@ -122,13 +122,12 @@ export async function GET(
  */
 export async function PATCH(
   req: Request,
-  { params }: { params: { campaignId: string } }
+  { params }: { params: Promise<{ campaignId: string }> }
 ) {
   try {
+    const { campaignId } = await params;
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
-
-    const { campaignId } = params;
 
     if (!campaignId) {
       return NextResponse.json(

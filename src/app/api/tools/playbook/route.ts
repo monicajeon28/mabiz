@@ -41,6 +41,8 @@ export async function GET(req: Request) {
         title: true,
         content: true,
         productCode: true,
+        pasonaStage: true,
+        effectivenessScore: true,
       },
       orderBy: { sectionOrder: "asc" },
     });

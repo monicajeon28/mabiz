@@ -19,6 +19,8 @@ type PlaybookItem = {
   monikaAmplifyLevel?: string;
   source?: string;
   notes?: string;
+  pasonaStage?: string;
+  effectivenessScore?: number;
 };
 
 type ClosingSignal = {
@@ -36,7 +38,14 @@ const CUSTOMER_SEGMENTS = [
   { key: "E", label: "E: 60대+" },
 ];
 
-const PSYCHOLOGY_BADGES = {
+const PASONA_STAGE_BADGES: Record<string, { color: string; label: string; icon: string }> = {
+  problem: { color: "bg-red-100 text-red-800", label: "문제 인식", icon: "⚠️" },
+  affinity: { color: "bg-yellow-100 text-yellow-800", label: "공감", icon: "🤝" },
+  solution: { color: "bg-green-100 text-green-800", label: "해결책", icon: "💡" },
+  offer: { color: "bg-blue-100 text-blue-800", label: "조건", icon: "🎁" },
+};
+
+const PSYCHOLOGY_BADGES: Record<string, { bg: string; text: string; label: string; desc: string }> = {
   "Loss Aversion": { bg: "bg-purple-100", text: "text-purple-800", label: "손실회피", desc: "손실을 이익보다 2배 크게 인지" },
   "Social Proof": { bg: "bg-pink-100", text: "text-pink-800", label: "사회증명", desc: "남과 같은 행동을 추종" },
   "Narrative Transportation": { bg: "bg-blue-100", text: "text-blue-800", label: "내러티브", desc: "스토리텔링으로 감정 몰입" },
@@ -45,7 +54,7 @@ const PSYCHOLOGY_BADGES = {
   "Commitment": { bg: "bg-red-100", text: "text-red-800", label: "약속의일관성", desc: "작은 약속→큰 약속으로 확대" },
 };
 
-const SHINMIN_STEPS = {
+const SHINMIN_STEPS: Record<string, { label: string; color: string; emoji: string }> = {
   "1": { label: "Step 1: 라포 형성", color: "bg-blue-100 text-blue-800", emoji: "👋" },
   "2": { label: "Step 2: 니즈 SPIN", color: "bg-green-100 text-green-800", emoji: "❓" },
   "3": { label: "Step 3: 욕망 증폭", color: "bg-purple-100 text-purple-800", emoji: "✨" },
@@ -53,7 +62,7 @@ const SHINMIN_STEPS = {
   "5": { label: "Step 5: 클로징", color: "bg-red-100 text-red-800", emoji: "🎯" },
 };
 
-const MONIKA_AMPLIFY_LEVELS = {
+const MONIKA_AMPLIFY_LEVELS: Record<string, string> = {
   "1": "눈 떠주기",
   "2": "필요성 공감",
   "3": "감정 증폭",
@@ -98,9 +107,9 @@ export default function PlaybookViewerPage() {
       const res = await fetch(`/api/tools/playbook?${params.toString()}`);
       const data = await res.json();
       if (data.ok) {
-        setItems(data.items || []);
+        setItems((data.items || []) as PlaybookItem[]);
         // 현재 선택 아이템 유지 (가능한 경우)
-        const isCurrentItemInResults = (data.items || []).some(item => item.id === selectedItem?.id);
+        const isCurrentItemInResults = (data.items || []).some((item: PlaybookItem) => item.id === selectedItem?.id);
         if (!isCurrentItemInResults && data.items?.length > 0) {
           setSelectedItem(data.items[0]);
         } else if (!data.items?.length) {
@@ -273,6 +282,16 @@ export default function PlaybookViewerPage() {
                             {item.productCode}
                           </span>
                         )}
+                        {item.pasonaStage && (
+                          <span className={`inline-block px-2 py-1 text-xs rounded font-medium ${PASONA_STAGE_BADGES[item.pasonaStage]?.color}`}>
+                            {PASONA_STAGE_BADGES[item.pasonaStage]?.icon} {PASONA_STAGE_BADGES[item.pasonaStage]?.label}
+                          </span>
+                        )}
+                        {item.effectivenessScore && (
+                          <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                            효과도 {item.effectivenessScore}%
+                          </span>
+                        )}
                       </div>
                       <h3 className="font-semibold text-gray-900 text-sm mb-2">{item.title}</h3>
                       <p className="text-sm text-gray-600 line-clamp-2">{item.content}</p>
@@ -313,6 +332,23 @@ export default function PlaybookViewerPage() {
                     )}
                   </button>
                 </div>
+
+                {/* PASONA 단계 배지 */}
+                {selectedItem?.pasonaStage && (
+                  <div className="mb-5">
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">PASONA 단계</h4>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`inline-block px-3 py-1.5 rounded-lg text-sm font-semibold ${PASONA_STAGE_BADGES[selectedItem.pasonaStage]?.color}`}>
+                        {PASONA_STAGE_BADGES[selectedItem.pasonaStage]?.icon} {PASONA_STAGE_BADGES[selectedItem.pasonaStage]?.label}
+                      </span>
+                      {selectedItem.effectivenessScore && (
+                        <span className="inline-block px-3 py-1.5 rounded-lg text-sm font-semibold bg-purple-100 text-purple-800">
+                          효과도 {selectedItem.effectivenessScore}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* 신민형 5단계 배지 */}
                 {selectedItem?.shinminStep && (

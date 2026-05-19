@@ -677,6 +677,8 @@ model SalesPlaybook {
   monikaAmplifyLevel String?
   source             String?
   notes              String?
+  pasonaStage        String?   // problem|affinity|solution|offer
+  effectivenessScore Int?     // 75-99 (%)
 
   @@index([type])
   @@map("SalesPlaybook")
