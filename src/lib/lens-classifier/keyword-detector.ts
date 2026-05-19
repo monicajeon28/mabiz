@@ -7,6 +7,7 @@
  */
 
 import { KeywordSignal, LensType } from './types';
+import { KEYWORD_CONFIG } from './scoring-weights';
 
 /**
  * 키워드 데이터베이스 (렌즈별 키워드)
@@ -243,10 +244,40 @@ interface KeywordDefinition {
 }
 
 /**
+ * 정규식 컴파일 캐시 (P0: ReDoS 취약점 해결)
+ * 모듈 로드 시 1회만 컴파일하여 매 호출마다 컴파일 오버헤드 제거
+ */
+const COMPILED_PATTERNS: Map<string, RegExp> = new Map();
+
+/**
+ * 정규식 캐시 조회 또는 컴파일
+ * @param pattern 정규표현식 패턴
+ * @returns 컴파일된 RegExp 객체
+ */
+function getOrCompileRegex(pattern: string): RegExp {
+  if (!COMPILED_PATTERNS.has(pattern)) {
+    try {
+      COMPILED_PATTERNS.set(pattern, new RegExp(pattern, 'gi'));
+    } catch (error) {
+      console.warn(`정규표현식 컴파일 실패: ${pattern}`);
+      return /(?!)/; // Never match
+    }
+  }
+  return COMPILED_PATTERNS.get(pattern)!;
+}
+
+/**
  * 콜 노트에서 L1-L10 렌즈 신호를 추출합니다.
+ *
+ * P0 이슈 해결:
+ * - ReDoS 취약점: 정규식 캐시 사용
+ * - 입력 검증: 5000자 제한
+ * - 에러 처리: throw로 변경
+ * - 중복제거: 렌즈 정렬
  *
  * @param callNotes - 콜 노트 텍스트
  * @returns 감지된 키워드 신호 배열 (신뢰도 순 정렬)
+ * @throws Error 입력이 5000자 초과 또는 정규표현식 처리 오류
  *
  * @example
  * const signals = detectKeywords('월 33,000원이라고 했는데 150만원이라고?');
@@ -261,6 +292,18 @@ interface KeywordDefinition {
  * // ]
  */
 export function detectKeywords(callNotes: string): KeywordSignal[] {
+  // CRITICAL #2: undefined 참조 방지
+  if (!callNotes) {
+    return [];
+  }
+
+  // P0: 입력 검증 (ReDoS 방지)
+  if (callNotes.length > KEYWORD_CONFIG.MAX_CALL_NOTES_LENGTH) {
+    throw new Error(
+      `콜 노트는 1자 이상 ${KEYWORD_CONFIG.MAX_CALL_NOTES_LENGTH}자 이하여야 합니다. (받은 길이: ${callNotes.length})`
+    );
+  }
+
   const signals: KeywordSignal[] = [];
   const normalizedText = callNotes.toLowerCase();
 
@@ -270,7 +313,8 @@ export function detectKeywords(callNotes: string): KeywordSignal[] {
       // 모든 패턴 검사
       for (const pattern of keywordDef.patterns) {
         try {
-          const regex = new RegExp(pattern, 'gi');
+          // P0: 정규식 캐시 사용 (ReDoS 완화)
+          const regex = getOrCompileRegex(pattern);
           if (regex.test(normalizedText)) {
             signals.push({
               keyword: keywordDef.keyword,
@@ -281,8 +325,10 @@ export function detectKeywords(callNotes: string): KeywordSignal[] {
             break; // 이 키워드는 한 번만 추가
           }
         } catch (error) {
-          // 정규표현식 에러 무시
-          console.warn(`Invalid regex pattern: ${pattern}`);
+          // P0: 에러 무시 → 에러 스로우 (즉시 감지)
+          throw new Error(
+            `정규표현식 처리 오류: ${pattern} - ${error instanceof Error ? error.message : '알 수 없는 오류'}`
+          );
         }
       }
     }
@@ -291,10 +337,11 @@ export function detectKeywords(callNotes: string): KeywordSignal[] {
   // 신뢰도 높은 순으로 정렬
   signals.sort((a, b) => b.confidence - a.confidence);
 
-  // 중복 제거 (같은 렌즈 신호는 한 번만)
+  // P0: 중복 제거 개선 (렌즈 배열 정렬)
   const uniqueSignals = new Map<string, KeywordSignal>();
   for (const signal of signals) {
-    const key = signal.lenses.join(',');
+    // CRITICAL #1: 렌즈를 정렬하여 순서 다른 중복 방지 (원본 배열 변경 방지)
+    const key = [...signal.lenses].sort().join(',');
     if (!uniqueSignals.has(key)) {
       uniqueSignals.set(key, signal);
     }
@@ -328,7 +375,7 @@ export function calculateKeywordStrength(signals: KeywordSignal[]): number {
   const signalCount = signals.length;
 
   // 최대 100, 최소 0
-  return Math.min(100, Math.round(avgConfidence * signalCount * 50));
+  return Math.min(100, Math.round(avgConfidence * signalCount * KEYWORD_CONFIG.STRENGTH_MULTIPLIER));
 }
 
 /**

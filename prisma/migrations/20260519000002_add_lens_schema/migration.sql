@@ -13,7 +13,7 @@ BEGIN;
 
 CREATE TABLE "ContactLensClassification" (
   id                    TEXT NOT NULL PRIMARY KEY,
-  contactId             TEXT NOT NULL UNIQUE,
+  contactId             TEXT NOT NULL,
   organizationId        TEXT NOT NULL,
 
   lensType              VARCHAR(3) NOT NULL,
@@ -38,7 +38,8 @@ CREATE TABLE "ContactLensClassification" (
 
   CONSTRAINT fk_lens_contact FOREIGN KEY (contactId) REFERENCES "Contact"(id) ON DELETE CASCADE,
   CONSTRAINT fk_lens_org FOREIGN KEY (organizationId) REFERENCES "Organization"(id) ON DELETE CASCADE,
-  CONSTRAINT ck_lens_type CHECK (lensType IN ('L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9', 'L10'))
+  CONSTRAINT ck_lens_type CHECK (lensType IN ('L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9', 'L10')),
+  CONSTRAINT uk_lens_contact_type UNIQUE(contactId, lensType)
 );
 
 CREATE INDEX "idx_lens_org_type" ON "ContactLensClassification"(organizationId, lensType);
@@ -116,7 +117,7 @@ CREATE TABLE "LensTemplate" (
 
   templateType          VARCHAR(20) NOT NULL,
   lensType              VARCHAR(3) NOT NULL,
-  day                   INT,
+  day                   INT NOT NULL DEFAULT 0,
   phase                 INT,
 
   title                 VARCHAR(100),
@@ -157,9 +158,7 @@ ALTER TABLE "Contact" ADD COLUMN IF NOT EXISTS lensConfidenceScore INT DEFAULT 0
 ALTER TABLE "Contact" ADD COLUMN IF NOT EXISTS lensSequenceStatus VARCHAR(20);
 ALTER TABLE "Contact" ADD COLUMN IF NOT EXISTS lensSequenceStartedAt TIMESTAMPTZ;
 
-ALTER TABLE "Contact" ADD COLUMN IF NOT EXISTS l10DecisionLevel INT DEFAULT 0;
-ALTER TABLE "Contact" ADD COLUMN IF NOT EXISTS l10ReadinessScore INT DEFAULT 0;
-ALTER TABLE "Contact" ADD COLUMN IF NOT EXISTS l10LastUpdateAt TIMESTAMPTZ;
+ALTER TABLE "Contact" ADD COLUMN IF NOT EXISTS lensMetadata JSONB DEFAULT '{"decisionLevel": 0, "readinessScore": 0}';
 
 ALTER TABLE "Contact" ADD COLUMN IF NOT EXISTS decisionMadeAt TIMESTAMPTZ;
 ALTER TABLE "Contact" ADD COLUMN IF NOT EXISTS decisionOutcome VARCHAR(20);
@@ -167,7 +166,6 @@ ALTER TABLE "Contact" ADD COLUMN IF NOT EXISTS decisionOutcome VARCHAR(20);
 -- Contact 인덱스 추가
 CREATE INDEX IF NOT EXISTS "idx_contact_lens_type" ON "Contact"(organizationId, lensType) WHERE lensType IS NOT NULL;
 CREATE INDEX IF NOT EXISTS "idx_contact_sequence_status" ON "Contact"(lensSequenceStatus) WHERE lensSequenceStatus IS NOT NULL;
-CREATE INDEX IF NOT EXISTS "idx_contact_l10_ready" ON "Contact"(organizationId) WHERE lensType = 'L10' AND l10DecisionLevel >= 80;
 
 -- ============================================================================
 -- STEP 5: CrmMarketingCampaign 테이블 칼럼 추가 (렌즈 타겟팅)
@@ -231,23 +229,23 @@ BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ExecutionLog') THEN
     INSERT INTO "ExecutionLog" (
       id,
-      "executationName",
+      "executionName",
       status,
       "executedAt",
       "createdAt",
       metadata
     )
     VALUES (
-      substr(md5(random()::text), 0, 25),
+      substr(md5(random()::text), 1, 24),
       'MIGRATION_PHASE4_STEP5_LENS_SCHEMA',
       'SUCCESS',
       NOW(),
       NOW(),
       jsonb_build_object(
         'tables_created', jsonb_build_array('ContactLensClassification', 'ContactLensSequence', 'LensTemplate'),
-        'columns_added_contact', jsonb_build_array('lensType', 'lensConfidenceScore', 'lensSequenceStatus', 'l10DecisionLevel', 'decisionMadeAt'),
+        'columns_added_contact', jsonb_build_array('lensType', 'lensConfidenceScore', 'lensSequenceStatus', 'lensSequenceStartedAt', 'lensMetadata', 'decisionMadeAt', 'decisionOutcome'),
         'columns_added_campaign', jsonb_build_array('targetLens', 'smsTemplateLens', 'callScriptLens', 'lensMetadata'),
-        'indexes_created', 15,
+        'indexes_created', 13,
         'migration_date', NOW()::TEXT,
         'phase', 'Step 5-1: DB Schema Design'
       )

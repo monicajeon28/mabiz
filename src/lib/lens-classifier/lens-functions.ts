@@ -4,10 +4,25 @@
  * 각 렌즈 함수는 0-100 점수를 반환합니다.
  * 점수가 높을수록 해당 렌즈일 가능성이 높음.
  *
+ * P1 이슈 해결: 모든 매직 숫자를 scoring-weights.ts에서 import
+ *
  * @file src/lib/lens-classifier/lens-functions.ts
  */
 
 import { QuestionnaireResponse, KeywordSignal, LensScorer } from './types';
+import {
+  L1_WEIGHTS,
+  L2_WEIGHTS,
+  L3_WEIGHTS,
+  L4_WEIGHTS,
+  L5_WEIGHTS,
+  L6_WEIGHTS,
+  L7_WEIGHTS,
+  L8_WEIGHTS,
+  L9_WEIGHTS,
+  L10_WEIGHTS,
+  BOUNDARY_PROTECTION,
+} from './scoring-weights';
 
 /**
  * L1: 가격 오해형 (광고 불신 고객)
@@ -28,20 +43,20 @@ export const classifyL1: LensScorer = (responses, keywordSignals) => {
 
   // 광고 신뢰도 낮음 (역점수)
   const adTrustReverse = 5 - responses.q1_ad_trust;
-  score += Math.max(0, adTrustReverse * 20);
+  score += Math.max(0, adTrustReverse * L1_WEIGHTS.AD_TRUST_REVERSE_MULTIPLIER);
 
   // 가격 민감도 높음
-  score += responses.q2_price_sensitivity * 10;
+  score += responses.q2_price_sensitivity * L1_WEIGHTS.PRICE_SENSITIVITY_MULTIPLIER;
 
   // L1 키워드 감지
   const hasL1Keyword = keywordSignals.some((signal) => signal.lenses.includes('L1'));
   if (hasL1Keyword) {
-    score += 20;
+    score += L1_WEIGHTS.KEYWORD_BONUS;
   }
 
   // 신규 고객 + 인플루언서 광고 소스
   if (responses.source === 'INFLUENCER_AD' && !responses.lastPurchaseDate) {
-    score += 15;
+    score += L1_WEIGHTS.INFLUENCER_AD_BONUS;
   }
 
   return Math.min(100, score);
@@ -64,21 +79,21 @@ export const classifyL2: LensScorer = (responses, keywordSignals) => {
   let score = 0;
 
   // 준비 부담감 높음
-  score += responses.q3_preparation_burden * 20;
+  score += responses.q3_preparation_burden * L2_WEIGHTS.PREPARATION_BURDEN_MULTIPLIER;
 
   // 광고 신뢰도 낮음 (또는 정보 부족)
   const adTrustReverse = 5 - responses.q1_ad_trust;
-  score += Math.max(0, adTrustReverse * 10);
+  score += Math.max(0, adTrustReverse * L2_WEIGHTS.AD_TRUST_REVERSE_MULTIPLIER);
 
   // L2 키워드 감지
   const hasL2Keyword = keywordSignals.some((signal) => signal.lenses.includes('L2'));
   if (hasL2Keyword) {
-    score += 20;
+    score += L2_WEIGHTS.KEYWORD_BONUS;
   }
 
   // 직업 기반 (맞벌이, 임원, 자영업)
   if (responses.buyerType === 'NEWLYWED' || responses.buyerType === 'FAMILY_40S') {
-    score += 10;
+    score += L2_WEIGHTS.BUYER_TYPE_BONUS;
   }
 
   return Math.min(100, score);
@@ -101,28 +116,28 @@ export const classifyL3: LensScorer = (responses, keywordSignals) => {
 
   // 크루즈 경험 없음 (역점수)
   const cruiseExperienceReverse = 5 - responses.q4_cruise_experience;
-  score += cruiseExperienceReverse * 25;
+  score += cruiseExperienceReverse * L3_WEIGHTS.CRUISE_EXPERIENCE_REVERSE_MULTIPLIER;
 
   // L3 키워드 감지 (약화)
   const hasL3Keyword = keywordSignals.some((signal) => signal.lenses.includes('L3'));
   if (hasL3Keyword) {
-    score += 15; // 20 → 15로 약화
+    score += L3_WEIGHTS.KEYWORD_BONUS;
   }
 
   // L10 키워드가 있으면 L3 점수를 줄임 (우선순위 조정)
   const hasL10Keyword = keywordSignals.some((signal) => signal.lenses.includes('L10'));
   if (hasL10Keyword) {
-    score *= 0.5; // L10이 우선
+    score *= L3_WEIGHTS.L10_INTERFERENCE_MULTIPLIER;
   }
 
   // 신규 고객 (organic search 또는 referral)
   if ((responses.source === 'ORGANIC' || responses.source === 'REFERRAL') && !responses.lastPurchaseDate) {
-    score += 10; // 15 → 10으로 감소
+    score += L3_WEIGHTS.ORGANIC_BONUS;
   }
 
   // 첫 크루즈 탈 가능성 높은 나이대 (30-60대)
-  if (responses.age && responses.age >= 30 && responses.age <= 60) {
-    score += 5; // 10 → 5로 감소
+  if (responses.age && responses.age >= BOUNDARY_PROTECTION.MIN_AGE && responses.age <= 60) {
+    score += L3_WEIGHTS.AGE_BONUS;
   }
 
   return Math.min(100, score);
@@ -146,17 +161,17 @@ export const classifyL4: LensScorer = (responses, keywordSignals) => {
   // L4 키워드 감지 (강한 신호)
   const hasL4Keyword = keywordSignals.some((signal) => signal.lenses.includes('L4'));
   if (hasL4Keyword) {
-    score += 40;
+    score += L4_WEIGHTS.KEYWORD_BONUS;
   }
 
   // 결정 준비도가 낮으면 L4 가능성 (약정 때문에 안 함)
   if (responses.q5_decision_readiness <= 2) {
-    score += 15;
+    score += L4_WEIGHTS.LOW_DECISION_BONUS;
   }
 
   // 신규 고객 (이미 경험 있는 고객은 L4 확률 낮음)
   if (!responses.lastPurchaseDate) {
-    score += 10;
+    score += L4_WEIGHTS.NEW_CUSTOMER_BONUS;
   }
 
   return Math.min(100, score);
@@ -181,12 +196,12 @@ export const classifyL5: LensScorer = (responses, keywordSignals) => {
   // L5 키워드 감지
   const hasL5Keyword = keywordSignals.some((signal) => signal.lenses.includes('L5'));
   if (hasL5Keyword) {
-    score += 30;
+    score += L5_WEIGHTS.KEYWORD_BONUS;
   }
 
   // 크루즈 경험 없고 자신감 부족 신호
   if (responses.q4_cruise_experience <= 2) {
-    score += 20;
+    score += L5_WEIGHTS.LOW_EXPERIENCE_BONUS;
   }
 
   return Math.min(100, score);
@@ -214,25 +229,29 @@ export const classifyL6: LensScorer = (responses, keywordSignals) => {
   // Q5가 2-4점 (중간: "언제 갈지 못 정했어요")
   if (q5_decision_readiness >= 2 && q5_decision_readiness <= 4) {
     // Q5 = 2 → 35점, Q5 = 3 → 45점, Q5 = 4 → 55점 (약화)
-    score += (q5_decision_readiness - 1) * 10 + 25;
+    score += (q5_decision_readiness - 1) * L6_WEIGHTS.DECISION_READINESS_MULTIPLIER + L6_WEIGHTS.DECISION_READINESS_BASE;
   }
 
   // L6 키워드 감지 (시간/일정 관련)
   const hasL6Keyword = keywordSignals.some((signal) => signal.lenses.includes('L6'));
   if (hasL6Keyword) {
-    score += 20;
+    score += L6_WEIGHTS.KEYWORD_BONUS;
   }
 
   // L10 키워드가 있으면 L6 점수 줄임
   const hasL10Keyword = keywordSignals.some((signal) => signal.lenses.includes('L10'));
   if (hasL10Keyword) {
-    score *= 0.6; // L10이 우선
+    // P0: 극단값 보호 (최소값 보장)
+    score = Math.max(
+      BOUNDARY_PROTECTION.MIN_LENS_SCORE_AFTER_INTERFERENCE,
+      score * L6_WEIGHTS.L10_INTERFERENCE_MULTIPLIER
+    );
   }
 
   // 가격/준비 부담 신호가 없으면 L6 확률 높음
   const hasL1L2Keyword = keywordSignals.some((signal) => signal.lenses.includes('L1') || signal.lenses.includes('L2'));
   if (!hasL1L2Keyword) {
-    score += 10; // 15 → 10으로 감소
+    score += L6_WEIGHTS.NO_PRICE_PREP_BONUS;
   }
 
   return Math.min(100, score);
@@ -256,12 +275,12 @@ export const classifyL7: LensScorer = (responses, keywordSignals) => {
   // L7 키워드 감지
   const hasL7Keyword = keywordSignals.some((signal) => signal.lenses.includes('L7'));
   if (hasL7Keyword) {
-    score += 40;
+    score += L7_WEIGHTS.KEYWORD_BONUS;
   }
 
   // 동반자 미결정 + 낮은 결정 준비도
   if (responses.q5_decision_readiness < 3 && hasL7Keyword) {
-    score += 20;
+    score += L7_WEIGHTS.LOW_DECISION_WITH_KEYWORD_BONUS;
   }
 
   return Math.min(100, score);
@@ -291,22 +310,22 @@ export const classifyL8: LensScorer = (responses, keywordSignals) => {
 
     // 1-2년 미구매: 강한 신호
     if (yearsSincePurchase >= 1 && yearsSincePurchase < 2) {
-      score += 50;
+      score += L8_WEIGHTS.RETURNING_1_2_YEARS;
     }
     // 2-5년 미구매: 중간 신호
     else if (yearsSincePurchase >= 2 && yearsSincePurchase < 5) {
-      score += 40;
+      score += L8_WEIGHTS.RETURNING_2_5_YEARS;
     }
     // 5년 이상: 약한 신호 (새로운 고객에 가까움)
     else if (yearsSincePurchase >= 5) {
-      score += 20;
+      score += L8_WEIGHTS.RETURNING_5_PLUS_YEARS;
     }
   }
 
   // L8 키워드 감지 (멤버십 필요성, 할인 등)
   const hasL8Keyword = keywordSignals.some((signal) => signal.lenses.includes('L8'));
   if (hasL8Keyword) {
-    score += 20;
+    score += L8_WEIGHTS.KEYWORD_BONUS;
   }
 
   return Math.min(100, score);
@@ -331,17 +350,17 @@ export const classifyL9: LensScorer = (responses, keywordSignals) => {
   // L9 키워드 감지 (강한 신호)
   const hasL9Keyword = keywordSignals.some((signal) => signal.lenses.includes('L9'));
   if (hasL9Keyword) {
-    score += 50;
+    score += L9_WEIGHTS.KEYWORD_BONUS;
   }
 
   // 가족/자녀 + 안전 우려
   if (responses.buyerType === 'FAMILY_40S' && hasL9Keyword) {
-    score += 20;
+    score += L9_WEIGHTS.FAMILY_WITH_KEYWORD_BONUS;
   }
 
   // Q3(준비부담감) 높고 L9 신호 = 건강 때문일 가능성
   if (responses.q3_preparation_burden >= 4 && hasL9Keyword) {
-    score += 10;
+    score += L9_WEIGHTS.HIGH_PREP_BURDEN_BONUS;
   }
 
   return Math.min(100, score);
@@ -370,24 +389,24 @@ export const classifyL10: LensScorer = (responses, keywordSignals) => {
   // Q5 = 4-5점 (높은 결정 준비도) - 강한 신호
   if (q5_decision_readiness >= 4) {
     // Q5 = 4 → 60점, Q5 = 5 → 80점
-    score += (q5_decision_readiness - 3) * 20;
+    score += (q5_decision_readiness - 3) * L10_WEIGHTS.DECISION_READINESS_MULTIPLIER + L10_WEIGHTS.DECISION_READINESS_BASE;
   }
 
   // L10 키워드 감지 ("마지막", "지금 예약", "선택 완료" 등) - 매우 강한 신호
   const hasL10Keyword = keywordSignals.some((signal) => signal.lenses.includes('L10'));
   if (hasL10Keyword) {
-    score += 30; // 강화 (20 → 30)
+    score += L10_WEIGHTS.KEYWORD_BONUS;
   }
 
   // 이미 제품 선택했다는 신호 (배, 객실, 날짜)
   const hasDecisionSignal = keywordSignals.some((signal) => signal.category === 'DECISION' && signal.confidence > 0.7);
   if (hasDecisionSignal) {
-    score += 15;
+    score += L10_WEIGHTS.DECISION_SIGNAL_BONUS;
   }
 
   // Q5가 없지만 L10 키워드만 있는 경우도 강한 신호
   if (q5_decision_readiness < 4 && hasL10Keyword) {
-    score += 25; // 키워드가 있으면 Q5 부족해도 더해줌
+    score += L10_WEIGHTS.KEYWORD_WITHOUT_Q5_BONUS;
   }
 
   return Math.min(100, score);

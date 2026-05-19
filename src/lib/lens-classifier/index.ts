@@ -8,7 +8,7 @@
  * @version 1.0.0
  */
 
-import { LensType, ClassificationResult, QuestionnaireResponse } from './types';
+import { LensType, ClassificationResult, QuestionnaireResponse, KeywordSignal } from './types';
 import {
   classifyL1,
   classifyL2,
@@ -21,7 +21,12 @@ import {
   classifyL9,
   classifyL10,
 } from './lens-functions';
-import { detectKeywords, KeywordSignal } from './keyword-detector';
+import { detectKeywords } from './keyword-detector';
+import {
+  BAYESIAN_CONFIG,
+  CACHE_CONFIG,
+  PRIORITY_CONFIG,
+} from './scoring-weights';
 
 /**
  * 신규 고객의 질문지 답변과 선택적 콜 노트를 기반으로
@@ -84,7 +89,8 @@ export function classifyCustomerLens(
     .map(([lens, score]) => ({ lens: lens as LensType, score }));
 
   const primaryLens = sorted[0].lens;
-  const secondaryLens = sorted[1].lens;
+  // P0: 배열 경계 안전성 (10개 렌즈 항상 존재하지만 방어 코드)
+  const secondaryLens = sorted.length > 1 ? sorted[1].lens : sorted[0].lens;
   const primaryScore = sorted[0].score;
 
   // 5. Bayesian 신뢰도 계산 (사후확률)
@@ -141,6 +147,11 @@ function validateResponses(responses: QuestionnaireResponse): void {
 /**
  * Bayesian 신뢰도 계산 (0-100)
  *
+ * P0 이슈 해결:
+ * - Bayesian 오버플로우: posterior * 100 (200 → 100)
+ * - 0점 케이스 처리: totalScore === 0일 때 명시적 반환
+ * - posterior 정규화: 0-1 범위 보장
+ *
  * 공식:
  * - 사전확률 (Prior): 각 렌즈별 시장점유율
  * - 우도확률 (Likelihood): 점수 기반 확률
@@ -153,25 +164,20 @@ function validateResponses(responses: QuestionnaireResponse): void {
  */
 function calculateBayesianConfidence(lens: LensType, lensScore: number, allScores: Record<LensType, number>): number {
   // 1. 사전확률 (Prior) - 렌즈별 시장점유율
-  const priors: Record<LensType, number> = {
-    L1: 0.25, // 가격 오해형 (25%)
-    L2: 0.1, // 준비 부담형 (10%)
-    L3: 0.2, // 차별성 미인지 (20%)
-    L4: 0.08, // 멤버십 저항 (8%)
-    L5: 0.07, // 적합성 의심 (7%)
-    L6: 0.08, // 타이밍 미결 (8%)
-    L7: 0.08, // 동반자 이슈 (8%)
-    L8: 0.02, // 재구매 유보 (2%, 부재중 DB 대상)
-    L9: 0.03, // 건강/안전 불안 (3%)
-    L10: 0.01, // 즉시구매 (1%, 준비 완료 고객)
-  };
+  const priors = BAYESIAN_CONFIG.PRIORS;
 
   // 2. 우도확률 (Likelihood) - 모든 렌즈에 대한 상대적 점수
   const totalScore = Object.values(allScores).reduce((a, b) => a + b, 0);
+
+  // P0: 0점 케이스 명시적 처리
+  if (totalScore === 0) {
+    return 50; // 신뢰도 없음 = 중간 신뢰도
+  }
+
   const likelihoods = Object.entries(allScores).reduce(
     (acc, [lensKey, score]) => ({
       ...acc,
-      [lensKey]: totalScore > 0 ? score / totalScore : 0.1,
+      [lensKey]: score / totalScore,
     }),
     {} as Record<LensType, number>
   );
@@ -180,13 +186,17 @@ function calculateBayesianConfidence(lens: LensType, lensScore: number, allScore
   // P(Lens|Score) = P(Score|Lens) * P(Lens) / P(Score)
   const likelihood = likelihoods[lens];
   const prior = priors[lens];
-  const evidence = Object.keys(priors).reduce((acc, key) => acc + likelihoods[key as LensType] * priors[key as LensType], 0);
+  const evidence = Object.keys(priors).reduce(
+    (acc, key) => acc + likelihoods[key as LensType] * priors[key as LensType],
+    0
+  );
 
-  const posterior = (likelihood * prior) / (evidence || 0.01);
+  // P0: posterior 정규화 (0-1 범위 보장)
+  const rawPosterior = (likelihood * prior) / (evidence || 0.01);
+  const posterior = Math.min(1, Math.max(0, rawPosterior));
 
-  // 4. 신뢰도를 0-100으로 변환
-  // posterior는 0-1 범위이므로, 0.5에서 1.0 사이를 0-100으로 정규화
-  const confidence = Math.min(100, Math.max(0, Math.round(posterior * 200))); // posterior * 200 for scaling
+  // P0: 신뢰도를 0-100으로 변환 (200 → 100)
+  const confidence = Math.round(posterior * BAYESIAN_CONFIG.CONFIDENCE_MULTIPLIER);
 
   return confidence;
 }
@@ -196,24 +206,10 @@ function calculateBayesianConfidence(lens: LensType, lensScore: number, allScore
  * 우선순위: L10(즉시) > L9(건강) > L6(타이밍) > L1/L3/L8(일반) > L2 > L4 > L5
  */
 function calculatePriority(lens: LensType): 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' {
-  switch (lens) {
-    case 'L10': // 즉시 구매형 - 최우선 (삼중선택 + 신민형 5STEP)
-      return 'CRITICAL';
-    case 'L9': // 건강/안전 불안 - 의료팀 필요
-      return 'CRITICAL';
-    case 'L6': // 타이밍 미결 - 손실 앵커 필요
-      return 'HIGH';
-    case 'L1':
-    case 'L3':
-    case 'L8': // 일반 저항형
-      return 'MEDIUM';
-    case 'L2':
-    case 'L4':
-    case 'L5':
-      return 'LOW';
-    default:
-      return 'MEDIUM';
-  }
+  if (PRIORITY_CONFIG.CRITICAL_LENSES.includes(lens)) return 'CRITICAL';
+  if (PRIORITY_CONFIG.HIGH_LENSES.includes(lens)) return 'HIGH';
+  if (PRIORITY_CONFIG.MEDIUM_LENSES.includes(lens)) return 'MEDIUM';
+  return 'LOW';
 }
 
 /**
@@ -327,8 +323,8 @@ function getCachedClassification(cacheKey: string): ClassificationResult | null 
  * 분류 결과를 캐시에 저장
  */
 function setCachedClassification(cacheKey: string, result: ClassificationResult): void {
-  // 최대 1000개까지만 캐시 유지 (메모리 관리)
-  if (classificationCache.size > 1000) {
+  // 최대 캐시 크기 초과 시 FIFO 방식으로 제거
+  if (classificationCache.size > CACHE_CONFIG.MAX_CACHED_CLASSIFICATIONS) {
     const firstKey = classificationCache.keys().next().value;
     classificationCache.delete(firstKey);
   }
