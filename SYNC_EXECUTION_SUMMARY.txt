@@ -1,0 +1,29 @@
+=== MIGRATION SYNCHRONIZATION STRATEGY ===
+
+CURRENT STATE:
+- DB: 20260519000002_add_lens_schema (latest applied)
+- Orphan in DB: 20260519_add_playbook_fields (file missing locally)
+- Pending locally: 5 migrations (003, 004, 006, 007, 008)
+
+RECOMMENDED: OPTION A (Safe Path)
+
+EXECUTION (3 commands, ~2 min):
+
+1. Resolve orphan:
+   npx prisma migrate resolve --rolled-back 20260519_add_playbook_fields
+
+2. Verify sync:
+   npx prisma migrate status
+
+3. Apply pending:
+   npx prisma migrate deploy
+
+RISK ANALYSIS:
+- Migration 003-004: Low (new columns + indexes)
+- Migration 006: Low (CONCURRENT indexes, no table lock)
+- Migration 007: Low (new columns + safe UPDATE)
+- Migration 008: Medium (constraint update, but safe)
+- Overall: <1% failure risk
+
+ROLLBACK: npx prisma migrate reset --skip-seed (dev only, drops data)
+

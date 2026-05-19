@@ -5,8 +5,9 @@
 
 BEGIN;
 
--- 기존 단일 unique 제약 삭제
+-- 기존 단일 unique 제약 삭제 (여러 가능한 제약명 처리)
 ALTER TABLE "ContactLensClassification" DROP CONSTRAINT IF EXISTS "ContactLensClassification_contactId_lensType_key";
+ALTER TABLE "ContactLensClassification" DROP CONSTRAINT IF EXISTS "uk_lens_contact_type";
 
 -- 새로운 복합 unique 제약 추가 (organizationId 포함)
 ALTER TABLE "ContactLensClassification" ADD CONSTRAINT "ContactLensClassification_organizationId_contactId_lensType_key" UNIQUE (organizationId, contactId, lensType);

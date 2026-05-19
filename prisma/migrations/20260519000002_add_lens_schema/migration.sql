@@ -39,7 +39,7 @@ CREATE TABLE "ContactLensClassification" (
   CONSTRAINT fk_lens_contact FOREIGN KEY (contactId) REFERENCES "Contact"(id) ON DELETE CASCADE,
   CONSTRAINT fk_lens_org FOREIGN KEY (organizationId) REFERENCES "Organization"(id) ON DELETE CASCADE,
   CONSTRAINT ck_lens_type CHECK (lensType IN ('L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9', 'L10')),
-  CONSTRAINT uk_lens_contact_type UNIQUE(contactId, lensType)
+  CONSTRAINT uk_lens_contact_type UNIQUE(organizationId, contactId, lensType)
 );
 
 CREATE INDEX "idx_lens_org_type" ON "ContactLensClassification"(organizationId, lensType);
