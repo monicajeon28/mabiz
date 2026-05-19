@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 /**
  * Delta SMS MessageSelector Component
@@ -81,7 +81,14 @@ function MessageInput({
       </label>
 
       {/* 프로그레스 바 */}
-      <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
+      <div
+        className="h-2 rounded-full bg-gray-200 overflow-hidden"
+        role="progressbar"
+        aria-valuenow={length}
+        aria-valuemin={0}
+        aria-valuemax={maxLength}
+        aria-label={`메시지 길이: ${length}/${maxLength}자`}
+      >
         <div
           className={`h-full transition-all ${
             length <= maxLength * 0.8
@@ -105,6 +112,28 @@ export default function MessageSelector({
   onMessageChange,
   defaultMessages,
 }: MessageSelectorProps) {
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  // 사용자가 메시지를 입력했는지 확인
+  const hasUserInput = Object.values(messages).some((msg) => msg.trim().length > 0);
+
+  const handleToggleDefault = (newValue: boolean) => {
+    // 기본값에서 직접입력으로 전환할 때만 확인
+    if (newValue === false && !useDefault && hasUserInput) {
+      // 이미 직접입력 모드이고 데이터가 있으면 전환 필요 없음
+      return;
+    }
+
+    // 직접입력에서 기본값으로 전환하려고 하는데 입력된 메시지가 있을 때
+    if (newValue === true && !useDefault && hasUserInput) {
+      if (confirm('입력한 메시지가 사라집니다. 기본값으로 변경할까요?')) {
+        onToggleDefault(newValue);
+      }
+    } else {
+      onToggleDefault(newValue);
+    }
+  };
+
   const dayConfigs = [
     {
       day: 'day0' as const,
@@ -154,8 +183,9 @@ export default function MessageSelector({
           <input
             type="radio"
             checked={useDefault}
-            onChange={() => onToggleDefault(true)}
+            onChange={() => handleToggleDefault(true)}
             className="w-4 h-4 mt-1"
+            aria-label="기본값 사용 (추천): 심리학 기반 최적화된 메시지"
           />
           <div>
             <h3 className="font-medium text-gray-900">기본값 사용 (추천)</h3>
@@ -169,8 +199,9 @@ export default function MessageSelector({
           <input
             type="radio"
             checked={!useDefault}
-            onChange={() => onToggleDefault(false)}
+            onChange={() => handleToggleDefault(false)}
             className="w-4 h-4 mt-1"
+            aria-label="직접 입력: 브랜드에 맞게 메시지 커스터마이징"
           />
           <div>
             <h3 className="font-medium text-gray-900">직접 입력</h3>
@@ -182,7 +213,7 @@ export default function MessageSelector({
       </div>
 
       {/* 메시지 입력 */}
-      <div className="space-y-4">
+      <div className={`space-y-4 transition-opacity duration-300 ${useDefault ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
         {dayConfigs.map((config) => (
           <MessageInput
             key={config.day}

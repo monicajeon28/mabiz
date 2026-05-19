@@ -42,6 +42,7 @@ export default function TriggerSelector({
               checked={value === 'PURCHASE'}
               onChange={(e) => onChange(e.target.value as 'PURCHASE' | 'ABANDONED')}
               className="w-5 h-5 mt-1"
+              aria-label="구매 후 메시지 (PURCHASE)"
             />
             <div className="flex-1">
               <h3 className="font-semibold text-gray-900">구매 후 (PURCHASE)</h3>

@@ -154,6 +154,7 @@ export default function DeltaSetupPage() {
               onClick={handleNext}
               disabled={!isStepValid(state.currentStep) || state.isSaving}
               className="px-6 bg-blue-600 hover:bg-blue-700"
+              title={!isStepValid(state.currentStep) ? "모든 필수 필드를 입력하세요" : ""}
             >
               다음
             </Button>

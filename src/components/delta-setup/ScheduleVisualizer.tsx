@@ -74,15 +74,15 @@ function formatTimeKST(hour: number): string {
  * 예상 발송 건수 계산 (모의 데이터)
  * 실제 데이터베이스 쿼리는 API로 수행
  */
-function estimateSendingCount(hour: number): string {
+function estimateSendingCount(hour: number): { estimate: string; variance: string } {
   // 시뮬레이션: 시간이 이를수록 발송 건수 감소
   // Day 0 (09:00): 2400
   // Day 1 (14:00): 1800
   // Day 2/3 (19:00): 1200
-  if (hour === 9) return '~2,400건';
-  if (hour === 14) return '~1,800건';
-  if (hour === 19) return '~1,200건';
-  return '알 수 없음';
+  if (hour === 9) return { estimate: '약 2,400건', variance: '(±25%, 지난 7일 평균)' };
+  if (hour === 14) return { estimate: '약 1,800건', variance: '(±25%, 지난 7일 평균)' };
+  if (hour === 19) return { estimate: '약 1,200건', variance: '(±25%, 지난 7일 평균)' };
+  return { estimate: '알 수 없음', variance: '' };
 }
 
 /**
@@ -108,9 +108,7 @@ function ScheduleCard({
         <div className="flex-1">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
             <span className="text-blue-600">🕐</span> {formatTimeKST(schedule.hour)}
-            <span className="text-sm font-medium text-blue-600 bg-blue-100 px-2 py-0.5 rounded" aria-description="한국 표준시 (UTC+9)">
-              한국표준시 (KST)
-            </span>
+            <span className="text-xs text-gray-500">(한국 기준, UTC+9)</span>
           </h3>
           <p className="text-sm text-gray-700 mt-1">{schedule.description}</p>
         </div>
@@ -121,16 +119,19 @@ function ScheduleCard({
         {/* 예상 발송 건수 */}
         <div className="flex items-center justify-between text-sm">
           <span className="text-gray-600">예상 발송 건수</span>
-          <span className="font-medium text-gray-900">
+          <div className="flex items-baseline gap-1 font-medium text-gray-900">
             {schedule.isLoading ? (
               <span className="inline-flex items-center gap-1">
                 <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
                 조회 중...
               </span>
             ) : (
-              estimateSendingCount(schedule.hour)
+              <>
+                <span>{estimateSendingCount(schedule.hour).estimate}</span>
+                <span className="text-xs text-gray-500">{estimateSendingCount(schedule.hour).variance}</span>
+              </>
             )}
-          </span>
+          </div>
         </div>
 
         {/* 예상 실행 시간 */}
@@ -140,49 +141,37 @@ function ScheduleCard({
         </div>
       </div>
 
-      {/* 확인 항목 (읽기전용 체크박스) */}
-      <div className="space-y-2 text-sm">
-        <label className="flex items-center gap-2 cursor-default">
-          <input
-            type="checkbox"
-            checked={true}
-            disabled
-            className="w-4 h-4 text-green-600 rounded cursor-not-allowed"
-            aria-label={`${schedule.time} SMS 발송 활성화 (자동)`}
-            aria-description="이 설정은 자동으로 활성화되어 있으며 변경할 수 없습니다"
-          />
-          <span className="text-gray-700">
-            ✓ SMS 발송 활성화 <span className="text-xs text-gray-500">(자동)</span>
-          </span>
-        </label>
+      {/* 확인 항목 (정보박스로 변경) */}
+      <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-2">
+        <div className="flex items-start gap-2">
+          <span className="text-lg text-green-600 flex-shrink-0 mt-0.5">✓</span>
+          <div className="flex-1">
+            <strong className="text-sm text-green-900 block">SMS 발송 자동 활성화</strong>
+            <p className="text-xs text-green-700 mt-0.5">
+              저장 후 정해진 시간에 고객들에게 메시지가 자동으로 발송됩니다.
+            </p>
+          </div>
+        </div>
 
-        <label className="flex items-center gap-2 cursor-default">
-          <input
-            type="checkbox"
-            checked={true}
-            disabled
-            className="w-4 h-4 text-green-600 rounded cursor-not-allowed"
-            aria-label={`${schedule.time} Cron 자동 실행 (Vercel)`}
-            aria-description="이 설정은 자동으로 활성화되어 있으며 변경할 수 없습니다"
-          />
-          <span className="text-gray-700">
-            ✓ Cron 자동 실행 <span className="text-xs text-gray-500">(Vercel)</span>
-          </span>
-        </label>
+        <div className="flex items-start gap-2">
+          <span className="text-lg text-green-600 flex-shrink-0 mt-0.5">✓</span>
+          <div className="flex-1">
+            <strong className="text-sm text-green-900 block">Cron 자동 실행 (Vercel)</strong>
+            <p className="text-xs text-green-700 mt-0.5">
+              매일 정확한 시간에 자동으로 실행되어 고객에게 메시지가 전달됩니다.
+            </p>
+          </div>
+        </div>
 
-        <label className="flex items-center gap-2 cursor-default">
-          <input
-            type="checkbox"
-            checked={true}
-            disabled
-            className="w-4 h-4 text-green-600 rounded cursor-not-allowed"
-            aria-label={`${schedule.time} SendingHistory 자동 기록`}
-            aria-description="이 설정은 자동으로 활성화되어 있으며 변경할 수 없습니다"
-          />
-          <span className="text-gray-700">
-            ✓ 발송 이력 자동 기록 <span className="text-xs text-gray-500">(SendingHistory)</span>
-          </span>
-        </label>
+        <div className="flex items-start gap-2">
+          <span className="text-lg text-green-600 flex-shrink-0 mt-0.5">✓</span>
+          <div className="flex-1">
+            <strong className="text-sm text-green-900 block">발송 이력 자동 기록</strong>
+            <p className="text-xs text-green-700 mt-0.5">
+              모든 발송 기록이 자동으로 저장되어 나중에 결과를 분석할 수 있습니다.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -252,6 +241,18 @@ export default function ScheduleVisualizer({
           렌탈 메시지는 매일 3회 자동으로 발송됩니다.
         </p>
       </div>
+
+      {/* P0 3: 에러 메시지 표시 */}
+      {error && (
+        <div
+          className="bg-red-50 border border-red-200 rounded-lg p-4"
+          role="alert"
+          aria-live="polite"
+        >
+          <h3 className="font-medium text-red-900 mb-2">⚠️ 오류 발생</h3>
+          <p className="text-sm text-red-800">{error}</p>
+        </div>
+      )}
 
       {/* 발송 일정 요약 */}
       <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">

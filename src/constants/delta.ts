@@ -60,7 +60,7 @@ export const DAY_CONFIG = [
     psychology: 'Loss Aversion (손실회피)',
     triggerType: 'PURCHASE' as const,
     isRequired: true,
-    badge: '✅ 필수',
+    badge: '✅ 필수 (Phase 2)',
   },
 ] as const;
 

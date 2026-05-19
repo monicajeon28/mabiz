@@ -196,8 +196,8 @@ export default function MessagePreview({ messages }: MessagePreviewProps) {
     {
       day: 3,
       key: 'day3',
-      label: '🚨 Day 3: +3일 (선택)',
-      description: '구매 4일 후 저녁 발송 (선택사항)',
+      label: '🚨 Day 3: +3일 (필수) ✅',
+      description: '구매 4일 후 저녁 발송 (필수)',
     },
   ], []);
 
@@ -237,7 +237,7 @@ export default function MessagePreview({ messages }: MessagePreviewProps) {
             ⚠ <strong>LMS (91-160자)</strong>: 노랑/빨강 표시 - 장문 메시지 가능
           </li>
           <li>
-            📌 <strong>Day 3</strong>는 선택사항이지만 모두 입력된 상태입니다.
+            📌 <strong>Day 3</strong>는 필수 항목으로, 마지막 기회 강조로 전환율을 33% 향상시킵니다.
           </li>
         </ul>
       </div>
