@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 import { ContactLensClassification } from '@prisma/client';
 import { getAuthContext } from '@/lib/rbac';
 import { Prisma } from '@prisma/client';

@@ -24,13 +24,13 @@ import { logger } from '@/lib/logger';
  */
 export async function GET(
   req: Request,
-  { params }: { params: { campaignId: string } }
+  { params }: { params: Promise<{ campaignId: string }> }
 ) {
   try {
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
 
-    const { campaignId } = params;
+    const { campaignId } = await params;
 
     if (!campaignId) {
       return NextResponse.json(

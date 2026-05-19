@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Copy, Check, ChevronDown, BookOpen, Loader2 } from "lucide-react";
+import { detectSegment, SEGMENT_PROFILES, SEGMENT_RECOMMENDED_TECHNIQUES } from "@/lib/segment-detector";
+import type { Segment } from "@/lib/segment-detector";
 
 type PlaybookItem = {
   id: string;
@@ -77,6 +79,7 @@ export default function PlaybookViewerPage() {
   const [closingSignals, setClosingSignals] = useState<ClosingSignal[]>(CLOSING_SIGNALS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
+  const [detectedSegment, setDetectedSegment] = useState<Segment>("A");
 
   useEffect(() => {
     fetchPlaybooks();
@@ -139,6 +142,26 @@ export default function PlaybookViewerPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
+        {/* 세그먼트 감지 박스 */}
+        <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                {SEGMENT_PROFILES[detectedSegment].emoji} {SEGMENT_PROFILES[detectedSegment].name}
+              </p>
+              <p className="text-xs text-gray-600 mt-1">{SEGMENT_PROFILES[detectedSegment].desc}</p>
+            </div>
+            <div className="text-3xl font-bold text-indigo-600">{detectedSegment}</div>
+          </div>
+          <div className="mt-3 flex gap-2 flex-wrap">
+            {SEGMENT_RECOMMENDED_TECHNIQUES[detectedSegment].map((tech) => (
+              <span key={tech} className="inline-block px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded font-medium">
+                {tech}
+              </span>
+            ))}
+          </div>
+        </div>
+
         {/* 헤더 */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between gap-4 flex-wrap">

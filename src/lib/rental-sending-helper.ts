@@ -9,6 +9,7 @@
  */
 
 import { Contact, CrmMarketingCampaign } from '@prisma/client';
+import prisma from '@/lib/prisma';
 
 /**
  * 캠페인이 렌탈 상품 발송인지 판별
@@ -153,9 +154,7 @@ export function getRentalSendingHistoryFilter(
  * @returns 세그먼트별 발송 건수 집계 (groupBy 응답)
  */
 export async function getRentalSendingStatsBySegment(organizationId: string) {
-  const { db } = await import('@/lib/db');
-
-  const stats = await db.sendingHistory.groupBy({
+  const stats = await prisma.sendingHistory.groupBy({
     by: ['segmentVariation', 'status'],
     where: {
       organizationId,

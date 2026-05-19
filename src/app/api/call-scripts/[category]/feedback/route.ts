@@ -3,7 +3,7 @@ import { getMabizSession } from "@/lib/auth";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { category: string } }
+  { params }: { params: Promise<{ category: string }> }
 ) {
   try {
     const session = await getMabizSession();
@@ -14,7 +14,7 @@ export async function POST(
       );
     }
 
-    const { category } = params;
+    const { category } = await params;
     const body = await req.json();
     const {
       phase,

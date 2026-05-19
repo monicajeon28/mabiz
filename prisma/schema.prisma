@@ -7,96 +7,50 @@ datasource db {
   provider = "postgresql"
 }
 
-// Phase 0+2: 발송 실패 원인 분류 (통합 - SendingFailureReason 8가지)
-// Menu #25(자동화) + Menu #38(캠페인) 모두 사용
-enum ExecutionFailureReason {
-  INVALID_EMAIL      // 유효하지 않은 이메일
-  INVALID_PHONE      // 유효하지 않은 휴대폰
-  INVALID_CONTACT    // 기타 유효하지 않은 연락처 (자동화용)
-  OPT_OUT            // 수신거부 고객
-  QUOTA_EXCEEDED     // 일일/월간 발송 한도 초과
-  SYSTEM_ERROR       // CRM 내부 오류
-  PROVIDER_ERROR     // SMS/Email 서비스 오류
-  NETWORK_ERROR      // 네트워크 오류
-  BOUNCE             // 이메일 반송
-}
-
-// Phase 0: 실행 상태 추적
-enum ExecutionStatus {
-  PENDING            // 발송 대기
-  SENT               // 발송 성공
-  FAILED             // 발송 실패
-  SKIPPED            // 건너뜀 (조건 미충족)
-  RETRY_SCHEDULED    // 재시도 예정
-  ABANDONED          // 최대 재시도 초과
-}
-
-// Phase 2: 캠페인 발송 상태 추적
-enum SendingStatus {
-  PENDING            // 발송 대기
-  SENT               // 발송 성공
-  FAILED             // 발송 실패
-  SKIPPED            // 건너뜀 (조건 미충족)
-  RETRY_SCHEDULED    // 재시도 예정
-  ABANDONED          // 최대 재시도 초과
-}
-
-// Phase 2: 발송 실패 원인 분류 (캠페인 중심)
-enum SendingFailureReason {
-  INVALID_EMAIL      // 유효하지 않은 이메일
-  INVALID_PHONE      // 유효하지 않은 휴대폰
-  OPT_OUT           // 수신거부 고객
-  QUOTA_EXCEEDED    // 일일/월간 발송 한도 초과
-  SYSTEM_ERROR      // CRM 내부 오류
-  PROVIDER_ERROR    // SMS/Email 서비스 오류
-  NETWORK_ERROR     // 네트워크 오류
-  BOUNCE            // 이메일 반송
-}
-
 model Organization {
-  id                         String                  @id @default(cuid())
+  id                         String                      @id @default(cuid())
   name                       String
-  slug                       String                  @unique
-  createdAt                  DateTime                @default(now())
-  updatedAt                  DateTime                @updatedAt
-  externalAffiliateProfileId Int?                    @unique
-  plan                       String                  @default("FREE")
-  status                     String                  @default("ACTIVE")
-  contractRef                String?                 @unique(where: raw("(\"contractRef\" IS NOT NULL)"))
+  slug                       String                      @unique
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+  externalAffiliateProfileId Int?                        @unique
+  plan                       String                      @default("FREE")
+  status                     String                      @default("ACTIVE")
+  contractRef                String?                     @unique(where: raw("(\"contractRef\" IS NOT NULL)"))
   adminMessages              AdminMessage[]
   aiCallLogs                 AiCallLog[]
+  b2bProspects               B2BProspect[]
+  campaignCosts              CampaignCost[]
   contacts                   Contact[]
   contactGroups              ContactGroup[]
-  sentTransfers              ContactTransferLog[]    @relation("FromOrg")
-  receivedTransfers          ContactTransferLog[]    @relation("ToOrg")
+  contactLensClassifications ContactLensClassification[]
+  contactLensSequences       ContactLensSequence[]
+  sentTransfers              ContactTransferLog[]        @relation("FromOrg")
+  receivedTransfers          ContactTransferLog[]        @relation("ToOrg")
   affiliateSales             AffiliateSale[]
+  b2bLandingPages            B2BLandingPage[]
   landingPages               CrmLandingPage[]
+  marketingCampaigns         CrmMarketingCampaign[]      @relation("CrmMarketing")
+  deltaConfigs               DeltaCampaignConfig[]       @relation("DeltaConfigs")
   documents                  Document[]
+  executionLogs              ExecutionLog[]
   funnels                    Funnel[]
   goldMembers                GoldMember[]
   imageAssets                ImageAsset[]
+  lensTemplates              LensTemplate[]
   memberDocuments            MemberDocument[]
   emailConfig                OrgEmailConfig?
   inviteTokens               OrgInviteToken[]
   smsConfig                  OrgSmsConfig?
   members                    OrganizationMember[]
   partners                   Partner[]
+  partnerSuspensions         PartnerSuspension[]
   salesDocuments             SalesDocument[]
   salesDocApprovals          SalesDocumentApproval[]
   scheduledSmsList           ScheduledSms[]
   scriptPatterns             ScriptPattern[]
   shortLinks                 ShortLink[]
   smsTemplates               SmsTemplate[]
-  b2bProspects               B2BProspect[]
-  b2bLandingPages            B2BLandingPage[]
-  partnerSuspensions         PartnerSuspension[]
-  marketingCampaigns         CrmMarketingCampaign[]       @relation("CrmMarketing")
-  campaignCosts              CampaignCost[]
-  executionLogs              ExecutionLog[]
-  deltaConfigs               DeltaCampaignConfig[]        @relation("DeltaConfigs")
-  contactLensClassifications ContactLensClassification[]
-  contactLensSequences       ContactLensSequence[]
-  lensTemplates              LensTemplate[]
 }
 
 model OrgSmsConfig {
@@ -116,17 +70,17 @@ model OrgSmsConfig {
 }
 
 model UserSmsConfig {
-  id                String             @id @default(cuid())
+  id                String    @id @default(cuid())
   userId            String
   organizationId    String
   aligoKeyEncrypted String
   aligoUserId       String
   senderPhone       String
-  senderVerified    Boolean            @default(false)
+  senderVerified    Boolean   @default(false)
   verifiedAt        DateTime?
-  isActive          Boolean            @default(true)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@unique([userId, organizationId])
   @@index([organizationId])
@@ -147,17 +101,17 @@ model OrgEmailConfig {
 }
 
 model OrganizationMember {
-  id             String       @id @default(cuid())
-  organizationId String
-  userId         String
-  phone          String?
-  passwordHash   String?
-  role              String       @default("AGENT")
-  displayName       String?
-  isActive          Boolean      @default(true)
-  email             String?
-  emailSenderName   String?
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id              String       @id @default(cuid())
+  organizationId  String
+  userId          String
+  phone           String?
+  passwordHash    String?
+  role            String       @default("AGENT")
+  displayName     String?
+  isActive        Boolean      @default(true)
+  email           String?
+  emailSenderName String?
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, userId])
   @@index([organizationId])
@@ -192,53 +146,58 @@ model MabizSession {
 }
 
 model Contact {
-  id              String               @id @default(cuid())
-  phone           String
-  organizationId  String
-  name            String
-  email           String?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  adminMemo       String?
-  affiliateCode   String?
-  assignedUserId  String?
-  bookingRef      String?
-  budgetRange     String?
-  cruiseInterest  String?
-  departureDate   DateTime?
-  lastContactedAt DateTime?
-  leadScore       Int                  @default(0)
-  optOutAt        DateTime?
-  productName     String?
-  purchasedAt     DateTime?
-  reEngageCount   Int                  @default(0)
-  reEngagedAt     DateTime?
-  sourceOrgId     String?
-  tags            String[]             @default([])
-  type            String               @default("LEAD")
-  utmSource       String?
-  deletedAt       DateTime?
-  partnerId       String?
-  phoneEncrypted  String?
-  phoneHash       String?
-  emailEncrypted  String?
-  nameEncrypted   String?
-  userId          Int?
-  channel         String               @default("direct")
-  callLogs        CallLog[]
-  organization    Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  partner         Partner?             @relation(fields: [partnerId], references: [id])
-  funnelState     ContactFunnelState?
-  groups          ContactGroupMember[]
-  memos           ContactMemo[]
-  documents       Document[]
-  salesDocuments  SalesDocument[]
-  shortLinks      ShortLink[]
-  shortLinkClicks ShortLinkClick[]
-  vipSequences    VipCareSequence[]
-  lensMetadata    Json? @default("{\"decisionLevel\": 0, \"readinessScore\": 0}")
+  id                         String                      @id @default(cuid())
+  phone                      String
+  organizationId             String
+  name                       String
+  email                      String?
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+  adminMemo                  String?
+  affiliateCode              String?
+  assignedUserId             String?
+  bookingRef                 String?
+  budgetRange                String?
+  cruiseInterest             String?
+  departureDate              DateTime?
+  lastContactedAt            DateTime?
+  leadScore                  Int                         @default(0)
+  optOutAt                   DateTime?
+  productName                String?
+  purchasedAt                DateTime?
+  reEngageCount              Int                         @default(0)
+  reEngagedAt                DateTime?
+  sourceOrgId                String?
+  tags                       String[]                    @default([])
+  type                       String                      @default("LEAD")
+  utmSource                  String?
+  deletedAt                  DateTime?
+  partnerId                  String?
+  phoneEncrypted             String?
+  phoneHash                  String?
+  emailEncrypted             String?
+  nameEncrypted              String?
+  userId                     Int?
+  channel                    String                      @default("direct")
+  age                        Int?
+  childrenCount              Int                         @default(0)
+  gender                     String?
+  lensMetadata               Json?                       @default("{\"decisionLevel\": 0, \"readinessScore\": 0}")
+  maritalStatus              String?
+  segmentOverride            String?
+  callLogs                   CallLog[]
+  organization               Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  partner                    Partner?                    @relation(fields: [partnerId], references: [id])
+  funnelState                ContactFunnelState?
+  groups                     ContactGroupMember[]
   contactLensClassifications ContactLensClassification[]
   contactLensSequences       ContactLensSequence[]
+  memos                      ContactMemo[]
+  documents                  Document[]
+  salesDocuments             SalesDocument[]
+  shortLinks                 ShortLink[]
+  shortLinkClicks            ShortLinkClick[]
+  vipSequences               VipCareSequence[]
 
   @@unique([phone, organizationId])
   @@index([organizationId])
@@ -252,32 +211,26 @@ model Contact {
 }
 
 model ContactLensClassification {
-  id                    String    @id @default(cuid())
-  organizationId        String
-  contactId             String
-
-  lensType              String    @db.VarChar(3)
-  lensLabel             String?   @db.VarChar(50)
-  confidenceScore       Int       @default(0)
-  identificationMethod  String?   @db.VarChar(20)
+  id                     String                @id @default(cuid())
+  organizationId         String
+  contactId              String
+  lensType               String                @db.VarChar(3)
+  lensLabel              String?               @db.VarChar(50)
+  confidenceScore        Int                   @default(0)
+  identificationMethod   String?               @db.VarChar(20)
   questionnaireResponses Json?
-
-  decisionLevel         Int       @default(0)
-  readinessScore        Int       @default(0)
-
-  priorityLevel         String?   @db.VarChar(10)
-  status                String    @default("ACTIVE") @db.VarChar(20)
-
-  identifiedAt          DateTime  @default(now())
-  lastUpdated           DateTime  @updatedAt
-  convertedAt           DateTime?
-
-  notes                 String?
-  tags                  String[]  @default([])
-
-  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  contact               Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  sequences             ContactLensSequence[]
+  decisionLevel          Int                   @default(0)
+  readinessScore         Int                   @default(0)
+  priorityLevel          String?               @db.VarChar(10)
+  status                 String                @default("ACTIVE") @db.VarChar(20)
+  identifiedAt           DateTime              @default(now())
+  lastUpdated            DateTime              @updatedAt
+  convertedAt            DateTime?
+  notes                  String?
+  tags                   String[]              @default([])
+  contact                Contact               @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  organization           Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sequences              ContactLensSequence[]
 
   @@unique([organizationId, contactId, lensType])
   @@index([organizationId, lensType])
@@ -288,52 +241,43 @@ model ContactLensClassification {
 }
 
 model ContactLensSequence {
-  id                    String    @id @default(cuid())
-  contactId             String
-  organizationId        String
-  classificationId      String
-
-  sequenceType          String    @db.VarChar(20)
-  lensType              String?   @db.VarChar(3)
-
-  day0Sent              Boolean   @default(false)
-  day0SentAt            DateTime?
-  day0Clicked           Boolean   @default(false)
-  day0ClickedAt         DateTime?
-  day0ConvertedAt       DateTime?
-
-  day1Sent              Boolean   @default(false)
-  day1SentAt            DateTime?
-  day1Clicked           Boolean   @default(false)
-  day1ClickedAt         DateTime?
-  day1ConvertedAt       DateTime?
-
-  day2Sent              Boolean   @default(false)
-  day2SentAt            DateTime?
-  day2Clicked           Boolean   @default(false)
-  day2ClickedAt         DateTime?
-  day2ConvertedAt       DateTime?
-
-  day3Sent              Boolean   @default(false)
-  day3SentAt            DateTime?
-  day3Clicked           Boolean   @default(false)
-  day3ClickedAt         DateTime?
-  day3ConvertedAt       DateTime?
-
-  overallConverted      Boolean   @default(false)
-  conversionDate        DateTime?
-  conversionRevenue     Decimal?  @db.Decimal(15, 2)
-
-  status                String    @default("PENDING") @db.VarChar(20)
-  failureReason         String?   @db.VarChar(100)
-  retryCount            Int       @default(0)
-
-  startedAt             DateTime  @default(now())
-  completedAt           DateTime?
-
-  classification        ContactLensClassification @relation(fields: [classificationId], references: [id], onDelete: Cascade)
-  contact               Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id                String                    @id @default(cuid())
+  contactId         String
+  organizationId    String
+  classificationId  String
+  sequenceType      String                    @db.VarChar(20)
+  lensType          String?                   @db.VarChar(3)
+  day0Sent          Boolean                   @default(false)
+  day0SentAt        DateTime?
+  day0Clicked       Boolean                   @default(false)
+  day0ClickedAt     DateTime?
+  day0ConvertedAt   DateTime?
+  day1Sent          Boolean                   @default(false)
+  day1SentAt        DateTime?
+  day1Clicked       Boolean                   @default(false)
+  day1ClickedAt     DateTime?
+  day1ConvertedAt   DateTime?
+  day2Sent          Boolean                   @default(false)
+  day2SentAt        DateTime?
+  day2Clicked       Boolean                   @default(false)
+  day2ClickedAt     DateTime?
+  day2ConvertedAt   DateTime?
+  day3Sent          Boolean                   @default(false)
+  day3SentAt        DateTime?
+  day3Clicked       Boolean                   @default(false)
+  day3ClickedAt     DateTime?
+  day3ConvertedAt   DateTime?
+  overallConverted  Boolean                   @default(false)
+  conversionDate    DateTime?
+  conversionRevenue Decimal?                  @db.Decimal(15, 2)
+  status            String                    @default("PENDING") @db.VarChar(20)
+  failureReason     String?                   @db.VarChar(100)
+  retryCount        Int                       @default(0)
+  startedAt         DateTime                  @default(now())
+  completedAt       DateTime?
+  classification    ContactLensClassification @relation(fields: [classificationId], references: [id], onDelete: Cascade)
+  contact           Contact                   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  organization      Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([contactId, lensType])
   @@index([organizationId, classificationId, status])
@@ -342,34 +286,27 @@ model ContactLensSequence {
 }
 
 model LensTemplate {
-  id                         String    @id @default(cuid())
-  organizationId             String
-
-  templateType               String    @db.VarChar(20)
-  lensType                   String    @db.VarChar(3)
-  day                        Int       @default(0)
-  phase                      Int?
-
-  title                      String?   @db.VarChar(100)
-  body                       String
-
-  smsLength                  Int?
-  expectedClickRate          Decimal?  @db.Decimal(5, 2)
-  sendDelayMinutes           Int?
-
-  psychologyPrinciple        String?   @db.VarChar(50)
-  estimatedDurationSeconds   Int?
-  stepNumber                 Int?
-
-  status                     String    @default("ACTIVE") @db.VarChar(20)
-  version                    Int       @default(1)
-  isSystemTemplate           Boolean   @default(false)
-  customizations             Json?
-
-  createdAt                  DateTime  @default(now())
-  updatedAt                  DateTime  @updatedAt
-
-  organization               Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id                       String       @id @default(cuid())
+  organizationId           String
+  templateType             String       @db.VarChar(20)
+  lensType                 String       @db.VarChar(3)
+  day                      Int          @default(0)
+  phase                    Int?
+  title                    String?      @db.VarChar(100)
+  body                     String
+  smsLength                Int?
+  expectedClickRate        Decimal?     @db.Decimal(5, 2)
+  sendDelayMinutes         Int?
+  psychologyPrinciple      String?      @db.VarChar(50)
+  estimatedDurationSeconds Int?
+  stepNumber               Int?
+  status                   String       @default("ACTIVE") @db.VarChar(20)
+  version                  Int          @default(1)
+  isSystemTemplate         Boolean      @default(false)
+  customizations           Json?
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
+  organization             Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, lensType, templateType])
   @@index([lensType, day])
@@ -377,33 +314,33 @@ model LensTemplate {
 }
 
 model ContactGroup {
-  id             String               @id @default(cuid())
-  organizationId String
-  name           String
-  description    String?
-  color          String?              @default("#6B7280")
-  funnelId       String?
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
-  ownerId        String?
-  organization      Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  members           ContactGroupMember[]
-  landingPages      CrmLandingPage[]
-  b2bLandingPages   B2BLandingPage[]
-  tokens            GroupToken[]
-  marketingCampaigns CrmMarketingCampaign[]  @relation("CrmMarketing")
+  id                 String                 @id @default(cuid())
+  organizationId     String
+  name               String
+  description        String?
+  color              String?                @default("#6B7280")
+  funnelId           String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  ownerId            String?
+  organization       Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members            ContactGroupMember[]
+  b2bLandingPages    B2BLandingPage[]
+  landingPages       CrmLandingPage[]
+  marketingCampaigns CrmMarketingCampaign[] @relation("CrmMarketing")
+  tokens             GroupToken[]
 
   @@index([organizationId])
   @@index([ownerId])
 }
 
 model GroupToken {
-  id             String       @id @default(cuid())
-  groupId        String
-  expiresAt      DateTime
-  active         Boolean      @default(true)
-  createdAt      DateTime     @default(now())
-  group          ContactGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  id        String       @id @default(cuid())
+  groupId   String
+  expiresAt DateTime
+  active    Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  group     ContactGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@index([groupId])
   @@index([expiresAt])
@@ -461,9 +398,7 @@ model CrmLandingPage {
   autoFunnelId      String?
   groupId           String?
   commentEnabled    Boolean                  @default(false)
-  group             ContactGroup?            @relation(fields: [groupId], references: [id], onDelete: SetNull)
   createdAt         DateTime                 @default(now())
-  createdByUserId   String?
   updatedAt         DateTime                 @updatedAt
   description       String?
   category          String?
@@ -485,7 +420,9 @@ model CrmLandingPage {
   regEmailEnabled   Boolean                  @default(false)
   regEmailSubject   String?
   regEmailContent   String?
+  createdByUserId   String?
   comments          CrmLandingComment[]
+  group             ContactGroup?            @relation(fields: [groupId], references: [id])
   organization      Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   registrations     CrmLandingRegistration[]
   shares            CrmLandingShare[]
@@ -555,8 +492,10 @@ model CrmLandingRegistration {
   landingPage   CrmLandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
 
   @@unique([landingPageId, phone])
+  @@unique([landingPageId, phone], map: "CrmLandingReg_landing_phone_key")
   @@index([landingPageId])
   @@index([utmSource, utmMedium])
+  @@index([utmSource, utmMedium], map: "CrmLandingReg_utm_idx")
   @@map("CrmLandingRegistration")
 }
 
@@ -630,14 +569,14 @@ model SmsTemplate {
   category       String
   title          String
   content        String
-  triggerType    String?       // PURCHASE, ABANDONED, WAKE_UP, OTHER
-  triggerOffset  Int?          // Day 0~30 offset in minutes (0=immediate, 1440=1day, 2880=2days, 4320=3days)
-  segmentCode    String?       // A(자유여행), B(크루즈), C(호텔)
-  psychologyTag  String?       // Loss Aversion, Scarcity, Social Proof, Narrative Transportation, etc.
+  triggerType    String?
+  triggerOffset  Int?
   isSystem       Boolean       @default(false)
   usageCount     Int           @default(0)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+  psychologyTag  String?
+  segmentCode    String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
@@ -672,98 +611,72 @@ model SmsLog {
   @@map("CrmSmsLog")
 }
 
-// Phase 0+2: 통합 발송 기록 (퍼널 시퀀스 + 자동화 규칙 + 캠페인)
-// SMS + Email 채널 지원, 중복 방지 (월별 반복), 상호작용 추적
 model ExecutionLog {
-  id                String                    @id @default(cuid())
+  id                String                  @id @default(cuid())
   organizationId    String
-
-  // 발송 소스 (자동화 규칙 / 퍼널 시퀀스 / 캠페인)
-  sourceType        String                    // FUNNEL_SEQUENCE | AUTOMATION_RULE | CAMPAIGN
-  sourceId          String                    // sequenceId or ruleId or campaignId
-  sourceName        String                    // 규칙/시퀀스/캠페인명 (발송 시점 스냅샷)
-  campaignId        String?                   // 캠페인 발송인 경우만 설정 (sourceType='CAMPAIGN')
-
-  // 수신자 (Contact 스냅샷)
+  sourceType        String
+  sourceId          String
+  sourceName        String
   contactId         String
-  email             String?                   // 발송 시점의 이메일 스냅샷
-  phone             String?                   // 발송 시점의 휴대폰 스냅샷
-
-  // 채널 & 상태
-  channel           String                    // SMS | EMAIL
-  status            ExecutionStatus           @default(PENDING)
-
-  // 발송 일정 (월별 반복 지원)
-  executeMonth      String                    // "2025-01" (YYYY-MM 형식)
+  channel           String
+  status            ExecutionStatus         @default(PENDING)
+  executeMonth      String
   scheduledAt       DateTime
   sentAt            DateTime?
-  nextRetryAt       DateTime?                 // 다음 재시도 예정시간
-
-  // 메시지 참조
-  contentUrl        String?                   // S3/Blob URL (subject + body JSON)
-  messageId         String?                   // SMS/Email 공급자 ID (Aligo msg_id, Email provider ID)
-
-  // 실패 추적 (Enum 기반)
+  nextRetryAt       DateTime?
+  contentUrl        String?
   failureReason     ExecutionFailureReason?
-  failureUserMsg    String?                   // "일일 발송 한도 초과" (UI 표시용 - 한국어)
-  retryCount        Int                       @default(0)
-  maxRetries        Int                       @default(3)
+  failureUserMsg    String?
+  retryCount        Int                     @default(0)
+  maxRetries        Int                     @default(3)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  campaignId        String?
+  email             String?
+  phone             String?
+  messageId         String?
+  emailOpenedAt     DateTime?
+  linkClickedAt     DateTime?
+  registeredAt      DateTime?
+  landingPageViewId String?
+  lensMetadata      Json?
+  campaign          CrmMarketingCampaign?   @relation("ExecutionLogToCampaign", fields: [campaignId], references: [id])
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  // 상호작용 추적 (Phase 2 - 캠페인 성과 분석용)
-  emailOpenedAt     DateTime?                 // 이메일 오픈 시간
-  linkClickedAt     DateTime?                 // 랜딩 링크 클릭 시간
-  registeredAt      DateTime?                 // 상품 등록 시간
-  landingPageViewId String?                   // 랜딩 페이지 방문 기록 ID
-  lensMetadata      Json?                     // 렌즈 분류 메타데이터 (Phase 4)
-
-  createdAt         DateTime                  @default(now())
-  updatedAt         DateTime                  @updatedAt
-
-  organization      Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  campaign          CrmMarketingCampaign?     @relation("ExecutionLogToCampaign", fields: [campaignId], references: [id], onDelete: SetNull)
-
-  // 중복 방지: 같은 규칙, 같은 고객, 같은 월 → 한 번만 실행
   @@unique([sourceType, sourceId, contactId, executeMonth], name: "uq_execution_monthly")
-
-  // 성능: Cron 조회
-  @@index([organizationId, status, scheduledAt], name: "idx_execution_cron_scan")
-  // Phase 2: 캠페인 통계 쿼리 성능 (group by status, channel)
-  @@index([organizationId, sourceType, status, createdAt], name: "idx_execution_campaign_stats")
-  // Phase 3-α: 부분 인덱스 (마이그레이션에서 정의)
-  @@index([organizationId, status, scheduledAt], name: "idx_execution_campaign_partial")
-  @@index([organizationId, nextRetryAt, status], name: "idx_execution_retry_partial")
-  @@index([contactId, executeMonth, status], name: "idx_execution_contact_monthly")
-  @@index([status], name: "idx_execution_status")
-  @@index([contactId], name: "idx_execution_contact")
-  @@index([sourceId], name: "idx_execution_source")
-  @@index([campaignId], name: "idx_execution_campaign")
-
+  @@index([organizationId, status, scheduledAt], map: "idx_execution_cron_scan")
+  @@index([organizationId, sourceType, status, createdAt], map: "idx_execution_campaign_stats")
+  @@index([organizationId, nextRetryAt, status], map: "idx_execution_retry_partial")
+  @@index([contactId, executeMonth, status], map: "idx_execution_contact_monthly")
+  @@index([status], map: "idx_execution_status")
+  @@index([contactId], map: "idx_execution_contact")
+  @@index([sourceId], map: "idx_execution_source")
+  @@index([campaignId], map: "idx_execution_campaign")
   @@map("ExecutionLog")
 }
 
 model SalesPlaybook {
-  id                  String    @id @default(cuid())
-  key                 String?   // JSON "key" 필드 추가
-  phase               String?   // JSON "phase" 필드 추가 (sectionOrder 대신)
-  type                String    // OPENING|NEEDS|AMPLIFY|...
-  script              String?   // JSON "script" 필드 (content 대신)
-  trigger             String?   // 고객 발화 트리거
-  customerSegment     String?   // A|B|C|D|E|ALL (productCode 대신)
-  psychology          String?   // 심리학 이론 (Kahneman|Cialdini|...)
-  shinminStep         String?   // 신민형 5단계 (1-5)
-  monikaAmplifyLevel  String?   // 모니카 욕망 증폭 (1-4, AMPLIFY type만)
-  source              String?   // 데이터 소스 (신민형콜|모니카코칭|...)
-  notes               String?   // 사용 조건/주의사항
-  priority            Int       @default(0)
-  isActive            Boolean   @default(true)
-  scriptTab           String    @default("GENERAL")
-  title               String
-  content             String    // 호환성: 기존 필드 유지
-  productCode         String    @default("ALL")
-  sectionOrder        Int       @default(0)
-
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id                 String   @id @default(cuid())
+  type               String
+  title              String
+  content            String
+  priority           Int      @default(0)
+  isActive           Boolean  @default(true)
+  scriptTab          String   @default("GENERAL")
+  productCode        String   @default("ALL")
+  sectionOrder       Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  key                String?
+  phase              String?
+  script             String?
+  trigger            String?
+  customerSegment    String?
+  psychology         String?
+  shinminStep        String?
+  monikaAmplifyLevel String?
+  source             String?
+  notes              String?
 
   @@index([type])
   @@map("SalesPlaybook")
@@ -828,28 +741,28 @@ model CrmLandingView {
 }
 
 model PayAppPayment {
-  id             String    @id @default(cuid())
-  orderId        String    @unique
-  amount         Int
-  customerName   String
-  customerPhone  String
-  status         String    @default("pending")
-  landingPageId  String?
-  paidAt         DateTime?
-  createdAt      DateTime  @default(now())
+  id              String    @id @default(cuid())
+  orderId         String    @unique
+  amount          Int
+  customerName    String
+  customerPhone   String
+  status          String    @default("pending")
+  landingPageId   String?
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+  productName     String?
+  customerEmail   String?
+  mulNo           String?
+  payType         String?
+  cardName        String?
+  cstUrl          String?
+  refundedAt      DateTime?
+  refundAmount    Int       @default(0)
+  refundReason    String?
+  metadata        Json?
+  organizationId  String?
+  subscriptionId  String?
   createdByUserId String?
-  productName    String?
-  customerEmail  String?
-  mulNo          String?
-  payType        String?
-  cardName       String?
-  cstUrl         String?
-  refundedAt     DateTime?
-  refundAmount   Int       @default(0)
-  refundReason   String?
-  metadata       Json?
-  organizationId String?
-  subscriptionId String?
 
   @@index([customerPhone])
   @@index([landingPageId])
@@ -944,7 +857,7 @@ model ContactTransferLog {
 }
 
 model ContactChangeLog {
-  id        Int       @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   contactId String?
   gmUserId  Int?
   field     String
@@ -952,7 +865,7 @@ model ContactChangeLog {
   newValue  String?
   reason    String?
   changedBy String
-  changedAt DateTime  @default(now())
+  changedAt DateTime @default(now())
 
   @@index([gmUserId])
   @@index([contactId])
@@ -1387,7 +1300,6 @@ model ImageAsset {
   fileSize         BigInt?
   width            Int?
   height           Int?
-  orientation      Int          @default(1)
   tags             String[]
   category         String?
   uploadedBy       String
@@ -1396,6 +1308,7 @@ model ImageAsset {
   webpDriveFileId  String?
   processedAt      DateTime?    @db.Timestamptz(6)
   processingStatus String       @default("PENDING")
+  orientation      Int          @default(1)
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, driveFileId])
@@ -1490,48 +1403,48 @@ model DocumentApproval {
 }
 
 model GmUser {
-  id                          Int       @id @default(autoincrement())
-  externalId                  String?   @unique
+  id                          Int                    @id @default(autoincrement())
+  externalId                  String?                @unique
   name                        String?
-  email                       String?   @unique
+  email                       String?                @unique
   phone                       String?
   password                    String
-  onboarded                   Boolean   @default(false)
-  loginCount                  Int       @default(0)
-  tripCount                   Int       @default(0)
-  totalTripCount              Int       @default(0)
-  currentTripEndDate          DateTime? @db.Timestamp(6)
-  role                        String    @default("user")
-  onboardingUpdatedAt         DateTime? @db.Timestamp(6)
-  onboardingUpdatedByUser     Boolean   @default(false)
-  lastActiveAt                DateTime? @db.Timestamp(6)
-  hibernatedAt                DateTime? @db.Timestamp(6)
-  isHibernated                Boolean   @default(false)
-  isLocked                    Boolean   @default(false)
-  lockedAt                    DateTime? @db.Timestamp(6)
+  onboarded                   Boolean                @default(false)
+  loginCount                  Int                    @default(0)
+  tripCount                   Int                    @default(0)
+  totalTripCount              Int                    @default(0)
+  currentTripEndDate          DateTime?              @db.Timestamp(6)
+  role                        String                 @default("user")
+  onboardingUpdatedAt         DateTime?              @db.Timestamp(6)
+  onboardingUpdatedByUser     Boolean                @default(false)
+  lastActiveAt                DateTime?              @db.Timestamp(6)
+  hibernatedAt                DateTime?              @db.Timestamp(6)
+  isHibernated                Boolean                @default(false)
+  isLocked                    Boolean                @default(false)
+  lockedAt                    DateTime?              @db.Timestamp(6)
   lockedReason                String?
   customerStatus              String?
-  testModeStartedAt           DateTime? @db.Timestamp(6)
+  testModeStartedAt           DateTime?              @db.Timestamp(6)
   customerSource              String?
   adminMemo                   String?
   mallUserId                  String?
   mallNickname                String?
   genieStatus                 String?
-  genieLinkedAt               DateTime? @db.Timestamp(6)
-  kakaoChannelAdded           Boolean   @default(false)
-  kakaoChannelAddedAt         DateTime? @db.Timestamp(6)
-  createdAt                   DateTime  @default(now()) @db.Timestamp(6)
-  updatedAt                   DateTime  @updatedAt @db.Timestamp(6)
-  pwaGenieInstalledAt         DateTime? @db.Timestamp(6)
-  pwaMallInstalledAt          DateTime? @db.Timestamp(6)
-  refundCertificateCount      Int       @default(0)
-  grade                       String    @default("regular") @db.VarChar(50)
-  isPasswordSet               Boolean   @default(false)
-  goldMemberId                Int?      @unique
+  genieLinkedAt               DateTime?              @db.Timestamp(6)
+  kakaoChannelAdded           Boolean                @default(false)
+  kakaoChannelAddedAt         DateTime?              @db.Timestamp(6)
+  createdAt                   DateTime               @default(now()) @db.Timestamp(6)
+  updatedAt                   DateTime               @updatedAt @db.Timestamp(6)
+  pwaGenieInstalledAt         DateTime?              @db.Timestamp(6)
+  pwaMallInstalledAt          DateTime?              @db.Timestamp(6)
+  refundCertificateCount      Int                    @default(0)
+  grade                       String                 @default("regular") @db.VarChar(50)
+  isPasswordSet               Boolean                @default(false)
+  goldMemberId                Int?                   @unique
   passwordResetToken          String?
   passwordResetTokenExpiresAt DateTime?
   sourceAgentId               Int?
-  affiliateCode               String?   @unique @db.VarChar(4)
+  affiliateCode               String?                @unique @db.VarChar(4)
   socialEmail                 String?
   socialId                    String?
   socialProvider              String?
@@ -1540,14 +1453,12 @@ model GmUser {
   nextActionDate              DateTime?
   nextActionNote              String?
   memberStatus                String?
-  memberTags                  String[]  @default([])
-
-  // Relationships
-  trips                       GmTrip[]
-  passportSubmissions         GmPassportSubmission[]
-  passportRequestLogs         GmPassportRequestLog[]
-  groupMemberships            GmUserGroupMember[] @relation("UserGroups")
+  memberTags                  String[]               @default([])
   ownedGroups                 GmUserGroup[]
+  groupMemberships            GmUserGroupMember[]    @relation("UserGroups")
+  passportRequestLogs         GmPassportRequestLog[]
+  passportSubmissions         GmPassportSubmission[]
+  trips                       GmTrip[]
 
   @@index([createdAt])
   @@index([customerStatus])
@@ -1563,30 +1474,28 @@ model GmUser {
 }
 
 model GmTrip {
-  id              Int       @id @default(autoincrement())
-  userId          Int
-  productId       Int?
-  reservationCode String?
-  cruiseName      String?
-  companionType   String?
-  destination     Json?
-  startDate       DateTime? @db.Timestamp(6)
-  endDate         DateTime? @db.Timestamp(6)
-  nights          Int       @default(0)
-  days            Int       @default(0)
-  visitCount      Int       @default(0)
-  status          String    @default("Upcoming")
-  createdAt       DateTime  @default(now()) @db.Timestamp(6)
-  updatedAt       DateTime  @db.Timestamp(6)
-  productCode     String    @default("")
-  shipName        String    @default("")
-  departureDate   DateTime  @default(now())
-  googleFolderId  String?
-  spreadsheetId   String?
-
-  // Relationships
-  user            GmUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                  Int                    @id @default(autoincrement())
+  userId              Int
+  productId           Int?
+  reservationCode     String?
+  cruiseName          String?
+  companionType       String?
+  destination         Json?
+  startDate           DateTime?              @db.Timestamp(6)
+  endDate             DateTime?              @db.Timestamp(6)
+  nights              Int                    @default(0)
+  days                Int                    @default(0)
+  visitCount          Int                    @default(0)
+  status              String                 @default("Upcoming")
+  createdAt           DateTime               @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime               @db.Timestamp(6)
+  productCode         String                 @default("")
+  shipName            String                 @default("")
+  departureDate       DateTime               @default(now())
+  googleFolderId      String?
+  spreadsheetId       String?
   passportSubmissions GmPassportSubmission[]
+  user                GmUser                 @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
   @@index([startDate])
@@ -1674,7 +1583,6 @@ model GmTraveler {
 model GmAffiliateLead {
   id                    Int       @id @default(autoincrement())
   linkId                Int?
-  organizationId        String?
   managerId             Int?
   agentId               Int?
   customerName          String?
@@ -1699,6 +1607,7 @@ model GmAffiliateLead {
   registeredByProfileId Int?
   registeredByRole      String?   @db.VarChar(20)
   registeredBySystem    Boolean   @default(false)
+  organizationId        String?
 
   @@index([status])
   @@index([organizationId, status, createdAt])
@@ -1877,16 +1786,16 @@ model GmAffiliateContract {
 }
 
 model GmAffiliateContractAudit {
-  id            Int      @id @default(autoincrement())
-  contractId    Int      @map("contract_id")
-  action        String   @db.VarChar(50)
-  approvedBy    Int?     @map("approved_by")
-  approvalTier  String?  @db.VarChar(50)
-  metadata      Json?
-  reason        String?
-  ipAddress     String?  @db.VarChar(45)
-  userAgent     String?
-  createdAt     DateTime @default(now()) @map("created_at")
+  id           Int      @id @default(autoincrement())
+  contractId   Int      @map("contract_id")
+  action       String   @db.VarChar(50)
+  approvedBy   Int?     @map("approved_by")
+  approvalTier String?  @db.VarChar(50)
+  metadata     Json?
+  reason       String?
+  ipAddress    String?  @db.VarChar(45)
+  userAgent    String?
+  createdAt    DateTime @default(now()) @map("created_at")
 
   @@index([contractId, createdAt])
   @@index([action, createdAt])
@@ -1894,14 +1803,14 @@ model GmAffiliateContractAudit {
 }
 
 model GmAffiliateSignatureToken {
-  id        Int      @id @default(autoincrement())
-  token     String   @unique @db.VarChar(64)
-  contractId Int     @map("contract_id")
-  expiresAt DateTime @map("expires_at")
-  signedAt  DateTime? @map("signed_at")
-  signedBy  String?  @db.VarChar(200)
-  metadata  Json?
-  createdAt DateTime @default(now()) @map("created_at")
+  id         Int       @id @default(autoincrement())
+  token      String    @unique @db.VarChar(64)
+  contractId Int       @map("contract_id")
+  expiresAt  DateTime  @map("expires_at")
+  signedAt   DateTime? @map("signed_at")
+  signedBy   String?   @db.VarChar(200)
+  metadata   Json?
+  createdAt  DateTime  @default(now()) @map("created_at")
 
   @@index([token])
   @@index([contractId, expiresAt])
@@ -1935,10 +1844,8 @@ model GmPassportSubmission {
   extraData      Json?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @default(now()) @updatedAt
-
-  // Relationships
+  trip           GmTrip?   @relation(fields: [tripId], references: [id])
   user           GmUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  trip           GmTrip?   @relation(fields: [tripId], references: [id], onDelete: SetNull)
 
   @@unique([userId, tripId])
   @@index([userId])
@@ -1976,8 +1883,6 @@ model GmPassportRequestLog {
   status         String   @default("PENDING")
   errorReason    String?
   sentAt         DateTime @default(now())
-
-  // Relationships
   user           GmUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([adminId, sentAt])
@@ -2109,80 +2014,48 @@ model ScheduledEmail {
   @@map("CrmScheduledEmail")
 }
 
-// Phase 2: 메뉴 #38 SMS 템플릿 / 마케팅 자동화 / 캠페인 발송 이력
 model SendingHistory {
-  id                String                 @id @default(cuid())
-  organizationId    String
-
-  // 발송 타입 & 식별자
-  sendingType       String                 // TEMPLATE | AUTOMATION | CAMPAIGN
-  sourceId          String?                // templateId | automationId | campaignId
-  campaignId        String?                // campaignId (Phase 2 추가)
-
-  // 수신자
-  contactId         String
-  phone             String?                // 스냅샷 (타겟 시점의 번호)
-  email             String?
-
-  // 채널
-  channel           String                 // SMS | EMAIL
-
-  // 메시지 내용
-  subject           String?                // EMAIL 제목
-  body              String                 // 발송된 메시지 본문
-
-  // 상태
-  status            SendingStatus          @default(PENDING)
-  failureReason     SendingFailureReason?
-  failureUserMsg    String?                // "일일 한도 초과" (UI용 한국어)
-
-  // 공급자 추적
-  messageId         String?                // Aligo msg_id / Email provider ID
-  deliveredAt       DateTime?
-
-  // 재시도 로직 (Phase 2 추가)
-  retryCount        Int                    @default(0)
-  maxRetries        Int                    @default(3)
-  nextRetryAt       DateTime?              // 다음 재시도 예정 시간
-  failureMessage    String?                // 상세 에러 메시지
-
-  // 채널별 상태 추적 (Phase 2 추가)
-  emailStatus       String?                // PENDING | SENT | BOUNCE | COMPLAINT
-  emailSentAt       DateTime?
-  emailOpenedAt     DateTime?
-  smsStatus         String?                // PENDING | SENT | DELIVERY_FAIL
-  smsSentAt         DateTime?
-
-  // 상호작용 추적 (Phase 2 추가)
-  linkClickedAt     DateTime?              // 랜딩 링크 클릭 시간
-  registeredAt      DateTime?              // 상품 등록 시간
-  landingPageViewId String?                // 랜딩 페이지 방문 기록 ID
-
-  // WebHook 재시도
-  webhookAttempts   Int                    @default(0)
-  lastWebhookAt     DateTime?
-
-  // 타이밍
-  scheduledAt       DateTime
-  sentAt            DateTime?
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
-
-  // 메타정보
-  metadata          Json?                  // 추가 속성
-
-  // A/B 테스트 추적 (Phase 3 추가)
-  variantKey        String?                // null = 단일 메시지, "A" | "B"
-
-  // 렌탈 발송 추적 (Phase 4 Track 1 추가)
-  isRentalPurchase  Boolean                @default(false) // 렌탈 상품 발송 여부
-  isDeltaSmsEligible Boolean               @default(false) // Delta SMS 3일 시퀀스 대상 여부
-  deltaDay          Int?                                    // Delta Day (0=발송일, 1=+1일, 2=+2일)
-  segmentVariation  String?                @db.VarChar(1)  // A/B/C 세그먼트 변형
-
-  // 관계 (Phase 2 추가)
-  // P0 Fix: onDelete: Restrict (캠페인 삭제 시 SendingHistory가 있으면 오류 = 데이터 무결성 보호)
-  campaign          CrmMarketingCampaign?  @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  id                 String                @id @default(cuid())
+  organizationId     String
+  sendingType        String
+  sourceId           String?
+  campaignId         String?
+  contactId          String
+  phone              String?
+  email              String?
+  channel            String
+  subject            String?
+  body               String
+  status             SendingStatus         @default(PENDING)
+  failureReason      SendingFailureReason?
+  failureUserMsg     String?
+  messageId          String?
+  deliveredAt        DateTime?
+  retryCount         Int                   @default(0)
+  maxRetries         Int                   @default(3)
+  nextRetryAt        DateTime?
+  failureMessage     String?
+  emailStatus        String?
+  emailSentAt        DateTime?
+  emailOpenedAt      DateTime?
+  smsStatus          String?
+  smsSentAt          DateTime?
+  linkClickedAt      DateTime?
+  registeredAt       DateTime?
+  landingPageViewId  String?
+  webhookAttempts    Int                   @default(0)
+  lastWebhookAt      DateTime?
+  scheduledAt        DateTime
+  sentAt             DateTime?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  metadata           Json?
+  variantKey         String?
+  deltaDay           Int?
+  isDeltaSmsEligible Boolean               @default(false)
+  isRentalPurchase   Boolean               @default(false)
+  segmentVariation   String?               @db.VarChar(1)
+  campaign           CrmMarketingCampaign? @relation(fields: [campaignId], references: [id], onDelete: Restrict)
 
   @@index([organizationId, status])
   @@index([contactId, status])
@@ -2194,12 +2067,9 @@ model SendingHistory {
   @@index([organizationId, createdAt(sort: Desc)], map: "idx_sending_history_org_time")
   @@index([status, retryCount], map: "idx_sending_history_status_retry")
   @@index([variantKey, status], map: "idx_sending_history_variant_status")
-  // Phase 4 Track 1: 렌탈 발송 추적 인덱스
   @@index([isRentalPurchase], map: "idx_sendinghistory_isrentalpur")
   @@index([isDeltaSmsEligible], map: "idx_sendinghistory_isdeltasmselig")
   @@index([isDeltaSmsEligible, deltaDay], map: "idx_sendinghistory_deltatemp")
-  // Phase 2 P0 Blocker 3: Unique 제약을 조건부 인덱스(ix_sending_history_dedup)로 변경
-  // 수동 발송(campaignId=NULL)도 중복 방지하기 위해 CASE 식 사용
   @@map("SendingHistory")
 }
 
@@ -2517,14 +2387,14 @@ model BotGuideAnswer {
   key       String   @unique
   question  String
   answer    String
-  category  String   @default("기타")
   source    String   @default("ai-generated")
-  type      String   @default("상담기록")
-  salesTone Json     @default("{\"primary\":\"neutral\",\"secondary\":[],\"confidence\":0}")
-  keywords  Json     @default("[]")
   isActive  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  category  String   @default("기타")
+  keywords  Json     @default("[]")
+  salesTone Json     @default("{\"primary\": \"neutral\", \"secondary\": [], \"confidence\": 0}")
+  type      String   @default("상담기록")
 
   @@index([isActive, category])
   @@index([category, updatedAt])
@@ -4211,29 +4081,27 @@ model SmsQueue {
   @@index([userId])
 }
 
-// ============ B2B 랜딩페이지 모델 (완전 리빌드) ============
-
 model B2BLandingPage {
-  id                String                     @id @default(cuid())
+  id                String                   @id @default(cuid())
   organizationId    String
   title             String
   partnerId         String?
   htmlContent       String?
-  isActive          Boolean                    @default(true)
-  viewCount         Int                        @default(0)
+  isActive          Boolean                  @default(true)
+  viewCount         Int                      @default(0)
   autoFunnelId      String?
   groupId           String?
-  commentEnabled    Boolean                    @default(false)
-  editorMode        String                     @default("image")
+  commentEnabled    Boolean                  @default(false)
+  editorMode        String                   @default("image")
   formConfig        Json?
   footerText        String?
-  paymentEnabled    Boolean                    @default(false)
+  paymentEnabled    Boolean                  @default(false)
   paymentType       String?
   productName       String?
   productPrice      Int?
   cycleDay          Int?
   expireDate        DateTime?
-  regEmailEnabled   Boolean                    @default(false)
+  regEmailEnabled   Boolean                  @default(false)
   regEmailSubject   String?
   regEmailContent   String?
   exposureTitle     String?
@@ -4243,12 +4111,12 @@ model B2BLandingPage {
   headerScript      String?
   description       String?
   createdByUserId   String?
-  createdAt         DateTime                   @default(now())
-  updatedAt         DateTime                   @updatedAt
-  organization      Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  group             ContactGroup?              @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  registrations     B2BLandingRegistration[]
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
   comments          B2BLandingComment[]
+  group             ContactGroup?            @relation(fields: [groupId], references: [id])
+  organization      Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  registrations     B2BLandingRegistration[]
 
   @@index([organizationId])
   @@index([partnerId])
@@ -4257,8 +4125,7 @@ model B2BLandingPage {
 }
 
 model B2BLandingRegistration {
-  id              String             @id @default(cuid())
-  organizationId  String
+  id              String         @id @default(cuid())
   landingPageId   String
   name            String
   phone           String
@@ -4269,10 +4136,11 @@ model B2BLandingRegistration {
   utmMedium       String?
   utmCampaign     String?
   metadata        Json?
-  funnelStarted   Boolean            @default(false)
+  funnelStarted   Boolean        @default(false)
   prospectId      String?
-  createdAt       DateTime           @default(now())
-  landingPage     B2BLandingPage     @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+  createdAt       DateTime       @default(now())
+  organizationId  String
+  landingPage     B2BLandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
 
   @@unique([landingPageId, phone])
   @@index([landingPageId])
@@ -4533,24 +4401,6 @@ model Wishlist {
   @@index([userId])
 }
 
-/// 세일즈봇 Q&A 라이브러리
-
-model prisma_migrations {
-  id             Int       @id @default(dbgenerated("nextval('_prisma_migrations_id_seq'::regclass)"))
-  checksum       String    @unique @db.VarChar(64)
-  finished_at    DateTime? @db.Timestamp(6)
-  execution_time BigInt
-  success        Boolean   @default(true)
-  started_at     DateTime  @default(now()) @db.Timestamp(6)
-  logs           String?
-  rolled_back_at DateTime? @db.Timestamp(6)
-  started_by     String?   @db.VarChar(255)
-  finished_by    String?   @db.VarChar(255)
-  name           String    @db.VarChar(255)
-
-  @@map("_prisma_migrations")
-}
-
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model cron_locks {
   id        Int      @id @default(autoincrement())
@@ -4572,14 +4422,14 @@ model cron_rate_limit_logs {
 }
 
 model GmUserGroup {
-  id        Int                 @id @default(autoincrement())
-  name      String
-  color     String?             @default("#6B7280")
+  id              Int                 @id @default(autoincrement())
+  name            String
+  color           String?             @default("#6B7280")
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
   createdByUserId Int?
-  createdAt DateTime            @default(now())
-  updatedAt DateTime            @updatedAt
-  members   GmUserGroupMember[] @relation("GroupMembers")
-  createdBy GmUser?             @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdBy       GmUser?             @relation(fields: [createdByUserId], references: [id])
+  members         GmUserGroupMember[] @relation("GroupMembers")
 
   @@index([createdByUserId])
   @@map("GmUserGroup")
@@ -4590,13 +4440,232 @@ model GmUserGroupMember {
   groupId  Int
   gmUserId Int
   addedAt  DateTime    @default(now())
-  group    GmUserGroup @relation("GroupMembers", fields: [groupId], references: [id], onDelete: Cascade)
   gmUser   GmUser      @relation("UserGroups", fields: [gmUserId], references: [id], onDelete: Cascade)
+  group    GmUserGroup @relation("GroupMembers", fields: [groupId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, gmUserId])
   @@index([gmUserId])
   @@index([groupId])
   @@map("GmUserGroupMember")
+}
+
+model B2BProspect {
+  id             String       @id @default(cuid())
+  organizationId String
+  eduType        String
+  name           String
+  phone          String
+  email          String?
+  productName    String?
+  paymentAmount  Int?
+  paymentDate    DateTime?
+  notes          String?
+  status         String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, phone, eduType], where: raw("(\"deletedAt\" IS NULL)"))
+  @@index([organizationId, createdAt])
+  @@index([organizationId, eduType])
+}
+
+model PartnerSuspension {
+  id                 String       @id @default(cuid())
+  organizationId     String
+  partnerId          String?
+  partnerName        String
+  partnerRole        String
+  suspensionStatus   String       @default("SUSPENDED")
+  suspensionReason   String
+  reasonDetails      Json?
+  suspendedAt        DateTime     @db.Timestamptz(6)
+  suspendedByAdminId String?
+  appealedAt         DateTime?    @db.Timestamptz(6)
+  appealMessage      String?
+  resolvedAt         DateTime?    @db.Timestamptz(6)
+  resolutionNotes    String?
+  contractRef        String?
+  createdAt          DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime     @updatedAt @db.Timestamptz(6)
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, partnerId])
+  @@index([organizationId, suspensionStatus])
+  @@index([suspendedAt])
+  @@index([resolvedAt])
+  @@map("PartnerSuspension")
+}
+
+model RecaptchaVerification {
+  id                 String                      @id @default(cuid())
+  organizationId     String
+  contactId          String?
+  groupId            String?
+  recaptchaToken     String
+  recaptchaScore     Float
+  verificationStatus RecaptchaVerificationStatus @default(PENDING)
+  verifiedAt         DateTime?                   @db.Timestamptz(6)
+  callbackStatus     String?
+  expiresAt          DateTime                    @db.Timestamptz(6)
+  createdAt          DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime                    @updatedAt @db.Timestamptz(6)
+
+  @@index([organizationId, verificationStatus])
+  @@index([contactId, verificationStatus])
+  @@index([expiresAt])
+  @@index([createdAt])
+  @@map("RecaptchaVerification")
+}
+
+model CrmMarketingCampaign {
+  id               String               @id @default(cuid())
+  organizationId   String
+  groupId          String
+  title            String
+  sendEmail        Boolean              @default(false)
+  emailSubject     String?
+  emailBody        String?
+  sendSms          Boolean              @default(false)
+  smsBody          String?
+  includeLanding   Boolean              @default(false)
+  landingUrl       String?
+  landingLinkText  String?
+  sendAt           DateTime
+  repeatRule       String?              @default("ONCE")
+  nextExecutionAt  DateTime?
+  totalCount       Int                  @default(0)
+  sentCount        Int                  @default(0)
+  failedCount      Int                  @default(0)
+  skippedCount     Int                  @default(0)
+  openCount        Int                  @default(0)
+  clickCount       Int                  @default(0)
+  registeredCount  Int                  @default(0)
+  status           String               @default("DRAFT")
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  lensMetadata     Json?
+  campaignCost     CampaignCost?
+  variants         CampaignVariant[]    @relation("CampaignVariants")
+  group            ContactGroup         @relation("CrmMarketing", fields: [groupId], references: [id], onDelete: Cascade)
+  organization     Organization         @relation("CrmMarketing", fields: [organizationId], references: [id], onDelete: Cascade)
+  deltaConfig      DeltaCampaignConfig? @relation("DeltaConfig")
+  executionLogs    ExecutionLog[]       @relation("ExecutionLogToCampaign")
+  sendingHistories SendingHistory[]
+
+  @@index([organizationId])
+  @@index([groupId])
+  @@index([status])
+  @@index([nextExecutionAt])
+  @@index([organizationId, createdAt(sort: Desc)], map: "idx_campaign_org_created_desc")
+  @@map("CrmMarketingCampaign")
+}
+
+model CampaignCost {
+  id               String               @id @default(cuid())
+  campaignId       String               @unique
+  organizationId   String
+  smsSent          Int                  @default(0)
+  smsRateCurrent   Decimal              @default(0.01) @db.Decimal(10, 2)
+  smsCostTotal     Decimal              @default(0) @db.Decimal(12, 2)
+  emailSent        Int                  @default(0)
+  emailRateCurrent Decimal              @default(0.001) @db.Decimal(10, 4)
+  emailCostTotal   Decimal              @default(0) @db.Decimal(12, 2)
+  successCount     Int                  @default(0)
+  failureCount     Int                  @default(0)
+  costPerSuccess   Decimal              @default(0) @db.Decimal(12, 2)
+  estimatedRevenue Decimal              @default(0) @db.Decimal(15, 2)
+  estimatedRoi     Decimal              @default(0) @db.Decimal(7, 2)
+  actualCostTotal  Decimal              @default(0) @db.Decimal(12, 2)
+  calculatedAt     DateTime             @default(now())
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  campaign         CrmMarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, organizationId])
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("CampaignCost")
+}
+
+model CampaignVariant {
+  id           String               @id @default(cuid())
+  campaignId   String
+  variantKey   String
+  smsBody      String?
+  emailSubject String?
+  emailBody    String?
+  trafficSplit Float                @default(0.5)
+  isActive     Boolean              @default(true)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  campaign     CrmMarketingCampaign @relation("CampaignVariants", fields: [campaignId], references: [id])
+
+  @@unique([campaignId, variantKey])
+  @@index([campaignId, isActive])
+  @@map("CampaignVariant")
+}
+
+model DeltaCampaignConfig {
+  id             String               @id @default(cuid())
+  campaignId     String               @unique
+  organizationId String
+  triggerType    String               @default("PURCHASE")
+  day0Message    String
+  day1Message    String
+  day2Message    String
+  day3Message    String?
+  isActive       Boolean              @default(true)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  campaign       CrmMarketingCampaign @relation("DeltaConfig", fields: [campaignId], references: [id], onDelete: Cascade)
+  organization   Organization         @relation("DeltaConfigs", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([campaignId])
+  @@map("DeltaCampaignConfig")
+}
+
+enum ExecutionFailureReason {
+  QUOTA_EXCEEDED
+  INVALID_CONTACT
+  OPT_OUT
+  SYSTEM_ERROR
+  PROVIDER_ERROR
+  INVALID_EMAIL
+  INVALID_PHONE
+  NETWORK_ERROR
+  BOUNCE
+}
+
+enum ExecutionStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+  RETRY_SCHEDULED
+  ABANDONED
+}
+
+enum SendingStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+  RETRY_SCHEDULED
+  ABANDONED
+}
+
+enum SendingFailureReason {
+  INVALID_EMAIL
+  INVALID_PHONE
+  OPT_OUT
+  QUOTA_EXCEEDED
+  SYSTEM_ERROR
+  PROVIDER_ERROR
+  NETWORK_ERROR
+  BOUNCE
 }
 
 enum AffiliateActionType {
@@ -4648,215 +4717,4 @@ enum RecaptchaVerificationStatus {
   SUCCESS
   BLOCKED
   FAILED
-}
-
-model B2BProspect {
-  id                String       @id @default(cuid())
-  organizationId    String
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  eduType           String       // 'BUYER' | 'INQUIRER'
-  name              String
-  phone             String
-  email             String?
-  productName       String?
-  paymentAmount     Int?
-  paymentDate       DateTime?
-  notes             String?
-  status            String       // Custom statuses: '잠재고객', '문자', '부재', etc.
-
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-  deletedAt         DateTime?    // Soft delete
-
-  @@unique([organizationId, phone, eduType], where: { deletedAt: null })
-  @@index([organizationId, createdAt])
-  @@index([organizationId, eduType])
-}
-
-model PartnerSuspension {
-  id                    String       @id @default(cuid())
-  organizationId        String
-  partnerId             String?
-  partnerName           String
-  partnerRole           String       // MANAGER | SALESPERSON | PRESALES
-
-  suspensionStatus      String       @default("SUSPENDED")  // SUSPENDED | APPEALING | RESOLVED
-  suspensionReason      String       // HIGH_REFUND | NO_REVENUE | MANUAL
-  reasonDetails         Json?        // { refundRate?: number, monthsAffected?: number[], ... }
-
-  suspendedAt           DateTime     @db.Timestamptz(6)
-  suspendedByAdminId    String?
-
-  appealedAt            DateTime?    @db.Timestamptz(6)
-  appealMessage         String?
-
-  resolvedAt            DateTime?    @db.Timestamptz(6)
-  resolutionNotes       String?
-
-  contractRef           String?
-
-  createdAt             DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt             DateTime     @updatedAt @db.Timestamptz(6)
-
-  organization          Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@unique([organizationId, partnerId])
-  @@index([organizationId, suspensionStatus])
-  @@index([suspendedAt])
-  @@index([resolvedAt])
-  @@map("PartnerSuspension")
-}
-
-model RecaptchaVerification {
-  id                    String                          @id @default(cuid())
-  organizationId        String
-  contactId             String?
-  groupId               String?
-  recaptchaToken        String
-  recaptchaScore        Float
-  verificationStatus    RecaptchaVerificationStatus     @default(PENDING)
-  verifiedAt            DateTime?                       @db.Timestamptz(6)
-  callbackStatus        String?                         // SUCCESS | FAILED | PENDING
-  expiresAt             DateTime                        @db.Timestamptz(6)
-  createdAt             DateTime                        @default(now()) @db.Timestamptz(6)
-  updatedAt             DateTime                        @updatedAt @db.Timestamptz(6)
-
-  // Note: Relationships removed due to missing back-relations in Organization, Contact, ContactGroup
-  // Foreign keys are sufficient for data integrity at the database level
-
-  @@index([organizationId, verificationStatus])
-  @@index([contactId, verificationStatus])
-  @@index([expiresAt])
-  @@index([createdAt])
-  @@map("RecaptchaVerification")
-}
-
-model CrmMarketingCampaign {
-  id               String                @id @default(cuid())
-  organizationId   String
-  groupId          String
-  title            String
-  sendEmail        Boolean               @default(false)
-  emailSubject     String?
-  emailBody        String?
-  sendSms          Boolean               @default(false)
-  smsBody          String?
-  includeLanding   Boolean               @default(false)
-  landingUrl       String?
-  landingLinkText  String?
-  sendAt           DateTime
-  repeatRule       String?               @default("ONCE")
-  nextExecutionAt  DateTime?
-  totalCount       Int                   @default(0)
-  sentCount        Int                   @default(0)
-  failedCount      Int                   @default(0)
-  skippedCount     Int                   @default(0)
-  openCount        Int                   @default(0)
-  clickCount       Int                   @default(0)
-  registeredCount  Int                   @default(0)
-  status           String                @default("DRAFT")
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-  organization      Organization          @relation("CrmMarketing", fields: [organizationId], references: [id], onDelete: Cascade)
-  group             ContactGroup          @relation("CrmMarketing", fields: [groupId], references: [id], onDelete: Cascade)
-  sendingHistories  SendingHistory[]
-  campaignCost      CampaignCost?
-  executionLogs     ExecutionLog[]        @relation("ExecutionLogToCampaign")
-  variants          CampaignVariant[]     @relation("CampaignVariants")
-  deltaConfig       DeltaCampaignConfig?  @relation("DeltaConfig")
-  lensMetadata      Json?
-
-  @@index([organizationId])
-  @@index([groupId])
-  @@index([status])
-  @@index([nextExecutionAt])
-  @@index([organizationId, createdAt(sort: Desc)], map: "idx_campaign_org_created_desc")
-  @@map("CrmMarketingCampaign")
-}
-
-model CampaignCost {
-  id              String   @id @default(cuid())
-  campaignId      String   @unique
-  organizationId  String
-
-  // 발송 통계
-  smsSent         Int      @default(0)
-  smsRateCurrent  Decimal  @default(0.01) @db.Decimal(10, 2)     // KRW per SMS (P0 Fix: Float → Decimal)
-  smsCostTotal    Decimal  @default(0) @db.Decimal(12, 2)        // P0 Fix: Float → Decimal (금융 정밀도)
-
-  emailSent       Int      @default(0)
-  emailRateCurrent Decimal @default(0.001) @db.Decimal(10, 4)    // KRW per Email (P0 Fix: Float → Decimal)
-  emailCostTotal  Decimal  @default(0) @db.Decimal(12, 2)        // P0 Fix: Float → Decimal
-
-  // 성공/실패 분석
-  successCount    Int      @default(0)           // SENT + DELIVERED
-  failureCount    Int      @default(0)           // FAILED
-  costPerSuccess  Decimal  @default(0) @db.Decimal(12, 2)        // P0 Fix: Float → Decimal
-
-  // ROI
-  estimatedRevenue Decimal @default(0) @db.Decimal(15, 2)        // 예상 수익 (P0 Fix: Float → Decimal)
-  estimatedRoi    Decimal  @default(0) @db.Decimal(7, 2)         // revenue / cost (P0 Fix: Float → Decimal, 최대 99,999.99%)
-
-  // Metadata
-  actualCostTotal Decimal  @default(0) @db.Decimal(12, 2)        // smsCost + emailCost (P0 Fix: Float → Decimal)
-  calculatedAt    DateTime @default(now())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  campaign        CrmMarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@unique([campaignId, organizationId])
-  @@index([organizationId, createdAt(sort: Desc)])
-  @@map("CampaignCost")
-}
-
-
-// Phase 3: A/B 테스트 변형 관리 (Wave 1)
-model CampaignVariant {
-  id           String   @id @default(cuid())
-  campaignId   String
-  variantKey   String   // "A" | "B"
-  smsBody      String?
-  emailSubject String?
-  emailBody    String?
-  trafficSplit Float    @default(0.5)  // A를 받을 비율 (0.0~1.0)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  campaign     CrmMarketingCampaign @relation("CampaignVariants", fields: [campaignId], references: [id], onDelete: Restrict)
-
-  @@unique([campaignId, variantKey])
-  @@index([campaignId, isActive])
-  @@map("CampaignVariant")
-}
-
-// Phase 4 Track 1: Delta SMS 3일 시퀀스 설정 관리
-model DeltaCampaignConfig {
-  id               String   @id @default(cuid())
-  campaignId       String   @unique
-  organizationId   String
-
-  // 트리거 타입 & 설정
-  triggerType      String   @default("PURCHASE")  // PURCHASE | RENTAL_BOOKING | etc
-
-  // Day 0-3 메시지
-  day0Message      String   // Day 0: 구매 직후
-  day1Message      String   // Day 1: +1일
-  day2Message      String   // Day 2: +2일
-  day3Message      String?  // Day 3: +3일 (선택)
-
-  // 메타정보
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  campaign         CrmMarketingCampaign @relation("DeltaConfig", fields: [campaignId], references: [id], onDelete: Cascade)
-  organization     Organization @relation("DeltaConfigs", fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId])
-  @@index([campaignId])
-  @@map("DeltaCampaignConfig")
 }
