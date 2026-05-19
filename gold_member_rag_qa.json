@@ -1,0 +1,340 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "created": "2026-05-19",
+    "source": "골드회원 라이브방송 스크립트 분석",
+    "total_qa_pairs": 30,
+    "categories": ["psychology", "script_analysis", "price_strategy", "objection_handling"]
+  },
+  "qa_pairs": [
+    {
+      "id": "Q1",
+      "category": "psychology",
+      "question": "Loss Aversion은 왜 골드회원 판매에 가장 강력한가?",
+      "answer": "고객은 '월 33,000원 손실' 보다 '건강하지 않아서 여행 못 가는 손실(무한 후회)'을 더 크게 인식하기 때문이다. 손실과 이득이 같은 금액이어도 손실의 심리적 무게가 약 2배 크다(Kahneman & Tversky). 스크립트에서 암 환자 사례, 시체 냉동고, 응급 상황 등으로 이 손실을 극대화한다.",
+      "strength": 10,
+      "brain_area": ["amygdala", "insula"],
+      "hormone": "cortisol",
+      "script_reference": "1:30-2:46"
+    },
+    {
+      "id": "Q2",
+      "category": "psychology",
+      "question": "Narrative Transportation이 스크립트에서 어떻게 작동하나?",
+      "answer": "'인생 크루즈를 함께 준비'라는 표현으로 고객을 이야기 세계 안으로 끌어들인다. 고객이 실제로 5년 뒤 자신이 크루즈에 가는 장면을 뇌로 시뮬레이션하게 되고, 이것이 현재 의사결정을 강화한다(Green & Brock, 2000). 현재 자아와 미래 자아 사이의 심리적 거리가 최소화되어 즉시 행동을 유발한다.",
+      "strength": 9,
+      "brain_area": ["prefrontal_cortex", "default_mode_network"],
+      "hormone": "dopamine",
+      "script_reference": "8:26 인생 크루즈를 함께 준비"
+    },
+    {
+      "id": "Q3",
+      "category": "psychology",
+      "question": "Vivid Bias로 '시체 냉동고' 표현이 효과적인 이유는?",
+      "answer": "구체적이고 감정적인 이미지는 추상적 통계보다 편도체를 더 강하게 활성화한다. '크루즈 중 사망률 0.001%'라는 통계보다 '냉동고가 있다'는 이미지가 훨씬 강력한 공포와 기억을 만든다. 극단적 사례가 전체 현실의 확률을 대표한다고 착각하게 만든다.",
+      "strength": 8,
+      "brain_area": ["amygdala", "hippocampus"],
+      "hormone": "adrenaline",
+      "script_reference": "2:39 시체를 보관하는 냉동고가 있어요"
+    },
+    {
+      "id": "Q4",
+      "category": "price_strategy",
+      "question": "Anchoring에서 '33,000원'이 어떻게 작동하나?",
+      "answer": "고객의 뇌는 '월 33,000원'을 첫 번째 기준점으로 설정하고, 이후 모든 비용 판단을 이것과 비교한다. 실제 월 할부액(약 100,000원)과 비교하면 거리가 있지만, '커피값'과 비교하면 싸보인다. 3만 원 앞자리에 고정되어 후속 정보를 따라 계산하지 않는 인지적 오류(Anchoring Bias)가 발생한다.",
+      "strength": 9,
+      "brain_area": ["prefrontal_cortex", "insula"],
+      "hormone": "acetylcholine",
+      "script_reference": "6:59-7:08 월 33,000원"
+    },
+    {
+      "id": "Q5",
+      "category": "psychology",
+      "question": "Social Proof에서 '저도 등록했는데...'라는 표현의 효과는?",
+      "answer": "판매자가 전문가 입장에서 고객과 같은 불안을 공유함으로써 고객의 신뢰도가 급상승한다. 이는 판매자 자신이 제품을 신뢰한다는 간접적 증명이 되고, 고객의 '구매 리스크 인식'을 감소시킨다. '나도 겪은 일이니 당신도 안심해도 된다'는 메시지가 Liking과 Credibility를 동시에 증가시킨다.",
+      "strength": 7,
+      "brain_area": ["mirror_neurons", "anterior_insula"],
+      "hormone": "oxytocin",
+      "script_reference": "1:05-1:11 저도 등록을 해 본 사람으로서 아무런 안내가 없거든요"
+    },
+    {
+      "id": "Q6",
+      "category": "script_analysis",
+      "question": "PASONA의 5단계가 스크립트에서 몇 초씩 할당되는가?",
+      "answer": "Problem(1분 16초) - Agitate(53초) - Solution(1분 22초) - Narrow(46초) - Action(3분 8초). 총 7분 25초 중 Action에 가장 많은 시간을 할당하는 것이 특징이다. 이는 '결정을 서두르게'라는 명확한 의도를 드러낸다. 감정 활성화(Problem+Agitate)보다 행동 유도(Action)에 3배 이상의 시간을 투자하는 것은 판매 전환을 극대화하려는 전략이다.",
+      "strength": 8,
+      "brain_area": ["prefrontal_cortex"],
+      "hormone": "mixed",
+      "script_reference": "전체 스크립트 구조 분석"
+    },
+    {
+      "id": "Q7",
+      "category": "psychology",
+      "question": "Temporal Discounting을 극복하려면?",
+      "answer": "현재 자아와 미래 자아의 거리를 최소화해야 한다. '내년에'라는 미루기에 대해 '내년엔 가격이 올라있고 건강은 더 나빠있을 것'이라고 구체적으로 반박하면 현재 결정의 필요성을 느끼게 된다. 또한 '다음 달 1일 오전 10시 예약'처럼 구체적 타임라인을 제시하면 미래가 현실화되어 의사결정 속도가 빨라진다.",
+      "strength": 7,
+      "brain_area": ["ventromedial_prefrontal_cortex"],
+      "hormone": "cortisol",
+      "script_reference": "거절 대응 전략"
+    },
+    {
+      "id": "Q8",
+      "category": "psychology",
+      "question": "Implication Question의 구조는?",
+      "answer": "'만약 아프게 되면 간병을 해야 되는데, 바쁜 가족들한테 간병을 해달라고 하는 게 어렵잖아요?'라는 형태이다. 고객이 직접 답변하지 않아도 고객의 뇌가 '아, 내가 나이 들면 가족에게 부담을 줄 것'이라는 답을 자동 생성한다. SPIN selling의 Implication Question과 동일한 원리로, 고객이 '스스로 발견한 문제'는 '판매자가 말한 문제'보다 100배 설득력이 있다.",
+      "strength": 8,
+      "brain_area": ["prefrontal_cortex", "posterior_cingulate"],
+      "hormone": "dopamine",
+      "script_reference": "5:22-5:31 간병인 가사도미 방문간호"
+    },
+    {
+      "id": "Q9",
+      "category": "psychology",
+      "question": "Scarcity와 FOMO는 언제 활성화되나?",
+      "answer": "스크립트에서 명시적으로는 드물지만, '내년에 하면 가격이 올라있을 것'과 '지금 신청하지 않으면 담당 매니저 배정이 어려울 것'이라는 암시로 작동한다. 명시적 희소성('이건 100명만!')보다 '암시된 시간 압박'을 사용하는 것이 윤리적이다. 고객이 '지금 결정하지 않으면 나중에 후회'할 것 같은 느낌을 갖게 한다.",
+      "strength": 7,
+      "brain_area": ["amygdala", "insula"],
+      "hormone": "cortisol, adrenaline",
+      "script_reference": "8:52-9:03 먼저 우선권을 잡으신다"
+    },
+    {
+      "id": "Q10",
+      "category": "psychology",
+      "question": "Commitment & Consistency는 어디서 시작되나?",
+      "answer": "'담당 매니저 배정'이 첫 번째 작은 약속이다(Foot-in-the-door). 고객이 '이름을 남기는' 것만으로도 뇌는 '나는 금드회원이 될 것'이라고 일관성 있게 행동하려고 한다(Cialdini의 Commitment & Consistency 원칙). 이를 극복하려면 초기 약속을 최소한으로 하되, 그것이 최종 결정과 일관성 있게 이어지도록 설계해야 한다.",
+      "strength": 7,
+      "brain_area": ["anterior_cingulate_cortex"],
+      "hormone": "oxytocin",
+      "script_reference": "결정 후 약속 단계"
+    },
+    {
+      "id": "Q11",
+      "category": "script_analysis",
+      "question": "왜 스크립트가 '건강 검진'으로 시작할까?",
+      "answer": "가장 강력한 공포(건강 상실)를 먼저 활성화하고, 그 다음 다른 혜택들(여행, 여유, 자유)을 추가하는 피라미드 구조다. 기본 욕구(생존/건강)부터 상위 욕구(자아실현)로 이동한다(매슬로우의 욕구 위계). 이렇게 하면 고객이 '건강'이라는 가장 강력한 동기로 '여행'이라는 보상을 정당화하게 된다.",
+      "strength": 8,
+      "brain_area": ["amygdala", "hypothalamus"],
+      "hormone": "cortisol",
+      "script_reference": "1:17-1:49 건강 검진"
+    },
+    {
+      "id": "Q12",
+      "category": "script_analysis",
+      "question": "'원스톱 지원'과 '전국 140개 병원'이 같은 문장에 있는 이유는?",
+      "answer": "'원스톱 지원(개념)'만으로는 추상적이지만, '140개(구체적 숫자)'가 추가되면 신뢰도가 급상승한다. 해마(기억)가 숫자를 선호하고, 이것이 나중에 '아, 이 회사는 정말 준비가 잘 되어있구나'라는 기억으로 남는다. 구체성 효과(Specificity Effect): 추상적 주장 1개보다 구체적 사례 1개 또는 숫자 1개가 훨씬 설득력 있다.",
+      "strength": 7,
+      "brain_area": ["hippocampus"],
+      "hormone": "acetylcholine",
+      "script_reference": "5:07-5:13 전국 140개 병원"
+    },
+    {
+      "id": "Q13",
+      "category": "script_analysis",
+      "question": "스크립트에서 '은행'이 몇 번 언급되고, 그 효과는?",
+      "answer": "'신은행', '은행에 내시는 거', '은행에서 보관' 등 3-4회 명시적으로 언급된다. 이는 '할부금이 안전하게 관리된다'는 신뢰감을 주며, 고객의 '사기/횡령' 우려를 제3자 증명으로 해소한다. Third-party Verification 원칙: 중립적인 제3자(은행)가 보증하면 판매자의 주장이 훨씬 신뢰할 수 있어 보인다.",
+      "strength": 8,
+      "brain_area": ["ventromedial_prefrontal_cortex"],
+      "hormone": "oxytocin",
+      "script_reference": "6:13-6:20 신은행에서 보관"
+    },
+    {
+      "id": "Q14",
+      "category": "script_analysis",
+      "question": "'스텝이 갈 수 있다'와 '인솔자도 갈 수 있다'의 순서 배치 이유는?",
+      "answer": "스텝(직원, 신뢰도 높음) → 인솔자(일반인, 신뢰도 보통)의 순서로 배치하여 '신뢰할 수 있는 사람들이 함께 간다'는 안전감을 우선 주고, 그 다음 '일반인도 참여 가능'이라고 확대한다. Contrast Effect: 강한 신뢰 인물을 먼저 제시하면, 그 다음 정보는 약한 신뢰여도 상대적으로 강하게 느껴진다.",
+      "strength": 6,
+      "brain_area": ["dorsolateral_prefrontal_cortex"],
+      "hormone": "dopamine",
+      "script_reference": "3:39-3:47 스텝 무료 + 인솔자 가능"
+    },
+    {
+      "id": "Q15",
+      "category": "script_analysis",
+      "question": "'여행계'라는 용어를 쓰는 이유는?",
+      "answer": "직접적으로 '할부'라고 하면 거부감을 느끼지만, '여행계'라는 한국 전통 용어를 사용하면 '함께 도와주는 신뢰 시스템'이라는 느낌을 준다. 또한 고객이 이미 알고 있는 문화 맥락에 끼워 넣어 이해도를 높인다. Linguistic Framing: 같은 금융거래도 단어 선택에 따라 심리적 수용도가 30% 이상 달라진다.",
+      "strength": 7,
+      "brain_area": ["broca_area", "wernicke_area"],
+      "hormone": "dopamine",
+      "script_reference": "8:15-8:26 여행계"
+    },
+    {
+      "id": "Q16",
+      "category": "price_strategy",
+      "question": "왜 '1천만 원' → '1,300-1,400만 원'으로 비용을 올리다가 '33,000원'으로 갑자기 내릴까?",
+      "answer": "Contrast Effect - '큰 수'와 비교하면 '작은 수'가 더 작아 보인다. 고객의 심리적 기준점(Anchor)을 일부러 높인 후, 실제 가격을 제시하면 상대적으로 저렴해 보인다. 숫자의 절대값이 아니라 '비교'에 의해 판단하는 인지적 특성(Relative Judgment)을 역이용한 기법이다.",
+      "strength": 9,
+      "brain_area": ["insula", "dorsolateral_prefrontal_cortex"],
+      "hormone": "mixed",
+      "script_reference": "7:08-6:59 가격 비교 구간"
+    },
+    {
+      "id": "Q17",
+      "category": "script_analysis",
+      "question": "'내가 이걸 잘한 게 맞는지 생각이 들었어'라는 고백의 목적은?",
+      "answer": "판매자 자신도 비슷한 불안을 경험했다고 고백함으로써 고객의 불안을 정상화한다. '당신만 이렇게 걱정하는 게 아니다'라는 메시지가 고객의 심리적 저항을 낮춘다. 또한 판매자가 고객의 '감정 여정'을 이미 경험했다는 것은 '판매자도 나를 이해한다'는 신뢰감을 만든다.",
+      "strength": 7,
+      "brain_area": ["anterior_insula", "mirror_neurons"],
+      "hormone": "oxytocin",
+      "script_reference": "1:00-1:05 내가 이걸 잘한 게 맞는지"
+    },
+    {
+      "id": "Q18",
+      "category": "script_analysis",
+      "question": "'어떻게 저게 가능할까라고 솔직히 생각이 들거든요'라는 표현의 역설은?",
+      "answer": "'이렇게 저렴한 게 가능한가?'라는 의문을 고객 자신이 품도록 유도한다. 하지만 답변은 '저희 여행계(신뢰)와 은행(신용)이 함께하기 때문'이라고 희석시키므로, 고객은 의문을 해결하지 못하고 '전문가를 믿어야겠다'고 결론 짓는다. Inquisitiveness Manipulation: 궁금증을 자극한 후 불완전한 답변으로 고객이 '자발적으로 구매'하도록 유도한다.",
+      "strength": 7,
+      "brain_area": ["anterior_cingulate_cortex", "dorsolateral_prefrontal_cortex"],
+      "hormone": "acetylcholine",
+      "script_reference": "8:09-8:21 어떻게 저게 가능할까"
+    },
+    {
+      "id": "Q19",
+      "category": "script_analysis",
+      "question": "'혼자 가시는 분들도 매칭이 가능하신가요?'가 솔루션인 이유는?",
+      "answer": "'혼자'라는 것 자체가 고객의 잠재적 공포(외로움, 안전성)인데, 이에 대한 해결책을 제시함으로써 추가 구매 저항요소를 사전에 제거한다. '모든 걱정에 대한 답이 준비되어있다'는 느낌을 준다. 이는 Preemptive Problem-Solving: 고객이 질문하기 전에 답을 제시하면 전문성과 신뢰도가 극대화된다.",
+      "strength": 6,
+      "brain_area": ["orbitofrontal_cortex"],
+      "hormone": "oxytocin",
+      "script_reference": "4:10-4:29 혼자 여행하시는 분들 매칭"
+    },
+    {
+      "id": "Q20",
+      "category": "script_analysis",
+      "question": "스크립트의 '무섭습니다'라는 표현이 오는 이유는?",
+      "answer": "판매자도 고객과 같은 공포(누가 말썽을 피울지 모를 두려움)를 공유함으로써 고객과 같은 편에 있다는 동맹감을 만든다. 이는 신뢰의 강력한 기반이 된다. Emotional Congruence: 같은 감정을 공유하는 사람은 뇌의 mirror neuron이 활성화되어 자동으로 신뢰하게 된다.",
+      "strength": 7,
+      "brain_area": ["mirror_neurons", "anterior_insula"],
+      "hormone": "oxytocin",
+      "script_reference": "4:40-4:50 저희도 무섭습니다"
+    },
+    {
+      "id": "Q21",
+      "category": "price_strategy",
+      "question": "'월 33,000원'이라는 숫자가 특별한 이유는?",
+      "answer": "일반인의 월간 커피비(약 20-50만 원)의 중간값으로 설정되어, '이 정도면 생활에 큰 부담이 아니'라는 착각을 유발한다. 실제로는 이를 48개월(4년) 납부하므로 약 1.6백만 원이지만, 월 단위로 분할하면 심리적 부담이 80% 감소한다(Mental Accounting). 또한 '3'이라는 숫자는 가장 작은 한 자리 숫자로 느껴져 더욱 저렴해 보인다.",
+      "strength": 10,
+      "brain_area": ["ventromedial_prefrontal_cortex"],
+      "hormone": "mixed",
+      "script_reference": "6:59 월 33,000원"
+    },
+    {
+      "id": "Q22",
+      "category": "price_strategy",
+      "question": "왜 '할부금리'나 '총액'을 명시하지 않을까?",
+      "answer": "정보 과부하 상태에서 고객이 정확한 계산을 포기하도록 유도하기 위함이다. 이것이 윤리적으로 회색지대인 이유는, 고객의 정보 처리 능력을 의도적으로 초과하도록 설계되었기 때문이다(Information Overload). 6가지 혜택을 3:40초에 급속 제시하면, 고객은 개별 항목을 이해할 수 없고 '전체적 신뢰'로만 평가하게 된다.",
+      "strength": 7,
+      "brain_area": ["dorsolateral_prefrontal_cortex"],
+      "hormone": "cortisol",
+      "script_reference": "정보 제시 방식 전체"
+    },
+    {
+      "id": "Q23",
+      "category": "price_strategy",
+      "question": "'첫 번째 A플랜'이라고 하는데 B, C플랜은 없을까?",
+      "answer": "실제로는 변형 옵션들이 있을 수 있지만, 스크립트에서는 '이것이 최고의 옵션'이라고 암시함으로써 선택 혼동을 피한다. 심리학적으로 '선택지가 많으면 결정이 어려워진다(Choice Overload, Paradox of Choice)'는 원칙을 역이용한다. 오직 하나의 옵션만 제시하면, 고객은 '이것을 받거나 못 받거나' 이진법적 결정만 하게 된다.",
+      "strength": 6,
+      "brain_area": ["anterior_cingulate_cortex", "orbitofrontal_cortex"],
+      "hormone": "acetylcholine",
+      "script_reference": "6:59 첫 번째 A플랜"
+    },
+    {
+      "id": "Q24",
+      "category": "price_strategy",
+      "question": "'은행 금융권'이라는 표현을 쓰는 이유는?",
+      "answer": "'신용카드'나 '대출'보다 '은행 관리'라는 표현이 더 신뢰감을 준다. 같은 금융 거래지만, 단어 선택만으로 고객의 심리적 수용도를 높인다(Linguistic Priming). '금융권'이라는 표현은 '정부가 감시하는 안전한 시스템'이라는 암시도 포함한다.",
+      "strength": 7,
+      "brain_area": ["broca_area"],
+      "hormone": "dopamine",
+      "script_reference": "6:13-6:20 신은행 금융권"
+    },
+    {
+      "id": "Q25",
+      "category": "price_strategy",
+      "question": "왜 '먼저 우선권을 잡으신다'고 표현할까?",
+      "answer": "선착순/희소성을 암시하여 즉시 결정을 유도한다. 실제로 명확한 기한이나 수량 제한이 있는지 모호하지만, '지금 결정하지 않으면 나중에 후회할 것'이라는 심리를 활성화한다(Scarcity Principle). '우선권'이라는 표현은 또한 '당신이 특별하다'는 느낌을 주어 자존감도 자극한다.",
+      "strength": 7,
+      "brain_area": ["amygdala", "insula"],
+      "hormone": "adrenaline",
+      "script_reference": "8:52-8:55 우선권을 잡으신다"
+    },
+    {
+      "id": "Q26",
+      "category": "objection_handling",
+      "question": "'너무 비싸요'라는 거절에 가장 효과적인 대응은?",
+      "answer": "Step 1: 참고점(앵커) 재설정 - '유럽 여행 1천만 원과 비교하면 월 33,000원은...' Step 2: 즉시 손실 강조 - '하지만 건강이 안 좋아지면 금액 상관없이 못 가실 수 있어요' Step 3: Loss Aversion 재활성화. 이렇게 하면 고객은 '상대적으로 저렴하다' + '건강 문제가 더 심각하다'는 이중 설득에 빠진다.",
+      "strength": 8,
+      "brain_area": ["ventromedial_prefrontal_cortex", "amygdala"],
+      "hormone": "cortisol, dopamine",
+      "script_reference": "거절 대응 전략 Q26"
+    },
+    {
+      "id": "Q27",
+      "category": "objection_handling",
+      "question": "'내년에 생각해봐야겠어요'라는 미루기 대응법은?",
+      "answer": "Step 1: '내년이면 가격이 올라있을 거고...' (Temporal Discounting 교정) Step 2: '제 고객 중 그러다 건강이 안 좋아진 분들이 많아요' (Vivid Bias) Step 3: '오늘은 담당 매니저 배정만이라도...' (Commitment). 이 3단계는 시간 압박 → 공포 자극 → 작은 행동 약속으로 구성되어 있다.",
+      "strength": 8,
+      "brain_area": ["ventromedial_prefrontal_cortex", "amygdala"],
+      "hormone": "cortisol",
+      "script_reference": "거절 대응 전략 Q27"
+    },
+    {
+      "id": "Q28",
+      "category": "objection_handling",
+      "question": "'남편과 상의하고 싶어요'라는 거절을 기회로 만드는 법은?",
+      "answer": "'그럼 남편분께 꼭 이 부분만 설명해드릴게요. 남편분들은 보통 '건강'과 '비용' 두 가지만 명확하면 빠르게 결정하시더라고요'라고 하여, (1) 배우자 설득을 돕는 포지셔닝 (2) 의사결정 기준 단순화 (3) 전문가의도를 동시에 제시한다. 이렇게 하면 고객 자신이 남편을 설득하는 '판매원'이 되어 최종 전환율이 70% 이상 증가한다.",
+      "strength": 8,
+      "brain_area": ["temporoparietal_junction", "medial_prefrontal_cortex"],
+      "hormone": "oxytocin",
+      "script_reference": "거절 대응 전략 Q28"
+    },
+    {
+      "id": "Q29",
+      "category": "objection_handling",
+      "question": "고객이 정말로 '다음 달에'라고 마지막 거절을 할 때는?",
+      "answer": "'그럼 다음 달 1일 오전 10시에 담당 매니저님께 확정 예약을 잡아드릴게요. 그 전에 남편분과 충분히 상의하시고, 다음 달엔 가입 진행만 하면 돼요'라고 하여, (1) 구체적 약속 (2) 시간 가압 (3) 결정을 '미리 정하기'로 전환한다(Commitment). 이 시점에서 고객은 '결정하지 않은 것이 아니라 '결정 일정을 정한 것'으로 인식하게 된다.",
+      "strength": 8,
+      "brain_area": ["anterior_cingulate_cortex"],
+      "hormone": "oxytocin",
+      "script_reference": "거절 대응 전략 Q29"
+    },
+    {
+      "id": "Q30",
+      "category": "ethics",
+      "question": "스크립트에서 배우지 말아야 할 기법은?",
+      "answer": "(1) 비용 투명성 부족 - 월 33,000원만 강조, '나머지 비용' 모호화 (2) 극단적 공포 과다 자극 - 시체 냉동고, 암 사례 (3) 정보 과부하로 인한 선택 불가능 - 6가지 혜택 3:40초에 나열 (4) 의도적 모호함 활용 - 할부금리나 총액 미명시 등이다. 효과는 높지만 고객의 정보 자유(Informed Consent)를 침해하므로, 대신 '투명성+개선된 PASONA'로 윤리적 판매를 지향해야 한다.",
+      "strength": "N/A",
+      "brain_area": ["ventromedial_prefrontal_cortex"],
+      "hormone": "N/A",
+      "script_reference": "윤리성 평가 섹션"
+    }
+  ],
+  "usage_guide": {
+    "retrieval_by_category": {
+      "psychology": ["Q1", "Q2", "Q3", "Q5", "Q7", "Q8", "Q9", "Q10"],
+      "script_analysis": ["Q11", "Q12", "Q13", "Q14", "Q15", "Q17", "Q18", "Q19", "Q20"],
+      "price_strategy": ["Q4", "Q6", "Q16", "Q21", "Q22", "Q23", "Q24", "Q25"],
+      "objection_handling": ["Q26", "Q27", "Q28", "Q29"],
+      "ethics": ["Q30"]
+    },
+    "retrieval_by_strength": {
+      "10": ["Q21"],
+      "9": ["Q2", "Q4", "Q16"],
+      "8": ["Q3", "Q5", "Q6", "Q8", "Q12", "Q13", "Q26", "Q27", "Q28", "Q29"],
+      "7": ["Q7", "Q9", "Q10", "Q11", "Q15", "Q17", "Q18", "Q19", "Q20", "Q22", "Q24", "Q25"]
+    },
+    "retrieval_by_brain_area": {
+      "amygdala": ["Q1", "Q3", "Q9", "Q11", "Q25", "Q26", "Q27"],
+      "prefrontal_cortex": ["Q2", "Q6", "Q4", "Q18"],
+      "hippocampus": ["Q12"],
+      "mirror_neurons": ["Q5", "Q17", "Q20"],
+      "dopamine": ["Q2", "Q8", "Q14", "Q24"]
+    },
+    "conversion_scenario": {
+      "price_objection": ["Q4", "Q16", "Q21", "Q26"],
+      "delaying_decision": ["Q7", "Q27"],
+      "family_consultation": ["Q28", "Q29"],
+      "trust_building": ["Q5", "Q13", "Q20"],
+      "creating_urgency": ["Q9", "Q25"]
+    }
+  }
+}
