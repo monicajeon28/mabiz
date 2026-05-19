@@ -159,10 +159,12 @@ export async function GET(req: Request, { params }: Params) {
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // 7. 응답 구성
+    // P0 2: organizationId 포함 (클라이언트에서 IDOR 재검증 가능)
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     return NextResponse.json({
       ok: true,
       campaignId: campaignId,
+      organizationId: campaign.organizationId,
       deltaCampaignConfigId: deltaConfig?.id,
       triggerType: deltaConfig?.triggerType,
       schedule: scheduleData,

@@ -204,6 +204,7 @@ export async function POST(req: Request) {
     });
 
     // ===== Step 9: 응답 생성
+    // P0 2: organizationId 포함 (클라이언트에서 IDOR 재검증 가능)
     const responseMessages = [
       { day: 0, content: deltaConfig.day0Message },
       { day: 1, content: deltaConfig.day1Message },
@@ -216,6 +217,7 @@ export async function POST(req: Request) {
         ok: true,
         deltaCampaignConfigId: deltaConfig.id,
         campaignId: deltaConfig.campaignId,
+        organizationId: orgId,
         triggerType: deltaConfig.triggerType,
         messages: responseMessages,
       },
