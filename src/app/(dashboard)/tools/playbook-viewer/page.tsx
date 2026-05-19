@@ -12,6 +12,11 @@ type PlaybookItem = {
   scriptTab: string;
   productCode: string;
   sectionOrder: number;
+  psychology?: string;
+  shinminStep?: string;
+  monikaAmplifyLevel?: string;
+  source?: string;
+  notes?: string;
 };
 
 type ClosingSignal = {
@@ -30,12 +35,27 @@ const CUSTOMER_SEGMENTS = [
 ];
 
 const PSYCHOLOGY_BADGES = {
-  "Loss Aversion": { bg: "bg-purple-100", text: "text-purple-800", label: "손실회피 (Kahneman)" },
-  "Social Proof": { bg: "bg-pink-100", text: "text-pink-800", label: "사회증명 (Cialdini)" },
-  "Narrative Transportation": { bg: "bg-blue-100", text: "text-blue-800", label: "내러티브 (Green&Brock)" },
-  "Priming": { bg: "bg-green-100", text: "text-green-800", label: "프라이밍" },
-  "Scarcity": { bg: "bg-orange-100", text: "text-orange-800", label: "희소성 (Cialdini)" },
-  "Commitment": { bg: "bg-red-100", text: "text-red-800", label: "약속의 일관성 (Cialdini)" },
+  "Loss Aversion": { bg: "bg-purple-100", text: "text-purple-800", label: "손실회피", desc: "손실을 이익보다 2배 크게 인지" },
+  "Social Proof": { bg: "bg-pink-100", text: "text-pink-800", label: "사회증명", desc: "남과 같은 행동을 추종" },
+  "Narrative Transportation": { bg: "bg-blue-100", text: "text-blue-800", label: "내러티브", desc: "스토리텔링으로 감정 몰입" },
+  "Priming": { bg: "bg-green-100", text: "text-green-800", label: "프라이밍", desc: "사전 자극으로 판단 영향" },
+  "Scarcity": { bg: "bg-orange-100", text: "text-orange-800", label: "희소성", desc: "제한된 시간/수량으로 긴급성 생성" },
+  "Commitment": { bg: "bg-red-100", text: "text-red-800", label: "약속의일관성", desc: "작은 약속→큰 약속으로 확대" },
+};
+
+const SHINMIN_STEPS = {
+  "1": { label: "Step 1: 라포 형성", color: "bg-blue-100 text-blue-800", emoji: "👋" },
+  "2": { label: "Step 2: 니즈 SPIN", color: "bg-green-100 text-green-800", emoji: "❓" },
+  "3": { label: "Step 3: 욕망 증폭", color: "bg-purple-100 text-purple-800", emoji: "✨" },
+  "4": { label: "Step 4: 감정 피크", color: "bg-pink-100 text-pink-800", emoji: "❤️" },
+  "5": { label: "Step 5: 클로징", color: "bg-red-100 text-red-800", emoji: "🎯" },
+};
+
+const MONIKA_AMPLIFY_LEVELS = {
+  "1": "눈 떠주기",
+  "2": "필요성 공감",
+  "3": "감정 증폭",
+  "4": "행동 유도",
 };
 
 const CLOSING_SIGNALS: ClosingSignal[] = [
@@ -248,6 +268,63 @@ export default function PlaybookViewerPage() {
                   </button>
                 </div>
 
+                {/* 신민형 5단계 배지 */}
+                {selectedItem?.shinminStep && (
+                  <div className="mb-5">
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">신민형 5단계</h4>
+                    <span className={`inline-block px-3 py-1.5 rounded-lg text-sm font-semibold ${SHINMIN_STEPS[selectedItem.shinminStep]?.color}`}>
+                      {SHINMIN_STEPS[selectedItem.shinminStep]?.emoji} {SHINMIN_STEPS[selectedItem.shinminStep]?.label}
+                    </span>
+                  </div>
+                )}
+
+                {/* 모니카 욕망 증폭 레벨 */}
+                {selectedItem?.type === "AMPLIFY" && selectedItem?.monikaAmplifyLevel && (
+                  <div className="mb-5 bg-purple-50 border-l-4 border-purple-500 rounded p-3">
+                    <p className="text-xs font-semibold text-purple-900 uppercase mb-1">모니카 욕망 증폭</p>
+                    <p className="text-sm font-bold text-purple-900">
+                      레벨 {selectedItem.monikaAmplifyLevel}: {MONIKA_AMPLIFY_LEVELS[selectedItem.monikaAmplifyLevel]}
+                    </p>
+                    <ul className="text-xs text-purple-700 mt-2 list-disc list-inside">
+                      {selectedItem.monikaAmplifyLevel === "1" && (
+                        <>
+                          <li>호기심 유발로 고객의 관심 끌기</li>
+                          <li>"이것도 포함되나요?" 형식의 질문</li>
+                        </>
+                      )}
+                      {selectedItem.monikaAmplifyLevel === "2" && (
+                        <>
+                          <li>사회적 증거로 필요성 공감</li>
+                          <li>"다른 분들도..." 멘트 활용</li>
+                        </>
+                      )}
+                      {selectedItem.monikaAmplifyLevel === "3" && (
+                        <>
+                          <li>5감각 앵커링으로 감정 증폭</li>
+                          <li>럭셔리/가족 이미지 자극</li>
+                        </>
+                      )}
+                      {selectedItem.monikaAmplifyLevel === "4" && (
+                        <>
+                          <li>희소성으로 행동 유도</li>
+                          <li>"지금 신청하면..." 클로징</li>
+                        </>
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                {/* 심리학 배지 */}
+                {selectedItem?.psychology && (
+                  <div className="mb-5">
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">심리학 이론</h4>
+                    <div className={`inline-block px-3 py-1.5 rounded-lg text-sm font-medium ${PSYCHOLOGY_BADGES[selectedItem.psychology]?.bg} ${PSYCHOLOGY_BADGES[selectedItem.psychology]?.text}`}>
+                      {PSYCHOLOGY_BADGES[selectedItem.psychology]?.label}
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">{PSYCHOLOGY_BADGES[selectedItem.psychology]?.desc}</p>
+                  </div>
+                )}
+
                 {/* Type Badge */}
                 <div className="mb-5">
                   <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">스크립트 유형</h4>
@@ -265,12 +342,19 @@ export default function PlaybookViewerPage() {
                 </div>
 
                 {/* Phase */}
-                <div>
+                <div className="mb-5">
                   <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Phase</h4>
                   <span className="inline-block px-3 py-1.5 bg-navy-900 text-white text-sm rounded-full font-medium">
                     Phase {selectedItem.sectionOrder}
                   </span>
                 </div>
+
+                {/* 데이터 소스 */}
+                {selectedItem?.source && (
+                  <div className="text-xs text-gray-500 bg-gray-50 rounded p-2 border border-gray-200">
+                    출처: <span className="font-medium text-gray-700">{selectedItem.source}</span>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="bg-white rounded-xl shadow-sm p-5 sticky top-6">

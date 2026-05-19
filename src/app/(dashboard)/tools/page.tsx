@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { MessageSquare, Phone, BookOpen, User, Copy, Check, Loader2, Upload, FileText, BookMarked } from "lucide-react";
+import { MessageSquare, Phone, BookOpen, User, Copy, Check, Loader2, Upload, FileText, BookMarked, ExternalLink } from "lucide-react";
 import { CompressorModal } from "@/components/ui/CompressorModal";
 import { QaLibrary } from "@/components/tools/QaLibrary";
 
@@ -39,7 +39,7 @@ const PLAYBOOK_TABS = [
 export default function ToolsPage() {
   const searchParams = useSearchParams();
   const [showCompressor, setShowCompressor] = useState(false);
-  const [mainTab,  setMainTab]   = useState<"sms" | "playbook" | "call-feedback" | "qa-library">("playbook");
+  const [mainTab,  setMainTab]   = useState<"sms" | "playbook" | "call-feedback" | "call-playbook" | "qa-library">("playbook");
   const [smsTab,   setSmsTab]    = useState("CARE_VIP");
   const [pbTab,    setPbTab]     = useState("REJECTION");
 
@@ -136,7 +136,8 @@ export default function ToolsPage() {
           { key: "sms",           label: "📱 문자 템플릿" },
           { key: "playbook",      label: "📞 콜 플레이북" },
           { key: "call-feedback", label: "📊 콜 피드백 AI" },
-          { key: "qa-library",    label: "📚 Q&A 라이브러리" },
+          { key: "call-playbook", label: "📚 콜 플레이북" },
+          { key: "qa-library",    label: "❓ Q&A 라이브러리" },
         ].map((t) => (
           <button
             key={t.key}
@@ -446,6 +447,43 @@ export default function ToolsPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 콜 플레이북 */}
+      {mainTab === "call-playbook" && (
+        <div className="space-y-6">
+          {/* 헤더 + 새창 열기 */}
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="text-xl font-bold text-navy-900">콜 플레이북 라이브러리</h2>
+              <p className="text-sm text-gray-600">신민형 5단계 + 모니카 욕망 증폭 원칙</p>
+            </div>
+            <a
+              href="/tools/playbook-viewer"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 bg-navy-900 text-white rounded-lg hover:bg-navy-800 transition-colors flex items-center gap-2 font-medium whitespace-nowrap"
+            >
+              새창 열기 <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
+
+          {/* 팁 */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-900">
+              💡 <strong>팁:</strong> "새창 열기"를 클릭하여 전체 화면 모드에서 모든 스크립트를 탐색하세요. Phase, 고객 세그먼트, 심리학 이론별로 필터링할 수 있습니다.
+            </p>
+          </div>
+
+          {/* 스크린샷/소개 */}
+          <div className="bg-gray-50 rounded-lg p-6 text-center">
+            <BookOpen className="w-12 h-12 text-navy-900 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-navy-900 mb-2">61개의 검증된 콜 스크립트</h3>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              신민형 5단계 통합 스크립트 + 모니카 욕망 증폭 원칙 + 심리학 이론(손실회피, 사회적증거, 내러티브, 희소성, 약속의일관성)을 모두 포함한 최고품질 플레이북 라이브러리.
+            </p>
+          </div>
         </div>
       )}
 
