@@ -8,6 +8,7 @@ import {
   Share2, Users, Building2, X, ChevronDown, Trash2, Copy, Check, CloudUpload, Search, FileDown
 } from "lucide-react";
 import { logger } from "@/lib/logger";
+import { RecommendBanner } from "./recommend-banner";
 
 type CallLog = {
   id: string; content: string | null; result: string | null;
@@ -27,6 +28,10 @@ type Contact = {
   tags: string[];
   leadScore: number;
   sourceOrgId: string | null; // 공유받은 복사본 여부 (null이 아니면 재공유 불가)
+  age?: number | null;
+  maritalStatus?: string | null;
+  childrenCount?: number | null;
+  segmentOverride?: string | null;
   groups: { group: { id: string; name: string } }[];
   callLogs: CallLog[]; memos: Memo[];
   sharedCallLogs: (CallLog & { _sharedFrom: string })[];
@@ -827,6 +832,13 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           </div>
         );
       })()}
+
+      {/* 상품 추천 배너 */}
+      <RecommendBanner
+        age={contact.age}
+        maritalStatus={contact.maritalStatus}
+        childrenCount={contact.childrenCount}
+      />
 
       {/* 기본 정보 */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">

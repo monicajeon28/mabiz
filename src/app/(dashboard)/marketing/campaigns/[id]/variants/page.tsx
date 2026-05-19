@@ -235,14 +235,12 @@ export default function VariantPage() {
               <VariantCard
                 variant="A"
                 data={variantA}
-                isDraft={campaign?.status === 'DRAFT'}
                 onSave={(content) => handleCreateVariant('A', content)}
                 onDelete={() => handleDeleteVariant('A')}
               />
               <VariantCard
                 variant="B"
                 data={variantB}
-                isDraft={campaign?.status === 'DRAFT'}
                 onSave={(content) => handleCreateVariant('B', content)}
                 onDelete={() => handleDeleteVariant('B')}
               />
