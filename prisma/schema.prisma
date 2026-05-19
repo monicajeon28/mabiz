@@ -185,6 +185,8 @@ model Contact {
   lensMetadata               Json?                       @default("{\"decisionLevel\": 0, \"readinessScore\": 0}")
   maritalStatus              String?
   segmentOverride            String?
+  segment                    String?
+  recommendedProduct         String?
   callLogs                   CallLog[]
   organization               Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   partner                    Partner?                    @relation(fields: [partnerId], references: [id])

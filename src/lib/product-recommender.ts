@@ -126,3 +126,15 @@ export const RECOMMENDATION_COLORS = {
   primary: "bg-blue-500 text-white border-blue-600",
   secondary: "bg-white border border-gray-300 text-gray-700",
 } as const;
+
+/**
+ * 세그먼트별 추천 상품의 전체 정보 (상품 객체 포함)
+ * recommend-banner.tsx 등에서 사용
+ */
+export function getRecommendedProductsWithDetails(segment: Segment) {
+  const recommendations = recommendProducts(segment);
+  return recommendations.map((rec) => ({
+    ...rec,
+    product: CRUISE_PRODUCTS[rec.productCode],
+  }));
+}

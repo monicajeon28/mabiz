@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Copy, Check, ChevronDown, BookOpen, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { detectSegment, SEGMENT_PROFILES, SEGMENT_RECOMMENDED_TECHNIQUES } from "@/lib/segment-detector";
 import { CRUISE_PRODUCTS, PRODUCT_CODES } from "@/constants/products";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
 import { logger } from "@/lib/logger";
+import { useToast } from "@/lib/api/use-toast";
 import type { Segment } from "@/lib/segment-detector";
 import type { ProductCode } from "@/constants/products";
 
@@ -84,6 +86,7 @@ const CLOSING_SIGNALS: ClosingSignal[] = [
 ];
 
 export default function PlaybookViewerPage() {
+  const { toast } = useToast();
   const [items, setItems] = useState<PlaybookItem[]>([]);
   const [selectedPhase, setSelectedPhase] = useState<number | null>(null);
   const [selectedSegment, setSelectedSegment] = useState("ALL");
@@ -143,19 +146,90 @@ export default function PlaybookViewerPage() {
     }
   };
 
-  const copy = (text: string) => {
+  const copy = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(text);
+    toast({
+      title: "복사 완료",
+      description: "스크립트가 클립보드에 복사되었습니다.",
+      variant: "success",
+    });
     setTimeout(() => setCopied(null), 2000);
-  };
 
-  const toggleClosingSignal = (id: string) => {
+    logger.log("[PlaybookViewer]", {
+      action: "copy-script",
+      textLength: text.length,
+      status: "success",
+    });
+  }, [toast]);
+
+  const toggleClosingSignal = useCallback((id: string) => {
     setClosingSignals(
       closingSignals.map((s) => (s.id === id ? { ...s, checked: !s.checked } : s))
     );
-  };
 
-  const closingCount = closingSignals.filter((s) => s.checked).length;
+    logger.log("[PlaybookViewer]", {
+      action: "toggle-closing-signal",
+      signalId: id,
+      status: "success",
+    });
+  }, [closingSignals]);
+
+  const closingCount = useMemo(
+    () => closingSignals.filter((s) => s.checked).length,
+    [closingSignals]
+  );
+
+  const handleSegmentChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedSegment(e.target.value);
+
+    const segmentName = e.target.options[e.target.selectedIndex]?.text;
+    toast({
+      title: "필터 변경",
+      description: `세그먼트: ${segmentName}로 변경했습니다.`,
+      variant: "default",
+    });
+
+    logger.log("[PlaybookViewer]", {
+      action: "filter-segment",
+      segment: e.target.value,
+      status: "success",
+    });
+  }, [toast]);
+
+  const handlePhaseChange = useCallback((phase: number | null) => {
+    setSelectedPhase(phase);
+
+    const phaseName = phase === null ? "전체 Phase" : `Phase ${phase}`;
+    toast({
+      title: "필터 변경",
+      description: `${phaseName}로 변경했습니다.`,
+      variant: "default",
+    });
+
+    logger.log("[PlaybookViewer]", {
+      action: "filter-phase",
+      phase,
+      status: "success",
+    });
+  }, [toast]);
+
+  const handleProductChange = useCallback((code: ProductCode | "ALL") => {
+    setSelectedProductCode(code);
+
+    const productName = code === "ALL" ? "전체 상품" : CRUISE_PRODUCTS[code]?.name || code;
+    toast({
+      title: "필터 변경",
+      description: `상품: ${productName}로 변경했습니다.`,
+      variant: "default",
+    });
+
+    logger.log("[PlaybookViewer]", {
+      action: "filter-product",
+      product: code,
+      status: "success",
+    });
+  }, [toast]);
 
   // Phase 버튼들
   const phases = Array.from({ length: 10 }, (_, i) => i);
@@ -203,7 +277,7 @@ export default function PlaybookViewerPage() {
             <div className="relative w-full sm:w-auto">
               <select
                 value={selectedSegment}
-                onChange={(e) => setSelectedSegment(e.target.value)}
+                onChange={handleSegmentChange}
                 className="w-full appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm font-medium text-gray-900 hover:border-navy-900 focus:outline-none focus:border-navy-900"
               >
                 {CUSTOMER_SEGMENTS.map((seg) => (
@@ -218,11 +292,18 @@ export default function PlaybookViewerPage() {
         </div>
 
         {/* Phase 필터 */}
-        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+        <motion.div
+          className="bg-white rounded-xl shadow-sm p-4 mb-6"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-semibold text-gray-700">Phase:</span>
-            <button
-              onClick={() => setSelectedPhase(null)}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => handlePhaseChange(null)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 selectedPhase === null
                   ? "bg-navy-900 text-white"
@@ -230,11 +311,13 @@ export default function PlaybookViewerPage() {
               }`}
             >
               ALL
-            </button>
+            </motion.button>
             {phases.map((p) => (
-              <button
+              <motion.button
                 key={p}
-                onClick={() => setSelectedPhase(p)}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => handlePhaseChange(p)}
                 className={`w-10 h-10 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center ${
                   selectedPhase === p
                     ? "bg-navy-900 text-white"
@@ -242,17 +325,24 @@ export default function PlaybookViewerPage() {
                 }`}
               >
                 {p}
-              </button>
+              </motion.button>
             ))}
           </div>
-        </div>
+        </motion.div>
 
         {/* 상품 필터 */}
-        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+        <motion.div
+          className="bg-white rounded-xl shadow-sm p-4 mb-6"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+        >
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-semibold text-gray-700">상품:</span>
-            <button
-              onClick={() => setSelectedProductCode("ALL")}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => handleProductChange("ALL")}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 selectedProductCode === "ALL"
                   ? "bg-blue-500 text-white"
@@ -260,11 +350,13 @@ export default function PlaybookViewerPage() {
               }`}
             >
               전체 상품
-            </button>
+            </motion.button>
             {PRODUCT_CODES.map((code) => (
-              <button
+              <motion.button
                 key={code}
-                onClick={() => setSelectedProductCode(code as ProductCode)}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => handleProductChange(code as ProductCode)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
                   selectedProductCode === code
                     ? "bg-blue-500 text-white"
@@ -273,10 +365,10 @@ export default function PlaybookViewerPage() {
               >
                 <span>{CRUISE_PRODUCTS[code as ProductCode].emoji}</span>
                 {CRUISE_PRODUCTS[code as ProductCode].name}
-              </button>
+              </motion.button>
             ))}
           </div>
-        </div>
+        </motion.div>
 
         {/* 메인 레이아웃 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

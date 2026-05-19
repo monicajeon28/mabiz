@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect, useMemo, use } from "react";
+import { useState, useEffect, useMemo, useCallback, use } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import {
   ArrowLeft, Phone, MessageSquare,
   Plus, Clock, FileText, Star, GitBranch, Calendar, Send, AlarmClock,
   Share2, Users, Building2, X, ChevronDown, Trash2, Copy, Check, CloudUpload, Search, FileDown
 } from "lucide-react";
 import { logger } from "@/lib/logger";
+import { useToast } from "@/lib/api/use-toast";
 import { RecommendBanner } from "./recommend-banner";
 
 type CallLog = {
@@ -76,6 +78,7 @@ type TransferLog = {
 export default function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router  = useRouter();
+  const { toast } = useToast();
 
   const [contact,       setContact]       = useState<Contact | null>(null);
   const [tab,           setTab]           = useState<"call" | "memo" | "group" | "sms">("call");
@@ -292,7 +295,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       .finally(() => setLoadingTransfer(false));
   }, [contact?.id]);
 
-  const addCallLog = async () => {
+  const addCallLog = useCallback(async () => {
     const res  = await fetch(`/api/contacts/${id}/call-logs`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(callForm),
@@ -302,10 +305,36 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       setContact((c) => c ? { ...c, callLogs: [data.log, ...c.callLogs] } : c);
       setShowCallForm(false);
       setCallForm({ content: "", result: "INTERESTED", convictionScore: "5", nextAction: "", scheduledAt: "" });
-    }
-  };
 
-  const addMemo = async () => {
+      toast({
+        title: "콜 기록 저장",
+        description: "콜 기록이 저장되었습니다.",
+        variant: "success",
+      });
+
+      logger.log("[ContactDetail]", {
+        action: "add-call-log",
+        contactId: id,
+        result: callForm.result,
+        status: "success",
+      });
+    } else {
+      toast({
+        title: "저장 실패",
+        description: data.message || "콜 기록 저장에 실패했습니다.",
+        variant: "destructive",
+      });
+
+      logger.log("[ContactDetail]", {
+        action: "add-call-log",
+        contactId: id,
+        status: "error",
+        error: data.message,
+      });
+    }
+  }, [id, callForm, toast]);
+
+  const addMemo = useCallback(async () => {
     if (!memoText.trim()) return;
     const res  = await fetch(`/api/contacts/${id}/memos`, {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -316,8 +345,33 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       setContact((c) => c ? { ...c, memos: [data.memo, ...c.memos] } : c);
       setShowMemoForm(false);
       setMemoText("");
+
+      toast({
+        title: "메모 저장",
+        description: "메모가 저장되었습니다.",
+        variant: "success",
+      });
+
+      logger.log("[ContactDetail]", {
+        action: "add-memo",
+        contactId: id,
+        status: "success",
+      });
+    } else {
+      toast({
+        title: "저장 실패",
+        description: data.message || "메모 저장에 실패했습니다.",
+        variant: "destructive",
+      });
+
+      logger.log("[ContactDetail]", {
+        action: "add-memo",
+        contactId: id,
+        status: "error",
+        error: data.message,
+      });
     }
-  };
+  }, [id, memoText, toast]);
 
   // 그룹 배정 → 퍼널 자동 시작
   const assignGroup = async () => {

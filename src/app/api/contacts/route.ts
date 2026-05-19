@@ -3,6 +3,9 @@ import prisma from "@/lib/prisma";
 import { getAuthContext, buildContactWhere, maskContactInfo } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
+import { detectSegment } from "@/lib/segment-detector";
+import { recommendProducts } from "@/lib/product-recommender";
+import { sendSms, resolveUserSmsConfig } from "@/lib/aligo";
 
 // GET /api/contacts — 고객 목록 (역할 기반)
 export async function GET(req: Request) {
@@ -170,7 +173,7 @@ export async function POST(req: Request) {
     }
 
     const body  = await req.json();
-    const { name, phone, email, type, cruiseInterest, budgetRange, adminMemo, groupIds, assignedUserId } = body;
+    const { name, phone, email, type, cruiseInterest, budgetRange, adminMemo, groupIds, assignedUserId, age, maritalStatus, childrenCount } = body;
 
     if (!name || !phone) {
       return NextResponse.json(
@@ -185,6 +188,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: "전화번호는 20자 이하여야 합니다." }, { status: 400 });
     }
 
+    // 세그먼트 자동 감지
+    const segment = detectSegment({ age, maritalStatus, childrenCount });
+
+    // 상품 추천
+    const recommendations = recommendProducts(segment);
+    const recommendedProduct = body.recommendedProduct ?? (recommendations.length > 0 ? recommendations[0].productCode : null);
+
     const contact = await prisma.contact.create({
       data: {
         organizationId: orgId,
@@ -196,13 +206,76 @@ export async function POST(req: Request) {
         budgetRange:    budgetRange    ?? null,
         adminMemo:      adminMemo      ?? null,
         assignedUserId: assignedUserId ?? null,
+        age:            age            ?? null,
+        maritalStatus:  maritalStatus  ?? null,
+        childrenCount:  childrenCount  ?? 0,
+        segment,
+        recommendedProduct,
         ...(groupIds?.length
           ? { groups: { create: (groupIds as string[]).map((gid) => ({ groupId: gid })) } }
           : {}),
       },
     });
 
-    logger.log("[POST /api/contacts] 고객 생성", { id: contact.id });
+    logger.log("[POST /api/contacts] 고객 생성", { id: contact.id, segment });
+
+    // C-1: 세그먼트별 SMS 템플릿 조회 및 발송 (fire-and-forget)
+    (async () => {
+      try {
+        const template = await prisma.smsTemplate.findFirst({
+          where: {
+            segmentCode: segment,
+            category: 'AUTO_RECOMMEND',
+            isSystem: true,
+          },
+          orderBy: { createdAt: 'desc' as const },
+        });
+
+        if (template && contact.phone) {
+          try {
+            const message = template.content
+              .replace('[이름]', contact.name || '고객')
+              .replace('[링크]', process.env.NEXT_PUBLIC_BASE_URL || 'https://crm.mabiz.dev');
+
+            const smsConfig = await resolveUserSmsConfig(orgId, ctx.userId);
+            if (!smsConfig) {
+              logger.warn('[POST /api/contacts] SMS 설정 미완료 — 자동 발송 불가', { contactId: contact.id });
+              return;
+            }
+
+            const result = await sendSms({
+              config: smsConfig,
+              receiver: contact.phone,
+              msg: message,
+              msgType: message.length > 90 ? 'LMS' : 'SMS',
+              organizationId: orgId,
+              contactId: contact.id,
+              channel: 'GROUP',
+            });
+
+            logger.log('[POST /api/contacts] 세그먼트별 자동 SMS 발송', {
+              contactId: contact.id,
+              segment,
+              status: Number(result.result_code) === 1 ? 'success' : 'failed',
+              resultCode: result.result_code,
+            });
+          } catch (smsErr) {
+            logger.error('[POST /api/contacts] SMS 발송 실패', {
+              contactId: contact.id,
+              segment,
+              error: smsErr instanceof Error ? smsErr.message : String(smsErr),
+            });
+          }
+        } else if (!template) {
+          logger.log('[POST /api/contacts] 세그먼트 SMS 템플릿 없음 — 발송 스킵', { segment });
+        }
+      } catch (err) {
+        logger.error('[POST /api/contacts] 자동 SMS 처리 중 오류', {
+          contactId: contact.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    })();
 
     // 퍼널 상태 자동 생성 (fire-and-forget)
     prisma.contactFunnelState.upsert({

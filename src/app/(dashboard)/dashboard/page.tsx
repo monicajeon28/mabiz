@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Users, TrendingUp, RotateCcw, Clock, Star, Phone, Settings, Send, AlertCircle, Copy, Check, Calendar } from "lucide-react";
 import Link from "next/link";
+import { RecommendationWidget } from "../components/RecommendationWidget";
 
 type DashboardData = {
   role: string;
@@ -553,6 +554,12 @@ export default function DashboardPage() {
         </div>
       </div>
       )}
+
+      {/* 고객 세그먼트 추천 분석 */}
+      <div className="mt-8 mb-8">
+        <h2 className="text-xl font-bold text-navy-900 mb-4">고객 세그먼트 추천 분석</h2>
+        <RecommendationWidget />
+      </div>
 
       {/* 최근 알림 */}
       <div className="bg-white rounded-2xl border border-gray-200 p-5">

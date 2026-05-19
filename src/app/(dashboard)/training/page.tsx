@@ -1,33 +1,77 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   CRUISE_PRODUCTS,
   SEGMENT_COLORS,
   PASONA_COLORS,
   ProductCode,
 } from "@/constants/products";
+import { useToast } from "@/lib/api/use-toast";
+import { logger } from "@/lib/logger";
 
 type ObjectionState = Record<string, boolean>;
 
 export default function TrainingPage() {
-  const productCodes = Object.keys(CRUISE_PRODUCTS) as ProductCode[];
+  const { toast } = useToast();
+  const productCodes = useMemo(
+    () => Object.keys(CRUISE_PRODUCTS) as ProductCode[],
+    []
+  );
   const [activeProduct, setActiveProduct] = useState<ProductCode>("GOLD_MEMBERSHIP");
   const [objectionStates, setObjectionStates] = useState<ObjectionState>({});
 
   const product = CRUISE_PRODUCTS[activeProduct];
 
-  const toggleObjection = (index: number) => {
+  // useCallback으로 최적화
+  const handleTabChange = useCallback((code: ProductCode) => {
+    setActiveProduct(code);
+    setObjectionStates({});
+
+    toast({
+      title: "교육 탭 변경",
+      description: `${CRUISE_PRODUCTS[code].name}로 전환했습니다.`,
+      variant: "default",
+    });
+
+    logger.log("[TrainingPage]", {
+      action: "tab-change",
+      product: code,
+      status: "success",
+    });
+  }, [toast]);
+
+  const toggleObjection = useCallback((index: number) => {
     const key = `${activeProduct}-${index}`;
     setObjectionStates((prev) => ({
       ...prev,
       [key]: !prev[key],
     }));
-  };
 
-  const isObjectionOpen = (index: number) => {
+    const objection = CRUISE_PRODUCTS[activeProduct].topObjections[index];
+    const newState = !objectionStates[key];
+
+    logger.log("[TrainingPage]", {
+      action: "objection-toggle",
+      product: activeProduct,
+      objectionIndex: index,
+      isOpen: newState,
+      status: "success",
+    });
+
+    if (newState) {
+      toast({
+        title: "대응 방법",
+        description: objection.objection,
+        variant: "default",
+      });
+    }
+  }, [activeProduct, objectionStates, toast]);
+
+  const isObjectionOpen = useCallback((index: number) => {
     return objectionStates[`${activeProduct}-${index}`] || false;
-  };
+  }, [objectionStates, activeProduct]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
@@ -45,12 +89,11 @@ export default function TrainingPage() {
       <div className="mb-8 overflow-x-auto">
         <div className="flex gap-2 pb-2 md:pb-0 flex-nowrap md:flex-wrap">
           {productCodes.map((code) => (
-            <button
+            <motion.button
               key={code}
-              onClick={() => {
-                setActiveProduct(code);
-                setObjectionStates({});
-              }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => handleTabChange(code)}
               className={`px-4 py-3 rounded-lg font-medium text-sm md:text-base whitespace-nowrap transition-all ${
                 activeProduct === code
                   ? "bg-blue-600 text-white shadow-lg"
@@ -58,13 +101,21 @@ export default function TrainingPage() {
               }`}
             >
               {CRUISE_PRODUCTS[code].name}
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
 
       {/* 상품 상세 컨텐츠 */}
-      <div className="space-y-8">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeProduct}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.4 }}
+          className="space-y-8"
+        >
         {/* 1. 상품 소개 */}
         <section className="bg-white rounded-xl border border-gray-200 p-6 md:p-8 shadow-sm">
           <div className="flex items-start justify-between gap-4 mb-4">
@@ -168,16 +219,22 @@ export default function TrainingPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">
             자주 나오는 거절 & 대응 스크립트
           </h2>
-          <div className="space-y-4">
+          <motion.div className="space-y-4">
             {product.topObjections.map((objection, idx) => (
-              <div
+              <motion.div
                 key={idx}
+                layout
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.05 }}
                 className="border border-gray-200 rounded-lg overflow-hidden"
               >
                 {/* 거절 헤더 (항상 표시) */}
-                <button
+                <motion.button
+                  whileHover={{ backgroundColor: "rgba(254, 226, 226, 1)" }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => toggleObjection(idx)}
-                  className="w-full p-4 md:p-5 bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-150 text-left transition-colors flex items-start justify-between"
+                  className="w-full p-4 md:p-5 bg-gradient-to-r from-red-50 to-red-100 text-left transition-colors flex items-start justify-between"
                 >
                   <div className="flex items-start gap-3 flex-1">
                     <span className="text-xl mt-1 flex-shrink-0">❌</span>
@@ -185,46 +242,92 @@ export default function TrainingPage() {
                       {objection.objection}
                     </p>
                   </div>
-                  <span
-                    className={`text-2xl flex-shrink-0 ml-2 transition-transform ${
-                      isObjectionOpen(idx) ? "rotate-180" : ""
-                    }`}
+                  <motion.span
+                    animate={{ rotate: isObjectionOpen(idx) ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="text-2xl flex-shrink-0 ml-2"
                   >
                     ▼
-                  </span>
-                </button>
+                  </motion.span>
+                </motion.button>
 
                 {/* 대응 (토글 시 표시) */}
-                {isObjectionOpen(idx) && (
-                  <div className="p-4 md:p-5 bg-green-50 border-t border-green-200">
-                    <div className="flex items-start gap-3">
-                      <span className="text-xl flex-shrink-0">✅</span>
-                      <div className="flex-1">
-                        <p className="text-xs font-bold text-green-700 uppercase tracking-wide mb-2">
-                          추천 대응
-                        </p>
-                        <p className="text-gray-900 text-sm md:text-base leading-relaxed">
-                          {objection.response}
-                        </p>
+                <AnimatePresence>
+                  {isObjectionOpen(idx) && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="p-4 md:p-5 bg-green-50 border-t border-green-200"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="text-xl flex-shrink-0">✅</span>
+                        <div className="flex-1">
+                          <p className="text-xs font-bold text-green-700 uppercase tracking-wide mb-2">
+                            추천 대응
+                          </p>
+                          <p className="text-gray-900 text-sm md:text-base leading-relaxed">
+                            {objection.response}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </section>
 
         {/* 5. CTA 버튼 */}
-        <section className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button className="px-6 md:px-8 py-3 md:py-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base">
+        <motion.section
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="flex flex-col sm:flex-row gap-4 justify-center"
+        >
+          <motion.button
+            whileHover={{ scale: 1.05, y: -2 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => {
+              toast({
+                title: "구매 페이지로 이동",
+                description: `${CRUISE_PRODUCTS[activeProduct].name} 구매를 시작합니다.`,
+                variant: "default",
+              });
+              logger.log("[TrainingPage]", {
+                action: "cta-purchase",
+                product: activeProduct,
+                status: "success",
+              });
+            }}
+            className="px-6 md:px-8 py-3 md:py-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base"
+          >
             지금 구매하기
-          </button>
-          <button className="px-6 md:px-8 py-3 md:py-4 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition-colors text-sm md:text-base">
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05, y: -2 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => {
+              toast({
+                title: "더 알아보기",
+                description: `${CRUISE_PRODUCTS[activeProduct].name}의 상세 정보를 확인하세요.`,
+                variant: "default",
+              });
+              logger.log("[TrainingPage]", {
+                action: "cta-learn-more",
+                product: activeProduct,
+                status: "success",
+              });
+            }}
+            className="px-6 md:px-8 py-3 md:py-4 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition-colors text-sm md:text-base"
+          >
             더 알아보기
-          </button>
-        </section>
-      </div>
+          </motion.button>
+        </motion.section>
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
