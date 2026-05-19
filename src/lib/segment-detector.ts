@@ -5,8 +5,15 @@ export type Segment = "A" | "B" | "C" | "D" | "E";
 /**
  * 고객 정보 기반 세그먼트 자동 추론
  * 정확도: 85-90%
+ *
+ * 세그먼트 기준:
+ * - A: 30대 커플 (25-35세, 결혼함, 자녀 없음)
+ * - B: 40대 가족 (40-50세, 자녀 있음)
+ * - C: 중년 부부 (45-55세, 결혼함, 자녀 없음)
+ * - D: 50-60대 (50-65세)
+ * - E: 60대+ (65세 이상)
  */
-export function detectSegment(customer: Contact | { age?: number; maritalStatus?: string; childrenCount?: number; segmentOverride?: string | null }): Segment {
+export function detectSegment(customer: Contact | { age?: number; maritalStatus?: string | null; childrenCount?: number; segmentOverride?: string | null }): Segment {
   // 수동 오버라이드 우선
   if (customer.segmentOverride && /^[A-E]$/.test(customer.segmentOverride)) {
     return customer.segmentOverride as Segment;
@@ -14,7 +21,9 @@ export function detectSegment(customer: Contact | { age?: number; maritalStatus?
 
   const age = customer.age ?? 45;
   const childrenCount = customer.childrenCount ?? 0;
-  const maritalStatus = customer.maritalStatus ?? "";
+  // 빈 문자열, null, undefined를 모두 "unknown"으로 정규화
+  const maritalStatusRaw = customer.maritalStatus?.trim().toUpperCase() ?? "";
+  const maritalStatus = maritalStatusRaw || "UNKNOWN";
 
   // A: 30대 커플
   if (age >= 25 && age <= 35 && maritalStatus === "MARRIED" && childrenCount === 0) {

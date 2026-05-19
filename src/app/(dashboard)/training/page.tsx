@@ -75,8 +75,8 @@ export default function TrainingPage() {
               <p className="text-lg text-gray-600 mt-2 italic">{product.tagline}</p>
             </div>
             <div className="text-right">
-              <p className="text-3xl md:text-4xl font-bold text-blue-600">
-                {product.price}
+              <p className="text-sm md:text-base text-gray-500 font-medium">
+                가격: 문의 필요
               </p>
               <p className="text-xs text-gray-500 mt-1">
                 {product.type === "subscription" ? "구독형" : "1회 구매"}
@@ -107,8 +107,8 @@ export default function TrainingPage() {
         <section className="bg-white rounded-xl border border-gray-200 p-6 md:p-8 shadow-sm">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">추천 대상</h2>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {["A", "B", "C", "D", "E"].map((segment) => {
-              const isRecommended = product.recommendedSegments.includes(segment);
+            {(["A", "B", "C", "D", "E"] as const).map((segment) => {
+              const isRecommended = product.recommendedSegments.some(s => s === segment);
               const colors = SEGMENT_COLORS[segment];
               return (
                 <div

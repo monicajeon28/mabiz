@@ -21,6 +21,7 @@ export async function GET(req: Request) {
         ...(phase !== undefined && { sectionOrder: parseInt(phase) }),
         ...(customerSegment && customerSegment !== "ALL" && { customerSegment }),
         ...(type ? { type } : {}),
+        ...(productCode && productCode !== "ALL" && { productCode }),
       },
       select: {
         id: true,

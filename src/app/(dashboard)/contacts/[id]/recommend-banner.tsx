@@ -25,13 +25,29 @@ export function RecommendBanner({
   childrenCount,
 }: RecommendBannerProps) {
   // 세그먼트 자동 감지
+  // 빈 문자열 명시적 처리 (segment-detector에서도 정규화됨)
   const segment = detectSegment({
     age: age ?? 45,
-    maritalStatus: maritalStatus ?? "",
+    maritalStatus: maritalStatus && maritalStatus.trim() ? maritalStatus : undefined,
     childrenCount: childrenCount ?? 0,
   });
 
-  if (!segment) return null;
+  if (!segment) {
+    // 세그먼트 감지 실패 시 기본 UI 표시
+    return (
+      <div className="mt-6 p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded-lg">
+        <div className="flex items-start gap-3">
+          <div className="text-2xl flex-shrink-0 mt-1">⚠️</div>
+          <div className="flex-1">
+            <h3 className="font-bold text-yellow-900 text-sm">세그먼트 감지 불가</h3>
+            <p className="text-xs text-yellow-700 mt-1">
+              고객 정보(나이, 결혼상태, 자녀 수)를 입력하면 맞춤형 추천을 받을 수 있습니다.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const recommendations = recommendProducts(segment);
   const message = getRecommendationMessage(segment);
@@ -55,12 +71,14 @@ export function RecommendBanner({
               const isPrimary = rec.rank === "primary";
 
               return (
-                <div
+                <button
                   key={rec.productCode}
-                  className={`p-3 rounded-lg border transition-all ${
+                  type="button"
+                  aria-label={`${product.name} 추천 (${rec.reason})`}
+                  className={`w-full p-3 rounded-lg border transition-all text-left focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                     isPrimary
-                      ? "bg-blue-500 text-white border-blue-600 shadow-md"
-                      : "bg-white border-gray-300 text-gray-700"
+                      ? "bg-blue-500 text-white border-blue-600 shadow-md focus:ring-blue-400"
+                      : "bg-white border-gray-300 text-gray-700 focus:ring-blue-500"
                   }`}
                 >
                   <div className="flex items-start gap-2">
@@ -76,7 +94,7 @@ export function RecommendBanner({
                       </div>
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>

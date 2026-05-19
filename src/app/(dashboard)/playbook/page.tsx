@@ -60,7 +60,7 @@ function ScriptCard({ item, isPattern }: { item: PlaybookItem | Pattern; isPatte
           {isPattern && <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full shrink-0">AI</span>}
           <span className="text-sm font-medium text-gray-800 line-clamp-2">{title}</span>
         </div>
-        {open ? <ChevronUp className="w-4 h-4 text-gray-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />}
+        {open ? <ChevronUp className="w-4 h-4 text-gray-400 shrink-0" aria-hidden="true" /> : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" aria-hidden="true" />}
       </button>
       {open && (
         <div className="px-4 pb-4 border-t border-gray-50 pt-3">

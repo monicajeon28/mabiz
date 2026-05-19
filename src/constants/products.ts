@@ -7,10 +7,10 @@ export const CRUISE_PRODUCTS = {
   GOLD_MEMBERSHIP: {
     code: "GOLD_MEMBERSHIP",
     name: "크루즈닷 골드 회원쉽",
+    emoji: "👑",
     type: "subscription" as const,
-    price: "구독형 (금액 미정)",
     features: ["렌탈 가능", "특별 상품 선계약"],
-    recommendedSegments: ["A", "C"],
+    recommendedSegments: ["A", "C"] as const,
     tagline: "자주 가는 사람들의 선택",
     description: "좋은 크루즈를 자주 가고 싶은 분들을 위한 구독형 상품",
     pasona: {
@@ -37,10 +37,10 @@ export const CRUISE_PRODUCTS = {
   BASIC_PACKAGE: {
     code: "BASIC_PACKAGE",
     name: "크루즈닷 기본 패키지",
+    emoji: "🏥",
     type: "subscription" as const,
-    price: "월 27,000원",
     features: ["헬스케어 100회", "렌탈 불가", "의무납입 없음"],
-    recommendedSegments: ["D", "E"],
+    recommendedSegments: ["D", "E"] as const,
     tagline: "건강하게 여행하는 가장 저렴한 방법",
     description: "건강을 소중히 여기는 분들을 위한 저가형 구독 상품",
     pasona: {
@@ -68,10 +68,10 @@ export const CRUISE_PRODUCTS = {
   ABC_COURSE: {
     code: "ABC_COURSE",
     name: "ABC코스",
+    emoji: "🚗",
     type: "subscription" as const,
-    price: "월 33,000원~",
     features: ["크루즈+렌탈 세트", "의무납입 60회"],
-    recommendedSegments: ["A", "B"],
+    recommendedSegments: ["A", "B"] as const,
     tagline: "가족 여행은 이것만으로 완벽",
     description: "가족과 함께 크루즈와 렌탈을 한 번에 누릴 수 있는 패키지",
     pasona: {
@@ -98,10 +98,10 @@ export const CRUISE_PRODUCTS = {
   FREE_TRAVEL: {
     code: "FREE_TRAVEL",
     name: "크루즈닷 자유여행",
+    emoji: "🗺️",
     type: "one_time" as const,
-    price: "80~180만원",
     features: ["스탭 없음 (자유)", "AI패키지보다 10~20% 저렴"],
-    recommendedSegments: ["B", "C"],
+    recommendedSegments: ["B", "C"] as const,
     tagline: "나의 속도로 즐기는 여행",
     description: "스탭의 가이드 없이 자유로운 일정으로 여행하는 상품",
     pasona: {
@@ -130,10 +130,10 @@ export const CRUISE_PRODUCTS = {
   AI_PACKAGE: {
     code: "AI_PACKAGE",
     name: "크루즈닷 AI 패키지",
+    emoji: "🤖",
     type: "one_time" as const,
-    price: "100~200만원 중반",
     features: ["스탭 있음", "선상 투어", "건강관리", "와이파이", "팁 포함"],
-    recommendedSegments: ["A", "B", "D", "E"],
+    recommendedSegments: ["A", "B", "D", "E"] as const,
     tagline: "완벽한 여행은 스탭과 함께",
     description: "스탭이 함께 투어하고 건강을 챙기는 프리미엄 상품",
     pasona: {
@@ -163,6 +163,10 @@ export const CRUISE_PRODUCTS = {
 
 export type ProductCode = keyof typeof CRUISE_PRODUCTS;
 export type ProductType = (typeof CRUISE_PRODUCTS)[ProductCode];
+
+// PRODUCT_CODES 배열 - playbook-viewer에서 사용
+export const PRODUCT_CODES = Object.keys(CRUISE_PRODUCTS) as const;
+export type ProductCodeType = typeof PRODUCT_CODES[number];
 
 /**
  * 세그먼트별 색상 지정 (배지용)

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Copy, Check, ChevronDown, BookOpen, Loader2 } from "lucide-react";
 import { detectSegment, SEGMENT_PROFILES, SEGMENT_RECOMMENDED_TECHNIQUES } from "@/lib/segment-detector";
-import { CRUISE_PRODUCTS } from "@/constants/products";
+import { CRUISE_PRODUCTS, PRODUCT_CODES } from "@/constants/products";
 import type { Segment } from "@/lib/segment-detector";
 import type { ProductCode } from "@/constants/products";
 
@@ -250,18 +250,18 @@ export default function PlaybookViewerPage() {
             >
               전체 상품
             </button>
-            {(["AI_PACKAGE", "GOLD_MEMBERSHIP", "BASIC_PACKAGE", "ABC_COURSE", "FREE_TRAVEL"] as const).map((code) => (
+            {PRODUCT_CODES.map((code) => (
               <button
                 key={code}
-                onClick={() => setSelectedProductCode(code)}
+                onClick={() => setSelectedProductCode(code as ProductCode)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
                   selectedProductCode === code
                     ? "bg-blue-500 text-white"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
-                <span>{CRUISE_PRODUCTS[code].emoji}</span>
-                {CRUISE_PRODUCTS[code].name}
+                <span>{CRUISE_PRODUCTS[code as ProductCode].emoji}</span>
+                {CRUISE_PRODUCTS[code as ProductCode].name}
               </button>
             ))}
           </div>
