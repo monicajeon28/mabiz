@@ -184,7 +184,7 @@ export function useDeltaWizard(campaignId: string) {
       default:
         return false;
     }
-  }, [state]);
+  }, [state.triggerType, state.useDefaultMessages, state.messages]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 4. 네비게이션 핸들러
@@ -277,18 +277,47 @@ export function useDeltaWizard(campaignId: string) {
       const data = await response.json();
 
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // 에러 처리 (네트워크/검증/서버 구분)
+      // P0 1: 네트워크 vs 검증 오류 구분 (상태 코드별 처리)
+      // P0 2: 필드별 에러 메시지
+      // P0 4: Cron 설정 실패 메시지 상세화
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       if (!response.ok) {
         // HTTP 400 - 검증 실패
         if (response.status === 400) {
-          const errorMsg = data.message || data.errors?.[Object.keys(data.errors)[0]] || '입력값 검증 실패';
+          let errorMsg = '입력값 검증 실패';
+
+          // P0 2: 필드별 에러 메시지 (deltaDay0Message, deltaDay1Message 등)
+          if (data.errors && typeof data.errors === 'object') {
+            const fieldErrors = data.errors as Record<string, string>;
+
+            if (fieldErrors.deltaDay0Message) {
+              errorMsg = `Day 0 메시지 오류: ${fieldErrors.deltaDay0Message}`;
+            } else if (fieldErrors.deltaDay1Message) {
+              errorMsg = `Day 1 메시지 오류: ${fieldErrors.deltaDay1Message}`;
+            } else if (fieldErrors.deltaDay2Message) {
+              errorMsg = `Day 2 메시지 오류: ${fieldErrors.deltaDay2Message}`;
+            } else if (fieldErrors.deltaDay3Message) {
+              errorMsg = `Day 3 메시지 오류: ${fieldErrors.deltaDay3Message}`;
+            } else if (fieldErrors.campaignId) {
+              errorMsg = `캠페인 오류: ${fieldErrors.campaignId}`;
+            } else if (fieldErrors.triggerType) {
+              errorMsg = `트리거 타입 오류: ${fieldErrors.triggerType}`;
+            } else {
+              // 첫 번째 필드 에러 사용
+              const firstFieldKey = Object.keys(fieldErrors)[0];
+              errorMsg = `입력값 오류: ${fieldErrors[firstFieldKey] || data.message || '입력값 검증 실패'}`;
+            }
+          } else if (data.message) {
+            errorMsg = data.message;
+          }
+
           setState((prev) => ({ ...prev, isSaving: false, error: errorMsg }));
           toast({
             title: '검증 오류',
             description: errorMsg,
             variant: 'destructive',
           });
+          logger.warn('[useDeltaWizard] 검증 실패', { campaignId: state.campaignId, errorMsg });
           return;
         }
 
@@ -301,27 +330,62 @@ export function useDeltaWizard(campaignId: string) {
             description: errorMsg,
             variant: 'destructive',
           });
+          logger.warn('[useDeltaWizard] 캠페인 없음', { campaignId: state.campaignId });
           return;
         }
 
-        // 기타 HTTP 에러 (500 등)
-        const errorMsg = data.message || `서버 오류 (${response.status})`;
+        // HTTP 500+ - 서버 오류
+        if (response.status >= 500) {
+          const errorMsg = data.message || '서버 오류가 발생했습니다. 잠시 후 다시 시도하세요.';
+          setState((prev) => ({ ...prev, isSaving: false, error: errorMsg }));
+          toast({
+            title: '서버 오류',
+            description: errorMsg,
+            variant: 'destructive',
+          });
+          logger.error('[useDeltaWizard] 서버 오류', {
+            campaignId: state.campaignId,
+            status: response.status,
+            error: data.message,
+          });
+          return;
+        }
+
+        // 기타 HTTP 에러 (네트워크 오류)
+        const errorMsg = '네트워크 연결을 확인하세요.';
         setState((prev) => ({ ...prev, isSaving: false, error: errorMsg }));
         toast({
-          title: '서버 오류',
+          title: '네트워크 오류',
           description: errorMsg,
           variant: 'destructive',
         });
+        logger.warn('[useDeltaWizard] 네트워크 오류', { campaignId: state.campaignId, status: response.status });
         return;
       }
 
+      // P0 4: Cron 설정 실패 메시지 상세화
       if (!data.ok) {
-        const errorMsg = data.message || '설정 저장 실패';
+        let errorMsg = data.message || '설정 저장 실패';
+
+        // 에러 코드별 상세 메시지
+        if (data.code === 'INVALID_CAMPAIGN_ID') {
+          errorMsg = '유효하지 않은 캠페인입니다.';
+        } else if (data.code === 'PERMISSION_DENIED') {
+          errorMsg = '이 캠페인에 대한 권한이 없습니다.';
+        } else if (data.code === 'CRON_SETUP_FAILED') {
+          errorMsg = 'Cron 설정에 실패했습니다. 관리자에게 문의하세요.';
+        }
+
         setState((prev) => ({ ...prev, isSaving: false, error: errorMsg }));
         toast({
           title: '오류',
           description: errorMsg,
           variant: 'destructive',
+        });
+        logger.warn('[useDeltaWizard] 설정 저장 실패', {
+          campaignId: state.campaignId,
+          code: data.code,
+          message: data.message,
         });
         return;
       }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { logger } from '@/lib/logger';
 
 /**
@@ -107,9 +107,9 @@ function ScheduleCard({
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            🕘 {formatTimeKST(schedule.hour)}
-            <span className="text-sm font-medium text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
-              KST
+            <span className="text-blue-600">🕐</span> {formatTimeKST(schedule.hour)}
+            <span className="text-sm font-medium text-blue-600 bg-blue-100 px-2 py-0.5 rounded" aria-description="한국 표준시 (UTC+9)">
+              한국표준시 (KST)
             </span>
           </h3>
           <p className="text-sm text-gray-700 mt-1">{schedule.description}</p>
@@ -149,6 +149,7 @@ function ScheduleCard({
             disabled
             className="w-4 h-4 text-green-600 rounded cursor-not-allowed"
             aria-label={`${schedule.time} SMS 발송 활성화 (자동)`}
+            aria-description="이 설정은 자동으로 활성화되어 있으며 변경할 수 없습니다"
           />
           <span className="text-gray-700">
             ✓ SMS 발송 활성화 <span className="text-xs text-gray-500">(자동)</span>
@@ -162,6 +163,7 @@ function ScheduleCard({
             disabled
             className="w-4 h-4 text-green-600 rounded cursor-not-allowed"
             aria-label={`${schedule.time} Cron 자동 실행 (Vercel)`}
+            aria-description="이 설정은 자동으로 활성화되어 있으며 변경할 수 없습니다"
           />
           <span className="text-gray-700">
             ✓ Cron 자동 실행 <span className="text-xs text-gray-500">(Vercel)</span>
@@ -175,6 +177,7 @@ function ScheduleCard({
             disabled
             className="w-4 h-4 text-green-600 rounded cursor-not-allowed"
             aria-label={`${schedule.time} SendingHistory 자동 기록`}
+            aria-description="이 설정은 자동으로 활성화되어 있으며 변경할 수 없습니다"
           />
           <span className="text-gray-700">
             ✓ 발송 이력 자동 기록 <span className="text-xs text-gray-500">(SendingHistory)</span>
@@ -191,27 +194,51 @@ function ScheduleCard({
 export default function ScheduleVisualizer({
   triggerType,
 }: ScheduleVisualizerProps) {
-  const [schedules, setSchedules] = useState<CronSchedule[]>(CRON_SCHEDULES);
+  const memoizedSchedules = useMemo(() => CRON_SCHEDULES, []);
+  const [schedules, setSchedules] = useState<CronSchedule[]>(memoizedSchedules);
+  // P0 3: 발송 건수 로드 실패 처리
+  const [error, setError] = useState<string | null>(null);
 
-  // 실제 데이터베이스에서 예상 건수를 조회할 수 있음 (향후)
-  // 지금은 시뮬레이션만 제공
   useEffect(() => {
-    // 로드 시뮬레이션
-    setSchedules((prev) =>
-      prev.map((s) => ({ ...s, isLoading: true }))
-    );
+    const loadStats = async () => {
+      try {
+        // 로드 시뮬레이션
+        setError(null);
+        setSchedules((prev) =>
+          prev.map((s) => ({ ...s, isLoading: true }))
+        );
 
-    // 0.5초 후 완료 시뮬레이션
-    const timer = setTimeout(() => {
-      setSchedules((prev) =>
-        prev.map((s) => ({ ...s, isLoading: false }))
-      );
-      logger.info('[ScheduleVisualizer] 예상 발송 건수 로드 완료', {
-        triggerType,
-      });
-    }, 500);
+        // 실제 API 호출 (현재는 시뮬레이션)
+        // const res = await fetch(`/api/campaigns/${campaignId}/delta/stats`);
+        // if (!res.ok) {
+        //   throw new Error(`HTTP ${res.status}`);
+        // }
+        // const data = await res.json();
 
-    return () => clearTimeout(timer);
+        // 0.5초 후 완료 시뮬레이션
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        setSchedules((prev) =>
+          prev.map((s) => ({ ...s, isLoading: false }))
+        );
+        logger.info('[ScheduleVisualizer] 예상 발송 건수 로드 완료', {
+          triggerType,
+        });
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : '알 수 없는 오류';
+        setError('발송 통계를 조회할 수 없습니다.');
+        logger.warn('[ScheduleVisualizer] 통계 로드 실패', {
+          triggerType,
+          error: errorMsg,
+        });
+        // 에러가 발생해도 로딩 상태 해제
+        setSchedules((prev) =>
+          prev.map((s) => ({ ...s, isLoading: false }))
+        );
+      }
+    };
+
+    loadStats();
   }, [triggerType]);
 
   return (

@@ -1,5 +1,7 @@
 'use client';
 
+import { useMemo } from 'react';
+
 /**
  * Delta SMS MessagePreview Component
  *
@@ -122,12 +124,14 @@ function MessageCard({
           <button
             disabled
             className="text-xs px-3 py-1.5 rounded bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 disabled:opacity-50"
+            aria-description="이 버튼은 미리보기 용도로 비활성화되어 있습니다"
           >
             자세히
           </button>
           <button
             disabled
             className="text-xs px-3 py-1.5 rounded bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200 disabled:opacity-50"
+            aria-description="이 버튼은 미리보기 용도로 비활성화되어 있습니다"
           >
             닫기
           </button>
@@ -170,7 +174,7 @@ function MessageCard({
  * 메인 MessagePreview 컴포넌트
  */
 export default function MessagePreview({ messages }: MessagePreviewProps) {
-  const dayCards = [
+  const dayCards = useMemo(() => [
     {
       day: 0,
       key: 'day0',
@@ -195,7 +199,7 @@ export default function MessagePreview({ messages }: MessagePreviewProps) {
       label: '🚨 Day 3: +3일 (선택)',
       description: '구매 4일 후 저녁 발송 (선택사항)',
     },
-  ];
+  ], []);
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-6">
