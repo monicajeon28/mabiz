@@ -223,6 +223,7 @@ export async function POST(req: Request) {
       const cancelmemo = params.get("cancelmemo") ?? "";
 
       if (orderId) {
+        // PayAppPayment 취소
         await prisma.payAppPayment.updateMany({
           where: { orderId, status: { not: "cancelled" } },
           data: {
@@ -231,6 +232,36 @@ export async function POST(req: Request) {
             refundReason: cancelmemo || "PayApp 취소",
           },
         });
+
+        // ★ NEW: AffiliateSale 수당 100% 취소 (P0 요구사항)
+        const affiliateSale = await prisma.affiliateSale.findUnique({
+          where: { orderId },
+          select: {
+            id: true,
+            saleAmount: true,
+            commissionAmount: true,
+            commissionRate: true,
+          },
+        });
+
+        if (affiliateSale && affiliateSale.commissionAmount > 0) {
+          await prisma.affiliateSale.update({
+            where: { id: affiliateSale.id },
+            data: {
+              refundedAmount: affiliateSale.saleAmount,
+              refundedAt: canceldate ? new Date(canceldate) : new Date(),
+              commissionAmount: 0, // ★ 100% 완전 취소
+              status: "REFUNDED",
+              cancelReason: "PAYMENT_CANCELLED_PAYAPP",
+            },
+          });
+
+          logger.log("[PayApp Webhook] AffiliateSale 수당 취소", {
+            affiliateSaleId: affiliateSale.id,
+            originalCommission: affiliateSale.commissionAmount,
+            saleAmount: affiliateSale.saleAmount,
+          });
+        }
       } else if (mulNo) {
         await prisma.payAppPayment.updateMany({
           where: { mulNo, status: { not: "cancelled" } },
@@ -270,6 +301,49 @@ export async function POST(req: Request) {
               mulNo: mulNo || original.mulNo, // 부분취소 시 mul_no 변경됨
             },
           });
+
+          // ★ NEW: AffiliateSale 수당 비례 감액 (P0 요구사항)
+          if (orderId) {
+            const affiliateSale = await prisma.affiliateSale.findUnique({
+              where: { orderId },
+              select: {
+                id: true,
+                saleAmount: true,
+                commissionAmount: true,
+                commissionRate: true,
+              },
+            });
+
+            if (
+              affiliateSale &&
+              affiliateSale.commissionAmount > 0 &&
+              partialAmount > 0
+            ) {
+              // 환불액 비율만큼 수당 감액
+              const refundRatio = partialAmount / affiliateSale.saleAmount;
+              const commissionDeduction = Math.floor(
+                affiliateSale.commissionAmount * refundRatio
+              );
+
+              await prisma.affiliateSale.update({
+                where: { id: affiliateSale.id },
+                data: {
+                  refundedAmount: { increment: partialAmount },
+                  commissionAmount: { decrement: commissionDeduction },
+                  status: "PARTIAL_REFUNDED",
+                },
+              });
+
+              logger.log("[PayApp Webhook] AffiliateSale 수당 부분감액", {
+                affiliateSaleId: affiliateSale.id,
+                refundAmount: partialAmount,
+                originalCommission: affiliateSale.commissionAmount,
+                commissionDeduction,
+                newCommission:
+                  affiliateSale.commissionAmount - commissionDeduction,
+              });
+            }
+          }
         }
       }
 

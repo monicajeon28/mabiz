@@ -108,12 +108,28 @@ export async function POST(req: NextRequest) {
       select: { id: true, phone: true, name: true },
     });
 
+    // orderId로 AffiliateSale 찾기 (수당 취소용)
+    const affiliateSale = await prisma.affiliateSale.findUnique({
+      where: { orderId },
+      select: {
+        id: true,
+        saleAmount: true,
+        commissionAmount: true,
+        commissionRate: true,
+      },
+    });
+
     await prisma.$transaction(async (tx) => {
-      // Contact 상태 → REFUNDED
+      // Contact 상태 → REFUNDED + 결제상태 업데이트
       if (contact) {
         await tx.contact.update({
           where: { id: contact.id },
-          data: { type: 'REFUNDED' },
+          data: {
+            type: 'REFUNDED',
+            lastPaymentStatus: 'refunded',
+            lastRefundedAt: new Date(refundedAt ?? new Date().toISOString()),
+            paymentStatusNote: `환불완료: ${finalAmount > 0 ? finalAmount.toLocaleString() + '원' : '금액미상'}`,
+          },
         });
 
         // 환불 내역 메모 기록
@@ -131,6 +147,28 @@ export async function POST(req: NextRequest) {
             userId: 'system-webhook',
             content: memoLines,
           },
+        });
+      }
+
+      // ★ NEW: AffiliateSale 수당 100% 취소 (P0 요구사항)
+      if (affiliateSale && affiliateSale.commissionAmount > 0) {
+        await tx.affiliateSale.update({
+          where: { id: affiliateSale.id },
+          data: {
+            refundedAmount: affiliateSale.saleAmount,
+            refundedAt: new Date(refundedAt ?? new Date().toISOString()),
+            commissionAmount: 0, // ★ 100% 완전 취소
+            status: 'REFUNDED',
+            cancelReason: 'CUSTOMER_REFUND_REQUEST',
+          },
+        });
+
+        logger.log('[RefundWebhook] AffiliateSale 수당 취소', {
+          affiliateSaleId: affiliateSale.id,
+          originalCommission: affiliateSale.commissionAmount,
+          newCommission: 0,
+          saleAmount: affiliateSale.saleAmount,
+          commissionRate: affiliateSale.commissionRate,
         });
       }
 
