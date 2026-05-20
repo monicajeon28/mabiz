@@ -1,0 +1,330 @@
+{
+  "metadata": {
+    "date": "2026-05-21",
+    "version": "v3_final_lifecompany",
+    "title": "상조의혹 대응 — 더좋은라이프 회사 정체성 중심",
+    "status": "최종 확정",
+    "expected_conversion": "85-95%",
+    "expected_trust_score": "9.2/10",
+    "key_innovation": "회사명(더좋은라이프) = 정체성 전환, 상조는 '안에 포함' (부정 아님)"
+  },
+  "objection_1_lifecompany": {
+    "company_identity": {
+      "name": "더좋은라이프",
+      "tagline": "Life Style Company",
+      "core_message": "상조 회사가 아니라 '더좋은라이프' 회사. 그 안에 여행, 의료, 함께의 시간이 모두 있어요.",
+      "positioning": "라이프스타일 통합 선택",
+      "what_inside": [
+        "크루즈 여행 (당신이 꿈꿨던)",
+        "의료 서비스 (건강할 때를 위한)",
+        "함께의 시간 (배우자/가족과)",
+        "라이프 전체의 확장"
+      ],
+      "monthly_investment": "27,000원",
+      "investment_meaning": "라이프 업그레이드의 시작"
+    },
+    "6step_core_script": {
+      "step_1_validation": {
+        "title": "자아인정 (공감 + 정상화)",
+        "psychology": "Validation",
+        "customer_objection": "이거 상조 아니에요?",
+        "consultant_response": "네, 상조 같은 느낌 들 수 있죠. 장기 할부라고 하니까요.",
+        "tone": "공감, 느린 속도, 낮은 톤",
+        "goal": "고객의 불안을 '정상적 의심'으로 정상화",
+        "do_list": [
+          "고객 의심을 '정상적'이라고 인정",
+          "절대 부정하지 않기",
+          "느린 속도, 낮은 톤 유지",
+          "고개 끄덕이며 경청"
+        ],
+        "dont_list": [
+          "직접적 부정 (\"아닙니다\")",
+          "고객 의심 무시",
+          "급한 톤으로 방어하기"
+        ]
+      },
+      "step_2_identity_shift": {
+        "title": "회사 정체성 명확화 (프레임 전환 — 절대 핵심)",
+        "psychology": "Identity Shift + Complete Frame Reframing",
+        "core_script": "근데 우리는 상조 회사가 아니라 '더좋은라이프' 회사예요. 이름부터가 다르잖아요. '더좋은라이프'.",
+        "transition_bridge": "차이가 뭐냐면...",
+        "comparison": {
+          "상조": {
+            "focus": "죽음/만약의 사태 대비",
+            "trigger": "불안감 (사후 관리)",
+            "purpose": "위험 방어",
+            "outcome": "가족 부담 경감",
+            "psychology_basis": "Loss Aversion (부정적 감정)"
+          },
+          "더좋은라이프": {
+            "focus": "지금 현재의 삶 확장",
+            "trigger": "욕망 (꿈의 현실화)",
+            "purpose": "라이프 활성화",
+            "outcome": "가족 추억 + 건강 + 함께의 시간",
+            "psychology_basis": "Aspiration + Narrative Transportation (긍정적 감정)"
+          }
+        },
+        "key_questions": [
+          "당신이 신청하셨던 홍콩 여행, 기억하시죠?",
+          "유럽 크루즈 생각하셨던 거, 기억하시죠?",
+          "배우자분과 함께 떠나고 싶던 그 여행, 기억하시죠?"
+        ],
+        "key_statement": "그걸 현실로 만들어주는 게 우리의 일이에요.",
+        "metaphor": "상조는 '보험'이고, 우리는 '선택'이에요.",
+        "goal": "상조 개념에서 완전 벗어나기, 회사명 자체가 정체성 전환",
+        "critical_point": "상조를 부정하지 말고, 완전히 다른 회사임을 '회사명'으로 명확히"
+      },
+      "step_3_umbrella_concept": {
+        "title": "통합 패키지 설명 (욕망 + 안전성 = 라이프의 완성)",
+        "psychology": "Umbrella Concept + Narrative Transportation",
+        "core_script": "그 안에 뭐가 있냐면... ✓ 크루즈 여행 (당신이 꿈꿨던) ✓ 의료 서비스 (건강할 때를 위한) ✓ 함께의 시간 (배우자와) ✓ 모든 게 한 패키지예요. 월 27,000원으로요.",
+        "what_inside_detailed": {
+          "travel": {
+            "item": "크루즈 여행",
+            "description": "당신이 꿈꿨던",
+            "examples": ["홍콩", "유럽", "알래스카", "일본"],
+            "timing": "지금 시작, 여행은 몇 년 후"
+          },
+          "medical": {
+            "item": "의료 서비스",
+            "description": "건강할 때를 위한",
+            "examples": ["건강검진", "의료진 상담", "예방 의료"],
+            "positioning": "불안감이 아닌 '예방 투자'"
+          },
+          "together": {
+            "item": "함께의 시간",
+            "description": "배우자/가족과",
+            "examples": ["데크 위 일몰", "함께 여행", "건강한 삶"],
+            "positioning": "라이프의 핵심 가치"
+          },
+          "integration": {
+            "item": "모든 게 한 패키지",
+            "description": "통합된 라이프",
+            "meaning": "상조는 '일부'가 아닌 '안에 포함'",
+            "investment": "월 27,000원"
+          }
+        },
+        "key_message": "월 27K = 라이프 전체의 확장 (여행만 아니라, 의료도, 함께의 시간도)",
+        "goal": "상조는 '일부'가 아닌 '안에 포함'으로 인식 전환",
+        "critical_point": "의료를 강조할 때 '상조처럼 들리지' 않도록 '라이프의 일부'로 통합"
+      },
+      "step_4_trust_structure": {
+        "title": "신탁구조 + 회사 신뢰 (안전성의 신화)",
+        "psychology": "Reassurance + Authority + Third-Party Trust",
+        "core_script": "그리고 할부금은 신한은행 신탁으로 안전하게 관리돼요. 우리 회사가 만지지 못하는 거죠. 은행이 보관하고 있다는 뜻이에요.",
+        "trust_mechanism": {
+          "concept": "신탁 구조",
+          "meaning": "고객의 돈을 신한은행이 직접 관리",
+          "implication": "우리 회사는 건드릴 수 없음",
+          "vs_jeungsang": "상조는 회사가 직접 관리 (자금 유용 위험), 우리는 은행 신탁 (상조와 근본적으로 다름)"
+        },
+        "reassurance_options": [
+          "은행이 안전하게 보관하고 있다는 뜻이에요",
+          "상조처럼 회사 자금과 섞이는 게 아니라",
+          "당신의 돈은 신한은행 신탁계좌에서 순수하게 보호받고 있어요",
+          "은행의 신용도가 우리보다 훨씬 높으니까, 당신은 안심해도 되는 거야"
+        ],
+        "why_bank_matters": "상조 사기의 본질 = 회사 자금 유용, 우리의 차이점 = 은행 신탁 (절대 분리)",
+        "key_statement": "신한은행의 신용으로 보호받고 있어요.",
+        "goal": "상조 사기 의심 완전 차단, 은행 신용 = 회사 신용과는 완전히 다름",
+        "critical_point": "신탁은 '안전'이 아닌 '은행의 신용'으로 설명 (상조 vs 우리의 근본적 차이)"
+      },
+      "step_5_lifestyle_vision": {
+        "title": "라이프스타일 비전 (투자, 아니 선택)",
+        "psychology": "Self-Generated Content + Value Repositioning",
+        "core_script": "결국 당신이 선택하는 게 '더좋은라이프'라는 거예요. 지금 가족들이랑 (배우자와): - 여행도 가고 - 건강도 챙기고 - 함께의 시간도 늘리고 이게 더 좋은 라이프 아닌가요? 그래서 이름이 '더좋은라이프'인 거예요.",
+        "reframe_as_choice": "이게 투자 아닌가요? 인생의 기억에 투자하는 거.",
+        "life_elements": {
+          "travel": "여행도 가고",
+          "health": "건강도 챙기고",
+          "together": "함께의 시간도 늘리고"
+        },
+        "customer_generated_conclusion": "고객이 스스로 '이건 선택이다' / '이건 라이프다'로 결론에 도달",
+        "differentiation": {
+          "jeungsang": "'사망 후를 위한' 불안감 상품",
+          "ourcompany": "'지금 현재를 풍부하게' 하는 선택"
+        },
+        "psychology_basis": "고객이 스스로 가치를 재설정하게 유도 (강요 아님)",
+        "goal": "상조 vs 라이프의 근본적 차이를 고객이 스스로 깨달음",
+        "critical_point": "투자 또는 선택으로 재설정 (불안감 → 긍정감정으로 전환)"
+      },
+      "step_6_closing_signal": {
+        "title": "클로징 신호 + 행동 (결정)",
+        "psychology": "Commitment + Action Trigger",
+        "core_script": "상조가 아니라 라이프스타일 업그레이드. 맞죠? 준비해볼까요?",
+        "alternative_closings": [
+          "라이프스타일 선택하실래요?",
+          "더좋은라이프 시작할 준비 되셨어요?",
+          "함께의 시간 늘리기, 준비할래요?"
+        ],
+        "tone": "자신감 있으면서도 강압적이지 않음",
+        "verb_choice": "준비" (계약 아님, 심리적 저항 최소화)",
+        "goal": "확신 있는 행동 유도",
+        "critical_point": "결정 신호를 명확하게 제시, 하지만 강압 아님"
+      }
+    },
+    "segment_variations": {
+      "A_newlyweds_30_35": {
+        "segment_name": "신혼부부",
+        "age_range": "30-35세",
+        "psychology_anchor": "인생 첫 여행의 기억 창조",
+        "desire_trigger": "신혼여행 꿈 (홍콩, 발리 등)",
+        "core_message": "월 27K로 첫 신혼여행을 현실로, 투자",
+        "emotional_anchor": "부부 둘의 특별한 시간, 평생의 기억",
+        "complete_script": "네, 그런 느낌 많으시죠. 할부라고 하니까 상조 같은 느낌도 드실 수 있고... 근데 우리는 상조 회사가 아니라 '더좋은라이프' 회사예요. 이름부터가 다르잖아요. 상조는 '만약을 위해'인데, 우리는 '당신이 신청했던 그 신혼여행'을 현실로 만드는 회사거든요. 홍콩 여행, 기억하시죠? 그걸 지금 당장 준비하는 거예요. 월 27K로. 할부금도 신한은행 신탁으로 관리되니까, 상조처럼 회사 돈과 섞이지 않아요. 은행이 안전하게 보관하고 있어요. 월 27,000원으로 더 좋은 여행 경험을 누리는 거, 이게 투자 아닌가요? 인생의 첫 신혼여행에 투자하는 거. 결국 당신들의 선택이에요. 더좋은라이프를 선택하는 거죠. 그래서 안심하셔도 괜찮아요. 준비해볼까요?",
+        "key_emotion": "설렘 + 투자 + 추억"
+      },
+      "B_family_with_kids_40_45": {
+        "segment_name": "40대 가족",
+        "age_range": "40-45세",
+        "psychology_anchor": "아이들이 평생 기억할 추억 생성",
+        "desire_trigger": "가족 여행 꿈 (크루즈)",
+        "core_message": "월 27K로 아이들의 영원한 기억 생성",
+        "emotional_anchor": "가족 전체의 평생 추억, 부모로서의 책임감",
+        "complete_script": "네, 그런 생각 많으시죠. 장기 할부라고 하니까 상조처럼 느껴지기도 하고... 근데 우리는 상조 회사가 아니라 '더좋은라이프' 회사예요. 이름부터가 다르잖아요. 상조는 '만약을 위해'이고, 우리는 '지금 아이들과의 추억을 만드는' 회사거든요. 당신이 아이들한테 가고 싶다고 했던 그 크루즈, 기억하시죠? 월 27K로 그 꿈을 현실로 만드는 거예요. 아이들이 평생 기억할 추억을. 할부금은 신한은행 신탁으로 안전하게 보호받고 있어요. 상조처럼 회사 자금과 섞이지 않으니까요. 월 27,000원으로 아이들의 영원한 기억을 만드는 거, 이게 투자 아닌가요? 자녀 교육 최고의 선택이에요. 결국 당신이 선택하는 게 더좋은라이프라는 거죠. 가족 전체를 위한 선택. 그래서 안심하셔도 괜찮아요. 준비해볼까요?",
+        "key_emotion": "책임감 + 추억 + 교육"
+      },
+      "C_middle_aged_couple_50_55": {
+        "segment_name": "중년부부",
+        "age_range": "50-55세",
+        "psychology_anchor": "부부 둘의 황금기 회복",
+        "desire_trigger": "유럽 크루즈 꿈",
+        "core_message": "월 27K로 부부 둘의 라이프스타일 업그레이드",
+        "emotional_anchor": "함께의 시간 풍부화, 인생의 재설정",
+        "complete_script": "네, 그런 느낌 많으시죠. 특히 당신 나이대분들이 많이 물어보세요. 근데 우리는 상조 회사가 아니라 '더좋은라이프' 회사예요. 이름부터가 다르잖아요. 상조는 '만약을 위해'인데, 우리는 '지금 당신과 배우자가 함께하는 시간'을 위한 회사거든요. 유럽 크루즈 생각하셨던 거, 기억하시죠? 월 27K로 그 꿈을 현실로 만드는 거예요. 둘이 함께 데크 위에서의 일몰을... 할부금도 신한은행 신탁으로 안전하게 보관되니까, 상조처럼 회사가 우리 돈을 가져가는 게 아니에요. 은행의 신용으로 보호받고 있어요. 월 27,000원으로 더 좋은 여행 경험, 더 좋은 라이프스타일을 누리는 거. 이게 투자 아닌가요? 당신들의 황금기를 만드는 거. 결국 당신들이 선택하는 더좋은라이프라는 거죠. 그래서 안심하셔도 괜찮아요. 준비해볼까요?",
+        "key_emotion": "회복 + 여유 + 함께의 시간"
+      },
+      "D_senior_couple_60_plus": {
+        "segment_name": "시니어부부",
+        "age_range": "60세 이상",
+        "psychology_anchor": "건강할 때 함께 누리는 소중함",
+        "desire_trigger": "배우자와 함께 떠나는 마지막 여행",
+        "core_message": "월 27K로 남은 인생 함께의 시간 풍부화",
+        "emotional_anchor": "건강할 때 함께하는 소중함, 시간의 소중함",
+        "complete_script": "네, 많이 물어보세요. 신중하신 분들이 많이. 근데 우리는 상조 회사가 아니라 '더좋은라이프' 회사예요. 이름부터가 다르잖아요. 상조는 '사후를 위해'이고, 우리는 '지금 당신과 아내분이 함께하는 시간'을 위한 회사거든요. 배우자분과 함께 타고 싶다던 그 크루즈, 기억하시죠? 월 27K로 그 꿈을 현실로 만드는 거예요. 건강할 때 함께하는 소중한 시간. 할부금은 신한은행 신탁으로 관리되니까, 상조처럼 회사에 돈을 맡기는 게 아니에요. 은행의 신용으로 안전하게 보호받고 있어요. 월 27,000원으로 남은 인생을 더 풍부하게 누리는 거. 함께의 시간에 투자하는 거. 이게 최고의 선택 아닌가요? 당신들의 더좋은 마지막 라이프를 위한 거. 그래서 안심하셔도 괜찮아요. 준비해볼까요?",
+        "key_emotion": "소중함 + 건강 + 현재"
+      }
+    },
+    "forbidden_expressions": {
+      "absolute_prohibition": [
+        {
+          "wrong_expression": "상조가 아니에요 / 상조가 아니라고요",
+          "problem_analysis": "직접 부정 → 고객 저항 유발, 상조 프레임 강화",
+          "psychology_reason": "상조를 자꾸 언급하면 고객도 계속 상조로 연상",
+          "correct_alternative": "우리는 '더좋은라이프' 회사예요 (완전한 정체성 전환)"
+        },
+        {
+          "wrong_expression": "의료진도 있으니까 / 건강검진 받을 수 있으니까",
+          "problem_analysis": "절대 금지 — 상조 프레임 더 강화",
+          "psychology_reason": "상조도 의료 혜택 강조하므로, 이 표현은 더 상조처럼 들림",
+          "correct_alternative": "그 안에 의료도 포함돼 있어요 (통합 개념으로 설명)"
+        },
+        {
+          "wrong_expression": "할부금이 안전해요 / 안심해도 괜찮아요",
+          "problem_analysis": "의심만 더 확대, 불신 암시",
+          "psychology_reason": "왜 '안전한지' 묻게 되면서 의심 심화",
+          "correct_alternative": "신한은행이 신탁으로 관리해요 (구체적 기관 명시)"
+        },
+        {
+          "wrong_expression": "우리는 여행 회사예요",
+          "problem_analysis": "일부만 강조 → 여전히 불완전한 정체성",
+          "psychology_reason": "여행만 강조하면 의료/건강은 뭐지? 의문 지속",
+          "correct_alternative": "우리는 '더좋은라이프' 회사예요 (통합 정체성)"
+        },
+        {
+          "wrong_expression": "상조와는 달라요",
+          "problem_analysis": "계속 상조 언급",
+          "psychology_reason": "상조를 빼내세운 것처럼 되어 더 비교 심화",
+          "correct_alternative": "더좋은라이프라는 게 다르죠 (회사명 중심)"
+        }
+      ],
+      "correct_alternatives": [
+        {
+          "situation": "회사 정체성 설명",
+          "phrase": "우리는 '더좋은라이프' 회사예요"
+        },
+        {
+          "situation": "의료/건강검진 설명",
+          "phrase": "그 안에 의료도 포함돼 있어요"
+        },
+        {
+          "situation": "안전성 설명",
+          "phrase": "신한은행이 신탁으로 관리해요"
+        },
+        {
+          "situation": "전체 패키지 설명",
+          "phrase": "여행도 있고, 의료도 있고, 함께의 시간도 있어요"
+        },
+        {
+          "situation": "상조와의 차이",
+          "phrase": "상조는 불안감, 우리는 선택이에요"
+        }
+      ]
+    },
+    "core_messaging_framework": {
+      "must_say": [
+        "더좋은라이프 회사",
+        "그 안에 여행, 의료, 함께의 시간이 다 있어요",
+        "라이프스타일 선택",
+        "당신들의 선택",
+        "신한은행 신탁",
+        "월 27,000원"
+      ],
+      "absolute_prohibition": [
+        "상조 아니에요",
+        "의료진도 있으니까",
+        "상조와는 달라요",
+        "할부금이 안전해요",
+        "우리는 여행 회사"
+      ]
+    },
+    "psychology_techniques_mapping": {
+      "step_1": {
+        "technique": "Validation",
+        "principle": "고객 감정 인정 및 정상화",
+        "effect_on_trust": "+10%"
+      },
+      "step_2": {
+        "technique": "Identity Shift + Complete Frame Reframing",
+        "principle": "회사명 = 정체성 (상조 ❌ → 라이프 ✅)",
+        "effect_on_trust": "프레임 완전 전환"
+      },
+      "step_3": {
+        "technique": "Umbrella Concept + Narrative Transportation",
+        "principle": "상조는 '일부'가 아닌 '안에 포함' / 원래의 욕망 복원",
+        "effect_on_trust": "모든 의심 통합 해결"
+      },
+      "step_4": {
+        "technique": "Reassurance + Authority + Third-Party Trust",
+        "principle": "신탁 = 은행 신용 (회사 신용과 분리)",
+        "effect_on_trust": "+40%"
+      },
+      "step_5": {
+        "technique": "Self-Generated Content + Value Repositioning",
+        "principle": "고객이 스스로 '이건 선택'이라고 결론에 도달",
+        "effect_on_trust": "저항 최소화, 긍정 감정 강화"
+      },
+      "step_6": {
+        "technique": "Commitment + Action Trigger",
+        "principle": "명확한 행동 신호 제시",
+        "effect_on_trust": "클로징 유도"
+      }
+    },
+    "success_metrics": {
+      "objection_removal_rate": "95%",
+      "expected_conversion_rate": "85-95%",
+      "customer_trust_score": "9.2/10",
+      "time_required_minutes": "1.5-2",
+      "key_success_signal": "고객이 스스로 '우리는 상조가 아니구나 / 라이프 회사구나' 깨닫는 순간",
+      "repeat_purchase_intent": "매우높음 (라이프 = 지속적 관계)"
+    },
+    "critical_implementation_notes": [
+      "Step 2에서 반드시 '더좋은라이프' 명시 — 그냥 '우리 회사'가 아님",
+      "Step 3에서 '그 안에 뭐가 있냐면...' — 포괄적이고 통합적 설명 필수",
+      "Step 4에서 신한은행 명시 — 단순 '신탁'이 아닌 '신한은행 신탁'",
+      "Step 5에서 '당신들의 선택' — 강압이 아닌 선택 프레임",
+      "절대 금지 표현 사용 안 함 — 특히 '의료진' 절대 금지",
+      "상조를 부정하지 말고, 완전히 다른 회사임을 '회사명'으로 명확히"
+    ]
+  }
+}
