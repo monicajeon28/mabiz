@@ -5,6 +5,7 @@ import { getAuthContext } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
+import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
 
 // 정산 수수료 상수 (변경 시 이 파일 상단만 수정)
 const HQ_CARD_FEE_RATE = 0.035;      // 카드 수수료 3.5%
@@ -155,6 +156,15 @@ type LedgerGroupRow = {
 };
 
 export async function GET(req: NextRequest) {
+  // ────────────────────────────────────────────────────────
+  // RBAC: GLOBAL_ADMIN 전용 엔드포인트
+  // ────────────────────────────────────────────────────────
+  const rbacCheck = enforceRBAC(req, {
+    allowedRoles: ['GLOBAL_ADMIN'],
+    errorMessage: '권한이 없습니다.',
+  });
+  if (rbacCheck !== true) return rbacCheck;
+
   try {
     const ctx = await getAuthContext();
     if (ctx.role !== 'GLOBAL_ADMIN') {

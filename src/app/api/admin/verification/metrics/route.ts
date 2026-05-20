@@ -19,6 +19,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { Redis } from "@upstash/redis";
+import { enforceRBAC } from "@/app/api/_middleware/enforce-rbac";
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -66,17 +67,17 @@ interface VerificationMetrics {
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  // ────────────────────────────────────────────────────────
+  // RBAC: GLOBAL_ADMIN 전용 엔드포인트
+  // ────────────────────────────────────────────────────────
+  const rbacCheck = enforceRBAC(request, {
+    allowedRoles: ['GLOBAL_ADMIN'],
+    errorMessage: '관리자만 접근 가능합니다.',
+  });
+  if (rbacCheck !== true) return rbacCheck;
+
   try {
     logger.info("[Verification Metrics] API 호출");
-
-    // 권한 확인 (관리자만)
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.includes("Bearer")) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
 
     // 메트릭 수집 (병렬)
     const [consistency, rollbacks, verificationTime, enumMappingFallback, recoveryStatus] =

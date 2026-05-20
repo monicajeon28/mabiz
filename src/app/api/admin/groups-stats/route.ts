@@ -1,10 +1,11 @@
 export const dynamic = 'force-dynamic';
 
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
 
 /**
  * GET /api/admin/groups-stats
@@ -14,7 +15,16 @@ import { logger } from '@/lib/logger';
  *
  * 응답: 그룹명 | 생성자 | 조직 | 고객수 | 생성일
  */
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
+  // ────────────────────────────────────────────────────────
+  // RBAC: GLOBAL_ADMIN 전용 엔드포인트
+  // ────────────────────────────────────────────────────────
+  const rbacCheck = enforceRBAC(req, {
+    allowedRoles: ['GLOBAL_ADMIN'],
+    errorMessage: '관리자만 접근 가능합니다.',
+  });
+  if (rbacCheck !== true) return rbacCheck;
+
   try {
     const ctx = await getAuthContext();
     if (ctx.role !== 'GLOBAL_ADMIN') {

@@ -37,7 +37,7 @@ export async function PATCH(
     // Validate input
     const parseResult = B2BProspectUpdateSchema.safeParse(body);
     if (!parseResult.success) {
-      const errors = parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+      const errors = parseResult.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
       return NextResponse.json(
         { ok: false, error: `검증 오류: ${errors}` },
         { status: 400 }
@@ -54,7 +54,7 @@ export async function PATCH(
       );
     }
 
-    logger.error('[b2b] PATCH /api/b2b/[id] error', { err, id: params.id });
+    logger.error('[b2b] PATCH /api/b2b/[id] error', { err, id: (await params).id || 'unknown' });
     return NextResponse.json(
       { ok: false, error: '업데이트에 실패했습니다' },
       { status: 500 }
@@ -93,7 +93,7 @@ export async function DELETE(
       );
     }
 
-    logger.error('[b2b] DELETE /api/b2b/[id] error', { err, id: params.id });
+    logger.error('[b2b] DELETE /api/b2b/[id] error', { err, id: (await params).id || 'unknown' });
     return NextResponse.json(
       { ok: false, error: '삭제에 실패했습니다' },
       { status: 500 }

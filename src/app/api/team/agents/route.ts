@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
 
 // FREE_SALES 멤버 + affiliateCode 조회 결과 타입
 type FreeSalesMemberRow = {
@@ -16,6 +17,15 @@ type FreeSalesMemberRow = {
 };
 
 export async function GET(req: NextRequest) {
+  // ────────────────────────────────────────────────────────
+  // RBAC: GLOBAL_ADMIN / OWNER 전용 엔드포인트
+  // ────────────────────────────────────────────────────────
+  const rbacCheck = enforceRBAC(req, {
+    allowedRoles: ['GLOBAL_ADMIN', 'OWNER'],
+    errorMessage: '권한이 없습니다.',
+  });
+  if (rbacCheck !== true) return rbacCheck;
+
   try {
     const ctx = await getAuthContext();
 

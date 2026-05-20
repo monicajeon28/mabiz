@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
 
 type Row = {
   memberId: string;
@@ -32,6 +33,15 @@ type Row = {
 type AffRow = { id: number; affiliateCode: string | null; status: string };
 
 export async function GET(req: NextRequest) {
+  // ────────────────────────────────────────────────────────
+  // RBAC: GLOBAL_ADMIN 전용 엔드포인트
+  // ────────────────────────────────────────────────────────
+  const rbacCheck = enforceRBAC(req, {
+    allowedRoles: ['GLOBAL_ADMIN'],
+    errorMessage: '관리자 권한이 필요합니다.',
+  });
+  if (rbacCheck !== true) return rbacCheck;
+
   try {
     const ctx = await getAuthContext();
     if (!ctx || ctx.role !== 'GLOBAL_ADMIN') {

@@ -5,12 +5,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requirePartnerContext } from '@/lib/passport-auth';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
 
 /**
  * GET /api/pnr/partner/list
  * 대리점장의 예약 목록 조회
  */
 export async function GET(req: NextRequest) {
+  // ────────────────────────────────────────────────────────
+  // RBAC: 인증된 사용자만 (AUTH 필수)
+  // ────────────────────────────────────────────────────────
+  const rbacCheck = enforceRBAC(req, {
+    authOnly: true,
+    errorMessage: '인증이 필요합니다.',
+  });
+  if (rbacCheck !== true) return rbacCheck;
+
   try {
     const ctx = await requirePartnerContext();
     if (!ctx) {

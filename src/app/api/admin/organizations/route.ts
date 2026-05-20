@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { findOrCreateOrganization } from '@/lib/organization';
+import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
 
 /**
  * GET /api/admin/organizations
@@ -14,6 +15,15 @@ import { findOrCreateOrganization } from '@/lib/organization';
  * 총 2 쿼리로 고정 (조직 수 무관)
  */
 export async function GET(req: NextRequest) {
+  // ────────────────────────────────────────────────────────
+  // RBAC: GLOBAL_ADMIN 전용 엔드포인트
+  // ────────────────────────────────────────────────────────
+  const rbacCheck = enforceRBAC(req, {
+    allowedRoles: ['GLOBAL_ADMIN'],
+    errorMessage: '관리자 권한이 필요합니다.',
+  });
+  if (rbacCheck !== true) return rbacCheck;
+
   try {
     const ctx = await getAuthContext();
 

@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     const status = url.searchParams.get('status');
     const search = url.searchParams.get('search');
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = {} as any;
 
     // OWNER는 자기 조직만
     if (ctx.role === 'OWNER') {
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       where.tripName = { contains: escapedSearch, mode: 'insensitive' };
     }
 
-    const cabins = await prisma.cabinInventory.findMany({
+    const cabins = await (prisma.cabinInventory.findMany as any)({
       where,
       orderBy: [{ departureDate: 'asc' }, { tripName: 'asc' }, { cabinType: 'asc' }],
       include: { organization: { select: { id: true, name: true } } },
@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
         // 실제 예약 수 집계 (tripCode 기준)
         let reservationMap = new Map<string, number>();
         if (tripCode) {
-          const reservationGroups = await tx.gmReservation.groupBy({
+          const reservationGroups = await (tx.gmReservation.groupBy as any)({
             by: ['cabinType'],
             where: {
               trip: { productCode: tripCode },

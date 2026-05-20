@@ -17,12 +17,10 @@ export const logger = {
     }
   },
   log: (message: string, data?: object) => {
-    if (process.env.NODE_ENV !== "production") {
-      if (isServer) {
-        process.stdout.write(formatMessage("log", message, data) + "\n");
-      } else {
-        console.log(formatMessage("log", message, data));
-      }
+    if (isServer && process.env.NODE_ENV !== "production") {
+      process.stdout.write(formatMessage("log", message, data) + "\n");
+    } else if (!isServer) {
+      console.log(formatMessage("log", message, data));
     }
   },
   warn: (message: string, data?: object) => {

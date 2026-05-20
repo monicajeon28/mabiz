@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
 
 interface TravelerInput {
   id?: number;
@@ -18,6 +19,15 @@ interface PnrSubmitBody {
 }
 
 export async function POST(req: NextRequest) {
+  // ────────────────────────────────────────────────────────
+  // RBAC: 인증된 사용자만 (AUTH 필수)
+  // ────────────────────────────────────────────────────────
+  const rbacCheck = enforceRBAC(req, {
+    authOnly: true,
+    errorMessage: '인증이 필요합니다.',
+  });
+  if (rbacCheck !== true) return rbacCheck;
+
   try {
     const body: PnrSubmitBody = await req.json();
     const { reservationId, travelers } = body;

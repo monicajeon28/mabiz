@@ -102,12 +102,12 @@ export async function PATCH(
     if (!validation.success) {
       logger.warn(
         `[PATCH /variants/[key]] Validation failed`,
-        { errors: validation.error.errors }
+        { errors: validation.error.issues }
       );
       return NextResponse.json(
         {
           error: 'Invalid input',
-          details: validation.error.errors.map((e) => ({
+          details: validation.error.issues.map((e) => ({
             path: e.path.join('.'),
             message: e.message,
           })),

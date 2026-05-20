@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     // Validate input
     const parseResult = B2BProspectCreateSchema.safeParse(body);
     if (!parseResult.success) {
-      const errors = parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+      const errors = parseResult.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
       return NextResponse.json(
         { ok: false, error: `검증 오류: ${errors}` },
         { status: 400 }

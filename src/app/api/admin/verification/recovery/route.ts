@@ -11,6 +11,7 @@ import {
   clearRollbackState,
 } from "@/lib/services/rollback-handler";
 import { notifySlack } from "@/lib/services/slack-notifier";
+import { enforceRBAC } from "@/app/api/_middleware/enforce-rbac";
 
 interface RecoveryRequest {
   action: "enable_execution_log" | "clear_rollback_state";
@@ -20,15 +21,17 @@ interface RecoveryRequest {
 }
 
 export async function POST(req: NextRequest) {
+  // ────────────────────────────────────────────────────────
+  // RBAC: GLOBAL_ADMIN 전용 엔드포인트
+  // ────────────────────────────────────────────────────────
+  const rbacCheck = enforceRBAC(req, {
+    allowedRoles: ['GLOBAL_ADMIN'],
+    errorMessage: '관리자만 접근 가능합니다.',
+  });
+  if (rbacCheck !== true) return rbacCheck;
+
   try {
-    // 관리자 인증
-    const auth = req.headers.get("authorization");
-    if (!auth || !auth.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+    // 관리자 인증은 이미 middleware에서 처리됨
 
     const body: RecoveryRequest = await req.json();
     const { action, verificationStatus, adminEmail = "unknown@mabiz.co.kr", notes = "" } = body;

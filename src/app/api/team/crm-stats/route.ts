@@ -3,8 +3,18 @@ import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { getCache, setCache } from '@/lib/redis';
+import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
 
 export async function GET(req: NextRequest) {
+  // ────────────────────────────────────────────────────────
+  // RBAC: FREE_SALES 제외 (GLOBAL_ADMIN, OWNER, AGENT)
+  // ────────────────────────────────────────────────────────
+  const rbacCheck = enforceRBAC(req, {
+    allowedRoles: ['GLOBAL_ADMIN', 'OWNER', 'AGENT'],
+    errorMessage: '권한이 없습니다.',
+  });
+  if (rbacCheck !== true) return rbacCheck;
+
   try {
     const ctx = await getAuthContext();
     if (ctx.role === 'FREE_SALES') return NextResponse.json({ ok: false }, { status: 403 });

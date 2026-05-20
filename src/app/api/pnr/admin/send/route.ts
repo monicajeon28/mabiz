@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireCrmManager } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
+import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
 // Aligo SMS API 인라인 타입 및 함수 (aligo/client 모듈 미존재)
 interface AligoSendResponse {
   result_code: string;
@@ -117,6 +118,15 @@ function buildPnrLink(reservationId: number): string {
 }
 
 export async function POST(req: NextRequest) {
+  // ────────────────────────────────────────────────────────
+  // RBAC: 인증된 사용자만 (AUTH 필수)
+  // ────────────────────────────────────────────────────────
+  const rbacCheck = enforceRBAC(req, {
+    authOnly: true,
+    errorMessage: '인증이 필요합니다.',
+  });
+  if (rbacCheck !== true) return rbacCheck;
+
   try {
     const manager = await requireCrmManager();
 

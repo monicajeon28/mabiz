@@ -2,11 +2,22 @@ import { Suspense } from "react";
 import { ErrorBoundary } from '@/components/error-boundary';
 import { RecommendationWidget } from "../components/RecommendationWidget";
 import { DashboardClient } from "../dashboard-client";
+import { getMabizSession } from "@/lib/auth";
+import { AuthSession } from "@/types/auth";
 
 export default async function DashboardPage() {
+  const ctx = await getMabizSession();
+  const session: AuthSession | null = ctx ? {
+    userId: ctx.userId,
+    role: ctx.role,
+    organizationId: ctx.organizationId,
+    member: ctx.member || null,
+    mallUser: ctx.mallUser,
+  } : null;
+
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
-      <DashboardClient />
+      <DashboardClient session={session} />
 
       {/* 고객 세그먼트 추천 분석 */}
       <div className="mt-8 mb-8">

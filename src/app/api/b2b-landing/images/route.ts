@@ -377,13 +377,23 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ ok: false, error: 'INVALID_INPUT', message: 'id 필수' }, { status: 400 });
     }
 
-    // 소유권 확인 (join)
+    // 소유권 확인
     const pageImage = await prisma.b2BLandingPageImage.findUnique({
       where: { id },
-      include: { landingPage: { select: { organizationId: true } } },
+      select: { id: true, landingPageId: true },
     });
 
-    if (!pageImage || pageImage.landingPage.organizationId !== orgId) {
+    if (!pageImage) {
+      return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: '이미지를 찾을 수 없습니다' }, { status: 404 });
+    }
+
+    // 페이지 소유권 확인
+    const landingPage = await prisma.b2BLandingPage.findUnique({
+      where: { id: pageImage.landingPageId },
+      select: { organizationId: true },
+    });
+
+    if (!landingPage || landingPage.organizationId !== orgId) {
       return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: '이미지를 찾을 수 없습니다' }, { status: 404 });
     }
 

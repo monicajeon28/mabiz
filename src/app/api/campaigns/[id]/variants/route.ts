@@ -184,12 +184,12 @@ export async function POST(
     if (!validation.success) {
       logger.warn(
         `[POST /variants] Validation failed`,
-        { errors: validation.error.errors }
+        { errors: validation.error.issues }
       );
       return NextResponse.json(
         {
           error: 'Invalid input',
-          details: validation.error.errors.map((e) => ({
+          details: validation.error.issues.map((e) => ({
             path: e.path.join('.'),
             message: e.message,
           })),

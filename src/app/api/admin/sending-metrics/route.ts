@@ -1,11 +1,12 @@
 export const dynamic = 'force-dynamic';
 
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { addDays, startOfDay } from 'date-fns';
+import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
 
 type Period = '1d' | '7d' | '30d';
 
@@ -43,7 +44,16 @@ function getDaysInPeriod(period: Period): number {
  * - organizationBreakdown: 조직별 현황
  * - trends: 일일 추이 (발송/실패율)
  */
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
+  // ────────────────────────────────────────────────────────
+  // RBAC: GLOBAL_ADMIN 전용 엔드포인트
+  // ────────────────────────────────────────────────────────
+  const rbacCheck = enforceRBAC(req, {
+    allowedRoles: ['GLOBAL_ADMIN'],
+    errorMessage: '관리자만 접근 가능합니다.',
+  });
+  if (rbacCheck !== true) return rbacCheck;
+
   try {
     const ctx = await getAuthContext();
 
