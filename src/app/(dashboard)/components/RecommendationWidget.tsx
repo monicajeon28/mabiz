@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useMemo } from 'react';
+import React from 'react';
 import {
   BarChart,
   Bar,
@@ -15,9 +13,10 @@ import { SEGMENT_COLORS, SEGMENT_LABELS } from '@/constants/segments';
 
 interface RecommendationData {
   ok: boolean;
-  segment_distribution: Record<string, number>;
-  conversion_rates: Record<string, number>;
-  top_products: Array<{ name: string; count: number }>;
+  error?: string;
+  segment_distribution?: Record<string, number>;
+  conversion_rates?: Record<string, number>;
+  top_products?: Array<{ name: string; count: number }>;
 }
 
 interface ChartDataPoint {
@@ -41,7 +40,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
     const data = payload[0].payload;
     return (
       <div className="bg-white border border-gray-300 rounded-lg p-3 shadow-lg">
-        <p className="font-semibold text-gray-900">{data.segment} - {SEGMENT_LABELS[data.segment]}</p>
+        <p className="font-semibold text-gray-900">{data.segment} - {SEGMENT_LABELS[data.segment] ?? 'Unknown'}</p>
         <p className="text-sm text-gray-600">고객 수: {data.customers}명</p>
         <p className="text-sm text-blue-600 font-medium">전환율: {data.conversionRatePercent}</p>
       </div>
@@ -67,8 +66,8 @@ export async function RecommendationWidget() {
 
     data = await res.json();
 
-    if (!data.ok) {
-      throw new Error(data.error || 'Unknown error');
+    if (!data || !data.ok) {
+      throw new Error(data?.error || 'Unknown error');
     }
   } catch (err) {
     error = err instanceof Error ? err.message : 'Failed to load recommendation data';
@@ -87,22 +86,20 @@ export async function RecommendationWidget() {
   }
 
   // 차트용 데이터 포매팅
-  const chartData: ChartDataPoint[] = useMemo(() => {
-    return Object.entries(data!.segment_distribution)
-      .sort(([segA], [segB]) => segA.localeCompare(segB))
-      .map(([segment, count]) => {
-        const conversionRate = data!.conversion_rates[segment] || 0;
-        return {
-          segment,
-          customers: count,
-          conversionRate,
-          conversionRatePercent: `${(conversionRate * 100).toFixed(1)}%`,
-        };
-      });
-  }, [data]);
+  const chartData: ChartDataPoint[] = Object.entries(data!.segment_distribution || {})
+    .sort(([segA], [segB]) => segA.localeCompare(segB))
+    .map(([segment, count]) => {
+      const conversionRate = (data!.conversion_rates || {})[segment] || 0;
+      return {
+        segment,
+        customers: count,
+        conversionRate,
+        conversionRatePercent: `${(conversionRate * 100).toFixed(1)}%`,
+      };
+    });
 
   // 상위 상품 데이터
-  const topProducts = data.top_products.slice(0, 5);
+  const topProducts = (data!.top_products || []).slice(0, 5);
 
   if (chartData.length === 0) {
     return (
@@ -161,12 +158,12 @@ export async function RecommendationWidget() {
             <div
               key={item.segment}
               className="bg-gray-50 rounded-lg border border-gray-200 p-4"
-              style={{ borderLeftColor: SEGMENT_COLORS[item.segment], borderLeftWidth: '4px' }}
+              style={{ borderLeftColor: SEGMENT_COLORS[item.segment] ?? '#cccccc', borderLeftWidth: '4px' }}
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="font-semibold text-gray-900">{item.segment}</span>
                 <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
-                  {SEGMENT_LABELS[item.segment]}
+                  {SEGMENT_LABELS[item.segment] ?? 'Unknown'}
                 </span>
               </div>
               <div className="space-y-1">

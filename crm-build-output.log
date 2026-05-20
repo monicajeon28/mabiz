@@ -1,0 +1,23 @@
+
+> mabiz@0.1.0 build
+> next build
+
+▲ Next.js 16.2.3 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 2.9min
+  Running TypeScript ...
+Failed to type check.
+
+./src/app/(dashboard)/components/RecommendationWidget.tsx:69:29
+Type error: Property 'error' does not exist on type 'RecommendationData'.
+
+  [90m67 |[0m
+  [90m68 |[0m     [36mif[0m (!data || !data.ok) {
+[31m[1m>[0m [90m69 |[0m       [36mthrow[0m [36mnew[0m [33mError[0m(data?.error || [32m'Unknown error'[0m);
+  [90m   |[0m                             [31m[1m^[0m
+  [90m70 |[0m     }
+  [90m71 |[0m   } [36mcatch[0m (err) {
+  [90m72 |[0m     error = err [36minstanceof[0m [33mError[0m ? err.message : [32m'Failed to load recommendation data'[0m;
+Next.js build worker exited with code: 1 and signal: null
