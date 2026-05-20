@@ -40,10 +40,9 @@ export async function GET(req: NextRequest) {
       where.tripName = { contains: escapedSearch, mode: 'insensitive' };
     }
 
-    const cabins = await (prisma.cabinInventory.findMany as any)({
+    const cabins = await prisma.cabinInventory.findMany({
       where,
       orderBy: [{ departureDate: 'asc' }, { tripName: 'asc' }, { cabinType: 'asc' }],
-      include: { organization: { select: { id: true, name: true } } },
     });
 
     // availableCount 계산 + 여행별 그룹핑
@@ -166,18 +165,30 @@ export async function POST(req: NextRequest) {
         // 실제 예약 수 집계 (tripCode 기준)
         let reservationMap = new Map<string, number>();
         if (tripCode) {
-          const reservationGroups = await (tx.gmReservation.groupBy as any)({
-            by: ['cabinType'],
-            where: {
-              trip: { productCode: tripCode },
-              status: 'CONFIRMED',
-              pnrStatus: 'COMPLETED',
-            },
-            _count: { id: true },
+          // tripCode로 GmTrip 찾아서 tripId 목록 가져오기
+          const trips = await tx.gmTrip.findMany({
+            where: { productCode: tripCode },
+            select: { id: true },
           });
-          reservationMap = new Map(
-            reservationGroups.map((r) => [r.cabinType ?? 'unknown', r._count.id])
-          );
+          const tripIds = trips.map((t) => t.id);
+
+          if (tripIds.length > 0) {
+            const reservationGroups = await (tx.gmReservation.groupBy as any)({
+              by: ['cabinType'],
+              where: {
+                tripId: { in: tripIds },
+                status: 'CONFIRMED',
+                pnrStatus: 'COMPLETED',
+              },
+              _count: { id: true },
+            });
+            reservationMap = new Map(
+              reservationGroups.map((r: { cabinType: string | null; _count: { id: number } }) => [
+                r.cabinType ?? 'unknown',
+                r._count.id,
+              ])
+            );
+          }
         }
 
         // 판매수보다 적게 수정 시도 → 에러 (수동 bookedCount와 실제 예약수 중 큰 값 사용)

@@ -11,6 +11,7 @@ const MABIZ_SESSION_COOKIE = 'mabiz.sid';
  */
 const PROTECTED_ROUTES = {
   ADMIN: /^\/admin(\/.*)?$/,           // /admin/* - Global admin only
+  CONTRACTS: /^\/contracts(\/.*)?$/,   // /contracts/* - Global admin only
   DASHBOARD_TEAM: /^\/dashboard\/team(\/.*)?$/, // /dashboard/team/* - Owner/Agent only
   PNR: /^\/pnr(\/.*)?$/,                // /pnr/* - Authenticated users
   DASHBOARD: /^\/dashboard(\/.*)?$/,   // /dashboard/* - Authenticated users
@@ -24,7 +25,7 @@ const PROTECTED_ROUTES = {
 /**
  * Routes that require GLOBAL_ADMIN role
  */
-const ADMIN_ONLY_ROUTES = [PROTECTED_ROUTES.ADMIN];
+const ADMIN_ONLY_ROUTES = [PROTECTED_ROUTES.ADMIN, PROTECTED_ROUTES.CONTRACTS];
 
 /**
  * Check if route requires authentication

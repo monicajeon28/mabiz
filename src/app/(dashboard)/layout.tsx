@@ -4,6 +4,7 @@ import { AuthSession } from "@/types/auth";
 import { SidebarNav } from "@/components/layout/SidebarNav";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { FloatingChatbot } from "@/components/layout/FloatingChatbot";
+import { SessionProvider } from "@/hooks/useSession";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -27,20 +28,28 @@ export default async function DashboardLayout({
   };
 
   return (
-    <div className="flex h-screen bg-[#F7F8FC]">
-      {/* PC: 좌측 사이드바 */}
-      <SidebarNav className="hidden md:flex" session={session} />
+    <SessionProvider
+      session={{
+        role: session?.role,
+        organizationId: session?.organizationId,
+        isAdmin: session?.role === "GLOBAL_ADMIN",
+      }}
+    >
+      <div className="flex h-screen bg-[#F7F8FC]">
+        {/* PC: 좌측 사이드바 */}
+        <SidebarNav className="hidden md:flex" session={session} />
 
-      {/* 메인 콘텐츠 */}
-      <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
-        {children}
-      </main>
+        {/* 메인 콘텐츠 */}
+        <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
+          {children}
+        </main>
 
-      {/* 모바일: 하단 탭 */}
-      <BottomTabBar className="md:hidden" />
+        {/* 모바일: 하단 탭 */}
+        <BottomTabBar className="md:hidden" />
 
-      {/* 플로팅 세일즈봇 */}
-      <FloatingChatbot />
-    </div>
+        {/* 플로팅 세일즈봇 */}
+        <FloatingChatbot />
+      </div>
+    </SessionProvider>
   );
 }

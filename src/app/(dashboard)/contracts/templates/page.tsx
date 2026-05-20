@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useCallback } from 'react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
@@ -43,18 +42,6 @@ const DEFAULT_CONTRACT_TYPE_LABELS: Record<string, string> = {
 const ICON_OPTIONS = ['📄', '📋', '📜', '📝', '🏢', '👤', '🚢', '💳', '🎯', '✨', '🌟', '💼', '🤝', '📊', '💰'];
 
 export default function ContractTemplatesPage() {
-  const router = useRouter();
-
-  // GLOBAL_ADMIN 역할 확인
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then(r => r.json())
-      .then(d => {
-        if (!d.ok || d.role !== 'GLOBAL_ADMIN') router.replace('/contracts');
-      })
-      .catch(() => router.replace('/contracts'));
-  }, [router]);
-
   const [templates, setTemplates] = useState<Templates>({});
   const [contractTypes, setContractTypes] = useState<string[]>([]);
   const [customTypes, setCustomTypes] = useState<string[]>([]);

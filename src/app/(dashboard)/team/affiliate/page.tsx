@@ -240,15 +240,6 @@ type ConfirmState = {
 export default function AffiliateTeamDashboardPage() {
   const router = useRouter();
 
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then(r => r.json())
-      .then(d => {
-        if (!d.ok || d.role !== 'GLOBAL_ADMIN') router.replace('/dashboard');
-      })
-      .catch(() => router.replace('/dashboard'));
-  }, [router]);
-
   // ConfirmDialog 상태 관리 (useConfirm 대체)
   const [confirmState, setConfirmState] = useState<ConfirmState>({
     open: false,

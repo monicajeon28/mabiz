@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { CreditCard, RefreshCw, ArrowUpRight, ArrowDownLeft, Clock, Repeat, Store } from "lucide-react";
+import { useSession } from "@/hooks/useSession";
 
 /** 전화번호 마스킹: 010-****-5678 형식 */
 function maskPhone(phone: string): string {
@@ -78,8 +79,8 @@ type MallPayment = {
 };
 
 export default function PaymentsPage() {
+  const { isAdmin } = useSession();
   const [tab, setTab] = useState<"payments" | "mall" | "subscriptions">("payments");
-  const [isAdmin, setIsAdmin] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [stats, setStats]       = useState<Stats | null>(null);
   const [total, setTotal]       = useState(0);
@@ -123,13 +124,6 @@ export default function PaymentsPage() {
     } catch {}
     setLoading(false);
   }, [filter, search]);
-
-  useEffect(() => {
-    fetch('/api/auth/me', { credentials: 'include' })
-      .then((r) => r.json())
-      .then((d) => { if (d.ok && d.role === 'GLOBAL_ADMIN') setIsAdmin(true); })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => { if (tab === "payments") load(1); }, [load, tab]);
 
