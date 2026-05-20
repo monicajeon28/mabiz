@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/components/layout/NotificationBell";
-import { useEffect, useState } from "react";
+import { AuthSession } from "@/types/auth";
 
 type UserRole = "GLOBAL_ADMIN" | "OWNER" | "AGENT" | "FREE_SALES";
 
@@ -119,25 +119,16 @@ const freeSalesItems: NavItem[] = [
 
 interface SidebarNavProps {
   className?: string;
+  session: AuthSession | null;
 }
 
-export function SidebarNav({ className }: SidebarNavProps) {
+export function SidebarNav({ className, session }: SidebarNavProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [role, setRole] = useState<UserRole | null>(null);
-  const [displayName, setDisplayName] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch('/api/auth/me', { credentials: 'include' })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.ok) {
-          setRole(d.role);
-          setDisplayName(d.displayName);
-        }
-      })
-      .catch(() => {});
-  }, []);
+  // Map session role to UserRole type (session.role may have different values)
+  const role: UserRole | null = session?.role as UserRole | null ?? null;
+  const displayName = session?.displayName ?? null;
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });

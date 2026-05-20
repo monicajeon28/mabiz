@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Users, TrendingUp, RotateCcw, Clock, Star, Phone, Settings, Send, AlertCircle, Copy, Check, Calendar } from "lucide-react";
 import Link from "next/link";
+import { AuthSession } from '@/types/auth';
 
 type DashboardData = {
   role: string;
@@ -52,6 +53,10 @@ const TYPE_CONFIG: Record<string, { label: string; emoji: string; dotColor: stri
   ORG_CONTRACT: { label: '신규 대리점',    emoji: '🤝', dotColor: 'bg-purple-500' },
   CALL_DUE:     { label: '오늘 콜 예정',    emoji: '📞', dotColor: 'bg-rose-500'   },
 };
+
+interface DashboardClientProps {
+  session: AuthSession | null;
+}
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -286,7 +291,7 @@ function PushCallNotification({ callDueCount }: { callDueCount: number }) {
   );
 }
 
-export function DashboardClient() {
+export function DashboardClient({ session }: DashboardClientProps) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [feedLoading, setFeedLoading] = useState(true);
@@ -298,7 +303,6 @@ export function DashboardClient() {
   useEffect(() => {
     Promise.allSettled([
       fetch("/api/dashboard").then((r) => r.json()),
-      fetch("/api/auth/me", { credentials: "include" }).then((r) => r.json()),
       fetch('/api/notifications/feed?limit=5').then(r => r.json()),
       fetch('/api/admin/partner-suspensions?status=SUSPENDED&limit=1').then(r => r.json()),
       fetch('/api/marketing/campaigns/today-stats').then(r => r.json()),
@@ -307,22 +311,18 @@ export function DashboardClient() {
         setData(results[0].value);
       }
 
-      if (results[1].status === 'fulfilled' && results[1].value?.ok && results[1].value?.organizationId) {
-        setMyOrgId(results[1].value.organizationId);
+      if (results[1].status === 'fulfilled' && results[1].value?.ok) {
+        setFeed(results[1].value.items ?? []);
+      } else if (results[1].status === 'rejected') {
+        console.error('알림 피드 로드 실패:', results[1].reason);
       }
 
       if (results[2].status === 'fulfilled' && results[2].value?.ok) {
-        setFeed(results[2].value.items ?? []);
-      } else if (results[2].status === 'rejected') {
-        console.error('알림 피드 로드 실패:', results[2].reason);
+        setSuspendedPartnerCount(results[2].value.data.total ?? 0);
       }
 
       if (results[3].status === 'fulfilled' && results[3].value?.ok) {
-        setSuspendedPartnerCount(results[3].value.data.total ?? 0);
-      }
-
-      if (results[4].status === 'fulfilled' && results[4].value?.ok) {
-        const campaignStats = results[4].value;
+        const campaignStats = results[3].value;
         setData(prev => prev ? {
           ...prev,
           campaignScheduledToday: campaignStats.scheduledToday ?? 0,
@@ -333,7 +333,14 @@ export function DashboardClient() {
 
       setFeedLoading(false);
     });
-  }, []);
+
+    // Get org from props (session passed from layout)
+    if (session?.organizationId) {
+      setMyOrgId(session.organizationId);
+    } else {
+      setMyOrgId('');
+    }
+  }, [session]);
 
   const role = data?.role;
   const ym   = data?.yearMonth ?? new Date().toISOString().slice(0, 7);

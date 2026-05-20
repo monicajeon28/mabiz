@@ -323,21 +323,20 @@ export default function MembersPage() {
     setLoadingInvites(true);
 
     try {
-      const [meRes, membersRes, invitesRes] = await Promise.all([
-        fetch('/api/auth/me',     { signal: sig }),
+      // /api/auth/me 호출 제거 - layout에서 권한 관리
+      const [membersRes, invitesRes] = await Promise.all([
         fetch('/api/org/members', { signal: sig }),
         fetch('/api/org/invite',  { signal: sig }),
       ]);
 
       if (sig.aborted) return;
 
-      const [meData, membersData, invitesData] = await Promise.all([
-        meRes.json(), membersRes.json(), invitesRes.json(),
+      const [membersData, invitesData] = await Promise.all([
+        membersRes.json(), invitesRes.json(),
       ]);
 
       if (sig.aborted) return;
 
-      setMyRole(meData.role ?? null);
       setMembers(membersData.members ?? []);
       setInvites(invitesData.tokens ?? []);
     } catch (e) {

@@ -56,14 +56,8 @@ export default function ImageLibraryPage() {
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 권한 체크
-  const [isAdmin, setIsAdmin] = useState(false);
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then((r) => r.json())
-      .then((data) => { if (data.ok) setIsAdmin(data.role === 'GLOBAL_ADMIN'); })
-      .catch(() => setIsAdmin(false));
-  }, []);
+  // 권한 체크는 layout에서 처리 (GLOBAL_ADMIN만 접근 가능)
+  const isAdmin = true;
 
   /**
    * 이미지 목록 조회

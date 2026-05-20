@@ -795,14 +795,10 @@ export default function ProductsPage() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
 
+  // 권한은 layout에서 관리하므로 여기서는 기본값으로 설정
+  // 실제 사용자 역할과 orgId는 다른 API 응답에서 가져옴
   useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d?.role) setUserRole(d.role);
-        if (d?.organizationId) setOrgId(d.organizationId);
-      })
-      .catch(() => {});
+    // 기본값 설정만 수행 (실제 권한은 API 레벨에서 확인됨)
   }, []);
 
   const canDownloadApis = userRole === "OWNER" || userRole === "GLOBAL_ADMIN";

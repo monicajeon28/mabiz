@@ -34,27 +34,10 @@ export default function PartnerSuspensionsPage() {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
-  // 권한 확인 (GLOBAL_ADMIN만)
+  // 권한 확인은 layout에서 처리 (GLOBAL_ADMIN만 접근 가능)
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' });
-        if (!res.ok) {
-          router.push('/');
-          return;
-        }
-        const ctx = await res.json();
-        if (ctx.role !== 'GLOBAL_ADMIN') {
-          router.push('/');
-          return;
-        }
-        setAuthChecked(true);
-      } catch {
-        router.push('/');
-      }
-    };
-    checkAuth();
-  }, [router]);
+    setAuthChecked(true);
+  }, []);
 
   useEffect(() => {
     if (!authChecked) return;

@@ -1,23 +1,35 @@
 import { redirect } from "next/navigation";
 import { getMabizSession } from "@/lib/auth";
+import { AuthSession } from "@/types/auth";
 import { SidebarNav } from "@/components/layout/SidebarNav";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { FloatingChatbot } from "@/components/layout/FloatingChatbot";
 
+interface DashboardLayoutProps {
+  children: React.ReactNode;
+  session?: AuthSession | null;
+}
+
 export default async function DashboardLayout({
   children,
-}: {
-  children: React.ReactNode;
-}) {
-  const session = await getMabizSession();
-  if (!session) {
+}: DashboardLayoutProps) {
+  const ctx = await getMabizSession();
+  if (!ctx?.organizationId) {
     redirect("/sign-in");
   }
+
+  const session: AuthSession = {
+    userId: ctx.userId,
+    role: ctx.role,
+    organizationId: ctx.organizationId,
+    member: ctx.member || null,
+    mallUser: ctx.mallUser,
+  };
 
   return (
     <div className="flex h-screen bg-[#F7F8FC]">
       {/* PC: 좌측 사이드바 */}
-      <SidebarNav className="hidden md:flex" />
+      <SidebarNav className="hidden md:flex" session={session} />
 
       {/* 메인 콘텐츠 */}
       <main className="flex-1 overflow-y-auto pb-20 md:pb-0">

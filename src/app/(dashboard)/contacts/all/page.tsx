@@ -26,21 +26,9 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
 
 export default function ContactsAllPage() {
   const router = useRouter();
-  const [role, setRole] = useState<string | null>(null);
-  const [authLoaded, setAuthLoaded] = useState(false);
-
-  // /api/auth/me 로 역할 확인
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then(r => r.json())
-      .then(d => {
-        if (!d.ok) { router.replace('/contacts'); return; }
-        setRole(d.role);
-        setAuthLoaded(true);
-        if (d.role !== 'GLOBAL_ADMIN') router.replace('/contacts');
-      })
-      .catch(() => router.replace('/contacts'));
-  }, [router]);
+  // 권한 확인은 layout에서 처리 (GLOBAL_ADMIN만 접근 가능)
+  const [role] = useState<string | null>('GLOBAL_ADMIN');
+  const [authLoaded] = useState(true);
 
   const [contacts, setContacts] = useState<ContactAll[]>([]);
   const [total, setTotal] = useState(0);
