@@ -30,15 +30,6 @@ export async function PATCH(req: Request, { params }: Params) {
         organizationId: orgId, // ✅ IDOR 방지
       },
       include: {
-        contact: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            email: true,
-            optOutAt: true,
-          },
-        },
         campaign: {
           select: {
             id: true,
@@ -53,6 +44,12 @@ export async function PATCH(req: Request, { params }: Params) {
         },
       },
     });
+
+    // Contact 정보 조회 (optOutAt 확인용)
+    const contact = sending ? await prisma.contact.findUnique({
+      where: { id: sending.contactId },
+      select: { id: true, name: true, phone: true, email: true, optOutAt: true },
+    }) : null;
 
     if (!sending) {
       logger.warn('[PATCH /api/campaigns/sending-history/[id]/resend] SendingHistory not found', { sendingId, orgId });
@@ -116,10 +113,10 @@ export async function PATCH(req: Request, { params }: Params) {
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // 4. 연락처 유효성 검증
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    if (sending.contact.optOutAt) {
+    if (contact?.optOutAt) {
       logger.warn('[PATCH /api/campaigns/sending-history/[id]/resend] Contact opted out', {
         sendingId,
-        contactId: sending.contact.id
+        contactId: contact.id
       });
       return NextResponse.json(
         {
@@ -138,7 +135,7 @@ export async function PATCH(req: Request, { params }: Params) {
     let emailResult: { success: boolean; error?: string } | null = null;
 
     // SMS 발송
-    if (sending.campaign.sendSms && sending.contact.phone) {
+    if (sending.campaign.sendSms && sending.phone) {
       try {
         const smsConfig = await prisma.orgSmsConfig.findUnique({
           where: { organizationId: orgId },
@@ -153,11 +150,11 @@ export async function PATCH(req: Request, { params }: Params) {
               userId: smsConfig.aligoUserId,
               sender: smsConfig.senderPhone,
             },
-            receiver: sending.contact.phone,
+            receiver: sending.phone,
             msg: sending.campaign.smsBody || '',
             channel: 'FUNNEL', // SendSmsParams에서 요구하는 타입
             organizationId: orgId,
-            contactId: sending.contact.id,
+            contactId: sending.contactId,
           });
 
           smsResult = {
@@ -172,7 +169,7 @@ export async function PATCH(req: Request, { params }: Params) {
     }
 
     // Email 발송
-    if (sending.campaign.sendEmail && sending.contact.email) {
+    if (sending.campaign.sendEmail && sending.email) {
       try {
         const emailConfig = await prisma.orgEmailConfig.findUnique({
           where: { organizationId: orgId },
@@ -188,7 +185,7 @@ export async function PATCH(req: Request, { params }: Params) {
             smtpPassEncrypted: emailConfig.smtpPassEncrypted,
             senderName: emailConfig.senderName,
             senderEmail: emailConfig.senderEmail,
-            to: sending.contact.email,
+            to: sending.email,
             subject: sending.campaign.emailSubject || '제목 없음',
             html: sending.campaign.emailBody || '<p>본문 없음</p>',
           });
