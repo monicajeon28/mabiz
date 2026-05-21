@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
+import { createRefundNotifications } from '@/lib/notification-service';
 
 /**
  * POST /api/webhooks/refund
@@ -151,6 +152,8 @@ export async function POST(req: NextRequest) {
       }
 
       // ★ NEW: AffiliateSale 수당 100% 취소 (P0 요구사항)
+      let refundNotificationData: Parameters<typeof createRefundNotifications>[0] | null = null;
+
       if (affiliateSale && affiliateSale.commissionAmount > 0) {
         await tx.affiliateSale.update({
           where: { id: affiliateSale.id },
@@ -163,6 +166,16 @@ export async function POST(req: NextRequest) {
           },
         });
 
+        // ★ P2: 알림 데이터 준비 (트랜잭션 후에 생성)
+        refundNotificationData = {
+          organizationId: affiliateSale.organizationId,
+          orderId,
+          customerName: contact?.name || '고객',
+          refundAmount: affiliateSale.saleAmount,
+          refundReason: reason || '환불 요청',
+          type: 'full_refund',
+        };
+
         logger.log('[RefundWebhook] AffiliateSale 수당 취소', {
           affiliateSaleId: affiliateSale.id,
           originalCommission: affiliateSale.commissionAmount,
@@ -170,6 +183,11 @@ export async function POST(req: NextRequest) {
           saleAmount: affiliateSale.saleAmount,
           commissionRate: affiliateSale.commissionRate,
         });
+      }
+
+      // ★ P2: 트랜잭션 후 알림 생성
+      if (refundNotificationData) {
+        createRefundNotifications(refundNotificationData).catch(() => {});
       }
 
       // eventId 처리 완료 기록 (트랜잭션 안에서 — TOCTOU 방지)

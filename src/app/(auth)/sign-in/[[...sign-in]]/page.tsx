@@ -41,40 +41,40 @@ function SignInContent() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex" suppressHydrationWarning>
       {/* 좌측: 브랜드 (데스크탑) */}
       <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between overflow-hidden"
-           style={{ backgroundColor: '#1E2D4E' }}>
-        <div className="absolute inset-0" style={{ backgroundColor: 'rgba(30,45,78,0.2)' }} />
-        <div className="relative z-10 p-12 flex-1 flex flex-col justify-center">
-          <div className="text-4xl font-bold tracking-tight mb-3" style={{ color: '#C9A84C' }}>
+           style={{ backgroundColor: '#1E2D4E' }} suppressHydrationWarning>
+        <div className="absolute inset-0" style={{ backgroundColor: 'rgba(30,45,78,0.2)' }} suppressHydrationWarning />
+        <div className="relative z-10 p-12 flex-1 flex flex-col justify-center" suppressHydrationWarning>
+          <div className="text-4xl font-bold tracking-tight mb-3" style={{ color: '#C9A84C' }} suppressHydrationWarning>
             크루즈닷파트너스
           </div>
-          <h1 className="text-white text-3xl font-bold leading-tight mb-4">
+          <h1 className="text-white text-3xl font-bold leading-tight mb-4" suppressHydrationWarning>
             파트너센터에<br />오신 것을 환영합니다
           </h1>
         </div>
-        <div className="relative z-10 p-8">
-          <p className="text-white/30 text-xs">(주)마비즈컴퍼니 · mabizcruisedot.com</p>
+        <div className="relative z-10 p-8" suppressHydrationWarning>
+          <p className="text-white/30 text-xs" suppressHydrationWarning>(주)마비즈컴퍼니 · mabizcruisedot.com</p>
         </div>
       </div>
 
       {/* 우측: 로그인 폼 */}
-      <div className="flex-1 flex items-center justify-center bg-[#FAF8F5] px-6 py-12">
-        <div className="w-full max-w-sm">
+      <div className="flex-1 flex items-center justify-center bg-[#FAF8F5] px-6 py-12" suppressHydrationWarning>
+        <div className="w-full max-w-sm" suppressHydrationWarning>
           {/* 모바일 로고 */}
-          <div className="lg:hidden text-center mb-8">
-            <div className="text-2xl font-bold mb-1" style={{ color: '#C9A84C' }}>
+          <div className="lg:hidden text-center mb-8" suppressHydrationWarning>
+            <div className="text-2xl font-bold mb-1" style={{ color: '#C9A84C' }} suppressHydrationWarning>
               크루즈닷파트너스
             </div>
           </div>
 
-          <div className="hidden lg:block mb-8">
-            <h2 className="text-2xl font-bold" style={{ color: '#1E2D4E' }}>로그인</h2>
-            <p className="text-gray-500 text-sm mt-1">계정 아이디와 비밀번호를 입력하세요</p>
+          <div className="hidden lg:block mb-8" suppressHydrationWarning>
+            <h2 className="text-2xl font-bold" style={{ color: '#1E2D4E' }} suppressHydrationWarning>로그인</h2>
+            <p className="text-gray-500 text-sm mt-1" suppressHydrationWarning>계정 아이디와 비밀번호를 입력하세요</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5" suppressHydrationWarning>
             {error && (
               <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-sm">
                 {error}

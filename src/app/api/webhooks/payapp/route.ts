@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
 import { validateFeedback, parsePayState, parsePayType, issueCashReceipt } from "@/lib/payapp";
 import { normalizePhone } from "@/lib/phone-normalize";
+import { createRefundNotifications } from "@/lib/notification-service";
 
 /**
  * POST /api/webhooks/payapp
@@ -248,6 +249,7 @@ export async function POST(req: Request) {
             saleAmount: true,
             commissionAmount: true,
             commissionRate: true,
+            organizationId: true,
           },
         });
 
@@ -262,6 +264,21 @@ export async function POST(req: Request) {
               cancelReason: "PAYMENT_CANCELLED_PAYAPP",
             },
           });
+
+          // ★ P2: 환불 알림 생성
+          const contact = await prisma.contact.findFirst({
+            where: { bookingRef: orderId },
+            select: { name: true },
+          });
+
+          await createRefundNotifications({
+            organizationId: affiliateSale.organizationId,
+            orderId,
+            customerName: contact?.name || '고객',
+            refundAmount: affiliateSale.saleAmount,
+            refundReason: cancelmemo || '결제 취소',
+            type: 'payment_cancelled',
+          }).catch(() => {});
 
           logger.log("[PayApp Webhook] AffiliateSale 수당 취소", {
             affiliateSaleId: affiliateSale.id,
@@ -318,6 +335,7 @@ export async function POST(req: Request) {
                 saleAmount: true,
                 commissionAmount: true,
                 commissionRate: true,
+                organizationId: true,
               },
             });
 
@@ -340,6 +358,21 @@ export async function POST(req: Request) {
                   status: "PARTIAL_REFUNDED",
                 },
               });
+
+              // ★ P2: 부분취소 알림 생성
+              const contact = await prisma.contact.findFirst({
+                where: { bookingRef: orderId },
+                select: { name: true },
+              });
+
+              await createRefundNotifications({
+                organizationId: affiliateSale.organizationId,
+                orderId,
+                customerName: contact?.name || '고객',
+                refundAmount: partialAmount,
+                refundReason: `부분취소: ${partialAmount.toLocaleString()}원`,
+                type: 'partial_refund',
+              }).catch(() => {});
 
               logger.log("[PayApp Webhook] AffiliateSale 수당 부분감액", {
                 affiliateSaleId: affiliateSale.id,

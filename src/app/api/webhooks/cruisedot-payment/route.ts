@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { createRefundNotifications } from '@/lib/notification-service';
 
 interface CruisedotPaymentPayload {
   eventId: string;
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
     // AffiliateSale 찾기 (bookingRef = orderId)
     const affiliateSale = await prisma.affiliateSale.findUnique({
       where: { orderId: bookingRef },
-      select: { id: true, saleAmount: true, commissionAmount: true },
+      select: { id: true, saleAmount: true, commissionAmount: true, organizationId: true },
     });
 
     // 트랜잭션 처리
@@ -160,6 +161,16 @@ export async function POST(req: NextRequest) {
             cancelReason: 'CUSTOMER_REFUND_CRUISEDOT',
           },
         });
+
+        // ★ P2: 환불 알림 생성
+        await createRefundNotifications({
+          organizationId: affiliateSale.organizationId,
+          orderId: bookingRef,
+          customerName: contact?.name || '고객',
+          refundAmount: refundAmount ?? affiliateSale.saleAmount,
+          refundReason: reason || '환불 요청',
+          type: 'full_refund',
+        }).catch(() => {});
 
         logger.log('[CruisedotWebhook] AffiliateSale 수당 취소', {
           affiliateSaleId: affiliateSale.id,

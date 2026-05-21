@@ -1,38 +1,3 @@
-# P2: 환불 알림 채널 - 대시보드 구현
-
-**Status:** 🟢 Ready for Implementation  
-**Date:** 2026-05-21  
-**Task ID:** #3  
-**Priority:** P2  
-
----
-
-## 📋 개요
-
-환불/취소 이벤트 발생 시 관련자(Partner 매니저, CRM 관리자)의 대시보드에 알림 표시
-
-### 구현 범위
-
-```
-[환불 웹훅 수신]
-  ├─ payapp/route.ts (취소/부분취소)
-  ├─ refund/route.ts (환불)
-  └─ cruisedot-payment/route.ts (환불)
-       ↓
-[Partner & OrganizationId 조회]
-       ↓
-[AdminNotification 생성]
-  ├─ Partner 매니저용 (Partner 대시보드)
-  └─ CRM 관리자용 (CRM 관리자 대시보드)
-```
-
----
-
-## 🛠️ 1단계: 알림 서비스 생성
-
-### 파일: `src/lib/notification-service.ts` (신규)
-
-```typescript
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -54,7 +19,7 @@ export async function createRefundNotifications({
   type,
 }: CreateRefundNotificationParams) {
   try {
-    // 조직의 관리자 찾기
+    // 조직의 관리자(OWNER/ADMIN) 찾기
     const adminUsers = await prisma.organizationMember.findMany({
       where: {
         organizationId,
@@ -63,7 +28,15 @@ export async function createRefundNotifications({
       select: { userId: true },
     });
 
-    const typeConfig: Record<string, { notificationType: string; title: string; priority: string }> = {
+    if (adminUsers.length === 0) {
+      logger.warn('[RefundNotification] 관리자 없음', { organizationId });
+      return;
+    }
+
+    const typeConfig: Record<
+      string,
+      { notificationType: string; title: string; priority: string }
+    > = {
       full_refund: {
         notificationType: 'REFUND_CUSTOMER_REQUEST',
         title: `[수당 취소] 환불 완료 - ${customerName}`,
@@ -82,10 +55,13 @@ export async function createRefundNotifications({
     };
 
     const config = typeConfig[type];
+
     const content = [
-      type === 'full_refund' ? '고객 환불로 수당이 100% 취소되었습니다.'
-        : type === 'partial_refund' ? '부분취소로 수당이 감액되었습니다.'
-        : '결제 취소로 수당이 100% 취소되었습니다.',
+      type === 'full_refund'
+        ? '고객 환불로 수당이 100% 취소되었습니다.'
+        : type === 'partial_refund'
+          ? '부분취소로 수당이 감액되었습니다.'
+          : '결제 취소로 수당이 100% 취소되었습니다.',
       '',
       `환불액: ${refundAmount.toLocaleString()}원`,
       refundReason ? `사유: ${refundReason}` : null,
@@ -94,6 +70,7 @@ export async function createRefundNotifications({
       .filter(Boolean)
       .join('\n');
 
+    // 각 관리자에게 알림 생성
     await Promise.all(
       adminUsers.map(({ userId }) =>
         prisma.adminNotification.create({
@@ -103,7 +80,13 @@ export async function createRefundNotifications({
             title: config.title,
             content,
             priority: config.priority,
-            metadata: { orderId, organizationId, refundAmount, customerName },
+            metadata: {
+              orderId,
+              organizationId,
+              refundAmount,
+              customerName,
+              refundReason,
+            },
           },
         })
       )
@@ -113,31 +96,9 @@ export async function createRefundNotifications({
       organizationId,
       orderId,
       notificationCount: adminUsers.length,
+      type,
     });
   } catch (err) {
     logger.error('[RefundNotification] 알림 생성 실패', { err, orderId });
   }
 }
-```
-
----
-
-## 📊 2단계: 웹훅 수정 필요 위치
-
-### PayApp 웹훅
-- Line 254-271: 취소 처리 → 알림 추가
-- Line 328-345: 부분취소 → 알림 추가
-
-### Refund 웹훅
-- Line 154-173: 환불 처리 → 알림 추가
-
-### CruisedotPayment 웹훅
-- Line 190-210: 환불 처리 → 알림 추가
-
----
-
-**구현 순서:**
-1. notification-service.ts 생성
-2. 각 웹훅에 import + 알림 로직 추가
-3. 로컬 테스트
-4. 커밋
