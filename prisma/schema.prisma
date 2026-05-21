@@ -1527,7 +1527,7 @@ model GmReservation {
   tripId                      Int
   mainUserId                  Int
   trip                        GmTrip    @relation("TripReservations", fields: [tripId], references: [id], onDelete: Cascade)
-  mainUser                    GmUser    @relation("UserReservations", fields: [mainUserId], references: [id])
+  mainUser                    GmUser    @relation("UserReservations", fields: [mainUserId], references: [id], onDelete: Cascade)
   totalPeople                 Int
   cabinType                   String?
   paymentDate                 DateTime?
