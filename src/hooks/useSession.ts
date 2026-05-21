@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext } from 'react';
+import React, { createContext, useContext, ReactNode, FC } from 'react';
 
 interface SessionContextType {
   role?: string;
@@ -14,10 +14,12 @@ export function useSession() {
   return useContext(SessionContext);
 }
 
-export function SessionProvider({ children, session }: { children: React.ReactNode; session?: SessionContextType }) {
-  return (
-    <SessionContext.Provider value={session || { isAdmin: false }}>
-      {children}
-    </SessionContext.Provider>
-  );
+interface SessionProviderProps {
+  children: ReactNode;
+  session?: SessionContextType;
 }
+
+export const SessionProvider: FC<SessionProviderProps> = ({ children, session }) => {
+  const val = session || { isAdmin: false };
+  return React.createElement(SessionContext.Provider, { value: val }, children);
+};

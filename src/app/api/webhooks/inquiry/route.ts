@@ -71,6 +71,13 @@ export async function POST(req: NextRequest) {
 
   // 2~4. Contact upsert + Memo + 그룹 배정을 트랜잭션으로 통합
   const normalizedPhone = normalizePhone(phone);
+
+  // GmUser 조회 (phone 기반)
+  const gmUser = await prisma.gmUser.findFirst({
+    where: { phone: normalizedPhone },
+    select: { id: true },
+  });
+
   try {
     const result = await prisma.$transaction(async (tx) => {
       const existing = await tx.contact.findUnique({
@@ -90,12 +97,13 @@ export async function POST(req: NextRequest) {
             ...(affiliateCode ? { affiliateCode } : {}),
             type: existing.type === 'PURCHASED' ? 'PURCHASED' : 'LEAD',
             leadScore: (existing.leadScore ?? 0) + 15,
+            ...(gmUser ? { userId: gmUser.id } : {}),
           },
         });
         contactId = existing.id;
       } else {
         const c = await tx.contact.create({
-          data: { phone: normalizedPhone, name, organizationId, ...(email ? { email } : {}), ...(affiliateCode ? { affiliateCode } : {}), type: 'LEAD', leadScore: 15 },
+          data: { phone: normalizedPhone, name, organizationId, ...(email ? { email } : {}), ...(affiliateCode ? { affiliateCode } : {}), type: 'LEAD', leadScore: 15, userId: gmUser?.id ?? null },
           select: { id: true },
         });
         contactId = c.id;

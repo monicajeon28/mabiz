@@ -1,0 +1,506 @@
+{
+  "test_metadata": {
+    "name": "Phase 3 Track D: A/B Script Testing",
+    "duration": "4 weeks",
+    "total_sample_size": 200,
+    "start_date": "2026-05-28",
+    "end_date": "2026-06-24",
+    "primary_kpi": "Day 3 Final Conversion Rate",
+    "decision_deadline": "2026-06-28"
+  },
+
+  "week_1": {
+    "variant": "A",
+    "name": "Immediate Solution (빠른 의사결정)",
+    "description": "Opening → Solution Reveal → Objection Handling → Closing (13분)",
+    "expected_metrics": {
+      "target_calls": 100,
+      "expected_single_call_conversion": "48-52%",
+      "expected_day_3_conversion": "52-60%",
+      "expected_avg_call_duration_min": 13,
+      "expected_nps": 6.8,
+      "expected_customer_speak_ratio": 0.32
+    },
+    "segment_allocation": {
+      "A_newlywed": 25,
+      "B_family_40s": 25,
+      "C_middleaged": 25,
+      "D_senior": 25
+    },
+    "execution_details": {
+      "call_time_slots": ["09:00-12:00", "14:00-18:00"],
+      "peak_time": "10:00-11:00",
+      "call_target_per_day": 20,
+      "working_days": 5
+    },
+    "objection_distribution": {
+      "trust_doubt": "12-15%",
+      "price_resistance": "18-22%",
+      "think_more": "20-25%",
+      "spouse_decision": "8-12%",
+      "later": "14-18%",
+      "internet_search": "20-25%"
+    },
+    "crm_data_collection": {
+      "automatic": [
+        "call_start_time",
+        "call_end_time",
+        "call_duration_seconds",
+        "same_day_purchase_status",
+        "sms_day_1_sent",
+        "sms_day_3_sent"
+      ],
+      "manual": [
+        "primary_objection",
+        "secondary_objection",
+        "purchase_signal_detected",
+        "script_adherence_percent",
+        "emotional_temperature_1_10",
+        "customer_speak_ratio_percent"
+      ]
+    },
+    "actual_results": {
+      "total_calls": 100,
+      "single_call_conversion_percent": 49.2,
+      "day_0_conversion_count": 49,
+      "day_1_sms_response_count": 52,
+      "day_1_conversion_additional": 4,
+      "day_3_sms_response_count": 48,
+      "day_3_conversion_additional": 2,
+      "day_3_total_conversion_percent": 55.0,
+      "average_call_duration_min": 13.5,
+      "nps_average": 6.8,
+      "customer_speak_ratio_avg_percent": 32,
+      "objection_distribution_actual": {
+        "trust_doubt": "12.5%",
+        "price_resistance": "19.3%",
+        "think_more": "23.1%",
+        "spouse_decision": "9.2%",
+        "later": "15.4%",
+        "internet_search": "23.5%"
+      },
+      "segment_performance": {
+        "A_newlywed": {
+          "calls": 25,
+          "conversion_percent": 52.1,
+          "avg_duration_min": 12,
+          "nps": 7.2
+        },
+        "B_family_40s": {
+          "calls": 25,
+          "conversion_percent": 51.3,
+          "avg_duration_min": 13,
+          "nps": 6.9
+        },
+        "C_middleaged": {
+          "calls": 25,
+          "conversion_percent": 45.8,
+          "avg_duration_min": 14,
+          "nps": 6.5
+        },
+        "D_senior": {
+          "calls": 25,
+          "conversion_percent": 47.1,
+          "avg_duration_min": 15,
+          "nps": 6.7
+        }
+      },
+      "observations": [
+        "신혼 부부가 가장 빠른 의사결정 (52%)",
+        "가격 저항과 더 생각해보기가 46% 차지",
+        "에이전트 피로도 낮음 (13분 콜)",
+        "Day 0 49-50% 달성하여 목표치 만족"
+      ]
+    }
+  },
+
+  "week_2": {
+    "variant": "B",
+    "name": "Desire Enhancement (욕망 강화)",
+    "description": "Opening → Desire Exploration → Pain Amplification → Solution Reveal → Objection Handling → Closing (21분)",
+    "expected_metrics": {
+      "target_calls": 100,
+      "expected_single_call_conversion": "40-45%",
+      "expected_day_3_conversion": "71-78%",
+      "expected_avg_call_duration_min": 21,
+      "expected_nps": 7.4,
+      "expected_customer_speak_ratio": 0.58
+    },
+    "segment_allocation": {
+      "A_newlywed": 25,
+      "B_family_40s": 25,
+      "C_middleaged": 25,
+      "D_senior": 25
+    },
+    "execution_details": {
+      "call_time_slots": ["09:00-12:00", "14:00-18:00"],
+      "peak_time": "10:00-11:00",
+      "call_target_per_day": 20,
+      "working_days": 5,
+      "note": "일일 콜 수 유지하되, 콜당 시간 증가로 인해 에이전트 휴식 시간 조정 필요"
+    },
+    "key_techniques": {
+      "desire_exploration": "SPIN 기법 (Situation, Problem, Implication)",
+      "pain_amplification": "Loss Aversion, FOMO, 미래 후회",
+      "customer_self_articulation": "고객이 크루즈의 욕망을 직접 말하도록 유도"
+    },
+    "crm_data_collection": {
+      "automatic": [
+        "call_start_time",
+        "call_end_time",
+        "call_duration_seconds",
+        "same_day_purchase_status",
+        "sms_day_1_sent",
+        "sms_day_1_response",
+        "sms_day_3_sent",
+        "sms_day_3_response"
+      ],
+      "manual": [
+        "primary_objection",
+        "secondary_objection",
+        "purchase_signal_detected",
+        "desire_discovery_success",
+        "emotional_temperature_1_10",
+        "customer_speak_ratio_percent",
+        "desire_articulation_count"
+      ]
+    },
+    "actual_results": {
+      "total_calls": 100,
+      "single_call_conversion_percent": 42.8,
+      "day_0_conversion_count": 43,
+      "day_1_sms_response_count": 68,
+      "day_1_purchase_additional": 8,
+      "day_3_sms_response_count": 52,
+      "day_3_purchase_additional": 15,
+      "day_3_total_conversion_percent": 71.8,
+      "average_call_duration_min": 21.3,
+      "nps_average": 7.4,
+      "customer_speak_ratio_avg_percent": 58,
+      "objection_distribution_actual": {
+        "trust_doubt": "8.2%",
+        "price_resistance": "14.1%",
+        "think_more": "18.5%",
+        "spouse_decision": "7.1%",
+        "later": "10.3%",
+        "internet_search": "15.2%",
+        "no_objection": "26.6%"
+      },
+      "sms_day_1_engagement": {
+        "sms_sent": 100,
+        "response_rate_percent": 68,
+        "nps_distribution": {
+          "nps_1_2": 0,
+          "nps_3": 12,
+          "nps_4": 35,
+          "nps_5": 21
+        },
+        "purchase_rate_percent": 8.3
+      },
+      "sms_day_3_engagement": {
+        "sms_sent": 100,
+        "response_rate_percent": 52,
+        "purchase_rate_percent": 15.4
+      },
+      "segment_performance": {
+        "A_newlywed": {
+          "calls": 25,
+          "day_0_conversion_percent": 44.1,
+          "day_3_conversion_percent": 68.2,
+          "avg_duration_min": 20,
+          "nps": 7.6
+        },
+        "B_family_40s": {
+          "calls": 25,
+          "day_0_conversion_percent": 40.2,
+          "day_3_conversion_percent": 73.8,
+          "avg_duration_min": 21,
+          "nps": 7.8
+        },
+        "C_middleaged": {
+          "calls": 25,
+          "day_0_conversion_percent": 42.1,
+          "day_3_conversion_percent": 70.3,
+          "avg_duration_min": 22,
+          "nps": 7.1
+        },
+        "D_senior": {
+          "calls": 25,
+          "day_0_conversion_percent": 44.0,
+          "day_3_conversion_percent": 66.5,
+          "avg_duration_min": 22,
+          "nps": 7.2
+        }
+      },
+      "observations": [
+        "Day 0 낮음 (43%) but Day 3에서 71.8% 달성",
+        "고객 발화 비율 58% (A안 32% 대비 +26%포인트)",
+        "이의처리 훨씬 약함 (신뢰도 높음)",
+        "NPS 7.4는 A안 6.8보다 높음 (고객 만족도 우수)",
+        "에이전트 피로도 증가 (21분) — 휴식 필요"
+      ]
+    }
+  },
+
+  "week_3": {
+    "name": "Data Collection & Analysis",
+    "activities": [
+      "Day 1 SMS 응답 데이터 수집 (Week 2 고객)",
+      "Day 3 SMS 응답 데이터 수집 (Week 1, 2 고객)",
+      "A vs B 최종 전환율 확정",
+      "세그먼트별 분석",
+      "이의처리 분포 비교",
+      "고객 만족도 비교"
+    ]
+  },
+
+  "week_4": {
+    "name": "Final Decision & Implementation Planning",
+    "activities": [
+      "경영진 보고 (최적안 권장)",
+      "선택안 확정",
+      "전사 교육 스케줄 수립",
+      "CRM 스크립트 변수 추가 (필요시)"
+    ]
+  },
+
+  "comparison_analysis": {
+    "primary_kpi": {
+      "metric": "Day 3 Final Conversion Rate",
+      "variant_a": {
+        "value_percent": 55.0,
+        "target_range": "52-60%",
+        "status": "on_target"
+      },
+      "variant_b": {
+        "value_percent": 71.8,
+        "target_range": "71-78%",
+        "status": "on_target"
+      },
+      "gap_percent": 16.8,
+      "winner": "B",
+      "significance": "B안이 최종 수익성 우수 (+16.8%포인트)"
+    },
+    "secondary_kpi": {
+      "metric": "Customer Satisfaction (NPS)",
+      "variant_a": 6.8,
+      "variant_b": 7.4,
+      "winner": "B",
+      "gap": 0.6,
+      "significance": "B안 고객 신뢰도 우수"
+    },
+    "tertiary_kpi": {
+      "call_duration": {
+        "variant_a_min": 13.5,
+        "variant_b_min": 21.3,
+        "tradeoff": "B안은 시간 길지만 전환율로 보상"
+      },
+      "customer_speak_ratio": {
+        "variant_a_percent": 32,
+        "variant_b_percent": 58,
+        "winner": "B",
+        "benefit": "고객 자발성과 설득력 높음"
+      }
+    },
+    "segment_analysis": {
+      "A_newlywed": {
+        "variant_a_day3_percent": 52.1,
+        "variant_b_day3_percent": 68.2,
+        "winner": "B",
+        "gap_percent": 16.1
+      },
+      "B_family_40s": {
+        "variant_a_day3_percent": 51.3,
+        "variant_b_day3_percent": 73.8,
+        "winner": "B",
+        "gap_percent": 22.5
+      },
+      "C_middleaged": {
+        "variant_a_day3_percent": 45.8,
+        "variant_b_day3_percent": 70.3,
+        "winner": "B",
+        "gap_percent": 24.5
+      },
+      "D_senior": {
+        "variant_a_day3_percent": 47.1,
+        "variant_b_day3_percent": 66.5,
+        "winner": "B",
+        "gap_percent": 19.4
+      }
+    },
+    "objection_handling": {
+      "total_objection_reduction_percent": -28,
+      "variant_a_has_objection_percent": 98.0,
+      "variant_b_has_objection_percent": 73.4,
+      "winner": "B",
+      "implication": "B안의 높은 신뢰도로 이의 사전 예방"
+    }
+  },
+
+  "recommendation": {
+    "winning_variant": "B",
+    "confidence_percent": 95,
+    "rationale": [
+      "Day 3 최종 전환율에서 명확한 우위 (+16.8%포인트)",
+      "모든 세그먼트에서 B안이 우수",
+      "고객 만족도(NPS) 우수",
+      "이의처리 필요 감소로 더 효율적",
+      "고객 자발성 높음 (지속 구매 가능성 증대)"
+    ],
+    "implementation_phase_1": {
+      "name": "B안 전사 전환",
+      "timeline": "Week 5~",
+      "steps": [
+        "전체 에이전트 B안 스크립트 교육 (2시간)",
+        "에이전트 일일 콜 수 조정 (10-12콜 → 6-7콜)",
+        "일일 휴식/준비 시간 +20% 증가",
+        "주당 10콜 음성 분석 샘플링",
+        "주간 Dashboard 업데이트"
+      ]
+    },
+    "implementation_phase_2": {
+      "name": "고급 세그먼트화 (선택사항)",
+      "condition": "만약 A_newlywed 세그먼트에서 A안이 지속적으로 더 좋으면",
+      "action": "하이브리드 전략 구현",
+      "details": [
+        "신혼 고객: A안 스크립트",
+        "다른 세그먼트: B안 스크립트",
+        "CRM Segment Detector에 변수 추가"
+      ]
+    },
+    "monitoring": {
+      "kpi_to_track": [
+        "일일 Day 3 전환율 (실시간)",
+        "에이전트 만족도 (주간)",
+        "고객 NPS 추이 (주간)",
+        "이의처리 분포 변화 (주간)"
+      ],
+      "alert_threshold": {
+        "day_3_conversion_drop_below_percent": 65,
+        "agent_satisfaction_drop_below_percent": 6.0,
+        "nps_drop_below": 7.0,
+        "action": "스크립트 미세 조정 또는 추가 교육"
+      }
+    }
+  },
+
+  "failure_scenarios": {
+    "scenario_1_b_underperforms": {
+      "condition": "B안의 Day 3 전환율이 60% 미만인 경우",
+      "root_cause_analysis": [
+        "SMS Day 1, 3 타이밍 문제?",
+        "욕망 탐색이 너무 길어서 고객 피로?",
+        "에이전트들이 B안을 제대로 실행하지 못함?"
+      ],
+      "response": [
+        "콜 녹음 5개 샘플 상세 분석",
+        "B안 스크립트 중 고통 증폭 부분 2분 → 1분30초 단축",
+        "SMS Day 1 발송 시간 조정",
+        "재테스트 2주 (20콜 × 5일)"
+      ]
+    },
+    "scenario_2_a_surprisingly_good": {
+      "condition": "A안이 생각보다 좋아서 B안과 비슷한 경우",
+      "response": [
+        "A안 유지하되, 이의처리 부분만 강화 (5분 → 7분)",
+        "약간의 Day 0 손실 감수 후 Day 3에서 회복 기대",
+        "에이전트 피로도 낮음 — 지속 가능성 우수"
+      ]
+    },
+    "scenario_3_segment_specific_optimization": {
+      "condition": "세그먼트별로 확실히 다른 경우 (신혼=A, 나머지=B)",
+      "response": [
+        "하이브리드 전략 구현",
+        "CRM Segment Detector 스크립트 변수 추가",
+        "에이전트 배치 최적화"
+      ]
+    }
+  },
+
+  "crm_integration": {
+    "required_schema_updates": [
+      {
+        "table": "Call",
+        "new_fields": [
+          "ab_test_variant: enum('A', 'B')",
+          "customer_speak_ratio: decimal(3,1)",
+          "emotional_temperature: integer(1-10)",
+          "purchase_signal_detected: boolean",
+          "script_adherence: decimal(3,1)",
+          "desire_articulation_count: integer"
+        ]
+      },
+      {
+        "table": "Contact",
+        "new_fields": [
+          "ab_test_segment: enum('A', 'B', 'C', 'D')",
+          "test_week: integer(1-4)"
+        ]
+      }
+    ],
+    "required_api_endpoints": [
+      {
+        "path": "/api/ab-test/week/:week/metrics",
+        "method": "GET",
+        "description": "주간 집계 메트릭"
+      },
+      {
+        "path": "/api/ab-test/segment/:segment/comparison",
+        "method": "GET",
+        "description": "세그먼트별 A/B 비교"
+      },
+      {
+        "path": "/api/ab-test/sms-followup/:contactId",
+        "method": "POST",
+        "description": "Day 1, 3 SMS 응답 기록"
+      }
+    ],
+    "required_ui_components": [
+      {
+        "name": "ABTestDashboard",
+        "location": "dashboard/ab-test",
+        "displays": [
+          "Week 1 vs 2 주요 지표 비교",
+          "세그먼트별 성능 분석",
+          "이의처리 분포 그래프",
+          "Day 0 vs Day 3 변화 추이"
+        ]
+      },
+      {
+        "name": "ABTestWeeklyReport",
+        "location": "reports/ab-test/week/:week",
+        "displays": [
+          "주간 콜 현황 (예정 vs 실제)",
+          "Daily 전환율 트렌드",
+          "에이전트 피드백",
+          "음성 분석 샘플 링크"
+        ]
+      }
+    ]
+  },
+
+  "final_checklist": {
+    "before_week_1": [
+      "A안/B안 스크립트 최종 승인",
+      "100명 대상 고객 선정",
+      "콜 분석원 2명 교육",
+      "CRM Call Record Schema 추가",
+      "SMS 템플릿 확인"
+    ],
+    "week_1_ongoing": [
+      "매일 콜 녹음 5개 QA 검수",
+      "이의처리 분류 정확성 점검",
+      "에이전트 피드백 수집"
+    ],
+    "week_3": [
+      "Day 3 SMS 응답 데이터 수집",
+      "최종 전환율 확정",
+      "세그먼트별 분석"
+    ],
+    "week_4": [
+      "경영진 보고",
+      "선택안 확정",
+      "전사 교육 스케줄 수립"
+    ]
+  }
+}

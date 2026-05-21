@@ -120,6 +120,12 @@ export async function POST(req: Request) {
         orgId = lp?.organizationId ?? null;
       }
 
+      // GmUser 조회 (phone 기반)
+      const gmUser = normalizedPhone ? await prisma.gmUser.findFirst({
+        where: { phone: normalizedPhone },
+        select: { id: true },
+      }) : null;
+
       await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // PayAppPayment 업데이트
         await tx.payAppPayment.upsert({
@@ -160,8 +166,9 @@ export async function POST(req: Request) {
               type: "CUSTOMER",
               purchasedAt: new Date(),
               channel: "b2b",
+              userId: gmUser?.id ?? null,
             },
-            update: { type: "CUSTOMER", channel: "b2b" },
+            update: { type: "CUSTOMER", channel: "b2b", ...(gmUser ? { userId: gmUser.id } : {}) },
           });
         }
       });

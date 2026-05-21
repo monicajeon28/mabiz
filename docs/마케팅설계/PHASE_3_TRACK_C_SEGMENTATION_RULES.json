@@ -1,0 +1,760 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "created_date": "2026-05-21",
+    "phase": "Phase 3 Track C",
+    "purpose": "CRM 자동분류 규칙 - 고객 입력정보 기반 세그먼트 자동할당",
+    "owner": "marketing_ops",
+    "last_updated": "2026-05-21",
+    "status": "production_ready"
+  },
+  "crm_input_fields": {
+    "customer_info": {
+      "yourAge": {
+        "type": "number",
+        "min": 18,
+        "max": 90,
+        "description": "고객 본인 나이",
+        "required": true
+      },
+      "maritalStatus": {
+        "type": "string",
+        "enum": ["미혼", "기혼", "이혼", "사별", "기타"],
+        "description": "결혼 상태",
+        "required": true
+      },
+      "yearsMarried": {
+        "type": "number",
+        "min": 0,
+        "max": 70,
+        "description": "결혼 경과년수 (maritalStatus='기혼'일 때만)",
+        "required": false,
+        "condition": "maritalStatus == '기혼'"
+      },
+      "hasChildren": {
+        "type": "boolean",
+        "description": "자녀 여부",
+        "required": true
+      },
+      "oldestChildAge": {
+        "type": "number",
+        "min": 0,
+        "max": 70,
+        "description": "맏아이 나이 (hasChildren=true일 때만)",
+        "required": false,
+        "condition": "hasChildren == true"
+      },
+      "travelInterest": {
+        "type": "string",
+        "enum": ["신혼여행", "가족여행", "부부여행", "개인여행", "친구여행", "기타"],
+        "description": "여행 관심 유형",
+        "required": true
+      },
+      "jobStatus": {
+        "type": "string",
+        "enum": ["직장인", "자영업", "은퇴", "주부", "학생", "기타"],
+        "description": "직업 상태",
+        "required": false
+      },
+      "estimatedBudget": {
+        "type": "string",
+        "enum": ["3천만원 이하", "3-5천만원", "5-7천만원", "7천만원 이상"],
+        "description": "예상 예산 (세그먼트 조정용)",
+        "required": false
+      }
+    }
+  },
+  "segmentation_rules": {
+    "rule_priority_order": [
+      "rule_1_newlywed",
+      "rule_2_family_with_preteen",
+      "rule_3_midlife_couple",
+      "rule_4_senior_couple",
+      "fallback_age_based"
+    ],
+    "rule_1_newlywed": {
+      "name": "신혼부부 (Segment A)",
+      "description": "결혼 3년 이내 + 신혼여행 관심",
+      "segment": "A",
+      "conditions": {
+        "maritalStatus": {
+          "operator": "==",
+          "value": "기혼"
+        },
+        "yearsMarried": {
+          "operator": "<=",
+          "value": 3
+        },
+        "travelInterest": {
+          "operator": "in",
+          "values": ["신혼여행", "부부여행"]
+        }
+      },
+      "assignment": {
+        "segment": "A",
+        "persona": "newlywed_couple",
+        "plan_type": "A플랜",
+        "monthly_cost": 33000,
+        "pain_level": 3,
+        "pain_keywords": ["시간 제약", "예산 제약", "일정 조율"],
+        "tags": ["seg:A", "plan:A", "pain:3"],
+        "call_strategy": "opening_newlywed_v6",
+        "objection_track": "Track A (가벼움)",
+        "sms_sequence": "rental_3day_sequence_v1"
+      },
+      "priority": 1,
+      "conditions_logic": "AND",
+      "notes": "결혼 3년 이내면 신혼여행 관심 없어도 A 검토"
+    },
+    "rule_1_newlywed_flexible": {
+      "name": "신혼부부 유연 (Segment A - 미혼)",
+      "description": "미혼 + 신혼여행 관심 (신혼 예정 또는 여행 후 고려)",
+      "segment": "A",
+      "conditions": {
+        "maritalStatus": {
+          "operator": "in",
+          "values": ["미혼"]
+        },
+        "travelInterest": {
+          "operator": "==",
+          "value": "신혼여행"
+        },
+        "yourAge": {
+          "operator": ">=",
+          "value": 25
+        }
+      },
+      "assignment": {
+        "segment": "A",
+        "persona": "future_newlywed",
+        "plan_type": "A플랜",
+        "monthly_cost": 33000,
+        "pain_level": 2,
+        "pain_keywords": ["계획 단계", "미래 대비"],
+        "tags": ["seg:A", "plan:A", "pain:2"],
+        "call_strategy": "opening_newlywed_v6",
+        "objection_track": "Track A (가벼움)",
+        "sms_sequence": "future_newlywed_sequence"
+      },
+      "priority": 1.1,
+      "conditions_logic": "AND",
+      "notes": "미혼 신혼여행 관심자는 장기 고객으로 전략 변경"
+    },
+    "rule_2_family_with_preteen": {
+      "name": "40대 가족 (Segment B - 초중등)",
+      "description": "자녀 10-15세 + 나이 35-55세 (학교생활 바쁜 시기)",
+      "segment": "B",
+      "conditions": {
+        "hasChildren": {
+          "operator": "==",
+          "value": true
+        },
+        "oldestChildAge": {
+          "operator": "between",
+          "min": 10,
+          "max": 15
+        },
+        "yourAge": {
+          "operator": "between",
+          "min": 35,
+          "max": 55
+        }
+      },
+      "assignment": {
+        "segment": "B",
+        "persona": "family_with_school_children",
+        "plan_type": "B플랜",
+        "monthly_cost": 66000,
+        "pain_level": 4,
+        "pain_keywords": ["시간 희소성 극심", "학원/학교 일정", "가족시간 부족", "자녀 발달 경험"],
+        "tags": ["seg:B", "plan:B", "pain:4"],
+        "call_strategy": "opening_family_v6",
+        "objection_track": "Track C-D (강함, 자녀 시간표 고려)",
+        "sms_sequence": "family_3day_sequence_v1"
+      },
+      "priority": 2,
+      "conditions_logic": "AND",
+      "notes": "초등 고학년~중학생: 학원 일정 극심, 시간 매각 불가능"
+    },
+    "rule_2_family_with_young_child": {
+      "name": "젊은 가족 (Segment B - 미취학)",
+      "description": "자녀 3-9세 + 나이 30-45세 (육아 부담 큼)",
+      "segment": "B",
+      "conditions": {
+        "hasChildren": {
+          "operator": "==",
+          "value": true
+        },
+        "oldestChildAge": {
+          "operator": "between",
+          "min": 3,
+          "max": 9
+        },
+        "yourAge": {
+          "operator": "between",
+          "min": 30,
+          "max": 45
+        }
+      },
+      "assignment": {
+        "segment": "B",
+        "persona": "family_with_young_children",
+        "plan_type": "B플랜",
+        "monthly_cost": 66000,
+        "pain_level": 4,
+        "pain_keywords": ["육아 부담", "시간 관리", "가족 추억", "아이 발달"],
+        "tags": ["seg:B", "plan:B", "pain:4"],
+        "call_strategy": "opening_family_v6",
+        "objection_track": "Track C (강함, 육아 피로)",
+        "sms_sequence": "family_3day_sequence_v1"
+      },
+      "priority": 2.1,
+      "conditions_logic": "AND",
+      "notes": "미취학 아동: 육아 피로도 극심하지만 여행 유연성 있음"
+    },
+    "rule_3_midlife_couple": {
+      "name": "중년부부 (Segment C)",
+      "description": "자녀 성인(18+) + 나이 40-60세 (경제력 최고, 자유도 증가)",
+      "segment": "C",
+      "conditions": {
+        "hasChildren": {
+          "operator": "==",
+          "value": true
+        },
+        "oldestChildAge": {
+          "operator": ">=",
+          "value": 18
+        },
+        "yourAge": {
+          "operator": "between",
+          "min": 40,
+          "max": 60
+        }
+      },
+      "assignment": {
+        "segment": "C",
+        "persona": "midlife_couple_golden_years",
+        "plan_type": "C플랜",
+        "monthly_cost": 99000,
+        "pain_level": 3,
+        "pain_keywords": ["황금기 타이밍", "건강/시간 윈도우", "경제력 최고", "자녀 독립 공백"],
+        "tags": ["seg:C", "plan:C", "pain:3"],
+        "call_strategy": "opening_midlife_v6",
+        "objection_track": "Track B (중간, 건강/시간 고민)",
+        "sms_sequence": "midlife_3day_sequence_v1"
+      },
+      "priority": 3,
+      "conditions_logic": "AND",
+      "notes": "경제력 최고 시기, 하지만 건강과 시간 제약 증가 → 지금이 기회"
+    },
+    "rule_3_childless_couple": {
+      "name": "무자녀 부부 (Segment C)",
+      "description": "자녀 없음 + 나이 40-60세 (경제력, 자유도 높음)",
+      "segment": "C",
+      "conditions": {
+        "hasChildren": {
+          "operator": "==",
+          "value": false
+        },
+        "maritalStatus": {
+          "operator": "==",
+          "value": "기혼"
+        },
+        "yourAge": {
+          "operator": "between",
+          "min": 40,
+          "max": 60
+        }
+      },
+      "assignment": {
+        "segment": "C",
+        "persona": "childless_couple_dink",
+        "plan_type": "C플랜",
+        "monthly_cost": 99000,
+        "pain_level": 2,
+        "pain_keywords": ["경제력 높음", "일정 자유", "경험 추구"],
+        "tags": ["seg:C", "plan:C", "pain:2"],
+        "call_strategy": "opening_midlife_v6",
+        "objection_track": "Track A (가벼움, 심각한 장애물 없음)",
+        "sms_sequence": "midlife_3day_sequence_v1"
+      },
+      "priority": 3.1,
+      "conditions_logic": "AND",
+      "notes": "시간 제약 가장 낮음, 경제력으로 결정"
+    },
+    "rule_4_senior_couple": {
+      "name": "시니어부부 (Segment D)",
+      "description": "나이 56-75세 또는 자녀 25세 이상 (건강/시간 불안 극심)",
+      "segment": "D",
+      "conditions": {
+        "operator": "OR",
+        "conditions_list": [
+          {
+            "yourAge": {
+              "operator": "between",
+              "min": 56,
+              "max": 75
+            }
+          },
+          {
+            "hasChildren": {
+              "operator": "==",
+              "value": true
+            },
+            "oldestChildAge": {
+              "operator": ">=",
+              "value": 25
+            }
+          }
+        ]
+      },
+      "assignment": {
+        "segment": "D",
+        "persona": "senior_couple",
+        "plan_type": "A플랜",
+        "monthly_cost": 33000,
+        "pain_level": 4,
+        "pain_keywords": ["건강 불안", "시간 윈도우 좁음", "의료 신뢰", "안전성", "안정성"],
+        "tags": ["seg:D", "plan:A", "pain:4"],
+        "call_strategy": "opening_senior_v6",
+        "objection_track": "Track D (강함, 건강/안전 고려)",
+        "sms_sequence": "senior_3day_sequence_v1",
+        "special_handling": {
+          "health_concerns": ["배멀미", "당뇨", "고혈압", "관절염"],
+          "medical_credibility": true,
+          "facility_safety": true
+        }
+      },
+      "priority": 4,
+      "conditions_logic": "OR",
+      "notes": "건강/시간 불안 극심 → 지금이 마지막 기회 프레이밍 필수"
+    },
+    "rule_4_retired": {
+      "name": "은퇴자 (Segment D)",
+      "description": "직업 상태 은퇴 + 나이 50-75세",
+      "segment": "D",
+      "conditions": {
+        "jobStatus": {
+          "operator": "==",
+          "value": "은퇴"
+        },
+        "yourAge": {
+          "operator": "between",
+          "min": 50,
+          "max": 75
+        }
+      },
+      "assignment": {
+        "segment": "D",
+        "persona": "retired_couple",
+        "plan_type": "A플랜",
+        "monthly_cost": 33000,
+        "pain_level": 4,
+        "pain_keywords": ["시간 무한", "예산 제약", "건강 염려", "목적의식 찾기"],
+        "tags": ["seg:D", "plan:A", "pain:4"],
+        "call_strategy": "opening_senior_v6",
+        "objection_track": "Track B-C (중상, 예산 중심)",
+        "sms_sequence": "senior_3day_sequence_v1"
+      },
+      "priority": 4.1,
+      "conditions_logic": "AND",
+      "notes": "예산 제약 가능 → A플랜 제시, 경제 상황 파악 필수"
+    },
+    "fallback_age_based": {
+      "name": "나이 기반 폴백 분류",
+      "description": "어떤 규칙에도 맞지 않을 때 나이만으로 분류",
+      "logic": {
+        "if_age_18_to_35": {
+          "segment": "A",
+          "reason": "신혼 또는 신혼 예정 가능성"
+        },
+        "if_age_36_to_50": {
+          "segment": "B",
+          "reason": "자녀 있을 확률 높음 (나이대 특성)"
+        },
+        "if_age_51_to_60": {
+          "segment": "C",
+          "reason": "자녀 성인화, 중년 황금기"
+        },
+        "if_age_61_plus": {
+          "segment": "D",
+          "reason": "시니어, 건강/시간 고려"
+        }
+      },
+      "priority": 999,
+      "conditions_logic": "FALLBACK_ONLY"
+    },
+    "edge_cases": {
+      "missing_age": {
+        "description": "나이 정보 없음",
+        "action": "fallback_disabled - 고객 재질문 필수",
+        "prompt": "정확한 분류를 위해 나이를 알려주세요."
+      },
+      "young_child_only": {
+        "description": "자녀만 있고 결혼상태 정보 없음",
+        "condition": "hasChildren=true && maritalStatus is empty",
+        "action": "maritalStatus 재질문 필수",
+        "prompt": "결혼 상태를 알려주세요. (기혼/미혼/기타)"
+      },
+      "child_age_under_3": {
+        "description": "자녀가 있지만 3세 미만 (신생아)",
+        "condition": "hasChildren=true && oldestChildAge < 3",
+        "action": "Rule 2 적용 불가 - fallback으로 나이만 참고",
+        "notes": "신생아는 여행 불가능할 수 있으므로 별도 상담 필요"
+      },
+      "age_mismatch_child": {
+        "description": "자녀 나이가 고객 나이보다 이상함 (예: 20세 고객의 30세 자녀)",
+        "condition": "yourAge - oldestChildAge < 15",
+        "action": "데이터 검증 - 고객에게 재확인",
+        "notes": "데이터 입력 오류 가능성 높음"
+      },
+      "incomplete_child_info": {
+        "description": "자녀는 있지만 나이 정보 없음",
+        "condition": "hasChildren=true && oldestChildAge is null",
+        "action": "oldestChildAge 재질문",
+        "prompt": "맏아이 나이를 알려주세요."
+      }
+    }
+  },
+  "tag_assignment_logic": {
+    "tag_categories": {
+      "segment_tag": {
+        "description": "세그먼트 분류 태그 (Required)",
+        "tags": {
+          "seg:A": {
+            "name": "신혼부부",
+            "segment": "A",
+            "applies_to": ["newlywed_couple", "future_newlywed"]
+          },
+          "seg:B": {
+            "name": "40대 가족",
+            "segment": "B",
+            "applies_to": ["family_with_school_children", "family_with_young_children"]
+          },
+          "seg:C": {
+            "name": "중년부부",
+            "segment": "C",
+            "applies_to": ["midlife_couple_golden_years", "childless_couple_dink"]
+          },
+          "seg:D": {
+            "name": "시니어부부",
+            "segment": "D",
+            "applies_to": ["senior_couple", "retired_couple"]
+          }
+        }
+      },
+      "plan_tag": {
+        "description": "상품 플랜 태그",
+        "tags": {
+          "plan:A": {
+            "name": "A플랜 (월 33K)",
+            "monthly_cost": 33000,
+            "segments": ["A", "D"]
+          },
+          "plan:B": {
+            "name": "B플랜 (월 66K)",
+            "monthly_cost": 66000,
+            "segments": ["B"]
+          },
+          "plan:C": {
+            "name": "C플랜 (월 99K)",
+            "monthly_cost": 99000,
+            "segments": ["C"]
+          },
+          "plan:gold": {
+            "name": "골드멤버십 즉시 가입",
+            "description": "Pain level 5 또는 즉시 구매 신호",
+            "segments": ["A", "B", "C", "D"]
+          }
+        }
+      },
+      "pain_tag": {
+        "description": "고통 레벨 (문제 심각도 & 해결 시급함)",
+        "tags": {
+          "pain:1": {
+            "level": 1,
+            "name": "낮음",
+            "description": "여유 있음, 생각만 하는 단계",
+            "conversion_urgency": "낮음",
+            "sms_frequency": "주 1회",
+            "objection_intensity": "약함"
+          },
+          "pain:2": {
+            "level": 2,
+            "name": "보통",
+            "description": "조금 고민 중, 검토 단계",
+            "conversion_urgency": "보통",
+            "sms_frequency": "주 2회",
+            "objection_intensity": "중간"
+          },
+          "pain:3": {
+            "level": 3,
+            "name": "중간",
+            "description": "해야 한다고 느낌, 결정 단계",
+            "conversion_urgency": "중상",
+            "sms_frequency": "주 3회",
+            "objection_intensity": "중상"
+          },
+          "pain:4": {
+            "level": 4,
+            "name": "높음",
+            "description": "매우 절실, 지금이 아니면 불안함",
+            "conversion_urgency": "높음",
+            "sms_frequency": "주 4회",
+            "objection_intensity": "높음",
+            "special_handling": "Track C-D 이의처리 매뉴얼 제공"
+          },
+          "pain:5": {
+            "level": 5,
+            "name": "극심",
+            "description": "긴급성 극대, 즉시 결정 필요",
+            "conversion_urgency": "극도",
+            "sms_frequency": "매일",
+            "objection_intensity": "극도",
+            "special_handling": "인매디엇 클로징 트랙 (L10 전환율 70→95%), 콜 우선순위 최고"
+          }
+        }
+      },
+      "call_status_tag": {
+        "description": "콜/SMS 진행 상황 (자동 업데이트)",
+        "tags": {
+          "call:new": {
+            "name": "신규 고객",
+            "description": "첫 콜 이전",
+            "sms_trigger": "콜 스케줄 후 자동 발송"
+          },
+          "call:completed": {
+            "name": "콜 완료",
+            "description": "Opening 콜 완료, SMS Day 0-2 준비",
+            "sms_trigger": "즉시 Day 0 SMS 발송"
+          },
+          "call:D0": {
+            "name": "Day 0",
+            "description": "콜 직후 (0-24h)",
+            "sms_content": "핵심 메시지 + 감정적 재연결",
+            "sms_trigger": "콜 완료 후 1-4시간 내"
+          },
+          "call:D1": {
+            "name": "Day 1",
+            "description": "콜 1일차",
+            "sms_content": "가치 증명 + FOMO",
+            "sms_trigger": "Day 0 발송 24h 후"
+          },
+          "call:D3": {
+            "name": "Day 3",
+            "description": "콜 3일차 (최종)",
+            "sms_content": "최후의 기회 + CTA",
+            "sms_trigger": "Day 1 발송 48h 후"
+          },
+          "call:purchased": {
+            "name": "구매 완료",
+            "description": "멤버십 구독 또는 상품 예약",
+            "sms_trigger": "감사 메시지 + Welcome 가이드"
+          },
+          "call:rejected": {
+            "name": "거절 확정",
+            "description": "명확한 NO 또는 3일차 무반응",
+            "sms_trigger": "재활성화 자동 스케줄 (30/60/90일)"
+          },
+          "call:suspended": {
+            "name": "일시 중단",
+            "description": "나중에 다시 연락 달라 요청",
+            "sms_trigger": "고객 지정 시점 + 2주 전 리마인드"
+          }
+        }
+      },
+      "objection_track_tag": {
+        "description": "이의처리 강도 (자동 할당, pain_level 기반)",
+        "assignment_logic": {
+          "pain_level_1_2": "Track A (가벼운 이의)",
+          "pain_level_3": "Track B (중간 이의)",
+          "pain_level_4": "Track C-D (심한 이의)",
+          "pain_level_5": "L10 즉시 클로징 (이의 없음)"
+        }
+      }
+    },
+    "auto_tag_assignment_algorithm": {
+      "step_1_segment_tag": {
+        "description": "규칙 매칭 후 seg:X 태그 자동 부여",
+        "logic": "매칭된 rule의 segment 값으로 seg:{A|B|C|D} 부여"
+      },
+      "step_2_plan_tag": {
+        "description": "세그먼트별 기본 플랜 태그 자동 부여",
+        "logic": {
+          "segment_A": "plan:A",
+          "segment_B": "plan:B",
+          "segment_C": "plan:C",
+          "segment_D": "plan:A"
+        },
+        "override": "estimatedBudget이 높으면 상위 플랜 검토"
+      },
+      "step_3_pain_tag": {
+        "description": "규칙 매칭 후 pain:X 태그 자동 부여",
+        "logic": "매칭된 rule의 pain_level 값으로 pain:{1-5} 부여"
+      },
+      "step_4_call_status_tag": {
+        "description": "초기 상태 자동 부여, 이후 콜 진행상황에 따라 업데이트",
+        "initial_state": "call:new",
+        "update_on_event": {
+          "콜_완료": "call:completed",
+          "Day_0_SMS_발송_후": "call:D0",
+          "Day_1_SMS_발송_후": "call:D1",
+          "Day_3_SMS_발송_후": "call:D3",
+          "구매_완료": "call:purchased",
+          "거절_확정": "call:rejected",
+          "일시중단_요청": "call:suspended"
+        }
+      },
+      "step_5_objection_track_tag": {
+        "description": "pain_level 기반 이의처리 강도 태그 부여 (선택사항)",
+        "logic": {
+          "pain_1_2": "objection:light",
+          "pain_3": "objection:medium",
+          "pain_4": "objection:heavy",
+          "pain_5": "objection:extreme"
+        },
+        "use_case": "CRM 대시보드에서 우선순위 정렬"
+      }
+    },
+    "tag_update_workflow": {
+      "on_customer_profile_change": {
+        "description": "고객 정보 변경 시 자동 재분류",
+        "triggers": [
+          "yourAge 변경 (생일 기준)",
+          "maritalStatus 변경",
+          "hasChildren 변경",
+          "oldestChildAge 변경",
+          "travelInterest 변경",
+          "jobStatus 변경"
+        ],
+        "action": "전체 규칙 재평가 → 세그먼트/태그 업데이트"
+      },
+      "on_sms_send": {
+        "description": "SMS 발송 완료 시 call 태그 업데이트",
+        "logic": {
+          "Day_0_발송": "call:D0 추가",
+          "Day_1_발송": "call:D0 제거, call:D1 추가",
+          "Day_3_발송": "call:D1 제거, call:D3 추가"
+        }
+      },
+      "on_purchase": {
+        "description": "구매 완료 시 상태 업데이트",
+        "action": "call:purchased 태그 추가 + seg/pain/plan 태그 유지",
+        "follow_up": "Welcome 온보딩 자동화 트리거"
+      },
+      "on_rejection": {
+        "description": "거절/무반응 시 재활성화 스케줄",
+        "action": "call:rejected 태그 추가",
+        "follow_up": "재활성화 자동 시퀀스 (L0 부재중 고객 재활성화)"
+      }
+    }
+  },
+  "conversion_projection": {
+    "by_segment": {
+      "segment_A_newlywed": {
+        "persona": "신혼부부",
+        "current_conversion_rate": "45%",
+        "target_with_track_a": "50-58%",
+        "avg_plan_value": "33K/month",
+        "ltv_estimate": "$500-800 (18-24개월)"
+      },
+      "segment_B_family": {
+        "persona": "40대 가족",
+        "current_conversion_rate": "32%",
+        "target_with_track_c": "45-55%",
+        "avg_plan_value": "66K/month",
+        "ltv_estimate": "$1,200-1,600 (18-24개월)"
+      },
+      "segment_C_midlife": {
+        "persona": "중년부부",
+        "current_conversion_rate": "35%",
+        "target_with_track_b": "48-60%",
+        "avg_plan_value": "99K/month",
+        "ltv_estimate": "$1,500-2,000 (18-24개월)"
+      },
+      "segment_D_senior": {
+        "persona": "시니어부부",
+        "current_conversion_rate": "28%",
+        "target_with_track_d": "42-52%",
+        "avg_plan_value": "33K/month",
+        "ltv_estimate": "$400-600 (12-18개월)"
+      }
+    }
+  },
+  "quality_assurance": {
+    "rule_coverage": {
+      "newlywed": "100% (rule 1 + fallback)",
+      "family_preteen": "100% (rule 2 + fallback)",
+      "midlife": "100% (rule 3 + fallback)",
+      "senior": "100% (rule 4 + fallback)"
+    },
+    "edge_case_handling": {
+      "missing_critical_field": "재질문 필수 (자동 프롬프트 포함)",
+      "conflicting_signals": "우선순위 룰 적용 (rule_priority_order)",
+      "data_validation_error": "CRM 표시 후 수동 검토"
+    },
+    "testing_scenarios": {
+      "scenario_1": {
+        "name": "신혼 기본",
+        "inputs": {
+          "yourAge": 30,
+          "maritalStatus": "기혼",
+          "yearsMarried": 2,
+          "hasChildren": false,
+          "travelInterest": "신혼여행"
+        },
+        "expected_segment": "A",
+        "expected_tags": ["seg:A", "plan:A", "pain:3"]
+      },
+      "scenario_2": {
+        "name": "40대 초등생 가족",
+        "inputs": {
+          "yourAge": 42,
+          "maritalStatus": "기혼",
+          "yearsMarried": 15,
+          "hasChildren": true,
+          "oldestChildAge": 12,
+          "travelInterest": "가족여행"
+        },
+        "expected_segment": "B",
+        "expected_tags": ["seg:B", "plan:B", "pain:4"]
+      },
+      "scenario_3": {
+        "name": "중년 성인자녀",
+        "inputs": {
+          "yourAge": 52,
+          "maritalStatus": "기혼",
+          "yearsMarried": 25,
+          "hasChildren": true,
+          "oldestChildAge": 24,
+          "travelInterest": "부부여행"
+        },
+        "expected_segment": "C",
+        "expected_tags": ["seg:C", "plan:C", "pain:3"]
+      },
+      "scenario_4": {
+        "name": "시니어",
+        "inputs": {
+          "yourAge": 62,
+          "maritalStatus": "기혼",
+          "hasChildren": true,
+          "oldestChildAge": 35,
+          "jobStatus": "은퇴"
+        },
+        "expected_segment": "D",
+        "expected_tags": ["seg:D", "plan:A", "pain:4"]
+      },
+      "scenario_5": {
+        "name": "미혼 신혼여행 관심",
+        "inputs": {
+          "yourAge": 28,
+          "maritalStatus": "미혼",
+          "hasChildren": false,
+          "travelInterest": "신혼여행"
+        },
+        "expected_segment": "A",
+        "expected_tags": ["seg:A", "plan:A", "pain:2"]
+      }
+    }
+  }
+}

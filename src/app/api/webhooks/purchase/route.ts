@@ -124,6 +124,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // GmUser 조회 (phone 기반)
+    const gmUser = await prisma.gmUser.findFirst({
+      where: { phone: normalizedPhone },
+      select: { id: true },
+    });
+
     const contact = await prisma.$transaction(async (tx) => {
       // Contact upsert
       const upsertedContact = await tx.contact.upsert({
@@ -139,6 +145,7 @@ export async function POST(req: NextRequest) {
           affiliateCode:  affiliateCode ?? null,
           purchasedAt:    new Date(),
           channel:        "b2c",
+          userId:         gmUser?.id ?? null,
         },
         update: {
           name,

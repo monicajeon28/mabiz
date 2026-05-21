@@ -1,0 +1,802 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "created_date": "2026-05-21",
+    "phase": "Phase 3 Track C",
+    "purpose": "태그 자동 부여 알고리즘 - 세그먼트 분류 후 즉시 태그 자동 생성",
+    "owner": "crm_team",
+    "status": "production_ready"
+  },
+  "tag_system_overview": {
+    "description": "4가지 카테고리의 태그로 고객의 세그먼트, 플랜, 고통 수준, 콜 상태, 이의처리 강도를 표현",
+    "categories": [
+      "segment_tag (seg:*)",
+      "plan_tag (plan:*)",
+      "pain_tag (pain:*)",
+      "call_status_tag (call:*)",
+      "objection_track_tag (objection:*)"
+    ],
+    "automation_level": "99% 자동, 1% 수동 검토 (edge case)",
+    "update_frequency": "실시간 + 배치 (매일 자정)"
+  },
+  "step_1_segment_tag_assignment": {
+    "description": "세그먼트 분류 결과를 기반으로 seg:* 태그 자동 부여",
+    "algorithm": {
+      "input": "segmentation_result.segment (A|B|C|D)",
+      "output": "segment_tag (seg:A|seg:B|seg:C|seg:D)",
+      "logic": "mapping_table"
+    },
+    "mapping": {
+      "segment_A": {
+        "tag": "seg:A",
+        "name": "신혼부부",
+        "personas": ["newlywed_couple", "future_newlywed"],
+        "characteristics": ["신혼 기간 ≤3년 또는 신혼여행 관심", "30세 이하"],
+        "typical_age_range": "25-38",
+        "avg_monthly_cost": 33000
+      },
+      "segment_B": {
+        "tag": "seg:B",
+        "name": "40대 가족",
+        "personas": ["family_with_school_children", "family_with_young_children"],
+        "characteristics": ["자녀 3-15세", "시간 제약 극심"],
+        "typical_age_range": "35-55",
+        "avg_monthly_cost": 66000
+      },
+      "segment_C": {
+        "tag": "seg:C",
+        "name": "중년부부",
+        "personas": ["midlife_couple_golden_years", "childless_couple_dink"],
+        "characteristics": ["자녀 성인 또는 무자녀", "경제력 최고"],
+        "typical_age_range": "40-60",
+        "avg_monthly_cost": 99000
+      },
+      "segment_D": {
+        "tag": "seg:D",
+        "name": "시니어부부",
+        "personas": ["senior_couple", "retired_couple"],
+        "characteristics": ["56세 이상 또는 자녀 25세 이상", "건강/시간 불안"],
+        "typical_age_range": "56-75",
+        "avg_monthly_cost": 33000
+      }
+    },
+    "implementation": {
+      "pseudocode": "function assignSegmentTag(segment) { return `seg:${segment}`; }",
+      "sql": "SELECT DISTINCT 'seg:' || assigned_segment AS segment_tag FROM contacts_profile WHERE assigned_segment = $1;",
+      "typescript": "const segmentTag = `seg:${segmentResult.segment}`;",
+      "always_required": true,
+      "cardinality": "1 per contact (exclusive)"
+    }
+  },
+  "step_2_plan_tag_assignment": {
+    "description": "세그먼트 + 예산 수준을 기반으로 plan:* 태그 자동 부여",
+    "algorithm": {
+      "input": [
+        "segment (A|B|C|D)",
+        "estimated_budget (선택사항)"
+      ],
+      "output": "plan_tag (plan:A|plan:B|plan:C|plan:gold)",
+      "logic": "segment_default + budget_override"
+    },
+    "segment_default_plan": {
+      "segment_A": "plan:A",
+      "segment_B": "plan:B",
+      "segment_C": "plan:C",
+      "segment_D": "plan:A"
+    },
+    "budget_override_logic": {
+      "estimated_budget_3천만원이하": {
+        "segment_A": "plan:A",
+        "segment_B": "plan:A",
+        "segment_C": "plan:B",
+        "segment_D": "plan:A",
+        "note": "예산 부족 시 하향 조정"
+      },
+      "estimated_budget_3-5천만원": {
+        "segment_A": "plan:A",
+        "segment_B": "plan:B",
+        "segment_C": "plan:B",
+        "segment_D": "plan:A",
+        "note": "기본값"
+      },
+      "estimated_budget_5-7천만원": {
+        "segment_A": "plan:B",
+        "segment_B": "plan:B",
+        "segment_C": "plan:C",
+        "segment_D": "plan:B",
+        "note": "예산 여유 시 상향 조정"
+      },
+      "estimated_budget_7천만원이상": {
+        "segment_A": "plan:C",
+        "segment_B": "plan:C",
+        "segment_C": "plan:C",
+        "segment_D": "plan:B",
+        "note": "최고 예산 - 최상 플랜"
+      }
+    },
+    "plan_specifications": {
+      "plan:A": {
+        "name": "A플랜",
+        "monthly_cost": 33000,
+        "target_segments": ["A", "D"],
+        "positioning": "입문/가성비",
+        "description": "월 33K로 연 396K, 약 18-24개월 LTV $500-800",
+        "appeal": "가격 부담 없이 시작, 신혼 또는 시니어 적합"
+      },
+      "plan:B": {
+        "name": "B플랜",
+        "monthly_cost": 66000,
+        "target_segments": ["B", "C"],
+        "positioning": "스탠다드/편의성",
+        "description": "월 66K로 연 792K, 약 18-24개월 LTV $1,200-1,600",
+        "appeal": "충분한 여행 횟수 + 품질, 가족에게 최적"
+      },
+      "plan:C": {
+        "name": "C플랜",
+        "monthly_cost": 99000,
+        "target_segments": ["C"],
+        "positioning": "프리미엄/최고 경험",
+        "description": "월 99K로 연 1.188M, 약 18-24개월 LTV $1,500-2,000",
+        "appeal": "최고의 경험, 중년 경제력 활용, 황금기 최대화"
+      },
+      "plan:gold": {
+        "name": "골드멤버십",
+        "monthly_cost": 150000,
+        "target_segments": ["A", "B", "C", "D"],
+        "positioning": "VIP/즉시가입",
+        "description": "최고 요금제, 평생 혜택 + 개인 매니저",
+        "trigger": "pain:5 또는 즉시 구매 신호",
+        "note": "Pain Level 5 (극심) 고객에게만 제시, 일반적으로 기피"
+      }
+    },
+    "implementation": {
+      "pseudocode": `
+function assignPlanTag(segment, estimatedBudget) {
+  const defaultPlan = { A: 'plan:A', B: 'plan:B', C: 'plan:C', D: 'plan:A' };
+
+  if (!estimatedBudget) return defaultPlan[segment];
+
+  const overrides = {
+    '3천만원이하': { A: 'plan:A', B: 'plan:A', C: 'plan:B', D: 'plan:A' },
+    '3-5천만원': { A: 'plan:A', B: 'plan:B', C: 'plan:B', D: 'plan:A' },
+    '5-7천만원': { A: 'plan:B', B: 'plan:B', C: 'plan:C', D: 'plan:B' },
+    '7천만원이상': { A: 'plan:C', B: 'plan:C', C: 'plan:C', D: 'plan:B' }
+  };
+
+  return overrides[estimatedBudget][segment] || defaultPlan[segment];
+}
+      `,
+      "always_required": true,
+      "cardinality": "1 per contact (exclusive)"
+    }
+  },
+  "step_3_pain_tag_assignment": {
+    "description": "세그먼트 + 개인 특성을 기반으로 pain:* 태그 자동 부여",
+    "algorithm": {
+      "input": "segment + rule_matched.pain_level",
+      "output": "pain_tag (pain:1|2|3|4|5)",
+      "logic": "segment_pain_matrix + special_conditions"
+    },
+    "segment_pain_matrix": {
+      "segment_A_base_pain": 3,
+      "segment_A_modifiers": {
+        "future_newlywed": -1,
+        "high_budget": 0,
+        "young_age": -1
+      },
+      "segment_A_final": "pain:3 (또는 pain:2 if future_newlywed)"
+    },
+    "segment_pain_matrix_detail": {
+      "segment_A": {
+        "base_pain_level": 3,
+        "reason": "신혼 기간 제한 + 결혼 직후 여유",
+        "conditions": {
+          "future_newlywed": { "modifier": -1, "final": 2 },
+          "high_budget": { "modifier": 0, "final": 3 },
+          "young_age_under_25": { "modifier": -1, "final": 2 }
+        },
+        "typical_pain_keywords": ["시간 제약", "예산 제약", "신혼 기간 한정"]
+      },
+      "segment_B": {
+        "base_pain_level": 4,
+        "reason": "자녀 나이 10-15: 학원/학교 일정 절대적, 시간 희소성 극심",
+        "conditions": {
+          "child_age_under_9": { "modifier": 0, "final": 4 },
+          "child_age_10_15": { "modifier": 0, "final": 4 },
+          "low_budget": { "modifier": 1, "final": 5 }
+        },
+        "typical_pain_keywords": ["시간 희소성 극심", "학원 일정", "가족시간 부족"]
+      },
+      "segment_C": {
+        "base_pain_level": 3,
+        "reason": "경제력 최고이나 건강/시간 제약 증가 신호",
+        "conditions": {
+          "childless": { "modifier": -1, "final": 2 },
+          "adult_children": { "modifier": 0, "final": 3 },
+          "health_concerns_mentioned": { "modifier": 1, "final": 4 }
+        },
+        "typical_pain_keywords": ["황금기 타이밍", "건강/시간 윈도우", "자녀 독립 공백"]
+      },
+      "segment_D": {
+        "base_pain_level": 4,
+        "reason": "건강/시간 불안 극심, 지금이 마지막 윈도우",
+        "conditions": {
+          "retired": { "modifier": 0, "final": 4 },
+          "health_issues": { "modifier": 0, "final": 4 },
+          "very_high_budget": { "modifier": 0, "final": 4 }
+        },
+        "typical_pain_keywords": ["건강 불안", "시간 윈도우 좁음", "의료 신뢰"]
+      }
+    },
+    "pain_level_definitions": {
+      "pain:1": {
+        "level": 1,
+        "name": "낮음",
+        "description": "여유 있음, 생각만 하는 단계",
+        "conversion_urgency": "낮음",
+        "sms_frequency": "주 1회",
+        "objection_intensity": "약함",
+        "typical_quote": "생각해볼게요.",
+        "target_segments": [],
+        "marketing_tone": "soft, informative"
+      },
+      "pain:2": {
+        "level": 2,
+        "name": "보통",
+        "description": "조금 고민 중, 검토 단계",
+        "conversion_urgency": "보통",
+        "sms_frequency": "주 2회",
+        "objection_intensity": "중간",
+        "typical_quote": "좀 더 알아보고 싶어요.",
+        "target_segments": ["A (미혼)"],
+        "marketing_tone": "moderate, educational"
+      },
+      "pain:3": {
+        "level": 3,
+        "name": "중간",
+        "description": "해야 한다고 느낌, 결정 단계",
+        "conversion_urgency": "중상",
+        "sms_frequency": "주 3회",
+        "objection_intensity": "중상",
+        "typical_quote": "올해 안에 해야 할 것 같은데...",
+        "target_segments": ["A (신혼)", "C"],
+        "marketing_tone": "moderate, persuasive",
+        "call_strategy": "Track B (중간 이의)"
+      },
+      "pain:4": {
+        "level": 4,
+        "name": "높음",
+        "description": "매우 절실, 지금이 아니면 불안함",
+        "conversion_urgency": "높음",
+        "sms_frequency": "주 4회",
+        "objection_intensity": "높음",
+        "typical_quote": "지금 안 하면 영원히 못 할 것 같아요.",
+        "target_segments": ["B", "D"],
+        "marketing_tone": "urgent, emotional",
+        "call_strategy": "Track C-D (심한 이의)",
+        "objection_track": "objection:heavy"
+      },
+      "pain:5": {
+        "level": 5,
+        "name": "극심",
+        "description": "긴급성 극대, 즉시 결정 필요",
+        "conversion_urgency": "극도",
+        "sms_frequency": "매일",
+        "objection_intensity": "극도",
+        "typical_quote": "언제 신청하나요?",
+        "target_segments": ["B (초등 고학년)", "D (건강 문제)"],
+        "marketing_tone": "extreme, scarcity-driven",
+        "call_strategy": "L10 즉시 클로징 (이의 제로)",
+        "objection_track": "objection:extreme",
+        "conversion_rate_target": "70-95%"
+      }
+    },
+    "special_pain_elevation_rules": {
+      "rule_1_health_concerns": {
+        "condition": "건강 문제 언급 (배멀미, 당뇨, 고혈압 등)",
+        "segments": ["D"],
+        "modifier": "+1 또는 +2",
+        "note": "Segment D는 이미 pain:4이므로 pain:5로 상향 가능"
+      },
+      "rule_2_multiple_rejections": {
+        "condition": "이전에 2회 이상 거절했음 (재활성화 고객)",
+        "segments": ["all"],
+        "modifier": "+1",
+        "note": "최후의 기회 감각"
+      },
+      "rule_3_time_window_closing": {
+        "condition": "자녀가 곧 성인화 예정 (18개월 이내)",
+        "segments": ["B"],
+        "modifier": "+1",
+        "note": "Segment B pain:4 → pain:5로 상향"
+      },
+      "rule_4_age_milestone": {
+        "condition": "나이가 마일스톤 도달 (55→56세 등)",
+        "segments": ["C", "D"],
+        "modifier": "+1",
+        "note": "건강 윈도우 절박성"
+      }
+    },
+    "implementation": {
+      "pseudocode": `
+function assignPainTag(segment, ruleMatched, specialConditions) {
+  const basePain = {
+    A: 3, B: 4, C: 3, D: 4
+  };
+
+  let painLevel = basePain[segment];
+
+  // 특수 조건 보정
+  if (specialConditions.healthConcerns && segment === 'D') {
+    painLevel = Math.min(painLevel + 1, 5); // max 5
+  }
+
+  if (specialConditions.multipleRejections) {
+    painLevel = Math.min(painLevel + 1, 5);
+  }
+
+  return \`pain:\${painLevel}\`;
+}
+      `,
+      "always_required": true,
+      "cardinality": "1 per contact (exclusive)"
+    }
+  },
+  "step_4_call_status_tag_assignment": {
+    "description": "고객의 콜/SMS 진행 상황을 추적하는 call:* 태그 자동 부여 및 업데이트",
+    "algorithm": {
+      "input": "contact_state (new|call_completed|sms_day0_sent|...)",
+      "output": "call_status_tag (call:new|call:completed|call:D0|...)",
+      "logic": "state_machine with automatic transitions"
+    },
+    "state_machine": {
+      "initial_state": "call:new",
+      "states": {
+        "call:new": {
+          "description": "신규 고객, 콜 전",
+          "trigger_action": "스케줄 콜",
+          "next_state": "call:completed",
+          "auto_transition_rule": "콜 완료 후 자동 이동"
+        },
+        "call:completed": {
+          "description": "Opening 콜 완료 직후 (0-4h)",
+          "trigger_action": "Day 0 SMS 발송 시작",
+          "next_state": "call:D0",
+          "auto_transition_rule": "SMS 발송 후 자동 이동",
+          "sms_template": "day_0_sms_{segment}"
+        },
+        "call:D0": {
+          "description": "Day 0 SMS 발송 완료 (0-24h)",
+          "trigger_action": "Day 1 SMS 자동 스케줄 (24h 후)",
+          "next_state": "call:D1",
+          "auto_transition_rule": "Day 1 발송 예정시간 도달 시 자동 발송",
+          "sms_template": "day_1_sms_{segment}"
+        },
+        "call:D1": {
+          "description": "Day 1 SMS 발송 완료 (24-48h)",
+          "trigger_action": "Day 3 SMS 자동 스케줄 (48h 후)",
+          "next_state": "call:D3",
+          "auto_transition_rule": "Day 3 발송 예정시간 도달 시 자동 발송",
+          "sms_template": "day_3_sms_{segment}"
+        },
+        "call:D3": {
+          "description": "Day 3 SMS 발송 완료 (48-72h)",
+          "trigger_action": "72h 후 미반응 확인",
+          "next_state": "call:purchased 또는 call:rejected",
+          "auto_transition_rule": "클릭 여부 확인 → 자동 전환",
+          "timeout": "72h"
+        },
+        "call:purchased": {
+          "description": "구매 완료 (멤버십 구독 또는 상품 예약)",
+          "trigger_action": "Welcome 온보딩 자동화 시작",
+          "next_state": null,
+          "auto_transition_rule": "최종 상태",
+          "sms_template": "welcome_onboarding_{plan}"
+        },
+        "call:rejected": {
+          "description": "거절 확정 (명확한 NO 또는 72h 무반응)",
+          "trigger_action": "재활성화 자동 스케줄",
+          "next_state": null,
+          "auto_transition_rule": "최종 상태 (일시중단 제외)",
+          "reactivation_schedule": {
+            "L0_day_30": "30일 후",
+            "L0_day_60": "60일 후",
+            "L0_day_90": "90일 후"
+          }
+        },
+        "call:suspended": {
+          "description": "일시 중단 (고객 요청)",
+          "trigger_action": "고객 지정 시점 리마인드 (2주 전)",
+          "next_state": "call:completed (재개)",
+          "auto_transition_rule": "고객 지정 날짜 도달 시 리마인드",
+          "resume_date": "고객 지정"
+        }
+      }
+    },
+    "state_transition_matrix": {
+      "call:new": {
+        "trigger": "call_scheduled",
+        "action": "keep",
+        "note": "콜 스케줄만으로는 상태 변경 X"
+      },
+      "call:new → call:completed": {
+        "trigger": "call_completed_recorded",
+        "timestamp": "now",
+        "action": "remove call:new, add call:completed",
+        "auto_trigger_sms": "day_0_sms_{segment}",
+        "delay_sms": "1-4 hours"
+      },
+      "call:completed → call:D0": {
+        "trigger": "day_0_sms_sent",
+        "timestamp": "sms_sent_at",
+        "action": "remove call:completed, add call:D0",
+        "schedule_next": "day_1_sms at (sms_sent_at + 24h)",
+        "note": "Day 0 SMS 발송 기록 → 자동 상태 변경"
+      },
+      "call:D0 → call:D1": {
+        "trigger": "day_1_sms_sent",
+        "timestamp": "sms_sent_at",
+        "action": "remove call:D0, add call:D1",
+        "schedule_next": "day_3_sms at (sms_sent_at + 48h)"
+      },
+      "call:D1 → call:D3": {
+        "trigger": "day_3_sms_sent",
+        "timestamp": "sms_sent_at",
+        "action": "remove call:D1, add call:D3",
+        "schedule_next": "check_engagement at (sms_sent_at + 72h)"
+      },
+      "call:D3 → call:purchased": {
+        "trigger": "purchase_completed",
+        "timestamp": "purchase_at",
+        "action": "remove call:D3, add call:purchased, remove call:rejected (if exists)",
+        "auto_trigger_action": "welcome_onboarding_start",
+        "note": "최종 성공 상태"
+      },
+      "call:D3 → call:rejected": {
+        "trigger": "72h_timeout_no_engagement OR explicit_rejection",
+        "timestamp": "rejection_at OR (72h_after_d3)",
+        "action": "remove call:D3, add call:rejected",
+        "auto_trigger_action": "schedule_reactivation_l0",
+        "note": "최종 실패 상태"
+      },
+      "call:any → call:suspended": {
+        "trigger": "suspension_requested",
+        "timestamp": "suspension_at",
+        "action": "remove [current_state], add call:suspended",
+        "resume_date": "customer_specified",
+        "auto_trigger_action": "schedule_resume_reminder at (resume_date - 14days)"
+      },
+      "call:suspended → call:completed": {
+        "trigger": "resume_date_reached",
+        "timestamp": "resume_date",
+        "action": "remove call:suspended, add call:completed",
+        "auto_trigger_action": "send_day_0_sms_again"
+      }
+    },
+    "implementation": {
+      "database_trigger": `
+CREATE OR REPLACE FUNCTION update_call_status_on_sms()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.sms_type = 'day_0' AND OLD.sms_status = 'pending' AND NEW.sms_status = 'sent' THEN
+    -- call:completed → call:D0
+    UPDATE contact_tags SET tag = 'call:D0'
+    WHERE contact_id = NEW.contact_id AND tag = 'call:completed';
+
+    -- Schedule Day 1 SMS (24h later)
+    INSERT INTO sms_schedule (contact_id, sms_type, scheduled_at)
+    VALUES (NEW.contact_id, 'day_1', NOW() + INTERVAL '24 hours');
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+      `,
+      "typescript_api": `
+async function markCallCompleted(contactId: string) {
+  // 1. Remove call:new tag
+  await removeTag(contactId, 'call:new');
+
+  // 2. Add call:completed tag
+  await addTag(contactId, 'call:completed');
+
+  // 3. Trigger Day 0 SMS
+  await triggerSMSImmediate(contactId, 'day_0');
+
+  // 4. Log in segment_assignment_history
+  await logStatusChange(contactId, 'call:completed', 'call_completed_recorded');
+}
+      `,
+      "always_required": true,
+      "cardinality": "1 per contact (exclusive, single state at a time)"
+    }
+  },
+  "step_5_objection_track_tag_assignment": {
+    "description": "이의처리 강도를 결정하는 objection:* 태그 자동 부여",
+    "algorithm": {
+      "input": "pain_level (1-5)",
+      "output": "objection_track_tag (objection:light|medium|heavy|extreme)",
+      "logic": "direct_mapping"
+    },
+    "pain_to_objection_mapping": {
+      "pain:1_2": {
+        "objection_track": "objection:light",
+        "name": "가벼운 이의",
+        "objection_handling": "Track A",
+        "typical_objections": [
+          "생각해볼게요",
+          "나중에 연락주세요",
+          "좀 더 알아보고 싶어요"
+        ],
+        "handling_strategy": [
+          "사실 기반 응답 (85% 3개월 후 재전환율)",
+          "부드러운 거절 처리",
+          "선택지 제시 (목요일/금요일)"
+        ],
+        "expected_success_rate": "30-40%",
+        "conversion_target": "낮음"
+      },
+      "pain:3": {
+        "objection_track": "objection:medium",
+        "name": "중간 이의",
+        "objection_handling": "Track B",
+        "typical_objections": [
+          "다른 상품과 비교해봐야 해요",
+          "가격이 비싼데요",
+          "지금 당장은 어렵네요"
+        ],
+        "handling_strategy": [
+          "SPIN 질문 심화",
+          "손실회피 강조 (3년 뒤 후회)",
+          "문제 재프레이밍"
+        ],
+        "expected_success_rate": "45-55%",
+        "conversion_target": "중간"
+      },
+      "pain:4": {
+        "objection_track": "objection:heavy",
+        "name": "심한 이의",
+        "objection_handling": "Track C-D",
+        "typical_objections": [
+          "현실적으로 불가능해요",
+          "배우자가 절대 싫대요",
+          "건강 문제가 있어서..."
+        ],
+        "handling_strategy": [
+          "신경화학 접근 (신뢰+감정+사회증명)",
+          "배우자 직접 설득",
+          "의료신뢰 구축 (health concerns)",
+          "삼중 선택지 제시"
+        ],
+        "expected_success_rate": "55-65%",
+        "conversion_target": "높음",
+        "special_handling": "배우자 동참 트랙 활성화"
+      },
+      "pain:5": {
+        "objection_track": "objection:extreme",
+        "name": "극심한 이의 (이의 없음)",
+        "objection_handling": "L10 즉시 클로징",
+        "typical_objections": [
+          "언제 신청하나요?",
+          "지금 안 하면 영원히 못 할 것 같아요",
+          "정말 지금 해야 하나요?"
+        ],
+        "handling_strategy": [
+          "이의 처리 제로 (절박성 반영)",
+          "감정적 공감 (15초)",
+          "삼중 선택 (A/B/Gold)",
+          "즉시 결제 유도 (30초)"
+        ],
+        "expected_success_rate": "70-95%",
+        "conversion_target": "극도",
+        "special_handling": "즉시 결제 선택지만 제시, 이의 무시"
+      }
+    },
+    "implementation": {
+      "pseudocode": `
+function assignObjectionTrackTag(painLevel) {
+  const mapping = {
+    1: 'objection:light',
+    2: 'objection:light',
+    3: 'objection:medium',
+    4: 'objection:heavy',
+    5: 'objection:extreme'
+  };
+  return mapping[painLevel];
+}
+      `,
+      "always_required": false,
+      "cardinality": "1 per contact (optional, but recommended for pain:3-5)"
+    }
+  },
+  "complete_tag_assignment_workflow": {
+    "description": "5단계 전체 태그 할당 프로세스",
+    "flow": [
+      {
+        "step": 1,
+        "input": "segmentation_result.segment",
+        "output": "segment_tag (seg:A|B|C|D)",
+        "required": true,
+        "time": "0ms"
+      },
+      {
+        "step": 2,
+        "input": "segment + estimated_budget",
+        "output": "plan_tag (plan:A|B|C|gold)",
+        "required": true,
+        "time": "0ms"
+      },
+      {
+        "step": 3,
+        "input": "segment + pain_level + special_conditions",
+        "output": "pain_tag (pain:1|2|3|4|5)",
+        "required": true,
+        "time": "0ms"
+      },
+      {
+        "step": 4,
+        "input": "initial_state = 'new'",
+        "output": "call_status_tag (call:new)",
+        "required": true,
+        "time": "0ms"
+      },
+      {
+        "step": 5,
+        "input": "pain_level",
+        "output": "objection_track_tag (objection:light|medium|heavy|extreme)",
+        "required": false,
+        "time": "0ms"
+      }
+    ],
+    "total_execution_time": "< 10ms per contact",
+    "example_output": {
+      "segment": "B",
+      "estimated_budget": "5-7천만원",
+      "pain_level": 4,
+      "all_tags": [
+        "seg:B",
+        "plan:B",
+        "pain:4",
+        "call:new",
+        "objection:heavy"
+      ],
+      "assignment_logic_trace": {
+        "step_1": "segment = B → seg:B",
+        "step_2": "segment = B, budget = 5-7천만원 → plan:B (no override)",
+        "step_3": "segment = B, base_pain = 4 → pain:4",
+        "step_4": "initial_state → call:new",
+        "step_5": "pain_level = 4 → objection:heavy"
+      }
+    }
+  },
+  "tag_update_events": {
+    "description": "콜/SMS 진행 중 발생하는 태그 업데이트 이벤트",
+    "events": [
+      {
+        "event": "call_completed",
+        "tags_removed": ["call:new"],
+        "tags_added": ["call:completed"],
+        "auto_triggered_action": "send_sms_day_0",
+        "timestamp": "call_completed_at"
+      },
+      {
+        "event": "sms_day_0_sent",
+        "tags_removed": ["call:completed"],
+        "tags_added": ["call:D0"],
+        "auto_triggered_action": "schedule_sms_day_1 (24h later)",
+        "timestamp": "sms_sent_at"
+      },
+      {
+        "event": "sms_day_1_sent",
+        "tags_removed": ["call:D0"],
+        "tags_added": ["call:D1"],
+        "auto_triggered_action": "schedule_sms_day_3 (48h later)",
+        "timestamp": "sms_sent_at"
+      },
+      {
+        "event": "sms_day_3_sent",
+        "tags_removed": ["call:D1"],
+        "tags_added": ["call:D3"],
+        "auto_triggered_action": "schedule_engagement_check (72h later)",
+        "timestamp": "sms_sent_at"
+      },
+      {
+        "event": "purchase_completed",
+        "tags_removed": ["call:D0", "call:D1", "call:D3"],
+        "tags_added": ["call:purchased"],
+        "auto_triggered_action": "trigger_welcome_onboarding",
+        "timestamp": "purchase_at"
+      },
+      {
+        "event": "rejection_confirmed",
+        "tags_removed": ["call:D0", "call:D1", "call:D3"],
+        "tags_added": ["call:rejected"],
+        "auto_triggered_action": "schedule_reactivation_l0 (30/60/90d)",
+        "timestamp": "rejection_at OR (72h_timeout)"
+      },
+      {
+        "event": "suspension_requested",
+        "tags_removed": ["call:completed", "call:D0", "call:D1", "call:D3"],
+        "tags_added": ["call:suspended"],
+        "auto_triggered_action": "schedule_resume_reminder (resume_date - 14d)",
+        "timestamp": "suspension_requested_at"
+      },
+      {
+        "event": "profile_updated",
+        "description": "고객 정보 변경 시",
+        "action": "전체 세그먼트/태그 재평가",
+        "tags_potentially_changed": ["seg:*", "pain:*", "plan:*"],
+        "example": "your_age changed 54→56 → segment C→D, pain:3→4, plan:C→A"
+      }
+    ]
+  },
+  "special_cases": {
+    "edge_case_1_tag_conflict": {
+      "scenario": "고객이 동시에 여러 상태에 해당할 때",
+      "example": "call:D3 상태인데 동시에 구매까지 완료",
+      "resolution": "most_recent_event wins - purchase_completed가 더 최신이므로 call:purchased로 업데이트",
+      "implementation": "timestamp 기반 event ordering"
+    },
+    "edge_case_2_manual_override": {
+      "scenario": "관리자가 수동으로 세그먼트 변경 필요할 때",
+      "example": "시스템이 segment A 분류했으나, 실제로는 segment D 특성",
+      "action": "관리자가 segment 수동 변경 → 태그 전체 재계산",
+      "logging": "segment_assignment_history에 'manual_override' 기록"
+    },
+    "edge_case_3_tag_cleanup": {
+      "scenario": "이전 상태의 태그가 남아있을 때",
+      "example": "call:D1 상태에서 call:D3으로 전환할 때, 이전 call:D1 태그가 안 지워짐",
+      "prevention": "tag update 전에 existing call:* 태그 모두 제거",
+      "cleanup_query": "DELETE FROM contact_tags WHERE contact_id = $1 AND tag LIKE 'call:%';"
+    }
+  },
+  "monitoring_and_alerts": {
+    "description": "태그 시스템의 건강 상태 모니터링",
+    "metrics": [
+      {
+        "metric": "tag_assignment_latency",
+        "target": "< 10ms per contact",
+        "alert_threshold": "> 50ms"
+      },
+      {
+        "metric": "tag_consistency",
+        "check": "각 contact는 정확히 1개의 seg:*, 1개의 call:* 태그 보유",
+        "alert": "inconsistency 발견 시"
+      },
+      {
+        "metric": "state_machine_violations",
+        "check": "call:new → call:purchased 같은 비정상 전환 감지",
+        "alert": "invalid_transition 발생 시"
+      },
+      {
+        "metric": "sms_schedule_accuracy",
+        "check": "Day 0-3 SMS가 정확한 시간에 발송되는지 확인",
+        "target": "99.5% on-time delivery"
+      }
+    ]
+  },
+  "quality_assurance": {
+    "tag_assignment_tests": [
+      {
+        "test_id": "TAL_001",
+        "name": "Segment A 기본 태그 할당",
+        "input": { "segment": "A", "estimated_budget": "3-5천만원", "pain_level": 3 },
+        "expected_tags": ["seg:A", "plan:A", "pain:3", "call:new"],
+        "assertion": "tags.length === 4 && tags.includes('seg:A')"
+      },
+      {
+        "test_id": "TAL_002",
+        "name": "Segment B 고통 레벨 태그 업그레이드",
+        "input": { "segment": "B", "pain_level": 4 },
+        "expected_tags": ["seg:B", "plan:B", "pain:4", "call:new", "objection:heavy"],
+        "assertion": "tags.includes('pain:4') && tags.includes('objection:heavy')"
+      },
+      {
+        "test_id": "TAL_003",
+        "name": "콜 상태 태그 전환",
+        "input": { "current_state": "call:new", "event": "call_completed" },
+        "expected_output": { "tags_removed": ["call:new"], "tags_added": ["call:completed"] },
+        "assertion": "!tags.includes('call:new') && tags.includes('call:completed')"
+      }
+    ]
+  }
+}

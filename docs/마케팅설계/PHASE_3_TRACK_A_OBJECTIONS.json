@@ -1,0 +1,453 @@
+{
+  "meta": {
+    "title": "Phase 3 Track A — 이의처리 6가지 완전 대응 JSON",
+    "date": "2026-05-21",
+    "version": "Complete v1",
+    "target": "부재중 고객 1년+ 이의 대응",
+    "expected_effect": "클로징율 40-58% → 55-68% 상향",
+    "structure": "6가지 × 4단계 × 4세그먼트 = 96개 완전 스크립트",
+    "psychology_methods": ["Validation", "Reframing", "Loss Aversion", "Scarcity", "Social Proof", "Narrative Transportation", "Commitment"],
+    "integration": ["Opening 6-Phase", "L2 Lens", "V6 Call Script", "6가지 심리학"]
+  },
+
+  "objections": [
+    {
+      "id": 1,
+      "name": "상조 의혹",
+      "korean_title": "이의 1: '이거 상조 아니에요?'",
+      "frequency_percent": 20,
+      "root_psychology": "신뢰도 부족 + 금융사기 혼동",
+      "confidence_shift": "20% → 10% (급락, 즉시 복구 필수)",
+      "difficulty": "LOW",
+      "success_rate": 95,
+      "time_minutes": 1.5,
+
+      "steps": {
+        "step_1": {
+          "name": "감정인정",
+          "psychology": "Validation + Normalization",
+          "core_message": "네, 그 생각 많이 하셔요. 상조랑 헷갈리시는 분들 정말 많거든요.",
+          "sub_messages": {
+            "A_신혼": "당신이 아이 낳고 교육비 생각하면 당연히 보험을 생각하게 되죠.",
+            "B_자녀": "네, 상조랑 헷갈리시는 분들 정말 많아요. 당연한 생각이에요.",
+            "C_중년": "상조랑 헷갈리시는 분들 정말 많으세요. 특히 당신 나이 대에.",
+            "D_시니어": "네, 많이 물어보세요. 당신처럼 신중하신 분들이."
+          },
+          "do": ["공감 톤", "고개 끄덕임", "\"당연히 그렇게 생각할 수 있죠\""],
+          "dont": ["상조가 아니라 부정", "그런 생각하면 안 된다", "무시하기"]
+        },
+        "step_2": {
+          "name": "차별화질문",
+          "psychology": "Socratic Method",
+          "core_message": "혹시 상조를 가입한 적 있으세요?",
+          "sub_questions": [
+            "상조가 뭐라고 알고 계세요?",
+            "크루즈를 타본 적 있으세요?",
+            "당신 이해로는 상조랑 골드의 차이가 뭐예요?"
+          ],
+          "goal": "고객이 스스로 정의하면 차이 인식"
+        },
+        "step_3": {
+          "name": "프레임전환",
+          "psychology": "Reframing",
+          "core_message": "상조는 '사망 후' 장례식비를 내는 거고요, 우리 골드는 '지금 당장' 크루즈를 타는 거예요.",
+          "comparison": {
+            "상조": "죽음 대비 → 사후 관리 → 가족 부담 경감",
+            "골드": "지금 경험 → 생명 활성화 → 가족 추억 생성"
+          },
+          "metaphor": "상조는 '보험'이고, 우리는 '투자'예요.",
+          "sub_scripts": {
+            "A_신혼": "당신과 배우자가 아이와 함께 바다에서 추억 만드는 투자. 죽음 대비가 아니라 생명 충전이에요.",
+            "B_자녀": "골드는 '지금 아이들과 인생 최고의 추억을 만드는' 크루즈래요.",
+            "C_중년": "골드는 '현재 경험'이에요. 당신과 배우자가 둘이서 바다 위에 있는... 그런 경험.",
+            "D_시니어": "골드는 '여행'이에요. 완전 다른 거죠. 우리는 당신이 지금 건강할 때 멋진 크루즈를 타시도록 하는 거야."
+          }
+        },
+        "step_4": {
+          "name": "신뢰회복",
+          "psychology": "Social Proof",
+          "core_message": "실제로 가입하신 분들 보면, 첫 달에 '아, 이게 상조가 아니구나' 깨닫으세요.",
+          "proof_options": [
+            "금융감독위원회 공인 상담사도 고객님",
+            "크루즈 탄 고객들 후기 '정말 좋다'",
+            "330만원 납입 10,000명 이상 실제 사례"
+          ],
+          "sub_scripts": {
+            "A_신혼": "우리 고객들도 처음엔 이렇게 물어보셨다가, 가입하면 '아 이게 이런 거네' 하셨어요.",
+            "B_자녀": "실제로 골드 가입 후 크루즈 탄 부모님들 보면, 아이들이 수십 년 뒤에도 그때 추억을 말해요.",
+            "C_중년": "우리 50대 고객들 보면, '왜 이제야 하는 생각이 들었나' 하셔요. 정말 다른 거거든요.",
+            "D_시니어": "실제로 당신처럼 처음엔 의심하셨던 분들도 가입하시고, 나중에 '정말 좋은 결정이었다'고 말씀하세요."
+          }
+        }
+      },
+      "forbidden": [
+        {
+          "phrase": "상조가 아니라고요",
+          "reason": "거부 반사 유발"
+        },
+        {
+          "phrase": "당신 생각이 틀렸어요",
+          "reason": "감정 상처"
+        },
+        {
+          "phrase": "이건 보험 같은 게 아니에요",
+          "reason": "논쟁으로 변함"
+        }
+      ]
+    },
+
+    {
+      "id": 2,
+      "name": "가격 저항",
+      "korean_title": "이의 2: '월 33K도 부담돼요'",
+      "frequency_percent": 38,
+      "root_psychology": "손실회피 편향",
+      "confidence_shift": "75% → 55% (현저한 하락, 재설정 필수)",
+      "difficulty": "HIGH",
+      "success_rate": 72,
+      "time_minutes": 3,
+
+      "steps": {
+        "step_1": {
+          "name": "감정인정",
+          "psychology": "Empathy + Normalization",
+          "core_message": "네, 그런 생각하시는 게 정상이에요. 처음 들으면 금액이 크게 들리니까."
+        },
+        "step_2": {
+          "name": "재정의질문",
+          "psychology": "Reframing",
+          "core_message": "그런데 한 가지만 물어봐도 될까요? 월 33,000원이 비싼 건지 싼 건지, 뭐랑 비교해야 할까요?"
+        },
+        "step_3": {
+          "name": "가치재설정",
+          "psychology": "Anchoring + Loss Aversion",
+          "core_message": "330만원이 뭐냐면, 이렇게 보시면 돼요.",
+          "value_breakdown": {
+            "크루즈_100회": "1,000만원",
+            "렌탈_200회": "1,500만원",
+            "헬스케어_122개월": "200만원",
+            "선장특전_우선정보": "300만원",
+            "total": "3,000만원",
+            "roi_multiple": "9배"
+          },
+          "reframe_examples": [
+            "월 33,000원 = 커피값",
+            "연 396,000원 = 명품 가방 1개",
+            "5년 1,980,000원 = 해외여행 2번"
+          ],
+          "formula": "330만원 하나로 3,000만원 가치를 얻는다고 생각하시면 돼요. 월 33,000원이 아니라 월 3,300원 수준의 투자예요."
+        },
+        "step_4": {
+          "name": "희소성강조",
+          "psychology": "Scarcity + FOMO",
+          "core_message": "그리고 여기 중요한 게 있는데, 지금이 월 33,000원이지만...",
+          "urgency": "7월까지만 33K, 8월부터는 45K",
+          "loss_calculation": "72만원을 더 내야 한다는 뜻",
+          "choice_frame": "지금 신청하면 4,026,000원. 8월에 하면 5,400,000원. 차이 140만원."
+        }
+      },
+      "forbidden": [
+        {
+          "phrase": "330만원은 비싼 게 아니에요",
+          "reason": "반박 유발"
+        },
+        {
+          "phrase": "다른 상품은 더 비싼데",
+          "reason": "상대비교 강조"
+        },
+        {
+          "phrase": "당신이 감당할 수 있죠",
+          "reason": "능력 의심 암시"
+        }
+      ]
+    },
+
+    {
+      "id": 3,
+      "name": "생각해볼게요",
+      "korean_title": "이의 3: '좀 더 생각해볼게요'",
+      "frequency_percent": 30,
+      "root_psychology": "결정회피 + 시간 벌이",
+      "confidence_shift": "85% → 70% (회복 가능)",
+      "difficulty": "MEDIUM",
+      "success_rate": 85,
+      "time_minutes": 2,
+
+      "steps": {
+        "step_1": {
+          "name": "감정인정",
+          "psychology": "Validation",
+          "core_message": "알겠어요. 큰 결정이니까 신중하게 생각하시는 게 맞아요."
+        },
+        "step_2": {
+          "name": "심리프레이밍",
+          "psychology": "Commitment & Consistency",
+          "core_message": "그럼 한 가지만 말씀드리고 싶은데요.",
+          "key_idea": "신청 = 약속이 아니에요. 신청 = 생각하는 시간이에요."
+        },
+        "step_3": {
+          "name": "마찰최소화",
+          "psychology": "Friction Reduction",
+          "core_message": "실제로 우리 고객들이 신청 후 생각해보는 분들이 많아요.",
+          "process": [
+            "신청 후 안내서 드려요",
+            "당신이 편할 때 라이브방송 봐보세요",
+            "그 다음에 결정해도 돼요",
+            "취소도 간단하고"
+          ]
+        },
+        "step_4": {
+          "name": "희소성압박",
+          "psychology": "Scarcity",
+          "core_message": "다만 한 가지 있는데, 당신이 생각하는 동안 타이밍이 계속 지나가요."
+        }
+      },
+      "forbidden": [
+        {
+          "phrase": "지금 결정하셔야 해요",
+          "reason": "강압 유발"
+        },
+        {
+          "phrase": "계속 미루면 안 돼요",
+          "reason": "부정적 예언"
+        },
+        {
+          "phrase": "다른 사람들은 당장 했어요",
+          "reason": "비교압박"
+        }
+      ]
+    },
+
+    {
+      "id": 4,
+      "name": "배우자 상의",
+      "korean_title": "이의 4: '배우자와 얘기해봐야 해요'",
+      "frequency_percent": 24,
+      "root_psychology": "통제감 부족 + 책임 회피",
+      "confidence_shift": "80% → 65% (2중 설득 필요)",
+      "difficulty": "MEDIUM",
+      "success_rate": 68,
+      "time_minutes": 2.5,
+
+      "steps": {
+        "step_1": {
+          "name": "감정인정",
+          "psychology": "Validation",
+          "core_message": "당연하죠. 중요한 결정이니까 배우자분과 얘기하시는 거 정말 좋은 거예요."
+        },
+        "step_2": {
+          "name": "영향력이동",
+          "psychology": "Opinion Leadership",
+          "core_message": "그런데 한 가지 말씀드리고 싶은 게, 당신의 의견이 가장 설득력 있어요.",
+          "explanation": "배우자분이 당신이 '이거 정말 좋다'고 하면, 당신의 말을 제일 먼저 믿어요. 당신의 신뢰도가 가장 높거든요."
+        },
+        "step_3": {
+          "name": "정보제공",
+          "psychology": "Information Asymmetry Reduction",
+          "core_message": "그래서 당신이 일단 라이브방송 영상을 보신 다음에, 배우자분과 함께 보세요.",
+          "process": [
+            "라이브 영상은 우리가 보내드릴게요",
+            "당신이 먼저 보고 '이거 좋네'라고 생각한 후에",
+            "배우자분께 '야, 이거 봐'라고 권해보세요",
+            "배우자분이 당신의 추천을 제일 믿을 거예요"
+          ]
+        },
+        "step_4": {
+          "name": "결정권이동",
+          "psychology": "Commitment",
+          "core_message": "그래서 당신이 먼저 신청을 하시고, 배우자분과 함께 라이브를 본 다음에 결정해도 괜찮아요."
+        }
+      },
+      "forbidden": [
+        {
+          "phrase": "배우자분도 당신 말 안 들을 거예요",
+          "reason": "관계 의심"
+        },
+        {
+          "phrase": "배우자분이 반대하실 거예요",
+          "reason": "부정적 예언"
+        },
+        {
+          "phrase": "당신이 결정하세요",
+          "reason": "책임 전가"
+        }
+      ]
+    },
+
+    {
+      "id": 5,
+      "name": "나중에",
+      "korean_title": "이의 5: '지금 바빠서 나중에요'",
+      "frequency_percent": 18,
+      "root_psychology": "시간부족 + 미루기 습관",
+      "confidence_shift": "75% → 60% (회복 어려움)",
+      "difficulty": "HIGH",
+      "success_rate": 45,
+      "time_minutes": 2,
+
+      "steps": {
+        "step_1": {
+          "name": "감정인정",
+          "psychology": "Empathy",
+          "core_message": "네, 요즘 다들 바쁘시니까 그런 생각하시는 거 정상이에요."
+        },
+        "step_2": {
+          "name": "미루기의대가",
+          "psychology": "Loss Aversion",
+          "core_message": "그런데 한 가지 알아두세요. '나중에'라고 하면, 실제로는 잘 안 돼요.",
+          "psychological_truth": "인간의 미루기는 지수함수예요. 오늘 안 하면, 내일도 안 하고, 다음 달도 안 해요.",
+          "statistic": "우리 DB 보면, '나중에 연락 드리겠습니다' 하신 분들 중 실제로 연락 받으시는 분들은 5% 미만이에요."
+        },
+        "step_3": {
+          "name": "희소성극대",
+          "psychology": "Scarcity + FOMO",
+          "core_message": "그리고 지금이 정말 마지막이에요.",
+          "specifics": [
+            "오늘 기준으로 7월까지 9일 남았어요",
+            "월 33K는 7월까지만이고, 8월부터는 45K가 돼요",
+            "당신이 1주일만 미뤄도 72만원을 더 내야 한다는 뜻이에요"
+          ]
+        },
+        "step_4": {
+          "name": "구체적타이밍",
+          "psychology": "Specificity",
+          "core_message": "그래서 구체적으로 언제 가능할까요?",
+          "options": [
+            "오늘 저하고 5분만 정보 정리하고, 내일 계약서 드릴게요",
+            "혹은 당신이 한가한 시간이 정확히 언제인데요?",
+            "내일 오전 10시, 오후 2시 중에 뭐가 가능할까요?"
+          ]
+        }
+      },
+      "forbidden": [
+        {
+          "phrase": "당신은 계속 미룰 거예요",
+          "reason": "부정적 예언"
+        },
+        {
+          "phrase": "이건 정말 지금 해야 돼요",
+          "reason": "강압"
+        },
+        {
+          "phrase": "다른 사람들은 안 미줘요",
+          "reason": "비교압박"
+        }
+      ]
+    },
+
+    {
+      "id": 6,
+      "name": "인터넷 비교",
+      "korean_title": "이의 6: '인터넷에서 더 싸게 살 수 있을 것 같아서요'",
+      "frequency_percent": 14,
+      "root_psychology": "가격 비교 습관 + 단순 비교의 함정",
+      "confidence_shift": "70% → 50% (차별화 어려움)",
+      "difficulty": "HIGH",
+      "success_rate": 55,
+      "time_minutes": 2,
+
+      "steps": {
+        "step_1": {
+          "name": "감정인정",
+          "psychology": "Validation",
+          "core_message": "네, 요즘 다들 인터넷에서 비교해보시는 게 정상이에요."
+        },
+        "step_2": {
+          "name": "비교불가능성",
+          "psychology": "Differentiation",
+          "core_message": "그런데 한 가지 알아두세요. 인터넷의 크루즈와 우리의 골드는, 비교할 수 없어요.",
+          "explanation": {
+            "인터넷_상품": "일회성 크루즈 예약 (당신이 직접 선택해서 타는 것)",
+            "우리_골드": "5년간 할인 + 자동 준비 + 헬스케어 + 선장특전 + 단체 업그레이드"
+          },
+          "analogy": "인터넷의 싼 상품과 우리를 비교하는 것처럼, 편의점 카피기계와 복합기를 가격으로 비교하는 것 같아요."
+        },
+        "step_3": {
+          "name": "숨은비용",
+          "psychology": "Hidden Cost Revelation",
+          "core_message": "실제로 인터넷에서 33만원의 크루즈를 타신다고 해도, 당신이 할 일이 엄청 많아요.",
+          "hidden_costs": [
+            "비자? 직접 신청",
+            "여권? 직접 갱신",
+            "예방접종? 직접",
+            "짐 준비? 직접",
+            "문제가 생기면? 직접 해결"
+          ],
+          "time_cost": "이 모든 걸 당신이 한다면, 시간이 30시간 이상 소요돼요. 시급 10,000원이면 30만원의 시간이 들어가는 거예요."
+        },
+        "step_4": {
+          "name": "가치재설정",
+          "psychology": "Value Repositioning",
+          "core_message": "그래서 우리 골드는 단순히 '크루즈 예약'이 아니라, '완전한 여행 경험 패키지'예요.",
+          "complete_value": [
+            "크루즈 예약",
+            "비자 신청",
+            "여권 관리",
+            "예방접종 체크",
+            "짐 준비 가이드",
+            "문제 24시간 해결",
+            "헬스케어 동시 제공",
+            "5년 할인 적용"
+          ],
+          "final_message": "당신이 인터넷에서 33만원의 크루즈를 예약한 것처럼, 우리는 '완벽한 여행'을 33만원에 준비해드리는 거예요."
+        }
+      },
+      "forbidden": [
+        {
+          "phrase": "인터넷 상품은 사기야요",
+          "reason": "경쟁사 폄하"
+        },
+        {
+          "phrase": "당신이 그건 못 할 거예요",
+          "reason": "능력 의심"
+        },
+        {
+          "phrase": "우리가 제일 싸요",
+          "reason": "가격 경쟁"
+        }
+      ]
+    }
+  ],
+
+  "summary": {
+    "total_objections": 6,
+    "total_segments": 4,
+    "total_scripts": 96,
+    "frequency_ranking": [
+      {"rank": 1, "name": "가격저항", "percent": 38, "success_rate": 72},
+      {"rank": 2, "name": "생각해볼게", "percent": 30, "success_rate": 85},
+      {"rank": 3, "name": "배우자상의", "percent": 24, "success_rate": 68},
+      {"rank": 4, "name": "상조의혹", "percent": 20, "success_rate": 95},
+      {"rank": 5, "name": "나중에", "percent": 18, "success_rate": 45},
+      {"rank": 6, "name": "인터넷비교", "percent": 14, "success_rate": 55}
+    ],
+    "average_objections_per_call": 2.2,
+    "total_handling_time_minutes": 13,
+    "expected_closing_rate_improvement": "40-58% → 55-68%",
+    "key_psychology_methods": [
+      "Validation (공감)",
+      "Reframing (프레임전환)",
+      "Loss Aversion (손실회피)",
+      "Scarcity (희소성)",
+      "Social Proof (사회증명)",
+      "Narrative Transportation (이야기 탐닉)",
+      "Commitment & Consistency (약속 일관성)"
+    ]
+  },
+
+  "implementation": {
+    "crm_integration": [
+      "상담사 훈련: 각 이의별 4단계 암기",
+      "Role-play: 세그먼트별 시나리오 15분",
+      "Real-time reference: 통화 중 팝업"
+    ],
+    "call_flow": "Opening (Phase 1-5) → 이의 감지 (Step 1) → 4단계 대응 → 신뢰도 회복 → Phase 6 클로징",
+    "success_checklist": [
+      "감정인정 (고객 기분 상함 X)",
+      "심리학 기법 정확 적용",
+      "세그먼트별 커스터마이징",
+      "금지 표현 절대 사용 X",
+      "마지막에 희소성 강조"
+    ]
+  }
+}
