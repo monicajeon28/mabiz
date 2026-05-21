@@ -178,7 +178,9 @@ export async function GET(req: Request, { params }: Params) {
       isConfigured: !!deltaConfig?.isActive,
     });
   } catch (error) {
-    logger.error('[GET /api/campaigns/[id]/delta]', error);
+    logger.error('[GET /api/campaigns/[id]/delta]', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { ok: false, error: 'INTERNAL_SERVER_ERROR', message: '서버 오류가 발생했습니다.' },
       { status: 500 }
