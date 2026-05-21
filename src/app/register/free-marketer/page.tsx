@@ -106,6 +106,7 @@ export default function FreeMatketerRegisterPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="4자 이상"
               required
+              autoComplete="new-password"
               className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none"
             />
           </div>
@@ -118,6 +119,7 @@ export default function FreeMatketerRegisterPage() {
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="비밀번호 재입력"
               required
+              autoComplete="new-password"
               className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none"
             />
           </div>

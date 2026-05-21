@@ -1528,6 +1528,8 @@ model GmReservation {
   mainUserId                  Int
   trip                        GmTrip    @relation("TripReservations", fields: [tripId], references: [id], onDelete: Cascade)
   mainUser                    GmUser    @relation("UserReservations", fields: [mainUserId], references: [id], onDelete: Cascade)
+  audits                      GmReservationAudit[] @relation("ReservationAudits")
+  contracts                   GmTravelContract[] @relation("ReservationContracts")
   totalPeople                 Int
   cabinType                   String?
   paymentDate                 DateTime?
@@ -1948,6 +1950,7 @@ model CabinInventory {
 model GmReservationAudit {
   id            Int      @id @default(autoincrement())
   reservationId Int
+  reservation   GmReservation @relation("ReservationAudits", fields: [reservationId], references: [id], onDelete: Cascade)
   userId        Int?
   action        String
   fieldChanged  String?
@@ -1968,6 +1971,7 @@ model GmReservationAudit {
 model GmTravelContract {
   id             Int       @id @default(autoincrement())
   reservationId  Int
+  reservation    GmReservation @relation("ReservationContracts", fields: [reservationId], references: [id], onDelete: Cascade)
   contractUrl    String?
   signedAt       DateTime?
   signedByUserId Int?

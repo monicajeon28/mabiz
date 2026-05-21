@@ -45,11 +45,7 @@ function SignInContent() {
       {/* 좌측: 브랜드 (데스크탑) */}
       <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between overflow-hidden"
            style={{ backgroundColor: '#1E2D4E' }}>
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-30"
-          style={{ backgroundImage: "url('/크루즈정보사진/그리스 산토리니/그리스 산토리니.webp')" }}
-        />
-        <div className="absolute inset-0" style={{ backgroundColor: 'rgba(30,45,78,0.6)' }} />
+        <div className="absolute inset-0" style={{ backgroundColor: 'rgba(30,45,78,0.2)' }} />
         <div className="relative z-10 p-12 flex-1 flex flex-col justify-center">
           <div className="text-4xl font-bold tracking-tight mb-3" style={{ color: '#C9A84C' }}>
             크루즈닷파트너스
@@ -105,6 +101,7 @@ function SignInContent() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="비밀번호를 입력하세요"
                 required
+                autoComplete="current-password"
                 className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition"
               />
             </div>

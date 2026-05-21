@@ -321,6 +321,7 @@ export default function SmsSettingsPage() {
               value={userForm.aligoKey}
               onChange={(e) => setUserForm({ ...userForm, aligoKey: e.target.value })}
               placeholder={userConfig ? "변경 시에만 입력 (****" + userConfig.aligoKeyTail + ")" : "내 Aligo API Key"}
+              autoComplete="current-password"
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400"
             />
           </div>
@@ -469,6 +470,7 @@ export default function SmsSettingsPage() {
             value={form.aligoKey}
             onChange={(e) => setForm({ ...form, aligoKey: e.target.value })}
             placeholder={config.id ? "변경 시에만 입력" : "Aligo API Key"}
+            autoComplete="current-password"
             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gold-500"
           />
         </div>

@@ -175,6 +175,7 @@ export default function EmailSettingsPage() {
             value={form.smtpPass}
             onChange={(e) => setForm({ ...form, smtpPass: e.target.value })}
             placeholder={configured ? "변경 시에만 입력" : "비밀번호"}
+            autoComplete="current-password"
             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gold-500"
           />
           {form.smtpHost.includes("gmail") && (

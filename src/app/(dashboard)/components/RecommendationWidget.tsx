@@ -1,4 +1,6 @@
-import React from 'react';
+'use client';
+
+import React, { useEffect, useState } from 'react';
 import {
   BarChart,
   Bar,
@@ -49,29 +51,51 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
   return null;
 }
 
-export async function RecommendationWidget() {
-  let data: RecommendationData | null = null;
-  let error: string | null = null;
+export function RecommendationWidget() {
+  const [data, setData] = useState<RecommendationData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const res = await fetch(`${baseUrl}/api/dashboard/recommendations`, {
-      cache: 'no-store',
-      credentials: 'include',
-    });
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const res = await fetch(`${baseUrl}/api/dashboard/recommendations`, {
+          cache: 'no-store',
+          credentials: 'include',
+        });
 
-    if (!res.ok) {
-      throw new Error(`API request failed with status ${res.status}`);
-    }
+        if (!res.ok) {
+          throw new Error(`API request failed with status ${res.status}`);
+        }
 
-    data = await res.json();
+        const responseData = await res.json();
 
-    if (!data || !data.ok) {
-      throw new Error(data?.error || 'Unknown error');
-    }
-  } catch (err) {
-    error = err instanceof Error ? err.message : 'Failed to load recommendation data';
-    console.error('[RecommendationWidget] Error:', error);
+        if (!responseData || !responseData.ok) {
+          throw new Error(responseData?.error || 'Unknown error');
+        }
+
+        setData(responseData);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : 'Failed to load recommendation data';
+        setError(errorMsg);
+        console.error('[RecommendationWidget] Error:', errorMsg);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="text-center text-gray-500">
+          <p className="text-sm">분석 데이터 로딩 중...</p>
+        </div>
+      </div>
+    );
   }
 
   if (error || !data) {
@@ -86,10 +110,10 @@ export async function RecommendationWidget() {
   }
 
   // 차트용 데이터 포매팅
-  const chartData: ChartDataPoint[] = Object.entries(data!.segment_distribution || {})
+  const chartData: ChartDataPoint[] = Object.entries(data.segment_distribution || {})
     .sort(([segA], [segB]) => segA.localeCompare(segB))
     .map(([segment, count]) => {
-      const conversionRate = (data!.conversion_rates || {})[segment] || 0;
+      const conversionRate = (data.conversion_rates || {})[segment] || 0;
       return {
         segment,
         customers: count,
@@ -99,7 +123,7 @@ export async function RecommendationWidget() {
     });
 
   // 상위 상품 데이터
-  const topProducts = (data!.top_products || []).slice(0, 5);
+  const topProducts = (data.top_products || []).slice(0, 5);
 
   if (chartData.length === 0) {
     return (

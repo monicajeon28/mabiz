@@ -183,6 +183,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="로그인에 사용할 비밀번호"
+                  autoComplete="new-password"
                   className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500"
                 />
                 <p className="text-xs text-gray-400 mt-1">나중에 설정으로 변경 가능합니다</p>
