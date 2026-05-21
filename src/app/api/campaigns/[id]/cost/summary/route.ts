@@ -117,7 +117,7 @@ export async function GET(req: Request, { params }: Params) {
       performance: {
         successCount: campaignCost.successCount,
         costPerSuccess: campaignCost.costPerSuccess?.toNumber() ?? 0,
-        estimatedRoi: campaignCost.estimatedRoi,
+        estimatedRoi: campaignCost.estimatedRoi?.toNumber() ?? 0,
       },
     };
 
