@@ -69,6 +69,23 @@ export async function GET(
       );
     }
 
+    // Contact 조회 (전화번호 기준, 결제상태 표시용)
+    const contact = phone
+      ? await prisma.contact.findFirst({
+          where: {
+            phone,
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            lastPaymentStatus: true,
+            lastPaymentAt: true,
+            lastRefundedAt: true,
+            paymentStatusNote: true,
+          },
+        })
+      : null;
+
     return NextResponse.json({
       ok: true,
       reservation: {
@@ -90,6 +107,10 @@ export async function GET(
           birthDate: t.birthDate || null,
           expiryDate: t.expiryDate || null,
         })),
+        paymentStatus: contact?.lastPaymentStatus || 'unknown',
+        paymentStatusNote: contact?.paymentStatusNote || null,
+        lastPaymentAt: contact?.lastPaymentAt || null,
+        lastRefundedAt: contact?.lastRefundedAt || null,
       },
     });
   } catch (error) {

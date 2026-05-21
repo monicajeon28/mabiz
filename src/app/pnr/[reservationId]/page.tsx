@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchWithRetry } from '@/lib/fetch-utils';
+import { ReservationStatusBadge } from './components/ReservationStatusBadge';
 
 interface Traveler {
   id?: number;
@@ -37,6 +38,10 @@ interface Reservation {
     phone?: string | null;
     roomNumber?: number;
   }>;
+  paymentStatus?: string;
+  paymentStatusNote?: string | null;
+  lastPaymentAt?: Date | null;
+  lastRefundedAt?: Date | null;
 }
 
 // 방 색상 팔레트 (시각적으로 구분하기 쉬운 색상)
@@ -408,6 +413,19 @@ export default function CustomerPnrPage({
         <div className="mb-8 text-center">
           <h1 className="mb-2 text-3xl font-bold text-gray-900">PNR 정보 등록</h1>
           <p className="text-gray-600">동행자 정보와 객실 배정</p>
+
+          {/* 결제상태 배지 */}
+          {reservation && reservation.paymentStatus && reservation.paymentStatus !== 'unknown' && (
+            <div className="mt-4 flex justify-center">
+              <ReservationStatusBadge
+                status={reservation.paymentStatus}
+                note={reservation.paymentStatusNote}
+                lastPaymentAt={reservation.lastPaymentAt}
+                lastRefundedAt={reservation.lastRefundedAt}
+              />
+            </div>
+          )}
+
           {reservation?.trip && (
             <p className="mt-2 text-sm text-gray-500">
               {reservation.trip.shipName || '크루즈'} | 출발일:{' '}
