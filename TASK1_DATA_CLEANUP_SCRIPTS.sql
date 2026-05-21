@@ -57,25 +57,25 @@ SET "deletedAt" = NOW(), "updatedAt" = NOW()
 FROM old_contacts
 WHERE c.id = old_contacts.id;
 
--- 단계 2: CallLog를 최신 Contact로 재지정 (선택 사항 - 필요시만 실행)
--- WITH duplicate_groups AS (
---   SELECT
---     phone, "organizationId",
---     ARRAY_AGG(id ORDER BY "createdAt") as ids,
---     ARRAY_AGG(id ORDER BY "createdAt" DESC LIMIT 1)[1] as latest_id
---   FROM "Contact"
---   WHERE "deletedAt" IS NULL
---   GROUP BY phone, "organizationId"
---   HAVING COUNT(*) > 1
--- ),
--- old_contact_ids AS (
---   SELECT unnest(ids[1:array_length(ids, 1) - 1]) as old_id, latest_id
---   FROM duplicate_groups
--- )
--- UPDATE "CallLog" cl
--- SET "contactId" = old_contact_ids.latest_id
--- FROM old_contact_ids
--- WHERE cl."contactId" = old_contact_ids.old_id;
+-- 단계 2: CallLog를 최신 Contact로 재지정 (REQUIRED - 필수 실행)
+WITH duplicate_groups AS (
+  SELECT
+    phone, "organizationId",
+    ARRAY_AGG(id ORDER BY "createdAt") as ids,
+    ARRAY_AGG(id ORDER BY "createdAt" DESC LIMIT 1)[1] as latest_id
+  FROM "Contact"
+  WHERE "deletedAt" IS NULL
+  GROUP BY phone, "organizationId"
+  HAVING COUNT(*) > 1
+),
+old_contact_ids AS (
+  SELECT unnest(ids[1:array_length(ids, 1) - 1]) as old_id, latest_id
+  FROM duplicate_groups
+)
+UPDATE "CallLog" cl
+SET "contactId" = old_contact_ids.latest_id
+FROM old_contact_ids
+WHERE cl."contactId" = old_contact_ids.old_id;
 
 
 -- ============================================================================
@@ -94,24 +94,43 @@ WHERE c.id = old_contacts.id;
 
 
 -- ============================================================================
--- SCRIPT 3: 다중 userId 표준화 (같은 phone, 다른 userId → 최신 userId로 통일)
+-- SCRIPT 3: 다중 userId 표준화 (같은 phone, 다른 userId → Contact.createdAt과 가장 가까운 User 선택)
 -- ============================================================================
 WITH multi_user_contacts AS (
   SELECT
-    phone,
-    ARRAY_AGG(DISTINCT "userId" ORDER BY "userId" DESC)[1] as latest_userId
-  FROM "Contact"
+    c.id,
+    c.phone,
+    c."userId",
+    c."createdAt",
+    (
+      SELECT u.id
+      FROM "User" u
+      WHERE u.id IN (
+        SELECT DISTINCT "userId"
+        FROM "Contact"
+        WHERE "deletedAt" IS NULL
+          AND "userId" IS NOT NULL
+          AND phone = c.phone
+      )
+      ORDER BY ABS(EXTRACT(EPOCH FROM (u."createdAt" - c."createdAt"))) ASC
+      LIMIT 1
+    ) as closest_userId
+  FROM "Contact" c
   WHERE "deletedAt" IS NULL
     AND "userId" IS NOT NULL
+),
+multi_user_groups AS (
+  SELECT phone
+  FROM multi_user_contacts
   GROUP BY phone
   HAVING COUNT(DISTINCT "userId") > 1
 )
 UPDATE "Contact" c
-SET "userId" = m.latest_userId, "updatedAt" = NOW()
+SET "userId" = m.closest_userId, "updatedAt" = NOW()
 FROM multi_user_contacts m
-WHERE c.phone = m.phone
-  AND c."userId" IS NOT NULL
-  AND c."userId" != m.latest_userId;
+WHERE c.id = m.id
+  AND c.phone IN (SELECT phone FROM multi_user_groups)
+  AND c."userId" != m.closest_userId;
 
 -- 예상: 위의 분석 쿼리 6에서 찾은 다중 userId 레코드들
 
