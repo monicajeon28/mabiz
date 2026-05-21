@@ -107,16 +107,16 @@ export async function GET(req: Request, { params }: Params) {
       period,
       costs: {
         smsSent: campaignCost.smsSent,
-        smsRate: campaignCost.smsRateCurrent,
-        smsCost: campaignCost.smsCostTotal,
+        smsRate: campaignCost.smsRateCurrent?.toNumber() ?? 0,
+        smsCost: campaignCost.smsCostTotal?.toNumber() ?? 0,
         emailSent: campaignCost.emailSent,
-        emailRate: campaignCost.emailRateCurrent,
-        emailCost: campaignCost.emailCostTotal,
-        actualCostTotal: campaignCost.actualCostTotal,
+        emailRate: campaignCost.emailRateCurrent?.toNumber() ?? 0,
+        emailCost: campaignCost.emailCostTotal?.toNumber() ?? 0,
+        actualCostTotal: campaignCost.actualCostTotal?.toNumber() ?? 0,
       },
       performance: {
         successCount: campaignCost.successCount,
-        costPerSuccess: campaignCost.costPerSuccess,
+        costPerSuccess: campaignCost.costPerSuccess?.toNumber() ?? 0,
         estimatedRoi: campaignCost.estimatedRoi,
       },
     };
