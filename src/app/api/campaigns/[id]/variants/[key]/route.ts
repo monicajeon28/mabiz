@@ -153,11 +153,11 @@ export async function PATCH(
       variant: updated,
     });
   } catch (error) {
-    logger.error(
-      '[PATCH /variants/[key]] Unexpected error',
-      error,
-      { campaignId: resolvedParams.id, key: resolvedParams.key }
-    );
+    logger.error('[PATCH /variants/[key]] Unexpected error', {
+      error: error instanceof Error ? error.message : String(error),
+      campaignId: resolvedParams.id,
+      key: resolvedParams.key,
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -262,11 +262,11 @@ export async function DELETE(
       throw deleteError;
     }
   } catch (error) {
-    logger.error(
-      '[DELETE /variants/[key]] Unexpected error',
-      error,
-      { campaignId: resolvedParams.id, key: resolvedParams.key }
-    );
+    logger.error('[DELETE /variants/[key]] Unexpected error', {
+      error: error instanceof Error ? error.message : String(error),
+      campaignId: resolvedParams.id,
+      key: resolvedParams.key,
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
