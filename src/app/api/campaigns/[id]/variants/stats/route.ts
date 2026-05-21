@@ -61,13 +61,11 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
   try {
     // 1. 인증 확인
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
-
-    // params가 Promise인 경우 await
-    const resolvedParams = await params;
 
     // 2. IDOR 방지: Campaign의 organizationId 확인
     const campaign = await prisma.crmMarketingCampaign.findUnique({
