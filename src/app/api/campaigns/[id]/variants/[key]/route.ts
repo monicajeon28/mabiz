@@ -25,13 +25,11 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; key: string }> }
 ) {
+  const resolvedParams = await params;
   try {
     // 1. 인증 확인
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
-
-    // params가 Promise 인 경우 await
-    const resolvedParams = await params;
 
     // 2. IDOR 방지: Campaign의 organizationId 확인
     const campaign = await prisma.crmMarketingCampaign.findUnique({
@@ -179,13 +177,11 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; key: string }> }
 ) {
+  const resolvedParams = await params;
   try {
     // 1. 인증 확인
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
-
-    // params가 Promise인 경우 await
-    const resolvedParams = await params;
 
     // 2. IDOR 방지
     const campaign = await prisma.crmMarketingCampaign.findUnique({
