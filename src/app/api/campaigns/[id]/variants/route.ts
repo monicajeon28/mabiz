@@ -34,13 +34,11 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
   try {
     // 1. 인증 확인
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
-
-    // params가 Promise인 경우 await
-    const resolvedParams = await params;
 
     // 2. IDOR 방지: Campaign의 organizationId 확인
     const campaign = await prisma.crmMarketingCampaign.findUnique({
@@ -97,7 +95,8 @@ export async function GET(
       total: variants.length,
     });
   } catch (error) {
-    logger.error('[GET /variants] Unexpected error', error, {
+    logger.error('[GET /variants] Unexpected error', {
+      error: error instanceof Error ? error.message : String(error),
       campaignId: resolvedParams.id,
     });
     return NextResponse.json(
@@ -128,13 +127,11 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
   try {
     // 1. 인증 확인
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
-
-    // params가 Promise인 경우 await
-    const resolvedParams = await params;
 
     // 2. IDOR 방지 + 캠페인 상태 확인
     const campaign = await prisma.crmMarketingCampaign.findUnique({
@@ -248,11 +245,10 @@ export async function POST(
       { status: 201 }
     );
   } catch (error) {
-    logger.error(
-      '[POST /variants] Unexpected error',
-      error,
-      { campaignId: resolvedParams.id }
-    );
+    logger.error('[POST /variants] Unexpected error', {
+      error: error instanceof Error ? error.message : String(error),
+      campaignId: resolvedParams.id,
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
