@@ -20,7 +20,7 @@ import { logger } from '@/lib/logger';
 
 type FeedItem = {
   id: string;
-  type: 'LANDING_REG' | 'SALE_PENDING' | 'GOLD_INQUIRY' | 'B2B_LEAD' | 'NEW_CONTACT' | 'ORG_CONTRACT' | 'CALL_DUE';
+  type: 'LANDING_REG' | 'SALE_PENDING' | 'GOLD_INQUIRY' | 'B2B_LEAD' | 'NEW_CONTACT' | 'ORG_CONTRACT' | 'CALL_DUE' | 'REFUND_NOTIFICATION';
   name: string;
   phone: string | null;
   detail: string | null;
@@ -42,13 +42,14 @@ type RawFeedRow = {
 };
 
 const LINK_PATH: Record<string, string> = {
-  LANDING_REG:  '/contacts',
-  SALE_PENDING: '/affiliate-sales',
-  GOLD_INQUIRY: '/gold-inquiries',
-  B2B_LEAD:     '/b2b',
-  NEW_CONTACT:  '/contacts',
-  ORG_CONTRACT: '/admin/organizations',
-  CALL_DUE:     '/contacts',
+  LANDING_REG:        '/contacts',
+  SALE_PENDING:       '/affiliate-sales',
+  GOLD_INQUIRY:       '/gold-inquiries',
+  B2B_LEAD:           '/b2b',
+  NEW_CONTACT:        '/contacts',
+  ORG_CONTRACT:       '/admin/organizations',
+  CALL_DUE:           '/contacts',
+  REFUND_NOTIFICATION: '/affiliate-sales',
 };
 
 function maskPhone(phone: string | null): string | null {
@@ -172,6 +173,21 @@ export async function GET(req: Request) {
         WHERE o."createdAt" >= ${sinceDate}
       `);
 
+      // ── REFUND_NOTIFICATION (전체) ──
+      parts.push(Prisma.sql`
+        SELECT
+          'REFUND_NOTIFICATION'::text  AS type,
+          an.id::text                  AS id,
+          an.title                     AS name,
+          NULL::text                   AS phone,
+          an.content                   AS detail,
+          (an.metadata ->> 'refundAmount')::bigint AS amount,
+          '/affiliate-sales'::text     AS link_path,
+          an."createdAt"               AS created_at
+        FROM "AdminNotification" an
+        WHERE an."createdAt" >= ${sinceDate}
+      `);
+
       // ── CALL_DUE (오늘 콜 예정) ──
       parts.push(Prisma.sql`
         SELECT
@@ -260,6 +276,22 @@ export async function GET(req: Request) {
           AND c."createdAt" >= ${sinceDate}
       `);
 
+      // ── REFUND_NOTIFICATION (조직 필터) ──
+      parts.push(Prisma.sql`
+        SELECT
+          'REFUND_NOTIFICATION'::text  AS type,
+          an.id::text                  AS id,
+          an.title                     AS name,
+          NULL::text                   AS phone,
+          an.content                   AS detail,
+          (an.metadata ->> 'refundAmount')::bigint AS amount,
+          '/affiliate-sales'::text     AS link_path,
+          an."createdAt"               AS created_at
+        FROM "AdminNotification" an
+        WHERE an."organizationId" = ${orgId}
+          AND an."createdAt" >= ${sinceDate}
+      `);
+
       // ── CALL_DUE (조직 필터, 모든 콜) ──
       parts.push(Prisma.sql`
         SELECT
@@ -332,6 +364,22 @@ export async function GET(req: Request) {
         WHERE c."organizationId" = ${orgId}
           AND c."assignedUserId" = ${ctx.userId}
           AND c."createdAt" >= ${sinceDate}
+      `);
+
+      // ── REFUND_NOTIFICATION (본인이 받은 알림만) ──
+      parts.push(Prisma.sql`
+        SELECT
+          'REFUND_NOTIFICATION'::text  AS type,
+          an.id::text                  AS id,
+          an.title                     AS name,
+          NULL::text                   AS phone,
+          an.content                   AS detail,
+          (an.metadata ->> 'refundAmount')::bigint AS amount,
+          '/affiliate-sales'::text     AS link_path,
+          an."createdAt"               AS created_at
+        FROM "AdminNotification" an
+        WHERE an."userId" = ${ctx.userId}
+          AND an."createdAt" >= ${sinceDate}
       `);
 
       // ── CALL_DUE (본인 콜로그만) ──
