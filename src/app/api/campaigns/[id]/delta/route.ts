@@ -132,7 +132,7 @@ export async function GET(req: Request, { params }: Params) {
     // 통계 계산
     const totalSent = statsRaw.reduce((sum, s) => sum + s._count.id, 0);
     const totalSuccess = statsRaw
-      .filter((s) => s.status === 'SENT' || s.status === 'DELIVERED')
+      .filter((s) => s.status !== 'FAILED' && s.status !== 'SKIPPED' && s.status !== 'ABANDONED')
       .reduce((sum, s) => sum + s._count.id, 0);
     const totalFailure = statsRaw
       .filter((s) => s.status === 'FAILED')
