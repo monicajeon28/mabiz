@@ -4747,3 +4747,12 @@ enum RecaptchaVerificationStatus {
   BLOCKED
   FAILED
 }
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+  SALES
+  PRESALES
+  AGENCY_MANAGER
+  AGENCY_STAFF
+}
