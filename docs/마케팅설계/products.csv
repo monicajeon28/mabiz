@@ -1,0 +1,7 @@
+id,name,category,monthlyPrice,annualPrice,brand,satisfaction,deliveryHours,warranty
+rental_tv_001,렌탈 스마트TV 65인치,TV,49000,588000,삼성,4.8,24,contract_period
+rental_tv_002,렌탈 스마트TV 55인치,TV,39000,468000,삼성,4.8,24,contract_period
+rental_appliance_001,렌탈 공기청정기,가전,29000,348000,LG,4.7,24,contract_period
+rental_appliance_002,렌탈 세탁기,가전,59000,708000,LG,4.9,24,contract_period
+rental_camera_001,렌탈 미러리스 카메라,카메라,79000,948000,소니,4.9,24,contract_period
+rental_notebook_001,렌탈 프리미엄 노트북,노트북,69000,828000,애플,4.8,24,contract_period

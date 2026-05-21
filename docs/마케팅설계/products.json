@@ -1,0 +1,92 @@
+{
+  "products": [
+    {
+      "id": "rental_tv_001",
+      "name": "렌탈 스마트TV 65인치",
+      "category": "TV",
+      "monthlyPrice": 49000,
+      "annualPrice": 588000,
+      "brand": "삼성",
+      "satisfaction": 4.8,
+      "deliveryHours": 24,
+      "warranty": "contract_period",
+      "features": ["4K", "스마트앱", "무료교환"],
+      "objections": {
+        "price": "월 4.9만원 = 년 59만원 vs 구매 150만원",
+        "quality": "정품 삼성 + 2시간 교환",
+        "commitment": "위약금 없음, 언제든 중지"
+      }
+    },
+    {
+      "id": "rental_tv_002",
+      "name": "렌탈 스마트TV 55인치",
+      "category": "TV",
+      "monthlyPrice": 39000,
+      "annualPrice": 468000,
+      "brand": "삼성",
+      "satisfaction": 4.8,
+      "deliveryHours": 24,
+      "warranty": "contract_period",
+      "features": ["4K", "스마트앱", "무료교환"],
+      "objections": {
+        "price": "월 3.9만원 = 년 47만원 vs 구매 100만원",
+        "quality": "정품 삼성 + 2시간 교환",
+        "commitment": "위약금 없음, 언제든 중지"
+      }
+    },
+    {
+      "id": "rental_appliance_001",
+      "name": "렌탈 공기청정기",
+      "category": "가전",
+      "monthlyPrice": 29000,
+      "annualPrice": 348000,
+      "brand": "LG",
+      "satisfaction": 4.7,
+      "deliveryHours": 24,
+      "warranty": "contract_period",
+      "features": ["정품", "필터교체 무료", "AS 무료"]
+    },
+    {
+      "id": "rental_appliance_002",
+      "name": "렌탈 세탁기",
+      "category": "가전",
+      "monthlyPrice": 59000,
+      "annualPrice": 708000,
+      "brand": "LG",
+      "satisfaction": 4.9,
+      "deliveryHours": 24,
+      "warranty": "contract_period",
+      "features": ["AI 세제량 자동조절", "무료배송", "AS 무료"]
+    },
+    {
+      "id": "rental_camera_001",
+      "name": "렌탈 미러리스 카메라",
+      "category": "카메라",
+      "monthlyPrice": 79000,
+      "annualPrice": 948000,
+      "brand": "소니",
+      "satisfaction": 4.9,
+      "deliveryHours": 24,
+      "warranty": "contract_period",
+      "features": ["정품", "렌즈교환 무료", "보험 포함"]
+    },
+    {
+      "id": "rental_notebook_001",
+      "name": "렌탈 프리미엄 노트북",
+      "category": "노트북",
+      "monthlyPrice": 69000,
+      "annualPrice": 828000,
+      "brand": "애플",
+      "satisfaction": 4.8,
+      "deliveryHours": 24,
+      "warranty": "contract_period",
+      "features": ["M2칩셋", "무료보증", "업그레이드 자유"]
+    }
+  ],
+  "metadata": {
+    "lastUpdated": "2026-05-21T00:00:00Z",
+    "version": "1.0",
+    "currency": "KRW",
+    "timezone": "Asia/Seoul"
+  }
+}
