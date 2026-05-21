@@ -98,7 +98,7 @@ export async function GET(
       _count: { id: true },
     });
 
-    logger.debug('[GET /variants/stats] Raw stats', { stats });
+    logger.log('[GET /variants/stats] Raw stats', { stats });
 
     // 4. Variant별 발송/성공/실패 계산
     const variantData: Record<
@@ -143,7 +143,7 @@ export async function GET(
       data.successRate = calculateSuccessRate(data.success, data.sent);
     });
 
-    logger.debug('[GET /variants/stats] Computed variants', { variantData });
+    logger.log('[GET /variants/stats] Computed variants', { variantData });
 
     // 6. A/B 비교 (두 Variant이 모두 있을 경우만)
     const variantA = variantData['A'];
