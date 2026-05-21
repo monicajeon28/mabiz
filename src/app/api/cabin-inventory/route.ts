@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
           departureDate: c.departureDate?.toISOString() ?? null,
           shipName: c.shipName,
           organizationId: c.organizationId,
-          organizationName: c.organization.name,
+          organizationName: null,
           cabins: [],
         });
       }

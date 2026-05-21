@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { logger } from '@/lib/logger';
 import { getPendingDLQEntries, resolveDLQ, failDLQ } from '@/lib/mabiz-dlq';
 
@@ -17,7 +18,12 @@ export async function GET(req: Request) {
       logger.warn('[CronDLQ] CRON_SECRET 미설정');
       return NextResponse.json({ ok: false }, { status: 500 });
     }
-    if (auth !== `Bearer ${secret}`) {
+    const expectedSecret = Buffer.from(`Bearer ${secret}`);
+    const providedSecret = Buffer.from(auth);
+    if (
+      expectedSecret.length !== providedSecret.length ||
+      !timingSafeEqual(expectedSecret, providedSecret)
+    ) {
       return NextResponse.json({ ok: false }, { status: 401 });
     }
   }
@@ -81,7 +87,7 @@ function getWebhookSecret(webhookType: string): string | undefined {
     'gold-inquiry': process.env.MABIZ_GOLD_INQUIRY_WEBHOOK_SECRET,
     'partner-signup': process.env.MABIZ_PARTNER_SIGNUP_WEBHOOK_SECRET,
     'cruise-purchase': process.env.MABIZ_PURCHASE_WEBHOOK_SECRET,
-    'payapp': process.env.MABIZ_PURCHASE_WEBHOOK_SECRET,
+    'payapp': process.env.MABIZ_PAYAPP_WEBHOOK_SECRET,
   };
   return map[webhookType];
 }

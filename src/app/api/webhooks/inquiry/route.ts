@@ -45,18 +45,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: 'phone, name 필수' }, { status: 400 });
   }
 
-  // eventId 멱등성 체크 (중복 수신 방지)
-  if (eventId) {
-    const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
-      where: { eventId },
-      select: { eventId: true },
-    });
-    if (alreadyProcessed) {
-      logger.log('[InquiryWebhook] 중복 이벤트 무시', { eventId });
-      return NextResponse.json({ ok: true, duplicate: true });
-    }
-  }
-
   logger.log('[InquiryWebhook] 수신', { phone: phone.slice(0, 4) + '***', inquiryType });
 
   // 1. organizationId 결정 (findFirst 제거 — 비결정적 배정 방지)
@@ -80,6 +68,18 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await prisma.$transaction(async (tx) => {
+      // eventId 멱등성 체크 (Transaction 내부 — TOCTOU 방지)
+      if (eventId) {
+        const alreadyProcessed = await tx.processedWebhookEvent.findUnique({
+          where: { eventId },
+          select: { eventId: true },
+        });
+        if (alreadyProcessed) {
+          logger.log('[InquiryWebhook] 중복 이벤트 무시', { eventId });
+          return { duplicate: true, contactId: '', created: false };
+        }
+      }
+
       const existing = await tx.contact.findUnique({
         where: { phone_organizationId: { phone: normalizedPhone, organizationId } },
         select: { id: true, type: true, leadScore: true },
@@ -136,7 +136,15 @@ export async function POST(req: NextRequest) {
       }
 
       return { contactId, created };
+    }, {
+      isolationLevel: 'Serializable',
+      timeout: 30000,
     });
+
+    if (result.duplicate) {
+      logger.log('[InquiryWebhook] 중복 처리됨');
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
 
     logger.log('[InquiryWebhook] 완료', { contactId: result.contactId, created: result.created });
     return NextResponse.json({ ok: true });

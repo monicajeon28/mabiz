@@ -45,18 +45,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: 'phone, name 필수' }, { status: 400 });
   }
 
-  // eventId 멱등성 체크 (1단계와 2단계는 다른 eventId를 보내야 함)
-  if (eventId) {
-    const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
-      where: { eventId },
-      select: { eventId: true },
-    });
-    if (alreadyProcessed) {
-      logger.log('[PurchaseWebhook] 중복 이벤트 무시', { eventId });
-      return NextResponse.json({ ok: true, duplicate: true });
-    }
-  }
-
   try {
     // ── organizationId 결정 ──
     let resolvedOrgId = organizationId as string | undefined;
@@ -131,6 +119,18 @@ export async function POST(req: NextRequest) {
     });
 
     const contact = await prisma.$transaction(async (tx) => {
+      // eventId 멱등성 체크 (1단계와 2단계는 다른 eventId를 보내야 함, Transaction 내부 — TOCTOU 방지)
+      if (eventId) {
+        const alreadyProcessed = await tx.processedWebhookEvent.findUnique({
+          where: { eventId },
+          select: { eventId: true },
+        });
+        if (alreadyProcessed) {
+          logger.log('[PurchaseWebhook] 중복 이벤트 무시', { eventId });
+          throw new Error('DUPLICATE_EVENT');
+        }
+      }
+
       // Contact upsert
       const upsertedContact = await tx.contact.upsert({
         where: { phone_organizationId: { phone: normalizedPhone, organizationId: resolvedOrgId } },
@@ -232,6 +232,9 @@ export async function POST(req: NextRequest) {
       }
 
       return upsertedContact;
+    }, {
+      isolationLevel: 'Serializable',
+      timeout: 30000,
     });
 
     // VIP 그룹 자동 배정 + 퍼널 트리거
@@ -263,6 +266,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, contactId: contact.id, funnelStarted });
   } catch (err) {
+    // 중복 이벤트는 성공으로 응답 (멱등성)
+    if (err instanceof Error && err.message === 'DUPLICATE_EVENT') {
+      logger.log('[PurchaseWebhook] 중복 처리됨 (멱등성)');
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
     logger.error('[PurchaseWebhook] 처리 실패', { err });
     await enqueueDLQ('purchase', body, err instanceof Error ? err.message : String(err)).catch(() => {});
     return NextResponse.json({ ok: false, message: '처리 실패' }, { status: 500 });
