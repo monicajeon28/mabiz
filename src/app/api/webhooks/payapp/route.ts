@@ -415,7 +415,8 @@ export async function POST(req: Request) {
     return new Response("SUCCESS");
   } catch (err) {
     logger.error("[PayApp Webhook] 처리 실패", { err });
-    await enqueueDLQ("payapp", { body: "form-data" }, err instanceof Error ? err.message : String(err)).catch(() => {});
+    const payloadObj = Object.fromEntries(params);
+    await enqueueDLQ("payapp", payloadObj, err instanceof Error ? err.message : String(err), "form-data").catch(() => {});
     return new Response("FAIL", { status: 500 });
   }
 }

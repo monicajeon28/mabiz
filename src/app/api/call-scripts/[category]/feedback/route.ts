@@ -42,7 +42,7 @@ export async function POST(
 
     // 현재는 로그만 기록
     console.log("[CallScriptFeedback]", {
-      userId: session.user.id,
+      userId: session.userId,
       category,
       phase,
       segment,

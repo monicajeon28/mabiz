@@ -60,14 +60,35 @@ export async function GET(req: Request) {
         continue;
       }
 
-      const res = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${webhookSecret}`,
-        },
-        body: JSON.stringify(entry.payload),
-      });
+      let res: Response;
+
+      if ((entry as unknown as { format?: string }).format === 'form-data') {
+        // form-data 복원 (PayApp 전용)
+        const formData = new URLSearchParams();
+        const payloadObj = entry.payload as Record<string, string | number | boolean>;
+        Object.entries(payloadObj).forEach(([key, value]) => {
+          formData.append(key, String(value));
+        });
+
+        res = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': `Bearer ${webhookSecret}`,
+          },
+          body: formData.toString(),
+        });
+      } else {
+        // JSON (기본)
+        res = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${webhookSecret}`,
+          },
+          body: JSON.stringify(entry.payload),
+        });
+      }
 
       if (res.ok) {
         await resolveDLQ(entry.id);

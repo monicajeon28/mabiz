@@ -11,18 +11,20 @@ export async function enqueueDLQ(
   webhookType: string,
   payload: unknown,
   failureReason: string,
+  format: 'json' | 'form-data' = 'json',
 ): Promise<string> {
   const entry = await prisma.mabizSyncDLQ.create({
     data: {
       webhookType,
       payload: payload as object,
       failureReason,
+      format,
       retryCount: 0,
       maxRetries: 3,
       nextRetryAt: new Date(Date.now() + RETRY_DELAYS_MIN[0] * 60_000),
     },
   });
-  logger.warn('[DLQ] 엔큐', { id: entry.id, webhookType, failureReason });
+  logger.warn('[DLQ] 엔큐', { id: entry.id, webhookType, format, failureReason });
   return entry.id;
 }
 

@@ -1199,6 +1199,7 @@ model MabizSyncDLQ {
   webhookType   String
   payload       Json
   failureReason String
+  format        String    @default("json") @db.VarChar(20)
   retryCount    Int       @default(0)
   maxRetries    Int       @default(3)
   nextRetryAt   DateTime?
@@ -1214,6 +1215,7 @@ model MabizSyncDLQ {
   @@index([resolvedAt])
   @@index([retryCount, nextRetryAt])
   @@index([syncType])
+  @@index([format, resolvedAt])
   @@map("MabizSyncDLQ")
 }
 
