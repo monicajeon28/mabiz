@@ -1,0 +1,3 @@
+-- Rolled back migration placeholder
+-- This migration had issues and was rolled back
+-- The lens schema tables will be managed separately

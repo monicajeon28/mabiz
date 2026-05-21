@@ -7,7 +7,7 @@ export async function POST(
 ) {
   try {
     const session = await getMabizSession();
-    if (!session?.user?.id) {
+    if (!session?.userId) {
       return NextResponse.json(
         { ok: false, error: "Unauthorized" },
         { status: 401 }

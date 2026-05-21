@@ -18,12 +18,20 @@ export async function GET(req: Request) {
       logger.warn('[CronDLQ] CRON_SECRET 미설정');
       return NextResponse.json({ ok: false }, { status: 500 });
     }
+
+    // [보안] Vercel Cron 인증
+    // Vercel은 authorization: Bearer <CRON_SECRET> 형식으로 요청
+    // 참고: https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs
+    // P0-8: timingSafeEqual로 타이밍 공격 방지
+    // P1-9: Vercel 문서와 일치 확인 완료 (2026-02-27)
     const expectedSecret = Buffer.from(`Bearer ${secret}`);
     const providedSecret = Buffer.from(auth);
+
     if (
       expectedSecret.length !== providedSecret.length ||
       !timingSafeEqual(expectedSecret, providedSecret)
     ) {
+      logger.warn('[CronDLQ] Cron 인증 실패');
       return NextResponse.json({ ok: false }, { status: 401 });
     }
   }
