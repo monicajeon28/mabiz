@@ -8,12 +8,20 @@
  * - Race Condition 방지 (PROCESSING 상태 잠금)
  * - affiliateCode/linkCode 충돌 재시도 (최대 5회)
  * - OrganizationMember 생성 (CRM 로그인 가능)
+ *
+ * Phase 4 수정:
+ * - partnerId 자동 생성 (boss1, boss2... / sales1, sales2...)
+ * - 비밀번호 1101로 통일 (GMcruise 동기화)
+ * - Neon + Supabase 자동 동기화
  */
 
 import prisma from '@/lib/prisma';
 import { hashPassword } from '@/lib/password';
 import { logger } from '@/lib/logger';
 import { randomBytes } from 'crypto';
+import pg from 'pg';
+
+const { Client: PgClient } = pg;
 
 export interface ProvisionResult {
   manager: {
@@ -64,26 +72,25 @@ export async function provisionAffiliateAccounts(
     throw new Error('NEXT_PUBLIC_APP_URL 환경변수가 설정되지 않았습니다.');
   }
 
-  // 비밀번호 생성 — 트랜잭션 외부에서 미리 (bcrypt는 CPU 집약적)
-  const managerPassword = generateSecurePassword();
-  const agentPassword = generateSecurePassword();
-
-  const [managerHash, agentHash] = await Promise.all([
-    hashPassword(managerPassword),
-    hashPassword(agentPassword),
-  ]);
+  // Phase 4: 비밀번호 1101로 통일 (GMcruise 동기화)
+  const sharedPassword = '1101';
+  const passwordHash = await hashPassword(sharedPassword);
 
   // 단일 트랜잭션 — 전부 성공 or 전부 롤백
   const result = await prisma.$transaction(async (tx) => {
     const ts = randomBytes(4).toString('hex'); // 유니크 식별자 (Date.now 충돌 방지)
+
+    // Phase 4: partnerId 자동 생성 (boss1, boss2... / sales1, sales2...)
+    const managerPartnerId = await generateUniquePartnerId('boss', tx);
+    const agentPartnerId = await generateUniquePartnerId('sales', tx);
 
     // ── 1. GmUser (GMcruise 포털 계정) ──────────────────────────
     const managerGmUser = await tx.gmUser.create({
       data: {
         name: `${contractorName} 대리점장`,
         email: contractorEmail || null,
-        phone: contractorPhone || null,
-        password: managerHash,
+        phone: managerPartnerId, // Phase 4: partnerId를 phone에 저장
+        password: passwordHash,
         role: 'affiliate_manager',
         isPasswordSet: true,
       },
@@ -92,9 +99,9 @@ export async function provisionAffiliateAccounts(
     const agentGmUser = await tx.gmUser.create({
       data: {
         name: `${contractorName} 판매원`,
-        email: null, // 판매원 이메일은 별도 입력 (추후)
-        phone: contractorPhone || null,
-        password: agentHash,
+        email: null,
+        phone: agentPartnerId, // Phase 4: partnerId를 phone에 저장
+        password: passwordHash,
         role: 'affiliate_agent',
         isPasswordSet: true,
       },
@@ -231,19 +238,87 @@ export async function provisionAffiliateAccounts(
     };
   });
 
+  // Phase 4: Supabase 자동 동기화 (백업)
+  try {
+    const supabaseUrl = process.env.SUPABASE_BACKUP_URL;
+    if (supabaseUrl) {
+      const supabaseClient = new PgClient({ connectionString: supabaseUrl });
+      await supabaseClient.connect();
+
+      // Manager 동기화
+      await supabaseClient.query(`
+        INSERT INTO "User" (
+          id, phone, password, name, role, email, "mallUserId", "isLocked",
+          "createdAt", "updatedAt"
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+        ON CONFLICT (id) DO UPDATE SET
+          phone = $2, password = $3, name = $4, role = $5, email = $6,
+          "isLocked" = $8, "updatedAt" = NOW()
+      `, [
+        result.manager.gmUserId,
+        `${contractorName}-대리점장`, // partnerId
+        passwordHash,
+        `${contractorName} 대리점장`,
+        'community',
+        contractorEmail || null,
+        null,
+        false,
+      ]);
+
+      // Agent 동기화
+      await supabaseClient.query(`
+        INSERT INTO "User" (
+          id, phone, password, name, role, email, "mallUserId", "isLocked",
+          "createdAt", "updatedAt"
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+        ON CONFLICT (id) DO UPDATE SET
+          phone = $2, password = $3, name = $4, role = $5, email = $6,
+          "isLocked" = $8, "updatedAt" = NOW()
+      `, [
+        result.agent.gmUserId,
+        `${contractorName}-판매원`, // partnerId
+        passwordHash,
+        `${contractorName} 판매원`,
+        'community',
+        null,
+        null,
+        false,
+      ]);
+
+      await supabaseClient.end();
+      logger.log('[AFFILIATE-PROVISION] Supabase 동기화 완료', {
+        managerGmUserId: result.manager.gmUserId,
+        agentGmUserId: result.agent.gmUserId,
+      });
+    }
+  } catch (err) {
+    logger.warn('[AFFILIATE-PROVISION] Supabase 동기화 실패 (계속 진행)', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   return {
     ...result,
-    // 비밀번호는 여기서만 반환 — API 응답에 절대 포함 금지
-    // SMS/이메일 발송 후 즉시 폐기
-    managerTempPassword: managerPassword,
-    agentTempPassword: agentPassword,
+    managerTempPassword: sharedPassword,
+    agentTempPassword: sharedPassword,
   };
 }
 
 // ── 내부 유틸 ────────────────────────────────────────────────────
 
-function generateSecurePassword(): string {
-  return randomBytes(10).toString('hex'); // 20글자 hex
+// Phase 4: partnerId 자동 생성 (boss1, boss2... / sales1, sales2...)
+async function generateUniquePartnerId(
+  prefix: 'boss' | 'sales',
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+): Promise<string> {
+  for (let i = 1; i <= 9999; i++) {
+    const partnerId = `${prefix}${i}`;
+    const exists = await tx.gmUser.findUnique({
+      where: { phone: partnerId },
+    });
+    if (!exists) return partnerId;
+  }
+  throw new Error(`${prefix} partnerId 생성 실패: 9999개 초과`);
 }
 
 async function generateUniqueAffiliateCode(
