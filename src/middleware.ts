@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { validateSessionInMiddleware } from '@/lib/middleware-auth';
+import { checkPathAccess, getRedirectForPath } from '@/src/lib/route-rules';
+import { AuthRole } from '@/src/types/auth-headers';
 
 // Constants
 const MABIZ_SESSION_COOKIE = 'mabiz.sid';
@@ -114,17 +116,27 @@ export async function middleware(request: NextRequest) {
         return response;
       }
 
-      // Check admin-only routes
-      if (isAdminRoute(pathname) && sessionData.role !== 'GLOBAL_ADMIN') {
-        logger.warn('[Middleware] Insufficient permissions for admin route', {
+      // ✅ Phase 3 Update: Use centralized route rules for access control
+      const authRole = (sessionData.role || 'UNKNOWN') as AuthRole;
+      const hasAccess = checkPathAccess(pathname, authRole);
+
+      if (!hasAccess) {
+        const redirectUrl = getRedirectForPath(pathname, authRole);
+        logger.warn('[Middleware] Insufficient permissions (route-rules)', {
           pathname,
           method,
-          role: sessionData.role,
+          role: authRole,
           userId: sessionData.adminId || 'member',
+          redirectTo: redirectUrl,
         });
-        // Return 403 Forbidden
+
+        // Redirect or return 403
+        if (redirectUrl) {
+          return NextResponse.redirect(new URL(redirectUrl, request.url));
+        }
+
         return NextResponse.json(
-          { error: 'FORBIDDEN: Admin access required' },
+          { error: 'FORBIDDEN: Insufficient permissions' },
           { status: 403 }
         );
       }
@@ -136,10 +148,10 @@ export async function middleware(request: NextRequest) {
       requestHeaders.set('x-org-id', sessionData.organizationId || '');
       requestHeaders.set('x-is-admin', (sessionData.role === 'GLOBAL_ADMIN').toString());
 
-      logger.log('[Middleware] Auth headers injected', {
+      logger.log('[Middleware] Auth headers injected (route-rules validated)', {
         pathname,
-        role: sessionData.role,
-        isAdmin: sessionData.role === 'GLOBAL_ADMIN',
+        role: authRole,
+        isAdmin: authRole === 'GLOBAL_ADMIN',
       });
 
       return NextResponse.next({
