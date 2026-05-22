@@ -77,6 +77,7 @@ export async function GET(req: Request): Promise<NextResponse<FailuresResponse>>
           organizationId: orgId,
           campaignId,
           status: statusFilter as any, // SendingStatus enum
+        },
         select: {
           id: true,
           contactId: true,
@@ -95,7 +96,13 @@ export async function GET(req: Request): Promise<NextResponse<FailuresResponse>>
         take: limit,
         skip: offset,
       }),
-      prisma.sendingHistory.count({ where }),
+      prisma.sendingHistory.count({
+        where: {
+          organizationId: orgId,
+          campaignId,
+          status: statusFilter as any,
+        },
+      }),
     ]);
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
