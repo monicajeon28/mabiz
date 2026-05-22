@@ -31,9 +31,9 @@ export async function GET(req: Request) {
     const filterStatus = status && validStatuses.includes(status) ? status : null;
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // 2. 발송 이력 조회 (최신순, 관계 포함)
+    // 2. 발송 이력 조회 (최신순)
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    const where = {
+    const where: any = {
       organizationId: orgId,
       ...(filterStatus && { status: filterStatus }),
     };
@@ -41,21 +41,20 @@ export async function GET(req: Request) {
     const [histories, total] = await Promise.all([
       prisma.sendingHistory.findMany({
         where,
-        include: {
-          contact: {
-            select: {
-              id: true,
-              name: true,
-              phone: true,
-              email: true,
-            },
-          },
-          campaign: {
-            select: {
-              id: true,
-              title: true,
-            },
-          },
+        select: {
+          id: true,
+          contactId: true,
+          campaignId: true,
+          channel: true,
+          status: true,
+          sentAt: true,
+          failureReason: true,
+          failureUserMsg: true,
+          retryCount: true,
+          maxRetries: true,
+          createdAt: true,
+          phone: true,
+          email: true,
         },
         orderBy: { createdAt: 'desc' },
         take: limit,
@@ -64,21 +63,47 @@ export async function GET(req: Request) {
       prisma.sendingHistory.count({ where }),
     ]);
 
+    // Contact와 Campaign 정보 조회 (필요한 경우)
+    const contactIds = Array.from(new Set(histories.map((h) => h.contactId).filter(Boolean)));
+    const campaignIds = Array.from(new Set(histories.map((h) => h.campaignId).filter(Boolean)));
+
+    const [contacts, campaigns] = await Promise.all([
+      contactIds.length > 0
+        ? prisma.contact.findMany({
+            where: { id: { in: contactIds } },
+            select: { id: true, name: true, phone: true, email: true },
+          })
+        : Promise.resolve([]),
+      campaignIds.length > 0
+        ? prisma.crmMarketingCampaign.findMany({
+            where: { id: { in: campaignIds } },
+            select: { id: true, title: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const contactMap = new Map(contacts.map((c) => [c.id, c]));
+    const campaignMap = new Map(campaigns.map((c) => [c.id, c]));
+
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // 3. 응답 직렬화
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     const serialized = histories.map((h) => ({
       id: h.id,
-      contact: h.contact,
-      campaign: h.campaign,
+      contactId: h.contactId,
+      contact: h.contactId ? contactMap.get(h.contactId) : null,
+      campaignId: h.campaignId,
+      campaign: h.campaignId ? campaignMap.get(h.campaignId) : null,
       channel: h.channel,
       status: h.status,
-      sentAt: h.sentAt,
+      sentAt: h.sentAt?.toISOString(),
       failureReason: h.failureReason,
       failureUserMsg: h.failureUserMsg,
       retryCount: h.retryCount,
       maxRetries: h.maxRetries,
-      createdAt: h.createdAt,
+      createdAt: h.createdAt?.toISOString(),
+      phone: h.phone,
+      email: h.email,
     }));
 
     logger.log('[GET /api/campaigns/sending-history]', {
