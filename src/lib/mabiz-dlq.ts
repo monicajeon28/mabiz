@@ -254,14 +254,32 @@ async function retryDLQEntry(entry: Awaited<ReturnType<typeof getPendingDLQEntri
 
     if (res.ok) {
       await resolveDLQ(entry.id);
+      logger.log('[CronDLQ] 성공', {
+        id: entry.id,
+        webhookType: entry.webhookType,
+        retryAttempt: entry.retryCount + 1,
+      });
       return { success: true };
     } else {
       const text = await res.text().catch(() => 'unknown');
       await failDLQ(entry.id, entry.retryCount, `HTTP ${res.status}: ${text.slice(0, 200)}`);
+      logger.error('[CronDLQ] 실패', {
+        id: entry.id,
+        webhookType: entry.webhookType,
+        httpStatus: res.status,
+        retryAttempt: entry.retryCount + 1,
+        failureReason: text.slice(0, 200),
+      });
       return { success: false };
     }
   } catch (err) {
     await failDLQ(entry.id, entry.retryCount, String(err));
+    logger.error('[CronDLQ] 예외', {
+      id: entry.id,
+      webhookType: entry.webhookType,
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    });
     return { success: false };
   }
 }

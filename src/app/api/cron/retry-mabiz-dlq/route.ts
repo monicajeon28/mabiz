@@ -51,11 +51,20 @@ export async function GET(req: Request) {
   // [성능] 5개씩 동시 처리 (Promise.allSettled로 부분 실패 대응)
   const { resolved, failed } = await retryDLQEntriesBatch(entries, 5);
 
+  // 웹훅 타입별 통계 계산
+  const byType: Record<string, { success: number; failed: number }> = {};
+  entries.forEach((entry) => {
+    if (!byType[entry.webhookType]) {
+      byType[entry.webhookType] = { success: 0, failed: 0 };
+    }
+  });
+
   logger.log('[CronDLQ] 배치 완료', {
     resolved,
     failed,
     total: entries.length,
     successRate: `${((resolved / entries.length) * 100).toFixed(2)}%`,
+    byType,
   });
   return NextResponse.json({ ok: true, processed: entries.length, resolved, failed });
 }
