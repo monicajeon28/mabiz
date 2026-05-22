@@ -1,8 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Users, GitBranch, Settings, ArrowRight, Zap, Upload, Loader2 } from "lucide-react";
+import { Plus, Users, ArrowRight, Upload } from "lucide-react";
 import { showError } from "@/components/ui/Toast";
+import { GroupForm } from "@/components/groups/GroupForm";
+import { GroupCard } from "@/components/groups/GroupCard";
+import { BlastPanel } from "@/components/groups/BlastPanel";
+import { RegionalSetup } from "@/components/groups/RegionalSetup";
+import { ImportModal } from "@/components/groups/ImportModal";
+import { logger } from "@/lib/logger";
 
 type Group = {
   id: string;
@@ -278,11 +284,6 @@ export default function GroupsPage() {
     }
   };
 
-  const COLOR_OPTIONS = [
-    "#1E2D4E", "#C9A84C", "#10B981", "#3B82F6",
-    "#8B5CF6", "#EF4444", "#F59E0B", "#6B7280",
-  ];
-
   return (
     <>
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
@@ -344,24 +345,11 @@ export default function GroupsPage() {
         </p>
       </div>
 
-      {/* 지역 그룹 초기 설정 */}
-      <div className="mb-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
-        <p className="text-sm font-semibold text-blue-800 mb-1">📍 지역별 관심 그룹 자동 설정</p>
-        <p className="text-xs text-blue-600 mb-3">8개 지역 그룹 + 12주 SMS 퍼널을 한 번에 생성합니다</p>
-        <button
-          onClick={initRegionalGroups}
-          disabled={setupLoading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-        >
-          {setupLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-          {setupLoading ? '생성 중...' : '🚀 지역 그룹 초기화'}
-        </button>
-        {setupMsg && (
-          <p className={`text-xs mt-2 ${setupMsg.includes('이미') ? 'text-gray-500' : setupMsg.includes('실패') || setupMsg.includes('오류') ? 'text-red-600' : 'text-green-600'}`}>
-            {setupMsg}
-          </p>
-        )}
-      </div>
+      <RegionalSetup
+        loading={setupLoading}
+        setupMsg={setupMsg}
+        onSetup={initRegionalGroups}
+      />
 
       {/* 가져오기 모달 */}
       {showImport && (
@@ -374,118 +362,18 @@ export default function GroupsPage() {
 
       {/* 새 그룹 폼 */}
       {showNew && (
-        <div className="bg-white border border-gold-300 rounded-xl p-5 mb-4 shadow-sm">
-          <h3 className="font-semibold text-gray-900 mb-4">새 그룹 만들기</h3>
-          <div className="space-y-3">
-            <div>
-              <label htmlFor="group-name" className="block text-sm font-medium text-gray-700 mb-1">그룹 이름 *</label>
-              <input
-                id="group-name"
-                type="text"
-                value={form.name}
-                onChange={(e) => { setForm({ ...form, name: e.target.value }); setFieldErrors({ ...fieldErrors, name: '' }); }}
-                placeholder="예: 지중해 관심 고객"
-                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
-                  fieldErrors.name ? 'border-red-500 focus:border-red-500' : 'border-gray-200 focus:border-gold-500'
-                }`}
-                aria-invalid={!!fieldErrors.name}
-                aria-describedby={fieldErrors.name ? "error-name" : undefined}
-              />
-              {fieldErrors.name && (
-                <p id="error-name" className="text-base text-red-600 mt-2 font-medium bg-red-50 p-2 rounded">⚠️ {fieldErrors.name}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="group-description" className="block text-sm font-medium text-gray-700 mb-1">설명</label>
-              <input
-                id="group-description"
-                type="text"
-                value={form.description}
-                onChange={(e) => { setForm({ ...form, description: e.target.value }); setFieldErrors({ ...fieldErrors, description: '' }); }}
-                placeholder="이 그룹에 대한 간단한 설명"
-                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
-                  fieldErrors.description ? 'border-red-500 focus:border-red-500' : 'border-gray-200 focus:border-gold-500'
-                }`}
-                aria-invalid={!!fieldErrors.description}
-                aria-describedby={fieldErrors.description ? "error-description" : undefined}
-              />
-              {fieldErrors.description && (
-                <p id="error-description" className="text-base text-red-600 mt-2 font-medium bg-red-50 p-2 rounded">⚠️ {fieldErrors.description}</p>
-              )}
-            </div>
-
-            {/* 색상 선택 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">색상</label>
-              <div className="flex gap-2">
-                {COLOR_OPTIONS.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => { setForm({ ...form, color: c }); setFieldErrors({ ...fieldErrors, color: '' }); }}
-                    className={`w-7 h-7 rounded-full transition-transform ${form.color === c ? "scale-125 ring-2 ring-offset-1 ring-gray-400" : ""}`}
-                    style={{ backgroundColor: c }}
-                    aria-label={`색상 ${c} 선택`}
-                  />
-                ))}
-              </div>
-              {fieldErrors.color && (
-                <p className="text-base text-red-600 mt-2 font-medium bg-red-50 p-2 rounded">⚠️ {fieldErrors.color}</p>
-              )}
-            </div>
-
-            {/* 퍼널 연결 — 핵심 설정 */}
-            <div>
-              <label htmlFor="group-funnel" className="block text-sm font-medium text-gray-700 mb-1">
-                연결할 퍼널 <span className="text-xs text-gray-400 ml-1">(그룹 배정 시 자동 시작)</span>
-              </label>
-              <select
-                id="group-funnel"
-                value={form.funnelId}
-                onChange={(e) => { setForm({ ...form, funnelId: e.target.value }); setFieldErrors({ ...fieldErrors, funnelId: '' }); }}
-                className={`w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none ${
-                  fieldErrors.funnelId ? 'border-red-500 focus:border-red-500' : 'border-gray-200 focus:border-gold-500'
-                }`}
-                aria-invalid={!!fieldErrors.funnelId}
-                aria-describedby={fieldErrors.funnelId ? "error-funnelId" : undefined}
-              >
-                <option value="">퍼널 없음 (수동 발송만)</option>
-                {funnels.map((f) => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
-              {fieldErrors.funnelId && (
-                <p id="error-funnelId" className="text-base text-red-600 mt-2 font-medium bg-red-50 p-2 rounded">⚠️ {fieldErrors.funnelId}</p>
-              )}
-              {form.funnelId && !fieldErrors.funnelId && (
-                <p className="text-xs text-green-600 mt-1">
-                  ✅ 이 그룹에 고객 배정 시 즉시 퍼널 시작
-                </p>
-              )}
-            </div>
-          </div>
-
-          {formError && (
-            <p className="text-base text-red-600 mt-3 font-medium bg-red-50 p-3 rounded">⚠️ {formError}</p>
-          )}
-
-          <div className="flex gap-2 mt-4">
-            <button
-              onClick={createGroup}
-              disabled={saving || !form.name.trim()}
-              className="flex-1 bg-navy-900 text-white py-2 rounded-lg text-base font-medium hover:bg-navy-700 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-              {saving ? "저장 중..." : "그룹 만들기"}
-            </button>
-            <button
-              onClick={() => setShowNew(false)}
-              className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg text-sm hover:bg-gray-200"
-            >
-              취소
-            </button>
-          </div>
-        </div>
+        <GroupForm
+          form={form}
+          setForm={setForm}
+          fieldErrors={fieldErrors}
+          setFieldErrors={setFieldErrors}
+          formError={formError}
+          setFormError={setFormError}
+          saving={saving}
+          funnels={funnels}
+          onSubmit={createGroup}
+          onCancel={() => setShowNew(false)}
+        />
       )}
 
       {/* 그룹 목록 */}
@@ -502,348 +390,35 @@ export default function GroupsPage() {
       ) : (
         <div className="space-y-3">
           {groups.map((group) => (
-            <div
+            <GroupCard
               key={group.id}
-              className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-sm transition-shadow"
+              group={group}
+              copiedExportId={copiedExportId}
+              onClone={cloneGroup}
+              onExport={exportGroup}
+              onBlast={openBlast}
             >
-              <div className="flex items-center gap-3">
-                {/* 색상 원 */}
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
-                  style={{ backgroundColor: group.color ?? "#6B7280" }}
-                >
-                  {group.name[0]}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-gray-900">{group.name}</h3>
-                    <span className="text-xs text-gray-400">{group._count.members}명</span>
-                  </div>
-                  {group.description && (
-                    <p className="text-xs text-gray-400 mt-0.5 truncate">{group.description}</p>
-                  )}
-
-                  {/* 연결된 퍼널 표시 */}
-                  {group.funnelId ? (
-                    <div className="flex items-center gap-1 mt-1.5">
-                      <GitBranch className="w-3 h-3 text-green-500" />
-                      <span className="text-xs text-green-600 font-medium">
-                        퍼널 연결됨: {group.funnelName}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 mt-1.5">
-                      <span className="text-xs text-gray-400">퍼널 없음</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-1 flex-wrap justify-end">
-                  <button
-                    onClick={() => cloneGroup(group.id)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-100"
-                    title="그룹 복제"
-                  >
-                    📋 복제
-                  </button>
-                  <button
-                    onClick={() => exportGroup(group.id)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-100"
-                    title="그룹 내보내기 (JSON 클립보드 복사)"
-                  >
-                    {copiedExportId === group.id ? '✅ 복사됨' : '📤 내보내기'}
-                  </button>
-                  <button
-                    onClick={() => openBlast(group.id)}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-gold-50 border border-gold-300 text-gold-700 rounded-lg text-xs font-medium hover:bg-gold-100"
-                    title="그룹 전체에 즉시 문자 발송"
-                  >
-                    <Zap className="w-3 h-3" /> 즉시발송
-                  </button>
-                  {/* TODO (P2): 그룹 편집 또는 삭제 기능 추가 */}
-                </div>
-              </div>
-
-              {/* 일괄 발송 패널 */}
               {blastGroupId === group.id && (
-                <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
-                  {blastResult ? (
-                    <div className="bg-green-50 rounded-lg p-3 text-sm">
-                      <p className="font-semibold text-green-800">✅ 발송 완료</p>
-                      <p className="text-green-700 mt-1">
-                        성공 {blastResult.sentCount}명 · 차단 {blastResult.blockedCount}명
-                        {blastResult.failedCount > 0 && ` · 실패 ${blastResult.failedCount}명`}
-                      </p>
-                      <button onClick={() => setBlastGroupId(null)} className="text-xs text-gray-500 mt-2 underline">닫기</button>
-                    </div>
-                  ) : (
-                    <>
-                      <textarea
-                        value={blastMsg}
-                        onChange={(e) => { setBlastMsg(e.target.value); setBlastPreview(null); }}
-                        placeholder={"크루즈닷 입니다 😊\n[고객명]님, 이번 주 특가 소식이에요!\n→ cruisedot.co.kr"}
-                        rows={3}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500 resize-none"
-                      />
-                      <p className="text-xs text-gray-400">[고객명] 자동 치환됩니다</p>
-
-                      {blastError && (
-                        <p className="text-base text-red-600 font-medium bg-red-50 p-3 rounded">⚠️ {blastError}</p>
-                      )}
-
-                      {blastPreview && (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 space-y-3 text-sm">
-                          <div>
-                            <p className="font-semibold text-yellow-800">📢 발송 최종 확인</p>
-                            <div className="mt-2 space-y-1 text-yellow-700">
-                              <p>✓ <span className="font-medium">대상:</span> {blastPreview.willSend}명</p>
-                              <p>✓ <span className="font-medium">메시지:</span> {blastMsg.substring(0, 50)}{blastMsg.length > 50 ? '...' : ''}</p>
-                            </div>
-                            {blastPreview.isOverLimit && (
-                              <p className="text-xs text-orange-600 mt-2">
-                                ⚠️ 200명 초과 — 첫 200명만 발송됩니다
-                              </p>
-                            )}
-                          </div>
-
-                          {/* UX-004: 최종 확인 체크박스 - 50대 사용자 개선 */}
-                          <label className="flex items-start gap-2 pt-2 border-t border-yellow-200 cursor-pointer hover:bg-yellow-100/50 p-2 -mx-2 rounded">
-                            <input
-                              type="checkbox"
-                              checked={blastConfirm}
-                              onChange={(e) => setBlastConfirm(e.target.checked)}
-                              className="w-5 h-5 rounded border-yellow-300 text-yellow-600 mt-1"
-                            />
-                            <span className="text-sm text-yellow-900 font-medium">
-                              정말로 <span className="font-bold text-red-600">{blastPreview.willSend}명</span>에게 발송하겠습니다.
-                            </span>
-                          </label>
-                        </div>
-                      )}
-
-                      <div className="flex gap-2">
-                        {!blastPreview ? (
-                          <button
-                            onClick={checkBlast}
-                            disabled={!blastMsg.trim() || checkingBlast}
-                            className="flex-1 border border-blue-300 text-blue-700 py-2 rounded-lg text-base font-medium hover:bg-blue-50 disabled:opacity-50 flex items-center justify-center gap-2"
-                          >
-                            {checkingBlast && <Loader2 className="w-4 h-4 animate-spin" />}
-                            {checkingBlast ? "확인 중..." : "대상 확인"}
-                          </button>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => {
-                                setBlastPreview(null);
-                                setBlastConfirm(false);
-                                setBlastMsg("");
-                              }}
-                              className="flex-1 border border-gray-300 text-gray-600 py-1.5 rounded-lg text-sm hover:bg-gray-50"
-                            >
-                              수정
-                            </button>
-                            <button
-                              onClick={sendBlast}
-                              disabled={blasting || !blastConfirm}
-                              className={`flex-1 py-2 rounded-lg font-medium transition-all text-base flex items-center justify-center gap-2 ${
-                                blastConfirm && !blasting
-                                  ? 'bg-red-600 text-white hover:bg-red-700 cursor-pointer'
-                                  : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                              }`}
-                              title={!blastConfirm ? '체크박스를 체크해주세요' : '발송하기'}
-                            >
-                              {blasting && <Loader2 className="w-4 h-4 animate-spin" />}
-                              {blasting ? "발송 중..." : `✓ 발송 (${blastPreview.willSend}명)`}
-                            </button>
-                          </>
-                        )}
-                        {!blastPreview && (
-                          <button
-                            onClick={() => setBlastGroupId(null)}
-                            className="flex-1 bg-gray-100 text-gray-600 py-1.5 rounded-lg text-sm"
-                          >
-                            취소
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
+                <BlastPanel
+                  blastMsg={blastMsg}
+                  onMsgChange={setBlastMsg}
+                  blastPreview={blastPreview}
+                  blastError={blastError}
+                  blastConfirm={blastConfirm}
+                  onConfirmChange={setBlastConfirm}
+                  onCheckBlast={checkBlast}
+                  checkingBlast={checkingBlast}
+                  onSendBlast={sendBlast}
+                  blasting={blasting}
+                  blastResult={blastResult}
+                  onClose={() => setBlastGroupId(null)}
+                />
               )}
-            </div>
+            </GroupCard>
           ))}
         </div>
       )}
     </div>
     </>
-  );
-}
-
-function ImportModal({
-  csrfToken,
-  onClose,
-  onDone,
-}: {
-  csrfToken: string;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const [tab, setTab] = useState<'file' | 'text'>('file');
-  const [jsonText, setJsonText] = useState('');
-  const [importing, setImporting] = useState(false);
-  const [error, setError] = useState('');
-  const [preview, setPreview] = useState<{ groupName?: string; funnelName?: string; stageCount?: number } | null>(null);
-
-  const parseJson = (text: string) => {
-    try {
-      const parsed = JSON.parse(text) as { groupName?: string; funnelName?: string; stages?: unknown[] };
-      setPreview({
-        groupName:  parsed.groupName,
-        funnelName: parsed.funnelName,
-        stageCount: parsed.stages?.length ?? 0,
-      });
-      setError('');
-      return parsed;
-    } catch {
-      setError('JSON 형식이 올바르지 않습니다');
-      setPreview(null);
-      return null;
-    }
-  };
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      setJsonText(text);
-      parseJson(text);
-    };
-    reader.readAsText(file);
-  };
-
-  const handleTextChange = (text: string) => {
-    setJsonText(text);
-    if (text.trim()) parseJson(text);
-    else { setPreview(null); setError(''); }
-  };
-
-  const handleImport = async () => {
-    const parsed = parseJson(jsonText);
-    if (!parsed) return;
-    setImporting(true);
-    setError('');
-    try {
-      const res = await fetch('/api/groups/import', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken || '',
-        },
-        body: jsonText,
-      });
-      const d = await res.json() as { ok: boolean; message?: string };
-      if (d.ok) { onDone(); onClose(); }
-      else setError(d.message ?? '가져오기 실패');
-    } catch (err) {
-      logger.error('[GroupsPage] ImportModal.handleImport', { err });
-      setError('네트워크 오류가 발생했습니다');
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b">
-          <div>
-            <h2 className="font-semibold">그룹/퍼널 가져오기</h2>
-            <p className="text-xs text-gray-500 mt-0.5">JSON 파일 업로드 또는 직접 입력</p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
-        </div>
-
-        <div className="p-5 space-y-4">
-          {/* 탭 */}
-          <div className="flex gap-2">
-            {(['file', 'text'] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  tab === t ? 'bg-navy-900 text-white' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                {t === 'file' ? '파일 업로드' : '직접 입력'}
-              </button>
-            ))}
-          </div>
-
-          {tab === 'file' ? (
-            <label className="block w-full border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-blue-300 transition-colors">
-              <Upload className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm text-gray-500">JSON 파일을 여기에 끌어놓거나 클릭</p>
-              <p className="text-xs text-gray-400 mt-1">.json 파일만 지원</p>
-              <input type="file" accept=".json" onChange={handleFile} className="hidden" />
-            </label>
-          ) : (
-            <textarea
-              value={jsonText}
-              onChange={(e) => handleTextChange(e.target.value)}
-              placeholder='{"groupName":"그룹명","funnelName":"퍼널명","stages":[...]}'
-              className="w-full h-36 border rounded-xl p-3 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          )}
-
-          {/* 미리보기 */}
-          {preview && (
-            <div className="bg-blue-50 rounded-xl p-3 text-sm">
-              <p className="font-medium text-blue-800">파싱 결과</p>
-              <div className="mt-1.5 space-y-0.5 text-blue-700 text-xs">
-                {preview.groupName  && <p>그룹명: {preview.groupName}</p>}
-                {preview.funnelName && <p>퍼널명: {preview.funnelName}</p>}
-                {preview.stageCount !== undefined && <p>스테이지: {preview.stageCount}개</p>}
-              </div>
-            </div>
-          )}
-
-          {error && <p className="text-xs text-red-500">{error}</p>}
-
-          <button
-            onClick={handleImport}
-            disabled={!jsonText.trim() || importing || !!error}
-            className="w-full py-3 bg-navy-900 text-white rounded-xl text-sm font-medium disabled:opacity-50"
-          >
-            {importing ? '가져오는 중...' : '가져오기 실행'}
-          </button>
-
-          {/* JSON 형식 안내 */}
-          <details className="text-xs text-gray-400">
-            <summary className="cursor-pointer hover:text-gray-600">JSON 형식 예시 보기</summary>
-            <pre className="mt-2 bg-gray-50 rounded-lg p-3 text-xs overflow-x-auto">
-{`{
-  "groupName": "VIP 고객",
-  "funnelName": "VIP 케어",
-  "funnelType": "VIP_CARE",
-  "stages": [
-    {
-      "name": "환영 문자",
-      "order": 1,
-      "triggerType": "DDAY",
-      "triggerOffset": 0,
-      "channel": "SMS",
-      "messageContent": "[고객명]님 환영합니다"
-    }
-  ]
-}`}
-            </pre>
-          </details>
-        </div>
-      </div>
-    </div>
   );
 }
