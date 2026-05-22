@@ -60,7 +60,18 @@ export async function PATCH(req: Request, { params }: Params) {
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // 2. 권한 검증 (organizationId 재확인)
+    // 2. Campaign 존재 확인
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (!sending.campaign) {
+      logger.warn('[PATCH /api/campaigns/sending-history/[id]/resend] Campaign not found', { sendingId });
+      return NextResponse.json(
+        { ok: false, error: '캠페인을 찾을 수 없습니다.', code: 'NOT_FOUND' },
+        { status: 404 }
+      );
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 3. 권한 검증 (organizationId 재확인)
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (sending.campaign.organizationId !== orgId) {
       logger.warn('[PATCH /api/campaigns/sending-history/[id]/resend] Unauthorized access attempt', {
