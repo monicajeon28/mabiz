@@ -4,6 +4,9 @@ import { useEffect, useState, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { formatAmount, formatDate, formatMonth, maskPhone } from "@/lib/marketing-utils";
+import { SkeletonRow } from "@/components/marketing/SkeletonRow";
+import { StatusBadge } from "@/components/marketing/StatusBadge";
+import { SalesBarChart } from "@/components/marketing/SalesBarChart";
 import type { MonthlyRow, LandingRow, RecentRow, SalesApiData } from "@/types/marketing";
 
 interface Summary {
@@ -22,59 +25,7 @@ function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
 }
 
-// ─── 상태 배지 ────────────────────────────────────────────────
-function StatusBadge({ status }: { status: string }) {
-  if (status === "paid") {
-    return (
-      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-        결제완료
-      </span>
-    );
-  }
-  if (status === "cancelled") {
-    return (
-      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600">
-        환불
-      </span>
-    );
-  }
-  return (
-    <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
-      대기중
-    </span>
-  );
-}
 
-// ─── 막대 그래프 (CSS only) ────────────────────────────────────
-function BarChart({ monthly }: { monthly: MonthlyRow[] }) {
-  const maxRevenue = Math.max(...monthly.map((m) => m.revenue), 1);
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <h2 className="text-base font-semibold text-gray-900 mb-4">최근 6개월 매출</h2>
-      <div className="flex items-end gap-3 h-40">
-        {monthly.map((row) => {
-          const heightPct = Math.max((row.revenue / maxRevenue) * 100, 2);
-          return (
-            <div key={row.month} className="flex-1 flex flex-col items-center gap-1">
-              <span className="text-[10px] text-gray-400 truncate w-full text-center">
-                {row.revenue > 0 ? formatAmount(row.revenue) : ""}
-              </span>
-              <div
-                className="w-full rounded-t-md bg-blue-500 transition-all"
-                style={{ height: `${heightPct}%` }}
-                title={`${row.month}: ${formatAmount(row.revenue)} (${row.count}건)`}
-                role="img"
-                aria-label={`${row.month}: ${formatAmount(row.revenue)}, ${row.count}건`}
-              />
-              <span className="text-xs text-gray-500 mt-1">{formatMonth(row.month)}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 // ─── KPI 카드 ─────────────────────────────────────────────────
 function KpiCard({
@@ -97,18 +48,6 @@ function KpiCard({
   );
 }
 
-// ─── 스켈레톤 ─────────────────────────────────────────────────
-function SkeletonRow({ cols }: { cols: number }) {
-  return (
-    <tr>
-      {Array.from({ length: cols }).map((_, i) => (
-        <td key={i} className="px-4 py-3">
-          <div className="h-4 bg-gray-200 rounded animate-pulse" />
-        </td>
-      ))}
-    </tr>
-  );
-}
 
 // ─── 최근 결제 테이블 (PC) ─────────────────────────────────────
 function RecentPaymentTable({ recent, loading }: { recent: RecentRow[], loading: boolean }) {
@@ -291,7 +230,7 @@ export default function MarketingSalesPage() {
       ) : null}
 
       {/* 월별 막대 그래프 */}
-      {!loading && monthly.length > 0 && <BarChart monthly={monthly} />}
+      {!loading && monthly.length > 0 && <SalesBarChart monthly={monthly} />}
 
       {/* 랜딩페이지별 매출 기여 */}
       <div className="bg-white rounded-xl border border-gray-200">
