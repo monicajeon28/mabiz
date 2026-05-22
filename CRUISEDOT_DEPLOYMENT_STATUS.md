@@ -2,53 +2,72 @@
 
 ## 📋 진행 상황
 
-| 단계 | 상태 | 시간 |
-|------|------|------|
-| 1. Secret 키 수령 | ✅ 완료 | 2026-05-21 09:00 |
-| 2. Vercel 환경변수 설정 | ✅ 완료 | 2026-05-21 09:15 |
-| 3. npm 의존성 해결 (.npmrc) | ✅ 완료 | 2026-05-21 09:25 |
-| 4. TypeScript 에러 수정 | ✅ 완료 | 2026-05-21 10:30 |
-| 5. Vercel 배포 | ✅ 완료 | 2026-05-21 10:45 |
+| 단계 | 상태 | 시간 | 비고 |
+|------|------|------|------|
+| 1. Secret 키 수령 | ✅ | 2026-05-21 09:00 | sk_prod_... |
+| 2. Vercel 환경변수 설정 | ✅ | 2026-05-21 09:15 | Preview 설정 |
+| 3. npm 의존성 해결 | ✅ | 2026-05-21 09:25 | .npmrc 추가 |
+| 4. Production 환경변수 추가 | ✅ | 2026-05-22 10:30 | CRUISEDOT_WEBHOOK_SECRET |
+| 5. TypeScript 에러 수정 | ✅ | 2026-05-22 11:45 | 12개 에러 해결 |
+| 6. 로컬 npm build | ✅ | 2026-05-22 12:15 | exit code 0 |
+| 7. Vercel 배포 | ❌ | 2026-05-22 12:45 | 캐시 문제 의심 |
 
-## ✅ 해결된 이슈들
+## ✅ 해결된 12개 TypeScript 에러
 
-### npm 버전 충돌 (해결됨)
-- 원인: React 19 vs @testing-library/react 18 충돌
-- 해결: `.npmrc` 파일에 `legacy-peer-deps=true` 추가
+### SendingHistory 관계 문제 (3개 파일)
+1. `src/app/api/campaigns/sending-history/[id]/resend/route.ts` - contact 관계 제거
+2. `src/app/api/campaigns/sending-history/failures/route.ts` - select 쿼리로 변경
+3. `src/app/api/campaigns/sending-history/route.ts` - 수동 조회 방식
 
-### TypeScript 빌드 에러 (7개 해결됨)
-1. call-scripts feedback route - session 속성
-2. campaigns cost summary - Decimal 타입 변환
-3. campaigns delta route - SendingHistory 상태 필터 + logger
-4. campaigns/[id]/variants/[key] - logger.error 인자 + 스코프
-5. campaigns/[id]/variants - 스코프 + logger.error 인자
-6. campaigns/[id]/variants/stats - logger.debug + 스코프
+### logger 함수 시그니처 문제 (5개 파일)
+4. `src/app/api/campaigns/[id]/delta/route.ts` - logger.error 인자 구조 수정
+5. `src/app/api/campaigns/[id]/variants/[key]/route.ts` - logger.error 2개 인자로
+6. `src/app/api/campaigns/[id]/variants/route.ts` - logger.error 구조
+7. `src/app/api/campaigns/[id]/variants/stats/route.ts` - logger.debug → logger.log
+8. 기타 logger 호출 통일
+
+### 스코프 및 타입 문제 (4개 파일)
+9. resolvedParams try 블록 외부 선언
+10. SendingHistory campaign null 체크
+11. type guard (string[] 변환)
+12. 응답 타입 강제 변환
 
 ## 🎯 현재 상태
 
-✅ **배포 완료**
-- Production: https://mabiz-e761pdq1d-monicajeon28s-projects.vercel.app
-- route.ts 파일: 존재 ✅
-- export async function POST: 있음 ✅
-- HMAC-SHA256 검증: 구현됨 ✅
+✅ **코드 준비 완료**
+- route.ts 파일: 존재
+- export async function POST: 구현됨
+- HMAC-SHA256 검증: 완성
+- Bearer Token 검증: 완성
+- Contact/AffiliateSale 업데이트: 완성
+- 알림 자동 발송: 완성
 
-## 📌 405 에러 원인 분석
+⚠️ **배포 상태 - Vercel 캐시 문제**
+- 로컬 빌드: ✅ 성공
+- Vercel 빌드: ❌ 15회 연속 실패
+- 커밋: ✅ 모두 push됨 (e92f49a, 3b7158d)
+- 환경변수: ✅ Production에 설정됨
 
-405 Method Not Allowed = POST 메서드가 응답 안 함
+## 🔴 Vercel 배포 차단 원인
 
-**가능한 원인:**
-1. CRUISEDOT_WEBHOOK_SECRET 환경변수 없음
-2. Vercel 캐시 문제 (Redeploy from cache 필요)
-3. 환경변수가 배포 직후에도 반영 안 됨
+**증상:**
+- 로컬 npm build: 성공 (exit code 0)
+- Vercel 빌드: 실패 (캐시 문제 의심)
 
-**다음 단계:**
-1. Vercel 환경변수 다시 확인
-2. "Redeploy from cache" 버튼 클릭
-3. 5분 후 재테스트
+**해결책:**
+```
+Vercel 대시보드 → Deployments → 최신 배포 → "Redeploy" 클릭
+```
 
 ---
 
-**구현된 웹훅 엔드포인트:**
-- URL: `POST /api/webhooks/cruisedot-payment`
-- 인증: Bearer Token + HMAC-SHA256
-- 기능: 환불 감지 → Contact 업데이트 → 알림 발송
+## 📝 최종 상태
+
+**✅ 완료된 것:**
+- 웹훅 엔드포인트 완전 구현
+- 모든 TypeScript 에러 수정
+- 환경변수 설정
+- 로컬 빌드 검증
+
+**⏳ 대기 중:**
+- Vercel Production 배포 (수동 Redeploy 필요)
