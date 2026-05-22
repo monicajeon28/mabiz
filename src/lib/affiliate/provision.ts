@@ -204,7 +204,7 @@ export async function provisionAffiliateAccounts(
         displayName: `${contractorName} 대리점장`,
         phone: contractorPhone || null,
         email: contractorEmail || null,
-        passwordHash: managerHash,
+        passwordHash: passwordHash, // bcrypt 해시된 비밀번호
         isActive: true,
       },
     });
@@ -238,63 +238,111 @@ export async function provisionAffiliateAccounts(
     };
   });
 
-  // Phase 4: Supabase 자동 동기화 (백업)
-  try {
-    const supabaseUrl = process.env.SUPABASE_BACKUP_URL;
-    if (supabaseUrl) {
+  // Phase 4: Supabase 자동 동기화 (백업) — DLQ 기반 재시도
+  const supabaseUrl = process.env.SUPABASE_BACKUP_URL;
+  if (!supabaseUrl) {
+    logger.warn('[AFFILIATE-PROVISION] SUPABASE_BACKUP_URL 미설정 — 동기화 스킵');
+  } else {
+    try {
       const supabaseClient = new PgClient({ connectionString: supabaseUrl });
       await supabaseClient.connect();
 
-      // Manager 동기화
-      await supabaseClient.query(`
-        INSERT INTO "User" (
-          id, phone, password, name, role, email, "mallUserId", "isLocked",
-          "createdAt", "updatedAt"
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
-        ON CONFLICT (id) DO UPDATE SET
-          phone = $2, password = $3, name = $4, role = $5, email = $6,
-          "isLocked" = $8, "updatedAt" = NOW()
-      `, [
-        result.manager.gmUserId,
-        `${contractorName}-대리점장`, // partnerId
-        passwordHash,
-        `${contractorName} 대리점장`,
-        'community',
-        contractorEmail || null,
-        null,
-        false,
-      ]);
+      // Manager 동기화 시도
+      try {
+        await supabaseClient.query(`
+          INSERT INTO "User" (
+            id, phone, password, name, role, email, "mallUserId", "isLocked",
+            "createdAt", "updatedAt"
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+          ON CONFLICT (id) DO UPDATE SET
+            phone = $2, password = $3, name = $4, role = $5, email = $6,
+            "isLocked" = $8, "updatedAt" = NOW()
+        `, [
+          result.manager.gmUserId,
+          managerPartnerId, // Phase 4: partnerId
+          passwordHash,
+          `${contractorName} 대리점장`,
+          'affiliate_manager',
+          contractorEmail || null,
+          null,
+          false,
+        ]);
+      } catch (managerErr) {
+        // Manager 동기화 실패 → DLQ 기록
+        const dlqData = {
+          managerGmUserId: result.manager.gmUserId,
+          partnerId: managerPartnerId,
+          name: `${contractorName} 대리점장`,
+          error: managerErr instanceof Error ? managerErr.message : String(managerErr),
+        };
+        await prisma.syncDeadLetterQueue.create({
+          data: {
+            syncType: 'NEON_TO_SUPABASE',
+            operationType: 'INSERT_OR_UPDATE',
+            tableName: 'User',
+            recordId: String(result.manager.gmUserId),
+            data: dlqData,
+            error: managerErr instanceof Error ? managerErr.message : String(managerErr),
+            nextRetryAt: new Date(Date.now() + 5 * 60 * 1000), // 5분 후 재시도
+            status: 'PENDING',
+          },
+        });
+        logger.warn('[AFFILIATE-PROVISION] Manager 동기화 실패 — DLQ 기록', dlqData);
+      }
 
-      // Agent 동기화
-      await supabaseClient.query(`
-        INSERT INTO "User" (
-          id, phone, password, name, role, email, "mallUserId", "isLocked",
-          "createdAt", "updatedAt"
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
-        ON CONFLICT (id) DO UPDATE SET
-          phone = $2, password = $3, name = $4, role = $5, email = $6,
-          "isLocked" = $8, "updatedAt" = NOW()
-      `, [
-        result.agent.gmUserId,
-        `${contractorName}-판매원`, // partnerId
-        passwordHash,
-        `${contractorName} 판매원`,
-        'community',
-        null,
-        null,
-        false,
-      ]);
+      // Agent 동기화 시도
+      try {
+        await supabaseClient.query(`
+          INSERT INTO "User" (
+            id, phone, password, name, role, email, "mallUserId", "isLocked",
+            "createdAt", "updatedAt"
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+          ON CONFLICT (id) DO UPDATE SET
+            phone = $2, password = $3, name = $4, role = $5, email = $6,
+            "isLocked" = $8, "updatedAt" = NOW()
+        `, [
+          result.agent.gmUserId,
+          agentPartnerId, // Phase 4: partnerId
+          passwordHash,
+          `${contractorName} 판매원`,
+          'affiliate_agent',
+          null,
+          null,
+          false,
+        ]);
+      } catch (agentErr) {
+        // Agent 동기화 실패 → DLQ 기록
+        const dlqData = {
+          agentGmUserId: result.agent.gmUserId,
+          partnerId: agentPartnerId,
+          name: `${contractorName} 판매원`,
+          error: agentErr instanceof Error ? agentErr.message : String(agentErr),
+        };
+        await prisma.syncDeadLetterQueue.create({
+          data: {
+            syncType: 'NEON_TO_SUPABASE',
+            operationType: 'INSERT_OR_UPDATE',
+            tableName: 'User',
+            recordId: String(result.agent.gmUserId),
+            data: dlqData,
+            error: agentErr instanceof Error ? agentErr.message : String(agentErr),
+            nextRetryAt: new Date(Date.now() + 5 * 60 * 1000), // 5분 후 재시도
+            status: 'PENDING',
+          },
+        });
+        logger.warn('[AFFILIATE-PROVISION] Agent 동기화 실패 — DLQ 기록', dlqData);
+      }
 
       await supabaseClient.end();
-      logger.log('[AFFILIATE-PROVISION] Supabase 동기화 완료', {
+      logger.log('[AFFILIATE-PROVISION] Supabase 동기화 시도 완료', {
         managerGmUserId: result.manager.gmUserId,
         agentGmUserId: result.agent.gmUserId,
       });
+    } catch (err) {
+      logger.error('[AFFILIATE-PROVISION] Supabase 네트워크 오류 (DLQ 기록 불가)', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
-  } catch (err) {
-    logger.warn('[AFFILIATE-PROVISION] Supabase 동기화 실패 (계속 진행)', {
-      error: err instanceof Error ? err.message : String(err),
-    });
   }
 
   return {
