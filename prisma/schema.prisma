@@ -413,6 +413,12 @@ model CallLog {
   // A/B 분석 도우미 필드
   conversionDay   Int?           // 0 (즉시), 1 (다음날), 3 (3일 후), 7 (1주) 등
 
+  // Track A: 이의처리 메타데이터
+  objectionId     String?        // "A-001" ~ "F-004" (TRACK_A_OBJECTIONS.json 참조)
+  customerReaction String?       // "positive" | "neutral" | "negative"
+  recovered       Boolean?       // 이의가 성공적으로 해결되었는가
+  recoveryTime    Int?           // 이의 해결 시간 (초)
+
   contact         Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   @@index([contactId])
@@ -422,6 +428,8 @@ model CallLog {
   @@index([abTestWeek])
   @@index([callStartedAt])
   @@index([abandonmentPhase])
+  @@index([objectionId, recovered])
+  @@index([customerReaction])
 }
 
 model ContactMemo {

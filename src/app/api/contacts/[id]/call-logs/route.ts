@@ -7,6 +7,7 @@ import { logger } from "@/lib/logger";
 import { addLeadScore } from "@/lib/lead-score";
 import { getAuthContext } from "@/lib/rbac";
 import { backupCallLogsToGoogleDrive } from "@/lib/google-drive";
+import { validateObjectionInput } from "@/lib/objections/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -111,7 +112,24 @@ export async function PUT(req: Request, { params }: Params) {
     }
 
     const body = await req.json();
-    const { content, result, duration, convictionScore, nextAction, scheduledAt } = body;
+    const {
+      content, result, duration, convictionScore, nextAction, scheduledAt,
+      objectionId, customerReaction, recovered, recoveryTime
+    } = body;
+
+    // Track A: 이의처리 데이터 검증
+    const objectionValidation = validateObjectionInput({
+      objectionId,
+      customerReaction,
+      recovered,
+      recoveryTime,
+    });
+    if (!objectionValidation.isValid) {
+      return NextResponse.json(
+        { ok: false, errors: objectionValidation.errors },
+        { status: 400 }
+      );
+    }
 
     // 수정
     const updatedLog = await prisma.callLog.update({
@@ -123,6 +141,11 @@ export async function PUT(req: Request, { params }: Params) {
         convictionScore: convictionScore ? parseInt(convictionScore) : existingLog.convictionScore,
         nextAction: nextAction ?? existingLog.nextAction,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : existingLog.scheduledAt,
+        // Track A: 이의처리 필드
+        objectionId: objectionId ?? existingLog.objectionId,
+        customerReaction: customerReaction ?? existingLog.customerReaction,
+        recovered: recovered !== undefined ? recovered : existingLog.recovered,
+        recoveryTime: recoveryTime !== undefined ? parseInt(String(recoveryTime)) : existingLog.recoveryTime,
       },
     });
 
@@ -149,7 +172,24 @@ export async function POST(req: Request, { params }: Params) {
     });
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
 
-    const { content, result, duration, convictionScore, nextAction, scheduledAt } = body;
+    const {
+      content, result, duration, convictionScore, nextAction, scheduledAt,
+      objectionId, customerReaction, recovered, recoveryTime
+    } = body;
+
+    // Track A: 이의처리 데이터 검증
+    const objectionValidation = validateObjectionInput({
+      objectionId,
+      customerReaction,
+      recovered,
+      recoveryTime,
+    });
+    if (!objectionValidation.isValid) {
+      return NextResponse.json(
+        { ok: false, errors: objectionValidation.errors },
+        { status: 400 }
+      );
+    }
 
     const log = await prisma.callLog.create({
       data: {
@@ -161,6 +201,11 @@ export async function POST(req: Request, { params }: Params) {
         convictionScore: convictionScore ? parseInt(convictionScore) : null,
         nextAction,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+        // Track A: 이의처리 필드
+        objectionId: objectionId || null,
+        customerReaction: customerReaction || null,
+        recovered: recovered !== undefined ? recovered : null,
+        recoveryTime: recoveryTime !== undefined ? parseInt(String(recoveryTime)) : null,
       },
     });
 
