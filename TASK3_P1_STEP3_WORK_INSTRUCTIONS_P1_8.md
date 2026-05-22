@@ -18,151 +18,112 @@
 
 ## Step 4: Implementation
 
-### 작업 1: retry-mabiz-dlq/route.ts 수정
+### 작업 1: mabiz-dlq.ts 수정 (retryDLQEntry 함수에 상세 로깅 추가)
+
+**파일:** `src/lib/mabiz-dlq.ts`
+
+**변경 내용:**
+
+현재 코드 구조:
+- `retryDLQEntry()` (L212-267): 단일 엔트리 재시도 (성공/실패 판단)
+- `retryDLQEntriesBatch()` (L172-204): 배치 단위로 병렬 처리
+
+**문제:** retryDLQEntry()가 성공/실패 정보를 반환하지만, 상세 로그를 남기지 않음.
+
+**해결:** retryDLQEntry() 내에서 엔트리별 성공/실패/예외 시 로깅 추가
+
+**구체적 수정 위치:**
+
+1. **성공 시 로깅** (Line 255-257)
+```typescript
+// AS-IS
+if (res.ok) {
+  await resolveDLQ(entry.id);
+  return { success: true };
+}
+
+// TO-BE
+if (res.ok) {
+  await resolveDLQ(entry.id);
+  logger.log('[CronDLQ] 성공', {
+    id: entry.id,
+    webhookType: entry.webhookType,
+    retryAttempt: entry.retryCount + 1,
+  });
+  return { success: true };
+}
+```
+
+2. **실패 시 로깅** (Line 258-262)
+```typescript
+// AS-IS
+} else {
+  const text = await res.text().catch(() => 'unknown');
+  await failDLQ(entry.id, entry.retryCount, `HTTP ${res.status}: ${text.slice(0, 200)}`);
+  return { success: false };
+}
+
+// TO-BE
+} else {
+  const text = await res.text().catch(() => 'unknown');
+  await failDLQ(entry.id, entry.retryCount, `HTTP ${res.status}: ${text.slice(0, 200)}`);
+  logger.error('[CronDLQ] 실패', {
+    id: entry.id,
+    webhookType: entry.webhookType,
+    httpStatus: res.status,
+    retryAttempt: entry.retryCount + 1,
+    failureReason: text.slice(0, 200),
+  });
+  return { success: false };
+}
+```
+
+3. **예외 시 로깅** (Line 263-266)
+```typescript
+// AS-IS
+} catch (err) {
+  await failDLQ(entry.id, entry.retryCount, String(err));
+  return { success: false };
+}
+
+// TO-BE
+} catch (err) {
+  await failDLQ(entry.id, entry.retryCount, String(err));
+  logger.error('[CronDLQ] 예외', {
+    id: entry.id,
+    webhookType: entry.webhookType,
+    error: err instanceof Error ? err.message : String(err),
+    stack: err instanceof Error ? err.stack : undefined,
+  });
+  return { success: false };
+}
+```
+
+### 작업 2: retry-mabiz-dlq/route.ts 수정 (배치 통계 로깅 추가)
 
 **파일:** `src/app/api/cron/retry-mabiz-dlq/route.ts`
 
-**변경 내용:**
-1. **각 엔트리 성공 시 로깅** (Line 100-102)
-   - `webhookType`: purchase/refund 등 구분
-   - `retryAttempt`: 현재 재시도 횟수
-   - 예: `[CronDLQ] 성공 { id: 'xxx', webhookType: 'purchase', retryAttempt: 2 }`
+**변경 내용:** 배치 완료 로그에 웹훅 타입별 통계 추가
 
-2. **각 엔트리 실패 시 로깅** (Line 103-106)
-   - `webhookType`, `httpStatus`, `retryAttempt`, `failureReason` 기록
-   - 예: `[CronDLQ] 실패 { id: 'xxx', webhookType: 'refund', httpStatus: 503, retryAttempt: 1, failureReason: '...' }`
-
-3. **예외(try-catch) 발생 시 로깅** (Line 108-111)
-   - `error`: Error 메시지
-   - `stack`: 스택 트레이스 포함
-   - 예: `[CronDLQ] 예외 { id: 'xxx', error: 'Connection timeout', stack: '...' }`
-
-4. **배치 완료 시 통계 로깅** (Line 113-115)
-   - `resolved`, `failed`, `total`
-   - `successRate`: 백분율 형식
-   - `byType`: 웹훅 타입별 집계
-   - 예:
-   ```json
-   {
-     "resolved": 18,
-     "failed": 2,
-     "total": 20,
-     "successRate": "90.00%",
-     "byType": {
-       "purchase": { "success": 10, "failed": 0 },
-       "refund": { "success": 5, "failed": 2 },
-       "inquiry": { "success": 3, "failed": 0 }
-     }
-   }
-   ```
-
-**구체적 수정 내용:**
+**구체적 수정 위치** (Line 54-59):
 
 ```typescript
-// 기존 코드 (Line 50-112)
-for (const entry of entries) {
-  try {
-    await prisma.mabizSyncDLQ.update({
-      where: { id: entry.id },
-      data: { status: 'PROCESSING' },
-    });
-
-    // ... webhook URL 설정 코드 ...
-
-    if (res.ok) {
-      await resolveDLQ(entry.id);
-      resolved++;
-      // ✨ 추가: 성공 로깅
-      logger.log('[CronDLQ] 성공', {
-        id: entry.id,
-        webhookType: entry.webhookType,
-        retryAttempt: entry.retryCount + 1,
-      });
-    } else {
-      const text = await res.text().catch(() => 'unknown');
-      await failDLQ(entry.id, entry.retryCount, `HTTP ${res.status}: ${text.slice(0, 200)}`);
-      failed++;
-      // ✨ 추가: 실패 로깅
-      logger.error('[CronDLQ] 실패', {
-        id: entry.id,
-        webhookType: entry.webhookType,
-        httpStatus: res.status,
-        retryAttempt: entry.retryCount + 1,
-        failureReason: text.slice(0, 200),
-      });
-    }
-  } catch (err) {
-    await failDLQ(entry.id, entry.retryCount, String(err));
-    failed++;
-    // ✨ 추가: 예외 로깅 (스택 트레이스 포함)
-    logger.error('[CronDLQ] 예외', {
-      id: entry.id,
-      webhookType: entry.webhookType,
-      error: err instanceof Error ? err.message : String(err),
-      stack: err instanceof Error ? err.stack : undefined,
-    });
-  }
-}
-
-// 기존 코드 (Line 114)
-logger.log('[CronDLQ] 완료', { resolved, failed, total: entries.length });
-// ✨ 추가: 타입별 통계 로깅
-const byType: Record<string, { success: number; failed: number }> = {};
-entries.forEach((entry) => {
-  // 이 엔트리가 성공했는지 실패했는지 판단하려면 추가 정보 필요
-  // 대신 동적으로 계산: resolved와 failed 카운트를 타입별로 분해
-  // (현재 구조에서는 post-hoc 계산이 필요하므로, 루프 내에서 누적)
+// AS-IS
+logger.log('[CronDLQ] 배치 완료', {
+  resolved,
+  failed,
+  total: entries.length,
+  successRate: `${((resolved / entries.length) * 100).toFixed(2)}%`,
 });
 
-// → 대신 루프 내에서 미리 타입별 누적하기
-```
-
-**더 간단한 구현 방식** (권장):
-
-루프 밖에 타입별 집계 Map을 만들어서 매번 업데이트:
-
-```typescript
-// Line 47-48 다음에 추가
-let resolved = 0;
-let failed = 0;
+// TO-BE
 const byType: Record<string, { success: number; failed: number }> = {};
-
-// 루프 내에서 매번 업데이트
-for (const entry of entries) {
+entries.forEach((entry) => {
   if (!byType[entry.webhookType]) {
     byType[entry.webhookType] = { success: 0, failed: 0 };
   }
+});
 
-  try {
-    // ... 기존 코드 ...
-    if (res.ok) {
-      await resolveDLQ(entry.id);
-      resolved++;
-      byType[entry.webhookType].success++;  // ← 추가
-      logger.log('[CronDLQ] 성공', {
-        id: entry.id,
-        webhookType: entry.webhookType,
-        retryAttempt: entry.retryCount + 1,
-      });
-    } else {
-      // ... 기존 코드 ...
-      failed++;
-      byType[entry.webhookType].failed++;  // ← 추가
-      logger.error('[CronDLQ] 실패', {
-        // ...
-      });
-    }
-  } catch (err) {
-    // ... 기존 코드 ...
-    failed++;
-    byType[entry.webhookType].failed++;  // ← 추가
-    logger.error('[CronDLQ] 예외', {
-      // ...
-    });
-  }
-}
-
-// 배치 완료 로그 (Line 114)
 logger.log('[CronDLQ] 배치 완료', {
   resolved,
   failed,
@@ -173,12 +134,10 @@ logger.log('[CronDLQ] 배치 완료', {
 ```
 
 **수정 체크리스트:**
-- [ ] 라인 51: 성공 시 logger.log 추가
-- [ ] 라인 106: 실패 시 logger.error 추가
-- [ ] 라인 111: 예외 시 logger.error 추가
-- [ ] 라인 47-48: byType Map 선언 추가
-- [ ] 루프 내: byType[webhookType] 초기화 + 카운트 누적
-- [ ] 라인 114: 배치 완료 로그에 byType 통계 추가
+- [ ] `src/lib/mabiz-dlq.ts` L257: 성공 시 logger.log 추가
+- [ ] `src/lib/mabiz-dlq.ts` L261: 실패 시 logger.error 추가
+- [ ] `src/lib/mabiz-dlq.ts` L266: 예외 시 logger.error 추가
+- [ ] `src/app/api/cron/retry-mabiz-dlq/route.ts` L54-59: byType 통계 로깅 추가
 
 ---
 
