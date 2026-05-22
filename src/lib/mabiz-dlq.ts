@@ -5,6 +5,9 @@ import { logger } from '@/lib/logger';
 const MAX_RETRIES = 3;
 // DLQ 재시도 대기 시간 (분): [0]=5m → [1]=15m → [2]=60m
 const RETRY_DELAYS_MIN = [5, 15, 60];
+// 필드 길이 제한
+const MAX_FAILURE_REASON_LENGTH = 5000;
+const MAX_WEBHOOK_TYPE_LENGTH = 100;
 
 /**
  * 실패한 webhook을 DLQ에 저장
@@ -15,18 +18,21 @@ export async function enqueueDLQ(
   failureReason: string,
   format: 'json' | 'form-data' = 'json',
 ): Promise<string> {
+  const truncatedType = truncateString(webhookType, MAX_WEBHOOK_TYPE_LENGTH);
+  const truncatedReason = truncateString(failureReason, MAX_FAILURE_REASON_LENGTH);
+
   const entry = await prisma.mabizSyncDLQ.create({
     data: {
-      webhookType,
+      webhookType: truncatedType,
       payload: payload as object,
-      failureReason,
+      failureReason: truncatedReason,
       format,
       retryCount: 0,
       maxRetries: 3,
       nextRetryAt: new Date(Date.now() + RETRY_DELAYS_MIN[0] * 60_000),
     },
   });
-  logger.warn('[DLQ] 엔큐', { id: entry.id, webhookType, format, failureReason });
+  logger.warn('[DLQ] 엔큐', { id: entry.id, webhookType: truncatedType, format });
   return entry.id;
 }
 
@@ -45,18 +51,20 @@ export async function resolveDLQ(id: string): Promise<void> {
  * 재시도 실패 시 다음 시도 예약
  */
 export async function failDLQ(id: string, retryCount: number, reason: string): Promise<void> {
+  const truncatedReason = truncateString(reason, MAX_FAILURE_REASON_LENGTH);
+
   // 최대 재시도 도달 → 정지 (영구 정체 방지)
   if (retryCount >= MAX_RETRIES) {
     await prisma.mabizSyncDLQ.update({
       where: { id },
       data: {
         retryCount: retryCount + 1,
-        failureReason: reason,
+        failureReason: truncatedReason,
         resolvedAt: new Date(),
         nextRetryAt: null,
       },
     });
-    logger.warn('[DLQ] 최대 재시도 도달', { id, maxRetries: MAX_RETRIES, reason });
+    logger.warn('[DLQ] 최대 재시도 도달', { id, maxRetries: MAX_RETRIES });
     return;
   }
 
@@ -66,7 +74,7 @@ export async function failDLQ(id: string, retryCount: number, reason: string): P
     where: { id },
     data: {
       retryCount: retryCount + 1,
-      failureReason: reason,
+      failureReason: truncatedReason,
       nextRetryAt: new Date(Date.now() + nextDelay * 60_000),
     },
   });
@@ -86,4 +94,12 @@ export async function getPendingDLQEntries(limit = 20) {
     orderBy: { nextRetryAt: 'asc' },
     take: limit,
   });
+}
+
+/**
+ * 문자열 길이 제한 (초과 시 truncate)
+ */
+function truncateString(str: string, maxLength: number): string {
+  if (str.length <= maxLength) return str;
+  return str.slice(0, maxLength) + '... (truncated)';
 }

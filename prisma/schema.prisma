@@ -1196,9 +1196,9 @@ model UserPushSettings {
 
 model MabizSyncDLQ {
   id            String    @id @default(cuid())
-  webhookType   String
+  webhookType   String    @db.VarChar(100)
   payload       Json
-  failureReason String
+  failureReason String    @db.VarChar(5000)
   format        String    @default("json") @db.VarChar(20)
   retryCount    Int       @default(0)
   maxRetries    Int       @default(3)
@@ -1207,7 +1207,7 @@ model MabizSyncDLQ {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   syncType      String?   @db.VarChar(50)
-  webhookUrl    String?
+  webhookUrl    String?   @db.VarChar(2000)
 
   @@index([resolvedAt, nextRetryAt])
   @@index([webhookType])
