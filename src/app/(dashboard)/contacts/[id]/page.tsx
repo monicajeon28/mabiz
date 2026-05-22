@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, use } from "react";
+import { useState, useEffect, useMemo, useCallback, use, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -17,34 +17,12 @@ import ContactGroupTab from "./ContactGroupTab";
 import ContactSmsTab from "./ContactSmsTab";
 import { getAllObjectionIds, getObjectionData } from "@/lib/objections/validation";
 import objectionsData from "@/../../TRACK_A_OBJECTIONS.json";
+import { Contact, CallLog, Memo } from "@/types/contact";
+import { CallForm } from "@/types/call-form";
+import { ObjectionData } from "@/types/objection";
+import { SendDbResponse } from "@/types/api";
 
-type CallLog = {
-  id: string; content: string | null; result: string | null;
-  duration: number | null; convictionScore: number | null;
-  nextAction: string | null; scheduledAt: string | null; createdAt: string;
-  _sharedFrom?: string;   // 다른 조직 공유 콜 기록
-  _authorName?: string | null; // 작성자 이름
-};
-type Memo = { id: string; content: string; createdAt: string; _authorName?: string | null };
 type Group = { id: string; name: string; funnelId?: string | null };
-type Contact = {
-  id: string; name: string; phone: string; email: string | null;
-  type: string; cruiseInterest: string | null; budgetRange: string | null;
-  adminMemo: string | null; assignedUserId: string | null;
-  lastContactedAt: string | null; purchasedAt: string | null;
-  departureDate: string | null; productName: string | null; bookingRef: string | null;
-  tags: string[];
-  leadScore: number;
-  sourceOrgId: string | null; // 공유받은 복사본 여부 (null이 아니면 재공유 불가)
-  age?: number | null;
-  maritalStatus?: string | null;
-  childrenCount?: number | null;
-  segmentOverride?: string | null;
-  groups: { group: { id: string; name: string } }[];
-  callLogs: CallLog[]; memos: Memo[];
-  sharedCallLogs: (CallLog & { _sharedFrom: string })[];
-  vipSequences: { id: string; funnelId: string; status: string; startDate: string }[];
-};
 
 // 크루즈 여행사 특화 추천 태그
 const SUGGESTED_TAGS = [
@@ -91,15 +69,20 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const [loading,       setLoading]       = useState(true);
   const [smsLogs,       setSmsLogs]       = useState<{ id: string; phone: string; contentPreview: string; status: string; channel: string; sentAt: string }[]>([]);
   const [smsLoading,    setSmsLoading]    = useState(false);
+  const [smsPage,       setSmsPage]       = useState(1);
+  const [smsHasMore,    setSmsHasMore]    = useState(true);
 
   // WO-22: 즉시 SMS 발송 모달
   const [showSmsModal,  setShowSmsModal]  = useState(false);
   const [smsMsg,        setSmsMsg]        = useState("");
   const [sending,       setSending]       = useState(false);
   const [sendResult,    setSendResult]    = useState("");
+  const smsTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   // WO-23: 예약 발송 모달
   const [showSchedModal, setShowSchedModal] = useState(false);
+  const schedTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // WO-28: DB 전달 모달
   const [showSendDb,    setShowSendDb]    = useState(false);
@@ -118,7 +101,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
   // 콜 기록 폼
   const [showCallForm, setShowCallForm]   = useState(false);
-  const [callForm, setCallForm]           = useState({
+  const [callForm, setCallForm]           = useState<CallForm>({
     content: "",
     result: "INTERESTED",
     convictionScore: "5",
@@ -129,7 +112,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     recovered: false,
     recoveryTime: "",
   });
-  const [selectedObjectionModal, setSelectedObjectionModal] = useState<any>(null);
+  const [selectedObjectionModal, setSelectedObjectionModal] = useState<ObjectionData | null>(null);
 
   // 메모 폼
   const [showMemoForm, setShowMemoForm]   = useState(false);
@@ -167,6 +150,9 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   // 이름 인라인 편집
   const [editingName, setEditingName] = useState(false);
   const [nameInput,   setNameInput]   = useState("");
+
+  // [S-002] CSRF 토큰 (DB 전달 보안)
+  const [csrfToken, setCsrfToken] = useState<string>("");
 
   // 콜 기록 삭제
   const deleteCallLog = async (logId: string) => {
@@ -293,23 +279,53 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       logger.error('[fetchFunnels failed]', { err });
       return { ok: false };
     });
-    Promise.all([fetchContact, fetchGroups, fetchFunnels])
-      .then(([c, g, f]) => Promise.all([c.json(), g.json(), f.json()]))
-      .then(([c, g, f]) => {
-        if (c.ok) {
-          setContact(c.contact);
-          setTags(c.contact.tags ?? []);
-          if (c.contact.departureDate) {
-            setDeptForm({
-              departureDate: c.contact.departureDate.split("T")[0],
-              productName:   c.contact.productName ?? "",
-              bookingRef:    c.contact.bookingRef  ?? "",
-            });
-          }
+    Promise.allSettled([fetchContact, fetchGroups, fetchFunnels])
+      .then((results) => {
+        // Contact 필수, Funnels/Groups는 선택적
+        const [c, g, f] = results;
+
+        if (c.status === 'fulfilled') {
+          c.value.json().then(contactData => {
+            if (contactData.ok) {
+              setContact(contactData.contact);
+              setTags(contactData.contact.tags ?? []);
+              if (contactData.contact.departureDate) {
+                setDeptForm({
+                  departureDate: contactData.contact.departureDate.split("T")[0],
+                  productName:   contactData.contact.productName ?? "",
+                  bookingRef:    contactData.contact.bookingRef  ?? "",
+                });
+              }
+            }
+          }).catch(err => {
+            logger.error('[contactData.json failed]', { err });
+          });
+        } else {
+          logger.error('[fetchContact failed]', { err: c.reason });
         }
-        if (g.ok) setAllGroups(g.groups);
-        if (f.ok) setFunnels(f.funnels ?? []);
-      }).finally(() => setLoading(false));
+
+        // Groups는 실패해도 UI 계속 표시
+        if (g.status === 'fulfilled') {
+          g.value.json().then(groupsData => {
+            if (groupsData.ok) setAllGroups(groupsData.groups);
+          }).catch(err => {
+            logger.error('[groupsData.json failed]', { err });
+          });
+        }
+
+        // Funnels도 실패해도 UI 계속 표시
+        if (f.status === 'fulfilled') {
+          f.value.json().then(funnelsData => {
+            if (funnelsData.ok) setFunnels(funnelsData.funnels ?? []);
+          }).catch(err => {
+            logger.error('[funnelsData.json failed]', { err });
+          });
+        }
+      })
+      .catch(err => {
+        logger.error('[Promise.allSettled failed]', { err });
+      })
+      .finally(() => setLoading(false));
   }, [id]);
 
   useEffect(() => {
@@ -398,42 +414,59 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
   const addMemo = useCallback(async () => {
     if (!memoText.trim()) return;
-    const res  = await fetch(`/api/contacts/${id}/memos`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: memoText }),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      setContact((c) => c ? { ...c, memos: [data.memo, ...c.memos] } : c);
-      setShowMemoForm(false);
-      setMemoText("");
 
-      toast({
-        title: "메모 저장",
-        description: "메모가 저장되었습니다.",
-        variant: "success",
-      });
+    // [E-002] 동시성 제어: 이미 저장 중이면 무시
+    if (savingMemo) return;
 
-      logger.log("[ContactDetail]", {
-        action: "add-memo",
-        contactId: id,
-        status: "success",
+    setSavingMemo(true);
+    try {
+      const res  = await fetch(`/api/contacts/${id}/memos`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: memoText }),
       });
-    } else {
+      const data = await res.json();
+      if (data.ok) {
+        setContact((c) => c ? { ...c, memos: [data.memo, ...c.memos] } : c);
+        setShowMemoForm(false);
+        setMemoText("");
+
+        toast({
+          title: "메모 저장",
+          description: "메모가 저장되었습니다.",
+          variant: "success",
+        });
+
+        logger.log("[ContactDetail]", {
+          action: "add-memo",
+          contactId: id,
+          status: "success",
+        });
+      } else {
+        toast({
+          title: "저장 실패",
+          description: data.message || "메모 저장에 실패했습니다.",
+          variant: "destructive",
+        });
+
+        logger.log("[ContactDetail]", {
+          action: "add-memo",
+          contactId: id,
+          status: "error",
+          error: data.message,
+        });
+      }
+    } catch (err) {
+      // [E-003] Promise 에러 전파
       toast({
-        title: "저장 실패",
-        description: data.message || "메모 저장에 실패했습니다.",
+        title: "네트워크 오류",
+        description: err instanceof Error ? err.message : "메모 저장에 실패했습니다.",
         variant: "destructive",
       });
-
-      logger.log("[ContactDetail]", {
-        action: "add-memo",
-        contactId: id,
-        status: "error",
-        error: data.message,
-      });
+      logger.error("[addMemo error]", { err, contactId: id });
+    } finally {
+      setSavingMemo(false);
     }
-  }, [id, memoText, toast]);
+  }, [id, memoText, toast, savingMemo]);
 
   // 그룹 배정 → 퍼널 자동 시작
   const assignGroup = async () => {
@@ -479,7 +512,10 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     setSendingDb(true);
     const res = await fetch(`/api/contacts/${id}/send-db`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": csrfToken || "",
+      },
       body: JSON.stringify({ targetUserId: sendDbTarget }),
     });
     const data = await res.json();
@@ -551,30 +587,99 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     }
   };
 
-  // WO-25C: 태그 저장
-  const saveTag = async (newTags: string[]) => {
-    setSavingTags(true);
-    await fetch(`/api/contacts/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tags: newTags }),
-    });
-    setSavingTags(false);
-  };
-
-  const addTag = (tag: string) => {
+  // WO-25C: 태그 저장 (낙관적 업데이트 + 롤백)
+  const addTag = async (tag: string) => {
     const t = tag.trim();
     if (!t || tags.includes(t)) return;
-    const next = [...tags, t];
-    setTags(next);
-    saveTag(next);
+    const prevTags = tags;
+    const newTags = [...tags, t];
+    setTags(newTags); // 낙관적 업데이트
     setTagInput("");
+    setSavingTags(true);
+
+    try {
+      const res = await fetch(`/api/contacts/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags: newTags }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setTags(prevTags); // 롤백
+        toast({
+          title: "오류",
+          description: "태그 저장에 실패했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      setTags(prevTags); // 롤백
+      logger.error("[addTag] 네트워크 오류", { err });
+      toast({
+        title: "오류",
+        description: "네트워크 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingTags(false);
+    }
   };
 
-  const removeTag = (tag: string) => {
-    const next = tags.filter((tt) => tt !== tag);
-    setTags(next);
-    saveTag(next);
+  const removeTag = async (tag: string) => {
+    const prevTags = tags;
+    const newTags = tags.filter((tt) => tt !== tag);
+    setTags(newTags); // 낙관적 업데이트
+    setSavingTags(true);
+
+    try {
+      const res = await fetch(`/api/contacts/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags: newTags }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setTags(prevTags); // 롤백
+        toast({
+          title: "오류",
+          description: "태그 삭제에 실패했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      setTags(prevTags); // 롤백
+      logger.error("[removeTag] 네트워크 오류", { err });
+      toast({
+        title: "오류",
+        description: "네트워크 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingTags(false);
+    }
+  };
+
+  // A-001: 모달 포커스 관리
+  const openSmsModal = () => {
+    previousFocusRef.current = document.activeElement as HTMLElement;
+    setShowSmsModal(true);
+  };
+
+  const closeSmsModal = () => {
+    setShowSmsModal(false);
+    setSendResult("");
+    previousFocusRef.current?.focus();
+  };
+
+  const openSchedModal = () => {
+    previousFocusRef.current = document.activeElement as HTMLElement;
+    setShowSchedModal(true);
+  };
+
+  const closeSchedModal = () => {
+    setShowSchedModal(false);
+    setSchedResult("");
+    previousFocusRef.current?.focus();
   };
 
   // WO-22: 즉시 SMS 발송
@@ -592,7 +697,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     if (data.ok) {
       setSendResult("✅ 발송 완료!");
       setSmsMsg("");
-      setShowSmsModal(false);
+      closeSmsModal();
     } else {
       setSendResult(`❌ ${data.message ?? "발송 실패"}`);
     }
@@ -614,7 +719,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       setSchedResult("✅ 예약 완료!");
       setSchedMsg("");
       setSchedAt("");
-      setShowSchedModal(false);
+      closeSchedModal();
     } else {
       setSchedResult(`❌ ${data.message ?? "예약 실패"}`);
     }
@@ -777,15 +882,22 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
                 <Send className="w-4 h-4 text-green-500" /> SMS 즉시 발송
               </h3>
-              <button onClick={() => { setShowSmsModal(false); setSendResult(""); }} className="text-gray-400 hover:text-gray-600 text-lg">×</button>
+              <button
+                onClick={closeSmsModal}
+                className="text-gray-400 hover:text-gray-600 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                aria-label="SMS 모달 닫기"
+              >×</button>
             </div>
             <p className="text-xs text-gray-500">수신: <strong>{contact?.name}</strong> ({contact?.phone})</p>
             <textarea
+              ref={smsTextareaRef}
               value={smsMsg}
               onChange={(e) => setSmsMsg(e.target.value)}
               placeholder="[고객명], [이름] 치환 사용 가능&#10;예: [고객명]님, 안녕하세요! 크루즈닷입니다."
               rows={4}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-gold-500"
+              autoFocus
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-gold-500 focus:ring-2 focus:ring-green-500"
+              aria-label="SMS 메시지 내용"
             />
             <p className="text-xs text-gray-400 text-right">{smsMsg.length}자</p>
             {sendResult && (
@@ -823,7 +935,11 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
                 <AlarmClock className="w-4 h-4 text-orange-500" /> SMS 예약 발송
               </h3>
-              <button onClick={() => { setShowSchedModal(false); setSchedResult(""); }} className="text-gray-400 hover:text-gray-600 text-lg">×</button>
+              <button
+                onClick={closeSchedModal}
+                className="text-gray-400 hover:text-gray-600 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                aria-label="SMS 예약 모달 닫기"
+              >×</button>
             </div>
             <p className="text-xs text-gray-500">수신: <strong>{contact?.name}</strong> ({contact?.phone})</p>
             <div>
@@ -832,15 +948,19 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                 type="datetime-local"
                 value={schedAt}
                 onChange={(e) => setSchedAt(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gold-500 focus:ring-2 focus:ring-orange-500"
+                aria-label="발송 예정 시각"
               />
             </div>
             <textarea
+              ref={schedTextareaRef}
               value={schedMsg}
               onChange={(e) => setSchedMsg(e.target.value)}
               placeholder="[고객명], [이름] 치환 사용 가능"
               rows={4}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-gold-500"
+              autoFocus
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-gold-500 focus:ring-2 focus:ring-orange-500"
+              aria-label="SMS 예약 메시지 내용"
             />
             {schedResult && (
               <p className={`text-sm font-medium ${schedResult.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>
@@ -870,9 +990,10 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         handleContactBackup={handleContactBackup}
         openSendDb={openSendDb}
         showSchedModal={showSchedModal}
-        setShowSchedModal={setShowSchedModal}
+        openSchedModal={openSchedModal}
+        closeSchedModal={closeSchedModal}
         showSmsModal={showSmsModal}
-        setShowSmsModal={setShowSmsModal}
+        openSmsModal={openSmsModal}
         transferLogs={transferLogs}
         recalling={recalling}
         handleRecall={handleRecall}
@@ -971,12 +1092,22 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
             key={t.key}
             onClick={() => {
               setTab(t.key as typeof tab);
-              if (t.key === "sms" && smsLogs.length === 0) {
+              if (t.key === "sms" && smsLogs.length === 0 && smsHasMore) {
                 setSmsLoading(true);
-                fetch(`/api/sms-logs?contactId=${contact.id}&days=90`)
+                fetch(`/api/contacts/${contact.id}/sms-logs?limit=20&page=1`)
                   .then(r => r.json())
-                  .then(d => { if (d.ok) setSmsLogs(d.logs ?? []); setSmsLoading(false); })
-                  .catch(() => { logger.error("[ContactDetail] SMS 로그 fetch 실패", { contactId: contact.id }); setSmsLoading(false); });
+                  .then(d => {
+                    if (d.ok) {
+                      setSmsLogs(d.logs ?? []);
+                      setSmsHasMore(d.hasMore ?? false);
+                      setSmsPage(1);
+                    }
+                    setSmsLoading(false);
+                  })
+                  .catch(err => {
+                    logger.error("[ContactDetail] SMS 로그 fetch 실패", { contactId: contact.id, err });
+                    setSmsLoading(false);
+                  });
               }
             }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${

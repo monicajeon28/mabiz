@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import { GitBranch } from "lucide-react";
 
 interface Group {
@@ -65,7 +65,7 @@ interface ContactGroupTabProps {
   loadingTransfer: boolean;
 }
 
-export default function ContactGroupTab({
+function ContactGroupTabComponent({
   contact, allGroups, selectedGroup, setSelectedGroup, assigning, assignMsg, assignGroup,
   funnels, selectedFunnelId, setSelectedFunnelId, enrollStartDate, setEnrollStartDate,
   enrollSendNow, setEnrollSendNow, enrolling, setEnrolling, enrollError, setEnrollError,
@@ -240,3 +240,5 @@ export default function ContactGroupTab({
     </div>
   );
 }
+
+export default memo(ContactGroupTabComponent);

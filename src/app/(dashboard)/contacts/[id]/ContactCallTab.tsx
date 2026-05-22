@@ -1,19 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, memo } from "react";
 import {
   Plus, Clock, Star, FileText, Check, Copy, CloudUpload, Trash2, FileDown, ChevronDown, Share2,
 } from "lucide-react";
 import CallScriptPanel from "./CallScriptPanel";
 import { getObjectionData } from "@/lib/objections/validation";
 import objectionsData from "@/../../TRACK_A_OBJECTIONS.json";
-
-interface CallLog {
-  id: string; content: string | null; result: string | null;
-  duration: number | null; convictionScore: number | null;
-  nextAction: string | null; scheduledAt: string | null; createdAt: string;
-  _sharedFrom?: string; _authorName?: string | null;
-}
+import { CallLog } from "@/types/contact";
+import { CallForm } from "@/types/call-form";
+import { ObjectionData } from "@/types/objection";
 
 interface Contact {
   id: string; age?: number | null; maritalStatus?: string | null;
@@ -27,15 +23,21 @@ const RESULT_LABELS: Record<string, string> = {
   REJECTED: "❌ 거절", RESCHEDULED: "📅 재콜예약",
 };
 
+// [T-005] nullable 필드 처리 강화: Optional Chaining
+const getResultLabel = (result: string | null): string => {
+  if (!result) return "미기록";
+  return RESULT_LABELS[result] ?? result;
+};
+
 interface ContactCallTabProps {
   contact: Contact;
   contactId: string;
-  callForm: any;
-  setCallForm: (form: any) => void;
+  callForm: CallForm;
+  setCallForm: (form: CallForm) => void;
   showCallForm: boolean;
   setShowCallForm: (show: boolean) => void;
-  selectedObjectionModal: any;
-  setSelectedObjectionModal: (modal: any) => void;
+  selectedObjectionModal: ObjectionData | null;
+  setSelectedObjectionModal: (modal: ObjectionData | null) => void;
   expandedLogId: string | null;
   setExpandedLogId: (id: string | null) => void;
   copiedLogId: string | null;
@@ -48,7 +50,7 @@ interface ContactCallTabProps {
   copyCallLog: (log: CallLog) => void;
 }
 
-export default function ContactCallTab({
+function ContactCallTabComponent({
   contact, contactId, callForm, setCallForm, showCallForm, setShowCallForm,
   selectedObjectionModal, setSelectedObjectionModal, expandedLogId, setExpandedLogId,
   copiedLogId, backing, backupResult, addCallLog, deleteCallLog, deleteAllCallLogs,
@@ -274,7 +276,8 @@ export default function ContactCallTab({
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={() => copyCallLog(log)}
-                      className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+                      className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      aria-label="콜 기록 복사"
                     >
                       {copiedLogId === log.id
                         ? <><Check className="w-3 h-3 text-green-500" /> 복사됨</>
@@ -292,7 +295,8 @@ export default function ContactCallTab({
                     )}
                     <button
                       onClick={() => deleteCallLog(log.id)}
-                      className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors ml-auto"
+                      className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors ml-auto focus:outline-none focus:ring-2 focus:ring-red-500"
+                      aria-label="콜 기록 삭제"
                     >
                       <Trash2 className="w-3 h-3" /> 삭제
                     </button>
@@ -355,3 +359,5 @@ export default function ContactCallTab({
     </div>
   );
 }
+
+export default memo(ContactCallTabComponent);

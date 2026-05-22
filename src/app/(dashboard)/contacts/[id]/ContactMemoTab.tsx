@@ -1,13 +1,8 @@
 "use client";
 
+import { memo } from "react";
 import { FileText, Plus, Trash2 } from "lucide-react";
-
-interface Memo {
-  id: string;
-  content: string;
-  createdAt: string;
-  _authorName?: string | null;
-}
+import { Memo } from "@/types/contact";
 
 interface Contact {
   memos: Memo[];
@@ -24,7 +19,7 @@ interface ContactMemoTabProps {
   deleteAllMemos: () => Promise<void>;
 }
 
-export default function ContactMemoTab({
+function ContactMemoTabComponent({
   contact, showMemoForm, setShowMemoForm, memoText, setMemoText,
   addMemo, deleteMemo, deleteAllMemos,
 }: ContactMemoTabProps) {
@@ -78,7 +73,8 @@ export default function ContactMemoTab({
               </div>
               <button
                 onClick={() => deleteMemo(m.id)}
-                className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
+                aria-label="메모 삭제"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -91,3 +87,5 @@ export default function ContactMemoTab({
     </div>
   );
 }
+
+export default memo(ContactMemoTabComponent);

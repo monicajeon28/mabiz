@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 interface SmsLog {
   id: string;
   phone: string;
@@ -14,7 +16,7 @@ interface ContactSmsTabProps {
   smsLoading: boolean;
 }
 
-export default function ContactSmsTab({ smsLogs, smsLoading }: ContactSmsTabProps) {
+function ContactSmsTabComponent({ smsLogs, smsLoading }: ContactSmsTabProps) {
   return (
     <div className="space-y-2">
       {smsLoading ? (
@@ -44,3 +46,5 @@ export default function ContactSmsTab({ smsLogs, smsLoading }: ContactSmsTabProp
     </div>
   );
 }
+
+export default memo(ContactSmsTabComponent);
