@@ -37,45 +37,6 @@ function getCurrentWeek(): number {
   return Math.max(1, Math.min(weekNumber, 12));
 }
 
-/**
- * 상담사의 과거 4주 전환율 계산
- */
-async function getCounselorHistoricalData(
-  organizationId: string,
-  counselorId: string,
-  pastWeeks: number = 4
-): Promise<{ conversionRate: number; totalCalls: number }> {
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - pastWeeks * 7);
-
-  const callLogs = await prisma.callLog.findMany({
-    where: {
-      userId: counselorId,
-      contact: {
-        organizationId,
-      },
-      createdAt: {
-        gte: startDate,
-      },
-    },
-    select: {
-      conversionDay: true,
-    },
-  });
-
-  if (callLogs.length === 0) {
-    // 데이터가 없으면 기본값 (50%)
-    return { conversionRate: 50, totalCalls: 0 };
-  }
-
-  const conversions = callLogs.filter((log) => log.conversionDay !== null).length;
-  const conversionRate = (conversions / callLogs.length) * 100;
-
-  return {
-    conversionRate,
-    totalCalls: callLogs.length,
-  };
-}
 
 /**
  * 조직의 모든 상담사 조회
@@ -99,22 +60,52 @@ async function getOrganizationCounselors(
     },
   });
 
-  // 각 상담사의 과거 데이터 로드
-  const counselors: CounselorProfile[] = await Promise.all(
-    members.map(async (member) => {
-      const { conversionRate } = await getCounselorHistoricalData(
-        organizationId,
-        member.userId,
-        4
-      );
+  // 배치로 모든 상담사의 콜 로그 로드 (N+1 제거)
+  const pastDate = new Date();
+  pastDate.setDate(pastDate.getDate() - 28); // 4주
 
-      return {
-        id: member.userId,
-        name: member.user.name || `User ${member.userId}`,
-        historicalConversionRate: conversionRate,
-      };
-    })
-  );
+  const callLogs = await prisma.callLog.findMany({
+    where: {
+      userId: { in: members.map(m => m.userId) },
+      contact: {
+        organizationId,
+      },
+      createdAt: {
+        gte: pastDate,
+      },
+    },
+    select: {
+      userId: true,
+      conversionDay: true,
+    },
+  });
+
+  // 상담사별 전환율 계산
+  const conversionRateByUserId = new Map<string, number>();
+  const callCountByUserId = new Map<string, number>();
+
+  for (const log of callLogs) {
+    const count = callCountByUserId.get(log.userId) || 0;
+    callCountByUserId.set(log.userId, count + 1);
+
+    if (log.conversionDay !== null) {
+      const conversions = conversionRateByUserId.get(log.userId) || 0;
+      conversionRateByUserId.set(log.userId, conversions + 1);
+    }
+  }
+
+  // 각 상담사의 과거 데이터 변환
+  const counselors: CounselorProfile[] = members.map((member) => {
+    const totalCalls = callCountByUserId.get(member.userId) || 0;
+    const conversions = conversionRateByUserId.get(member.userId) || 0;
+    const conversionRate = totalCalls > 0 ? (conversions / totalCalls) * 100 : 50;
+
+    return {
+      id: member.userId,
+      name: member.user.name || `User ${member.userId}`,
+      historicalConversionRate: conversionRate,
+    };
+  });
 
   return counselors;
 }
