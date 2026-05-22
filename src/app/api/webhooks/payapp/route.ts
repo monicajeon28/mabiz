@@ -24,7 +24,7 @@ import { createRefundNotifications } from "@/lib/notification-service";
  */
 export async function POST(req: Request) {
   try {
-    // [보안] IP 화이트리스트 검증
+    // ── [1단계] IP 화이트리스트 검증 (필수) ────────────────────
     const allowedIPs =
       process.env.PAYAPP_ALLOWED_IPS?.split(",")
         .map((s) => s.trim())
@@ -34,32 +34,53 @@ export async function POST(req: Request) {
       req.headers.get("x-real-ip") ??
       "unknown";
 
+    // IP 화이트리스트 미설정 — 중대 오류 (즉시 조치 필요)
     if (allowedIPs.length === 0) {
-      logger.warn("[PayApp Webhook] PAYAPP_ALLOWED_IPS 미설정 — IP 검증 생략", { requestIP });
-    } else if (!allowedIPs.includes(requestIP)) {
-      logger.warn("[PayApp Webhook] 허용되지 않은 IP", { requestIP });
+      logger.error(
+        "[PayApp Webhook] CRITICAL: PAYAPP_ALLOWED_IPS 미설정. 웹훅 수신 불가능합니다. DevOps에 연락하세요.",
+        { requestIP }
+      );
+      return new Response("FAIL", { status: 500 }); // 설정 오류는 500
+    }
+
+    // IP 화이트리스트 검증 실패
+    if (!allowedIPs.includes(requestIP)) {
+      logger.error(
+        "[PayApp Webhook] IP 화이트리스트 실패. 요청 차단됨.",
+        { requestIP, allowedIPs: allowedIPs.join(", ") }
+      );
       return new Response("FAIL", { status: 403 });
     }
 
     const body = await req.text();
     const params = new URLSearchParams(body);
 
-    // [보안] linkval 검증 — 진짜 PayApp인지 확인
+    // ── [2단계] linkval 검증 (필수) ────────────────────────────
     const linkval = params.get("linkval");
-    if (linkval) {
-      if (!validateFeedback(linkval)) {
-        logger.warn("[PayApp Webhook] linkval 불일치 — 차단");
-        return new Response("FAIL", { status: 403 });
-      }
-    } else {
-      // linkval 누락 — IP 화이트리스트 통과 여부와 관계없이 경고 로그
-      logger.warn("[PayApp Webhook] linkval 누락 — 보안 주의", { requestIP });
-      // IP 화이트리스트도 없으면 차단
-      if (allowedIPs.length === 0) {
-        logger.warn("[PayApp Webhook] linkval 누락 + IP 미설정 — 차단");
-        return new Response("FAIL", { status: 403 });
-      }
+
+    // linkval 누락 — 필수값
+    if (!linkval) {
+      logger.error(
+        "[PayApp Webhook] linkval 누락. 요청 차단됨.",
+        { requestIP }
+      );
+      return new Response("FAIL", { status: 400 }); // 필수값 누락은 400
     }
+
+    // linkval 불일치 — 검증 실패
+    if (!validateFeedback(linkval)) {
+      logger.error(
+        "[PayApp Webhook] linkval 불일치. 요청 차단됨.",
+        {
+          requestIP,
+          received: linkval.substring(0, 4) + "***", // 로그에 전체 값 노출하지 않기
+        }
+      );
+      return new Response("FAIL", { status: 403 });
+    }
+
+    // ── [3단계] 요청 본문 파싱 (성공 로그) ──────────────────────
+    logger.info("[PayApp Webhook] 검증 통과 - 처리 시작", { requestIP });
 
     const payState    = params.get("pay_state") ?? "";
     const mulNo       = params.get("mul_no") ?? "";

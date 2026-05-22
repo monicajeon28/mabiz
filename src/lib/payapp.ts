@@ -159,9 +159,61 @@ export async function requestCancelAfterSettlement(params: {
 
 // ─── FeedbackURL 검증 ─────────────────────────────────────────
 
+/**
+ * PayApp 웹훅 linkval 검증
+ *
+ * 목적: PayApp이 환경변수를 알아야만 웹훅을 보낼 수 있도록 강제
+ *
+ * 보안 계층:
+ * 1. IP 화이트리스트 (네트워크 수준) — PayApp 서버만
+ * 2. linkval 검증 (앱 수준) — 환경변수 일치 확인
+ * 3. HMAC-SHA256 (미래) — 요청 내용 무결성 검증
+ *
+ * @param linkval - PayApp 요청에 포함된 linkval 파라미터
+ * @returns true if linkval matches stored config, false otherwise
+ */
 export function validateFeedback(linkval: string): boolean {
   const config = getConfig();
   return linkval === config.linkval;
+}
+
+/**
+ * [향후 구현] PayApp 웹훅 HMAC-SHA256 검증
+ *
+ * 목적: 웹훅 요청 내용이 전송 중에 변조되었는지 감지
+ *
+ * PayApp 공식 스펙: HMAC-SHA256(모든 파라미터를 정렬한 문자열, linkkey)
+ *
+ * 예시:
+ * - 파라미터: {order_id: "123", price: "10000", pay_state: "4"}
+ * - 정렬: "order_id=123&pay_state=4&price=10000"
+ * - HMAC-SHA256(정렬된 문자, linkkey) → 16진수 해시
+ *
+ * @param params - PayApp 요청 파라미터
+ * @param receivedHmac - 요청에 포함된 hmac 값
+ * @returns true if HMAC matches, false otherwise
+ *
+ * TODO: PayApp 담당자에게 HMAC 필드명 확인 후 구현
+ * TODO: 환경변수 PAYAPP_LINKKEY 추가
+ */
+export function validateFeedbackWithHMAC(
+  params: Record<string, string>,
+  receivedHmac: string
+): boolean {
+  // 아직 미구현. 다음 주에 PayApp 협의 후 추가
+  try {
+    const config = getConfig();
+    if (!config.linkkey) {
+      throw new Error(
+        "HMAC 검증을 위해 PAYAPP_LINKKEY 환경변수가 필요합니다"
+      );
+    }
+    // 구현 예정: crypto.createHmac('sha256', config.linkkey)...
+    return false;
+  } catch (e) {
+    logger.warn('[PayApp] HMAC 검증 미구현', { error: e instanceof Error ? e.message : String(e) });
+    return false;
+  }
 }
 
 /**
