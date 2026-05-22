@@ -64,6 +64,8 @@ function BarChart({ monthly }: { monthly: MonthlyRow[] }) {
                 className="w-full rounded-t-md bg-blue-500 transition-all"
                 style={{ height: `${heightPct}%` }}
                 title={`${row.month}: ${formatAmount(row.revenue)} (${row.count}건)`}
+                role="img"
+                aria-label={`${row.month}: ${formatAmount(row.revenue)}, ${row.count}건`}
               />
               <span className="text-xs text-gray-500 mt-1">{formatMonth(row.month)}</span>
             </div>

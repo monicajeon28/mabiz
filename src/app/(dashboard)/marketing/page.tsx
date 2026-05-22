@@ -103,7 +103,7 @@ export default function MarketingDashboardPage() {
       </div>
 
       {error && (
-        <div className="text-center py-16">
+        <div className="text-center py-16" role="alert">
           <p className="text-red-500 text-sm mb-3">{error}</p>
           <button
             onClick={fetchData}
@@ -168,12 +168,17 @@ export default function MarketingDashboardPage() {
                 <span className="text-xs text-gray-400 w-16 shrink-0">
                   {day.date.slice(5)}
                 </span>
-                <div className="flex-1 bg-gray-100 rounded h-6 relative">
+                <div
+                  className="flex-1 bg-gray-100 rounded h-6 relative"
+                  role="img"
+                  aria-label={`${day.date}: ${day.count}건`}
+                >
                   <div
                     className="bg-navy-600 rounded h-6 transition-all"
                     style={{
                       width: `${maxCount > 0 ? (day.count / maxCount) * 100 : 0}%`,
                     }}
+                    aria-hidden="true"
                   />
                 </div>
                 <span className="text-xs font-medium w-6 text-right shrink-0">

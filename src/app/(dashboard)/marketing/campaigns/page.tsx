@@ -47,6 +47,7 @@ export default function MarketingCampaignsPage() {
   }, [fetchCampaigns]);
 
   const handleDelete = async (id: string) => {
+    // TODO (P3): confirm() → Modal dialog 변경, alert() → Toast notification 변경
     if (!confirm('이 캠페인을 삭제하시겠습니까?')) return;
 
     const previousCampaigns = campaigns;
