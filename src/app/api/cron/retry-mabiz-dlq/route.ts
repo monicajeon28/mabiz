@@ -37,8 +37,10 @@ export async function GET(req: Request) {
   }
 
   // [동시성 보호] 재시도 항목 조회 + PROCESSING 상태 변경 (트랜잭션 내 원자적)
-  // P1-2: RepeatableRead isolation으로 Race Condition 방지
-  // 다른 Cron 인스턴스가 같은 항목을 동시 처리할 수 없음
+  // P1-10 해결: Vercel Cron 멀티 인스턴스 동시성 문제
+  // - getPendingDLQEntries()는 Prisma RepeatableRead 트랜잭션 사용
+  // - SELECT + UPDATE가 원자적으로 실행되어 중복 처리 방지
+  // - 다른 Cron 인스턴스는 PROCESSING 상태인 항목을 선택할 수 없음
   const entries = await getPendingDLQEntries();
   if (entries.length === 0) {
     return NextResponse.json({ ok: true, processed: 0 });

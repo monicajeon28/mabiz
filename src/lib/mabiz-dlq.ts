@@ -99,14 +99,24 @@ export async function failDLQ(id: string, retryCount: number, reason: string): P
 
 /**
  * 재시도 대상 조회 및 PROCESSING 상태 변경 (원자적)
- * - 트랜잭션 내에서 항목 조회 → PROCESSING 상태 변경
- * - P1-2 Race Condition 방지: SELECT...FOR UPDATE 동등 (Postgres RepeatableRead)
- * - 다른 Cron 인스턴스가 같은 항목을 동시 처리할 수 없음
+ *
+ * P1-10 해결: Vercel Cron 멀티 인스턴스 동시성 문제
+ * - 문제: 여러 Cron 인스턴스가 동시에 같은 DLQ 항목을 중복 처리 가능
+ * - 해결: Prisma RepeatableRead 트랜잭션으로 원자적 연산
+ *   1. SELECT (재시도 대상 조회)
+ *   2. UPDATE (PROCESSING 상태로 변경)
+ *   3. COMMIT (트랜잭션 종료)
+ * - 결과: 다른 Cron 인스턴스는 이미 PROCESSING 상태인 항목을 선택 안 함
+ *
+ * 동작 원리:
+ * - RepeatableRead: 트랜잭션 시작 후 다른 트랜잭션의 변경을 읽지 않음
+ * - SELECT와 UPDATE가 같은 트랜잭션 내에서 실행되므로 race condition 불가능
+ * - 다른 Cron이 중간에 같은 항목을 선택할 수 없음
  */
 export async function getPendingDLQEntries(limit = 20) {
   return prisma.$transaction(
     async (tx) => {
-      // 1. 재시도 대상 항목 조회
+      // 1. 재시도 대상 항목 조회 (status='PENDING' && nextRetryAt <= NOW)
       const entries = await tx.mabizSyncDLQ.findMany({
         where: {
           status: DLQ_STATUS.PENDING,
@@ -121,7 +131,8 @@ export async function getPendingDLQEntries(limit = 20) {
       }
 
       // 2. 조회한 항목들을 PROCESSING으로 변경 (트랜잭션 내에서 원자적)
-      // 이렇게 하면 다른 Cron이 같은 항목을 동시 처리할 수 없음
+      // 이 UPDATE가 트랜잭션 내에서 실행되므로 다른 Cron이 SELECT 결과를 볼 수 없음
+      // (RepeatableRead isolation으로 격리됨)
       const entryIds = entries.map((e) => e.id);
       await tx.mabizSyncDLQ.updateMany({
         where: { id: { in: entryIds } },
@@ -131,10 +142,13 @@ export async function getPendingDLQEntries(limit = 20) {
       return entries;
     },
     {
-      // RepeatableRead: 트랜잭션 시작 후 다른 트랜잭션의 변경을 읽지 않음
-      // Race Condition 방지 + 성능 균형
+      // RepeatableRead isolation level:
+      // - 트랜잭션 시작 시점의 스냅샷만 본다
+      // - 트랜잭션 중간에 다른 트랜잭션이 변경해도 영향 없음
+      // - SELECT와 UPDATE 사이에 race condition 발생 불가능
       isolationLevel: 'RepeatableRead',
-      timeout: 35_000, // 웹훅 재시도(최대 30s) + 여유 5s
+      // 타이밋아웃: 웹훅 재시도(최대 30s) + 트랜잭션 오버헤드(5s) = 35s
+      timeout: 35_000,
     },
   );
 }
