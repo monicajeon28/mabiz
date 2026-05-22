@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Users, TrendingUp, RotateCcw, Clock, Star, Phone, Settings, Send, AlertCircle, Copy, Check, Calendar } from "lucide-react";
 import Link from "next/link";
 import { AuthSession } from '@/types/auth';
+import { logger } from '@/lib/logger';
 
 type DashboardData = {
   role: string;
@@ -300,6 +301,18 @@ export function DashboardClient({ session }: DashboardClientProps) {
   const [regLinkCopied, setRegLinkCopied] = useState(false);
   const [suspendedPartnerCount, setSuspendedPartnerCount] = useState<number>(0);
 
+  // Timer references for cleanup
+  const linkCopiedTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const regLinkCopiedTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (linkCopiedTimerRef.current) clearTimeout(linkCopiedTimerRef.current);
+      if (regLinkCopiedTimerRef.current) clearTimeout(regLinkCopiedTimerRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     Promise.allSettled([
       fetch("/api/dashboard").then((r) => r.json()),
@@ -314,7 +327,7 @@ export function DashboardClient({ session }: DashboardClientProps) {
       if (results[1].status === 'fulfilled' && results[1].value?.ok) {
         setFeed(results[1].value.items ?? []);
       } else if (results[1].status === 'rejected') {
-        console.error('알림 피드 로드 실패:', results[1].reason);
+        logger.error('알림 피드 로드 실패:', results[1].reason);
       }
 
       if (results[2].status === 'fulfilled' && results[2].value?.ok) {
@@ -367,7 +380,9 @@ export function DashboardClient({ session }: DashboardClientProps) {
                   : `${baseUrl}/landing?ref=${myOrgId}`;
                 navigator.clipboard.writeText(link).then(() => {
                   setLinkCopied(true);
-                  setTimeout(() => setLinkCopied(false), 2000);
+                  // Clear previous timer if exists
+                  if (linkCopiedTimerRef.current) clearTimeout(linkCopiedTimerRef.current);
+                  linkCopiedTimerRef.current = setTimeout(() => setLinkCopied(false), 2000);
                 }).catch(() => { window.prompt("링크를 복사하세요:", link); });
               }}
               className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
@@ -400,7 +415,9 @@ export function DashboardClient({ session }: DashboardClientProps) {
                 const link = `${baseUrl}/register/free-marketer`;
                 navigator.clipboard.writeText(link).then(() => {
                   setRegLinkCopied(true);
-                  setTimeout(() => setRegLinkCopied(false), 2000);
+                  // Clear previous timer if exists
+                  if (regLinkCopiedTimerRef.current) clearTimeout(regLinkCopiedTimerRef.current);
+                  regLinkCopiedTimerRef.current = setTimeout(() => setRegLinkCopied(false), 2000);
                 }).catch(() => { window.prompt("링크를 복사하세요:", link); });
               }}
               className="flex items-center gap-2 bg-gold-500 hover:bg-gold-600 text-navy-900 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
