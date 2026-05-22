@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { validateSessionInMiddleware } from '@/lib/middleware-auth';
 
 // Constants
 const MABIZ_SESSION_COOKIE = 'mabiz.sid';
@@ -48,61 +48,6 @@ function getSessionId(request: NextRequest): string | null {
   return request.cookies.get(MABIZ_SESSION_COOKIE)?.value || null;
 }
 
-/**
- * Validate session from database (for middleware context)
- * This is a lightweight check - full auth context loaded in server components
- */
-async function validateSession(sessionId: string): Promise<{
-  valid: boolean;
-  role?: string;
-  organizationId?: string | null;
-  adminId?: string | null;
-} | null> {
-  try {
-    const session = await prisma.mabizSession.findUnique({
-      where: { id: sessionId },
-      select: {
-        id: true,
-        adminId: true,
-        memberId: true,
-        organizationId: true,
-        expiresAt: true,
-      },
-    });
-
-    if (!session) return null;
-    if (session.expiresAt < new Date()) {
-      // Session expired, attempt cleanup
-      await prisma.mabizSession.delete({ where: { id: sessionId } }).catch(() => {});
-      return null;
-    }
-
-    // Determine role from session type
-    if (session.adminId) {
-      return {
-        valid: true,
-        role: 'GLOBAL_ADMIN',
-        organizationId: null,
-        adminId: session.adminId,
-      };
-    }
-
-    if (session.memberId && session.organizationId) {
-      return {
-        valid: true,
-        role: 'MEMBER', // Will be refined to OWNER/AGENT/FREE_SALES in server context
-        organizationId: session.organizationId,
-      };
-    }
-
-    return null;
-  } catch (error) {
-    logger.error('[Middleware] validateSession error', {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return null;
-  }
-}
 
 /**
  * NextJS 13+ middleware to inject auth context into request headers
@@ -155,7 +100,7 @@ export async function middleware(request: NextRequest) {
       }
 
       // Validate session exists and is not expired
-      const sessionData = await validateSession(sessionId);
+      const sessionData = await validateSessionInMiddleware(sessionId);
 
       if (!sessionData) {
         logger.warn('[Middleware] Invalid or expired session', {
@@ -206,7 +151,7 @@ export async function middleware(request: NextRequest) {
 
     // For non-protected routes, still inject session if available
     if (sessionId) {
-      const sessionData = await validateSession(sessionId);
+      const sessionData = await validateSessionInMiddleware(sessionId);
 
       if (sessionData) {
         const requestHeaders = new Headers(request.headers);
