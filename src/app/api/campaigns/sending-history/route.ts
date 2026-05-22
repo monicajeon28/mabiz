@@ -64,8 +64,8 @@ export async function GET(req: Request) {
     ]);
 
     // Contact와 Campaign 정보 조회 (필요한 경우)
-    const contactIds = Array.from(new Set(histories.map((h) => h.contactId).filter(Boolean)));
-    const campaignIds = Array.from(new Set(histories.map((h) => h.campaignId).filter(Boolean)));
+    const contactIds = Array.from(new Set(histories.map((h) => h.contactId).filter((id): id is string => !!id)));
+    const campaignIds = Array.from(new Set(histories.map((h) => h.campaignId).filter((id): id is string => !!id)));
 
     const [contacts, campaigns] = await Promise.all([
       contactIds.length > 0
