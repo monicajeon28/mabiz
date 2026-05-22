@@ -6,6 +6,10 @@ import {
   Image as ImageIcon, Clock, Zap, X, User,
 } from "lucide-react";
 import { showError, showSuccess } from "@/components/ui/Toast";
+import DOMPurify from "dompurify";
+import { ReviewTab } from "@/components/messages/ReviewTab";
+import { canReview } from "@/lib/rbac";
+import type { UserRole } from "@/lib/rbac";
 
 // ─── 타입 ────────────────────────────────────────────────────────
 type Group       = { id: string; name: string; color: string | null; _count: { members: number } };
@@ -75,7 +79,24 @@ function SmsTab() {
   const [linkNoCount,    setLinkNoCount]    = useState(0);
   const [confirmed,      setConfirmed]      = useState(false);
   const [sending,        setSending]        = useState(false);
+  const [csrfToken,      setCsrfToken]      = useState("");
+  const [rateLimitStatus, setRateLimitStatus] = useState<{ used: number; remaining: number; resetAt: string } | null>(null);
+  const [userRole,       setUserRole]       = useState<UserRole | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // CSRF 토큰 획득
+  useEffect(() => {
+    fetch("/api/csrf-token").then(r => r.json())
+      .then(d => { if (d.ok && d.token) setCsrfToken(d.token); })
+      .catch(() => { /* silently fail */ });
+  }, []);
+
+  // 사용자 역할 조회
+  useEffect(() => {
+    fetch("/api/user/role").then(r => r.json())
+      .then(d => { if (d.ok && d.role) setUserRole(d.role as UserRole); })
+      .catch(() => { /* silently fail */ });
+  }, []);
 
   useEffect(() => {
     fetch("/api/settings/sms-config").then(r => r.json())
@@ -114,33 +135,74 @@ function SmsTab() {
     if (!selectedGroup || !message.trim()) { showError("그룹과 메시지를 입력하세요"); return; }
     const res = await fetch(`/api/groups/${selectedGroup}/blast`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrfToken && { "X-CSRF-Token": csrfToken }),
+      },
       body: JSON.stringify({ message, dryRun: true }),
     });
     const d = await res.json() as {
-      ok: boolean; count?: number; sampleMessages?: string[]; linkNoCount?: number;
+      ok: boolean; count?: number; willSend?: number; sampleMessages?: string[]; linkNoCount?: number; rateLimitStatus?: any;
     };
     if (!d.ok) { showError("미리보기 실패"); return; }
-    setDryRunResult({ count: d.count ?? 0, sample: d.sampleMessages?.[0] ?? message });
+    const sampleMsg = d.sampleMessages?.[0] ?? message;
+    setDryRunResult({ count: d.willSend ?? d.count ?? 0, sample: sampleMsg });
     setLinkNoCount(d.linkNoCount ?? 0);
     setConfirmed(false);
+    if (d.rateLimitStatus) {
+      const resetDate = new Date(d.rateLimitStatus.resetAt);
+      setRateLimitStatus({
+        used: d.rateLimitStatus.used,
+        remaining: d.rateLimitStatus.remaining,
+        resetAt: resetDate.toLocaleTimeString('ko-KR'),
+      });
+    }
   };
 
   const doSend = async () => {
-    if (!confirmed) { showError("발송 확인 체크박스를 선택하세요"); return; }
+    // Step A: 미리보기 확인
+    if (!dryRunResult) {
+      showError("먼저 발송 대상을 확인해주세요.");
+      return;
+    }
+
+    // Step B: 체크박스 확인
+    if (!confirmed) {
+      showError("발송 확인 체크박스를 선택해주세요.");
+      return;
+    }
+
+    // Step C: 최종 확인 다이얼로그
+    const willSend = dryRunResult.count || 0;
+    const confirmMsg = `정말 ${willSend}명에게 SMS를 발송하시겠습니까?\n\n메시지: ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}`;
+
+    if (!window.confirm(confirmMsg)) {
+      return;  // 사용자가 취소함
+    }
+
+    // Step D: 발송
     setSending(true);
     try {
       const res = await fetch(`/api/groups/${selectedGroup}/blast`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken && { "X-CSRF-Token": csrfToken }),
+        },
         body: JSON.stringify({ message, dryRun: false }),
       });
-      const d = await res.json() as { ok: boolean; sentCount?: number; failedCount?: number };
-      if (!d.ok) throw new Error();
+      const d = await res.json() as { ok: boolean; sentCount?: number; failedCount?: number; message?: string };
+      if (!d.ok) {
+        showError(d.message ?? "발송 실패");
+        return;
+      }
       showSuccess(`발송 완료: ${d.sentCount ?? 0}명 성공, ${d.failedCount ?? 0}명 실패`);
-      setMessage(""); setDryRunResult(null); setConfirmed(false);
-    } catch { showError("발송 실패"); }
-    finally { setSending(false); }
+      setMessage(""); setDryRunResult(null); setConfirmed(false); setRateLimitStatus(null);
+    } catch (err) {
+      showError("발송 중 오류가 발생했습니다");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -184,7 +246,7 @@ function SmsTab() {
             <Users className="w-3.5 h-3.5" /> 수신 그룹
           </label>
           <select value={selectedGroup}
-            onChange={e => { setSelectedGroup(e.target.value); setDryRunResult(null); }}
+            onChange={e => { setSelectedGroup(e.target.value); setDryRunResult(null); setRateLimitStatus(null); }}
             className="w-full border rounded-lg px-3 py-2 text-sm">
             <option value="">그룹 선택...</option>
             {groups.map(g => (
@@ -311,6 +373,19 @@ function SmsTab() {
             발송 대상 미리보기
           </button>
 
+          {selectedGroup && rateLimitStatus && (
+            <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-700">
+                📊 발송 횟수: {rateLimitStatus.used}/5회
+                {rateLimitStatus.remaining === 0 && (
+                  <span className="block text-xs text-red-600 font-semibold mt-1">
+                    ⏰ 내일 {rateLimitStatus.resetAt}부터 가능
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
+
           {dryRunResult && (
             <div className="space-y-3">
               <div className="p-3 bg-gray-50 rounded-lg">
@@ -324,8 +399,26 @@ function SmsTab() {
                   )}
                 </p>
                 <p className="text-xs text-gray-500 font-medium mb-1">첫 번째 고객 미리보기:</p>
-                <p className="text-sm bg-white border rounded p-2.5 whitespace-pre-wrap">{dryRunResult.sample}</p>
+                <div className="text-sm bg-white border rounded p-2.5 whitespace-pre-wrap break-words">
+                  {DOMPurify.sanitize(dryRunResult.sample, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] })}
+                </div>
               </div>
+
+              {/* 검수 탭 (관리자/대리점장용) */}
+              {userRole && canReview(userRole) && (
+                <ReviewTab
+                  groupId={selectedGroup}
+                  message={message}
+                  dryRunResult={dryRunResult}
+                  onApprove={doSend}
+                  onReject={() => {
+                    setDryRunResult(null);
+                    setConfirmed(false);
+                    showError("검수가 거절되었습니다.");
+                  }}
+                  approving={sending}
+                />
+              )}
 
               <label className="flex items-start gap-2 cursor-pointer">
                 <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}
@@ -336,10 +429,14 @@ function SmsTab() {
                 </span>
               </label>
 
-              <button onClick={doSend} disabled={!confirmed || sending}
-                className="w-full py-3 bg-blue-600 text-white rounded-xl text-sm font-semibold disabled:opacity-40 flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors">
+              <button onClick={doSend} disabled={!dryRunResult || !confirmed || sending}
+                className={`w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
+                  !dryRunResult || !confirmed || sending
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                }`}>
                 <Send className="w-4 h-4" />
-                {sending ? "발송 중..." : `${dryRunResult.count}명에게 SMS 발송`}
+                {sending ? "발송 중..." : `✓ 발송 (${dryRunResult?.count || 0}명)`}
               </button>
             </div>
           )}
@@ -365,8 +462,12 @@ function EmailTab() {
   const [scheduledAt,   setScheduledAt]   = useState("");
   const [sending,       setSending]       = useState(false);
   const [savingName,    setSavingName]    = useState(false);
+  const [csrfToken,     setCsrfToken]     = useState("");
 
   useEffect(() => {
+    fetch("/api/csrf-token").then(r => r.json())
+      .then(d => { if (d.ok && d.token) setCsrfToken(d.token); })
+      .catch(() => { /* silently fail */ });
     fetch("/api/settings/email").then(r => r.json())
       .then(d => {
         if (d.ok && d.config) setEmailConfig(d.config);
@@ -396,7 +497,10 @@ function EmailTab() {
     try {
       const res = await fetch("/api/settings/email-sender", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken && { "X-CSRF-Token": csrfToken }),
+        },
         body: JSON.stringify({ senderName }),
       });
       const d = await res.json() as { ok: boolean };
@@ -416,7 +520,10 @@ function EmailTab() {
     try {
       const res = await fetch("/api/email/schedule", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken && { "X-CSRF-Token": csrfToken }),
+        },
         body: JSON.stringify({
           groupId: selectedGroup,
           subject,
@@ -593,5 +700,34 @@ function EmailTab() {
         </button>
       </div>
     </div>
+  );
+}
+
+// ─── XSS 방지를 위한 Sanitized 샘플 프리뷰 ────────────────────
+function SanitizedSamplePreview({ sample }: { sample: string }) {
+  const [sanitized, setSanitized] = useState(sample);
+
+  useEffect(() => {
+    // DOMPurify 동적 로드 및 sanitize
+    const sanitizeContent = async () => {
+      try {
+        const DOMPurify = (await import("dompurify")).default;
+        const cleaned = DOMPurify.sanitize(sample, {
+          ALLOWED_TAGS: [],
+          ALLOWED_ATTR: [],
+        });
+        setSanitized(cleaned);
+      } catch {
+        // DOMPurify 로드 실패 시 원본 사용 (안전한 텍스트만 허용)
+        setSanitized(sample);
+      }
+    };
+    sanitizeContent();
+  }, [sample]);
+
+  return (
+    <p className="text-sm bg-white border rounded p-2.5 whitespace-pre-wrap">
+      {sanitized}
+    </p>
   );
 }

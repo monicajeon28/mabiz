@@ -86,6 +86,11 @@ export function canManageSettings(ctx: AuthContext): boolean {
   return ctx.role === "GLOBAL_ADMIN" || ctx.role === "OWNER";
 }
 
+/** 메시지 검수 권한 (GLOBAL_ADMIN, OWNER만) */
+export function canReview(role: UserRole): boolean {
+  return role === "GLOBAL_ADMIN" || role === "OWNER";
+}
+
 /** 조직 ID 강제 획득 (없으면 에러) */
 export function requireOrgId(ctx: AuthContext): string {
   if (!ctx.organizationId) throw new Error("ORGANIZATION_REQUIRED");

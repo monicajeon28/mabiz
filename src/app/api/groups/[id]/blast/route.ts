@@ -4,6 +4,7 @@ import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
+import { checkRateLimit, getRateLimitStatus } from '@/lib/rate-limit';
 
 const MAX_RECIPIENTS = 200; // Vercel 타임아웃 방지 (10건 배치 × 20회 ≈ 2초)
 const BATCH_SIZE     = 10;
@@ -100,6 +101,8 @@ export async function POST(req: Request, { params }: Params) {
 
     // dryRun: 실제 발송 없이 인원만 반환
     if (dryRun) {
+      const rateLimitStatus = await getRateLimitStatus(ctx.userId || '', groupId, 'SMS_BLAST');
+
       return NextResponse.json({
         ok:          true,
         dryRun:      true,
@@ -111,7 +114,19 @@ export async function POST(req: Request, { params }: Params) {
         overLimitMsg: isOverLimit
           ? `200명 제한 초과 — 첫 ${MAX_RECIPIENTS}명에게만 발송됩니다.`
           : null,
+        rateLimitStatus,
       });
+    }
+
+    // [T4] Rate limit 확인
+    const userId = ctx.userId || '';
+    const allowed = await checkRateLimit(userId, groupId, 'SMS_BLAST');
+    if (!allowed) {
+      const status = await getRateLimitStatus(userId, groupId, 'SMS_BLAST');
+      return NextResponse.json({
+        ok: false,
+        message: `하루 발송 횟수(5회)를 초과했습니다. 내일 ${status.resetAt.toLocaleTimeString('ko-KR')}부터 가능합니다.`,
+      }, { status: 429 });
     }
 
     // SMS 설정 1회 조회 (루프 밖)
