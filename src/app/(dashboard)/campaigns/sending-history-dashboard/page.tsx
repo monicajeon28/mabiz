@@ -56,87 +56,153 @@ export default function SendingHistoryDashboardPage() {
 
   const pageSize = 50;
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 1. 통계 데이터 조회
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  async function fetchStats() {
-    if (!campaignId) return;
-
-    try {
-      const response = await fetch(
-        `/api/campaigns/sending-history/stats?campaignId=${campaignId}&period=${period}`
-      );
-
-      if (!response.ok) {
-        throw new Error('통계 조회 실패');
-      }
-
-      const data = await response.json();
-      if (data.ok) {
-        setStats(data.stats);
-      }
-    } catch (err) {
-      toast({
-        title: '오류',
-        description: err instanceof Error ? err.message : '통계 조회에 실패했습니다.',
-        variant: 'destructive',
-      });
-    }
-  }
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 2. 실패 목록 조회
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  async function fetchFailures() {
-    if (!campaignId) return;
-
-    try {
-      setLoading(true);
-      const response = await fetch(
-        `/api/campaigns/sending-history/failures?campaignId=${campaignId}&status=${statusFilter}&limit=${pageSize}&offset=${currentPage * pageSize}`
-      );
-
-      if (!response.ok) {
-        throw new Error('실패 목록 조회 실패');
-      }
-
-      const data = await response.json();
-      if (data.ok) {
-        setFailures(data.failures || []);
-        setTotalFailures(data.total || 0);
-      }
-    } catch (err) {
-      toast({
-        title: '오류',
-        description: err instanceof Error ? err.message : '실패 목록 조회에 실패했습니다.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }
-
   // 처음 로드
   useEffect(() => {
     if (!campaignId) return;
-    fetchStats();
-    fetchFailures();
+
+    (async () => {
+      try {
+        const response = await fetch(
+          `/api/campaigns/sending-history/stats?campaignId=${campaignId}&period=${period}`
+        );
+
+        if (!response.ok) {
+          throw new Error('통계 조회 실패');
+        }
+
+        const data = await response.json();
+        if (data.ok) {
+          setStats(data.stats);
+        }
+      } catch (err) {
+        toast({
+          title: '오류',
+          description: err instanceof Error ? err.message : '통계 조회에 실패했습니다.',
+          variant: 'destructive',
+        });
+      }
+    })();
+
+    (async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(
+          `/api/campaigns/sending-history/failures?campaignId=${campaignId}&status=${statusFilter}&limit=${pageSize}&offset=0`
+        );
+
+        if (!response.ok) {
+          throw new Error('실패 목록 조회 실패');
+        }
+
+        const data = await response.json();
+        if (data.ok) {
+          setFailures(data.failures || []);
+          setTotalFailures(data.total || 0);
+        }
+      } catch (err) {
+        toast({
+          title: '오류',
+          description: err instanceof Error ? err.message : '실패 목록 조회에 실패했습니다.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [campaignId]);
 
   // 기간 변경 시
   useEffect(() => {
-    fetchStats();
-  }, [period]);
+    if (!campaignId) return;
 
-  // 상태 필터 또는 페이지 변경 시
+    (async () => {
+      try {
+        const response = await fetch(
+          `/api/campaigns/sending-history/stats?campaignId=${campaignId}&period=${period}`
+        );
+
+        if (!response.ok) {
+          throw new Error('통계 조회 실패');
+        }
+
+        const data = await response.json();
+        if (data.ok) {
+          setStats(data.stats);
+        }
+      } catch (err) {
+        toast({
+          title: '오류',
+          description: err instanceof Error ? err.message : '통계 조회에 실패했습니다.',
+          variant: 'destructive',
+        });
+      }
+    })();
+  }, [campaignId, period, toast]);
+
+  // 상태 필터 변경 시
   useEffect(() => {
+    if (!campaignId) return;
     setCurrentPage(0);
-    fetchFailures();
-  }, [statusFilter]);
 
+    (async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(
+          `/api/campaigns/sending-history/failures?campaignId=${campaignId}&status=${statusFilter}&limit=${pageSize}&offset=0`
+        );
+
+        if (!response.ok) {
+          throw new Error('실패 목록 조회 실패');
+        }
+
+        const data = await response.json();
+        if (data.ok) {
+          setFailures(data.failures || []);
+          setTotalFailures(data.total || 0);
+        }
+      } catch (err) {
+        toast({
+          title: '오류',
+          description: err instanceof Error ? err.message : '실패 목록 조회에 실패했습니다.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [campaignId, statusFilter, pageSize, toast]);
+
+  // 페이지 변경 시
   useEffect(() => {
-    fetchFailures();
-  }, [currentPage]);
+    if (!campaignId) return;
+
+    (async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(
+          `/api/campaigns/sending-history/failures?campaignId=${campaignId}&status=${statusFilter}&limit=${pageSize}&offset=${currentPage * pageSize}`
+        );
+
+        if (!response.ok) {
+          throw new Error('실패 목록 조회 실패');
+        }
+
+        const data = await response.json();
+        if (data.ok) {
+          setFailures(data.failures || []);
+          setTotalFailures(data.total || 0);
+        }
+      } catch (err) {
+        toast({
+          title: '오류',
+          description: err instanceof Error ? err.message : '실패 목록 조회에 실패했습니다.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [campaignId, statusFilter, currentPage, pageSize, toast]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 3. 메시지 재전송

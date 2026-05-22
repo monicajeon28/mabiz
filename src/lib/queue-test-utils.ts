@@ -11,8 +11,9 @@ import { logger } from './logger';
 /**
  * SMS 로그 추가 및 처리 테스트
  */
-export async function testSmsQueueFlow() {
-  logger.log('[Queue Test] SMS 큐 테스트 시작');
+export async function testSmsQueueFlow(testOrgId?: string) {
+  const orgId = testOrgId || `test-org-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  logger.log('[Queue Test] SMS 큐 테스트 시작', { orgId });
 
   try {
     // 1. 큐 상태 초기 확인
@@ -22,7 +23,7 @@ export async function testSmsQueueFlow() {
     // 2. 테스트 로그 5개 추가
     for (let i = 1; i <= 5; i++) {
       await addSmsLog({
-        organizationId: 'test-org-123',
+        organizationId: orgId,
         contactId: `contact-${i}`,
         phone: `010${1000000 + i}`,
         msg: `Test SMS Message ${i}`,
@@ -65,8 +66,9 @@ export async function testSmsQueueFlow() {
 /**
  * Email 로그 추가 및 처리 테스트
  */
-export async function testEmailQueueFlow() {
-  logger.log('[Queue Test] Email 큐 테스트 시작');
+export async function testEmailQueueFlow(testOrgId?: string) {
+  const orgId = testOrgId || `test-org-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  logger.log('[Queue Test] Email 큐 테스트 시작', { orgId });
 
   try {
     // 1. 큐 상태 초기 확인
@@ -76,7 +78,7 @@ export async function testEmailQueueFlow() {
     // 2. 테스트 로그 5개 추가
     for (let i = 1; i <= 5; i++) {
       await addEmailLog({
-        organizationId: 'test-org-123',
+        organizationId: orgId,
         contactId: `contact-${i}`,
         email: `user${i}@example.com`,
         subject: `Test Email Subject ${i}`,
@@ -141,8 +143,9 @@ export async function runAllQueueTests() {
 /**
  * 대량 부하 테스트 (성능 검증용)
  */
-export async function loadTestQueues(count: number = 1000) {
-  logger.log(`[Queue Test] 대량 부하 테스트 시작 (${count}개)`);
+export async function loadTestQueues(count: number = 1000, testOrgId?: string) {
+  const orgId = testOrgId || `load-test-org-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  logger.log(`[Queue Test] 대량 부하 테스트 시작 (${count}개)`, { orgId });
 
   try {
     const startTime = Date.now();
@@ -150,7 +153,7 @@ export async function loadTestQueues(count: number = 1000) {
     // SMS 대량 추가
     for (let i = 0; i < count; i++) {
       await addSmsLog({
-        organizationId: 'load-test-org',
+        organizationId: orgId,
         phone: `010${(1000000 + (i % 9999999)).toString().slice(0, 8)}`,
         msg: `Load Test SMS ${i}`,
         status: 'SENT',
