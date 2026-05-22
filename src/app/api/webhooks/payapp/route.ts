@@ -23,6 +23,8 @@ import { createRefundNotifications } from "@/lib/notification-service";
  *       아닌 경우 checkretry=y면 최대 10회 재시도
  */
 export async function POST(req: Request) {
+  let params: URLSearchParams;
+
   try {
     // ── [1단계] IP 화이트리스트 검증 (필수) ────────────────────
     const allowedIPs =
@@ -53,7 +55,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.text();
-    const params = new URLSearchParams(body);
+    params = new URLSearchParams(body);
 
     // ── [2단계] linkval 검증 (필수) ────────────────────────────
     const linkval = params.get("linkval");
@@ -436,8 +438,13 @@ export async function POST(req: Request) {
     return new Response("SUCCESS");
   } catch (err) {
     logger.error("[PayApp Webhook] 처리 실패", { err });
-    const payloadObj = Object.fromEntries(params);
-    await enqueueDLQ("payapp", payloadObj, err instanceof Error ? err.message : String(err), "form-data").catch(() => {});
+
+    // params가 초기화된 경우에만 DLQ에 저장
+    if (params) {
+      const payloadObj = Object.fromEntries(params);
+      await enqueueDLQ("payapp", payloadObj, err instanceof Error ? err.message : String(err), "form-data").catch(() => {});
+    }
+
     return new Response("FAIL", { status: 500 });
   }
 }
