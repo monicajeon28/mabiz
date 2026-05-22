@@ -1,28 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import {
   ArrowLeft, Phone, FileDown, Share2, MessageSquare, AlarmClock, ChevronDown, Calendar,
   FileText,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import RecommendBanner from "./recommend-banner";
-
-interface Contact {
-  id: string;
-  name: string;
-  phone: string;
-  email: string | null;
-  type: string;
-  cruiseInterest: string | null;
-  departureDate: string | null;
-  productName: string | null;
-  bookingRef: string | null;
-  sourceOrgId: string | null;
-  age?: number | null;
-  maritalStatus?: string | null;
-  childrenCount?: number | null;
-}
+import { maskPhone, maskEmail } from "@/lib/masking";
+import { Contact } from "@/types/contact";
 
 interface TransferLog {
   id: string;
@@ -48,9 +34,10 @@ interface ContactInfoPanelProps {
   handleContactBackup: () => Promise<void>;
   openSendDb: () => Promise<void>;
   showSchedModal: boolean;
-  setShowSchedModal: (show: boolean) => void;
+  openSchedModal: () => void;
+  closeSchedModal: () => void;
   showSmsModal: boolean;
-  setShowSmsModal: (show: boolean) => void;
+  openSmsModal: () => void;
   transferLogs: TransferLog[];
   recalling: boolean;
   handleRecall: (log: TransferLog) => Promise<void>;
@@ -72,10 +59,10 @@ interface ContactInfoPanelProps {
   SUGGESTED_TAGS: string[];
 }
 
-export default function ContactInfoPanel({
+function ContactInfoPanelComponent({
   contact, editingName, setEditingName, nameInput, setNameInput, saveName,
-  backingContact, handleContactBackup, openSendDb, showSchedModal, setShowSchedModal,
-  showSmsModal, setShowSmsModal, transferLogs, recalling, handleRecall,
+  backingContact, handleContactBackup, openSendDb, showSchedModal, openSchedModal, closeSchedModal,
+  showSmsModal, openSmsModal, transferLogs, recalling, handleRecall,
   showDeptForm, setShowDeptForm, deptForm, setDeptForm, savingDept, saveDeparture,
   savingField, saveField, tags, tagInput, setTagInput, addTag, removeTag, savingTags,
   currentGroups, SUGGESTED_TAGS,
@@ -86,7 +73,11 @@ export default function ContactInfoPanel({
     <>
       {/* 헤더 */}
       <div className="flex items-center gap-3 mb-5">
-        <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg">
+        <button
+          onClick={() => router.back()}
+          className="p-2 hover:bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label="뒤로 가기"
+        >
           <ArrowLeft className="w-5 h-5" />
         </button>
         {editingName ? (
@@ -107,13 +98,19 @@ export default function ContactInfoPanel({
             {contact.name}
           </h1>
         )}
-        <a href={`tel:${contact.phone}`} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">
+        <a
+          href={`tel:${contact.phone}`}
+          className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label={`통화: ${maskPhone(contact.phone)}`}
+          title="전화 걸기"
+        >
           <Phone className="w-5 h-5" />
         </a>
         <button
           onClick={handleContactBackup}
           disabled={backingContact}
-          className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 disabled:opacity-50"
+          className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label="이 고객 Drive 백업"
           title="이 고객 Drive 백업"
         >
           {backingContact
@@ -124,21 +121,24 @@ export default function ContactInfoPanel({
         <button
           onClick={contact.sourceOrgId ? undefined : openSendDb}
           disabled={!!contact.sourceOrgId}
-          className={`p-2 rounded-lg ${contact.sourceOrgId ? "bg-gray-100 text-gray-300 cursor-not-allowed" : "bg-purple-50 text-purple-600 hover:bg-purple-100"}`}
+          className={`p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 ${contact.sourceOrgId ? "bg-gray-100 text-gray-300 cursor-not-allowed" : "bg-purple-50 text-purple-600 hover:bg-purple-100"}`}
+          aria-label={contact.sourceOrgId ? "DB 전달 (공유받은 DB는 재공유 불가)" : "DB 전달"}
           title={contact.sourceOrgId ? "공유받은 DB는 재공유할 수 없습니다" : "DB 전달"}
         >
           <Share2 className="w-5 h-5" />
         </button>
         <button
-          onClick={() => setShowSmsModal(true)}
-          className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100"
+          onClick={openSmsModal}
+          className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+          aria-label="SMS 즉시 발송"
           title="SMS 즉시 발송"
         >
           <MessageSquare className="w-5 h-5" />
         </button>
         <button
-          onClick={() => setShowSchedModal(true)}
-          className="p-2 bg-orange-50 text-orange-500 rounded-lg hover:bg-orange-100"
+          onClick={openSchedModal}
+          className="p-2 bg-orange-50 text-orange-500 rounded-lg hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+          aria-label="SMS 예약 발송"
           title="SMS 예약 발송"
         >
           <AlarmClock className="w-5 h-5" />
@@ -185,7 +185,7 @@ export default function ContactInfoPanel({
       {/* 기본 정보 */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
         <div className="grid grid-cols-2 gap-3 text-sm">
-          <div><span className="text-gray-400">전화번호</span><p className="font-medium mt-0.5">{contact.phone}</p></div>
+          <div><span className="text-gray-400">전화번호</span><p className="font-medium mt-0.5 font-mono">{maskPhone(contact.phone)}</p></div>
 
           {/* 상태 — 인라인 드롭다운 */}
           <div>
@@ -277,7 +277,8 @@ export default function ContactInfoPanel({
                   type="date"
                   value={deptForm.departureDate}
                   onChange={(e) => setDeptForm({ ...deptForm, departureDate: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500 focus:ring-2 focus:ring-blue-500"
+                  aria-label="출발일"
                 />
               </div>
               <div>
@@ -285,7 +286,8 @@ export default function ContactInfoPanel({
                 <select
                   value={deptForm.productName}
                   onChange={(e) => setDeptForm({ ...deptForm, productName: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500 bg-white"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500 focus:ring-2 focus:ring-blue-500 bg-white"
+                  aria-label="크루즈 상품명"
                 >
                   <option value="">상품 선택...</option>
                   <optgroup label="지중해">
@@ -322,20 +324,23 @@ export default function ContactInfoPanel({
                   value={deptForm.bookingRef}
                   onChange={(e) => setDeptForm({ ...deptForm, bookingRef: e.target.value })}
                   placeholder="PNR 또는 예약 번호"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500 focus:ring-2 focus:ring-blue-500"
+                  aria-label="예약 번호"
                 />
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={saveDeparture}
                   disabled={savingDept || !deptForm.departureDate}
-                  className="flex-1 bg-navy-900 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                  className="flex-1 bg-navy-900 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label="출발일 저장"
                 >
                   {savingDept ? "저장 중..." : "저장"}
                 </button>
                 <button
                   onClick={() => setShowDeptForm(false)}
-                  className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg text-sm"
+                  className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  aria-label="출발일 입력 취소"
                 >
                   취소
                 </button>
@@ -372,7 +377,8 @@ export default function ContactInfoPanel({
               {tag}
               <button
                 onClick={() => removeTag(tag)}
-                className="text-blue-400 hover:text-blue-700 ml-0.5 font-bold"
+                className="text-blue-400 hover:text-blue-700 ml-0.5 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-1"
+                aria-label={`태그 ${tag} 제거`}
               >×</button>
             </span>
           ))}
@@ -385,14 +391,16 @@ export default function ContactInfoPanel({
           <input
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(tagInput); } }}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(tagInput); setTagInput(""); } }}
             placeholder="태그 직접 입력 후 Enter"
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400"
+            className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500"
+            aria-label="태그 입력"
           />
           <button
-            onClick={() => addTag(tagInput)}
+            onClick={() => { addTag(tagInput); setTagInput(""); }}
             disabled={!tagInput.trim()}
-            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 disabled:opacity-40"
+            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="태그 추가"
           >추가</button>
         </div>
 
@@ -411,3 +419,5 @@ export default function ContactInfoPanel({
     </>
   );
 }
+
+export default memo(ContactInfoPanelComponent);
