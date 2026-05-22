@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { extractCsrfToken, verifyCsrfToken } from "@/lib/csrf";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -19,6 +20,15 @@ type Params = { params: Promise<{ id: string }> };
  */
 export async function POST(req: Request, { params }: Params) {
   try {
+    // [S-002] CSRF 토큰 검증
+    const csrfToken = extractCsrfToken(req);
+    if (!csrfToken || !verifyCsrfToken(csrfToken)) {
+      return NextResponse.json(
+        { ok: false, message: "보안 검증 실패: CSRF 토큰이 유효하지 않습니다" },
+        { status: 403 }
+      );
+    }
+
     const ctx = await getAuthContext();
 
     if (ctx.role === "FREE_SALES") {

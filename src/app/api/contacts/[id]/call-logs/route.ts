@@ -8,6 +8,7 @@ import { addLeadScore } from "@/lib/lead-score";
 import { getAuthContext } from "@/lib/rbac";
 import { backupCallLogsToGoogleDrive } from "@/lib/google-drive";
 import { validateObjectionInput } from "@/lib/objections/validation";
+import { CallLogIdSchema } from "@/lib/validators";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -76,6 +77,15 @@ export async function DELETE(req: Request, { params }: Params) {
     }
 
     if (logId) {
+      // [S-001] 로그 ID 검증 (SQL Injection 방지)
+      const validation = CallLogIdSchema.safeParse({ logId, contactId: id });
+      if (!validation.success) {
+        return NextResponse.json(
+          { ok: false, message: "유효하지 않은 로그 ID 형식입니다" },
+          { status: 400 }
+        );
+      }
+
       await prisma.callLog.deleteMany({ where: { ...deleteWhere, id: logId } });
     } else {
       await prisma.callLog.deleteMany({ where: deleteWhere });
@@ -98,6 +108,15 @@ export async function PUT(req: Request, { params }: Params) {
     const logId = searchParams.get("logId");
 
     if (!logId) return NextResponse.json({ ok: false, message: "logId 필수" }, { status: 400 });
+
+    // [S-001] 로그 ID 검증 (SQL Injection 방지)
+    const validation = CallLogIdSchema.safeParse({ logId, contactId: id });
+    if (!validation.success) {
+      return NextResponse.json(
+        { ok: false, message: "유효하지 않은 로그 ID 형식입니다" },
+        { status: 400 }
+      );
+    }
 
     const contact = await prisma.contact.findFirst({ where: { id, organizationId: orgId } });
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
@@ -176,6 +195,14 @@ export async function POST(req: Request, { params }: Params) {
       content, result, duration, convictionScore, nextAction, scheduledAt,
       objectionId, customerReaction, recovered, recoveryTime
     } = body;
+
+    // [E-004] 폼 유효성 검사: content 필수 검증
+    if (!content || typeof content !== 'string' || !content.trim()) {
+      return NextResponse.json(
+        { ok: false, message: '콜 기록 내용을 입력하세요' },
+        { status: 400 }
+      );
+    }
 
     // Track A: 이의처리 데이터 검증
     const objectionValidation = validateObjectionInput({
