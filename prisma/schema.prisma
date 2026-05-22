@@ -192,6 +192,13 @@ model Contact {
   segmentOverride            String?
   segment                    String?
   recommendedProduct         String?
+  marriageStatus             String?                    @db.VarChar(20)
+  marriageDate               DateTime?
+  childrenAges               Int[]                       @default([])
+  childrenPlanned            String?                    @db.VarChar(20)
+  ageInYears                 Int?
+  autoSegment                String?                    @default("unclassified") @db.VarChar(20)
+  segmentUpdatedAt           DateTime                    @default(now()) @updatedAt
   callLogs                   CallLog[]
   organization               Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   partner                    Partner?                    @relation(fields: [partnerId], references: [id])
@@ -217,6 +224,9 @@ model Contact {
   @@index([organizationId, channel], map: "idx_contact_org_channel")
   @@index([organizationId, type], map: "idx_contact_org_type")
   @@index([organizationId, lastPaymentStatus], map: "idx_contact_org_payment_status")
+  @@index([organizationId, autoSegment], map: "idx_contact_org_segment")
+  @@index([marriageDate], map: "idx_contact_marriage_date")
+  @@index([childrenAges], map: "idx_contact_children_ages")
 }
 
 model ContactLensClassification {
@@ -377,11 +387,41 @@ model CallLog {
   nextAction      String?
   scheduledAt     DateTime?
   createdAt       DateTime  @default(now())
+
+  // A/B 테스트 메타데이터
+  abTestGroup     String?        // "A" | "B" | null
+  abTestWeek      Int?           // 1, 2, 3, ..., 12
+  scriptVersion   String?        // "v13-A-standard" | "v13-B-desire-extended"
+
+  // 콜 단계 추적 (이의처리 Track A와 연동)
+  callPhase       String?        // "opening" | "desire" | "implication" | "close" | "abandoned"
+  phaseStartedAt  DateTime?      // SPIN 시작 시간
+
+  // 콜 타이밍 (정확한 지속 시간 계산)
+  callStartedAt   DateTime?      // 콜 수신 시간
+  callEndedAt     DateTime?      // 콜 종료 시간
+  callDurationMs  Int?           // (callEndedAt - callStartedAt).milliseconds
+
+  // 이탈 분석
+  abandonmentMs   Int?           // 고객이 끊은 시점 (callStartedAt 기준 밀리초)
+  abandonmentPhase String?       // 끊긴 단계 ("opening" 중 / "desire" 중 / ...)
+
+  // 녹음 동의 (법적 준수)
+  recordingConsent Boolean @default(false)
+  recordingConsentAt DateTime?
+
+  // A/B 분석 도우미 필드
+  conversionDay   Int?           // 0 (즉시), 1 (다음날), 3 (3일 후), 7 (1주) 등
+
   contact         Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   @@index([contactId])
   @@index([userId])
   @@index([contactId, createdAt(sort: Desc)])
+  @@index([abTestGroup])
+  @@index([abTestWeek])
+  @@index([callStartedAt])
+  @@index([abandonmentPhase])
 }
 
 model ContactMemo {
@@ -1200,6 +1240,7 @@ model MabizSyncDLQ {
   payload       Json
   failureReason String    @db.VarChar(5000)
   format        String    @default("json") @db.VarChar(20)
+  status        String    @default("PENDING") @db.VarChar(20)
   retryCount    Int       @default(0)
   maxRetries    Int       @default(3)
   nextRetryAt   DateTime?
@@ -1216,6 +1257,8 @@ model MabizSyncDLQ {
   @@index([retryCount, nextRetryAt])
   @@index([syncType])
   @@index([format, resolvedAt])
+  @@index([status])
+  @@index([status, nextRetryAt])
   @@map("MabizSyncDLQ")
 }
 

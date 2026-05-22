@@ -1,6 +1,16 @@
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
+// DLQ 상태
+type DLQStatus = 'PENDING' | 'PROCESSING' | 'RESOLVED' | 'FAILED';
+
+const DLQ_STATUS = {
+  PENDING: 'PENDING',
+  PROCESSING: 'PROCESSING',
+  RESOLVED: 'RESOLVED',
+  FAILED: 'FAILED',
+} as const;
+
 // DLQ 재시도 정책: 최대 3회
 const MAX_RETRIES = 3;
 // DLQ 재시도 대기 시간 (분): [0]=5m → [1]=15m → [2]=60m
@@ -27,6 +37,7 @@ export async function enqueueDLQ(
       payload: payload as object,
       failureReason: truncatedReason,
       format,
+      status: DLQ_STATUS.PENDING,
       retryCount: 0,
       maxRetries: 3,
       nextRetryAt: new Date(Date.now() + RETRY_DELAYS_MIN[0] * 60_000),
@@ -42,7 +53,10 @@ export async function enqueueDLQ(
 export async function resolveDLQ(id: string): Promise<void> {
   await prisma.mabizSyncDLQ.update({
     where: { id },
-    data: { resolvedAt: new Date() },
+    data: {
+      status: DLQ_STATUS.RESOLVED,
+      resolvedAt: new Date(),
+    },
   });
   logger.log('[DLQ] 해결됨', { id });
 }
@@ -58,6 +72,7 @@ export async function failDLQ(id: string, retryCount: number, reason: string): P
     await prisma.mabizSyncDLQ.update({
       where: { id },
       data: {
+        status: DLQ_STATUS.FAILED,
         retryCount: retryCount + 1,
         failureReason: truncatedReason,
         resolvedAt: new Date(),
@@ -73,6 +88,7 @@ export async function failDLQ(id: string, retryCount: number, reason: string): P
   await prisma.mabizSyncDLQ.update({
     where: { id },
     data: {
+      status: DLQ_STATUS.PENDING,
       retryCount: retryCount + 1,
       failureReason: truncatedReason,
       nextRetryAt: new Date(Date.now() + nextDelay * 60_000),
@@ -87,8 +103,7 @@ export async function failDLQ(id: string, retryCount: number, reason: string): P
 export async function getPendingDLQEntries(limit = 20) {
   return prisma.mabizSyncDLQ.findMany({
     where: {
-      resolvedAt: null,
-      retryCount: { lt: 3 },
+      status: DLQ_STATUS.PENDING,
       nextRetryAt: { lte: new Date() },
     },
     orderBy: { nextRetryAt: 'asc' },

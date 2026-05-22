@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
+import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { getPendingDLQEntries, resolveDLQ, failDLQ } from '@/lib/mabiz-dlq';
 
@@ -48,6 +49,12 @@ export async function GET(req: Request) {
 
   for (const entry of entries) {
     try {
+      // P1-10: PROCESSING 상태로 변경 (멱등성 기반 — 다른 Cron 인스턴스의 중복 처리 방지)
+      await prisma.mabizSyncDLQ.update({
+        where: { id: entry.id },
+        data: { status: 'PROCESSING' },
+      });
+
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL
         ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
 
