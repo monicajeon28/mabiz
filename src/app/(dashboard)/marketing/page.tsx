@@ -6,7 +6,7 @@ import { BarChart2, Users, MousePointerClick, TrendingUp, RefreshCw } from "luci
 import { logger } from "@/lib/logger";
 import type { Summary, TopPage, TrendDay, DashboardData } from "@/types/marketing";
 
-function KpiCard({
+const KpiCard = React.memo(function KpiCard({
   title,
   value,
   sub,
@@ -40,7 +40,7 @@ function KpiCard({
       </div>
     </div>
   );
-}
+});
 
 function SkeletonCard() {
   return <div className="h-24 bg-gray-100 rounded-xl animate-pulse" />;
@@ -224,9 +224,11 @@ export default function MarketingDashboardPage() {
         </div>
       )}
 
-      {/* ━━━ 상위 랜딩페이지 5개 ━━━ */}
+      {/* ━━━ 상위 랜딩페이지 ━━━ */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-        <h2 className="text-base font-semibold text-navy-900 mb-4">상위 랜딩페이지 TOP 5</h2>
+        <h2 className="text-base font-semibold text-navy-900 mb-4">
+          상위 랜딩페이지 {data?.topPages.length ? `TOP ${data.topPages.length}` : ''}
+        </h2>
         {loading ? (
           <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (

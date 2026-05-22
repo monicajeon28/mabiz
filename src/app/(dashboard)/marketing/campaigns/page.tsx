@@ -67,16 +67,16 @@ export default function MarketingCampaignsPage() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      PENDING: 'bg-yellow-100 text-yellow-800',
-      SENDING: 'bg-blue-100 text-blue-800',
-      SENT: 'bg-green-100 text-green-800',
-      FAILED: 'bg-red-100 text-red-800',
-      CANCELLED: 'bg-gray-100 text-gray-800',
-    };
-    return styles[status as keyof typeof styles] || styles.PENDING;
+  const STATUS_BADGE_STYLES = {
+    PENDING: 'bg-yellow-100 text-yellow-800',
+    SENDING: 'bg-blue-100 text-blue-800',
+    SENT: 'bg-green-100 text-green-800',
+    FAILED: 'bg-red-100 text-red-800',
+    CANCELLED: 'bg-gray-100 text-gray-800',
   };
+
+  const getStatusBadge = (status: string) =>
+    STATUS_BADGE_STYLES[status as keyof typeof STATUS_BADGE_STYLES] || STATUS_BADGE_STYLES.PENDING;
 
   if (loading) {
     return (
@@ -141,7 +141,7 @@ export default function MarketingCampaignsPage() {
               {campaigns.map((campaign, idx) => (
                 <tr key={campaign.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                   <td className="px-6 py-4">
-                    <Link href={`/marketing/campaigns/${campaign.id}`} className="text-blue-600 hover:underline font-medium">
+                    <Link href={`/marketing/campaigns/${campaign.id}`} className="text-blue-600 hover:underline font-medium focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 rounded">
                       {campaign.title}
                     </Link>
                   </td>
@@ -174,6 +174,12 @@ export default function MarketingCampaignsPage() {
               ))}
             </tbody>
           </table>
+          {/* 페이지네이션 (P2-4) */}
+          {campaigns.length > 10 && (
+            <div className="px-6 py-4 border-t border-gray-100 text-center">
+              <p className="text-xs text-gray-400">페이지네이션 추가 예정</p>
+            </div>
+          )}
         </div>
       )}
     </div>

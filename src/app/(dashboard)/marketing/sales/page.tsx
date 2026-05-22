@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
 import { logger } from "@/lib/logger";
+import { formatAmount, formatDate, formatMonth, maskPhone } from "@/lib/marketing-utils";
 import type { MonthlyRow, LandingRow, RecentRow, SalesApiData } from "@/types/marketing";
 
 interface Summary {
@@ -15,36 +16,6 @@ interface Summary {
 
 interface ApiData extends SalesApiData {
   summary: Summary;
-}
-
-// ─── 유틸 ─────────────────────────────────────────────────────
-function formatAmount(n: number) {
-  return n.toLocaleString() + "원";
-}
-
-function formatDate(iso: string | null) {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function formatMonth(ym: string) {
-  const [y, m] = ym.split("-");
-  return `${y}.${m}`;
-}
-
-function maskPhone(tel: string | null | undefined): string {
-  if (!tel) return '-';
-  const digits = tel.replace(/[^0-9+]/g, '');
-  if (digits.length < 4) return '-';
-
-  if (tel.includes('+')) {
-    const countryCode = tel.match(/^\+\d+/)?.[0] || '';
-    const localDigits = digits.slice(countryCode.replace('+', '').length);
-    return countryCode + '-****-' + localDigits.slice(-4);
-  }
-
-  return digits.substring(0, 3) + '-****-' + digits.slice(-4);
 }
 
 function cn(...classes: (string | boolean | undefined | null)[]) {
@@ -379,6 +350,13 @@ export default function MarketingSalesPage() {
         <div className="hidden md:block">
           <RecentPaymentTable recent={recent} loading={loading} />
         </div>
+
+        {/* 페이지네이션 (P2-2) */}
+        {!loading && recent.length >= 5 && (
+          <div className="px-6 py-4 border-t border-gray-100 text-center">
+            <p className="text-xs text-gray-400">페이지네이션 추가 예정</p>
+          </div>
+        )}
       </div>
     </div>
   );
