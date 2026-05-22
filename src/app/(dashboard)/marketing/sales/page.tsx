@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
+import { logger } from "@/lib/logger";
 import type { MonthlyRow, LandingRow, RecentRow, SalesApiData } from "@/types/marketing";
 
 interface Summary {
@@ -136,6 +137,93 @@ function SkeletonRow({ cols }: { cols: number }) {
   );
 }
 
+// ─── 최근 결제 테이블 (PC) ─────────────────────────────────────
+function RecentPaymentTable({ recent, loading }: { recent: RecentRow[], loading: boolean }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-gray-50">
+          <tr>
+            <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">주문번호</th>
+            <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">구매자</th>
+            <th scope="col" className="text-right px-4 py-3 font-medium text-gray-600">금액</th>
+            <th scope="col" className="text-center px-4 py-3 font-medium text-gray-600">상태</th>
+            <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">결제일</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {loading && (
+            <>
+              <SkeletonRow cols={5} />
+              <SkeletonRow cols={5} />
+              <SkeletonRow cols={5} />
+              <SkeletonRow cols={5} />
+              <SkeletonRow cols={5} />
+            </>
+          )}
+          {!loading && recent.length === 0 && (
+            <tr>
+              <td colSpan={5} className="text-center py-16 text-gray-400">
+                결제 내역이 없습니다
+              </td>
+            </tr>
+          )}
+          {!loading &&
+            recent.map((row) => (
+              <tr key={row.orderId} className="hover:bg-gray-50 transition-colors">
+                <td className="px-4 py-3 text-gray-500 font-mono text-xs">{row.orderId}</td>
+                <td className="px-4 py-3 text-gray-700">
+                  {row.buyerName}{" "}
+                  <span className="text-gray-400 text-xs">{maskPhone(row.buyerTel)}</span>
+                </td>
+                <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                  {formatAmount(row.amount)}
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <StatusBadge status={row.status} />
+                </td>
+                <td className="px-4 py-3 text-gray-600">{formatDate(row.paidAt)}</td>
+              </tr>
+            ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ─── 최근 결제 카드 (모바일) ───────────────────────────────────
+function RecentPaymentCard({ recent, loading }: { recent: RecentRow[], loading: boolean }) {
+  return (
+    <div className="p-4 space-y-2">
+      {loading && (
+        <>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="border rounded-xl p-3 bg-white">
+              <div className="h-4 w-24 bg-gray-200 rounded animate-pulse mb-2" />
+              <div className="h-5 w-32 bg-gray-200 rounded animate-pulse" />
+            </div>
+          ))}
+        </>
+      )}
+      {!loading && recent.length === 0 && (
+        <p className="text-center py-10 text-gray-400">결제 내역이 없습니다</p>
+      )}
+      {!loading && recent.map((row) => (
+        <div key={row.orderId} className="border rounded-xl p-3 bg-white">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm font-medium">{row.buyerName}</span>
+            <StatusBadge status={row.status} />
+          </div>
+          <p className="text-base font-bold text-gray-900">{formatAmount(row.amount)}</p>
+          <p className="text-xs text-gray-400 mt-1">
+            {maskPhone(row.buyerTel)} · {row.paidAt ? formatDate(row.paidAt) : '-'}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── 메인 페이지 ──────────────────────────────────────────────
 export default function MarketingSalesPage() {
   const [data,    setData]    = useState<ApiData | null>(null);
@@ -180,7 +268,7 @@ export default function MarketingSalesPage() {
         <button
           onClick={load}
           disabled={loading}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           aria-label="새로고침"
         >
           <RefreshCw className={cn("w-4 h-4 text-gray-500", loading && "animate-spin")} />
@@ -282,83 +370,14 @@ export default function MarketingSalesPage() {
           <h2 className="text-base font-semibold text-gray-900">최근 결제 내역</h2>
         </div>
 
-        {/* 모바일 카드 (md 미만) */}
-        <div className="md:hidden p-4 space-y-2">
-          {loading && (
-            <>
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="border rounded-xl p-3 bg-white">
-                  <div className="h-4 w-24 bg-gray-200 rounded animate-pulse mb-2" />
-                  <div className="h-5 w-32 bg-gray-200 rounded animate-pulse" />
-                </div>
-              ))}
-            </>
-          )}
-          {!loading && recent.length === 0 && (
-            <p className="text-center py-10 text-gray-400">결제 내역이 없습니다</p>
-          )}
-          {!loading && recent.map((row) => (
-            <div key={row.orderId} className="border rounded-xl p-3 bg-white">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium">{row.buyerName}</span>
-                <StatusBadge status={row.status} />
-              </div>
-              <p className="text-base font-bold text-gray-900">{formatAmount(row.amount)}</p>
-              <p className="text-xs text-gray-400 mt-1">
-                {maskPhone(row.buyerTel)} · {row.paidAt ? formatDate(row.paidAt) : '-'}
-              </p>
-            </div>
-          ))}
+        {/* 모바일 카드 */}
+        <div className="md:hidden">
+          <RecentPaymentCard recent={recent} loading={loading} />
         </div>
 
-        {/* PC 테이블 (md 이상) */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">주문번호</th>
-                <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">구매자</th>
-                <th scope="col" className="text-right px-4 py-3 font-medium text-gray-600">금액</th>
-                <th scope="col" className="text-center px-4 py-3 font-medium text-gray-600">상태</th>
-                <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">결제일</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {loading && (
-                <>
-                  <SkeletonRow cols={5} />
-                  <SkeletonRow cols={5} />
-                  <SkeletonRow cols={5} />
-                  <SkeletonRow cols={5} />
-                  <SkeletonRow cols={5} />
-                </>
-              )}
-              {!loading && recent.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="text-center py-16 text-gray-400">
-                    결제 내역이 없습니다
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                recent.map((row) => (
-                  <tr key={row.orderId} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-gray-500 font-mono text-xs">{row.orderId}</td>
-                    <td className="px-4 py-3 text-gray-700">
-                      {row.buyerName}{" "}
-                      <span className="text-gray-400 text-xs">{maskPhone(row.buyerTel)}</span>
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-gray-900">
-                      {formatAmount(row.amount)}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <StatusBadge status={row.status} />
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{formatDate(row.paidAt)}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
+        {/* PC 테이블 */}
+        <div className="hidden md:block">
+          <RecentPaymentTable recent={recent} loading={loading} />
         </div>
       </div>
     </div>

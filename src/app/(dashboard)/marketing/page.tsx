@@ -65,7 +65,12 @@ export default function MarketingDashboardPage() {
       })
       .catch((err) => {
         logger.error('[fetchData]', { err });
-        setError("데이터를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.");
+        const isNetworkError = err instanceof TypeError || !navigator.onLine;
+        setError(
+          isNetworkError
+            ? "인터넷 연결을 확인하고 다시 시도해주세요."
+            : "서버에 일시적 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+        );
       })
       .finally(() => setLoading(false));
   }, []);
