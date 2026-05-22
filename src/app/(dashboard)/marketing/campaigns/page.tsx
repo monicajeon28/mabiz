@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { CampaignRow } from '@/components/marketing/CampaignRow';
 import { logger } from '@/lib/logger';
 import type { Campaign } from '@/types/marketing';
 
@@ -18,9 +19,17 @@ export default function MarketingCampaignsPage() {
     fetch('/api/csrf-token')
       .then((r) => r.json())
       .then((d) => {
-        if (d.ok) setCsrfToken(d.token);
+        if (d.ok) {
+          setCsrfToken(d.token);
+        } else {
+          logger.warn('[CSRF token]', { message: d.message });
+          // TODO (P3): toast 또는 사용자 알림 추가
+        }
       })
-      .catch((err) => logger.error('[CSRF token fetch]', { err }));
+      .catch((err) => {
+        logger.error('[CSRF token fetch]', { err });
+        // TODO (P3): 에러 토스트 추가 - "보안 토큰을 불러올 수 없습니다"
+      });
   }, []);
 
   const fetchCampaigns = useCallback(async () => {
@@ -140,38 +149,13 @@ export default function MarketingCampaignsPage() {
             </thead>
             <tbody>
               {campaigns.map((campaign, idx) => (
-                <tr key={campaign.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className="px-6 py-4">
-                    <Link href={`/marketing/campaigns/${campaign.id}`} className="text-blue-600 hover:underline font-medium focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 rounded">
-                      {campaign.title}
-                    </Link>
-                  </td>
-                  <td className="px-6 py-4 text-sm">{campaign.group.name}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusBadge(campaign.status)}`}>
-                      {campaign.status === 'PENDING' && '대기'}
-                      {campaign.status === 'SENDING' && '발송 중'}
-                      {campaign.status === 'SENT' && '발송 완료'}
-                      {campaign.status === 'FAILED' && '실패'}
-                      {campaign.status === 'CANCELLED' && '취소'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    발송 {campaign.sentCount}/{campaign.totalCount} • 열람 {campaign.openedCount} • 클릭 {campaign.clickedCount}
-                  </td>
-                  <td className="px-6 py-4 text-sm space-x-2">
-                    <Link href={`/marketing/campaigns/${campaign.id}`}>
-                      <Button variant="outline" size="sm">보기</Button>
-                    </Link>
-                    <button
-                      onClick={() => handleDelete(campaign.id)}
-                      className="text-red-600 hover:text-red-700 text-sm"
-                      aria-label={`${campaign.title} 캠페인 삭제`}
-                    >
-                      삭제
-                    </button>
-                  </td>
-                </tr>
+                <CampaignRow
+                  key={campaign.id}
+                  campaign={campaign}
+                  isEven={idx % 2 === 0}
+                  onDelete={handleDelete}
+                  statusBadgeClassName={getStatusBadge(campaign.status)}
+                />
               ))}
             </tbody>
           </table>
