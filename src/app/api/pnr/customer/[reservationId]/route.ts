@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { ERROR_MESSAGES, PNR_ERROR_CODES } from '@/lib/pnr-errors';
 import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
 
 /**
@@ -166,10 +167,9 @@ export async function GET(
       },
     });
   } catch (error) {
-    const err = error as Record<string, unknown>;
-    logger.error('[Reservation GET] Error:', err);
+    logger.error('[PNR Verify] Unexpected error:', error);
     return NextResponse.json(
-      { ok: false, error: error instanceof Error ? error.message : 'Failed to fetch reservation' },
+      { ok: false, message: ERROR_MESSAGES.LOAD_FAILED },
       { status: 500 }
     );
   }

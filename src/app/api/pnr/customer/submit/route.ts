@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { ERROR_MESSAGES, PNR_ERROR_CODES } from '@/lib/pnr-errors';
 import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
 import { getMabizSession } from '@/lib/auth';
 import { validateAllTravelers } from '@/lib/pnr-validators';
@@ -218,10 +219,9 @@ export async function POST(req: NextRequest) {
       reservation: updatedReservation,
     });
   } catch (error) {
-    const err = error as Record<string, unknown>;
-    logger.error('[Customer PNR Submit] Error:', err);
+    logger.error('[PNR Submit] Unexpected error:', error);
     return NextResponse.json(
-      { ok: false, message: error instanceof Error ? error.message : 'PNR 저장에 실패했습니다.' },
+      { ok: false, message: ERROR_MESSAGES.SUBMISSION_FAILED },
       { status: 500 }
     );
   }

@@ -4,6 +4,7 @@ import { useState, useEffect, use, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchWithRetry } from '@/lib/fetch-utils';
 import { logger } from '@/lib/logger';
+import { ERROR_MESSAGES } from '@/lib/pnr-errors';
 import { ReservationStatusBadge } from './components/ReservationStatusBadge';
 import { AlertBox } from '@/components/pnr/AlertBox';
 import {
@@ -51,19 +52,19 @@ export default function CustomerPnrPage({
         reservationData.travelers.forEach((t: any, index: number) => {
           initialTravelers.push({
             id: t.id,
-            korName: t.korName || '',
-            residentNum: t.residentNum || '',
-            phone: index === 0 ? (reservationData.user?.phone || '') : (t.phone || ''),
-            roomNumber: t.roomNumber || 1,
-            roomColor: ROOM_COLORS[(t.roomNumber || 1) - 1]?.value || ROOM_COLORS[0].value,
+            korName: t.korName ?? '',
+            residentNum: t.residentNum ?? '',
+            phone: index === 0 ? (reservationData.user?.phone ?? '') : (t.phone ?? ''),
+            roomNumber: t.roomNumber ?? 1,
+            roomColor: ROOM_COLORS[(t.roomNumber ?? 1) - 1]?.value ?? ROOM_COLORS[0].value,
           });
         });
       } else {
         for (let i = 0; i < totalPeople; i++) {
           initialTravelers.push({
-            korName: i === 0 ? (reservationData.user?.name || '') : '',
+            korName: i === 0 ? (reservationData.user?.name ?? '') : '',
             residentNum: '',
-            phone: i === 0 ? (reservationData.user?.phone || '') : '',
+            phone: i === 0 ? (reservationData.user?.phone ?? '') : '',
             roomNumber: 1,
             roomColor: ROOM_COLORS[0].value,
           });
@@ -96,8 +97,8 @@ export default function CustomerPnrPage({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const message = errorData.message ||
-          (response.status === 404 ? '예약 정보를 찾을 수 없거나 전화번호가 일치하지 않습니다.' : '확인 실패');
+        const message = errorData.message ??
+          (response.status === 404 ? ERROR_MESSAGES.PHONE_VERIFICATION_FAILED : ERROR_MESSAGES.LOAD_FAILED);
         setError(message);
         setIsVerifying(false);
         return;
@@ -119,7 +120,7 @@ export default function CustomerPnrPage({
         setCurrentStep(1);
         setLoading(false);
       } else {
-        setError(data.message || data.error || '예약 정보를 불러올 수 없습니다.');
+        setError(data.message ?? data.error ?? ERROR_MESSAGES.LOAD_FAILED);
       }
     } catch (err: unknown) {
       logger.error('[PNR Verify Phone] Error:', err);
@@ -190,7 +191,7 @@ export default function CustomerPnrPage({
 
           if (!response.ok) {
             const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.message || '예약 정보를 불러올 수 없습니다.');
+            throw new Error(errData.message ?? ERROR_MESSAGES.LOAD_FAILED);
           }
 
           const data = await response.json();
@@ -199,7 +200,7 @@ export default function CustomerPnrPage({
             initializeTravelers(data.reservation);
             setCurrentStep(1);
           } else {
-            setError(data.message || '예약 정보를 불러올 수 없습니다.');
+            setError(data.message ?? ERROR_MESSAGES.LOAD_FAILED);
           }
         } catch (loadErr) {
           logger.error('[PNR Load Reservation] Error:', loadErr);
@@ -312,17 +313,11 @@ export default function CustomerPnrPage({
       if (data.ok) {
         setIsSuccess(true);
       } else {
-        throw new Error(data.message || data.error || '저장에 실패했습니다.');
+        throw new Error(data.message ?? data.error ?? ERROR_MESSAGES.SUBMISSION_FAILED);
       }
     } catch (err: unknown) {
       logger.error('[PNR Submit] Error:', err);
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : typeof err === 'string'
-            ? err
-            : '저장 중 오류가 발생했습니다.';
-      setError(`저장 실패: ${errorMessage}`);
+      setError(ERROR_MESSAGES.SUBMISSION_FAILED);
     } finally {
       setIsSubmitting(false);
     }
@@ -336,7 +331,7 @@ export default function CustomerPnrPage({
   // 객실 라벨 생성 함수 (메모이제이션)
   const getRoomLabel = useCallback(
     (roomNumber: number) => {
-      const cabinType = reservation?.cabinType || '객실';
+      const cabinType = reservation?.cabinType ?? '객실';
       return utilGetRoomLabel(roomNumber, cabinType);
     },
     [reservation?.cabinType]
@@ -432,7 +427,7 @@ export default function CustomerPnrPage({
 
           {reservation?.trip && (
             <p className="mt-2 text-sm text-gray-500">
-              {reservation.trip.shipName || '크루즈'} | 출발일:{' '}
+              {reservation.trip.shipName ?? '크루즈'} | 출발일:{' '}
               {reservation.trip.departureDate
                 ? new Date(reservation.trip.departureDate).toLocaleDateString('ko-KR')
                 : '미정'}
@@ -519,7 +514,7 @@ export default function CustomerPnrPage({
                         {getRoomLabel(parseInt(roomNum))}: {members.length}명
                       </span>
                       <div className="text-xs text-gray-600">
-                        {members.map((m: any) => m.korName || '미입력').join(', ')}
+                        {members.map((m: any) => m.korName ?? '미입력').join(', ')}
                       </div>
                     </div>
                   );
