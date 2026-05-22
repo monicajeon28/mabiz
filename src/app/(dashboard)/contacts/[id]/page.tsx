@@ -344,6 +344,18 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     return () => clearTimeout(timer);
   }, [copiedLogId]);
 
+  // [S-002] CSRF 토큰 초기화 (페이지 로드 시 한 번)
+  useEffect(() => {
+    fetch('/api/csrf-token')
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) setCsrfToken(d.token);
+      })
+      .catch(err => {
+        logger.error('[csrf-token fetch failed]', { err });
+      });
+  }, []);
+
   useEffect(() => {
     if (!contactBackupMsg) return;
     const timer = setTimeout(() => setContactBackupMsg(""), 3000);
