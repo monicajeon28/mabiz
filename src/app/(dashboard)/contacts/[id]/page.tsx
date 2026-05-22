@@ -117,6 +117,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   // 메모 폼
   const [showMemoForm, setShowMemoForm]   = useState(false);
   const [memoText, setMemoText]           = useState("");
+  const [savingMemo,    setSavingMemo]    = useState(false);
 
   // 그룹 배정
   const [allGroups,     setAllGroups]     = useState<Group[]>([]);
@@ -246,24 +247,6 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     if (!trimmed || trimmed === contact?.name) { setEditingName(false); return; }
     await saveField("name", trimmed);
     setEditingName(false);
-  };
-
-  const fetchContact = () => {
-    fetch(`/api/contacts/${id}`)
-      .then((r) => r.json())
-      .then((c) => {
-        if (c.ok) {
-          setContact({ ...c.contact, sharedCallLogs: c.contact.sharedCallLogs ?? [] });
-          setTags(c.contact.tags ?? []);
-          if (c.contact.departureDate) {
-            setDeptForm({
-              departureDate: c.contact.departureDate.split("T")[0],
-              productName:   c.contact.productName ?? "",
-              bookingRef:    c.contact.bookingRef  ?? "",
-            });
-          }
-        }
-      });
   };
 
   useEffect(() => {
@@ -1210,7 +1193,15 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
               setSelectedFunnelId('');
               setEnrollStartDate('');
               setEnrollSendNow(false);
-              fetchContact();
+              // Refresh contact data to reflect updated vipSequences
+              fetch(`/api/contacts/${id}`)
+                .then(r => r.json())
+                .then(contactData => {
+                  if (contactData.ok) {
+                    setContact(contactData.contact);
+                  }
+                })
+                .catch(err => logger.error('[handleFunnelEnroll refresh]', { err }));
             } else {
               setEnrollError(d.message ?? '등록 실패');
             }
