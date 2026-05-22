@@ -86,9 +86,9 @@ export async function GET(
     // 5. 응답 반환 (200)
     return NextResponse.json(
       {
-        success: true,
+        success: true as const,
         data: lensClassification,
-      },
+      } as any,
       { status: 200 }
     );
   } catch (error) {
