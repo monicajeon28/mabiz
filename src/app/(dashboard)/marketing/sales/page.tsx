@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
+import type { MonthlyRow, LandingRow, RecentRow, SalesApiData } from "@/types/marketing";
 
-// ─── 타입 ─────────────────────────────────────────────────────
 interface Summary {
   totalRevenue: number;
   totalRefund:  number;
@@ -12,35 +12,8 @@ interface Summary {
   month:        string;
 }
 
-interface MonthlyRow {
-  month:   string;
-  revenue: number;
-  count:   number;
-}
-
-interface LandingRow {
-  landingPageId:    string | null;
-  landingPageTitle: string;
-  revenue:          number;
-  count:            number;
-}
-
-interface RecentRow {
-  orderId:       string;
-  amount:        number;
-  status:        string;
-  buyerName:     string;
-  buyerTel:      string;
-  paidAt:        string | null;
-  landingPageId: string | null;
-}
-
-interface ApiData {
-  ok:        boolean;
-  summary:   Summary;
-  monthly:   MonthlyRow[];
-  byLanding: LandingRow[];
-  recent:    RecentRow[];
+interface ApiData extends SalesApiData {
+  summary: Summary;
 }
 
 // ─── 유틸 ─────────────────────────────────────────────────────

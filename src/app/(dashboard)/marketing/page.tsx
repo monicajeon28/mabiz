@@ -3,38 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { BarChart2, Users, MousePointerClick, TrendingUp, RefreshCw } from "lucide-react";
-
-type Summary = {
-  totalViews: number;
-  totalRegistrations: number;
-  totalFunnelEntered: number;
-  totalPurchased: number;
-  conversionRate: number;
-  purchaseRate: number;
-  thisMonthRegistrations?: number;
-  lastMonthRegistrations?: number;
-  registrationDelta?: number | null;
-};
-
-type TopPage = {
-  id: string;
-  title: string;
-  slug: string;
-  viewCount: number;
-  registrations: number;
-  conversionRate: number;
-};
-
-type TrendDay = {
-  date: string;
-  count: number;
-};
-
-type DashboardData = {
-  summary: Summary;
-  topPages: TopPage[];
-  trend: TrendDay[];
-};
+import type { Summary, TopPage, TrendDay, DashboardData } from "@/types/marketing";
 
 function KpiCard({
   title,

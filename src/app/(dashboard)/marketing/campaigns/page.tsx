@@ -1,35 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
-
-interface Campaign {
-  id: string;
-  title: string;
-  status: string;
-  totalCount: number;
-  sentCount: number;
-  openedCount: number;
-  clickedCount: number;
-  registeredCount: number;
-  group: { id: string; name: string };
-  createdAt: string;
-}
+import type { Campaign } from '@/types/marketing';
 
 export default function MarketingCampaignsPage() {
   const router = useRouter();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [csrfToken, setCsrfToken] = useState('');
 
   useEffect(() => {
-    fetchCampaigns();
+    fetch('/api/csrf-token')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) setCsrfToken(d.token);
+      })
+      .catch((err) => logger.error('[CSRF token fetch]', { err }));
   }, []);
 
-  const fetchCampaigns = async () => {
+  const fetchCampaigns = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch('/api/marketing/campaigns');
@@ -43,19 +37,30 @@ export default function MarketingCampaignsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchCampaigns();
+  }, [fetchCampaigns]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('이 캠페인을 삭제하시겠습니까?')) return;
 
-    try {
-      const res = await fetch(`/api/marketing/campaigns/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('삭제 실패');
+    const previousCampaigns = campaigns;
+    setCampaigns((prev) => prev.filter((c) => c.id !== id));
 
-      setCampaigns((prev) => prev.filter((c) => c.id !== id));
+    try {
+      const res = await fetch(`/api/marketing/campaigns/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'X-CSRF-Token': csrfToken || '',
+        },
+      });
+      if (!res.ok) throw new Error('삭제 실패');
     } catch (err) {
       logger.error('[handleDelete]', { err });
-      alert('삭제 실패');
+      setCampaigns(previousCampaigns);
+      alert('삭제에 실패했습니다. 다시 시도해주세요.');
     }
   };
 
