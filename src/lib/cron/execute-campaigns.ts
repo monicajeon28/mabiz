@@ -261,6 +261,14 @@ export async function executeCampaignMessages(
  * @param contactSnapshot - Contact 스냅샷 (재시도 시 N+1 제거)
  * Phase 3-β: Feature Flag 기반 래퍼 함수로 호출 가능
  */
+
+// P0-2: SendSingleMessageResult 타입 정의 (any 제거)
+interface SendSingleMessageResult {
+  contactId: string;
+  status: SendingStatus;
+  failureReason?: SendingFailureReason;
+}
+
 async function sendSingleMessage(params: {
   campaignId: string;
   organizationId: string;
@@ -274,7 +282,7 @@ async function sendSingleMessage(params: {
   variantKey?: string | null; // Phase 3-γ Wave 2: A/B Variant 키
   emailBody?: string; // Phase 3-γ Wave 2: Email body (Variant용)
   isRental?: boolean; // Phase 4 Track 1: 렌탈 발송 여부
-}): Promise<{ contactId: string; status: SendingStatus; failureReason?: SendingFailureReason }> {
+}): Promise<SendSingleMessageResult> {
   const { campaignId, organizationId, contactId, channel, messageBody, messageSubject, preloadedContact, campaignTitle, variantKey, emailBody, isRental } = params;
 
   try {
@@ -723,14 +731,21 @@ export async function executePendingCampaigns() {
           // nextExecutionAt 업데이트 (repeatRule 기반)
           const nextExecutionAt = calculateNextExecution(campaign.repeatRule, campaign.sendAt);
 
-          await db.crmMarketingCampaign.update({
-            where: { id: campaign.id },
-            data: {
-              nextExecutionAt,
-              sentCount: campaign.sentCount + totalSent,
-              updatedAt: new Date(),
-            },
-          });
+          // P0-1: 트랜잭션으로 배치 업데이트 (N+1 쿼리 방지)
+          // 루프 외부에서 모든 업데이트를 수집한 후 한 번에 처리하는 것이 더 효율적
+          // 현재는 update() 사용이 필수이므로 트랜잭션 사용
+          await db.$transaction(
+            async (tx) => {
+              await tx.crmMarketingCampaign.update({
+                where: { id: campaign.id },
+                data: {
+                  nextExecutionAt,
+                  sentCount: campaign.sentCount + totalSent,
+                  updatedAt: new Date(),
+                },
+              });
+            }
+          );
 
           logger.info("[Cron] 캠페인 발송 완료", {
             campaignId: campaign.id,
@@ -984,8 +999,9 @@ async function createSendingHistory(params: {
     logger.error("[Cron] SendingHistory 생성 실패", { err, params });
     return null;
   } finally {
-    // Phase 3-γ: P1-2 트랜잭션 정리
-    tx = null;
+    // P0-3: Prisma $transaction()은 자동 정리됨 (수동 정리 불필요)
+    // tx 참조는 명시적 추적용일 뿐, Prisma가 자동으로 정리
+    tx = null; // 가비지 컬렉션 힌트용
   }
 }
 

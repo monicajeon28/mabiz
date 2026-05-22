@@ -19,6 +19,7 @@ import { default as db } from "./prisma";
 import { logger } from "./logger";
 import { sendSms, resolveUserSmsConfig } from "./aligo";
 import type { SendingStatus, SendingFailureReason } from "@prisma/client";
+import { z } from "zod"; // P0-4: Zod 검증용
 
 interface DeltaSmsMessage {
   day: number;
@@ -38,6 +39,16 @@ interface RentalMetadata {
   deltaDay?: number;
   isRentalPurchase?: boolean;
 }
+
+// P0-4: Zod 스키마로 메타데이터 검증
+const RentalMetadataSchema = z.object({
+  purchaseDate: z.string().optional(),
+  deltaDay: z.number().optional(),
+  isRentalPurchase: z.boolean().optional(),
+}).passthrough();
+
+// P0-5: Delta SMS 캠페인 키워드 (환경변수 또는 상수)
+const DELTA_SMS_CAMPAIGN_KEYWORD = process.env.DELTA_SMS_CAMPAIGN_KEYWORD || "렌탈";
 
 // 렌탈 SMS 3일 시퀀스 메시지
 // 각 변형(A/B/C)은 세그먼트별 심리학 적용
@@ -229,8 +240,9 @@ export async function executeDeltagSms(campaignId: string) {
         batch.map(async (record) => {
           try {
             // 5. 구매 날짜 조회 (metadata 또는 createdAt)
-            // metadata.purchaseDate가 있으면 사용, 없으면 createdAt 사용
-            const rentalMeta = record.metadata as RentalMetadata | null;
+            // P0-4: Zod 검증으로 타입 안전성 확보
+            const rentalMetaParsed = RentalMetadataSchema.safeParse(record.metadata);
+            const rentalMeta = rentalMetaParsed.success ? rentalMetaParsed.data : null;
             const purchaseDate = rentalMeta?.purchaseDate
               ? new Date(rentalMeta.purchaseDate)
               : record.createdAt;
@@ -356,10 +368,8 @@ export async function getActiveDeltaCampaigns() {
   return db.crmMarketingCampaign.findMany({
     where: {
       status: "ACTIVE",
-      // NOTE: category 필드가 필요 (현재 미정의)
-      // 대신 campaign title 또는 metadata로 "렌탈" 구분 가능
-      // 임시로 title에 "렌탈" 포함 캠페인으로 필터링
-      title: { contains: "렌탈" },
+      // P0-5: 하드코딩된 한글 제거 - 환경변수 사용
+      title: { contains: DELTA_SMS_CAMPAIGN_KEYWORD },
     },
     select: {
       id: true,

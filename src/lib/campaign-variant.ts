@@ -15,6 +15,7 @@
 
 import db from "@/lib/prisma";
 import { logger } from "@/lib/logger";
+import { Prisma } from "@prisma/client"; // P0-6: Prisma 에러 타입 검증용
 
 /**
  * trafficSplit 값을 유효 범위로 정규화 (0.0 ~ 1.0)
@@ -34,6 +35,8 @@ function normalizeTrafficSplit(trafficSplit: number): number {
  *
  * @param campaignId - 캠페인 ID
  * @returns "A" | "B" | null (null = 단일 메시지, A/B 없음)
+ *
+ * P0-6: 에러 로깅 + 심각도별 처리
  */
 export async function selectVariant(campaignId: string): Promise<string | null> {
   try {
@@ -49,8 +52,8 @@ export async function selectVariant(campaignId: string): Promise<string | null> 
 
     // 2. Variant이 정확히 2개가 아니면 에러 (P1 #2 수정)
     if (variants.length !== 2) {
-      logger.error(
-        `[selectVariant] Campaign ${campaignId} has ${variants.length} variants (must be exactly 2 or 0)`
+      logger.warn(
+        `[selectVariant] Campaign ${campaignId} has ${variants.length} variants (must be exactly 2 or 0), falling back to null`
       );
       return null; // A/B 테스트 불가능 → null 반환
     }
@@ -60,8 +63,8 @@ export async function selectVariant(campaignId: string): Promise<string | null> 
     const variantB = variants.find((v) => v.variantKey === "B");
 
     if (!variantA || !variantB) {
-      logger.error(
-        `[selectVariant] Campaign ${campaignId} missing A or B variant`
+      logger.warn(
+        `[selectVariant] Campaign ${campaignId} missing A or B variant (found: ${variants.map((v) => v.variantKey).join(", ")})`
       );
       return null;
     }
@@ -83,7 +86,22 @@ export async function selectVariant(campaignId: string): Promise<string | null> 
 
     return selectA ? "A" : "B";
   } catch (err) {
-    logger.error("[selectVariant] Error selecting variant", { campaignId, err });
+    // P0-6: 에러 심각도별 처리
+    if (err instanceof Prisma.PrismaClientKnownRequestError) {
+      // DB 쿼리 실패 = 심각 → throw (상위에서 처리)
+      logger.error("[selectVariant] Database query failed (CRITICAL)", {
+        campaignId,
+        code: err.code,
+        message: err.message
+      });
+      throw err;
+    }
+
+    // 기타 예상치 못한 에러 = 경고 → null 반환
+    logger.warn("[selectVariant] Unexpected error, falling back to null", {
+      campaignId,
+      error: (err as Error).message
+    });
     return null;
   }
 }

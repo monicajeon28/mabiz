@@ -67,7 +67,8 @@ export async function GET(req: Request) {
       where.status = status;
     }
 
-    // TODO: createdBy 필드가 추가되면 활성화
+    // P0-7: createdBy 필드 미정의 상태이므로 향후 구현 필요
+    // createdBy 필드가 schema에 추가되면 아래 주석을 해제
     // if (createdByMe) {
     //   where.createdBy = ctx.userId;
     // }
