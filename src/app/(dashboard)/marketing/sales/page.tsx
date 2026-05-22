@@ -173,7 +173,7 @@ export default function MarketingSalesPage() {
         <button
           onClick={load}
           disabled={loading}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="새로고침"
         >
           <RefreshCw className={cn("w-4 h-4 text-gray-500", loading && "animate-spin")} />
@@ -234,9 +234,9 @@ export default function MarketingSalesPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">랜딩페이지</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600">매출</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600">건수</th>
+                <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">랜딩페이지</th>
+                <th scope="col" className="text-right px-4 py-3 font-medium text-gray-600">매출</th>
+                <th scope="col" className="text-right px-4 py-3 font-medium text-gray-600">건수</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -309,11 +309,11 @@ export default function MarketingSalesPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">주문번호</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">구매자</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600">금액</th>
-                <th className="text-center px-4 py-3 font-medium text-gray-600">상태</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">결제일</th>
+                <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">주문번호</th>
+                <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">구매자</th>
+                <th scope="col" className="text-right px-4 py-3 font-medium text-gray-600">금액</th>
+                <th scope="col" className="text-center px-4 py-3 font-medium text-gray-600">상태</th>
+                <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">결제일</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">

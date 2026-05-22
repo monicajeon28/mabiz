@@ -151,6 +151,7 @@ export default function MarketingCampaignsPage() {
                     <button
                       onClick={() => handleDelete(campaign.id)}
                       className="text-red-600 hover:text-red-700 text-sm"
+                      aria-label={`${campaign.title} 캠페인 삭제`}
                     >
                       삭제
                     </button>

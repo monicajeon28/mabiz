@@ -83,7 +83,7 @@ export default function MarketingDashboardPage() {
         <button
           onClick={fetchData}
           disabled={loading}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-offset-1 focus:ring-navy-600"
           aria-label="새로고침"
         >
           <RefreshCw
@@ -228,11 +228,11 @@ export default function MarketingDashboardPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-gray-400 text-xs border-b border-gray-100">
-                  <th className="text-left font-medium pb-2 pr-4">페이지명</th>
-                  <th className="text-right font-medium pb-2 px-3">방문</th>
-                  <th className="text-right font-medium pb-2 px-3">등록</th>
-                  <th className="text-right font-medium pb-2 px-3">전환율</th>
-                  <th className="text-right font-medium pb-2 pl-3"></th>
+                  <th scope="col" className="text-left font-medium pb-2 pr-4">페이지명</th>
+                  <th scope="col" className="text-right font-medium pb-2 px-3">방문</th>
+                  <th scope="col" className="text-right font-medium pb-2 px-3">등록</th>
+                  <th scope="col" className="text-right font-medium pb-2 px-3">전환율</th>
+                  <th scope="col" className="text-right font-medium pb-2 pl-3"></th>
                 </tr>
               </thead>
               <tbody>
