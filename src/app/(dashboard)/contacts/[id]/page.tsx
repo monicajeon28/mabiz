@@ -229,7 +229,6 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     ].filter(Boolean);
     navigator.clipboard.writeText(parts.join(' | ')).then(() => {
       setCopiedLogId(log.id);
-      setTimeout(() => setCopiedLogId(null), 1500);
     });
   };
 
@@ -308,6 +307,30 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       .then(d => { if (d.ok) setTransferLogs(d.logs ?? []); })
       .finally(() => setLoadingTransfer(false));
   }, [contact?.id]);
+
+  useEffect(() => {
+    if (!copiedLogId) return;
+    const timer = setTimeout(() => setCopiedLogId(null), 1500);
+    return () => clearTimeout(timer);
+  }, [copiedLogId]);
+
+  useEffect(() => {
+    if (!contactBackupMsg) return;
+    const timer = setTimeout(() => setContactBackupMsg(""), 3000);
+    return () => clearTimeout(timer);
+  }, [contactBackupMsg]);
+
+  useEffect(() => {
+    if (!sendResult) return;
+    const timer = setTimeout(() => setSendResult(""), 3000);
+    return () => clearTimeout(timer);
+  }, [sendResult]);
+
+  useEffect(() => {
+    if (!schedResult) return;
+    const timer = setTimeout(() => setSchedResult(""), 3000);
+    return () => clearTimeout(timer);
+  }, [schedResult]);
 
   const addCallLog = useCallback(async () => {
     const res  = await fetch(`/api/contacts/${id}/call-logs`, {
@@ -450,11 +473,10 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     if (data.ok) {
       setSendDbResult(`✅ ${data.agentName ?? "대상"}에게 전달 완료`);
       setSendDbTarget("");
-      // 전달 이력 새로고침 (뱃지 반영)
       fetch(`/api/contacts/${id}/transfer-logs`)
         .then(r => r.json())
         .then(d => { if (d.ok) setTransferLogs(d.logs ?? []); });
-      setTimeout(() => { setShowSendDb(false); setSendDbResult(""); }, 2000);
+      setShowSendDb(false);
     } else {
       setSendDbResult(`❌ ${data.message ?? "전달 실패"}`);
     }
@@ -472,7 +494,6 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       const data = await res.json();
       if (data.ok) {
         setContactBackupMsg("✅ Drive에 백업 완료");
-        setTimeout(() => setContactBackupMsg(""), 3000);
       } else {
         setContactBackupMsg("❌ 백업 실패");
       }
@@ -548,7 +569,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     if (data.ok) {
       setSendResult("✅ 발송 완료!");
       setSmsMsg("");
-      setTimeout(() => { setShowSmsModal(false); setSendResult(""); }, 1500);
+      setShowSmsModal(false);
     } else {
       setSendResult(`❌ ${data.message ?? "발송 실패"}`);
     }
@@ -570,7 +591,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       setSchedResult("✅ 예약 완료!");
       setSchedMsg("");
       setSchedAt("");
-      setTimeout(() => { setShowSchedModal(false); setSchedResult(""); }, 1500);
+      setShowSchedModal(false);
     } else {
       setSchedResult(`❌ ${data.message ?? "예약 실패"}`);
     }
