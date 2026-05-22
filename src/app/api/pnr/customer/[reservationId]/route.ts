@@ -3,11 +3,15 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
 
 /**
- * GET /api/pnr/customer/[reservationId]
+ * GET /api/pnr/customer/[reservationId]?phone=010-1234-5678
  * 고객용 예약 정보 조회 (여권 등록 페이지에서 사용)
- * 보안: 전화번호 또는 이메일로 본인 확인 필요
+ *
+ * 보안 전략:
+ * 1. 비인증 고객: phone 필수 파라미터 + 일치성 검증
+ * 2. 인증 사용자(admin/partner): 본인 확인 생략 가능
  */
 export async function GET(
   req: NextRequest,
@@ -24,25 +28,14 @@ export async function GET(
       );
     }
 
-    // 보안: 전화번호 또는 이메일 확인 (URL 파라미터)
     const { searchParams } = new URL(req.url);
     const phone = searchParams.get('phone');
-    const email = searchParams.get('email');
 
-    // 예약 정보 조회 (travelers 포함)
-    const reservation = await prisma.gmReservation.findFirst({
-      where: {
-        id: reservationId,
-        // 본인 확인: 전화번호 또는 이메일이 일치해야 함
-        ...(phone || email ? {
-          user: {
-            OR: [
-              ...(phone ? [{ phone: phone }] : []),
-              ...(email ? [{ email: email }] : []),
-            ]
-          }
-        } : {})
-      },
+    // ════════════════════════════════════════════════════════════
+    // Step 1: 기본 예약 정보 조회 (필터 없음)
+    // ════════════════════════════════════════════════════════════
+    const reservation = await prisma.gmReservation.findUnique({
+      where: { id: reservationId },
       include: {
         travelers: {
           orderBy: [
@@ -69,7 +62,63 @@ export async function GET(
       );
     }
 
-    // Contact 조회 (전화번호 기준, 결제상태 표시용)
+    // ════════════════════════════════════════════════════════════
+    // Step 2: 인증 상태 확인
+    // ════════════════════════════════════════════════════════════
+    const authCheck = enforceRBAC(req, { authOnly: true });
+    const isAuthenticated = authCheck === true;
+
+    // ════════════════════════════════════════════════════════════
+    // Step 3: 접근 권한 검증 (IDOR 방지)
+    // ════════════════════════════════════════════════════════════
+    if (!isAuthenticated) {
+      // 비인증 고객: phone 필수 + 정확한 일치 검증
+      if (!phone) {
+        return NextResponse.json(
+          { ok: false, error: 'Phone verification required for public access' },
+          { status: 401 }
+        );
+      }
+
+      // DB에서 실제 phone 조회 (한 번 더 검증)
+      const userPhone = await prisma.gmReservation.findUnique({
+        where: { id: reservationId },
+        select: {
+          user: {
+            select: { phone: true },
+          },
+        },
+      });
+
+      // phone이 정확히 일치하는지 확인
+      if (!userPhone?.user?.phone || userPhone.user.phone !== phone) {
+        // 감사 로그: 검증 실패
+        await prisma.auditLog
+          .create({
+            data: {
+              action: 'PNR_GET_VERIFICATION_FAILED',
+              resourceType: 'Reservation',
+              resourceId: reservationId.toString(),
+              userId: 'anonymous',
+              userRole: 'public',
+              organizationId: null,
+              status: 'FAILED',
+              ipAddress: req.headers.get('x-forwarded-for') || 'unknown',
+              timestamp: new Date(),
+            },
+          })
+          .catch(() => {}); // 로그 실패는 무시
+
+        return NextResponse.json(
+          { ok: false, error: 'Phone verification failed' },
+          { status: 401 }
+        );
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // Step 4: Contact 정보 조회 (결제상태용)
+    // ════════════════════════════════════════════════════════════
     const contact = phone
       ? await prisma.contact.findFirst({
           where: {
@@ -86,6 +135,9 @@ export async function GET(
         })
       : null;
 
+    // ════════════════════════════════════════════════════════════
+    // Step 5: 응답 반환
+    // ════════════════════════════════════════════════════════════
     return NextResponse.json({
       ok: true,
       reservation: {

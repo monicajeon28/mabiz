@@ -4,19 +4,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
-
-interface TravelerInput {
-  id?: number;
-  korName: string;
-  residentNum?: string | null;
-  phone?: string | null;
-  roomNumber: number;
-}
-
-interface PnrSubmitBody {
-  reservationId: number;
-  travelers: TravelerInput[];
-}
+import { getMabizSession } from '@/lib/auth';
+import { validateAllTravelers } from '@/lib/pnr-validators';
+import type { TravelerInput, PnrSubmitBody } from '@/src/lib/types/pnr';
 
 export async function POST(req: NextRequest) {
   // ────────────────────────────────────────────────────────
@@ -29,6 +19,16 @@ export async function POST(req: NextRequest) {
   if (rbacCheck !== true) return rbacCheck;
 
   try {
+    // Step 1: 세션 정보 조회
+    const session = await getMabizSession();
+    if (!session) {
+      return NextResponse.json(
+        { ok: false, message: '세션이 만료되었습니다.' },
+        { status: 401 }
+      );
+    }
+
+    // Step 2: 요청 본문 검증
     const body: PnrSubmitBody = await req.json();
     const { reservationId, travelers } = body;
 
@@ -39,32 +39,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 서버 측 필수 필드 검증
-    for (let i = 0; i < travelers.length; i++) {
-      const traveler = travelers[i];
-      const label = i === 0 ? '대표자' : `동행자 ${i}`;
-
-      if (!traveler.korName || traveler.korName.trim() === '') {
-        return NextResponse.json(
-          { ok: false, message: `${label}의 이름을 입력해주세요.` },
-          { status: 400 }
-        );
-      }
-      if (!traveler.residentNum || traveler.residentNum.trim() === '') {
-        return NextResponse.json(
-          { ok: false, message: `${label}의 주민등록번호를 입력해주세요.` },
-          { status: 400 }
-        );
-      }
-      if (!traveler.phone || traveler.phone.trim() === '') {
-        return NextResponse.json(
-          { ok: false, message: `${label}의 연락처를 입력해주세요.` },
-          { status: 400 }
-        );
-      }
+    // 서버 측 필수 필드 검증 - validateAllTravelers 사용
+    const validationError = validateAllTravelers(travelers);
+    if (validationError) {
+      return NextResponse.json(
+        { ok: false, message: validationError.message },
+        { status: 400 }
+      );
     }
 
-    // 예약 정보 확인
+    // Step 3: 예약 조회 (조직 경계 포함)
     const reservation = await prisma.gmReservation.findUnique({
       where: { id: reservationId },
       include: {
@@ -77,6 +61,50 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { ok: false, message: '예약을 찾을 수 없습니다.' },
         { status: 404 }
+      );
+    }
+
+    // Step 4: 소유권 검증 (IDOR 방지)
+    // CASE 1: OWNER/AGENT → 자신의 organization contact인지 확인
+    if (session.role === 'OWNER' || session.role === 'AGENT') {
+      if (!session.organizationId) {
+        return NextResponse.json(
+          { ok: false, message: '조직 정보가 없습니다.' },
+          { status: 403 }
+        );
+      }
+
+      // 예약이 이 조직의 contact에 속하는지 확인
+      const contact = await prisma.contact.findFirst({
+        where: {
+          organizationId: session.organizationId,
+          reservations: {
+            some: { id: reservationId },
+          },
+        },
+      });
+
+      if (!contact) {
+        logger.warn('[PNR Submit] Unauthorized access attempt', {
+          sessionId: session.userId,
+          role: session.role,
+          reservationId,
+          organizationId: session.organizationId,
+        });
+        return NextResponse.json(
+          { ok: false, message: '이 예약에 접근할 권한이 없습니다.' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // CASE 2: GLOBAL_ADMIN → 모든 예약 접근 가능 (특별 처리 없음)
+
+    // CASE 3: 기타 역할 → 거부
+    if (!['OWNER', 'AGENT', 'GLOBAL_ADMIN'].includes(session.role)) {
+      return NextResponse.json(
+        { ok: false, message: '이 작업을 수행할 권한이 없습니다.' },
+        { status: 403 }
       );
     }
 
@@ -145,6 +173,30 @@ export async function POST(req: NextRequest) {
           status: 'PENDING',
         },
       });
+    });
+
+    // Step 5: 감사 로그 생성 (비동기, 실패해도 응답에 영향 없음)
+    await prisma.auditLog.create({
+      data: {
+        action: 'PNR_SUBMIT',
+        resourceType: 'Reservation',
+        resourceId: reservationId.toString(),
+        userId: session.userId,
+        userRole: session.role,
+        organizationId: session.organizationId || null,
+        changes: {
+          travelers: travelers.map(t => ({
+            name: t.korName,
+            phone: t.phone?.substring(0, 3) + '***',
+          })),
+        },
+        status: 'SUCCESS',
+        ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
+        timestamp: new Date(),
+      },
+    }).catch(err => {
+      // 감사로그 실패가 PNR 제출을 막지 않음
+      logger.error('[PNR Submit] Audit log creation failed:', err);
     });
 
     // 업데이트된 예약 정보 반환

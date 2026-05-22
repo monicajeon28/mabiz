@@ -1,60 +1,26 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchWithRetry } from '@/lib/fetch-utils';
+import { logger } from '@/lib/logger';
 import { ReservationStatusBadge } from './components/ReservationStatusBadge';
+import { AlertBox } from '@/components/pnr/AlertBox';
+import {
+  ROOM_COLORS,
+  getRoomColor,
+  getRoomLabel as utilGetRoomLabel,
+  formatTravelerNames,
+  groupTravelersByRoom,
+  getNextRoomNumber,
+} from '@/lib/pnr-utils';
+import { validateAllTravelers, validateTravelerCount } from '@/lib/pnr-validators';
+import type { Traveler, Reservation, TravelerFormData } from '@/src/lib/types/pnr';
 
-interface Traveler {
-  id?: number;
-  korName: string;
-  residentNum: string;
-  phone: string;
-  roomNumber: number;
+// 확장 타입: roomColor 추가 (로컬 상태용)
+interface TravelerWithColor extends Traveler {
   roomColor: string;
 }
-
-interface Reservation {
-  id: number;
-  totalPeople: number;
-  cabinType: string | null; // 객실 타입 (발코니, 오션뷰 등)
-  trip: {
-    id: number;
-    shipName: string | null;
-    departureDate: Date | null;
-    endDate?: Date | null;
-    productCode?: string | null;
-  } | null;
-  user: {
-    id: number;
-    name: string | null;
-    phone: string | null;
-    email: string | null;
-  };
-  travelers: Array<{
-    id: number;
-    korName: string;
-    residentNum: string | null;
-    phone?: string | null;
-    roomNumber?: number;
-  }>;
-  paymentStatus?: string;
-  paymentStatusNote?: string | null;
-  lastPaymentAt?: Date | null;
-  lastRefundedAt?: Date | null;
-}
-
-// 방 색상 팔레트 (시각적으로 구분하기 쉬운 색상)
-const ROOM_COLORS = [
-  { name: '빨강', value: '#EF4444', bg: 'bg-red-100', border: 'border-red-400', text: 'text-red-700' },
-  { name: '파랑', value: '#3B82F6', bg: 'bg-blue-100', border: 'border-blue-400', text: 'text-blue-700' },
-  { name: '초록', value: '#22C55E', bg: 'bg-green-100', border: 'border-green-400', text: 'text-green-700' },
-  { name: '노랑', value: '#EAB308', bg: 'bg-yellow-100', border: 'border-yellow-400', text: 'text-yellow-700' },
-  { name: '보라', value: '#A855F7', bg: 'bg-purple-100', border: 'border-purple-400', text: 'text-purple-700' },
-  { name: '분홍', value: '#EC4899', bg: 'bg-pink-100', border: 'border-pink-400', text: 'text-pink-700' },
-  { name: '하늘', value: '#06B6D4', bg: 'bg-cyan-100', border: 'border-cyan-400', text: 'text-cyan-700' },
-  { name: '주황', value: '#F97316', bg: 'bg-orange-100', border: 'border-orange-400', text: 'text-orange-700' },
-];
 
 export default function CustomerPnrPage({
   params,
@@ -65,7 +31,7 @@ export default function CustomerPnrPage({
   const router = useRouter();
 
   const [reservation, setReservation] = useState<Reservation | null>(null);
-  const [travelers, setTravelers] = useState<Traveler[]>([]);
+  const [travelers, setTravelers] = useState<TravelerWithColor[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -75,30 +41,77 @@ export default function CustomerPnrPage({
   const [isVerifying, setIsVerifying] = useState(false);
   const [isAdminMode, setIsAdminMode] = useState(false);
 
+  // 여행자 초기화
+  const initializeTravelers = useCallback(
+    (reservationData: Reservation) => {
+      const initialTravelers: TravelerWithColor[] = [];
+      const totalPeople = reservationData.totalPeople || 1;
+
+      if (reservationData.travelers && reservationData.travelers.length > 0) {
+        reservationData.travelers.forEach((t: any, index: number) => {
+          initialTravelers.push({
+            id: t.id,
+            korName: t.korName || '',
+            residentNum: t.residentNum || '',
+            phone: index === 0 ? (reservationData.user?.phone || '') : (t.phone || ''),
+            roomNumber: t.roomNumber || 1,
+            roomColor: ROOM_COLORS[(t.roomNumber || 1) - 1]?.value || ROOM_COLORS[0].value,
+          });
+        });
+      } else {
+        for (let i = 0; i < totalPeople; i++) {
+          initialTravelers.push({
+            korName: i === 0 ? (reservationData.user?.name || '') : '',
+            residentNum: '',
+            phone: i === 0 ? (reservationData.user?.phone || '') : '',
+            roomNumber: 1,
+            roomColor: ROOM_COLORS[0].value,
+          });
+        }
+      }
+
+      setTravelers(initialTravelers);
+    },
+    []
+  );
+
   // 본인 확인 처리
-  const handleVerifyPhone = async () => {
+  const handleVerifyPhone = useCallback(async () => {
     if (!verifyPhone || verifyPhone.trim() === '') {
       setError('전화번호를 입력해주세요.');
       return;
     }
 
+    if (isVerifying) return; // 동시 제출 방지
+
     setIsVerifying(true);
     setError('');
 
     try {
-      const response = await fetch(`/api/pnr/customer/${reservationId}?phone=${encodeURIComponent(verifyPhone)}`);
+      const response = await fetchWithRetry(
+        `/api/pnr/customer/${reservationId}?phone=${encodeURIComponent(verifyPhone)}`,
+        { credentials: 'include' },
+        { maxRetries: 3, timeoutMs: 10000 }
+      );
 
       if (!response.ok) {
-        if (response.status === 404) {
-          setError('예약 정보를 찾을 수 없거나 전화번호가 일치하지 않습니다.');
-        } else {
-          setError('본인 확인 중 오류가 발생했습니다.');
-        }
+        const errorData = await response.json().catch(() => ({}));
+        const message = errorData.message ||
+          (response.status === 404 ? '예약 정보를 찾을 수 없거나 전화번호가 일치하지 않습니다.' : '확인 실패');
+        setError(message);
         setIsVerifying(false);
         return;
       }
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseErr) {
+        logger.error('[PNR Verify Phone] JSON Parse Error:', parseErr);
+        setError('응답 데이터 처리 중 오류가 발생했습니다.');
+        setIsVerifying(false);
+        return;
+      }
 
       if (data.ok && data.reservation) {
         setReservation(data.reservation);
@@ -106,46 +119,17 @@ export default function CustomerPnrPage({
         setCurrentStep(1);
         setLoading(false);
       } else {
-        setError(data.error || '예약 정보를 불러올 수 없습니다.');
-        setIsVerifying(false);
+        setError(data.message || data.error || '예약 정보를 불러올 수 없습니다.');
       }
-    } catch (err: any) {
-      console.error('[Verify Phone] Error:', err);
-      setError('본인 확인 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      logger.error('[PNR Verify Phone] Error:', err);
+      const message = err instanceof Error ? err.message : '네트워크 오류가 발생했습니다.';
+      setError(message);
+    } finally {
       setIsVerifying(false);
     }
-  };
+  }, [verifyPhone, isVerifying, reservationId, initializeTravelers]);
 
-  // 여행자 초기화
-  const initializeTravelers = (reservationData: Reservation) => {
-    const initialTravelers: Traveler[] = [];
-    const totalPeople = reservationData.totalPeople || 1;
-
-    if (reservationData.travelers && reservationData.travelers.length > 0) {
-      reservationData.travelers.forEach((t: any, index: number) => {
-        initialTravelers.push({
-          id: t.id,
-          korName: t.korName || '',
-          residentNum: t.residentNum || '',
-          phone: index === 0 ? (reservationData.user?.phone || '') : (t.phone || ''),
-          roomNumber: t.roomNumber || 1,
-          roomColor: ROOM_COLORS[(t.roomNumber || 1) - 1]?.value || ROOM_COLORS[0].value,
-        });
-      });
-    } else {
-      for (let i = 0; i < totalPeople; i++) {
-        initialTravelers.push({
-          korName: i === 0 ? (reservationData.user?.name || '') : '',
-          residentNum: '',
-          phone: i === 0 ? (reservationData.user?.phone || '') : '',
-          roomNumber: 1,
-          roomColor: ROOM_COLORS[0].value,
-        });
-      }
-    }
-
-    setTravelers(initialTravelers);
-  };
 
   // 초기 데이터 로드
   useEffect(() => {
@@ -156,45 +140,74 @@ export default function CustomerPnrPage({
         setLoading(true);
         setError('');
 
-        const authResponse = await fetch('/api/auth/me', {
-          credentials: 'include',
-        });
+        // Step 1: Auth check
+        let authData;
+        try {
+          const authResponse = await fetchWithRetry(
+            '/api/auth/me',
+            { credentials: 'include' },
+            { maxRetries: 3, timeoutMs: 10000 }
+          );
 
-        if (authResponse.ok) {
-          const authData = await authResponse.json();
-
-          if (authData.ok && authData.user &&
-            (authData.user.role === 'admin' || authData.user.role === 'partner')) {
-            setIsAdminMode(true);
-
-            const response = await fetch(`/api/pnr/customer/${reservationId}`, {
-              credentials: 'include',
-            });
-
-            if (response.ok) {
-              const data = await response.json();
-
-              if (data.ok && data.reservation) {
-                setReservation(data.reservation);
-                initializeTravelers(data.reservation);
-                setCurrentStep(1);
-                setLoading(false);
-              } else {
-                setLoading(false);
-              }
-            } else {
-              setLoading(false);
-            }
-          } else {
+          if (!authResponse.ok) {
             setCurrentStep(0);
             setLoading(false);
+            return;
           }
-        } else {
+
+          authData = await authResponse.json();
+        } catch (authErr) {
+          logger.error('[PNR Auth Check] Error:', authErr);
+          setError('인증 중 오류가 발생했습니다.');
           setCurrentStep(0);
           setLoading(false);
+          return;
         }
-      } catch (err: any) {
-        console.error('[Init] Error:', err);
+
+        // Step 2: Check role
+        if (!authData.ok || !authData.user) {
+          setCurrentStep(0);
+          setLoading(false);
+          return;
+        }
+
+        const isAdmin = authData.user.role === 'admin' || authData.user.role === 'partner';
+        if (!isAdmin) {
+          setCurrentStep(0);
+          setLoading(false);
+          return;
+        }
+
+        // Step 3: Load reservation (admin only)
+        setIsAdminMode(true);
+
+        try {
+          const response = await fetchWithRetry(
+            `/api/pnr/customer/${reservationId}`,
+            { credentials: 'include' },
+            { maxRetries: 3, timeoutMs: 10000 }
+          );
+
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.message || '예약 정보를 불러올 수 없습니다.');
+          }
+
+          const data = await response.json();
+          if (data.ok && data.reservation) {
+            setReservation(data.reservation);
+            initializeTravelers(data.reservation);
+            setCurrentStep(1);
+          } else {
+            setError(data.message || '예약 정보를 불러올 수 없습니다.');
+          }
+        } catch (loadErr) {
+          logger.error('[PNR Load Reservation] Error:', loadErr);
+          const message = loadErr instanceof Error ? loadErr.message : '예약 정보를 불러오는 중 오류가 발생했습니다.';
+          setError(message);
+          setCurrentStep(0);
+        }
+      } finally {
         setLoading(false);
       }
     };
@@ -203,30 +216,36 @@ export default function CustomerPnrPage({
   }, [reservationId]);
 
   // 여행자 정보 업데이트
-  const updateTraveler = (index: number, field: keyof Traveler, value: any) => {
-    const updatedTravelers = [...travelers];
-    updatedTravelers[index] = {
-      ...updatedTravelers[index],
-      [field]: value,
-    };
+  const updateTraveler = useCallback(
+    (index: number, field: keyof Traveler, value: any) => {
+      const updatedTravelers = [...travelers];
+      updatedTravelers[index] = {
+        ...updatedTravelers[index],
+        [field]: value,
+      } as TravelerWithColor;
 
-    // 방 번호가 변경되면 색상도 업데이트
-    if (field === 'roomNumber') {
-      const roomNum = parseInt(value) || 1;
-      updatedTravelers[index].roomColor = ROOM_COLORS[(roomNum - 1) % ROOM_COLORS.length].value;
-    }
+      // 방 번호가 변경되면 색상도 업데이트
+      if (field === 'roomNumber') {
+        const roomNum = parseInt(value) || 1;
+        updatedTravelers[index].roomColor = getRoomColor(roomNum).value;
+      }
 
-    setTravelers(updatedTravelers);
-  };
+      setTravelers(updatedTravelers);
+    },
+    [travelers]
+  );
 
   // 동행자 추가
-  const addTraveler = () => {
-    if (travelers.length >= 20) {
-      alert('최대 20명까지 추가 가능합니다.');
+  const addTraveler = useCallback(() => {
+    // 인원 수 검증
+    const countError = validateTravelerCount([...travelers, { korName: '', residentNum: '', phone: '', roomNumber: 1 }]);
+    if (countError) {
+      alert(countError.message);
       return;
     }
 
-    const nextRoomNumber = Math.max(...travelers.map(t => t.roomNumber), 0) + 1;
+    const roomNumbers = travelers.map((t) => t.roomNumber);
+    const nextRoomNumber = getNextRoomNumber(roomNumbers);
 
     setTravelers([
       ...travelers,
@@ -234,48 +253,33 @@ export default function CustomerPnrPage({
         korName: '',
         residentNum: '',
         phone: '',
-        roomNumber: nextRoomNumber > 8 ? 1 : nextRoomNumber,
-        roomColor: ROOM_COLORS[(nextRoomNumber - 1) % ROOM_COLORS.length].value,
+        roomNumber: nextRoomNumber,
+        roomColor: getRoomColor(nextRoomNumber).value,
       },
     ]);
-  };
+  }, [travelers]);
 
   // 동행자 제거
-  const removeTraveler = (index: number) => {
-    if (travelers.length <= 1) {
-      alert('최소 1명의 여행자가 필요합니다.');
-      return;
-    }
-    setTravelers(travelers.filter((_, i) => i !== index));
-  };
+  const removeTraveler = useCallback(
+    (index: number) => {
+      if (travelers.length <= 1) {
+        alert('최소 1명의 여행자가 필요합니다.');
+        return;
+      }
+      setTravelers(travelers.filter((_, i) => i !== index));
+    },
+    [travelers]
+  );
 
   // PNR 정보 제출
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     setError('');
 
-    // 유효성 검사 - 모든 여행자에게 이름, 주민번호, 연락처 필수
-    for (let i = 0; i < travelers.length; i++) {
-      const traveler = travelers[i];
-      const label = i === 0 ? '대표자' : `동행자 ${i}`;
-
-      if (!traveler.korName || traveler.korName.trim() === '') {
-        alert(`${label}의 이름을 입력해주세요.`);
-        return;
-      }
-      if (!traveler.residentNum || traveler.residentNum.trim() === '') {
-        alert(`${label}의 주민등록번호를 입력해주세요.`);
-        return;
-      }
-      // 주민번호 형식 검사 (13자리 숫자 또는 6-7자리)
-      const cleanResidentNum = traveler.residentNum.replace(/-/g, '');
-      if (cleanResidentNum.length !== 13 && cleanResidentNum.length !== 6 && cleanResidentNum.length !== 7) {
-        alert(`${label}의 주민등록번호 형식이 올바르지 않습니다. (예: 000000-0000000)`);
-        return;
-      }
-      if (!traveler.phone || traveler.phone.trim() === '') {
-        alert(`${label}의 연락처를 입력해주세요.`);
-        return;
-      }
+    // 유효성 검사 - validateAllTravelers 사용
+    const validationError = validateAllTravelers(travelers);
+    if (validationError) {
+      alert(validationError.message);
+      return;
     }
 
     try {
@@ -310,31 +314,33 @@ export default function CustomerPnrPage({
       } else {
         throw new Error(data.message || data.error || '저장에 실패했습니다.');
       }
-    } catch (err: any) {
-      console.error('[PNR Submit] Error:', err);
-      setError(`저장 실패: ${err.message}`);
+    } catch (err: unknown) {
+      logger.error('[PNR Submit] Error:', err);
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'string'
+            ? err
+            : '저장 중 오류가 발생했습니다.';
+      setError(`저장 실패: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [travelers, reservationId]);
 
-  // 방 번호별로 그룹화
-  const getRoomGroups = () => {
-    const groups: { [key: number]: Traveler[] } = {};
-    travelers.forEach((t, index) => {
-      if (!groups[t.roomNumber]) {
-        groups[t.roomNumber] = [];
-      }
-      groups[t.roomNumber].push({ ...t, id: index });
-    });
-    return groups;
-  };
+  // 방 번호별로 그룹화 (메모이제이션)
+  const roomGroups = useMemo(() => {
+    return groupTravelersByRoom(travelers);
+  }, [travelers]);
 
-  // 객실 타입 + 번호로 그룹 이름 생성 (발코니1, 발코니2 등)
-  const getRoomLabel = (roomNumber: number) => {
-    const cabinType = reservation?.cabinType || '객실';
-    return `${cabinType}${roomNumber}`;
-  };
+  // 객실 라벨 생성 함수 (메모이제이션)
+  const getRoomLabel = useCallback(
+    (roomNumber: number) => {
+      const cabinType = reservation?.cabinType || '객실';
+      return utilGetRoomLabel(roomNumber, cabinType);
+    },
+    [reservation?.cabinType]
+  );
 
   if (loading) {
     return (
@@ -404,8 +410,6 @@ export default function CustomerPnrPage({
     );
   }
 
-  const roomGroups = getRoomGroups();
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 px-4 py-8">
       <div className="mx-auto max-w-4xl">
@@ -437,9 +441,11 @@ export default function CustomerPnrPage({
         </div>
 
         {error && (
-          <div className="mb-6 rounded-lg bg-red-50 p-4 text-red-700">
-            {error}
-          </div>
+          <AlertBox
+            type="error"
+            message={error}
+            onDismiss={() => setError('')}
+          />
         )}
 
         {/* Step 0: 본인 확인 */}
@@ -458,7 +464,7 @@ export default function CustomerPnrPage({
                   type="tel"
                   value={verifyPhone}
                   onChange={(e) => setVerifyPhone(e.target.value)}
-                  onKeyPress={(e) => {
+                  onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       handleVerifyPhone();
                     }
