@@ -8,6 +8,7 @@ import {
   CampaignListQuerySchema,
   type CampaignCreateData,
 } from '@/schemas/campaign';
+import { safeParallel, getOrDefault } from '@/lib/error-handling';
 
 /**
  * 캠페인 객체 직렬화 헬퍼
@@ -73,33 +74,52 @@ export async function GET(req: Request) {
     //   where.createdBy = ctx.userId;
     // }
 
-    // 전체 개수 조회 (페이지네이션용)
-    const total = await prisma.crmMarketingCampaign.count({ where });
+    // P0-BLOCK-3: Promise.allSettled로 병렬 처리 (cascade failure 제거)
+    // 개수 조회와 목록 조회를 동시에 실행하되, 하나 실패해도 부분 성공 응답
+    const [countResult, listResult] = await safeParallel(
+      [
+        prisma.crmMarketingCampaign.count({ where }),
+        prisma.crmMarketingCampaign.findMany({
+          where,
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            sendSms: true,
+            sendEmail: true,
+            sendAt: true,
+            repeatRule: true,
+            sentCount: true,
+            totalCount: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+          skip: offset,
+        }),
+      ],
+      { timeout: 5000, logging: true }
+    );
 
-    // 캠페인 목록 조회
-    const campaigns = await prisma.crmMarketingCampaign.findMany({
-      where,
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        sendSms: true,
-        sendEmail: true,
-        sendAt: true,
-        repeatRule: true,
-        sentCount: true,
-        totalCount: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      skip: offset,
-    });
+    // 결과 처리: 부분 실패 시에도 기본값 반환
+    const total = getOrDefault(countResult, 0);
+    const campaigns = getOrDefault(listResult, []);
 
     const result = campaigns.map(serializeCampaign);
 
-    logger.log('[GET /api/campaigns]', { orgId, total, returned: result.length });
+    // 부분 실패 메타데이터 (클라이언트 graceful degradation용)
+    const meta = {
+      countLoaded: countResult.status === 'fulfilled',
+      listLoaded: listResult.status === 'fulfilled',
+    };
+
+    logger.log('[GET /api/campaigns]', {
+      orgId,
+      total,
+      returned: result.length,
+      meta,
+    });
 
     return NextResponse.json({
       ok: true,
@@ -107,6 +127,7 @@ export async function GET(req: Request) {
       total,
       limit,
       offset,
+      _meta: meta,
     });
   } catch (err) {
     logger.error('[GET /api/campaigns]', { err });
