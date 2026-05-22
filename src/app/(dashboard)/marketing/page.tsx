@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { BarChart2, Users, MousePointerClick, TrendingUp, RefreshCw } from "lucide-react";
+import { logger } from "@/lib/logger";
 import type { Summary, TopPage, TrendDay, DashboardData } from "@/types/marketing";
 
 function KpiCard({
@@ -62,7 +63,10 @@ export default function MarketingDashboardPage() {
           setError(d.message ?? "데이터를 불러올 수 없습니다.");
         }
       })
-      .catch(() => setError("네트워크 오류가 발생했습니다."))
+      .catch((err) => {
+        logger.error('[fetchData]', { err });
+        setError("데이터를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.");
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -85,6 +89,7 @@ export default function MarketingDashboardPage() {
           disabled={loading}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-offset-1 focus:ring-navy-600"
           aria-label="새로고침"
+          aria-busy={loading}
         >
           <RefreshCw
             className={`w-4 h-4 text-gray-500 ${loading ? "animate-spin" : ""}`}

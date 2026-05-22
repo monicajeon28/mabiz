@@ -30,7 +30,10 @@ export default function MarketingCampaignsPage() {
       if (!res.ok) throw new Error('캠페인 목록을 불러올 수 없습니다.');
 
       const data = await res.json();
-      setCampaigns(data.campaigns || []);
+      if (!data.campaigns || !Array.isArray(data.campaigns)) {
+        throw new Error('캠페인 데이터 형식이 잘못되었습니다.');
+      }
+      setCampaigns(data.campaigns);
     } catch (err) {
       logger.error('[MarketingCampaignsPage]', { err });
       setError(err instanceof Error ? err.message : '오류 발생');
@@ -77,8 +80,19 @@ export default function MarketingCampaignsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-gray-500">로딩 중...</div>
+      <div className="space-y-6">
+        {/* 헤더 스켈레톤 */}
+        <div className="flex items-center justify-between">
+          <div className="h-8 w-40 bg-gray-100 rounded-lg animate-pulse" />
+          <div className="h-10 w-32 bg-gray-100 rounded-lg animate-pulse" />
+        </div>
+
+        {/* 테이블 행 스켈레톤 3개 */}
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
+          ))}
+        </div>
       </div>
     );
   }

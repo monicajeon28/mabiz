@@ -34,8 +34,15 @@ function formatMonth(ym: string) {
 
 function maskPhone(tel: string | null | undefined): string {
   if (!tel) return '-';
-  const digits = tel.replace(/[^0-9]/g, '');
-  if (digits.length < 4) return tel;
+  const digits = tel.replace(/[^0-9+]/g, '');
+  if (digits.length < 4) return '-';
+
+  if (tel.includes('+')) {
+    const countryCode = tel.match(/^\+\d+/)?.[0] || '';
+    const localDigits = digits.slice(countryCode.replace('+', '').length);
+    return countryCode + '-****-' + localDigits.slice(-4);
+  }
+
   return digits.substring(0, 3) + '-****-' + digits.slice(-4);
 }
 
