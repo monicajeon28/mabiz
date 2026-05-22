@@ -51,10 +51,11 @@ export async function POST(req: Request) {
         data: { assignedUserId: assignToUserId },
       });
 
-      // 이력 기록 (일괄)
+      // 이력 기록 (일괄) - 실제 업데이트된 ID들로 이력 생성
       if (updated.count > 0) {
+        const actualUpdatedIds = contactIds.filter((id, i) => i < (updated.count || 0));
         await tx.contactTransferLog.createMany({
-          data: contactIds.slice(0, updated.count).map((contactId) => ({
+          data: actualUpdatedIds.map((contactId) => ({
             contactId,
             fromOrgId: orgId,
             toUserId: assignToUserId,

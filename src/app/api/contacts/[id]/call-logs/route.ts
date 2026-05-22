@@ -137,15 +137,15 @@ export async function PUT(req: Request, { params }: Params) {
       data: {
         content: content ?? existingLog.content,
         result: result ?? existingLog.result,
-        duration: duration ? parseInt(duration) : existingLog.duration,
-        convictionScore: convictionScore ? parseInt(convictionScore) : existingLog.convictionScore,
+        duration: duration ? parseInt(duration) || 0 : existingLog.duration,
+        convictionScore: convictionScore ? parseInt(convictionScore) || null : existingLog.convictionScore,
         nextAction: nextAction ?? existingLog.nextAction,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : existingLog.scheduledAt,
         // Track A: 이의처리 필드
         objectionId: objectionId ?? existingLog.objectionId,
         customerReaction: customerReaction ?? existingLog.customerReaction,
         recovered: recovered !== undefined ? recovered : existingLog.recovered,
-        recoveryTime: recoveryTime !== undefined ? parseInt(String(recoveryTime)) : existingLog.recoveryTime,
+        recoveryTime: recoveryTime !== undefined ? parseInt(String(recoveryTime)) || null : existingLog.recoveryTime,
       },
     });
 
@@ -197,15 +197,15 @@ export async function POST(req: Request, { params }: Params) {
         userId: ctx.userId,
         content,
         result,
-        duration:        duration        ? parseInt(duration)        : null,
-        convictionScore: convictionScore ? parseInt(convictionScore) : null,
+        duration:        duration        ? parseInt(duration) || 0        : null,
+        convictionScore: convictionScore ? parseInt(convictionScore) || null : null,
         nextAction,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
         // Track A: 이의처리 필드
         objectionId: objectionId || null,
         customerReaction: customerReaction || null,
         recovered: recovered !== undefined ? recovered : null,
-        recoveryTime: recoveryTime !== undefined ? parseInt(String(recoveryTime)) : null,
+        recoveryTime: recoveryTime !== undefined ? parseInt(String(recoveryTime)) || null : null,
       },
     });
 
@@ -223,7 +223,7 @@ export async function POST(req: Request, { params }: Params) {
       REJECTED:    "CALL_REJECTED",
     };
     if (result && scoreMap[result]) {
-      addLeadScore(id, scoreMap[result]).catch(() => {});
+      addLeadScore(id, scoreMap[result]).catch(err => logger.error('[addLeadScore failed]', { err, contactId: id }));
     }
 
     // ★ Google Drive 자동 백업 (BackupJob 큐에 등록)

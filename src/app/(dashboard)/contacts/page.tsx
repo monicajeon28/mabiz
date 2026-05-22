@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, Plus, Filter, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet, Loader2, Share2, FolderDown } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 type Contact = {
   id: string;
@@ -175,17 +176,26 @@ export default function ContactsPage() {
   const handleBulkShare = async () => {
     if (!shareTarget || selectedIds.size === 0) return;
     setSharing(true);
-    const results = await Promise.all(
+    const results = await Promise.allSettled(
       Array.from(selectedIds).map((contactId) =>
         fetch(`/api/contacts/${contactId}/send-db`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ targetUserId: shareTarget }),
-        }).then((r) => r.json()).catch(() => ({ ok: false }))
+        }).then((r) => r.json())
       )
     );
-    const ok   = results.filter((d) => d.ok).length;
-    const fail = results.filter((d) => !d.ok).length;
+    let ok = 0;
+    let fail = 0;
+    results.forEach((r) => {
+      if (r.status === 'fulfilled' && r.value.ok) {
+        ok++;
+      } else {
+        fail++;
+        const reason = r.status === 'rejected' ? r.reason : r.value;
+        logger.error('[bulkShare failed]', { reason });
+      }
+    });
     setSharing(false);
     setShareResult(`✅ ${ok}건 전달 완료${fail > 0 ? ` / ❌ ${fail}건 실패` : ""}`);
     setSelectedIds(new Set());
@@ -300,7 +310,9 @@ export default function ContactsPage() {
     fetch("/api/groups").then(r => r.json()).then(d => { if (d.ok) setGroups(d.groups ?? []); });
     fetch("/api/contacts/assign-stats").then(r => r.json()).then(d => {
       if (d.ok) { setAssignStats(d.stats ?? []); setUnassignedCount(d.unassigned ?? 0); }
-    }).catch(() => {});
+    }).catch(err => {
+      logger.error('[assign-stats failed]', { err });
+    });
   }, []);
 
   const doBulkAssign = async () => {

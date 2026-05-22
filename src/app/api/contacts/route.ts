@@ -299,7 +299,7 @@ export async function POST(req: Request) {
           contactId:      contact.id,
           groupId:        gid,
           organizationId: orgId,
-        }).catch(() => {});
+        }).catch(err => logger.error('[triggerGroupFunnel failed]', { err, contactId: contact.id, groupId: gid }));
       }
     }
 

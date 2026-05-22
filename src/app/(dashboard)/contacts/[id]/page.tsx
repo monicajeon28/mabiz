@@ -278,25 +278,35 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   };
 
   useEffect(() => {
-    Promise.all([
-      fetch(`/api/contacts/${id}`).then((r) => r.json()),
-      fetch("/api/groups").then((r) => r.json()),
-      fetch("/api/funnels").then((r) => r.json()),
-    ]).then(([c, g, f]) => {
-      if (c.ok) {
-        setContact(c.contact);
-        setTags(c.contact.tags ?? []);
-        if (c.contact.departureDate) {
-          setDeptForm({
-            departureDate: c.contact.departureDate.split("T")[0],
-            productName:   c.contact.productName ?? "",
-            bookingRef:    c.contact.bookingRef  ?? "",
-          });
+    const fetchContact = fetch(`/api/contacts/${id}`).catch(err => {
+      logger.error('[fetchContact failed]', { err });
+      return { ok: false };
+    });
+    const fetchGroups = fetch("/api/groups").catch(err => {
+      logger.error('[fetchGroups failed]', { err });
+      return { ok: false };
+    });
+    const fetchFunnels = fetch("/api/funnels").catch(err => {
+      logger.error('[fetchFunnels failed]', { err });
+      return { ok: false };
+    });
+    Promise.all([fetchContact, fetchGroups, fetchFunnels])
+      .then(([c, g, f]) => Promise.all([c.json(), g.json(), f.json()]))
+      .then(([c, g, f]) => {
+        if (c.ok) {
+          setContact(c.contact);
+          setTags(c.contact.tags ?? []);
+          if (c.contact.departureDate) {
+            setDeptForm({
+              departureDate: c.contact.departureDate.split("T")[0],
+              productName:   c.contact.productName ?? "",
+              bookingRef:    c.contact.bookingRef  ?? "",
+            });
+          }
         }
-      }
-      if (g.ok) setAllGroups(g.groups);
-      if (f.ok) setFunnels(f.funnels ?? []);
-    }).finally(() => setLoading(false));
+        if (g.ok) setAllGroups(g.groups);
+        if (f.ok) setFunnels(f.funnels ?? []);
+      }).finally(() => setLoading(false));
   }, [id]);
 
   useEffect(() => {
@@ -305,6 +315,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     fetch(`/api/contacts/${contact.id}/transfer-logs`)
       .then(r => r.json())
       .then(d => { if (d.ok) setTransferLogs(d.logs ?? []); })
+      .catch(err => logger.error('[transfer-logs]', { err }))
       .finally(() => setLoadingTransfer(false));
   }, [contact?.id]);
 
@@ -475,7 +486,16 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       setSendDbTarget("");
       fetch(`/api/contacts/${id}/transfer-logs`)
         .then(r => r.json())
-        .then(d => { if (d.ok) setTransferLogs(d.logs ?? []); });
+        .then(d => {
+          if (d.ok) setTransferLogs(d.logs ?? []);
+          else {
+            toast({ title: '오류', description: '전달 이력 새로고침 실패', variant: 'destructive' });
+          }
+        })
+        .catch(err => {
+          logger.error('[sendDb transfer-logs refresh]', { err });
+          toast({ title: '오류', description: '전달 이력 새로고침 실패', variant: 'destructive' });
+        });
       setShowSendDb(false);
     } else {
       setSendDbResult(`❌ ${data.message ?? "전달 실패"}`);

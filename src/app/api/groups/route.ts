@@ -51,7 +51,15 @@ export async function GET() {
       orderBy: { createdAt: "asc" },
     });
 
-    const result = groups.map(serializeGroup);
+    const result = groups.map(g => {
+      if (!g) return null;
+      try {
+        return serializeGroup(g);
+      } catch (err) {
+        logger.error('[serializeGroup failed]', { err, groupId: g.id });
+        return null;
+      }
+    }).filter((g): g is ReturnType<typeof serializeGroup> => g !== null);
 
     return NextResponse.json({ ok: true, groups: result });
   } catch (err) {
@@ -133,10 +141,20 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({
-      ok: true,
-      group: serializeGroup(group),
-    }, { status: 201 });
+    if (!group) {
+      return NextResponse.json({ ok: false, error: 'Group creation failed' }, { status: 500 });
+    }
+
+    try {
+      const serialized = serializeGroup(group);
+      return NextResponse.json({
+        ok: true,
+        group: serialized,
+      }, { status: 201 });
+    } catch (serializeErr) {
+      logger.error('[serializeGroup failed in POST]', { err: serializeErr, groupId: group.id });
+      return NextResponse.json({ ok: false, error: 'Failed to serialize group' }, { status: 500 });
+    }
   } catch (err) {
     logger.error("[POST /api/groups]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
