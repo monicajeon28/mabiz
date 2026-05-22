@@ -1,7 +1,9 @@
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
-// DLQ 재시도 대기 시간 (분): 5m → 15m → 60m
+// DLQ 재시도 정책: 최대 3회
+const MAX_RETRIES = 3;
+// DLQ 재시도 대기 시간 (분): [0]=5m → [1]=15m → [2]=60m
 const RETRY_DELAYS_MIN = [5, 15, 60];
 
 /**
@@ -43,16 +45,32 @@ export async function resolveDLQ(id: string): Promise<void> {
  * 재시도 실패 시 다음 시도 예약
  */
 export async function failDLQ(id: string, retryCount: number, reason: string): Promise<void> {
-  const nextDelay = RETRY_DELAYS_MIN[retryCount] ?? null;
+  // 최대 재시도 도달 → 정지 (영구 정체 방지)
+  if (retryCount >= MAX_RETRIES) {
+    await prisma.mabizSyncDLQ.update({
+      where: { id },
+      data: {
+        retryCount: retryCount + 1,
+        failureReason: reason,
+        resolvedAt: new Date(),
+        nextRetryAt: null,
+      },
+    });
+    logger.warn('[DLQ] 최대 재시도 도달', { id, maxRetries: MAX_RETRIES, reason });
+    return;
+  }
+
+  // 다음 재시도 예약
+  const nextDelay = RETRY_DELAYS_MIN[retryCount];
   await prisma.mabizSyncDLQ.update({
     where: { id },
     data: {
       retryCount: retryCount + 1,
       failureReason: reason,
-      nextRetryAt: nextDelay ? new Date(Date.now() + nextDelay * 60_000) : null,
+      nextRetryAt: new Date(Date.now() + nextDelay * 60_000),
     },
   });
-  logger.warn('[DLQ] 재시도 실패', { id, retryCount: retryCount + 1, nextDelay });
+  logger.warn('[DLQ] 재시도 예약', { id, retryCount: retryCount + 1, nextDelayMin: nextDelay });
 }
 
 /**
