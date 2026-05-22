@@ -19,6 +19,8 @@ export default function GroupsPage() {
   const [groups,  setGroups]  = useState<Group[]>([]);
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [csrfToken, setCsrfToken] = useState('');
   const [showNew, setShowNew] = useState(false);
   const [form, setForm]       = useState({ name: "", description: "", color: "#6B7280", funnelId: "" });
   const [saving, setSaving]   = useState(false);
@@ -34,7 +36,10 @@ export default function GroupsPage() {
     setSetupLoading(true);
     setSetupMsg(null);
     try {
-      const res  = await fetch('/api/setup/regional-groups', { method: 'POST' });
+      const res  = await fetch('/api/setup/regional-groups', {
+        method: 'POST',
+        headers: { 'X-CSRF-Token': csrfToken || '' },
+      });
       const data = await res.json() as { ok: boolean; created?: string[]; skipped?: string[]; message?: string };
       if (data.ok) {
         const createdCount = data.created?.length ?? 0;
@@ -43,20 +48,16 @@ export default function GroupsPage() {
           setSetupMsg('이미 설정되어 있습니다');
         } else {
           setSetupMsg(`${createdCount}개 그룹 생성 완료${skippedCount > 0 ? ` (${skippedCount}개 스킵)` : ''}`);
-          const [g, f] = await Promise.all([
-            fetch('/api/groups').then((r) => r.json()),
-            fetch('/api/funnels').then((r) => r.json()),
-          ]);
-          if (g.ok)  setGroups(g.groups);
-          if (f.ok)  setFunnels(f.funnels);
+          await loadGroups();
         }
       } else {
         const msg = data.message ?? '초기화에 실패했습니다.';
         setSetupMsg(msg);
         showError(msg);
       }
-    } catch {
+    } catch (err) {
       const msg = '네트워크 오류가 발생했습니다.';
+      logger.error('[GroupsPage] initRegionalGroups', { err });
       setSetupMsg(msg);
       showError(msg);
     } finally {
@@ -69,16 +70,30 @@ export default function GroupsPage() {
   const [showImport,     setShowImport]     = useState(false);
 
   const loadGroups = async () => {
-    const [g, f] = await Promise.all([
+    setError(null);
+    const [gResult, fResult] = await Promise.allSettled([
       fetch('/api/groups').then((r) => r.json()),
       fetch('/api/funnels').then((r) => r.json()),
     ]);
-    if (g.ok)  setGroups(g.groups);
-    if (f.ok)  setFunnels(f.funnels);
+
+    if (gResult.status === 'fulfilled' && gResult.value.ok) {
+      setGroups(gResult.value.groups);
+    } else if (gResult.status === 'rejected') {
+      logger.error('[loadGroups] groups fetch', { err: gResult.reason });
+    }
+
+    if (fResult.status === 'fulfilled' && fResult.value.ok) {
+      setFunnels(fResult.value.funnels);
+    } else if (fResult.status === 'rejected') {
+      logger.error('[loadGroups] funnels fetch', { err: fResult.reason });
+    }
   };
 
   const cloneGroup = async (id: string) => {
-    const res = await fetch(`/api/groups/${id}/clone`, { method: 'POST' });
+    const res = await fetch(`/api/groups/${id}/clone`, {
+      method: 'POST',
+      headers: { 'X-CSRF-Token': csrfToken || '' },
+    });
     const d   = await res.json() as { ok: boolean; group?: { name: string }; message?: string };
     if (d.ok) { await loadGroups(); }
     else showError(d.message || '복제 실패');
@@ -104,6 +119,21 @@ export default function GroupsPage() {
   const [checkingBlast, setCheckingBlast] = useState(false);
   const [blastError,    setBlastError]    = useState<string | null>(null);
 
+  useEffect(() => {
+    fetch('/api/csrf-token')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) {
+          setCsrfToken(d.token);
+        } else {
+          logger.warn('[GroupsPage] CSRF token', { message: d.message });
+        }
+      })
+      .catch((err) => {
+        logger.error('[GroupsPage] CSRF token fetch', { err });
+      });
+  }, []);
+
   const openBlast = (groupId: string) => {
     setBlastGroupId(groupId);
     setBlastMsg("");
@@ -118,7 +148,11 @@ export default function GroupsPage() {
     setBlastError(null);
     try {
       const res  = await fetch(`/api/groups/${blastGroupId}/blast`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken || '',
+        },
         body: JSON.stringify({ message: blastMsg, dryRun: true }),
       });
       const data = await res.json() as { ok: boolean; error?: string; message?: string; willSend?: number; isOverLimit?: boolean; overLimitMsg?: string | null };
@@ -128,8 +162,9 @@ export default function GroupsPage() {
         setBlastError(msg);
         showError(msg);
       }
-    } catch {
+    } catch (err) {
       const msg = "네트워크 오류가 발생했습니다.";
+      logger.error('[GroupsPage] checkBlast', { err });
       setBlastError(msg);
       showError(msg);
     } finally {
@@ -143,7 +178,11 @@ export default function GroupsPage() {
     setBlasting(true);
     try {
       const res  = await fetch(`/api/groups/${blastGroupId}/blast`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken || '',
+        },
         body: JSON.stringify({ message: blastMsg, dryRun: false }),
       });
       const data = await res.json() as { ok: boolean; error?: string; message?: string; sentCount?: number; blockedCount?: number; failedCount?: number };
@@ -156,8 +195,9 @@ export default function GroupsPage() {
         setBlastError(msg);
         showError(msg);
       }
-    } catch {
+    } catch (err) {
       const msg = "네트워크 오류가 발생했습니다.";
+      logger.error('[GroupsPage] sendBlast', { err });
       setBlastError(msg);
       showError(msg);
     } finally {
@@ -166,12 +206,26 @@ export default function GroupsPage() {
   };
 
   useEffect(() => {
-    Promise.all([
+    setLoading(true);
+    setError(null);
+    Promise.allSettled([
       fetch("/api/groups").then((r) => r.json()),
       fetch("/api/funnels").then((r) => r.json()),
-    ]).then(([g, f]) => {
-      if (g.ok)  setGroups(g.groups);
-      if (f.ok)  setFunnels(f.funnels);
+    ]).then(([gResult, fResult]) => {
+      if (gResult.status === 'fulfilled' && gResult.value.ok) {
+        setGroups(gResult.value.groups);
+      } else {
+        logger.error('[GroupsPage init] groups fetch failed', { result: gResult });
+      }
+
+      if (fResult.status === 'fulfilled' && fResult.value.ok) {
+        setFunnels(fResult.value.funnels);
+      } else {
+        logger.error('[GroupsPage init] funnels fetch failed', { result: fResult });
+      }
+    }).catch((err) => {
+      logger.error('[GroupsPage init] Promise.allSettled', { err });
+      setError('데이터를 불러올 수 없습니다.');
     }).finally(() => setLoading(false));
   }, []);
 
@@ -183,7 +237,10 @@ export default function GroupsPage() {
     try {
       const res  = await fetch("/api/groups", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken || '',
+        },
         body:    JSON.stringify({
           name:        form.name,
           description: form.description || null,
@@ -211,9 +268,11 @@ export default function GroupsPage() {
           showError(data.message || data.error || "그룹 생성에 실패했습니다.");
         }
       }
-    } catch {
-      setFormError("네트워크 오류가 발생했습니다.");
-      showError("네트워크 오류가 발생했습니다.");
+    } catch (err) {
+      const msg = "네트워크 오류가 발생했습니다.";
+      logger.error('[GroupsPage] createGroup', { err });
+      setFormError(msg);
+      showError(msg);
     } finally {
       setSaving(false);
     }
@@ -248,6 +307,27 @@ export default function GroupsPage() {
           </button>
         </div>
       </div>
+
+      {/* 에러 상태 */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-red-900">데이터를 불러올 수 없습니다</p>
+              <p className="text-sm text-red-700 mt-1">{error}</p>
+            </div>
+            <button
+              onClick={() => {
+                setLoading(true);
+                loadGroups();
+              }}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700"
+            >
+              재시도
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 흐름 설명 */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5">
@@ -286,6 +366,7 @@ export default function GroupsPage() {
       {/* 가져오기 모달 */}
       {showImport && (
         <ImportModal
+          csrfToken={csrfToken}
           onClose={() => setShowImport(false)}
           onDone={async () => { await loadGroups(); }}
         />
@@ -480,9 +561,7 @@ export default function GroupsPage() {
                   >
                     <Zap className="w-3 h-3" /> 즉시발송
                   </button>
-                  <button className="p-2 hover:bg-gray-100 rounded-lg">
-                    <Settings className="w-4 h-4 text-gray-400" />
-                  </button>
+                  {/* TODO (P2): 그룹 편집 또는 삭제 기능 추가 */}
                 </div>
               </div>
 
@@ -602,7 +681,15 @@ export default function GroupsPage() {
   );
 }
 
-function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+function ImportModal({
+  csrfToken,
+  onClose,
+  onDone,
+}: {
+  csrfToken: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
   const [tab, setTab] = useState<'file' | 'text'>('file');
   const [jsonText, setJsonText] = useState('');
   const [importing, setImporting] = useState(false);
@@ -652,13 +739,17 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
     try {
       const res = await fetch('/api/groups/import', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken || '',
+        },
         body: jsonText,
       });
       const d = await res.json() as { ok: boolean; message?: string };
       if (d.ok) { onDone(); onClose(); }
       else setError(d.message ?? '가져오기 실패');
-    } catch {
+    } catch (err) {
+      logger.error('[GroupsPage] ImportModal.handleImport', { err });
       setError('네트워크 오류가 발생했습니다');
     } finally {
       setImporting(false);
