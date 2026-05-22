@@ -2,9 +2,8 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
-import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { getPendingDLQEntries, resolveDLQ, failDLQ } from '@/lib/mabiz-dlq';
+import { getPendingDLQEntries, retryDLQEntriesBatch } from '@/lib/mabiz-dlq';
 
 /**
  * GET /api/cron/retry-mabiz-dlq
@@ -37,6 +36,9 @@ export async function GET(req: Request) {
     }
   }
 
+  // [동시성 보호] 재시도 항목 조회 + PROCESSING 상태 변경 (트랜잭션 내 원자적)
+  // P1-2: RepeatableRead isolation으로 Race Condition 방지
+  // 다른 Cron 인스턴스가 같은 항목을 동시 처리할 수 없음
   const entries = await getPendingDLQEntries();
   if (entries.length === 0) {
     return NextResponse.json({ ok: true, processed: 0 });
@@ -44,86 +46,14 @@ export async function GET(req: Request) {
 
   logger.log('[CronDLQ] 재시도 시작', { count: entries.length });
 
-  let resolved = 0;
-  let failed = 0;
+  // [성능] 5개씩 동시 처리 (Promise.allSettled로 부분 실패 대응)
+  const { resolved, failed } = await retryDLQEntriesBatch(entries, 5);
 
-  for (const entry of entries) {
-    try {
-      // P1-10: PROCESSING 상태로 변경 (멱등성 기반 — 다른 Cron 인스턴스의 중복 처리 방지)
-      await prisma.mabizSyncDLQ.update({
-        where: { id: entry.id },
-        data: { status: 'PROCESSING' },
-      });
-
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL
-        ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-
-      const webhookUrl = `${baseUrl}/api/webhooks/${entry.webhookType}`;
-      const webhookSecret = getWebhookSecret(entry.webhookType);
-
-      if (!webhookSecret) {
-        await failDLQ(entry.id, entry.retryCount, `시크릿 미설정: ${entry.webhookType}`);
-        failed++;
-        continue;
-      }
-
-      let res: Response;
-
-      if ((entry as unknown as { format?: string }).format === 'form-data') {
-        // form-data 복원 (PayApp 전용)
-        const formData = new URLSearchParams();
-        const payloadObj = entry.payload as Record<string, string | number | boolean>;
-        Object.entries(payloadObj).forEach(([key, value]) => {
-          formData.append(key, String(value));
-        });
-
-        res = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': `Bearer ${webhookSecret}`,
-          },
-          body: formData.toString(),
-        });
-      } else {
-        // JSON (기본)
-        res = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${webhookSecret}`,
-          },
-          body: JSON.stringify(entry.payload),
-        });
-      }
-
-      if (res.ok) {
-        await resolveDLQ(entry.id);
-        resolved++;
-      } else {
-        const text = await res.text().catch(() => 'unknown');
-        await failDLQ(entry.id, entry.retryCount, `HTTP ${res.status}: ${text.slice(0, 200)}`);
-        failed++;
-      }
-    } catch (err) {
-      await failDLQ(entry.id, entry.retryCount, String(err));
-      failed++;
-    }
-  }
-
-  logger.log('[CronDLQ] 완료', { resolved, failed, total: entries.length });
+  logger.log('[CronDLQ] 배치 완료', {
+    resolved,
+    failed,
+    total: entries.length,
+    successRate: `${((resolved / entries.length) * 100).toFixed(2)}%`,
+  });
   return NextResponse.json({ ok: true, processed: entries.length, resolved, failed });
-}
-
-function getWebhookSecret(webhookType: string): string | undefined {
-  const map: Record<string, string | undefined> = {
-    'purchase': process.env.MABIZ_PURCHASE_WEBHOOK_SECRET,
-    'refund': process.env.MABIZ_REFUND_WEBHOOK_SECRET,
-    'inquiry': process.env.MABIZ_INQUIRY_WEBHOOK_SECRET,
-    'gold-inquiry': process.env.MABIZ_GOLD_INQUIRY_WEBHOOK_SECRET,
-    'partner-signup': process.env.MABIZ_PARTNER_SIGNUP_WEBHOOK_SECRET,
-    'cruise-purchase': process.env.MABIZ_PURCHASE_WEBHOOK_SECRET,
-    'payapp': process.env.MABIZ_PAYAPP_WEBHOOK_SECRET,
-  };
-  return map[webhookType];
 }
