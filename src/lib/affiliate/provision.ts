@@ -259,7 +259,7 @@ export async function provisionAffiliateAccounts(
             "isLocked" = $8, "updatedAt" = NOW()
         `, [
           result.manager.gmUserId,
-          managerPartnerId, // Phase 4: partnerId
+          managerPartnerId,
           passwordHash,
           `${contractorName} 대리점장`,
           'affiliate_manager',
@@ -267,27 +267,29 @@ export async function provisionAffiliateAccounts(
           null,
           false,
         ]);
-      } catch (managerErr) {
-        // Manager 동기화 실패 → DLQ 기록
-        const dlqData = {
-          managerGmUserId: result.manager.gmUserId,
+        logger.log('[AFFILIATE-PROVISION] ✅ Manager Supabase 동기화 성공', {
+          gmUserId: result.manager.gmUserId,
           partnerId: managerPartnerId,
-          name: `${contractorName} 대리점장`,
-          error: managerErr instanceof Error ? managerErr.message : String(managerErr),
-        };
-        await prisma.syncDeadLetterQueue.create({
+        });
+      } catch (managerErr) {
+        const errMsg = managerErr instanceof Error ? managerErr.message : String(managerErr);
+        const dlq = await prisma.syncDeadLetterQueue.create({
           data: {
             syncType: 'NEON_TO_SUPABASE',
             operationType: 'INSERT_OR_UPDATE',
             tableName: 'User',
             recordId: String(result.manager.gmUserId),
-            data: dlqData,
-            error: managerErr instanceof Error ? managerErr.message : String(managerErr),
-            nextRetryAt: new Date(Date.now() + 5 * 60 * 1000), // 5분 후 재시도
+            data: { gmUserId: result.manager.gmUserId, partnerId: managerPartnerId, name: `${contractorName} 대리점장`, passwordHash },
+            error: errMsg,
+            nextRetryAt: new Date(Date.now() + 5 * 60 * 1000),
             status: 'PENDING',
           },
         });
-        logger.warn('[AFFILIATE-PROVISION] Manager 동기화 실패 — DLQ 기록', dlqData);
+        logger.warn('[AFFILIATE-PROVISION] ❌ Manager Supabase 동기화 실패 → DLQ 기록', {
+          gmUserId: result.manager.gmUserId,
+          dlqId: dlq.id,
+          error: errMsg,
+        });
       }
 
       // Agent 동기화 시도
@@ -302,7 +304,7 @@ export async function provisionAffiliateAccounts(
             "isLocked" = $8, "updatedAt" = NOW()
         `, [
           result.agent.gmUserId,
-          agentPartnerId, // Phase 4: partnerId
+          agentPartnerId,
           passwordHash,
           `${contractorName} 판매원`,
           'affiliate_agent',
@@ -310,37 +312,43 @@ export async function provisionAffiliateAccounts(
           null,
           false,
         ]);
+        logger.log('[AFFILIATE-PROVISION] ✅ Agent Supabase 동기화 성공', {
+          gmUserId: result.agent.gmUserId,
+          partnerId: agentPartnerId,
+        });
       } catch (agentErr) {
-        // Agent 동기화 실패 → DLQ 기록
+        const errMsg = agentErr instanceof Error ? agentErr.message : String(agentErr);
         const dlqData = {
           agentGmUserId: result.agent.gmUserId,
           partnerId: agentPartnerId,
           name: `${contractorName} 판매원`,
-          error: agentErr instanceof Error ? agentErr.message : String(agentErr),
+          error: errMsg,
         };
-        await prisma.syncDeadLetterQueue.create({
+        const dlq = await prisma.syncDeadLetterQueue.create({
           data: {
             syncType: 'NEON_TO_SUPABASE',
             operationType: 'INSERT_OR_UPDATE',
             tableName: 'User',
             recordId: String(result.agent.gmUserId),
             data: dlqData,
-            error: agentErr instanceof Error ? agentErr.message : String(agentErr),
-            nextRetryAt: new Date(Date.now() + 5 * 60 * 1000), // 5분 후 재시도
+            error: errMsg,
+            nextRetryAt: new Date(Date.now() + 5 * 60 * 1000),
             status: 'PENDING',
           },
         });
-        logger.warn('[AFFILIATE-PROVISION] Agent 동기화 실패 — DLQ 기록', dlqData);
+        logger.warn('[AFFILIATE-PROVISION] ❌ Agent Supabase 동기화 실패 → DLQ 기록', {
+          gmUserId: result.agent.gmUserId,
+          dlqId: dlq.id,
+          error: errMsg,
+        });
       }
 
       await supabaseClient.end();
-      logger.log('[AFFILIATE-PROVISION] Supabase 동기화 시도 완료', {
+    } catch (err) {
+      logger.error('[AFFILIATE-PROVISION] ❌ Supabase 네트워크 오류 — 동기화 전체 실패', {
+        error: err instanceof Error ? err.message : String(err),
         managerGmUserId: result.manager.gmUserId,
         agentGmUserId: result.agent.gmUserId,
-      });
-    } catch (err) {
-      logger.error('[AFFILIATE-PROVISION] Supabase 네트워크 오류 (DLQ 기록 불가)', {
-        error: err instanceof Error ? err.message : String(err),
       });
     }
   }
