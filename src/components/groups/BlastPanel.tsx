@@ -46,8 +46,8 @@ export function BlastPanel({
   return (
     <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
       {blastResult ? (
-        <div className="bg-green-50 rounded-lg p-3 text-sm">
-          <p className="font-semibold text-green-800">✅ 발송 완료</p>
+        <div className="bg-green-50 rounded-lg p-3 text-sm" role="status" aria-live="polite">
+          <p className="font-semibold text-green-700">✅ 발송 완료</p>
           <p className="text-green-700 mt-1">
             성공 {blastResult.sentCount}명 · 차단 {blastResult.blockedCount}명
             {blastResult.failedCount > 0 && ` · 실패 ${blastResult.failedCount}명`}
@@ -70,16 +70,16 @@ export function BlastPanel({
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500 resize-none"
             aria-label="발송 메시지"
           />
-          <p className="text-xs text-gray-400">[고객명] 자동 치환됩니다</p>
+          <p className="text-xs text-gray-600">[고객명] 자동 치환됩니다</p>
 
           {blastError && (
-            <p className="text-base text-red-600 font-medium bg-red-50 p-3 rounded">⚠️ {blastError}</p>
+            <p className="text-base text-red-700 font-medium bg-red-50 p-3 rounded" role="alert">⚠️ {blastError}</p>
           )}
 
           {blastPreview && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 space-y-3 text-sm">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 space-y-3 text-sm" role="region" aria-label="발송 최종 확인">
               <div>
-                <p className="font-semibold text-yellow-800">📢 발송 최종 확인</p>
+                <h3 className="font-semibold text-yellow-800">📢 발송 최종 확인</h3>
                 <div className="mt-2 space-y-1 text-yellow-700">
                   <p>
                     ✓ <span className="font-medium">대상:</span> {blastPreview.willSend}명
@@ -93,7 +93,7 @@ export function BlastPanel({
                       </p>
                     </div>
                     {/* W3-5: 문자 수 표시 */}
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-600 mt-1">
                       {blastMsg.length}자 {blastMsg.length > 80 && '(LMS 2건)'}
                     </p>
                   </div>

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   MessageSquare, Mail, Send, ChevronDown, ChevronUp,
   Link2, AlertCircle, CheckCircle, Settings, Users,
@@ -36,6 +36,18 @@ const TEMPLATE_CATEGORIES = [
 ];
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "";
+
+// ─── 유틸리티 ────────────────────────────────────────────────────
+/**
+ * datetime-local input 타입 지원 확인
+ * Safari, IE에서는 지원하지 않으므로 fallback UI 사용
+ */
+function supportsDatetimeLocal(): boolean {
+  if (typeof document === "undefined") return true;  // SSR 환경
+  const input = document.createElement("input");
+  input.type = "datetime-local";
+  return input.type === "datetime-local";
+}
 
 // ─── 메인 컴포넌트 ───────────────────────────────────────────────
 export default function MessagesPage() {
@@ -129,9 +141,14 @@ function SmsTab() {
     });
   };
 
-  const currentGroup = groups.find(g => g.id === selectedGroup);
+  // useMemo: currentGroup 메모이제이션 (필터링 결과 캐싱)
+  const currentGroup = useMemo(
+    () => groups.find(g => g.id === selectedGroup),
+    [groups, selectedGroup]
+  );
 
-  const doDryRun = async () => {
+  // useCallback: dry-run 메모이제이션 (반복 호출 방지)
+  const doDryRun = useCallback(async () => {
     if (!selectedGroup || !message.trim()) { showError("그룹과 메시지를 입력하세요"); return; }
     const res = await fetch(`/api/groups/${selectedGroup}/blast`, {
       method: "POST",
@@ -157,9 +174,10 @@ function SmsTab() {
         resetAt: resetDate.toLocaleTimeString('ko-KR'),
       });
     }
-  };
+  }, [selectedGroup, message, csrfToken]);
 
-  const doSend = async () => {
+  // useCallback: 발송 메모이제이션 (반복 호출 방지)
+  const doSend = useCallback(async () => {
     // Step A: 미리보기 확인
     if (!dryRunResult) {
       showError("먼저 발송 대상을 확인해주세요.");
@@ -203,7 +221,7 @@ function SmsTab() {
     } finally {
       setSending(false);
     }
-  };
+  }, [selectedGroup, message, csrfToken, dryRunResult, confirmed]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -477,14 +495,14 @@ function EmailTab() {
     fetch("/api/groups").then(r => r.json()).then(d => { if (d.ok) setGroups(d.groups ?? []); });
   }, []);
 
-  const loadImages = () => {
+  const loadImages = useCallback(() => {
     setShowImages(true);
     if (imagesLoaded) return;
     fetch("/api/image-library").then(r => r.json()).then(d => {
       if (d.ok) setImages(d.images ?? []);
       setImagesLoaded(true);
     });
-  };
+  }, [imagesLoaded]);
 
   const insertImage = (url: string) => {
     if (!url) return;
@@ -492,7 +510,8 @@ function EmailTab() {
     setShowImages(false);
   };
 
-  const saveSenderName = async () => {
+  // useCallback: 발신자 이름 저장 메모이제이션
+  const saveSenderName = useCallback(async () => {
     setSavingName(true);
     try {
       const res = await fetch("/api/settings/email-sender", {
@@ -507,9 +526,10 @@ function EmailTab() {
       if (d.ok) showSuccess("발신자 이름 저장됨");
       else showError("저장 실패");
     } finally { setSavingName(false); }
-  };
+  }, [senderName, csrfToken]);
 
-  const doSend = async () => {
+  // useCallback: 이메일 발송 메모이제이션
+  const doSend = useCallback(async () => {
     if (!selectedGroup || !subject.trim() || !body.trim()) {
       showError("그룹, 제목, 내용을 모두 입력하세요"); return;
     }
@@ -538,9 +558,13 @@ function EmailTab() {
       setSubject(""); setBody("");
     } catch { showError("이메일 발송 실패"); }
     finally { setSending(false); }
-  };
+  }, [selectedGroup, subject, body, sendMode, scheduledAt, csrfToken]);
 
-  const currentGroup = groups.find(g => g.id === selectedGroup);
+  // useMemo: 이메일 탭의 currentGroup 메모이제이션
+  const currentGroup = useMemo(
+    () => groups.find(g => g.id === selectedGroup),
+    [groups, selectedGroup]
+  );
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -612,8 +636,29 @@ function EmailTab() {
             </button>
           </div>
           {sendMode === "schedule" && (
-            <input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm" />
+            supportsDatetimeLocal() ? (
+              <input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm" />
+            ) : (
+              // Fallback UI for Safari/IE
+              <div className="space-y-2">
+                <input type="date" value={scheduledAt.split("T")[0] || ""}
+                  onChange={e => {
+                    const date = e.target.value;
+                    const time = scheduledAt.split("T")[1] || "00:00";
+                    setScheduledAt(date ? `${date}T${time}` : "");
+                  }}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  placeholder="날짜" />
+                <input type="time" value={scheduledAt.split("T")[1] || ""}
+                  onChange={e => {
+                    const date = scheduledAt.split("T")[0] || new Date().toISOString().split("T")[0];
+                    setScheduledAt(`${date}T${e.target.value}`);
+                  }}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  placeholder="시간" />
+              </div>
+            )
           )}
         </div>
       </div>

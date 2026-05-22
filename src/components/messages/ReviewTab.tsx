@@ -67,16 +67,16 @@ export function ReviewTab({
   }
 
   return (
-    <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+    <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4" role="region" aria-label="관리자 발송 검수">
       <div className="flex items-center gap-2">
-        <AlertCircle className="w-5 h-5 text-amber-600" />
+        <AlertCircle className="w-5 h-5 text-amber-600" aria-hidden="true" />
         <h3 className="font-semibold text-gray-900">📋 관리자 발송 검수</h3>
       </div>
 
       {/* 메시지 미리보기 */}
       <div className="space-y-2">
-        <p className="text-sm font-medium text-gray-700">메시지 내용</p>
-        <div className="bg-white border border-gray-200 rounded-lg p-3 whitespace-pre-wrap break-words text-sm text-gray-800">
+        <h4 className="text-sm font-medium text-gray-700">메시지 내용</h4>
+        <div className="bg-white border border-gray-200 rounded-lg p-3 whitespace-pre-wrap break-words text-sm text-gray-800" role="region" aria-label="검수할 메시지 내용">
           {DOMPurify.sanitize(message, {
             ALLOWED_TAGS: [],
             ALLOWED_ATTR: [],
@@ -86,11 +86,11 @@ export function ReviewTab({
 
       {/* 오타 감지 경고 */}
       {typos.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3" role="alert">
           <p className="text-sm text-red-700">
             <span className="font-semibold">⚠️ 오타 감지:</span>
           </p>
-          <ul className="text-sm text-red-600 mt-1 space-y-1">
+          <ul className="text-sm text-red-700 mt-1 space-y-1" aria-label="감지된 오타 목록">
             {typos.map((typo, idx) => (
               <li key={idx}>• {typo}</li>
             ))}
@@ -100,12 +100,12 @@ export function ReviewTab({
 
       {/* 고객 샘플 */}
       <div className="space-y-2">
-        <p className="text-sm font-medium text-gray-700">
+        <h4 className="text-sm font-medium text-gray-700">
           고객 샘플{' '}
-          <span className="text-gray-500">
+          <span className="text-gray-600">
             (전체 {dryRunResult.count}명 중 처음 {Math.min(5, customers.length)}명)
           </span>
-        </p>
+        </h4>
         {loading ? (
           <div className="space-y-2">
             {[1, 2, 3].map((i) => (
@@ -141,17 +141,19 @@ export function ReviewTab({
         <button
           onClick={onApprove}
           disabled={approving}
+          aria-label="발송 승인하기"
           className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white py-2.5 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          <CheckCircle className="w-4 h-4" />
+          <CheckCircle className="w-4 h-4" aria-hidden="true" />
           {approving ? '승인 중...' : '✓ 승인 및 발송'}
         </button>
         <button
           onClick={onReject}
           disabled={approving}
+          aria-label="발송 거절하기"
           className="flex-1 flex items-center justify-center gap-2 bg-gray-400 text-white py-2.5 rounded-lg font-medium hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          <XCircle className="w-4 h-4" />
+          <XCircle className="w-4 h-4" aria-hidden="true" />
           ✕ 거절
         </button>
       </div>
