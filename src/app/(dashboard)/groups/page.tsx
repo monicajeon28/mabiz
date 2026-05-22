@@ -91,22 +91,29 @@ export default function GroupsPage() {
 
   const loadGroups = async (limit = ITEMS_PER_PAGE, offset = 0) => {
     setError(null);
-    const [gResult, fResult] = await Promise.allSettled([
-      fetch(`/api/groups?limit=${limit}&offset=${offset}`).then((r) => r.json()),
-      fetch('/api/funnels').then((r) => r.json()),
-    ]);
+    try {
+      const [gResult, fResult] = await Promise.allSettled([
+        fetch(`/api/groups?limit=${limit}&offset=${offset}`).then((r) => r.json()),
+        fetch('/api/funnels').then((r) => r.json()),
+      ]);
 
-    if (gResult.status === 'fulfilled' && gResult.value.ok) {
-      setGroups(gResult.value.groups);
-      setTotalCount(gResult.value.totalCount ?? 0);
-    } else if (gResult.status === 'rejected') {
-      logger.error('[loadGroups] groups fetch', { err: gResult.reason });
-    }
+      if (gResult.status === 'fulfilled' && gResult.value.ok) {
+        setGroups(gResult.value.groups);
+        setTotalCount(gResult.value.totalCount ?? 0);
+      } else if (gResult.status === 'rejected') {
+        logger.error('[loadGroups] groups fetch', { err: gResult.reason });
+        setError('그룹을 불러올 수 없습니다.');
+      }
 
-    if (fResult.status === 'fulfilled' && fResult.value.ok) {
-      setFunnels(fResult.value.funnels);
-    } else if (fResult.status === 'rejected') {
-      logger.error('[loadGroups] funnels fetch', { err: fResult.reason });
+      if (fResult.status === 'fulfilled' && fResult.value.ok) {
+        setFunnels(fResult.value.funnels);
+      } else if (fResult.status === 'rejected') {
+        logger.error('[loadGroups] funnels fetch', { err: fResult.reason });
+      }
+    } catch (err) {
+      // P1: 예상치 못한 에러 처리
+      logger.error('[loadGroups] unexpected error', { err });
+      setError('데이터를 불러올 수 없습니다.');
     }
   };
 
@@ -130,13 +137,23 @@ export default function GroupsPage() {
   };
 
   const exportGroup = async (id: string) => {
-    const res = await fetch(`/api/groups/${id}/export`);
-    const d   = await res.json() as { ok: boolean; data?: unknown; message?: string };
-    if (d.ok) {
-      await navigator.clipboard.writeText(JSON.stringify(d.data, null, 2));
-      setCopiedExportId(id);
-      setTimeout(() => setCopiedExportId(null), 2000);
-    } else showError(d.message || '내보내기 실패');
+    try {
+      // P1: CSRF 토큰 추가 (내보내기 이력 기록)
+      const res = await fetch(`/api/groups/${id}/export`, {
+        method: 'POST',
+        headers: { 'X-CSRF-Token': csrfToken || '' },
+      });
+      const d = await res.json() as { ok: boolean; data?: unknown; message?: string };
+      if (d.ok) {
+        await navigator.clipboard.writeText(JSON.stringify(d.data, null, 2));
+        setCopiedExportId(id);
+        setTimeout(() => setCopiedExportId(null), 2000);
+      } else showError(d.message || '내보내기 실패');
+    } catch (err) {
+      const msg = getErrorMessage(err, '[그룹 내보내기]');
+      logger.error('[GroupsPage] exportGroup', { err });
+      showError(msg);
+    }
   };
 
   // 일괄 발송 상태
