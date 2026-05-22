@@ -1,8 +1,34 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+
+// 파트너 업데이트 스키마 검증
+const partnerUpdateSchema = z.object({
+  name: z.string().min(1).optional(),
+  email: z.string().email().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  commissionRate: z.number().min(0).max(100).nullable().optional(),
+  status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
+});
+
+type PartnerUpdate = z.infer<typeof partnerUpdateSchema>;
+
+// IDOR 방지: 파트너 소유권 검증
+async function validatePartnerOwnership(id: string, orgId: string) {
+  const existing = await prisma.partner.findUnique({
+    where: { id },
+    select: { organizationId: true },
+  });
+
+  if (!existing || existing.organizationId !== orgId) {
+    return null;
+  }
+
+  return existing;
+}
 
 // PATCH /api/partner/[id] — 파트너 정보 수정
 export async function PATCH(
@@ -14,27 +40,37 @@ export async function PATCH(
     const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
-    // 권한 확인: 해당 조직의 파트너인지
-    const existing = await prisma.partner.findUnique({
-      where: { id },
-    });
-
-    if (!existing || existing.organizationId !== orgId) {
+    // 권한 확인
+    const ownership = await validatePartnerOwnership(id, orgId);
+    if (!ownership) {
       return NextResponse.json({ ok: false, message: '접근 권한 없음' }, { status: 403 });
     }
 
     const body = await req.json();
-    const { name, email, phone, commissionRate, status } = body;
+
+    // 입력값 검증
+    let updateData: Record<string, any>;
+    try {
+      updateData = partnerUpdateSchema.parse(body);
+    } catch (validationErr) {
+      logger.warn('[PATCH /api/partner/[id]] Validation failed', { body });
+      return NextResponse.json(
+        { ok: false, message: '입력값이 유효하지 않습니다' },
+        { status: 400 }
+      );
+    }
+
+    // 업데이트 데이터 구성
+    const data: Record<string, any> = {};
+    if (updateData.name) data.name = updateData.name.trim();
+    if (updateData.email !== undefined) data.email = updateData.email?.trim() || null;
+    if (updateData.phone !== undefined) data.phone = updateData.phone?.trim() || null;
+    if (updateData.commissionRate !== undefined) data.commissionRate = updateData.commissionRate;
+    if (updateData.status) data.status = updateData.status;
 
     const updated = await prisma.partner.update({
       where: { id },
-      data: {
-        ...(name && { name: name.trim() }),
-        ...(email !== undefined && { email: email?.trim() || null }),
-        ...(phone !== undefined && { phone: phone?.trim() || null }),
-        ...(commissionRate !== undefined && { commissionRate: commissionRate ? parseFloat(commissionRate) : null }),
-        ...(status && { status }),
-      },
+      data,
     });
 
     return NextResponse.json({ ok: true, data: updated });
@@ -55,11 +91,8 @@ export async function DELETE(
     const { id } = await params;
 
     // 권한 확인
-    const existing = await prisma.partner.findUnique({
-      where: { id },
-    });
-
-    if (!existing || existing.organizationId !== orgId) {
+    const ownership = await validatePartnerOwnership(id, orgId);
+    if (!ownership) {
       return NextResponse.json({ ok: false, message: '접근 권한 없음' }, { status: 403 });
     }
 

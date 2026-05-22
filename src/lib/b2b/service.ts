@@ -81,7 +81,7 @@ export async function getB2BProspects(
       ];
     }
 
-    // Fetch data in parallel with optimized select (list view needs only essential fields)
+    // P1: 병렬 쿼리 + select 필드 완성 (N+1 제거, 목록 뷰용 최적화)
     const [prospects, total] = await Promise.all([
       prisma.b2BProspect.findMany({
         where,
@@ -98,6 +98,8 @@ export async function getB2BProspects(
           createdAt: true,
           productName: true,
           paymentAmount: true,
+          paymentDate: true,
+          notes: true,
         },
       }),
       prisma.b2BProspect.count({ where }),
@@ -172,7 +174,7 @@ export async function updateB2BProspect(
   data: B2BProspectUpdateInput
 ) {
   try {
-    // Verify ownership
+    // Verify ownership (P1: 보안 - IDOR 방지)
     const prospect = await prisma.b2BProspect.findUnique({ where: { id } });
     if (!prospect || prospect.organizationId !== organizationId || prospect.deletedAt !== null) {
       throw new ProspectNotFoundError();
@@ -205,7 +207,7 @@ export async function updateB2BProspect(
 
 export async function deleteB2BProspect(organizationId: string, id: string) {
   try {
-    // Verify ownership
+    // Verify ownership (P1: 보안 - IDOR 방지)
     const prospect = await prisma.b2BProspect.findUnique({ where: { id } });
     if (!prospect || prospect.organizationId !== organizationId || prospect.deletedAt !== null) {
       throw new ProspectNotFoundError();
@@ -227,6 +229,7 @@ export async function deleteB2BProspect(organizationId: string, id: string) {
   }
 }
 
+// P1: formatProspect 이제 paymentDate와 notes 포함 반환
 function formatProspect(prospect: ProspectFormatInput) {
   return {
     id: prospect.id,
@@ -238,5 +241,7 @@ function formatProspect(prospect: ProspectFormatInput) {
     createdAt: prospect.createdAt.toISOString(),
     productName: prospect.productName,
     paymentAmount: prospect.paymentAmount,
+    paymentDate: prospect.paymentDate ? prospect.paymentDate.toISOString().split('T')[0] : null,
+    notes: prospect.notes,
   };
 }

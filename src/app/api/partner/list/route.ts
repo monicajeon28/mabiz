@@ -15,18 +15,32 @@ export async function GET(req: Request) {
     const month = parseInt(searchParams.get('month') ?? String(new Date().getMonth() + 1));
     const year = parseInt(searchParams.get('year') ?? String(new Date().getFullYear()));
 
+    // N+1 최적화: select로 필요한 필드만 조회, metrics는 join으로 처리
     const partners = await prisma.partner.findMany({
       where: {
         ...(orgId ? { organizationId: orgId } : {}),
         status: 'ACTIVE',
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        status: true,
+        commissionRate: true,
+        totalRevenue: true,
+        createdAt: true,
+        _count: {
+          select: { contacts: true },
+        },
         metrics: {
           where: { year, month },
           take: 1,
-        },
-        _count: {
-          select: { contacts: true },
+          select: {
+            customerCount: true,
+            leadCount: true,
+            revenue: true,
+          },
         },
       },
       orderBy: { totalRevenue: 'desc' },
@@ -38,7 +52,7 @@ export async function GET(req: Request) {
       email: p.email,
       phone: p.phone,
       status: p.status,
-      commissionRate: p.commissionRate?.toString() || '0',
+      commissionRate: p.commissionRate ? parseFloat(p.commissionRate.toString()).toFixed(2) : '0.00',
       totalRevenue: Number(p.totalRevenue),
       customerCount: p._count.contacts,
       monthlyMetrics: p.metrics[0] ? {

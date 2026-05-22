@@ -10,8 +10,11 @@ import {
 } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/lib/api/use-toast";
-import { RecommendBanner } from "./recommend-banner";
-import CallScriptPanel from "./CallScriptPanel";
+import ContactInfoPanel from "./ContactInfoPanel";
+import ContactCallTab from "./ContactCallTab";
+import ContactMemoTab from "./ContactMemoTab";
+import ContactGroupTab from "./ContactGroupTab";
+import ContactSmsTab from "./ContactSmsTab";
 import { getAllObjectionIds, getObjectionData } from "@/lib/objections/validation";
 import objectionsData from "@/../../TRACK_A_OBJECTIONS.json";
 
@@ -855,340 +858,41 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
-      {/* 헤더 */}
-      <div className="flex items-center gap-3 mb-5">
-        <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        {editingName ? (
-          <input
-            autoFocus
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            onBlur={saveName}
-            onKeyDown={(e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditingName(false); }}
-            className="text-xl font-bold text-navy-900 flex-1 border-b-2 border-purple-400 outline-none bg-transparent"
-          />
-        ) : (
-          <h1
-            className="text-xl font-bold text-navy-900 flex-1 cursor-pointer hover:text-purple-700 transition-colors"
-            onClick={() => { setNameInput(contact.name); setEditingName(true); }}
-            title="클릭하여 이름 수정"
-          >
-            {contact.name}
-          </h1>
-        )}
-        <a href={`tel:${contact.phone}`} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">
-          <Phone className="w-5 h-5" />
-        </a>
-        <button
-          onClick={handleContactBackup}
-          disabled={backingContact}
-          className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 disabled:opacity-50"
-          title="이 고객 Drive 백업"
-        >
-          {backingContact
-            ? <span className="text-xs px-1">...</span>
-            : <FileDown className="w-5 h-5" />
-          }
-        </button>
-        <button
-          onClick={contact.sourceOrgId ? undefined : openSendDb}
-          disabled={!!contact.sourceOrgId}
-          className={`p-2 rounded-lg ${contact.sourceOrgId ? "bg-gray-100 text-gray-300 cursor-not-allowed" : "bg-purple-50 text-purple-600 hover:bg-purple-100"}`}
-          title={contact.sourceOrgId ? "공유받은 DB는 재공유할 수 없습니다" : "DB 전달"}
-        >
-          <Share2 className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => setShowSmsModal(true)}
-          className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100"
-          title="SMS 즉시 발송"
-        >
-          <MessageSquare className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => setShowSchedModal(true)}
-          className="p-2 bg-orange-50 text-orange-500 rounded-lg hover:bg-orange-100"
-          title="SMS 예약 발송"
-        >
-          <AlarmClock className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* 백업 결과 토스트 */}
-      {contactBackupMsg && (
-        <div className={`mb-3 px-4 py-2 rounded-xl text-sm font-medium ${contactBackupMsg.startsWith("✅") ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
-          {contactBackupMsg}
-        </div>
-      )}
-
-      {/* 전달됨 뱃지 (최신 이력) */}
-      {transferLogs.length > 0 && (() => {
-        const latest = transferLogs[0];
-        const targetName = latest.toUserName ?? latest.toUserOrgName ?? "알 수 없음";
-        return (
-          <div className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-xl px-4 py-2.5 mb-4">
-            <div className="flex items-center gap-2">
-              <Share2 className="w-4 h-4 text-purple-500 shrink-0" />
-              <div>
-                <span className="text-sm font-semibold text-purple-700">→ {targetName}</span>
-                <span className="text-xs text-purple-400 ml-2">({latest.toUserOrgName ?? latest.toOrg?.name ?? "본사"})</span>
-                <p className="text-xs text-purple-400 mt-0.5">
-                  {new Date(latest.createdAt).toLocaleDateString("ko-KR")} 전달
-                  {latest.transferType === "ORG_COPY" && " · 복사본 공유"}
-                </p>
-              </div>
-            </div>
-            {latest.canRecall && (
-              <button
-                onClick={() => handleRecall(latest)}
-                disabled={recalling}
-                className="text-xs text-red-500 hover:text-red-700 hover:underline font-medium disabled:opacity-50 shrink-0 ml-2"
-              >
-                {recalling ? "회수 중..." : "회수하기"}
-              </button>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* 상품 추천 배너 */}
-      <RecommendBanner
-        age={contact.age}
-        maritalStatus={contact.maritalStatus}
-        childrenCount={contact.childrenCount}
+      {/* Contact Info Panel */}
+      <ContactInfoPanel
+        contact={contact}
+        editingName={editingName}
+        setEditingName={setEditingName}
+        nameInput={nameInput}
+        setNameInput={setNameInput}
+        saveName={saveName}
+        backingContact={backingContact}
+        handleContactBackup={handleContactBackup}
+        openSendDb={openSendDb}
+        showSchedModal={showSchedModal}
+        setShowSchedModal={setShowSchedModal}
+        showSmsModal={showSmsModal}
+        setShowSmsModal={setShowSmsModal}
+        transferLogs={transferLogs}
+        recalling={recalling}
+        handleRecall={handleRecall}
+        showDeptForm={showDeptForm}
+        setShowDeptForm={setShowDeptForm}
+        deptForm={deptForm}
+        setDeptForm={setDeptForm}
+        savingDept={savingDept}
+        saveDeparture={saveDeparture}
+        savingField={savingField}
+        saveField={saveField}
+        tags={tags}
+        tagInput={tagInput}
+        setTagInput={setTagInput}
+        addTag={addTag}
+        removeTag={removeTag}
+        savingTags={savingTags}
+        currentGroups={currentGroups}
+        SUGGESTED_TAGS={SUGGESTED_TAGS}
       />
-
-      {/* 기본 정보 */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div><span className="text-gray-400">전화번호</span><p className="font-medium mt-0.5">{contact.phone}</p></div>
-
-          {/* 상태 — 인라인 드롭다운 */}
-          <div>
-            <span className="text-gray-400">상태</span>
-            <div className="mt-0.5 relative">
-              <select
-                value={contact.type}
-                disabled={savingField === "type"}
-                onChange={(e) => saveField("type", e.target.value)}
-                className="w-full font-medium bg-transparent border-0 border-b border-dashed border-gray-300 focus:outline-none focus:border-navy-500 pr-5 py-0 cursor-pointer text-sm appearance-none"
-              >
-                <option value="잠재고객">🔵 잠재고객</option>
-                <option value="문자">💬 문자</option>
-                <option value="부재">📵 부재</option>
-                <option value="3일부재">⏰ 3일부재</option>
-                <option value="소통">🤝 소통</option>
-                <option value="구매완료">✅ 구매완료</option>
-                <option value="VIP">⭐ VIP</option>
-                <option value="수신거부">🚫 수신거부</option>
-              </select>
-              <ChevronDown className="absolute right-0 top-0.5 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-              {savingField === "type" && <span className="text-xs text-gray-400 absolute -bottom-4 left-0">저장 중...</span>}
-            </div>
-          </div>
-
-          {/* 관심 크루즈 — 인라인 드롭다운 */}
-          <div>
-            <span className="text-gray-400">관심 크루즈</span>
-            <div className="mt-0.5 relative">
-              <select
-                value={contact.cruiseInterest ?? ""}
-                disabled={savingField === "cruiseInterest"}
-                onChange={(e) => saveField("cruiseInterest", e.target.value || null)}
-                className="w-full font-medium text-gold-600 bg-transparent border-0 border-b border-dashed border-gray-300 focus:outline-none focus:border-navy-500 pr-5 py-0 cursor-pointer text-sm appearance-none"
-              >
-                <option value="">선택 안함</option>
-                <option value="지중해">🌊 지중해</option>
-                <option value="카리브해">🏝️ 카리브해</option>
-                <option value="알래스카">🏔️ 알래스카</option>
-                <option value="북유럽">❄️ 북유럽</option>
-                <option value="동남아">🌴 동남아</option>
-                <option value="발틱해">🚢 발틱해</option>
-                <option value="국내출발">🇰🇷 국내출발</option>
-                <option value="국내근처">🗺️ 국내근처</option>
-                <option value="기타">기타</option>
-              </select>
-              <ChevronDown className="absolute right-0 top-0.5 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-              {savingField === "cruiseInterest" && <span className="text-xs text-gray-400 absolute -bottom-4 left-0">저장 중...</span>}
-            </div>
-          </div>
-        </div>
-
-        {/* ★ 출발일 + 상품 정보 (VIP 케어 핵심) */}
-        <div className="mt-4 pt-4 border-t border-gray-100">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-              <Calendar className="w-4 h-4 text-gold-500" />
-              VIP 케어 출발 정보
-            </p>
-            <button
-              onClick={() => setShowDeptForm(!showDeptForm)}
-              className="text-xs text-blue-600 hover:underline"
-            >
-              {contact.departureDate ? "수정" : "입력"}
-            </button>
-          </div>
-
-          {contact.departureDate ? (
-            <div className="bg-gold-100 rounded-lg p-3 space-y-1">
-              <p className="text-sm font-bold text-navy-900">
-                🗓 출발일: {new Date(contact.departureDate).toLocaleDateString("ko-KR")}
-              </p>
-              {contact.productName && (
-                <p className="text-sm text-gray-700">🚢 상품: {contact.productName}</p>
-              )}
-              {contact.bookingRef && (
-                <p className="text-sm text-gray-700">📋 예약번호: {contact.bookingRef}</p>
-              )}
-            </div>
-          ) : (
-            <p className="text-xs text-gray-400">출발일 미입력 — 입력하면 D-150~D+2 자동 계산</p>
-          )}
-
-          {showDeptForm && (
-            <div className="mt-3 space-y-2 bg-gray-50 rounded-xl p-3">
-              <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">출발일 *</label>
-                <input
-                  type="date"
-                  value={deptForm.departureDate}
-                  onChange={(e) => setDeptForm({ ...deptForm, departureDate: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">크루즈 상품명</label>
-                <select
-                  value={deptForm.productName}
-                  onChange={(e) => setDeptForm({ ...deptForm, productName: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500 bg-white"
-                >
-                  <option value="">상품 선택...</option>
-                  <optgroup label="지중해">
-                    <option value="지중해 7박 MSC 크루즈">지중해 7박 MSC</option>
-                    <option value="지중해 14박 MSC 크루즈">지중해 14박 MSC</option>
-                    <option value="지중해 7박 코스타 크루즈">지중해 7박 코스타</option>
-                  </optgroup>
-                  <optgroup label="북유럽·발틱">
-                    <option value="북유럽 12박 크루즈">북유럽 12박</option>
-                    <option value="발틱해 10박 크루즈">발틱해 10박</option>
-                  </optgroup>
-                  <optgroup label="알래스카">
-                    <option value="알래스카 7박 크루즈">알래스카 7박</option>
-                  </optgroup>
-                  <optgroup label="카리브해">
-                    <option value="카리브해 7박 크루즈">카리브해 7박</option>
-                    <option value="카리브해 14박 크루즈">카리브해 14박</option>
-                  </optgroup>
-                  <optgroup label="동남아">
-                    <option value="동남아 5박 크루즈">동남아 5박</option>
-                    <option value="동남아 7박 크루즈">동남아 7박</option>
-                  </optgroup>
-                  <optgroup label="국내">
-                    <option value="국내출발 크루즈">국내출발</option>
-                    <option value="국내근처 크루즈">국내근처</option>
-                  </optgroup>
-                  <option value="직접입력">직접입력 (하단 메모 활용)</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">예약 번호</label>
-                <input
-                  type="text"
-                  value={deptForm.bookingRef}
-                  onChange={(e) => setDeptForm({ ...deptForm, bookingRef: e.target.value })}
-                  placeholder="PNR 또는 예약 번호"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={saveDeparture}
-                  disabled={savingDept || !deptForm.departureDate}
-                  className="flex-1 bg-navy-900 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-                >
-                  {savingDept ? "저장 중..." : "저장"}
-                </button>
-                <button
-                  onClick={() => setShowDeptForm(false)}
-                  className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg text-sm"
-                >
-                  취소
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 현재 그룹 태그 */}
-        {currentGroups.length > 0 && (
-          <div className="flex gap-2 flex-wrap mt-3">
-            {currentGroups.map((g) => (
-              <span key={g.id} className="text-xs px-2 py-1 bg-navy-100 text-navy-900 rounded-full">
-                {g.name}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* WO-25C: 고객 태그 카드 */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-semibold text-gray-700">🏷️ 태그</p>
-          {savingTags && <span className="text-xs text-gray-400">저장 중...</span>}
-        </div>
-
-        {/* 현재 태그 */}
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {tags.map((tag) => (
-            <span
-              key={tag}
-              className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-full"
-            >
-              {tag}
-              <button
-                onClick={() => removeTag(tag)}
-                className="text-blue-400 hover:text-blue-700 ml-0.5 font-bold"
-              >×</button>
-            </span>
-          ))}
-          {tags.length === 0 && (
-            <p className="text-xs text-gray-400">태그 없음 — 아래에서 추가하세요</p>
-          )}
-        </div>
-
-        {/* 태그 입력 */}
-        <div className="flex gap-2 mb-2">
-          <input
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(tagInput); } }}
-            placeholder="태그 직접 입력 후 Enter"
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400"
-          />
-          <button
-            onClick={() => addTag(tagInput)}
-            disabled={!tagInput.trim()}
-            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 disabled:opacity-40"
-          >추가</button>
-        </div>
-
-        {/* 추천 태그 */}
-        <div className="flex flex-wrap gap-1.5">
-          {SUGGESTED_TAGS.filter((t) => !tags.includes(t)).slice(0, 12).map((tag) => (
-            <button
-              key={tag}
-              onClick={() => addTag(tag)}
-              className="text-xs bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600 px-2 py-0.5 rounded-full transition-colors"
-            >
-              + {tag}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* 최근 활동 타임라인 */}
       {(() => {
@@ -1286,592 +990,100 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         ))}
       </div>
 
-      {/* 콜기록 탭 */}
+      {/* Call Tab */}
       {tab === "call" && (
-        <div>
-          <CallScriptPanel
-            contact={{
-              age: contact.age,
-              maritalStatus: contact.maritalStatus,
-              childrenCount: contact.childrenCount,
-            }}
-            isExpanded={true}
-          />
-
-          <div className="flex gap-2 mb-3 flex-wrap">
-            <button
-              onClick={() => setShowCallForm(true)}
-              className="flex-1 flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-xl p-3 text-sm text-gray-500 hover:border-gold-300 hover:text-gold-600 transition-colors"
-            >
-              <Plus className="w-4 h-4" /> 콜 기록 추가
-            </button>
-            {contact.callLogs.length > 0 && (
-              <>
-                <button
-                  onClick={backupCallLogs}
-                  disabled={backing}
-                  className="flex items-center gap-1.5 px-3 py-2 border border-blue-200 text-blue-600 rounded-xl text-xs hover:bg-blue-50 transition-colors disabled:opacity-50"
-                >
-                  <CloudUpload className="w-3.5 h-3.5" />
-                  {backing ? "백업 중..." : "Drive 백업"}
-                </button>
-                <button
-                  onClick={deleteAllCallLogs}
-                  className="flex items-center gap-1.5 px-3 py-2 border border-red-200 text-red-500 rounded-xl text-xs hover:bg-red-50 transition-colors"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> 전체 삭제
-                </button>
-              </>
-            )}
-          </div>
-          {backupResult && (
-            <div className="mb-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm flex items-center justify-between">
-              <span className="text-blue-700">✅ {backupResult.count}건 Drive 백업 완료</span>
-              <a href={backupResult.url} target="_blank" rel="noreferrer" className="text-blue-600 underline text-xs">파일 열기 →</a>
-            </div>
-          )}
-
-          {showCallForm && (
-            <div className="bg-white border border-gold-300 rounded-xl p-4 mb-3 space-y-3">
-              <textarea
-                placeholder="통화 내용을 입력하세요..."
-                value={callForm.content}
-                onChange={(e) => setCallForm({ ...callForm, content: e.target.value })}
-                rows={3}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-gold-500"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">결과</label>
-                  <select
-                    value={callForm.result}
-                    onChange={(e) => setCallForm({ ...callForm, result: e.target.value })}
-                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white"
-                  >
-                    {Object.entries(RESULT_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">확신척도 (1~10)</label>
-                  <select
-                    value={callForm.convictionScore}
-                    onChange={(e) => setCallForm({ ...callForm, convictionScore: e.target.value })}
-                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white"
-                  >
-                    {[...Array(10)].map((_, i) => (
-                      <option key={i + 1} value={String(i + 1)}>{i + 1}점</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <input
-                placeholder="다음 액션"
-                value={callForm.nextAction}
-                onChange={(e) => setCallForm({ ...callForm, nextAction: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
-              />
-              <input
-                type="datetime-local"
-                placeholder="다음 콜 날짜"
-                value={callForm.scheduledAt}
-                onChange={(e) => setCallForm({ ...callForm, scheduledAt: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
-              />
-
-              {/* Track A 이의처리 섹션 */}
-              <div className="border-t border-gray-200 pt-3 mt-3">
-                <label className="text-xs text-gray-500 mb-2 block font-semibold">📞 이의처리 기록 (선택)</label>
-                <select
-                  value={callForm.objectionId}
-                  onChange={(e) => {
-                    const selectedId = e.target.value;
-                    setCallForm({ ...callForm, objectionId: selectedId });
-                    if (selectedId) {
-                      const objData = getObjectionData(selectedId);
-                      setSelectedObjectionModal(objData);
-                    }
-                  }}
-                  className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white mb-2"
-                >
-                  <option value="">이의 없음</option>
-                  {objectionsData.objections.map((obj: any) => (
-                    <option key={obj.id} value={obj.id}>
-                      {obj.id} - {obj.categoryName}: {obj.subcategoryName}
-                    </option>
-                  ))}
-                </select>
-
-                {callForm.objectionId && (
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">고객 반응</label>
-                      <select
-                        value={callForm.customerReaction}
-                        onChange={(e) => setCallForm({ ...callForm, customerReaction: e.target.value })}
-                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white"
-                      >
-                        <option value="positive">긍정 (해결됨)</option>
-                        <option value="neutral">중립</option>
-                        <option value="negative">부정 (악화됨)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">해결 여부</label>
-                      <label className="flex items-center gap-2 border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
-                        <input
-                          type="checkbox"
-                          checked={callForm.recovered}
-                          onChange={(e) => setCallForm({ ...callForm, recovered: e.target.checked })}
-                        />
-                        <span className="text-sm">성공 처리</span>
-                      </label>
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs text-gray-500 mb-1 block">해결 소요 시간 (초)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="30초"
-                        value={callForm.recoveryTime}
-                        onChange={(e) => setCallForm({ ...callForm, recoveryTime: e.target.value })}
-                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-gold-500"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {selectedObjectionModal && (
-                  <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <div className="font-semibold text-yellow-900 text-xs mb-2">💡 즉각 대응 스크립트</div>
-                    <div className="text-sm text-yellow-800 whitespace-pre-wrap font-mono">
-                      {selectedObjectionModal.immediateResponse}
-                    </div>
-                    <div className="text-xs text-yellow-700 mt-2">
-                      {selectedObjectionModal.responseMetrics.wordCount}단어 / {selectedObjectionModal.responseMetrics.estimatedSeconds}초
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2">
-                <button onClick={addCallLog} className="flex-1 bg-navy-900 text-white py-2 rounded-lg text-sm font-medium">저장</button>
-                <button onClick={() => setShowCallForm(false)} className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg text-sm">취소</button>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            {contact.callLogs.map((log) => {
-              const isOpen = expandedLogId === log.id;
-              return (
-                <div key={log.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                  {/* 요약 행 — 클릭으로 열기/닫기 */}
-                  <button
-                    type="button"
-                    onClick={() => setExpandedLogId(isOpen ? null : log.id)}
-                    className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                  >
-                    <Clock className="w-3 h-3 text-gray-400 shrink-0" />
-                    <span className="text-xs text-gray-400 shrink-0">
-                      {new Date(log.createdAt).toLocaleString("ko-KR")}
-                    </span>
-                    {log.result && (
-                      <span className="text-xs text-gray-600 shrink-0">{RESULT_LABELS[log.result] ?? log.result}</span>
-                    )}
-                    {log.convictionScore && (
-                      <span className="flex items-center gap-0.5 text-xs text-gold-500 shrink-0">
-                        <Star className="w-3 h-3 fill-gold-500" />{log.convictionScore}점
-                      </span>
-                    )}
-                    {/* 내용 첫 줄 미리보기 */}
-                    {log.content && !isOpen && (
-                      <span className="text-xs text-gray-500 truncate flex-1 ml-1">{log.content}</span>
-                    )}
-                    {/* 작성자 딱지 */}
-                    {log._authorName && (
-                      <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full shrink-0 font-medium">
-                        {log._authorName}
-                      </span>
-                    )}
-                    <ChevronDown className={`w-3.5 h-3.5 text-gray-400 shrink-0 ml-auto transition-transform ${isOpen ? "rotate-180" : ""}`} />
-                  </button>
-
-                  {/* 확장 영역 */}
-                  {isOpen && (
-                    <div className="border-t border-gray-100 px-4 pb-4 pt-3 space-y-2">
-                      {log.content && (
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{log.content}</p>
-                      )}
-                      {log.nextAction && (
-                        <p className="text-xs text-blue-600">→ {log.nextAction}</p>
-                      )}
-                      {/* 액션 버튼 */}
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          onClick={() => copyCallLog(log)}
-                          className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
-                        >
-                          {copiedLogId === log.id
-                            ? <><Check className="w-3 h-3 text-green-500" /> 복사됨</>
-                            : <><Copy className="w-3 h-3" /> 복사</>
-                          }
-                        </button>
-                        {log.scheduledAt && (
-                          <a
-                            href={`/api/contacts/${id}/call-logs/${log.id}/ics`}
-                            download={`call-${log.id}.ics`}
-                            className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors"
-                          >
-                            <FileDown className="w-3 h-3" /> 캘린더
-                          </a>
-                        )}
-                        <button
-                          onClick={() => deleteCallLog(log.id)}
-                          className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors ml-auto"
-                        >
-                          <Trash2 className="w-3 h-3" /> 삭제
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {contact.callLogs.length === 0 && (
-              <p className="text-center text-sm text-gray-400 py-8">콜 기록이 없습니다.</p>
-            )}
-          </div>
-
-          {/* 공유된 콜 기록 (DB 전달 연결 고객) */}
-          {(contact.sharedCallLogs?.length ?? 0) > 0 && (
-            <div className="mt-5">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-px flex-1 bg-purple-100" />
-                <span className="text-xs font-semibold text-purple-500 flex items-center gap-1">
-                  <Share2 className="w-3 h-3" /> 공유된 콜 기록
-                </span>
-                <div className="h-px flex-1 bg-purple-100" />
-              </div>
-              <div className="space-y-2">
-                {contact.sharedCallLogs.map((log) => (
-                  <div key={log.id} className="bg-purple-50 border border-purple-200 rounded-xl overflow-hidden">
-                    <div className="flex items-center gap-2 px-4 py-3">
-                      <Clock className="w-3 h-3 text-purple-300 shrink-0" />
-                      <span className="text-xs text-purple-400 shrink-0">
-                        {new Date(log.createdAt).toLocaleString("ko-KR")}
-                      </span>
-                      {log.result && (
-                        <span className="text-xs text-purple-600 shrink-0">{RESULT_LABELS[log.result] ?? log.result}</span>
-                      )}
-                      {log.convictionScore && (
-                        <span className="text-xs text-gold-500 shrink-0">
-                          <Star className="w-3 h-3 fill-gold-400 inline" />{log.convictionScore}점
-                        </span>
-                      )}
-                      {log.content && (
-                        <span className="text-xs text-purple-500 truncate flex-1">{log.content}</span>
-                      )}
-                      {/* 작성자 이름 딱지 */}
-                      {log._authorName && (
-                        <span className="text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full shrink-0 font-medium">
-                          {log._authorName}
-                        </span>
-                      )}
-                      {/* 공유 조직 딱지 */}
-                      <span className="text-[10px] bg-purple-200 text-purple-700 px-1.5 py-0.5 rounded-full shrink-0">
-                        {log._sharedFrom}
-                      </span>
-                    </div>
-                    {log.nextAction && (
-                      <div className="px-4 pb-3 text-xs text-blue-500">→ {log.nextAction}</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <ContactCallTab
+          contact={contact}
+          contactId={id}
+          callForm={callForm}
+          setCallForm={setCallForm}
+          showCallForm={showCallForm}
+          setShowCallForm={setShowCallForm}
+          selectedObjectionModal={selectedObjectionModal}
+          setSelectedObjectionModal={setSelectedObjectionModal}
+          expandedLogId={expandedLogId}
+          setExpandedLogId={setExpandedLogId}
+          copiedLogId={copiedLogId}
+          backing={backing}
+          backupResult={backupResult}
+          addCallLog={addCallLog}
+          deleteCallLog={deleteCallLog}
+          deleteAllCallLogs={deleteAllCallLogs}
+          backupCallLogs={backupCallLogs}
+          copyCallLog={copyCallLog}
+        />
       )}
 
-      {/* 메모 탭 */}
+      {/* Memo Tab */}
       {tab === "memo" && (
-        <div>
-          <div className="flex gap-2 mb-3">
-            <button
-              onClick={() => setShowMemoForm(true)}
-              className="flex-1 flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-xl p-3 text-sm text-gray-500 hover:border-gold-300 hover:text-gold-600 transition-colors"
-            >
-              <Plus className="w-4 h-4" /> 메모 추가
-            </button>
-            {contact.memos.length > 0 && (
-              <button
-                onClick={deleteAllMemos}
-                className="flex items-center gap-1.5 px-3 py-2 border border-red-200 text-red-500 rounded-xl text-xs hover:bg-red-50 transition-colors"
-              >
-                <Trash2 className="w-3.5 h-3.5" /> 전체 삭제
-              </button>
-            )}
-          </div>
-          {showMemoForm && (
-            <div className="bg-white border border-gold-300 rounded-xl p-4 mb-3 space-y-2">
-              <textarea
-                placeholder="메모 내용..."
-                value={memoText}
-                onChange={(e) => setMemoText(e.target.value)}
-                rows={3}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-gold-500"
-              />
-              <div className="flex gap-2">
-                <button onClick={addMemo} className="flex-1 bg-navy-900 text-white py-2 rounded-lg text-sm font-medium">저장</button>
-                <button onClick={() => setShowMemoForm(false)} className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg text-sm">취소</button>
-              </div>
-            </div>
-          )}
-          <div className="space-y-2">
-            {contact.memos.map((m) => (
-              <div key={m.id} className="bg-white border border-gray-200 rounded-xl p-4">
-                <div className="flex items-center justify-between gap-1 mb-1">
-                  <div className="flex items-center gap-2 text-xs text-gray-400">
-                    <FileText className="w-3 h-3" />
-                    <span>{new Date(m.createdAt).toLocaleString("ko-KR")}</span>
-                    {m._authorName && (
-                      <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full font-medium text-[10px]">
-                        {m._authorName}
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => deleteMemo(m.id)}
-                    className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{m.content}</p>
-              </div>
-            ))}
-            {contact.memos.length === 0 && <p className="text-center text-sm text-gray-400 py-8">메모가 없습니다.</p>}
-          </div>
-        </div>
+        <ContactMemoTab
+          contact={contact}
+          showMemoForm={showMemoForm}
+          setShowMemoForm={setShowMemoForm}
+          memoText={memoText}
+          setMemoText={setMemoText}
+          addMemo={addMemo}
+          deleteMemo={deleteMemo}
+          deleteAllMemos={deleteAllMemos}
+        />
       )}
 
-      {/* 그룹 배정 탭 */}
+      {/* Group Tab */}
       {tab === "group" && (
-        <div className="space-y-4">
-          {/* 그룹 배정 */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
-              <GitBranch className="w-4 h-4 text-gold-500" />
-              그룹 배정 → 퍼널 자동 시작
-            </h3>
-            <p className="text-xs text-gray-400 mb-3">그룹에 퍼널이 연결되어 있으면 배정 즉시 자동 문자 발송 시작</p>
-
-            <div className="flex gap-2">
-              <select
-                value={selectedGroup}
-                onChange={(e) => setSelectedGroup(e.target.value)}
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-gold-500"
-              >
-                <option value="">그룹 선택...</option>
-                {availableGroups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name} {g.funnelId ? "🔄" : ""}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={assignGroup}
-                disabled={assigning || !selectedGroup}
-                className="px-4 py-2 bg-navy-900 text-white rounded-lg text-sm font-medium hover:bg-navy-700 disabled:opacity-50"
-              >
-                {assigning ? "배정 중..." : "배정"}
-              </button>
-            </div>
-
-            {assignMsg && (
-              <p className="mt-2 text-sm text-green-600 font-medium">{assignMsg}</p>
-            )}
-
-            <p className="text-xs text-gray-400 mt-2">
-              🔄 = 퍼널 연결됨 (배정 즉시 자동 문자 발송)
-            </p>
-          </div>
-
-          {/* 현재 소속 그룹 */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <h3 className="font-semibold text-gray-900 mb-3">현재 소속 그룹</h3>
-            {currentGroups.length === 0 ? (
-              <p className="text-sm text-gray-400">아직 그룹에 속하지 않았습니다.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {currentGroups.map((g) => (
-                  <span key={g.id} className="flex items-center gap-1.5 bg-navy-100 text-navy-900 px-3 py-1.5 rounded-full text-sm font-medium">
-                    {g.name}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* 퍼널 직접 등록 */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
-              <GitBranch className="w-4 h-4 text-blue-500" />
-              퍼널 직접 등록
-            </h3>
-            <p className="text-xs text-gray-400 mb-3">그룹 없이 퍼널에 바로 등록합니다</p>
-
-            <div className="space-y-3">
-              <select
-                value={selectedFunnelId}
-                onChange={(e) => setSelectedFunnelId(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                <option value="">퍼널 선택</option>
-                {funnels.map((f) => (
-                  <option
-                    key={f.id}
-                    value={f.id}
-                    disabled={enrolledFunnelIds.has(f.id)}
-                  >
-                    {f.name}{enrolledFunnelIds.has(f.id) ? ' (이미 등록됨)' : ''}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                type="date"
-                value={enrollStartDate}
-                onChange={(e) => setEnrollStartDate(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="시작일 (비우면 오늘)"
-              />
-
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={enrollSendNow}
-                  onChange={(e) => setEnrollSendNow(e.target.checked)}
-                  className="w-4 h-4 rounded accent-blue-600"
-                />
-                <span className="text-sm text-gray-700">즉시 첫 메시지 발송</span>
-              </label>
-
-              {enrollError && <p className="text-xs text-red-500">{enrollError}</p>}
-
-              <button
-                onClick={async () => {
-                  if (!selectedFunnelId) return;
-                  setEnrolling(true);
-                  setEnrollError('');
-                  const res = await fetch(`/api/funnels/${selectedFunnelId}/enroll`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      contactId: contact.id,
-                      startDate: enrollStartDate || undefined,
-                      sendNow: enrollSendNow,
-                    }),
-                  });
-                  const d = await res.json();
-                  if (d.ok) {
-                    setSelectedFunnelId('');
-                    setEnrollStartDate('');
-                    setEnrollSendNow(false);
-                    fetchContact();
-                  } else {
-                    setEnrollError(d.message ?? '등록 실패');
-                  }
-                  setEnrolling(false);
-                }}
-                disabled={!selectedFunnelId || enrolling}
-                className="w-full py-2.5 bg-navy-900 text-white rounded-xl text-sm font-medium disabled:opacity-50 hover:bg-navy-800"
-              >
-                {enrolling ? '등록 중...' : '퍼널 등록'}
-              </button>
-            </div>
-
-            {/* 등록된 퍼널 목록 */}
-            {(contact.vipSequences ?? []).length > 0 && (
-              <div className="mt-4 border-t pt-3">
-                <p className="text-xs font-medium text-gray-500 mb-2">등록된 퍼널</p>
-                <div className="space-y-1.5">
-                  {(contact.vipSequences ?? []).map((seq) => {
-                    const funnel = funnels.find((f) => f.id === seq.funnelId);
-                    return (
-                      <div key={seq.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                        <span className="text-xs font-medium text-gray-700">{funnel?.name ?? seq.funnelId}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          seq.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                        }`}>
-                          {seq.status === 'ACTIVE' ? '진행중' : seq.status}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 이관 이력 */}
-          {(transferLogs.length > 0 || loadingTransfer) && (
-            <div className="mt-6 border-t pt-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">DB 이관 이력</h3>
-              {loadingTransfer ? (
-                <div className="space-y-2">
-                  {[1,2].map(i => <div key={i} className="h-10 bg-gray-100 rounded-lg animate-pulse" />)}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {transferLogs.map(log => (
-                    <div key={log.id} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2.5 text-sm">
-                      <span className="text-gray-500 shrink-0">
-                        {new Date(log.createdAt).toLocaleDateString('ko-KR')}
-                      </span>
-                      <span className="text-gray-400">·</span>
-                      <span className="text-gray-700 truncate">
-                        {log.fromOrg?.name ?? '외부'} → {log.toOrg?.name ?? '외부'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <ContactGroupTab
+          contact={contact}
+          allGroups={allGroups}
+          selectedGroup={selectedGroup}
+          setSelectedGroup={setSelectedGroup}
+          assigning={assigning}
+          assignMsg={assignMsg}
+          assignGroup={assignGroup}
+          funnels={funnels}
+          selectedFunnelId={selectedFunnelId}
+          setSelectedFunnelId={setSelectedFunnelId}
+          enrollStartDate={enrollStartDate}
+          setEnrollStartDate={setEnrollStartDate}
+          enrollSendNow={enrollSendNow}
+          setEnrollSendNow={setEnrollSendNow}
+          enrolling={enrolling}
+          setEnrolling={setEnrolling}
+          enrollError={enrollError}
+          setEnrollError={setEnrollError}
+          handleFunnelEnroll={async () => {
+            if (!selectedFunnelId) return;
+            setEnrolling(true);
+            setEnrollError('');
+            const res = await fetch(`/api/funnels/${selectedFunnelId}/enroll`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contactId: contact.id,
+                startDate: enrollStartDate || undefined,
+                sendNow: enrollSendNow,
+              }),
+            });
+            const d = await res.json();
+            if (d.ok) {
+              setSelectedFunnelId('');
+              setEnrollStartDate('');
+              setEnrollSendNow(false);
+              fetchContact();
+            } else {
+              setEnrollError(d.message ?? '등록 실패');
+            }
+            setEnrolling(false);
+          }}
+          transferLogs={transferLogs}
+          loadingTransfer={loadingTransfer}
+        />
       )}
 
-      {/* SMS 발송 내역 탭 */}
+      {/* SMS Tab */}
       {tab === "sms" && (
-        <div className="space-y-2">
-          {smsLoading ? (
-            <div className="text-center text-sm text-gray-400 py-8">불러오는 중...</div>
-          ) : smsLogs.length === 0 ? (
-            <p className="text-center text-sm text-gray-400 py-8">발송 내역이 없습니다.</p>
-          ) : (
-            smsLogs.map((log) => (
-              <div key={log.id} className="bg-white border border-gray-200 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                    log.status === "SENT"    ? "bg-green-100 text-green-700" :
-                    log.status === "BLOCKED" ? "bg-yellow-100 text-yellow-700" :
-                                              "bg-red-100 text-red-700"
-                  }`}>
-                    {log.status === "SENT" ? "✅ 발송완료" : log.status === "BLOCKED" ? "🚫 차단" : "❌ 실패"}
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {new Date(log.sentAt).toLocaleString("ko-KR")}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-700">{log.contentPreview}</p>
-                <p className="text-xs text-gray-400 mt-1">{log.phone} · {log.channel}</p>
-              </div>
-            ))
-          )}
-        </div>
+        <ContactSmsTab
+          smsLogs={smsLogs}
+          smsLoading={smsLoading}
+        />
       )}
     </div>
   );

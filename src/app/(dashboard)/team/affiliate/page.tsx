@@ -339,7 +339,6 @@ export default function AffiliateTeamDashboardPage() {
       loadTeamMessages();
     }, 5 * 60 * 1000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadMetrics = async (overrideFilters?: Partial<Filters>) => {

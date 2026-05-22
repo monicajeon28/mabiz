@@ -326,6 +326,25 @@ export default function PartnerApplicationsPage() {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
+  const refreshApplications = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/affiliate/contracts?status=${statusFilter}&page=1`);
+      const data = await res.json();
+      if (data.ok) {
+        // CRUISE_PARTNER 타입만 필터링
+        const cruisePartners = (data.data.contracts as Application[]).filter(
+          (c) => (c.metadata as Record<string, unknown>)?.type === 'CRUISE_PARTNER',
+        );
+        setApplications(cruisePartners);
+      }
+    } catch {
+      showToast('데이터를 불러오지 못했습니다.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // 권한 확인 (GLOBAL_ADMIN만)
   useEffect(() => {
     const checkAuth = async () => {
@@ -348,29 +367,9 @@ export default function PartnerApplicationsPage() {
     checkAuth();
   }, [router]);
 
-  const loadApplications = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch(`/api/affiliate/contracts?status=${statusFilter}&page=1`);
-      const data = await res.json();
-      if (data.ok) {
-        // CRUISE_PARTNER 타입만 필터링
-        const cruisePartners = (data.data.contracts as Application[]).filter(
-          (c) => (c.metadata as Record<string, unknown>)?.type === 'CRUISE_PARTNER',
-        );
-        setApplications(cruisePartners);
-      }
-    } catch {
-      showToast('데이터를 불러오지 못했습니다.', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
     if (!authChecked) return;
-    loadApplications();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    refreshApplications();
   }, [statusFilter, authChecked]);
 
   const handleApprove = async (contractId: number) => {
@@ -385,7 +384,7 @@ export default function PartnerApplicationsPage() {
       const data = await res.json();
       if (data.ok) {
         showToast('승인되었습니다.', 'success');
-        loadApplications();
+        refreshApplications();
       } else {
         showToast(data.message || '승인 실패', 'error');
       }
@@ -410,7 +409,7 @@ export default function PartnerApplicationsPage() {
       const data = await res.json();
       if (data.ok) {
         showToast('반려되었습니다.', 'success');
-        loadApplications();
+        refreshApplications();
       } else {
         showToast(data.message || '반려 실패', 'error');
       }
@@ -434,7 +433,7 @@ export default function PartnerApplicationsPage() {
               <p className="text-xs text-gray-500 mt-0.5">크루즈닷 파트너스 가입 신청 검토</p>
             </div>
             <button
-              onClick={loadApplications}
+              onClick={refreshApplications}
               className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />

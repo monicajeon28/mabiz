@@ -1,8 +1,19 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+
+// 파트너 생성 스키마 검증
+const partnerCreateSchema = z.object({
+  name: z.string().min(1, '파트너 이름은 필수입니다'),
+  email: z.string().email().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  commissionRate: z.number().min(0).max(100).nullable().optional(),
+});
+
+type PartnerCreate = z.infer<typeof partnerCreateSchema>;
 
 // POST /api/partner/create
 export async function POST(req: Request) {
@@ -11,11 +22,15 @@ export async function POST(req: Request) {
     const orgId = resolveOrgId(ctx);
 
     const body = await req.json();
-    const { name, email, phone, commissionRate } = body;
 
-    if (!name || !name.trim()) {
+    // 입력값 검증
+    let validatedData: PartnerCreate;
+    try {
+      validatedData = partnerCreateSchema.parse(body);
+    } catch (validationErr) {
+      logger.warn('[POST /api/partner/create] Validation failed', { body });
       return NextResponse.json(
-        { ok: false, message: '파트너 이름은 필수입니다.' },
+        { ok: false, message: '입력값이 유효하지 않습니다' },
         { status: 400 }
       );
     }
@@ -23,10 +38,10 @@ export async function POST(req: Request) {
     const partner = await prisma.partner.create({
       data: {
         organizationId: orgId,
-        name: name.trim(),
-        email: email?.trim() || null,
-        phone: phone?.trim() || null,
-        commissionRate: commissionRate ? parseFloat(commissionRate) : null,
+        name: validatedData.name.trim(),
+        email: validatedData.email?.trim() || null,
+        phone: validatedData.phone?.trim() || null,
+        commissionRate: validatedData.commissionRate || null,
       },
     });
 

@@ -36,6 +36,13 @@ export default function PartnerPage() {
   const [detail, setDetail] = useState<Partner | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Toast 메시지 표시
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   // 파트너 목록 조회
   const load = useCallback(async () => {
@@ -46,12 +53,20 @@ export default function PartnerPage() {
         year: String(new Date().getFullYear()),
       });
       const res = await fetch(`/api/partner/list?${params}`);
+      if (!res.ok) {
+        showToast('파트너 목록 조회 실패');
+        setLoading(false);
+        return;
+      }
       const data = await res.json();
       if (data.ok) {
         setPartners(data.data);
+      } else {
+        showToast('파트너 목록을 불러올 수 없습니다');
       }
     } catch (err) {
       console.error('Failed to load partners:', err);
+      showToast('파트너 목록 조회 중 오류가 발생했습니다');
     }
     setLoading(false);
   }, []);
@@ -79,13 +94,14 @@ export default function PartnerPage() {
       if (data.ok) {
         setShowForm(false);
         setForm(EMPTY_FORM);
+        showToast('파트너가 생성되었습니다');
         load();
       } else {
-        alert(data.message || '파트너 생성 실패');
+        showToast(data.message || '파트너 생성 실패');
       }
     } catch (err) {
-      alert('오류가 발생했습니다');
       console.error(err);
+      showToast('파트너 생성 중 오류가 발생했습니다');
     }
     setSaving(false);
   };
@@ -109,13 +125,14 @@ export default function PartnerPage() {
       if (data.ok) {
         setEditingId(null);
         setEditForm(EMPTY_FORM);
+        showToast('파트너가 수정되었습니다');
         load();
       } else {
-        alert('수정 실패');
+        showToast('파트너 수정 실패');
       }
     } catch (err) {
-      alert('오류가 발생했습니다');
       console.error(err);
+      showToast('파트너 수정 중 오류가 발생했습니다');
     }
     setSaving(false);
   };
@@ -127,20 +144,26 @@ export default function PartnerPage() {
       const res = await fetch(`/api/partner/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.ok) {
+        showToast('파트너가 삭제되었습니다');
         load();
       } else {
-        alert('삭제 실패');
+        showToast('파트너 삭제 실패');
       }
     } catch (err) {
-      alert('오류가 발생했습니다');
       console.error(err);
+      showToast('파트너 삭제 중 오류가 발생했습니다');
     }
   };
 
-  // 상태 토글
+  // 상태 토글 (IDOR 방지: 서버에서 권한 검증)
   const toggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    const previousPartners = [...partners];
+
     try {
+      // Optimistic update
+      setPartners(partners.map(p => p.id === id ? { ...p, status: newStatus } : p));
+
       const res = await fetch(`/api/partner/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -148,16 +171,30 @@ export default function PartnerPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        load();
+        showToast('파트너 상태가 변경되었습니다');
+      } else {
+        // Rollback on failure
+        setPartners(previousPartners);
+        showToast('파트너 상태 변경 실패');
       }
     } catch (err) {
+      // Rollback on error
+      setPartners(previousPartners);
       console.error(err);
+      showToast('파트너 상태 변경 중 오류가 발생했습니다');
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-6xl mx-auto">
+        {/* Toast 메시지 */}
+        {toastMessage && (
+          <div className="fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-3 rounded-lg shadow-lg z-50">
+            {toastMessage}
+          </div>
+        )}
+
         {/* 헤더 */}
         <div className="flex justify-between items-center mb-8">
           <div>
