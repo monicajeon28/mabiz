@@ -1386,6 +1386,12 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
       setIsSubmitting(false);
     }
   };
+  useEffect(() => {
+    if (!linkCopied) return;
+    const timer = setTimeout(() => setLinkCopied(false), 3000);
+    return () => clearTimeout(timer);
+  }, [linkCopied]);
+
   // 여권 등록 링크 복사
   const handleCopyLink = async () => {
     if (!createdReservationId) return;
@@ -1393,10 +1399,6 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
     try {
       await navigator.clipboard.writeText(passportUrl);
       setLinkCopied(true);
-      // 3초 후 복사 상태 해제
-      setTimeout(() => {
-        setLinkCopied(false);
-      }, 3000);
     } catch (err) {
       // 클립보드 API 실패 시 fallback
       const textArea = document.createElement('textarea');
@@ -1406,9 +1408,6 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
       document.execCommand('copy');
       document.body.removeChild(textArea);
       setLinkCopied(true);
-      setTimeout(() => {
-        setLinkCopied(false);
-      }, 3000);
     }
   };
   // 문자 발송 (Mock)
