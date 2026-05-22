@@ -84,10 +84,19 @@ export function BlastPanel({
                   <p>
                     ✓ <span className="font-medium">대상:</span> {blastPreview.willSend}명
                   </p>
-                  <p>
-                    ✓ <span className="font-medium">메시지:</span> {blastMsg.substring(0, 50)}
-                    {blastMsg.length > 50 ? '...' : ''}
-                  </p>
+                  <div>
+                    <p className="font-medium">✓ 메시지:</p>
+                    {/* W3-5: 전체 메시지 표시 (스크롤 가능) */}
+                    <div className="bg-white border border-yellow-200 rounded-lg p-2 max-h-20 overflow-y-auto mt-1">
+                      <p className="text-xs text-gray-700 whitespace-pre-wrap break-words">
+                        {blastMsg}
+                      </p>
+                    </div>
+                    {/* W3-5: 문자 수 표시 */}
+                    <p className="text-xs text-gray-500 mt-1">
+                      {blastMsg.length}자 {blastMsg.length > 80 && '(LMS 2건)'}
+                    </p>
+                  </div>
                 </div>
                 {blastPreview.isOverLimit && (
                   <p className="text-xs text-orange-600 mt-2">⚠️ 200명 초과 — 첫 200명만 발송됩니다</p>

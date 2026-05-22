@@ -20,10 +20,24 @@ export function ImportModal({ csrfToken, onClose, onDone }: ImportModalProps) {
   const parseJson = (text: string) => {
     try {
       const parsed = JSON.parse(text) as { groupName?: string; funnelName?: string; stages?: unknown[] };
+
+      // W3-4: 필수 필드 검증
+      if (!parsed.groupName || parsed.groupName.trim().length === 0) {
+        setError('groupName은 필수입니다');
+        setPreview(null);
+        return null;
+      }
+
+      if (!parsed.stages || !Array.isArray(parsed.stages)) {
+        setError('stages는 배열이어야 합니다');
+        setPreview(null);
+        return null;
+      }
+
       setPreview({
         groupName: parsed.groupName,
         funnelName: parsed.funnelName,
-        stageCount: parsed.stages?.length ?? 0,
+        stageCount: parsed.stages.length,
       });
       setError('');
       return parsed;
@@ -37,10 +51,19 @@ export function ImportModal({ csrfToken, onClose, onDone }: ImportModalProps) {
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // W3-3: 파일 크기 검증
     if (file.size > 1024 * 1024) {
       setError(`파일이 너무 큽니다 (최대 1MB, 현재 ${(file.size / 1024 / 1024).toFixed(1)}MB)`);
       return;
     }
+
+    // W3-3: 파일 타입 검증
+    if (!file.name.endsWith('.json')) {
+      setError('JSON 파일만 업로드 가능합니다');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
@@ -139,11 +162,13 @@ export function ImportModal({ csrfToken, onClose, onDone }: ImportModalProps) {
           {/* 미리보기 */}
           {preview && (
             <div className="bg-blue-50 rounded-xl p-3 text-sm">
-              <p className="font-medium text-blue-800">파싱 결과</p>
+              <p className="font-medium text-blue-800">✅ 검증됨</p>
               <div className="mt-1.5 space-y-0.5 text-blue-700 text-xs">
                 {preview.groupName && <p>그룹명: {preview.groupName}</p>}
                 {preview.funnelName && <p>퍼널명: {preview.funnelName}</p>}
-                {preview.stageCount !== undefined && <p>스테이지: {preview.stageCount}개</p>}
+                {preview.stageCount !== undefined && (
+                  <p>스테이지: {preview.stageCount}개 {preview.stageCount === 0 && '(⚠️ 비어있음)'}</p>
+                )}
               </div>
             </div>
           )}

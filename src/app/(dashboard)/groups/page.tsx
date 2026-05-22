@@ -37,6 +37,20 @@ export default function GroupsPage() {
   const [setupMsg,     setSetupMsg]     = useState<string | null>(null);
   const [setupLoading, setSetupLoading] = useState(false);
 
+  // W3-1: 페이지네이션
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const ITEMS_PER_PAGE = 10;
+
+  // W3-2: 에러 메시지 차별화
+  const getErrorMessage = (err: unknown, context: string): string => {
+    if (err instanceof Error) {
+      if (err.message.includes('Network')) return `${context}: 네트워크 연결 불안정`;
+      if (err.message.includes('timeout')) return `${context}: 요청 타임아웃 (다시 시도해주세요)`;
+    }
+    return `${context}: 알 수 없는 오류가 발생했습니다`;
+  };
+
   const initRegionalGroups = async () => {
     if (setupLoading) return;
     setSetupLoading(true);
@@ -62,7 +76,7 @@ export default function GroupsPage() {
         showError(msg);
       }
     } catch (err) {
-      const msg = '네트워크 오류가 발생했습니다.';
+      const msg = getErrorMessage(err, '[지역 그룹 초기화]');
       logger.error('[GroupsPage] initRegionalGroups', { err });
       setSetupMsg(msg);
       showError(msg);
@@ -75,15 +89,16 @@ export default function GroupsPage() {
   const [copiedExportId, setCopiedExportId] = useState<string | null>(null);
   const [showImport,     setShowImport]     = useState(false);
 
-  const loadGroups = async () => {
+  const loadGroups = async (limit = ITEMS_PER_PAGE, offset = 0) => {
     setError(null);
     const [gResult, fResult] = await Promise.allSettled([
-      fetch('/api/groups').then((r) => r.json()),
+      fetch(`/api/groups?limit=${limit}&offset=${offset}`).then((r) => r.json()),
       fetch('/api/funnels').then((r) => r.json()),
     ]);
 
     if (gResult.status === 'fulfilled' && gResult.value.ok) {
       setGroups(gResult.value.groups);
+      setTotalCount(gResult.value.totalCount ?? 0);
     } else if (gResult.status === 'rejected') {
       logger.error('[loadGroups] groups fetch', { err: gResult.reason });
     }
@@ -96,13 +111,22 @@ export default function GroupsPage() {
   };
 
   const cloneGroup = async (id: string) => {
-    const res = await fetch(`/api/groups/${id}/clone`, {
-      method: 'POST',
-      headers: { 'X-CSRF-Token': csrfToken || '' },
-    });
-    const d   = await res.json() as { ok: boolean; group?: { name: string }; message?: string };
-    if (d.ok) { await loadGroups(); }
-    else showError(d.message || '복제 실패');
+    // W3-7: 복제 확인 대화
+    if (!confirm('이 그룹을 복제하시겠습니까?')) return;
+
+    try {
+      const res = await fetch(`/api/groups/${id}/clone`, {
+        method: 'POST',
+        headers: { 'X-CSRF-Token': csrfToken || '' },
+      });
+      const d = await res.json() as { ok: boolean; group?: { name: string }; message?: string };
+      if (d.ok) { await loadGroups(); }
+      else showError(d.message || '복제 실패');
+    } catch (err) {
+      const msg = getErrorMessage(err, '[그룹 복제]');
+      logger.error('[GroupsPage] cloneGroup', { err });
+      showError(msg);
+    }
   };
 
   const exportGroup = async (id: string) => {
@@ -169,7 +193,7 @@ export default function GroupsPage() {
         showError(msg);
       }
     } catch (err) {
-      const msg = "네트워크 오류가 발생했습니다.";
+      const msg = getErrorMessage(err, '[대상 확인]');
       logger.error('[GroupsPage] checkBlast', { err });
       setBlastError(msg);
       showError(msg);
@@ -202,7 +226,7 @@ export default function GroupsPage() {
         showError(msg);
       }
     } catch (err) {
-      const msg = "네트워크 오류가 발생했습니다.";
+      const msg = getErrorMessage(err, '[메시지 발송]');
       logger.error('[GroupsPage] sendBlast', { err });
       setBlastError(msg);
       showError(msg);
@@ -214,12 +238,14 @@ export default function GroupsPage() {
   useEffect(() => {
     setLoading(true);
     setError(null);
+    const offset = currentPage * ITEMS_PER_PAGE;
     Promise.allSettled([
-      fetch("/api/groups").then((r) => r.json()),
+      fetch(`/api/groups?limit=${ITEMS_PER_PAGE}&offset=${offset}`).then((r) => r.json()),
       fetch("/api/funnels").then((r) => r.json()),
     ]).then(([gResult, fResult]) => {
       if (gResult.status === 'fulfilled' && gResult.value.ok) {
         setGroups(gResult.value.groups);
+        setTotalCount(gResult.value.totalCount ?? 0);
       } else {
         logger.error('[GroupsPage init] groups fetch failed', { result: gResult });
       }
@@ -233,7 +259,7 @@ export default function GroupsPage() {
       logger.error('[GroupsPage init] Promise.allSettled', { err });
       setError('데이터를 불러올 수 없습니다.');
     }).finally(() => setLoading(false));
-  }, []);
+  }, [currentPage]);
 
   const createGroup = async () => {
     if (!form.name.trim()) return;
@@ -275,7 +301,7 @@ export default function GroupsPage() {
         }
       }
     } catch (err) {
-      const msg = "네트워크 오류가 발생했습니다.";
+      const msg = getErrorMessage(err, '[그룹 생성]');
       logger.error('[GroupsPage] createGroup', { err });
       setFormError(msg);
       showError(msg);
@@ -388,35 +414,60 @@ export default function GroupsPage() {
           <p className="text-sm text-gray-400 mt-1">+ 새 그룹 버튼으로 만들어보세요</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {groups.map((group) => (
-            <GroupCard
-              key={group.id}
-              group={group}
-              copiedExportId={copiedExportId}
-              onClone={cloneGroup}
-              onExport={exportGroup}
-              onBlast={openBlast}
-            >
-              {blastGroupId === group.id && (
-                <BlastPanel
-                  blastMsg={blastMsg}
-                  onMsgChange={setBlastMsg}
-                  blastPreview={blastPreview}
-                  blastError={blastError}
-                  blastConfirm={blastConfirm}
-                  onConfirmChange={setBlastConfirm}
-                  onCheckBlast={checkBlast}
-                  checkingBlast={checkingBlast}
-                  onSendBlast={sendBlast}
-                  blasting={blasting}
-                  blastResult={blastResult}
-                  onClose={() => setBlastGroupId(null)}
-                />
-              )}
-            </GroupCard>
-          ))}
-        </div>
+        <>
+          <div className="space-y-3">
+            {groups.map((group) => (
+              <GroupCard
+                key={group.id}
+                group={group}
+                copiedExportId={copiedExportId}
+                onClone={cloneGroup}
+                onExport={exportGroup}
+                onBlast={openBlast}
+              >
+                {blastGroupId === group.id && (
+                  <BlastPanel
+                    blastMsg={blastMsg}
+                    onMsgChange={setBlastMsg}
+                    blastPreview={blastPreview}
+                    blastError={blastError}
+                    blastConfirm={blastConfirm}
+                    onConfirmChange={setBlastConfirm}
+                    onCheckBlast={checkBlast}
+                    checkingBlast={checkingBlast}
+                    onSendBlast={sendBlast}
+                    blasting={blasting}
+                    blastResult={blastResult}
+                    onClose={() => setBlastGroupId(null)}
+                  />
+                )}
+              </GroupCard>
+            ))}
+          </div>
+
+          {/* W3-1: 페이지네이션 */}
+          {totalCount > ITEMS_PER_PAGE && (
+            <div className="flex items-center justify-center gap-2 mt-6">
+              <button
+                onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
+                disabled={currentPage === 0}
+                className="px-3 py-2 border rounded-lg disabled:opacity-50"
+              >
+                이전
+              </button>
+              <span className="text-sm text-gray-600">
+                {currentPage + 1} / {Math.ceil(totalCount / ITEMS_PER_PAGE)}
+              </span>
+              <button
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={(currentPage + 1) * ITEMS_PER_PAGE >= totalCount}
+                className="px-3 py-2 border rounded-lg disabled:opacity-50"
+              >
+                다음
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
     </>
