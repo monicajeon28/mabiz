@@ -11,6 +11,9 @@ import {
 import { logger } from "@/lib/logger";
 import { useToast } from "@/lib/api/use-toast";
 import { RecommendBanner } from "./recommend-banner";
+import CallScriptPanel from "./CallScriptPanel";
+import { getAllObjectionIds, getObjectionData } from "@/lib/objections/validation";
+import objectionsData from "@/../../TRACK_A_OBJECTIONS.json";
 
 type CallLog = {
   id: string; content: string | null; result: string | null;
@@ -112,7 +115,18 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
   // 콜 기록 폼
   const [showCallForm, setShowCallForm]   = useState(false);
-  const [callForm, setCallForm]           = useState({ content: "", result: "INTERESTED", convictionScore: "5", nextAction: "", scheduledAt: "" });
+  const [callForm, setCallForm]           = useState({
+    content: "",
+    result: "INTERESTED",
+    convictionScore: "5",
+    nextAction: "",
+    scheduledAt: "",
+    objectionId: "",
+    customerReaction: "neutral",
+    recovered: false,
+    recoveryTime: "",
+  });
+  const [selectedObjectionModal, setSelectedObjectionModal] = useState<any>(null);
 
   // 메모 폼
   const [showMemoForm, setShowMemoForm]   = useState(false);
@@ -304,7 +318,18 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     if (data.ok) {
       setContact((c) => c ? { ...c, callLogs: [data.log, ...c.callLogs] } : c);
       setShowCallForm(false);
-      setCallForm({ content: "", result: "INTERESTED", convictionScore: "5", nextAction: "", scheduledAt: "" });
+      setCallForm({
+        content: "",
+        result: "INTERESTED",
+        convictionScore: "5",
+        nextAction: "",
+        scheduledAt: "",
+        objectionId: "",
+        customerReaction: "neutral",
+        recovered: false,
+        recoveryTime: "",
+      });
+      setSelectedObjectionModal(null);
 
       toast({
         title: "콜 기록 저장",
@@ -1223,6 +1248,15 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       {/* 콜기록 탭 */}
       {tab === "call" && (
         <div>
+          <CallScriptPanel
+            contact={{
+              age: contact.age,
+              maritalStatus: contact.maritalStatus,
+              childrenCount: contact.childrenCount,
+            }}
+            isExpanded={true}
+          />
+
           <div className="flex gap-2 mb-3 flex-wrap">
             <button
               onClick={() => setShowCallForm(true)}
@@ -1304,6 +1338,82 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                 onChange={(e) => setCallForm({ ...callForm, scheduledAt: e.target.value })}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
               />
+
+              {/* Track A 이의처리 섹션 */}
+              <div className="border-t border-gray-200 pt-3 mt-3">
+                <label className="text-xs text-gray-500 mb-2 block font-semibold">📞 이의처리 기록 (선택)</label>
+                <select
+                  value={callForm.objectionId}
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    setCallForm({ ...callForm, objectionId: selectedId });
+                    if (selectedId) {
+                      const objData = getObjectionData(selectedId);
+                      setSelectedObjectionModal(objData);
+                    }
+                  }}
+                  className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white mb-2"
+                >
+                  <option value="">이의 없음</option>
+                  {objectionsData.objections.map((obj: any) => (
+                    <option key={obj.id} value={obj.id}>
+                      {obj.id} - {obj.categoryName}: {obj.subcategoryName}
+                    </option>
+                  ))}
+                </select>
+
+                {callForm.objectionId && (
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">고객 반응</label>
+                      <select
+                        value={callForm.customerReaction}
+                        onChange={(e) => setCallForm({ ...callForm, customerReaction: e.target.value })}
+                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white"
+                      >
+                        <option value="positive">긍정 (해결됨)</option>
+                        <option value="neutral">중립</option>
+                        <option value="negative">부정 (악화됨)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">해결 여부</label>
+                      <label className="flex items-center gap-2 border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
+                        <input
+                          type="checkbox"
+                          checked={callForm.recovered}
+                          onChange={(e) => setCallForm({ ...callForm, recovered: e.target.checked })}
+                        />
+                        <span className="text-sm">성공 처리</span>
+                      </label>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-xs text-gray-500 mb-1 block">해결 소요 시간 (초)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="30초"
+                        value={callForm.recoveryTime}
+                        onChange={(e) => setCallForm({ ...callForm, recoveryTime: e.target.value })}
+                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-gold-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {selectedObjectionModal && (
+                  <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="font-semibold text-yellow-900 text-xs mb-2">💡 즉각 대응 스크립트</div>
+                    <div className="text-sm text-yellow-800 whitespace-pre-wrap font-mono">
+                      {selectedObjectionModal.immediateResponse}
+                    </div>
+                    <div className="text-xs text-yellow-700 mt-2">
+                      {selectedObjectionModal.responseMetrics.wordCount}단어 / {selectedObjectionModal.responseMetrics.estimatedSeconds}초
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-2">
                 <button onClick={addCallLog} className="flex-1 bg-navy-900 text-white py-2 rounded-lg text-sm font-medium">저장</button>
                 <button onClick={() => setShowCallForm(false)} className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg text-sm">취소</button>

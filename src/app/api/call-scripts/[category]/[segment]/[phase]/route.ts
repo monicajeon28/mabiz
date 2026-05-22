@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const CALL_SCRIPTS_DATA: any = {};
+import { CALL_SCRIPTS_DATA } from "../../data";
 
 export async function GET(
   req: NextRequest,
