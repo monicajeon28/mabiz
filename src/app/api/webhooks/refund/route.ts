@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
     // orderId(bookingRef)로 Contact 찾기
     const contact = await prisma.contact.findFirst({
       where: { bookingRef: orderId, organizationId },
-      select: { id: true, phone: true, name: true },
+      select: { id: true, phone: true, name: true, userId: true },
     });
 
     // orderId로 AffiliateSale 찾기 (수당 취소용)
@@ -183,6 +183,50 @@ export async function POST(req: NextRequest) {
           saleAmount: affiliateSale.saleAmount,
           commissionRate: affiliateSale.commissionRate,
         });
+      }
+
+      // ★ 객실 재고 감소 처리 (환불 시)
+      if (contact?.userId && affiliateSale) {
+        const reservation = await tx.gmReservation.findFirst({
+          where: { mainUserId: contact.userId },
+          select: { cabinType: true, tripId: true },
+        });
+
+        if (reservation) {
+          const trip = await tx.gmTrip.findUnique({
+            where: { id: reservation.tripId },
+            select: { productCode: true },
+          });
+
+          if (trip?.productCode) {
+            const cabin = await tx.cabinInventory.findUnique({
+              where: {
+                organizationId_tripCode_cabinType: {
+                  organizationId,
+                  tripCode: trip.productCode,
+                  cabinType: reservation.cabinType,
+                },
+              },
+            });
+
+            if (cabin && cabin.bookedCount > 0) {
+              const newBookedCount = cabin.bookedCount - 1;
+              const newStatus = newBookedCount < cabin.totalCount ? 'AVAILABLE' : cabin.status;
+
+              await tx.cabinInventory.update({
+                where: { id: cabin.id },
+                data: { bookedCount: newBookedCount, status: newStatus },
+              });
+
+              logger.log('[RefundWebhook] CabinInventory 감소', {
+                cabinType: reservation.cabinType,
+                tripCode: trip.productCode,
+                bookedCount: newBookedCount,
+                status: newStatus,
+              });
+            }
+          }
+        }
       }
 
       // ★ P2: 트랜잭션 후 알림 생성
