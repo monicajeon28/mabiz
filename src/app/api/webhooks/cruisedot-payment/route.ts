@@ -4,6 +4,7 @@ import { createHmac } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { createRefundNotifications } from '@/lib/notification-service';
+import { handleCabinInventoryRefund } from '@/lib/cabin-inventory-refund';
 
 interface CruisedotPaymentPayload {
   eventId: string;
@@ -91,11 +92,17 @@ export async function POST(req: NextRequest) {
       select: { id: true, saleAmount: true, commissionAmount: true, organizationId: true },
     });
 
+    // organizationId 미확인 시 조기종료 (테넌트 격리)
+    if (!affiliateSale?.organizationId) {
+      logger.warn('[CruisedotWebhook] 조직 미확인', { bookingRef });
+      return NextResponse.json({ ok: false, message: '조직 미확인' }, { status: 422 });
+    }
+
     // Contact 찾기 (bookingRef + organizationId로 테넌트 격리)
     const contact = await prisma.contact.findFirst({
       where: {
         bookingRef,
-        organizationId: affiliateSale?.organizationId ?? undefined
+        organizationId: affiliateSale.organizationId
       },
       select: { id: true, organizationId: true, phone: true, userId: true },
     });
@@ -184,45 +191,9 @@ export async function POST(req: NextRequest) {
 
       // ★ 객실 재고 감소 처리 (환불 시)
       if (status === 'REFUNDED' && contact?.userId && affiliateSale) {
-        const reservation = await tx.gmReservation.findFirst({
-          where: { mainUserId: contact.userId },
-          select: { cabinType: true, tripId: true },
-        });
-
-        if (reservation) {
-          const trip = await tx.gmTrip.findUnique({
-            where: { id: reservation.tripId },
-            select: { productCode: true },
-          });
-
-          if (trip?.productCode) {
-            const cabin = await tx.cabinInventory.findUnique({
-              where: {
-                organizationId_tripCode_cabinType: {
-                  organizationId: affiliateSale.organizationId,
-                  tripCode: trip.productCode,
-                  cabinType: reservation.cabinType,
-                },
-              },
-            });
-
-            if (cabin && cabin.bookedCount > 0) {
-              const newBookedCount = cabin.bookedCount - 1;
-              const newStatus = newBookedCount < cabin.totalCount ? 'AVAILABLE' : cabin.status;
-
-              await tx.cabinInventory.update({
-                where: { id: cabin.id },
-                data: { bookedCount: newBookedCount, status: newStatus },
-              });
-
-              logger.log('[CruisedotWebhook] CabinInventory 감소', {
-                cabinType: reservation.cabinType,
-                tripCode: trip.productCode,
-                bookedCount: newBookedCount,
-                status: newStatus,
-              });
-            }
-          }
+        const result = await handleCabinInventoryRefund(contact.userId, affiliateSale.organizationId, tx);
+        if (!result.success) {
+          logger.warn('[CruisedotWebhook] 객실 재고 감소 실패', { userId: contact.userId, reason: result.reason });
         }
       }
 
