@@ -14,22 +14,21 @@ export function generateCsrfToken(): string {
 }
 
 /**
- * CSRF 토큰 검증
- * 클라이언트에서 전송된 토큰이 유효한지 확인
+ * CSRF 토큰 검증 (형식 검사만 수행, 보안 검증 아님)
  *
- * 주의: 프로덕션에서는 서버 세션/데이터베이스에 저장된 토큰과 비교해야 함
- * 현재는 간단한 형식 검증만 수행 (실제 저장은 별도 구현 필요)
+ * ⚠️ DEPRECATED: 이 함수는 형식만 검사하고 실제 토큰 유효성을 검증하지 않습니다.
+ * 보안을 위해 반드시 validateToken(sessionId, token)을 사용하세요.
+ *
+ * @deprecated Use validateToken(sessionId, token) instead for proper security
  */
 export function verifyCsrfToken(token: string): boolean {
-  // 토큰 형식 검증 (64글자 hex)
+  // 토큰 형식 검증만 수행 (64글자 hex)
   if (!token || typeof token !== 'string') return false;
   if (!/^[a-f0-9]{64}$/.test(token)) return false;
 
-  // TODO: 실제 검증은 세션/DB와 비교해야 함
-  // const storedToken = await getSessionToken(sessionId);
-  // return token === storedToken && !isExpired(storedToken);
-
-  return true; // 현재는 형식만 검증
+  // 경고: 이것은 형식 검증일 뿐 실제 토큰 유효성을 확인하지 않습니다
+  // 항상 validateToken(sessionId, token)을 대신 사용하세요
+  return false; // 보안상 항상 false 반환 (형식만 검증하므로 신뢰 불가)
 }
 
 /**

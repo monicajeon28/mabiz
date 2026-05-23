@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
-import { generateCsrfToken } from '@/lib/csrf';
+import { generateCsrfToken, storeToken } from '@/lib/csrf';
+import { getAuthContext } from '@/lib/rbac';
 
 export async function GET() {
   try {
+    const ctx = await getAuthContext();
     const token = generateCsrfToken();
+
+    // 생성된 토큰을 사용자 세션에 저장
+    storeToken(ctx.userId, token);
 
     return NextResponse.json(
       {
