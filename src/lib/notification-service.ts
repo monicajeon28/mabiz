@@ -75,7 +75,7 @@ export async function createRefundNotifications({
       adminUsers.map(({ userId }) =>
         prisma.adminNotification.create({
           data: {
-            userId,
+            userId: parseInt(userId, 10),
             notificationType: config.notificationType,
             title: config.title,
             content,

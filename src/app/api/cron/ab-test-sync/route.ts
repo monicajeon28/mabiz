@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { runABTestSyncJob } from "@/src/jobs/ab-test-sync-cron";
+import { runABTestSyncJob } from "@/jobs/ab-test-sync-cron";
 
 export async function POST(request: NextRequest) {
   try {

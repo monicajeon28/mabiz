@@ -39,18 +39,14 @@ export async function POST(req: Request) {
     logger.info('[POST /api/images/sync] 동기화 완료', {
       organizationId: orgId,
       category,
-      syncedCount: synced.length,
+      syncedCount: synced.processedCount,
     });
 
     return NextResponse.json({
       ok: true,
       data: {
-        syncedCount: synced.length,
-        assets: synced.map((a) => ({
-          id: a.id,
-          fileName: a.originalFileName,
-          category: a.category,
-        })),
+        syncedCount: synced.processedCount,
+        failedCount: synced.failedCount,
       },
     });
   } catch (err) {

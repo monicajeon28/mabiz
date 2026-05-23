@@ -6,7 +6,7 @@ import { logger } from "@/lib/logger";
 async function getSession() {
   const session = await getMabizSession();
   if (!session || !session.userId || !session.organizationId) return null;
-  return session;
+  return session as typeof session & { organizationId: string };
 }
 
 // POST — Aligo 콘솔 ARS 인증 안내

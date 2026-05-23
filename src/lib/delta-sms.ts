@@ -210,11 +210,7 @@ export async function executeDeltagSms(campaignId: string) {
         phone: true,
         createdAt: true,
         metadata: true,
-        contact: {
-          select: {
-            segmentVariation: true,
-          },
-        },
+        segmentVariation: true,
       },
       // 배치 처리: 최대 1000건/회 조회
       take: 1000,
@@ -256,7 +252,7 @@ export async function executeDeltagSms(campaignId: string) {
 
             // 6. 해당 Day 메시지 조회
             // P0: segmentVariation 전달로 개인화 메시지 선택
-            const variant = selectVariant(record.contact?.segmentVariation);
+            const variant = selectVariant(record.segmentVariation);
             const messageBody = getDeltaMessage(dayIndex, variant);
 
             if (!messageBody) {

@@ -1,5 +1,5 @@
 import { validateTraveler, validateAllTravelers, validateTravelerCount } from '@/lib/pnr-validators';
-import type { Traveler } from '@/src/lib/types/pnr';
+import type { Traveler } from '@/lib/types/pnr';
 
 describe('PNR Validators', () => {
   describe('validateTraveler - 필드 검증', () => {

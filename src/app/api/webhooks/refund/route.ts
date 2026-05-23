@@ -118,6 +118,7 @@ export async function POST(req: NextRequest) {
         saleAmount: true,
         commissionAmount: true,
         commissionRate: true,
+        organizationId: true,
       },
     });
 

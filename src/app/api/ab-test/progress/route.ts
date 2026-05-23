@@ -4,9 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authConfig } from "@/src/lib/auth";
-import { prisma } from "@/src/lib/prisma";
+import { getMabizSession } from "@/lib/auth";
+import prisma from "@/lib/prisma";
 
 export interface ABTestWeeklyProgress {
   week: number;
@@ -31,22 +30,15 @@ export interface ABTestWeeklyProgress {
 export async function GET(request: NextRequest) {
   try {
     // 인증 확인
-    const session = await getServerSession(authConfig);
-    if (!session) {
+    const ctx = await getMabizSession();
+    if (!ctx) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 사용자 조직 확인
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { organizationMembers: { take: 1 } },
-    });
-
-    if (!user || !user.organizationMembers[0]) {
+    const organizationId = ctx.organizationId;
+    if (!organizationId) {
       return NextResponse.json({ error: "No organization found" }, { status: 404 });
     }
-
-    const organizationId = user.organizationMembers[0].organizationId;
 
     // 쿼리 파라미터
     const { searchParams } = new URL(request.url);

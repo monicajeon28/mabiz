@@ -45,12 +45,12 @@ interface ExecutionStatusWebhookPayload {
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
-  let body: ExecutionStatusWebhookPayload;
+  let body: ExecutionStatusWebhookPayload | null = null;
 
   try {
     // 1. 요청 본문 파싱
     body = await req.json();
-    const { eventId, sendingId, status, failureReason, failureUserMsg } = body;
+    const { eventId, sendingId, status, failureReason, failureUserMsg } = body!;
 
     logger.info("[ExecutionStatusWebhook] 수신", {
       eventId,
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false }, { status: 500 });
     }
 
-    if (!signature || !verifyWebhookSignature(body, signature, secret)) {
+    if (!signature || !verifyWebhookSignature(body!, signature, secret)) {
       logger.error("[ExecutionStatusWebhook] 서명 검증 실패", {
         eventId,
         signature: signature ? "존재" : "없음",
@@ -175,11 +175,7 @@ export async function POST(req: NextRequest) {
     // 500 에러는 DLQ에 등록 (재시도 가능)
     if (body) {
       try {
-        await enqueueDLQ({
-          service: "webhook-execution-status",
-          payload: body,
-          error: String(error),
-        });
+        await enqueueDLQ("webhook-execution-status", body, String(error));
       } catch (dlqError) {
         logger.error("[ExecutionStatusWebhook] DLQ 등록 실패", { dlqError });
       }

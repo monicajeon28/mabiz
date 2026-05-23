@@ -7,8 +7,8 @@ import {
 import { showError, showSuccess } from "@/components/ui/Toast";
 import DOMPurify from "dompurify";
 import { ReviewTab } from "@/components/messages/ReviewTab";
-import { canReview } from "@/lib/rbac";
-import type { UserRole } from "@/lib/rbac";
+import { canReview } from "@/lib/rbac-client";
+import type { UserRole } from "@/lib/rbac-client";
 
 // ─── 타입 ────────────────────────────────────────────────────────
 type Group       = { id: string; name: string; color: string | null; _count: { members: number } };

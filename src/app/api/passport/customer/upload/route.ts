@@ -1,4 +1,4 @@
-export const runtime = 'nodejs';
+﻿export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     const err = error as Record<string, unknown>;
-    logger.error('[Customer Passport Upload] Error:', err);
+    logger.error('[Customer Passport Upload] Error:', { err });
     return NextResponse.json(
       {
         ok: false,
@@ -270,7 +270,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     const err = error as Record<string, unknown>;
-    logger.error('[Customer Passport Upload GET] Error:', err);
+    logger.error('[Customer Passport Upload GET] Error:', { err });
     return NextResponse.json(
       {
         ok: false,

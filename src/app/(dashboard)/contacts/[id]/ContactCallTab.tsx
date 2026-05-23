@@ -9,7 +9,7 @@ import { getObjectionData } from "@/lib/objections/validation";
 import objectionsData from "@/../../TRACK_A_OBJECTIONS.json";
 import { CallLog } from "@/types/contact";
 import { CallForm } from "@/types/call-form";
-import { ObjectionData } from "@/types/objection";
+import { ObjectionData } from "@/lib/objections/validation";
 
 interface Contact {
   id: string; age?: number | null; maritalStatus?: string | null;
@@ -60,9 +60,9 @@ function ContactCallTabComponent({
     <div>
       <CallScriptPanel
         contact={{
-          age: contact.age,
-          maritalStatus: contact.maritalStatus,
-          childrenCount: contact.childrenCount,
+          age: contact.age ?? undefined,
+          maritalStatus: contact.maritalStatus ?? undefined,
+          childrenCount: contact.childrenCount ?? undefined,
         }}
         isExpanded={true}
       />
@@ -115,7 +115,7 @@ function ContactCallTabComponent({
               <label className="text-xs text-gray-500 mb-1 block">결과</label>
               <select
                 value={callForm.result}
-                onChange={(e) => setCallForm({ ...callForm, result: e.target.value })}
+                onChange={(e) => setCallForm({ ...callForm, result: e.target.value as CallForm['result'] })}
                 className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white"
               >
                 {Object.entries(RESULT_LABELS).map(([k, v]) => (
@@ -179,7 +179,7 @@ function ContactCallTabComponent({
                   <label className="text-xs text-gray-500 mb-1 block">고객 반응</label>
                   <select
                     value={callForm.customerReaction}
-                    onChange={(e) => setCallForm({ ...callForm, customerReaction: e.target.value })}
+                    onChange={(e) => setCallForm({ ...callForm, customerReaction: e.target.value as CallForm['customerReaction'] })}
                     className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white"
                   >
                     <option value="positive">긍정 (해결됨)</option>
@@ -219,7 +219,7 @@ function ContactCallTabComponent({
                   {selectedObjectionModal.immediateResponse}
                 </div>
                 <div className="text-xs text-yellow-700 mt-2">
-                  {selectedObjectionModal.responseMetrics.wordCount}단어 / {selectedObjectionModal.responseMetrics.estimatedSeconds}초
+                  {selectedObjectionModal.responseMetrics?.wordCount ?? 0}단어 / {selectedObjectionModal.responseMetrics?.estimatedSeconds ?? 0}초
                 </div>
               </div>
             )}

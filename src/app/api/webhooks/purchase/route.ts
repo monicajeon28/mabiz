@@ -168,15 +168,17 @@ export async function POST(req: NextRequest) {
           where: { productCode },
           create: {
             productCode,
-            packageName:     productName ?? "크루즈 상품",
-            basePrice:       parsedBasePrice,
+            packageName:      productName ?? "크루즈 상품",
+            basePrice:        parsedBasePrice,
             startDate,
-            cruiseLine:      body.cruiseLine ?? null,
-            shipName:        body.shipName ?? null,
-            nights:          body.nights ? parseInt(String(body.nights)) : null,
-            days:            body.days ? parseInt(String(body.days)) : null,
-            isActive:        true,
-            saleStatus:      "AVAILABLE",
+            cruiseLine:       body.cruiseLine ?? "",
+            shipName:         body.shipName ?? "",
+            nights:           body.nights ? parseInt(String(body.nights)) : 0,
+            days:             body.days ? parseInt(String(body.days)) : 0,
+            itineraryPattern: {},
+            updatedAt:        new Date(),
+            isActive:         true,
+            saleStatus:       "AVAILABLE",
           },
           update: {
             packageName:     productName ? productName : undefined,
@@ -208,9 +210,6 @@ export async function POST(req: NextRequest) {
             customerPhone:   normalizedPhone.substring(0, 4) + "****",
             orderId,
             sourceWebhook:   "purchase",
-            cruiseSaleId:    parsedCruiseSaleId ?? undefined,
-            cabinType:       cabinType ?? null,
-            headcount:       parsedHeadcount ?? undefined,
           },
           update: {
             // 2단계 웹훅: commission 필드 갱신 (핵심!)
@@ -218,9 +217,6 @@ export async function POST(req: NextRequest) {
             commissionAmount: parsedCommissionAmount,
             ...(productName ? { productName } : {}),
             ...(finalSaleAmount > 0 ? { saleAmount: finalSaleAmount } : {}),
-            ...(parsedCruiseSaleId ? { cruiseSaleId: parsedCruiseSaleId } : {}),
-            ...(cabinType ? { cabinType } : {}),
-            ...(parsedHeadcount ? { headcount: parsedHeadcount } : {}),
           },
         });
       }

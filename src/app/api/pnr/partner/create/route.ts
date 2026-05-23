@@ -172,19 +172,21 @@ export async function POST(req: NextRequest) {
         if (!travelerUser && traveler.passportNo) {
           const existingTraveler = await tx.gmTraveler.findFirst({
             where: { passportNo: traveler.passportNo },
-            include: {
-              reservation: {
-                select: { mainUserId: true },
-              },
-            },
+            select: { reservationId: true },
           });
 
-          if (existingTraveler?.reservation?.mainUserId) {
-            travelerUser = await tx.gmUser.findUnique({
-              where: { id: existingTraveler.reservation.mainUserId },
+          if (existingTraveler?.reservationId) {
+            const existingReservation = await tx.gmReservation.findUnique({
+              where: { id: existingTraveler.reservationId },
+              select: { mainUserId: true },
             });
-            if (travelerUser) {
-              foundBy = 'passport';
+            if (existingReservation?.mainUserId) {
+              travelerUser = await tx.gmUser.findUnique({
+                where: { id: existingReservation.mainUserId },
+              });
+              if (travelerUser) {
+                foundBy = 'passport';
+              }
             }
           }
         }
@@ -205,19 +207,21 @@ export async function POST(req: NextRequest) {
               korName: traveler.korName,
               birthDate: birthDateStr, // String 필드로 직접 비교
             },
-            include: {
-              reservation: {
-                select: { mainUserId: true },
-              },
-            },
+            select: { reservationId: true },
           });
 
-          if (existingTraveler?.reservation?.mainUserId) {
-            travelerUser = await tx.gmUser.findUnique({
-              where: { id: existingTraveler.reservation.mainUserId },
+          if (existingTraveler?.reservationId) {
+            const existingReservation2 = await tx.gmReservation.findUnique({
+              where: { id: existingTraveler.reservationId },
+              select: { mainUserId: true },
             });
-            if (travelerUser) {
-              foundBy = 'name+birth';
+            if (existingReservation2?.mainUserId) {
+              travelerUser = await tx.gmUser.findUnique({
+                where: { id: existingReservation2.mainUserId },
+              });
+              if (travelerUser) {
+                foundBy = 'name+birth';
+              }
             }
           }
         }

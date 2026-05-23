@@ -62,7 +62,6 @@ export async function GET(req: Request, { params }: Params) {
       where: { organizationId: org.id, partnerId, isActive: true },
       include: {
         comments: { where: { landingPageId: { not: undefined } }, orderBy: { createdAt: 'desc' } },
-        images: { orderBy: { sortOrder: 'asc' }, include: { imageAsset: { select: { driveFileId: true, width: true, height: true, mimeType: true } } } },
       },
     });
 
@@ -72,10 +71,17 @@ export async function GET(req: Request, { params }: Params) {
         where: { organizationId: org.id, partnerId: null, isActive: true },
         include: {
           comments: { orderBy: { createdAt: 'desc' } },
-          images: { orderBy: { sortOrder: 'asc' }, include: { imageAsset: { select: { driveFileId: true, width: true, height: true, mimeType: true } } } },
         },
       });
     }
+
+    // 이미지 별도 조회 (B2BLandingPageImage는 별도 모델)
+    const images = landingPage
+      ? await prisma.b2BLandingPageImage.findMany({
+          where: { landingPageId: landingPage.id },
+          orderBy: { sortOrder: 'asc' },
+        })
+      : [];
 
     // viewCount 증가 (fire-and-forget)
     if (landingPage && !searchParams.get('preview')) {
@@ -101,7 +107,7 @@ export async function GET(req: Request, { params }: Params) {
         productPrice: landingPage.productPrice,
         commentEnabled: landingPage.commentEnabled,
         comments: landingPage.comments,
-        images: landingPage.images,
+        images,
         exposureTitle: landingPage.exposureTitle,
         exposureImage: landingPage.exposureImage,
         footerText: landingPage.footerText,
@@ -218,19 +224,22 @@ export async function POST(req: Request, { params }: Params) {
     try {
       const result = await prisma.$transaction(async (tx) => {
         // 1) B2BProspect 생성
+        const notesLines = [
+          body.company?.trim()    ? `회사명: ${body.company.trim()}`         : null,
+          body.packageInterest    ? `관심상품: ${body.packageInterest}`      : null,
+          affiliateCode           ? `파트너코드: ${affiliateCode}`           : null,
+          `파트너 B2B 랜딩 유입 (partnerId: ${partnerId})`,
+        ].filter(Boolean).join('\n');
+
         const prospect = await tx.b2BProspect.create({
           data: {
-            organizationId:  org.id,
-            name:            body.name.trim(),
-            phone:           formattedPhone,
-            email:           body.email?.trim() || null,
-            companyName:     body.company?.trim() || null,
-            packageInterest: body.packageInterest || null,
-            source:          'B2B_PARTNER',
-            status:          'NEW',
-            assignedUserId:  ownerMember?.userId || null,
-            affiliateCode,
-            notes:           `파트너 B2B 랜딩 유입 (partnerId: ${partnerId})`,
+            organizationId: org.id,
+            name:           (body.name ?? '').trim(),
+            phone:          formattedPhone,
+            email:          body.email?.trim() || null,
+            eduType:        'INQUIRER',
+            notes:          notesLines,
+            status:         'NEW',
           },
           select: { id: true },
         });
@@ -247,7 +256,7 @@ export async function POST(req: Request, { params }: Params) {
             },
             create: {
               organizationId: org.id,
-              name: body.name.trim(),
+              name: (body.name ?? '').trim(),
               phone: formattedPhone,
               email: body.email?.trim() || null,
               type: 'LEAD',
@@ -255,7 +264,7 @@ export async function POST(req: Request, { params }: Params) {
               affiliateCode,
             },
             update: {
-              name: body.name.trim(),
+              name: (body.name ?? '').trim(),
               ...(body.email?.trim() ? { email: body.email.trim() } : {}),
               utmSource: body.utmSource || 'b2b_partner',
             },
@@ -272,8 +281,9 @@ export async function POST(req: Request, { params }: Params) {
           try {
             registration = await tx.b2BLandingRegistration.create({
               data: {
+                organizationId: org.id,
                 landingPageId: body.landingPageId,
-                name: body.name.trim(),
+                name: (body.name ?? '').trim(),
                 phone: formattedPhone,
                 email: body.email?.trim() || null,
                 utmSource: body.utmSource || null,

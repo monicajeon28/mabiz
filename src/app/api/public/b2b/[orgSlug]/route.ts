@@ -48,20 +48,25 @@ export async function POST(req: Request, { params }: Params) {
     const phone = body.phone.replace(/[^0-9]/g, "")
       .replace(/^(\d{3})(\d{4})(\d{4})$/, "$1-$2-$3");
 
+    const notesLines = [
+      body.companyName      ? `회사명: ${body.companyName}`              : null,
+      body.groupSize        ? `인원수: ${body.groupSize}`                 : null,
+      body.packageInterest  ? `관심상품: ${body.packageInterest}`        : null,
+      body.preferredDate    ? `희망날짜: ${body.preferredDate}`           : null,
+      body.destination      ? `목적지: ${body.destination}`               : null,
+      body.affiliateCode    ? `추천코드: ${body.affiliateCode}`           : null,
+      `유입경로: B2B_LANDING`,
+    ].filter(Boolean).join('\n');
+
     const prospect = await prisma.b2BProspect.create({
       data: {
-        organizationId:  org.id,
-        name:            body.name.trim(),
+        organizationId: org.id,
+        name:           body.name.trim(),
         phone,
-        email:           body.email           ?? null,
-        companyName:     body.companyName      ?? null,
-        groupSize:       body.groupSize        ?? null,
-        packageInterest: body.packageInterest  ?? null,
-        preferredDate:   body.preferredDate    ?? null,
-        destination:     body.destination      ?? null,
-        affiliateCode:   body.affiliateCode    ?? null,
-        source:          "B2B_LANDING",
-        status:          "NEW",
+        email:          body.email ?? null,
+        eduType:        "INQUIRER",
+        notes:          notesLines,
+        status:         "NEW",
       },
       select: { id: true },
     });

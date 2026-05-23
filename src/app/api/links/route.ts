@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, requireOrgId, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 function generateCode(): string {
@@ -28,10 +28,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    // GLOBAL_ADMIN은 BONSA_ORG_ID 사용
-    const orgId = ctx.role === 'GLOBAL_ADMIN'
-      ? (ctx.organizationId ?? (await import('@/lib/rbac').then(m => m.BONSA_ORG_ID)))
-      : requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const body  = await req.json() as { targetUrl: string; title?: string; category?: string; contactId?: string; autoGroupId?: string };
 
     if (!body.targetUrl) return NextResponse.json({ ok: false, message: 'targetUrl 필수' }, { status: 400 });

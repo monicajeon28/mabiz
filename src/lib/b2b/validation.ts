@@ -12,7 +12,7 @@ export const B2BProspectCreateSchema = z.object({
   paymentDate: z.string().datetime().optional().or(z.literal('')),
   notes: z.string().max(500, '메모는 500자 이하여야 합니다').optional().or(z.literal('')),
   status: z.string().min(1, '상태는 필수입니다'),
-  eduType: z.enum(['BUYER', 'INQUIRER'], { errorMap: () => ({ message: 'eduType은 BUYER 또는 INQUIRER여야 합니다' }) }),
+  eduType: z.enum(['BUYER', 'INQUIRER'], { message: 'eduType은 BUYER 또는 INQUIRER여야 합니다' }),
 });
 
 export const B2BProspectUpdateSchema = z.object({

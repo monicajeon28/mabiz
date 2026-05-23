@@ -189,16 +189,16 @@ export async function GET(req: Request, { params }: Params) {
       monthData.roiSum += cost.estimatedRoi;
 
       totalSmsSent += cost.smsSent;
-      totalSmsCost += cost.smsCostTotal;
+      totalSmsCost += Number(cost.smsCostTotal);
       totalEmailSent += cost.emailSent;
-      totalEmailCost += cost.emailCostTotal;
+      totalEmailCost += Number(cost.emailCostTotal);
       totalSuccessCount += cost.successCount;
-      totalCost += cost.actualCostTotal;
-      totalRoiSum += cost.estimatedRoi;
+      totalCost += Number(cost.actualCostTotal);
+      totalRoiSum += Number(cost.estimatedRoi);
     });
 
     // ✅ 월별 평균 ROI 계산
-    const byMonth: MonthlyCostSchema[] = Array.from(monthlyMap.values()).map((data) => ({
+    const byMonth: z.infer<typeof MonthlyCostSchema>[] = Array.from(monthlyMap.values()).map((data) => ({
       month: data.month,
       campaigns: data.campaigns,
       sent: data.sent,

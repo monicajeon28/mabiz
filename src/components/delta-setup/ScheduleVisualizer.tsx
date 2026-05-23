@@ -236,7 +236,8 @@ export default function ScheduleVisualizer({
       });
     } catch (err) {
       // P1 4: 사용자 친화적 에러 메시지 변환
-      const userErrorMsg = getErrorMessage(err);
+      const errToPass = err instanceof Error ? err : new Error(String(err));
+      const userErrorMsg = getErrorMessage(errToPass);
       const rawErrorMsg = err instanceof Error ? err.message : '알 수 없는 오류';
 
       setError(userErrorMsg);

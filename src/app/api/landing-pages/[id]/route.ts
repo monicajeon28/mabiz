@@ -54,14 +54,16 @@ export async function GET(_req: Request, { params }: Params) {
       include: {
         _count: { select: { registrations: true } },
         registrations: { orderBy: { createdAt: "desc" }, take: 50 },
-        images: {
-          orderBy: { sortOrder: "asc" },
-          include: { imageAsset: { select: { id: true, driveFileId: true, originalFileName: true, mimeType: true, width: true, height: true } } },
-        },
       },
     });
     if (!page) return NextResponse.json({ ok: false }, { status: 404 });
-    return NextResponse.json({ ok: true, page });
+
+    const images = await prisma.crmLandingPageImage.findMany({
+      where: { landingPageId: id },
+      orderBy: { sortOrder: "asc" },
+    });
+
+    return NextResponse.json({ ok: true, page: { ...page, images } });
   } catch (err) {
     logger.error("[GET /api/landing-pages/[id]]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });

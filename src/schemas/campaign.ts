@@ -35,7 +35,7 @@ export const CampaignCreateSchema = z.object({
   sendAt: z.string()
     .datetime({ message: "유효한 ISO 8601 datetime 형식이어야 합니다." }),
   repeatRule: z.enum(['ONCE', 'WEEKLY_MON', 'WEEKLY_WED', 'WEEKLY_FRI', 'MONTHLY_1', 'MONTHLY_15'], {
-    errorMap: () => ({ message: "유효한 반복 규칙을 선택해주세요." })
+    message: "유효한 반복 규칙을 선택해주세요."
   }).optional(),
 });
 
@@ -61,7 +61,7 @@ export const CreateDeltaCampaignSchema = z.object({
   campaignId: z.string()
     .cuid("유효한 캠페인 ID여야 합니다."),
   triggerType: z.enum(['PURCHASE', 'ABANDONED'], {
-    errorMap: () => ({ message: "PURCHASE 또는 ABANDONED 중 선택해주세요." })
+    message: "PURCHASE 또는 ABANDONED 중 선택해주세요."
   }).default('PURCHASE'),
   deltaDay0Message: z.string()
     .max(90, "Day 0 메시지는 90자 이하여야 합니다.")

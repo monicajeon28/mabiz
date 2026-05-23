@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
 
     const result = await cronVerifyExecutionLog();
 
-    logger.info("[Cron/VerifyExecutionLog] 완료", result);
+    logger.info("[Cron/VerifyExecutionLog] 완료", { result: result ?? undefined });
 
     return NextResponse.json({
       ok: true,
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
 
     const result = await cronVerifyExecutionLog();
 
-    logger.info("[Cron/VerifyExecutionLog] 수동 실행 완료", result);
+    logger.info("[Cron/VerifyExecutionLog] 수동 실행 완료", { result: result ?? undefined });
 
     return NextResponse.json({
       ok: true,

@@ -161,7 +161,6 @@ export async function POST(req: Request, { params }: Params) {
               phone: normalizedPhone,
               email: email ?? null,
               eduType: fc.b2bEduType,
-              source: 'B2B_LANDING',
               notes: notesText,
               status: '잠재고객',
             },

@@ -7,6 +7,22 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Copy, Trash2 } from 'lucide-react';
 
+function Badge({ className, children }: { className?: string; children: React.ReactNode }) {
+  return (
+    <span className={`inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800 ${className || ''}`}>
+      {children}
+    </span>
+  );
+}
+
+function Label({ htmlFor, className, children }: { htmlFor?: string; className?: string; children: React.ReactNode }) {
+  return (
+    <label htmlFor={htmlFor} className={`text-sm font-medium text-gray-700 ${className || ''}`}>
+      {children}
+    </label>
+  );
+}
+
 interface VariantCardProps {
   variant: 'A' | 'B';
   data?: {

@@ -214,7 +214,7 @@ export async function executeCampaignMessages(
             preloadedContact,
             campaignTitle,
             variantKey,
-            emailBody: finalEmailBody,
+            emailBody: typeof finalEmailBody === 'string' ? finalEmailBody : undefined,
             // Phase 4 Track 1: 렌탈 발송 정보 전달
             isRental,
             // Phase 3-β: P1-2 Contact snapshot 전달 (재시도 시 N+1 제거)
@@ -314,11 +314,11 @@ async function sendSingleMessage(params: {
     // Contact: 프리로드된 연락처 사용, 또는 개별 조회 (재시도 케이스)
     const contact = preloadedContact || await db.contact.findUnique({
       where: { id: contactId },
-      select: { id: true, phone: true, email: true, tags: true },  // Phase 4 Track 1: tags 추가
+      select: { id: true, phone: true, email: true, name: true },
     });
 
     // Phase 4 Track 1: 세그먼트 변형 결정
-    const segmentVariation = contact ? getSegmentVariation(contact) : "A";
+    const segmentVariation = contact ? getSegmentVariation(contact as any) : "A";
 
     if (!contact) {
       logger.warn("[Cron] Contact 없음", { contactId });
@@ -603,7 +603,7 @@ export async function retrySendingMessage(sendingId: string): Promise<void> {
           ? sending.campaign?.smsBody || ""
           : sending.campaign?.emailBody || "",
       messageSubject:
-        sending.channel === "EMAIL" ? sending.campaign?.emailSubject : undefined,
+        sending.channel === "EMAIL" ? (sending.campaign?.emailSubject ?? undefined) : undefined,
       // Phase 3-β: P1-2 Contact snapshot 전달
       contactSnapshot: contact,
     });
@@ -719,7 +719,7 @@ export async function executePendingCampaigns() {
               groupId: campaign.groupId,
               channel: "EMAIL",
               messageBody: campaign.emailBody,
-              messageSubject: campaign.emailSubject,
+              messageSubject: campaign.emailSubject ?? undefined,
               contactIds: contactIdList,
               campaignTitle: campaign.title, // Phase 3-β: ExecutionLog sourceName용
             });

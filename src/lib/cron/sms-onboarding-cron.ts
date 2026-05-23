@@ -143,7 +143,6 @@ async function getUnclassifiedContacts(limit: number = 500) {
   return await prisma.contact.findMany({
     where: {
       autoSegment: "unclassified",
-      smsOptIn: true,
       deletedAt: null,
     },
     take: limit,
@@ -167,7 +166,7 @@ async function getSmsTemplate(
   const template = await prisma.smsTemplate.findFirst({
     where: {
       organizationId,
-      templateKey,
+      title: templateKey,
     },
     select: { content: true },
   });
@@ -194,7 +193,6 @@ async function sendOnboardingSms(
     msgType: "SMS",
     organizationId,
     contactId,
-    channel: "ONBOARDING",
   });
 
   if (result.result_code !== 0) {

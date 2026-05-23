@@ -16,7 +16,7 @@ import {
   getNextRoomNumber,
 } from '@/lib/pnr-utils';
 import { validateAllTravelers, validateTravelerCount } from '@/lib/pnr-validators';
-import type { Traveler, Reservation, TravelerFormData } from '@/src/lib/types/pnr';
+import type { Traveler, Reservation, TravelerFormData } from '@/lib/types/pnr';
 
 // 확장 타입: roomColor 추가 (로컬 상태용)
 interface TravelerWithColor extends Traveler {
@@ -108,7 +108,7 @@ export default function CustomerPnrPage({
       try {
         data = await response.json();
       } catch (parseErr) {
-        logger.error('[PNR Verify Phone] JSON Parse Error:', parseErr);
+        logger.error('[PNR Verify Phone] JSON Parse Error:', parseErr instanceof Error ? { message: parseErr.message } : { error: String(parseErr) });
         setError('응답 데이터 처리 중 오류가 발생했습니다.');
         setIsVerifying(false);
         return;
@@ -123,7 +123,7 @@ export default function CustomerPnrPage({
         setError(data.message ?? data.error ?? ERROR_MESSAGES.LOAD_FAILED);
       }
     } catch (err: unknown) {
-      logger.error('[PNR Verify Phone] Error:', err);
+      logger.error('[PNR Verify Phone] Error:', { err });
       const message = err instanceof Error ? err.message : '네트워크 오류가 발생했습니다.';
       setError(message);
     } finally {
@@ -158,7 +158,7 @@ export default function CustomerPnrPage({
 
           authData = await authResponse.json();
         } catch (authErr) {
-          logger.error('[PNR Auth Check] Error:', authErr);
+          logger.error('[PNR Auth Check] Error:', authErr instanceof Error ? { message: authErr.message } : { error: String(authErr) });
           setError('인증 중 오류가 발생했습니다.');
           setCurrentStep(0);
           setLoading(false);
@@ -203,7 +203,7 @@ export default function CustomerPnrPage({
             setError(data.message ?? ERROR_MESSAGES.LOAD_FAILED);
           }
         } catch (loadErr) {
-          logger.error('[PNR Load Reservation] Error:', loadErr);
+          logger.error('[PNR Load Reservation] Error:', loadErr instanceof Error ? { message: loadErr.message } : { error: String(loadErr) });
           const message = loadErr instanceof Error ? loadErr.message : '예약 정보를 불러오는 중 오류가 발생했습니다.';
           setError(message);
           setCurrentStep(0);
@@ -316,7 +316,7 @@ export default function CustomerPnrPage({
         throw new Error(data.message ?? data.error ?? ERROR_MESSAGES.SUBMISSION_FAILED);
       }
     } catch (err: unknown) {
-      logger.error('[PNR Submit] Error:', err);
+      logger.error('[PNR Submit] Error:', { err });
       setError(ERROR_MESSAGES.SUBMISSION_FAILED);
     } finally {
       setIsSubmitting(false);
@@ -562,7 +562,7 @@ export default function CustomerPnrPage({
                         </label>
                         <input
                           type="text"
-                          value={traveler.korName}
+                          value={traveler.korName ?? ''}
                           onChange={(e) => updateTraveler(index, 'korName', e.target.value)}
                           className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                           placeholder="홍길동"
@@ -575,7 +575,7 @@ export default function CustomerPnrPage({
                         </label>
                         <input
                           type="text"
-                          value={traveler.residentNum}
+                          value={traveler.residentNum ?? ''}
                           onChange={(e) => {
                             // 숫자와 하이픈만 허용, 자동 하이픈 추가
                             let value = e.target.value.replace(/[^0-9-]/g, '');
@@ -603,7 +603,7 @@ export default function CustomerPnrPage({
                         </label>
                         <input
                           type="tel"
-                          value={traveler.phone}
+                          value={traveler.phone ?? ''}
                           onChange={(e) => updateTraveler(index, 'phone', e.target.value)}
                           className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                           placeholder="010-1234-5678"
@@ -615,7 +615,7 @@ export default function CustomerPnrPage({
                           객실 그룹 <span className="text-red-500">*</span>
                         </label>
                         <select
-                          value={traveler.roomNumber}
+                          value={traveler.roomNumber ?? ''}
                           onChange={(e) => updateTraveler(index, 'roomNumber', parseInt(e.target.value))}
                           className={`w-full rounded-lg border-2 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200 ${color.border} ${color.bg}`}
                         >

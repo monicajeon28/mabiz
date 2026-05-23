@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgId, resolveOrgIdOrNull } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, requireOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 // GET /api/scheduled-sms?status=PENDING

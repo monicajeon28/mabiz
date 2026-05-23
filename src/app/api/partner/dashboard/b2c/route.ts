@@ -190,8 +190,9 @@ export async function GET(req: Request) {
       },
     });
   } catch (error) {
-    const err = error as Record<string, unknown>;
-    logger.error('[dashboard/b2c] 오류', { message: err.message, stack: err.stack, userId: ctx.sessionUser?.id });
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
+    logger.error('[dashboard/b2c] 오류', { message, stack });
     return NextResponse.json({ ok: false, error: '서버 오류가 발생했습니다' }, { status: 500 });
   }
 }

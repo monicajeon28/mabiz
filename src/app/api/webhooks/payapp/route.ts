@@ -23,7 +23,7 @@ import { createRefundNotifications } from "@/lib/notification-service";
  *       아닌 경우 checkretry=y면 최대 10회 재시도
  */
 export async function POST(req: Request) {
-  let params: URLSearchParams;
+  let params: URLSearchParams | null = null;
 
   try {
     // ── [1단계] IP 화이트리스트 검증 (필수) ────────────────────

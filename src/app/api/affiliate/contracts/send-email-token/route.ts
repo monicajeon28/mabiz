@@ -203,8 +203,8 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// 토큰 검증 함수 (외부에서 임포트 가능)
-export function verifyEmailToken(email: string, pinInput: string): boolean {
+// 토큰 검증 함수
+function verifyEmailToken(email: string, pinInput: string): boolean {
   const record = tokenStore.get(email);
 
   if (!record) {
@@ -232,6 +232,6 @@ export function verifyEmailToken(email: string, pinInput: string): boolean {
 }
 
 // 토큰 정리 함수
-export function clearEmailToken(email: string): void {
+function clearEmailToken(email: string): void {
   tokenStore.delete(email);
 }

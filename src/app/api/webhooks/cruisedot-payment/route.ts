@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
         bookingRef,
         organizationId: affiliateSale.organizationId
       },
-      select: { id: true, organizationId: true, phone: true, userId: true },
+      select: { id: true, organizationId: true, phone: true, userId: true, name: true },
     });
 
     // 트랜잭션 처리

@@ -14,7 +14,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const { origin } = new URL(req.url);
 
     const group = await prisma.contactGroup.findFirst({
-      where: { id: groupId, organizationId: ctx.organizationId },
+      where: { id: groupId, organizationId: ctx.organizationId ?? undefined },
       select: { name: true, organizationId: true, ownerId: true },
     });
 
@@ -87,7 +87,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const ctx = await getAuthContext();
 
     const group = await prisma.contactGroup.findFirst({
-      where: { id: groupId, organizationId: ctx.organizationId },
+      where: { id: groupId, organizationId: ctx.organizationId ?? undefined },
       select: { name: true, organizationId: true, ownerId: true },
     });
 
@@ -113,7 +113,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       select: { id: true, expiresAt: true, createdAt: true },
     });
 
-    logger.log('[CreateGroupToken]', { groupId, seq, action: 'POST' });
+    logger.log('[CreateGroupToken]', { groupId, action: 'POST' });
 
     return NextResponse.json({
       ok: true,

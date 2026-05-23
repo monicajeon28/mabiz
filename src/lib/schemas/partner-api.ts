@@ -30,9 +30,9 @@ export const b2cDataSchema = z.object({
     reservationCount: z.number(),
     recentSales: z.array(b2cSaleSchema),
     passportPnr: z.array(b2cPassportSchema),
-    passportSummary: z.record(z.number()).optional(),
-    pnrSummary: z.record(z.number()).optional(),
-    trends: z.record(z.number()).optional(),
+    passportSummary: z.record(z.string(), z.number()).optional(),
+    pnrSummary: z.record(z.string(), z.number()).optional(),
+    trends: z.record(z.string(), z.number()).optional(),
   }).nullable(),
 });
 
@@ -54,7 +54,7 @@ export const b2bDataSchema = z.object({
     eduApplicants: z.number(),
     paymentAmount: z.number(),
     recentLeads: z.array(b2bLeadSchema),
-    trends: z.record(z.number()).optional(),
+    trends: z.record(z.string(), z.number()).optional(),
   }).nullable(),
 });
 
@@ -65,12 +65,12 @@ export const goldDataSchema = z.object({
     totalRevenue: z.number(),
     memberCount: z.number(),
     inquiryCount: z.number(),
-    trends: z.record(z.number()).optional(),
+    trends: z.record(z.string(), z.number()).optional(),
   }).nullable(),
 });
 
 // ─── Drilldown Detail ────────────────────────────────────────
-export const drilldownItemSchema = z.record(z.unknown());
+export const drilldownItemSchema = z.record(z.string(), z.unknown());
 
 export const drilldownDetailSchema = z.object({
   ok: z.boolean(),

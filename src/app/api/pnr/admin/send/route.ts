@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
     const reservation = await prisma.gmReservation.findUnique({
       where: { id: reservationId },
       include: {
-        user: {
+        mainUser: {
           select: {
             id: true,
             name: true,
@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const user = reservation.user;
+    const user = reservation.mainUser;
     if (!user) {
       return NextResponse.json(
         { ok: false, message: '예약에 고객 정보가 없습니다.' },
@@ -330,7 +330,7 @@ export async function GET(req: NextRequest) {
     const reservation = await prisma.gmReservation.findUnique({
       where: { id: reservationId },
       include: {
-        user: {
+        mainUser: {
           select: {
             id: true,
             name: true,
@@ -364,7 +364,7 @@ export async function GET(req: NextRequest) {
 
     // 기본 메시지 생성
     const message = fillTemplate(DEFAULT_PNR_TEMPLATE_BODY, {
-      고객명: reservation.user?.name ? `${reservation.user.name}` : '고객',
+      고객명: reservation.mainUser?.name ? `${reservation.mainUser.name}` : '고객',
       링크: link,
       상품명: productName,
       출발일: formatDate(reservation.trip?.departureDate),
@@ -376,8 +376,8 @@ export async function GET(req: NextRequest) {
       message,
       reservation: {
         id: reservation.id,
-        userName: reservation.user?.name,
-        userPhone: reservation.user?.phone,
+        userName: reservation.mainUser?.name,
+        userPhone: reservation.mainUser?.phone,
         productName,
         departureDate: reservation.trip?.departureDate,
       },

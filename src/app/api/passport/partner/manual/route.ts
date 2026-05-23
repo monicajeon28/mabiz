@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic';
+﻿export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
@@ -176,7 +176,7 @@ async function recordManualLog(params: {
     });
   } catch (error) {
     const err = error as Record<string, unknown>;
-    logger.error('[PartnerPassportManual] Failed to insert log:', err);
+    logger.error('[PartnerPassportManual] Failed to insert log:', { err });
   }
 }
 
@@ -306,7 +306,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     const err = error as Record<string, unknown>;
-    logger.error('[PartnerPassportManual] POST error:', err);
+    logger.error('[PartnerPassportManual] POST error:', { err });
     return NextResponse.json(
       { ok: false, message: '여권 제출 링크를 생성하는 중 오류가 발생했습니다.' },
       { status: 500 },

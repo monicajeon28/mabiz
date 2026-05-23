@@ -128,7 +128,7 @@ export function SidebarNav({ className, session }: SidebarNavProps) {
 
   // Map session role to UserRole type (session.role may have different values)
   const role: UserRole | null = session?.role as UserRole | null ?? null;
-  const displayName = session?.displayName ?? null;
+  const displayName = session?.member?.displayName ?? null;
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });

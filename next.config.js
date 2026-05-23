@@ -1,6 +1,8 @@
+const path = require('path');
+
 const nextConfig = {
-  webpack: (config) => {
-    return config;
+  turbopack: {
+    root: path.resolve(__dirname),
   },
 };
 module.exports = nextConfig;

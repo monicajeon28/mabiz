@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { validateSessionInMiddleware } from '@/lib/middleware-auth';
-import { checkPathAccess, getRedirectForPath } from '@/src/lib/route-rules';
-import { AuthRole } from '@/src/types/auth-headers';
+import { checkPathAccess, getRedirectForPath } from '@/lib/route-rules';
+import { AuthRole } from '@/types/auth-headers';
 
 // Constants
 const MABIZ_SESSION_COOKIE = 'mabiz.sid';

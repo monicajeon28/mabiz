@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic';
+﻿export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
@@ -75,7 +75,7 @@ export async function GET() {
       })),
     });
   } catch (error: any) {
-    logger.error('[PassportRequest] GET /templates error:', error);
+    logger.error('[PassportRequest] GET /templates error:', { error });
     logger.error('[PassportRequest] Error details:', {
       message: error?.message,
       code: error?.code,

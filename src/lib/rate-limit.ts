@@ -32,6 +32,31 @@ function cleanup(windowMs: number) {
   }
 }
 
+export function getRateLimitStatus(
+  identifier: string,
+  maxRequests: number,
+  windowMs: number = 60_000
+): { allowed: boolean; remaining: number; resetAt: Date } {
+  const now = Date.now();
+  const cutoff = now - windowMs;
+  const entry = store.get(identifier);
+
+  if (!entry) {
+    return { allowed: true, remaining: maxRequests, resetAt: new Date(now + windowMs) };
+  }
+
+  const timestamps = entry.timestamps.filter((t) => t > cutoff);
+  if (timestamps.length >= maxRequests) {
+    return { allowed: false, remaining: 0, resetAt: new Date(timestamps[0] + windowMs) };
+  }
+
+  return {
+    allowed: true,
+    remaining: maxRequests - timestamps.length,
+    resetAt: new Date(now + windowMs),
+  };
+}
+
 export function checkRateLimit(
   identifier: string,
   maxRequests: number,

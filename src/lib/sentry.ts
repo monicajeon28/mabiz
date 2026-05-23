@@ -25,14 +25,14 @@ export function initializeSentry() {
     profilesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
 
     // 통합 구성
-    integrations: [
-      new Sentry.Integrations.Http({ tracing: true }),
-      new Sentry.Integrations.OnUncaughtException(),
-      new Sentry.Integrations.OnUnhandledRejection(),
-      ...(process.env.NODE_ENV === 'production'
-        ? [new Sentry.Integrations.CaptureConsole({ levels: ['error', 'warn'] })]
-        : []),
-    ],
+    // integrations: [
+    //   new Sentry.Integrations.Http({ tracing: true }),
+    //   new Sentry.Integrations.OnUncaughtException(),
+    //   new Sentry.Integrations.OnUnhandledRejection(),
+    //   ...(process.env.NODE_ENV === 'production'
+    //     ? [new Sentry.Integrations.CaptureConsole({ levels: ['error', 'warn'] })]
+    //     : []),
+    // ],
 
     // 에러 필터링
     beforeSend(event, hint) {

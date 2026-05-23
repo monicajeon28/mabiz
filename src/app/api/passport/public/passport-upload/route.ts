@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL(redirectUrl, req.url));
   } catch (error) {
     const err = error as Record<string, unknown>;
-    logger.error('[Public Passport Upload] GET error:', err);
+    logger.error('[Public Passport Upload] GET error:', { err });
     return NextResponse.json(
       { ok: false, error: '여권 업로드 페이지로 이동할 수 없습니다.' },
       { status: 500 }

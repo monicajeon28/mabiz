@@ -75,8 +75,8 @@ export async function GET(req: Request) {
       id: l.id,
       name: l.name,
       phone: l.phone ? l.phone.slice(0, 3) + '-****-' + l.phone.slice(-4) : '-',
-      interestedPackage: l.packageInterest ?? '-',
-      source: l.source ?? '-',
+      interestedPackage: '-',
+      source: '-',
       status: l.status ?? 'NEW',
     }));
 

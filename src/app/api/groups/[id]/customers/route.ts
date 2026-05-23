@@ -27,7 +27,7 @@ export async function GET(req: Request, { params }: Params) {
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '5'), 100);
 
     // 그룹 존재 확인 및 권한 확인
-    const group = await prisma.group.findUnique({
+    const group = await prisma.contactGroup.findUnique({
       where: { id: groupId },
       select: { id: true, organizationId: true },
     });
@@ -54,7 +54,7 @@ export async function GET(req: Request, { params }: Params) {
     // 그룹의 고객 목록 조회 (전체 전화번호 포함 - 마스킹 안 함)
     const customers = await prisma.contact.findMany({
       where: {
-        groupMembers: {
+        groups: {
           some: {
             groupId,
           },

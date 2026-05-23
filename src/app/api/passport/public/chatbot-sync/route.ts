@@ -31,9 +31,6 @@ export async function POST(req: NextRequest) {
         trip: {
           select: { id: true, userId: true },
         },
-        travelers: {
-          select: { id: true, korName: true, reservationId: true },
-        },
       },
     });
 
@@ -149,7 +146,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     const err = error as Record<string, unknown>;
-    logger.error('[Chatbot Sync] Error:', err);
+    logger.error('[Chatbot Sync] Error:', { err });
     return NextResponse.json(
       {
         ok: false,

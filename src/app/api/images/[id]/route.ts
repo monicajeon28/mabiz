@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthContext, resolveOrgId, resolveOrgIdOrNull } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, requireOrgId } from '@/lib/rbac';
 import { getDriveClient } from '@/lib/drive-client';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';

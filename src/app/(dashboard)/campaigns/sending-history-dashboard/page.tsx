@@ -53,6 +53,7 @@ export default function SendingHistoryDashboardPage() {
   const [totalFailures, setTotalFailures] = useState(0);
   const [loading, setLoading] = useState(true);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [failuresKey, setFailuresKey] = useState(0);
 
   const pageSize = 50;
 
@@ -202,7 +203,7 @@ export default function SendingHistoryDashboardPage() {
         setLoading(false);
       }
     })();
-  }, [campaignId, statusFilter, currentPage, pageSize, toast]);
+  }, [campaignId, statusFilter, currentPage, pageSize, toast, failuresKey]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 3. 메시지 재전송
@@ -229,7 +230,7 @@ export default function SendingHistoryDashboardPage() {
           variant: 'success',
         });
         // 목록 새로 고침
-        fetchFailures();
+        setFailuresKey(k => k + 1);
       } else {
         toast({
           title: '오류',

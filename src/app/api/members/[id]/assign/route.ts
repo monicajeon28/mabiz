@@ -68,16 +68,11 @@ export async function POST(req: Request, { params }: Params) {
     // 이전 affiliateCode 값 저장 (변경 기록용)
     const oldAffiliateCode = user.affiliateCode || '';
 
-    // 이전 partnerType 값 (ContactChangeLog 기록)
-    const oldPartnerType = user.partnerType || '';
-    const newPartnerType = partnerType || '';
-
     // GmUser 업데이트
     const updatedUser = await prisma.gmUser.update({
       where: { id: gmUserId },
       data: {
         affiliateCode: assignedUserId,
-        partnerType: partnerType,
       },
     });
 
@@ -92,20 +87,6 @@ export async function POST(req: Request, { params }: Params) {
         changedBy: session.userId,
       },
     });
-
-    // partnerType도 변경되면 로그 추가
-    if (oldPartnerType !== newPartnerType) {
-      await prisma.contactChangeLog.create({
-        data: {
-          gmUserId,
-          field: 'partnerType',
-          oldValue: oldPartnerType || null,
-          newValue: newPartnerType || null,
-          reason: reason || null,
-          changedBy: session.userId,
-        },
-      });
-    }
 
     logger.info('[POST /api/members/[id]/assign]', {
       gmUserId,

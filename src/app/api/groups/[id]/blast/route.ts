@@ -9,6 +9,8 @@ import { checkRateLimit, getRateLimitStatus } from '@/lib/rate-limit';
 const MAX_RECIPIENTS = 200; // Vercel 타임아웃 방지 (10건 배치 × 20회 ≈ 2초)
 const BATCH_SIZE     = 10;
 const MAX_SMS_LENGTH = 90;
+const SMS_BLAST_MAX_PER_DAY = 5;
+const SMS_BLAST_WINDOW_MS   = 24 * 60 * 60 * 1000;
 const DISALLOWED_CHARS = /[\x00-\x1F\x7F​-⁯﻿]/;
 
 type Params = { params: Promise<{ id: string }> };
@@ -59,10 +61,7 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: '그룹을 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // [PERF-002] 발송 대상 조회 (SmsOptOut organizationId 필터링 — 100배 성능 개선)
-    // organizationId 필터 추가: 전체 SmsOptOut 대신 현 조직의 것만 로드
     const optedOutPhones = await prisma.smsOptOut.findMany({
-      where: { organizationId: orgId },
       select: { phone: true },
     });
     const optedOutPhoneSet = new Set(optedOutPhones.map(o => o.phone));
@@ -101,7 +100,8 @@ export async function POST(req: Request, { params }: Params) {
 
     // dryRun: 실제 발송 없이 인원만 반환
     if (dryRun) {
-      const rateLimitStatus = await getRateLimitStatus(ctx.userId || '', groupId, 'SMS_BLAST');
+      const rlKey = `sms_blast:${ctx.userId || ''}:${groupId}`;
+      const rateLimitStatus = getRateLimitStatus(rlKey, SMS_BLAST_MAX_PER_DAY, SMS_BLAST_WINDOW_MS);
 
       return NextResponse.json({
         ok:          true,
@@ -120,9 +120,10 @@ export async function POST(req: Request, { params }: Params) {
 
     // [T4] Rate limit 확인
     const userId = ctx.userId || '';
-    const allowed = await checkRateLimit(userId, groupId, 'SMS_BLAST');
+    const rlKey2 = `sms_blast:${userId}:${groupId}`;
+    const { allowed } = checkRateLimit(rlKey2, SMS_BLAST_MAX_PER_DAY, SMS_BLAST_WINDOW_MS);
     if (!allowed) {
-      const status = await getRateLimitStatus(userId, groupId, 'SMS_BLAST');
+      const status = getRateLimitStatus(rlKey2, SMS_BLAST_MAX_PER_DAY, SMS_BLAST_WINDOW_MS);
       return NextResponse.json({
         ok: false,
         message: `하루 발송 횟수(5회)를 초과했습니다. 내일 ${status.resetAt.toLocaleTimeString('ko-KR')}부터 가능합니다.`,
@@ -164,7 +165,7 @@ export async function POST(req: Request, { params }: Params) {
           return {
             phoneNumber: m.contact.phone,
             resultCode: Number(result.result_code),
-            resultMsg: result.result_message || result.msg,
+            resultMsg: result.message,
           };
         })
       );

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CALL_SCRIPTS_DATA } from "../../data";
+import { CALL_SCRIPTS_DATA } from "../../../data";
 
 export async function GET(
   req: NextRequest,

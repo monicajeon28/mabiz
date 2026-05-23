@@ -133,7 +133,7 @@ export async function POST(
     });
   } catch (error) {
     const err = error as Record<string, unknown>;
-    logger.error('[Passport] POST /passport/:token/upload error:', err);
+    logger.error('[Passport] POST /passport/:token/upload error:', { err });
     return NextResponse.json(
       { ok: false, error: '파일 업로드 중 오류가 발생했습니다.' },
       { status: 500 }

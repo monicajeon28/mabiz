@@ -125,13 +125,13 @@ export async function runAllQueueTests() {
   logger.log('[Queue Test] ========== 전체 큐 테스트 시작 ==========');
 
   const smsResult = await testSmsQueueFlow();
-  logger.log('[Queue Test] SMS 테스트:', smsResult ? '통과' : '실패');
+  logger.log(`[Queue Test] SMS 테스트: ${smsResult ? '통과' : '실패'}`);
 
   const emailResult = await testEmailQueueFlow();
-  logger.log('[Queue Test] Email 테스트:', emailResult ? '통과' : '실패');
+  logger.log(`[Queue Test] Email 테스트: ${emailResult ? '통과' : '실패'}`);
 
   const allPassed = smsResult && emailResult;
-  logger.log('[Queue Test] ========== 전체 테스트 결과:', allPassed ? '통과' : '실패', '==========');
+  logger.log(`[Queue Test] ========== 전체 테스트 결과: ${allPassed ? '통과' : '실패'} ==========`);
 
   return {
     sms: smsResult,

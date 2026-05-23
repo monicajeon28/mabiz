@@ -12,6 +12,11 @@ export interface ObjectionData {
   immediateResponse: string;
   expectedConversionLift: string;
   relatedSegments: string[];
+  responseMetrics?: {
+    wordCount: number;
+    estimatedSeconds: number;
+    passesCheck: boolean;
+  };
 }
 
 // 모든 유효한 이의 ID 목록 캐싱

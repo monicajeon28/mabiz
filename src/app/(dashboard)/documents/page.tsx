@@ -6,3 +6,4 @@ export default async function DocumentsPage() {
   const xUserRole = headersList.get("X-User-Role");
 
   return <DocumentsClient initialRole={xUserRole || "AGENT"} />;
+}

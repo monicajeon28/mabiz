@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic';
+﻿export const dynamic = 'force-dynamic';
 
 // 여권 챗봇 플로우 자동 생성 (GMcruise ChatBotFlow/ChatBotQuestion 테이블 사용)
 
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: unknown) {
     const err = error as Record<string, unknown>;
-    logger.error('[Create Passport Flow] Error:', err);
+    logger.error('[Create Passport Flow] Error:', { err });
     return NextResponse.json(
       { ok: false, error: (err.message as string) || '플로우 생성 중 오류가 발생했습니다.' },
       { status: 500 }

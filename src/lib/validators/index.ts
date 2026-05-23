@@ -29,7 +29,7 @@ export const ErrorResponseSchema = ApiResponseSchema.extend({
   ok: z.literal(false),
   error: z.string(),
   code: z.string().optional(),
-  details: z.record(z.unknown()).optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
 });
 
 // ===== 공통 스키마 =====
@@ -87,7 +87,7 @@ export const ChartDataSchema = z.array(ChartDataPointSchema);
 export const ValidationErrorSchema = ErrorResponseSchema.extend({
   details: z
     .object({
-      fields: z.record(z.array(z.string())).optional(),
+      fields: z.record(z.string(), z.array(z.string())).optional(),
     })
     .optional(),
 });

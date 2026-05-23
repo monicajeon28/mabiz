@@ -16,7 +16,7 @@ export interface Toast {
 /**
  * Toast 알림을 표시하는 콜백 함수
  */
-type ToastCallback = (toast: Omit<Toast, 'id'>) => void;
+type ToastCallback = (toast: Toast) => void;
 
 /**
  * 전역 Toast 이벤트 리스너들
@@ -30,7 +30,7 @@ const toastListeners = new Set<ToastCallback>();
 export function showToast(toast: Omit<Toast, 'id'>) {
   const id = Math.random().toString(36).substr(2, 9);
   toastListeners.forEach((listener) =>
-    listener({ ...toast, id })
+    listener({ ...toast, id } as Toast)
   );
 }
 

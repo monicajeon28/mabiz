@@ -9,7 +9,7 @@ const SMS_KEY = "SMS_ENCRYPT_KEY";
 async function getSession() {
   const session = await getMabizSession();
   if (!session || !session.userId || !session.organizationId) return null;
-  return session;
+  return session as typeof session & { organizationId: string };
 }
 
 // GET — 내 알리고 연결 상태 조회 (키는 마지막 4자리만 노출)

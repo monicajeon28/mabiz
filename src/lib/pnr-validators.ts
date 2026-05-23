@@ -3,7 +3,7 @@
  * 클라이언트(page.tsx)와 서버(route.ts) 양쪽에서 재사용 가능
  */
 
-import type { Traveler, TravelerInput } from '@/src/lib/types/pnr';
+import type { Traveler, TravelerInput } from '@/lib/types/pnr';
 
 /**
  * 단일 여행자 유효성 검사 오류 정보

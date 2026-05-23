@@ -14,7 +14,7 @@ const serializeGroup = (group: any) => {
     description: group.description,
     color: group.color,
     funnelId: group.funnelId,
-    funnelName: group.funnel?.name ?? null,
+    funnelName: null,
     _count: { members: group._count?.members ?? 0 },
   };
 };
@@ -46,7 +46,6 @@ export async function GET() {
       where: { organizationId: orgId, ...ownerFilter },
       include: {
         _count: { select: { members: true } },
-        funnel: { select: { name: true } },
       },
       orderBy: { createdAt: "asc" },
     });
@@ -137,7 +136,6 @@ export async function POST(req: Request) {
       },
       include: {
         _count: { select: { members: true } },
-        funnel: { select: { name: true } },
       },
     });
 

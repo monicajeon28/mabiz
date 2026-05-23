@@ -18,7 +18,7 @@ export async function GET(req: Request) {
       where: {
         isActive: true,
         scriptTab,
-        ...(phase !== undefined && { sectionOrder: parseInt(phase) }),
+        ...(phase !== null && { sectionOrder: parseInt(phase) }),
         ...(customerSegment && customerSegment !== "ALL" && { customerSegment }),
         ...(type ? { type } : {}),
         ...(productCode && productCode !== "ALL" && { productCode }),

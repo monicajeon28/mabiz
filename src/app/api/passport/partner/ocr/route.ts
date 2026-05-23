@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic';
+﻿export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
       imageBuffer = Buffer.from(arrayBuffer);
     } catch (error) {
       const err = error as Record<string, unknown>;
-      logger.error('[Partner OCR to APIS] 이미지 다운로드 오류:', err);
+      logger.error('[Partner OCR to APIS] 이미지 다운로드 오류:', { err });
       return NextResponse.json(
         {
           ok: false,
@@ -388,7 +388,7 @@ Return ONLY the JSON object now:`;
     }
   } catch (error) {
     const err = error as Record<string, unknown>;
-    logger.error('[Partner OCR to APIS] POST error:', err);
+    logger.error('[Partner OCR to APIS] POST error:', { err });
     return NextResponse.json(
       {
         ok: false,

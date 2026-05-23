@@ -31,7 +31,7 @@ export async function GET(
             departureDate: true,
           },
         },
-        user: {
+        mainUser: {
           select: {
             id: true,
             name: true,

@@ -13,7 +13,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     // [SEC-002] IDOR 방지: organizationId 필터 추가 (groupId만으로는 다른 조직 접근 가능)
     const group = await prisma.contactGroup.findFirst({
-      where: { id: groupId, organizationId: ctx.organizationId },
+      where: { id: groupId, organizationId: ctx.organizationId ?? undefined },
       select: { organizationId: true, ownerId: true },
     });
 
@@ -67,7 +67,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     // [SEC-002] IDOR 방지: organizationId 필터 추가
     const group = await prisma.contactGroup.findFirst({
-      where: { id: groupId, organizationId: ctx.organizationId },
+      where: { id: groupId, organizationId: ctx.organizationId ?? undefined },
       select: { organizationId: true, ownerId: true },
     });
 
@@ -114,7 +114,7 @@ export async function PATCH(
 
     // [SEC-002] IDOR 방지: organizationId 필터 추가
     const group = await prisma.contactGroup.findFirst({
-      where: { id: groupId, organizationId: ctx.organizationId },
+      where: { id: groupId, organizationId: ctx.organizationId ?? undefined },
       select: { organizationId: true, ownerId: true },
     });
 

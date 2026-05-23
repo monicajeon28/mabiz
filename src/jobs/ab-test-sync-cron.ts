@@ -8,19 +8,19 @@
  * 3. 로컬 테스트: npx tsx src/jobs/ab-test-sync-cron.ts
  */
 
-import { prisma } from "@/src/lib/prisma";
+import prisma from "@/lib/prisma";
 import {
   CounselorProfile,
   generateBlockRandomization,
   stratifyByHistoricalPerformance,
   applyCrossoverDesign,
   generateAllocationSchedule,
-} from "@/src/lib/analytics/ab_test_allocation";
+} from "@/lib/analytics/ab_test_allocation";
 import {
   getMondayClient,
   notifySlackAboutSync,
   MondayTaskInput,
-} from "@/src/lib/integrations/monday-api";
+} from "@/lib/integrations/monday-api";
 
 /**
  * 현재 주차 계산 (5월 22, 2026 = Week 1 시작 기준)
@@ -50,13 +50,10 @@ async function getOrganizationCounselors(
       // 역할이 상담사인 경우만 (예: "counselor", "sales", "agent")
       role: { in: ["counselor", "sales", "agent", "admin"] },
     },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
+    select: {
+      id: true,
+      userId: true,
+      displayName: true,
     },
   });
 
@@ -102,7 +99,7 @@ async function getOrganizationCounselors(
 
     return {
       id: member.userId,
-      name: member.user.name || `User ${member.userId}`,
+      name: member.displayName || `User ${member.userId}`,
       historicalConversionRate: conversionRate,
     };
   });

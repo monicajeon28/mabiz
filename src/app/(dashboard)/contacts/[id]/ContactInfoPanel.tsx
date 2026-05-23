@@ -6,7 +6,7 @@ import {
   FileText,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import RecommendBanner from "./recommend-banner";
+import { RecommendBanner } from "./recommend-banner";
 import { maskPhone, maskEmail } from "@/lib/masking";
 import { Contact } from "@/types/contact";
 

@@ -20,13 +20,6 @@ export async function GET(req: Request) {
         organizationId: orgId,
         ...(status ? { status } : {}),
       },
-      include: {
-        payments: {
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-          select: { id: true, amount: true, status: true, paidAt: true },
-        },
-      },
       orderBy: { createdAt: 'desc' },
     });
 

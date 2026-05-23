@@ -28,12 +28,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    return addToastListener((toast) => {
+    const unsubscribe = addToastListener((toast) => {
       addToast({
         ...toast,
-        id: toast.id,
+        id: crypto.randomUUID(),
       } as Toast);
     });
+    return () => { unsubscribe(); };
   }, [addToast]);
 
   return (

@@ -2,7 +2,7 @@
  * PNR 유틸리티 함수들 (포매팅, 색상, 그룹화 등)
  */
 
-import type { Traveler } from '@/src/lib/types/pnr';
+import type { Traveler } from '@/lib/types/pnr';
 
 /**
  * 방 색상 팔레트 (시각적으로 구분하기 쉬운 색상)

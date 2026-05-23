@@ -127,8 +127,8 @@ export async function GET(
         AND: [
           {
             OR: [
-              { user: { phone: payment.buyerTel } },
-              { user: { email: payment.buyerEmail } },
+              { mainUser: { phone: payment.buyerTel } },
+              { mainUser: { email: payment.buyerEmail } },
             ],
           },
           {
@@ -137,7 +137,7 @@ export async function GET(
         ],
       },
       include: {
-        user: {
+        mainUser: {
           select: {
             id: true,
             name: true,
@@ -145,21 +145,24 @@ export async function GET(
             email: true,
           },
         },
-        travelers: {
-          select: {
-            id: true,
-            korName: true,
-            engSurname: true,
-            engGivenName: true,
-            passportNo: true,
-            birthDate: true,
-            expiryDate: true,
-          },
-        },
       },
       orderBy: {
         createdAt: 'desc',
       },
+    });
+
+    const reservationIds = reservations.map((r) => r.id);
+    const allTravelers = reservationIds.length > 0
+      ? await prisma.gmTraveler.findMany({
+          where: { reservationId: { in: reservationIds } },
+          select: { id: true, reservationId: true, korName: true, engSurname: true, engGivenName: true, passportNo: true, birthDate: true, expiryDate: true },
+        })
+      : [];
+    const travelersByReservation = new Map<number, typeof allTravelers>();
+    allTravelers.forEach((t) => {
+      const list = travelersByReservation.get(t.reservationId) ?? [];
+      list.push(t);
+      travelersByReservation.set(t.reservationId, list);
     });
 
     return NextResponse.json({
@@ -169,8 +172,8 @@ export async function GET(
         totalPeople: r.totalPeople,
         pnrStatus: r.pnrStatus,
         createdAt: r.createdAt.toISOString(),
-        user: r.user,
-        travelers: r.travelers,
+        user: r.mainUser,
+        travelers: travelersByReservation.get(r.id) ?? [],
       })),
     });
   } catch (error: unknown) {

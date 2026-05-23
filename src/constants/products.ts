@@ -165,8 +165,8 @@ export type ProductCode = keyof typeof CRUISE_PRODUCTS;
 export type ProductType = (typeof CRUISE_PRODUCTS)[ProductCode];
 
 // PRODUCT_CODES 배열 - playbook-viewer에서 사용
-export const PRODUCT_CODES = Object.keys(CRUISE_PRODUCTS) as const;
-export type ProductCodeType = typeof PRODUCT_CODES[number];
+export const PRODUCT_CODES = Object.keys(CRUISE_PRODUCTS) as ProductCode[];
+export type ProductCodeType = ProductCode;
 
 /**
  * 세그먼트별 색상 지정 (배지용)

@@ -155,7 +155,7 @@ export async function GET(
     });
   } catch (error) {
     const err = error as Record<string, unknown>;
-    logger.error('[Passport] GET /passport/:token error:', err);
+    logger.error('[Passport] GET /passport/:token error:', { err });
     const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
     const errorStack = error instanceof Error ? error.stack : undefined;
     logger.error('[Passport] Error details:', { errorMessage, errorStack });

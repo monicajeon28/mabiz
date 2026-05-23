@@ -50,7 +50,7 @@ export async function POST(req: Request) {
     const dimensions = extractImageDimensions(buffer);
 
     // Sharp로 EXIF 기반 자동 회전 적용
-    let finalBuffer = buffer;
+    let finalBuffer: Buffer = buffer as Buffer;
     if (file.type.startsWith('image/')) {
       try {
         finalBuffer = await sharp(buffer).rotate().toBuffer();

@@ -40,7 +40,7 @@ interface AligoStatusParams {
 
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
-  let params: AligoStatusParams;
+  let params: AligoStatusParams | null = null;
 
   try {
     // 1. 쿼리 파라미터 파싱
@@ -171,11 +171,7 @@ export async function GET(req: NextRequest) {
     // 500 에러는 DLQ에 등록 (재시도 가능)
     if (params && params.msg_id) {
       try {
-        await enqueueDLQ({
-          service: "webhook-aligo-status",
-          payload: params,
-          error: String(error),
-        });
+        await enqueueDLQ("webhook-aligo-status", params, String(error));
       } catch (dlqError) {
         logger.error("[AligoStatusWebhook] DLQ 등록 실패", { dlqError });
       }

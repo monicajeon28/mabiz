@@ -440,22 +440,6 @@ export async function POST(req: Request) {
       orgId,
     });
 
-    // ImportLog 기록 (응답 전 확실히 저장)
-    try {
-      await prisma.importLog.create({
-        data: {
-          organizationId: orgId,
-          target,
-          totalRows: rows.length,
-          successfulRows: successCount,
-          failedRows: validationSkipCount + processErrorCount,
-          errors: errors.slice(0, 5).join(" | ") || null,
-        },
-      });
-    } catch (err) {
-      logger.error("[POST /api/import] ImportLog 저장 실패", { err });
-    }
-
     // Fire-and-forget: Drive 백업
     (async () => {
       try {

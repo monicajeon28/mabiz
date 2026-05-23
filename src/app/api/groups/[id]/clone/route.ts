@@ -30,7 +30,7 @@ export async function POST(_req: Request, { params }: Params) {
     const { id } = await params;
 
     // 현재 사용자 ID 조회
-    const userId = ctx.userId || ctx.memberId;
+    const userId = ctx.userId;
     if (!userId) {
       return NextResponse.json({ ok: false, message: '인증 필요' }, { status: 401 });
     }
@@ -105,7 +105,6 @@ export async function POST(_req: Request, { params }: Params) {
           },
           include: {
             _count: { select: { members: true } },
-            funnel: { select: { name: true } },
           },
         });
 
@@ -146,7 +145,6 @@ export async function POST(_req: Request, { params }: Params) {
       originalId: id,
       newGroupId: result.newGroup.id,
       funnelId: result.newGroup.funnelId,
-      funnelName: result.newGroup.funnel?.name,
       memberCount: result.memberCount,
       tokenId: result.token.id,
       ownerId: userId,
@@ -164,9 +162,6 @@ export async function POST(_req: Request, { params }: Params) {
     const errorMessage = e instanceof Error ? e.message : String(e);
     const errorCode = e instanceof Error && 'code' in e ? (e as any).code : undefined;
     logger.error('[GroupClone] 트랜잭션 실패 (전체 롤백됨)', {
-      originalId: id,
-      userId,
-      organizationId: orgId,
       errorMessage,
       errorCode,
       timestamp: new Date().toISOString(),

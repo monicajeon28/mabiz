@@ -62,7 +62,7 @@ export async function GET(_req: Request, { params }: Params) {
     });
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : JSON.stringify(err);
-    logger.error('[GET /api/members/[id]]', { err: errMsg, gmUserId });
+    logger.error('[GET /api/members/[id]]', { err: errMsg });
     return NextResponse.json({ ok: false, error: '서버 오류가 발생했습니다.' }, { status: 500 });
   }
 }

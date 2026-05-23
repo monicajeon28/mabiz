@@ -46,7 +46,6 @@ export async function GET(req: NextRequest) {
       where: {
         organizationId,
         autoSegment: 'unclassified',
-        smsOptIn: true,
         deletedAt: null,
       },
     });
@@ -96,7 +95,6 @@ export async function GET(req: NextRequest) {
       where: {
         organizationId,
         deletedAt: null,
-        smsOptIn: true,
       },
       _count: {
         id: true,

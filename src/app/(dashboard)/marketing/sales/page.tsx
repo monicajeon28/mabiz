@@ -17,8 +17,12 @@ interface Summary {
   month:        string;
 }
 
-interface ApiData extends SalesApiData {
+interface ApiData {
+  ok: boolean;
   summary: Summary;
+  monthly: MonthlyRow[];
+  byLanding: LandingRow[];
+  recent: RecentRow[];
 }
 
 function cn(...classes: (string | boolean | undefined | null)[]) {

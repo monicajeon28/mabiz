@@ -118,7 +118,7 @@ export async function GET(request: Request) {
       top_products,
     });
   } catch (error) {
-    logger.error('[RecommendationAPI] Error', error);
+    logger.error('[RecommendationAPI] Error', { error });
     return NextResponse.json(
       { ok: false, error: 'Failed to fetch recommendation data' },
       { status: 500 }

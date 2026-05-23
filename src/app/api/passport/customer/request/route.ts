@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic';
+﻿export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
             departureDate: true,
           },
         },
-        user: {
+        mainUser: {
           select: {
             id: true,
             name: true,
@@ -85,8 +85,8 @@ export async function POST(req: NextRequest) {
     });
 
     // 알림 로깅
-    const customerName = reservation.user?.name || '고객';
-    const customerPhone = reservation.user?.phone || '';
+    const customerName = reservation.mainUser?.name || '고객';
+    const customerPhone = reservation.mainUser?.phone || '';
     const cruiseName = reservation.trip?.cruiseName || '크루즈';
     const departureDate = reservation.trip?.departureDate
       ? new Date(reservation.trip.departureDate).toLocaleDateString('ko-KR')
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     const err = error as Record<string, unknown>;
-    logger.error('[Passport Request] Error:', err);
+    logger.error('[Passport Request] Error:', { err });
     return NextResponse.json(
       {
         ok: false,

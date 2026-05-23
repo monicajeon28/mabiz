@@ -366,7 +366,7 @@ export async function GET(req: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const stack = error instanceof Error ? error.stack : undefined;
-    logger.error('[b2c/detail] 조회 오류', { message, stack, userId: ctx.sessionUser?.id });
+    logger.error('[b2c/detail] 조회 오류', { message, stack });
     return NextResponse.json({ ok: false, error: '서버 오류' }, { status: 500 });
   }
 }

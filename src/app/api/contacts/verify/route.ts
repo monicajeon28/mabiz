@@ -25,7 +25,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
 
     // 권한 검증 (ADMIN만 접근)
-    if (ctx.role !== "ADMIN") {
+    if (ctx.role !== "GLOBAL_ADMIN") {
       return NextResponse.json(
         { error: "관리자만 검증 API에 접근 가능합니다" },
         { status: 403 }
@@ -184,7 +184,7 @@ export async function GET(req: Request) {
       { status: 200 }
     );
   } catch (error) {
-    logger.error("[Verify] 검증 중 오류:", error);
+    logger.error("[Verify] 검증 중 오류:", { error });
     return NextResponse.json(
       { error: "검증 중 오류가 발생했습니다", details: String(error) },
       { status: 500 }

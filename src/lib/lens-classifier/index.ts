@@ -206,9 +206,9 @@ function calculateBayesianConfidence(lens: LensType, lensScore: number, allScore
  * 우선순위: L10(즉시) > L9(건강) > L6(타이밍) > L1/L3/L8(일반) > L2 > L4 > L5
  */
 function calculatePriority(lens: LensType): 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' {
-  if (PRIORITY_CONFIG.CRITICAL_LENSES.includes(lens)) return 'CRITICAL';
-  if (PRIORITY_CONFIG.HIGH_LENSES.includes(lens)) return 'HIGH';
-  if (PRIORITY_CONFIG.MEDIUM_LENSES.includes(lens)) return 'MEDIUM';
+  if ((PRIORITY_CONFIG.CRITICAL_LENSES as unknown as string[]).includes(lens)) return 'CRITICAL';
+  if ((PRIORITY_CONFIG.HIGH_LENSES as unknown as string[]).includes(lens)) return 'HIGH';
+  if ((PRIORITY_CONFIG.MEDIUM_LENSES as unknown as string[]).includes(lens)) return 'MEDIUM';
   return 'LOW';
 }
 
@@ -326,7 +326,7 @@ function setCachedClassification(cacheKey: string, result: ClassificationResult)
   // 최대 캐시 크기 초과 시 FIFO 방식으로 제거
   if (classificationCache.size > CACHE_CONFIG.MAX_CACHED_CLASSIFICATIONS) {
     const firstKey = classificationCache.keys().next().value;
-    classificationCache.delete(firstKey);
+    if (firstKey) classificationCache.delete(firstKey);
   }
   classificationCache.set(cacheKey, result);
 }

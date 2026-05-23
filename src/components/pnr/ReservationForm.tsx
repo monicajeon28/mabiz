@@ -322,11 +322,6 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
           setError('');
         }
       } else {
-        .productCode,
-          nestedProductCode: t.product?.productCode,
-          productCode: t.product?.productCode || (t as any).productCode,
-          shipName: t.shipName,
-        })));
         // ⚠️ 중요: matchingTrip을 찾지 못하면 selectedTripId를 설정하지 않음 (저장 불가)
         // 에러 메시지 표시
         if (trips.length === 0) {

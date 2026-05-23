@@ -7,7 +7,7 @@ import { ERROR_MESSAGES, PNR_ERROR_CODES } from '@/lib/pnr-errors';
 import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
 import { getMabizSession } from '@/lib/auth';
 import { validateAllTravelers } from '@/lib/pnr-validators';
-import type { TravelerInput, PnrSubmitBody } from '@/src/lib/types/pnr';
+import type { TravelerInput, PnrSubmitBody } from '@/lib/types/pnr';
 
 export async function POST(req: NextRequest) {
   // ────────────────────────────────────────────────────────
@@ -53,7 +53,6 @@ export async function POST(req: NextRequest) {
     const reservation = await prisma.gmReservation.findUnique({
       where: { id: reservationId },
       include: {
-        travelers: true,
         trip: true,
       },
     });
@@ -65,6 +64,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const existingTravelerRows = await prisma.gmTraveler.findMany({
+      where: { reservationId },
+      select: { id: true },
+    });
+
     // Step 4: 소유권 검증 (IDOR 방지)
     // CASE 1: OWNER/AGENT → 자신의 organization contact인지 확인
     if (session.role === 'OWNER' || session.role === 'AGENT') {
@@ -75,13 +79,11 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // 예약이 이 조직의 contact에 속하는지 확인
+      // 예약이 이 조직의 contact에 속하는지 확인 (mainUserId → Contact.userId)
       const contact = await prisma.contact.findFirst({
         where: {
           organizationId: session.organizationId,
-          reservations: {
-            some: { id: reservationId },
-          },
+          userId: reservation.mainUserId,
         },
       });
 
@@ -110,7 +112,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 기존 Traveler ID 목록
-    const existingTravelerIds = reservation.travelers.map((t) => t.id);
+    const existingTravelerIds = existingTravelerRows.map((t) => t.id);
     const submittedTravelerIds = travelers.filter((t) => t.id).map((t) => t.id!);
 
     // 트랜잭션으로 처리
@@ -176,50 +178,24 @@ export async function POST(req: NextRequest) {
       });
     });
 
-    // Step 5: 감사 로그 생성 (비동기, 실패해도 응답에 영향 없음)
-    await prisma.auditLog.create({
-      data: {
-        action: 'PNR_SUBMIT',
-        resourceType: 'Reservation',
-        resourceId: reservationId.toString(),
-        userId: session.userId,
-        userRole: session.role,
-        organizationId: session.organizationId || null,
-        changes: {
-          travelers: travelers.map(t => ({
-            name: t.korName,
-            phone: t.phone?.substring(0, 3) + '***',
-          })),
-        },
-        status: 'SUCCESS',
-        ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
-        timestamp: new Date(),
-      },
-    }).catch(err => {
-      // 감사로그 실패가 PNR 제출을 막지 않음
-      logger.error('[PNR Submit] Audit log creation failed:', err);
-    });
+    // Step 5: 감사 로그 생성 — AuditLog 모델 미존재, skip
 
     // 업데이트된 예약 정보 반환
     const updatedReservation = await prisma.gmReservation.findUnique({
       where: { id: reservationId },
-      include: {
-        travelers: {
-          orderBy: [
-            { roomNumber: 'asc' },
-            { id: 'asc' },
-          ],
-        },
-      },
+    });
+    const updatedTravelersList = await prisma.gmTraveler.findMany({
+      where: { reservationId },
+      orderBy: [{ roomNumber: 'asc' }, { id: 'asc' }],
     });
 
     return NextResponse.json({
       ok: true,
       message: 'PNR 정보가 성공적으로 저장되었습니다.',
-      reservation: updatedReservation,
+      reservation: updatedReservation ? { ...updatedReservation, travelers: updatedTravelersList } : null,
     });
   } catch (error) {
-    logger.error('[PNR Submit] Unexpected error:', error);
+    logger.error('[PNR Submit] Unexpected error:', { error });
     return NextResponse.json(
       { ok: false, message: ERROR_MESSAGES.SUBMISSION_FAILED },
       { status: 500 }

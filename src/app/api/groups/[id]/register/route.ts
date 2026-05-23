@@ -89,7 +89,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
       // ContactGroupMember 추가
       await tx.contactGroupMember.upsert({
-        where: { contactId_groupId: { contactId: contact.id, groupId } },
+        where: { groupId_contactId: { groupId, contactId: contact.id } },
         update: {},
         create: { contactId: contact.id, groupId },
       });

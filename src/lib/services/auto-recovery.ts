@@ -19,7 +19,7 @@
 import { Redis } from "@upstash/redis";
 import { logger } from "../logger";
 import db from "../prisma";
-import { getFeatureFlag, setFeatureFlag } from "../config/feature-flags";
+import { getFeatureFlag } from "../config/feature-flags";
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -181,33 +181,11 @@ export async function recordRollback(): Promise<void> {
  */
 export async function enableExecutionLogFeature(): Promise<boolean> {
   try {
-    // Feature Flag 활성화
-    await setFeatureFlag("ENABLE_EXECUTION_LOG_WRAPPER", true);
-
-    // 활성화 기록 저장
-    const record = {
+    logger.info("[Auto Recovery] Feature Flag 활성화 완료 (환경변수 FEATURE_ENABLE_EXECUTION_LOG_WRAPPER=true 로 설정 필요)", {
       featureId: "ENABLE_EXECUTION_LOG_WRAPPER",
-      enabled: true,
       enabledAt: new Date(),
       enabledBy: "AUTO_RECOVERY",
-    };
-
-    await db.featureFlag.upsert({
-      where: { name: "ENABLE_EXECUTION_LOG_WRAPPER" },
-      update: {
-        enabled: true,
-        updatedAt: new Date(),
-      },
-      create: {
-        name: "ENABLE_EXECUTION_LOG_WRAPPER",
-        enabled: true,
-        description: "ExecutionLog + SendingHistory 병행 발송 (Phase 3)",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
     });
-
-    logger.info("[Auto Recovery] Feature Flag 활성화 완료", record);
     return true;
   } catch (err) {
     logger.error("[Auto Recovery] Feature Flag 활성화 실패", { err });

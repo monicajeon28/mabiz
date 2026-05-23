@@ -243,32 +243,36 @@ export async function GET(req: Request) {
     const images = await prisma.crmLandingPageImage.findMany({
       where: { landingPageId },
       orderBy: { sortOrder: 'asc' },
-      include: {
-        imageAsset: {
-          select: {
-            id: true, driveFileId: true, originalFileName: true,
-            mimeType: true, width: true, height: true, fileSize: true,
-          },
-        },
-      },
     });
+
+    const assetIds = images.map((img) => img.imageAssetId);
+    const assets = assetIds.length > 0
+      ? await prisma.imageAsset.findMany({
+          where: { id: { in: assetIds } },
+          select: { id: true, driveFileId: true, originalFileName: true, mimeType: true, width: true, height: true, fileSize: true },
+        })
+      : [];
+    const assetMap = new Map(assets.map((a) => [a.id, a]));
 
     return NextResponse.json({
       ok: true,
-      images: images.map((img) => ({
-        id: img.id,
-        assetId: img.imageAsset.id,
-        url: `https://drive.google.com/thumbnail?id=${img.imageAsset.driveFileId}&sz=w800`,
-        fullUrl: `https://drive.google.com/uc?id=${img.imageAsset.driveFileId}&export=download`,
-        driveFileId: img.imageAsset.driveFileId,
-        fileName: img.imageAsset.originalFileName,
-        width: img.imageAsset.width || 0,
-        height: img.imageAsset.height || 0,
-        mimeType: img.imageAsset.mimeType,
-        fileSize: img.imageAsset.fileSize ? Number(img.imageAsset.fileSize) : 0,
-        sortOrder: img.sortOrder,
-        altText: img.altText,
-      })),
+      images: images.map((img) => {
+        const asset = assetMap.get(img.imageAssetId);
+        return {
+          id: img.id,
+          assetId: img.imageAssetId,
+          url: asset ? `https://drive.google.com/thumbnail?id=${asset.driveFileId}&sz=w800` : '',
+          fullUrl: asset ? `https://drive.google.com/uc?id=${asset.driveFileId}&export=download` : '',
+          driveFileId: asset?.driveFileId ?? '',
+          fileName: asset?.originalFileName ?? '',
+          width: asset?.width || 0,
+          height: asset?.height || 0,
+          mimeType: asset?.mimeType ?? null,
+          fileSize: asset?.fileSize ? Number(asset.fileSize) : 0,
+          sortOrder: img.sortOrder,
+          altText: img.altText,
+        };
+      }),
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -344,13 +348,18 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ ok: false, message: 'id 필수' }, { status: 400 });
     }
 
-    // 소유권 확인 (join)
+    // 소유권 확인 (별도 조회)
     const pageImage = await prisma.crmLandingPageImage.findUnique({
       where: { id },
-      include: { landingPage: { select: { organizationId: true } } },
     });
-
-    if (!pageImage || pageImage.landingPage.organizationId !== orgId) {
+    if (!pageImage) {
+      return NextResponse.json({ ok: false, message: '이미지를 찾을 수 없습니다' }, { status: 404 });
+    }
+    const ownerPage = await prisma.crmLandingPage.findFirst({
+      where: { id: pageImage.landingPageId, organizationId: orgId },
+      select: { id: true },
+    });
+    if (!ownerPage) {
       return NextResponse.json({ ok: false, message: '이미지를 찾을 수 없습니다' }, { status: 404 });
     }
 

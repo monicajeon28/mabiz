@@ -4,29 +4,21 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authConfig } from "@/src/lib/auth";
-import { prisma } from "@/src/lib/prisma";
+import { getMabizSession } from "@/lib/auth";
+import prisma from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
     // 인증 확인
-    const session = await getServerSession(authConfig);
-    if (!session) {
+    const ctx = await getMabizSession();
+    if (!ctx) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 사용자 조직 확인
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { organizationMembers: { take: 1 } },
-    });
-
-    if (!user || !user.organizationMembers[0]) {
+    const organizationId = ctx.organizationId;
+    if (!organizationId) {
       return NextResponse.json({ error: "No organization found" }, { status: 404 });
     }
-
-    const organizationId = user.organizationMembers[0].organizationId;
 
     // 쿼리 파라미터: week
     const { searchParams } = new URL(request.url);
@@ -78,12 +70,12 @@ export async function GET(request: NextRequest) {
 
     // 상담사 이름 조회
     const userIds = Array.from(counselorMap.keys());
-    const users = await prisma.user.findMany({
-      where: { id: { in: userIds } },
-      select: { id: true, name: true },
+    const members = await prisma.organizationMember.findMany({
+      where: { userId: { in: userIds }, organizationId },
+      select: { userId: true, displayName: true },
     });
 
-    const userMap = new Map(users.map((u) => [u.id, u.name || "Unknown"]));
+    const userMap = new Map(members.map((m) => [m.userId, m.displayName || "Unknown"]));
 
     // 응답 데이터 구성
     const assignments = Array.from(counselorMap.entries()).map(

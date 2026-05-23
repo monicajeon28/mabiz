@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic';
+﻿export const dynamic = 'force-dynamic';
 
 /**
  * 여권/PNR 전용 챗봇 API
@@ -62,7 +62,6 @@ export async function POST(req: NextRequest) {
       const reservation = await prisma.gmReservation.findUnique({
         where: { id: body.reservationId },
         include: {
-          travelers: true,
           trip: true,
         },
       });
@@ -151,7 +150,7 @@ export async function POST(req: NextRequest) {
         }
       } catch (error: unknown) {
         const err = error as Record<string, unknown>;
-        logger.error('[Passport Flow] OCR 실패:', err);
+        logger.error('[Passport Flow] OCR 실패:', { err });
         return NextResponse.json({
           ok: false,
           error: '여권 인식에 실패했습니다. 다시 촬영해주세요.',
@@ -185,23 +184,8 @@ export async function POST(req: NextRequest) {
         state.step = 3;
         sessionState.set(sessionKey, state);
 
-        // 예약 정보에서 방 정보 가져오기
-        const reservation = await prisma.gmReservation.findUnique({
-          where: { id: state.reservationId },
-          include: {
-            travelers: {
-              orderBy: { roomNumber: 'asc' },
-            },
-          },
-        });
-
-        const rooms = reservation?.travelers.reduce((acc: Record<number, number>, traveler) => {
-          if (!acc[traveler.roomNumber]) {
-            acc[traveler.roomNumber] = 0;
-          }
-          acc[traveler.roomNumber]++;
-          return acc;
-        }, {}) || {};
+        // 방 정보: travelers 관계 없음, 빈 rooms 반환
+        const rooms: Record<number, number> = {};
 
         const roomList = Object.entries(rooms)
           .map(([roomNum, count]) => `방 ${roomNum} (${count}명)`)
@@ -221,23 +205,8 @@ export async function POST(req: NextRequest) {
       const message = body.message.trim();
       const currentRoom = Object.keys(state.roomAssignments).length + 1;
 
-      // 예약 정보에서 방 정보 가져오기
-      const reservation = await prisma.gmReservation.findUnique({
-        where: { id: state.reservationId },
-        include: {
-          travelers: {
-            orderBy: { roomNumber: 'asc' },
-          },
-        },
-      });
-
-      const rooms = reservation?.travelers.reduce((acc: Record<number, number>, traveler) => {
-        if (!acc[traveler.roomNumber]) {
-          acc[traveler.roomNumber] = 0;
-        }
-        acc[traveler.roomNumber]++;
-        return acc;
-      }, {}) || {};
+      // 방 정보: travelers 관계 없음, 빈 rooms 반환
+      const rooms: Record<number, number> = {};
 
       const roomNumbers = Object.keys(rooms).map(Number).sort((a, b) => a - b);
       const currentRoomNumber = roomNumbers[currentRoom - 1];
@@ -306,7 +275,7 @@ export async function POST(req: NextRequest) {
 
   } catch (error: unknown) {
     const err = error as Record<string, unknown>;
-    logger.error('[Passport Flow API] Error:', err);
+    logger.error('[Passport Flow API] Error:', { err });
     return NextResponse.json(
       { ok: false, error: '여권 처리 중 오류가 발생했습니다.' },
       { status: 500 }
@@ -329,21 +298,21 @@ async function savePassportData(state: {
 }) {
   const reservation = await prisma.gmReservation.findUnique({
     where: { id: state.reservationId },
-    include: {
-      travelers: {
-        orderBy: [{ roomNumber: 'asc' }, { id: 'asc' }],
-      },
-    },
   });
 
   if (!reservation) {
     throw new Error('예약을 찾을 수 없습니다');
   }
 
+  const travelers = await prisma.gmTraveler.findMany({
+    where: { reservationId: state.reservationId },
+    orderBy: [{ roomNumber: 'asc' }, { id: 'asc' }],
+  });
+
   // Traveler 업데이트
-  for (let i = 0; i < state.uploadedPassports.length && i < reservation.travelers.length; i++) {
+  for (let i = 0; i < state.uploadedPassports.length && i < travelers.length; i++) {
     const passport = state.uploadedPassports[i];
-    const traveler = reservation.travelers[i];
+    const traveler = travelers[i];
     const residentNum = state.residentNumbers[i] || '';
 
     await prisma.gmTraveler.update({

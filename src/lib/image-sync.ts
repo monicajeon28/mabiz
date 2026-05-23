@@ -181,7 +181,7 @@ export async function syncDriveFolder(params: {
           const errorMsg = err instanceof Error ? err.message : String(err);
           failed.push({
             fileId: file.id!,
-            fileName: file.name,
+            fileName: file.name ?? undefined,
             error: errorMsg,
           });
 

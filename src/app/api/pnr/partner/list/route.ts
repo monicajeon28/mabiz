@@ -140,7 +140,7 @@ export async function GET(req: NextRequest) {
           mainUserId: { in: userIdArray },
         },
         include: {
-          user: {
+          mainUser: {
             select: {
               id: true,
               name: true,
@@ -172,17 +172,6 @@ export async function GET(req: NextRequest) {
               endDate: true,
             },
           },
-          travelers: {
-            select: {
-              id: true,
-              korName: true,
-              engSurname: true,
-              engGivenName: true,
-              nationality: true,
-              gender: true,
-              roomNumber: true,
-            },
-          },
         },
         orderBy: {
           id: 'desc',
@@ -190,6 +179,20 @@ export async function GET(req: NextRequest) {
         take: 100, // 최대 100개
       });
     }
+
+    const reservationIds = reservations.map((r: any) => r.id);
+    const allTravelers = reservationIds.length > 0
+      ? await prisma.gmTraveler.findMany({
+          where: { reservationId: { in: reservationIds } },
+          select: { id: true, reservationId: true, korName: true, engSurname: true, engGivenName: true, nationality: true, gender: true, roomNumber: true },
+        })
+      : [];
+    const travelersByReservation = new Map<number, typeof allTravelers>();
+    allTravelers.forEach((t) => {
+      const list = travelersByReservation.get(t.reservationId) ?? [];
+      list.push(t);
+      travelersByReservation.set(t.reservationId, list);
+    });
 
     // Customer 인터페이스 매핑 로직 (가이드 참고)
     const determineCustomerType = (customerSource: string | null, role: string | null): 'test' | 'cruise-guide' | 'mall' | 'prospect' | 'partner' | 'admin' | undefined => {
@@ -240,7 +243,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       reservations: reservations.map((r) => {
-        const user = r.user;
+        const user = r.mainUser;
         const lead = user ? leadMap.get(user.id) : null;
 
         // Customer 인터페이스 매핑
@@ -319,7 +322,7 @@ export async function GET(req: NextRequest) {
             },
           } : null,
           // 여행자 정보
-          travelers: r.travelers || [],
+          travelers: travelersByReservation.get(r.id) ?? [],
           // AffiliateSale 관계가 GmReservation에 없으므로 판매/결제 정보는 별도 조회 필요
           agent: null,
           manager: null,

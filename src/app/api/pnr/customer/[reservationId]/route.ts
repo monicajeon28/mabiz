@@ -38,14 +38,8 @@ export async function GET(
     const reservation = await prisma.gmReservation.findUnique({
       where: { id: reservationId },
       include: {
-        travelers: {
-          orderBy: [
-            { roomNumber: 'asc' },
-            { id: 'asc' },
-          ],
-        },
         trip: true,
-        user: {
+        mainUser: {
           select: {
             id: true,
             name: true,
@@ -62,6 +56,11 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    const reservationTravelers = await prisma.gmTraveler.findMany({
+      where: { reservationId },
+      orderBy: [{ roomNumber: 'asc' }, { id: 'asc' }],
+    });
 
     // ════════════════════════════════════════════════════════════
     // Step 2: 인증 상태 확인
@@ -85,31 +84,14 @@ export async function GET(
       const userPhone = await prisma.gmReservation.findUnique({
         where: { id: reservationId },
         select: {
-          user: {
+          mainUser: {
             select: { phone: true },
           },
         },
       });
 
       // phone이 정확히 일치하는지 확인
-      if (!userPhone?.user?.phone || userPhone.user.phone !== phone) {
-        // 감사 로그: 검증 실패
-        await prisma.auditLog
-          .create({
-            data: {
-              action: 'PNR_GET_VERIFICATION_FAILED',
-              resourceType: 'Reservation',
-              resourceId: reservationId.toString(),
-              userId: 'anonymous',
-              userRole: 'public',
-              organizationId: null,
-              status: 'FAILED',
-              ipAddress: req.headers.get('x-forwarded-for') || 'unknown',
-              timestamp: new Date(),
-            },
-          })
-          .catch(() => {}); // 로그 실패는 무시
-
+      if (!userPhone?.mainUser?.phone || userPhone.mainUser.phone !== phone) {
         return NextResponse.json(
           { ok: false, error: 'Phone verification failed' },
           { status: 401 }
@@ -147,8 +129,8 @@ export async function GET(
         passportStatus: reservation.passportStatus,
         cabinType: reservation.cabinType,
         trip: reservation.trip || null,
-        user: reservation.user,
-        travelers: reservation.travelers.map((t) => ({
+        mainUser: reservation.mainUser,
+        travelers: reservationTravelers.map((t) => ({
           id: t.id,
           roomNumber: t.roomNumber,
           korName: t.korName,
@@ -167,7 +149,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    logger.error('[PNR Verify] Unexpected error:', error);
+    logger.error('[PNR Verify] Unexpected error:', { error });
     return NextResponse.json(
       { ok: false, message: ERROR_MESSAGES.LOAD_FAILED },
       { status: 500 }

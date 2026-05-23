@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const suspension = await prisma.partnerSuspension.findUnique({
+    const suspension = await prisma.partnerSuspension.findFirst({
       where: { organizationId: ctx.organizationId },
       select: {
         suspensionStatus: true,
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       data: suspension,
     });
   } catch (err) {
-    logger.error('파트너 정지 상태 조회 오류:', err);
+    logger.error('파트너 정지 상태 조회 오류:', { err });
     return NextResponse.json(
       { ok: false, error: 'Internal server error' },
       { status: 500 }
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 정지 기록 조회
-    const suspension = await prisma.partnerSuspension.findUnique({
+    const suspension = await prisma.partnerSuspension.findFirst({
       where: { organizationId: ctx.organizationId },
     });
 
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
 
     // 이의 제기 업데이트
     await prisma.partnerSuspension.update({
-      where: { organizationId: ctx.organizationId },
+      where: { id: suspension.id },
       data: {
         suspensionStatus: 'APPEALING',
         appealedAt: new Date(),
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
       message: '이의가 접수되었습니다',
     });
   } catch (err) {
-    logger.error('파트너 이의 제기 오류:', err);
+    logger.error('파트너 이의 제기 오류:', { err });
     return NextResponse.json(
       { ok: false, error: 'Internal server error' },
       { status: 500 }

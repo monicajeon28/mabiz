@@ -57,12 +57,6 @@ export async function GET(req: NextRequest) {
             email: true,
           },
         },
-        admin: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
       },
     });
 
@@ -79,7 +73,7 @@ export async function GET(req: NextRequest) {
     const data = logs.map((log) => ({
       id: log.id,
       user: log.user,
-      admin: log.admin,
+      admin: log.adminId ? { id: log.adminId } : null,
       template: log.templateId ? (templateMap.get(log.templateId) ?? null) : null,
       messageBody: log.messageBody,
       messageChannel: log.messageChannel,

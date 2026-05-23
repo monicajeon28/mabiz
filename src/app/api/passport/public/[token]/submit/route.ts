@@ -211,7 +211,7 @@ export async function POST(
     return NextResponse.json({ ok: true, message: '여권 정보가 제출되었습니다.' });
   } catch (error) {
     const err = error as Record<string, unknown>;
-    logger.error('[Passport] POST /passport/:token/submit error:', err);
+    logger.error('[Passport] POST /passport/:token/submit error:', { err });
     return NextResponse.json({ ok: false, error: '제출 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

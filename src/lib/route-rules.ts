@@ -8,7 +8,7 @@
  * - Glob 패턴 매칭
  */
 
-import { AuthRole } from '@/src/types/auth-headers';
+import { AuthRole } from '@/types/auth-headers';
 
 /**
  * Route rule definition

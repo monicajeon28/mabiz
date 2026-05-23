@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic';
+﻿export const dynamic = 'force-dynamic';
 
 // 파트너용 여권 챗봇 플로우 조회/생성 API
 
@@ -175,7 +175,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     const err = error as Record<string, unknown>;
-    logger.error('[Partner ChatBot Passport Flow] Error:', err);
+    logger.error('[Partner ChatBot Passport Flow] Error:', { err });
     return NextResponse.json(
       {
         ok: false,

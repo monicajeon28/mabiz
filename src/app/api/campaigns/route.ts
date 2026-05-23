@@ -8,7 +8,6 @@ import {
   CampaignListQuerySchema,
   type CampaignCreateData,
 } from '@/schemas/campaign';
-import { safeParallel, getOrDefault } from '@/lib/error-handling';
 
 /**
  * 캠페인 객체 직렬화 헬퍼
@@ -76,35 +75,32 @@ export async function GET(req: Request) {
 
     // P0-BLOCK-3: Promise.allSettled로 병렬 처리 (cascade failure 제거)
     // 개수 조회와 목록 조회를 동시에 실행하되, 하나 실패해도 부분 성공 응답
-    const [countResult, listResult] = await safeParallel(
-      [
-        prisma.crmMarketingCampaign.count({ where }),
-        prisma.crmMarketingCampaign.findMany({
-          where,
-          select: {
-            id: true,
-            title: true,
-            status: true,
-            sendSms: true,
-            sendEmail: true,
-            sendAt: true,
-            repeatRule: true,
-            sentCount: true,
-            totalCount: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-          orderBy: { createdAt: 'desc' },
-          take: limit,
-          skip: offset,
-        }),
-      ],
-      { timeout: 5000, logging: true }
-    );
+    const [countResult, listResult] = await Promise.allSettled([
+      prisma.crmMarketingCampaign.count({ where }),
+      prisma.crmMarketingCampaign.findMany({
+        where,
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          sendSms: true,
+          sendEmail: true,
+          sendAt: true,
+          repeatRule: true,
+          sentCount: true,
+          totalCount: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+    ]);
 
     // 결과 처리: 부분 실패 시에도 기본값 반환
-    const total = getOrDefault(countResult, 0);
-    const campaigns = getOrDefault(listResult, []);
+    const total = countResult.status === 'fulfilled' ? countResult.value : 0;
+    const campaigns = listResult.status === 'fulfilled' ? listResult.value : [];
 
     const result = campaigns.map(serializeCampaign);
 

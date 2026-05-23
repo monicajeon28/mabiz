@@ -10,7 +10,8 @@
  */
 
 import { logger } from "@/lib/logger";
-import type { SlackNotificationPayload, VerificationResult } from "@/types/notification";
+import type { SlackNotificationPayload } from "@/types/notification";
+import type { VerificationResult } from "@/types/verification";
 
 interface SlackMessage {
   type:

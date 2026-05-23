@@ -19,7 +19,7 @@ import { getAllObjectionIds, getObjectionData } from "@/lib/objections/validatio
 import objectionsData from "@/../../TRACK_A_OBJECTIONS.json";
 import { Contact, CallLog, Memo } from "@/types/contact";
 import { CallForm } from "@/types/call-form";
-import { ObjectionData } from "@/types/objection";
+import type { ObjectionData } from "@/lib/objections/validation";
 import { SendDbResponse } from "@/types/api";
 
 type Group = { id: string; name: string; funnelId?: string | null };
@@ -155,6 +155,10 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   // [S-002] CSRF 토큰 (DB 전달 보안)
   const [csrfToken, setCsrfToken] = useState<string>("");
 
+  // 이 고객 Drive 백업
+  const [backingContact, setBackingContact] = useState(false);
+  const [contactBackupMsg, setContactBackupMsg] = useState("");
+
   // 콜 기록 삭제
   const deleteCallLog = async (logId: string) => {
     if (!confirm("이 콜 기록을 삭제할까요?")) return;
@@ -267,7 +271,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         // Contact 필수, Funnels/Groups는 선택적
         const [c, g, f] = results;
 
-        if (c.status === 'fulfilled') {
+        if (c.status === 'fulfilled' && c.value instanceof Response) {
           c.value.json().then(contactData => {
             if (contactData.ok) {
               setContact(contactData.contact);
@@ -283,12 +287,12 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           }).catch(err => {
             logger.error('[contactData.json failed]', { err });
           });
-        } else {
+        } else if (c.status === 'rejected') {
           logger.error('[fetchContact failed]', { err: c.reason });
         }
 
         // Groups는 실패해도 UI 계속 표시
-        if (g.status === 'fulfilled') {
+        if (g.status === 'fulfilled' && g.value instanceof Response) {
           g.value.json().then(groupsData => {
             if (groupsData.ok) setAllGroups(groupsData.groups);
           }).catch(err => {
@@ -297,7 +301,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         }
 
         // Funnels도 실패해도 UI 계속 표시
-        if (f.status === 'fulfilled') {
+        if (f.status === 'fulfilled' && f.value instanceof Response) {
           f.value.json().then(funnelsData => {
             if (funnelsData.ok) setFunnels(funnelsData.funnels ?? []);
           }).catch(err => {
@@ -535,10 +539,6 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       setSendDbResult(`❌ ${data.message ?? "전달 실패"}`);
     }
   };
-
-  // 이 고객 Drive 백업
-  const [backingContact, setBackingContact] = useState(false);
-  const [contactBackupMsg, setContactBackupMsg] = useState("");
 
   const handleContactBackup = async () => {
     setBackingContact(true);

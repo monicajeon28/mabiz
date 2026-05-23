@@ -160,8 +160,8 @@ export async function provisionAffiliateAccounts(
       data: {
         managerId: managerProfile.id,
         code: managerLinkCode,
-        url: `${baseUrl}?ref=${managerLinkCode}`,
         status: 'ACTIVE',
+        issuedById: managerGmUser.id,
       },
     });
 
@@ -170,8 +170,8 @@ export async function provisionAffiliateAccounts(
       data: {
         agentId: agentProfile.id,
         code: agentLinkCode,
-        url: `${baseUrl}?ref=${agentLinkCode}`,
         status: 'ACTIVE',
+        issuedById: agentGmUser.id,
       },
     });
 
@@ -222,18 +222,20 @@ export async function provisionAffiliateAccounts(
     });
 
     return {
+      managerPartnerId,
+      agentPartnerId,
       manager: {
         gmUserId: managerGmUser.id,
         crmMemberId: crmMember.id,
         affiliateCode: managerCode,
         linkCode: managerLinkCode,
-        linkUrl: managerLink.url,
+        linkUrl: `${baseUrl}?ref=${managerLinkCode}`,
       },
       agent: {
         gmUserId: agentGmUser.id,
         affiliateCode: agentCode,
         linkCode: agentLinkCode,
-        linkUrl: agentLink.url,
+        linkUrl: `${baseUrl}?ref=${agentLinkCode}`,
       },
     };
   });
@@ -259,7 +261,7 @@ export async function provisionAffiliateAccounts(
             "isLocked" = $8, "updatedAt" = NOW()
         `, [
           result.manager.gmUserId,
-          managerPartnerId,
+          result.managerPartnerId,
           passwordHash,
           `${contractorName} 대리점장`,
           'affiliate_manager',
@@ -269,7 +271,7 @@ export async function provisionAffiliateAccounts(
         ]);
         logger.log('[AFFILIATE-PROVISION] ✅ Manager Supabase 동기화 성공', {
           gmUserId: result.manager.gmUserId,
-          partnerId: managerPartnerId,
+          partnerId: result.managerPartnerId,
         });
       } catch (managerErr) {
         const errMsg = managerErr instanceof Error ? managerErr.message : String(managerErr);
@@ -279,7 +281,7 @@ export async function provisionAffiliateAccounts(
             operationType: 'INSERT_OR_UPDATE',
             tableName: 'User',
             recordId: String(result.manager.gmUserId),
-            data: { gmUserId: result.manager.gmUserId, partnerId: managerPartnerId, name: `${contractorName} 대리점장`, passwordHash },
+            data: { gmUserId: result.manager.gmUserId, partnerId: result.managerPartnerId, name: `${contractorName} 대리점장`, passwordHash },
             error: errMsg,
             nextRetryAt: new Date(Date.now() + 5 * 60 * 1000),
             status: 'PENDING',
@@ -304,7 +306,7 @@ export async function provisionAffiliateAccounts(
             "isLocked" = $8, "updatedAt" = NOW()
         `, [
           result.agent.gmUserId,
-          agentPartnerId,
+          result.agentPartnerId,
           passwordHash,
           `${contractorName} 판매원`,
           'affiliate_agent',
@@ -314,13 +316,13 @@ export async function provisionAffiliateAccounts(
         ]);
         logger.log('[AFFILIATE-PROVISION] ✅ Agent Supabase 동기화 성공', {
           gmUserId: result.agent.gmUserId,
-          partnerId: agentPartnerId,
+          partnerId: result.agentPartnerId,
         });
       } catch (agentErr) {
         const errMsg = agentErr instanceof Error ? agentErr.message : String(agentErr);
         const dlqData = {
           agentGmUserId: result.agent.gmUserId,
-          partnerId: agentPartnerId,
+          partnerId: result.agentPartnerId,
           name: `${contractorName} 판매원`,
           error: errMsg,
         };
@@ -369,7 +371,7 @@ async function generateUniquePartnerId(
 ): Promise<string> {
   for (let i = 1; i <= 9999; i++) {
     const partnerId = `${prefix}${i}`;
-    const exists = await tx.gmUser.findUnique({
+    const exists = await tx.gmUser.findFirst({
       where: { phone: partnerId },
     });
     if (!exists) return partnerId;

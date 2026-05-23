@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic';
+﻿export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
@@ -177,7 +177,7 @@ async function recordManualLog(params: {
     });
   } catch (err) {
     const error = err as Record<string, unknown>;
-    logger.error('[AdminPassportManual] Failed to insert log:', error);
+    logger.error('[AdminPassportManual] Failed to insert log:', { error });
   }
 }
 
@@ -273,7 +273,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const error = err as Record<string, unknown>;
-    logger.error('[AdminPassportManual] POST error:', error);
+    logger.error('[AdminPassportManual] POST error:', { error });
     logger.error('[AdminPassportManual] Error details:', {
       message: error instanceof Error ? (error as Error).message : String(error),
       stack: error instanceof Error ? (error as Error).stack : undefined,

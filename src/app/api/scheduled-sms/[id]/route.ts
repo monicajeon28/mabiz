@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId, requireOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 // DELETE /api/scheduled-sms/[id] — 예약 SMS 취소

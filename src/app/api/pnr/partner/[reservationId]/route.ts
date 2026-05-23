@@ -109,12 +109,6 @@ export async function GET(
     const reservation = await prisma.gmReservation.findUnique({
       where: { id: reservationId },
       include: {
-        travelers: {
-          orderBy: [
-            { roomNumber: 'asc' },
-            { id: 'asc' },
-          ],
-        },
         trip: {
           select: {
             id: true,
@@ -124,7 +118,7 @@ export async function GET(
             endDate: true,
           },
         },
-        user: {
+        mainUser: {
           select: {
             id: true,
             name: true,
@@ -141,6 +135,11 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    const reservationTravelers = await prisma.gmTraveler.findMany({
+      where: { reservationId },
+      orderBy: [{ roomNumber: 'asc' }, { id: 'asc' }],
+    });
 
     // 권한 확인: 예약이 관리하는 고객의 예약인지 확인
     if (!managedUserIds.has(reservation.mainUserId)) {
@@ -182,8 +181,8 @@ export async function GET(
           endDate: reservation.trip.endDate ? reservation.trip.endDate.toISOString() : null,
           product: product,
         } : null,
-        user: reservation.user,
-        travelers: reservation.travelers.map((t) => ({
+        mainUser: reservation.mainUser,
+        travelers: reservationTravelers.map((t) => ({
           id: t.id,
           roomNumber: t.roomNumber,
           korName: t.korName,

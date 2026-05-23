@@ -55,6 +55,14 @@ export async function handleCabinInventoryRefund(
       };
     }
 
+    if (!reservation.cabinType) {
+      logger.warn('[CabinRefund] CabinType 미발견', { userId });
+      return {
+        success: false,
+        reason: 'CabinType를 찾을 수 없음',
+      };
+    }
+
     // CabinInventory 조회 (organizationId 검증 포함)
     const cabin = await tx.cabinInventory.findUnique({
       where: {

@@ -45,14 +45,15 @@ export async function POST(_req: Request, { params }: Params) {
     // 원본 페이지 조회 (다른 조직 소유)
     const original = await prisma.crmLandingPage.findUnique({
       where: { id },
-      include: {
-        images: {
-          orderBy: { sortOrder: "asc" },
-          select: { imageAssetId: true, sortOrder: true, altText: true },
-        },
-      },
     });
     if (!original) return NextResponse.json({ ok: false, message: "원본 페이지를 찾을 수 없습니다." }, { status: 404 });
+
+    // 이미지 별도 조회 (CrmLandingPageImage는 별도 모델)
+    const originalImages = await prisma.crmLandingPageImage.findMany({
+      where: { landingPageId: id },
+      orderBy: { sortOrder: "asc" },
+      select: { imageAssetId: true, sortOrder: true, altText: true },
+    });
 
     // slug 중복 방지
     const baseSlug = `${original.slug}-copy`;
@@ -82,19 +83,22 @@ export async function POST(_req: Request, { params }: Params) {
         infoCollection: original.infoCollection,
         formConfig: original.formConfig ?? undefined,
         viewCount: 0,
-        // 이미지도 연결 (같은 Drive 파일 참조)
-        ...(original.images.length > 0 ? {
-          images: {
-            create: original.images.map((img) => ({
-              imageAssetId: img.imageAssetId,
-              sortOrder: img.sortOrder,
-              altText: img.altText,
-            })),
-          },
-        } : {}),
       },
       select: { id: true, title: true, slug: true, isActive: true },
     });
+
+    // 이미지 복사 (별도 모델이므로 createMany 사용)
+    if (originalImages.length > 0) {
+      await prisma.crmLandingPageImage.createMany({
+        data: originalImages.map((img) => ({
+          landingPageId: cloned.id,
+          imageAssetId: img.imageAssetId,
+          sortOrder: img.sortOrder,
+          altText: img.altText ?? null,
+        })),
+        skipDuplicates: true,
+      });
+    }
 
     logger.log("[POST /api/landing-pages/[id]/clone-shared]", {
       sourceId: id, newId: cloned.id, orgId,

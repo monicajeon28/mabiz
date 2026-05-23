@@ -31,7 +31,6 @@ export async function POST(req: NextRequest) {
     // 예약 존재 확인
     const reservation = await prisma.gmReservation.findUnique({
       where: { id: reservationId },
-      include: { travelers: true },
     });
 
     if (!reservation) {
@@ -136,7 +135,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     const err = error as Record<string, unknown>;
-    logger.error('[Passport Submit] Error:', err);
+    logger.error('[Passport Submit] Error:', { err });
     return NextResponse.json(
       {
         ok: false,

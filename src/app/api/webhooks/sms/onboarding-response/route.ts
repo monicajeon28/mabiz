@@ -224,7 +224,6 @@ export async function POST(req: NextRequest) {
               msgType: 'SMS',
               organizationId,
               contactId: contact.id,
-              channel: 'ONBOARDING',
             });
           }
         }
@@ -282,7 +281,6 @@ export async function POST(req: NextRequest) {
           msgType: 'SMS',
           organizationId,
           contactId: contact.id,
-          channel: 'ONBOARDING',
         });
       }
 

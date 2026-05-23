@@ -21,17 +21,6 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
       },
       include: {
         group: { select: { id: true, name: true } },
-        messages: {
-          select: {
-            id: true,
-            recipientId: true,
-            emailSent: true,
-            smsSent: true,
-            emailOpenedAt: true,
-            linkClickedAt: true,
-            registeredAt: true,
-          },
-        },
       },
     });
 
