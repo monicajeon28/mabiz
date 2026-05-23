@@ -513,7 +513,7 @@ export async function verifyExecutionLogConsistency(): Promise<VerificationResul
 
         // Slack 긴급 알림만 (롤백 중지)
         await notifySlack({
-          type: "CRITICAL_ALERT",
+          type: "CRITICAL_ROLLBACK",
           message: `⚠️ CRITICAL: Rollback limit reached (${rollbackCheck.rollbackCount}/3). Manual intervention required.`,
           details: {
             consistency: rowConsistency.consistency,
@@ -578,13 +578,7 @@ export async function cronVerifyExecutionLog() {
     await notifySlack({
       type: "DAILY_VERIFICATION",
       message: `일일 검증 완료 (${result.isHealthy ? "정상" : "경고"})`,
-      details: {
-        timestamp: result.timestamp,
-        isHealthy: result.isHealthy,
-        consistency: result.rowConsistency.consistency,
-        channelSyncRate: result.channelDistribution.syncRate,
-        duration: result.duration,
-      },
+      details: result,
     });
 
     logger.info("[Cron] 자동 검증 크론잡 완료", { isHealthy: result.isHealthy });

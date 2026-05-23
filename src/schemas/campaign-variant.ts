@@ -5,9 +5,7 @@ import { z } from 'zod';
  * A 또는 B 변형만 허용
  */
 export const CreateVariantSchema = z.object({
-  variantKey: z.enum(['A', 'B'], {
-    errorMap: () => ({ message: 'variantKey는 A 또는 B여야 합니다' }),
-  }),
+  variantKey: z.enum(['A', 'B']).describe('variantKey는 A 또는 B여야 합니다'),
   smsBody: z
     .string()
     .max(90, 'SMS는 90자 이하여야 합니다')

@@ -2,7 +2,7 @@
  * Slack 알림 타입 정의
  */
 
-import type { VerificationResult } from "./verification";
+export type { VerificationResult } from "./verification";
 
 export interface SlackAttachment {
   fallback: string;

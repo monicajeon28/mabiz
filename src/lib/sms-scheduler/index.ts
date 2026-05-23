@@ -3,7 +3,7 @@
  * 렌즈별 SMS 시퀀스를 자동으로 Day 0-3에 정확한 시간에 발송 스케줄링
  */
 
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import {
   LensType,
@@ -97,7 +97,7 @@ export async function scheduleContactLensSequence(
       contactId,
       name: contact.name,
       phone: contact.phone,
-      age: contact.age,
+      age: contact.age === null ? undefined : contact.age,
       lensType,
       ...contactData,
     };
@@ -246,7 +246,7 @@ export async function rescheduleContactLensSequence(
       },
       data: {
         status: 'SKIPPED',
-        failureReason: 'CONTACT_OPT_OUT', // 렌즈 변경으로 인한 취소
+        failureReason: 'OPT_OUT',
       },
     });
 
@@ -260,7 +260,7 @@ export async function rescheduleContactLensSequence(
     logger.error(`[SMS Scheduler] 렌즈 변경 스케줄 실패: ${contactId}`, { error });
     return {
       contactId,
-      newLensType,
+      lensType: newLensType,
       status: 'FAILED',
       reason: `렌즈 변경 실패: ${error instanceof Error ? error.message : 'Unknown error'}`,
       scheduledJobs: [],
@@ -291,7 +291,7 @@ export async function cancelLensSequenceSchedule(
       },
       data: {
         status: 'SKIPPED',
-        failureReason: 'CONTACT_OPT_OUT',
+        failureReason: 'OPT_OUT',
         metadata: {
           skipReason: reason,
         },
@@ -359,13 +359,14 @@ export async function processPendingSmsSchedules(): Promise<{
         } else {
           // 재시도 스케줄
           const nextRetryAt = new Date(now.getTime() + 5 * 60 * 1000); // 5분 후
+          const mappedReason = result.failureReason ? mapSmsToSendingFailureReason(result.failureReason) : undefined;
           await prisma.sendingHistory.update({
             where: { id: msg.id },
             data: {
               status: 'RETRY_SCHEDULED',
               retryCount: msg.retryCount + 1,
               nextRetryAt,
-              failureReason: result.failureReason,
+              failureReason: mappedReason,
             },
           });
           failed++;
@@ -409,4 +410,28 @@ async function sendSmsViaAligo(message: any): Promise<{
     success: true,
     messageId: `msg_${Date.now()}`,
   };
+}
+
+function mapSmsToSendingFailureReason(smsReason: SmsFailureReason): import('@prisma/client').SendingFailureReason {
+  switch (smsReason) {
+    case SmsFailureReason.INVALID_PHONE:
+      return 'INVALID_PHONE';
+    case SmsFailureReason.OPT_OUT:
+    case SmsFailureReason.CONTACT_OPT_OUT:
+      return 'OPT_OUT';
+    case SmsFailureReason.QUOTA_EXCEEDED:
+      return 'QUOTA_EXCEEDED';
+    case SmsFailureReason.SYSTEM_ERROR:
+    case SmsFailureReason.CONTACT_DELETED:
+    case SmsFailureReason.MESSAGE_BUILD_FAILED:
+    case SmsFailureReason.TEMPLATE_NOT_FOUND:
+    case SmsFailureReason.INVALID_VARIABLES:
+      return 'SYSTEM_ERROR';
+    case SmsFailureReason.PROVIDER_ERROR:
+      return 'PROVIDER_ERROR';
+    case SmsFailureReason.NETWORK_ERROR:
+      return 'NETWORK_ERROR';
+    default:
+      return 'SYSTEM_ERROR';
+  }
 }

@@ -150,7 +150,7 @@ export async function sendToContactByTemplate(
       sendResult = await sendEmailInternal({
         contact,
         messageBody,
-        messageSubject: DEFAULT_SUBJECT,
+        messageSubject: DEFAULT_SUBJECT || "안내드립니다",
         organizationId,
         contactId,
       });
@@ -378,7 +378,7 @@ async function sendEmailInternal(params: {
     if (emailResult.result_code === 1) {
       return {
         status: "SENT",
-        messageId: emailResult.messageId || undefined,
+        messageId: undefined,
       };
     } else {
       return {
