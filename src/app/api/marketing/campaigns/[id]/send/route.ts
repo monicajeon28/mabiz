@@ -68,13 +68,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       );
     }
 
-    // 캠페인 상태를 SENDING으로 업데이트
-    await prisma.crmMarketingCampaign.update({
-      where: { id },
-      data: { status: 'SENDING' },
-    });
-
     // 배경 작업으로 발송 시작 (비동기 처리)
+    // 상태 업데이트는 sendCampaignAsync 내부에서 관리하여 레이스 컨디션 방지
     sendCampaignAsync(id, campaign, members, ctx.organizationId!).catch((err) => {
       logger.error('[sendCampaignAsync]', { err, campaignId: id });
     });
@@ -103,6 +98,12 @@ async function sendCampaignAsync(
   organizationId: string
 ) {
   try {
+    // 상태를 SENDING으로 업데이트 (발송 시작)
+    await prisma.crmMarketingCampaign.update({
+      where: { id: campaignId },
+      data: { status: 'SENDING' },
+    });
+
     const BATCH_SIZE = 100;
     const CONCURRENT_BATCHES = 3;
 
@@ -119,36 +120,17 @@ async function sendCampaignAsync(
     }
 
     // 발송 완료 후 통계 업데이트
-    const messages = await prisma.crmMarketingMessage.findMany({
-      where: { campaignId },
-      select: {
-        emailSent: true,
-        smsSent: true,
-        emailOpenedAt: true,
-        linkClickedAt: true,
-        registeredAt: true,
-      },
-    });
-
-    const sentCount = messages.filter((m) => m.emailSent || m.smsSent).length;
-    const openedCount = messages.filter((m) => m.emailOpenedAt).length;
-    const clickedCount = messages.filter((m) => m.linkClickedAt).length;
-    const registeredCount = messages.filter((m) => m.registeredAt).length;
-
     await prisma.crmMarketingCampaign.update({
       where: { id: campaignId },
       data: {
         status: 'SENT',
-        sentCount,
-        openedCount,
-        clickedCount,
-        registeredCount,
+        sentCount: members.length,
       },
     });
 
     logger.info('[sendCampaignAsync] Campaign sent successfully', {
       campaignId,
-      sentCount,
+      sentCount: members.length,
       total: members.length,
     });
   } catch (err) {
@@ -185,35 +167,6 @@ async function processRecipient(
 ) {
   try {
     const contact = member.contact;
-
-    // 메시지 레코드 생성 또는 업데이트
-    let message = await prisma.crmMarketingMessage.findUnique({
-      where: {
-        campaignId_recipientId: {
-          campaignId,
-          recipientId: contact.id,
-        },
-      },
-    });
-
-    if (!message) {
-      message = await prisma.crmMarketingMessage.create({
-        data: {
-          campaignId,
-          recipientId: contact.id,
-          emailSent: campaign.sendEmail ? true : false,
-          smsSent: campaign.sendSms ? true : false,
-        },
-      });
-    } else {
-      await prisma.crmMarketingMessage.update({
-        where: { id: message.id },
-        data: {
-          emailSent: campaign.sendEmail ? true : false,
-          smsSent: campaign.sendSms ? true : false,
-        },
-      });
-    }
 
     // TODO: 실제 이메일/SMS 발송 로직
     // if (campaign.sendEmail && contact.email) {
