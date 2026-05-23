@@ -37,6 +37,7 @@ type InventoryRow = {
   tripCode: string;
   cabinType: string;
   total: bigint;
+  status: string; // ★ AVAILABLE, SOLD_OUT 등
 };
 
 // Reservation: 실제 확정된 예약 건수 (여권+PNR 완료 기준)
@@ -46,8 +47,20 @@ type ReservationCountRow = {
   count: bigint;
 };
 
-type CabinEntry = { total: number; booked: number; remaining: number };
+type CabinEntry = { total: number; booked: number; remaining: number; status: string };
 type CabinSummary = Record<string, CabinEntry>;
+
+const CABIN_STATUS = {
+  AVAILABLE: 'AVAILABLE',
+  SOLD_OUT: 'SOLD_OUT',
+} as const;
+
+type CabinStatus = typeof CABIN_STATUS[keyof typeof CABIN_STATUS];
+
+function normalizeStatus(raw: string | null): CabinStatus {
+  const normalized = (raw ?? '').toUpperCase().trim();
+  return normalized === 'SOLD_OUT' ? 'SOLD_OUT' : 'AVAILABLE';
+}
 
 /**
  * 객실타입 정규화: 한국어/영어 혼용 → 통일된 키
@@ -136,7 +149,8 @@ export async function GET(req: NextRequest) {
           ctx.organizationId
             ? prisma.$queryRaw<InventoryRow[]>(Prisma.sql`
                 SELECT "tripCode", "cabinType",
-                       SUM("totalCount")::bigint AS total
+                       SUM("totalCount")::bigint AS total,
+                       MAX("status") AS status
                 FROM "CabinInventory"
                 WHERE "tripCode" IN (${Prisma.join(codes)})
                   AND "organizationId" = ${ctx.organizationId}
@@ -144,7 +158,8 @@ export async function GET(req: NextRequest) {
               `)
             : prisma.$queryRaw<InventoryRow[]>(Prisma.sql`
                 SELECT "tripCode", "cabinType",
-                       SUM("totalCount")::bigint AS total
+                       SUM("totalCount")::bigint AS total,
+                       MAX("status") AS status
                 FROM "CabinInventory"
                 WHERE "tripCode" IN (${Prisma.join(codes)})
                 GROUP BY "tripCode", "cabinType"
@@ -167,14 +182,18 @@ export async function GET(req: NextRequest) {
     const tripMap = new Map<string, TripRow>();
     for (const t of tripRows) tripMap.set(t.productCode, t);
 
-    // CabinInventory: productCode → { normalizedCabinType → totalCount }
-    const inventoryTotalMap = new Map<string, Map<string, number>>();
+    // CabinInventory: productCode → { normalizedCabinType → { total, status } }
+    const inventoryTotalMap = new Map<string, Map<string, { total: number; status: string }>>();
     for (const inv of inventoryRows) {
       if (!inv.tripCode) continue;
       if (!inventoryTotalMap.has(inv.tripCode)) inventoryTotalMap.set(inv.tripCode, new Map());
       const key = normalizeCabinType(inv.cabinType);
       const cur = inventoryTotalMap.get(inv.tripCode)!;
-      cur.set(key, (cur.get(key) ?? 0) + Number(inv.total));
+      const existing = cur.get(key);
+      cur.set(key, {
+        total: (existing?.total ?? 0) + Number(inv.total),
+        status: normalizeStatus(inv.status), // MAX("status")에서 반환된 값, null-safe normalization
+      });
     }
 
     // Reservation: productCode → { normalizedCabinType → bookedCount }
@@ -218,9 +237,14 @@ export async function GET(req: NextRequest) {
       let cabinSummary: CabinSummary | null = null;
       if (invTotals && invTotals.size > 0) {
         cabinSummary = {};
-        for (const [cabinType, total] of invTotals.entries()) {
+        for (const [cabinType, data] of invTotals.entries()) {
           const booked = rvBookings?.get(cabinType) ?? 0;
-          cabinSummary[cabinType] = { total, booked, remaining: Math.max(0, total - booked) };
+          cabinSummary[cabinType] = {
+            total: data.total,
+            booked,
+            remaining: Math.max(0, data.total - booked),
+            status: data.status, // ★ CabinInventory.status 직접 전달
+          };
         }
       }
 
