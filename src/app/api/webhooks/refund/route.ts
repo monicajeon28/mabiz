@@ -196,7 +196,12 @@ export async function POST(req: NextRequest) {
 
       // ★ P2: 트랜잭션 후 알림 생성
       if (refundNotificationData) {
-        createRefundNotifications(refundNotificationData).catch(() => {});
+        createRefundNotifications(refundNotificationData).catch((err) => {
+          logger.warn('[RefundWebhook] 환불 알림 생성 실패', {
+            orderId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
       }
 
       // eventId 처리 완료 기록 (트랜잭션 안에서 — TOCTOU 방지)

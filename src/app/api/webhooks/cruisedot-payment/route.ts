@@ -180,7 +180,12 @@ export async function POST(req: NextRequest) {
           refundAmount: refundAmount ?? affiliateSale.saleAmount,
           refundReason: reason || '환불 요청',
           type: 'full_refund',
-        }).catch(() => {});
+        }).catch((err) => {
+          logger.warn('[CruisedotWebhook] 환불 알림 생성 실패', {
+            bookingRef,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
 
         logger.log('[CruisedotWebhook] AffiliateSale 수당 취소', {
           affiliateSaleId: affiliateSale.id,
