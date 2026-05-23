@@ -17,7 +17,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-type CabinEntry = { total: number; booked: number; remaining: number };
+type CabinEntry = { total: number; booked: number; remaining: number; status?: string };
 type CabinSummary = Record<string, CabinEntry>;
 
 type RefundSlot = { daysBeforeDep: number; penaltyRate: number; label?: string };
@@ -156,12 +156,15 @@ function CabinSummaryCell({ summary, productCode, onRegister }: {
   return (
     <div className="space-y-0.5 min-w-[110px] min-h-[100px]">
       {all.map(({ key, label, entry }) => {
-        const isSoldOut = entry.remaining <= 0;
+        // ★ status 필드 우선, 없으면 remaining 기반 판단 (하위호환)
+        const isSoldOut = entry.status === 'SOLD_OUT' || entry.remaining <= 0;
         return (
           <div key={key} className="flex items-center gap-1.5 text-xs">
             <span className="text-gray-500 w-[40px] shrink-0 font-medium">{label}</span>
             {isSoldOut ? (
-              <span className="font-bold text-red-600">마감({entry.total})</span>
+              <span className="font-bold text-red-600">
+                {entry.status === 'SOLD_OUT' ? '솔드아웃' : '마감'}({entry.total})
+              </span>
             ) : (
               <span className="tabular-nums">
                 <span className="font-bold text-red-500">{entry.booked}</span>
