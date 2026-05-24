@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-05-24 22:22:35",
+  "files": {
+    "migrations": {
+      "size": "40.62 KB",
+      "folderId": "1YEsNRV2MQT5nSjtMniVcEVsECUeCgLBz",
+      "base64Size": "54.16 KB",
+      "status": "Google Drive 업로드 준비",
+      "name": "prisma_migrations_backup_2026-05-24_221248.zip",
+      "uploadTarget": "mabiz-crm-backups"
+    },
+    "schema": {
+      "size": "169.10 KB",
+      "gitTracked": true,
+      "location": "D:\\mabiz-crm\\backups\\",
+      "lines": 4938,
+      "status": "로컬 저장 완료",
+      "name": "schema_backup_2026-05-24_221248.prisma"
+    }
+  },
+  "backupLocations": {
+    "googleDrive": "mabiz-crm-backups 폴더",
+    "local": "D:\\mabiz-crm\\backups\\ (6개 파일, 250 KB)",
+    "git": "prisma/migrations 폴더에 추적 중",
+    "neon": "자동 백업 활성화"
+  }
+}

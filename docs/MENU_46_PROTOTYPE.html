@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Menu #46: 설정 페이지 프로토타입</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .container {
+      display: flex;
+      min-height: 100vh;
+      background: white;
+    }
+
+    /* 좌측 네비게이션 */
+    .sidebar {
+      width: 280px;
+      background: #f9fafb;
+      border-right: 1px solid #e5e7eb;
+      padding: 24px 0;
+      position: fixed;
+      left: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .sidebar-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .sidebar-title {
+      padding: 12px 24px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .sidebar-item {
+      padding: 12px 24px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-left: 3px solid transparent;
+      color: #6b7280;
+    }
+
+    .sidebar-item:hover {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    .sidebar-item.active {
+      background: #efe5ff;
+      border-left-color: #7c3aed;
+      color: #7c3aed;
+      font-weight: 600;
+    }
+
+    /* 메인 콘텐츠 */
+    .main {
+      margin-left: 280px;
+      flex: 1;
+      padding: 40px 60px;
+      max-width: 1200px;
+      width: 100%;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 40px;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 24px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    /* 섹션 */
+    .section {
+      display: none;
+    }
+
+    .section.active {
+      display: block;
+    }
+
+    .section-content {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 32px;
+      gap: 32px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .form-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .form-input, .form-select, .form-textarea {
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      outline: none;
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+    }
+
+    .form-hint {
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    .profile-avatar {
+      width: 120px;
+      height: 120px;
+      border: 2px dashed #d1d5db;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      background: #f9fafb;
+      transition: all 0.2s;
+    }
+
+    .profile-avatar:hover {
+      border-color: #7c3aed;
+      background: #f3f4f6;
+    }
+
+    .profile-avatar-text {
+      font-size: 12px;
+      color: #9ca3af;
+      text-align: center;
+    }
+
+    /* 테이블 */
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+
+    .table th {
+      background: #f9fafb;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 12px;
+      border-bottom: 1px solid #e5e7eb;
+      color: #6b7280;
+    }
+
+    .table td {
+      padding: 16px 12px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .table tr:hover {
+      background: #fafbfc;
+    }
+
+    /* 체크박스 */
+    .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .checkbox-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .checkbox-input {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      margin-top: 2px;
+    }
+
+    .checkbox-label {
+      flex: 1;
+    }
+
+    .checkbox-label-title {
+      font-weight: 600;
+      color: #111827;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .checkbox-label-desc {
+      font-size: 12px;
+      color: #6b7280;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .checkbox-label-effect {
+      font-size: 12px;
+      color: #059669;
+      font-weight: 500;
+    }
+
+    /* 토글 */
+    .toggle-switch {
+      width: 50px;
+      height: 28px;
+      background: #d1d5db;
+      border-radius: 14px;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .toggle-switch.active {
+      background: #7c3aed;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      background: white;
+      border-radius: 50%;
+      top: 2px;
+      left: 2px;
+      transition: all 0.2s;
+    }
+
+    .toggle-switch.active::after {
+      left: 24px;
+    }
+
+    /* 버튼 */
+    .button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .button.primary {
+      background: #7c3aed;
+      color: white;
+    }
+
+    .button.primary:hover {
+      background: #6d28d9;
+    }
+
+    .button.secondary {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    .button.secondary:hover {
+      background: #e5e7eb;
+    }
+
+    .button.danger {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    .button.danger:hover {
+      background: #fecaca;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    /* 카드 */
+    .card {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+
+    .card-title {
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+
+    .card-desc {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 12px;
+    }
+
+    /* 알림 */
+    .alert {
+      background: #fef3c7;
+      border: 1px solid #fcd34d;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .alert.danger {
+      background: #fee2e2;
+      border-color: #fecaca;
+    }
+
+    .alert-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .alert-content {
+      flex: 1;
+    }
+
+    .alert-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #111827;
+    }
+
+    .alert-desc {
+      font-size: 14px;
+      color: #6b7280;
+    }
+
+    /* 반응형 */
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        border-right: none;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        gap: 16px;
+        padding: 12px;
+        overflow-x: auto;
+        overflow-y: visible;
+      }
+
+      .sidebar-item {
+        white-space: nowrap;
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        padding: 8px 16px;
+      }
+
+      .sidebar-item.active {
+        border-left: none;
+        border-bottom-color: #7c3aed;
+      }
+
+      .main {
+        margin-left: 0;
+        padding: 20px 16px;
+      }
+
+      .table {
+        font-size: 12px;
+      }
+
+      .table th, .table td {
+        padding: 8px 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 좌측 네비게이션 -->
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title">설정</div>
+        <div class="sidebar-item active" onclick="showSection('profile')">프로필</div>
+        <div class="sidebar-item" onclick="showSection('team')">팀</div>
+        <div class="sidebar-item" onclick="showSection('notifications')">알림</div>
+        <div class="sidebar-item" onclick="showSection('integrations')">통합</div>
+        <div class="sidebar-item" onclick="showSection('data')">데이터</div>
+        <div class="sidebar-item" onclick="showSection('psychology')">심리학</div>
+      </div>
+    </div>
+
+    <!-- 메인 콘텐츠 -->
+    <div class="main">
+      <!-- 프로필 섹션 -->
+      <div id="section-profile" class="section active">
+        <div class="header">
+          <h1>프로필</h1>
+        </div>
+        <div class="section-content">
+          <!-- 프로필 사진 -->
+          <div class="form-group">
+            <label class="form-label">프로필 사진</label>
+            <div class="profile-avatar">
+              <div class="profile-avatar-text">
+                Drag image<br>or click
+              </div>
+            </div>
+            <span class="form-hint">JPG, PNG (최대 5MB)</span>
+          </div>
+
+          <!-- 이름 -->
+          <div class="form-group">
+            <label class="form-label">이름 *</label>
+            <input type="text" class="form-input" value="박준호" placeholder="실명을 입력해주세요">
+          </div>
+
+          <!-- 이메일 -->
+          <div class="form-group">
+            <label class="form-label">이메일</label>
+            <input type="email" class="form-input" value="jh@mabiz.io" disabled>
+            <span class="form-hint">변경할 수 없습니다</span>
+          </div>
+
+          <!-- 전화번호 -->
+          <div class="form-group">
+            <label class="form-label">전화번호</label>
+            <input type="tel" class="form-input" value="010-1234-5678" placeholder="010-0000-0000">
+          </div>
+
+          <!-- 타임존 -->
+          <div class="form-group">
+            <label class="form-label">타임존</label>
+            <select class="form-select">
+              <option selected>Asia/Seoul (한국 표준시)</option>
+              <option>America/New_York</option>
+              <option>Europe/London</option>
+            </select>
+          </div>
+
+          <!-- 언어 -->
+          <div class="form-group">
+            <label class="form-label">언어</label>
+            <div style="display: flex; gap: 20px;">
+              <label style="display: flex; align-items: center; gap: 8px;">
+                <input type="radio" name="language" value="ko" checked>
+                한국어
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px;">
+                <input type="radio" name="language" value="en">
+                English
+              </label>
+            </div>
+          </div>
+
+          <!-- 계정 상태 -->
+          <div class="card">
+            <div class="card-title">계정 상태</div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+              <span style="font-size: 12px; background: #d1fae5; color: #047857; padding: 4px 8px; border-radius: 4px;">활성</span>
+              <span style="font-size: 12px; color: #6b7280;">마지막 로그인: 1시간 전</span>
+            </div>
+            <div class="button-group">
+              <button class="button secondary">패스워드 변경</button>
+              <button class="button secondary">로그아웃</button>
+            </div>
+          </div>
+
+          <!-- 위험 영역 -->
+          <div class="alert danger">
+            <div class="alert-icon">⚠️</div>
+            <div class="alert-content">
+              <div class="alert-title">계정 삭제</div>
+              <div class="alert-desc">계정을 삭제하면 모든 데이터가 영구적으로 손실됩니다.</div>
+              <button class="button danger" style="margin-top: 12px;">계정 삭제</button>
+            </div>
+          </div>
+
+          <div class="button-group" style="margin-top: 32px;">
+            <button class="button primary">✓ 저장</button>
+            <button class="button secondary">취소</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 팀 섹션 -->
+      <div id="section-team" class="section">
+        <div class="header">
+          <h1>팀</h1>
+          <button class="button primary" style="margin-left: auto;">+ 팀원 초대</button>
+        </div>
+        <div class="section-content">
+          <div style="margin-bottom: 16px;">
+            <strong>현재 팀원: 3명 / 10명</strong>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>이름</th>
+                <th>이메일</th>
+                <th>역할</th>
+                <th>월 성과</th>
+                <th>액션</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>박준호</strong></td>
+                <td>jh@mabiz.io</td>
+                <td>ADMIN</td>
+                <td>2,000만원</td>
+                <td><button class="button secondary" style="font-size: 12px;">수정</button></td>
+              </tr>
+              <tr>
+                <td><strong>이모니</strong></td>
+                <td>mo@mabiz.io</td>
+                <td>AGENT</td>
+                <td>1,000만원</td>
+                <td><button class="button secondary" style="font-size: 12px;">수정</button></td>
+              </tr>
+              <tr>
+                <td><strong>신민형</strong></td>
+                <td>sh@mabiz.io</td>
+                <td>AGENT</td>
+                <td>1,500만원</td>
+                <td><button class="button secondary" style="font-size: 12px;">수정</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 알림 섹션 -->
+      <div id="section-notifications" class="section">
+        <div class="header">
+          <h1>알림</h1>
+        </div>
+        <div class="section-content">
+          <!-- 알림 요약 -->
+          <div class="form-group">
+            <label class="form-label">알림 요약</label>
+            <select class="form-select">
+              <option>없음</option>
+              <option selected>일일</option>
+              <option>주간</option>
+            </select>
+          </div>
+
+          <!-- 전체 수신 -->
+          <div class="form-group" style="flex-direction: row; align-items: center; justify-content: space-between;">
+            <label class="form-label">전체 수신</label>
+            <div class="toggle-switch active"></div>
+          </div>
+
+          <!-- 조용한 시간 -->
+          <div class="card">
+            <div class="form-group">
+              <label class="form-label" style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" checked>
+                조용한 시간 (밤 10시 ~ 아침 8시)
+              </label>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+              <div class="form-group">
+                <label class="form-label">시작</label>
+                <input type="time" class="form-input" value="22:00">
+              </div>
+              <div class="form-group">
+                <label class="form-label">종료</label>
+                <input type="time" class="form-input" value="08:00">
+              </div>
+            </div>
+          </div>
+
+          <!-- 알림 카테고리 -->
+          <div class="form-group">
+            <label class="form-label">알림 카테고리</label>
+            <div class="checkbox-group">
+              <div class="checkbox-item">
+                <input type="checkbox" class="checkbox-input" checked>
+                <label class="checkbox-label">
+                  <span class="checkbox-label-title">Contact 활동</span>
+                  <span class="checkbox-label-desc">Contact 추가/수정/통화</span>
+                  <div style="display: flex; gap: 16px; margin-top: 8px; font-size: 12px;">
+                    <label><input type="checkbox" checked> SMS</label>
+                    <label><input type="checkbox" checked> Email</label>
+                    <label><input type="checkbox"> In-App</label>
+                  </div>
+                </label>
+              </div>
+
+              <div class="checkbox-item">
+                <input type="checkbox" class="checkbox-input" checked>
+                <label class="checkbox-label">
+                  <span class="checkbox-label-title">판매 업데이트</span>
+                  <span class="checkbox-label-desc">거래 생성/완료/손실</span>
+                </label>
+              </div>
+
+              <div class="checkbox-item">
+                <input type="checkbox" class="checkbox-input" checked>
+                <label class="checkbox-label">
+                  <span class="checkbox-label-title">SMS 캠페인</span>
+                  <span class="checkbox-label-desc">캠페인 발송/통계</span>
+                </label>
+              </div>
+
+              <div class="checkbox-item">
+                <input type="checkbox" class="checkbox-input" checked>
+                <label class="checkbox-label">
+                  <span class="checkbox-label-title">시스템 알림</span>
+                  <span class="checkbox-label-desc">시스템 장애/유지보수</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="button-group" style="margin-top: 32px;">
+            <button class="button primary">✓ 설정 저장</button>
+            <button class="button secondary">취소</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 통합 섹션 -->
+      <div id="section-integrations" class="section">
+        <div class="header">
+          <h1>통합</h1>
+        </div>
+        <div class="section-content">
+          <!-- API 키 -->
+          <div style="margin-bottom: 32px;">
+            <h3 style="margin-bottom: 16px; font-weight: 600;">API 키 관리</h3>
+            <div class="card">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <div class="card-title">주요 API 키</div>
+                  <div class="card-desc">sk_live_••••••••••••••••••••••••••••••••••••••</div>
+                  <span class="form-hint">생성일: 2026-01-15 | 마지막 사용: 1시간 전</span>
+                </div>
+                <div class="button-group">
+                  <button class="button secondary">보기</button>
+                  <button class="button secondary">재생성</button>
+                  <button class="button secondary">삭제</button>
+                </div>
+              </div>
+            </div>
+            <button class="button secondary" style="margin-top: 12px;">새 API 키 생성</button>
+          </div>
+
+          <!-- 외부 서비스 -->
+          <div style="margin-bottom: 32px;">
+            <h3 style="margin-bottom: 16px; font-weight: 600;">외부 서비스 연동</h3>
+            <div class="checkbox-group">
+              <div class="checkbox-item">
+                <label class="checkbox-label" style="display: flex; align-items: center; justify-content: space-between; flex-direction: row;">
+                  <div>
+                    <span class="checkbox-label-title">Slack</span>
+                    <span class="checkbox-label-desc">팀 메시지 푸시</span>
+                  </div>
+                  <div class="button-group">
+                    <button class="button secondary">연결</button>
+                    <button class="button secondary">설정</button>
+                  </div>
+                </label>
+              </div>
+
+              <div class="checkbox-item">
+                <label class="checkbox-label" style="display: flex; align-items: center; justify-content: space-between; flex-direction: row;">
+                  <div>
+                    <span class="checkbox-label-title">Zapier ✓</span>
+                    <span class="checkbox-label-desc">자동화 통합 (연결됨)</span>
+                  </div>
+                  <div class="button-group">
+                    <button class="button secondary">설정</button>
+                    <button class="button secondary">분리</button>
+                  </div>
+                </label>
+              </div>
+
+              <div class="checkbox-item">
+                <label class="checkbox-label" style="display: flex; align-items: center; justify-content: space-between; flex-direction: row;">
+                  <div>
+                    <span class="checkbox-label-title">Gmail ✓</span>
+                    <span class="checkbox-label-desc">이메일 발송 (연결됨)</span>
+                  </div>
+                  <div class="button-group">
+                    <button class="button secondary">설정</button>
+                    <button class="button secondary">분리</button>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- 웹훅 -->
+          <div>
+            <h3 style="margin-bottom: 16px; font-weight: 600;">웹훅 (Webhook)</h3>
+            <div class="card">
+              <div class="card-title">엔드포인트</div>
+              <input type="text" class="form-input" value="https://api.yourdomain.io/webhook" style="margin-bottom: 12px;">
+              <div class="card-title">이벤트</div>
+              <input type="text" class="form-input" value="contact.created, sale.created, sms.sent" style="margin-bottom: 12px;">
+              <div class="button-group">
+                <button class="button secondary">테스트</button>
+                <button class="button secondary">수정</button>
+                <button class="button danger">삭제</button>
+              </div>
+            </div>
+            <button class="button secondary" style="margin-top: 12px;">+ 웹훅 추가</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 데이터 섹션 -->
+      <div id="section-data" class="section">
+        <div class="header">
+          <h1>데이터</h1>
+        </div>
+        <div class="section-content">
+          <!-- 내보내기 -->
+          <div style="margin-bottom: 32px;">
+            <h3 style="margin-bottom: 16px; font-weight: 600;">데이터 내보내기</h3>
+            <div class="card">
+              <div class="card-title">Contact 데이터 (1,234개)</div>
+              <div class="form-group">
+                <label class="form-label">형식</label>
+                <div style="display: flex; gap: 12px;">
+                  <label><input type="radio" name="format" checked> CSV</label>
+                  <label><input type="radio" name="format"> JSON</label>
+                  <label><input type="radio" name="format"> Excel</label>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">포함 항목</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <label><input type="checkbox" checked> 이름</label>
+                  <label><input type="checkbox" checked> 전화</label>
+                  <label><input type="checkbox" checked> 이메일</label>
+                  <label><input type="checkbox" checked> 태그</label>
+                  <label><input type="checkbox" checked> 거래정보</label>
+                  <label><input type="checkbox"> 메모</label>
+                </div>
+              </div>
+              <button class="button primary" style="margin-top: 12px;">내보내기 시작</button>
+            </div>
+          </div>
+
+          <!-- SMS 이력 -->
+          <div style="margin-bottom: 32px;">
+            <h3 style="margin-bottom: 16px; font-weight: 600;">SMS 이력</h3>
+            <div class="card">
+              <div class="card-title">발송된 SMS: 5,678건</div>
+              <button class="button secondary" style="margin-top: 12px;">내보내기 (CSV)</button>
+            </div>
+          </div>
+
+          <!-- 백업 -->
+          <div style="margin-bottom: 32px;">
+            <h3 style="margin-bottom: 16px; font-weight: 600;">자동 백업</h3>
+            <div class="card">
+              <div class="card-desc">마지막 백업: 2026-05-20 14:30</div>
+              <button class="button secondary">자동 백업 설정</button>
+            </div>
+          </div>
+
+          <!-- 위험 영역 -->
+          <div class="alert danger">
+            <div class="alert-icon">⚠️</div>
+            <div class="alert-content">
+              <div class="alert-title">계정 및 모든 데이터 삭제</div>
+              <div class="alert-desc">이 작업은 되돌릴 수 없습니다. 계정을 삭제하면 모든 데이터가 영구적으로 손실됩니다.</div>
+              <button class="button danger" style="margin-top: 12px;">계정 삭제</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 심리학 렌즈 섹션 -->
+      <div id="section-psychology" class="section">
+        <div class="header">
+          <h1>심리학 (Psychology Lenses)</h1>
+        </div>
+        <div class="section-content">
+          <p style="color: #6b7280; margin-bottom: 16px;">
+            렌즈 활성화는 CRM 자동분류 규칙을 제어합니다. Contact에 자동으로 태그가 부여되고 SMS 템플릿이 적용됩니다.
+          </p>
+
+          <div style="display: flex; gap: 16px; margin-bottom: 24px;">
+            <button class="button secondary">Quick Start 추천 설정</button>
+            <button class="button secondary">초기화</button>
+          </div>
+
+          <div style="background: #f0f9ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px; margin-bottom: 24px;">
+            <strong>활성: 4/10개 | 비활성: 6/10개</strong>
+          </div>
+
+          <div class="checkbox-group">
+            <!-- L0 -->
+            <div class="checkbox-item">
+              <input type="checkbox" class="checkbox-input" checked>
+              <label class="checkbox-label">
+                <span class="checkbox-label-title">✓ L0: 부재중 고객 재활성화</span>
+                <span class="checkbox-label-desc">3-6개월/6-12개월/1년+ 부재 고객 세분화</span>
+                <span class="checkbox-label-effect">📊 기대효과: 재활성화율 +18-62%</span>
+              </label>
+            </div>
+
+            <!-- L1 -->
+            <div class="checkbox-item">
+              <input type="checkbox" class="checkbox-input" checked>
+              <label class="checkbox-label">
+                <span class="checkbox-label-title">✓ L1: 가격 이의 대응</span>
+                <span class="checkbox-label-desc">PASONA 카피 자동 적용 + 5가지 이의 시나리오</span>
+                <span class="checkbox-label-effect">📊 기대효과: 가격민감도 -42%, 전환율 +28%</span>
+              </label>
+            </div>
+
+            <!-- L2 -->
+            <div class="checkbox-item">
+              <input type="checkbox" class="checkbox-input">
+              <label class="checkbox-label">
+                <span class="checkbox-label-title">☐ L2: 준비 복잡 불안 (5단계 중재)</span>
+                <span class="checkbox-label-desc">SPIN 질문 자동 생성 + 불안 해소 가이드</span>
+                <span class="checkbox-label-effect">📊 기대효과: 불안감 -38%, 전환율 +45%</span>
+              </label>
+            </div>
+
+            <!-- L3 -->
+            <div class="checkbox-item">
+              <input type="checkbox" class="checkbox-input" checked>
+              <label class="checkbox-label">
+                <span class="checkbox-label-title">✓ L3: 차별성 미인지</span>
+                <span class="checkbox-label-desc">경쟁사 비교 SMS 발송 + 차별점 강조</span>
+                <span class="checkbox-label-effect">📊 기대효과: 선택 확신도 +50%</span>
+              </label>
+            </div>
+
+            <!-- L5 -->
+            <div class="checkbox-item">
+              <input type="checkbox" class="checkbox-input" checked>
+              <label class="checkbox-label">
+                <span class="checkbox-label-title">✓ L5: 자기투영</span>
+                <span class="checkbox-label-desc">고객 상황과 일치하는 페르소나 매핑 (암/배멀미/당뇨)</span>
+                <span class="checkbox-label-effect">📊 기대효과: 공감도 +48-63%</span>
+              </label>
+            </div>
+
+            <!-- L6 -->
+            <div class="checkbox-item">
+              <input type="checkbox" class="checkbox-input">
+              <label class="checkbox-label">
+                <span class="checkbox-label-title">☐ L6: 타이밍 손실회피</span>
+                <span class="checkbox-label-desc">가격/자리/나이 Real-time FOMO 트리거</span>
+                <span class="checkbox-label-effect">📊 기대효과: 즉시 구매율 +52-71%</span>
+              </label>
+            </div>
+
+            <!-- L7 -->
+            <div class="checkbox-item">
+              <input type="checkbox" class="checkbox-input">
+              <label class="checkbox-label">
+                <span class="checkbox-label-title">☐ L7: 동반자 설득</span>
+                <span class="checkbox-label-desc">배우자/아이/부모 3경로 설득 시나리오</span>
+                <span class="checkbox-label-effect">📊 기대효과: 가족 동의율 +45-60%</span>
+              </label>
+            </div>
+
+            <!-- L8 -->
+            <div class="checkbox-item">
+              <input type="checkbox" class="checkbox-input">
+              <label class="checkbox-label">
+                <span class="checkbox-label-title">☐ L8: 재구매 습관화</span>
+                <span class="checkbox-label-desc">연간절약 계산 + 진화경로 제시 (LTV 추적)</span>
+                <span class="checkbox-label-effect">📊 기대효과: 재구매율 +50-65%</span>
+              </label>
+            </div>
+
+            <!-- L9 -->
+            <div class="checkbox-item">
+              <input type="checkbox" class="checkbox-input" checked>
+              <label class="checkbox-label">
+                <span class="checkbox-label-title">✓ L9: 의료신뢰</span>
+                <span class="checkbox-label-desc">의료 전문가 자격 표시 + 건강정보 링크 (배멀미/당뇨/고혈압)</span>
+                <span class="checkbox-label-effect">📊 기대효과: 신뢰도 +60-79%, 구매율 +55%</span>
+              </label>
+            </div>
+
+            <!-- L10 -->
+            <div class="checkbox-item">
+              <input type="checkbox" class="checkbox-input">
+              <label class="checkbox-label">
+                <span class="checkbox-label-title">☐ L10: 즉시구매 클로징</span>
+                <span class="checkbox-label-desc">삼중선택 + 감정적 마무리 (5-8단계)</span>
+                <span class="checkbox-label-effect">📊 기대효과: 클로징율 +70-95%</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="alert">
+            <div class="alert-icon">ℹ️</div>
+            <div class="alert-content">
+              <div class="alert-title">렌즈 변경 시 자동화가 업데이트됩니다</div>
+              <div class="alert-desc">CRM Contact 분류 규칙이 실시간으로 적용되며, SMS 템플릿과 담당자 할당이 변경됩니다.</div>
+            </div>
+          </div>
+
+          <div class="button-group" style="margin-top: 32px;">
+            <button class="button primary">✓ 설정 저장</button>
+            <button class="button secondary">취소</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showSection(sectionId) {
+      // 모든 섹션 숨기기
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
+
+      // 선택된 섹션 표시
+      document.getElementById(`section-${sectionId}`).classList.add('active');
+      event.target.classList.add('active');
+    }
+
+    // 토글 클릭 처리
+    document.querySelectorAll('.toggle-switch').forEach(toggle => {
+      toggle.addEventListener('click', function() {
+        this.classList.toggle('active');
+      });
+    });
+  </script>
+</body>
+</html>

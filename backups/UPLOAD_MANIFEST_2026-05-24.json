@@ -1,0 +1,33 @@
+{
+  "files": [
+    {
+      "name": "schema_backup_2026-05-24_221248.prisma",
+      "sizeMB": 0.17,
+      "modified": "2026-05-24T19:46:32.3414949+09:00",
+      "sizeKB": 169.67,
+      "created": "2026-05-24T22:12:48.3141791+09:00",
+      "sizeBytes": 173739
+    },
+    {
+      "name": "prisma_migrations_backup_2026-05-24_221248.zip",
+      "sizeMB": 0.04,
+      "modified": "2026-05-24T22:12:50.1168175+09:00",
+      "sizeKB": 40.62,
+      "created": "2026-05-24T22:12:48.3399065+09:00",
+      "sizeBytes": 41598
+    },
+    {
+      "name": "BACKUP_SUMMARY_2026-05-24.txt",
+      "sizeMB": 0.01,
+      "modified": "2026-05-24T22:14:10.7095488+09:00",
+      "sizeKB": 8.91,
+      "created": "2026-05-24T22:14:10.7074707+09:00",
+      "sizeBytes": 9121
+    }
+  ],
+  "totalSizeBytes": 224458,
+  "timestamp": "2026-05-24 22:53:27",
+  "googleDriveFolder": "1YEsNRV2MQT5nSjtMniVcEVsECUeCgLBz",
+  "totalFiles": 3,
+  "totalSizeMB": 0.21
+}
