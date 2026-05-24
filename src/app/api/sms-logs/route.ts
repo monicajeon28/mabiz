@@ -34,6 +34,8 @@ export async function GET(req: NextRequest) {
     const channel   = searchParams.get('channel')   ?? undefined;
     const days      = Math.min(Number(searchParams.get('days')  ?? 30), 90);
     const take      = Math.min(Number(searchParams.get('take')  ?? 50), 100);
+    const page      = Math.max(Number(searchParams.get('page')  ?? 1), 1);
+    const skip      = (page - 1) * take;
 
     const since = new Date();
     since.setUTCDate(since.getUTCDate() - days);
@@ -48,6 +50,7 @@ export async function GET(req: NextRequest) {
           sentAt: { gte: since },
         },
         orderBy: { sentAt: 'desc' },
+        skip,
         take,
         select: {
           id:             true,
@@ -84,9 +87,17 @@ export async function GET(req: NextRequest) {
       blocked: stats.find(s => s.status === 'BLOCKED')?._count.status ?? 0,
     };
 
-    logger.log('[SmsLog] 조회', { orgId, total, days });
+    logger.log('[SmsLog] 조회', { orgId, total, page, pageSize: take, days });
 
-    return NextResponse.json({ ok: true, logs, summary });
+    return NextResponse.json({
+      ok: true,
+      logs,
+      summary,
+      page,
+      pageSize: take,
+      total,
+      totalPages: Math.ceil(total / take),
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('organizationId')) {

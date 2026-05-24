@@ -24,6 +24,10 @@ interface ApiResponse {
   ok: boolean;
   logs: SmsLog[];
   summary: Summary;
+  page?: number;
+  pageSize?: number;
+  total?: number;
+  totalPages?: number;
   message?: string;
 }
 
@@ -71,9 +75,11 @@ export default function SmsLogsPage() {
   const [days, setDays] = useState(30);
   const [statusFilter, setStatusFilter] = useState("");
   const [channelFilter, setChannelFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<{ total: number; totalPages: number; pageSize: number }>({ total: 0, totalPages: 0, pageSize: 50 });
 
   useEffect(() => {
-    const params = new URLSearchParams({ days: String(days), take: "50" });
+    const params = new URLSearchParams({ days: String(days), take: "50", page: String(page) });
     if (statusFilter) params.set("status", statusFilter);
     if (channelFilter) params.set("channel", channelFilter);
 
@@ -87,11 +93,14 @@ export default function SmsLogsPage() {
       if (!logData.ok) { setError(logData.message ?? "데이터 로드 실패"); return; }
       setLogs(logData.logs);
       setSummary(logData.summary);
+      if (logData.total && logData.totalPages && logData.pageSize) {
+        setPagination({ total: logData.total, totalPages: logData.totalPages, pageSize: logData.pageSize });
+      }
       if (statsData.ok) setStats(statsData.stats);
     }).catch(() => {
       setError("네트워크 오류가 발생했습니다.");
     }).finally(() => setLoading(false));
-  }, [days, statusFilter, channelFilter]);
+  }, [days, statusFilter, channelFilter, page]);
 
   return (
     <div className="p-6 space-y-6">
@@ -206,8 +215,9 @@ export default function SmsLogsPage() {
       {/* 필터 */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-600 whitespace-nowrap">기간</label>
+          <label htmlFor="days-filter" className="text-sm text-gray-600 whitespace-nowrap">기간</label>
           <select
+            id="days-filter"
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
             className="border rounded-md px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -220,8 +230,8 @@ export default function SmsLogsPage() {
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-600 whitespace-nowrap">상태</label>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+          <label htmlFor="status-filter" className="text-sm text-gray-600 whitespace-nowrap">상태</label>
+          <select id="status-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
             className="border rounded-md px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">전체</option>
             <option value="SENT">성공</option>
@@ -230,8 +240,8 @@ export default function SmsLogsPage() {
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-600 whitespace-nowrap">채널</label>
-          <select value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)}
+          <label htmlFor="channel-filter" className="text-sm text-gray-600 whitespace-nowrap">채널</label>
+          <select id="channel-filter" value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)}
             className="border rounded-md px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">전체</option>
             <option value="FUNNEL">퍼널</option>
@@ -243,7 +253,7 @@ export default function SmsLogsPage() {
 
       {/* 상태 */}
       {loading && (
-        <div className="flex justify-center items-center py-16 text-gray-400 text-sm">
+        <div className="flex justify-center items-center py-16 text-gray-400 text-sm" aria-live="polite" aria-busy="true">
           불러오는 중...
         </div>
       )}
@@ -290,13 +300,18 @@ export default function SmsLogsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                            STATUS_CLASS[log.status] ?? "bg-gray-100 text-gray-600"
-                          }`}
-                        >
-                          {STATUS_LABEL[log.status] ?? log.status}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                              STATUS_CLASS[log.status] ?? "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {STATUS_LABEL[log.status] ?? log.status}
+                          </span>
+                          {log.status === "SENT" && <span className="text-xs text-green-600">✓</span>}
+                          {log.status === "FAILED" && <span className="text-xs text-red-600">✕</span>}
+                          {log.status === "BLOCKED" && <span className="text-xs text-yellow-600">⊘</span>}
+                        </div>
                         {log.blockReason && (
                           <span className="ml-1 text-xs text-gray-400">({log.blockReason})</span>
                         )}
@@ -313,8 +328,29 @@ export default function SmsLogsPage() {
             </table>
           </div>
           {logs.length > 0 && (
-            <div className="px-4 py-3 border-t bg-gray-50 text-xs text-gray-400 text-right">
-              총 {summary?.total ?? logs.length}건 중 {logs.length}건 표시
+            <div className="px-4 py-4 border-t bg-gray-50 flex items-center justify-between text-sm">
+              <span className="text-gray-600">
+                총 {pagination.total.toLocaleString()}건 중 {((page - 1) * pagination.pageSize + 1).toLocaleString()}-{Math.min(page * pagination.pageSize, pagination.total).toLocaleString()}건 표시
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                  disabled={page === 1}
+                  className="px-3 py-1.5 border rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  ← 이전
+                </button>
+                <span className="text-xs text-gray-500 px-2">
+                  {page} / {pagination.totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(p + 1, pagination.totalPages))}
+                  disabled={page === pagination.totalPages}
+                  className="px-3 py-1.5 border rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  다음 →
+                </button>
+              </div>
             </div>
           )}
         </div>
