@@ -73,7 +73,6 @@ export async function GET(req: Request) {
 
     const result = items.map(s => {
       const pay = s.orderId ? payMap.get(s.orderId) : undefined;
-      // metadata에 환불 요청자 이름이 있으면 추출 (선택적)
       const refunderName =
         (pay?.metadata as { refunderName?: string } | null)?.refunderName ?? null;
 
@@ -82,21 +81,14 @@ export async function GET(req: Request) {
         orderId:       s.orderId,
         productName:   s.productName,
         saleAmount:    s.saleAmount,
-        saleStatus:    s.status,
-        customerPhone: s.customerPhone, // 이미 마스킹 저장됨
-        createdAt:     s.createdAt,
-        // Payment 정보
         buyerName:     pay?.buyerName ?? null,
-        buyerTel:      pay?.buyerTel ? pay.buyerTel.substring(0, 4) + '****' : null,
-        refunderName,  // 환불 요청자 (구매자와 다를 수 있음)
-        paymentStatus: pay?.status ?? null,
+        buyerTel:      pay?.buyerTel ?? null,
+        refunderName,
+        customerPhone: s.customerPhone,
+        canIssuePurchaseCert: pay?.status === 'completed',
+        canIssueRefundCert: pay?.status === 'completed' || pay?.status === 'cancelled',
         paidAt:        pay?.paidAt ?? null,
         cancelledAt:   pay?.cancelledAt ?? null,
-        // 서류 발급 가능 여부
-        // 구매확인증서: 결제완료(completed)만
-        canIssuePurchaseCert: pay?.status === 'completed',
-        // 환불증서: 결제완료(예정 환불증서) + 환불완료(cancelled) 모두 허용
-        canIssueRefundCert: pay?.status === 'completed' || pay?.status === 'cancelled',
       };
     });
 

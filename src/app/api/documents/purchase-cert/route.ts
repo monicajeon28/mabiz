@@ -70,7 +70,7 @@ export async function POST(req: Request) {
         createdBy:      ctx.userId,
         generatedData: {
           buyerName:     payment.buyerName,
-          buyerTel:      payment.buyerTel.substring(0, 4) + '****', // 마스킹
+          buyerTel:      payment.buyerTel,
           buyerEmail:    payment.buyerEmail ?? null,
           amount:        payment.amount,
           productName:   payment.productName ?? '크루즈 상품',
@@ -99,7 +99,6 @@ export async function POST(req: Request) {
       // 이메일 발송 (fire-and-forget)
       const recipientEmail = payment.buyerEmail;
       if (recipientEmail) {
-        const data = doc as unknown as { id: string; status: string };
         sendFunnelEmail({
           organizationId: orgId,
           to:      recipientEmail,
@@ -111,7 +110,7 @@ export async function POST(req: Request) {
   <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666;width:40%">상품명</td><td style="padding:10px 14px;font-weight:600">${payment.productName ?? '크루즈 상품'}</td></tr>
   <tr><td style="padding:10px 14px;color:#666">결제금액</td><td style="padding:10px 14px;font-weight:600">${payment.amount.toLocaleString()}원</td></tr>
   <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">결제일시</td><td style="padding:10px 14px">${payment.paidAt ? new Date(payment.paidAt).toLocaleString('ko-KR') : '-'}</td></tr>
-  <tr><td style="padding:10px 14px;color:#666">문서번호</td><td style="padding:10px 14px;font-size:12px;color:#888">${data.id}</td></tr>
+  <tr><td style="padding:10px 14px;color:#666">문서번호</td><td style="padding:10px 14px;font-size:12px;color:#888">${doc.id}</td></tr>
 </table>
 <p style="color:#666;font-size:14px">문의사항이 있으시면 담당 에이전트에게 연락해 주세요.</p>
 </div>`,

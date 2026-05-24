@@ -53,13 +53,15 @@ export async function POST(req: Request) {
       ? (body.cancellationRequestedAt ? new Date(body.cancellationRequestedAt) : new Date(payment.cancelledAt!))
       : new Date(); // 아직 미취소면 오늘 기준 예상 환불액
 
-    // Trip 데이터로 출발일 조회 시도 (같은 DB)
+    // Trip 데이터로 출발일 조회 시도 (같은 DB, raw query)
     let departureDate: Date | null = null;
     try {
       const productCode = (payment.metadata as { productCode?: string })?.productCode ?? '';
-      const trip = await prisma.$queryRaw<{ departureDate: Date }[]>`
-        SELECT "departureDate" FROM "Trip" WHERE "productCode" = ${productCode} LIMIT 1`;
-      if (trip[0]?.departureDate) departureDate = trip[0].departureDate;
+      if (productCode) {
+        const trip = await prisma.$queryRaw<{ departureDate: Date }[]>`
+          SELECT "departureDate" FROM "Trip" WHERE "productCode" = ${productCode} LIMIT 1`;
+        if (trip[0]?.departureDate) departureDate = trip[0].departureDate;
+      }
     } catch { /* Trip 없으면 패스 */ }
 
     // 환불 계산
@@ -94,14 +96,14 @@ export async function POST(req: Request) {
         createdBy:      ctx.userId,
         generatedData: {
           buyerName:                payment.buyerName,
-          buyerTel:                 payment.buyerTel.substring(0, 4) + '****',
+          buyerTel:                 payment.buyerTel,
           buyerEmail:               payment.buyerEmail ?? null,
           amount:                   payment.amount,
           productName:              payment.productName ?? '크루즈 상품',
           paidAt:                   payment.paidAt?.toISOString() ?? null,
           cancelledAt:              payment.cancelledAt?.toISOString() ?? null,
           cancellationRequestedAt:  cancelDate.toISOString(),
-          isRefundPending:          !isCancelled, // completed 건 = 환불 예정 증서
+          isRefundPending:          !isCancelled,
           departureDate:            departureDate?.toISOString() ?? null,
           refundAmount:             refundCalc.refundAmount,
           penaltyRate:              refundCalc.penaltyRate,
@@ -112,7 +114,7 @@ export async function POST(req: Request) {
           companyAccount:           '국민은행 531301-04-167150 (배연성/크루즈닷)',
           issuedAt:                 new Date().toISOString(),
           note:                     body.note ?? null,
-          refunderName:             body.refunderName ?? null, // 환불 요청자 (구매자 ≠ 환불자인 경우)
+          refunderName:             body.refunderName ?? null,
         },
       },
       select: { id: true, status: true },
