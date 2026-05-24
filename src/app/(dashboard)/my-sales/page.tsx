@@ -8,12 +8,13 @@ type Sale = {
   affiliateCode: string;
   productName: string;
   saleAmount: number;
-  commissionRate: number;
-  commissionAmount: number;
+  commissionRate: number | null;
+  commissionAmount: number | null;
   status: string;
   travelCompletedAt: string | null;
   paidAt: string | null;
   createdAt: string;
+  customerName: string | null;
   customerPhone: string | null;
 };
 
@@ -242,7 +243,7 @@ export default function MySalesPage() {
                         {sale.saleAmount.toLocaleString()}원
                       </p>
                       <p className="text-xs text-green-600 font-medium">
-                        수당 {sale.commissionAmount.toLocaleString()}원
+                        수당 {(sale.commissionAmount ?? 0).toLocaleString()}원
                       </p>
                     </div>
                   </div>

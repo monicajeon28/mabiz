@@ -112,10 +112,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // GmUser 조회 (phone 기반)
+    // GmUser 조회 (phone 기반, socialProvider 포함)
     const gmUser = await prisma.gmUser.findFirst({
       where: { phone: normalizedPhone },
-      select: { id: true },
+      select: { id: true, socialProvider: true },
     });
 
     const contact = await prisma.$transaction(async (tx) => {
@@ -146,6 +146,7 @@ export async function POST(req: NextRequest) {
           purchasedAt:    new Date(),
           channel:        "b2c",
           userId:         gmUser?.id ?? null,
+          socialProvider: gmUser?.socialProvider ?? null,
         },
         update: {
           name,
@@ -154,6 +155,7 @@ export async function POST(req: NextRequest) {
           bookingRef:    orderId       ?? undefined,
           ...(customerEmail ? { email: customerEmail } : {}),
           ...(affiliateCode ? { affiliateCode } : {}),
+          ...(gmUser?.socialProvider ? { socialProvider: gmUser.socialProvider } : {}),
         },
         select: { id: true, departureDate: true },
       });

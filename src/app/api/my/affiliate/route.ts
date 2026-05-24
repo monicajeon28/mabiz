@@ -67,20 +67,19 @@ export async function GET() {
     }
 
     // ── 기존 CRM 세션 ──────────────────────────────────────────
-    const sale = await prisma.affiliateSale.findFirst({
-      where:   { affiliateUserId: ctx.userId },
-      select:  { affiliateCode: true },
-      orderBy: { createdAt: "desc" },
-    });
-
-    let orgName = "";
-    if (ctx.organizationId) {
-      const org = await prisma.organization.findUnique({
-        where:  { id: ctx.organizationId },
-        select: { name: true },
-      });
-      orgName = org?.name ?? "";
-    }
+    const [sale, org] = await Promise.all([
+      prisma.affiliateSale.findFirst({
+        where:   { affiliateUserId: ctx.userId },
+        select:  { affiliateCode: true },
+        orderBy: { createdAt: "desc" },
+      }),
+      ctx.organizationId
+        ? prisma.organization.findUnique({
+            where:  { id: ctx.organizationId },
+            select: { name: true },
+          })
+        : Promise.resolve(null),
+    ]);
 
     const affiliateCode = sale?.affiliateCode ?? null;
     const cruisemallLink = affiliateCode
@@ -88,7 +87,7 @@ export async function GET() {
       : null;
 
     logger.log("[GET /api/my/affiliate]", { userId: ctx.userId, affiliateCode });
-    return NextResponse.json({ ok: true, affiliateCode, cruisemallLink, orgName, role: ctx.role });
+    return NextResponse.json({ ok: true, affiliateCode, cruisemallLink, orgName: org?.name ?? "", role: ctx.role });
 
   } catch (err) {
     logger.error("[GET /api/my/affiliate]", { err });

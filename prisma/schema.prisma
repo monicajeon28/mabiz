@@ -199,6 +199,7 @@ model Contact {
   ageInYears                 Int?
   autoSegment                String?                    @default("unclassified") @db.VarChar(20)
   segmentUpdatedAt           DateTime                    @default(now()) @updatedAt
+  socialProvider             String?                    @db.VarChar(20)
   callLogs                   CallLog[]
   organization               Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   partner                    Partner?                    @relation(fields: [partnerId], references: [id])
@@ -227,6 +228,7 @@ model Contact {
   @@index([organizationId, autoSegment], map: "idx_contact_org_segment")
   @@index([marriageDate], map: "idx_contact_marriage_date")
   @@index([childrenAges], map: "idx_contact_children_ages")
+  @@index([organizationId, socialProvider], map: "idx_contact_org_social_provider")
 }
 
 model ContactLensClassification {
