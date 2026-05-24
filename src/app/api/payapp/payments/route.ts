@@ -42,8 +42,7 @@ export async function GET(req: Request) {
     }
 
     // 결제 목록 + 전체 수
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const whereClause = where as any;
+    const whereClause = where as Prisma.PayAppPaymentWhereInput;
     const [payments, total] = await Promise.all([
       prisma.payAppPayment.findMany({
         where: whereClause,

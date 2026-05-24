@@ -4,14 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { CreditCard, RefreshCw, ArrowUpRight, ArrowDownLeft, Clock, Repeat, Store } from "lucide-react";
 import { useSession } from "@/hooks/useSession";
 
-/** 전화번호 마스킹: 010-****-5678 형식 */
-function maskPhone(phone: string): string {
-  const digits = phone.replace(/[^0-9]/g, '');
-  if (digits.length === 11) return `${digits.slice(0, 3)}-****-${digits.slice(7)}`;
-  if (digits.length === 10) return `${digits.slice(0, 3)}-***-${digits.slice(6)}`;
-  return phone.slice(0, 4) + "****";
-}
-
 type Payment = {
   id: string;
   orderId: string;
@@ -317,7 +309,7 @@ export default function PaymentsPage() {
                   <td className="px-4 py-3 font-medium text-gray-900">{p.productName ?? "-"}</td>
                   <td className="px-4 py-3">
                     <p className="text-gray-900">{p.customerName}</p>
-                    <p className="text-xs text-gray-400">{maskPhone(p.customerPhone)}</p>
+                    <p className="text-xs text-gray-400">{p.customerPhone}</p>
                   </td>
                   <td className="px-4 py-3 text-right font-semibold">{p.amount.toLocaleString()}원</td>
                   <td className="px-4 py-3 text-center">
@@ -399,7 +391,7 @@ export default function PaymentsPage() {
                     <td className="px-4 py-3 font-medium text-gray-900">{p.productName ?? "-"}</td>
                     <td className="px-4 py-3">
                       <p className="text-gray-900">{p.buyerName}</p>
-                      <p className="text-xs text-gray-400">{maskPhone(p.buyerTel)}</p>
+                      <p className="text-xs text-gray-400">{p.buyerTel}</p>
                     </td>
                     <td className="px-4 py-3 text-right font-semibold">{p.amount.toLocaleString()}원</td>
                     <td className="px-4 py-3 text-center">
@@ -455,7 +447,7 @@ export default function PaymentsPage() {
                     <td className="px-4 py-3 font-medium text-gray-900">{s.goodname}</td>
                     <td className="px-4 py-3">
                       <p className="text-gray-900">{s.customerName}</p>
-                      <p className="text-xs text-gray-400">{maskPhone(s.customerPhone)}</p>
+                      <p className="text-xs text-gray-400">{s.customerPhone}</p>
                     </td>
                     <td className="px-4 py-3 text-right font-semibold">{s.goodprice.toLocaleString()}원</td>
                     <td className="px-4 py-3 text-center text-sm">매월 {s.cycleDay === 90 ? "말일" : `${s.cycleDay}일`}</td>
