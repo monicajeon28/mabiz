@@ -2085,6 +2085,8 @@ model ScheduledEmail {
   failedCount     Int       @default(0)
   createdByUserId String?
   failureReason   String?
+  pausedAt        DateTime? @db.Timestamptz(6)
+  pausedBy        String?
   createdAt       DateTime  @default(now()) @db.Timestamptz(6)
 
   @@index([organizationId, scheduledAt])

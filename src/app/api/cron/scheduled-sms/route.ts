@@ -13,34 +13,37 @@ import { logger } from "@/lib/logger";
  * Authorization: Bearer CRON_SECRET
  */
 export async function GET(req: Request) {
-  // Cron 인증
+  // Cron 인증 — Vercel Cron Bearer token
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization") ?? "";
-  if (process.env.NODE_ENV === "production") {
-    if (!secret) {
-      logger.warn("[CronScheduledSms] CRON_SECRET 환경변수 미설정 — 프로덕션에서 차단");
-      return NextResponse.json({ ok: false, message: "CRON_SECRET required" }, { status: 500 });
-    }
-    const expected = `Bearer ${secret}`;
-    if (auth.length !== expected.length || !timingSafeEqual(Buffer.from(auth), Buffer.from(expected))) {
-      return NextResponse.json({ ok: false }, { status: 401 });
-    }
-  } else {
-    // 개발 환경: secret 있으면 검증, 없으면 통과
-    if (secret) {
-      const expected = `Bearer ${secret}`;
-      if (auth.length !== expected.length || !timingSafeEqual(Buffer.from(auth), Buffer.from(expected))) {
-        return NextResponse.json({ ok: false }, { status: 401 });
-      }
-    }
+
+  if (!secret) {
+    const msg = "CRON_SECRET 환경변수 미설정";
+    logger.error("[CronScheduledSms] 인증 실패", { reason: msg });
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
+
+  const expected = `Bearer ${secret}`;
+  let authValid = false;
+  try {
+    authValid = auth.length === expected.length && timingSafeEqual(Buffer.from(auth), Buffer.from(expected));
+  } catch {
+    authValid = false;
+  }
+
+  if (!authValid) {
+    logger.warn("[CronScheduledSms] 인증 실패", { ip: req.headers.get("x-forwarded-for") });
+    return NextResponse.json({ ok: false }, { status: 401 });
   }
 
   const now = new Date();
+  const hour = now.getHours();
+  const canProcessNightBlocked = hour >= 8; // 08:00 이후만 NIGHT_BLOCKED 처리 가능
 
   // 처리할 예약 목록 (최대 50건/회)
   const due = await prisma.scheduledSms.findMany({
     where: {
-      status:      { in: ["PENDING", "NIGHT_BLOCKED"] },
+      status:      canProcessNightBlocked ? { in: ["PENDING", "NIGHT_BLOCKED"] } : "PENDING",
       scheduledAt: { lte: now },
     },
     orderBy: { scheduledAt: "asc" },

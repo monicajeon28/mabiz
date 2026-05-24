@@ -13,25 +13,27 @@ import { logger } from "@/lib/logger";
  * 패턴: scheduled-sms와 동일 (낙관적 잠금, 최대 50건/회)
  */
 export async function GET(req: Request) {
-  // Cron 인증
+  // Cron 인증 — Vercel Cron Bearer token
   const secret = process.env.CRON_SECRET;
   const auth   = req.headers.get("authorization") ?? "";
-  if (process.env.NODE_ENV === "production") {
-    if (!secret) {
-      logger.warn("[CronScheduledEmail] CRON_SECRET 미설정");
-      return NextResponse.json({ ok: false }, { status: 500 });
-    }
-    const expected = `Bearer ${secret}`;
-    if (auth.length !== expected.length || !timingSafeEqual(Buffer.from(auth), Buffer.from(expected))) {
-      return NextResponse.json({ ok: false }, { status: 401 });
-    }
-  } else {
-    if (secret) {
-      const expected = `Bearer ${secret}`;
-      if (auth.length !== expected.length || !timingSafeEqual(Buffer.from(auth), Buffer.from(expected))) {
-        return NextResponse.json({ ok: false }, { status: 401 });
-      }
-    }
+
+  if (!secret) {
+    const msg = "CRON_SECRET 환경변수 미설정";
+    logger.error("[CronScheduledEmail] 인증 실패", { reason: msg });
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
+
+  const expected = `Bearer ${secret}`;
+  let authValid = false;
+  try {
+    authValid = auth.length === expected.length && timingSafeEqual(Buffer.from(auth), Buffer.from(expected));
+  } catch {
+    authValid = false;
+  }
+
+  if (!authValid) {
+    logger.warn("[CronScheduledEmail] 인증 실패", { ip: req.headers.get("x-forwarded-for") });
+    return NextResponse.json({ ok: false }, { status: 401 });
   }
 
   const now = new Date();

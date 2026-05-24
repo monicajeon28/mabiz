@@ -161,11 +161,12 @@ export async function PATCH(req: Request) {
       if (item.status !== "FAILED") {
         return NextResponse.json({ ok: false, message: "실패한 메시지만 재발송할 수 있습니다" }, { status: 400 });
       }
+      const retryAt = new Date(Date.now() + 5 * 60 * 1000); // 5분 후 재발송
       await prisma.scheduledEmail.update({
         where: { id: body.id },
-        data: { status: "PENDING", scheduledAt: new Date(), failureReason: null },
+        data: { status: "PENDING", scheduledAt: retryAt, failureReason: null },
       });
-      logger.log("[PATCH /api/email/schedule] retry", { id: body.id, orgId });
+      logger.log("[PATCH /api/email/schedule] retry", { id: body.id, orgId, retryAt });
     }
 
     return NextResponse.json({ ok: true });
