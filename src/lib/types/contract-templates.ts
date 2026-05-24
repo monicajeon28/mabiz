@@ -71,6 +71,21 @@ export interface ContractInstanceResponse {
   createdAt: string;
 }
 
+export interface ContractTemplateAuditLogResponse {
+  id: string;
+  templateId: string;
+  action: string; // "CREATE"|"UPDATE"|"DELETE"|"RESTORE"|"PUBLISH"|"ARCHIVE"
+  userId: string | null;
+  previousValues: Record<string, any> | null;
+  newValues: Record<string, any> | null;
+  changeDescription: string | null;
+  reason: string | null;
+  status: string;
+  errorMessage: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+}
+
 export interface ApiResponse<T> {
   ok: boolean;
   data?: T;

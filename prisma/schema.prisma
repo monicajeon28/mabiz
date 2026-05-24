@@ -53,6 +53,7 @@ model Organization {
   smsTemplates               SmsTemplate[]
   contractTemplates          ContractTemplate[]
   contractInstances          ContractInstance[]
+  contractTemplateAuditLogs  ContractTemplateAuditLog[] @relation("ContractTemplateAuditLogs")
 }
 
 model OrgSmsConfig {
@@ -4854,6 +4855,7 @@ model ContractTemplate {
   // 관계
   organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   instances           ContractInstance[]       @relation("TemplateInstances")
+  auditLogs           ContractTemplateAuditLog[] @relation("AuditLogs")
 
   @@index([organizationId])
   @@index([status])
@@ -4906,6 +4908,35 @@ model ContractInstance {
   @@index([contactId])
   @@index([status])
   @@index([expiresAt])
+}
+
+model ContractTemplateAuditLog {
+  id                  String           @id @default(cuid())
+  organizationId      String
+  templateId          String
+  userId              String?
+  action              String           // "CREATE"|"UPDATE"|"DELETE"|"RESTORE"|"PUBLISH"|"ARCHIVE"
+  previousValues      Json?            // 변경 전 값
+  newValues           Json?            // 변경 후 값
+  changeDescription   String?          // 예: "name updated from 'Old' to 'New'"
+  reason              String?          // 삭제 사유 등
+  status              String           @default("SUCCESS")  // "SUCCESS"|"FAILED"
+  errorMessage        String?
+  ipAddress           String?
+  userAgent           String?
+
+  // 타임스탬프
+  createdAt           DateTime         @default(now()) @db.Timestamptz(6)
+
+  // 관계
+  organization        Organization     @relation("ContractTemplateAuditLogs", fields: [organizationId], references: [id], onDelete: Cascade)
+  template            ContractTemplate @relation("AuditLogs", fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([templateId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
 }
 
 enum PaymentStatus {

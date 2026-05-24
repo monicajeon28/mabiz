@@ -1,81 +1,80 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getAuthContext } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { getAuthContext, resolveOrgId } from "@/lib/rbac";
+import { logger } from "@/lib/logger";
+import { updateContractTemplateSchema } from "@/lib/validations/contract-templates";
 import {
-  updateContractTemplateSchema,
-} from "@/lib/validations/contract-templates";
-import { ContractTemplateResponse, ApiResponse } from "@/lib/types/contract-templates";
+  logContractTemplateAudit,
+  generateChangeDescription,
+  maskSensitiveFields,
+  canDeleteTemplate,
+} from "@/lib/contract-templates-audit";
 
-interface RouteParams {
-  params: {
-    id: string;
-  };
-}
+type Params = { params: Promise<{ id: string }> };
 
-/**
- * GET /api/contract-templates/[id]
- * 템플릿 상세 조회
- */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+// GET /api/contract-templates/[id] - 특정 계약 템플릿 상세 조회
+export async function GET(_req: Request, { params }: Params) {
   try {
-    const authContext = await getAuthContext();
-    if (!authContext) {
+    const ctx = await getAuthContext();
+    const orgId = resolveOrgId(ctx);
+    const { id } = await params;
+
+    // ID 검증
+    if (!id || typeof id !== "string") {
       return NextResponse.json(
-        { ok: false, error: "Unauthorized" },
-        { status: 401 }
+        { ok: false, error: "Invalid template ID" },
+        { status: 400 }
       );
     }
 
-    const { organizationId } = authContext;
-    const { id } = params;
-
-    const template = await prisma.contractTemplate.findUnique({
-      where: { id },
+    // 템플릿 조회
+    const template = await prisma.contractTemplate.findFirst({
+      where: {
+        id,
+        organizationId: orgId,
+      },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        instances: {
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        },
+      },
     });
 
     if (!template) {
       return NextResponse.json(
-        { ok: false, error: "템플릿을 찾을 수 없습니다" },
+        { ok: false, error: "Template not found" },
         { status: 404 }
       );
     }
 
-    // 권한 확인
-    if (template.organizationId !== organizationId) {
-      return NextResponse.json(
-        { ok: false, error: "접근 권한이 없습니다" },
-        { status: 403 }
-      );
-    }
-
-    const response: ApiResponse<ContractTemplateResponse> = {
-      ok: true,
-      data: {
-        id: template.id,
-        name: template.name,
-        description: template.description,
-        category: template.category,
-        htmlContent: template.htmlContent,
-        fieldMapping: template.fieldMapping as Record<string, any>,
-        psychologyLenses: template.psychologyLenses,
-        smsDay0TemplateId: template.smsDay0TemplateId,
-        smsDay1TemplateId: template.smsDay1TemplateId,
-        smsDay2TemplateId: template.smsDay2TemplateId,
-        smsDay3TemplateId: template.smsDay3TemplateId,
-        visibility: template.visibility,
-        status: template.status,
-        version: template.version,
-        isSystemTemplate: template.isSystemTemplate,
-        usageCount: template.usageCount,
-        lastUsedAt: template.lastUsedAt?.toISOString() || null,
-        createdAt: template.createdAt.toISOString(),
-        updatedAt: template.updatedAt.toISOString(),
+    return NextResponse.json(
+      {
+        ok: true,
+        data: template,
       },
-    };
-
-    return NextResponse.json(response);
-  } catch (error) {
-    console.error("[GET /api/contract-templates/[id]] Error:", error);
+      { status: 200 }
+    );
+  } catch (err) {
+    logger.error("contract-templates GET [id] error:", err);
+    if ((err as Error).message === "UNAUTHORIZED") {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+    if ((err as Error).message === "ORGANIZATION_REQUIRED") {
+      return NextResponse.json({ ok: false, error: "Organization required" }, { status: 400 });
+    }
     return NextResponse.json(
       { ok: false, error: "Internal server error" },
       { status: 500 }
@@ -83,73 +82,100 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-/**
- * PATCH /api/contract-templates/[id]
- * 템플릿 수정
- */
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+// PATCH /api/contract-templates/[id] - 계약 템플릿 수정
+export async function PATCH(req: NextRequest, { params }: Params) {
+  let previousValues: Record<string, any> | null = null;
+
   try {
-    const authContext = await getAuthContext();
-    if (!authContext) {
+    const ctx = await getAuthContext();
+    const orgId = resolveOrgId(ctx);
+    const { id } = await params;
+
+    // ID 검증
+    if (!id || typeof id !== "string") {
       return NextResponse.json(
-        { ok: false, error: "Unauthorized" },
-        { status: 401 }
+        { ok: false, error: "Invalid template ID" },
+        { status: 400 }
       );
     }
 
-    const { organizationId } = authContext;
-    const { id } = params;
+    // 요청 본문 파싱
+    const body = await req.json().catch(() => ({}));
 
-    const template = await prisma.contractTemplate.findUnique({
-      where: { id },
+    // 입력 검증
+    const validatedData = updateContractTemplateSchema.parse(body);
+
+    // 기존 템플릿 조회
+    const template = await prisma.contractTemplate.findFirst({
+      where: {
+        id,
+        organizationId: orgId,
+      },
     });
 
     if (!template) {
       return NextResponse.json(
-        { ok: false, error: "템플릿을 찾을 수 없습니다" },
+        { ok: false, error: "Template not found" },
         { status: 404 }
-      );
-    }
-
-    // 권한 확인
-    if (template.organizationId !== organizationId) {
-      return NextResponse.json(
-        { ok: false, error: "접근 권한이 없습니다" },
-        { status: 403 }
       );
     }
 
     // 시스템 템플릿 수정 불가
     if (template.isSystemTemplate) {
+      await logContractTemplateAudit({
+        organizationId: orgId,
+        templateId: id,
+        userId: ctx.userId,
+        action: "UPDATE",
+        request: req,
+        error: new Error("Cannot update system template"),
+      });
+
       return NextResponse.json(
-        { ok: false, error: "시스템 템플릿은 수정할 수 없습니다" },
-        { status: 400 }
+        { ok: false, error: "System templates cannot be modified" },
+        { status: 403 }
       );
     }
 
-    const body = await request.json();
-
-    // 입력 검증
-    const validatedData = updateContractTemplateSchema.parse(body);
-
     // 이름 변경 시 중복 확인
     if (validatedData.name && validatedData.name !== template.name) {
-      const existingTemplate = await prisma.contractTemplate.findFirst({
+      const existing = await prisma.contractTemplate.findFirst({
         where: {
-          organizationId,
+          organizationId: orgId,
           name: validatedData.name,
+          id: { not: id },
         },
       });
 
-      if (existingTemplate) {
+      if (existing) {
+        await logContractTemplateAudit({
+          organizationId: orgId,
+          templateId: id,
+          userId: ctx.userId,
+          action: "UPDATE",
+          request: req,
+          error: new Error("Duplicate template name"),
+        });
+
         return NextResponse.json(
-          { ok: false, error: "템플릿명이 이미 존재합니다" },
+          { ok: false, error: "Template name already exists" },
           { status: 400 }
         );
       }
     }
 
-    // 템플릿 수정 및 버전 증가
+    // 변경값 저장 (감사 로그용)
+    previousValues = maskSensitiveFields({
+      name: template.name,
+      description: template.description,
+      category: template.category,
+      status: template.status,
+      visibility: template.visibility,
+      psychologyLenses: template.psychologyLenses,
+      version: template.version,
+    });
+
+    // 템플릿 업데이트
     const updatedTemplate = await prisma.contractTemplate.update({
       where: { id },
       data: {
@@ -187,41 +213,61 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    const response: ApiResponse<ContractTemplateResponse> = {
-      ok: true,
-      data: {
-        id: updatedTemplate.id,
-        name: updatedTemplate.name,
-        description: updatedTemplate.description,
-        category: updatedTemplate.category,
-        htmlContent: updatedTemplate.htmlContent,
-        fieldMapping: updatedTemplate.fieldMapping as Record<string, any>,
-        psychologyLenses: updatedTemplate.psychologyLenses,
-        smsDay0TemplateId: updatedTemplate.smsDay0TemplateId,
-        smsDay1TemplateId: updatedTemplate.smsDay1TemplateId,
-        smsDay2TemplateId: updatedTemplate.smsDay2TemplateId,
-        smsDay3TemplateId: updatedTemplate.smsDay3TemplateId,
-        visibility: updatedTemplate.visibility,
-        status: updatedTemplate.status,
-        version: updatedTemplate.version,
-        isSystemTemplate: updatedTemplate.isSystemTemplate,
-        usageCount: updatedTemplate.usageCount,
-        lastUsedAt: updatedTemplate.lastUsedAt?.toISOString() || null,
-        createdAt: updatedTemplate.createdAt.toISOString(),
-        updatedAt: updatedTemplate.updatedAt.toISOString(),
-      },
-      message: "템플릿이 성공적으로 수정되었습니다",
-    };
+    // 변경값 마스킹 후 감사 로그
+    const newValues = maskSensitiveFields({
+      name: updatedTemplate.name,
+      description: updatedTemplate.description,
+      category: updatedTemplate.category,
+      status: updatedTemplate.status,
+      visibility: updatedTemplate.visibility,
+      psychologyLenses: updatedTemplate.psychologyLenses,
+      version: updatedTemplate.version,
+    });
 
-    return NextResponse.json(response);
-  } catch (error) {
-    console.error("[PATCH /api/contract-templates/[id]] Error:", error);
-    if (error instanceof Error && error.name === "ZodError") {
+    const changeDescription = generateChangeDescription(
+      previousValues!,
+      newValues
+    );
+
+    await logContractTemplateAudit({
+      organizationId: orgId,
+      templateId: id,
+      userId: ctx.userId,
+      action: "UPDATE",
+      previousValues,
+      newValues,
+      changeDescription,
+      request: req,
+    });
+
+    logger.info(`Contract template updated: ${id} (v${updatedTemplate.version})`);
+
+    return NextResponse.json(
+      {
+        ok: true,
+        data: updatedTemplate,
+        message: `Template updated successfully (v${updatedTemplate.version})`,
+      },
+      { status: 200 }
+    );
+  } catch (err) {
+    logger.error("contract-templates PATCH [id] error:", err);
+
+    if (err instanceof Error && err.name === "ZodError") {
       return NextResponse.json(
         { ok: false, error: "Invalid input data" },
         { status: 400 }
       );
     }
+
+    if ((err as Error).message === "UNAUTHORIZED") {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    if ((err as Error).message === "ORGANIZATION_REQUIRED") {
+      return NextResponse.json({ ok: false, error: "Organization required" }, { status: 400 });
+    }
+
     return NextResponse.json(
       { ok: false, error: "Internal server error" },
       { status: 500 }
@@ -229,78 +275,130 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-/**
- * DELETE /api/contract-templates/[id]
- * 템플릿 삭제 (논리적 또는 물리적)
- */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+// DELETE /api/contract-templates/[id] - 계약 템플릿 삭제
+export async function DELETE(req: NextRequest, { params }: Params) {
   try {
-    const authContext = await getAuthContext();
-    if (!authContext) {
+    const ctx = await getAuthContext();
+    const orgId = resolveOrgId(ctx);
+    const { id } = await params;
+
+    // ID 검증
+    if (!id || typeof id !== "string") {
       return NextResponse.json(
-        { ok: false, error: "Unauthorized" },
-        { status: 401 }
+        { ok: false, error: "Invalid template ID" },
+        { status: 400 }
       );
     }
 
-    const { organizationId } = authContext;
-    const { id } = params;
+    // 요청 본문 파싱 (삭제 사유 등)
+    const body = await req.json().catch(() => ({}));
+    const { reason } = body as { reason?: string };
 
-    const template = await prisma.contractTemplate.findUnique({
-      where: { id },
+    // 기존 템플릿 조회
+    const template = await prisma.contractTemplate.findFirst({
+      where: {
+        id,
+        organizationId: orgId,
+      },
     });
 
     if (!template) {
       return NextResponse.json(
-        { ok: false, error: "템플릿을 찾을 수 없습니다" },
+        { ok: false, error: "Template not found" },
         { status: 404 }
-      );
-    }
-
-    // 권한 확인
-    if (template.organizationId !== organizationId) {
-      return NextResponse.json(
-        { ok: false, error: "접근 권한이 없습니다" },
-        { status: 403 }
       );
     }
 
     // 시스템 템플릿 삭제 불가
     if (template.isSystemTemplate) {
+      await logContractTemplateAudit({
+        organizationId: orgId,
+        templateId: id,
+        userId: ctx.userId,
+        action: "DELETE",
+        reason,
+        request: req,
+        error: new Error("Cannot delete system template"),
+      });
+
       return NextResponse.json(
-        { ok: false, error: "시스템 템플릿은 삭제할 수 없습니다" },
-        { status: 400 }
+        { ok: false, error: "System templates cannot be deleted" },
+        { status: 403 }
       );
     }
 
-    // 사용 중인 템플릿의 경우 논리적 삭제 (ARCHIVED)
-    if (template.usageCount > 0) {
+    // 사용 중인 인스턴스 확인
+    const deleteCheck = await canDeleteTemplate(id);
+
+    if (!deleteCheck.canDelete) {
+      // 진행 중인 계약서가 있으면 ARCHIVED로 변경
       await prisma.contractTemplate.update({
         where: { id },
         data: { status: "ARCHIVED" },
       });
 
-      const response: ApiResponse<null> = {
-        ok: true,
-        message: `템플릿이 보관되었습니다 (${template.usageCount}개의 계약서가 사용 중입니다)`,
-      };
+      await logContractTemplateAudit({
+        organizationId: orgId,
+        templateId: id,
+        userId: ctx.userId,
+        action: "ARCHIVE",
+        changeDescription: `Archived due to active instances (${deleteCheck.activeInstanceCount})`,
+        reason: reason || deleteCheck.reason,
+        request: req,
+      });
 
-      return NextResponse.json(response);
+      logger.info(
+        `Contract template archived (has ${deleteCheck.activeInstanceCount} active instances): ${id}`
+      );
+
+      return NextResponse.json(
+        {
+          ok: true,
+          message: `Template archived: ${deleteCheck.reason}`,
+        },
+        { status: 200 }
+      );
     }
 
-    // 사용하지 않는 템플릿의 경우 물리적 삭제
+    // 템플릿 물리 삭제
     await prisma.contractTemplate.delete({
       where: { id },
     });
 
-    const response: ApiResponse<null> = {
-      ok: true,
-      message: "템플릿이 성공적으로 삭제되었습니다",
-    };
+    await logContractTemplateAudit({
+      organizationId: orgId,
+      templateId: id,
+      userId: ctx.userId,
+      action: "DELETE",
+      previousValues: maskSensitiveFields({
+        name: template.name,
+        category: template.category,
+        status: template.status,
+      }),
+      reason,
+      request: req,
+    });
 
-    return NextResponse.json(response);
-  } catch (error) {
-    console.error("[DELETE /api/contract-templates/[id]] Error:", error);
+    logger.info(`Contract template deleted: ${id}`);
+
+    return NextResponse.json(
+      {
+        ok: true,
+        message: "Template deleted successfully",
+      },
+      { status: 200 }
+    );
+  } catch (err) {
+    logger.error("contract-templates DELETE [id] error:", err);
+
+    if ((err as Error).message === "UNAUTHORIZED") {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    if ((err as Error).message === "ORGANIZATION_REQUIRED") {
+      return NextResponse.json({ ok: false, error: "Organization required" }, { status: 400 });
+    }
+
     return NextResponse.json(
       { ok: false, error: "Internal server error" },
       { status: 500 }
