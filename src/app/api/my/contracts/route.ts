@@ -6,9 +6,17 @@ import { logger } from '@/lib/logger';
 type Contract = {
   id: string;
   contractorName: string;
-  status: string;
+  status: "invited" | "signed" | "completed" | "rejected";
+  invitedAt: string | null;
+  signedAt: string | null;
+  completedAt: string | null;
   submittedAt: string | null;
   mentorCode: string | null;
+  // L10 렌즈: SMS 자동화 메타데이터
+  smsDay0Sent?: boolean;
+  smsDay1Sent?: boolean;
+  smsDay2Sent?: boolean;
+  lastReminderAt?: string | null;
 };
 
 export async function GET() {
