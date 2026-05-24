@@ -119,6 +119,64 @@ export async function GET(req: Request) {
   }
 }
 
+// PATCH /api/email/schedule — 일시정지(pause) / 재개(resume) / 재발송(retry)
+export async function PATCH(req: Request) {
+  try {
+    const ctx = await getAuthContext();
+    const orgId = requireOrgId(ctx);
+    const body = await req.json() as { id: string; action: "pause" | "resume" | "retry" };
+
+    if (!body.id || !body.action) {
+      return NextResponse.json({ ok: false, message: "id와 action(pause/resume/retry)은 필수입니다" }, { status: 400 });
+    }
+
+    const item = await prisma.scheduledEmail.findFirst({
+      where: { id: body.id, organizationId: orgId },
+    });
+    if (!item) return NextResponse.json({ ok: false, message: "예약 메시지를 찾을 수 없습니다" }, { status: 404 });
+
+    if (body.action === "pause") {
+      if (item.status !== "PENDING" && item.status !== "NIGHT_BLOCKED") {
+        return NextResponse.json({ ok: false, message: `${item.status} 상태는 일시정지할 수 없습니다 (PENDING/NIGHT_BLOCKED만 가능)` }, { status: 400 });
+      }
+      await prisma.scheduledEmail.update({
+        where: { id: body.id },
+        data: { status: "PAUSED", pausedAt: new Date(), pausedBy: ctx.userId },
+      });
+      logger.log("[PATCH /api/email/schedule] pause", { id: body.id, orgId });
+    }
+
+    if (body.action === "resume") {
+      if (item.status !== "PAUSED") {
+        return NextResponse.json({ ok: false, message: "일시정지 상태만 재개할 수 있습니다" }, { status: 400 });
+      }
+      await prisma.scheduledEmail.update({
+        where: { id: body.id },
+        data: { status: "PENDING", pausedAt: null, pausedBy: null },
+      });
+      logger.log("[PATCH /api/email/schedule] resume", { id: body.id, orgId });
+    }
+
+    if (body.action === "retry") {
+      if (item.status !== "FAILED") {
+        return NextResponse.json({ ok: false, message: "실패한 메시지만 재발송할 수 있습니다" }, { status: 400 });
+      }
+      await prisma.scheduledEmail.update({
+        where: { id: body.id },
+        data: { status: "PENDING", scheduledAt: new Date(), failureReason: null },
+      });
+      logger.log("[PATCH /api/email/schedule] retry", { id: body.id, orgId });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === "UNAUTHORIZED") return NextResponse.json({ ok: false }, { status: 401 });
+    logger.error("[PATCH /api/email/schedule]", { err });
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+}
+
 // DELETE /api/email/schedule?id=xxx — 예약 취소
 export async function DELETE(req: Request) {
   try {
@@ -128,12 +186,19 @@ export async function DELETE(req: Request) {
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ ok: false, message: "id 필수" }, { status: 400 });
 
-    const updated = await prisma.scheduledEmail.updateMany({
-      where: { id, organizationId: orgId, status: "PENDING" },
+    const item = await prisma.scheduledEmail.findFirst({
+      where: { id, organizationId: orgId, status: { in: ["PENDING", "PAUSED", "NIGHT_BLOCKED"] } },
+    });
+    if (!item) return NextResponse.json({ ok: false, message: "취소 가능한 예약 메시지를 찾을 수 없습니다 (PENDING/PAUSED/NIGHT_BLOCKED만 취소 가능)" }, { status: 404 });
+
+    await prisma.scheduledEmail.update({
+      where: { id },
       data:  { status: "CANCELLED" },
     });
 
-    return NextResponse.json({ ok: updated.count > 0 });
+    logger.log("[DELETE /api/email/schedule]", { id, orgId });
+
+    return NextResponse.json({ ok: true });
   } catch (err) {
     logger.error("[DELETE /api/email/schedule]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });

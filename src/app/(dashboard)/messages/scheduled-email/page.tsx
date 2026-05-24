@@ -1,0 +1,198 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Mail, X, CheckCircle, Clock, XCircle, Pause, Play, RotateCcw } from "lucide-react";
+
+type ScheduledItem = {
+  id: string;
+  contactId:  string | null;
+  groupId:    string | null;
+  subject:    string;
+  message:    string;
+  scheduledAt: string;
+  status:     string;
+  sentAt:     string | null;
+  sentCount:  number;
+  failedCount: number;
+  createdAt:  string;
+};
+
+const STATUS_INFO: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+  PENDING:       { label: "예약됨",     icon: <Clock       className="w-3.5 h-3.5" />, color: "bg-blue-100 text-blue-700" },
+  SENDING:       { label: "발송 중",    icon: <Clock       className="w-3.5 h-3.5" />, color: "bg-yellow-100 text-yellow-700" },
+  SENT:          { label: "발송 완료",  icon: <CheckCircle className="w-3.5 h-3.5" />, color: "bg-green-100 text-green-700" },
+  FAILED:        { label: "실패",       icon: <XCircle     className="w-3.5 h-3.5" />, color: "bg-red-100 text-red-700" },
+  CANCELLED:     { label: "취소됨",     icon: <X           className="w-3.5 h-3.5" />, color: "bg-gray-100 text-gray-500" },
+  PAUSED:        { label: "일시정지",   icon: <Pause       className="w-3.5 h-3.5" />, color: "bg-orange-100 text-orange-700" },
+  NIGHT_BLOCKED: { label: "야간 대기",  icon: <Clock       className="w-3.5 h-3.5" />, color: "bg-purple-100 text-purple-700" },
+};
+
+export default function ScheduledEmailPage() {
+  const [list,      setList]      = useState<ScheduledItem[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [filter,    setFilter]    = useState("PENDING");
+  const [cancelling, setCancelling] = useState<string | null>(null);
+
+  const load = async (status: string) => {
+    setLoading(true);
+    const res = await fetch(`/api/email/schedule?status=${status}`);
+    const data = await res.json();
+    if (data.ok) setList(data.list);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(filter); }, [filter]);
+
+  const cancel = async (id: string) => {
+    setCancelling(id);
+    const res = await fetch(`/api/email/schedule?id=${id}`, { method: "DELETE" });
+    const data = await res.json();
+    if (data.ok) setList((prev) => prev.filter((item) => item.id !== id));
+    setCancelling(null);
+  };
+
+  const [acting, setActing] = useState<string | null>(null);
+
+  const doAction = async (id: string, action: "pause" | "resume" | "retry") => {
+    setActing(id);
+    const res = await fetch("/api/email/schedule", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action }),
+    });
+    const data = await res.json();
+    if (data.ok) load(filter);
+    else alert(data.message ?? "작업 실패");
+    setActing(null);
+  };
+
+  return (
+    <div className="p-4 md:p-6 max-w-3xl mx-auto">
+      <div className="flex items-center gap-3 mb-6">
+        <Mail className="w-6 h-6 text-blue-500" />
+        <div>
+          <h1 className="text-xl font-bold text-navy-900">예약 발송</h1>
+          <p className="text-sm text-gray-500 mt-0.5">5분 주기로 자동 처리됩니다</p>
+        </div>
+      </div>
+
+      {/* 상태 필터 */}
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {Object.entries(STATUS_INFO).map(([key, info]) => (
+          <button
+            key={key}
+            onClick={() => setFilter(key)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition-colors ${
+              filter === key
+                ? "bg-navy-900 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            {info.icon} {info.label}
+          </button>
+        ))}
+        <button
+          onClick={() => { setFilter(""); load(""); }}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+            filter === "" ? "bg-navy-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          전체
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
+          ))}
+        </div>
+      ) : list.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <Mail className="w-12 h-12 mx-auto mb-3 opacity-20" />
+          <p className="text-sm">예약된 발송이 없습니다.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {list.map((item) => {
+            const info = STATUS_INFO[item.status] ?? STATUS_INFO.PENDING;
+            return (
+              <div key={item.id} className="bg-white border border-gray-200 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    {/* 상태 + 예약 시각 */}
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${info.color}`}>
+                        {info.icon} {info.label}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        🕐 {new Date(item.scheduledAt).toLocaleString("ko-KR")}
+                      </span>
+                      {item.sentAt && (
+                        <span className="text-xs text-gray-400">
+                          · 발송: {new Date(item.sentAt).toLocaleString("ko-KR")}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 수신 대상 */}
+                    <p className="text-xs text-gray-500 mb-1">
+                      {item.contactId  ? "👤 개별 고객" : ""}
+                      {item.groupId    ? "👥 그룹 전체" : ""}
+                    </p>
+
+                    {/* 제목 */}
+                    <p className="text-sm font-medium text-gray-900 line-clamp-1">{item.subject}</p>
+
+                    {/* 본문 미리보기 */}
+                    <p className="text-sm text-gray-600 line-clamp-2 mt-1">{item.message}</p>
+
+                    {/* 발송 결과 */}
+                    {(item.sentCount > 0 || item.failedCount > 0) && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        ✅ {item.sentCount}건 성공
+                        {item.failedCount > 0 && ` · ❌ ${item.failedCount}건 실패`}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* 액션 버튼 */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {/* 일시정지 (PENDING/NIGHT_BLOCKED) */}
+                    {(item.status === "PENDING" || item.status === "NIGHT_BLOCKED") && (
+                      <button onClick={() => doAction(item.id, "pause")} disabled={acting === item.id}
+                        className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors" title="일시정지">
+                        <Pause className="w-4 h-4" />
+                      </button>
+                    )}
+                    {/* 재개 (PAUSED) */}
+                    {item.status === "PAUSED" && (
+                      <button onClick={() => doAction(item.id, "resume")} disabled={acting === item.id}
+                        className="p-1.5 text-gray-400 hover:text-green-500 hover:bg-green-50 rounded-lg transition-colors" title="재개">
+                        <Play className="w-4 h-4" />
+                      </button>
+                    )}
+                    {/* 재발송 (FAILED) */}
+                    {item.status === "FAILED" && (
+                      <button onClick={() => doAction(item.id, "retry")} disabled={acting === item.id}
+                        className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="재발송">
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                    )}
+                    {/* 취소 (PENDING/PAUSED/NIGHT_BLOCKED) */}
+                    {(item.status === "PENDING" || item.status === "PAUSED" || item.status === "NIGHT_BLOCKED") && (
+                      <button onClick={() => cancel(item.id)} disabled={cancelling === item.id}
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="취소">
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
