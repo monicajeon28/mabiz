@@ -3,13 +3,22 @@ import { getAuthContext } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
+type TeamStatement = {
+  id: string;
+  periodStart: string;
+  periodEnd: string;
+  status: string;
+  teamNetAmount: number;
+  paidAt: string | null;
+};
+
 export async function GET() {
   try {
     const ctx = await getAuthContext();
 
     // OWNER만 접근 가능
     if (ctx.role !== 'OWNER') {
-      return NextResponse.json({ ok: true, settlements: [] });
+      return NextResponse.json({ ok: true, statements: [] });
     }
 
     // 1. affiliateCode 조회
@@ -20,7 +29,7 @@ export async function GET() {
     });
 
     if (!sale?.affiliateCode) {
-      return NextResponse.json({ ok: true, settlements: [] });
+      return NextResponse.json({ ok: true, statements: [] });
     }
 
     // 2. 크루즈닷 internal API 호출
@@ -29,7 +38,7 @@ export async function GET() {
 
     if (!baseUrl || !secret) {
       logger.log('[TeamStatements] CRUISEDOT 환경변수 미설정');
-      return NextResponse.json({ ok: true, settlements: [] });
+      return NextResponse.json({ ok: true, statements: [] });
     }
 
     const res = await fetch(
@@ -42,14 +51,14 @@ export async function GET() {
 
     if (!res.ok) {
       logger.log('[TeamStatements] 크루즈닷 응답 실패', { status: res.status });
-      return NextResponse.json({ ok: true, settlements: [] });
+      return NextResponse.json({ ok: true, statements: [] });
     }
 
-    const data = await res.json() as { ok: boolean; settlements: unknown[] };
-    return NextResponse.json({ ok: true, settlements: data.settlements ?? [] });
+    const data = await res.json() as { ok: boolean; statements: TeamStatement[] };
+    return NextResponse.json({ ok: true, statements: data.statements ?? [] });
 
   } catch (e) {
     logger.log('[TeamStatements] 오류', { error: e instanceof Error ? e.message : String(e) });
-    return NextResponse.json({ ok: true, settlements: [] });
+    return NextResponse.json({ ok: true, statements: [] });
   }
 }

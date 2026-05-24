@@ -1,0 +1,233 @@
+{
+  "pptx_summary": {
+    "title": "인스타그램 강의안 - 기초부터 중급까지",
+    "total_slides": 129,
+    "key_topics": [
+      {
+        "topic": "인스타그램의 특성",
+        "content": [
+          "20/30대 주요 타깃 (관심사: 패션, 뷰티, 음식, 육아, 여행, 반려동물)",
+          "SNS 트렌드 = 타깃 설정",
+          "이미지, 동영상, 스토리, 라이브, 릴스 등 다양한 콘텐츠 유형"
+        ]
+      },
+      {
+        "topic": "나만의 컨셉 설정",
+        "content": [
+          "채널 컨셉을 한 문장으로 정의",
+          "4단계 컨셉 프로세스: 목표/타깃 → 카테고리 → 콘텐츠 → 시각화",
+          "지속적인 운영을 위한 콘텐츠 카테고리 분류"
+        ]
+      },
+      {
+        "topic": "콘텐츠 종류와 규격",
+        "content": [
+          "정사각형: 1080x1080 (1:1) - Feed",
+          "세로형: 1080x1350 (4:5) - 트렌드",
+          "동영상: 1080x1920 (IGTV, 라이브, 릴스, 스토리)",
+          "와이드: 1200x628 (1.91:1)"
+        ]
+      },
+      {
+        "topic": "콘텐츠 제작 트렌드",
+        "content": [
+          "과거: TV CF, 라디오, 신문잡지",
+          "현재: 인스타그램 중심 콘텐츠 소비",
+          "짧은 시간에 소비되는 콘텐츠 특성 반영"
+        ]
+      },
+      {
+        "topic": "해시태그 전략",
+        "content": [
+          "좋아요, 댓글 반응이 태그 알고리즘에 영향",
+          "관련도 높은 해시태그 9-12개 전략적 사용",
+          "매번 같은 해시태그 사용 금지"
+        ]
+      }
+    ]
+  },
+  "image_specs": {
+    "feed": {
+      "width": 800,
+      "height": 800,
+      "aspect_ratio": "1:1",
+      "name": "피드 이미지"
+    },
+    "feed_carousel_left": {
+      "width": 800,
+      "height": 800,
+      "aspect_ratio": "1:1",
+      "name": "카드뉴스 정사각형"
+    },
+    "feed_carousel_wide": {
+      "width": 800,
+      "height": 1200,
+      "aspect_ratio": "2:3",
+      "name": "카드뉴스 세로"
+    },
+    "feed_video": {
+      "width": 800,
+      "height": 800,
+      "aspect_ratio": "1:1",
+      "name": "피드 동영상"
+    },
+    "story": {
+      "width": 1080,
+      "height": 1920,
+      "aspect_ratio": "9:16",
+      "name": "스토리 이미지"
+    },
+    "story_video": {
+      "width": 1080,
+      "height": 1920,
+      "aspect_ratio": "9:16",
+      "name": "스토리 동영상"
+    },
+    "facebook_cover": {
+      "width": 820,
+      "height": 312,
+      "aspect_ratio": "2.6:1",
+      "name": "페이스북 커버"
+    },
+    "facebook_link_preview": {
+      "width": 1200,
+      "height": 630,
+      "aspect_ratio": "1.9:1",
+      "name": "페이스북 링크"
+    }
+  },
+  "excel_links": {
+    "URL_분석_도구": [
+      {
+        "name": "Google UTM URL 작성기",
+        "description": "UTM 및 QR 생성 워드프레스 분석 툴 등 제공",
+        "url": "https://www.ttmkt.com/tools/google-utm-builder/"
+      },
+      {
+        "name": "Google Analytics URL Builder",
+        "description": "페이스북에서 제공하는 GA URL Builder",
+        "url": "https://www.facebook.com/business/google-analytics/build-your-url"
+      },
+      {
+        "name": "Google 애널리틱스 데모 및 도구",
+        "description": "편리하게 UTM 및 이벤트 측정 코드 생성",
+        "url": "https://ga-dev-tools.appspot.com/campaign-url-builder/"
+      },
+      {
+        "name": "애드샐러드",
+        "description": "픽셀이 설치된 리타겟팅 링크를 제공하는 서비스",
+        "url": "https://www.adsalad.co.kr/"
+      },
+      {
+        "name": "스마트 스토어 NT파라미터",
+        "description": "스마트스토어센터 유입 측정 툴",
+        "url": "https://help.sell.smartstore.naver.com/faq/content.help?faqId=5553"
+      }
+    ],
+    "단축_URL_도구": [
+      {
+        "name": "비틀리",
+        "description": "단축 URL 클릭수 측정 도구 (로그인시)",
+        "url": "https://app.bitly.com"
+      },
+      {
+        "name": "TinyURL",
+        "description": "비틀리와 유사한 단축 URL 사이트",
+        "url": "https://tinyurl.com/"
+      },
+      {
+        "name": "muz",
+        "description": "비틀리와 유사한 단축 URL 사이트",
+        "url": "http://muz.so/"
+      },
+      {
+        "name": "url.sg",
+        "description": "비틀리와 유사한 단축 URL 사이트",
+        "url": "http://url.sg/"
+      },
+      {
+        "name": "네이버 큐알코드",
+        "description": "네이버에서 제공하는 URL을 큐알코드로 변환",
+        "url": "https://qr.naver.com/"
+      }
+    ],
+    "동영상_편집_제작": [
+      {
+        "name": "픽셀스",
+        "description": "저작권 없는 무료 영상 사이트",
+        "url": "https://videos.pexels.com/"
+      },
+      {
+        "name": "페이스북 사운드",
+        "description": "페이스북에서 제공하는 무료 음원",
+        "url": "https://www.facebook.com/sound"
+      },
+      {
+        "name": "타일",
+        "description": "가장 손쉬운 동영상 제작 툴",
+        "url": "https://tyle.io/"
+      },
+      {
+        "name": "비디오몬스터",
+        "description": "고퀄리티 모션 그래픽 영상을 제작 지원",
+        "url": "https://videomonster.com/"
+      },
+      {
+        "name": "인스타 사진 랭킹",
+        "description": "인스타그램 동영상 저장하는 사이트",
+        "url": "https://www.nurumayu.net/ko/instagazou/getdouga.php"
+      },
+      {
+        "name": "유커넥",
+        "description": "유튜브 리뷰어 모집 하는 사이트",
+        "url": "https://uconnec.com/main"
+      },
+      {
+        "name": "비디오스크라이브",
+        "description": "간편한 타이포 그래피 영상 유료 제작",
+        "url": "https://www.videoscribe.co/en/"
+      },
+      {
+        "name": "브루(vrew)",
+        "description": "유튜브 자동 자막 프로그램",
+        "url": "https://vrew.voyagerx.com/ko/"
+      },
+      {
+        "name": "뱁믹스",
+        "description": "가장 간편한 영상 편집, 자막 넣는곳",
+        "url": "http://www.vapshion.com/vapshion/php/downloadpage.php"
+      },
+      {
+        "name": "루멘파이브",
+        "description": "손쉽게 동영상을 제작 하는 해외사이트",
+        "url": "https://lumen5.com/"
+      },
+      {
+        "name": "Jason Shaw",
+        "description": "로열티가 없는 완전 무료 음악 사이트",
+        "url": "https://audionautix.com/"
+      },
+      {
+        "name": "벤사운드",
+        "description": "유튜브에 사용 가능한 무료 음원 사이트",
+        "url": "https://www.bensound.com/"
+      },
+      {
+        "name": "타입캐스트",
+        "description": "텍스트에 개성있는 성우 목소리를 더빙 가능",
+        "url": "https://typecast.ai/"
+      },
+      {
+        "name": "mixkit",
+        "description": "무료 동영상 다운로드 사이트",
+        "url": "https://mixkit.co/"
+      },
+      {
+        "name": "videvo",
+        "description": "유료 동영상 다운로드 사이트",
+        "url": "https://www.videvo.net/"
+      }
+    ]
+  },
+  "memory_content": "SNS 마케팅 강의안(인스타그램/페이스북/구글/유튜브) 완전 정리 - 2026-05-24\n\n[핵심]\n- 인스타그램 기초~중급 강의 129장 슬라이드\n- 페이스북 광고 이미지 8가지 규격 (1:1, 2:3, 9:16, 2.6:1 등)\n- SNS 마케팅 필수 도구 50+ (URL분석, 동영상제작, 음원, QR 등)\n\n[인스타그램 전략]\n1. 타깃: 20/30대 (패션/뷰티/음식/여행)\n2. 컨셉: 한 문장 정의 → 4단계 프로세스\n3. 콘텐츠: 정사각형(1080x1080) / 세로형(1080x1350) / 동영상(1080x1920)\n4. 해시태그: 9-12개 전략적 사용, 매번 다르게\n5. 트렌드: 짧은 영상, 릴스, 스토리 중심\n\n[링크 카테고리]\n- URL분석: Google UTM, GA URL Builder, 애드샐러드, NT파라미터\n- 단축URL: Bitly, TinyURL, muz, url.sg, 네이버QR\n- 동영상: Pexels, Tyle, VideoMonster, Lumen5, Vrew, Mixkit\n- 음원: Jason Shaw(로열티무료), Bensound, Facebook Sound Library"
+}
