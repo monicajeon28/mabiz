@@ -1,10 +1,12 @@
-export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { createRefundNotifications } from '@/lib/notification-service';
 import { handleCabinInventoryRefund } from '@/lib/cabin-inventory-refund';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 interface CruisedotPaymentPayload {
   eventId: string;

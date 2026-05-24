@@ -4,6 +4,8 @@ import { validateSessionInMiddleware } from '@/lib/middleware-auth';
 import { checkPathAccess, getRedirectForPath } from '@/lib/route-rules';
 import { AuthRole } from '@/types/auth-headers';
 
+export const runtime = 'nodejs';
+
 // Constants
 const MABIZ_SESSION_COOKIE = 'mabiz.sid';
 

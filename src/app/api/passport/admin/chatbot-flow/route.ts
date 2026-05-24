@@ -141,6 +141,9 @@ export async function POST(req: NextRequest) {
 
         const remaining = state.totalPeople - state.uploadedPassports.length;
 
+        // 매 업로드마다 Redis에 상태 저장 (serverless 인스턴스 간 공유 필수)
+        await setSessionState(sessionKey, state);
+
         if (remaining > 0) {
           return NextResponse.json({
             ok: true,
@@ -186,6 +189,9 @@ export async function POST(req: NextRequest) {
       }
 
       state.residentNumbers.push(residentNum);
+
+      // 매 입력마다 Redis에 상태 저장
+      await setSessionState(sessionKey, state);
 
       if (state.residentNumbers.length < state.totalPeople) {
         return NextResponse.json({
@@ -242,6 +248,9 @@ export async function POST(req: NextRequest) {
       } else {
         state.roomAssignments[currentRoomNumber].push(message);
       }
+
+      // 매 배정마다 Redis에 상태 저장
+      await setSessionState(sessionKey, state);
 
       const assignedCount = state.roomAssignments[currentRoomNumber].length;
 
@@ -302,16 +311,7 @@ export async function POST(req: NextRequest) {
 /**
  * 여권 데이터를 DB에 저장
  */
-async function savePassportData(state: {
-  reservationId: number;
-  uploadedPassports: Array<{
-    imageBase64: string;
-    ocrData: Record<string, unknown>;
-    travelerIndex: number;
-  }>;
-  residentNumbers: string[];
-  roomAssignments: Record<number, string[]>;
-}) {
+async function savePassportData(state: PassportFlowState) {
   const reservation = await prisma.gmReservation.findUnique({
     where: { id: state.reservationId },
   });
