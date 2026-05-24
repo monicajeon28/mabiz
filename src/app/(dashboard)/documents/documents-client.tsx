@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { FileText, CheckCircle, Clock, XCircle, Plus, Download, FolderOpen } from "lucide-react";
 import { showError } from "@/components/ui/Toast";
+import html2canvas from "html2canvas";
 
 type DocType = "COMPARISON_QUOTE" | "PURCHASE_CONFIRMATION" | "REFUND_CERTIFICATE";
 type DocStatus = "APPROVED" | "PENDING_APPROVAL" | "REJECTED" | "DRAFT";
@@ -108,6 +109,20 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
     }
   };
 
+  const downloadPNG = async (doc: Document) => {
+    try {
+      const renderEl = document.getElementById(`doc-render-${doc.id}`);
+      if (!renderEl) { showError('렌더링 실패'); return; }
+      const canvas = await html2canvas(renderEl, { scale: 2, useCORS: true });
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = `${current.label}-${doc.id}.png`;
+      link.click();
+    } catch {
+      showError('다운로드 실패');
+    }
+  };
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       {/* 헤더 */}
@@ -187,6 +202,39 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
         </div>
       )}
 
+      {/* 숨겨진 렌더링 영역 — PNG 다운로드용 */}
+      {docs.map(doc => (
+        <div
+          key={`render-${doc.id}`}
+          id={`doc-render-${doc.id}`}
+          style={{ display: 'none', width: '800px', padding: '40px', background: 'white', fontFamily: 'sans-serif' }}
+        >
+          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: 'bold', margin: '0 0 8px 0' }}>
+              {current.label}
+            </h2>
+            <p style={{ fontSize: '12px', color: '#666', margin: 0 }}>
+              발급일: {new Date(doc.createdAt).toLocaleDateString('ko-KR')}
+            </p>
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+            {Object.entries(doc.generatedData as Record<string, unknown>)
+              .filter(([k]) => !['issuerOrgId', 'issuedAt', 'competitorPrices'].includes(k))
+              .map(([key, val]) => (
+                <tr key={key} style={{ borderBottom: '1px solid #ddd' }}>
+                  <td style={{ padding: '8px', fontWeight: 'bold', width: '30%' }}>{key}</td>
+                  <td style={{ padding: '8px' }}>
+                    {typeof val === 'number' ? val.toLocaleString() : String(val ?? '-')}
+                  </td>
+                </tr>
+              ))}
+          </table>
+          <p style={{ fontSize: '10px', color: '#999', marginTop: '20px' }}>
+            문서ID: {doc.id}
+          </p>
+        </div>
+      ))}
+
       {/* 목록 */}
       {loading ? (
         <div className="space-y-3">
@@ -242,7 +290,10 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
                   </div>
                   <div className="flex flex-col gap-1 shrink-0">
                     {doc.status === 'APPROVED' && (
-                      <button className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors">
+                      <button
+                        onClick={() => downloadPNG(doc)}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors"
+                      >
                         <Download className="w-3 h-3" /> PNG
                       </button>
                     )}

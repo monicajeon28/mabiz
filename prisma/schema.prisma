@@ -51,6 +51,8 @@ model Organization {
   scriptPatterns             ScriptPattern[]
   shortLinks                 ShortLink[]
   smsTemplates               SmsTemplate[]
+  contractTemplates          ContractTemplate[]
+  contractInstances          ContractInstance[]
 }
 
 model OrgSmsConfig {
@@ -4805,6 +4807,105 @@ enum AffiliateActionType {
   DISPUTE_FILED
   DISPUTE_EVIDENCE
   LEGAL_ACTION
+}
+
+model ContractTemplate {
+  id                  String                   @id @default(cuid())
+  organizationId      String
+
+  // 템플릿 메타정보
+  name                String                   @db.VarChar(255)
+  description         String?
+  category            String                   @db.VarChar(50)  // "CRUISE"|"RENTAL"|"HOTEL"|"PACKAGE"|"OTHER"
+
+  // Rich Text 본문
+  htmlContent         String?                  @db.Text
+  jsonContent         Json?
+
+  // 필드 매핑
+  fieldMapping        Json                     @default("{}")
+
+  // 심리학 렌즈 태그
+  psychologyLenses    String[]                 @default([])
+
+  // SMS 자동화 연동
+  smsDay0TemplateId   String?
+  smsDay1TemplateId   String?
+  smsDay2TemplateId   String?
+  smsDay3TemplateId   String?
+
+  // 권한 관리
+  visibility          String                   @default("ORGANIZATION")  // "ORGANIZATION"|"MANAGER_ONLY"|"PERSONAL"
+  createdByUserId     String?
+
+  // 사용 통계
+  usageCount          Int                      @default(0)
+  lastUsedAt          DateTime?
+
+  // 상태
+  status              String                   @default("ACTIVE")  // "ACTIVE"|"ARCHIVED"|"DRAFT"
+  version             Int                      @default(1)
+  isSystemTemplate    Boolean                  @default(false)
+
+  // 타임스탬프
+  createdAt           DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime                 @updatedAt @db.Timestamptz(6)
+
+  // 관계
+  organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  instances           ContractInstance[]       @relation("TemplateInstances")
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([createdByUserId])
+}
+
+model ContractInstance {
+  id                  String                   @id @default(cuid())
+  organizationId      String
+  templateId          String
+  contactId           String?
+
+  // 실제 데이터
+  boundData           Json                     @default("{}")
+
+  // 진행 상태
+  status              String                   @default("DRAFT")  // "DRAFT"|"SENT"|"SIGNED"|"COMPLETED"
+
+  // 서명 정보
+  signedAt            DateTime?
+  signedByContactId   String?
+  signatureImage      String?                  @db.Text
+
+  // SMS 발송 추적
+  smsDay0Sent         Boolean                  @default(false)
+  smsDay0SentAt       DateTime?
+  smsDay1Sent         Boolean                  @default(false)
+  smsDay1SentAt       DateTime?
+  smsDay2Sent         Boolean                  @default(false)
+  smsDay2SentAt       DateTime?
+  smsDay3Sent         Boolean                  @default(false)
+  smsDay3SentAt       DateTime?
+
+  // 유효기한 (L10 긴박감)
+  expiresAt           DateTime?                // 기본값: createdAt + 24시간
+
+  // 심리학 렌즈 기록
+  appliedLenses       String[]                 @default([])
+
+  // 타임스탬프
+  createdAt           DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime                 @updatedAt @db.Timestamptz(6)
+
+  // 관계
+  organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  template            ContractTemplate        @relation("TemplateInstances", fields: [templateId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId])
+  @@index([templateId])
+  @@index([contactId])
+  @@index([status])
+  @@index([expiresAt])
 }
 
 enum PaymentStatus {
