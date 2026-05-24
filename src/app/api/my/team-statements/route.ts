@@ -10,7 +10,26 @@ type TeamStatement = {
   status: string;
   teamNetAmount: number;
   paidAt: string | null;
+  teamMemberId?: string;
+  memberName?: string;
+  memberRole?: string;
+  daysOverdue?: number;
 };
+
+/**
+ * CRM 자동분류: 정산 건강도 판정 및 SMS Day 계산
+ * Risk Flags: NONE / DELAYED_3_7DAYS / DELAYED_7PLUS_DAYS
+ */
+function calculateDaysOverdue(status: string, periodEnd: string): number {
+  if (status === "COMPLETED" || status === "APPROVED") return 0;
+
+  const endDate = new Date(periodEnd);
+  const now = new Date();
+  const diffMs = now.getTime() - endDate.getTime();
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+  return Math.max(0, diffDays);
+}
 
 export async function GET() {
   try {
@@ -55,7 +74,15 @@ export async function GET() {
     }
 
     const data = await res.json() as { ok: boolean; statements: TeamStatement[] };
-    return NextResponse.json({ ok: true, statements: data.statements ?? [] });
+
+    // L5 + L10: 팀원 역할 및 지연일수 계산 후 응답에 추가
+    const enrichedStatements = (data.statements ?? []).map((stmt) => ({
+      ...stmt,
+      daysOverdue: calculateDaysOverdue(stmt.status, stmt.periodEnd),
+      memberRole: stmt.memberRole ?? "JUNIOR_OWNER", // 기본값
+    }));
+
+    return NextResponse.json({ ok: true, statements: enrichedStatements });
 
   } catch (e) {
     logger.log('[TeamStatements] 오류', { error: e instanceof Error ? e.message : String(e) });
