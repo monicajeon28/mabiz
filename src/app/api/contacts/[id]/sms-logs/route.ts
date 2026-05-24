@@ -3,11 +3,13 @@ import prisma from "@/lib/prisma";
 import { getAuthContext, requireOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+type Params = { params: Promise<{ id: string }> };
+
+export async function GET(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
-    const contactId = params.id;
+    const { id: contactId } = await params;
 
     const { searchParams } = new URL(req.url);
     const limit = Math.min(Number(searchParams.get("limit") ?? "20"), 100);
