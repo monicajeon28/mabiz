@@ -4,6 +4,6 @@ const nextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
-  serverExternalPackages: ['@prisma/client', 'prisma'],
+  serverExternalPackages: ['@prisma/client', '@prisma/adapter-pg'],
 };
 module.exports = nextConfig;
