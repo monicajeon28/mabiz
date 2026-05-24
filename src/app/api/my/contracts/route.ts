@@ -3,6 +3,14 @@ import { getAuthContext } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
+type Contract = {
+  id: string;
+  contractorName: string;
+  status: string;
+  submittedAt: string | null;
+  mentorCode: string | null;
+};
+
 export async function GET() {
   try {
     const ctx = await getAuthContext();
@@ -45,7 +53,7 @@ export async function GET() {
       return NextResponse.json({ ok: true, contracts: [] });
     }
 
-    const data = await res.json() as { ok: boolean; contracts: unknown[] };
+    const data = await res.json() as { ok: boolean; contracts: Contract[] };
     return NextResponse.json({ ok: true, contracts: data.contracts ?? [] });
 
   } catch (e) {

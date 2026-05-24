@@ -43,7 +43,10 @@ export default function ContractsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/my/contracts")
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    fetch("/api/my/contracts", { signal: controller.signal })
       .then((res) => res.json())
       .then((data: ApiResponse) => {
         if (data.ok) {
@@ -52,10 +55,17 @@ export default function ContractsPage() {
           setError(data.message ?? "데이터를 불러오지 못했습니다.");
         }
       })
-      .catch(() => {
-        setError("네트워크 오류가 발생했습니다.");
+      .catch((err) => {
+        if (err.name === 'AbortError') {
+          setError("요청 시간 초과 - 다시 시도해주세요.");
+        } else {
+          setError("네트워크 오류가 발생했습니다.");
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        clearTimeout(timeout);
+        setLoading(false);
+      });
   }, []);
 
   return (
@@ -99,6 +109,7 @@ export default function ContractsPage() {
                       className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
                         STATUS_CLASS[c.status] ?? "bg-gray-100 text-gray-600"
                       }`}
+                      aria-label={`상태: ${STATUS_LABEL[c.status] ?? c.status}`}
                     >
                       {STATUS_LABEL[c.status] ?? c.status}
                     </span>
