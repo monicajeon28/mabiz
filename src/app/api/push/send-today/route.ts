@@ -5,21 +5,20 @@ import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import webpush from 'web-push';
 
-// VAPID 설정 (환경변수 필수)
-const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
-const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-const vapidEmail = process.env.VAPID_EMAIL || 'mailto:admin@mabiz.kr';
-
-if (vapidPublicKey && vapidPrivateKey) {
-  webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey);
-}
-
 /**
  * POST /api/push/send-today
  * 대시보드 "폰으로 보내기" 버튼
  * 현재 사용자의 오늘 콜 목록을 푸시로 즉시 발송
  */
 export async function POST(req: Request) {
+  // VAPID 설정 (함수 내부로 이동)
+  const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+  const vapidEmail = process.env.VAPID_EMAIL || 'mailto:admin@mabiz.kr';
+  if (vapidPublicKey && vapidPrivateKey) {
+    webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey);
+  }
+
   try {
     const ctx = await getAuthContext();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });

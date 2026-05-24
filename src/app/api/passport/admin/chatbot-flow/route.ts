@@ -14,14 +14,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
+import { getCache, setCache, invalidateCache } from '@/lib/redis';
 
 // TODO: scanPassport는 GMcruise gemini 라이브러리에서 제공 — CRM에 @/lib/gemini 이식 필요
 // import { scanPassport } from '@/lib/gemini';
 
 export const runtime = 'nodejs';
 
-// 세션별 상태 저장 (실제 운영에서는 Redis 등 사용 권장)
-const sessionState = new Map<string, {
+// 세션 TTL: 30분 (여권 플로우 최대 시간)
+const SESSION_TTL_SEC = 30 * 60;
+const SESSION_KEY_PREFIX = 'passport_chatbot:';
+
+type PassportFlowState = {
   step: number;
   reservationId: number;
   totalPeople: number;
@@ -31,8 +35,20 @@ const sessionState = new Map<string, {
     travelerIndex: number;
   }>;
   residentNumbers: string[];
-  roomAssignments: Record<number, string[]>; // roomNumber -> traveler names
-}>();
+  roomAssignments: Record<number, string[]>;
+};
+
+async function getSessionState(sessionKey: string): Promise<PassportFlowState | null> {
+  return getCache<PassportFlowState>(`${SESSION_KEY_PREFIX}${sessionKey}`);
+}
+
+async function setSessionState(sessionKey: string, state: PassportFlowState): Promise<void> {
+  await setCache(`${SESSION_KEY_PREFIX}${sessionKey}`, state, SESSION_TTL_SEC);
+}
+
+async function deleteSessionState(sessionKey: string): Promise<void> {
+  await invalidateCache(`${SESSION_KEY_PREFIX}${sessionKey}`);
+}
 
 interface PassportFlowRequest {
   message?: string;
@@ -56,7 +72,7 @@ export async function POST(req: NextRequest) {
     const sessionKey = `passport_flow_${session.userId}_${body.reservationId || ''}`;
 
     // 상태 초기화 또는 가져오기
-    let state = sessionState.get(sessionKey);
+    let state = await getSessionState(sessionKey);
     if (!state && body.action === 'start' && body.reservationId) {
       // 예약 정보 확인
       const reservation = await prisma.gmReservation.findUnique({
@@ -88,7 +104,7 @@ export async function POST(req: NextRequest) {
         residentNumbers: [],
         roomAssignments: {},
       };
-      sessionState.set(sessionKey, state);
+      await setSessionState(sessionKey, state);
 
       return NextResponse.json({
         ok: true,
@@ -139,7 +155,7 @@ export async function POST(req: NextRequest) {
         } else {
           // 모든 여권 업로드 완료 -> Step 2로 이동
           state.step = 2;
-          sessionState.set(sessionKey, state);
+          await setSessionState(sessionKey, state);
 
           return NextResponse.json({
             ok: true,
@@ -182,7 +198,7 @@ export async function POST(req: NextRequest) {
       } else {
         // Step 3으로 이동
         state.step = 3;
-        sessionState.set(sessionKey, state);
+        await setSessionState(sessionKey, state);
 
         // 방 정보: travelers 관계 없음, 빈 rooms 반환
         const rooms: Record<number, number> = {};
@@ -254,10 +270,10 @@ export async function POST(req: NextRequest) {
       } else {
         // 모든 방 배정 완료 -> Step 4
         state.step = 4;
-        sessionState.set(sessionKey, state);
 
-        // DB에 저장
+        // DB에 저장 후 세션 삭제 (플로우 완료)
         await savePassportData(state);
+        await deleteSessionState(sessionKey);
 
         return NextResponse.json({
           ok: true,

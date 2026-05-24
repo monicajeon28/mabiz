@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "defaultMode": "default",
+    "allow": [
+      "Bash(*)",
+      "PowerShell(*)",
+      "Edit(*)",
+      "Write(*)",
+      "Read(*)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\user\\.claude\\projects\\"
+    ]
+  }
+}

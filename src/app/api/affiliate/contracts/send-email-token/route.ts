@@ -21,6 +21,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
 import { checkEmailTokenRateLimit } from '@/lib/affiliate-rate-limit';
+import { getCache, setCache, invalidateCache } from '@/lib/redis';
 
 interface EmailTokenRecord {
   email: string;
@@ -32,12 +33,21 @@ interface EmailTokenRecord {
   verified: boolean;
 }
 
-// 메모리 저장소 (프로덕션에서는 Redis 또는 DB 사용 권장)
-const tokenStore = new Map<string, EmailTokenRecord>();
-
-// 5분 유효기간
-const TOKEN_EXPIRY_MS = 5 * 60 * 1000;
+const TOKEN_EXPIRY_SEC = 5 * 60; // 5분 (seconds, Redis TTL용)
+const TOKEN_KEY_PREFIX = 'email_token:';
 const MAX_ATTEMPTS = 3;
+
+async function getTokenRecord(email: string): Promise<EmailTokenRecord | null> {
+  return getCache<EmailTokenRecord>(`${TOKEN_KEY_PREFIX}${email}`);
+}
+
+async function setTokenRecord(email: string, record: EmailTokenRecord): Promise<void> {
+  await setCache(`${TOKEN_KEY_PREFIX}${email}`, record, TOKEN_EXPIRY_SEC);
+}
+
+async function deleteTokenRecord(email: string): Promise<void> {
+  await invalidateCache(`${TOKEN_KEY_PREFIX}${email}`);
+}
 
 function generatePIN(): string {
   return String(randomInt(100000, 999999));
@@ -81,8 +91,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 1분 내 재발송 제한 (같은 이메일)
-    const existing = tokenStore.get(email);
-    if (existing && existing.expiresAt.getTime() > Date.now() - 60000) {
+    const existing = await getTokenRecord(email);
+    if (existing && new Date(existing.expiresAt).getTime() > Date.now() - 60000) {
       return NextResponse.json(
         { ok: false, message: '1분 후 다시 시도해 주세요.' },
         { status: 429 },
@@ -92,9 +102,9 @@ export async function POST(req: NextRequest) {
     // PIN 생성 및 저장
     const pin = generatePIN();
     const token = generateToken();
-    const expiresAt = new Date(Date.now() + TOKEN_EXPIRY_MS);
+    const expiresAt = new Date(Date.now() + TOKEN_EXPIRY_SEC * 1000);
 
-    tokenStore.set(email, {
+    await setTokenRecord(email, {
       email,
       pin,
       token,
@@ -204,27 +214,29 @@ export async function POST(req: NextRequest) {
 }
 
 // 토큰 검증 함수
-function verifyEmailToken(email: string, pinInput: string): boolean {
-  const record = tokenStore.get(email);
+async function verifyEmailToken(email: string, pinInput: string): Promise<boolean> {
+  const record = await getTokenRecord(email);
 
   if (!record) {
     return false;
   }
 
-  if (record.expiresAt.getTime() < Date.now()) {
-    tokenStore.delete(email);
+  if (new Date(record.expiresAt).getTime() < Date.now()) {
+    await deleteTokenRecord(email);
     return false;
   }
 
   if (record.attempts >= MAX_ATTEMPTS) {
-    tokenStore.delete(email);
+    await deleteTokenRecord(email);
     return false;
   }
 
   record.attempts++;
+  await setTokenRecord(email, record); // 시도 횟수 업데이트 저장
 
   if (record.pin === pinInput) {
     record.verified = true;
+    await setTokenRecord(email, record);
     return true;
   }
 
@@ -232,6 +244,6 @@ function verifyEmailToken(email: string, pinInput: string): boolean {
 }
 
 // 토큰 정리 함수
-function clearEmailToken(email: string): void {
-  tokenStore.delete(email);
+async function clearEmailToken(email: string): Promise<void> {
+  await deleteTokenRecord(email);
 }

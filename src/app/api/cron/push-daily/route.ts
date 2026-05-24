@@ -1,19 +1,11 @@
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import webpush from 'web-push';
-
-// VAPID 설정 (환경변수 필수)
-const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
-const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-const vapidEmail = process.env.VAPID_EMAIL || 'mailto:admin@mabiz.kr';
-
-if (vapidPublicKey && vapidPrivateKey) {
-  webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey);
-}
 
 /**
  * GET /api/cron/push-daily
@@ -27,6 +19,14 @@ if (vapidPublicKey && vapidPrivateKey) {
  * 4. 발송 후 lastPushedAt 업데이트 (오늘 이미 보낸 경우 중복 방지)
  */
 export async function GET(req: Request) {
+  // VAPID 설정 (함수 내부로 이동)
+  const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+  const vapidEmail = process.env.VAPID_EMAIL || 'mailto:admin@mabiz.kr';
+  if (vapidPublicKey && vapidPrivateKey) {
+    webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey);
+  }
+
   try {
     // Vercel Crons 인증 (요청 헤더에 Authorization 포함)
     const authHeader = req.headers.get('authorization');
