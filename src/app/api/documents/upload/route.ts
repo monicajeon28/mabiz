@@ -1,9 +1,14 @@
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { Readable } from 'stream';
 import prisma from '@/lib/prisma';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+
+const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024; // 10MB
 
 const DOCUMENTS_FOLDER_ID = process.env.GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID!;
 
@@ -69,6 +74,13 @@ export async function POST(req: Request) {
     if (!file || !title) {
       return NextResponse.json(
         { ok: false, message: '파일과 제목은 필수입니다' },
+        { status: 400 }
+      );
+    }
+
+    if (file.size > MAX_DOCUMENT_SIZE) {
+      return NextResponse.json(
+        { ok: false, message: '파일 크기는 10MB 이하여야 합니다' },
         { status: 400 }
       );
     }

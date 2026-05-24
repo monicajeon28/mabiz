@@ -36,9 +36,11 @@ export async function GET(req: Request) {
       ...(groupId ? { groups: { some: { groupId } } } : {}),
     });
 
+    const MAX_EXPORT_ROWS = 10_000;
     const contacts = await prisma.contact.findMany({
       where,
       orderBy: { createdAt: "desc" },
+      take: MAX_EXPORT_ROWS,
       select: {
         name: true, phone: true, email: true,
         type: true, cruiseInterest: true, budgetRange: true,
