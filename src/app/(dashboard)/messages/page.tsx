@@ -161,7 +161,26 @@ function SmsTab() {
     const d = await res.json() as {
       ok: boolean; count?: number; willSend?: number; sampleMessages?: string[]; linkNoCount?: number; rateLimitStatus?: any;
     };
-    if (!d.ok) { showError("미리보기 실패"); return; }
+    if (!d.ok) {
+      // Rate Limit 거절 시 명확한 메시지
+      if (d.rateLimitStatus?.remaining === 0) {
+        showError("일일 발송 한도를 모두 사용했습니다. 내일 초기화됩니다.");
+      } else {
+        showError("미리보기 실패");
+      }
+      setDryRunResult(null);
+      setConfirmed(false);
+      // Rate Limit 상태 업데이트
+      if (d.rateLimitStatus) {
+        const resetDate = new Date(d.rateLimitStatus.resetAt);
+        setRateLimitStatus({
+          used: d.rateLimitStatus.used,
+          remaining: d.rateLimitStatus.remaining,
+          resetAt: resetDate.toLocaleTimeString('ko-KR'),
+        });
+      }
+      return;
+    }
     const sampleMsg = d.sampleMessages?.[0] ?? message;
     setDryRunResult({ count: d.willSend ?? d.count ?? 0, sample: sampleMsg });
     setLinkNoCount(d.linkNoCount ?? 0);
@@ -642,17 +661,17 @@ function EmailTab() {
             ) : (
               // Fallback UI for Safari/IE
               <div className="space-y-2">
-                <input type="date" value={scheduledAt.split("T")[0] || ""}
+                <input type="date" value={scheduledAt.split("T")?.[0] ?? ""}
                   onChange={e => {
                     const date = e.target.value;
-                    const time = scheduledAt.split("T")[1] || "00:00";
+                    const time = scheduledAt.split("T")?.[1] ?? "00:00";
                     setScheduledAt(date ? `${date}T${time}` : "");
                   }}
                   className="w-full border rounded-lg px-3 py-2 text-sm"
                   placeholder="날짜" />
-                <input type="time" value={scheduledAt.split("T")[1] || ""}
+                <input type="time" value={scheduledAt.split("T")?.[1] ?? ""}
                   onChange={e => {
-                    const date = scheduledAt.split("T")[0] || new Date().toISOString().split("T")[0];
+                    const date = scheduledAt.split("T")?.[0] ?? new Date().toISOString().split("T")[0];
                     setScheduledAt(`${date}T${e.target.value}`);
                   }}
                   className="w-full border rounded-lg px-3 py-2 text-sm"
