@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import { getAuthContext } from "@/lib/auth";
 import { ApiResponse } from "@/lib/types/contract-templates";
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 /**
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const { organizationId } = authContext;
-    const { id } = params;
+    const { id } = await params;
 
     const instance = await prisma.contractInstance.findUnique({
       where: { id },
@@ -127,7 +127,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const { organizationId } = authContext;
-    const { id } = params;
+    const { id } = await params;
 
     const instance = await prisma.contractInstance.findUnique({
       where: { id },

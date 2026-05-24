@@ -1,0 +1,72 @@
+NEON DATABASE BACKUP - DETAILED INFORMATION
+=============================================
+Backup Timestamp: 2026-05-24_221313
+Backup Date: 2026-05-24 22:13:13
+
+DATABASE CONFIGURATION:
+- Database Name: neondb
+- Database Owner: neondb_owner
+- Environment: Production
+- Region: US East 1 (AWS)
+- Host: ep-divine-shape-ai1u1c8e-pooler.c-4.us-east-1.aws.neon.tech
+- Port: 5432
+- SSL Mode: verify-full
+
+CONNECTION DETAILS:
+Pool Connection: postgresql://neondb_owner:***@ep-divine-shape-ai1u1c8e-pooler.c-4.us-east-1.aws.neon.tech/neondb
+Direct Connection: postgresql://neondb_owner:***@ep-divine-shape-ai1u1c8e.c-4.us-east-1.aws.neon.tech/neondb
+
+BACKUP FILES GENERATED:
+1. schema_backup_2026-05-24_221313.prisma (173KB)
+   - Complete Prisma schema definition
+   - All table models and relationships
+   
+2. prisma_migrations_backup_2026-05-24_221313.zip (41KB)
+   - All migration files compressed
+   - Can be extracted to prisma/migrations/
+   
+3. neon_backup_manifest_2026-05-24_221313.md
+   - This backup information document
+   
+4. database_info_2026-05-24_221313.txt
+   - Detailed database configuration info
+
+PRISMA CONFIGURATION:
+- Datasource: postgresql
+- Provider: Neon (PostgreSQL compatible)
+- URL from environment: DATABASE_URL (.env.local)
+- Direct URL: DIRECT_URL (.env.local)
+- Max pool size: 20
+
+TEST DATABASE:
+- Name: neondb_test
+- Region: Asia Pacific (ap-southeast-2)
+- Used for: Staging/Testing
+- Connection: DATABASE_URL_TEST environment variable
+
+VERIFICATION CHECKLIST:
+[ ] Schema file readable and complete
+[ ] Migrations ZIP file valid
+[ ] Manifest file present
+[ ] All timestamps consistent
+[ ] Google Drive upload successful
+[ ] Test restore performed
+
+RESTORATION PROCEDURE:
+1. Extract ZIP files
+2. Verify schema.prisma is intact
+3. Copy migrations to prisma/migrations/
+4. Run: npx prisma migrate deploy
+5. Verify connection: npx prisma db execute --stdin < check_orgs.sql
+
+EMERGENCY RESTORE (from Neon console):
+1. Log into Neon console
+2. Navigate to Backups section
+3. Create backup from snapshot
+4. Restore to new branch
+5. Update connection string
+
+VERSION CONTROL:
+- Git branch: main
+- Latest commit: 8a65596
+- Commit message: feat(stage2): 병렬형 완전 완료 - Menu #41-43 심리학렌즈+Menu #45 API+Menu #46스펙

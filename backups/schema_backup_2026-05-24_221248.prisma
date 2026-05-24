@@ -1,0 +1,4937 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organization {
+  id                         String                      @id @default(cuid())
+  name                       String
+  slug                       String                      @unique
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+  externalAffiliateProfileId Int?                        @unique
+  plan                       String                      @default("FREE")
+  status                     String                      @default("ACTIVE")
+  contractRef                String?                     @unique(where: raw("(\"contractRef\" IS NOT NULL)"))
+  adminMessages              AdminMessage[]
+  aiCallLogs                 AiCallLog[]
+  b2bProspects               B2BProspect[]
+  campaignCosts              CampaignCost[]
+  contacts                   Contact[]
+  contactGroups              ContactGroup[]
+  contactLensClassifications ContactLensClassification[]
+  contactLensSequences       ContactLensSequence[]
+  sentTransfers              ContactTransferLog[]        @relation("FromOrg")
+  receivedTransfers          ContactTransferLog[]        @relation("ToOrg")
+  affiliateSales             AffiliateSale[]
+  b2bLandingPages            B2BLandingPage[]
+  landingPages               CrmLandingPage[]
+  marketingCampaigns         CrmMarketingCampaign[]      @relation("CrmMarketing")
+  deltaConfigs               DeltaCampaignConfig[]       @relation("DeltaConfigs")
+  documents                  Document[]
+  executionLogs              ExecutionLog[]
+  funnels                    Funnel[]
+  goldMembers                GoldMember[]
+  imageAssets                ImageAsset[]
+  lensTemplates              LensTemplate[]
+  memberDocuments            MemberDocument[]
+  emailConfig                OrgEmailConfig?
+  inviteTokens               OrgInviteToken[]
+  smsConfig                  OrgSmsConfig?
+  members                    OrganizationMember[]
+  partners                   Partner[]
+  partnerSuspensions         PartnerSuspension[]
+  salesDocuments             SalesDocument[]
+  salesDocApprovals          SalesDocumentApproval[]
+  scheduledSmsList           ScheduledSms[]
+  scriptPatterns             ScriptPattern[]
+  shortLinks                 ShortLink[]
+  smsTemplates               SmsTemplate[]
+  contractTemplates          ContractTemplate[]
+  contractInstances          ContractInstance[]
+}
+
+model OrgSmsConfig {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  aligoKey       String
+  aligoUserId    String
+  senderPhone    String
+  isActive       Boolean      @default(true)
+  senderVerified Boolean      @default(false)
+  verifiedAt     DateTime?
+  arsNum         String?
+  reEngageMsg1   String?
+  reEngageMsg2   String?
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model UserSmsConfig {
+  id                String    @id @default(cuid())
+  userId            String
+  organizationId    String
+  aligoKeyEncrypted String
+  aligoUserId       String
+  senderPhone       String
+  senderVerified    Boolean   @default(false)
+  verifiedAt        DateTime?
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
+model OrgEmailConfig {
+  id                String       @id @default(cuid())
+  organizationId    String       @unique
+  senderName        String
+  senderEmail       String
+  smtpHost          String
+  smtpPort          Int          @default(587)
+  smtpUser          String
+  smtpPassEncrypted String
+  isActive          Boolean      @default(true)
+  updatedAt         DateTime     @updatedAt
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model OrganizationMember {
+  id              String       @id @default(cuid())
+  organizationId  String
+  userId          String
+  phone           String?
+  passwordHash    String?
+  role            String       @default("AGENT")
+  displayName     String?
+  isActive        Boolean      @default(true)
+  email           String?
+  emailSenderName String?
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model GlobalAdmin {
+  id           String   @id @default(cuid())
+  phone        String?  @unique
+  passwordHash String?
+  displayName  String?
+  createdAt    DateTime @default(now())
+  userId       String?  @unique
+  updatedAt    DateTime @updatedAt
+}
+
+model MabizSession {
+  id             String   @id @default(cuid())
+  memberId       String?
+  adminId        String?
+  organizationId String?
+  role           String
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  mallUserId     Int?
+  updatedAt      DateTime @updatedAt
+
+  @@index([memberId])
+  @@index([adminId])
+  @@index([mallUserId])
+  @@map("MabizSession")
+}
+
+model Contact {
+  id                         String                      @id @default(cuid())
+  phone                      String
+  organizationId             String
+  name                       String
+  email                      String?
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+  adminMemo                  String?
+  affiliateCode              String?
+  assignedUserId             String?
+  bookingRef                 String?
+  budgetRange                String?
+  cruiseInterest             String?
+  departureDate              DateTime?
+  lastContactedAt            DateTime?
+  leadScore                  Int                         @default(0)
+  optOutAt                   DateTime?
+  productName                String?
+  purchasedAt                DateTime?
+  lastPaymentStatus          String?                    @db.VarChar(20)
+  lastPaymentAt              DateTime?
+  lastRefundedAt             DateTime?
+  paymentStatusNote          String?                    @db.VarChar(255)
+  reEngageCount              Int                         @default(0)
+  reEngagedAt                DateTime?
+  sourceOrgId                String?
+  tags                       String[]                    @default([])
+  type                       String                      @default("LEAD")
+  utmSource                  String?
+  deletedAt                  DateTime?
+  partnerId                  String?
+  phoneEncrypted             String?
+  phoneHash                  String?
+  emailEncrypted             String?
+  nameEncrypted              String?
+  userId                     Int?
+  user                       GmUser?                     @relation("UserContacts", fields: [userId], references: [id], onDelete: SetNull)
+  channel                    String                      @default("direct")
+  age                        Int?
+  childrenCount              Int                         @default(0)
+  gender                     String?
+  lensMetadata               Json?                       @default("{\"decisionLevel\": 0, \"readinessScore\": 0}")
+  maritalStatus              String?
+  segmentOverride            String?
+  segment                    String?
+  recommendedProduct         String?
+  marriageStatus             String?                    @db.VarChar(20)
+  marriageDate               DateTime?
+  childrenAges               Int[]                       @default([])
+  childrenPlanned            String?                    @db.VarChar(20)
+  ageInYears                 Int?
+  autoSegment                String?                    @default("unclassified") @db.VarChar(20)
+  segmentUpdatedAt           DateTime                    @default(now()) @updatedAt
+  socialProvider             String?                    @db.VarChar(20)
+  callLogs                   CallLog[]
+  organization               Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  partner                    Partner?                    @relation(fields: [partnerId], references: [id])
+  funnelState                ContactFunnelState?
+  groups                     ContactGroupMember[]
+  contactLensClassifications ContactLensClassification[]
+  contactLensSequences       ContactLensSequence[]
+  memos                      ContactMemo[]
+  documents                  Document[]
+  salesDocuments             SalesDocument[]
+  shortLinks                 ShortLink[]
+  shortLinkClicks            ShortLinkClick[]
+  vipSequences               VipCareSequence[]
+
+  @@unique([phone, organizationId])
+  @@index([organizationId])
+  @@index([type])
+  @@index([assignedUserId])
+  @@index([partnerId])
+  @@index([deletedAt])
+  @@index([userId])
+  @@index([organizationId, assignedUserId], map: "idx_contact_org_assigned")
+  @@index([organizationId, channel], map: "idx_contact_org_channel")
+  @@index([organizationId, type], map: "idx_contact_org_type")
+  @@index([organizationId, lastPaymentStatus], map: "idx_contact_org_payment_status")
+  @@index([organizationId, autoSegment], map: "idx_contact_org_segment")
+  @@index([marriageDate], map: "idx_contact_marriage_date")
+  @@index([childrenAges], map: "idx_contact_children_ages")
+  @@index([organizationId, socialProvider], map: "idx_contact_org_social_provider")
+}
+
+model ContactLensClassification {
+  id                     String                @id @default(cuid())
+  organizationId         String
+  contactId              String
+  lensType               String                @db.VarChar(3)
+  lensLabel              String?               @db.VarChar(50)
+  confidenceScore        Int                   @default(0)
+  identificationMethod   String?               @db.VarChar(20)
+  questionnaireResponses Json?
+  decisionLevel          Int                   @default(0)
+  readinessScore         Int                   @default(0)
+  priorityLevel          String?               @db.VarChar(10)
+  status                 String                @default("ACTIVE") @db.VarChar(20)
+  identifiedAt           DateTime              @default(now())
+  lastUpdated            DateTime              @updatedAt
+  convertedAt            DateTime?
+  notes                  String?
+  tags                   String[]              @default([])
+  contact                Contact               @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  organization           Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sequences              ContactLensSequence[]
+
+  @@unique([organizationId, contactId, lensType])
+  @@index([organizationId, lensType])
+  @@index([organizationId, priorityLevel, status])
+  @@index([organizationId, confidenceScore(sort: Desc)])
+  @@index([contactId])
+  @@map("ContactLensClassification")
+}
+
+model ContactLensSequence {
+  id                String                    @id @default(cuid())
+  contactId         String
+  organizationId    String
+  classificationId  String
+  sequenceType      String                    @db.VarChar(20)
+  lensType          String?                   @db.VarChar(3)
+  day0Sent          Boolean                   @default(false)
+  day0SentAt        DateTime?
+  day0Clicked       Boolean                   @default(false)
+  day0ClickedAt     DateTime?
+  day0ConvertedAt   DateTime?
+  day1Sent          Boolean                   @default(false)
+  day1SentAt        DateTime?
+  day1Clicked       Boolean                   @default(false)
+  day1ClickedAt     DateTime?
+  day1ConvertedAt   DateTime?
+  day2Sent          Boolean                   @default(false)
+  day2SentAt        DateTime?
+  day2Clicked       Boolean                   @default(false)
+  day2ClickedAt     DateTime?
+  day2ConvertedAt   DateTime?
+  day3Sent          Boolean                   @default(false)
+  day3SentAt        DateTime?
+  day3Clicked       Boolean                   @default(false)
+  day3ClickedAt     DateTime?
+  day3ConvertedAt   DateTime?
+  overallConverted  Boolean                   @default(false)
+  conversionDate    DateTime?
+  conversionRevenue Decimal?                  @db.Decimal(15, 2)
+  status            String                    @default("PENDING") @db.VarChar(20)
+  failureReason     String?                   @db.VarChar(100)
+  retryCount        Int                       @default(0)
+  startedAt         DateTime                  @default(now())
+  completedAt       DateTime?
+  classification    ContactLensClassification @relation(fields: [classificationId], references: [id], onDelete: Cascade)
+  contact           Contact                   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  organization      Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([contactId, lensType])
+  @@index([organizationId, classificationId, status])
+  @@index([organizationId, overallConverted])
+  @@map("ContactLensSequence")
+}
+
+model LensTemplate {
+  id                       String       @id @default(cuid())
+  organizationId           String
+  templateType             String       @db.VarChar(20)
+  lensType                 String       @db.VarChar(3)
+  day                      Int          @default(0)
+  phase                    Int?
+  title                    String?      @db.VarChar(100)
+  body                     String
+  smsLength                Int?
+  expectedClickRate        Decimal?     @db.Decimal(5, 2)
+  sendDelayMinutes         Int?
+  psychologyPrinciple      String?      @db.VarChar(50)
+  estimatedDurationSeconds Int?
+  stepNumber               Int?
+  status                   String       @default("ACTIVE") @db.VarChar(20)
+  version                  Int          @default(1)
+  isSystemTemplate         Boolean      @default(false)
+  customizations           Json?
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
+  organization             Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, lensType, templateType])
+  @@index([lensType, day])
+  @@map("LensTemplate")
+}
+
+model ContactGroup {
+  id                 String                 @id @default(cuid())
+  organizationId     String
+  name               String
+  description        String?
+  color              String?                @default("#6B7280")
+  funnelId           String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  ownerId            String?
+  organization       Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members            ContactGroupMember[]
+  b2bLandingPages    B2BLandingPage[]
+  landingPages       CrmLandingPage[]
+  marketingCampaigns CrmMarketingCampaign[] @relation("CrmMarketing")
+  tokens             GroupToken[]
+
+  @@index([organizationId])
+  @@index([ownerId])
+}
+
+model GroupToken {
+  id        String       @id @default(cuid())
+  groupId   String
+  expiresAt DateTime
+  active    Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  group     ContactGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+  @@index([expiresAt])
+}
+
+model ContactGroupMember {
+  id        String       @id @default(cuid())
+  groupId   String
+  contactId String
+  addedAt   DateTime     @default(now())
+  contact   Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  group     ContactGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, contactId])
+}
+
+model CallLog {
+  id              String    @id @default(cuid())
+  contactId       String
+  userId          String
+  content         String?
+  result          String?
+  duration        Int?
+  convictionScore Int?
+  nextAction      String?
+  scheduledAt     DateTime?
+  createdAt       DateTime  @default(now())
+
+  // A/B 테스트 메타데이터
+  abTestGroup     String?        // "A" | "B" | null
+  abTestWeek      Int?           // 1, 2, 3, ..., 12
+  scriptVersion   String?        // "v13-A-standard" | "v13-B-desire-extended"
+
+  // 콜 단계 추적 (이의처리 Track A와 연동)
+  callPhase       String?        // "opening" | "desire" | "implication" | "close" | "abandoned"
+  phaseStartedAt  DateTime?      // SPIN 시작 시간
+
+  // 콜 타이밍 (정확한 지속 시간 계산)
+  callStartedAt   DateTime?      // 콜 수신 시간
+  callEndedAt     DateTime?      // 콜 종료 시간
+  callDurationMs  Int?           // (callEndedAt - callStartedAt).milliseconds
+
+  // 이탈 분석
+  abandonmentMs   Int?           // 고객이 끊은 시점 (callStartedAt 기준 밀리초)
+  abandonmentPhase String?       // 끊긴 단계 ("opening" 중 / "desire" 중 / ...)
+
+  // 녹음 동의 (법적 준수)
+  recordingConsent Boolean @default(false)
+  recordingConsentAt DateTime?
+
+  // A/B 분석 도우미 필드
+  conversionDay   Int?           // 0 (즉시), 1 (다음날), 3 (3일 후), 7 (1주) 등
+
+  // Track A: 이의처리 메타데이터
+  objectionId     String?        // "A-001" ~ "F-004" (TRACK_A_OBJECTIONS.json 참조)
+  customerReaction String?       // "positive" | "neutral" | "negative"
+  recovered       Boolean?       // 이의가 성공적으로 해결되었는가
+  recoveryTime    Int?           // 이의 해결 시간 (초)
+
+  contact         Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@index([userId])
+  @@index([contactId, createdAt(sort: Desc)])
+  @@index([abTestGroup])
+  @@index([abTestWeek])
+  @@index([callStartedAt])
+  @@index([abandonmentPhase])
+  @@index([objectionId, recovered])
+  @@index([customerReaction])
+}
+
+model ContactMemo {
+  id        String   @id @default(cuid())
+  contactId String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+}
+
+model CrmLandingPage {
+  id                String                   @id @default(cuid())
+  organizationId    String
+  title             String
+  slug              String
+  htmlContent       String?
+  isActive          Boolean                  @default(true)
+  isPublic          Boolean                  @default(true)
+  viewCount         Int                      @default(0)
+  autoFunnelId      String?
+  groupId           String?
+  commentEnabled    Boolean                  @default(false)
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  description       String?
+  category          String?
+  pageGroup         String?
+  buttonTitle       String?
+  completionPageUrl String?
+  headerScript      String?
+  exposureTitle     String?
+  exposureImage     String?
+  infoCollection    Boolean                  @default(false)
+  editorMode        String                   @default("html")
+  formConfig        Json?
+  paymentEnabled    Boolean                  @default(false)
+  paymentType       String?
+  productName       String?
+  productPrice      Int?
+  cycleDay          Int?
+  expireDate        DateTime?
+  regEmailEnabled   Boolean                  @default(false)
+  regEmailSubject   String?
+  regEmailContent   String?
+  createdByUserId   String?
+  comments          CrmLandingComment[]
+  group             ContactGroup?            @relation(fields: [groupId], references: [id])
+  organization      Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  registrations     CrmLandingRegistration[]
+  shares            CrmLandingShare[]
+
+  @@unique([slug, organizationId])
+  @@index([organizationId])
+  @@index([organizationId, createdByUserId, createdAt])
+  @@map("CrmLandingPage")
+}
+
+model CrmLandingShare {
+  id             String         @id @default(cuid())
+  landingPageId  String
+  sharedToOrgId  String
+  sharedByUserId String
+  sharedByOrgId  String
+  sharedByName   String
+  isGlobal       Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  landingPage    CrmLandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+
+  @@unique([landingPageId, sharedToOrgId])
+  @@index([sharedToOrgId])
+  @@index([sharedByOrgId])
+  @@map("CrmLandingShare")
+}
+
+model CrmLandingPageImage {
+  id            String   @id @default(dbgenerated("gen_random_uuid()"))
+  landingPageId String
+  imageAssetId  String
+  sortOrder     Int      @default(0)
+  altText       String?
+  createdAt     DateTime @default(now())
+
+  @@unique([landingPageId, imageAssetId])
+  @@index([landingPageId, sortOrder])
+  @@map("CrmLandingPageImage")
+}
+
+model CrmLandingComment {
+  id              String         @id @default(cuid())
+  landingPageId   String
+  authorName      String
+  content         String
+  passwordHash    String?
+  isAutoGenerated Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  landingPage     CrmLandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+
+  @@index([landingPageId])
+  @@map("CrmLandingComment")
+}
+
+model CrmLandingRegistration {
+  id            String         @id @default(cuid())
+  landingPageId String
+  name          String
+  phone         String
+  email         String?
+  utmSource     String?
+  utmMedium     String?
+  utmCampaign   String?
+  metadata      Json?
+  funnelStarted Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  landingPage   CrmLandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+
+  @@unique([landingPageId, phone])
+  @@unique([landingPageId, phone], map: "CrmLandingReg_landing_phone_key")
+  @@index([landingPageId])
+  @@index([utmSource, utmMedium])
+  @@index([utmSource, utmMedium], map: "CrmLandingReg_utm_idx")
+  @@map("CrmLandingRegistration")
+}
+
+model Funnel {
+  id             String        @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  isActive       Boolean       @default(true)
+  funnelType     String        @default("GENERAL")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  stages         FunnelStage[]
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model FunnelStage {
+  id             String  @id @default(cuid())
+  funnelId       String
+  order          Int
+  name           String
+  triggerType    String  @default("DAYS_AFTER")
+  triggerOffset  Int     @default(0)
+  channel        String  @default("SMS")
+  messageContent String?
+  linkUrl        String?
+  funnel         Funnel  @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+
+  @@index([funnelId])
+  @@map("CrmFunnelStage")
+}
+
+model VipCareSequence {
+  id           String       @id @default(cuid())
+  contactId    String
+  funnelId     String?
+  startDate    DateTime
+  status       String       @default("ACTIVE")
+  currentStage Int          @default(0)
+  createdAt    DateTime     @default(now())
+  pausedAt     DateTime?
+  pausedBy     String?
+  logs         VipCareLog[]
+  contact      Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@index([status])
+}
+
+model VipCareLog {
+  id          String          @id @default(cuid())
+  sequenceId  String
+  stageOrder  Int
+  scheduledAt DateTime
+  sentAt      DateTime?
+  status      String          @default("PENDING")
+  content     String?
+  channel     String?         @default("SMS")
+  sequence    VipCareSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  @@index([sequenceId])
+  @@index([scheduledAt])
+  @@index([status, scheduledAt], map: "idx_vipcarelog_status_scheduled")
+}
+
+model SmsTemplate {
+  id             String        @id @default(cuid())
+  organizationId String?
+  category       String
+  title          String
+  content        String
+  triggerType    String?
+  triggerOffset  Int?
+  isSystem       Boolean       @default(false)
+  usageCount     Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  psychologyTag  String?
+  segmentCode    String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([category])
+  @@index([organizationId, segmentCode])
+  @@index([organizationId, triggerType, triggerOffset])
+  @@index([organizationId, psychologyTag])
+}
+
+model SmsOptOut {
+  id         String   @id @default(cuid())
+  phone      String   @unique
+  optedOutAt DateTime @default(now())
+  reason     String?
+}
+
+model SmsLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  contactId      String?
+  phone          String
+  contentPreview String
+  status         String   @default("SENT")
+  blockReason    String?
+  resultCode     String?
+  msgId          String?
+  channel        String   @default("FUNNEL")
+  sentAt         DateTime @default(now())
+
+  @@index([organizationId, sentAt])
+  @@index([contactId, sentAt])
+  @@map("CrmSmsLog")
+}
+
+model ExecutionLog {
+  id                String                  @id @default(cuid())
+  organizationId    String
+  sourceType        String
+  sourceId          String
+  sourceName        String
+  contactId         String
+  channel           String
+  status            ExecutionStatus         @default(PENDING)
+  executeMonth      String
+  scheduledAt       DateTime
+  sentAt            DateTime?
+  nextRetryAt       DateTime?
+  contentUrl        String?
+  failureReason     ExecutionFailureReason?
+  failureUserMsg    String?
+  retryCount        Int                     @default(0)
+  maxRetries        Int                     @default(3)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  campaignId        String?
+  email             String?
+  phone             String?
+  messageId         String?
+  emailOpenedAt     DateTime?
+  linkClickedAt     DateTime?
+  registeredAt      DateTime?
+  landingPageViewId String?
+  lensMetadata      Json?
+  campaign          CrmMarketingCampaign?   @relation("ExecutionLogToCampaign", fields: [campaignId], references: [id])
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceType, sourceId, contactId, executeMonth], name: "uq_execution_monthly")
+  @@index([organizationId, status, scheduledAt], map: "idx_execution_cron_scan")
+  @@index([organizationId, sourceType, status, createdAt], map: "idx_execution_campaign_stats")
+  @@index([organizationId, nextRetryAt, status], map: "idx_execution_retry_partial")
+  @@index([contactId, executeMonth, status], map: "idx_execution_contact_monthly")
+  @@index([status], map: "idx_execution_status")
+  @@index([contactId], map: "idx_execution_contact")
+  @@index([sourceId], map: "idx_execution_source")
+  @@index([campaignId], map: "idx_execution_campaign")
+  @@map("ExecutionLog")
+}
+
+model SalesPlaybook {
+  id                 String   @id @default(cuid())
+  type               String
+  title              String
+  content            String
+  priority           Int      @default(0)
+  isActive           Boolean  @default(true)
+  scriptTab          String   @default("GENERAL")
+  productCode        String   @default("ALL")
+  sectionOrder       Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  key                String?
+  phase              String?
+  script             String?
+  trigger            String?
+  customerSegment    String?
+  psychology         String?
+  shinminStep        String?
+  monikaAmplifyLevel String?
+  source             String?
+  notes              String?
+  pasonaStage        String?   // problem|affinity|solution|offer
+  effectivenessScore Int?     // 75-99 (%)
+
+  @@index([type])
+  @@map("SalesPlaybook")
+}
+
+model ImageCache {
+  id                 Int       @id @default(autoincrement())
+  driveFileId        String    @unique
+  path               String
+  fileName           String
+  folder             String
+  title              String
+  tags               String[]
+  mimeType           String?
+  fileSize           Int?
+  driveUrl           String?
+  thumbnailUrl       String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  syncedAt           DateTime  @default(now())
+  webpUrl            String?
+  webpFileId         String?
+  webpSize           Int?
+  cloudinaryUrl      String?
+  cloudinaryPublicId String?
+  cloudinarySyncedAt DateTime?
+  deletedAt          DateTime?
+
+  @@index([folder])
+  @@index([title])
+  @@index([syncedAt])
+  @@index([cloudinaryUrl])
+  @@index([webpUrl])
+}
+
+model CallRecording {
+  id             String   @id @default(cuid())
+  callLogId      String?
+  contactId      String
+  userId         String
+  fileName       String
+  fileUrl        String?
+  durationSec    Int?
+  transcriptText String?
+  aiFeedback     String?
+  aiScore        Int?
+  createdAt      DateTime @default(now())
+
+  @@index([contactId])
+  @@index([userId])
+}
+
+model CrmLandingView {
+  id            String   @id @default(cuid())
+  landingPageId String
+  ipHash        String
+  viewedAt      DateTime @default(now())
+
+  @@unique([landingPageId, ipHash])
+  @@index([viewedAt])
+  @@map("CrmLandingView")
+}
+
+model PayAppPayment {
+  id              String    @id @default(cuid())
+  orderId         String    @unique
+  amount          Int
+  customerName    String
+  customerPhone   String
+  status          String    @default("pending")
+  landingPageId   String?
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+  productName     String?
+  customerEmail   String?
+  mulNo           String?
+  payType         String?
+  cardName        String?
+  cstUrl          String?
+  refundedAt      DateTime?
+  refundAmount    Int       @default(0)
+  refundReason    String?
+  metadata        Json?
+  organizationId  String?
+  subscriptionId  String?
+  createdByUserId String?
+
+  @@index([customerPhone])
+  @@index([landingPageId])
+  @@index([mulNo])
+  @@index([status])
+  @@index([organizationId, createdByUserId, createdAt])
+  @@map("CrmPayAppPayment")
+}
+
+model PayAppSubscription {
+  id             String   @id @default(cuid())
+  organizationId String
+  rebillNo       String
+  goodname       String
+  goodprice      Int
+  customerName   String
+  customerPhone  String
+  customerEmail  String?
+  cycleDay       Int      @default(1)
+  expireDate     DateTime
+  status         String   @default("pending")
+  payUrl         String?
+  landingPageId  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("CrmPayAppSubscription")
+}
+
+model ScheduledSms {
+  id              String       @id @default(cuid())
+  organizationId  String
+  contactId       String?
+  groupId         String?
+  message         String
+  scheduledAt     DateTime
+  status          String       @default("PENDING")
+  sentAt          DateTime?
+  sentCount       Int          @default(0)
+  failedCount     Int          @default(0)
+  createdByUserId String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  pausedAt        DateTime?
+  pausedBy        String?
+  failureReason   String?
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status, scheduledAt])
+  @@index([scheduledAt, status])
+  @@map("ScheduledSms")
+}
+
+model OrgInviteToken {
+  id              String       @id @default(cuid())
+  organizationId  String
+  token           String       @unique
+  role            String       @default("AGENT")
+  note            String?
+  expiresAt       DateTime
+  usedAt          DateTime?
+  usedByUserId    String?
+  agreedToTerms   Boolean      @default(false)
+  createdByUserId String?
+  createdAt       DateTime     @default(now())
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([expiresAt])
+  @@map("OrgInviteToken")
+}
+
+model ContactTransferLog {
+  id            String        @id @default(cuid())
+  contactId     String
+  fromOrgId     String
+  toOrgId       String?
+  toUserId      String?
+  newContactId  String?
+  transferType  String
+  transferredBy String
+  note          String?
+  createdAt     DateTime      @default(now())
+  fromOrg       Organization  @relation("FromOrg", fields: [fromOrgId], references: [id], onDelete: Cascade)
+  toOrg         Organization? @relation("ToOrg", fields: [toOrgId], references: [id])
+
+  @@index([contactId])
+  @@index([fromOrgId])
+  @@index([toOrgId])
+  @@index([transferredBy])
+  @@map("ContactTransferLog")
+}
+
+model ContactChangeLog {
+  id        Int      @id @default(autoincrement())
+  contactId String?
+  gmUserId  Int?
+  field     String
+  oldValue  String?
+  newValue  String?
+  reason    String?
+  changedBy String
+  changedAt DateTime @default(now())
+
+  @@index([gmUserId])
+  @@index([contactId])
+  @@map("ContactChangeLog")
+}
+
+model AffiliateSale {
+  id                String          @id @default(cuid())
+  organizationId    String
+  affiliateCode     String
+  affiliateUserId   String?
+  productName       String
+  saleAmount        Int
+  commissionRate    Int             @default(0)
+  commissionAmount  Int             @default(0)
+  refundedAmount    Int             @default(0)
+  refundedAt        DateTime?
+  cancelledAt       DateTime?
+  cancelReason      String?         @db.VarChar(255)
+  status            String          @default("PENDING")
+  travelCompletedAt DateTime?
+  paidAt            DateTime?
+  customerPhone     String?
+  orderId           String?         @unique
+  sourceWebhook     String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  salesDocuments    SalesDocument[]
+
+  @@index([organizationId])
+  @@index([affiliateCode])
+  @@index([affiliateUserId])
+  @@index([status])
+  @@index([refundedAt])
+  @@map("CrmAffiliateSale")
+}
+
+model AiCallLog {
+  id             String          @id @default(cuid())
+  organizationId String
+  agentUserId    String
+  productType    String
+  personaType    String?
+  rawTextMasked  String
+  converted      Boolean         @default(false)
+  durationSec    Int?
+  analysisStatus String          @default("PENDING")
+  productCode    String          @default("ALL")
+  uploadedAt     DateTime        @default(now())
+  analysis       AiCallAnalysis?
+  organization   Organization    @relation(fields: [organizationId], references: [id])
+
+  @@map("AiCallLog")
+}
+
+model AiCallAnalysis {
+  id                String    @id @default(cuid())
+  callLogId         String    @unique
+  personaDetected   String
+  personaConfidence Float     @default(0)
+  scores            Json
+  keyPhrases        Json
+  strengths         Json
+  weaknesses        Json
+  objectionTypes    Json
+  goldValueScore    Float?
+  analyzedAt        DateTime  @default(now())
+  callLog           AiCallLog @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+
+  @@map("AiCallAnalysis")
+}
+
+model ScriptPattern {
+  id             String       @id @default(cuid())
+  organizationId String
+  productType    String
+  personaType    String
+  category       String
+  objectionType  String?
+  patternText    String
+  exampleCall    String?
+  useCount       Int          @default(0)
+  conversionRate Float        @default(0)
+  productCode    String       @default("ALL")
+  status         String       @default("DRAFT")
+  approvedBy     String?
+  approvedAt     DateTime?
+  extractedAt    DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("ScriptPattern")
+}
+
+model ShortLink {
+  id             String           @id @default(cuid())
+  organizationId String
+  code           String           @unique
+  targetUrl      String
+  title          String?
+  contactId      String?
+  category       String?
+  autoGroupId    String?
+  clickCount     Int              @default(0)
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  contact        Contact?         @relation(fields: [contactId], references: [id])
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  clicks         ShortLinkClick[]
+
+  @@map("ShortLink")
+}
+
+model ShortLinkClick {
+  id        String    @id @default(cuid())
+  linkId    String
+  contactId String?
+  clickedAt DateTime  @default(now())
+  userAgent String?
+  contact   Contact?  @relation(fields: [contactId], references: [id])
+  link      ShortLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@map("ShortLinkClick")
+}
+
+model Payment {
+  id                  Int           @id @default(autoincrement())
+  orderId             String        @unique
+  productName         String?
+  amount              Int
+  buyerName           String
+  buyerEmail          String?
+  buyerTel            String
+  pgProvider          String?
+  pgTransactionId     String?
+  affiliateCode       String?
+  paidAt              DateTime?
+  cancelledAt         DateTime?
+  metadata            Json?
+  status              PaymentStatus @default(pending)
+  affiliateMallUserId String?
+  currency            String        @default("KRW")
+  pgMid               String?
+  productCode         String?
+  refundAmount        Int?
+  refundReason        String?
+  saleId              Int?          @unique
+  completedAt         DateTime?
+  failedAt            DateTime?
+  failureReason       String?
+  refundedAt          DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @default(now())
+
+  @@index([affiliateCode])
+  @@index([buyerTel])
+  @@index([orderId])
+  @@index([pgTransactionId])
+  @@map("Payment")
+}
+
+model SalesDocument {
+  id              String                  @id @default(cuid())
+  organizationId  String
+  documentType    String
+  status          String                  @default("DRAFT")
+  orderId         String?
+  affiliateSaleId String?
+  contactId       String?
+  generatedData   Json
+  filePath        String?
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectedReason  String?
+  createdBy       String
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  affiliateSale   AffiliateSale?          @relation(fields: [affiliateSaleId], references: [id])
+  contact         Contact?                @relation(fields: [contactId], references: [id])
+  organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  approvals       SalesDocumentApproval[]
+
+  @@index([organizationId, documentType])
+  @@index([organizationId, status])
+  @@index([orderId])
+  @@map("SalesDocument")
+}
+
+model SalesDocumentApproval {
+  id             String        @id @default(cuid())
+  documentId     String
+  organizationId String
+  requestedBy    String
+  approvedBy     String?
+  status         String        @default("PENDING")
+  requestNote    String?
+  adminNote      String?
+  processedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  document       SalesDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([documentId])
+  @@map("SalesDocumentApproval")
+}
+
+model MemberDocument {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  docType        String
+  fileName       String
+  fileUrl        String
+  storagePath    String
+  fileSize       Int?
+  status         String       @default("UPLOADED")
+  note           String?
+  uploadedAt     DateTime     @default(now())
+  approvedAt     DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([organizationId, userId])
+  @@map("MemberDocument")
+}
+
+model GoldMember {
+  id              String                   @id @default(cuid())
+  organizationId  String
+  name            String
+  phone           String
+  email           String?
+  memberCode      String                   @unique
+  courseType      String
+  joinDate        DateTime
+  paymentDay      Int?
+  totalPayments   Int                      @default(0)
+  paidCount       Int                      @default(0)
+  status          String                   @default("ACTIVE")
+  memo            String?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  userId          Int?                     @unique
+  membershipCode  String?                  @unique @db.VarChar(255)
+  deletedAt       DateTime?                @db.Timestamp(6)
+  productType     String?
+  maxPaymentCount Int?
+  agentId         Int?
+  managerId       Int?
+  startDate       DateTime?
+  paymentCount    Int                      @default(0)
+  referredBy      String?
+  tier            Int                      @default(1)
+  organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  consultations   GoldMemberConsultation[]
+
+  @@index([organizationId])
+  @@index([memberCode])
+  @@index([productType])
+  @@index([startDate])
+  @@index([status])
+  @@index([userId])
+}
+
+model GoldMemberConsultation {
+  id           String     @id @default(cuid())
+  goldMemberId String
+  content      String
+  authorId     String
+  createdAt    DateTime   @default(now())
+  goldMember   GoldMember @relation(fields: [goldMemberId], references: [id], onDelete: Cascade)
+
+  @@index([goldMemberId])
+}
+
+model SystemConfig {
+  id          Int      @id @default(autoincrement())
+  configKey   String   @unique
+  configValue String?
+  description String?
+  category    String   @default("general")
+  isActive    Boolean  @default(true)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("SystemConfig")
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  createdAt DateTime @default(now())
+  auth      String
+  p256dh    String
+  role      String
+  keys      Json     @default("{}")
+  userAgent String?
+  updatedAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId], map: "idx_push_sub_userid")
+}
+
+model UserPushSettings {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  notifyEnabled Boolean   @default(true)
+  notifyAtHour  Int       @default(9)
+  lastPushedAt  DateTime?
+  updatedAt     DateTime  @updatedAt
+}
+
+model MabizSyncDLQ {
+  id            String    @id @default(cuid())
+  webhookType   String    @db.VarChar(100)
+  payload       Json
+  failureReason String    @db.VarChar(5000)
+  format        String    @default("json") @db.VarChar(20)
+  status        String    @default("PENDING") @db.VarChar(20)
+  retryCount    Int       @default(0)
+  maxRetries    Int       @default(3)
+  nextRetryAt   DateTime?
+  resolvedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  syncType      String?   @db.VarChar(50)
+  webhookUrl    String?   @db.VarChar(2000)
+
+  @@index([resolvedAt, nextRetryAt])
+  @@index([webhookType])
+  @@index([nextRetryAt])
+  @@index([resolvedAt])
+  @@index([retryCount, nextRetryAt])
+  @@index([syncType])
+  @@index([format, resolvedAt])
+  @@index([status])
+  @@index([status, nextRetryAt])
+  @@map("MabizSyncDLQ")
+}
+
+model BackupJob {
+  id         String   @id @default(cuid())
+  type       String
+  targetId   String
+  payload    Json
+  status     String   @default("PENDING")
+  retryCount Int      @default(0)
+  maxRetries Int      @default(3)
+  lastError  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([targetId, status])
+}
+
+model AdminMessage {
+  id             String       @id @default(cuid())
+  adminId        String
+  content        String
+  messageType    String
+  totalSent      Int          @default(0)
+  createdAt      DateTime     @default(now())
+  organizationId String
+  successCount   Int          @default(0)
+  userId         Int?
+  title          String       @default("")
+  isActive       Boolean      @default(false)
+  sendAt         DateTime?
+  updatedAt      DateTime     @default(now())
+  readCount      Int          @default(0)
+  metadata       Json?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, createdAt(sort: Desc)])
+}
+
+model Partner {
+  id             String           @id @default(cuid())
+  organizationId String
+  name           String
+  email          String?
+  phone          String?
+  status         String           @default("ACTIVE")
+  commissionRate Decimal?         @db.Decimal(5, 2)
+  totalRevenue   BigInt           @default(0)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @db.Timestamptz(6)
+  contacts       Contact[]
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  metrics        PartnerMetrics[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([status])
+}
+
+model PartnerMetrics {
+  id            String   @id @default(cuid())
+  partnerId     String
+  year          Int
+  month         Int
+  customerCount Int      @default(0)
+  leadCount     Int      @default(0)
+  revenue       BigInt   @default(0)
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  partner       Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, year, month])
+  @@index([partnerId, year, month])
+}
+
+model ContactFunnelState {
+  id              String    @id @default(cuid())
+  organizationId  String
+  contactId       String    @unique
+  status          String    @default("PENDING")
+  nextScheduledAt DateTime? @db.Timestamptz(6)
+  metadata        Json?
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+  contact         Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([nextScheduledAt])
+  @@map("ContactFunnelState")
+}
+
+model ImageAsset {
+  id               String       @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId   String
+  originalFileName String
+  driveFileId      String
+  drivePath        String?
+  mimeType         String?
+  fileSize         BigInt?
+  width            Int?
+  height           Int?
+  tags             String[]
+  category         String?
+  uploadedBy       String
+  uploadedAt       DateTime     @default(now()) @db.Timestamptz(6)
+  lastAccessedAt   DateTime?    @db.Timestamptz(6)
+  webpDriveFileId  String?
+  processedAt      DateTime?    @db.Timestamptz(6)
+  processingStatus String       @default("PENDING")
+  orientation      Int          @default(1)
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, driveFileId])
+  @@index([organizationId, category])
+  @@map("ImageAsset")
+}
+
+model PushLog {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  title     String
+  body      String
+  deepLink  String?
+  data      Json?
+  status    String    @default("SENT")
+  sentAt    DateTime  @default(now())
+  openedAt  DateTime?
+  clickedAt DateTime?
+
+  @@index([status, sentAt])
+  @@index([userId, sentAt])
+  @@index([userId, status])
+  @@map("PushLog")
+}
+
+model GoogleCalendarToken {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  accessToken   String
+  refreshToken  String
+  expiresAt     DateTime
+  calendarEmail String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("GoogleCalendarToken")
+}
+
+model Document {
+  id             String             @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId String
+  contactId      String?
+  title          String
+  description    String?
+  category       String?
+  status         String             @default("DRAFT")
+  driveFileId    String?
+  fileSize       BigInt?
+  mimeType       String?
+  createdBy      String
+  updatedBy      String?
+  createdAt      DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @db.Timestamptz(6)
+  contact        Contact?           @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  approvals      DocumentApproval[]
+  versions       DocumentVersion[]
+
+  @@unique([organizationId, title])
+  @@index([organizationId, status])
+  @@index([organizationId, category])
+  @@map("Document")
+}
+
+model DocumentVersion {
+  id            String   @id @default(dbgenerated("gen_random_uuid()"))
+  documentId    String
+  versionNumber Int
+  driveFileId   String
+  description   String?
+  uploadedBy    String
+  uploadedAt    DateTime @default(now()) @db.Timestamptz(6)
+  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, versionNumber])
+  @@index([documentId, versionNumber(sort: Desc)])
+  @@map("DocumentVersion")
+}
+
+model DocumentApproval {
+  id         String   @id @default(dbgenerated("gen_random_uuid()"))
+  documentId String
+  approvedBy String
+  status     String
+  comment    String?
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, approvedBy])
+  @@index([documentId])
+  @@map("DocumentApproval")
+}
+
+model GmUser {
+  id                          Int                    @id @default(autoincrement())
+  externalId                  String?                @unique
+  name                        String?
+  email                       String?                @unique
+  phone                       String?
+  password                    String
+  onboarded                   Boolean                @default(false)
+  loginCount                  Int                    @default(0)
+  tripCount                   Int                    @default(0)
+  totalTripCount              Int                    @default(0)
+  currentTripEndDate          DateTime?              @db.Timestamp(6)
+  role                        String                 @default("user")
+  onboardingUpdatedAt         DateTime?              @db.Timestamp(6)
+  onboardingUpdatedByUser     Boolean                @default(false)
+  lastActiveAt                DateTime?              @db.Timestamp(6)
+  hibernatedAt                DateTime?              @db.Timestamp(6)
+  isHibernated                Boolean                @default(false)
+  isLocked                    Boolean                @default(false)
+  lockedAt                    DateTime?              @db.Timestamp(6)
+  lockedReason                String?
+  customerStatus              String?
+  testModeStartedAt           DateTime?              @db.Timestamp(6)
+  customerSource              String?
+  adminMemo                   String?
+  mallUserId                  String?
+  mallNickname                String?
+  genieStatus                 String?
+  genieLinkedAt               DateTime?              @db.Timestamp(6)
+  kakaoChannelAdded           Boolean                @default(false)
+  kakaoChannelAddedAt         DateTime?              @db.Timestamp(6)
+  createdAt                   DateTime               @default(now()) @db.Timestamp(6)
+  updatedAt                   DateTime               @updatedAt @db.Timestamp(6)
+  pwaGenieInstalledAt         DateTime?              @db.Timestamp(6)
+  pwaMallInstalledAt          DateTime?              @db.Timestamp(6)
+  refundCertificateCount      Int                    @default(0)
+  grade                       String                 @default("regular") @db.VarChar(50)
+  isPasswordSet               Boolean                @default(false)
+  goldMemberId                Int?                   @unique
+  passwordResetToken          String?
+  passwordResetTokenExpiresAt DateTime?
+  sourceAgentId               Int?
+  affiliateCode               String?                @unique @db.VarChar(4)
+  socialEmail                 String?
+  socialId                    String?
+  socialProvider              String?
+  socialProfileImg            String?
+  customerGroupId             Int?
+  nextActionDate              DateTime?
+  nextActionNote              String?
+  memberStatus                String?
+  memberTags                  String[]               @default([])
+  ownedGroups                 GmUserGroup[]
+  groupMemberships            GmUserGroupMember[]    @relation("UserGroups")
+  passportRequestLogs         GmPassportRequestLog[]
+  passportSubmissions         GmPassportSubmission[]
+  trips                       GmTrip[]
+  contacts                    Contact[]               @relation("UserContacts")
+  reservations                GmReservation[]         @relation("UserReservations")
+
+  @@index([createdAt])
+  @@index([customerStatus])
+  @@index([isHibernated, lastActiveAt])
+  @@index([lastActiveAt])
+  @@index([phone])
+  @@index([role, customerStatus])
+  @@index([role])
+  @@index([sourceAgentId])
+  @@index([customerStatus, customerSource, createdAt], map: "idx_user_customer_status_source_created")
+  @@index([phone], map: "idx_user_phone")
+  @@map("User")
+}
+
+model GmTrip {
+  id                  Int                    @id @default(autoincrement())
+  userId              Int
+  productId           Int?
+  reservationCode     String?
+  cruiseName          String?
+  companionType       String?
+  destination         Json?
+  startDate           DateTime?              @db.Timestamp(6)
+  endDate             DateTime?              @db.Timestamp(6)
+  nights              Int                    @default(0)
+  days                Int                    @default(0)
+  visitCount          Int                    @default(0)
+  status              String                 @default("Upcoming")
+  createdAt           DateTime               @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime               @db.Timestamp(6)
+  productCode         String                 @default("")
+  shipName            String                 @default("")
+  departureDate       DateTime               @default(now())
+  googleFolderId      String?
+  spreadsheetId       String?
+  passportSubmissions GmPassportSubmission[]
+  user                GmUser                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reservations        GmReservation[]        @relation("TripReservations")
+
+  @@index([createdAt])
+  @@index([startDate])
+  @@index([userId, status])
+  @@map("Trip")
+}
+
+model GmReservation {
+  id                          Int       @id @default(autoincrement())
+  tripId                      Int
+  mainUserId                  Int
+  trip                        GmTrip    @relation("TripReservations", fields: [tripId], references: [id], onDelete: Cascade)
+  mainUser                    GmUser    @relation("UserReservations", fields: [mainUserId], references: [id], onDelete: Cascade)
+  audits                      GmReservationAudit[] @relation("ReservationAudits")
+  contracts                   GmTravelContract[] @relation("ReservationContracts")
+  totalPeople                 Int
+  cabinType                   String?
+  paymentDate                 DateTime?
+  paymentMethod               String?
+  paymentAmount               Int?
+  agentName                   String?
+  remarks                     String?
+  passportGroupLink           String?
+  passportStatus              String    @default("PENDING")
+  affiliateSaleId             Int?
+  createdAt                   DateTime  @default(now())
+  pnrStatus                   String    @default("PENDING")
+  status                      String    @default("CONFIRMED")
+  updatedAt                   DateTime  @default(now()) @updatedAt
+  airlineName                 String?
+  airlineCode                 String?
+  finalConfirmStatus          String    @default("PENDING")
+  finalConfirmRequestedAt     DateTime?
+  finalConfirmRequestedById   Int?
+  finalConfirmApprovedAt      DateTime?
+  finalConfirmApprovedById    Int?
+  finalConfirmRejectedAt      DateTime?
+  finalConfirmRejectedById    Int?
+  finalConfirmRejectionReason String?
+  finalConfirmAudioUrl        String?
+  finalConfirmAudioDriveUrl   String?
+  lastModifiedByName          String?
+  pnrNumber                   String?
+  groupMemo                   String?
+  portTourSurveyAnswer        String?
+  portTourSurveyAnsweredAt    DateTime?
+
+  @@index([mainUserId])
+  @@index([passportStatus])
+  @@index([tripId])
+  @@index([status])
+  @@index([pnrStatus])
+  @@index([finalConfirmStatus])
+  @@index([affiliateSaleId, createdAt])
+  @@index([portTourSurveyAnsweredAt(sort: Desc)], map: "Reservation_portTourSurveyAnswer_partial_idx", where: raw("(\"portTourSurveyAnswer\" IS NOT NULL)"))
+  @@map("Reservation")
+}
+
+model GmTraveler {
+  id               Int      @id @default(autoincrement())
+  reservationId    Int
+  roomNumber       Int
+  isSingleCharge   Boolean  @default(false)
+  engSurname       String?
+  engGivenName     String?
+  korName          String?
+  residentNum      String?
+  gender           String?
+  birthDate        String?
+  passportNo       String?
+  issueDate        String?
+  expiryDate       String?
+  passportImage    String?
+  userId           Int?
+  nationality      String?
+  notes            String?
+  phone            String?
+  companionGroupId Int?
+  roomingGroupId   Int?
+  passportDriveUrl String?
+  updatedAt        DateTime @default(now())
+
+  @@index([reservationId])
+  @@index([userId])
+  @@index([residentNum])
+  @@map("Traveler")
+}
+
+model GmAffiliateLead {
+  id                    Int       @id @default(autoincrement())
+  linkId                Int?
+  managerId             Int?
+  agentId               Int?
+  customerName          String?
+  customerPhone         String?
+  status                String    @default("NEW")
+  source                String?
+  passportRequestedAt   DateTime?
+  passportCompletedAt   DateTime?
+  lastContactedAt       DateTime?
+  nextActionAt          DateTime?
+  notes                 String?
+  metadata              Json?
+  leadScore             Int       @default(0)
+  leadStage             String    @default("NURTURE")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @default(now()) @updatedAt
+  groupId               Int?
+  sharedToManagerId     Int?
+  sourceAgentId         Int?
+  registeredAt          DateTime  @default(now())
+  registeredByAdminId   Int?
+  registeredByProfileId Int?
+  registeredByRole      String?   @db.VarChar(20)
+  registeredBySystem    Boolean   @default(false)
+  organizationId        String?
+
+  @@index([status])
+  @@index([organizationId, status, createdAt])
+  @@map("AffiliateLead")
+}
+
+model GmAffiliateRelation {
+  id             Int       @id @default(autoincrement())
+  managerId      Int
+  agentId        Int
+  status         String    @default("ACTIVE")
+  connectedAt    DateTime? @db.Timestamp(6)
+  disconnectedAt DateTime? @db.Timestamp(6)
+  notes          String?
+  metadata       Json?
+  createdAt      DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime  @db.Timestamp(6)
+  overrideRate   Float?
+
+  @@index([managerId, status, createdAt])
+  @@index([agentId, status])
+  @@map("AffiliateRelation")
+}
+
+model GmAffiliateProfile {
+  id                    Int       @id @default(autoincrement())
+  userId                Int       @unique
+  affiliateCode         String    @unique
+  type                  String
+  status                String    @default("DRAFT")
+  displayName           String?
+  branchLabel           String?
+  nickname              String?
+  profileTitle          String?
+  bio                   String?
+  profileImage          String?
+  coverImage            String?
+  contactPhone          String?
+  contactEmail          String?
+  kakaoLink             String?
+  instagramHandle       String?
+  youtubeChannel        String?
+  homepageUrl           String?
+  landingSlug           String?
+  landingTheme          Json?
+  landingAnnouncement   String?
+  welcomeMessage        String?
+  externalLinks         Json?
+  published             Boolean   @default(true)
+  publishedAt           DateTime? @db.Timestamp(6)
+  bankName              String?
+  bankAccount           String?
+  bankAccountHolder     String?
+  withholdingRate       Float     @default(3.3) @db.Real
+  contractStatus        String    @default("DRAFT")
+  contractSignedAt      DateTime? @db.Timestamp(6)
+  kycCompletedAt        DateTime? @db.Timestamp(6)
+  onboardedAt           DateTime? @db.Timestamp(6)
+  metadata              Json?
+  createdAt             DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt             DateTime  @updatedAt @db.Timestamp(6)
+  promoImageId          String?   @db.VarChar(100)
+  promoImageUrl         String?
+  coverImageId          String?   @db.VarChar(100)
+  coverImageUrl         String?
+  featuredImageId       String?   @db.VarChar(100)
+  featuredImageUrl      String?
+  suspendedAt           DateTime?
+  suspensionReason      String?
+  autoSuspended         Boolean   @default(false)
+  isActive              Boolean   @default(true)
+  guarantorId           Int?
+  agentCommissionRate   Int?
+  autoDeleteStatus      String    @default("ACTIVE")
+  autoDeleteScheduledAt DateTime?
+  autoDeleteExpiresAt   DateTime?
+  blogLink              String?
+  customLinks           Json?
+  galleryImages         Json?
+  featuredImages        Json?
+  deactivatedAt         DateTime?
+  deactivationReason    String?
+  gracePeriodStartDate  DateTime?
+  lastSalesDate         DateTime?
+  littlyLinkSlug        String?
+  schedules             Json?
+  threadLink            String?
+  youtubeVideoUrl       String?
+  contractIp            String?
+  contractSignature     String?
+  contractUserAgent     String?
+  contractVersion       String?
+  guarantorName         String?
+  previousType          String?
+  typeChangedAt         DateTime?
+  typeEffectiveDate     DateTime?
+  welcomeEmailSentAt    DateTime?
+
+  @@index([guarantorId])
+  @@map("AffiliateProfile")
+}
+
+model GmAffiliateLink {
+  id                 Int       @id @default(autoincrement())
+  code               String    @unique
+  title              String?
+  affiliateProductId Int?
+  productCode        String?
+  managerId          Int?
+  agentId            Int?
+  issuedById         Int
+  status             String    @default("ACTIVE")
+  expiresAt          DateTime?
+  lastAccessedAt     DateTime?
+  campaignName       String?
+  description        String?
+  landingVariant     String?
+  utmSource          String?
+  utmMedium          String?
+  utmCampaign        String?
+  utmContent         String?
+  utmTerm            String?
+  metadata           Json?
+  clickCount         Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
+  sourceAgentId      Int?
+
+  @@index([managerId])
+  @@index([agentId])
+  @@map("AffiliateLink")
+}
+
+model GmAffiliateContract {
+  id                      Int       @id @default(autoincrement())
+  userId                  Int?
+  name                    String
+  phone                   String
+  email                   String?
+  status                  String    @default("submitted")
+  submittedAt             DateTime  @default(now())
+  createdAt               DateTime  @default(now())
+  address                 String?
+  bankAccount             String?
+  bankAccountHolder       String?
+  bankName                String?
+  bankbookOriginalName    String?
+  bankbookPath            String?
+  consentDbUse            Boolean   @default(false)
+  consentNonCompete       Boolean   @default(false)
+  consentPenalty          Boolean   @default(false)
+  consentPrivacy          Boolean   @default(false)
+  consentRefund           Boolean   @default(false)
+  contractEndDate         DateTime?
+  contractSignedAt        DateTime?
+  contractStartDate       DateTime?
+  idCardOriginalName      String?
+  idCardPath              String?
+  invitedByProfileId      Int?
+  metadata                Json?
+  notes                   String?
+  residentId              String?
+  reviewedAt              DateTime?
+  reviewerId              Int?
+  signatureImageFileId    String?
+  signatureImageUrl       String?
+  signatureLink           String?
+  signatureLinkExpiresAt  DateTime?
+  signatureToken          String?
+  signatureTokenExpiresAt DateTime?
+  signedEmail             String?
+  signedPhone             String?
+  updatedAt               DateTime  @default(now()) @updatedAt
+
+  @@map("AffiliateContract")
+}
+
+model GmAffiliateContractAudit {
+  id           Int      @id @default(autoincrement())
+  contractId   Int      @map("contract_id")
+  action       String   @db.VarChar(50)
+  approvedBy   Int?     @map("approved_by")
+  approvalTier String?  @db.VarChar(50)
+  metadata     Json?
+  reason       String?
+  ipAddress    String?  @db.VarChar(45)
+  userAgent    String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([contractId, createdAt])
+  @@index([action, createdAt])
+  @@map("AffiliateContractAudit")
+}
+
+model GmAffiliateSignatureToken {
+  id         Int       @id @default(autoincrement())
+  token      String    @unique @db.VarChar(64)
+  contractId Int       @map("contract_id")
+  expiresAt  DateTime  @map("expires_at")
+  signedAt   DateTime? @map("signed_at")
+  signedBy   String?   @db.VarChar(200)
+  metadata   Json?
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([token])
+  @@index([contractId, expiresAt])
+  @@map("AffiliateSignatureToken")
+}
+
+model GmApisSyncQueue {
+  id          Int       @id @default(autoincrement())
+  targetType  String
+  targetId    Int
+  status      String    @default("PENDING")
+  attempts    Int       @default(0)
+  lastError   String?
+  scheduledAt DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([status, scheduledAt])
+  @@map("ApisSyncQueue")
+}
+
+model GmPassportSubmission {
+  id             Int       @id @default(autoincrement())
+  userId         Int
+  tripId         Int?
+  token          String    @unique
+  tokenExpiresAt DateTime
+  isSubmitted    Boolean   @default(false)
+  submittedAt    DateTime?
+  driveFolderUrl String?
+  extraData      Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+  trip           GmTrip?   @relation(fields: [tripId], references: [id])
+  user           GmUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tripId])
+  @@index([userId])
+  @@index([isSubmitted, updatedAt])
+  @@index([tripId])
+  @@map("PassportSubmission")
+}
+
+model GmPassportSubmissionGuest {
+  id                 Int       @id @default(autoincrement())
+  submissionId       Int
+  groupNumber        Int
+  name               String
+  phone              String?
+  passportNumber     String?
+  nationality        String?
+  dateOfBirth        DateTime?
+  passportExpiryDate DateTime?
+  ocrRawData         Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
+
+  @@index([name])
+  @@index([submissionId, groupNumber])
+  @@map("PassportSubmissionGuest")
+}
+
+model GmPassportRequestLog {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  adminId        Int?
+  templateId     Int?
+  messageBody    String
+  messageChannel String   @default("SMS")
+  status         String   @default("PENDING")
+  errorReason    String?
+  sentAt         DateTime @default(now())
+  user           GmUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([adminId, sentAt])
+  @@index([status, sentAt])
+  @@index([userId, sentAt])
+  @@map("PassportRequestLog")
+}
+
+model GmPassportRequestTemplate {
+  id          Int      @id @default(autoincrement())
+  title       String   @default("여권 제출 안내")
+  body        String
+  variables   Json?
+  isDefault   Boolean  @default(false)
+  updatedById Int?
+  createdAt   DateTime @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime @updatedAt @db.Timestamp(6)
+
+  @@map("PassportRequestTemplate")
+}
+
+model CabinInventory {
+  id             String    @id @default(cuid())
+  organizationId String
+  tripName       String
+  tripCode       String?
+  departureDate  DateTime?
+  shipName       String?
+  cabinType      String
+  totalCount     Int
+  bookedCount    Int       @default(0)
+  status         String    @default("AVAILABLE")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+
+  @@unique([organizationId, tripCode, cabinType], map: "CabinInventory_org_trip_cabin_idx")
+  @@index([status])
+  @@index([organizationId], map: "CabinInventory_org_idx")
+  @@map("CabinInventory")
+}
+
+model GmReservationAudit {
+  id            Int      @id @default(autoincrement())
+  reservationId Int
+  reservation   GmReservation @relation("ReservationAudits", fields: [reservationId], references: [id], onDelete: Cascade)
+  userId        Int?
+  action        String
+  fieldChanged  String?
+  oldValue      String?
+  newValue      String?
+  reason        String?
+  ipAddress     String?
+  userAgent     String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  @@index([reservationId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@map("ReservationAudit")
+}
+
+model GmTravelContract {
+  id             Int       @id @default(autoincrement())
+  reservationId  Int
+  reservation    GmReservation @relation("ReservationContracts", fields: [reservationId], references: [id], onDelete: Cascade)
+  contractUrl    String?
+  signedAt       DateTime?
+  signedByUserId Int?
+  status         String    @default("PENDING")
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+
+  @@index([reservationId])
+  @@index([status])
+  @@map("TravelContract")
+}
+
+model EmailLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  contactId      String?
+  email          String
+  subjectPreview String
+  status         String   @default("SENT")
+  blockReason    String?
+  channel        String   @default("FUNNEL")
+  sentAt         DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([organizationId, sentAt])
+  @@index([contactId, sentAt])
+  @@map("CrmEmailLog")
+}
+
+model EmailTemplate {
+  id             String   @id @default(cuid())
+  organizationId String?
+  category       String
+  title          String
+  subject        String
+  content        String
+  isSystem       Boolean  @default(false)
+  usageCount     Int      @default(0)
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@index([organizationId])
+  @@index([category])
+  @@map("CrmEmailTemplate")
+}
+
+model ScheduledEmail {
+  id              String    @id @default(cuid())
+  organizationId  String
+  contactId       String?
+  groupId         String?
+  subject         String
+  content         String
+  scheduledAt     DateTime  @db.Timestamptz(6)
+  status          String    @default("PENDING")
+  sentAt          DateTime? @db.Timestamptz(6)
+  sentCount       Int       @default(0)
+  failedCount     Int       @default(0)
+  createdByUserId String?
+  failureReason   String?
+  pausedAt        DateTime? @db.Timestamptz(6)
+  pausedBy        String?
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([organizationId, scheduledAt])
+  @@index([status, scheduledAt])
+  @@map("CrmScheduledEmail")
+}
+
+model SendingHistory {
+  id                 String                @id @default(cuid())
+  organizationId     String
+  sendingType        String
+  sourceId           String?
+  campaignId         String?
+  contactId          String
+  phone              String?
+  email              String?
+  channel            String
+  subject            String?
+  body               String
+  status             SendingStatus         @default(PENDING)
+  failureReason      SendingFailureReason?
+  failureUserMsg     String?
+  messageId          String?
+  deliveredAt        DateTime?
+  retryCount         Int                   @default(0)
+  maxRetries         Int                   @default(3)
+  nextRetryAt        DateTime?
+  failureMessage     String?
+  emailStatus        String?
+  emailSentAt        DateTime?
+  emailOpenedAt      DateTime?
+  smsStatus          String?
+  smsSentAt          DateTime?
+  linkClickedAt      DateTime?
+  registeredAt       DateTime?
+  landingPageViewId  String?
+  webhookAttempts    Int                   @default(0)
+  lastWebhookAt      DateTime?
+  scheduledAt        DateTime
+  sentAt             DateTime?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  metadata           Json?
+  variantKey         String?
+  deltaDay           Int?
+  isDeltaSmsEligible Boolean               @default(false)
+  isRentalPurchase   Boolean               @default(false)
+  segmentVariation   String?               @db.VarChar(1)
+  campaign           CrmMarketingCampaign? @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, status])
+  @@index([contactId, status])
+  @@index([messageId])
+  @@index([sendingType, sourceId])
+  @@index([createdAt(sort: Desc)])
+  @@index([status, nextRetryAt], map: "idx_sending_history_retry_scan")
+  @@index([campaignId, status], map: "idx_sending_history_campaign_status")
+  @@index([organizationId, createdAt(sort: Desc)], map: "idx_sending_history_org_time")
+  @@index([status, retryCount], map: "idx_sending_history_status_retry")
+  @@index([variantKey, status], map: "idx_sending_history_variant_status")
+  @@index([isRentalPurchase], map: "idx_sendinghistory_isrentalpur")
+  @@index([isDeltaSmsEligible], map: "idx_sendinghistory_isdeltasmselig")
+  @@index([isDeltaSmsEligible, deltaDay], map: "idx_sendinghistory_deltatemp")
+  @@map("SendingHistory")
+}
+
+model ProcessedWebhookEvent {
+  id            String    @id @default(cuid())
+  eventId       String    @unique
+  webhookType   String    @db.VarChar(50)
+  status        String    @default("SUCCESS") @db.VarChar(20)
+  errorMessage  String?
+  processedAt   DateTime  @default(now())
+
+  @@index([webhookType])
+  @@index([eventId])
+  @@index([processedAt])
+  @@map("ProcessedWebhookEvent")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AdminActionLog {
+  id           Int      @id @default(autoincrement())
+  adminId      Int
+  targetUserId Int?
+  action       String
+  details      Json?
+  createdAt    DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([adminId, createdAt])
+  @@index([targetUserId, createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AdminNotification {
+  id                Int       @id @default(autoincrement())
+  userId            Int?
+  notificationType  String
+  title             String
+  content           String
+  relatedCustomerId Int?
+  relatedNoteId     Int?
+  relatedMessageId  Int?
+  isRead            Boolean   @default(false)
+  readAt            DateTime?
+  priority          String    @default("normal")
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+
+  @@index([notificationType, createdAt])
+  @@index([relatedCustomerId, createdAt])
+  @@index([userId, isRead, createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AdminSmsConfig {
+  id             Int      @id @default(autoincrement())
+  adminId        Int      @unique
+  provider       String   @default("aligo")
+  apiKey         String
+  userId         String
+  senderPhone    String
+  kakaoSenderKey String?
+  kakaoChannelId String?
+  isActive       Boolean  @default(true)
+  metadata       Json?
+  createdAt      DateTime @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime @db.Timestamp(6)
+
+  @@index([adminId, isActive])
+}
+
+model AffiliateAuditLog {
+  id                Int                  @id @default(autoincrement())
+  category          String?
+  action            String?
+  contractId        Int?
+  saleId            Int?
+  profileId         Int?
+  userId            Int?
+  performedById     Int?
+  performedBySystem Boolean              @default(false)
+  details           Json?
+  metadata          Json?
+  createdAt         DateTime             @default(now())
+  affiliateId       Int?
+  actionType        AffiliateActionType?
+  expiresAt         DateTime?
+  deletedAt         DateTime?
+  deletedReason     String?
+  createdByAdminId  Int?
+  ipAddress         String?
+  userAgent         String?
+  updatedAt         DateTime             @default(now())
+  leadId            Int?
+
+  @@index([category, createdAt])
+  @@index([contractId, createdAt])
+  @@index([performedById, createdAt])
+  @@index([saleId, createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AffiliateCommissionTier {
+  id                   Int      @id @default(autoincrement())
+  affiliateProductId   Int
+  cabinType            String
+  pricingRowId         String?
+  fareCategory         String?
+  fareLabel            String?
+  saleAmount           Int?
+  costAmount           Int?
+  hqShareAmount        Int?
+  branchShareAmount    Int?
+  salesShareAmount     Int?
+  overrideAmount       Int?
+  cardFeeAmount        Int?
+  cardFeeRate          Float?
+  freeAgentShareAmount Int?
+  freeAgentShareRate   Float?
+  netProfitAmount      Int?
+  branchSharePercent   Float?
+  salesSharePercent    Float?
+  hqSharePercent       Float?
+  agentType            String?
+  currency             String   @default("KRW")
+  metadata             Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @default(now())
+
+  @@unique([affiliateProductId, cabinType, fareCategory, fareLabel], map: "AffiliateCommissionTier_affiliateProductId_cabinType_fareCatego")
+  @@index([affiliateProductId])
+  @@index([pricingRowId])
+}
+
+model AffiliateInteraction {
+  id              Int      @id @default(autoincrement())
+  leadId          Int
+  profileId       Int?
+  createdById     Int
+  interactionType String
+  occurredAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+  note            String?
+  metadata        Json?
+
+  @@index([leadId, occurredAt])
+}
+
+model AffiliateLedger {
+  id                Int       @id @default(autoincrement())
+  saleId            Int
+  profileId         Int
+  type              String
+  amount            Int
+  withholdingAmount Int       @default(0)
+  netAmount         Int
+  isSettled         Boolean   @default(false)
+  settledAt         DateTime?
+  description       String?
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now())
+
+  @@index([isSettled])
+  @@index([profileId, createdAt])
+  @@index([saleId])
+}
+
+model AffiliateLinkEvent {
+  id          Int      @id @default(autoincrement())
+  linkId      Int
+  actorId     Int?
+  eventType   String
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([linkId, createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AffiliateProduct {
+  id                Int       @id @default(autoincrement())
+  productCode       String
+  cruiseProductId   Int?
+  title             String
+  status            String    @default("active")
+  currency          String    @default("KRW")
+  defaultSaleAmount Int?
+  defaultCostAmount Int?
+  defaultNetRevenue Int?
+  metadata          Json?
+  isPublished       Boolean   @default(true)
+  publishedAt       DateTime? @db.Timestamp(6)
+  effectiveFrom     DateTime  @db.Timestamp(6)
+  effectiveTo       DateTime? @db.Timestamp(6)
+  createdAt         DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt         DateTime  @db.Timestamp(6)
+  cardFeeRate       Float?
+  freeAgentRate     Float?
+
+  @@unique([productCode, effectiveFrom])
+  @@index([isPublished])
+  @@index([status])
+}
+
+model public_AffiliateSale {
+  id                      Int       @id @default(autoincrement())
+  externalOrderCode       String?   @unique
+  linkId                  Int?
+  leadId                  Int?
+  affiliateProductId      Int?
+  managerId               Int?
+  agentId                 Int?
+  productCode             String?
+  cabinType               String?
+  fareCategory            String?
+  headcount               Int?
+  saleAmount              Int
+  costAmount              Int?
+  netRevenue              Int?
+  branchCommission        Int?
+  salesCommission         Int?
+  overrideCommission      Int?
+  withholdingAmount       Int?
+  status                  String    @default("PENDING")
+  saleDate                DateTime?
+  confirmedAt             DateTime?
+  paidAt                  DateTime?
+  refundedAt              DateTime?
+  refundReason            String?
+  refundedBy              Int?
+  pgCancelFailed          Boolean   @default(false)
+  cancellationReason      String?
+  audioFileGoogleDriveId  String?
+  audioFileGoogleDriveUrl String?
+  audioFileName           String?
+  audioFileType           String?
+  submittedById           Int?
+  submittedAt             DateTime?
+  approvedById            Int?
+  approvedAt              DateTime?
+  rejectedById            Int?
+  rejectedAt              DateTime?
+  rejectionReason         String?
+  metadata                Json?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @default(now())
+  audioFileServerPath     String?
+  commissionRate          Int?
+  commissionRateSnapshot  Json?
+  settledAt               DateTime?
+  sourceAgentId           Int?
+  yearMonth               String?   @db.Char(7)
+  buyerUserId             Int?
+
+  @@index([agentId, createdAt])
+  @@index([agentId])
+  @@index([buyerUserId])
+  @@index([leadId, status])
+  @@index([managerId, createdAt])
+  @@index([managerId])
+  @@index([status])
+  @@map("AffiliateSale")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AffiliateSmsConfig {
+  id             Int      @id @default(autoincrement())
+  profileId      Int      @unique
+  provider       String   @default("aligo")
+  apiKey         String
+  userId         String
+  senderPhone    String
+  kakaoSenderKey String?
+  kakaoChannelId String?
+  isActive       Boolean  @default(true)
+  metadata       Json?
+  createdAt      DateTime @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime @db.Timestamp(6)
+
+  @@index([profileId, isActive])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AffiliateVisit {
+  id                  Int      @id @default(autoincrement())
+  visitToken          String   @unique
+  affiliateCode       String?
+  affiliateMallUserId String?
+  referrer            String?
+  expiresAt           DateTime
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @default(now())
+
+  @@index([affiliateCode])
+  @@index([affiliateMallUserId])
+  @@index([expiresAt])
+  @@index([visitToken])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AutomationLog {
+  id             Int      @id @default(autoincrement())
+  organizationId String
+  action         String
+  actionDetails  Json?
+  relatedId      Int?
+  relatedType    String?
+  createdBy      Int
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, action, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([relatedType, relatedId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model BotGuideAnswer {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  question  String
+  answer    String
+  source    String   @default("ai-generated")
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  category  String   @default("기타")
+  keywords  Json     @default("[]")
+  salesTone Json     @default("{\"primary\": \"neutral\", \"secondary\": [], \"confidence\": 0}")
+  type      String   @default("상담기록")
+
+  @@index([isActive, category])
+  @@index([category, updatedAt])
+  @@index([key, isActive])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Campaign {
+  id        Int       @id @default(autoincrement())
+  name      String
+  startDate DateTime  @db.Timestamptz(6)
+  endDate   DateTime  @db.Timestamptz(6)
+  maxBudget BigInt
+  status    String    @default("ACTIVE")
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  @@index([status, endDate])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CampaignCoupon {
+  id                Int      @id @default(autoincrement())
+  campaignId        Int
+  couponCode        String   @unique
+  discountType      String
+  discountValue     BigInt
+  maxDiscountAmount BigInt
+  maxUses           Int
+  usedCount         Int      @default(0)
+  expiryDate        DateTime @db.Timestamptz(6)
+  status            String   @default("ACTIVE")
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([campaignId, status])
+  @@index([couponCode])
+  @@index([expiryDate])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CertificateApproval {
+  id              Int       @id @default(autoincrement())
+  certificateType String
+  requesterId     Int
+  requesterType   String
+  customerId      Int
+  customerName    String
+  customerEmail   String?
+  birthDate       String?
+  productName     String
+  paymentAmount   Int
+  paymentDate     String
+  refundAmount    Int?
+  refundDate      String?
+  status          String    @default("pending")
+  approvedBy      Int?
+  approvedByType  String?
+  approvedAt      DateTime?
+  rejectedReason  String?
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
+
+  @@index([approvedBy, createdAt])
+  @@index([customerId, certificateType])
+  @@index([requesterId, status, createdAt])
+  @@index([status, createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ChatBotFlow {
+  id              Int      @id @default(autoincrement())
+  name            String
+  category        String   @default("AI 지니 채팅봇(구매)")
+  description     String?
+  startQuestionId Int?
+  finalPageUrl    String?
+  isActive        Boolean  @default(true)
+  order           Int      @default(0)
+  createdAt       DateTime @default(now()) @db.Timestamp(6)
+  updatedAt       DateTime @db.Timestamp(6)
+  productCode     String?
+  shareToken      String?  @unique
+  isPublic        Boolean  @default(false)
+  isTemplate      Boolean  @default(false)
+
+  @@index([category, isActive])
+  @@index([isTemplate])
+  @@index([order])
+  @@index([productCode])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ChatBotQuestion {
+  id              Int      @id @default(autoincrement())
+  flowId          Int
+  questionText    String
+  questionType    String   @default("choice")
+  spinType        String?
+  information     String?
+  optionA         String?
+  optionB         String?
+  options         Json?
+  nextQuestionIdA Int?
+  nextQuestionIdB Int?
+  nextQuestionIds Json?
+  order           Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now()) @db.Timestamp(6)
+  updatedAt       DateTime @db.Timestamp(6)
+
+  @@index([flowId, order])
+  @@index([nextQuestionIdA])
+  @@index([nextQuestionIdB])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ChatBotSession {
+  id                 Int       @id @default(autoincrement())
+  sessionId          String    @unique
+  flowId             Int
+  userId             Int?
+  userPhone          String?
+  userEmail          String?
+  productCode        String?
+  startedAt          DateTime  @default(now()) @db.Timestamp(6)
+  completedAt        DateTime? @db.Timestamp(6)
+  endedAt            DateTime? @db.Timestamp(6)
+  durationMs         Int?
+  isCompleted        Boolean   @default(false)
+  finalStatus        String    @default("ONGOING")
+  finalPageUrl       String?
+  paymentStatus      String?
+  paymentAttemptedAt DateTime? @db.Timestamp(6)
+  paymentCompletedAt DateTime? @db.Timestamp(6)
+  paymentOrderId     String?
+  conversionRate     Float?    @db.Real
+  createdAt          DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt          DateTime  @db.Timestamp(6)
+
+  @@index([finalStatus])
+  @@index([flowId, startedAt])
+  @@index([isCompleted])
+  @@index([paymentStatus])
+  @@index([sessionId])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CmsNotificationTemplate {
+  id          Int      @id @default(autoincrement())
+  triggerCode String   @unique
+  title       String
+  message     String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime @db.Timestamp(6)
+
+  @@index([triggerCode, isActive])
+}
+
+model CommissionLedger {
+  id                Int       @id @default(autoincrement())
+  saleId            Int
+  profileId         Int?
+  entryType         String
+  amount            Int
+  currency          String    @default("KRW")
+  withholdingAmount Int?
+  settlementId      Int?
+  isSettled         Boolean   @default(false)
+  settleableAfter   DateTime?
+  notes             String?
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now())
+  agentId           Int?
+
+  @@index([isSettled, createdAt])
+  @@index([profileId, isSettled])
+  @@index([saleId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CommunityPost {
+  id         Int       @id @default(autoincrement())
+  userId     Int?
+  title      String
+  content    String
+  category   String    @default("general")
+  authorName String?
+  images     Json?
+  views      Int       @default(0)
+  likes      Int       @default(0)
+  comments   Int       @default(0)
+  isDeleted  Boolean   @default(false)
+  deletedAt  DateTime? @db.Timestamp(6)
+  createdAt  DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt  DateTime  @db.Timestamp(6)
+  slug       String?   @unique
+  published  Boolean   @default(false)
+  shortCode  String?   @unique
+  summary    String?   @db.VarChar(300)
+  highlight  String?   @db.VarChar(500)
+  keywords   String?   @db.VarChar(500)
+  ogImage    String?   @db.VarChar(500)
+  faqs       Json?
+
+  @@index([category, isDeleted])
+  @@index([createdAt])
+  @@index([isDeleted, createdAt])
+  @@index([published, category])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CouponUsage {
+  id              Int      @id @default(autoincrement())
+  couponId        Int
+  userId          Int
+  orderId         String   @unique
+  appliedDiscount BigInt
+  usedAt          DateTime @default(now()) @db.Timestamptz(6)
+  idempotencyKey  String   @unique
+
+  @@unique([couponId, userId])
+  @@index([userId, usedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CruiseProduct {
+  id               Int       @id @default(autoincrement())
+  productCode      String    @unique
+  cruiseLine       String
+  shipName         String
+  packageName      String
+  nights           Int
+  days             Int
+  itineraryPattern Json
+  basePrice        Int?
+  description      String?
+  source           String?
+  category         String?
+  tags             Json?
+  isPopular        Boolean   @default(false)
+  isRecommended    Boolean   @default(false)
+  isPremium        Boolean   @default(false)
+  isGeniePack      Boolean   @default(false)
+  isDomestic       Boolean   @default(false)
+  isJapan          Boolean   @default(false)
+  isBudget         Boolean   @default(false)
+  isUrgent         Boolean   @default(false)
+  isMainProduct    Boolean   @default(false)
+  saleStatus       String    @default("판매중")
+  startDate        DateTime? @db.Timestamp(6)
+  endDate          DateTime? @db.Timestamp(6)
+  createdAt        DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt        DateTime  @db.Timestamp(6)
+  deletedAt        DateTime?
+  deletedBy        String?
+  maxPrice         Int?
+  type             String?   @default("standard")
+  airlineName      String?
+  airlineCode      String?
+  tourType         String    @default("FREE")
+  refundPolicy     Json?
+  costPrice        Int?
+  tourCities       String?
+  reservedCount    Int?
+  availableCount   Int?
+  minDeparturePax  Int?
+  isActive         Boolean   @default(true)
+  version          Int       @default(0)
+
+  @@index([basePrice, createdAt(sort: Desc)])
+  @@index([category])
+  @@index([isBudget])
+  @@index([isDomestic])
+  @@index([isGeniePack])
+  @@index([isJapan])
+  @@index([isMainProduct])
+  @@index([isPopular])
+  @@index([isPremium])
+  @@index([isRecommended])
+  @@index([isUrgent])
+  @@index([productCode])
+  @@index([saleStatus, basePrice])
+  @@index([saleStatus])
+  @@index([saleStatus, isPopular, createdAt(sort: Desc)])
+  @@index([source])
+  @@index([packageName(ops: raw("gin_trgm_ops"))], map: "idx_cruise_product_packagename_trgm", type: Gin)
+  @@index([shipName(ops: raw("gin_trgm_ops"))], map: "idx_cruise_product_shipname_trgm", type: Gin)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CruiseProductDeleteLog {
+  id              Int      @id @default(autoincrement())
+  productCode     String
+  packageName     String
+  productSnapshot Json
+  contentSnapshot Json?
+  deletedBy       String?
+  deletedAt       DateTime @default(now())
+  driveFileId     String?
+  driveFileUrl    String?
+
+  @@index([deletedAt])
+  @@index([productCode])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CruiseProductInquiry {
+  id                 Int      @id(map: "ProductInquiry_pkey") @default(autoincrement())
+  userId             Int?
+  name               String?
+  phone              String?
+  status             String   @default("pending")
+  productCode        String?
+  managerId          Int?
+  agentId            Int?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @default(now())
+  message            String?
+  passportNumber     String?
+  createdByAdminId   Int?
+  createdByProfileId Int?
+  email              String?
+  organizationId     String?
+  affiliateCode      String?
+  metadata           Json?
+
+  @@index([affiliateCode])
+  @@index([agentId])
+  @@index([agentId, status, createdAt])
+  @@index([createdAt])
+  @@index([createdByAdminId])
+  @@index([createdByProfileId])
+  @@index([managerId])
+  @@index([managerId, status, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([organizationId])
+  @@index([productCode])
+  @@index([status])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CruiseReview {
+  id          Int       @id @default(autoincrement())
+  userId      Int?
+  productCode String?
+  authorName  String
+  rating      Int
+  title       String?
+  content     String
+  images      Json?
+  cruiseLine  String?
+  shipName    String?
+  travelDate  DateTime? @db.Timestamp(6)
+  isApproved  Boolean   @default(false)
+  isDeleted   Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime  @db.Timestamp(6)
+
+  @@index([createdAt])
+  @@index([productCode, isApproved, isDeleted])
+  @@index([rating, isApproved, isDeleted])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CustomerGroup {
+  id                 Int      @id @default(autoincrement())
+  adminId            Int
+  name               String
+  description        String?
+  color              String?
+  parentGroupId      Int?
+  affiliateProfileId Int?
+  funnelTalkIds      Json?
+  funnelSmsIds       Json?
+  funnelEmailIds     Json?
+  reEntryHandling    String?
+  autoMoveEnabled    Boolean  @default(false)
+  autoMoveSettings   Json?
+  createdAt          DateTime @default(now()) @db.Timestamp(6)
+  updatedAt          DateTime @db.Timestamp(6)
+  scheduledTalkIds   Json?
+  scheduledSmsIds    Json?
+  scheduledEmailIds  Json?
+
+  @@index([adminId])
+  @@index([affiliateProfileId])
+  @@index([name])
+  @@index([parentGroupId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CustomerGroupMember {
+  id         Int       @id @default(autoincrement())
+  groupId    Int
+  userId     Int
+  addedAt    DateTime  @default(now()) @db.Timestamp(6)
+  addedBy    Int?
+  releasedAt DateTime?
+
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@index([releasedAt])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model EmailAddressBook {
+  id        Int      @id @default(autoincrement())
+  adminId   Int
+  name      String?
+  email     String
+  phone     String?
+  memo      String?
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @db.Timestamp(6)
+
+  @@unique([adminId, email])
+  @@index([adminId, createdAt])
+  @@index([email])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model EmailPreference {
+  id             Int       @id @default(autoincrement())
+  email          String    @unique
+  userId         Int?
+  categories     String[]
+  isActive       Boolean   @default(true)
+  subscribedAt   DateTime  @default(now())
+  unsubscribedAt DateTime?
+  updatedAt      DateTime
+
+  @@index([email, isActive])
+  @@index([isActive, subscribedAt])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ExchangeRate {
+  id        Int      @id @default(autoincrement())
+  month     Int
+  year      Int
+  value     Decimal  @db.Decimal(10, 4)
+  source    String   @default("BOK")
+  lockedAt  DateTime @default(now()) @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([month, year])
+  @@index([year, month])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model FeatureUsage {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  feature    String
+  usageCount Int      @default(1)
+  lastUsedAt DateTime @default(now()) @db.Timestamp(6)
+  createdAt  DateTime @default(now()) @db.Timestamp(6)
+  updatedAt  DateTime @db.Timestamp(6)
+
+  @@unique([userId, feature])
+  @@index([feature, usageCount])
+  @@index([lastUsedAt])
+  @@index([userId, lastUsedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model FunnelConversion {
+  id              Int      @id @default(autoincrement())
+  funnelId        Int
+  customerId      Int?
+  conversionType  String
+  conversionValue Float?   @db.Real
+  conversionStage String?
+  metadata        Json?
+  convertedAt     DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([conversionType, convertedAt])
+  @@index([customerId, convertedAt])
+  @@index([funnelId, convertedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model FunnelMessage {
+  id            Int      @id @default(autoincrement())
+  adminId       Int
+  groupId       Int?
+  messageType   String
+  title         String
+  category      String?
+  groupName     String?
+  description   String?
+  senderPhone   String?
+  senderEmail   String?
+  sendTime      String?
+  optOutNumber  String?
+  autoAddOptOut Boolean  @default(true)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now()) @db.Timestamp(6)
+  updatedAt     DateTime @db.Timestamp(6)
+
+  @@index([adminId, createdAt])
+  @@index([groupId])
+  @@index([messageType, isActive])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model FunnelMessageStage {
+  id              Int      @id @default(autoincrement())
+  funnelMessageId Int
+  stageNumber     Int
+  daysAfter       Int      @default(0)
+  sendTime        String?
+  content         String
+  imageUrl        String?
+  order           Int      @default(0)
+  createdAt       DateTime @default(now()) @db.Timestamp(6)
+  updatedAt       DateTime @db.Timestamp(6)
+
+  @@index([funnelMessageId, order])
+  @@index([funnelMessageId, stageNumber])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model public_FunnelStage {
+  id               Int      @id @default(autoincrement())
+  funnelId         Int
+  stageName        String
+  stageOrder       Int
+  stageType        String
+  triggerCondition Json?
+  actionType       String?
+  actionContent    Json?
+  delayDays        Int?     @default(0)
+  isActive         Boolean  @default(true)
+  metadata         Json?
+  createdAt        DateTime @default(now()) @db.Timestamp(6)
+  updatedAt        DateTime @db.Timestamp(6)
+
+  @@index([funnelId, isActive])
+  @@index([funnelId, stageOrder])
+  @@map("FunnelStage")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model FunnelStageTransition {
+  id                Int      @id @default(autoincrement())
+  funnelId          Int
+  fromStageId       Int
+  toStageId         Int
+  triggerType       String   @db.VarChar(255)
+  requiredCondition Json?
+  daysToWait        Int?
+  priority          Int      @default(0)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime
+
+  @@unique([fromStageId, toStageId, triggerType])
+  @@index([funnelId])
+  @@index([isActive])
+  @@index([priority])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model GoldMemberProfile {
+  id              Int       @id @default(autoincrement())
+  name            String
+  phone           String
+  email           String?
+  tier            Int
+  startDate       DateTime
+  paymentCount    Int       @default(0)
+  status          String    @default("active")
+  referredBy      String?
+  managerId       Int?
+  agentId         Int?
+  memo            String?
+  productType     String?
+  maxPaymentCount Int?
+  userId          Int?
+  membershipCode  String?
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
+
+  @@index([agentId])
+  @@index([deletedAt])
+  @@index([managerId])
+  @@index([membershipCode])
+  @@index([productType])
+  @@index([startDate])
+  @@index([status])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model GoldMembershipCode {
+  id           Int       @id @default(autoincrement())
+  goldMemberId Int
+  code         String    @unique
+  createdById  Int
+  isUsed       Boolean   @default(false)
+  usedAt       DateTime?
+  usedByUserId Int?
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now())
+
+  @@index([code])
+  @@index([createdById])
+  @@index([expiresAt])
+  @@index([goldMemberId])
+  @@index([isUsed])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model InclusionExclusionGroup {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  includes    Json
+  excludes    Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  adminId     Int      @default(1)
+
+  @@index([adminId])
+  @@index([name])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ItineraryGroup {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  itinerary   Json
+  createdAt   DateTime @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime @db.Timestamp(6)
+  adminId     Int      @default(1)
+
+  @@index([adminId])
+  @@index([name])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model KnowledgeBase {
+  id                 Int       @id @default(autoincrement())
+  category           String
+  question           String?
+  title              String
+  content            String
+  keywords           String
+  metadata           Json?
+  language           String    @default("ko")
+  priority           Int       @default(0)
+  isActive           Boolean   @default(true)
+  embedding          Json?
+  embeddingUpdatedAt DateTime? @db.Timestamp(6)
+  createdAt          DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt          DateTime  @db.Timestamp(6)
+
+  @@index([category, isActive])
+  @@index([keywords])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model LandingPage {
+  id                  Int      @id @default(autoincrement())
+  adminId             Int
+  title               String
+  exposureTitle       String?
+  category            String?
+  pageGroup           String?
+  description         String?
+  htmlContent         String
+  headerScript        String?
+  businessInfo        Json?
+  exposureImage       String?
+  attachmentFile      String?
+  viewCount           Int      @default(0)
+  slug                String   @unique
+  shortcutUrl         String?  @unique
+  isActive            Boolean  @default(true)
+  isPublic            Boolean  @default(true)
+  marketingAccountId  Int?
+  marketingFunnelId   Int?
+  funnelOrder         Int?
+  groupId             Int?
+  additionalGroupId   Int?
+  checkDuplicateGroup Boolean  @default(false)
+  inputLimit          String   @default("무제한 허용")
+  completionPageUrl   String?
+  buttonTitle         String   @default("신청하기")
+  smsNotification     Boolean  @default(false)
+  commentEnabled      Boolean  @default(false)
+  infoCollection      Boolean  @default(false)
+  scheduledMessageId  Int?
+  createdAt           DateTime @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime @db.Timestamp(6)
+
+  @@index([adminId])
+  @@index([category])
+  @@index([groupId])
+  @@index([isActive])
+  @@index([isPublic])
+  @@index([marketingAccountId])
+  @@index([marketingFunnelId, funnelOrder])
+  @@index([pageGroup])
+  @@index([slug])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model LandingPageComment {
+  id              Int      @id @default(autoincrement())
+  landingPageId   Int
+  authorName      String
+  content         String
+  createdAt       DateTime @db.Timestamp(6)
+  isAutoGenerated Boolean  @default(true)
+  metadata        Json?
+
+  @@index([createdAt])
+  @@index([landingPageId, createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model LandingPageFunnel {
+  id            Int       @id @default(autoincrement())
+  landingPageId Int
+  userId        Int?
+  userPhone     String?
+  funnelName    String
+  startTime     DateTime  @default(now()) @db.Timestamp(6)
+  endTime       DateTime? @db.Timestamp(6)
+  duration      Int?
+  pagesViewed   Json?
+  metadata      Json?
+
+  @@index([funnelName])
+  @@index([landingPageId, startTime])
+  @@index([userId, startTime])
+  @@index([userPhone])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model LandingPageRegistration {
+  id             Int       @id @default(autoincrement())
+  landingPageId  Int
+  userId         Int?
+  customerName   String
+  customerGroup  String?
+  phone          String
+  email          String?
+  customFields   Json?
+  metadata       Json?
+  registeredAt   DateTime  @default(now()) @db.Timestamp(6)
+  deletedAt      DateTime? @db.Timestamp(6)
+  organizationId String?
+
+  @@index([customerGroup])
+  @@index([landingPageId, registeredAt])
+  @@index([phone])
+  @@index([registeredAt])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model LandingPageView {
+  id            Int      @id @default(autoincrement())
+  landingPageId Int
+  userId        Int?
+  userPhone     String?
+  userEmail     String?
+  ipAddress     String?
+  userAgent     String?
+  referer       String?
+  viewedAt      DateTime @default(now()) @db.Timestamp(6)
+  duration      Int?
+
+  @@index([landingPageId, viewedAt])
+  @@index([userId, viewedAt])
+  @@index([userPhone])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model LeadInteraction {
+  id                 Int      @id @default(autoincrement())
+  leadId             Int
+  interactionType    String
+  interactionContent Json?
+  result             String?
+  notes              String?
+  occurredAt         DateTime @default(now()) @db.Timestamp(6)
+  metadata           Json?
+
+  @@index([interactionType, occurredAt])
+  @@index([leadId, occurredAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model LeadScore {
+  id               Int      @id @default(autoincrement())
+  accountId        Int
+  customerId       Int?
+  leadId           Int?
+  score            Int      @default(0)
+  scoreBreakdown   Json?
+  lastCalculatedAt DateTime @default(now()) @db.Timestamp(6)
+  metadata         Json?
+
+  @@index([accountId, score])
+  @@index([customerId])
+  @@index([lastCalculatedAt])
+  @@index([leadId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model LoginLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  kind      String
+  message   String?
+  meta      Json?
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model MallContent {
+  id        Int      @id @default(autoincrement())
+  section   String
+  key       String
+  type      String
+  content   Json
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @db.Timestamp(6)
+
+  @@unique([section, key])
+  @@index([order])
+  @@index([section, isActive])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model MallEvent {
+  id           String    @id
+  title        String
+  subtitle     String
+  price        String
+  badge        String
+  badgeClass   String
+  imagePath    String
+  filterRegion String
+  isActive     Boolean   @default(true)
+  displayOrder Int       @default(0)
+  startDate    DateTime?
+  endDate      DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now())
+
+  @@index([isActive, displayOrder])
+  @@index([startDate, endDate])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model MallPopup {
+  id          Int       @id @default(autoincrement())
+  title       String?
+  description String?
+  imageUrl    String?
+  linkUrl     String?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  startAt     DateTime?
+  endAt       DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
+  deletedAt   DateTime?
+
+  @@index([isActive, sortOrder])
+  @@index([startAt, endAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model MallProductContent {
+  id                 Int      @id @default(autoincrement())
+  productCode        String   @unique
+  thumbnail          String?
+  images             Json?
+  videos             Json?
+  fonts              Json?
+  layout             Json?
+  destination        Json?
+  customCss          String?
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @default(now())
+  hasEscort          Boolean  @default(false)
+  hasLocalGuide      Boolean  @default(false)
+  hasCruisedotStaff  Boolean  @default(false)
+  hasTravelInsurance Boolean  @default(false)
+
+  @@index([productCode, isActive])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model MapTravelRecord {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  cruiseName  String
+  companion   String
+  destination String
+  startDate   DateTime @db.Timestamp(6)
+  endDate     DateTime @db.Timestamp(6)
+  impressions String?
+  createdAt   DateTime @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime @db.Timestamp(6)
+
+  @@index([createdAt])
+  @@index([startDate])
+  @@index([userId, createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model MarketingAccount {
+  id                    Int       @id @default(autoincrement())
+  accountName           String
+  accountCode           String    @unique
+  ownerId               Int
+  status                String    @default("ACTIVE")
+  maxCustomers          Int       @default(99000)
+  maxPages              Int       @default(3000)
+  maxFunnels            Int       @default(300)
+  currentCustomerCount  Int       @default(0)
+  currentPageCount      Int       @default(0)
+  currentFunnelCount    Int       @default(0)
+  subscriptionPlan      String    @default("UNLIMITED")
+  subscriptionExpiresAt DateTime? @db.Timestamp(6)
+  metadata              Json?
+  createdAt             DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt             DateTime  @db.Timestamp(6)
+
+  @@index([accountCode])
+  @@index([ownerId])
+  @@index([status])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model MarketingConfig {
+  id                  Int      @id @default(autoincrement())
+  googlePixelId       String?
+  googleTagManagerId  String?
+  googleAdsId         String?
+  googleApiKey        String?
+  googleTestMode      Boolean  @default(false)
+  facebookPixelId     String?
+  facebookAppId       String?
+  facebookAccessToken String?
+  facebookTestMode    Boolean  @default(false)
+  naverPixelId        String?
+  kakaoPixelId        String?
+  isGoogleEnabled     Boolean  @default(false)
+  isFacebookEnabled   Boolean  @default(false)
+  isNaverEnabled      Boolean  @default(false)
+  isKakaoEnabled      Boolean  @default(false)
+  metadata            Json?
+  createdAt           DateTime @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime @db.Timestamp(6)
+
+  @@index([isFacebookEnabled])
+  @@index([isGoogleEnabled])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model MarketingCustomer {
+  id              Int       @id @default(autoincrement())
+  accountId       Int
+  name            String?
+  email           String?
+  phone           String?
+  source          String?
+  status          String    @default("NEW")
+  leadScore       Int       @default(0)
+  tags            Json?
+  notes           String?
+  lastContactedAt DateTime? @db.Timestamp(6)
+  convertedAt     DateTime? @db.Timestamp(6)
+  metadata        Json?
+  createdAt       DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt       DateTime  @db.Timestamp(6)
+
+  @@index([accountId, createdAt])
+  @@index([accountId, status])
+  @@index([email])
+  @@index([leadScore])
+  @@index([phone])
+  @@index([status, lastContactedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model MarketingFunnel {
+  id               Int      @id @default(autoincrement())
+  accountId        Int
+  funnelName       String
+  description      String?
+  funnelType       String   @default("SALES")
+  status           String   @default("ACTIVE")
+  stages           Json
+  automationRules  Json?
+  conversionGoal   String?
+  conversionRate   Float?   @default(0) @db.Real
+  totalVisitors    Int      @default(0)
+  totalConversions Int      @default(0)
+  metadata         Json?
+  createdAt        DateTime @default(now()) @db.Timestamp(6)
+  updatedAt        DateTime @db.Timestamp(6)
+
+  @@index([accountId, funnelType])
+  @@index([accountId, status])
+  @@index([funnelName])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model MarketingInsight {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  insightType String
+  data        Json
+  createdAt   DateTime @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime @db.Timestamp(6)
+
+  @@unique([userId, insightType])
+  @@index([userId, insightType])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model MarketingLead {
+  id           Int      @id @default(autoincrement())
+  accountId    Int
+  customerId   Int?
+  source       String
+  sourceDetail String?
+  name         String?
+  email        String?
+  phone        String?
+  status       String   @default("NEW")
+  leadScore    Int      @default(0)
+  tags         Json?
+  notes        String?
+  metadata     Json?
+  createdAt    DateTime @default(now()) @db.Timestamp(6)
+  updatedAt    DateTime @db.Timestamp(6)
+  contactId    Int?     @unique
+
+  @@unique([accountId, email, phone])
+  @@index([accountId, createdAt])
+  @@index([accountId, status])
+  @@index([email])
+  @@index([leadScore])
+  @@index([phone])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model MeetingRoom {
+  id                   Int       @id @default(autoincrement())
+  roomId               String    @unique
+  hostId               Int
+  title                String
+  description          String?
+  password             String?
+  maxParticipants      Int       @default(10)
+  isWaitingRoomEnabled Boolean   @default(false)
+  isRecordingEnabled   Boolean   @default(false)
+  scheduledStart       DateTime? @db.Timestamp(6)
+  scheduledEnd         DateTime? @db.Timestamp(6)
+  meetingLink          String?   @unique
+  status               String    @default("ACTIVE")
+  createdAt            DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt            DateTime  @db.Timestamp(6)
+  endedAt              DateTime? @db.Timestamp(6)
+
+  @@index([hostId])
+  @@index([meetingLink])
+  @@index([roomId])
+  @@index([scheduledStart])
+  @@index([status, createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model MonthlySettlement {
+  id           Int       @id @default(autoincrement())
+  periodStart  DateTime  @db.Timestamp(6)
+  periodEnd    DateTime  @db.Timestamp(6)
+  targetRole   String?
+  status       String    @default("DRAFT")
+  approvedById Int?
+  approvedAt   DateTime? @db.Timestamp(6)
+  lockedAt     DateTime? @db.Timestamp(6)
+  paymentDate  DateTime? @db.Timestamp(6)
+  exportUrl    String?
+  summary      Json?
+  notes        String?
+  createdAt    DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt    DateTime  @db.Timestamp(6)
+
+  @@index([periodStart, periodEnd])
+  @@index([status])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model News {
+  id          Int       @id @default(autoincrement())
+  slug        String    @unique
+  title       String    @db.VarChar(255)
+  htmlContent String
+  status      String    @default("draft")
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+
+  @@index([status, createdAt])
+  @@index([status, publishedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model NewsletterLog {
+  id               Int       @id @default(autoincrement())
+  subject          String
+  htmlContent      String
+  recipientSegment String
+  sentCount        Int       @default(0)
+  openedCount      Int       @default(0)
+  clickedCount     Int       @default(0)
+  failedCount      Int       @default(0)
+  unsubscribeCount Int       @default(0)
+  sentAt           DateTime  @default(now())
+  scheduledAt      DateTime?
+
+  @@index([recipientSegment, sentAt])
+  @@index([sentAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model NotificationLog {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  tripId           Int?
+  itineraryId      Int?
+  notificationType String
+  eventKey         String   @unique
+  title            String
+  body             String
+  sentAt           DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([sentAt])
+  @@index([userId, tripId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model OAuthState {
+  id                  String   @id
+  state               String   @unique
+  provider            String
+  expiresAt           DateTime
+  createdAt           DateTime @default(now())
+  affiliateCode       String?
+  affiliateMallUserId String?
+
+  @@index([expiresAt])
+  @@index([state])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PageContent {
+  id          Int      @id @default(autoincrement())
+  pagePath    String
+  section     String
+  itemId      String?
+  contentType String
+  content     Json
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime @db.Timestamp(6)
+
+  @@unique([pagePath, section, itemId])
+  @@index([order])
+  @@index([pagePath])
+  @@index([pagePath, section, isActive])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PartnerCustomerGroup {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  profileId   Int?
+  productCode String?
+  color       String?
+  createdAt   DateTime @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime @db.Timestamp(6)
+
+  @@index([productCode])
+  @@index([profileId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PartnerSmsConfig {
+  id             Int      @id @default(autoincrement())
+  profileId      Int      @unique
+  provider       String   @default("aligo")
+  apiKey         String
+  userId         String
+  senderPhone    String
+  kakaoSenderKey String?
+  kakaoChannelId String?
+  isActive       Boolean  @default(true)
+  metadata       Json?
+  createdAt      DateTime @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime @db.Timestamp(6)
+
+  @@index([profileId, isActive])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PassportUploadToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique @db.VarChar(64)
+  leadId    Int      @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+  @@index([token, expiresAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PasswordEvent {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  from      String
+  to        String
+  reason    String
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PasswordReset {
+  id        String   @id
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId, expiresAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PaymentRefund {
+  id           Int      @id @default(autoincrement())
+  paymentId    Int
+  refundAmount Int
+  reason       String
+  refundedAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now())
+  metadata     Json?
+
+  @@index([paymentId, createdAt])
+  @@index([refundedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ProductCabinPrice {
+  id                   Int      @id @default(autoincrement())
+  productPricePeriodId Int
+  cabinType            String
+  fareCategory         String
+  fareLabel            String?
+  saleAmount           Int
+  costAmount           Int
+  netRevenue           Int?
+  currency             String   @default("KRW")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @default(now())
+
+  @@unique([productPricePeriodId, cabinType, fareCategory], map: "ProductCabinPrice_productPricePeriodId_cabinType_fareCategory_k")
+  @@index([cabinType])
+  @@index([productPricePeriodId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ProductImage {
+  id                 Int       @id @default(autoincrement())
+  googleFileId       String    @unique @db.VarChar(255)
+  fileName           String
+  fileSize           Int
+  mimeType           String    @default("image/webp")
+  webpFileId         String?   @unique @db.VarChar(255)
+  storagePath        String    @default("Products")
+  uploadedById       Int
+  purpose            String    @default("product")
+  folder             String?
+  tags               String[]  @default([])
+  metadata           Json?
+  thumbnailUrl       String?
+  fullUrl            String?
+  isGif              Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime
+  deletedAt          DateTime?
+  cloudinaryFolder   String?   @db.VarChar(255)
+  folderPath         String?   @db.VarChar(500)
+  position           Int       @default(0)
+  cloudinaryPublicId String?   @unique @default("") @db.VarChar(255)
+  webpPublicId       String?   @unique @db.VarChar(255)
+  cruiseProductId    Int       @default(0)
+  driveFileId        String?   @unique(where: raw("(\"driveFileId\" IS NOT NULL)"))
+  driveUrl           String?
+
+  @@unique([googleFileId, storagePath])
+  @@index([cloudinaryFolder, folderPath])
+  @@index([createdAt])
+  @@index([cruiseProductId, deletedAt])
+  @@index([folder])
+  @@index([storagePath, deletedAt])
+  @@index([storagePath, position])
+  @@index([uploadedById, createdAt])
+}
+
+model ProductMaxPrice {
+  id              Int      @id @default(autoincrement())
+  cruiseProductId Int
+  cabinType       String
+  maxPrice        Int
+  currency        String   @default("KRW")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now())
+
+  @@unique([cruiseProductId, cabinType])
+  @@index([cruiseProductId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ProductPricePeriod {
+  id              Int       @id @default(autoincrement())
+  cruiseProductId Int
+  name            String
+  startDate       DateTime
+  endDate         DateTime
+  isActive        Boolean   @default(true)
+  metadata        Json?
+  discountRate    Decimal?
+  discountStartAt DateTime?
+  discountEndAt   DateTime?
+  discountLabel   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
+
+  @@index([cruiseProductId])
+  @@index([discountEndAt])
+  @@index([isActive])
+  @@index([startDate, endDate])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ProductView {
+  id          Int      @id @default(autoincrement())
+  productCode String
+  userId      Int?
+  viewedAt    DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([productCode, viewedAt])
+  @@index([userId, viewedAt])
+  @@index([viewedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Prospect {
+  id        Int      @id @default(autoincrement())
+  name      String?
+  email     String?
+  phone     String?
+  source    String?
+  notes     String?
+  tags      Json?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @db.Timestamp(6)
+
+  @@index([createdAt])
+  @@index([email])
+  @@index([isActive])
+  @@index([phone])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model RagQuestion {
+  id        Int      @id @default(autoincrement())
+  question  String   @unique
+  likeCount Int      @default(0)
+  videoId   String?
+  source    String   @default("youtube-comment")
+  status    String   @default("pending")
+  cluster   Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+
+  @@index([cluster])
+  @@index([status, likeCount])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model RePurchaseTrigger {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  lastTripEndDate DateTime  @db.Timestamp(6)
+  triggerType     String
+  messageSent     Boolean   @default(false)
+  converted       Boolean   @default(false)
+  convertedAt     DateTime? @db.Timestamp(6)
+  createdAt       DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt       DateTime  @db.Timestamp(6)
+
+  @@index([converted, createdAt])
+  @@index([userId, lastTripEndDate])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model RefundPolicyGroup {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  content     String
+  createdAt   DateTime @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime @db.Timestamp(6)
+  adminId     Int      @default(1)
+
+  @@index([adminId])
+  @@index([name])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model RepeatPurchase {
+  id                    Int      @id @default(autoincrement())
+  customerId            Int      @unique
+  firstPurchaseAt       DateTime @db.Timestamp(6)
+  lastPurchaseAt        DateTime @db.Timestamp(6)
+  purchaseCount         Int      @default(1)
+  totalPurchaseValue    Float    @default(0) @db.Real
+  averagePurchaseValue  Float    @default(0) @db.Real
+  daysSinceLastPurchase Int?
+  isActive              Boolean  @default(true)
+  metadata              Json?
+  createdAt             DateTime @default(now()) @db.Timestamp(6)
+  updatedAt             DateTime @db.Timestamp(6)
+
+  @@index([customerId])
+  @@index([isActive, daysSinceLastPurchase])
+  @@index([lastPurchaseAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Salary {
+  id               Int       @id @default(autoincrement())
+  affiliateId      Int
+  month            Int
+  year             Int
+  baseSalesAmount  BigInt
+  refundAmount     BigInt    @default(0)
+  exchangeRateId   Int
+  commissionRate   Decimal   @db.Decimal(5, 4)
+  settlementAmount BigInt
+  status           String    @default("PENDING")
+  paidAt           DateTime? @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @db.Timestamptz(6)
+  deletedAt        DateTime? @db.Timestamptz(6)
+
+  @@unique([affiliateId, month, year])
+  @@index([affiliateId, status])
+  @@index([deletedAt])
+  @@index([status, createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ScheduledMessage {
+  id             Int       @id @default(autoincrement())
+  adminId        Int
+  title          String
+  category       String    @default("예약메시지")
+  groupName      String?
+  description    String?
+  sendMethod     String
+  senderName     String?
+  senderPhone    String?
+  senderEmail    String?
+  optOutNumber   String?
+  isAdMessage    Boolean   @default(false)
+  autoAddAdTag   Boolean   @default(true)
+  autoAddOptOut  Boolean   @default(true)
+  startDate      DateTime? @db.Timestamp(6)
+  startTime      String?
+  maxDays        Int       @default(99999)
+  repeatInterval Int?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime  @db.Timestamp(6)
+  targetGroupId  Int?
+  metadata       Json?
+  organizationId String    @default("")
+
+  @@index([adminId, createdAt])
+  @@index([category, isActive])
+  @@index([organizationId, createdAt])
+  @@index([startDate, isActive])
+  @@index([targetGroupId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ScheduledMessageLog {
+  id                 Int       @id @default(autoincrement())
+  scheduledMessageId Int
+  userId             Int
+  stageNumber        Int
+  sentAt             DateTime  @default(now())
+  status             String    @default("sent")
+  errorMessage       String?
+  metadata           Json?
+  idempotencyKey     String?   @unique
+  nextRetryAt        DateTime?
+  retryCount         Int       @default(0)
+  cancelReason       String?
+  cancelledAt        DateTime?
+  cancelledBy        Int?
+  organizationId     String
+  pausedAt           DateTime?
+  pausedBy           Int?
+  channel            String?   @db.VarChar(20)
+
+  @@unique([scheduledMessageId, userId, stageNumber, sentAt], map: "ScheduledMessageLog_uniq_send")
+  @@index([channel, status])
+  @@index([organizationId, sentAt])
+  @@index([organizationId, status])
+  @@index([scheduledMessageId, stageNumber])
+  @@index([scheduledMessageId, userId])
+  @@index([sentAt])
+  @@index([status, sentAt])
+  @@index([userId, sentAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ScheduledMessageStage {
+  id                 Int      @id @default(autoincrement())
+  scheduledMessageId Int
+  stageNumber        Int
+  daysAfter          Int      @default(0)
+  sendTime           String?
+  title              String
+  content            String
+  order              Int      @default(0)
+  createdAt          DateTime @default(now()) @db.Timestamp(6)
+  updatedAt          DateTime @db.Timestamp(6)
+
+  @@index([scheduledMessageId, order])
+  @@index([scheduledMessageId, stageNumber])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model SeoConfig {
+  id                 Int      @id @default(autoincrement())
+  pagePath           String   @unique
+  pageType           String
+  title              String?
+  description        String?
+  keywords           String?
+  ogTitle            String?
+  ogDescription      String?
+  ogImage            String?
+  ogType             String?  @default("website")
+  ogUrl              String?
+  twitterCard        String?  @default("summary_large_image")
+  twitterTitle       String?
+  twitterDescription String?
+  twitterImage       String?
+  structuredData     Json?
+  canonicalUrl       String?
+  robots             String?
+  hreflang           Json?
+  viewCount          Int      @default(0)
+  lastUpdated        DateTime @db.Timestamp(6)
+  createdAt          DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([lastUpdated])
+  @@index([pagePath])
+  @@index([pageType])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model SeoGlobalConfig {
+  id                              Int      @id @default(autoincrement())
+  googleSearchConsoleVerification String?
+  googleSearchConsolePropertyId   String?
+  googleAnalyticsId               String?
+  facebookUrl                     String?
+  instagramUrl                    String?
+  youtubeUrl                      String?
+  twitterUrl                      String?
+  naverBlogUrl                    String?
+  kakaoChannelUrl                 String?
+  defaultSiteName                 String?  @default("크루즈 가이드")
+  defaultSiteDescription          String?
+  defaultKeywords                 String?
+  defaultOgImage                  String?
+  contactPhone                    String?
+  contactEmail                    String?
+  contactAddress                  String?
+  metadata                        Json?
+  createdAt                       DateTime @default(now()) @db.Timestamp(6)
+  updatedAt                       DateTime @db.Timestamp(6)
+
+  @@index([createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Session {
+  id        String    @id
+  userId    Int
+  createdAt DateTime  @default(now()) @db.Timestamp(6)
+  csrfToken String?
+  expiresAt DateTime? @db.Timestamp(6)
+
+  @@index([expiresAt])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model SettlementEvent {
+  id           Int      @id @default(autoincrement())
+  settlementId Int
+  userId       Int?
+  eventType    String
+  description  String?
+  metadata     Json?
+  createdAt    DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([settlementId, createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model SmsQueue {
+  id              Int       @id @default(autoincrement())
+  phoneNumber     String
+  message         String
+  msgType         String    @default("SMS")
+  title           String?
+  reservationId   Int?
+  userId          Int?
+  adminId         Int
+  queueType       String
+  batchId         String
+  status          String    @default("PENDING")
+  retryCount      Int       @default(0)
+  aligoMessageId  String?
+  aligoResultCode String?
+  errorMessage    String?
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
+
+  @@index([batchId])
+  @@index([reservationId])
+  @@index([status, createdAt])
+  @@index([userId])
+}
+
+model B2BLandingPage {
+  id                String                   @id @default(cuid())
+  organizationId    String
+  title             String
+  partnerId         String?
+  htmlContent       String?
+  isActive          Boolean                  @default(true)
+  viewCount         Int                      @default(0)
+  autoFunnelId      String?
+  groupId           String?
+  commentEnabled    Boolean                  @default(false)
+  editorMode        String                   @default("image")
+  formConfig        Json?
+  footerText        String?
+  paymentEnabled    Boolean                  @default(false)
+  paymentType       String?
+  productName       String?
+  productPrice      Int?
+  cycleDay          Int?
+  expireDate        DateTime?
+  regEmailEnabled   Boolean                  @default(false)
+  regEmailSubject   String?
+  regEmailContent   String?
+  exposureTitle     String?
+  exposureImage     String?
+  buttonTitle       String?
+  completionPageUrl String?
+  headerScript      String?
+  description       String?
+  createdByUserId   String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  comments          B2BLandingComment[]
+  group             ContactGroup?            @relation(fields: [groupId], references: [id])
+  organization      Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  registrations     B2BLandingRegistration[]
+
+  @@index([organizationId])
+  @@index([partnerId])
+  @@index([organizationId, isActive, createdAt])
+  @@map("CrmB2BLandingPage")
+}
+
+model B2BLandingRegistration {
+  id              String         @id @default(cuid())
+  landingPageId   String
+  name            String
+  phone           String
+  email           String?
+  company         String?
+  packageInterest String?
+  utmSource       String?
+  utmMedium       String?
+  utmCampaign     String?
+  metadata        Json?
+  funnelStarted   Boolean        @default(false)
+  prospectId      String?
+  createdAt       DateTime       @default(now())
+  organizationId  String
+  landingPage     B2BLandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+
+  @@unique([landingPageId, phone])
+  @@index([landingPageId])
+  @@index([organizationId, createdAt])
+  @@index([landingPageId, createdAt])
+  @@index([landingPageId, funnelStarted])
+  @@map("CrmB2BLandingRegistration")
+}
+
+model B2BLandingComment {
+  id              String         @id @default(cuid())
+  landingPageId   String
+  authorName      String
+  content         String
+  passwordHash    String?
+  isAutoGenerated Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  landingPage     B2BLandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+
+  @@index([landingPageId])
+  @@map("CrmB2BLandingComment")
+}
+
+model B2BLandingView {
+  id            String   @id @default(cuid())
+  landingPageId String
+  ipHash        String
+  viewedAt      DateTime @default(now())
+
+  @@unique([landingPageId, ipHash])
+  @@map("CrmB2BLandingView")
+}
+
+model B2BLandingPageImage {
+  id            String   @id @default(dbgenerated("gen_random_uuid()"))
+  landingPageId String
+  imageAssetId  String
+  sortOrder     Int      @default(0)
+  altText       String?
+  createdAt     DateTime @default(now())
+
+  @@unique([landingPageId, imageAssetId])
+  @@index([landingPageId, sortOrder])
+  @@map("CrmB2BLandingPageImage")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model SubscriptionPreference {
+  id                Int       @id @default(autoincrement())
+  userId            Int
+  messageType       String    @db.VarChar(255)
+  channelType       String    @db.VarChar(255)
+  status            String    @default("subscribed") @db.VarChar(255)
+  unsubscribedAt    DateTime?
+  unsubscribeReason String?
+  resubscribedAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime
+
+  @@unique([userId, messageType, channelType])
+  @@index([status])
+  @@index([userId, status])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Trial {
+  id             Int       @id @default(autoincrement())
+  userId         Int       @unique
+  code           String    @unique @db.VarChar(32)
+  status         String    @default("ACTIVE")
+  startedAt      DateTime  @default(now())
+  expiresAt      DateTime
+  endedAt        DateTime?
+  consentedAt    DateTime?
+  consentVersion String?   @default("1.0")
+  dataDeletedAt  DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime
+  affiliateCode  String?   @db.VarChar(4)
+
+  @@index([affiliateCode])
+  @@index([startedAt])
+  @@index([status, expiresAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model TrialAuditLog {
+  id            Int      @id @default(autoincrement())
+  trialId       Int
+  action        String
+  previousState Json?
+  newState      Json?
+  performedBy   Int?
+  performedAt   DateTime @default(now())
+
+  @@index([action, performedAt])
+  @@index([trialId, performedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model TrialSignup {
+  id            Int       @id @default(autoincrement())
+  name          String    @db.VarChar(100)
+  phone         String    @db.VarChar(20)
+  password      String
+  status        String    @default("NEW")
+  linkedCRM     Boolean   @default(false)
+  crmLeadId     Int?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now())
+  affiliateCode String?   @db.VarChar(100)
+  expiresAt     DateTime?
+  linkId        Int?
+  trialLinkCode String?   @db.VarChar(100)
+
+  @@index([affiliateCode])
+  @@index([createdAt])
+  @@index([expiresAt])
+  @@index([phone])
+  @@index([status])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model TripFeedback {
+  id                  Int      @id @default(autoincrement())
+  tripId              Int      @unique
+  userId              Int
+  satisfactionScore   Int?
+  improvementComments String?
+  detailedFeedback    Json?
+  createdAt           DateTime @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime @db.Timestamp(6)
+
+  @@index([createdAt])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model UserActivity {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  action    String
+  page      String
+  metadata  Json?
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([action, createdAt])
+  @@index([userId, createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model UserDevice {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  platform     String
+  deviceToken  String   @unique
+  isActive     Boolean  @default(true)
+  registeredAt DateTime @default(now())
+  updatedAt    DateTime
+
+  @@unique([userId, deviceToken])
+  @@index([isActive, registeredAt])
+  @@index([userId, isActive])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model UserSchedule {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  date      DateTime @db.Timestamp(6)
+  time      String
+  title     String
+  alarm     Boolean  @default(false)
+  alarmTime String?
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @db.Timestamp(6)
+
+  @@index([date])
+  @@index([userId, date])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model UserTrip {
+  id                 Int       @id @default(autoincrement())
+  userId             Int
+  productId          Int?
+  reservationCode    String?
+  cruiseName         String?
+  companionType      String?
+  destination        Json?
+  startDate          DateTime?
+  endDate            DateTime?
+  nights             Int       @default(0)
+  days               Int       @default(0)
+  visitCount         Int       @default(0)
+  status             String    @default("Upcoming")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now())
+  userTripFeedbackId Int?
+  googleFolderId     String?
+  spreadsheetId      String?
+
+  @@index([createdAt])
+  @@index([startDate])
+  @@index([status, startDate])
+  @@index([userId, productId])
+  @@index([userId, status])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ViralLoop {
+  id                   Int      @id @default(autoincrement())
+  accountId            Int
+  customerId           Int
+  referralCode         String   @unique
+  referredByCustomerId Int?
+  referralCount        Int      @default(0)
+  conversionCount      Int      @default(0)
+  rewardEarned         Float    @default(0) @db.Real
+  status               String   @default("ACTIVE")
+  metadata             Json?
+  createdAt            DateTime @default(now()) @db.Timestamp(6)
+  updatedAt            DateTime @db.Timestamp(6)
+
+  @@index([accountId, status])
+  @@index([customerId])
+  @@index([referralCode])
+  @@index([referredByCustomerId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model VisitedCountry {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  countryCode String
+  countryName String
+  visitCount  Int      @default(1)
+  lastVisited DateTime @db.Timestamp(6)
+  createdAt   DateTime @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime @db.Timestamp(6)
+
+  @@unique([userId, countryCode])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Wishlist {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  cruiseProductId Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime
+
+  @@unique([userId, cruiseProductId])
+  @@index([createdAt])
+  @@index([cruiseProductId])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model cron_locks {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([key, expiresAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model cron_rate_limit_logs {
+  id        Int      @id @default(autoincrement())
+  clientIp  String   @db.VarChar(50)
+  endpoint  String   @db.VarChar(200)
+  timestamp DateTime @default(now())
+
+  @@index([clientIp, endpoint, timestamp])
+}
+
+model GmUserGroup {
+  id              Int                 @id @default(autoincrement())
+  name            String
+  color           String?             @default("#6B7280")
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  createdByUserId Int?
+  createdBy       GmUser?             @relation(fields: [createdByUserId], references: [id])
+  members         GmUserGroupMember[] @relation("GroupMembers")
+
+  @@index([createdByUserId])
+  @@map("GmUserGroup")
+}
+
+model GmUserGroupMember {
+  id       Int         @id @default(autoincrement())
+  groupId  Int
+  gmUserId Int
+  addedAt  DateTime    @default(now())
+  gmUser   GmUser      @relation("UserGroups", fields: [gmUserId], references: [id], onDelete: Cascade)
+  group    GmUserGroup @relation("GroupMembers", fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, gmUserId])
+  @@index([gmUserId])
+  @@index([groupId])
+  @@map("GmUserGroupMember")
+}
+
+model B2BProspect {
+  id             String       @id @default(cuid())
+  organizationId String
+  eduType        String
+  name           String
+  phone          String
+  email          String?
+  productName    String?
+  paymentAmount  Int?
+  paymentDate    DateTime?
+  notes          String?
+  status         String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, phone, eduType], where: raw("(\"deletedAt\" IS NULL)"))
+  @@index([organizationId, createdAt])
+  @@index([organizationId, eduType])
+}
+
+model PartnerSuspension {
+  id                 String       @id @default(cuid())
+  organizationId     String
+  partnerId          String?
+  partnerName        String
+  partnerRole        String
+  suspensionStatus   String       @default("SUSPENDED")
+  suspensionReason   String
+  reasonDetails      Json?
+  suspendedAt        DateTime     @db.Timestamptz(6)
+  suspendedByAdminId String?
+  appealedAt         DateTime?    @db.Timestamptz(6)
+  appealMessage      String?
+  resolvedAt         DateTime?    @db.Timestamptz(6)
+  resolutionNotes    String?
+  contractRef        String?
+  createdAt          DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime     @updatedAt @db.Timestamptz(6)
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, partnerId])
+  @@index([organizationId, suspensionStatus])
+  @@index([suspendedAt])
+  @@index([resolvedAt])
+  @@map("PartnerSuspension")
+}
+
+model RecaptchaVerification {
+  id                 String                      @id @default(cuid())
+  organizationId     String
+  contactId          String?
+  groupId            String?
+  recaptchaToken     String
+  recaptchaScore     Float
+  verificationStatus RecaptchaVerificationStatus @default(PENDING)
+  verifiedAt         DateTime?                   @db.Timestamptz(6)
+  callbackStatus     String?
+  expiresAt          DateTime                    @db.Timestamptz(6)
+  createdAt          DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime                    @updatedAt @db.Timestamptz(6)
+
+  @@index([organizationId, verificationStatus])
+  @@index([contactId, verificationStatus])
+  @@index([expiresAt])
+  @@index([createdAt])
+  @@map("RecaptchaVerification")
+}
+
+model CrmMarketingCampaign {
+  id               String               @id @default(cuid())
+  organizationId   String
+  groupId          String
+  title            String
+  sendEmail        Boolean              @default(false)
+  emailSubject     String?
+  emailBody        String?
+  sendSms          Boolean              @default(false)
+  smsBody          String?
+  includeLanding   Boolean              @default(false)
+  landingUrl       String?
+  landingLinkText  String?
+  sendAt           DateTime
+  repeatRule       String?              @default("ONCE")
+  nextExecutionAt  DateTime?
+  totalCount       Int                  @default(0)
+  sentCount        Int                  @default(0)
+  failedCount      Int                  @default(0)
+  skippedCount     Int                  @default(0)
+  openCount        Int                  @default(0)
+  clickCount       Int                  @default(0)
+  registeredCount  Int                  @default(0)
+  status           String               @default("DRAFT")
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  lensMetadata     Json?
+  campaignCost     CampaignCost?
+  variants         CampaignVariant[]    @relation("CampaignVariants")
+  group            ContactGroup         @relation("CrmMarketing", fields: [groupId], references: [id], onDelete: Cascade)
+  organization     Organization         @relation("CrmMarketing", fields: [organizationId], references: [id], onDelete: Cascade)
+  deltaConfig      DeltaCampaignConfig? @relation("DeltaConfig")
+  executionLogs    ExecutionLog[]       @relation("ExecutionLogToCampaign")
+  sendingHistories SendingHistory[]
+
+  @@index([organizationId])
+  @@index([groupId])
+  @@index([status])
+  @@index([nextExecutionAt])
+  @@index([organizationId, createdAt(sort: Desc)], map: "idx_campaign_org_created_desc")
+  @@map("CrmMarketingCampaign")
+}
+
+model CampaignCost {
+  id               String               @id @default(cuid())
+  campaignId       String               @unique
+  organizationId   String
+  smsSent          Int                  @default(0)
+  smsRateCurrent   Decimal              @default(0.01) @db.Decimal(10, 2)
+  smsCostTotal     Decimal              @default(0) @db.Decimal(12, 2)
+  emailSent        Int                  @default(0)
+  emailRateCurrent Decimal              @default(0.001) @db.Decimal(10, 4)
+  emailCostTotal   Decimal              @default(0) @db.Decimal(12, 2)
+  successCount     Int                  @default(0)
+  failureCount     Int                  @default(0)
+  costPerSuccess   Decimal              @default(0) @db.Decimal(12, 2)
+  estimatedRevenue Decimal              @default(0) @db.Decimal(15, 2)
+  estimatedRoi     Decimal              @default(0) @db.Decimal(7, 2)
+  actualCostTotal  Decimal              @default(0) @db.Decimal(12, 2)
+  calculatedAt     DateTime             @default(now())
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  campaign         CrmMarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, organizationId])
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("CampaignCost")
+}
+
+model CampaignVariant {
+  id           String               @id @default(cuid())
+  campaignId   String
+  variantKey   String
+  smsBody      String?
+  emailSubject String?
+  emailBody    String?
+  trafficSplit Float                @default(0.5)
+  isActive     Boolean              @default(true)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  campaign     CrmMarketingCampaign @relation("CampaignVariants", fields: [campaignId], references: [id])
+
+  @@unique([campaignId, variantKey])
+  @@index([campaignId, isActive])
+  @@map("CampaignVariant")
+}
+
+model DeltaCampaignConfig {
+  id             String               @id @default(cuid())
+  campaignId     String               @unique
+  organizationId String
+  triggerType    String               @default("PURCHASE")
+  day0Message    String
+  day1Message    String
+  day2Message    String
+  day3Message    String?
+  isActive       Boolean              @default(true)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  campaign       CrmMarketingCampaign @relation("DeltaConfig", fields: [campaignId], references: [id], onDelete: Cascade)
+  organization   Organization         @relation("DeltaConfigs", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([campaignId])
+  @@map("DeltaCampaignConfig")
+}
+
+enum ExecutionFailureReason {
+  QUOTA_EXCEEDED
+  INVALID_CONTACT
+  OPT_OUT
+  SYSTEM_ERROR
+  PROVIDER_ERROR
+  INVALID_EMAIL
+  INVALID_PHONE
+  NETWORK_ERROR
+  BOUNCE
+}
+
+enum ExecutionStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+  RETRY_SCHEDULED
+  ABANDONED
+}
+
+enum SendingStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+  RETRY_SCHEDULED
+  ABANDONED
+}
+
+enum SendingFailureReason {
+  INVALID_EMAIL
+  INVALID_PHONE
+  OPT_OUT
+  QUOTA_EXCEEDED
+  SYSTEM_ERROR
+  PROVIDER_ERROR
+  NETWORK_ERROR
+  BOUNCE
+}
+
+model SyncDeadLetterQueue {
+  id            String   @id @default(cuid())
+  syncType      String   @default("NEON_TO_SUPABASE") // 'NEON_TO_SUPABASE' | 'SUPABASE_TO_NEON'
+  operationType String   // 'INSERT' | 'UPDATE' | 'DELETE'
+  tableName     String   // 'User', 'GmUser' 등
+  recordId      String   // 동기화 실패한 레코드 ID
+  data          Json     // 실패한 동기화 데이터 전체
+  error         String   // 에러 메시지
+  retryCount    Int      @default(0)
+  maxRetries    Int      @default(5)
+  nextRetryAt   DateTime // 다음 재시도 예정 시간
+  status        String   @default("PENDING") // 'PENDING' | 'FAILED' | 'RESOLVED'
+  resolvedAt    DateTime? // 해결된 시간
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([nextRetryAt])
+  @@index([createdAt])
+}
+
+enum AffiliateActionType {
+  CONTRACT_SIGNED
+  CONTRACT_TERMINATED
+  CONTRACT_UPDATED
+  PROFILE_CREATED
+  PROFILE_UPDATED
+  PROFILE_SUSPENDED
+  PROFILE_REACTIVATED
+  SALE_CREATED
+  SALE_REFUNDED
+  SALE_CANCELLED
+  SALE_CONFIRMED
+  COMMISSION_EARNED
+  COMMISSION_ADJUSTED
+  COMMISSION_HELD
+  COMMISSION_RELEASED
+  SETTLEMENT_CALCULATED
+  SETTLEMENT_APPROVED
+  SETTLEMENT_PAID
+  DEFICIT_INCURRED
+  DEFICIT_PAYMENT_DUE
+  DEFICIT_PAYMENT_MADE
+  DEFICIT_PAYMENT_FAILED
+  BYPASS_ATTEMPT_FLAGGED
+  PENALTY_APPLIED
+  ADMIN_REVIEW
+  ADMIN_OVERRIDE
+  DISPUTE_FILED
+  DISPUTE_EVIDENCE
+  LEGAL_ACTION
+}
+
+model ContractTemplate {
+  id                  String                   @id @default(cuid())
+  organizationId      String
+
+  // 템플릿 메타정보
+  name                String                   @db.VarChar(255)
+  description         String?
+  category            String                   @db.VarChar(50)  // "CRUISE"|"RENTAL"|"HOTEL"|"PACKAGE"|"OTHER"
+
+  // Rich Text 본문
+  htmlContent         String?                  @db.Text
+  jsonContent         Json?
+
+  // 필드 매핑
+  fieldMapping        Json                     @default("{}")
+
+  // 심리학 렌즈 태그
+  psychologyLenses    String[]                 @default([])
+
+  // SMS 자동화 연동
+  smsDay0TemplateId   String?
+  smsDay1TemplateId   String?
+  smsDay2TemplateId   String?
+  smsDay3TemplateId   String?
+
+  // 권한 관리
+  visibility          String                   @default("ORGANIZATION")  // "ORGANIZATION"|"MANAGER_ONLY"|"PERSONAL"
+  createdByUserId     String?
+
+  // 사용 통계
+  usageCount          Int                      @default(0)
+  lastUsedAt          DateTime?
+
+  // 상태
+  status              String                   @default("ACTIVE")  // "ACTIVE"|"ARCHIVED"|"DRAFT"
+  version             Int                      @default(1)
+  isSystemTemplate    Boolean                  @default(false)
+
+  // 타임스탬프
+  createdAt           DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime                 @updatedAt @db.Timestamptz(6)
+
+  // 관계
+  organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  instances           ContractInstance[]       @relation("TemplateInstances")
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([createdByUserId])
+}
+
+model ContractInstance {
+  id                  String                   @id @default(cuid())
+  organizationId      String
+  templateId          String
+  contactId           String?
+
+  // 실제 데이터
+  boundData           Json                     @default("{}")
+
+  // 진행 상태
+  status              String                   @default("DRAFT")  // "DRAFT"|"SENT"|"SIGNED"|"COMPLETED"
+
+  // 서명 정보
+  signedAt            DateTime?
+  signedByContactId   String?
+  signatureImage      String?                  @db.Text
+
+  // SMS 발송 추적
+  smsDay0Sent         Boolean                  @default(false)
+  smsDay0SentAt       DateTime?
+  smsDay1Sent         Boolean                  @default(false)
+  smsDay1SentAt       DateTime?
+  smsDay2Sent         Boolean                  @default(false)
+  smsDay2SentAt       DateTime?
+  smsDay3Sent         Boolean                  @default(false)
+  smsDay3SentAt       DateTime?
+
+  // 유효기한 (L10 긴박감)
+  expiresAt           DateTime?                // 기본값: createdAt + 24시간
+
+  // 심리학 렌즈 기록
+  appliedLenses       String[]                 @default([])
+
+  // 타임스탬프
+  createdAt           DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime                 @updatedAt @db.Timestamptz(6)
+
+  // 관계
+  organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  template            ContractTemplate        @relation("TemplateInstances", fields: [templateId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId])
+  @@index([templateId])
+  @@index([contactId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  completed
+  failed
+  cancelled
+  refunded
+  partial_refunded
+  refund_pending
+  pending_vbank
+}
+
+enum RecaptchaVerificationStatus {
+  PENDING
+  SUCCESS
+  BLOCKED
+  FAILED
+}
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+  SALES
+  PRESALES
+  AGENCY_MANAGER
+  AGENCY_STAFF
+}
