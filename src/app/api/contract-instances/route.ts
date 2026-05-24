@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getAuthContext } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { getMabizSession } from "@/lib/auth";
 import {
   createContractInstanceSchema,
   listContractInstancesQuerySchema,
@@ -56,7 +56,7 @@ function getTimeRemaining(expiresAt: Date | null): string {
  */
 export async function GET(request: NextRequest) {
   try {
-    const authContext = await getAuthContext();
+    const authContext = await getMabizSession();
     if (!authContext) {
       return NextResponse.json(
         { ok: false, error: "Unauthorized" },
@@ -101,9 +101,6 @@ export async function GET(request: NextRequest) {
           template: {
             select: { name: true },
           },
-          contact: {
-            select: { name: true },
-          },
         },
         orderBy: { createdAt: "desc" },
         skip,
@@ -118,7 +115,6 @@ export async function GET(request: NextRequest) {
       templateId: i.templateId,
       templateName: i.template.name,
       contactId: i.contactId,
-      contactName: i.contact?.name || null,
       status: i.status,
       expiresAt: i.expiresAt?.toISOString() || null,
       timeRemaining: getTimeRemaining(i.expiresAt),
@@ -163,7 +159,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const authContext = await getAuthContext();
+    const authContext = await getMabizSession();
     if (!authContext) {
       return NextResponse.json(
         { ok: false, error: "Unauthorized" },
@@ -218,7 +214,7 @@ export async function POST(request: NextRequest) {
     const renderedHtml = renderHtmlContent(
       template.htmlContent || "",
       template.fieldMapping as Record<string, string>,
-      boundData
+      boundData as Record<string, string>
     );
 
     // 유효기한 설정 (24시간 후, L10 렌즈)
@@ -230,15 +226,13 @@ export async function POST(request: NextRequest) {
         organizationId,
         templateId,
         contactId: contactId || null,
-        boundData,
+        boundData: boundData as any,
         status: "DRAFT",
         expiresAt,
         appliedLenses: template.psychologyLenses,
-        createdByUserId: userId,
       },
       include: {
         template: { select: { name: true } },
-        contact: { select: { name: true } },
       },
     });
 
@@ -313,7 +307,7 @@ export async function POST(request: NextRequest) {
         templateId: instance.templateId,
         status: instance.status,
         renderedHtml,
-        expiresAt: instance.expiresAt.toISOString(),
+        expiresAt: instance.expiresAt?.toISOString() || null,
         appliedLenses: instance.appliedLenses,
       },
       message: "계약서가 성공적으로 생성되었습니다",

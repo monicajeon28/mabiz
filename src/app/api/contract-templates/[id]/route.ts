@@ -68,7 +68,7 @@ export async function GET(_req: Request, { params }: Params) {
       { status: 200 }
     );
   } catch (err) {
-    logger.error("contract-templates GET [id] error:", err);
+    logger.error("contract-templates GET [id] error:", err instanceof Error ? err : new Error(String(err)));
     if ((err as Error).message === "UNAUTHORIZED") {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
@@ -210,7 +210,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         }),
         ...(validatedData.status && { status: validatedData.status }),
         version: template.version + 1,
-      },
+      } as any,
     });
 
     // 변경값 마스킹 후 감사 로그
@@ -251,7 +251,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       { status: 200 }
     );
   } catch (err) {
-    logger.error("contract-templates PATCH [id] error:", err);
+    logger.error("contract-templates PATCH [id] error:", err instanceof Error ? err : new Error(String(err)));
 
     if (err instanceof Error && err.name === "ZodError") {
       return NextResponse.json(
@@ -389,7 +389,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
       { status: 200 }
     );
   } catch (err) {
-    logger.error("contract-templates DELETE [id] error:", err);
+    logger.error("contract-templates DELETE [id] error:", err instanceof Error ? err : new Error(String(err)));
 
     if ((err as Error).message === "UNAUTHORIZED") {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });

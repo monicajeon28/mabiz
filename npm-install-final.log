@@ -1,0 +1,6 @@
+npm error code ENOTEMPTY
+npm error syscall rmdir
+npm error path D:\mabiz-crm\node_modules\date-fns
+npm error errno -4051
+npm error ENOTEMPTY: directory not empty, rmdir 'D:\mabiz-crm\node_modules\date-fns'
+npm error A complete log of this run can be found in: C:\Users\user\AppData\Local\npm-cache\_logs\2026-05-24T14_34_20_832Z-debug-0.log

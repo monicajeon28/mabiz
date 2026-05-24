@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext } from "@/lib/auth";
+import { getMabizSession } from "@/lib/auth";
 import { ApiResponse } from "@/lib/types/contract-templates";
 
 interface RouteParams {
@@ -35,7 +35,7 @@ function getTimeRemaining(expiresAt: Date | null): string {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const authContext = await getAuthContext();
+    const authContext = await getMabizSession();
     if (!authContext) {
       return NextResponse.json(
         { ok: false, error: "Unauthorized" },
@@ -50,9 +50,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       where: { id },
       include: {
         template: {
-          select: { name: true },
-        },
-        contact: {
           select: { name: true },
         },
       },
@@ -80,7 +77,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         templateId: instance.templateId,
         templateName: instance.template.name,
         contactId: instance.contactId,
-        contactName: instance.contact?.name || null,
         status: instance.status,
         boundData: instance.boundData,
         appliedLenses: instance.appliedLenses,
@@ -118,7 +114,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const authContext = await getAuthContext();
+    const authContext = await getMabizSession();
     if (!authContext) {
       return NextResponse.json(
         { ok: false, error: "Unauthorized" },
@@ -133,7 +129,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       where: { id },
       include: {
         template: { select: { name: true } },
-        contact: { select: { name: true } },
       },
     });
 
@@ -175,7 +170,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
       include: {
         template: { select: { name: true } },
-        contact: { select: { name: true } },
       },
     });
 
@@ -186,7 +180,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         templateId: updatedInstance.templateId,
         templateName: updatedInstance.template.name,
         contactId: updatedInstance.contactId,
-        contactName: updatedInstance.contact?.name || null,
         status: updatedInstance.status,
         expiresAt: updatedInstance.expiresAt?.toISOString() || null,
         timeRemaining: getTimeRemaining(updatedInstance.expiresAt),

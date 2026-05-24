@@ -73,7 +73,7 @@ export async function GET(req: Request) {
       { status: 200 }
     );
   } catch (err) {
-    logger.error("contract-templates GET error:", err);
+    logger.error("contract-templates GET error:", err instanceof Error ? err : new Error(String(err)));
     if ((err as Error).message === "UNAUTHORIZED") {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
@@ -170,7 +170,7 @@ export async function POST(req: Request) {
       { status: 201 }
     );
   } catch (err) {
-    logger.error("contract-templates POST error:", err);
+    logger.error("contract-templates POST error:", err instanceof Error ? err : new Error(String(err)));
     if ((err as Error).message === "UNAUTHORIZED") {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }

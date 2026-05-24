@@ -86,7 +86,7 @@ export async function GET(req: NextRequest, { params }: Params) {
       { status: 200 }
     );
   } catch (err) {
-    logger.error("contract-templates audit-logs GET error:", err);
+    logger.error("contract-templates audit-logs GET error:", err instanceof Error ? err : new Error(String(err)));
 
     if ((err as Error).message === "UNAUTHORIZED") {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });

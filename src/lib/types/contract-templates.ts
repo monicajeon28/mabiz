@@ -54,7 +54,6 @@ export interface ContractInstanceResponse {
   templateId: string;
   templateName: string;
   contactId: string | null;
-  contactName: string | null;
   status: string;
   expiresAt: string | null;
   timeRemaining: string;
