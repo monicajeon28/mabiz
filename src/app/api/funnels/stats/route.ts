@@ -76,13 +76,13 @@ export async function GET(_req: Request) {
       enrolledCount: enrollMap[f.id] ?? 0,
     }));
 
-    // EMAIL 통계 집계
+    // EMAIL 통계 집계 (모든 status 값 처리)
     const emailStat = { sent: 0, failed: 0, blocked: 0, total: emailTotal, successRate: 0 };
     for (const row of emailByStatus) {
       const count = row._count.id;
       if (row.status === "SENT")    emailStat.sent    += count;
-      if (row.status === "FAILED")  emailStat.failed  += count;
-      if (row.status === "BLOCKED") emailStat.blocked += count;
+      else if (row.status === "FAILED")  emailStat.failed  += count;
+      else emailStat.blocked += count; // BLOCKED, PENDING, PAUSED, NIGHT_BLOCKED 등 기타
     }
     emailStat.successRate = emailTotal > 0 ? Math.round((emailStat.sent / emailTotal) * 100) : 0;
     if (emailTotal > 0) channelStats["EMAIL"] = emailStat;
