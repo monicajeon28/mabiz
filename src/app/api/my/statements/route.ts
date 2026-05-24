@@ -3,6 +3,16 @@ import { getAuthContext } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
+type Statement = {
+  id: string;
+  saleDate: string;
+  externalOrderCode: string | null;
+  saleAmount: number;
+  commissionRate: number;
+  confirmedAmount: number;
+  status: string;
+};
+
 export async function GET() {
   try {
     const ctx = await getAuthContext();
@@ -15,7 +25,7 @@ export async function GET() {
     });
 
     if (!sale?.affiliateCode) {
-      return NextResponse.json({ ok: true, sales: [] });
+      return NextResponse.json({ ok: true, statements: [] });
     }
 
     // 2. 크루즈닷 internal API 호출
@@ -24,7 +34,7 @@ export async function GET() {
 
     if (!baseUrl || !secret) {
       logger.log('[Statements] CRUISEDOT 환경변수 미설정');
-      return NextResponse.json({ ok: true, sales: [] });
+      return NextResponse.json({ ok: true, statements: [] });
     }
 
     const res = await fetch(
@@ -37,11 +47,11 @@ export async function GET() {
 
     if (!res.ok) {
       logger.log('[Statements] 크루즈닷 응답 실패', { status: res.status });
-      return NextResponse.json({ ok: true, sales: [] });
+      return NextResponse.json({ ok: true, statements: [] });
     }
 
-    const data = await res.json() as { ok: boolean; sales: unknown[] };
-    return NextResponse.json({ ok: true, sales: data.sales ?? [] });
+    const data = await res.json() as { ok: boolean; statements: Statement[] };
+    return NextResponse.json({ ok: true, statements: data.statements ?? [] });
 
   } catch (e) {
     logger.log('[Statements] 오류', { error: e instanceof Error ? e.message : String(e) });
