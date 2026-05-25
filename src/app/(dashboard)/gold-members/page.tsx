@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronLeft, ChevronRight, Search, Star, X, Plus, Loader2
@@ -46,6 +46,7 @@ const COURSE_BADGE: Record<string, string> = {
 
 export default function GoldMembersPage() {
   const router = useRouter();
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [members, setMembers]     = useState<GoldMember[]>([]);
   const [total, setTotal]         = useState(0);
   const [page, setPage]           = useState(1);
@@ -71,12 +72,21 @@ export default function GoldMembersPage() {
   const totalPages = Math.ceil(total / 20);
 
   const load = useCallback(() => {
+    // P1: 이전 요청 취소
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: "20" });
     if (statusFilter) params.set("status", statusFilter);
     if (courseFilter) params.set("courseType", courseFilter);
     if (search) params.set("q", search);
-    fetch(`/api/gold-members?${params}`)
+
+    fetch(`/api/gold-members?${params}`, {
+      signal: abortControllerRef.current.signal,
+    })
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) {
@@ -84,8 +94,22 @@ export default function GoldMembersPage() {
           setTotal(d.total ?? 0);
         }
       })
+      .catch((err) => {
+        if (err.name !== 'AbortError') {
+          console.error("[gold-members load failed]", err);
+        }
+      })
       .finally(() => setLoading(false));
   }, [page, statusFilter, courseFilter, search]);
+
+  // P1: 컴포넌트 언마운트 시 AbortController 정리
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 

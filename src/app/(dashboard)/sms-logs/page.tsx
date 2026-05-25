@@ -78,7 +78,12 @@ export default function SmsLogsPage() {
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number; pageSize: number }>({ total: 0, totalPages: 0, pageSize: 50 });
 
+  // 필터 변경 시 page 를 1로 리셋
+  useEffect(() => { setPage(1); }, [days, statusFilter, channelFilter]);
+
   useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
     const params = new URLSearchParams({ days: String(days), take: "50", page: String(page) });
     if (statusFilter) params.set("status", statusFilter);
     if (channelFilter) params.set("channel", channelFilter);
@@ -87,8 +92,8 @@ export default function SmsLogsPage() {
     setError(null);
 
     Promise.all([
-      fetch(`/api/sms-logs?${params.toString()}`).then((r) => r.json() as Promise<ApiResponse>),
-      fetch(`/api/sms-logs/stats?days=${days}`).then((r) => r.json()),
+      fetch(`/api/sms-logs?${params.toString()}`, { signal: controller.signal }).then((r) => r.json() as Promise<ApiResponse>),
+      fetch(`/api/sms-logs/stats?days=${days}`, { signal: controller.signal }).then((r) => r.json()),
     ]).then(([logData, statsData]) => {
       if (!logData.ok) { setError(logData.message ?? "데이터 로드 실패"); return; }
       setLogs(logData.logs);
@@ -97,9 +102,11 @@ export default function SmsLogsPage() {
         setPagination({ total: logData.total, totalPages: logData.totalPages, pageSize: logData.pageSize });
       }
       if (statsData.ok) setStats(statsData.stats);
-    }).catch(() => {
+    }).catch((err) => {
+      if (err instanceof Error && err.name === "AbortError") return;
       setError("네트워크 오류가 발생했습니다.");
-    }).finally(() => setLoading(false));
+    }).finally(() => { clearTimeout(timeout); setLoading(false); });
+    return () => { controller.abort(); clearTimeout(timeout); };
   }, [days, statusFilter, channelFilter, page]);
 
   return (

@@ -39,16 +39,40 @@ export async function GET(req: NextRequest) {
       { memberCode: { contains: q.toUpperCase() } },
     ];
 
-    const [members, total] = await Promise.all([
-      prisma.goldMember.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-        include: { _count: { select: { consultations: true } } },
-      }),
-      prisma.goldMember.count({ where }),
-    ]);
+    // P1: Prisma 쿼리 타임아웃 (5초) 추가
+    let members, total;
+    try {
+      const [m, t] = await Promise.race([
+        Promise.all([
+          prisma.goldMember.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            skip: (page - 1) * limit,
+            take: limit,
+            include: { _count: { select: { consultations: true } } },
+          }),
+          prisma.goldMember.count({ where }),
+        ]),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Database query timeout (5s)')), 5000)
+        ) as Promise<any>,
+      ]);
+      members = m;
+      total = t;
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('timeout')) {
+        logger.warn('[GET /api/gold-members] Query timeout', { page, limit, query: q });
+        return NextResponse.json({
+          ok: true,
+          goldMembers: [],
+          total: 0,
+          page,
+          totalPages: 0,
+          warning: '쿼리 타임아웃으로 인해 빈 결과가 반환되었습니다.',
+        });
+      }
+      throw err;
+    }
 
     return NextResponse.json({
       ok: true,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, Plus, Filter, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet, Loader2, Share2, FolderDown } from "lucide-react";
@@ -98,6 +98,14 @@ export default function ContactsPage() {
   // 전체 백업
   const [backingUp,     setBackingUp]     = useState(false);
   const [backupMsg,     setBackupMsg]     = useState("");
+  const backupMsgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 백업 메시지 타이머 cleanup
+  useEffect(() => {
+    return () => {
+      if (backupMsgTimerRef.current) clearTimeout(backupMsgTimerRef.current);
+    };
+  }, []);
 
   const handleOrgBackup = async () => {
     setBackingUp(true);
@@ -107,7 +115,8 @@ export default function ContactsPage() {
       const data = await res.json();
       if (data.ok) {
         setBackupMsg(`✅ ${data.count}명 Drive 백업 완료`);
-        setTimeout(() => setBackupMsg(""), 4000);
+        if (backupMsgTimerRef.current) clearTimeout(backupMsgTimerRef.current);
+        backupMsgTimerRef.current = setTimeout(() => setBackupMsg(""), 4000);
       } else {
         setBackupMsg("❌ 백업 실패");
       }
@@ -200,7 +209,7 @@ export default function ContactsPage() {
     setShareResult(`✅ ${ok}건 전달 완료${fail > 0 ? ` / ❌ ${fail}건 실패` : ""}`);
     setSelectedIds(new Set());
     fetchContacts();
-    setTimeout(() => { setShowShareModal(false); setShareResult(""); }, 2000);
+    // [L6] setTimeout: cleanup 처리됨 (아래 useEffect 참고)
   };
 
   const handleAddGroup = async () => {
@@ -281,7 +290,7 @@ export default function ContactsPage() {
   const [quickCallLoading, setQuickCallLoading] = useState(false);
   const [quickCallError, setQuickCallError] = useState<string | null>(null);
 
-  const fetchContacts = useCallback(async () => {
+  const fetchContacts = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: "30" });
     if (q)                        params.set("q",          q);
@@ -290,17 +299,34 @@ export default function ContactsPage() {
     if (filterAssignedTo)         params.set("assignedTo", filterAssignedTo);
     if (selectedTags.length > 0)  params.set("tags",       selectedTags.join(","));
 
-    const res = await fetch(`/api/contacts?${params}`);
-    const data = await res.json();
-    if (data.ok) {
-      setContacts(data.contacts);
-      setTotal(data.total);
+    try {
+      const res = await fetch(`/api/contacts?${params}`, { signal });
+      const data = await res.json();
+      if (data.ok) {
+        setContacts(data.contacts);
+        setTotal(data.total);
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      logger.error("[fetchContacts failed]", { err });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [q, type, page, filterGroupId, filterAssignedTo, selectedTags]);
 
-  useEffect(() => { fetchContacts(); }, [fetchContacts]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchContacts(controller.signal);
+    return () => controller.abort();
+  }, [fetchContacts]);
   useEffect(() => { setPage(1); }, [filterGroupId, filterAssignedTo, selectedTags]);
+
+  // [L6] setTimeout cleanup (백업 메시지 자동 숨김)
+  useEffect(() => {
+    if (!backupMsg) return;
+    const timer = setTimeout(() => setBackupMsg(""), 4000);
+    return () => clearTimeout(timer);
+  }, [backupMsg]);
 
   // 담당자 할당 통계와 그룹 로드 (의존성: 없음 - 마운트 시 1회만)
   // 그룹/담당자 정보는 자주 변경되지 않으므로, 필요시 수동으로 갱신
@@ -314,6 +340,13 @@ export default function ContactsPage() {
       logger.error('[assign-stats failed]', { err });
     });
   }, []);
+
+  // [L6] setTimeout cleanup (공유 결과 메시지 자동 숨김)
+  useEffect(() => {
+    if (!shareResult) return;
+    const timer = setTimeout(() => { setShowShareModal(false); setShareResult(""); }, 2000);
+    return () => clearTimeout(timer);
+  }, [shareResult]);
 
   const doBulkAssign = async () => {
     if (selectedIds.size === 0) return;
@@ -979,13 +1012,14 @@ export default function ContactsPage() {
 
                   {/* 빠른 액션 (PC hover) */}
                   <div className="hidden md:flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      type="button"
-                      onClick={(e) => { e.preventDefault(); window.location.href = `tel:${c.phone}`; }}
+                    <a
+                      href={`tel:${c.phone}`}
+                      onClick={(e) => e.stopPropagation()}
                       className="p-2 rounded-lg hover:bg-blue-50 text-blue-600"
+                      aria-label={`전화 걸기: ${c.name}`}
                     >
                       <Phone className="w-4 h-4" />
-                    </button>
+                    </a>
                     <button
                       type="button"
                       onClick={(e) => {
@@ -994,6 +1028,7 @@ export default function ContactsPage() {
                         setQuickCallError(null);
                       }}
                       className={`p-2 rounded-lg transition-colors ${isQuickCallOpen ? "bg-green-100 text-green-700" : "hover:bg-green-50 text-green-600"}`}
+                      aria-label="빠른 콜 기록"
                       title="빠른 콜 기록"
                     >
                       <MessageSquare className="w-4 h-4" />

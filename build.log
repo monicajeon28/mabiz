@@ -4,28 +4,8 @@
 
 Prisma schema loaded from prisma\schema.prisma.
 
-✔ Generated Prisma Client (v7.8.0) to .\node_modules\@prisma\client in 2.55s
+✔ Generated Prisma Client (v7.8.0) to .\node_modules\@prisma\client in 3.60s
 
 Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
 
-
-   ▲ Next.js 15.5.18
-   - Environments: .env.local
-
-   Creating an optimized production build ...
- ⚠ Compiled with warnings in 5.3min
-
-./node_modules/@sentry/node/node_modules/@prisma/instrumentation/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
-Critical dependency: the request of a dependency is an expression
-
-Import trace for requested module:
-./node_modules/@sentry/node/node_modules/@prisma/instrumentation/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
-./node_modules/@sentry/node/node_modules/@prisma/instrumentation/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
-./node_modules/@sentry/node/node_modules/@prisma/instrumentation/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
-./node_modules/@sentry/node/node_modules/@prisma/instrumentation/node_modules/@opentelemetry/instrumentation/build/esm/index.js
-./node_modules/@sentry/node/node_modules/@prisma/instrumentation/dist/index.js
-./node_modules/@sentry/node/build/cjs/integrations/tracing/prisma.js
-./node_modules/@sentry/node/build/cjs/index.js
-./node_modules/@sentry/nextjs/build/cjs/index.server.js
-./src/lib/sentry.ts
 

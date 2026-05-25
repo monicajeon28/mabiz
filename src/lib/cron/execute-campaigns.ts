@@ -1012,11 +1012,13 @@ async function createSendingHistory(params: {
 if (require.main === module) {
   executePendingCampaigns()
     .then((result) => {
-      console.log("[Cron] 캠페인 자동 발송 완료:", result);
+      logger.log("[Cron] 캠페인 자동 발송 완료", result as object);
       process.exit(0);
     })
     .catch((err) => {
-      console.error("[Cron] 캠페인 자동 발송 실패:", err);
+      logger.error("[Cron] 캠페인 자동 발송 실패", {
+        error: err instanceof Error ? err.message : String(err),
+      });
       process.exit(1);
     });
 }

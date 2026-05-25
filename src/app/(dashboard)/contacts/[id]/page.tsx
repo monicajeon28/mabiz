@@ -343,6 +343,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       });
   }, []);
 
+  // [L6] setTimeout cleanup 통합 (메시지 자동 숨김)
   useEffect(() => {
     if (!contactBackupMsg) return;
     const timer = setTimeout(() => setContactBackupMsg(""), 3000);
@@ -654,9 +655,11 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     }
   };
 
-  // A-001: 모달 포커스 관리
+  // A-001: 모달 포커스 관리 (L9 호환성: SSR 안전)
   const openSmsModal = () => {
-    previousFocusRef.current = document.activeElement as HTMLElement;
+    if (typeof document !== 'undefined') {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+    }
     setShowSmsModal(true);
   };
 
@@ -667,7 +670,9 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   };
 
   const openSchedModal = () => {
-    previousFocusRef.current = document.activeElement as HTMLElement;
+    if (typeof document !== 'undefined') {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+    }
     setShowSchedModal(true);
   };
 

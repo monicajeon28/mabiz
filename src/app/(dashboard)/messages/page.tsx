@@ -150,27 +150,48 @@ function SmsTab() {
   // useCallback: dry-run 메모이제이션 (반복 호출 방지)
   const doDryRun = useCallback(async () => {
     if (!selectedGroup || !message.trim()) { showError("그룹과 메시지를 입력하세요"); return; }
-    const res = await fetch(`/api/groups/${selectedGroup}/blast`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(csrfToken && { "X-CSRF-Token": csrfToken }),
-      },
-      body: JSON.stringify({ message, dryRun: true }),
-    });
-    const d = await res.json() as {
-      ok: boolean; count?: number; willSend?: number; sampleMessages?: string[]; linkNoCount?: number; rateLimitStatus?: any;
-    };
-    if (!d.ok) {
-      // Rate Limit 거절 시 명확한 메시지
-      if (d.rateLimitStatus?.remaining === 0) {
-        showError("일일 발송 한도를 모두 사용했습니다. 내일 초기화됩니다.");
-      } else {
-        showError("미리보기 실패");
+
+    // AbortController로 fetch 취소 관리
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
+
+    try {
+      const res = await fetch(`/api/groups/${selectedGroup}/blast`, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken && { "X-CSRF-Token": csrfToken }),
+        },
+        body: JSON.stringify({ message, dryRun: true }),
+      });
+      const d = await res.json() as {
+        ok: boolean; count?: number; willSend?: number; sampleMessages?: string[]; linkNoCount?: number; rateLimitStatus?: any;
+      };
+      if (!d.ok) {
+        // Rate Limit 거절 시 명확한 메시지
+        if (d.rateLimitStatus?.remaining === 0) {
+          showError("일일 발송 한도를 모두 사용했습니다. 내일 초기화됩니다.");
+        } else {
+          showError("미리보기 실패");
+        }
+        setDryRunResult(null);
+        setConfirmed(false);
+        // Rate Limit 상태 업데이트
+        if (d.rateLimitStatus) {
+          const resetDate = new Date(d.rateLimitStatus.resetAt);
+          setRateLimitStatus({
+            used: d.rateLimitStatus.used,
+            remaining: d.rateLimitStatus.remaining,
+            resetAt: resetDate.toLocaleTimeString('ko-KR'),
+          });
+        }
+        return;
       }
-      setDryRunResult(null);
+      const sampleMsg = d.sampleMessages?.[0] ?? message;
+      setDryRunResult({ count: d.willSend ?? d.count ?? 0, sample: sampleMsg });
+      setLinkNoCount(d.linkNoCount ?? 0);
       setConfirmed(false);
-      // Rate Limit 상태 업데이트
       if (d.rateLimitStatus) {
         const resetDate = new Date(d.rateLimitStatus.resetAt);
         setRateLimitStatus({
@@ -179,19 +200,16 @@ function SmsTab() {
           resetAt: resetDate.toLocaleTimeString('ko-KR'),
         });
       }
-      return;
-    }
-    const sampleMsg = d.sampleMessages?.[0] ?? message;
-    setDryRunResult({ count: d.willSend ?? d.count ?? 0, sample: sampleMsg });
-    setLinkNoCount(d.linkNoCount ?? 0);
-    setConfirmed(false);
-    if (d.rateLimitStatus) {
-      const resetDate = new Date(d.rateLimitStatus.resetAt);
-      setRateLimitStatus({
-        used: d.rateLimitStatus.used,
-        remaining: d.rateLimitStatus.remaining,
-        resetAt: resetDate.toLocaleTimeString('ko-KR'),
-      });
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        showError("요청 시간 초과 - 다시 시도해주세요");
+      } else {
+        showError("미리보기 중 오류 발생");
+      }
+      setDryRunResult(null);
+      setConfirmed(false);
+    } finally {
+      clearTimeout(timeoutId);
     }
   }, [selectedGroup, message, csrfToken]);
 
@@ -209,19 +227,23 @@ function SmsTab() {
       return;
     }
 
-    // Step C: 최종 확인 다이얼로그
+    // Step C: 최종 확인 다이얼로그 (SSR 안전성 개선)
     const willSend = dryRunResult.count || 0;
     const confirmMsg = `정말 ${willSend}명에게 SMS를 발송하시겠습니까?\n\n메시지: ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}`;
 
-    if (!window.confirm(confirmMsg)) {
-      return;  // 사용자가 취소함
+    if (typeof window === "undefined" || !window.confirm(confirmMsg)) {
+      return;  // 사용자가 취소함 또는 SSR 환경
     }
 
-    // Step D: 발송
+    // Step D: 발송 (AbortController로 취소 관리)
     setSending(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
+
     try {
       const res = await fetch(`/api/groups/${selectedGroup}/blast`, {
         method: "POST",
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
           ...(csrfToken && { "X-CSRF-Token": csrfToken }),
@@ -236,8 +258,13 @@ function SmsTab() {
       showSuccess(`발송 완료: ${d.sentCount ?? 0}명 성공, ${d.failedCount ?? 0}명 실패`);
       setMessage(""); setDryRunResult(null); setConfirmed(false); setRateLimitStatus(null);
     } catch (err) {
-      showError("발송 중 오류가 발생했습니다");
+      if (err instanceof Error && err.name === 'AbortError') {
+        showError("발송 요청 시간 초과 - 다시 시도해주세요");
+      } else {
+        showError("발송 중 오류가 발생했습니다");
+      }
     } finally {
+      clearTimeout(timeoutId);
       setSending(false);
     }
   }, [selectedGroup, message, csrfToken, dryRunResult, confirmed]);
@@ -556,9 +583,15 @@ function EmailTab() {
       showError("예약 발송 시간을 입력하세요"); return;
     }
     setSending(true);
+
+    // AbortController로 fetch 취소 관리
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
+
     try {
       const res = await fetch("/api/email/schedule", {
         method: "POST",
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
           ...(csrfToken && { "X-CSRF-Token": csrfToken }),
@@ -575,8 +608,16 @@ function EmailTab() {
       if (!d.ok) throw new Error();
       showSuccess(sendMode === "now" ? `${d.sentCount ?? 0}명에게 발송 완료` : "예약 발송 등록됨");
       setSubject(""); setBody("");
-    } catch { showError("이메일 발송 실패"); }
-    finally { setSending(false); }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        showError("요청 시간 초과 - 다시 시도해주세요");
+      } else {
+        showError("이메일 발송 실패");
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      setSending(false);
+    }
   }, [selectedGroup, subject, body, sendMode, scheduledAt, csrfToken]);
 
   // useMemo: 이메일 탭의 currentGroup 메모이제이션

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 // import { useAuthContext } from '@/lib/auth-context';  // TODO: Fix auth import
 import { useSearchParams } from 'next/navigation';
 import { useToast } from '@/lib/api/use-toast';
@@ -55,16 +55,21 @@ export default function SendingHistoryDashboardPage() {
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [failuresKey, setFailuresKey] = useState(0);
 
+  // L6: Constant pageSize to prevent re-renders
   const pageSize = 50;
 
-  // 처음 로드
+  // 처음 로드 (P0: AbortController 추가)
   useEffect(() => {
     if (!campaignId) return;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     (async () => {
       try {
         const response = await fetch(
-          `/api/campaigns/sending-history/stats?campaignId=${campaignId}&period=${period}`
+          `/api/campaigns/sending-history/stats?campaignId=${campaignId}&period=${period}`,
+          { signal: controller.signal }
         );
 
         if (!response.ok) {
@@ -76,19 +81,25 @@ export default function SendingHistoryDashboardPage() {
           setStats(data.stats);
         }
       } catch (err) {
-        toast({
-          title: '오류',
-          description: err instanceof Error ? err.message : '통계 조회에 실패했습니다.',
-          variant: 'destructive',
-        });
+        if (err instanceof Error && err.name !== 'AbortError') {
+          toast({
+            title: '오류',
+            description: err instanceof Error ? err.message : '통계 조회에 실패했습니다.',
+            variant: 'destructive',
+          });
+        }
       }
     })();
+
+    const controller2 = new AbortController();
+    const timeoutId2 = setTimeout(() => controller2.abort(), 10000);
 
     (async () => {
       try {
         setLoading(true);
         const response = await fetch(
-          `/api/campaigns/sending-history/failures?campaignId=${campaignId}&status=${statusFilter}&limit=${pageSize}&offset=0`
+          `/api/campaigns/sending-history/failures?campaignId=${campaignId}&status=${statusFilter}&limit=${pageSize}&offset=0`,
+          { signal: controller2.signal }
         );
 
         if (!response.ok) {
@@ -101,25 +112,38 @@ export default function SendingHistoryDashboardPage() {
           setTotalFailures(data.total || 0);
         }
       } catch (err) {
-        toast({
-          title: '오류',
-          description: err instanceof Error ? err.message : '실패 목록 조회에 실패했습니다.',
-          variant: 'destructive',
-        });
+        if (err instanceof Error && err.name !== 'AbortError') {
+          toast({
+            title: '오류',
+            description: err instanceof Error ? err.message : '실패 목록 조회에 실패했습니다.',
+            variant: 'destructive',
+          });
+        }
       } finally {
         setLoading(false);
       }
     })();
+
+    return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(timeoutId2);
+      controller.abort();
+      controller2.abort();
+    };
   }, [campaignId]);
 
-  // 기간 변경 시
+  // 기간 변경 시 (P0: AbortController + toast 의존성 제거)
   useEffect(() => {
     if (!campaignId) return;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     (async () => {
       try {
         const response = await fetch(
-          `/api/campaigns/sending-history/stats?campaignId=${campaignId}&period=${period}`
+          `/api/campaigns/sending-history/stats?campaignId=${campaignId}&period=${period}`,
+          { signal: controller.signal }
         );
 
         if (!response.ok) {
@@ -131,25 +155,36 @@ export default function SendingHistoryDashboardPage() {
           setStats(data.stats);
         }
       } catch (err) {
-        toast({
-          title: '오류',
-          description: err instanceof Error ? err.message : '통계 조회에 실패했습니다.',
-          variant: 'destructive',
-        });
+        if (err instanceof Error && err.name !== 'AbortError') {
+          toast({
+            title: '오류',
+            description: err instanceof Error ? err.message : '통계 조회에 실패했습니다.',
+            variant: 'destructive',
+          });
+        }
       }
     })();
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [campaignId, period, toast]);
 
-  // 상태 필터 변경 시
+  // 상태 필터 변경 시 (P0: AbortController + 의존성 수정)
   useEffect(() => {
     if (!campaignId) return;
     setCurrentPage(0);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     (async () => {
       try {
         setLoading(true);
         const response = await fetch(
-          `/api/campaigns/sending-history/failures?campaignId=${campaignId}&status=${statusFilter}&limit=${pageSize}&offset=0`
+          `/api/campaigns/sending-history/failures?campaignId=${campaignId}&status=${statusFilter}&limit=${pageSize}&offset=0`,
+          { signal: controller.signal }
         );
 
         if (!response.ok) {
@@ -162,26 +197,37 @@ export default function SendingHistoryDashboardPage() {
           setTotalFailures(data.total || 0);
         }
       } catch (err) {
-        toast({
-          title: '오류',
-          description: err instanceof Error ? err.message : '실패 목록 조회에 실패했습니다.',
-          variant: 'destructive',
-        });
+        if (err instanceof Error && err.name !== 'AbortError') {
+          toast({
+            title: '오류',
+            description: err instanceof Error ? err.message : '실패 목록 조회에 실패했습니다.',
+            variant: 'destructive',
+          });
+        }
       } finally {
         setLoading(false);
       }
     })();
-  }, [campaignId, statusFilter, pageSize, toast]);
 
-  // 페이지 변경 시
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [campaignId, statusFilter, toast]);
+
+  // 페이지 변경 시 (P0: AbortController + 의존성 수정)
   useEffect(() => {
     if (!campaignId) return;
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     (async () => {
       try {
         setLoading(true);
         const response = await fetch(
-          `/api/campaigns/sending-history/failures?campaignId=${campaignId}&status=${statusFilter}&limit=${pageSize}&offset=${currentPage * pageSize}`
+          `/api/campaigns/sending-history/failures?campaignId=${campaignId}&status=${statusFilter}&limit=${pageSize}&offset=${currentPage * pageSize}`,
+          { signal: controller.signal }
         );
 
         if (!response.ok) {
@@ -194,23 +240,33 @@ export default function SendingHistoryDashboardPage() {
           setTotalFailures(data.total || 0);
         }
       } catch (err) {
-        toast({
-          title: '오류',
-          description: err instanceof Error ? err.message : '실패 목록 조회에 실패했습니다.',
-          variant: 'destructive',
-        });
+        if (err instanceof Error && err.name !== 'AbortError') {
+          toast({
+            title: '오류',
+            description: err instanceof Error ? err.message : '실패 목록 조회에 실패했습니다.',
+            variant: 'destructive',
+          });
+        }
       } finally {
         setLoading(false);
       }
     })();
-  }, [campaignId, statusFilter, currentPage, pageSize, toast, failuresKey]);
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [campaignId, statusFilter, currentPage, toast, failuresKey]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 3. 메시지 재전송
+  // 3. 메시지 재전송 (P0: AbortController 추가)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  async function handleResend(recordId: string) {
+  const handleResend = useCallback(async (recordId: string) => {
     try {
       setResendingId(recordId);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(
         `/api/campaigns/sending-history/${recordId}/resend`,
@@ -218,8 +274,11 @@ export default function SendingHistoryDashboardPage() {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
+          signal: controller.signal,
         }
       );
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 
@@ -239,15 +298,17 @@ export default function SendingHistoryDashboardPage() {
         });
       }
     } catch (err) {
-      toast({
-        title: '오류',
-        description: '네트워크 오류가 발생했습니다.',
-        variant: 'destructive',
-      });
+      if (err instanceof Error && err.name !== 'AbortError') {
+        toast({
+          title: '오류',
+          description: '네트워크 오류가 발생했습니다.',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setResendingId(null);
     }
-  }
+  }, [toast]);
 
   if (!campaignId) {
     return (

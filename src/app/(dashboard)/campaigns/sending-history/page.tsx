@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 // import { useAuthContext } from '@/lib/auth-context';  // TODO: Fix auth import
 import { useToast } from '@/lib/api/use-toast';
 
@@ -33,15 +33,22 @@ export default function SendingHistoryPage() {
   const [filter, setFilter] = useState<'all' | 'failed' | 'sent'>('all');
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 1. 발송 이력 조회
+  // 1. 발송 이력 조회 (P0: AbortController 추가)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  async function fetchRecords() {
+  const fetchRecords = useCallback(async () => {
     try {
       setLoading(true);
       const statusParam = filter !== 'all' ? `&status=${filter.toUpperCase()}` : '';
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const response = await fetch(
-        `/api/campaigns/sending-history?limit=100${statusParam}`
+        `/api/campaigns/sending-history?limit=100${statusParam}`,
+        { signal: controller.signal }
       );
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error('발송 이력 조회 실패');
@@ -50,26 +57,31 @@ export default function SendingHistoryPage() {
       const data = await response.json();
       setRecords(data.histories || []);
     } catch (err) {
-      toast({
-        title: '오류',
-        description: err instanceof Error ? err.message : '발송 이력 조회에 실패했습니다.',
-        variant: 'destructive',
-      });
+      if (err instanceof Error && err.name !== 'AbortError') {
+        toast({
+          title: '오류',
+          description: err instanceof Error ? err.message : '발송 이력 조회에 실패했습니다.',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoading(false);
     }
-  }
+  }, [filter, toast]);
 
   useEffect(() => {
     fetchRecords();
-  }, [filter]);
+  }, [filter, fetchRecords]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 2. 메시지 재전송
+  // 2. 메시지 재전송 (P0: AbortController 추가)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  async function handleResend(recordId: string) {
+  const handleResend = useCallback(async (recordId: string) => {
     try {
       setResendingId(recordId);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(
         `/api/campaigns/sending-history/${recordId}/resend`,
@@ -77,8 +89,11 @@ export default function SendingHistoryPage() {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
+          signal: controller.signal,
         }
       );
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 
@@ -98,15 +113,17 @@ export default function SendingHistoryPage() {
         });
       }
     } catch (err) {
-      toast({
-        title: '오류',
-        description: '네트워크 오류가 발생했습니다.',
-        variant: 'destructive',
-      });
+      if (err instanceof Error && err.name !== 'AbortError') {
+        toast({
+          title: '오류',
+          description: '네트워크 오류가 발생했습니다.',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setResendingId(null);
     }
-  }
+  }, [toast, fetchRecords]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 3. 상태별 배지 색상

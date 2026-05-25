@@ -3,7 +3,7 @@ import { createTransport } from "nodemailer";
 import { encrypt, decrypt } from "@/lib/crypto";
 
 if (!process.env.EMAIL_ENCRYPT_KEY || process.env.EMAIL_ENCRYPT_KEY.length < 32) {
-  if (process.env.NODE_ENV === 'production') console.error("[FATAL] EMAIL_ENCRYPT_KEY 미설정 — 조직 SMTP 불동작");
+  if (process.env.NODE_ENV === 'production') logger.error("[FATAL] EMAIL_ENCRYPT_KEY 미설정 — 조직 SMTP 불동작");
 }
 
 export function encryptSmtpPassword(plain: string): string {

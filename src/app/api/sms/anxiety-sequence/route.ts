@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 
 interface AnxietySequenceRequest {
   contactId: string;
@@ -44,18 +45,12 @@ interface SequenceSchedule {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const ctx = await getAuthContext();
+    const organizationId = requireOrgId(ctx);
 
     const body: AnxietySequenceRequest = await request.json();
     const {
       contactId,
-      organizationId,
       anxietyCategory,
       preparationStage,
       smsSequenceTemplate,
@@ -75,6 +70,15 @@ export async function POST(request: NextRequest) {
     // 실제 발송 스케줄 (Day 0-3)
     const schedules = generateSchedules(templates);
 
+    // 조직 격리 검증
+    const contactExists = await prisma.contact.findFirst({
+      where: { id: contactId, organizationId },
+      select: { id: true, tags: true },
+    });
+    if (!contactExists) {
+      return NextResponse.json({ error: 'Contact not found' }, { status: 404 });
+    }
+
     // 데이터베이스에 시퀀스 시작 기록
     const contact = await prisma.contact.update({
       where: { id: contactId },
@@ -82,10 +86,7 @@ export async function POST(request: NextRequest) {
         anxietySequenceStartedAt: new Date(),
         tags: Array.from(
           new Set([
-            ...(await prisma.contact.findUnique({
-              where: { id: contactId },
-              select: { tags: true },
-            }).then(c => c?.tags || [])),
+            ...(contactExists.tags || []),
             `anxiety_${anxietyCategory}`,
             `prep_${preparationStage}`,
           ])
@@ -107,7 +108,7 @@ export async function POST(request: NextRequest) {
       ).toISOString(),
     });
   } catch (error) {
-    console.error('Anxiety SMS sequence error:', error);
+    logger.error('[POST /api/sms/anxiety-sequence]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

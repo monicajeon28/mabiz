@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { logger } from "@/lib/logger";
 
 const CRUISE_BASE_PRICE = 2500; // $2,500 평균 예약가
 
@@ -20,10 +21,8 @@ const CRUISE_BASE_PRICE = 2500; // $2,500 평균 예약가
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await verifyAuth(req);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const ctx = await getAuthContext();
+    const organizationId = requireOrgId(ctx);
 
     const { contactId, cruiseEndDate, cruisePrice, satisfactionScore, nextCruiseInterestLevel } = await req.json();
 
@@ -31,8 +30,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "contactId is required" }, { status: 400 });
     }
 
-    const contact = await prisma.contact.findUnique({
-      where: { id: contactId },
+    const contact = await prisma.contact.findFirst({
+      where: { id: contactId, organizationId },
     });
 
     if (!contact) {
@@ -92,7 +91,7 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error("[LTV_TRACKING_ERROR]", error);
+    logger.error("[POST /api/l8-ltv-tracking]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -103,17 +102,10 @@ export async function POST(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const auth = await verifyAuth(req);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const ctx = await getAuthContext();
+    const organizationId = requireOrgId(ctx);
 
-    const { searchParams } = new URL(req.url);
-    const organizationId = searchParams.get("organizationId");
-
-    if (!organizationId) {
-      return NextResponse.json({ error: "organizationId is required" }, { status: 400 });
-    }
+    void req; // 파라미터 불필요 (ctx에서 orgId 가져옴)
 
     const stats = await prisma.contact.aggregate({
       where: { organizationId },
@@ -158,7 +150,7 @@ export async function GET(req: NextRequest) {
       avgReturnInterestLevel: lastCruiseDateStats._avg.cruiseReturnInterestLevel || 0,
     });
   } catch (error) {
-    console.error("[LTV_STATS_ERROR]", error);
+    logger.error("[GET /api/l8-ltv-tracking]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -37,19 +37,19 @@ export default function DeltaSetupPage() {
   } = useDeltaWizard(campaignId);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 저장 후 리다이렉트
+  // 저장 후 리다이렉트 (P1: setTimeout cleanup 추가)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const handleSaveAndClose = async () => {
-    await handleSave();
+  useEffect(() => {
+    if (state.error || !state.isSaving) return;
 
-    // 성공 시 (state.error가 없으면) 페이지 이동
-    if (!state.error) {
-      // 약간의 딜레이 후 이동 (toast 표시 시간)
-      setTimeout(() => {
+    const timeoutId = setTimeout(() => {
+      if (!state.error) {
         router.push(`/campaigns/${campaignId}`);
-      }, 1500);
-    }
-  };
+      }
+    }, 1500);
+
+    return () => clearTimeout(timeoutId);
+  }, [state.error, state.isSaving, campaignId, router]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 로딩 스켈레톤
@@ -225,7 +225,7 @@ export default function DeltaSetupPage() {
               whileTap={{ scale: 0.95 }}
             >
               <Button
-                onClick={handleSaveAndClose}
+                onClick={handleSave}
                 disabled={state.isSaving}
                 className="px-8 bg-green-600 hover:bg-green-700 transition-all duration-200 active:scale-95 shadow-lg disabled:opacity-50"
               >

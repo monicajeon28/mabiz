@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthContext } from '@/lib/rbac';
+import { getMabizSession } from '@/lib/auth';
 import * as visaGuide from '@/lib/preparation-guides/visa-guide.json';
 import * as passportGuide from '@/lib/preparation-guides/passport-guide.json';
 import * as healthGuide from '@/lib/preparation-guides/health-guide.json';
@@ -39,18 +39,18 @@ interface PrepGuideResponse {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { category: string } }
+  { params }: { params: Promise<{ category: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    const authContext = await getMabizSession();
+    if (!authContext) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const { category } = params;
+    const { category } = await params;
 
     if (!guides[category as GuideName]) {
       return NextResponse.json(
@@ -81,41 +81,6 @@ export async function GET(
     return NextResponse.json(response);
   } catch (error) {
     console.error('Get preparation guide error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * GET /api/preparation-guides
- * 모든 가능한 준비 가이드 목록 조회
- */
-export async function handleListRequest(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const guidesList = Object.entries(guides).map(([key, guide]) => ({
-      id: key,
-      category: guide.category || key,
-      title: guide.title,
-      description: guide.description,
-      sections: (guide.sections || guide.steps || []).length,
-    }));
-
-    return NextResponse.json({
-      total: guidesList.length,
-      guides: guidesList,
-    });
-  } catch (error) {
-    console.error('List preparation guides error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

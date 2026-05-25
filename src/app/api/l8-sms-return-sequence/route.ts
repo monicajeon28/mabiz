@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { logger } from "@/lib/logger";
 
 /**
  * L8 렌즈: 재방문 습관화 SMS 자동화 시퀀스
@@ -77,17 +78,16 @@ const PSYCHOLOGY_LENSES = {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await verifyAuth(req);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const ctx = await getAuthContext();
+    const resolvedOrgId = requireOrgId(ctx);
 
     const body = await req.json();
-    const { contactId, day, organizationId, auto } = body;
+    const { contactId, day, auto } = body;
+    const organizationId = resolvedOrgId;
 
-    if (auto && organizationId) {
+    if (auto) {
       // 일괄 자동 발송 모드
-      return handleAutomaticSequence(organizationId, auth);
+      return handleAutomaticSequence(organizationId);
     }
 
     if (!contactId || !day) {
@@ -97,8 +97,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const contact = await prisma.contact.findUnique({
-      where: { id: contactId },
+    const contact = await prisma.contact.findFirst({
+      where: { id: contactId, organizationId },
     });
 
     if (!contact) {
@@ -164,12 +164,12 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[SMS_SEQUENCE_ERROR]", error);
+    logger.error("[POST /api/l8-sms-return-sequence]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
-async function handleAutomaticSequence(organizationId: string, auth: any) {
+async function handleAutomaticSequence(organizationId: string) {
   const results = {
     day10: { total: 0, sent: 0, failed: 0 },
     day30: { total: 0, sent: 0, failed: 0 },
@@ -293,7 +293,7 @@ async function sendSmsViaAligo(organizationId: string, phone: string, text: stri
     });
 
     if (!config || !config.isActive) {
-      console.error("[SMS_CONFIG_ERROR] SMS config not found or inactive");
+      logger.warn("[SMS_CONFIG_ERROR] SMS config not found or inactive", { organizationId });
       return false;
     }
 
@@ -302,10 +302,10 @@ async function sendSmsViaAligo(organizationId: string, phone: string, text: stri
     // return response.success;
 
     // 임시: true 반환
-    console.log(`[SMS_SENT] To: ${phone}, Text: ${text.substring(0, 50)}...`);
+    logger.log(`[SMS_SENT]`, { phone: phone.slice(0, 4) + '***', textPreview: text.substring(0, 50) });
     return true;
   } catch (error) {
-    console.error("[ALIGO_SEND_ERROR]", error);
+    logger.error("[ALIGO_SEND_ERROR]", { error: error instanceof Error ? error.message : String(error) });
     return false;
   }
 }
@@ -317,10 +317,7 @@ async function logSmsEvent(
   organizationId: string
 ) {
   // SMS 발송 로그 기록
-  // ExecutionLog 또는 별도 SMS 로그 테이블 사용
-  console.log(
-    `[SMS_LOG] ContactID: ${contactId}, Day: ${day}, Org: ${organizationId}`
-  );
+  logger.log("[SMS_LOG]", { contactId, day, organizationId, textPreview: smsText.substring(0, 50) });
 }
 
 /**
@@ -329,20 +326,10 @@ async function logSmsEvent(
  */
 export async function GET(req: NextRequest) {
   try {
-    const auth = await verifyAuth(req);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const ctx = await getAuthContext();
+    const organizationId = requireOrgId(ctx);
 
-    const { searchParams } = new URL(req.url);
-    const organizationId = searchParams.get("organizationId");
-
-    if (!organizationId) {
-      return NextResponse.json(
-        { error: "organizationId is required" },
-        { status: 400 }
-      );
-    }
+    void req; // 파라미터 불필요 (ctx에서 orgId 가져옴)
 
     const stats = {
       day10: await prisma.contact.count({
@@ -378,7 +365,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[SMS_STATS_ERROR]", error);
+    logger.error("[GET /api/l8-sms-return-sequence]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

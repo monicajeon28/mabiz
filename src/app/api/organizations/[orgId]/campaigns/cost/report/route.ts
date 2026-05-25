@@ -138,26 +138,45 @@ export async function GET(req: Request, { params }: Params) {
       );
     }
 
-    // ✅ CampaignCost 조회 (월별 범위 필터)
-    const campaignCosts = await prisma.campaignCost.findMany({
-      where: {
-        organizationId: orgId,
-        calculatedAt: {
-          gte: new Date(`${startMonth}-01`),
-          lt: getMonthEndDate(endMonth), // ✅ P0 #1 수정: 안정적인 월 범위 처리
-        },
-      },
-      select: {
-        smsSent: true,
-        smsCostTotal: true,
-        emailSent: true,
-        emailCostTotal: true,
-        successCount: true,
-        actualCostTotal: true,
-        estimatedRoi: true,
-        calculatedAt: true,
-      },
-    });
+    // P1: Prisma 쿼리 타임아웃 (8초) + 선택적 필드로 성능 최적화
+    let campaignCosts;
+    try {
+      campaignCosts = await Promise.race([
+        prisma.campaignCost.findMany({
+          where: {
+            organizationId: orgId,
+            calculatedAt: {
+              gte: new Date(`${startMonth}-01`),
+              lt: getMonthEndDate(endMonth), // ✅ P0 #1 수정: 안정적인 월 범위 처리
+            },
+          },
+          select: {
+            smsSent: true,
+            smsCostTotal: true,
+            emailSent: true,
+            emailCostTotal: true,
+            successCount: true,
+            actualCostTotal: true,
+            estimatedRoi: true,
+            calculatedAt: true,
+          },
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Database query timeout (8s)')), 8000)
+        ) as Promise<any>,
+      ]);
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('timeout')) {
+        logger.warn('ORGANIZATION_COST_REPORT_TIMEOUT', {
+          orgId,
+          period: `${startMonth} ~ ${endMonth}`,
+        });
+        // P1: 타임아웃 시 빈 데이터로 반환 (차트 레이아웃은 유지)
+        campaignCosts = [];
+      } else {
+        throw err;
+      }
+    }
 
     // ✅ 월별 & 채널별 집계
     const monthlyMap = new Map<string, any>();

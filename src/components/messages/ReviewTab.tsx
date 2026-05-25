@@ -44,23 +44,33 @@ export function ReviewTab({
 
     setLoading(true);
 
+    // AbortController로 fetch 취소 관리
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
+
     // 고객 목록 로드 (최대 5명)
-    fetch(`/api/groups/${groupId}/customers?limit=5`)
+    fetch(`/api/groups/${groupId}/customers?limit=5`, { signal: controller.signal })
       .then((r) => r.json())
       .then((d) => {
         if (d.ok && Array.isArray(d.customers)) {
           setCustomers(d.customers);
         }
       })
-      .catch(() => {
-        // API 실패해도 계속 진행
+      .catch((err) => {
+        // 타임아웃 또는 네트워크 에러 - API 실패해도 계속 진행
+        if (!(err instanceof Error && err.name === 'AbortError')) {
+          console.debug('고객 목록 로드 실패:', err);
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        clearTimeout(timeoutId);
+        setLoading(false);
+      });
 
     // 오타 검사
     const detected = detectTypos(message);
     setTypos(detected);
-  }, [groupId, dryRunResult]);
+  }, [groupId, dryRunResult, message]);
 
   if (!dryRunResult) {
     return null;

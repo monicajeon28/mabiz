@@ -387,29 +387,49 @@ export default function CostDashboard() {
   const [autoRefreshInterval, setAutoRefreshInterval] = useState(5); // 분 단위
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // API에서 비용 데이터 조회
+  // P1: 타임아웃 + AbortController 추가
   const fetchCostReport = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(
-        `/api/organizations/campaigns/cost/report?startMonth=${dateRange.startMonth}&endMonth=${dateRange.endMonth}`,
-        { headers: { 'Content-Type': 'application/json' } }
-      );
+      // AbortController로 10초 타임아웃 설정
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      if (!response.ok) {
-        throw new Error(`API 오류: ${response.status}`);
+      try {
+        const response = await fetch(
+          `/api/organizations/campaigns/cost/report?startMonth=${dateRange.startMonth}&endMonth=${dateRange.endMonth}`,
+          {
+            headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
+          }
+        );
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`API 오류: ${response.status}`);
+        }
+
+        const data: CostReportResponse = await response.json();
+        if (!data.ok) {
+          throw new Error(data as any);
+        }
+
+        setReportData(data);
+      } finally {
+        clearTimeout(timeoutId);
       }
-
-      const data: CostReportResponse = await response.json();
-      if (!data.ok) {
-        throw new Error(data as any);
-      }
-
-      setReportData(data);
     } catch (err) {
-      const message = err instanceof Error ? err.message : '데이터를 불러올 수 없습니다';
+      let message = '데이터를 불러올 수 없습니다';
+      if (err instanceof Error) {
+        if (err.name === 'AbortError') {
+          message = '요청 타임아웃 (10초)';
+        } else {
+          message = err.message;
+        }
+      }
       setError(message);
       logger.error('[CostDashboard] fetchCostReport failed', { error: err, dateRange });
     } finally {
@@ -422,9 +442,16 @@ export default function CostDashboard() {
     fetchCostReport();
   }, [fetchCostReport]);
 
-  // 자동 새로고침
+  // P1: 자동 새로고침 + AbortController 정리
   useEffect(() => {
     if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
+
+    // 자동 새로고침이 비활성화된 경우 (0)
+    if (autoRefreshInterval === 0) {
+      return () => {
+        if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
+      };
+    }
 
     refreshIntervalRef.current = setInterval(() => {
       fetchCostReport();

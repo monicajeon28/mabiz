@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { logger } from "@/lib/logger";
 
 interface CruiseRecommendation {
   courseId: string;
@@ -133,6 +134,8 @@ export async function GET(req: NextRequest) {
     const nextRecommendedDate = new Date();
     nextRecommendedDate.setMonth(nextRecommendedDate.getMonth() + 6);
 
+    const lastCruiseRegion = extractRegionFromProductName(contact.productName);
+
     return NextResponse.json({
       success: true,
       contactId,
@@ -146,7 +149,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[RECOMMENDATIONS_ERROR]", error);
+    logger.error("[GET /api/l8-cruise-recommendations]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -157,16 +160,10 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const auth = await verifyAuth(req);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const ctx = await getAuthContext();
+    const organizationId = requireOrgId(ctx);
 
-    const { organizationId } = await req.json();
-
-    if (!organizationId) {
-      return NextResponse.json({ error: "organizationId is required" }, { status: 400 });
-    }
+    // organizationId는 ctx에서 이미 requireOrgId로 검증됨
 
     // 크루즈 종료 후 10일-180일 사이 고객 대상
     const tenDaysAgo = new Date();
@@ -207,7 +204,7 @@ export async function POST(req: NextRequest) {
       results,
     });
   } catch (error) {
-    console.error("[BULK_RECOMMENDATIONS_ERROR]", error);
+    logger.error("[POST /api/l8-cruise-recommendations]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

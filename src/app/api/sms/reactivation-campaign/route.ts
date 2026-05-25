@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { getTemplate, interpolateTemplate } from '@/lib/sms/reactivation-templates';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -143,7 +144,7 @@ export async function POST(request: NextRequest) {
       executedAt: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Failed to send reactivation campaign:', error);
+    logger.error('[POST /api/sms/reactivation-campaign]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Failed to send campaign' },
       { status: 500 },

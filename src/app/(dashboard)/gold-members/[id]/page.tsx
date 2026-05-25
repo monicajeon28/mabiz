@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, Star, Loader2, CheckCircle, PauseCircle, XCircle } from "lucide-react";
 
@@ -53,6 +53,7 @@ export default function GoldMemberDetailPage() {
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const [member, setMember]         = useState<GoldMemberDetail | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -68,16 +69,37 @@ export default function GoldMemberDetailPage() {
   const [consultError, setConsultError]     = useState("");
 
   const load = useCallback(() => {
+    // P1: 이전 요청 취소
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     setLoading(true);
-    fetch(`/api/gold-members/${id}`)
+    fetch(`/api/gold-members/${id}`, {
+      signal: abortControllerRef.current.signal,
+    })
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) setMember(d.member);
         else setError(d.error ?? "불러오기 실패");
       })
-      .catch(() => setError("서버 오류"))
+      .catch((err) => {
+        if (err.name !== 'AbortError') {
+          setError("서버 오류");
+        }
+      })
       .finally(() => setLoading(false));
   }, [id]);
+
+  // P1: 컴포넌트 언마운트 시 AbortController 정리
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
