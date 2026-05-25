@@ -28,4 +28,5 @@ if (!globalForPrisma.prisma) {
 
 const prisma = globalForPrisma.prisma;
 
+export { prisma };
 export default prisma;

@@ -47,3 +47,14 @@ export function validateAgentRole(req: NextRequest): true | NextResponse {
 
   return true;
 }
+
+/**
+ * Alias for validateAgentRole - validates organization membership
+ * Checks that user has OWNER, AGENT, or GLOBAL_ADMIN role with orgId
+ *
+ * @param req - NextRequest object with injected auth headers
+ * @returns true if authorized, Response with 403 if not
+ */
+export function validateOrgMembership(req: NextRequest): true | NextResponse {
+  return validateAgentRole(req);
+}

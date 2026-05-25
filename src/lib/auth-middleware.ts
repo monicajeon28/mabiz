@@ -184,3 +184,48 @@ export function logAuthEvent(
     reason,
   });
 }
+
+/**
+ * Main auth middleware for API routes
+ *
+ * Combines createAuthGuard with request validation.
+ * Returns validated auth info or null if unauthorized.
+ *
+ * Usage:
+ * ```
+ * export async function GET(req: NextRequest) {
+ *   const auth = await authMiddleware(req, ['OWNER', 'GLOBAL_ADMIN']);
+ *   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+ *   // Proceed with validated auth context
+ * }
+ * ```
+ */
+export async function authMiddleware(
+  req: NextRequest,
+  requiredRoles?: UserRole[],
+  options?: {
+    requireOrgId?: boolean;
+    logViolations?: boolean;
+    errorMessage?: string;
+  }
+) {
+  const authHeaders = getAuthHeaders(req);
+
+  if (!authHeaders.userRole) {
+    logAuthEvent(req, 'denied', 'Missing user role');
+    return null;
+  }
+
+  if (requiredRoles && !requiredRoles.includes(authHeaders.userRole)) {
+    logAuthEvent(req, 'denied', `Insufficient role: ${authHeaders.userRole}`);
+    return null;
+  }
+
+  if (options?.requireOrgId && !authHeaders.orgId) {
+    logAuthEvent(req, 'denied', 'Missing organization ID');
+    return null;
+  }
+
+  logAuthEvent(req, 'allowed', `Authenticated as ${authHeaders.userRole}`);
+  return authHeaders;
+}

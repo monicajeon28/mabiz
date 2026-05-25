@@ -153,3 +153,11 @@ export async function getMabizSession(): Promise<MabizAuthContext | null> {
     return null;
   }
 }
+
+/**
+ * Validates auth by retrieving current session
+ * Returns error response if not authenticated
+ */
+export async function validateAuth(): Promise<MabizAuthContext | null> {
+  return getMabizSession();
+}

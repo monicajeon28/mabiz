@@ -178,3 +178,26 @@ export const segmentExpectations = {
     notes: '낮은 기본 복귀율. 스토리텔링 + 가치 강조 필요',
   },
 };
+
+/**
+ * 세그먼트별 기본 재활성화 템플릿 반환
+ * Day 0 템플릿을 기본으로 사용 (높은 참여도)
+ * @param segment - "3-6m" | "6-12m" | "1y+"
+ * @returns 해당 세그먼트의 기본 템플릿
+ */
+export function getReactivationTemplate(
+  segment: '3-6m' | '6-12m' | '1y+',
+): ReactivationTemplate {
+  // 세그먼트별로 A/B 템플릿 중 선택
+  // 3-6m: Day 0A (12% CTR, 높은 복귀율)
+  // 6-12m: Day 0B (14% CTR, 높은 긴박감)
+  // 1y+: Day 0B (14% CTR, 스토리텔링 강조)
+
+  const templateMap: Record<string, ReactivationTemplate> = {
+    '3-6m': day0TemplateA, // 신기억 강함 - 시간 강조
+    '6-12m': day0TemplateB, // 중간 - 복귀 제안 강조
+    '1y+': day0TemplateB, // 낮은 기본 복귀율 - 특별 오퍼 강조
+  };
+
+  return templateMap[segment] || day0TemplateA;
+}
