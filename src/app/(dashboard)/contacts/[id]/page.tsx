@@ -254,18 +254,9 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   };
 
   useEffect(() => {
-    const fetchContact = fetch(`/api/contacts/${id}`).catch(err => {
-      logger.error('[fetchContact failed]', { err });
-      return { ok: false };
-    });
-    const fetchGroups = fetch("/api/groups").catch(err => {
-      logger.error('[fetchGroups failed]', { err });
-      return { ok: false };
-    });
-    const fetchFunnels = fetch("/api/funnels").catch(err => {
-      logger.error('[fetchFunnels failed]', { err });
-      return { ok: false };
-    });
+    const fetchContact = fetch(`/api/contacts/${id}`).catch(() => null);
+    const fetchGroups = fetch("/api/groups").catch(() => null);
+    const fetchFunnels = fetch("/api/funnels").catch(() => null);
     Promise.allSettled([fetchContact, fetchGroups, fetchFunnels])
       .then((results) => {
         // Contact 필수, Funnels/Groups는 선택적

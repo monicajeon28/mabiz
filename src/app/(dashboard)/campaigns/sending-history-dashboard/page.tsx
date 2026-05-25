@@ -169,7 +169,7 @@ export default function SendingHistoryDashboardPage() {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [campaignId, period, toast]);
+  }, [campaignId, period]);
 
   // 상태 필터 변경 시 (P0: AbortController + 의존성 수정)
   useEffect(() => {
@@ -213,7 +213,7 @@ export default function SendingHistoryDashboardPage() {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [campaignId, statusFilter, toast]);
+  }, [campaignId, statusFilter]);
 
   // 페이지 변경 시 (P0: AbortController + 의존성 수정)
   useEffect(() => {
@@ -256,7 +256,7 @@ export default function SendingHistoryDashboardPage() {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [campaignId, statusFilter, currentPage, toast, failuresKey]);
+  }, [campaignId, statusFilter, currentPage, failuresKey]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 3. 메시지 재전송 (P0: AbortController 추가)
