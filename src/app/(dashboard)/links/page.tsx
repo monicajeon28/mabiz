@@ -43,15 +43,35 @@ export default function LinksPage() {
   const [searchingContact,  setSearchingContact]  = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = () => {
-    setLoading(true);
-    fetch('/api/links').then(r => r.json())
-      .then(d => { if (d.ok) setLinks(d.links ?? []); })
-      .catch(() => showError('링크 로드 실패'))
-      .finally(() => setLoading(false));
+  const load = async (signal?: AbortSignal) => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/links', { signal });
+      const d = await res.json();
+      if (d.ok) setLinks(d.links ?? []);
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return; // 요청 중단, 에러 무시
+      }
+      showError('링크 로드 실패');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const controller = new AbortController();
+    let isMounted = true;
+
+    if (isMounted) {
+      load(controller.signal);
+    }
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, []);
 
   // 고객 검색 디바운스
   useEffect(() => {
