@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: '매출현황',
   description: '수수료 및 매출 현황',

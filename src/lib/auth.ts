@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
@@ -35,7 +36,7 @@ type RawMallUser = {
   affiliateProfileId: number | null;
 };
 
-export async function getMabizSession(): Promise<MabizAuthContext | null> {
+export const getMabizSession = cache(async (): Promise<MabizAuthContext | null> => {
   try {
     const cookieStore = await cookies();
     const sid = cookieStore.get(MABIZ_SESSION_COOKIE)?.value;
@@ -152,7 +153,7 @@ export async function getMabizSession(): Promise<MabizAuthContext | null> {
     logger.error('[getMabizSession]', { err });
     return null;
   }
-}
+});
 
 /**
  * Validates auth by retrieving current session

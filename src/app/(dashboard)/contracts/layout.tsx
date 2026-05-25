@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: '계약서 관리',
   description: '계약서 템플릿 관리 페이지',

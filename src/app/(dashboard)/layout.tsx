@@ -6,6 +6,8 @@ import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { FloatingChatbot } from "@/components/layout/FloatingChatbot";
 import { SessionProvider } from "@/hooks/useSession";
 
+export const dynamic = 'force-dynamic';
+
 interface DashboardLayoutProps {
   children: React.ReactNode;
   session?: AuthSession | null;
