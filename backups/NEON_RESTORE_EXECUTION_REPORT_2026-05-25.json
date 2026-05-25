@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-05-25T15:43:31.563Z",
+  "status": "partial",
+  "phase": "report-generation",
+  "migrations": {
+    "applied": 0,
+    "failed": 1,
+    "pending": 0,
+    "details": []
+  },
+  "connection": {
+    "connected": true,
+    "host": "",
+    "database": "",
+    "poolSize": "",
+    "version": "",
+    "timestamp": "2026-05-25T15:43:31.564Z"
+  },
+  "statistics": {
+    "totalTables": 50,
+    "recordCounts": {
+      "Organization": 0,
+      "Contact": 0,
+      "ContactLensClassification": 0,
+      "GmUser": 0,
+      "GmTrip": 0,
+      "GmReservation": 0
+    },
+    "estimatedSize": "TBD",
+    "lastUpdate": "2026-05-25T15:43:31.564Z"
+  },
+  "errors": [
+    "✗ Check migration status failed: Command failed: npx prisma migrate status --skip-generate\n\n! unknown or unexpected option: --skip-generate\n\nCheck the status of your database migrations\n\n  Usage\n\n    $ prisma migrate status [options]\n\n    The datasource URL configuration is read from the Prisma config file (e.g., prisma.config.ts).\n\n  Options\n\n  -h, --help   Display this help message\n    --config   Custom path to your Prisma config file\n    --schema   Custom path to your Prisma schema\n\n  Examples\n\n  Check the status of your database migrations\n  $ prisma migrate status\n\n  Specify a schema\n  $ prisma migrate status --schema=./schema.prisma\n\n",
+    "✗ Apply all pending migrations failed: Command failed: npx prisma migrate deploy --skip-generate\n\n! unknown or unexpected option: --skip-generate\n\nApply pending migrations to update the database schema in production/staging\n\nUsage\n\n  $ prisma migrate deploy [options]\n\n  The datasource URL configuration is read from the Prisma config file (e.g., prisma.config.ts).\n\nOptions\n\n  -h, --help   Display this help message\n    --config   Custom path to your Prisma config file\n    --schema   Custom path to your Prisma schema\n\nExamples\n\n  Deploy your pending migrations to your production/staging database\n  $ prisma migrate deploy\n\n  Specify a schema\n  $ prisma migrate deploy --schema=./schema.prisma\n\n",
+    "Migration apply: Error: Command failed: npx prisma migrate deploy --skip-generate\n\n! unknown or unexpected option: --skip-generate\n\nApply pending migrations to update the database schema in production/staging\n\nUsage\n\n  $ prisma migrate deploy [options]\n\n  The datasource URL configuration is read from the Prisma config file (e.g., prisma.config.ts).\n\nOptions\n\n  -h, --help   Display this help message\n    --config   Custom path to your Prisma config file\n    --schema   Custom path to your Prisma schema\n\nExamples\n\n  Deploy your pending migrations to your production/staging database\n  $ prisma migrate deploy\n\n  Specify a schema\n  $ prisma migrate deploy --schema=./schema.prisma\n\n",
+    "✗ Regenerate Prisma Client failed: Command failed: npx prisma generate\nPrisma schema loaded from prisma\\schema.prisma.\nError: \nCannot find module 'D:\\mabiz-crm\\node_modules\\@prisma\\client\\runtime\\query_compiler_fast_bg.postgresql.wasm-base64.js'\nRequire stack:\n- C:\\Users\\user\\AppData\\Local\\npm-cache\\_npx\\2778af9cee32ff87\\node_modules\\prisma\\build\\index.js\n\n\n"
+  ],
+  "warnings": [
+    "Prisma client generation: Error: Command failed: npx prisma generate\nPrisma schema loaded from prisma\\schema.prisma.\nError: \nCannot find module 'D:\\mabiz-crm\\node_modules\\@prisma\\client\\runtime\\query_compiler_fast_bg.postgresql.wasm-base64.js'\nRequire stack:\n- C:\\Users\\user\\AppData\\Local\\npm-cache\\_npx\\2778af9cee32ff87\\node_modules\\prisma\\build\\index.js\n\n\n"
+  ],
+  "recommendations": [
+    "⚠️ 에러를 검토하고 필요한 조치를 취해주세요."
+  ],
+  "duration": 15591
+}
