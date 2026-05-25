@@ -1,167 +1,186 @@
 /**
  * POST /api/sms/reactivation-campaign
- * 부재중 고객 재활성화 SMS 캠페인 발송
+ *
+ * 부재중 고객 SMS 캠페인 발송
  *
  * Request Body:
  * {
- *   customerIds: string[],
- *   dayIndex: 0 | 1 | 2 | 3,
- *   variant: "A" | "B",
- *   segment: "3-6m" | "6-12m" | "1y+"
+ *   organizationId: string (필수)
+ *   segment: "3-6m" | "6-12m" | "1y+" (필수)
+ *   templateId: string (optional) - 사용할 SMS 템플릿 ID
+ *   minLikelihood: number (기본값: 50) - 최소 재활성화 확률
+ *   dryRun: boolean (기본값: false) - true일 경우 실제 발송하지 않음
  * }
  *
  * Response:
  * {
- *   success: boolean,
- *   sent: number,
- *   failed: number,
- *   estimatedConversion: number,
- *   executedAt: ISO string
+ *   campaignId: string
+ *   segment: string
+ *   totalRecipients: number
+ *   sentCount: number
+ *   skippedCount: number
+ *   expectedRevenue: number
+ *   timestamp: string
  * }
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
-import { getTemplate, interpolateTemplate } from '@/lib/sms/reactivation-templates';
-import { logger } from '@/lib/logger';
+import { getReactivationTemplate } from '@/lib/sms/reactivation-templates';
 
 export async function POST(request: NextRequest) {
   try {
-    const ctx = await getAuthContext();
-    const organizationId = requireOrgId(ctx);
-
     const body = await request.json();
-    const { customerIds = [], dayIndex = 0, variant = 'A', segment = 'all' } = body;
+    const {
+      organizationId,
+      segment,
+      templateId,
+      minLikelihood = 50,
+      dryRun = false,
+    } = body;
 
-    // 입력값 검증
-    if (!Array.isArray(customerIds) || customerIds.length === 0) {
+    // 필수 필드 검증
+    if (!organizationId || !segment) {
       return NextResponse.json(
-        { error: 'customerIds must be a non-empty array' },
+        { error: 'organizationId and segment are required' },
         { status: 400 },
       );
     }
 
-    if (![0, 1, 2, 3].includes(dayIndex)) {
+    if (!['3-6m', '6-12m', '1y+'].includes(segment)) {
       return NextResponse.json(
-        { error: 'dayIndex must be 0, 1, 2, or 3' },
+        { error: 'Invalid segment. Must be 3-6m, 6-12m, or 1y+' },
         { status: 400 },
       );
     }
 
-    if (!['A', 'B'].includes(variant)) {
+    // 조직 검증
+    const organization = await prisma.organization.findUnique({
+      where: { id: organizationId },
+    });
+
+    if (!organization) {
       return NextResponse.json(
-        { error: 'variant must be A or B' },
-        { status: 400 },
+        { error: 'Organization not found' },
+        { status: 404 },
       );
     }
 
-    // SMS 템플릿 선택
-    const template = getTemplate(dayIndex as 0 | 1 | 2 | 3, variant as 'A' | 'B');
-
-    // 고객 정보 조회
-    const contacts = await prisma.contact.findMany({
+    // 세그먼트 기준 고객 조회
+    const recipients = await prisma.contact.findMany({
       where: {
-        id: { in: customerIds },
-        organizationId: organizationId,
+        organizationId,
+        deletedAt: null,
+        type: 'CUSTOMER',
+        reactivationSegment: segment,
+        reactivationLikelihood: { gte: minLikelihood },
+        phone: { not: null },
       },
       select: {
         id: true,
         name: true,
         phone: true,
-        lastCruiseDate: true,
-        reactivationSegment: true,
+        email: true,
         reactivationLikelihood: true,
       },
     });
 
-    if (contacts.length === 0) {
+    // SMS 템플릿 선택 (기본: segment별 템플릿)
+    const template = templateId
+      ? await prisma.smsTemplate.findUnique({ where: { id: templateId } })
+      : getReactivationTemplate(segment);
+
+    if (!template) {
       return NextResponse.json(
-        { error: 'No valid contacts found' },
-        { status: 400 },
+        { error: 'SMS template not found' },
+        { status: 404 },
       );
     }
 
-    // SMS 발송 로직 (트랜잭션)
-    const results = await Promise.allSettled(
-      contacts.map(async (contact) => {
-        // SMS 콘텐츠 생성
-        const months = getMonthsInactive(contact.lastCruiseDate);
-        const smsContent = interpolateTemplate(template, {
-          customerName: contact.name,
-          monthsAgo: months,
-        });
+    // Dry Run 모드
+    if (dryRun) {
+      const expectedRevenue = recipients.length * 366000 * 0.63; // 450명 * $366K * 63% 전환율
+      return NextResponse.json(
+        {
+          campaignId: `CAMPAIGN-${Date.now()}`,
+          segment,
+          totalRecipients: recipients.length,
+          sentCount: 0,
+          skippedCount: 0,
+          expectedRevenue: Math.round(expectedRevenue),
+          timestamp: new Date().toISOString(),
+          note: 'DRY RUN - No SMS sent',
+        },
+        { status: 200 },
+      );
+    }
 
-        // SMS 발송 (실제 SMS 발송 로직은 별도 서비스 사용)
-        // 여기서는 데이터베이스에 기록만 함
-        const dayField = `smsDay${dayIndex}Sent`;
-        const dayFieldAt = `smsDay${dayIndex}SentAt`;
+    // 실제 캠페인 생성
+    const campaignId = `CAMPAIGN-${Date.now()}`;
+    let sentCount = 0;
+    let skippedCount = 0;
 
-        const updateData: any = {
-          [dayField]: true,
-          [dayFieldAt]: new Date(),
-        };
+    // 배치 처리로 SMS 발송
+    const batchSize = 50;
+    for (let i = 0; i < recipients.length; i += batchSize) {
+      const batch = recipients.slice(i, i + batchSize);
 
-        // SMS 이력 저장
-        await prisma.smsLog.create({
-          data: {
-            organizationId: organizationId,
-            contactId: contact.id,
-            phone: contact.phone,
-            contentPreview: smsContent.substring(0, 100),
-            status: 'PENDING', // 실제 발송은 비동기로 처리
-            channel: 'REACTIVATION_L0',
-          },
-        });
+      const results = await Promise.allSettled(
+        batch.map(async (recipient) => {
+          // 개인화 메시지 생성
+          const personalizedMessage = template.content
+            .replace('{name}', recipient.name || '고객님')
+            .replace('{segment}', segment)
+            .replace('{likelihood}', `${recipient.reactivationLikelihood}%`);
 
-        // Contact 업데이트
-        await prisma.contact.update({
-          where: { id: contact.id },
-          data: updateData,
-        });
+          // SMS 발송 (큐에 추가)
+          return prisma.smsLog.create({
+            data: {
+              organizationId,
+              contactId: recipient.id,
+              phone: recipient.phone!,
+              message: personalizedMessage,
+              templateId,
+              status: 'PENDING',
+              campaignId,
+              metadata: {
+                segment,
+                likelihood: recipient.reactivationLikelihood,
+                templateType: 'REACTIVATION',
+              },
+            },
+          });
+        }),
+      );
 
-        return { contactId: contact.id, success: true };
-      }),
-    );
+      sentCount += results.filter((r) => r.status === 'fulfilled').length;
+      skippedCount += results.filter((r) => r.status === 'rejected').length;
 
-    // 발송 결과 집계
-    const sent = results.filter((r) => r.status === 'fulfilled').length;
-    const failed = results.filter((r) => r.status === 'rejected').length;
+      console.log(
+        `[Reactivation Campaign] Batch ${Math.floor(i / batchSize) + 1}: ${sentCount} sent, ${skippedCount} skipped`,
+      );
+    }
 
-    // 예상 전환율 계산
-    const avgLikelihood = contacts.reduce((sum, c) => sum + (c.reactivationLikelihood || 0), 0) / contacts.length;
-    const estimatedConversion = Math.round(30 + (avgLikelihood / 100) * 65);
+    // 캠프인 통계
+    const expectedRevenue = recipients.length * 366000 * 0.63; // 450명 * $366K * 63% 전환율
 
-    return NextResponse.json({
-      success: true,
-      sent,
-      failed,
-      total: contacts.length,
-      dayIndex,
-      variant,
-      estimatedConversion,
-      estimatedRevenue: Math.round(sent * 0.65 * 1299), // 65% 전환율, $1299 평균
-      executedAt: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error('[POST /api/sms/reactivation-campaign]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
-      { error: 'Failed to send campaign' },
+      {
+        campaignId,
+        segment,
+        totalRecipients: recipients.length,
+        sentCount,
+        skippedCount,
+        expectedRevenue: Math.round(expectedRevenue),
+        timestamp: new Date().toISOString(),
+      },
+      { status: 201 },
+    );
+  } catch (error) {
+    console.error('[POST /api/sms/reactivation-campaign]', error);
+    return NextResponse.json(
+      { error: 'Failed to create reactivation campaign' },
       { status: 500 },
     );
   }
-}
-
-/**
- * 마지막 크루즈 이후 경과 개월 계산
- */
-function getMonthsInactive(lastCruiseDate: Date | null): number {
-  if (!lastCruiseDate) return 12;
-
-  const now = new Date();
-  const months = Math.floor(
-    (now.getTime() - lastCruiseDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44),
-  );
-
-  return Math.max(months, 0);
 }

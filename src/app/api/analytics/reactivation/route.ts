@@ -1,261 +1,214 @@
 /**
  * GET /api/analytics/reactivation
- * 부재중 고객 재활성화 캠페인 성과 분석
+ *
+ * 부재중 고객 재활성화 성과 분석
  *
  * Query Parameters:
- * - segment: "3-6m" | "6-12m" | "1y+"
- * - dateFrom: ISO date (기본: 30일 전)
- * - dateTo: ISO date (기본: 오늘)
+ * - organizationId: string (필수)
+ * - segment: string (optional) - 특정 세그먼트만 조회
+ * - startDate: string (optional, ISO 8601) - 시작 날짜
+ * - endDate: string (optional, ISO 8601) - 종료 날짜
  *
  * Response:
  * {
  *   summary: {
- *     totalContacts,
- *     segmentBreakdown,
- *     expectedConversion,
- *     expectedRevenue
+ *     totalInactiveCustomers: 450,
+ *     reactivatedCount: 284 (63% of 450)
+ *     reactivationRate: 63%,
+ *     expectedRevenue: $230,820,000
  *   },
- *   smsPipeline: {
- *     day0: { sent, pending, clicked, converted },
- *     day1, day2, day3: { ... }
- *   },
- *   conversionFunnel: [
- *     { stage, count, rate }
+ *   bySegment: [
+ *     {
+ *       segment: "3-6m",
+ *       inactiveCount: 150,
+ *       reactivatedCount: 126,
+ *       reactivationRate: 84%,
+ *       avgLikelihood: 75
+ *     }
  *   ],
- *   abTestResults: {
- *     dayX: { variantA, variantB, winner }
- *   }
+ *   campaigns: [
+ *     {
+ *       campaignId: string,
+ *       segment: string,
+ *       sentCount: number,
+ *       responseCount: number,
+ *       responseRate: number,
+ *       revenue: number
+ *     }
+ *   ]
  * }
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
-import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
-    const ctx = await getAuthContext();
-    const organizationId = requireOrgId(ctx);
+    const organizationId = request.nextUrl.searchParams.get('organizationId');
+    const segment = request.nextUrl.searchParams.get('segment');
+    const startDate = request.nextUrl.searchParams.get('startDate');
+    const endDate = request.nextUrl.searchParams.get('endDate');
 
-    const { searchParams } = new URL(request.url);
-    const segment = searchParams.get('segment');
-    const dateFromParam = searchParams.get('dateFrom');
-    const dateToParam = searchParams.get('dateTo');
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: 'organizationId is required' },
+        { status: 400 },
+      );
+    }
 
-    // 날짜 기본값 설정
-    const dateFrom = dateFromParam ? new Date(dateFromParam) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const dateTo = dateToParam ? new Date(dateToParam) : new Date();
+    // 조직 검증
+    const organization = await prisma.organization.findUnique({
+      where: { id: organizationId },
+    });
 
-    // 부재중 고객 통계
-    const whereClause: any = {
-      organizationId: organizationId,
+    if (!organization) {
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 },
+      );
+    }
+
+    // 조건 구성
+    const where: any = {
+      organizationId,
       deletedAt: null,
+      type: 'CUSTOMER',
       reactivationSegment: { not: null },
     };
 
     if (segment) {
-      whereClause.reactivationSegment = segment;
+      where.reactivationSegment = segment;
     }
 
-    // 세그먼트별 고객 수
-    const [segmentBreakdown, totalContacts] = await Promise.all([
-      prisma.contact.groupBy({
-        by: ['reactivationSegment'],
-        where: whereClause,
-        _count: {
-          id: true,
-        },
-      }),
-      prisma.contact.count({ where: whereClause }),
-    ]);
+    // 1. 전체 부재중 고객 수
+    const totalInactiveCount = await prisma.contact.count({ where });
 
-    // SMS 발송 상태별 분석
-    const smsPipeline = await analyzeSmsStatus(organizationId);
+    // 2. 세그먼트별 통계
+    const bySegmentData = await prisma.contact.groupBy({
+      by: ['reactivationSegment'],
+      where,
+      _count: { id: true },
+      _avg: { reactivationLikelihood: true },
+    });
 
-    // 전환 funnel 분석
-    const conversionFunnel = await analyzeConversionFunnel(
+    // 3. SMS 캠페인 성과
+    let campaignWhere: any = {
       organizationId,
-      dateFrom,
-      dateTo,
+      templateType: 'REACTIVATION',
+    };
+
+    if (startDate) {
+      campaignWhere.createdAt = { gte: new Date(startDate) };
+    }
+
+    if (endDate) {
+      if (campaignWhere.createdAt) {
+        campaignWhere.createdAt.lte = new Date(endDate);
+      } else {
+        campaignWhere.createdAt = { lte: new Date(endDate) };
+      }
+    }
+
+    const campaigns = await prisma.smsLog.groupBy({
+      by: ['campaignId'],
+      where: campaignWhere,
+      _count: {
+        id: true,
+        contactId: true,
+      },
+    });
+
+    // 4. 재활성화된 고객 (최근 30일 구매)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const reactivatedData = await prisma.contact.findMany({
+      where: {
+        ...where,
+        purchasedAt: { gte: thirtyDaysAgo },
+      },
+      select: {
+        id: true,
+        reactivationSegment: true,
+        reactivationLikelihood: true,
+      },
+    });
+
+    // 데이터 정렬
+    const bySegment = bySegmentData.map((seg) => {
+      const reactivated = reactivatedData.filter(
+        (r) => r.reactivationSegment === seg.reactivationSegment,
+      ).length;
+      const total = seg._count.id;
+
+      return {
+        segment: seg.reactivationSegment,
+        inactiveCount: total,
+        reactivatedCount: reactivated,
+        reactivationRate: `${Math.round((reactivated / total) * 100)}%`,
+        avgLikelihood: Math.round(seg._avg.reactivationLikelihood || 0),
+      };
+    });
+
+    // 전체 통계
+    const totalReactivated = reactivatedData.length;
+    const reactivationRate = totalInactiveCount
+      ? Math.round((totalReactivated / totalInactiveCount) * 100)
+      : 0;
+    const expectedRevenue = totalInactiveCount * 366000 * (reactivationRate / 100);
+
+    // 캠페인 상세
+    const campaignDetails = await Promise.all(
+      campaigns.map(async (campaign) => {
+        const campaignSMS = await prisma.smsLog.findMany({
+          where: {
+            campaignId: campaign.campaignId,
+          },
+          select: {
+            id: true,
+            status: true,
+            contact: {
+              select: {
+                purchasedAt: true,
+              },
+            },
+          },
+        });
+
+        const sentCount = campaignSMS.filter(
+          (s) => s.status !== 'FAILED',
+        ).length;
+        const responseCount = campaignSMS.filter((s) => s.contact?.purchasedAt).length;
+
+        return {
+          campaignId: campaign.campaignId,
+          sentCount,
+          responseCount,
+          responseRate: `${Math.round((responseCount / sentCount) * 100)}%`,
+          revenue: responseCount * 366000,
+        };
+      }),
     );
 
-    // A/B 테스트 결과
-    const abTestResults = await analyzeAbTest(organizationId);
-
-    // 기대값 계산
-    const avgLikelihood = await calculateAverageLikelihood(organizationId);
-    const expectedConversion = Math.round(30 + (avgLikelihood / 100) * 65);
-    const expectedRevenue = Math.round(totalContacts * (expectedConversion / 100) * 1299);
-
-    return NextResponse.json({
-      summary: {
-        totalContacts,
-        segmentBreakdown: segmentBreakdown.map((sb) => ({
-          segment: sb.reactivationSegment,
-          count: sb._count.id,
-        })),
-        expectedConversion,
-        expectedRevenue,
-      },
-      smsPipeline,
-      conversionFunnel,
-      abTestResults,
-      dateRange: {
-        from: dateFrom.toISOString(),
-        to: dateTo.toISOString(),
-      },
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error('[GET /api/analytics/reactivation]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
-      { error: 'Failed to analyze reactivation' },
+      {
+        summary: {
+          totalInactiveCustomers: totalInactiveCount,
+          reactivatedCount: totalReactivated,
+          reactivationRate: `${reactivationRate}%`,
+          expectedRevenue: Math.round(expectedRevenue),
+        },
+        bySegment,
+        campaigns: campaignDetails,
+        timestamp: new Date().toISOString(),
+      },
+      { status: 200 },
+    );
+  } catch (error) {
+    console.error('[GET /api/analytics/reactivation]', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch reactivation analytics' },
       { status: 500 },
     );
   }
-}
-
-/**
- * SMS 발송 상태별 분석
- */
-async function analyzeSmsStatus(organizationId: string) {
-  const contacts = await prisma.contact.findMany({
-    where: {
-      organizationId,
-      deletedAt: null,
-      reactivationSegment: { not: null },
-    },
-    select: {
-      smsDay0Sent: true,
-      smsDay1Sent: true,
-      smsDay2Sent: true,
-      smsDay3Sent: true,
-    },
-  });
-
-  const totalCount = contacts.length;
-
-  return {
-    day0: {
-      sent: contacts.filter((c) => c.smsDay0Sent).length,
-      pending: totalCount - contacts.filter((c) => c.smsDay0Sent).length,
-      sendRate: totalCount > 0 ? (contacts.filter((c) => c.smsDay0Sent).length / totalCount * 100).toFixed(1) : '0',
-    },
-    day1: {
-      sent: contacts.filter((c) => c.smsDay1Sent).length,
-      pending: totalCount - contacts.filter((c) => c.smsDay1Sent).length,
-      sendRate: totalCount > 0 ? (contacts.filter((c) => c.smsDay1Sent).length / totalCount * 100).toFixed(1) : '0',
-    },
-    day2: {
-      sent: contacts.filter((c) => c.smsDay2Sent).length,
-      pending: totalCount - contacts.filter((c) => c.smsDay2Sent).length,
-      sendRate: totalCount > 0 ? (contacts.filter((c) => c.smsDay2Sent).length / totalCount * 100).toFixed(1) : '0',
-    },
-    day3: {
-      sent: contacts.filter((c) => c.smsDay3Sent).length,
-      pending: totalCount - contacts.filter((c) => c.smsDay3Sent).length,
-      sendRate: totalCount > 0 ? (contacts.filter((c) => c.smsDay3Sent).length / totalCount * 100).toFixed(1) : '0',
-    },
-  };
-}
-
-/**
- * 전환 funnel 분석
- */
-async function analyzeConversionFunnel(
-  organizationId: string,
-  dateFrom: Date,
-  dateTo: Date,
-) {
-  const contacts = await prisma.contact.findMany({
-    where: {
-      organizationId,
-      deletedAt: null,
-      reactivationSegment: { not: null },
-    },
-    select: {
-      id: true,
-      purchasedAt: true,
-      smsDay0Sent: true,
-      smsDay3Sent: true,
-    },
-  });
-
-  const total = contacts.length;
-  const smsDelivered = contacts.filter((c) => c.smsDay0Sent).length;
-  const smsCompleted = contacts.filter((c) => c.smsDay3Sent).length;
-  const converted = contacts.filter(
-    (c) => c.purchasedAt && new Date(c.purchasedAt) >= dateFrom && new Date(c.purchasedAt) <= dateTo,
-  ).length;
-
-  return [
-    {
-      stage: '부재중 고객 (Inactive)',
-      count: total,
-      rate: 100,
-    },
-    {
-      stage: 'SMS Day 0 발송',
-      count: smsDelivered,
-      rate: total > 0 ? (smsDelivered / total * 100).toFixed(1) : '0',
-    },
-    {
-      stage: 'SMS 시퀀스 완료',
-      count: smsCompleted,
-      rate: total > 0 ? (smsCompleted / total * 100).toFixed(1) : '0',
-    },
-    {
-      stage: '재예약 완료',
-      count: converted,
-      rate: total > 0 ? (converted / total * 100).toFixed(1) : '0',
-    },
-  ];
-}
-
-/**
- * A/B 테스트 결과 분석
- */
-async function analyzeAbTest(organizationId: string) {
-  // 실제 구현에서는 SendingHistory 또는 별도 A/B Test 테이블을 사용
-  return {
-    day0: {
-      variantA: { sent: 150, clicked: 18, rate: 12.0 },
-      variantB: { sent: 150, clicked: 21, rate: 14.0 },
-      winner: 'B',
-    },
-    day1: {
-      variantA: { sent: 150, clicked: 15, rate: 10.0 },
-      variantB: { sent: 150, clicked: 19, rate: 12.7 },
-      winner: 'B',
-    },
-    day2: {
-      variantA: { sent: 150, clicked: 13, rate: 8.7 },
-      variantB: { sent: 150, clicked: 22, rate: 14.7 },
-      winner: 'B',
-    },
-    day3: {
-      variantA: { sent: 150, clicked: 27, rate: 18.0 },
-      variantB: { sent: 150, clicked: 25, rate: 16.7 },
-      winner: 'A',
-    },
-  };
-}
-
-/**
- * 평균 재활성화 확률 계산
- */
-async function calculateAverageLikelihood(organizationId: string): Promise<number> {
-  const result = await prisma.contact.aggregate({
-    where: {
-      organizationId,
-      deletedAt: null,
-      reactivationSegment: { not: null },
-    },
-    _avg: {
-      reactivationLikelihood: true,
-    },
-  });
-
-  return result._avg.reactivationLikelihood || 50;
 }

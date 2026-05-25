@@ -241,6 +241,31 @@ model Contact {
   lastDifferentiationResponseAt DateTime?
   comparisonDocumentId       String?
   differentiationSequenceStartedAt DateTime?
+  // L7 Lens: 동반자 설득 (Menu #50)
+  familyComposition          String?                    @db.VarChar(20) // "spouse", "parents", "friends", "mixed", "single"
+  decisionMaker              String?                    @db.VarChar(20) // "self", "spouse", "parent", "friend"
+  familyInfluenceScore       Int                        @default(0) // 0-100: 가족 영향력
+  companionPersuasionStage   String?                    @default("inquiry") @db.VarChar(50) // inquiry, interested, hesitant, agreed, booked
+  spouseName                 String?                    @db.VarChar(50)
+  spousePhone                String?                    @db.VarChar(20)
+  spouseEngagement           String?                    @db.VarChar(20) // "not_contacted", "aware", "interested", "convinced"
+  parentName                 String?                    @db.VarChar(50)
+  parentPhone                String?                    @db.VarChar(20)
+  parentEngagement           String?                    @db.VarChar(20)
+  friendName                 String?                    @db.VarChar(50)
+  friendPhone                String?                    @db.VarChar(20)
+  friendEngagement           String?                    @db.VarChar(20)
+  familyObjections           String[]                   @default([]) // 가족의 주요 이의사항
+  companionSmsDay0Sent       Boolean                    @default(false)
+  companionSmsDay0SentAt     DateTime?
+  companionSmsDay1Sent       Boolean                    @default(false)
+  companionSmsDay1SentAt     DateTime?
+  companionSmsDay2Sent       Boolean                    @default(false)
+  companionSmsDay2SentAt     DateTime?
+  companionSmsDay3Sent       Boolean                    @default(false)
+  companionSmsDay3SentAt     DateTime?
+  familyAssessmentCompletedAt DateTime?
+  companionPersuasionStartedAt DateTime?
   // L8 Lens: 재방문 습관화 (Menu #51)
   cruiseClubTier             String?                    @db.VarChar(20) // "bronze", "silver", "gold", "platinum"
   ltvTotal                   Float                      @default(0) // 생명주기 가치 ($)
@@ -298,6 +323,13 @@ model Contact {
   @@index([organizationId, ltvTotal], map: "idx_contact_ltv_total")
   @@index([organizationId, lastCruiseEndDate], map: "idx_contact_last_cruise_end_date")
   @@index([organizationId, cruiseCount], map: "idx_contact_cruise_count")
+  // L7 Lens indexes
+  @@index([organizationId, familyComposition], map: "idx_contact_family_composition")
+  @@index([organizationId, decisionMaker], map: "idx_contact_decision_maker")
+  @@index([organizationId, familyInfluenceScore], map: "idx_contact_family_influence")
+  @@index([organizationId, companionPersuasionStage], map: "idx_contact_companion_stage")
+  @@index([organizationId, spouseEngagement], map: "idx_contact_spouse_engagement")
+  @@index([organizationId, companionSmsDay0Sent, companionSmsDay1Sent, companionSmsDay2Sent, companionSmsDay3Sent], map: "idx_contact_companion_sms_status")
 }
 
 model ContactLensClassification {

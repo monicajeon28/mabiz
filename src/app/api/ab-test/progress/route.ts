@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMabizSession } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 export interface ABTestWeeklyProgress {
   week: number;
@@ -182,7 +183,7 @@ export async function GET(request: NextRequest) {
       weeklyProgress: filteredProgress,
     });
   } catch (error) {
-    console.error("Failed to fetch A/B test progress:", error);
+    logger.error("[GET /api/ab-test/progress]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: "Failed to fetch progress" },
       { status: 500 }

@@ -544,10 +544,23 @@ function EmailTab() {
   const loadImages = useCallback(() => {
     setShowImages(true);
     if (imagesLoaded) return;
-    fetch("/api/image-library").then(r => r.json()).then(d => {
-      if (d.ok) setImages(d.images ?? []);
-      setImagesLoaded(true);
-    });
+
+    // AbortController로 fetch 취소 관리
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
+
+    fetch("/api/image-library", { signal: controller.signal })
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) setImages(d.images ?? []);
+        setImagesLoaded(true);
+      })
+      .catch((err) => {
+        if (!(err instanceof Error && err.name === 'AbortError')) {
+          console.debug('이미지 라이브러리 로드 실패:', err);
+        }
+      })
+      .finally(() => clearTimeout(timeoutId));
   }, [imagesLoaded]);
 
   const insertImage = (url: string) => {
@@ -559,9 +572,15 @@ function EmailTab() {
   // useCallback: 발신자 이름 저장 메모이제이션
   const saveSenderName = useCallback(async () => {
     setSavingName(true);
+
+    // AbortController로 fetch 취소 관리
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
+
     try {
       const res = await fetch("/api/settings/email-sender", {
         method: "PATCH",
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
           ...(csrfToken && { "X-CSRF-Token": csrfToken }),
@@ -571,7 +590,16 @@ function EmailTab() {
       const d = await res.json() as { ok: boolean };
       if (d.ok) showSuccess("발신자 이름 저장됨");
       else showError("저장 실패");
-    } finally { setSavingName(false); }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        showError("요청 시간 초과 - 다시 시도해주세요");
+      } else {
+        showError("저장 실패");
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      setSavingName(false);
+    }
   }, [senderName, csrfToken]);
 
   // useCallback: 이메일 발송 메모이제이션
