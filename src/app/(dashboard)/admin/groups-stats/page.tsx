@@ -27,26 +27,46 @@ export default function GroupsStatsPage() {
   const [orgFilter, setOrgFilter] = useState("");
   const [orgs,     setOrgs]     = useState<{ id: string; name: string }[]>([]);
 
-  const load = async (orgId?: string) => {
-    setLoading(true);
-    const params = new URLSearchParams({ limit: "200" });
-    if (orgId) params.set("orgId", orgId);
-    const [res, orgRes] = await Promise.all([
-      fetch(`/api/admin/groups-stats?${params}`).then(r => r.json()),
-      orgs.length === 0 ? fetch("/api/admin/organizations?limit=100").then(r => r.json()) : Promise.resolve(null),
-    ]);
-    if (res.ok) {
-      setGroups(res.groups ?? []);
-      setTopNames(res.topGroupNames ?? []);
-      setTotal(res.total ?? 0);
+  const load = async (orgId?: string, signal?: AbortSignal) => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({ limit: "200" });
+      if (orgId) params.set("orgId", orgId);
+      const [res, orgRes] = await Promise.all([
+        fetch(`/api/admin/groups-stats?${params}`, { signal }).then(r => r.json()),
+        orgs.length === 0 ? fetch("/api/admin/organizations?limit=100", { signal }).then(r => r.json()) : Promise.resolve(null),
+      ]);
+      if (res.ok) {
+        setGroups(res.groups ?? []);
+        setTopNames(res.topGroupNames ?? []);
+        setTotal(res.total ?? 0);
+      }
+      if (orgRes?.ok && orgRes.organizations) {
+        setOrgs(orgRes.organizations.map((o: { id: string; name: string }) => ({ id: o.id, name: o.name })));
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return; // 요청 중단, 에러 무시
+      }
+      console.error('Failed to load groups stats:', err);
+    } finally {
+      setLoading(false);
     }
-    if (orgRes?.ok && orgRes.organizations) {
-      setOrgs(orgRes.organizations.map((o: { id: string; name: string }) => ({ id: o.id, name: o.name })));
-    }
-    setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const controller = new AbortController();
+    let isMounted = true;
+
+    if (isMounted) {
+      load(undefined, controller.signal);
+    }
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, []);
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
