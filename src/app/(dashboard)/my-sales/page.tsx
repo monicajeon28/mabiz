@@ -52,12 +52,18 @@ export default function MySalesPage() {
   const [payslipLoading, setPayslipLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    let isMounted = true;
+
     // ✅ Promise.allSettled: 각 API의 성공/실패를 독립적으로 처리
     Promise.allSettled([
-      fetch("/api/my/sales").then((r) => r.json()),
-      fetch("/api/my/affiliate").then((r) => r.json()),
-      fetch("/api/my/payslip-summary").then((r) => r.json()),
+      fetch("/api/my/sales", { signal: controller.signal }).then((r) => r.json()),
+      fetch("/api/my/affiliate", { signal: controller.signal }).then((r) => r.json()),
+      fetch("/api/my/payslip-summary", { signal: controller.signal }).then((r) => r.json()),
     ]).then(([salesResult, affiliateResult, payslipResult]) => {
+      if (!isMounted) return;
+
       // 각각 독립적으로 처리
       if (salesResult.status === 'fulfilled' && salesResult.value.ok) {
         setSales(salesResult.value.sales ?? []);
@@ -82,13 +88,20 @@ export default function MySalesPage() {
       setLoading(false);
       setPayslipLoading(false);
     });
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   const copyLink = () => {
     if (!link) return;
     navigator.clipboard.writeText(link);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    const timeoutId = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timeoutId);
   };
 
   // ✅ 요약 집계 (안전한 null 처리)
@@ -126,6 +139,7 @@ export default function MySalesPage() {
             <button
               onClick={copyLink}
               className="flex items-center gap-1.5 px-3 py-2 bg-navy-900 text-white rounded-lg text-sm font-medium hover:bg-navy-700 shrink-0"
+              aria-label={copied ? "링크 복사됨" : "어필리에이트 링크 복사"}
             >
               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               {copied ? "복사됨" : "복사"}
