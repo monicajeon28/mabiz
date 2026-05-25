@@ -16,7 +16,11 @@
     "test:e2e": "cypress run",
     "test:e2e:groups": "cypress run --spec 'cypress/e2e/group-management.cy.ts'",
     "test:e2e:groups:3x": "node scripts/run-e2e-3x.js",
-    "test:all": "npm test && npm run test:e2e"
+    "test:all": "npm test && npm run test:e2e",
+    "script:restore-from-backup": "npx ts-node scripts/restore-from-google-drive.ts && npx ts-node scripts/validate-data-integrity.ts && npx ts-node scripts/insert-restored-data.ts",
+    "script:validate-backup": "npx ts-node scripts/validate-data-integrity.ts",
+    "script:convert-excel": "npx ts-node scripts/restore-from-google-drive.ts",
+    "script:insert-data": "npx ts-node scripts/insert-restored-data.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.98.0",
