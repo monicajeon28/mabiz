@@ -51,53 +51,92 @@ export default function FunnelsPage() {
   const [showStats, setShowStats] = useState(false);
 
   useEffect(() => {
-    fetch("/api/funnels")
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    fetch("/api/funnels", { signal: controller.signal })
       .then((r) => r.json())
-      .then((d) => { if (d.ok) setFunnels(d.funnels); })
-      .finally(() => setLoading(false));
+      .then((d) => { if (d.ok) setFunnels(d.funnels ?? []); })
+      .catch((err) => {
+        if (err.name !== "AbortError") {
+          console.error("[funnels load failed]", err);
+        }
+      })
+      .finally(() => { clearTimeout(timeout); setLoading(false); });
+    return () => { controller.abort(); clearTimeout(timeout); };
   }, []);
 
   const createBlankFunnel = async () => {
     setCreating(true);
-    const res = await fetch("/api/funnels", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "새 퍼널",
-        description: "처음부터 시작하는 커스텀 퍼널입니다. 스테이지를 추가하고 메시지를 작성하세요.",
-        stages: [],
-      }),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      setFunnels((prev) => [data.funnel, ...prev]);
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch("/api/funnels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "새 퍼널",
+          description: "처음부터 시작하는 커스텀 퍼널입니다. 스테이지를 추가하고 메시지를 작성하세요.",
+          stages: [],
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      const data = await res.json();
+      if (data.ok) {
+        setFunnels((prev) => [data.funnel, ...prev]);
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name !== "AbortError") {
+        console.error("[createBlankFunnel failed]", err);
+      }
+    } finally {
+      setCreating(false);
     }
-    setCreating(false);
   };
 
   const createVipCareFunnel = async () => {
     setCreating(true);
-    const res = await fetch("/api/funnels", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "VIP 케어 타임라인 (기본)",
-        description: "결제 완료 고객 전용 — D-150 ~ D+2 자동 케어",
-        stages: VIP_CARE_STAGES.map((s, i) => ({ ...s, order: i })),
-      }),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      setFunnels((prev) => [data.funnel, ...prev]);
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch("/api/funnels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "VIP 케어 타임라인 (기본)",
+          description: "결제 완료 고객 전용 — D-150 ~ D+2 자동 케어",
+          stages: VIP_CARE_STAGES.map((s, i) => ({ ...s, order: i })),
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      const data = await res.json();
+      if (data.ok) {
+        setFunnels((prev) => [data.funnel, ...prev]);
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name !== "AbortError") {
+        console.error("[createVipCareFunnel failed]", err);
+      }
+    } finally {
+      setCreating(false);
     }
-    setCreating(false);
   };
 
   const loadStats = async () => {
     if (stats) { setShowStats(!showStats); return; }
-    const res = await fetch("/api/funnels/stats");
-    const data = await res.json();
-    if (data.ok) { setStats(data); setShowStats(true); }
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch("/api/funnels/stats", { signal: controller.signal });
+      clearTimeout(timeout);
+      const data = await res.json();
+      if (data.ok) { setStats(data); setShowStats(true); }
+    } catch (err) {
+      if (err instanceof Error && err.name !== "AbortError") {
+        console.error("[loadStats failed]", err);
+      }
+    }
   };
 
   const triggerLabel = (s: FunnelStage) => {

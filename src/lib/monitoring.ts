@@ -6,7 +6,9 @@
  * Integrates with Sentry/Datadog for production monitoring
  */
 
-import { performance } from 'perf_hooks';
+// ✅ 전역 performance API 사용 (Node.js 18+, Edge Runtime 모두 호환)
+// ❌ perf_hooks는 Node.js 전용 모듈이므로 import 사용 금지
+import { logger } from '@/lib/logger';
 
 /**
  * Performance metric types
@@ -121,9 +123,9 @@ export function recordMiddlewarePerformance(
 
   collector.add(metric);
 
-  // Log slow middleware to console
+  // Log slow middleware via logger
   if (isSlow) {
-    console.warn(
+    logger.warn(
       `[SLOW_MIDDLEWARE] ${name}: ${duration}ms (threshold: ${threshold}ms)`,
       tags
     );
@@ -181,16 +183,13 @@ export function recordQueryPerformance(
 
   collector.add(metric);
 
-  // Log slow queries to console
+  // Log slow queries via logger
   if (isSlow) {
     const queryPreview = query.substring(0, 100).replace(/\n/g, ' ');
-    console.warn(
-      `[SLOW_QUERY] ${duration}ms (threshold: ${threshold}ms): ${queryPreview}${query.length > 100 ? '...' : ''}`
+    logger.warn(
+      `[SLOW_QUERY] ${duration}ms (threshold: ${threshold}ms): ${queryPreview}${query.length > 100 ? '...' : ''}`,
+      rowsAffected ? { rowsAffected } : undefined
     );
-
-    if (rowsAffected) {
-      console.warn(`  Rows affected: ${rowsAffected}`);
-    }
 
     // In production, send to Sentry:
     // Sentry.captureMessage(
@@ -244,13 +243,15 @@ export async function measureAsync<T>(
     collector.add(metric);
 
     if (duration > 500) {
-      console.warn(`[SLOW_OPERATION] ${name}: ${duration}ms`, tags);
+      logger.warn(`[SLOW_OPERATION] ${name}: ${duration}ms`, tags);
     }
 
     return result;
   } catch (error) {
     const duration = Math.round(performance.now() - startTime);
-    console.error(`[OPERATION_ERROR] ${name}: ${duration}ms`, error);
+    logger.error(`[OPERATION_ERROR] ${name}: ${duration}ms`, {
+      error: error instanceof Error ? error.message : String(error),
+    });
     throw error;
   }
 }
@@ -287,13 +288,15 @@ export function measureSync<T>(
       collector.add(metric);
 
       if (duration > 100) {
-        console.warn(`[SLOW_SYNC_OP] ${name}: ${duration}ms`, tags);
+        logger.warn(`[SLOW_SYNC_OP] ${name}: ${duration}ms`, tags);
       }
     }
 
     return result;
   } catch (error) {
-    console.error(`[SYNC_OP_ERROR] ${name}`, error);
+    logger.error(`[SYNC_OP_ERROR] ${name}`, {
+      error: error instanceof Error ? error.message : String(error),
+    });
     throw error;
   }
 }

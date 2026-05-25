@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   ArrowLeft, Plus, Trash2, Save, Eye, EyeOff,
@@ -163,7 +163,7 @@ export default function FunnelEditPage() {
   const totalCount     = stages.length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen bg-gray-50 ${showEnroll ? 'overflow-hidden' : ''}`}>
       {/* 헤더 */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
         <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-700">
@@ -372,24 +372,29 @@ export default function FunnelEditPage() {
                       </button>
                     </div>
 
-                    {isPreview ? (
-                      /* 미리보기 */
+                    {isPreview ? (() => {
+                      const previewText = useMemo(() =>
+                        (stage.messageContent || "(메시지 없음)")
+                          .replace(/\[고객명\]/g, "김민준")
+                          .replace(/\[이름\]/g,   "김민준")
+                          .replace(/\[출발일\]/g, "2025.09.15")
+                          .replace(/\[링크\]/g,   "https://cruisedot.co.kr"),
+                        [stage.messageContent]
+                      );
+                      return (
                       <div className="bg-green-50 border border-green-200 rounded-xl p-4">
                         <p className="text-xs text-green-600 font-medium mb-2">{channelInfo(stage.channel).icon} {channelInfo(stage.channel).label} 미리보기 (예시 고객: 김민준)</p>
                         <div className="bg-white rounded-xl p-3 shadow-sm">
                           <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
-                            {(stage.messageContent || "(메시지 없음)")
-                              .replace(/\[고객명\]/g, "김민준")
-                              .replace(/\[이름\]/g,   "김민준")
-                              .replace(/\[출발일\]/g, "2025.09.15")
-                              .replace(/\[링크\]/g,   "https://cruisedot.co.kr")}
+                            {previewText}
                           </p>
                         </div>
                         <p className="text-xs text-gray-400 mt-2 text-right">
                           {stage.messageContent.length}자 (90자 초과 시 장문 요금)
                         </p>
                       </div>
-                    ) : (
+                      );
+                    })() : (
                       /* 편집 */
                       <>
                         {/* 치환변수 칩 */}
@@ -454,9 +459,15 @@ export default function FunnelEditPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            navigator.clipboard.writeText(stage.linkUrl);
-                            setCopiedLink(idx);
-                            setTimeout(() => setCopiedLink(null), 2000);
+                            if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                              navigator.clipboard.writeText(stage.linkUrl).catch(() => {
+                                showError('클립보드 복사 실패');
+                              });
+                              setCopiedLink(idx);
+                              setTimeout(() => setCopiedLink(null), 2000);
+                            } else {
+                              showError('브라우저에서 지원하지 않습니다');
+                            }
                           }}
                           className="px-2 py-2 border border-gray-200 rounded-lg hover:bg-gray-50"
                         >
@@ -540,19 +551,40 @@ function EnrollModal({
     if (!selected) return;
     setEnrolling(true);
     setError('');
-    const res = await fetch(`/api/funnels/${funnelId}/enroll`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contactId: selected.id,
-        startDate: startDate || undefined,
-        sendNow,
-      }),
-    });
-    const d = await res.json() as { ok: boolean; message?: string };
-    if (d.ok) { onDone(); onClose(); }
-    else setError(d.message ?? '등록 실패');
-    setEnrolling(false);
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(`/api/funnels/${funnelId}/enroll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contactId: selected.id,
+          startDate: startDate || undefined,
+          sendNow,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      const d = await res.json() as { ok: boolean; message?: string; alreadyEnrolled?: boolean };
+      if (d.ok) {
+        onDone();
+        onClose();
+      } else {
+        const msg = d.alreadyEnrolled
+          ? '이미 이 퍼널에 등록된 고객입니다. 다시 등록하시겠습니까?'
+          : d.message ?? '등록 실패';
+        setError(msg);
+        showError(msg);
+      }
+    } catch (err) {
+      const msg = err instanceof Error && err.name === 'AbortError'
+        ? '요청 시간 초과'
+        : '등록 중 오류가 발생했습니다';
+      setError(msg);
+      showError(msg);
+    } finally {
+      setEnrolling(false);
+    }
   };
 
   return (
@@ -566,8 +598,9 @@ function EnrollModal({
           {/* 고객 검색 */}
           {!selected ? (
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">고객 검색</label>
+              <label htmlFor="contact-search" className="block text-xs font-medium text-gray-600 mb-1.5">고객 검색</label>
               <input
+                id="contact-search"
                 value={q}
                 onChange={e => search(e.target.value)}
                 placeholder="이름 또는 전화번호"
@@ -594,17 +627,17 @@ function EnrollModal({
 
           {/* 시작일 (선택) */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">
+            <label htmlFor="start-date" className="block text-xs font-medium text-gray-600 mb-1.5">
               시작일 <span className="text-gray-400">(비우면 오늘)</span>
             </label>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+            <input id="start-date" type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
               className="w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           {/* 즉시 발송 토글 */}
           <label className="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" checked={sendNow} onChange={e => setSendNow(e.target.checked)}
+            <input id="send-now" type="checkbox" checked={sendNow} onChange={e => setSendNow(e.target.checked)}
               className="w-4 h-4 rounded accent-blue-600"
             />
             <span className="text-sm text-gray-700">등록 즉시 첫 메시지 발송</span>

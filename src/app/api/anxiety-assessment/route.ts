@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 
 interface AnxietyAssessmentRequest {
   contactId: string;
@@ -49,18 +50,12 @@ interface AnxietyAssessmentResponse {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const ctx = await getAuthContext();
+    const organizationId = requireOrgId(ctx);
 
     const body: AnxietyAssessmentRequest = await request.json();
     const {
       contactId,
-      organizationId,
       hasCruiseExperience,
       visaRequired,
       passportExpiryDays,
@@ -189,6 +184,15 @@ export async function POST(request: NextRequest) {
       smsSequenceTemplate = 'first_timer_guide';
     }
 
+    // 조직 격리 검증: contactId가 현재 조직 소속인지 확인
+    const contactExists = await prisma.contact.findFirst({
+      where: { id: contactId, organizationId },
+      select: { id: true },
+    });
+    if (!contactExists) {
+      return NextResponse.json({ error: 'Contact not found' }, { status: 404 });
+    }
+
     // 데이터베이스 저장
     const contact = await prisma.contact.update({
       where: { id: contactId },
@@ -218,7 +222,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('Anxiety assessment error:', error);
+    logger.error('[POST /api/anxiety-assessment]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -231,13 +235,8 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const ctx = await getAuthContext();
+    const organizationId = requireOrgId(ctx);
 
     const { searchParams } = new URL(request.url);
     const contactId = searchParams.get('contactId');
@@ -249,8 +248,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const contact = await prisma.contact.findUnique({
-      where: { id: contactId },
+    const contact = await prisma.contact.findFirst({
+      where: { id: contactId, organizationId },
       select: {
         id: true,
         name: true,
@@ -277,7 +276,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(contact);
   } catch (error) {
-    console.error('Get anxiety assessment error:', error);
+    logger.error('[GET /api/anxiety-assessment]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

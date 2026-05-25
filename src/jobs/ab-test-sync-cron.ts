@@ -9,6 +9,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 import {
   CounselorProfile,
   generateBlockRandomization,
@@ -117,10 +118,9 @@ async function saveAssignmentsToDatabase(
 ): Promise<void> {
   // 일반적으로 할당은 CallLog의 메타데이터로 저장됨
   // 실제 구현에서는 ABTestAssignment 테이블을 별도로 생성할 수도 있음
-  console.log(`Saving ${schedule.length} assignments for week ${week}...`);
+  logger.log(`[ABTestSync] Saving assignments`, { week, count: schedule.length });
 
   // 예시: 할당 정보를 로그 테이블에 저장
-  const now = new Date();
   const summaryByUser = new Map<
     string,
     { aCount: number; bCount: number; targetCalls: number }
@@ -140,8 +140,7 @@ async function saveAssignmentsToDatabase(
     data.targetCalls += s.callTarget;
   });
 
-  // 로그 저장 (선택사항: 감사 로그 테이블)
-  console.log(`Week ${week} assignment summary:`, Object.fromEntries(summaryByUser));
+  logger.log(`[ABTestSync] Week ${week} assignment summary`, Object.fromEntries(summaryByUser));
 }
 
 /**
@@ -216,11 +215,13 @@ async function syncToMonday(
 
     // 일괄 생성
     const results = await monday.createWeeklyTasks(mondayTasks);
-    console.log(`✅ Created ${results.length} Monday.com tasks for week ${week}`);
+    logger.log(`[ABTestSync] Created Monday.com tasks`, { week, count: results.length });
 
     return results.length;
   } catch (error) {
-    console.error("Failed to sync to Monday.com:", error);
+    logger.error("[ABTestSync] Failed to sync to Monday.com", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return 0;
   }
 }
@@ -247,7 +248,7 @@ export async function runABTestSyncJob(organizationId?: string): Promise<{
       };
     }
 
-    console.log(`\n📊 Starting A/B Test Sync Cron Job - Week ${week}/${12}`);
+    logger.log(`[ABTestSync] Starting A/B Test Sync Cron Job`, { week, totalWeeks: 12 });
 
     // 기본값: 첫 번째 조직 사용 (실제로는 모든 조직 대상)
     let targetOrgIds: string[];
@@ -264,26 +265,27 @@ export async function runABTestSyncJob(organizationId?: string): Promise<{
     let totalTasksCreated = 0;
 
     for (const orgId of targetOrgIds) {
-      console.log(`\n Processing organization: ${orgId}`);
+      logger.log(`[ABTestSync] Processing organization`, { orgId });
 
       // 1. 상담사 데이터 로드
       const counselors = await getOrganizationCounselors(orgId);
       if (counselors.length === 0) {
-        console.warn(`No counselors found for organization ${orgId}`);
+        logger.warn(`[ABTestSync] No counselors found for organization`, { orgId });
         continue;
       }
 
-      console.log(
-        `✓ Loaded ${counselors.length} counselors: ${counselors
-          .map((c) => c.name)
-          .join(", ")}`
-      );
+      logger.log(`[ABTestSync] Loaded counselors`, {
+        count: counselors.length,
+        names: counselors.map((c) => c.name).join(", "),
+      });
 
       // 2. Stratification
       const strata = stratifyByHistoricalPerformance(counselors);
-      console.log(
-        `✓ Stratification: HIGH=${strata[0].counselors.length}, MIDDLE=${strata[1].counselors.length}, LOW=${strata[2].counselors.length}`
-      );
+      logger.log(`[ABTestSync] Stratification complete`, {
+        high: strata[0].counselors.length,
+        middle: strata[1].counselors.length,
+        low: strata[2].counselors.length,
+      });
 
       // 3. Block Randomization
       const assignments = generateBlockRandomization(
@@ -292,16 +294,16 @@ export async function runABTestSyncJob(organizationId?: string): Promise<{
         4, // blockSize
         12 // numWeeks
       );
-      console.log(`✓ Generated block randomization for all counselors`);
+      logger.log(`[ABTestSync] Generated block randomization`);
 
       // 4. Crossover Design
       const withCrossover = applyCrossoverDesign(assignments);
-      console.log(`✓ Applied crossover design`);
+      logger.log(`[ABTestSync] Applied crossover design`);
 
       // 5. Generate Schedule
       const schedule = generateAllocationSchedule(withCrossover, 50); // 주당 50콜
       const weekSchedule = schedule.filter((s) => s.week === week);
-      console.log(`✓ Generated ${weekSchedule.length} allocations for week ${week}`);
+      logger.log(`[ABTestSync] Generated allocations`, { week, count: weekSchedule.length });
 
       // 6. Save to Database
       await saveAssignmentsToDatabase(orgId, week, weekSchedule);
@@ -314,8 +316,8 @@ export async function runABTestSyncJob(organizationId?: string): Promise<{
       await notifySlackAboutSync(week, tasksCreated);
     }
 
-    const message = `✅ A/B Test Sync Complete: Week ${week}, ${totalTasksCreated} tasks created`;
-    console.log(message);
+    const message = `A/B Test Sync Complete: Week ${week}, ${totalTasksCreated} tasks created`;
+    logger.log(`[ABTestSync] ${message}`);
 
     return {
       success: true,
@@ -324,7 +326,9 @@ export async function runABTestSyncJob(organizationId?: string): Promise<{
       message,
     };
   } catch (error) {
-    console.error("❌ A/B Test Sync Cron Job failed:", error);
+    logger.error("[ABTestSync] Cron Job failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return {
       success: false,
       week: 0,
@@ -354,12 +358,13 @@ export async function handleCronRequest() {
 if (require.main === module) {
   runABTestSyncJob()
     .then((result) => {
-      console.log("\n=== Result ===");
-      console.log(JSON.stringify(result, null, 2));
+      logger.log("[ABTestSync] Result", result);
       process.exit(result.success ? 0 : 1);
     })
     .catch((error) => {
-      console.error("Fatal error:", error);
+      logger.error("[ABTestSync] Fatal error", {
+        error: error instanceof Error ? error.message : String(error),
+      });
       process.exit(1);
     });
 }

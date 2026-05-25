@@ -113,11 +113,20 @@ export async function sendSms(params: SendSmsParams): Promise<AligoResponse> {
   });
 
   try {
-    const res  = await fetch("https://apis.aligo.in/send/", {
-      method:  "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body:    formData.toString(),
-    });
+    // ✅ AbortController + 8초 타임아웃 (Vercel 10초 limit 대비)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    let res: Response;
+    try {
+      res = await fetch("https://apis.aligo.in/send/", {
+        method:  "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body:    formData.toString(),
+        signal:  controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     const data = (await res.json()) as AligoResponse;
     logger.log("[Aligo] 발송 결과", {
       code:  data.result_code,
@@ -194,11 +203,20 @@ export async function resolveUserSmsConfig(
 export async function verifySenderNumber(config: AligoConfig): Promise<boolean> {
   try {
     const formData = new URLSearchParams({ key: config.key, user_id: config.userId });
-    const res = await fetch('https://apis.aligo.in/sender/', {
-      method: 'POST',
-      body: formData.toString(),
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    });
+    // ✅ AbortController + 8초 타임아웃 (Vercel 10초 limit 대비)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    let res: Response;
+    try {
+      res = await fetch('https://apis.aligo.in/sender/', {
+        method: 'POST',
+        body: formData.toString(),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     const data = await res.json() as { list?: { flag: string; telnum: string }[] };
     return Array.isArray(data.list) &&
       data.list.some((item) => item.flag === '1' && item.telnum === config.sender);
@@ -287,11 +305,20 @@ export async function sendKakaoAlimtalk(params: SendKakaoParams): Promise<AligoR
   }
 
   try {
-    const res = await fetch("https://kakaoapi.aligo.in/akv10/alimtalk/send/", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: formData.toString(),
-    });
+    // ✅ AbortController + 8초 타임아웃 (Vercel 10초 limit 대비)
+    const kakaoController = new AbortController();
+    const kakaoTimeoutId = setTimeout(() => kakaoController.abort(), 8000);
+    let res: Response;
+    try {
+      res = await fetch("https://kakaoapi.aligo.in/akv10/alimtalk/send/", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData.toString(),
+        signal: kakaoController.signal,
+      });
+    } finally {
+      clearTimeout(kakaoTimeoutId);
+    }
     const data = (await res.json()) as AligoResponse;
 
     logger.log("[Aligo/Kakao] 알림톡 발송 결과", {
