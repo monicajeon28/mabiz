@@ -3,10 +3,13 @@ import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId, canManageSettings } from "@/lib/rbac";
 import { verifySenderNumber } from "@/lib/aligo";
 import { logger } from "@/lib/logger";
+import { decrypt } from "@/lib/crypto";
 
 /**
  * POST /api/settings/sms/verify
  * 조직 발신번호 인증 요청 (Aligo에서 발신번호 검증)
+ * - Aligo API로 등록된 발신번호 확인
+ * - 검증 완료 시 DB에 반영
  */
 export async function POST() {
   try {
@@ -29,9 +32,21 @@ export async function POST() {
       );
     }
 
+    // aligoKey 복호화
+    let aligoKey: string;
+    try {
+      aligoKey = decrypt(smsConfig.aligoKey, "SMS_ENCRYPT_KEY");
+    } catch (err) {
+      logger.error("[POST /api/settings/sms/verify] 복호화 실패", { err });
+      return NextResponse.json(
+        { ok: false, message: "설정이 손상되었습니다. 다시 설정해주세요." },
+        { status: 500 }
+      );
+    }
+
     // Aligo에서 발신번호 검증
     const isValid = await verifySenderNumber({
-      key: smsConfig.aligoKey,
+      key: aligoKey,
       userId: smsConfig.aligoUserId,
       sender: smsConfig.senderPhone,
     });
@@ -46,7 +61,8 @@ export async function POST() {
       return NextResponse.json(
         {
           ok: false,
-          message: "발신번호가 Aligo 콘솔에 등록되지 않았습니다. Aligo 콘솔 → 문자발송 → 발신번호 관리에서 등록 후 ARS 인증을 완료하세요.",
+          message:
+            "발신번호가 Aligo 콘솔에 등록되지 않았습니다. Aligo 콘솔 → 문자발송 → 발신번호 관리에서 등록 후 ARS 인증을 완료하세요.",
         },
         { status: 400 }
       );
@@ -70,16 +86,23 @@ export async function POST() {
     return NextResponse.json({
       ok: true,
       message: "발신번호가 인증되었습니다.",
+      senderPhone: smsConfig.senderPhone,
+      verifiedAt: new Date(),
     });
   } catch (err) {
     logger.error("[POST /api/settings/sms/verify]", { err });
-    return NextResponse.json({ ok: false, message: "인증 중 오류가 발생했습니다." }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, message: "인증 중 오류가 발생했습니다." },
+      { status: 500 }
+    );
   }
 }
 
 /**
  * PUT /api/settings/sms/verify
  * 발신번호 인증 확인 (이미 Aligo에서 인증 완료했을 때 DB 업데이트)
+ * - Aligo 콘솔에서 수동 인증 후 호출
+ * - 재검증해서 최신 상태 반영
  */
 export async function PUT() {
   try {
@@ -102,9 +125,21 @@ export async function PUT() {
       );
     }
 
+    // aligoKey 복호화
+    let aligoKey: string;
+    try {
+      aligoKey = decrypt(smsConfig.aligoKey, "SMS_ENCRYPT_KEY");
+    } catch (err) {
+      logger.error("[PUT /api/settings/sms/verify] 복호화 실패", { err });
+      return NextResponse.json(
+        { ok: false, message: "설정이 손상되었습니다. 다시 설정해주세요." },
+        { status: 500 }
+      );
+    }
+
     // 다시 검증 확인
     const isValid = await verifySenderNumber({
-      key: smsConfig.aligoKey,
+      key: aligoKey,
       userId: smsConfig.aligoUserId,
       sender: smsConfig.senderPhone,
     });
@@ -113,7 +148,8 @@ export async function PUT() {
       return NextResponse.json(
         {
           ok: false,
-          message: "발신번호가 여전히 Aligo에 등록되지 않았거나 인증이 완료되지 않았습니다.",
+          message:
+            "발신번호가 여전히 Aligo에 등록되지 않았거나 인증이 완료되지 않았습니다.",
         },
         { status: 400 }
       );
@@ -124,11 +160,13 @@ export async function PUT() {
       return NextResponse.json({
         ok: true,
         message: "발신번호가 이미 인증되어 있습니다.",
+        senderPhone: smsConfig.senderPhone,
+        verifiedAt: smsConfig.verifiedAt,
       });
     }
 
     // 인증 완료 처리
-    await prisma.orgSmsConfig.update({
+    const updated = await prisma.orgSmsConfig.update({
       where: { organizationId: orgId },
       data: {
         senderVerified: true,
@@ -145,9 +183,14 @@ export async function PUT() {
     return NextResponse.json({
       ok: true,
       message: "발신번호가 인증되었습니다.",
+      senderPhone: updated.senderPhone,
+      verifiedAt: updated.verifiedAt,
     });
   } catch (err) {
     logger.error("[PUT /api/settings/sms/verify]", { err });
-    return NextResponse.json({ ok: false, message: "인증 확인 중 오류가 발생했습니다." }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, message: "인증 확인 중 오류가 발생했습니다." },
+      { status: 500 }
+    );
   }
 }

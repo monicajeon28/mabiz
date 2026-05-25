@@ -13,7 +13,10 @@ export async function POST() {
   try {
     const ctx = await getAuthContext();
     if (!ctx.member?.id) {
-      return NextResponse.json({ ok: false, message: "사용자 정보 없음" }, { status: 401 });
+      return NextResponse.json(
+        { ok: false, message: "사용자 정보 없음" },
+        { status: 401 }
+      );
     }
 
     const orgId = resolveOrgId(ctx);
@@ -38,10 +41,15 @@ export async function POST() {
     try {
       aligoKey = decrypt(config.aligoKeyEncrypted, "SMS_ENCRYPT_KEY");
     } catch (err) {
-      logger.error("[POST /api/settings/sms-config/verify] 복호화 실패", { err });
+      logger.error("[POST /api/settings/sms-config/verify] 복호화 실패", {
+        err,
+      });
       return NextResponse.json(
-        { ok: false, message: "설정이 손상되었습니다. 다시 설정해주세요." },
-        { status: 400 }
+        {
+          ok: false,
+          message: "설정이 손상되었습니다. 다시 설정해주세요.",
+        },
+        { status: 500 }
       );
     }
 
@@ -63,7 +71,8 @@ export async function POST() {
       return NextResponse.json(
         {
           ok: false,
-          message: "발신번호가 Aligo 콘솔에 등록되지 않았습니다. Aligo 콘솔 → 문자발송 → 발신번호 관리에서 등록 후 ARS 인증을 완료하세요.",
+          message:
+            "발신번호가 Aligo 콘솔에 등록되지 않았습니다. Aligo 콘솔 → 문자발송 → 발신번호 관리에서 등록 후 ARS 인증을 완료하세요.",
         },
         { status: 400 }
       );
@@ -90,6 +99,8 @@ export async function POST() {
     return NextResponse.json({
       ok: true,
       message: "발신번호가 인증되었습니다.",
+      senderPhone: config.senderPhone,
+      verifiedAt: new Date(),
     });
   } catch (err) {
     logger.error("[POST /api/settings/sms-config/verify]", { err });

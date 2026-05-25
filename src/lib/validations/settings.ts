@@ -129,3 +129,82 @@ export const getNotificationSettingsQuerySchema = z.object({
 export type GetNotificationSettingsQuery = z.infer<
   typeof getNotificationSettingsQuerySchema
 >;
+
+/**
+ * SMS 설정 저장 검증 (조직 레벨)
+ */
+export const orgSmsSettingsSchema = z.object({
+  aligoKey: z
+    .string()
+    .min(10, "API Key는 최소 10자 이상이어야 합니다")
+    .max(255, "API Key는 255자 이하여야 합니다"),
+  aligoUserId: z
+    .string()
+    .min(2, "User ID는 최소 2자 이상이어야 합니다")
+    .max(100, "User ID는 100자 이하여야 합니다"),
+  senderPhone: z
+    .string()
+    .regex(
+      /^01[0-9]-?\d{3,4}-?\d{4}$/,
+      "발신번호는 유효한 한국 휴대폰 형식이어야 합니다 (예: 010-1234-5678)"
+    ),
+});
+
+export type OrgSmsSettingsInput = z.infer<typeof orgSmsSettingsSchema>;
+
+/**
+ * SMS 테스트 발송 검증
+ */
+export const smsSendTestSchema = z.object({
+  testPhone: z
+    .string()
+    .regex(
+      /^01[0-9]-?\d{3,4}-?\d{4}$/,
+      "수신 전화번호는 유효한 한국 휴대폰 형식이어야 합니다 (예: 010-1234-5678)"
+    ),
+});
+
+export type SmsSendTestInput = z.infer<typeof smsSendTestSchema>;
+
+/**
+ * SMS 재진입 메시지 검증
+ */
+export const smsReEngageMessagesSchema = z.object({
+  reEngageMsg1: z
+    .string()
+    .max(1000, "메시지 1은 1000자 이하여야 합니다")
+    .nullable()
+    .optional(),
+  reEngageMsg2: z
+    .string()
+    .max(1000, "메시지 2는 1000자 이하여야 합니다")
+    .nullable()
+    .optional(),
+});
+
+export type SmsReEngageMessagesInput = z.infer<
+  typeof smsReEngageMessagesSchema
+>;
+
+/**
+ * 개인 SMS 설정 저장 검증 (사용자 레벨)
+ */
+export const userSmsSettingsSchema = z.object({
+  aligoKey: z
+    .string()
+    .min(10, "API Key는 최소 10자 이상이어야 합니다")
+    .max(255, "API Key는 255자 이하여야 합니다")
+    .optional(),
+  aligoUserId: z
+    .string()
+    .min(2, "User ID는 최소 2자 이상이어야 합니다")
+    .max(100, "User ID는 100자 이하여야 합니다"),
+  senderPhone: z
+    .string()
+    .regex(
+      /^01[0-9]-?\d{3,4}-?\d{4}$/,
+      "발신번호는 유효한 한국 휴대폰 형식이어야 합니다 (예: 010-1234-5678)"
+    ),
+});
+
+export type UserSmsSettingsInput = z.infer<typeof userSmsSettingsSchema>;

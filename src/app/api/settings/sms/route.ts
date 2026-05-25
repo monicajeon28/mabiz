@@ -3,10 +3,18 @@ import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId, canManageSettings } from "@/lib/rbac";
 import { sendSms, verifySenderNumber } from "@/lib/aligo";
 import { logger } from "@/lib/logger";
+import { encrypt, decrypt } from "@/lib/crypto";
+import {
+  orgSmsSettingsSchema,
+  smsSendTestSchema,
+  smsReEngageMessagesSchema,
+} from "@/lib/validations/settings";
 
 /**
  * GET /api/settings/sms
  * 조직의 SMS 설정 조회
+ * - aligoKey는 반환하지 않음 (보안)
+ * - 비밀번호 같은 민감 데이터는 제외
  */
 export async function GET() {
   try {
@@ -25,6 +33,7 @@ export async function GET() {
         reEngageMsg1: true,
         reEngageMsg2: true,
         updatedAt: true,
+        // aligoKey는 의도적으로 제외
       },
     });
 
@@ -34,13 +43,18 @@ export async function GET() {
     });
   } catch (err) {
     logger.error("[GET /api/settings/sms]", { err });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, message: "설정 조회 중 오류가 발생했습니다." },
+      { status: 500 }
+    );
   }
 }
 
 /**
  * PUT /api/settings/sms
  * 조직의 SMS 설정 저장 (aligoKey, aligoUserId, senderPhone)
+ * - aligoKey는 암호화하여 저장
+ * - senderPhone 변경 시 검증 상태 초기화
  */
 export async function PUT(req: Request) {
   try {
@@ -50,45 +64,64 @@ export async function PUT(req: Request) {
     }
 
     const orgId = resolveOrgId(ctx);
-    const body = await req.json() as {
-      aligoKey?: string;
-      aligoUserId?: string;
-      senderPhone?: string;
-    };
+    const body = await req.json();
 
-    const { aligoKey, aligoUserId, senderPhone } = body;
-
-    // 유효성 검사
-    if (!aligoKey?.trim() || !aligoUserId?.trim() || !senderPhone?.trim()) {
+    // Zod 검증
+    const parsed = orgSmsSettingsSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { ok: false, message: "API Key, User ID, 발신번호는 필수입니다." },
+        {
+          ok: false,
+          message: "입력값 검증 실패",
+          errors: parsed.error.errors.map((e) => ({
+            field: e.path.join("."),
+            message: e.message,
+          })),
+        },
         { status: 400 }
       );
     }
+
+    const { aligoKey, aligoUserId, senderPhone } = parsed.data;
 
     // 기존 설정 확인
     const existing = await prisma.orgSmsConfig.findUnique({
       where: { organizationId: orgId },
     });
 
+    // aligoKey 암호화
+    let aligoKeyEncrypted: string;
+    try {
+      aligoKeyEncrypted = encrypt(aligoKey.trim(), "SMS_ENCRYPT_KEY");
+    } catch (err) {
+      logger.error("[PUT /api/settings/sms] 암호화 실패", { err });
+      return NextResponse.json(
+        { ok: false, message: "설정 저장 중 오류가 발생했습니다." },
+        { status: 500 }
+      );
+    }
+
+    // 발신번호 변경 여부 확인 (기존과 다르면 검증 초기화)
+    const phoneChanged = existing && existing.senderPhone !== senderPhone.trim();
+
     let config;
     if (existing) {
       config = await prisma.orgSmsConfig.update({
         where: { organizationId: orgId },
         data: {
-          aligoKey: aligoKey.trim(),
+          aligoKey: aligoKeyEncrypted,
           aligoUserId: aligoUserId.trim(),
           senderPhone: senderPhone.trim(),
-          // 설정 변경 시 검증 상태 초기화
-          senderVerified: false,
-          verifiedAt: null,
+          // 발신번호 변경 시만 검증 상태 초기화
+          senderVerified: phoneChanged ? false : existing.senderVerified,
+          verifiedAt: phoneChanged ? null : existing.verifiedAt,
         },
       });
     } else {
       config = await prisma.orgSmsConfig.create({
         data: {
           organizationId: orgId,
-          aligoKey: aligoKey.trim(),
+          aligoKey: aligoKeyEncrypted,
           aligoUserId: aligoUserId.trim(),
           senderPhone: senderPhone.trim(),
           isActive: true,
@@ -100,33 +133,62 @@ export async function PUT(req: Request) {
       orgId,
       aligoUserId: aligoUserId.trim(),
       senderPhone: senderPhone.trim(),
+      action: existing ? "update" : "create",
+      phoneChanged,
     });
 
-    return NextResponse.json({ ok: true, config });
+    // 응답: aligoKey는 반환하지 않음 (보안)
+    return NextResponse.json({
+      ok: true,
+      config: {
+        id: config.id,
+        aligoUserId: config.aligoUserId,
+        senderPhone: config.senderPhone,
+        isActive: config.isActive,
+        senderVerified: config.senderVerified,
+        verifiedAt: config.verifiedAt,
+        updatedAt: config.updatedAt,
+      },
+    });
   } catch (err) {
     logger.error("[PUT /api/settings/sms]", { err });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, message: "설정 저장 중 오류가 발생했습니다." },
+      { status: 500 }
+    );
   }
 }
 
 /**
  * POST /api/settings/sms
  * SMS 테스트 발송 (testPhone으로 발송)
+ * - 발신번호 검증 필수
+ * - 수신번호 형식 검증
  */
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
     const orgId = resolveOrgId(ctx);
 
-    const body = await req.json() as { testPhone?: string };
-    const { testPhone } = body;
+    const body = await req.json();
 
-    if (!testPhone?.trim()) {
+    // Zod 검증
+    const parsed = smsSendTestSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { ok: false, message: "수신 전화번호를 입력하세요." },
+        {
+          ok: false,
+          message: "입력값 검증 실패",
+          errors: parsed.error.errors.map((e) => ({
+            field: e.path.join("."),
+            message: e.message,
+          })),
+        },
         { status: 400 }
       );
     }
+
+    const { testPhone } = parsed.data;
 
     // SMS 설정 확인
     const smsConfig = await prisma.orgSmsConfig.findUnique({
@@ -143,8 +205,23 @@ export async function POST(req: Request) {
     // 발신번호 검증 상태 확인
     if (!smsConfig.senderVerified) {
       return NextResponse.json(
-        { ok: false, message: "발신번호가 인증되지 않았습니다. 먼저 발신번호를 인증해주세요." },
-        { status: 400 }
+        {
+          ok: false,
+          message: "발신번호가 인증되지 않았습니다. 먼저 발신번호를 인증해주세요.",
+        },
+        { status: 403 }
+      );
+    }
+
+    // aligoKey 복호화
+    let aligoKey: string;
+    try {
+      aligoKey = decrypt(smsConfig.aligoKey, "SMS_ENCRYPT_KEY");
+    } catch (err) {
+      logger.error("[POST /api/settings/sms] 복호화 실패", { err });
+      return NextResponse.json(
+        { ok: false, message: "설정이 손상되었습니다. 다시 설정해주세요." },
+        { status: 500 }
       );
     }
 
@@ -152,11 +229,11 @@ export async function POST(req: Request) {
     const testMsg = `[마비즈CRM] 테스트 메시지입니다. 정상 작동 중입니다. ${new Date().toLocaleTimeString("ko-KR")}`;
     const result = await sendSms({
       config: {
-        key: smsConfig.aligoKey,
+        key: aligoKey,
         userId: smsConfig.aligoUserId,
         sender: smsConfig.senderPhone,
       },
-      receiver: testPhone.trim(),
+      receiver: testPhone.replace(/-/g, ""), // 하이픈 제거
       msg: testMsg,
       organizationId: orgId,
       channel: "MANUAL",
@@ -169,11 +246,17 @@ export async function POST(req: Request) {
       orgId,
       testPhone: testPhone.substring(0, 4) + "***",
       resultCode,
+      success: ok,
     });
 
     if (!ok) {
       return NextResponse.json(
-        { ok: false, message: result.message ?? "발송 실패" },
+        {
+          ok: false,
+          message:
+            result.message ||
+            `발송 실패 (코드: ${resultCode})`,
+        },
         { status: 400 }
       );
     }
@@ -184,7 +267,10 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     logger.error("[POST /api/settings/sms - TEST]", { err });
-    return NextResponse.json({ ok: false, message: "발송 중 오류가 발생했습니다." }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, message: "발송 중 오류가 발생했습니다." },
+      { status: 500 }
+    );
   }
 }
 
@@ -200,12 +286,25 @@ export async function PATCH(req: Request) {
     }
 
     const orgId = resolveOrgId(ctx);
-    const body = await req.json() as {
-      reEngageMsg1?: string | null;
-      reEngageMsg2?: string | null;
-    };
+    const body = await req.json();
 
-    const { reEngageMsg1, reEngageMsg2 } = body;
+    // Zod 검증
+    const parsed = smsReEngageMessagesSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "입력값 검증 실패",
+          errors: parsed.error.errors.map((e) => ({
+            field: e.path.join("."),
+            message: e.message,
+          })),
+        },
+        { status: 400 }
+      );
+    }
+
+    const { reEngageMsg1, reEngageMsg2 } = parsed.data;
 
     // SMS 설정 확인
     const smsConfig = await prisma.orgSmsConfig.findUnique({
@@ -234,9 +333,24 @@ export async function PATCH(req: Request) {
       msg2Length: reEngageMsg2?.length ?? 0,
     });
 
-    return NextResponse.json({ ok: true, config: updated });
+    return NextResponse.json({
+      ok: true,
+      config: {
+        id: updated.id,
+        aligoUserId: updated.aligoUserId,
+        senderPhone: updated.senderPhone,
+        isActive: updated.isActive,
+        senderVerified: updated.senderVerified,
+        reEngageMsg1: updated.reEngageMsg1,
+        reEngageMsg2: updated.reEngageMsg2,
+        updatedAt: updated.updatedAt,
+      },
+    });
   } catch (err) {
     logger.error("[PATCH /api/settings/sms]", { err });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, message: "메시지 저장 중 오류가 발생했습니다." },
+      { status: 500 }
+    );
   }
 }

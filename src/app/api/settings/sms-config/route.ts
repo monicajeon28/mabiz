@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { encrypt, decrypt } from "@/lib/crypto";
+import { userSmsSettingsSchema } from "@/lib/validations/settings";
 
 /**
  * GET /api/settings/sms-config
@@ -68,46 +69,63 @@ export async function GET() {
 /**
  * POST /api/settings/sms-config
  * 개인 SMS 설정 저장/업데이트
+ * - API Key는 암호화하여 저장
+ * - 발신번호 변경 시 검증 상태 초기화
  */
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
     if (!ctx.member?.id) {
-      return NextResponse.json({ ok: false, message: "사용자 정보 없음" }, { status: 401 });
+      return NextResponse.json(
+        { ok: false, message: "사용자 정보 없음" },
+        { status: 401 }
+      );
     }
 
     const orgId = resolveOrgId(ctx);
     const userId = ctx.member.id;
 
-    const body = await req.json() as {
-      aligoKey?: string;
-      aligoUserId?: string;
-      senderPhone?: string;
-    };
+    const body = await req.json();
 
-    const { aligoKey, aligoUserId, senderPhone } = body;
-
-    // User ID와 발신번호는 필수
-    if (!aligoUserId?.trim() || !senderPhone?.trim()) {
-      return NextResponse.json(
-        { ok: false, message: "User ID와 발신번호는 필수입니다." },
-        { status: 400 }
-      );
-    }
-
-    // 기존 설정 확인
+    // 기존 설정 확인 (업데이트 판단용)
     const existing = await prisma.userSmsConfig.findUnique({
       where: {
         userId_organizationId: { userId, organizationId: orgId },
       },
     });
 
+    // Zod 검증
+    const parsed = userSmsSettingsSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "입력값 검증 실패",
+          errors: parsed.error.errors.map((e) => ({
+            field: e.path.join("."),
+            message: e.message,
+          })),
+        },
+        { status: 400 }
+      );
+    }
+
+    const { aligoKey, aligoUserId, senderPhone } = parsed.data;
+
     // API Key 처리
-    let aligoKeyEncrypted: string | undefined;
+    let aligoKeyEncrypted: string;
 
     if (aligoKey?.trim()) {
       // 새로운 API Key 제공: 암호화하여 저장
-      aligoKeyEncrypted = encrypt(aligoKey.trim(), "SMS_ENCRYPT_KEY");
+      try {
+        aligoKeyEncrypted = encrypt(aligoKey.trim(), "SMS_ENCRYPT_KEY");
+      } catch (err) {
+        logger.error("[POST /api/settings/sms-config] 암호화 실패", { err });
+        return NextResponse.json(
+          { ok: false, message: "설정 저장 중 오류가 발생했습니다." },
+          { status: 500 }
+        );
+      }
     } else if (existing) {
       // 기존 설정이 있고 API Key 미제공: 기존 값 유지
       aligoKeyEncrypted = existing.aligoKeyEncrypted;
@@ -118,6 +136,9 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    // 발신번호 변경 여부 확인
+    const phoneChanged = existing && existing.senderPhone !== senderPhone.trim();
 
     let config;
     if (existing) {
@@ -130,9 +151,9 @@ export async function POST(req: Request) {
           aligoKeyEncrypted,
           aligoUserId: aligoUserId.trim(),
           senderPhone: senderPhone.trim(),
-          // Key 변경 시 검증 상태 초기화
-          senderVerified: aligoKey ? false : existing.senderVerified,
-          verifiedAt: aligoKey ? null : existing.verifiedAt,
+          // 발신번호 변경 시만 검증 상태 초기화
+          senderVerified: phoneChanged ? false : existing.senderVerified,
+          verifiedAt: phoneChanged ? null : existing.verifiedAt,
           isActive: true,
         },
       });
@@ -176,12 +197,16 @@ export async function POST(req: Request) {
       action: existing ? "update" : "create",
       aligoUserId: aligoUserId.trim(),
       senderPhone: senderPhone.trim(),
+      phoneChanged,
     });
 
     return NextResponse.json({ ok: true, config: responseConfig });
   } catch (err) {
     logger.error("[POST /api/settings/sms-config]", { err });
-    return NextResponse.json({ ok: false, message: "저장 중 오류가 발생했습니다." }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, message: "저장 중 오류가 발생했습니다." },
+      { status: 500 }
+    );
   }
 }
 
