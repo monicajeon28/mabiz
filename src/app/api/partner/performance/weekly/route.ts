@@ -33,6 +33,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 interface WeeklyPerformanceQuery {
   partnerId: string;
@@ -230,7 +231,7 @@ export async function GET(request: NextRequest) {
             : "즉시 담당자와 면담 - 기술 부족 진단",
     });
   } catch (error) {
-    console.error("Error fetching weekly performance:", error);
+    logger.error('[GET /api/partner/performance/weekly]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: "주간 성과 조회 중 오류가 발생했습니다" },
       { status: 500 }

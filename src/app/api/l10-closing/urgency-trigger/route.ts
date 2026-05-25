@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authMiddleware } from '@/lib/auth-middleware';
+import { logger } from '@/lib/logger';
 
 /**
  * L10 렌즈 - 시간 압박 긴박감 트리거
@@ -228,7 +229,7 @@ export async function POST(request: NextRequest) {
       ],
     });
   } catch (error) {
-    console.error('Error in urgency-trigger API:', error);
+    logger.error('[POST /api/l10-closing/urgency-trigger]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

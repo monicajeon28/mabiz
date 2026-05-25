@@ -23,6 +23,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 interface RiskFlagRequest {
   partnerId: string;
@@ -55,9 +56,7 @@ async function sendAlertNotification(
 ) {
   // 실제 구현: 이메일/SMS 발송
   // 여기서는 로그만 출력
-  console.log(
-    `[ALERT] Partner: ${partnerId_name} (${partnerId}) - Risk: ${riskType} (${severity})`
-  );
+  logger.info('[ALERT] Partner risk notification', { partnerName: partnerId_name, partnerId, riskType, severity });
 
   // TODO: Aligo SMS API 통합
   // const sms = await sendPartnerAlert(
@@ -243,7 +242,7 @@ export async function POST(request: NextRequest) {
             : "정상: 모니터링 계속",
     });
   } catch (error) {
-    console.error("Error creating risk flag:", error);
+    logger.error('[POST /api/partner/alert/risk-flag]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: "위험 신호 처리 중 오류가 발생했습니다" },
       { status: 500 }
@@ -303,7 +302,7 @@ export async function GET(request: NextRequest) {
       reviewNotes: riskFlags.reviewNotes,
     });
   } catch (error) {
-    console.error("Error fetching risk flags:", error);
+    logger.error('[GET /api/partner/alert/risk-flag]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: "위험 신호 조회 중 오류가 발생했습니다" },
       { status: 500 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authMiddleware } from '@/lib/auth-middleware';
+import { logger } from '@/lib/logger';
 
 /**
  * L10 렌즈 - KPI 메트릭 (실시간 성과 추적)
@@ -320,7 +321,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error in metrics API:', error);
+    logger.error('[GET /api/l10-closing/metrics]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

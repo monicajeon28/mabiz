@@ -21,6 +21,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 interface CreateOnboardingRequest {
   partnerId: string;
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
       nextStep: "Week 1: 기본 교육 (크루즈 상품, CRM 기초)",
     });
   } catch (error) {
-    console.error("Error creating onboarding:", error);
+    logger.error('[POST /api/partner/onboarding/create]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: "온보딩 생성 중 오류가 발생했습니다" },
       { status: 500 }

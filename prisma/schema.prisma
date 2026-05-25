@@ -286,6 +286,44 @@ model Contact {
   smsDay90ReturnSent         Boolean                    @default(false)
   smsDay90ReturnSentAt       DateTime?
   ltvCalculatedAt            DateTime?
+  // L5 Lens: 자기투영 (Menu #55 - Part 1)
+  selfProjectionScore        Int                        @default(0) // 0-100: 자기투영도
+  selfProjectionType         String?                    @db.VarChar(50) // "personal_health", "family_health", "companion", "adventure"
+  personalHealthCondition    String?                    @db.VarChar(100) // 본인 건강 상태
+  personalHealthConcern      String?                    // 쉼표 구분: 배멀미, 당뇨, 고혈압 등
+  compoundHealthRisk         Boolean                    @default(false) // 배우자 + 본인 health concern
+  spouseHealthCondition      String?                    @db.VarChar(100) // 배우자 건강 상태
+  spouseHealthConcern        String?                    // 배우자 건강 문제
+  familyHealthProfile        Json?                      // {"spouse": {...}, "children": [...]}
+  selfProjectionAssessmentAt DateTime?
+  selfProjectionSequenceStartedAt DateTime?
+
+  // L6 Lens: 타이밍/손실회피 (Menu #55 - Part 2)
+  timingUrgencyScore         Int                        @default(0) // 0-100: 타이밍 긴급도
+  timingType                 String?                    @db.VarChar(30) // "price_deadline", "seat_scarcity", "age_window", "health_window"
+  priceDeadlineDate          DateTime?                  // 가격 마감일
+  seatAvailability           Int?                       // 남은 좌석 수
+  ageRelevanceScore          Int                        @default(0) // 0-100: 연령대별 의료 위험
+  healthWindowStatus         String?                    @db.VarChar(30) // "open", "closing_soon", "closed"
+  lastDecisionWindow         DateTime?                  // 마지막 결정 기회 제시
+  decisionWindowExpiresAt    DateTime?                  // 결정 윈도우 만료
+  lossAversionPhrase         String?                    // "지금 신청하지 않으면..."
+  medicalAuthorityCredential String?                    @db.VarChar(100) // 의료진 자격증명
+  medicalAuthorityName       String?                    @db.VarChar(50)
+  timingUrgencyAssessmentAt  DateTime?
+  timingUrgencySequenceStartedAt DateTime?
+  l5l6CombinedScore          Int                        @default(0) // 0-100: L5+L6 통합 점수
+  l5l6MedicalRiskLevel       String?                    @db.VarChar(20) // "low", "medium", "high", "critical"
+  l5l6SmsDay0Sent            Boolean                    @default(false)
+  l5l6SmsDay0SentAt          DateTime?
+  l5l6SmsDay1Sent            Boolean                    @default(false)
+  l5l6SmsDay1SentAt          DateTime?
+  l5l6SmsDay2Sent            Boolean                    @default(false)
+  l5l6SmsDay2SentAt          DateTime?
+  l5l6SmsDay3Sent            Boolean                    @default(false)
+  l5l6SmsDay3SentAt          DateTime?
+  l5l6ConversionAt           DateTime?
+
   // L10 Lens: 즉시 구매 클로징 극대화 (Menu #56)
   closingStage               String?                    @default("initial") @db.VarChar(30) // "initial", "qualified", "ready_close", "closed"
   emotionalConnectionScore   Int                        @default(0) // 0-100: 감정적 연결도
@@ -348,6 +386,22 @@ model Contact {
   @@index([organizationId, companionPersuasionStage], map: "idx_contact_companion_stage")
   @@index([organizationId, spouseEngagement], map: "idx_contact_spouse_engagement")
   @@index([organizationId, companionSmsDay0Sent, companionSmsDay1Sent, companionSmsDay2Sent, companionSmsDay3Sent], map: "idx_contact_companion_sms_status")
+  // L5 Lens: 자기투영 indexes
+  @@index([organizationId, selfProjectionScore], map: "idx_contact_self_projection_score")
+  @@index([organizationId, selfProjectionType], map: "idx_contact_self_projection_type")
+  @@index([organizationId, compoundHealthRisk], map: "idx_contact_compound_health_risk")
+  @@index([organizationId, selfProjectionSequenceStartedAt], map: "idx_contact_self_projection_sequence")
+
+  // L6 Lens: 타이밍/손실회피 indexes
+  @@index([organizationId, timingUrgencyScore], map: "idx_contact_timing_urgency_score")
+  @@index([organizationId, timingType], map: "idx_contact_timing_type")
+  @@index([organizationId, priceDeadlineDate], map: "idx_contact_price_deadline")
+  @@index([organizationId, decisionWindowExpiresAt], map: "idx_contact_decision_window_expires")
+  @@index([organizationId, l5l6CombinedScore], map: "idx_contact_l5l6_combined_score")
+  @@index([organizationId, l5l6MedicalRiskLevel], map: "idx_contact_l5l6_medical_risk")
+  @@index([organizationId, l5l6SmsDay0Sent, l5l6SmsDay1Sent, l5l6SmsDay2Sent, l5l6SmsDay3Sent], map: "idx_contact_l5l6_sms_status")
+  @@index([organizationId, l5l6ConversionAt], map: "idx_contact_l5l6_conversion")
+
   // L10 Lens indexes
   @@index([organizationId, closingStage], map: "idx_contact_closing_stage")
   @@index([organizationId, emotionalConnectionScore], map: "idx_contact_emotional_connection")
@@ -997,10 +1051,13 @@ model ScheduledSms {
   pausedAt        DateTime?
   pausedBy        String?
   failureReason   String?
+  channel         String       @default("GENERAL") @db.VarChar(50)
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, status, scheduledAt])
   @@index([scheduledAt, status])
+  @@index([channel])
+  @@index([organizationId, channel, status], map: "idx_scheduled_sms_org_channel_status")
   @@map("ScheduledSms")
 }
 

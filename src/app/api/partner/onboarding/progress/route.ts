@@ -31,6 +31,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 interface ProgressUpdateRequest {
   onboardingProgressId: string;
@@ -218,7 +219,7 @@ export async function POST(request: NextRequest) {
       summary: weeklySummary,
     });
   } catch (error) {
-    console.error("Error updating onboarding progress:", error);
+    logger.error('[POST /api/partner/onboarding/progress]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: "진행도 업데이트 중 오류가 발생했습니다" },
       { status: 500 }

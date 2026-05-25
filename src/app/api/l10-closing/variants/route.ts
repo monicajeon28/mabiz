@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/lib/auth-middleware';
+import { logger } from '@/lib/logger';
 import {
   allL10ClosingVariants,
   getVariantById,
@@ -138,7 +139,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error in variants API:', error);
+    logger.error('[GET /api/l10-closing/variants]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -217,7 +218,7 @@ export async function POST(request: NextRequest) {
       ],
     });
   } catch (error) {
-    console.error('Error in apply variant API:', error);
+    logger.error('[POST /api/l10-closing/variants]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
