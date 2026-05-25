@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { verifyAuth } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { getAuthContext, requireOrgId } from "@/lib/rbac";
 
 /**
  * L8 렌즈: 재방문 습관화 SMS 자동화 시퀀스

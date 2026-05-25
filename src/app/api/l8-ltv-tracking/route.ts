@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { verifyAuth } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { getAuthContext, requireOrgId } from "@/lib/rbac";
 
 const CRUISE_BASE_PRICE = 2500; // $2,500 평균 예약가
 
