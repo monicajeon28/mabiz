@@ -43,27 +43,40 @@ export function NotificationBell() {
   const [pushPermission, setPushPermission] = useState<NotificationPermission>('default');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchFeed = async () => {
+  const fetchFeed = async (signal?: AbortSignal) => {
     setLoading(true);
     try {
       const since = localStorage.getItem("mabiz_notification_since") ?? "";
       const url = since
         ? `/api/notifications/feed?since=${encodeURIComponent(since)}`
         : "/api/notifications/feed";
-      const res = await fetch(url);
+      const res = await fetch(url, { signal });
       const d = (await res.json()) as { ok: boolean; items?: FeedItem[] };
       if (d.ok) setItems(d.items ?? []);
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return; // 요청 중단, 에러 무시
+      }
       logger.log("[NotificationBell] fetchFeed 실패", { err });
     } finally {
       setLoading(false);
     }
   };
 
-  // 마운트 시 + 10초마다 폴링 (백그라운드 탭에서는 중단)
+  // 마운트 시 + 30초마다 폴링 (백그라운드 탭에서는 중단)
   // + 서비스 워커 등록 및 푸시 권한 요청
   useEffect(() => {
-    fetchFeed();
+    const controller = new AbortController();
+    let intervalId: NodeJS.Timeout | null = null;
+    let isComponentMounted = true;
+
+    const initFetch = async () => {
+      if (isComponentMounted) {
+        await fetchFeed(controller.signal);
+      }
+    };
+
+    initFetch();
 
     // 서비스 워커 등록 (처음 1회)
     if ('serviceWorker' in navigator) {
@@ -77,23 +90,41 @@ export function NotificationBell() {
       setPushPermission(Notification.permission);
     }
 
-    let interval: ReturnType<typeof setInterval> | null = setInterval(fetchFeed, 30_000);
+    const startInterval = () => {
+      if (!isComponentMounted) return;
+      if (intervalId) clearInterval(intervalId);
+      intervalId = setInterval(() => {
+        if (isComponentMounted && !document.hidden) {
+          fetchFeed(controller.signal);
+        }
+      }, 30_000);
+    };
 
     const handleVisibility = () => {
       if (document.hidden) {
-        if (interval) { clearInterval(interval); interval = null; }
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
       } else {
-        fetchFeed(); // 탭 복귀 시 즉시 갱신
-        interval = setInterval(fetchFeed, 30_000);
+        initFetch(); // 탭 복귀 시 즉시 갱신
+        startInterval();
       }
     };
 
+    startInterval();
     document.addEventListener("visibilitychange", handleVisibility);
+
     return () => {
-      if (interval) clearInterval(interval);
+      isComponentMounted = false;
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
       document.removeEventListener("visibilitychange", handleVisibility);
+      controller.abort();
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // 외부 클릭 시 닫기
   useEffect(() => {
