@@ -73,8 +73,28 @@ export const initGoogleSheetsClient = () => {
   };
 };
 
+/**
+ * Sync APIS data to spreadsheet (Stub)
+ * TODO: Implement full APIS sync logic
+ */
+export const syncApisSpreadsheet = async (tripId: number) => {
+  console.warn('[TODO] syncApisSpreadsheet requires full Google Sheets API implementation');
+  return { ok: false, error: 'Not implemented' };
+};
+
+/**
+ * Sync to master APIS sheet (Stub)
+ * TODO: Implement full master sheet sync logic
+ */
+export const syncToMasterApisSheet = async (userId: number) => {
+  console.warn('[TODO] syncToMasterApisSheet requires full Google Sheets API implementation');
+  return { ok: false, error: 'Not implemented' };
+};
+
 export default {
   GoogleSheetsClient,
   createSheetsClient,
   initGoogleSheetsClient,
+  syncApisSpreadsheet,
+  syncToMasterApisSheet,
 };
