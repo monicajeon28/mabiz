@@ -4,7 +4,14 @@
  *
  * ✅ Web Crypto API 사용 (Edge Runtime 호환)
  * ❌ Node.js 전용 'crypto' 모듈 사용 금지 (Edge Runtime 비호환)
+ *
+ * 저장소:
+ *   1순위: Upstash Redis (분산 환경 CSRF 검증 가능)
+ *   2순위: 메모리 Map 폴백 (Redis 연결 실패 시)
+ *   - 폴백은 단일 인스턴스 내에서만 유효 (서버리스 재시작 시 토큰 유실)
  */
+
+import { csrfSet, csrfGet, csrfDel } from '@/lib/redis';
 
 /**
  * CSRF 토큰 생성 (Web Crypto API — Edge Runtime 호환)
@@ -44,51 +51,66 @@ export function extractCsrfToken(req: Request): string | null {
 }
 
 /**
- * CSRF 토큰 타임아웃 (밀리초)
+ * CSRF 토큰 타임아웃 (초)
  * 기본값: 1시간
  */
-export const CSRF_TOKEN_TIMEOUT = 60 * 60 * 1000; // 1 hour
+export const CSRF_TOKEN_TIMEOUT_SEC = 60 * 60; // 3600초
 
 /**
- * CSRF 토큰 저장소 (메모리 캐시)
- *
- * ⚠️ Vercel 서버리스 한계:
- * - 각 인스턴스가 독립 Map을 가지므로 인스턴스 간 상태 공유 불가
- * - 분산 환경에서 정확한 CSRF 검증은 Redis(Upstash) 또는 DB 기반으로 교체 필요
- * - 현재는 단일 인스턴스 내 burst 방어용으로만 유효
- *
- * TODO: Redis 기반으로 교체 (src/lib/redis.ts의 setCache/getCache 활용)
+ * CSRF 토큰 타임아웃 (밀리초) — 기존 코드 호환
  */
-const tokenStore = new Map<string, { token: string; expires: number }>();
+export const CSRF_TOKEN_TIMEOUT = CSRF_TOKEN_TIMEOUT_SEC * 1000;
+
+// ─── 메모리 폴백 저장소 ─────────────────────────────────────────────────────
+/**
+ * ⚠️ 폴백: Redis 연결 실패 시에만 사용
+ * - 서버리스 재시작 시 토큰 유실 → CSRF 검증 실패 가능
+ * - 분산 환경(Vercel)에서 인스턴스 간 상태 공유 불가
+ */
+const tokenStoreFallback = new Map<string, { token: string; expires: number }>();
+
+// ─── 공개 API ────────────────────────────────────────────────────────────────
 
 /**
- * 세션별 CSRF 토큰 저장
+ * 세션별 CSRF 토큰 저장 (Redis 우선, 실패 시 메모리 폴백)
  */
-export function storeToken(sessionId: string, token: string): void {
-  tokenStore.set(sessionId, {
-    token,
-    expires: Date.now() + CSRF_TOKEN_TIMEOUT,
-  });
+export async function storeToken(sessionId: string, token: string): Promise<void> {
+  const ok = await csrfSet(sessionId, token, CSRF_TOKEN_TIMEOUT_SEC);
+
+  if (!ok) {
+    // 메모리 폴백
+    tokenStoreFallback.set(sessionId, {
+      token,
+      expires: Date.now() + CSRF_TOKEN_TIMEOUT,
+    });
+  }
 }
 
 /**
- * 세션별 CSRF 토큰 조회 및 검증
+ * 세션별 CSRF 토큰 조회 및 검증 (Redis 우선, 실패 시 메모리 폴백)
  */
-export function validateToken(sessionId: string, token: string): boolean {
-  const stored = tokenStore.get(sessionId);
+export async function validateToken(sessionId: string, token: string): Promise<boolean> {
+  // 1순위: Redis
+  const stored = await csrfGet(sessionId);
 
-  if (!stored) return false;
-  if (Date.now() > stored.expires) {
-    tokenStore.delete(sessionId); // 만료된 토큰 삭제
-    return false;
+  if (stored !== null) {
+    return stored === token;
   }
 
-  return stored.token === token;
+  // 2순위: 메모리 폴백
+  const fallback = tokenStoreFallback.get(sessionId);
+  if (!fallback) return false;
+  if (Date.now() > fallback.expires) {
+    tokenStoreFallback.delete(sessionId);
+    return false;
+  }
+  return fallback.token === token;
 }
 
 /**
  * 세션별 CSRF 토큰 삭제 (로그아웃 시)
  */
-export function deleteToken(sessionId: string): void {
-  tokenStore.delete(sessionId);
+export async function deleteToken(sessionId: string): Promise<void> {
+  await csrfDel(sessionId);
+  tokenStoreFallback.delete(sessionId);
 }

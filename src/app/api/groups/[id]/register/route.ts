@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { checkRateLimit } from '@/lib/rate-limit';
+import { checkRateLimitAsync } from '@/lib/rate-limit';
 import { enqueueRecaptchaVerification } from '@/lib/recaptcha-queue';
 
 // POST /api/groups/[id]/register
@@ -18,7 +18,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
                      req.headers.get('x-real-ip') ||
                      'unknown';
     const rateLimitKey = `group-register:${clientIp}`;
-    const rateLimit = checkRateLimit(rateLimitKey, 10, 60 * 60 * 1000);
+    const rateLimit = await checkRateLimitAsync(rateLimitKey, 10, 60 * 60 * 1000);
 
     if (!rateLimit.allowed) {
       return NextResponse.json(

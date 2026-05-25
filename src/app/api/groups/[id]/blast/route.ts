@@ -4,7 +4,7 @@ import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
-import { checkRateLimit, getRateLimitStatus } from '@/lib/rate-limit';
+import { checkRateLimitAsync, getRateLimitStatus } from '@/lib/rate-limit';
 
 const MAX_RECIPIENTS = 200; // Vercel 타임아웃 방지 (10건 배치 × 20회 ≈ 2초)
 const BATCH_SIZE     = 10;
@@ -118,10 +118,10 @@ export async function POST(req: Request, { params }: Params) {
       });
     }
 
-    // [T4] Rate limit 확인
+    // [T4] Rate limit 확인 (Redis 우선, 폴백 메모리)
     const userId = ctx.userId || '';
     const rlKey2 = `sms_blast:${userId}:${groupId}`;
-    const { allowed } = checkRateLimit(rlKey2, SMS_BLAST_MAX_PER_DAY, SMS_BLAST_WINDOW_MS);
+    const { allowed } = await checkRateLimitAsync(rlKey2, SMS_BLAST_MAX_PER_DAY, SMS_BLAST_WINDOW_MS);
     if (!allowed) {
       const status = getRateLimitStatus(rlKey2, SMS_BLAST_MAX_PER_DAY, SMS_BLAST_WINDOW_MS);
       return NextResponse.json({

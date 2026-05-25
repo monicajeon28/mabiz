@@ -382,6 +382,7 @@ export default function DocumentsApprovalPage() {
                           </button>
                           <button
                             onClick={() => handleDelete(doc.id)}
+                            aria-label="문서 삭제"
                             className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
                           >
                             <Trash2 className="w-4 h-4" />

@@ -172,7 +172,7 @@ export function useDeltaWizard(campaignId: string) {
         const userErrorMsg = getErrorMessage(errToPass);
         const rawErrorMsg = err instanceof Error ? err.message : '알 수 없는 오류';
 
-        console.error('[useDeltaWizard] 로드 실패:', rawErrorMsg);
+        logger.error('[useDeltaWizard] 로드 실패', { error: rawErrorMsg });
         logger.warn('[useDeltaWizard] 초기 설정 로드 실패', {
           campaignId,
           error: rawErrorMsg,
@@ -479,7 +479,7 @@ export function useDeltaWizard(campaignId: string) {
       const userErrorMsg = getErrorMessage(errToPass);
       const rawErrorMsg = err instanceof Error ? err.message : '알 수 없는 오류';
 
-      console.error('[useDeltaWizard] 저장 실패:', rawErrorMsg);
+      logger.error('[useDeltaWizard] 저장 실패', { error: rawErrorMsg });
       logger.error('[useDeltaWizard] 설정 저장 오류', {
         campaignId: state.campaignId,
         error: rawErrorMsg,

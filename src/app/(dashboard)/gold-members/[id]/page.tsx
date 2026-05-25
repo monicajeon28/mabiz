@@ -106,6 +106,7 @@ export default function GoldMemberDetailPage() {
   const handlePayPlus = async () => {
     if (!member) return;
     setPayUpdating(true);
+    setError("");
     try {
       const res = await fetch(`/api/gold-members/${id}`, {
         method: "PATCH",
@@ -113,7 +114,13 @@ export default function GoldMemberDetailPage() {
         body: JSON.stringify({ paidCount: member.paidCount + 1 }),
       });
       const data = await res.json();
-      if (data.ok) setMember((prev) => prev ? { ...prev, paidCount: prev.paidCount + 1 } : prev);
+      if (data.ok) {
+        setMember((prev) => prev ? { ...prev, paidCount: prev.paidCount + 1 } : prev);
+      } else {
+        setError(data.error ?? "납부 업데이트 실패");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "서버 오류");
     } finally {
       setPayUpdating(false);
     }
@@ -121,6 +128,7 @@ export default function GoldMemberDetailPage() {
 
   const handleStatusChange = async (newStatus: string) => {
     setStatusUpdating(newStatus);
+    setError("");
     try {
       const res = await fetch(`/api/gold-members/${id}`, {
         method: "PATCH",
@@ -128,7 +136,13 @@ export default function GoldMemberDetailPage() {
         body: JSON.stringify({ status: newStatus }),
       });
       const data = await res.json();
-      if (data.ok) setMember((prev) => prev ? { ...prev, status: newStatus } : prev);
+      if (data.ok) {
+        setMember((prev) => prev ? { ...prev, status: newStatus } : prev);
+      } else {
+        setError(data.error ?? "상태 업데이트 실패");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "서버 오류");
     } finally {
       setStatusUpdating(null);
     }

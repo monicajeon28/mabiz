@@ -156,7 +156,7 @@ function CreateProspectModal({
       <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4 shadow-2xl">
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-gray-900">교육 구매자 등록</h3>
-          <button onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button>
+          <button onClick={onClose} aria-label="닫기"><X className="w-5 h-5 text-gray-400" /></button>
         </div>
         <div className="grid grid-cols-2 gap-3">
           {[
@@ -370,7 +370,7 @@ function DetailPanel({
       <div className="bg-white w-full max-w-sm h-full overflow-y-auto p-6 space-y-4 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-gray-900">{detail.name}</h3>
-          <button onClick={onClose} className="text-gray-400"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} aria-label="닫기" className="text-gray-400"><X className="w-5 h-5" /></button>
         </div>
         <div className="space-y-2 text-sm">
           {[

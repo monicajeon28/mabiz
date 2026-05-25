@@ -50,7 +50,7 @@ export async function sendScheduledSms(input: ScheduledSmsInput): Promise<string
 
     return scheduledSms.id;
   } catch (e) {
-    logger.log('[SMSSchedule] 오류', {
+    logger.error('[SMSSchedule] 오류', {
       error: e instanceof Error ? e.message : String(e),
       organizationId: input.organizationId,
       campaignType: input.campaignType,

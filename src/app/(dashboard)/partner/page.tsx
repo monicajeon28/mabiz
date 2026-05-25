@@ -284,6 +284,7 @@ export default function PartnerPage() {
                           <button
                             onClick={() => setDetail(partner)}
                             className="text-blue-600 hover:text-blue-700"
+                            aria-label="파트너 보기"
                             title="보기"
                           >
                             <Eye size={18} />
@@ -299,6 +300,7 @@ export default function PartnerPage() {
                               });
                             }}
                             className="text-amber-600 hover:text-amber-700"
+                            aria-label="파트너 수정"
                             title="수정"
                           >
                             <Edit2 size={18} />
@@ -306,6 +308,7 @@ export default function PartnerPage() {
                           <button
                             onClick={() => deletePartner(partner.id)}
                             className="text-red-600 hover:text-red-700"
+                            aria-label="파트너 삭제"
                             title="삭제"
                           >
                             <Trash2 size={18} />
@@ -328,6 +331,7 @@ export default function PartnerPage() {
                 <h2 className="text-xl font-bold">파트너 추가</h2>
                 <button
                   onClick={() => setShowForm(false)}
+                  aria-label="닫기"
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <X size={24} />
@@ -416,6 +420,7 @@ export default function PartnerPage() {
                 <h2 className="text-xl font-bold">파트너 수정</h2>
                 <button
                   onClick={() => setEditingId(null)}
+                  aria-label="닫기"
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <X size={24} />

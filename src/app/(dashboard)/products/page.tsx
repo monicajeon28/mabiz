@@ -277,7 +277,13 @@ function CabinRegisterModal({ productCode, productName, organizationId, cabinSum
           cabins,
         }),
       });
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch (e) {
+        setErr("응답 파싱 실패");
+        return;
+      }
       if (!res.ok || !data.ok) {
         setErr(data.error ?? "저장에 실패했습니다.");
         return;
@@ -299,7 +305,7 @@ function CabinRegisterModal({ productCode, productName, organizationId, cabinSum
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative">
-        <button onClick={onClose} className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100">
+        <button onClick={onClose} aria-label="닫기" className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100">
           <X className="w-5 h-5 text-gray-400" />
         </button>
         <div className="flex items-center gap-2 mb-1">
@@ -493,6 +499,7 @@ function RefundModal({ product, onClose }: RefundModalProps) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
         <button
           onClick={onClose}
+          aria-label="닫기"
           className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 transition-colors"
         >
           <X className="w-5 h-5 text-gray-400" />
@@ -652,7 +659,13 @@ function ApisModal({ product, onClose }: ApisModalProps) {
           setError(`요청 실패: ${res.status}`);
           return;
         }
-        const d = await res.json();
+        let d;
+        try {
+          d = await res.json();
+        } catch (e) {
+          setError("응답 파싱 실패");
+          return;
+        }
         if (d.ok) {
           setRows(d.rows ?? []);
           setTripTitle(d.tripTitle ?? product.name);
@@ -672,8 +685,17 @@ function ApisModal({ product, onClose }: ApisModalProps) {
     let objectUrl: string | null = null;
     try {
       const res = await fetch(`/api/admin/apis/excel?productCode=${encodeURIComponent(product.code)}`);
-      if (!res.ok) { setError("다운로드에 실패했습니다."); return; }
-      const blob = await res.blob();
+      if (!res.ok) {
+        setError("다운로드에 실패했습니다.");
+        return;
+      }
+      let blob;
+      try {
+        blob = await res.blob();
+      } catch (e) {
+        setError("파일 다운로드 실패");
+        return;
+      }
       objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -826,7 +848,11 @@ export default function ProductsPage() {
       fetch(`/api/products?${params.toString()}`, { signal: controller.signal })
         .then(async (res) => {
           if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
-          return res.json();
+          try {
+            return await res.json();
+          } catch (e) {
+            throw new Error('응답 파싱 실패');
+          }
         })
         .then((data: ApiResponse) => {
           if (data.ok) {
@@ -1082,6 +1108,7 @@ export default function ProductsPage() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
+                aria-label="이전 페이지"
                 className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft className="w-4 h-4 text-gray-600" />
@@ -1107,6 +1134,7 @@ export default function ProductsPage() {
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
+                aria-label="다음 페이지"
                 className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronRight className="w-4 h-4 text-gray-600" />

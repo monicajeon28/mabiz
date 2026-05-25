@@ -54,6 +54,9 @@ model Organization {
   contractTemplates          ContractTemplate[]
   contractInstances          ContractInstance[]
   contractTemplateAuditLogs  ContractTemplateAuditLog[] @relation("ContractTemplateAuditLogs")
+  l1PriceObjections          L1PriceObjectionAttempt[]
+  l1ABTestVariants           L1ABTestVariant[]
+  l1OptimizationScores       L1OptimizationScore[]
 }
 
 model OrgSmsConfig {
@@ -283,6 +286,21 @@ model Contact {
   smsDay90ReturnSent         Boolean                    @default(false)
   smsDay90ReturnSentAt       DateTime?
   ltvCalculatedAt            DateTime?
+  // L10 Lens: 즉시 구매 클로징 극대화 (Menu #56)
+  closingStage               String?                    @default("initial") @db.VarChar(30) // "initial", "qualified", "ready_close", "closed"
+  emotionalConnectionScore   Int                        @default(0) // 0-100: 감정적 연결도
+  emotionalTriggers          String[]                   @default([]) // ["family_reunion", "dream_achieved", "adventure"]
+  urgencyLevel               Int                        @default(0) // 0-100: 긴박감 수준
+  urgencyType                String?                    @db.VarChar(30) // "price_deadline", "seat_availability", "seasonal"
+  urgencyExpiresAt           DateTime?                  // 긴박감 만료 시간
+  l10ClosingScore            Int                        @default(0) // 0-100: L10 클로징 준비도
+  tripleChoiceOffered        Boolean                    @default(false)
+  tripleChoiceSelectedAt     DateTime?
+  tripleChoiceSelection      String?                    @db.VarChar(30) // "immediate", "next_day", "weekend"
+  emotionalFinishSentAt      DateTime?
+  emotionalFinishType        String?                    @db.VarChar(30) // "family_legacy", "dream_fulfillment", "experience_excellence"
+  l10ClosingAttempts        Int                        @default(0)
+  l10ConversionAt            DateTime?
   callLogs                   CallLog[]
   organization               Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   partner                    Partner?                    @relation(fields: [partnerId], references: [id])
@@ -330,6 +348,14 @@ model Contact {
   @@index([organizationId, companionPersuasionStage], map: "idx_contact_companion_stage")
   @@index([organizationId, spouseEngagement], map: "idx_contact_spouse_engagement")
   @@index([organizationId, companionSmsDay0Sent, companionSmsDay1Sent, companionSmsDay2Sent, companionSmsDay3Sent], map: "idx_contact_companion_sms_status")
+  // L10 Lens indexes
+  @@index([organizationId, closingStage], map: "idx_contact_closing_stage")
+  @@index([organizationId, emotionalConnectionScore], map: "idx_contact_emotional_connection")
+  @@index([organizationId, urgencyLevel], map: "idx_contact_urgency_level")
+  @@index([organizationId, l10ClosingScore], map: "idx_contact_l10_closing_score")
+  @@index([organizationId, tripleChoiceOffered], map: "idx_contact_triple_choice_offered")
+  @@index([organizationId, urgencyExpiresAt], map: "idx_contact_urgency_expires")
+  @@index([organizationId, l10ConversionAt], map: "idx_contact_l10_conversion")
 }
 
 model ContactLensClassification {
@@ -1422,13 +1448,26 @@ model Partner {
   totalRevenue   BigInt           @default(0)
   createdAt      DateTime         @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime         @updatedAt @db.Timestamptz(6)
-  contacts       Contact[]
-  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  metrics        PartnerMetrics[]
+
+  // Menu #57: 신입 온보딩 필드
+  onboardingStatus  String         @default("NOT_STARTED") // "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED" | "FAILED"
+  onboardingStartedAt DateTime?    @db.Timestamptz(6)
+  incomeLevel       String         @default("BEGINNER") // "BEGINNER" | "INTERMEDIATE" | "ADVANCED"
+  monthlyIncomeGoal BigInt?        // 목표 월 수익 (단위: 원)
+  automationRate    Int            @default(0) // 0-100 (자동화율)
+
+  contacts           Contact[]
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  metrics            PartnerMetrics[]
+  onboardingProgress OnboardingProgress?
+  performances       PartnerPerformance[]
+  riskFlags          PartnerRiskFlags?
 
   @@unique([organizationId, name])
   @@index([organizationId])
   @@index([status])
+  @@index([onboardingStatus])
+  @@index([automationRate])
 }
 
 model PartnerMetrics {
@@ -1444,6 +1483,115 @@ model PartnerMetrics {
 
   @@unique([partnerId, year, month])
   @@index([partnerId, year, month])
+}
+
+// Menu #57: OnboardingProgress Model
+model OnboardingProgress {
+  id                String     @id @default(cuid())
+  partnerId         String     @unique
+  week              Int        @default(1) // 1-5
+  status            String     @default("IN_PROGRESS") // "IN_PROGRESS" | "COMPLETED" | "FAILED"
+
+  // 주별 완료 시각
+  week1CompletedAt  DateTime?  @db.Timestamptz(6)
+  week2CompletedAt  DateTime?  @db.Timestamptz(6)
+  week3CompletedAt  DateTime?  @db.Timestamptz(6)
+  week4CompletedAt  DateTime?  @db.Timestamptz(6)
+  week5CompletedAt  DateTime?  @db.Timestamptz(6)
+
+  // 역할극 평가 (JSON: { "roleplay1": 75, "roleplay2": 82, ... })
+  rolePlayScores    Json?      @default("{}")
+
+  // 감독 콜 평가 (JSON: { "call1": { "opening": "Good", ... }, ... })
+  supervisedCallScores Json?   @default("{}")
+
+  // 자동 경고
+  weekBehind        Boolean    @default(false)
+  needsIntervention Boolean    @default(false)
+  interventionNote  String?
+
+  partner           Partner    @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  createdAt         DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime   @updatedAt @db.Timestamptz(6)
+
+  @@index([status])
+  @@index([needsIntervention])
+  @@map("OnboardingProgress")
+}
+
+// Menu #57: PartnerPerformance Model (주간/월간 KPI)
+model PartnerPerformance {
+  id                String     @id @default(cuid())
+  partnerId         String
+  year              Int
+  month             Int
+  week              Int?       // null일 경우 월 단위
+
+  // 기본 KPI
+  totalCalls        Int        @default(0)
+  appointmentsMade  Int        @default(0)
+  salesClosed       Int        @default(0)
+  revenue           BigInt     @default(0) // 단위: 원
+
+  // 전환율 지표 (%)
+  callToAppointmentRate Float? // (appointmentsMade / totalCalls) * 100
+  appointmentToSaleRate Float? // (salesClosed / appointmentsMade) * 100
+  overallConversionRate Float? // (salesClosed / totalCalls) * 100
+
+  // CPA 및 LTV
+  costPerAcquisition BigInt?   // 단위: 원
+  lifetimeValue     BigInt?    // 단위: 원
+
+  // 자동화 상태
+  automationScore   Int        @default(0) // 0-100
+
+  // 위험 신호
+  riskScore         Int        @default(0) // 0-100
+  riskFlags         String[]   @default([]) // ["lowPerformance", "churnIndicator", ...]
+
+  partner           Partner    @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  createdAt         DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime   @updatedAt @db.Timestamptz(6)
+
+  @@unique([partnerId, year, month, week])
+  @@index([partnerId, year, month])
+  @@index([riskScore])
+  @@index([week]) // 주간 조회 최적화
+  @@map("PartnerPerformance")
+}
+
+// Menu #57: PartnerRiskFlags Model (위험 신호 추적)
+model PartnerRiskFlags {
+  id                String     @id @default(cuid())
+  partnerId         String     @unique
+
+  // 4가지 위험 신호 (Boolean)
+  lowPerformance    Boolean    @default(false) // 3주 연속 저성과
+  churnIndicator    Boolean    @default(false) // 활동 급감
+  dishonesty        Boolean    @default(false) // 거짓 보고
+  skillGap          Boolean    @default(false) // 기술 부족
+
+  // 각 신호의 심각도 (0-100)
+  lowPerformanceScore Int      @default(0)
+  churnScore        Int        @default(0)
+  dishonestyScore   Int        @default(0)
+  skillGapScore     Int        @default(0)
+
+  // 통합 위험도
+  totalRiskScore    Int        @default(0) // 0-100
+
+  // 자동 개입 트리거
+  interventionTriggeredAt DateTime? @db.Timestamptz(6)
+  lastReviewedAt    DateTime?  @db.Timestamptz(6)
+  reviewNotes       String?
+
+  partner           Partner    @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  createdAt         DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime   @updatedAt @db.Timestamptz(6)
+
+  @@index([totalRiskScore])
+  @@index([interventionTriggeredAt])
+  @@map("PartnerRiskFlags")
 }
 
 model ContactFunnelState {
@@ -4604,6 +4752,71 @@ model cron_rate_limit_logs {
   timestamp DateTime @default(now())
 
   @@index([clientIp, endpoint, timestamp])
+}
+
+// Menu #54: L1 렌즈 (가격 이의) 최적화 모델
+model L1PriceObjectionAttempt {
+  id              String   @id @default(cuid())
+  organizationId  String
+  contactId       String
+  objectiveType   String   @db.VarChar(50) // "PRICE_HIGH", "PAYMENT_TERMS", "ROI_DOUBT", "COMPETITOR_COMPARE", "AFFORD_DOUBT"
+  attemptNumber   Int      @default(1) // 1, 2, 3+ 재시도 횟수
+  initialResponse String?  // 고객의 초기 이의 내용
+  responseMethod  String   @db.VarChar(50) // "VALUE_REDEFINITION", "SPLIT_PAYMENT", "EARLY_BOOKING", "GROUP_DISCOUNT", "LIMITED_TIME"
+  smsVariant      String   @db.VarChar(10) // "A" 또는 "B"
+  conversionResult Boolean  @default(false) // 이의 극복 후 전환 여부
+  sentAt          DateTime @default(now())
+  respondedAt     DateTime?
+  convertedAt     DateTime?
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, contactId, sentAt])
+  @@index([objectiveType, responseMethod, conversionResult])
+  @@map("L1PriceObjectionAttempt")
+}
+
+model L1ABTestVariant {
+  id              String   @id @default(cuid())
+  organizationId  String
+  objectiveType   String   @db.VarChar(50) // "PRICE_HIGH", "PAYMENT_TERMS", "ROI_DOUBT"
+  variantType     String   @db.VarChar(10) // "A" (기존) 또는 "B" (신규)
+  messageTemplate String   @db.Text // SMS 템플릿
+  copyAngle       String   @db.VarChar(100) // "가치재정의", "분할결제", "조기할인" 등
+  psychologyLens  String   @db.VarChar(50) // "L1_VALUE_REDEFINITION", "L1_SPLIT_PAYMENT" 등
+  totalSent       Int      @default(0)
+  totalConverted  Int      @default(0)
+  conversionRate  Float    @default(0) // 실시간 계산
+  avgResponseTime Int?     // 평균 응답 시간 (분)
+  winningSince    DateTime? // A/B 테스트 승자로 확정된 시간
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, objectiveType, variantType])
+  @@index([organizationId, conversionRate(sort: Desc)])
+  @@map("L1ABTestVariant")
+}
+
+model L1OptimizationScore {
+  id              String   @id @default(cuid())
+  organizationId  String
+  contactId       String
+  currentScore    Float    @default(0) // 0-100 가격 민감도
+  scoreHistory    Json?    // [{ date, score, reason }]
+  objectiveTypes  String[] @default([]) // ["PRICE_HIGH", "PAYMENT_TERMS"]
+  bestVariant     String?  // "A" 또는 "B" 이 고객에게 최적
+  lastAttemptAt   DateTime?
+  nextRetryAt     DateTime?
+  totalAttempts   Int      @default(0)
+  successCount    Int      @default(0)
+  successRate     Float    @default(0)
+  lastUpdated     DateTime @updatedAt
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, contactId])
+  @@index([organizationId, currentScore(sort: Desc)])
+  @@map("L1OptimizationScore")
 }
 
 model GmUserGroup {

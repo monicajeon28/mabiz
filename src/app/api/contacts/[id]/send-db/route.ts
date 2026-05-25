@@ -22,9 +22,9 @@ export async function POST(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
 
-    // [S-002] CSRF 토큰 검증 (세션 기반)
+    // [S-002] CSRF 토큰 검증 (세션 기반) — Redis 우선, 폴백 메모리
     const csrfToken = extractCsrfToken(req);
-    if (!csrfToken || !validateToken(ctx.userId, csrfToken)) {
+    if (!csrfToken || !(await validateToken(ctx.userId, csrfToken))) {
       return NextResponse.json(
         { ok: false, message: "보안 검증 실패: CSRF 토큰이 유효하지 않습니다" },
         { status: 403 }

@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { checkRateLimit } from '@/lib/rate-limit';
+import { checkRateLimitAsync } from '@/lib/rate-limit';
 
 /**
  * GET /api/passport/public/passport-upload
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     // Rate Limit — 브루트포스 공격 방지 (leadId당 5분에 5회)
     const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip') || 'unknown';
     const rateLimitKey = `passport:${parsedLeadId}:${clientIp}`;
-    const rateLimitResult = checkRateLimit(rateLimitKey, 5, 5 * 60 * 1000);
+    const rateLimitResult = await checkRateLimitAsync(rateLimitKey, 5, 5 * 60 * 1000);
 
     if (!rateLimitResult.allowed) {
       logger.warn('[Public Passport Upload] Rate limit exceeded', {

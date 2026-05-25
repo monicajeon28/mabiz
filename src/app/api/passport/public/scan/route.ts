@@ -10,7 +10,7 @@ import { logger } from '@/lib/logger';
 import { getDriveClient, findOrCreateFolder } from '@/lib/drive-client';
 import sharp from 'sharp';
 import { Readable } from 'stream';
-import { checkRateLimit } from '@/lib/rate-limit';
+import { checkRateLimitAsync } from '@/lib/rate-limit';
 
 const MAX_OCR_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -229,7 +229,7 @@ export async function POST(req: NextRequest) {
     }
 
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
-    const { allowed } = checkRateLimit(`passport-ocr:${ip}`, 10, 5 * 60_000);
+    const { allowed } = await checkRateLimitAsync(`passport-ocr:${ip}`, 10, 5 * 60_000);
     if (!allowed) {
       return NextResponse.json({ ok: false, error: '요청이 너무 많습니다. 잠시 후 다시 시도하세요.' }, { status: 429 });
     }

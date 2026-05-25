@@ -91,6 +91,9 @@ function delay(ms: number): Promise<void> {
 
 /**
  * localStorage에 여권 입력 데이터 저장
+ *
+ * ⚠️ 브라우저 전용 (localStorage): 서버/Edge 환경에서 호출 금지
+ *
  * @param token - 여권 토큰
  * @param travelers - 여행자 데이터
  */
@@ -110,6 +113,9 @@ export function saveTravelersDraft(token: string, travelers: any[]): void {
 
 /**
  * localStorage에서 여권 입력 데이터 로드
+ *
+ * ⚠️ 브라우저 전용 (localStorage): 서버/Edge 환경에서 호출 금지
+ *
  * @param token - 여권 토큰
  * @returns { travelers, savedAt } 또는 null
  */
@@ -141,6 +147,9 @@ export function loadTravelersDraft(token: string): { travelers: any[]; savedAt: 
 
 /**
  * localStorage에서 여권 입력 데이터 삭제
+ *
+ * ⚠️ 브라우저 전용 (localStorage): 서버/Edge 환경에서 호출 금지
+ *
  * @param token - 여권 토큰
  */
 export function clearTravelersDraft(token: string): void {

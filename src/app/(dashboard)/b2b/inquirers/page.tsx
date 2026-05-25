@@ -41,13 +41,19 @@ export default function InquirersPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: "30", eduType: "INQUIRER" });
-    if (filter) params.set("status", filter);
-    if (q)      params.set("q", q);
-    const res  = await fetch(`/api/b2b?${params}`);
-    const data = await res.json();
-    if (data.ok) { setProspects(data.prospects); setTotal(data.total ?? 0); }
-    setLoading(false);
+    try {
+      const params = new URLSearchParams({ page: String(page), limit: "30", eduType: "INQUIRER" });
+      if (filter) params.set("status", filter);
+      if (q)      params.set("q", q);
+      const res  = await fetch(`/api/b2b?${params}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.ok) { setProspects(data.prospects); setTotal(data.total ?? 0); }
+    } catch {
+      // 조용히 실패 (목록 유지)
+    } finally {
+      setLoading(false);
+    }
   }, [filter, q, page]);
 
   useEffect(() => { load(); }, [load]);
@@ -56,25 +62,34 @@ export default function InquirersPage() {
   const save = async () => {
     if (!form.name.trim() || !form.phone.trim()) return;
     setSaving(true);
-    const res = await fetch("/api/b2b", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, eduType: "INQUIRER" }),
-    });
-    const data = await res.json();
-    if (data.ok) { setShowForm(false); setForm(EMPTY_FORM); load(); }
-    setSaving(false);
+    try {
+      const res = await fetch("/api/b2b", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, eduType: "INQUIRER" }),
+      });
+      const data = await res.json();
+      if (data.ok) { setShowForm(false); setForm(EMPTY_FORM); load(); }
+    } catch {
+      // 저장 실패 시 폼 유지
+    } finally {
+      setSaving(false);
+    }
   };
 
   const updateStatus = async (id: string, status: string) => {
-    const res = await fetch(`/api/b2b/${id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      setProspects(prev => prev.map(p => p.id === id ? { ...p, status } : p));
-      if (detail?.id === id) setDetail({ ...detail, status });
+    try {
+      const res = await fetch(`/api/b2b/${id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setProspects(prev => prev.map(p => p.id === id ? { ...p, status } : p));
+        if (detail?.id === id) setDetail({ ...detail, status });
+      }
+    } catch {
+      // 상태 업데이트 실패 시 롤백 없음
     }
   };
 
@@ -100,9 +115,13 @@ export default function InquirersPage() {
 
   const remove = async (id: string) => {
     if (!confirm("이 문의자를 삭제하시겠습니까?")) return;
-    const res = await fetch(`/api/b2b/${id}`, { method: "DELETE" });
-    const data = await res.json();
-    if (data.ok) { setProspects(prev => prev.filter(p => p.id !== id)); if (detail?.id === id) setDetail(null); }
+    try {
+      const res = await fetch(`/api/b2b/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.ok) { setProspects(prev => prev.filter(p => p.id !== id)); if (detail?.id === id) setDetail(null); }
+    } catch {
+      // 삭제 실패 시 목록 유지
+    }
   };
 
   const getStatusInfo = (key: string) => STATUSES.find(s => s.key === key) ?? STATUSES[0];
@@ -115,7 +134,7 @@ export default function InquirersPage() {
           <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-gray-900">교육 문의자 등록</h3>
-              <button onClick={() => setShowForm(false)}><X className="w-5 h-5 text-gray-400" /></button>
+              <button onClick={() => setShowForm(false)} aria-label="닫기"><X className="w-5 h-5 text-gray-400" /></button>
             </div>
             <div className="grid grid-cols-2 gap-3">
               {[
@@ -285,7 +304,7 @@ export default function InquirersPage() {
           <div className="bg-white w-full max-w-sm h-full overflow-y-auto p-6 space-y-4 shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-gray-900">{detail.name}</h3>
-              <button onClick={() => setDetail(null)} className="text-gray-400"><X className="w-5 h-5" /></button>
+              <button onClick={() => setDetail(null)} aria-label="닫기" className="text-gray-400"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-2 text-sm">
               {[

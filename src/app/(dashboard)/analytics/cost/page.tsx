@@ -248,11 +248,11 @@ function ChannelComparisonChart({
               border: '1px solid #e5e7eb',
               borderRadius: '8px',
             }}
-            formatter={((value: any, name: any) => {
+            formatter={((value: number, name: string) => {
               if (name === '비용') return [formatCurrency(value), name];
               if (name === '발송건수') return [value.toLocaleString(), name];
               return [`${value}%`, name];
-            }) as any}
+            })}
           />
           <Legend wrapperStyle={{ fontSize: '13px', color: '#6b7280' }} />
           <Bar dataKey="비용" fill="#3b82f6" />
@@ -406,15 +406,13 @@ export default function CostDashboard() {
           }
         );
 
-        clearTimeout(timeoutId);
-
         if (!response.ok) {
           throw new Error(`API 오류: ${response.status}`);
         }
 
         const data: CostReportResponse = await response.json();
         if (!data.ok) {
-          throw new Error(data as any);
+          throw new Error(typeof data.error === 'string' ? data.error : '알 수 없는 오류');
         }
 
         setReportData(data);
@@ -442,15 +440,14 @@ export default function CostDashboard() {
     fetchCostReport();
   }, [fetchCostReport]);
 
-  // P1: 자동 새로고침 + AbortController 정리
+  // P1: 자동 새로고침 + 정리 함수 통일
   useEffect(() => {
-    if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
-
     // 자동 새로고침이 비활성화된 경우 (0)
     if (autoRefreshInterval === 0) {
-      return () => {
-        if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
-      };
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+      return;
     }
 
     refreshIntervalRef.current = setInterval(() => {
@@ -478,6 +475,9 @@ export default function CostDashboard() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
+    // 메모리 정리
+    URL.revokeObjectURL(url);
   }, [reportData, dateRange]);
 
   // 월 범위 변경

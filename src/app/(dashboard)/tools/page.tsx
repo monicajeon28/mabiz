@@ -65,10 +65,12 @@ export default function ToolsPage() {
   useEffect(() => {
     fetch("/api/tools/sms-templates")
       .then((r) => r.json())
-      .then((d) => { if (d.ok) setTemplates(d.templates); });
+      .then((d) => { if (d.ok) setTemplates(d.templates); })
+      .catch(() => { /* 템플릿 로드 실패 - 빈 목록 유지 */ });
     fetch("/api/tools/playbook")
       .then((r) => r.json())
-      .then((d) => { if (d.ok) setPlaybooks(d.items); });
+      .then((d) => { if (d.ok) setPlaybooks(d.items); })
+      .catch(() => { /* 플레이북 로드 실패 - 빈 목록 유지 */ });
   }, []);
 
   const copy = (id: string, text: string) => {
@@ -90,18 +92,23 @@ export default function ToolsPage() {
     setAnalyzing(true);
     setFeedback(null);
     setFeedbackErr("");
-    const res  = await fetch("/api/tools/call-feedback", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: callText, converted: converted ?? false, productType }),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      setFeedback(data.result);
-    } else {
-      setFeedbackErr(data.message ?? "분석 실패");
+    try {
+      const res  = await fetch("/api/tools/call-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: callText, converted: converted ?? false, productType }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setFeedback(data.result);
+      } else {
+        setFeedbackErr(data.message ?? "분석 실패");
+      }
+    } catch {
+      setFeedbackErr("네트워크 오류가 발생했습니다.");
+    } finally {
+      setAnalyzing(false);
     }
-    setAnalyzing(false);
   };
 
   const filteredTemplates = templates.filter((t) => t.category === smsTab);

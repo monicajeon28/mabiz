@@ -116,11 +116,13 @@ export default function MembersPage() {
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 10000);
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     if (q)        params.set("q",        q);
     if (provider) params.set("provider", provider);
 
-    fetch(`/api/members?${params}`)
+    fetch(`/api/members?${params}`, { signal: ctrl.signal })
       .then((r) => {
         if (!r.ok) throw new Error(String(r.status));
         return r.json();
@@ -136,6 +138,7 @@ export default function MembersPage() {
         }
       })
       .catch((e: Error) => {
+        if (e.name === "AbortError") return;
         if (e.message === "403") {
           setError("접근 권한이 없습니다. (GLOBAL_ADMIN 전용)");
         } else if (e.message === "401") {
@@ -145,10 +148,14 @@ export default function MembersPage() {
         }
         setMembers([]);
       })
-      .finally(() => setLoading(false));
+      .finally(() => { clearTimeout(t); setLoading(false); });
+    return () => { ctrl.abort(); clearTimeout(t); };
   }, [page, q, provider]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const cleanup = load();
+    return cleanup;
+  }, [load]);
 
   // 입력 변경 시 350ms 디바운스 후 실제 검색 실행
   const handleQChange = (val: string) => {
@@ -651,6 +658,7 @@ export default function MembersPage() {
               </div>
               <button
                 onClick={() => setShowDetailModal(false)}
+                aria-label="닫기"
                 className="p-1 rounded-lg hover:bg-gray-100 text-gray-400"
               >
                 <X className="w-5 h-5" />
@@ -724,6 +732,7 @@ export default function MembersPage() {
                           #{tag}
                           <button
                             onClick={() => handleRemoveTag(tag)}
+                            aria-label={`태그 ${tag} 삭제`}
                             className="hover:text-blue-900 font-bold"
                           >
                             ×
@@ -790,6 +799,7 @@ export default function MembersPage() {
                               {group.name}
                               <button
                                 onClick={() => handleRemoveGroup(groupId)}
+                                aria-label={`그룹 삭제`}
                                 className="opacity-70 hover:opacity-100"
                               >
                                 ×

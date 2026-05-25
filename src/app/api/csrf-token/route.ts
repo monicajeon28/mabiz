@@ -7,8 +7,8 @@ export async function GET() {
     const ctx = await getAuthContext();
     const token = generateCsrfToken();
 
-    // 생성된 토큰을 사용자 세션에 저장
-    storeToken(ctx.userId, token);
+    // 생성된 토큰을 사용자 세션에 저장 (Redis 우선, 실패 시 메모리 폴백)
+    await storeToken(ctx.userId, token);
 
     return NextResponse.json(
       {

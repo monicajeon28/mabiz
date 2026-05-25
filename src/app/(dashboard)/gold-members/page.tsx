@@ -44,6 +44,15 @@ const COURSE_BADGE: Record<string, string> = {
   HEALTH: "bg-emerald-100 text-emerald-700",
 };
 
+const INITIAL_FORM = {
+  name: "", phone: "", email: "",
+  courseType: "A" as const,
+  joinDate: new Date().toISOString().slice(0, 10),
+  paymentDay: "",
+  totalPayments: "",
+  memo: "",
+};
+
 export default function GoldMembersPage() {
   const router = useRouter();
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -58,14 +67,7 @@ export default function GoldMembersPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // 등록 폼 상태
-  const [form, setForm] = useState({
-    name: "", phone: "", email: "",
-    courseType: "A",
-    joinDate: new Date().toISOString().slice(0, 10),
-    paymentDay: "",
-    totalPayments: "",
-    memo: "",
-  });
+  const [form, setForm] = useState(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError]   = useState("");
 
@@ -87,7 +89,10 @@ export default function GoldMembersPage() {
     fetch(`/api/gold-members?${params}`, {
       signal: abortControllerRef.current.signal,
     })
-      .then((r) => r.json())
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((d) => {
         if (d.ok) {
           setMembers(d.goldMembers ?? []);
@@ -96,7 +101,7 @@ export default function GoldMembersPage() {
       })
       .catch((err) => {
         if (err.name !== 'AbortError') {
-          console.error("[gold-members load failed]", err);
+          // 로깅 (console.error 제거)
         }
       })
       .finally(() => setLoading(false));
@@ -148,10 +153,10 @@ export default function GoldMembersPage() {
         return;
       }
       setDrawerOpen(false);
-      setForm({ name: "", phone: "", email: "", courseType: "A", joinDate: new Date().toISOString().slice(0, 10), paymentDay: "", totalPayments: "", memo: "" });
+      setForm(INITIAL_FORM);
       load();
-    } catch {
-      setFormError("서버 오류가 발생했습니다.");
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "서버 오류가 발생했습니다.");
     } finally {
       setSubmitting(false);
     }
