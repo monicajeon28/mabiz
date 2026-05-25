@@ -1,392 +1,245 @@
-# Phase 3 Cycle 1 → 2 배포 준비 체크리스트
+# Vercel 배포 전 최종 체크리스트 (2026-05-26)
 
-**작성일:** 2026-05-22
-**대상:** Track A/C/D P0 산출물 (코드 + 마이그레이션 + 문서)
-**예상 배포일:** 2026-05-24 오후 3시 (한국시간)
-
----
-
-## 1단계: 로컬 빌드 검증 (0.5일)
-
-### 목표
-- `npm run build` 성공 (0 에러)
-- TypeScript 컴파일 경고 확인
-- 번들 크기 검증
-
-### 체크리스트
-- [ ] npm install 완료
-- [ ] node_modules 설치됨
-- [ ] npm run build 실행
-- [ ] 빌드 성공 (exit code 0)
-- [ ] TypeScript 경고 0개 또는 무시 가능 수준
-- [ ] 번들 크기 < 10MB
-
-### 실행 명령어
-```bash
-cd D:\mabiz-crm
-npm run build
-# 예상 시간: 3-5분
-# 예상 결과: ✅ Build successful
-```
+**작성일:** 2026-05-26 00:58 UTC  
+**대상:** main 브랜치 배포 준비  
+**배포 상태:** 🟢 **준비 완료**  
+**배포 예상:** 2026-05-26 18:00 (한국시간)
 
 ---
 
-## 2단계: 마이그레이션 검증 (1day)
+## ✅ 배포 준비 상태
 
-### Track C 마이그레이션 (자동 세그먼트 필드)
+### 1️⃣ 환경 검증 ✅
 
-**파일:** `prisma/migrations/20260522_add_contact_segment_fields/migration.sql`
+| 항목 | 상태 | 값 |
+|------|------|-----|
+| `.env.local` 파일 | ✅ 존재 | 262 bytes |
+| `DATABASE_URL` | ✅ 설정됨 | `postgresql://...neon.tech/neondb?sslmode=require` |
+| `DIRECT_URL` | ✅ 설정됨 | `postgresql://...neon.tech/neondb?sslmode=require` |
+| `NEXT_PUBLIC_BASE_URL` | ✅ 설정됨 | `https://crm.mabiz.dev` |
+| `NODE_ENV` | ✅ 설정됨 | `production` |
 
-**검증 사항:**
-- [ ] 마이그레이션 파일 존재 여부 확인
-- [ ] IF NOT EXISTS 구문 포함 (멱등성)
-- [ ] Contact 테이블에 8개 컬럼 추가
-  - [ ] `autoSegment` (String?)
-  - [ ] `segmentScore` (Decimal)
-  - [ ] `segmentReason` (String?)
-  - [ ] `segmentLastUpdated` (DateTime)
-  - [ ] `segmentHistory` (String?)
-  - [ ] `autoSegmentEnabled` (Boolean)
-  - [ ] `segmentJourney` (String?)
-  - [ ] `nextSegmentReview` (DateTime?)
-- [ ] 3개 인덱스 생성 (segmentScore, autoSegmentEnabled, nextSegmentReview)
-
-**검증 명령어 (Supabase SQL Editor):**
-```sql
--- Contact 테이블 컬럼 확인
-SELECT column_name, data_type 
-FROM information_schema.columns 
-WHERE table_name = 'Contact' 
-AND column_name LIKE '%segment%';
-
--- 결과: 8개 행 반환
-```
-
-### Track D 마이그레이션 (A/B 테스트 필드)
-
-**파일:** `prisma/migrations/20260522_add_calllog_abtest/migration.sql`
-
-**검증 사항:**
-- [ ] 마이그레이션 파일 존재 여부 확인
-- [ ] IF NOT EXISTS 구문 포함 (멱등성)
-- [ ] CallLog 테이블에 12개 컬럼 추가
-  - [ ] `abTestGroup` (String?)
-  - [ ] `abTestVariant` (String?)
-  - [ ] `abTestAssignedAt` (DateTime)
-  - [ ] `abTestResults` (String?)
-  - [ ] `scriptVersion` (String?)
-  - [ ] `openingPhase` (Int)
-  - [ ] `closingPhase` (Int)
-  - [ ] `resolutionTime` (Int?)
-  - [ ] `customerInitiated` (Boolean)
-  - [ ] `objectionCount` (Int)
-  - [ ] `resolutionMethod` (String?)
-  - [ ] `abTestMetrics` (String?)
-- [ ] 4개 인덱스 생성 (abTestGroup, abTestVariant, scriptVersion, abTestAssignedAt)
-
-**검증 명령어 (Supabase SQL Editor):**
-```sql
--- CallLog 테이블 컬럼 확인
-SELECT column_name, data_type 
-FROM information_schema.columns 
-WHERE table_name = 'CallLog' 
-AND column_name LIKE '%test%' OR column_name LIKE '%script%';
-
--- 결과: 12개 행 반환
-```
+**결론**: 모든 필수 환경변수 설정 완료 ✓
 
 ---
 
-## 3단계: Prisma 생성 검증 (0.5day)
+### 2️⃣ TypeScript 빌드 ✅
 
-### 목표
-- Prisma Client 재생성
-- 타입 정의 업데이트
-- 새 필드 타입 확인
-
-### 체크리스트
-- [ ] `npx prisma generate` 실행
-- [ ] src/lib/prisma/client.d.ts 업데이트됨
-- [ ] Contact 모델에 새 필드 타입 추가됨
-  - [ ] autoSegment?: string | null
-  - [ ] segmentScore?: Decimal
-  - [ ] etc.
-- [ ] CallLog 모델에 새 필드 타입 추가됨
-  - [ ] abTestGroup?: string | null
-  - [ ] abTestVariant?: string | null
-  - [ ] etc.
-
-### 실행 명령어
-```bash
-npx prisma generate
-npx prisma db push --skip-generate  # 선택사항: DB와 동기화
 ```
+$ npm run build
+> prisma generate && next build
+
+Exit Code: 0 (성공)
+```
+
+**확인 사항**:
+- ✅ `npx prisma generate` 완료
+- ✅ `next build` 완료
+- ✅ `.next/` 디렉토리 생성 완료
+  - cache/ (빌드 캐시)
+  - server/ (서버 번들)
+  - static/ (정적 파일)
+  - diagnostics/ (진단 정보)
+- ✅ TypeScript 컴파일 에러 없음
+- ✅ 번들링 성공
+
+**결론**: 빌드 성공 ✓
 
 ---
 
-## 4단계: 환경변수 확인 (0.5day)
+### 3️⃣ Git 커밋 ✅
 
-### 필요 환경변수
-
-```env
-# Database (Neon - Production)
-DATABASE_URL=postgres://user:password@ep-xxx.neon.tech/dbname?sslmode=require
-
-# Supabase Backup (Optional)
-SUPABASE_BACKUP_URL=postgres://user:password@db.supabase.co/postgres?sslmode=require
-
-# Next.js
-NEXT_PUBLIC_APP_URL=https://mabiz.vercel.app
-NODE_ENV=production
+**최신 커밋**:
+```
+1d8c6ee chore: Neon 무한 루프 원인 분석 완료 및 데이터 복구 스크립트 추가
+c649d1f docs: 무한 루프 분석 및 수정 보고서
+9209a2e fix(notification-bell): AbortController로 폴링 요청 정리
 ```
 
-### 체크리스트
-- [ ] Vercel 프로젝트 Settings > Environment Variables
-- [ ] DATABASE_URL 설정됨
-- [ ] NEXT_PUBLIC_APP_URL 설정됨
-- [ ] SUPABASE_BACKUP_URL 설정됨 (선택사항)
-- [ ] .env.local과 동일한 값 확인
+**변경 사항**:
+- ✅ `package.json` - 4개 npm 스크립트 추가
+  - `script:restore-from-backup` - Google Drive 백업 → DB 복구
+  - `script:validate-backup` - 데이터 무결성 검증
+  - `script:convert-excel` - Excel → JSON 변환
+  - `script:insert-data` - JSON → DB 삽입
 
-### 검증 명령어 (배포 후)
-```bash
-# 프로덕션 환경에서
-curl https://mabiz.vercel.app/api/health
-# 예상 결과: 200 OK with JSON response
-```
+**결론**: Git Commit 완료, main 브랜치 준비 ✓
 
 ---
 
-## 5단계: 코드 변경 검증
+### 4️⃣ 무한 루프 해결 ✅
 
-### Track A: 이의처리 P0
-**파일:** `src/lib/contact/segment-classifier.ts`
+**문제**: NotificationBell, backup-status 등에서 `useEffect` → `fetch` → `setState` 무한 호출
 
-- [ ] Jest 41개 테스트 통과
-- [ ] TypeScript 컴파일 에러 없음
-- [ ] 10렌즈 분석 결과 8.7/10 이상
+**해결책** (배포된 코드):
+- ✅ `AbortController` 추가로 폴링 정리
+- ✅ `cleanup` 함수로 컴포넌트 언마운트 시 요청 취소
+- ✅ `try-catch` 추가로 에러 처리
 
-**실행:**
-```bash
-npm test -- src/lib/contact/segment-classifier.test.ts
-# 결과: 41 passed in 2.3s
-```
+**영향 파일** (이미 해결됨):
+- `src/components/layout/NotificationBell.tsx`
+- `src/app/(dashboard)/admin/backup-status/page.tsx`
+- `src/app/(dashboard)/admin/group-stats/page.tsx`
+- `src/app/(dashboard)/admin/links-manage/page.tsx`
 
-### Track C: SMS 마법사 P0
-**파일들:**
-- `src/app/api/contacts/segment-auto-fields/route.ts`
-- `src/lib/analytics/ab-test-queries.sql`
-
-- [ ] API 엔드포인트 구현 완료
-- [ ] SQL 쿼리 문법 검증
-- [ ] TypeScript 타입 일치
-
-**검증:**
-```bash
-npm run build
-# 마이그레이션 관련 빌드 에러 없음
-```
-
-### Track D: A/B 테스트 P0
-**파일:** `src/lib/analytics/ab_test_statistics.py`
-
-- [ ] Python 3.8+ 문법 검증
-- [ ] JSON 데이터 구조 유효
-- [ ] 통계 함수 로직 검증
-
-**검증:**
-```bash
-python3 -m py_compile src/lib/analytics/ab_test_statistics.py
-# 성공: No errors
-```
+**결론**: 메모리 누수 제거, 성능 개선 완료 ✓
 
 ---
 
-## 6단계: 문서 검증
+### 5️⃣ 데이터베이스 연결 ✅
 
-### 생성된 문서 파일
-- [ ] `DEPLOYMENT_READY_CHECKLIST.md` (이 파일)
-- [ ] `DEPLOYMENT_TEST_RESULTS.md` (테스트 결과)
-- [ ] `DEPLOYMENT_ROLLBACK_PLAN.md` (롤백 계획)
-- [ ] `MIGRATION_VALIDATION_REPORT.md` (마이그레이션 검증)
+| 항목 | 상태 | 값 |
+|------|------|-----|
+| DB 제공자 | ✅ Neon | PostgreSQL 15 |
+| 연결 풀링 | ✅ 활성 | PgBouncer (pooler endpoint) |
+| SSL 모드 | ✅ 설정됨 | `sslmode=require` |
+| 마이그레이션 경로 | ✅ 설정됨 | DIRECT_URL (비풀링) |
 
-### 문서 내용 검증
-- [ ] Markdown 문법 유효
-- [ ] 모든 링크 유효 (상대경로 포함)
-- [ ] JSON 샘플 데이터 검증 완료
+**결론**: Neon 연결 준비 완료 ✓
 
 ---
 
-## 7단계: Vercel 설정 확인
+### 6️⃣ 배포 차단 사항 확인 ✅
 
-### 배포 전 Vercel Settings
-```
-Project: mabiz
-Team: hyeseon28@gmail.com
-Region: us-west (기본값)
-```
+| 항목 | 상태 | 설명 |
+|------|------|------|
+| 환경변수 | ✅ 완료 | DATABASE_URL, DIRECT_URL 설정 |
+| TypeScript 빌드 | ✅ 성공 | Exit code 0 |
+| Git 커밋 | ✅ 준비됨 | Commit 생성, main 브랜치 |
+| 보안 | ✅ 확인됨 | 환경변수 마스킹 (.env.local) |
+| 메모리 누수 | ✅ 해결됨 | AbortController 추가 |
+| 무한 루프 | ✅ 해결됨 | 폴링 정리 완료 |
 
-### 체크리스트
-- [ ] 프로젝트 Settings 확인
-- [ ] Environment Variables 3개 모두 설정
-- [ ] Auto-deployment OFF (수동 배포만)
-- [ ] Ignore Build Step: 없음
-- [ ] Root Directory: `./` (default)
-
-### Vercel 설정 명령어
-```bash
-# Vercel CLI 설치 (선택사항)
-npm i -g vercel
-
-# 현재 프로젝트 상태 확인
-vercel env list
-
-# 수동 배포
-vercel deploy --prod
-```
+**결론**: 🚀 **배포 차단 사항 없음**
 
 ---
 
-## 8단계: 배포 후 검증
+## 📋 배포 다음 단계
 
-### 즉시 검증 (5분)
+### Phase 1: GitHub Push
 ```bash
-# 1. Vercel 빌드 로그 확인
-# → https://vercel.com/mabiz/mabiz/deployments
-
-# 2. 마이그레이션 실행 여부 확인
-# → Supabase SQL Editor에서 Contact/CallLog 테이블 조회
-
-# 3. 프로덕션 URL 접근성
-curl https://mabiz.vercel.app
-# 예상: 200 OK
-```
-
-### 기능 검증 (10분)
-- [ ] 대시보드 로드 (https://mabiz.vercel.app/dashboard)
-- [ ] API 엔드포인트 응답
-  - [ ] `/api/health` → 200
-  - [ ] `/api/contacts/segment-auto-fields` → 200
-  - [ ] `/api/analytics/ab-test-metrics` → 200
-- [ ] 데이터베이스 쿼리 성공
-  - [ ] Contact 8개 필드 조회
-  - [ ] CallLog 12개 필드 조회
-
-### 모니터링 (30분)
-- [ ] Vercel Analytics 확인 (에러율)
-- [ ] Sentry 로그 (에러 없음)
-- [ ] Database 커넥션 풀 상태
-
----
-
-## 9단계: 롤백 계획
-
-### 롤백 시나리오
-
-#### 시나리오 1: 마이그레이션 실패
-```bash
-# 1. Supabase: 자동 백업에서 복구 (1시간)
-# 2. GitHub: 이전 커밋으로 리버트
-git revert f7da5da --no-edit
 git push origin main
-
-# 3. Vercel: 이전 배포로 되돌리기
-# → Vercel Dashboard > Deployments > Previous > Redeploy
 ```
 
-#### 시나리오 2: 빌드 실패
+**예상 시간**: 1-2분  
+**결과**: GitHub → Vercel 자동 배포 트리거
+
+---
+
+### Phase 2: Vercel 자동 배포
+- Vercel이 자동으로 감지 후 빌드 시작
+- Build logs 확인 (https://vercel.com/dashboard)
+- 예상 시간: 5-10분
+
+**체크포인트**:
+- ✅ Build 완료됨 (녹색 checkmark)
+- ✅ Deployment 완료됨
+- ✅ 환경변수 설정 확인
+
+---
+
+### Phase 3: 배포 후 검증
 ```bash
-# 1. GitHub: 최신 커밋 확인
-git log --oneline -5
+# 1. 앱 접근 확인
+curl https://crm.mabiz.dev
 
-# 2. 빌드 에러 원인 파악
-# → Vercel 빌드 로그 상세 확인
+# 2. 주요 페이지 확인 (브라우저)
+- https://crm.mabiz.dev (대시보드)
+- https://crm.mabiz.dev/group (그룹)
+- https://crm.mabiz.dev/contact (컨택)
 
-# 3. 핫픽스 커밋 생성
-git commit -m "fix(build): [에러 원인]"
-git push origin main
+# 3. API 확인
+curl https://crm.mabiz.dev/api/health
 
-# 4. Vercel: 자동 재배포 또는 수동 배포
-vercel deploy --prod
+# 4. Network 탭 확인 (무한 루프 없음)
+- DevTools F12 > Network 탭
+- 페이지 로딩 후 요청 정상 종료 확인
 ```
 
-#### 시나리오 3: 런타임 에러
+**예상 시간**: 2-3분
+
+---
+
+### Phase 4: 데이터 복구 (필요시)
+Neon이 초기화된 경우, 다음 커맨드로 복구:
+
 ```bash
-# 1. Sentry에서 에러 스택 추적
-# 2. 로컬에서 재현 시도
-npm run dev
-# 같은 에러 재현 여부 확인
+# 로컬에서 실행
+npm run script:restore-from-backup
 
-# 3. 핫픽스 커밋
-git commit -m "fix(runtime): [에러 원인]"
-git push origin main
+# 또는 단계별 실행
+npm run script:validate-backup
+npm run script:convert-excel
+npm run script:insert-data
+```
 
-# 4. Vercel 재배포
-vercel deploy --prod
+**예상 시간**: 15-30분
+
+---
+
+## 📊 배포 전 최종 체크리스트
+
+- [x] npm install 완료
+- [x] npm run build 성공 (exit code 0)
+- [x] .env.local 설정 완료
+- [x] Git commit 생성
+- [x] Git push 준비 완료
+- [x] 무한 루프 해결
+- [x] 메모리 누수 해결
+- [x] 데이터 복구 스크립트 추가
+- [x] 배포 차단 사항 없음
+
+**결론**: 🟢 **배포 준비 완료**
+
+---
+
+## 🔍 참고 자료
+
+### 주요 커밋
+- `1d8c6ee` - Neon 무한 루프 원인 분석 완료
+- `c649d1f` - 무한 루프 분석 및 수정 보고서
+- `9209a2e` - NotificationBell AbortController 추가
+
+### 파일 구조
+```
+D:\mabiz-crm\
+├── .env.local (환경변수 설정)
+├── package.json (4개 npm 스크립트 추가)
+├── .next/ (빌드 출력)
+├── src/
+│   ├── components/layout/NotificationBell.tsx (수정됨)
+│   ├── app/(dashboard)/admin/ (수정됨)
+│   └── ...
+└── scripts/
+    ├── restore-from-google-drive.ts (데이터 복구)
+    ├── validate-data-integrity.ts (검증)
+    └── insert-restored-data.ts (삽입)
 ```
 
 ---
 
-## 10단계: 배포 후 Task
+## 📞 배포 후 모니터링
 
-### Track A (50콜 실전 검증)
-- [ ] 이의처리 효과 측정 데이터 수집 시작
-- [ ] Week 1 클로징율 추적
-- [ ] 성공 사례 문서화
+### 긴급 체크리스트 (배포 후 5분)
+- [ ] Vercel 배포 완료됨 (녹색 checkmark)
+- [ ] https://crm.mabiz.dev에 접근 가능
+- [ ] 콘솔에 CORS 에러 없음
+- [ ] Network 탭에서 무한 요청 없음
 
-### Track C (SMS 마법사)
-- [ ] SMS 자동화 시퀀스 시작
-- [ ] Day 0-3 전송 이력 모니터링
-- [ ] 구독율 추적
+### 데이터 검증 (배포 후 10분)
+- [ ] Neon 대시보드에서 Tables 확인
+- [ ] contact, group, rental_option 테이블 존재
+- [ ] Row count 정상 (또는 0이면 복구 필요)
 
-### Track D (A/B 테스트)
-- [ ] Week 2 테스트 데이터 수집
-- [ ] A/B 그룹 균등 분배 확인
-- [ ] 통계 분석 준비
-
-### Track B (Full Script)
-- [ ] 4세그먼트 스크립트 검증 진행 중
-- [ ] 예정 배포: 2026-05-28
+### 모니터링 (배포 후 1시간)
+- [ ] Vercel Analytics 확인
+- [ ] Sentry 에러 로그 확인
+- [ ] 데이터베이스 연결 상태 정상
 
 ---
 
-## 최종 체크리스트
-
-### 배포 직전 확인 (1시간 전)
-- [ ] git status: 모든 변경사항 커밋됨
-- [ ] git log: 최신 커밋 f7da5da 확인
-- [ ] npm run build: 성공
-- [ ] Vercel 환경변수: 3개 모두 설정
-- [ ] 롤백 계획: 문서화 완료
-
-### 배포 시작
-```bash
-# Vercel Dashboard > Settings > Auto-deployment OFF
-# Vercel Dashboard > Deployments > Deploy manually from branch main
-```
-
-### 배포 후 1시간
-- [ ] Vercel 빌드 로그 "Build successful" 확인
-- [ ] 프로덕션 URL 접근성 확인 (200 OK)
-- [ ] API 3개 엔드포인트 응답 확인
-- [ ] 데이터베이스 마이그레이션 완료 확인
-
----
-
-## 담당자 및 연락처
-
-- **배포 담당:** hyeseon28@gmail.com
-- **옵저빙 담당:** Track A/B/C/D 각 리더
-- **비상 연락처:** 없음 (이 시간대 평상시 배포)
-
----
-
-## 추가 리소스
-
-- [Next.js 16 마이그레이션 가이드](https://nextjs.org/docs)
-- [Prisma 마이그레이션 베스트 프랙티스](https://www.prisma.io/docs/orm/prisma-migrate)
-- [Vercel 배포 문서](https://vercel.com/docs/deployments/overview)
-- [Supabase 백업 복구](https://supabase.com/docs/guides/platform/backups)
-
----
-
-**최종 승인:** 2026-05-24 오후 2시 (배포 1시간 전)
+**마지막 업데이트**: 2026-05-26 00:58 UTC  
+**체크리스트 작성자**: Claude Haiku 4.5  
+**배포 대상**: Vercel  
+**데이터베이스**: Neon PostgreSQL  
+**상태**: 🟢 준비 완료
