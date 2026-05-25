@@ -203,6 +203,61 @@ model Contact {
   autoSegment                String?                    @default("unclassified") @db.VarChar(20)
   segmentUpdatedAt           DateTime                    @default(now()) @updatedAt
   socialProvider             String?                    @db.VarChar(20)
+  // L2 Lens: 준비 불안도 평가 (Menu #48)
+  anxietyScore               Int                         @default(0)
+  anxietyCategory            String?                    @default("low") @db.VarChar(20) // low, medium, high
+  preparationStage           String?                    @default("inquiry") @db.VarChar(50) // inquiry, visa_concern, health_concern, passport_concern, ready
+  visaRequired               Boolean                    @default(false)
+  passportDaysLeft           Int?
+  firstTimeCruise            Boolean                    @default(false)
+  familyWithKids             Boolean                    @default(false)
+  healthConcerns             String?                    // 쉼표 구분: 배멀미, 당뇨, 고혈압 등
+  anxietyAssessmentAt        DateTime?
+  anxietySequenceStartedAt   DateTime?
+  // L0 Lens: 부재중 고객 재활성화 (Menu #47)
+  reactivationSegment        String?                    @db.VarChar(20) // "3-6m", "6-12m", "1y+"
+  reactivationLikelihood     Int                         @default(0) // 0-100 점수
+  lastCruiseDate             DateTime?
+  lastSatisfactionScore      Int?
+  cruiseCount                Int                         @default(0)
+  vipStatus                  String?                    @db.VarChar(20) // "GOLD", "SILVER", null
+  smsDay0Sent                Boolean                    @default(false)
+  smsDay0SentAt              DateTime?
+  smsDay1Sent                Boolean                    @default(false)
+  smsDay1SentAt              DateTime?
+  smsDay2Sent                Boolean                    @default(false)
+  smsDay2SentAt              DateTime?
+  smsDay3Sent                Boolean                    @default(false)
+  smsDay3SentAt              DateTime?
+  // L3 Lens: 차별성 미인지형 고객 (Menu #49)
+  competitorMentioned        Boolean                    @default(false)
+  competitorNames            String[]                   @default([]) // ["Royal", "MSC", "Disney", ...]
+  lastCompetitorMentionAt    DateTime?
+  lastCompetitorName         String?                    @db.VarChar(50)
+  differentiationScore       Int                        @default(0) // 0-100: 차별성 이해도
+  hotelExperienceLevel       String?                    @db.VarChar(20) // "none", "basic", "frequent", "regular"
+  preparationFrameworkLevel  String?                    @db.VarChar(20) // inquiry, understanding, convinced, booked
+  differentiationResponseSent Boolean                   @default(false)
+  lastDifferentiationResponseAt DateTime?
+  comparisonDocumentId       String?
+  differentiationSequenceStartedAt DateTime?
+  // L8 Lens: 재방문 습관화 (Menu #51)
+  cruiseClubTier             String?                    @db.VarChar(20) // "bronze", "silver", "gold", "platinum"
+  ltvTotal                   Float                      @default(0) // 생명주기 가치 ($)
+  nextCruiseRecommendation   String?                    // 추천 코스명
+  lastCruiseSatisfactionScore Int?                      // 만족도 (1-10)
+  lastCruiseEndDate          DateTime?                  // 크루즈 종료일
+  cruiseReturnInterestLevel  Int                        @default(0) // 0-100: 재방문 의향
+  returnVisitScheduledDate   DateTime?                  // 예정된 재방문 날짜
+  smsDay10ReturnSent         Boolean                    @default(false)
+  smsDay10ReturnSentAt       DateTime?
+  smsDay30ReturnSent         Boolean                    @default(false)
+  smsDay30ReturnSentAt       DateTime?
+  smsDay60ReturnSent         Boolean                    @default(false)
+  smsDay60ReturnSentAt       DateTime?
+  smsDay90ReturnSent         Boolean                    @default(false)
+  smsDay90ReturnSentAt       DateTime?
+  ltvCalculatedAt            DateTime?
   callLogs                   CallLog[]
   organization               Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   partner                    Partner?                    @relation(fields: [partnerId], references: [id])
@@ -232,6 +287,17 @@ model Contact {
   @@index([marriageDate], map: "idx_contact_marriage_date")
   @@index([childrenAges], map: "idx_contact_children_ages")
   @@index([organizationId, socialProvider], map: "idx_contact_org_social_provider")
+  @@index([organizationId, reactivationSegment], map: "idx_contact_reactivation_segment")
+  @@index([organizationId, reactivationLikelihood], map: "idx_contact_reactivation_likelihood")
+  @@index([organizationId, lastCruiseDate], map: "idx_contact_last_cruise_date")
+  @@index([organizationId, smsDay0Sent, smsDay1Sent, smsDay2Sent, smsDay3Sent], map: "idx_contact_reactivation_sms_status")
+  @@index([organizationId, competitorMentioned], map: "idx_contact_competitor_mentioned")
+  @@index([organizationId, differentiationScore], map: "idx_contact_differentiation_score")
+  @@index([organizationId, lastCompetitorMentionAt], map: "idx_contact_last_competitor_mention")
+  @@index([organizationId, cruiseClubTier], map: "idx_contact_cruise_club_tier")
+  @@index([organizationId, ltvTotal], map: "idx_contact_ltv_total")
+  @@index([organizationId, lastCruiseEndDate], map: "idx_contact_last_cruise_end_date")
+  @@index([organizationId, cruiseCount], map: "idx_contact_cruise_count")
 }
 
 model ContactLensClassification {
