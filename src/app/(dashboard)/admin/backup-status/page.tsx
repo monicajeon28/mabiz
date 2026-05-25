@@ -20,18 +20,22 @@ export default function BackupStatusPage() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const fetchStats = async () => {
+  const fetchStats = async (signal?: AbortSignal) => {
     try {
       setLoading(true);
       const res = await fetch('/api/cron/health-check', {
         headers: {
           'X-Vercel-Cron-Secret': process.env.NEXT_PUBLIC_CRON_SECRET || '',
         },
+        signal,
       });
       const data = await res.json();
       setStats(data);
       setLastUpdated(new Date());
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return; // 요청 중단, 에러 무시
+      }
       console.error('Failed to fetch backup stats:', err);
     } finally {
       setLoading(false);
@@ -39,10 +43,28 @@ export default function BackupStatusPage() {
   };
 
   useEffect(() => {
-    fetchStats();
+    const controller = new AbortController();
+    let isMounted = true;
+
+    const init = async () => {
+      if (isMounted) {
+        await fetchStats(controller.signal);
+      }
+    };
+    init();
+
     // 5분마다 자동 새로고침
-    const interval = setInterval(fetchStats, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => {
+      if (isMounted) {
+        fetchStats(controller.signal);
+      }
+    }, 5 * 60 * 1000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      controller.abort();
+    };
   }, []);
 
   if (loading) {
