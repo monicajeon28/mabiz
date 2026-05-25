@@ -94,14 +94,46 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // TODO: 실제 SMS 발송 스케줄링 로직
+    // 실제 SMS 발송 스케줄링 로직
     // - ScheduledSms 테이블에 저장
     // - 크론 잡으로 Day 0-3 발송 자동화
+    const scheduledMessages = [];
+
+    for (const schedule of schedules) {
+      // 메타데이터를 JSON 주석으로 인코딩 (failureReason 필드 재활용)
+      const metadata = {
+        smsSequenceTemplate,
+        anxietyCategory,
+        preparationStage,
+        day: schedule.day,
+        variant: schedule.template.variant,
+        type: schedule.template.type,
+        cta: schedule.template.cta,
+        urgency: schedule.template.urgency,
+      };
+
+      const scheduledSms = await prisma.scheduledSms.create({
+        data: {
+          organizationId,
+          contactId,
+          message: schedule.template.content,
+          scheduledAt: calculateScheduledTime(schedule.day, schedule.sendTime),
+          status: 'PENDING',
+          failureReason: JSON.stringify(metadata), // 메타데이터 저장
+        },
+      });
+      scheduledMessages.push(scheduledSms);
+    }
 
     return NextResponse.json({
       contactId,
       sequenceStarted: true,
       schedules,
+      scheduledMessages: scheduledMessages.map((m) => ({
+        id: m.id,
+        scheduledAt: m.scheduledAt,
+        status: m.status,
+      })),
       totalMessages: schedules.length,
       estimatedCompletion: new Date(
         Date.now() + 3 * 24 * 60 * 60 * 1000
@@ -443,4 +475,19 @@ function calculateSendTime(day: number): string {
  */
 function calculateDelay(day: number, variantIdx: number): number {
   return day * 24 * 60 + variantIdx * 30; // 날짜별 + 변형별 간격
+}
+
+/**
+ * 실제 발송 시간 계산 (타임스탠프)
+ */
+function calculateScheduledTime(day: number, sendTime: string): Date {
+  const now = new Date();
+  const [hours, minutes] = sendTime.split(':').map(Number);
+
+  // Day별로 지정된 시간에 발송
+  const scheduledDate = new Date(now);
+  scheduledDate.setDate(scheduledDate.getDate() + day);
+  scheduledDate.setHours(hours, minutes, 0, 0);
+
+  return scheduledDate;
 }
