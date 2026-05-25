@@ -5,6 +5,8 @@ import { DashboardClient } from "../dashboard-client";
 import { getMabizSession } from "@/lib/auth";
 import { AuthSession } from "@/types/auth";
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardPage() {
   const ctx = await getMabizSession();
   const session: AuthSession | null = ctx ? {
