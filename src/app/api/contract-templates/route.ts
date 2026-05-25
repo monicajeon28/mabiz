@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId, canManageSettings } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { createContractTemplateSchema } from "@/lib/validations/contract-templates";
+import { ZodError } from "zod";
 
 // GET /api/contract-templates - 조직별 계약 템플릿 목록 조회 (페이지네이션)
 export async function GET(req: Request) {
@@ -101,55 +103,26 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
-    // 필수 필드 검증
-    const { name, category, htmlContent, jsonContent, description, visibility } = body;
-
-    if (!name || typeof name !== "string" || name.trim().length === 0) {
-      return NextResponse.json(
-        { ok: false, error: "Missing or invalid required field: name" },
-        { status: 400 }
-      );
-    }
-
-    if (!category || typeof category !== "string") {
-      return NextResponse.json(
-        { ok: false, error: "Missing or invalid required field: category" },
-        { status: 400 }
-      );
-    }
-
-    // 유효한 카테고리 확인
-    const validCategories = ["CRUISE", "RENTAL", "HOTEL", "PACKAGE", "OTHER"];
-    if (!validCategories.includes(category)) {
-      return NextResponse.json(
-        { ok: false, error: `Invalid category: ${category}` },
-        { status: 400 }
-      );
-    }
-
-    // 옵션 필드 검증
-    const validVisibilities = ["ORGANIZATION", "MANAGER_ONLY", "PERSONAL"];
-    const resolvedVisibility = visibility && validVisibilities.includes(visibility)
-      ? visibility
-      : "ORGANIZATION";
+    // Zod 스키마로 검증
+    const validatedData = createContractTemplateSchema.parse(body);
 
     // 계약 템플릿 생성
     const template = await prisma.contractTemplate.create({
       data: {
         organizationId: orgId,
-        name: name.trim(),
-        category,
-        description: description?.trim() || null,
-        htmlContent: htmlContent || null,
-        jsonContent: jsonContent || null,
-        visibility: resolvedVisibility,
+        name: validatedData.name.trim(),
+        category: validatedData.category,
+        description: validatedData.description?.trim() || null,
+        htmlContent: validatedData.htmlContent || null,
+        jsonContent: body.jsonContent || null,
+        visibility: validatedData.visibility,
         createdByUserId: ctx.userId,
-        fieldMapping: body.fieldMapping || {},
-        psychologyLenses: Array.isArray(body.psychologyLenses) ? body.psychologyLenses : [],
-        smsDay0TemplateId: body.smsDay0TemplateId || null,
-        smsDay1TemplateId: body.smsDay1TemplateId || null,
-        smsDay2TemplateId: body.smsDay2TemplateId || null,
-        smsDay3TemplateId: body.smsDay3TemplateId || null,
+        fieldMapping: validatedData.fieldMapping || {},
+        psychologyLenses: validatedData.psychologyLenses,
+        smsDay0TemplateId: validatedData.smsDay0TemplateId || null,
+        smsDay1TemplateId: validatedData.smsDay1TemplateId || null,
+        smsDay2TemplateId: validatedData.smsDay2TemplateId || null,
+        smsDay3TemplateId: validatedData.smsDay3TemplateId || null,
         status: "DRAFT",
         version: 1,
         isSystemTemplate: false,
@@ -169,6 +142,15 @@ export async function POST(req: Request) {
     );
   } catch (err) {
     logger.error("contract-templates POST error:", err instanceof Error ? err : new Error(String(err)));
+
+    // Zod 검증 에러
+    if (err instanceof ZodError) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid input data", details: err.errors },
+        { status: 400 }
+      );
+    }
+
     if ((err as Error).message === "UNAUTHORIZED") {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }

@@ -299,8 +299,16 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     }
 
     // 요청 본문 파싱 (삭제 사유 등)
-    const body = await req.json().catch(() => ({}));
-    const { reason } = body as { reason?: string };
+    let body: { reason?: string } = {};
+    try {
+      body = await req.json();
+    } catch (parseError) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid JSON in request body" },
+        { status: 400 }
+      );
+    }
+    const { reason } = body;
 
     // 기존 템플릿 조회
     const template = await prisma.contractTemplate.findFirst({

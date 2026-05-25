@@ -55,11 +55,16 @@ export default function ContractTemplateDetailPage() {
   // 템플릿 로드
   useEffect(() => {
     const fetchTemplate = async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
       try {
         setLoading(true);
         setError(null);
 
-        const res = await fetch(`/api/contract-templates/${id}`);
+        const res = await fetch(`/api/contract-templates/${id}`, {
+          signal: controller.signal,
+        });
         const data: ApiResponse = await res.json();
 
         if (!res.ok || !data.ok) {
@@ -80,8 +85,13 @@ export default function ContractTemplateDetailPage() {
           setSelectedLenses(data.data.psychologyLenses);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "오류가 발생했습니다");
+        if ((err as Error).name === 'AbortError') {
+          setError("요청 시간 초과 - 다시 시도해주세요");
+        } else {
+          setError(err instanceof Error ? err.message : "오류가 발생했습니다");
+        }
       } finally {
+        clearTimeout(timeout);
         setLoading(false);
       }
     };
@@ -121,28 +131,40 @@ export default function ContractTemplateDetailPage() {
         status: formData.status,
       };
 
-      const res = await fetch(`/api/contract-templates/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
 
-      const data = await res.json();
+      try {
+        const res = await fetch(`/api/contract-templates/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
 
-      if (!res.ok || !data.ok) {
-        showError(data.error || "수정에 실패했습니다");
-        return;
-      }
+        const data = await res.json();
 
-      showSuccess(data.message || "템플릿이 성공적으로 수정되었습니다");
-      setIsEditing(false);
+        if (!res.ok || !data.ok) {
+          showError(data.error || "수정에 실패했습니다");
+          return;
+        }
 
-      // 템플릿 상태 업데이트
-      if (data.data) {
-        setTemplate(data.data);
+        showSuccess(data.message || "템플릿이 성공적으로 수정되었습니다");
+        setIsEditing(false);
+
+        // 템플릿 상태 업데이트
+        if (data.data) {
+          setTemplate(data.data);
+        }
+      } finally {
+        clearTimeout(timeout);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "오류가 발생했습니다");
+      if ((err as Error).name === 'AbortError') {
+        showError("요청 시간 초과 - 다시 시도해주세요");
+      } else {
+        showError(err instanceof Error ? err.message : "오류가 발생했습니다");
+      }
     } finally {
       setSaving(false);
     }
@@ -185,7 +207,10 @@ export default function ContractTemplateDetailPage() {
           </div>
           {!isEditing && (
             <button
-              onClick={() => setIsEditing(true)}
+              onClick={() => {
+                setIsEditing(true);
+                setError(null);
+              }}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               편집

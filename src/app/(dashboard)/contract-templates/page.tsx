@@ -133,29 +133,41 @@ export default function ContractTemplatesPage() {
 
       {/* 필터 */}
       <div className="mb-6 flex gap-4">
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg"
-        >
-          <option value="">모든 카테고리</option>
-          <option value="CRUISE">크루즈</option>
-          <option value="RENTAL">렌탈</option>
-          <option value="HOTEL">호텔</option>
-          <option value="PACKAGE">패키지</option>
-          <option value="OTHER">기타</option>
-        </select>
+        <div className="flex flex-col gap-2">
+          <label htmlFor="category-filter" className="text-sm font-semibold">
+            카테고리
+          </label>
+          <select
+            id="category-filter"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg"
+          >
+            <option value="">모든 카테고리</option>
+            <option value="CRUISE">크루즈</option>
+            <option value="RENTAL">렌탈</option>
+            <option value="HOTEL">호텔</option>
+            <option value="PACKAGE">패키지</option>
+            <option value="OTHER">기타</option>
+          </select>
+        </div>
 
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg"
-        >
-          <option value="">모든 상태</option>
-          <option value="ACTIVE">활성</option>
-          <option value="ARCHIVED">보관됨</option>
-          <option value="DRAFT">임시저장</option>
-        </select>
+        <div className="flex flex-col gap-2">
+          <label htmlFor="status-filter" className="text-sm font-semibold">
+            상태
+          </label>
+          <select
+            id="status-filter"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg"
+          >
+            <option value="">모든 상태</option>
+            <option value="ACTIVE">활성</option>
+            <option value="ARCHIVED">보관됨</option>
+            <option value="DRAFT">임시저장</option>
+          </select>
+        </div>
       </div>
 
       {/* 에러 메시지 */}
@@ -278,26 +290,44 @@ export default function ContractTemplatesPage() {
 
       {/* 삭제 확인 모달 */}
       {confirmDeleteId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm mx-4 shadow-lg">
-            <h2 className="text-lg font-semibold mb-4">템플릿 삭제</h2>
-            <p className="text-gray-700 mb-6">이 템플릿을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleDelete(confirmDeleteId)}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-              >
-                삭제
-              </button>
-              <button
-                onClick={() => setConfirmDeleteId(null)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                취소
-              </button>
+        <>
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            aria-hidden="true"
+            onClick={() => setConfirmDeleteId(null)}
+          />
+          <div
+            className="fixed inset-0 flex items-center justify-center z-50"
+            role="dialog"
+            aria-labelledby="delete-modal-title"
+            aria-modal="true"
+          >
+            <div className="bg-white rounded-lg p-6 max-w-sm mx-4 shadow-lg">
+              <h2 id="delete-modal-title" className="text-lg font-semibold mb-4">
+                템플릿 삭제
+              </h2>
+              <p className="text-gray-700 mb-6">
+                이 템플릿을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleDelete(confirmDeleteId)}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  aria-label="템플릿 삭제 확인"
+                >
+                  삭제
+                </button>
+                <button
+                  onClick={() => setConfirmDeleteId(null)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  aria-label="삭제 취소"
+                >
+                  취소
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

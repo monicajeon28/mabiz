@@ -55,23 +55,35 @@ export default function NewContractTemplatePage() {
         status: formData.status,
       };
 
-      const res = await fetch("/api/contract-templates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
 
-      const data = await res.json();
+      try {
+        const res = await fetch("/api/contract-templates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
 
-      if (!res.ok || !data.ok) {
-        showError(data.error || "생성에 실패했습니다");
-        return;
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          showError(data.error || "생성에 실패했습니다");
+          return;
+        }
+
+        showSuccess(data.message || "템플릿이 성공적으로 생성되었습니다");
+        setTimeout(() => router.push(`/contract-templates/${data.data.id}`), 2000);
+      } finally {
+        clearTimeout(timeout);
       }
-
-      showSuccess(data.message || "템플릿이 성공적으로 생성되었습니다");
-      setTimeout(() => router.push(`/contract-templates/${data.data.id}`), 500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "오류가 발생했습니다");
+      if ((err as Error).name === 'AbortError') {
+        showError("요청 시간 초과 - 다시 시도해주세요");
+      } else {
+        showError(err instanceof Error ? err.message : "오류가 발생했습니다");
+      }
     } finally {
       setLoading(false);
     }
