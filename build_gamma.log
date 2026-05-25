@@ -20,3 +20,13 @@ Import trace for requested module:
 ./node_modules/@sentry/nextjs/build/cjs/index.server.js
 ./src/lib/sentry.ts
 
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'D:\mabiz-crm\.next\cache\webpack\client-production\3.pack_' -> 'D:\mabiz-crm\.next\cache\webpack\client-production\3.pack'
+ ✓ Compiled successfully in 9.4min
+   Linting and checking validity of types ...
+Cannot find module 'next/dist/compiled/babel/code-frame'
+Require stack:
+- D:\mabiz-crm\node_modules\next\dist\lib\typescript\diagnosticFormatter.js
+- D:\mabiz-crm\node_modules\next\dist\lib\typescript\runTypeCheck.js
+- D:\mabiz-crm\node_modules\next\dist\lib\verify-typescript-setup.js
+- D:\mabiz-crm\node_modules\next\dist\compiled\jest-worker\processChild.js
+Next.js build worker exited with code: 1 and signal: null
