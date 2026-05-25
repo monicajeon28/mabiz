@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getAuthContext } from '@/lib/rbac';
 import * as visaGuide from '@/lib/preparation-guides/visa-guide.json';
 import * as passportGuide from '@/lib/preparation-guides/passport-guide.json';
 import * as healthGuide from '@/lib/preparation-guides/health-guide.json';

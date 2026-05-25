@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { showError, showSuccess } from "@/components/ui/Toast";
+import { CATEGORY_LABEL, STATUS_LABEL, STATUS_CLASS } from "./constants";
 
 interface ContractTemplate {
   id: string;
@@ -22,29 +24,15 @@ interface ContractTemplate {
 interface ApiResponse {
   ok: boolean;
   data?: ContractTemplate[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
   message?: string;
   error?: string;
 }
-
-const CATEGORY_LABEL: Record<string, string> = {
-  CRUISE: "크루즈",
-  RENTAL: "렌탈",
-  HOTEL: "호텔",
-  PACKAGE: "패키지",
-  OTHER: "기타",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  ACTIVE: "활성",
-  ARCHIVED: "보관됨",
-  DRAFT: "임시저장",
-};
-
-const STATUS_CLASS: Record<string, string> = {
-  ACTIVE: "bg-green-100 text-green-700",
-  ARCHIVED: "bg-gray-100 text-gray-700",
-  DRAFT: "bg-yellow-100 text-yellow-700",
-};
 
 export default function ContractTemplatesPage() {
   const router = useRouter();
@@ -54,10 +42,14 @@ export default function ContractTemplatesPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [category, setCategory] = useState<string>("");
   const [status, setStatus] = useState<string>("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // 목록 조회
   useEffect(() => {
     const fetchTemplates = async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
       try {
         setLoading(true);
         setError(null);
@@ -67,7 +59,9 @@ export default function ContractTemplatesPage() {
         if (status) params.append("status", status);
         params.append("limit", "20");
 
-        const res = await fetch(`/api/contract-templates?${params.toString()}`);
+        const res = await fetch(`/api/contract-templates?${params.toString()}`, {
+          signal: controller.signal,
+        });
         const data: ApiResponse = await res.json();
 
         if (!res.ok || !data.ok) {
@@ -76,12 +70,15 @@ export default function ContractTemplatesPage() {
         }
 
         setTemplates(data.data || []);
-        // Parse message to get total count (e.g., "총 5개 템플릿 조회됨...")
-        const match = data.message?.match(/총 (\d+)개/);
-        setTotalCount(match ? parseInt(match[1]) : 0);
+        setTotalCount(data.pagination?.total || 0);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "오류가 발생했습니다");
+        if ((err as Error).name === 'AbortError') {
+          setError("요청 시간 초과 - 다시 시도해주세요");
+        } else {
+          setError(err instanceof Error ? err.message : "오류가 발생했습니다");
+        }
       } finally {
+        clearTimeout(timeout);
         setLoading(false);
       }
     };
@@ -91,23 +88,33 @@ export default function ContractTemplatesPage() {
 
   // 삭제 처리
   const handleDelete = async (id: string) => {
-    if (!window.confirm("이 템플릿을 삭제하시겠습니까?")) return;
+    setConfirmDeleteId(null);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
 
     try {
       const res = await fetch(`/api/contract-templates/${id}`, {
         method: "DELETE",
+        signal: controller.signal,
       });
       const data = await res.json();
 
       if (!res.ok || !data.ok) {
-        alert(data.error || "삭제에 실패했습니다");
+        showError(data.error || "삭제에 실패했습니다");
         return;
       }
 
-      alert(data.message || "템플릿이 삭제되었습니다");
+      showSuccess(data.message || "템플릿이 삭제되었습니다");
       setTemplates(templates.filter((t) => t.id !== id));
     } catch (err) {
-      alert(err instanceof Error ? err.message : "오류가 발생했습니다");
+      if ((err as Error).name === 'AbortError') {
+        showError("요청 시간 초과 - 다시 시도해주세요");
+      } else {
+        showError(err instanceof Error ? err.message : "오류가 발생했습니다");
+      }
+    } finally {
+      clearTimeout(timeout);
     }
   };
 
@@ -234,7 +241,7 @@ export default function ContractTemplatesPage() {
                       </Link>
                       {!template.isSystemTemplate && (
                         <button
-                          onClick={() => handleDelete(template.id)}
+                          onClick={() => setConfirmDeleteId(template.id)}
                           className="text-red-600 hover:underline text-xs"
                         >
                           삭제
@@ -266,6 +273,30 @@ export default function ContractTemplatesPage() {
       {!loading && (
         <div className="mt-4 text-sm text-gray-600">
           총 {totalCount}개 템플릿
+        </div>
+      )}
+
+      {/* 삭제 확인 모달 */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm mx-4 shadow-lg">
+            <h2 className="text-lg font-semibold mb-4">템플릿 삭제</h2>
+            <p className="text-gray-700 mb-6">이 템플릿을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleDelete(confirmDeleteId)}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                삭제
+              </button>
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                취소
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

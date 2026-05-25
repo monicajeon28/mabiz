@@ -12,23 +12,21 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1"));
     const limit = Math.min(100, parseInt(searchParams.get("limit") ?? "20"));
-    const status = searchParams.get("status") ?? "ACTIVE";
+    const status = searchParams.get("status");
     const category = searchParams.get("category");
 
     const skip = (page - 1) * limit;
 
     // 쿼리 조건 구성
-    const where: any = {
+    const where: {
+      organizationId: string;
+      status?: string;
+      category?: string;
+    } = {
       organizationId: orgId,
+      ...(status ? { status } : {}),
+      ...(category ? { category } : {}),
     };
-
-    if (status && status !== "ALL") {
-      where.status = status;
-    }
-
-    if (category) {
-      where.category = category;
-    }
 
     // 병렬 조회: 목록 + 총 개수
     const [templates, total] = await Promise.all([

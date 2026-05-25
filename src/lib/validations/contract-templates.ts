@@ -5,7 +5,7 @@ export const createContractTemplateSchema = z.object({
   description: z.string().optional(),
   category: z.enum(["CRUISE", "RENTAL", "HOTEL", "PACKAGE", "OTHER"]),
   htmlContent: z.string().min(1, "HTML 콘텐츠는 필수입니다"),
-  fieldMapping: z.record(z.string()),
+  fieldMapping: z.record(z.string(), z.any()).optional(),
   psychologyLenses: z.array(z.string()).default([]),
   smsDay0TemplateId: z.string().optional(),
   smsDay1TemplateId: z.string().optional(),
@@ -22,7 +22,7 @@ export const updateContractTemplateSchema = createContractTemplateSchema.partial
 export const createContractInstanceSchema = z.object({
   templateId: z.string().min(1, "템플릿 ID는 필수입니다"),
   contactId: z.string().optional(),
-  boundData: z.record(z.string()),
+  boundData: z.record(z.string(), z.any()).optional(),
   autoSendSms: z.boolean().default(true),
 });
 

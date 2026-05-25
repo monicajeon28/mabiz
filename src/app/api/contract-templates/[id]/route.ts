@@ -100,7 +100,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
 
     // 요청 본문 파싱
-    const body = await req.json().catch(() => ({}));
+    let body;
+    try {
+      body = await req.json();
+    } catch (parseError) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid JSON in request body" },
+        { status: 400 }
+      );
+    }
 
     // 입력 검증
     const validatedData = updateContractTemplateSchema.parse(body);
