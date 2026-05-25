@@ -2872,8 +2872,6 @@ model CruiseProduct {
   @@index([saleStatus])
   @@index([saleStatus, isPopular, createdAt(sort: Desc)])
   @@index([source])
-  @@index([packageName(ops: raw("gin_trgm_ops"))], map: "idx_cruise_product_packagename_trgm", type: Gin)
-  @@index([shipName(ops: raw("gin_trgm_ops"))], map: "idx_cruise_product_shipname_trgm", type: Gin)
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
