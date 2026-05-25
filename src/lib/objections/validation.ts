@@ -1,4 +1,4 @@
-import objectionsData from '@/../../TRACK_A_OBJECTIONS.json';
+import objectionsData from '@/../TRACK_A_OBJECTIONS.json';
 
 export interface ObjectionData {
   id: string;
