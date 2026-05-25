@@ -1,0 +1,301 @@
+{
+  "summary": {
+    "total_routes": 389,
+    "checked": 389,
+    "issues_by_type": {
+      "missing_export": 483,
+      "prisma_named_import": 352,
+      "missing_module": 1
+    }
+  },
+  "issues": {
+    "prisma_named_import": [
+      "D:\\mabiz-crm\\src\\app\\api\\ab-test\\assignments\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\ab-test\\progress\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\admin\\affiliate-managers\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\admin\\affiliate-managers\\[memberId]\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\admin\\affiliate-sales\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\admin\\apis\\excel\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\admin\\groups-stats\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\admin\\organizations\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\admin\\partner-suspensions\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\admin\\partner-suspensions\\[organizationId]\\resolve\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\admin\\sending-metrics\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\admin\\verification\\metrics\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\affiliate\\contracts\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\affiliate\\contracts\\bulk-approve\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\affiliate\\contracts\\complete\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\affiliate\\contracts\\send-email-token\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\affiliate\\contracts\\[contractId]\\approve\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\affiliate\\contracts\\[contractId]\\reject\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\affiliate\\contracts\\[contractId]\\simple-approve\\route.ts",
+      "D:\\mabiz-crm\\src\\app\\api\\affiliate\\my-sales\\route.ts"
+    ],
+    "missing_module": [
+      {
+        "route": "D:\\mabiz-crm\\src\\app\\api\\passport\\admin\\chatbot-flow\\route.ts",
+        "import": "@/lib/gemini",
+        "names": [
+          "scanPassport"
+        ]
+      }
+    ],
+    "missing_export": [
+      {
+        "route": "ab-test\\assignments\\route.ts",
+        "module": "@/lib/auth",
+        "missing_name": "getMabizSession",
+        "available": [
+          "MABIZ_SESSION_COOKIE",
+          "MabizAuthContext"
+        ]
+      },
+      {
+        "route": "ab-test\\progress\\route.ts",
+        "module": "@/lib/auth",
+        "missing_name": "getMabizSession",
+        "available": [
+          "MABIZ_SESSION_COOKIE",
+          "MabizAuthContext"
+        ]
+      },
+      {
+        "route": "admin\\affiliate-managers\\route.ts",
+        "module": "@/lib/rbac",
+        "missing_name": "getAuthContext",
+        "available": [
+          "UserRole",
+          "AuthContext",
+          "buildContactWhere",
+          "canHardDelete",
+          "requireNotFreeSales",
+          "maskContactInfo",
+          "canDelete",
+          "canManageSettings",
+          "canReview",
+          "requireOrgId",
+          "BONSA_ORG_ID",
+          "resolveOrgIdOrNull",
+          "resolveOrgId"
+        ]
+      },
+      {
+        "route": "admin\\affiliate-managers\\[memberId]\\route.ts",
+        "module": "@/lib/rbac",
+        "missing_name": "getAuthContext",
+        "available": [
+          "UserRole",
+          "AuthContext",
+          "buildContactWhere",
+          "canHardDelete",
+          "requireNotFreeSales",
+          "maskContactInfo",
+          "canDelete",
+          "canManageSettings",
+          "canReview",
+          "requireOrgId",
+          "BONSA_ORG_ID",
+          "resolveOrgIdOrNull",
+          "resolveOrgId"
+        ]
+      },
+      {
+        "route": "admin\\affiliate-sales\\route.ts",
+        "module": "@/lib/rbac",
+        "missing_name": "getAuthContext",
+        "available": [
+          "UserRole",
+          "AuthContext",
+          "buildContactWhere",
+          "canHardDelete",
+          "requireNotFreeSales",
+          "maskContactInfo",
+          "canDelete",
+          "canManageSettings",
+          "canReview",
+          "requireOrgId",
+          "BONSA_ORG_ID",
+          "resolveOrgIdOrNull",
+          "resolveOrgId"
+        ]
+      },
+      {
+        "route": "admin\\apis\\excel\\route.ts",
+        "module": "@/lib/auth",
+        "missing_name": "getMabizSession",
+        "available": [
+          "MABIZ_SESSION_COOKIE",
+          "MabizAuthContext"
+        ]
+      },
+      {
+        "route": "admin\\groups-stats\\route.ts",
+        "module": "@/lib/rbac",
+        "missing_name": "getAuthContext",
+        "available": [
+          "UserRole",
+          "AuthContext",
+          "buildContactWhere",
+          "canHardDelete",
+          "requireNotFreeSales",
+          "maskContactInfo",
+          "canDelete",
+          "canManageSettings",
+          "canReview",
+          "requireOrgId",
+          "BONSA_ORG_ID",
+          "resolveOrgIdOrNull",
+          "resolveOrgId"
+        ]
+      },
+      {
+        "route": "admin\\organizations\\route.ts",
+        "module": "@/lib/rbac",
+        "missing_name": "getAuthContext",
+        "available": [
+          "UserRole",
+          "AuthContext",
+          "buildContactWhere",
+          "canHardDelete",
+          "requireNotFreeSales",
+          "maskContactInfo",
+          "canDelete",
+          "canManageSettings",
+          "canReview",
+          "requireOrgId",
+          "BONSA_ORG_ID",
+          "resolveOrgIdOrNull",
+          "resolveOrgId"
+        ]
+      },
+      {
+        "route": "admin\\organizations\\route.ts",
+        "module": "@/lib/organization",
+        "missing_name": "findOrCreateOrganization",
+        "available": [
+          "CreateOrgParams",
+          "CreateOrgResult",
+          "AddMemberParams"
+        ]
+      },
+      {
+        "route": "admin\\partner-suspensions\\route.ts",
+        "module": "@/lib/rbac",
+        "missing_name": "getAuthContext",
+        "available": [
+          "UserRole",
+          "AuthContext",
+          "buildContactWhere",
+          "canHardDelete",
+          "requireNotFreeSales",
+          "maskContactInfo",
+          "canDelete",
+          "canManageSettings",
+          "canReview",
+          "requireOrgId",
+          "BONSA_ORG_ID",
+          "resolveOrgIdOrNull",
+          "resolveOrgId"
+        ]
+      },
+      {
+        "route": "admin\\partner-suspensions\\[organizationId]\\resolve\\route.ts",
+        "module": "@/lib/rbac",
+        "missing_name": "getAuthContext",
+        "available": [
+          "UserRole",
+          "AuthContext",
+          "buildContactWhere",
+          "canHardDelete",
+          "requireNotFreeSales",
+          "maskContactInfo",
+          "canDelete",
+          "canManageSettings",
+          "canReview",
+          "requireOrgId",
+          "BONSA_ORG_ID",
+          "resolveOrgIdOrNull",
+          "resolveOrgId"
+        ]
+      },
+      {
+        "route": "admin\\sending-metrics\\route.ts",
+        "module": "@/lib/rbac",
+        "missing_name": "getAuthContext",
+        "available": [
+          "UserRole",
+          "AuthContext",
+          "buildContactWhere",
+          "canHardDelete",
+          "requireNotFreeSales",
+          "maskContactInfo",
+          "canDelete",
+          "canManageSettings",
+          "canReview",
+          "requireOrgId",
+          "BONSA_ORG_ID",
+          "resolveOrgIdOrNull",
+          "resolveOrgId"
+        ]
+      },
+      {
+        "route": "admin\\verification\\recovery\\route.ts",
+        "module": "@/lib/services/rollback-handler",
+        "missing_name": "enableExecutionLogFeature",
+        "available": []
+      },
+      {
+        "route": "admin\\verification\\recovery\\route.ts",
+        "module": "@/lib/services/rollback-handler",
+        "missing_name": "clearRollbackState",
+        "available": []
+      },
+      {
+        "route": "admin\\verification\\recovery\\route.ts",
+        "module": "@/lib/services/slack-notifier",
+        "missing_name": "notifySlack",
+        "available": [
+          "getRecoveryGuide"
+        ]
+      },
+      {
+        "route": "admin\\verification\\rollback\\route.ts",
+        "module": "@/lib/services/rollback-handler",
+        "missing_name": "rollbackToSendingHistory",
+        "available": []
+      },
+      {
+        "route": "admin\\verification\\rollback\\route.ts",
+        "module": "@/lib/services/slack-notifier",
+        "missing_name": "notifySlack",
+        "available": [
+          "getRecoveryGuide"
+        ]
+      },
+      {
+        "route": "admin\\verification\\status\\route.ts",
+        "module": "@/lib/middleware/feature-flag-middleware",
+        "missing_name": "getFeatureFlagStatus",
+        "available": [
+          "FeatureFlagStatus",
+          "addFeatureFlagHeader"
+        ]
+      },
+      {
+        "route": "admin\\verification\\status\\route.ts",
+        "module": "@/lib/services/rollback-handler",
+        "missing_name": "getRollbackStatus",
+        "available": []
+      },
+      {
+        "route": "admin\\verification\\status\\route.ts",
+        "module": "@/lib/auth",
+        "missing_name": "verifyAdminToken",
+        "available": [
+          "MABIZ_SESSION_COOKIE",
+          "MabizAuthContext"
+        ]
+      }
+    ]
+  }
+}

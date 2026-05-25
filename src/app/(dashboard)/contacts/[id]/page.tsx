@@ -16,7 +16,7 @@ import ContactMemoTab from "./ContactMemoTab";
 import ContactGroupTab from "./ContactGroupTab";
 import ContactSmsTab from "./ContactSmsTab";
 import { getAllObjectionIds, getObjectionData } from "@/lib/objections/validation";
-import objectionsData from "@/../../TRACK_A_OBJECTIONS.json";
+import objectionsData from "@/../TRACK_A_OBJECTIONS.json";
 import { Contact, CallLog, Memo } from "@/types/contact";
 import { CallForm } from "@/types/call-form";
 import type { ObjectionData } from "@/lib/objections/validation";
