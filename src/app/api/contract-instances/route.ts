@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMabizSession } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 import {
   createContractInstanceSchema,
   listContractInstancesQuerySchema,
@@ -139,7 +140,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error("[GET /api/contract-instances] Error:", error);
+    logger.error("[GET /api/contract-instances]", { error: error instanceof Error ? error.message : String(error) });
     if (error instanceof Error && error.name === "ZodError") {
       return NextResponse.json(
         { ok: false, error: "Invalid query parameters" },
@@ -315,7 +316,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
-    console.error("[POST /api/contract-instances] Error:", error);
+    logger.error("[POST /api/contract-instances]", { error: error instanceof Error ? error.message : String(error) });
     if (error instanceof Error && error.name === "ZodError") {
       return NextResponse.json(
         { ok: false, error: "Invalid input data" },

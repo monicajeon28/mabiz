@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMabizSession } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function POST(
   req: NextRequest,
@@ -41,7 +42,7 @@ export async function POST(
     // });
 
     // 현재는 로그만 기록
-    console.log("[CallScriptFeedback]", {
+    logger.info("[CallScriptFeedback]", {
       userId: session.userId,
       category,
       phase,
@@ -56,7 +57,7 @@ export async function POST(
       message: "Feedback submitted successfully",
     });
   } catch (error) {
-    console.error("Error submitting feedback:", error);
+    logger.error("[POST /api/call-scripts/feedback]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { ok: false, error: "Internal server error" },
       { status: 500 }

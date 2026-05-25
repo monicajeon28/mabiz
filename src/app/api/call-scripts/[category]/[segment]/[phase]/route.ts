@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CALL_SCRIPTS_DATA } from "../../../data";
+import { logger } from "@/lib/logger";
 
 export async function GET(
   req: NextRequest,
@@ -39,7 +40,7 @@ export async function GET(
       script,
     });
   } catch (error) {
-    console.error("Error fetching script:", error);
+    logger.error("[GET /api/call-scripts]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { ok: false, error: "Internal server error" },
       { status: 500 }

@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getMabizSession } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error('[GET /api/user/role]', error);
+    logger.error('[GET /api/user/role]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { ok: false, message: 'Internal server error' },
       { status: 500 }

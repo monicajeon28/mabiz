@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { runABTestSyncJob } from "@/jobs/ab-test-sync-cron";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Cron job error:", error);
+    logger.error("[POST /api/cron/ab-test-sync]", { error: error instanceof Error ? error.message : String(error) });
 
     return NextResponse.json(
       {

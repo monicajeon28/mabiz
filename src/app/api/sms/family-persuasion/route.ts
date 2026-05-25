@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { validateOrganizationRequest } from '@/lib/auth-utils';
+import { logger } from '@/lib/logger';
 
 interface FamilySmsPayload {
   contactId: string;
@@ -78,8 +79,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const contact = await prisma.contact.findUnique({
-      where: { id: contactId },
+    const contact = await prisma.contact.findFirst({
+      where: { id: contactId, organizationId },
       select: {
         id: true,
         name: true,
@@ -155,7 +156,7 @@ export async function POST(req: NextRequest) {
     if (day === 3) updateData.companionSmsDay3SentAt = new Date();
 
     await prisma.contact.update({
-      where: { id: contactId },
+      where: { id: contactId, organizationId },
       data: updateData,
     });
 
@@ -184,7 +185,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Family persuasion SMS error:', error);
+    logger.error('[POST /api/sms/family-persuasion]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Failed to send family persuasion SMS' },
       { status: 500 }

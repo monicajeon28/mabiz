@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 /**
  * GET /api/tools/bot-guide-answers/[key]
@@ -40,7 +41,7 @@ export async function GET(
 
     return NextResponse.json({ ok: true, data });
   } catch (error) {
-    console.error("[bot-guide-answers GET/:key]", error);
+    logger.error("[bot-guide-answers GET/:key]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { ok: false, message: "조회 실패" },
       { status: 500 }
@@ -113,7 +114,7 @@ export async function PUT(
       data: updated,
     });
   } catch (error) {
-    console.error("[bot-guide-answers PUT/:key]", error);
+    logger.error("[bot-guide-answers PUT/:key]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { ok: false, message: "수정 실패" },
       { status: 500 }
@@ -172,7 +173,7 @@ export async function DELETE(
       });
     }
   } catch (error) {
-    console.error("[bot-guide-answers DELETE/:key]", error);
+    logger.error("[bot-guide-answers DELETE/:key]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { ok: false, message: "삭제 실패" },
       { status: 500 }

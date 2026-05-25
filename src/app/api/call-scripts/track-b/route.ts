@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { getMabizSession } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 // Track B 스크립트 데이터 로드 (프로젝트 루트의 JSON 파일)
 function loadTrackBScripts() {
@@ -9,13 +11,19 @@ function loadTrackBScripts() {
     const fileContents = fs.readFileSync(dataPath, "utf8");
     return JSON.parse(fileContents);
   } catch (error) {
-    console.error("[Track B API] Failed to load PHASE3_TRACK_B_CALL_SCRIPT_SEGMENTS.json", error);
+    logger.error("[Track B API] Failed to load PHASE3_TRACK_B_CALL_SCRIPT_SEGMENTS.json", { error: error instanceof Error ? error.message : String(error) });
     return null;
   }
 }
 
 export async function GET(req: NextRequest) {
   try {
+    // 인증 확인
+    const session = await getMabizSession();
+    if (!session) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const segment = searchParams.get("segment")?.toUpperCase(); // A, B, C, D
     const phase = searchParams.get("phase"); // 0-6 (or 1-7 if 1-indexed)
@@ -77,7 +85,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[Track B API] Error:", error);
+    logger.error("[Track B API] Error", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { ok: false, error: "Internal server error" },
       { status: 500 }

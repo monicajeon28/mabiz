@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 
 /**
  * 파트너 기능 검증 API (테스트용)
@@ -83,7 +84,7 @@ export async function GET(req: Request) {
       message: '파트너 기능 검증 완료',
     });
   } catch (err) {
-    console.error('[GET /api/partner/test]', err);
+    logger.error('[GET /api/partner/test]', { error: err instanceof Error ? err.message : String(err) });
     return NextResponse.json(
       { ok: false, error: String(err) },
       { status: 500 }

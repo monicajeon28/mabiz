@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMabizSession } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 import * as visaGuide from '@/lib/preparation-guides/visa-guide.json';
 import * as passportGuide from '@/lib/preparation-guides/passport-guide.json';
 import * as healthGuide from '@/lib/preparation-guides/health-guide.json';
@@ -80,7 +81,7 @@ export async function GET(
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('Get preparation guide error:', error);
+    logger.error('[GET /api/preparation-guides]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

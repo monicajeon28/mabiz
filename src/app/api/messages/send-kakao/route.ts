@@ -9,7 +9,12 @@ export async function POST(req: Request) {
     const ctx = await getAuthContext();
     const orgId = resolveOrgId(ctx);
 
-    const { phone, content } = await req.json();
+    const { phone, content, tplCode, subject } = await req.json() as {
+      phone: string;
+      content: string;
+      tplCode?: string;
+      subject?: string;
+    };
 
     if (!phone || !content) {
       return NextResponse.json(
@@ -17,6 +22,9 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    const kakaoTplCode = tplCode || process.env.ALIGO_KAKAO_TPL_CODE || 'EXAM';
+    const kakaoSubject = subject || process.env.ALIGO_KAKAO_SUBJECT || '알림';
 
     const normalizedPhone = normalizePhone(phone);
     if (!normalizedPhone) {
@@ -33,9 +41,9 @@ export async function POST(req: Request) {
         key: process.env.ALIGO_API_KEY!,
         user_id: process.env.ALIGO_USER_ID!,
         senderkey: process.env.ALIGO_KAKAO_SENDER_KEY!,
-        tpl_code: 'EXAM', // 템플릿 코드 (테스트용)
+        tpl_code: kakaoTplCode,
         receiver: normalizedPhone,
-        subject: '제목',
+        subject: kakaoSubject,
         message: content,
         failover: 'true', // SMS 폴백
       }),

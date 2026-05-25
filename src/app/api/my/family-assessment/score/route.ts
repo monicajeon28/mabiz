@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { validateOrganizationRequest } from '@/lib/auth-utils';
+import { logger } from '@/lib/logger';
 
 interface FamilyScoreInput {
   contactId: string;
@@ -111,7 +112,7 @@ export async function POST(req: NextRequest) {
       message: `가족 영향력 점수: ${finalScore}점 (${contact.companionPersuasionStage})`,
     });
   } catch (error) {
-    console.error('Family score calculation error:', error);
+    logger.error('[POST /api/my/family-assessment/score]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Failed to calculate family influence score' },
       { status: 500 }

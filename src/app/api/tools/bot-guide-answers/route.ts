@@ -118,7 +118,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[bot-guide-answers GET]", error);
+    logger.error("[bot-guide-answers GET]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { ok: false, message: "검색 실패" },
       { status: 500 }
@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
         const qaData = await import("@/lib/data/questions_rag_memory_with_tone.json");
         itemsToLoad = qaData.default.questions || [];
       } catch (error) {
-        console.error("Failed to load default JSON", error);
+        logger.error("[bot-guide-answers POST] Failed to load default JSON", { error: error instanceof Error ? error.message : String(error) });
         return NextResponse.json(
           {
             ok: false,
@@ -274,7 +274,7 @@ export async function POST(req: NextRequest) {
           const errorMsg = itemError instanceof Error
             ? itemError.message
             : String(itemError);
-          console.error(`[bot-guide-answers] Item error for ${item.key || item.id}:`, errorMsg);
+          logger.error(`[bot-guide-answers] Item error for ${item.key || item.id}`, { error: errorMsg });
           errors.push({
             key: item.key || item.id,
             error: errorMsg,
@@ -304,10 +304,7 @@ export async function POST(req: NextRequest) {
     );
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error("[bot-guide-answers POST] Error:", errorMsg);
-    if (error instanceof Error && error.stack) {
-      console.error("[bot-guide-answers POST] Stack:", error.stack);
-    }
+    logger.error("[bot-guide-answers POST] Error", { error: errorMsg, stack: error instanceof Error ? error.stack : undefined });
     return NextResponse.json(
       { ok: false, message: "업로드 중 오류가 발생했습니다.", error: errorMsg },
       { status: 500 }

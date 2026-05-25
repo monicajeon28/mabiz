@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import prisma from '@/lib/prisma';
 import { getAuthContext } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 
 const DOCUMENTS_FOLDER_ID = process.env.GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID!;
 
@@ -68,7 +69,7 @@ export async function GET(
 
     return NextResponse.json({ ok: true, data: versions });
   } catch (err) {
-    console.error('Document versions list error:', err);
+    logger.error('[GET /api/documents/versions]', { error: err instanceof Error ? err.message : String(err) });
     return NextResponse.json({ ok: false, message: String(err) }, { status: 500 });
   }
 }
@@ -177,7 +178,7 @@ export async function POST(
       { status: 201 }
     );
   } catch (err) {
-    console.error('Document version upload error:', err);
+    logger.error('[POST /api/documents/versions]', { error: err instanceof Error ? err.message : String(err) });
     return NextResponse.json({ ok: false, message: String(err) }, { status: 500 });
   }
 }

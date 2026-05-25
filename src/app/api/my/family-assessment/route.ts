@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { validateOrganizationRequest } from '@/lib/auth-utils';
+import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
       message: '가족 구성 및 의사결정자 평가 완료',
     });
   } catch (error) {
-    console.error('Family assessment error:', error);
+    logger.error('[POST /api/my/family-assessment]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Failed to complete family assessment' },
       { status: 500 }
@@ -97,7 +98,7 @@ export async function GET(req: NextRequest) {
       contact,
     });
   } catch (error) {
-    console.error('Get family assessment error:', error);
+    logger.error('[GET /api/my/family-assessment]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Failed to fetch family assessment' },
       { status: 500 }

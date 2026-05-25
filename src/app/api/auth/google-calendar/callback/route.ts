@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMabizSession } from "@/lib/auth";
 import { exchangeCode, encryptToken, getGoogleEmail, verifyState } from "@/lib/google-calendar";
+import { logger } from "@/lib/logger";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://mabizcruisedot.com";
 
@@ -76,7 +77,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${APP_URL}/settings?calendar_connected=true`);
   } catch (err) {
     // 수정 4: 민감 정보(토큰 등) 로그 노출 방지
-    console.error("[Google Calendar Callback] Error:", err instanceof Error ? err.message : String(err));
+    logger.error("[Google Calendar Callback] Error", { error: err instanceof Error ? err.message : String(err) });
     return NextResponse.redirect(`${APP_URL}/settings?calendar_error=token_exchange_failed`);
   }
 }

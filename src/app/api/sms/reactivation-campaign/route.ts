@@ -27,6 +27,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getReactivationTemplate } from '@/lib/sms/reactivation-templates';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -156,9 +157,11 @@ export async function POST(request: NextRequest) {
       sentCount += results.filter((r) => r.status === 'fulfilled').length;
       skippedCount += results.filter((r) => r.status === 'rejected').length;
 
-      console.log(
-        `[Reactivation Campaign] Batch ${Math.floor(i / batchSize) + 1}: ${sentCount} sent, ${skippedCount} skipped`,
-      );
+      logger.info('[Reactivation Campaign] Batch progress', {
+        batch: Math.floor(i / batchSize) + 1,
+        sent: sentCount,
+        skipped: skippedCount,
+      });
     }
 
     // 캠프인 통계
@@ -177,7 +180,7 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch (error) {
-    console.error('[POST /api/sms/reactivation-campaign]', error);
+    logger.error('[POST /api/sms/reactivation-campaign]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Failed to create reactivation campaign' },
       { status: 500 },

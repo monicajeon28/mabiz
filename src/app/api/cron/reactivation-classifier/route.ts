@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { dailyReactivationClassification } from '@/lib/services/reactivation-classifier';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log('[Cron] Starting daily reactivation classification...');
+    logger.info('[Cron] Starting daily reactivation classification...');
 
     // 자동 분류 실행
     const results = await dailyReactivationClassification();
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
       { status: 200 },
     );
   } catch (error) {
-    console.error('[Cron] Reactivation classification failed:', error);
+    logger.error('[Cron] Reactivation classification failed', { error: error instanceof Error ? error.message : String(error) });
 
     return NextResponse.json(
       { error: 'Reactivation classification failed' },

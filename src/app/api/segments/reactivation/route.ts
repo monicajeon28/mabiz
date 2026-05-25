@@ -26,6 +26,7 @@ import {
   classifyReactivationCustomers,
   getReactivationStats,
 } from '@/lib/services/reactivation-classifier';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
       { status: 200 },
     );
   } catch (error) {
-    console.error('[GET /api/segments/reactivation]', error);
+    logger.error('[GET /api/segments/reactivation]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Failed to fetch reactivation segments' },
       { status: 500 },

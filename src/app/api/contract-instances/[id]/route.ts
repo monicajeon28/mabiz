@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMabizSession } from "@/lib/auth";
 import { ApiResponse } from "@/lib/types/contract-templates";
+import { logger } from "@/lib/logger";
 
 interface RouteParams {
   params: Promise<{
@@ -100,7 +101,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error("[GET /api/contract-instances/[id]] Error:", error);
+    logger.error("[GET /api/contract-instances/[id]]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { ok: false, error: "Internal server error" },
       { status: 500 }
@@ -192,7 +193,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error("[PATCH /api/contract-instances/[id]] Error:", error);
+    logger.error("[PATCH /api/contract-instances/[id]]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { ok: false, error: "Internal server error" },
       { status: 500 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { validateOrganizationRequest } from '@/lib/auth-utils';
+import { logger } from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
   try {
@@ -136,7 +137,7 @@ export async function GET(req: NextRequest) {
       expectedRevenue: `$${Math.round(bookedCount * 2500)}-${Math.round(bookedCount * 3500)}`, // $2.5K-3.5K per booking
     });
   } catch (error) {
-    console.error('Family analytics error:', error);
+    logger.error('[GET /api/my/family-analytics]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Failed to fetch family analytics' },
       { status: 500 }

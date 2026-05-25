@@ -9,6 +9,7 @@ import prisma from '@/lib/prisma';
 import { ContactLensClassification } from '@prisma/client';
 import { getAuthContext } from '@/lib/rbac';
 import { Prisma } from '@prisma/client';
+import { logger } from '@/lib/logger';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -92,7 +93,7 @@ export async function GET(
       { status: 200 }
     );
   } catch (error) {
-    console.error('[GET /api/contacts/[id]/lens]', error);
+    logger.error('[GET /api/contacts/[id]/lens]', { error: error instanceof Error ? error.message : String(error) });
 
     // P1: 에러 종류별 구분 처리
     if (error instanceof Prisma.PrismaClientKnownRequestError) {

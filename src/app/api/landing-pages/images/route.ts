@@ -201,7 +201,7 @@ export async function POST(req: Request) {
     if (msg === 'UNAUTHORIZED') {
       return NextResponse.json({ ok: false, message: '인증이 필요합니다' }, { status: 401 });
     }
-    console.error('[landing-images] 업로드 실패 RAW:', msg, err instanceof Error ? err.stack : '');
+    logger.error('[landing-images] 업로드 실패 RAW', { message: msg, stack: err instanceof Error ? err.stack : '' });
     logger.error('[landing-images] 업로드 실패', { message: msg });
     return NextResponse.json({ ok: false, message: msg || '이미지 업로드 중 오류 발생' }, { status: 500 });
   }
