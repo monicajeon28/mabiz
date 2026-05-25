@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import CallScriptPanel from "./CallScriptPanel";
 import { getObjectionData } from "@/lib/objections/validation";
-import objectionsData from "@/../../TRACK_A_OBJECTIONS.json";
+import objectionsData from "@/../TRACK_A_OBJECTIONS.json";
 import { CallLog } from "@/types/contact";
 import { CallForm } from "@/types/call-form";
 import { ObjectionData } from "@/lib/objections/validation";
