@@ -34,7 +34,7 @@ export default function OrganizationPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch('/api/org/info');
+        const res = await fetch('/api/settings/organization');
         if (!res.ok) throw new Error();
         const data = await res.json();
         setOrg(data.org);
@@ -73,7 +73,7 @@ export default function OrganizationPage() {
 
     setSaving(true);
     try {
-      const res = await fetch('/api/org/info', {
+      const res = await fetch('/api/settings/organization', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: trimmed }),

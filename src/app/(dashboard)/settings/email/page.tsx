@@ -27,7 +27,7 @@ export default function EmailSettingsPage() {
     fetch("/api/settings/email")
       .then((r) => r.json())
       .then((d) => {
-        if (d.ok && d.config) {
+        if (d && d.ok && d.config) {
           setConfigured(true);
           setForm((f) => ({
             ...f,
@@ -38,6 +38,9 @@ export default function EmailSettingsPage() {
             smtpUser:    d.config.smtpUser    ?? "",
           }));
         }
+      })
+      .catch((err) => {
+        console.error("[EmailSettings] GET 실패:", err);
       });
   }, []);
 
@@ -47,27 +50,37 @@ export default function EmailSettingsPage() {
 
   const save = async () => {
     setSaving(true); setMsg(null);
-    const res  = await fetch("/api/settings/email", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    const data = await res.json();
-    setMsg({ type: data.ok ? "ok" : "err", text: data.ok ? "저장되었습니다." : (data.message ?? "저장 실패") });
-    if (data.ok) setConfigured(true);
+    try {
+      const res  = await fetch("/api/settings/email", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      setMsg({ type: data.ok ? "ok" : "err", text: data.ok ? "저장되었습니다." : (data.message ?? "저장 실패") });
+      if (data.ok) setConfigured(true);
+    } catch (err) {
+      console.error("[EmailSettings] PUT 실패:", err);
+      setMsg({ type: "err", text: "설정 저장 중 오류가 발생했습니다" });
+    }
     setSaving(false);
   };
 
   const test = async () => {
     if (!testEmail) return;
     setTesting(true); setMsg(null);
-    const res  = await fetch("/api/settings/email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ testEmail }),
-    });
-    const data = await res.json();
-    setMsg({ type: data.ok ? "ok" : "err", text: data.message ?? (data.ok ? "발송 성공" : "발송 실패") });
+    try {
+      const res  = await fetch("/api/settings/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ testEmail }),
+      });
+      const data = await res.json();
+      setMsg({ type: data.ok ? "ok" : "err", text: data.message ?? (data.ok ? "발송 성공" : "발송 실패") });
+    } catch (err) {
+      console.error("[EmailSettings] POST 실패:", err);
+      setMsg({ type: "err", text: "테스트 이메일 발송 중 오류가 발생했습니다" });
+    }
     setTesting(false);
   };
 

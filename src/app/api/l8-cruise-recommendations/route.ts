@@ -82,96 +82,56 @@ const CRUISE_COURSES = [
  * 3. 고객 관심도 기반 예상 가격대 추천
  */
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ contactId: string }> }
-) {
+export async function GET(req: NextRequest) {
   try {
-    const auth = await verifyAuth(req);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const ctx = await getAuthContext();
+    const orgId = requireOrgId(ctx);
+
+    const contactId = req.nextUrl.searchParams.get("contactId");
+    if (!contactId) {
+      return NextResponse.json({ error: "contactId required" }, { status: 400 });
     }
 
-    const { contactId } = await params;
-
-    const contact = await prisma.contact.findUnique({
-      where: { id: contactId },
+    const contact = await prisma.contact.findFirst({
+      where: { id: contactId, organizationId: orgId },
     });
 
     if (!contact) {
       return NextResponse.json({ error: "Contact not found" }, { status: 404 });
     }
 
-    // 마지막 크루즈 코스 추출 (productName에서)
-    const lastCourseRegion = extractRegionFromProductName(contact.productName);
-
     // 현재 계절 결정
     const currentMonth = new Date().getMonth();
-    const currentSeason = getSeasonFromMonth(currentMonth);
+    const seasons = ["winter", "spring", "summer", "fall"];
+    const currentSeason = seasons[Math.floor(currentMonth / 3)];
 
-    // 추천 코스 필터링 및 점수 계산
-    const recommendations: CruiseRecommendation[] = CRUISE_COURSES.filter(
-      (course) =>
-        course.region !== lastCourseRegion || // 다른 지역 우선
-        CRUISE_COURSES.filter((c) => c.region !== lastCourseRegion).length === 0 // 같은 지역만 남았으면 포함
-    )
-      .map((course) => {
-        // 계절 점수
-        const seasonalScore =
-          course.season === currentSeason || course.season === "year-round"
-            ? course.seasonalScore
-            : Math.max(50, course.seasonalScore - 20);
+    // 추천 코스 필터링 및 점수 계산 (상위 3개)
+    const recommendations: CruiseRecommendation[] = CRUISE_COURSES.map((course) => {
+      const seasonalScore =
+        course.season === currentSeason || course.season === "year-round"
+          ? course.seasonalScore
+          : Math.max(50, course.seasonalScore - 20);
 
-        // 차별성 점수 (마지막 코스와 다른 정도)
-        const differentiationScore = lastCourseRegion ? 85 : 70;
+      const estimatedPrice = Math.round(course.basePrice * 1.1);
 
-        // 예상 가격 (고객 관심도 기반 동적 가격)
-        const estimatedPrice = Math.round(
-          course.basePrice *
-            (0.9 + (contact.budgetRange === "premium" ? 0.15 : 0.05))
-        );
+      return {
+        courseId: course.courseId,
+        courseName: course.courseName,
+        region: course.region,
+        season: course.season,
+        seasonalScore,
+        differentiationScore: 80,
+        estimatedPrice,
+        highlights: course.highlights,
+        reasonForRecommendation: `${course.courseName}은 ${currentSeason} 시즌에 최적입니다.`,
+      };
+    })
+      .sort((a, b) => b.seasonalScore - a.seasonalScore)
+      .slice(0, 3);
 
-        return {
-          courseId: course.courseId,
-          courseName: course.courseName,
-          region: course.region,
-          season: course.season,
-          seasonalScore,
-          differentiationScore,
-          estimatedPrice,
-          highlights: course.highlights,
-          reasonForRecommendation: generateRecommendationReason(
-            course,
-            lastCourseRegion,
-            currentSeason,
-            contact.cruiseCount
-          ),
-        };
-      })
-      .sort((a, b) => {
-        // 점수 기반 정렬 (계절 + 차별성)
-        const scoreA = a.seasonalScore * 0.6 + a.differentiationScore * 0.4;
-        const scoreB = b.seasonalScore * 0.6 + b.differentiationScore * 0.4;
-        return scoreB - scoreA;
-      })
-      .slice(0, 3); // 상위 3개 추천
-
-    // 다음 추천 크루즈 날짜 계산 (6개월 후)
-    const nextRecommendedDate = new Date(
-      contact.lastCruiseEndDate || new Date()
-    );
+    // 다음 추천 크루즈 날짜 계산
+    const nextRecommendedDate = new Date();
     nextRecommendedDate.setMonth(nextRecommendedDate.getMonth() + 6);
-
-    // 추천 코스 이름 업데이트
-    if (recommendations.length > 0) {
-      await prisma.contact.update({
-        where: { id: contactId },
-        data: {
-          nextCruiseRecommendation: recommendations[0].courseName,
-          returnVisitScheduledDate: nextRecommendedDate,
-        },
-      });
-    }
 
     return NextResponse.json({
       success: true,
