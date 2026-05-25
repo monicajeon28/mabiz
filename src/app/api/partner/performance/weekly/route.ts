@@ -32,7 +32,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 
 interface WeeklyPerformanceQuery {
@@ -238,3 +238,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+

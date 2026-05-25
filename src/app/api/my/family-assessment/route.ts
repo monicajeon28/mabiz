@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { validateOrganizationRequest } from '@/lib/auth-utils';
+import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   try {
-    const { organizationId } = await validateOrganizationRequest(req);
+    const ctx = await getAuthContext();
+    const organizationId = requireOrgId(ctx);
     const { contactId, familyComposition, decisionMaker } = await req.json();
 
     if (!contactId || !familyComposition) {
@@ -63,7 +64,8 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const { organizationId } = await validateOrganizationRequest(req);
+    const ctx = await getAuthContext();
+    const organizationId = requireOrgId(ctx);
     const { searchParams } = new URL(req.url);
     const contactId = searchParams.get('contactId');
 

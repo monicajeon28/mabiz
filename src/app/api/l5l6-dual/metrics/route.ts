@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import { validateAuth } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 
@@ -411,3 +411,4 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
