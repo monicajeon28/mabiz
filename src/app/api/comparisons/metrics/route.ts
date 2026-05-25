@@ -58,12 +58,16 @@ export async function GET(req: Request) {
     });
 
     // 경쟁사 언급 고객 중 전환율 (purchasedAt이 마지막 경쟁사 언급 이후)
+    // 최근 1년 이내 구매만 계산 (하드코딩 날짜 제거)
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
     const competitorMentionedWithPurchase = await prisma.contact.count({
       where: {
         organizationId: orgId,
         competitorMentioned: true,
         purchasedAt: {
-          gte: new Date('2026-01-01'), // 최근 구매만 계산
+          gte: oneYearAgo,
         },
       },
     });
@@ -122,9 +126,9 @@ export async function GET(req: Request) {
       },
     });
   } catch (e) {
-    logger.log('[L3Metrics] 오류', {
+    logger.error('[L3Metrics] 오류', {
       error: e instanceof Error ? e.message : String(e),
     });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return NextResponse.json({ ok: false, message: '서버 오류가 발생했습니다.' }, { status: 500 });
   }
 }

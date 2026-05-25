@@ -6,6 +6,9 @@ import { logger } from '@/lib/logger';
 export async function GET() {
   try {
     const ctx = await getAuthContext();
+    if (!ctx || !ctx.userId) {
+      return NextResponse.json({ ok: false, message: '인증이 필요합니다.' }, { status: 401 });
+    }
 
     // 1. affiliateCode 조회 (AffiliateSale에서 최근 것)
     const sale = await prisma.affiliateSale.findFirst({
