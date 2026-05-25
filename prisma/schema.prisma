@@ -1358,7 +1358,7 @@ model GoldMember {
   updatedAt       DateTime                 @updatedAt
   userId          Int?                     @unique
   membershipCode  String?                  @unique @db.VarChar(255)
-  deletedAt       DateTime?                @db.Timestamp(6)
+  deletedAt       DateTime?                @db.Timestamptz(6)
   productType     String?
   maxPaymentCount Int?
   agentId         Int?
@@ -4822,9 +4822,9 @@ model L1PriceObjectionAttempt {
   responseMethod  String   @db.VarChar(50) // "VALUE_REDEFINITION", "SPLIT_PAYMENT", "EARLY_BOOKING", "GROUP_DISCOUNT", "LIMITED_TIME"
   smsVariant      String   @db.VarChar(10) // "A" 또는 "B"
   conversionResult Boolean  @default(false) // 이의 극복 후 전환 여부
-  sentAt          DateTime @default(now())
-  respondedAt     DateTime?
-  convertedAt     DateTime?
+  sentAt          DateTime @default(now()) @db.Timestamptz(6)
+  respondedAt     DateTime? @db.Timestamptz(6)
+  convertedAt     DateTime? @db.Timestamptz(6)
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, contactId, sentAt])
@@ -4844,10 +4844,10 @@ model L1ABTestVariant {
   totalConverted  Int      @default(0)
   conversionRate  Float    @default(0) // 실시간 계산
   avgResponseTime Int?     // 평균 응답 시간 (분)
-  winningSince    DateTime? // A/B 테스트 승자로 확정된 시간
+  winningSince    DateTime? @db.Timestamptz(6) // A/B 테스트 승자로 확정된 시간
   isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(6)
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, objectiveType, variantType])
@@ -4863,12 +4863,12 @@ model L1OptimizationScore {
   scoreHistory    Json?    // [{ date, score, reason }]
   objectiveTypes  String[] @default([]) // ["PRICE_HIGH", "PAYMENT_TERMS"]
   bestVariant     String?  // "A" 또는 "B" 이 고객에게 최적
-  lastAttemptAt   DateTime?
-  nextRetryAt     DateTime?
+  lastAttemptAt   DateTime? @db.Timestamptz(6)
+  nextRetryAt     DateTime? @db.Timestamptz(6)
   totalAttempts   Int      @default(0)
   successCount    Int      @default(0)
   successRate     Float    @default(0)
-  lastUpdated     DateTime @updatedAt
+  lastUpdated     DateTime @updatedAt @db.Timestamptz(6)
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, contactId])
@@ -5256,7 +5256,7 @@ model ContractInstance {
   smsDay3SentAt       DateTime?
 
   // 유효기한 (L10 긴박감)
-  expiresAt           DateTime?                // 기본값: createdAt + 24시간
+  expiresAt           DateTime? @db.Timestamptz(6)                // 기본값: createdAt + 24시간
 
   // 심리학 렌즈 기록
   appliedLenses       String[]                 @default([])
