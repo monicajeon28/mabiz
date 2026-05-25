@@ -12,6 +12,18 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const { content } = await req.json() as { content: string };
     if (!content?.trim()) return NextResponse.json({ ok: false, error: '내용을 입력해주세요.' }, { status: 400 });
 
+    // P0: organizationId 격리 — 다른 조직의 골드회원에 상담 등록 방지
+    const member = await prisma.goldMember.findUnique({
+      where: { id },
+      select: { organizationId: true },
+    });
+    if (!member) {
+      return NextResponse.json({ ok: false, error: '골드회원을 찾을 수 없습니다.' }, { status: 404 });
+    }
+    if (ctx.role !== 'GLOBAL_ADMIN' && ctx.organizationId && member.organizationId !== ctx.organizationId) {
+      return NextResponse.json({ ok: false, error: '접근 권한이 없습니다.' }, { status: 403 });
+    }
+
     const consultation = await prisma.goldMemberConsultation.create({
       data: { goldMemberId: id, content: content.trim(), authorId: ctx.userId },
     });

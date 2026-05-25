@@ -78,6 +78,18 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (body.status      !== undefined) data.status       = body.status;
     if (body.memo        !== undefined) data.memo         = body.memo || null;
 
+    // P0: organizationId 격리 — 다른 조직의 골드회원 수정 방지
+    const existing = await prisma.goldMember.findUnique({
+      where: { id },
+      select: { organizationId: true },
+    });
+    if (!existing) {
+      return NextResponse.json({ ok: false, error: '없음' }, { status: 404 });
+    }
+    if (ctx.role !== 'GLOBAL_ADMIN' && ctx.organizationId && existing.organizationId !== ctx.organizationId) {
+      return NextResponse.json({ ok: false, error: '접근 권한이 없습니다.' }, { status: 403 });
+    }
+
     const member = await prisma.goldMember.update({ where: { id }, data });
     return NextResponse.json({ ok: true, member });
   } catch (err) {

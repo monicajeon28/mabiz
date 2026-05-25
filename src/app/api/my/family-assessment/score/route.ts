@@ -43,6 +43,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // P0: organizationId 격리 — 다른 조직의 contact 수정 방지
+    const existingContact = await prisma.contact.findFirst({
+      where: { id: contactId, organizationId },
+      select: { id: true },
+    });
+    if (!existingContact) {
+      return NextResponse.json(
+        { error: 'Contact not found or access denied' },
+        { status: 404 }
+      );
+    }
+
     // Calculate family influence score (0-100)
     let familyInfluenceScore = 0;
     const engagementScores: Record<string, number> = {

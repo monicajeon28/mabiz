@@ -15,6 +15,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // P0: organizationId 격리 — 다른 조직의 contact 수정 방지
+    const existingContact = await prisma.contact.findFirst({
+      where: { id: contactId, organizationId },
+      select: { id: true },
+    });
+    if (!existingContact) {
+      return NextResponse.json(
+        { error: 'Contact not found or access denied' },
+        { status: 404 }
+      );
+    }
+
     const contact = await prisma.contact.update({
       where: { id: contactId },
       data: {
@@ -62,8 +74,9 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const contact = await prisma.contact.findUnique({
-      where: { id: contactId },
+    // P0: organizationId 격리 — 다른 조직의 contact 조회 방지
+    const contact = await prisma.contact.findFirst({
+      where: { id: contactId, organizationId },
       select: {
         id: true,
         name: true,
