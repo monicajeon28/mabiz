@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ABTestDashboard from "./components/ab-test-dashboard";
 
 interface SmsLog {
   id: string;
@@ -77,6 +78,26 @@ export default function SmsLogsPage() {
   const [channelFilter, setChannelFilter] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number; pageSize: number }>({ total: 0, totalPages: 0, pageSize: 50 });
+  const [orgId, setOrgId] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<"logs" | "ab-test">("logs");
+
+  // 조직 ID 가져오기
+  useEffect(() => {
+    const fetchOrgId = async () => {
+      try {
+        const response = await fetch("/api/auth/me");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.organizationId) {
+            setOrgId(data.organizationId);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch organization ID:", error);
+      }
+    };
+    fetchOrgId();
+  }, []);
 
   // 필터 변경 시 page 를 1로 리셋
   useEffect(() => { setPage(1); }, [days, statusFilter, channelFilter]);
@@ -113,12 +134,39 @@ export default function SmsLogsPage() {
     <div className="p-6 space-y-6">
       {/* 헤더 */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">SMS 발송 기록</h1>
-        <p className="text-sm text-gray-500 mt-1">최근 발송된 문자 메시지 내역입니다.</p>
+        <h1 className="text-2xl font-bold text-gray-900">SMS 발송 기록 & A/B 테스트</h1>
+        <p className="text-sm text-gray-500 mt-1">최근 발송된 문자 메시지 내역 및 A/B 테스트 분석입니다.</p>
       </div>
 
-      {/* 통계 대시보드 */}
-      {stats && (
+      {/* 탭 네비게이션 */}
+      <div className="flex gap-0 border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab("logs")}
+          className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+            activeTab === "logs"
+              ? "text-blue-600 border-blue-600"
+              : "text-gray-600 border-transparent hover:text-gray-900"
+          }`}
+        >
+          SMS 발송 로그
+        </button>
+        <button
+          onClick={() => setActiveTab("ab-test")}
+          className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+            activeTab === "ab-test"
+              ? "text-blue-600 border-blue-600"
+              : "text-gray-600 border-transparent hover:text-gray-900"
+          }`}
+        >
+          A/B 테스트 분석
+        </button>
+      </div>
+
+      {/* 조건부 렌더링: 탭 선택에 따라 다른 콘텐츠 표시 */}
+      {activeTab === "logs" ? (
+        <>
+          {/* 통계 대시보드 */}
+          {stats && (
         <div className="space-y-4">
           {/* 요약 카드 5개 */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
@@ -361,6 +409,19 @@ export default function SmsLogsPage() {
             </div>
           )}
         </div>
+      )}
+        </>
+      ) : (
+        // A/B 테스트 분석 탭
+        <>
+          {orgId ? (
+            <ABTestDashboard orgId={orgId} />
+          ) : (
+            <div className="bg-gray-50 border rounded-lg p-6 text-center">
+              <p className="text-gray-500">조직 정보를 로드하는 중입니다...</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
