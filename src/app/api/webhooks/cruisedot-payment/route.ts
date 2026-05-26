@@ -100,35 +100,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, message: '조직 미확인' }, { status: 422 });
     }
 
-    // Contact 찾기 (bookingRef + organizationId로 테넌트 격리)
-    const existingContact = await prisma.contact.findFirst({
-      where: {
-        bookingRef,
-        organizationId: affiliateSale.organizationId
-      },
-      select: { id: true, organizationId: true, phone: true, userId: true, name: true },
-    });
-
+    // P0-ISS-02: UPSERT 패턴으로 동시 결제 중복 생성 방지 (Race condition 해결)
     // 트랜잭션 처리
     await prisma.$transaction(async (tx) => {
-      let contact = existingContact;
-
-      // Contact 없으면 자동생성 (P0-CRITICAL: ISS-01 Fix)
-      if (!existingContact) {
-        contact = await tx.contact.create({
-          data: {
+      // UPSERT: bookingRef + organizationId 기준 (unique constraint 필수)
+      const contact = await tx.contact.upsert({
+        where: {
+          bookingRef_organizationId: {
             bookingRef,
             organizationId: affiliateSale.organizationId,
-            phone: '', // 필수값 (cruisedot에서 제공되면 나중에 업데이트)
-            name: `예약 ${bookingRef}`, // 임시 이름
-            type: 'PURCHASED',
-            lastPaymentStatus: status === 'CONFIRMED' ? 'paid' : 'pending',
-            lastPaymentAt: status === 'CONFIRMED' ? new Date(timestamp) : undefined,
           },
-          select: { id: true, organizationId: true, phone: true, userId: true, name: true },
-        });
-        logger.log('[CruisedotWebhook] Contact 자동생성', { contactId: contact.id, bookingRef });
-      }
+        },
+        create: {
+          bookingRef,
+          organizationId: affiliateSale.organizationId,
+          phone: '', // 필수값 (cruisedot에서 제공되면 나중에 업데이트)
+          name: `예약 ${bookingRef}`, // 임시 이름
+          type: 'PURCHASED',
+          lastPaymentStatus: status === 'CONFIRMED' ? 'paid' : 'pending',
+          lastPaymentAt: status === 'CONFIRMED' ? new Date(timestamp) : undefined,
+        },
+        update: {
+          // 업데이트할 필드 (아래에서 별도 처리)
+        },
+        select: { id: true, organizationId: true, phone: true, userId: true, name: true },
+      });
+
+      logger.log('[CruisedotWebhook] Contact upsert', {
+        contactId: contact.id,
+        bookingRef,
+        isNew: !contact.phone ? '신규' : '기존',
+      });
 
       // Contact 상태 업데이트
       if (contact) {

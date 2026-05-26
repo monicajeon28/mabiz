@@ -356,6 +356,7 @@ model Contact {
   marketingMessages          CrmMarketingMessage[]       @relation("CrmMarketingMessages")
 
   @@unique([phone, organizationId])
+  @@unique([bookingRef, organizationId], map: "uq_contact_booking_org") // P0-ISS-02: UPSERT 멱등성
   @@index([organizationId])
   @@index([type])
   @@index([assignedUserId])
