@@ -141,15 +141,33 @@ export async function GET(req: Request) {
     orgMembers.forEach((m) => nameMap.set(m.id, { name: m.displayName ?? m.id, orgName: m.organization.name }));
     globalAdmins.forEach((a) => nameMap.set(a.id, { name: a.displayName ?? "본사", orgName: "본사" }));
 
+    // ── 제휴 담당자 정보 배치 조회 (본사/판매원) ──────────────────────────
+    const affiliateManagerIds = [...new Set(masked.map((c) => c.affiliateManagerId).filter(Boolean))];
+    const affiliateAgentIds = [...new Set(masked.map((c) => c.affiliateAgentId).filter(Boolean))];
+    const allAffiliateUserIds = [...new Set([...affiliateManagerIds, ...affiliateAgentIds])];
+
+    const affiliateMembers = allAffiliateUserIds.length > 0
+      ? await prisma.organizationMember.findMany({
+          where: { id: { in: allAffiliateUserIds } },
+          select: { id: true, displayName: true },
+        })
+      : [];
+
+    const affiliateNameMap = new Map<string, string>();
+    affiliateMembers.forEach((m) => affiliateNameMap.set(m.id, m.displayName ?? m.id));
+
     const contactsWithTransfer = masked.map((c) => {
       const log = latestLog.get(c.id);
-      if (!log) return { ...c, lastTransferredTo: null };
-      const target = log.toUserId ? nameMap.get(log.toUserId) : null;
+      const transferInfo = !log ? null : log.toUserId ? nameMap.get(log.toUserId) : null;
+
       return {
         ...c,
-        lastTransferredTo: target
-          ? { name: target.name, orgName: target.orgName, logId: log.id, transferType: log.transferType, canRecall: log.transferredBy === ctx.userId || ctx.role === "GLOBAL_ADMIN" }
+        lastTransferredTo: transferInfo
+          ? { name: transferInfo.name, orgName: transferInfo.orgName, logId: log.id, transferType: log.transferType, canRecall: log.transferredBy === ctx.userId || ctx.role === "GLOBAL_ADMIN" }
           : null,
+        // P0-6/7: 제휴 담당자 실제 이름
+        affiliateManagerName: c.affiliateManagerId ? affiliateNameMap.get(c.affiliateManagerId) : undefined,
+        affiliateAgentName: c.affiliateAgentId ? affiliateNameMap.get(c.affiliateAgentId) : undefined,
       };
     });
 

@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   MessageSquare, Mail, Send, ChevronDown, ChevronUp,
   Link2, AlertCircle, CheckCircle, Settings, Users,
-  Image as ImageIcon, Clock, Zap, X, User,
+  Image as ImageIcon, Clock, Zap, X, User, MessageCircle,
 } from "lucide-react";
 import { showError, showSuccess } from "@/components/ui/Toast";
 import DOMPurify from "dompurify";
@@ -51,12 +51,12 @@ function supportsDatetimeLocal(): boolean {
 
 // ─── 메인 컴포넌트 ───────────────────────────────────────────────
 export default function MessagesPage() {
-  const [tab, setTab] = useState<"sms" | "email">("sms");
+  const [tab, setTab] = useState<"sms" | "email" | "kakao">("sms");
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold mb-1">📨 문자 CRM</h1>
-      <p className="text-sm text-gray-500 mb-6">SMS · 이메일 — 그룹 대상 마케팅 발송</p>
+      <p className="text-sm text-gray-500 mb-6">SMS · 이메일 · 카카오 — 그룹 대상 마케팅 발송</p>
 
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6 w-fit">
         <button onClick={() => setTab("sms")}
@@ -67,10 +67,15 @@ export default function MessagesPage() {
           className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all ${tab === "email" ? "bg-white shadow text-blue-600" : "text-gray-500 hover:text-gray-700"}`}>
           <Mail className="w-4 h-4" /> 이메일
         </button>
+        <button onClick={() => setTab("kakao")}
+          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all ${tab === "kakao" ? "bg-white shadow text-blue-600" : "text-gray-500 hover:text-gray-700"}`}>
+          <MessageCircle className="w-4 h-4" /> 카카오
+        </button>
       </div>
 
       {tab === "sms"   && <SmsTab />}
       {tab === "email" && <EmailTab />}
+      {tab === "kakao" && <KakaoTab />}
     </div>
   );
 }
@@ -831,6 +836,403 @@ function EmailTab() {
           <Send className="w-4 h-4" />
           {sending ? "발송 중..." : sendMode === "now" ? "이메일 즉시 발송" : "예약 발송 등록"}
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── 카카오톡 탭 ─────────────────────────────────────────────
+function KakaoTab() {
+  const [kakaoConfig,    setKakaoConfig]    = useState<{ senderKey: string; isActive: boolean } | null>(null);
+  const [configLoading,  setConfigLoading]  = useState(true);
+  const [groups,         setGroups]         = useState<Group[]>([]);
+  const [selectedGroup,  setSelectedGroup]  = useState("");
+  const [title,          setTitle]          = useState("");
+  const [message,        setMessage]        = useState("");
+  const [showReplace,    setShowReplace]    = useState(false);
+  const [myLinks,        setMyLinks]        = useState<ShortLink[]>([]);
+  const [dryRunResult,   setDryRunResult]   = useState<{ count: number; sample: string } | null>(null);
+  const [confirmed,      setConfirmed]      = useState(false);
+  const [sending,        setSending]        = useState(false);
+  const [csrfToken,      setCsrfToken]      = useState("");
+  const [rateLimitStatus, setRateLimitStatus] = useState<{ used: number; remaining: number; resetAt: string } | null>(null);
+  const [userRole,       setUserRole]       = useState<UserRole | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // CSRF 토큰 획득
+  useEffect(() => {
+    fetch("/api/csrf-token").then(r => r.json())
+      .then(d => { if (d.ok && d.token) setCsrfToken(d.token); })
+      .catch(() => { /* silently fail */ });
+  }, []);
+
+  // 사용자 역할 조회
+  useEffect(() => {
+    fetch("/api/user/role").then(r => r.json())
+      .then(d => { if (d.ok && d.role) setUserRole(d.role as UserRole); })
+      .catch(() => { /* silently fail */ });
+  }, []);
+
+  // 초기 데이터 로드
+  useEffect(() => {
+    fetch("/api/settings/kakao-config").then(r => r.json())
+      .then(d => { if (d.ok) setKakaoConfig(d.config); })
+      .finally(() => setConfigLoading(false));
+    fetch("/api/groups").then(r => r.json()).then(d => { if (d.ok) setGroups(d.groups ?? []); });
+    fetch("/api/links").then(r => r.json())
+      .then(d => { if (d.ok) setMyLinks((d.links ?? []).filter((l: ShortLink) => l.contactId)); });
+  }, []);
+
+  const insertAtCursor = (token: string) => {
+    const el = textareaRef.current;
+    if (!el) { setMessage(prev => prev + token); return; }
+    const start = el.selectionStart ?? message.length;
+    const end   = el.selectionEnd   ?? message.length;
+    const next  = message.substring(0, start) + token + message.substring(end);
+    setMessage(next);
+    requestAnimationFrame(() => {
+      el.selectionStart = el.selectionEnd = start + token.length;
+      el.focus();
+    });
+  };
+
+  // currentGroup 메모이제이션
+  const currentGroup = useMemo(
+    () => groups.find(g => g.id === selectedGroup),
+    [groups, selectedGroup]
+  );
+
+  // Dry-run 콜백
+  const doDryRun = useCallback(async () => {
+    if (!selectedGroup || !title.trim() || !message.trim()) {
+      showError("그룹, 제목, 메시지를 모두 입력하세요");
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    try {
+      const res = await fetch(`/api/groups/${selectedGroup}/blast-kakao`, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken && { "X-CSRF-Token": csrfToken }),
+        },
+        body: JSON.stringify({ title, message, dryRun: true }),
+      });
+      const d = await res.json() as {
+        ok: boolean; willSend?: number; sample?: string; rateLimitStatus?: any;
+      };
+      if (!d.ok) {
+        if (d.rateLimitStatus?.remaining === 0) {
+          showError("일일 발송 한도를 모두 사용했습니다. 내일 초기화됩니다.");
+        } else {
+          showError("미리보기 실패");
+        }
+        setDryRunResult(null);
+        setConfirmed(false);
+        if (d.rateLimitStatus) {
+          const resetDate = new Date(d.rateLimitStatus.resetAt);
+          setRateLimitStatus({
+            used: d.rateLimitStatus.used,
+            remaining: d.rateLimitStatus.remaining,
+            resetAt: resetDate.toLocaleTimeString('ko-KR'),
+          });
+        }
+        return;
+      }
+      const sampleMsg = d.sample ?? `${title}\n${message}`;
+      setDryRunResult({ count: d.willSend ?? 0, sample: sampleMsg });
+      setConfirmed(false);
+      if (d.rateLimitStatus) {
+        const resetDate = new Date(d.rateLimitStatus.resetAt);
+        setRateLimitStatus({
+          used: d.rateLimitStatus.used,
+          remaining: d.rateLimitStatus.remaining,
+          resetAt: resetDate.toLocaleTimeString('ko-KR'),
+        });
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        showError("요청 시간 초과 - 다시 시도해주세요");
+      } else {
+        showError("미리보기 중 오류 발생");
+      }
+      setDryRunResult(null);
+      setConfirmed(false);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }, [selectedGroup, title, message, csrfToken]);
+
+  // 발송 콜백
+  const doSend = useCallback(async () => {
+    if (!dryRunResult) {
+      showError("먼저 발송 대상을 확인해주세요.");
+      return;
+    }
+
+    if (!confirmed) {
+      showError("발송 확인 체크박스를 선택해주세요.");
+      return;
+    }
+
+    const willSend = dryRunResult.count || 0;
+    const confirmMsg = `정말 ${willSend}명에게 카카오톡을 발송하시겠습니까?\n\n제목: ${title}\n내용: ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}`;
+
+    if (typeof window === "undefined" || !window.confirm(confirmMsg)) {
+      return;
+    }
+
+    setSending(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    try {
+      const res = await fetch(`/api/groups/${selectedGroup}/blast-kakao`, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken && { "X-CSRF-Token": csrfToken }),
+        },
+        body: JSON.stringify({ title, message, dryRun: false }),
+      });
+      const d = await res.json() as { ok: boolean; sentCount?: number; failedCount?: number; message?: string };
+      if (!d.ok) {
+        showError(d.message ?? "발송 실패");
+        return;
+      }
+      showSuccess(`발송 완료: ${d.sentCount ?? 0}명 성공, ${d.failedCount ?? 0}명 실패`);
+      setTitle(""); setMessage(""); setDryRunResult(null); setConfirmed(false); setRateLimitStatus(null);
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        showError("발송 요청 시간 초과 - 다시 시도해주세요");
+      } else {
+        showError("발송 중 오류가 발생했습니다");
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      setSending(false);
+    }
+  }, [selectedGroup, title, message, csrfToken, dryRunResult, confirmed]);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* 좌측 설정 패널 */}
+      <div className="lg:col-span-1 space-y-4">
+
+        {/* 카카오 연결 상태 */}
+        <div className={`rounded-xl p-4 border ${kakaoConfig ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
+          {configLoading ? (
+            <div className="h-5 bg-gray-200 rounded animate-pulse" />
+          ) : kakaoConfig ? (
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span className="text-sm font-medium text-green-700">카카오톡 연결됨</span>
+              </div>
+              <p className="text-xs text-green-600">발신키: {kakaoConfig.senderKey.substring(0, 10)}***</p>
+              {!kakaoConfig.isActive && (
+                <p className="text-xs text-amber-600 mt-1">⚠ 카카오톡 알림톡이 비활성화되어 있습니다.</p>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+                <span className="text-sm font-medium text-amber-700">카카오톡 미연결</span>
+              </div>
+              <p className="text-xs text-amber-600 mb-2">카카오톡 알림톡을 사용하려면 설정이 필요합니다.</p>
+              <a href="/settings/kakao" className="text-xs text-blue-600 underline flex items-center gap-1">
+                <Settings className="w-3 h-3" /> 카카오톡 설정하기
+              </a>
+            </div>
+          )}
+        </div>
+
+        {/* 그룹 선택 */}
+        <div className="rounded-xl border bg-white p-4">
+          <label className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1 block">
+            <Users className="w-3.5 h-3.5" /> 수신 그룹
+          </label>
+          <select value={selectedGroup}
+            onChange={e => { setSelectedGroup(e.target.value); setDryRunResult(null); setRateLimitStatus(null); }}
+            className="w-full border rounded-lg px-3 py-2 text-sm">
+            <option value="">그룹 선택...</option>
+            {groups.map(g => (
+              <option key={g.id} value={g.id}>{g.name} ({g._count.members}명)</option>
+            ))}
+          </select>
+          {currentGroup && (
+            <p className="text-xs text-gray-400 mt-1">최대 {currentGroup._count.members}명에게 발송됩니다.</p>
+          )}
+        </div>
+      </div>
+
+      {/* 우측 작성 영역 */}
+      <div className="lg:col-span-2 space-y-4">
+
+        {/* 제목 입력 */}
+        <div className="rounded-xl border bg-white p-4">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-semibold text-gray-500">제목 (알림톡 헤더)</label>
+            <span className={`text-xs ${title.length > 25 ? "text-red-500 font-medium" : "text-gray-400"}`}>
+              {title.length}/30자
+            </span>
+          </div>
+          <input
+            value={title}
+            onChange={e => setTitle(e.target.value.slice(0, 30))}
+            placeholder="예: 크루즈닷 예약 확인"
+            maxLength={30}
+            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+          />
+        </div>
+
+        {/* 메시지 작성 */}
+        <div className="rounded-xl border bg-white p-4">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-semibold text-gray-500">메시지 내용</label>
+            <span className={`text-xs ${message.length > 900 ? "text-red-500 font-medium" : "text-gray-400"}`}>
+              {message.length}/1000자
+            </span>
+          </div>
+          <textarea
+            ref={textareaRef}
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+            placeholder="카카오톡 알림톡 내용을 입력하세요"
+            rows={8}
+            className="w-full border rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
+          />
+
+          {/* 치환변수 패널 */}
+          <div className="mt-2">
+            <button onClick={() => setShowReplace(v => !v)}
+              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700">
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showReplace ? "rotate-180" : ""}`} />
+              치환변수 & 어필리에이트 링크
+            </button>
+            {showReplace && (
+              <div className="mt-2 p-3 bg-gray-50 rounded-lg space-y-3">
+                <div>
+                  <p className="text-xs font-medium text-gray-600 mb-1.5">기본 치환변수 (클릭 시 삽입)</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {REPLACEMENTS.map(r => (
+                      <button key={r.label} onClick={() => insertAtCursor(r.label)}
+                        className="px-2 py-1 bg-white border rounded text-xs text-gray-700 hover:border-blue-400 hover:text-blue-600">
+                        {r.label} <span className="text-gray-400">({r.desc})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1">
+                    <Link2 className="w-3 h-3 text-blue-500" />
+                    내 어필리에이트 추적링크
+                  </p>
+                  {myLinks.length > 0 ? (
+                    <>
+                      <div className="flex flex-wrap gap-1.5">
+                        {myLinks.map(l => (
+                          <button key={l.id}
+                            onClick={() => insertAtCursor(`${APP_URL}/l/${l.code}`)}
+                            className="px-2 py-1 bg-white border rounded text-xs text-blue-600 hover:border-blue-400">
+                            🔗 {l.title ?? l.code}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-400">
+                      개인 추적링크가 없습니다.{" "}
+                      <a href="/links" className="text-blue-500 underline">상담 링크</a>에서
+                      고객에게 연결된 링크를 만들어주세요.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 미리보기 & 발송 */}
+        <div className="rounded-xl border bg-white p-4">
+          <button onClick={doDryRun} disabled={!selectedGroup || !title.trim() || !message.trim()}
+            className="w-full py-2.5 border-2 border-blue-300 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed mb-3">
+            발송 대상 미리보기
+          </button>
+
+          {selectedGroup && rateLimitStatus && (
+            <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-700">
+                📊 발송 횟수: {rateLimitStatus.used}/5회
+                {rateLimitStatus.remaining === 0 && (
+                  <span className="block text-xs text-red-600 font-semibold mt-1">
+                    ⏰ 내일 {rateLimitStatus.resetAt}부터 가능
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
+
+          {dryRunResult && (
+            <div className="space-y-3">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-xs font-medium text-gray-600 mb-2">
+                  발송 예정:{" "}
+                  <span className="text-blue-600 font-bold text-base">{dryRunResult.count}명</span>
+                </p>
+                <p className="text-xs text-gray-500 font-medium mb-1">미리보기:</p>
+                <div className="text-sm bg-white border rounded p-2.5">
+                  <strong className="block mb-1">{title}</strong>
+                  <div className="whitespace-pre-wrap break-words">
+                    {DOMPurify.sanitize(dryRunResult.sample, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] })}
+                  </div>
+                </div>
+              </div>
+
+              {/* 검수 탭 */}
+              {userRole && canReview(userRole) && (
+                <ReviewTab
+                  groupId={selectedGroup}
+                  message={`${title}\n${message}`}
+                  dryRunResult={dryRunResult}
+                  onApprove={doSend}
+                  onReject={() => {
+                    setDryRunResult(null);
+                    setConfirmed(false);
+                    showError("검수가 거절되었습니다.");
+                  }}
+                  approving={sending}
+                />
+              )}
+
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded" />
+                <span className="text-sm text-gray-700">
+                  위 내용을 확인했으며,{" "}
+                  <strong className="text-blue-600">{dryRunResult.count}명</strong>에게 카카오톡을 발송합니다.
+                </span>
+              </label>
+
+              <button onClick={doSend} disabled={!dryRunResult || !confirmed || sending}
+                className={`w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
+                  !dryRunResult || !confirmed || sending
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                }`}>
+                <Send className="w-4 h-4" />
+                {sending ? "발송 중..." : `✓ 발송 (${dryRunResult?.count || 0}명)`}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

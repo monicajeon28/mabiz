@@ -26,6 +26,8 @@ type Contact = {
   affiliateManagerId?: string;
   affiliateAgentId?: string;
   inquiryProductCode?: string;
+  affiliateManagerName?: string; // P0-6/7: 제휴 본사 담당자 실제 이름
+  affiliateAgentName?: string; // P0-6/7: 제휴 판매원 담당자 실제 이름
   lastTransferredTo: {
     name: string;
     orgName: string;
@@ -106,14 +108,14 @@ function formatCreatedAt(dateStr: string | null): string {
 }
 
 function getSourceLabel(contact: Contact): string {
-  if (contact.sourceType === "affiliate" && contact.affiliateManagerId) {
-    return `제휴 (${contact.affiliateManagerId})`;
+  if (contact.sourceType === "affiliate") {
+    return "제휴";
   }
   if (contact.sourceType === "inquiry") {
-    return `문의 (${contact.inquiryProductCode || "상품"})`;
+    return `문의`;
   }
   if (contact.sourceType === "user") {
-    return `가입 (${contact.signupMethod || "일반"})`;
+    return `가입`;
   }
   return SOURCE_TYPE_LABELS[contact.sourceType || ""] ? SOURCE_TYPE_LABELS[contact.sourceType!].label : "기타";
 }
@@ -1064,8 +1066,9 @@ export default function ContactsPage() {
                             <span className={`px-2 py-0.5 rounded-full ${SOURCE_TYPE_LABELS[c.sourceType]?.color || "bg-gray-100 text-gray-600"}`}>
                               {SOURCE_TYPE_LABELS[c.sourceType]?.icon} {getSourceLabel(c)}
                             </span>
-                            {c.affiliateManagerId && <span className="text-gray-400">본사: {c.affiliateManagerId}</span>}
-                            {c.affiliateAgentId && <span className="text-gray-400">판매원: {c.affiliateAgentId}</span>}
+                            {c.affiliateManagerName && <span className="text-gray-400">본사: {c.affiliateManagerName}</span>}
+                            {c.affiliateAgentName && <span className="text-gray-400">판매원: {c.affiliateAgentName}</span>}
+                            {c.sourceType === "inquiry" && c.inquiryProductCode && <span className="text-gray-400">상품: {c.inquiryProductCode}</span>}
                           </>
                         )}
                       </div>
