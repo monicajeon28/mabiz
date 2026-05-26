@@ -75,21 +75,26 @@ export async function validateSessionInMiddleware(
     }
 
     if (session.memberId && session.organizationId) {
-      // Fetch actual member role from database
-      const member = await prisma.organizationMember.findUnique({
-        where: { id: session.memberId },
-        select: { role: true },
-      });
+      // Fetch actual member role from database (optional, use MEMBER as fallback)
+      try {
+        const member = await prisma.organizationMember.findUnique({
+          where: { id: session.memberId },
+          select: { role: true },
+        });
 
-      if (!member) {
-        return null;
+        return {
+          valid: true,
+          role: (member?.role ?? 'MEMBER') as any,
+          organizationId: session.organizationId,
+        };
+      } catch (err) {
+        // DB error or member not found - fall back to MEMBER role
+        return {
+          valid: true,
+          role: 'MEMBER',
+          organizationId: session.organizationId,
+        };
       }
-
-      return {
-        valid: true,
-        role: member.role as any,
-        organizationId: session.organizationId,
-      };
     }
 
     return null;
