@@ -40,7 +40,7 @@ export async function getAuthContext(): Promise<AuthContext> {
   return session;
 }
 
-/** 고객 목록 조회 조건 (역할 기반) */
+/** 고객 목록 조회 조건 (역할 기반 + P0-6 출처 기반) */
 export function buildContactWhere(ctx: AuthContext, extra: Record<string, unknown> = {}) {
   if (ctx.role === "GLOBAL_ADMIN") {
     return extra;
@@ -59,6 +59,48 @@ export function buildContactWhere(ctx: AuthContext, extra: Record<string, unknow
     deletedAt: null,
     ...extra,
   };
+}
+
+/**
+ * P0-6: 출처 기반 RBAC (어필리에이트 링크/담당자 기반)
+ *
+ * 어필리에이트 조직 구조:
+ * - 본사 (Manager): affiliateManagerId = managerId로 필터링
+ * - 대리점장: 여러 판매원 관리 (affiliateAgentId IN (...))
+ * - 판매원: 자신의 고객만 (affiliateAgentId = agentId)
+ */
+export function buildContactWhereWithSourceFilter(
+  ctx: AuthContext,
+  extra: Record<string, unknown> = {},
+  userAffiliateMeta?: { managerId?: string | number; agentId?: string | number }
+) {
+  const baseWhere = buildContactWhere(ctx, extra);
+
+  // AGENT 역할인데 어필리에이트 메타데이터가 있으면 소스 기반 필터 적용
+  if (ctx.role === "AGENT" && userAffiliateMeta) {
+    if (userAffiliateMeta.managerId) {
+      // 본사: 자신의 managerId를 가진 어필리에이트만
+      return {
+        ...baseWhere,
+        OR: [
+          { assignedUserId: ctx.userId }, // 기존 할당된 고객
+          { sourceType: 'affiliate', affiliateManagerId: String(userAffiliateMeta.managerId) },
+        ],
+      };
+    }
+    if (userAffiliateMeta.agentId) {
+      // 판매원: 자신의 agentId를 가진 어필리에이트만
+      return {
+        ...baseWhere,
+        OR: [
+          { assignedUserId: ctx.userId },
+          { sourceType: 'affiliate', affiliateAgentId: String(userAffiliateMeta.agentId) },
+        ],
+      };
+    }
+  }
+
+  return baseWhere;
 }
 
 /** GLOBAL_ADMIN만 하드 삭제 가능, OWNER는 소프트 삭제만 */

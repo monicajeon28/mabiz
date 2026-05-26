@@ -101,10 +101,11 @@ export async function POST(req: NextRequest) {
     }
 
     // P0-ISS-02: UPSERT 패턴으로 동시 결제 중복 생성 방지 (Race condition 해결)
+    let contact: any = null;
     // 트랜잭션 처리
     await prisma.$transaction(async (tx) => {
       // UPSERT: bookingRef + organizationId 기준 (unique constraint 필수)
-      const contact = await tx.contact.upsert({
+      contact = await tx.contact.upsert({
         where: {
           bookingRef_organizationId: {
             bookingRef,

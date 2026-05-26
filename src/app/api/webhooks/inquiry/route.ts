@@ -133,11 +133,10 @@ export async function POST(req: NextRequest) {
         where: {
           organizationId,
           role: { in: ['AGENT', 'OWNER'] },
-          user: { isLocked: false },
         },
         select: {
           userId: true,
-          user: { select: { name: true } },
+          displayName: true,
         },
       });
 
@@ -151,7 +150,6 @@ export async function POST(req: NextRequest) {
           LEFT JOIN "Contact" c ON c."assignedUserId" = m."userId" AND c."organizationId" = ${organizationId}
           WHERE m."organizationId" = ${organizationId}
             AND m.role IN ('AGENT', 'OWNER')
-            AND m.user."isLocked" = false
           GROUP BY m."userId"
           ORDER BY contact_count ASC, RANDOM()
           LIMIT 1

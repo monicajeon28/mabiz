@@ -18,6 +18,7 @@ type Contact = {
   tags: string[] | null;
   groups: { group: { id: string; name: string; color: string | null } }[];
   _count: { callLogs: number };
+  sourceType?: string; // P0-6: user, inquiry, affiliate, landing_page, education, gold_member
   lastTransferredTo: {
     name: string;
     orgName: string;
@@ -25,6 +26,16 @@ type Contact = {
     transferType: string;
     canRecall: boolean;
   } | null;
+};
+
+// P0-6: 출처별 라벨 및 색상
+const SOURCE_TYPE_LABELS: Record<string, { label: string; icon: string; color: string }> = {
+  user: { label: "구매고객", icon: "🟢", color: "bg-green-50 text-green-700" },
+  inquiry: { label: "상품문의", icon: "📋", color: "bg-blue-50 text-blue-700" },
+  affiliate: { label: "어필리에이트", icon: "🟡", color: "bg-yellow-50 text-yellow-700" },
+  landing_page: { label: "랜딩페이지", icon: "🔵", color: "bg-cyan-50 text-cyan-700" },
+  education: { label: "교육", icon: "🎓", color: "bg-purple-50 text-purple-700" },
+  gold_member: { label: "골드회원", icon: "👑", color: "bg-amber-50 text-amber-700" },
 };
 
 const getLeadTier = (score: number) => {
@@ -130,6 +141,9 @@ export default function ContactsPage() {
   // 그룹 필터
   const [filterGroupId,  setFilterGroupId]  = useState("");
   const [showGroupBlast, setShowGroupBlast] = useState(false);
+
+  // P0-6: 출처 필터
+  const [filterSourceType, setFilterSourceType] = useState("");
 
   // 담당자 할당
   type AssignStat = { userId: string; displayName: string; role: string; count: number };
@@ -295,6 +309,7 @@ export default function ContactsPage() {
     const params = new URLSearchParams({ page: String(page), limit: "30" });
     if (q)                        params.set("q",          q);
     if (type)                     params.set("type",       type);
+    if (filterSourceType)         params.set("sourceType", filterSourceType); // P0-6
     if (filterGroupId)            params.set("groupId",    filterGroupId);
     if (filterAssignedTo)         params.set("assignedTo", filterAssignedTo);
     if (selectedTags.length > 0)  params.set("tags",       selectedTags.join(","));
@@ -312,14 +327,14 @@ export default function ContactsPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, type, page, filterGroupId, filterAssignedTo, selectedTags]);
+  }, [q, type, page, filterGroupId, filterSourceType, filterAssignedTo, selectedTags]); // P0-6
 
   useEffect(() => {
     const controller = new AbortController();
     fetchContacts(controller.signal);
     return () => controller.abort();
   }, [fetchContacts]);
-  useEffect(() => { setPage(1); }, [filterGroupId, filterAssignedTo, selectedTags]);
+  useEffect(() => { setPage(1); }, [filterGroupId, filterSourceType, filterAssignedTo, selectedTags]); // P0-6
 
   // [L6] setTimeout cleanup (백업 메시지 자동 숨김)
   useEffect(() => {
@@ -716,6 +731,20 @@ export default function ContactsPage() {
             </select>
           </div>
         )}
+        {/* P0-6: 출처 필터 */}
+        <div className="relative">
+          <select
+            value={filterSourceType}
+            onChange={(e) => setFilterSourceType(e.target.value)}
+            className={`pl-3 pr-8 py-2 border rounded-lg text-sm appearance-none bg-white focus:outline-none ${filterSourceType ? "border-blue-400 text-blue-700 font-medium" : "border-gray-200 focus:border-gold-500"}`}
+          >
+            <option value="">출처 전체</option>
+            {Object.entries(SOURCE_TYPE_LABELS).map(([key, { label }]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+        </div>
+
         {/* 담당자 필터 */}
         {assignStats.length > 0 && (
           <div className="relative">
@@ -739,6 +768,23 @@ export default function ContactsPage() {
             선택 {selectedIds.size}명 담당자 할당
           </button>
         )}
+      </div>
+
+      {/* P0-6: 출처별 필터 칩 */}
+      <div className="flex gap-2 flex-wrap px-0 pb-2">
+        {Object.entries(SOURCE_TYPE_LABELS).map(([key, { icon, label, color }]) => (
+          <button
+            key={key}
+            onClick={() => setFilterSourceType(filterSourceType === key ? "" : key)}
+            className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
+              filterSourceType === key
+                ? `${color} font-bold`
+                : `${color} hover:opacity-80`
+            }`}
+          >
+            {icon} {label}
+          </button>
+        ))}
       </div>
 
       {/* 담당자별 통계 바 */}

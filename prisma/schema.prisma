@@ -1977,6 +1977,8 @@ model GmReservation {
   groupMemo                   String?
   portTourSurveyAnswer        String?
   portTourSurveyAnsweredAt    DateTime?
+  // P0-1/2/3/4/5: Reverse relation to Contact
+  contacts                    Contact[]           @relation("ContactReservations")
 
   @@index([mainUserId])
   @@index([passportStatus])
@@ -3115,6 +3117,8 @@ model CruiseProduct {
   minDeparturePax  Int?
   isActive         Boolean   @default(true)
   version          Int       @default(0)
+  // P0-1/2/3/4/5: Reverse relation to Contact
+  contacts         Contact[]           @relation("ContactCruiseProducts")
 
   @@index([basePrice, createdAt(sort: Desc)])
   @@index([category])

@@ -7,7 +7,7 @@ import { detectSegment } from "@/lib/segment-detector";
 import { recommendProducts } from "@/lib/product-recommender";
 import { sendSms, resolveUserSmsConfig } from "@/lib/aligo";
 
-// GET /api/contacts — 고객 목록 (역할 기반)
+// GET /api/contacts — 고객 목록 (역할 기반 + P0-6 출처 기반)
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
@@ -15,6 +15,7 @@ export async function GET(req: Request) {
 
     const type    = searchParams.get("type");
     const channel = searchParams.get("channel"); // b2c, b2b, direct
+    const sourceType = searchParams.get("sourceType"); // P0-6: user, inquiry, affiliate, landing_page, education, gold_member
     const q       = searchParams.get("q");
     const groupId = searchParams.get("groupId");
     const tagParam = searchParams.get("tags");                      // 쉼표 구분 태그 필터
@@ -29,6 +30,7 @@ export async function GET(req: Request) {
     const baseWhere = buildContactWhere(ctx, {
       ...(type ? { type } : {}),
       ...(channel ? { channel } : {}),
+      ...(sourceType ? { sourceType } : {}), // P0-6: 출처 필터링
       ...(q
         ? { OR: [
             { name: { contains: q, mode: "insensitive" as const } },
