@@ -157,17 +157,18 @@ type LedgerGroupRow = {
 
 export async function GET(req: NextRequest) {
   // ────────────────────────────────────────────────────────
-  // RBAC: GLOBAL_ADMIN 전용 엔드포인트
+  // RBAC: GLOBAL_ADMIN + OWNER + AGENT 접근 허용
   // ────────────────────────────────────────────────────────
   const rbacCheck = enforceRBAC(req, {
-    allowedRoles: ['GLOBAL_ADMIN'],
+    allowedRoles: ['GLOBAL_ADMIN', 'OWNER', 'AGENT'],
     errorMessage: '권한이 없습니다.',
   });
   if (rbacCheck !== true) return rbacCheck;
 
   try {
     const ctx = await getAuthContext();
-    if (ctx.role !== 'GLOBAL_ADMIN') {
+    const allowedRoles = ['GLOBAL_ADMIN', 'OWNER', 'AGENT'];
+    if (!allowedRoles.includes(ctx.role)) {
       return NextResponse.json({ ok: false }, { status: 403 });
     }
 
