@@ -419,6 +419,13 @@ function PageCard({
           <p className="text-xs text-gray-400 mt-0.5">/p/{page.slug}</p>
 
           <div className="flex items-center gap-3 mt-2 text-xs text-gray-500 flex-wrap">
+            {/* L6: Loss aversion — 미사용 경고 */}
+            {page.viewCount === 0 && (
+              <span className="inline-flex items-center gap-1 text-red-600 font-medium bg-red-50 px-2 py-0.5 rounded-full">
+                <span className="w-1.5 h-1.5 bg-red-600 rounded-full"></span>
+                미사용
+              </span>
+            )}
             <span className="flex items-center gap-1">
               <Eye className="w-3 h-3" /> {page.viewCount.toLocaleString()}명 방문
             </span>
@@ -621,13 +628,26 @@ export default function LandingPagesPage() {
   }, [loadPages]);
 
   const loadStats = async (pageId: string) => {
-    if (loadingStats === pageId) return;
-    setStatsMap((prev) => { const n = { ...prev }; delete n[pageId]; return n; });
+    if (loadingStats) return; // 이미 로딩 중이면 중복 요청 방지
+
+    // 현재 표시된 모든 페이지 중 아직 로드되지 않은 페이지들 수집
+    const allPages = [...pages, ...sharedPages];
+    const pagesToLoad = [pageId, ...allPages
+      .filter(p => p.id !== pageId && !statsMap[p.id])
+      .map(p => p.id)
+    ].slice(0, 20); // 최대 20개까지만 배치 (너무 많으면 쿼리 성능 저하)
+
     setLoadingStats(pageId);
     try {
-      const res  = await fetch(`/api/landing-pages/${pageId}/stats`);
+      const res = await fetch('/api/landing-pages/batch-stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pageIds: pagesToLoad }),
+      });
       const data = await res.json();
-      if (data.ok) setStatsMap((prev) => ({ ...prev, [pageId]: data.stats }));
+      if (data.ok) {
+        setStatsMap((prev) => ({ ...prev, ...data.stats }));
+      }
     } finally {
       setLoadingStats(null);
     }
@@ -741,6 +761,22 @@ export default function LandingPagesPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
+      {/* L6: Loss aversion — 경쟁사 위험 경고 배너 */}
+      {pages.length === 0 && (
+        <div className="mb-4 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <span className="text-xl">⚠️</span>
+            <div>
+              <p className="font-bold text-red-900">아직 랜딩페이지가 없습니다</p>
+              <p className="text-sm text-red-800 mt-1">
+                경쟁사는 이미 고객을 모으고 있습니다.
+                <span className="font-semibold"> 지금 만들지 않으면 고객 기회를 놓칠 수 있습니다.</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold text-navy-900">랜딩페이지</h1>
@@ -748,7 +784,8 @@ export default function LandingPagesPage() {
         </div>
         <Link
           href="/landing-pages/new"
-          className="flex items-center gap-1.5 bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 transition-colors"
+          className="flex items-center gap-1.5 bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 transition-colors shadow-sm hover:shadow-md"
+          title="새 랜딩페이지를 만들어 고객을 모으세요"
         >
           <Plus className="w-4 h-4" /> 새 페이지
         </Link>

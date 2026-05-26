@@ -17,7 +17,11 @@ export default async function DashboardLayout({
   children,
 }: DashboardLayoutProps) {
   const ctx = await getMabizSession();
-  if (!ctx?.organizationId) {
+  // GLOBAL_ADMIN은 organizationId 없이도 접근 가능
+  if (!ctx) {
+    redirect("/sign-in");
+  }
+  if (!ctx.organizationId && ctx.role !== "GLOBAL_ADMIN") {
     redirect("/sign-in");
   }
 

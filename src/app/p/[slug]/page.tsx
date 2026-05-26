@@ -22,6 +22,13 @@ export default async function PublicLandingPage({
       buttonTitle: true, completionPageUrl: true, headerScript: true,
       exposureTitle: true, exposureImage: true,
       formConfig: true,
+      // L6 설정 필드 추가
+      l6Enabled: true,
+      l6PriceAnchors: true,
+      l6StockCurrent: true,
+      l6StockTotal: true,
+      l6WeeklyBurnRate: true,
+      l6CountdownEnd: true,
     },
   });
 
@@ -74,6 +81,26 @@ export default async function PublicLandingPage({
           productPrice: page.productPrice ?? 0,
           cycleDay: page.cycleDay ?? 1,
           expireDate: page.expireDate?.toISOString().split("T")[0] ?? "",
+        } : undefined}
+        l6Config={page.l6Enabled ? {
+          enabled: true,
+          priceAnchors: page.l6PriceAnchors
+            ? Array.isArray(page.l6PriceAnchors)
+              ? page.l6PriceAnchors as Array<{day: number; price: number; label: string}>
+              : JSON.parse(String(page.l6PriceAnchors)) as Array<{day: number; price: number; label: string}>
+            : undefined,
+          stockConfig: {
+            currentStock: page.l6StockCurrent,
+            totalStock: page.l6StockTotal,
+            weeklyBurnRate: page.l6WeeklyBurnRate,
+            weeksToZero: page.l6StockTotal > 0
+              ? Math.ceil(page.l6StockCurrent / (page.l6WeeklyBurnRate || 5))
+              : 0,
+            countdownTarget: page.l6CountdownEnd?.toISOString() ?? new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+          },
+          hoursUntilIncrease: page.l6CountdownEnd
+            ? Math.max(1, Math.floor((page.l6CountdownEnd.getTime() - Date.now()) / (60 * 60 * 1000)))
+            : 48,
         } : undefined}
       />
     </>

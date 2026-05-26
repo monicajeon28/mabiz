@@ -23,6 +23,7 @@ interface ApiData {
   monthly: MonthlyRow[];
   byLanding: LandingRow[];
   recent: RecentRow[];
+  pagination?: { page: number; limit: number; totalCount: number; totalPages: number };
 }
 
 function cn(...classes: (string | boolean | undefined | null)[]) {
@@ -145,11 +146,13 @@ export default function MarketingSalesPage() {
   const [data,    setData]    = useState<ApiData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
+  const [page,    setPage]    = useState(1);
 
-  const load = useCallback(() => {
+  const load = useCallback((pageNum: number = 1) => {
     setLoading(true);
     setError(null);
-    fetch("/api/marketing/sales")
+    setPage(pageNum);
+    fetch(`/api/marketing/sales?page=${pageNum}&limit=20`)
       .then((res) => res.json())
       .then((json: ApiData) => {
         if (json.ok) {
@@ -163,7 +166,7 @@ export default function MarketingSalesPage() {
   }, []);
 
   useEffect(() => {
-    load();
+    load(1);
   }, [load]);
 
   const summary   = data?.summary;
@@ -182,7 +185,7 @@ export default function MarketingSalesPage() {
           )}
         </div>
         <button
-          onClick={load}
+          onClick={() => load(page)}
           disabled={loading}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           aria-label="새로고침"
@@ -195,7 +198,7 @@ export default function MarketingSalesPage() {
       {error && (
         <div className="text-center py-12">
           <p className="text-red-500 text-sm mb-3">{error}</p>
-          <button onClick={load} className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm">
+          <button onClick={() => load(1)} className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm">
             다시 시도
           </button>
         </div>
@@ -296,12 +299,59 @@ export default function MarketingSalesPage() {
           <RecentPaymentTable recent={recent} loading={loading} />
         </div>
 
-        {/* 페이지네이션 (P2-2) */}
-        {!loading && recent.length >= 5 && (
-          <div className="px-6 py-4 border-t border-gray-100 text-center">
-            <p className="text-xs text-gray-400">페이지네이션 추가 예정</p>
-          </div>
-        )}
+        {/* 페이지네이션 */}
+        {!loading && data?.pagination && data.pagination.totalPages > 1 && (() => {
+          const paging = data.pagination!;
+          return (
+            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-center gap-2">
+              <button
+                onClick={() => load(Math.max(1, page - 1))}
+                disabled={page <= 1}
+                className="px-3 py-1 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                이전
+              </button>
+              <div className="flex items-center gap-1">
+                {[...Array(Math.min(5, paging.totalPages))].map((_, i) => {
+                  let pageNum: number;
+                  if (paging.totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (page <= 3) {
+                    pageNum = i + 1;
+                  } else if (page >= paging.totalPages - 2) {
+                    pageNum = paging.totalPages - 4 + i;
+                  } else {
+                    pageNum = page - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => load(pageNum)}
+                      className={cn(
+                        "px-3 py-1 rounded-lg text-sm font-medium",
+                        pageNum === page
+                          ? "bg-navy-900 text-white"
+                          : "border border-gray-300 hover:bg-gray-50"
+                      )}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => load(Math.min(paging.totalPages, page + 1))}
+                disabled={page >= paging.totalPages}
+                className="px-3 py-1 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                다음
+              </button>
+              <span className="text-xs text-gray-400 ml-2">
+                페이지 {page} / {paging.totalPages}
+              </span>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

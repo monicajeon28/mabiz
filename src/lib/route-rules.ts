@@ -68,10 +68,17 @@ export const ROUTE_RULES: RouteRule[] = [
     redirectTo: '/dashboard',
   },
 
-  // Dashboard pages - MEMBER+ (일반 대시보드)
+  // Dashboard root - AGENT+ 이상만 (관리자, 대리점장, 판매원)
   {
-    pattern: '/dashboard/dashboard',
-    requiredRole: 'MEMBER',
+    pattern: '/dashboard',
+    requiredRole: 'AGENT',
+    redirectTo: '/sign-in',
+  },
+
+  // Dashboard pages - AGENT+ 이상만 (프리세일즈 제외)
+  {
+    pattern: '/dashboard/*',
+    requiredRole: 'AGENT',
     redirectTo: '/sign-in',
   },
 
@@ -101,13 +108,6 @@ export const ROUTE_RULES: RouteRule[] = [
     pattern: '/pnr/*',
     requiredRole: 'UNKNOWN',
     redirectTo: null, // Public route
-  },
-
-  // General dashboard - MEMBER+
-  {
-    pattern: '/dashboard/*',
-    requiredRole: 'MEMBER',
-    redirectTo: '/sign-in',
   },
 ];
 
@@ -171,7 +171,7 @@ export function getRedirectForPath(
 }
 
 /**
- * Role hierarchy: GLOBAL_ADMIN > MEMBER > UNKNOWN
+ * Role hierarchy: GLOBAL_ADMIN > OWNER > AGENT > FREE_SALES > UNKNOWN
  * Higher level roles can access lower level paths
  */
 export function hasRequiredRole(
@@ -179,9 +179,12 @@ export function hasRequiredRole(
   requiredRole: AuthRole
 ): boolean {
   const hierarchy: Record<AuthRole, number> = {
-    'GLOBAL_ADMIN': 100,
-    'MEMBER': 50,
-    'UNKNOWN': 0,
+    'GLOBAL_ADMIN': 100,  // 관리자
+    'OWNER': 50,          // 대리점장
+    'AGENT': 40,          // 판매원
+    'MEMBER': 50,         // 멤버 (호환성)
+    'FREE_SALES': 10,     // 프리세일즈 (접근 제한)
+    'UNKNOWN': 0,         // 인증 안 됨
   };
 
   return hierarchy[userRole] >= hierarchy[requiredRole];

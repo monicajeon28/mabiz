@@ -67,6 +67,10 @@
     {
       "path": "/api/cron/retry-mabiz-dlq",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/sms/automation/send-scheduled",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

@@ -241,7 +241,8 @@ export async function POST(req: Request, { params }: Params) {
     });
 
     // [P2] contactId 응답 제거 (IDOR 탐색 방지)
-    return NextResponse.json({ ok: true, funnelStarted });
+    // L6 SMS 트리거용 registrationId 추가
+    return NextResponse.json({ ok: true, funnelStarted, registrationId: regId });
 
   } catch (err) {
     logger.error("[POST /api/landing-pages/[id]/register]", { err });

@@ -386,6 +386,18 @@ export default function SendingHistoryDashboardPage() {
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {/* 헤더 */}
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        {/* L7: Companion persuasion — 팀 협력 강조 */}
+        <div className="mb-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4 flex items-start gap-3">
+          <span className="text-xl">👥</span>
+          <div>
+            <p className="font-semibold text-purple-900">팀과 함께 성과를 추적하세요</p>
+            <p className="text-sm text-purple-800 mt-1">
+              이 캠페인 데이터를 <span className="font-medium">팀 멤버와 공유</span>하여 함께 목표를 달성하세요.
+              공유된 대시보드에서 실시간 성과를 확인할 수 있습니다.
+            </p>
+          </div>
+        </div>
+
         <div className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">발송 현황</h1>

@@ -7,6 +7,54 @@ import type { ContactGroup } from '@prisma/client';
 
 type Params = { params: Promise<{ id: string }> };
 
+// GET /api/groups/[id] - 그룹 상세 정보 조회 (L10 렌즈: 즉시구매 클로징)
+export async function GET(req: Request, { params }: Params) {
+  try {
+    const ctx = await getAuthContext();
+    const orgId = requireOrgId(ctx);
+    const { id: groupId } = await params;
+
+    // IDOR 보안: organizationId 체크
+    const group = await prisma.contactGroup.findFirst({
+      where: { id: groupId, organizationId: orgId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        color: true,
+        funnelId: true,
+        _count: { select: { members: true } },
+      },
+    });
+
+    if (!group) {
+      return NextResponse.json(
+        { ok: false, error: 'NOT_FOUND', message: '그룹을 찾을 수 없습니다.' },
+        { status: 404 }
+      );
+    }
+
+    // 퍼널 정보 추가 조회
+    const funnelInfo = group.funnelId
+      ? await prisma.funnel.findUnique({
+          where: { id: group.funnelId },
+          select: { id: true, name: true },
+        })
+      : null;
+
+    return NextResponse.json({
+      ok: true,
+      group: {
+        ...group,
+        funnelName: funnelInfo?.name ?? null,
+      },
+    });
+  } catch (err) {
+    logger.error('[GET /api/groups/[id]]', { err });
+    return NextResponse.json({ ok: false, error: 'SERVER_ERROR' }, { status: 500 });
+  }
+}
+
 // PATCH /api/groups/[id] - 그룹 정보 수정
 export async function PATCH(req: Request, { params }: Params) {
   try {
