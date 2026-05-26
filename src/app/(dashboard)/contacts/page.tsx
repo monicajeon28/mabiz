@@ -28,10 +28,10 @@ type Contact = {
 };
 
 const getLeadTier = (score: number) => {
-  if (score >= 70) return { label: "🔥 HOT",  color: "bg-red-100 text-red-700" };
-  if (score >= 30) return { label: "☀️ WARM", color: "bg-orange-100 text-orange-600" };
-  if (score >= 0)  return { label: "❄️ COLD", color: "bg-blue-50 text-blue-500" };
-  return               { label: "💤 LOST", color: "bg-gray-100 text-gray-400" };
+  if (score >= 70) return { label: "🔥 뜨거움",  color: "bg-red-100 text-red-700" };
+  if (score >= 30) return { label: "☀️ 따뜻함", color: "bg-orange-100 text-orange-600" };
+  if (score >= 0)  return { label: "❄️ 차가움", color: "bg-blue-50 text-blue-500" };
+  return               { label: "💤 못찾음", color: "bg-gray-100 text-gray-400" };
 };
 
 type QuickCallResult = "INTERESTED" | "PENDING" | "REJECTED";
@@ -44,7 +44,7 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   "3일부재":   { label: "3일부재",   color: "bg-orange-100 text-orange-700" },
   "소통":      { label: "소통",      color: "bg-purple-100 text-purple-700" },
   "구매완료":  { label: "구매완료",  color: "bg-green-100 text-green-700" },
-  "VIP":       { label: "VIP",       color: "bg-gold-100 text-gold-700 font-bold" },
+  "VIP":       { label: "👑 특별한 고객",       color: "bg-gold-100 text-gold-700 font-bold" },
   "수신거부":  { label: "수신거부",  color: "bg-gray-100 text-gray-500" },
   // 기존 영문 코드 (하위 호환)
   LEAD:         { label: "잠재고객",  color: "bg-blue-100 text-blue-700" },
@@ -114,14 +114,14 @@ export default function ContactsPage() {
       const res  = await fetch("/api/backup/org", { method: "POST" });
       const data = await res.json();
       if (data.ok) {
-        setBackupMsg(`✅ ${data.count}명 Drive 백업 완료`);
+        setBackupMsg(`✅ ${data.count}명 저장했어요`);
         if (backupMsgTimerRef.current) clearTimeout(backupMsgTimerRef.current);
         backupMsgTimerRef.current = setTimeout(() => setBackupMsg(""), 4000);
       } else {
-        setBackupMsg("❌ 백업 실패");
+        setBackupMsg("❌ 저장에 실패했어요");
       }
     } catch {
-      setBackupMsg("❌ 네트워크 오류");
+      setBackupMsg("❌ 인터넷 안 터져요");
     } finally {
       setBackingUp(false);
     }
@@ -531,7 +531,7 @@ export default function ContactsPage() {
           <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                <FileSpreadsheet className="w-5 h-5 text-green-600" /> 엑셀 고객 가져오기
+                <FileSpreadsheet className="w-5 h-5 text-green-600" /> 엑셀에서 고객 추가
               </h3>
               <button onClick={() => setShowImport(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
@@ -541,7 +541,7 @@ export default function ContactsPage() {
             {/* 형식 안내 + 샘플 다운로드 */}
             <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-600 space-y-1">
               <div className="flex items-center justify-between mb-1">
-                <p className="font-semibold">📋 엑셀 파일 형식</p>
+                <p className="font-semibold">📋 엑셀 파일은 이렇게 만들어요</p>
                 <a
                   href="/api/contacts/sample"
                   download="cruisedot_import_sample.xlsx"
@@ -550,10 +550,10 @@ export default function ContactsPage() {
                   <FileSpreadsheet className="w-3.5 h-3.5" /> 샘플 다운로드
                 </a>
               </div>
-              <p>• 필수: <strong>이름</strong>, <strong>전화번호</strong></p>
-              <p>• 선택: 이메일, 관심크루즈, 예산, 메모, 유형</p>
+              <p>• 반드시 써야 할 것: <strong>이름</strong>, <strong>전화번호</strong></p>
+              <p>• 있으면 좋은 것: 이메일, 관심크루즈, 예산, 메모, 유형</p>
               <p>• 유형: "잠재고객" 또는 "구매완료" (기본: 잠재고객)</p>
-              <p>• 중복 전화번호는 정보 업데이트됩니다</p>
+              <p>• 같은 전화번호면 정보가 새로워져요</p>
             </div>
 
             {/* 파일 선택 */}
@@ -564,7 +564,7 @@ export default function ContactsPage() {
                 <Upload className={`w-8 h-8 mx-auto mb-2 ${importFile ? "text-green-500" : "text-gray-400"}`} />
                 {importFile
                   ? <p className="text-sm font-medium text-green-700">{importFile.name}</p>
-                  : <p className="text-sm text-gray-400">파일을 클릭하거나 드래그하세요<br />.xlsx, .xls 지원</p>
+                  : <p className="text-sm text-gray-400">여기다 파일을 끌어오거나 클릭해요<br />.xlsx, .xls 가능</p>
                 }
               </div>
               <input
@@ -581,8 +581,8 @@ export default function ContactsPage() {
                 importResult.skipCount === 0 ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-800"
               }`}>
                 <p className="font-semibold mb-1">
-                  ✅ {importResult.successCount}명 등록 완료
-                  {importResult.skipCount > 0 && ` / ⚠️ ${importResult.skipCount}건 건너뜀`}
+                  ✅ {importResult.successCount}명 추가했어요
+                  {importResult.skipCount > 0 && ` / ⚠️ ${importResult.skipCount}건 건너뛰었어요`}
                 </p>
                 {importResult.errors.slice(0, 3).map((e, i) => (
                   <p key={i} className="text-xs opacity-80">{e}</p>
@@ -595,7 +595,7 @@ export default function ContactsPage() {
               disabled={importing || !importFile}
               className="w-full bg-green-600 text-white py-2.5 rounded-xl font-medium hover:bg-green-700 disabled:opacity-40 flex items-center justify-center gap-2"
             >
-              {importing ? <><Upload className="w-4 h-4 animate-bounce" /> 가져오는 중...</> : "가져오기 실행"}
+              {importing ? <><Upload className="w-4 h-4 animate-bounce" /> 추가하는 중...</> : "지금 추가"}
             </button>
           </div>
         </div>
@@ -613,10 +613,10 @@ export default function ContactsPage() {
             <button
               onClick={openShareModal}
               className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors shadow-sm"
-              title="팀 멤버와 고객 정보를 공유하여 함께 성과를 높이세요"
+              title="팀원들과 이 고객들의 정보를 함께 봐요"
             >
               <Share2 className="w-4 h-4" />
-              팀 공유 ({selectedIds.size}명)
+              팀에 알려주기 ({selectedIds.size}명)
             </button>
           )}
           {selectedTags.length > 0 && (
@@ -625,7 +625,7 @@ export default function ContactsPage() {
               className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
             >
               <MessageSquare className="w-4 h-4" />
-              태그 SMS ({filteredContacts.length}명)
+              태그 메시지 ({filteredContacts.length}명)
             </button>
           )}
           {filterGroupId && (
@@ -634,26 +634,26 @@ export default function ContactsPage() {
               className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
             >
               <MessageSquare className="w-4 h-4" />
-              그룹 SMS ({total}명)
+              그룹 메시지 ({total}명)
             </button>
           )}
           <button
             onClick={handleOrgBackup}
             disabled={backingUp}
             className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
-            title="고객 전체를 Drive에 Excel 백업"
+            title="모든 고객을 폴더에 저장해요"
           >
             {backingUp
               ? <Loader2 className="w-4 h-4 animate-spin" />
               : <FolderDown className="w-4 h-4" />
             }
-            전체 백업
+            모든 고객 저장하기
           </button>
           <button
             onClick={() => { setShowImport(true); setImportResult(null); setImportFile(null); }}
             className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
           >
-            <Upload className="w-4 h-4" /> 엑셀 가져오기
+            <Upload className="w-4 h-4" /> 엑셀에서 가져오기
           </button>
           <Link
             href="/contacts/new"
@@ -697,7 +697,7 @@ export default function ContactsPage() {
             <option value="3일부재">3일부재</option>
             <option value="소통">소통</option>
             <option value="구매완료">구매완료</option>
-            <option value="VIP">VIP</option>
+            <option value="VIP">👑 특별한 고객</option>
             <option value="수신거부">수신거부</option>
           </select>
         </div>
