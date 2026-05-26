@@ -141,21 +141,33 @@ export async function POST(req: NextRequest) {
                 ? 'cancelled'
                 : 'pending';
 
+        // P0-ISS-04: 환불 시 SMS flag 초기화 (재구매 시 Day0-3 자동화 재실행)
+        const updateData: any = {
+          lastPaymentStatus: paymentStatus,
+          lastPaymentAt: status === 'CONFIRMED' ? new Date(timestamp) : undefined,
+          lastRefundedAt: status === 'REFUNDED' ? new Date(timestamp) : undefined,
+          paymentStatusNote:
+            status === 'REFUNDED'
+              ? `환불완료: ${refundAmount ? refundAmount.toLocaleString() + '원' : '금액미상'}`
+              : status === 'CONFIRMED'
+                ? '결제완료'
+                : status === 'CANCELLED'
+                  ? `취소됨: ${reason || '사유 미기재'}`
+                  : undefined,
+        };
+
+        // 환불 시 SMS Day0-3 플래그 초기화 (재구매 가능성 대비)
+        if (status === 'REFUNDED') {
+          updateData.smsDay0Sent = false;
+          updateData.smsDay1Sent = false;
+          updateData.smsDay2Sent = false;
+          updateData.smsDay3Sent = false;
+          updateData.smsDay7Sent = false;
+        }
+
         await tx.contact.update({
           where: { id: contact.id },
-          data: {
-            lastPaymentStatus: paymentStatus,
-            lastPaymentAt: status === 'CONFIRMED' ? new Date(timestamp) : undefined,
-            lastRefundedAt: status === 'REFUNDED' ? new Date(timestamp) : undefined,
-            paymentStatusNote:
-              status === 'REFUNDED'
-                ? `환불완료: ${refundAmount ? refundAmount.toLocaleString() + '원' : '금액미상'}`
-                : status === 'CONFIRMED'
-                  ? '결제완료'
-                  : status === 'CANCELLED'
-                    ? `취소됨: ${reason || '사유 미기재'}`
-                    : undefined,
-          },
+          data: updateData,
         });
 
         // Contact 메모 기록
