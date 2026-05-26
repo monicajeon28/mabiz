@@ -1,0 +1,56 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { Client } from 'pg';
+
+export async function GET(req: NextRequest) {
+  const client = new Client({
+    connectionString: process.env.SUPABASE_BACKUP_URL,
+    ssl: { rejectUnauthorized: false },
+  });
+
+  try {
+    await client.connect();
+
+    // 모든 public 테이블 조회
+    const result = await client.query(`
+      SELECT tablename
+      FROM pg_tables
+      WHERE schemaname = 'public'
+      ORDER BY tablename
+    `);
+
+    const allTables = result.rows.map(r => r.tablename);
+
+    // 각 테이블의 행 수 조회
+    const tableStats: Record<string, number> = {};
+    for (const table of allTables) {
+      const countResult = await client.query(`SELECT COUNT(*) as count FROM "${table}"`);
+      tableStats[table] = parseInt(countResult.rows[0].count ?? 0);
+    }
+
+    // News/Community 관련 테이블만 따로 표시
+    const newsRelated = allTables.filter(t =>
+      t.toLowerCase().includes('news') ||
+      t.toLowerCase().includes('community') ||
+      t.toLowerCase().includes('newsletter') ||
+      t.toLowerCase().includes('dashboard')
+    );
+
+    return NextResponse.json({
+      allTables: allTables.length,
+      tableStats,
+      newsRelatedTables: newsRelated,
+      newsRelatedStats: Object.fromEntries(
+        newsRelated.map(t => [t, tableStats[t]])
+      ),
+    });
+
+  } catch (error) {
+    console.error('Error:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to check tables' },
+      { status: 500 }
+    );
+  } finally {
+    await client.end();
+  }
+}
