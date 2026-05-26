@@ -18,7 +18,14 @@ type Contact = {
   tags: string[] | null;
   groups: { group: { id: string; name: string; color: string | null } }[];
   _count: { callLogs: number };
+  createdAt?: string; // 신청 일시
   sourceType?: string; // P0-6: user, inquiry, affiliate, landing_page, education, gold_member
+  sourceId?: string;
+  signupMethod?: string; // general, kakao, naver, google
+  affiliateLinkId?: string;
+  affiliateManagerId?: string;
+  affiliateAgentId?: string;
+  inquiryProductCode?: string;
   lastTransferredTo: {
     name: string;
     orgName: string;
@@ -88,6 +95,27 @@ function formatDaysSince(dateStr: string | null): string {
   const d = Math.floor(days);
   if (d === 0) return "오늘 연락";
   return `${d}일 전 연락`;
+}
+
+function formatCreatedAt(dateStr: string | null): string {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${month}/${day}`;
+}
+
+function getSourceLabel(contact: Contact): string {
+  if (contact.sourceType === "affiliate" && contact.affiliateManagerId) {
+    return `제휴 (${contact.affiliateManagerId})`;
+  }
+  if (contact.sourceType === "inquiry") {
+    return `문의 (${contact.inquiryProductCode || "상품"})`;
+  }
+  if (contact.sourceType === "user") {
+    return `가입 (${contact.signupMethod || "일반"})`;
+  }
+  return SOURCE_TYPE_LABELS[contact.sourceType || ""] ? SOURCE_TYPE_LABELS[contact.sourceType!].label : "기타";
 }
 
 export default function ContactsPage() {
@@ -1026,6 +1054,22 @@ export default function ContactsPage() {
                         );
                       })()}
                     </div>
+
+                    {/* 출처 정보 */}
+                    {(c.sourceType || c.createdAt) && (
+                      <div className="text-xs text-gray-600 mt-2 flex items-center gap-2 flex-wrap">
+                        {c.createdAt && <span className="text-gray-400">신청: {formatCreatedAt(c.createdAt)}</span>}
+                        {c.sourceType && (
+                          <>
+                            <span className={`px-2 py-0.5 rounded-full ${SOURCE_TYPE_LABELS[c.sourceType]?.color || "bg-gray-100 text-gray-600"}`}>
+                              {SOURCE_TYPE_LABELS[c.sourceType]?.icon} {getSourceLabel(c)}
+                            </span>
+                            {c.affiliateManagerId && <span className="text-gray-400">본사: {c.affiliateManagerId}</span>}
+                            {c.affiliateAgentId && <span className="text-gray-400">판매원: {c.affiliateAgentId}</span>}
+                          </>
+                        )}
+                      </div>
+                    )}
                     {/* 태그 칩 */}
                     {(c.tags ?? []).length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1.5">
