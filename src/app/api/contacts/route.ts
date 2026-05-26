@@ -142,9 +142,9 @@ export async function GET(req: Request) {
     globalAdmins.forEach((a) => nameMap.set(a.id, { name: a.displayName ?? "본사", orgName: "본사" }));
 
     // ── 제휴 담당자 정보 배치 조회 (본사/판매원) ──────────────────────────
-    const affiliateManagerIds = [...new Set(masked.map((c) => c.affiliateManagerId).filter(Boolean))];
-    const affiliateAgentIds = [...new Set(masked.map((c) => c.affiliateAgentId).filter(Boolean))];
-    const allAffiliateUserIds = [...new Set([...affiliateManagerIds, ...affiliateAgentIds])];
+    const affiliateManagerIds = [...new Set(masked.map((c) => c.affiliateManagerId).filter((x): x is string => !!x))];
+    const affiliateAgentIds = [...new Set(masked.map((c) => c.affiliateAgentId).filter((x): x is string => !!x))];
+    const allAffiliateUserIds = [...new Set([...affiliateManagerIds, ...affiliateAgentIds])] as string[];
 
     const affiliateMembers = allAffiliateUserIds.length > 0
       ? await prisma.organizationMember.findMany({

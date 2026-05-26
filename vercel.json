@@ -99,6 +99,22 @@
     {
       "path": "/api/cron/sequence-dispatcher",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/partner-onboarding",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/partner-risk-scoring",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/partner-interventions",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/partner-tier-calc",
+      "schedule": "0 8 1 * *"
     }
   ]
 }
