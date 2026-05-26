@@ -114,6 +114,15 @@ export default function EditB2BPage() {
   const [commentDateFrom, setCommentDateFrom]   = useState("2024-01-01");
   const [commentDateTo, setCommentDateTo]       = useState("2025-12-31");
   const [showAdvanced, setShowAdvanced]         = useState(false);
+
+  // L6 렌즈 설정 (타이밍/손실회피)
+  const [l6Enabled, setL6Enabled]               = useState(false);
+  const [l6HoursRemaining, setL6HoursRemaining] = useState("24");
+  const [l6SeatsAvailable, setL6SeatsAvailable] = useState("5");
+  const [l6CurrentPrice, setL6CurrentPrice]     = useState("3300000");
+  const [l6TomorrowPrice, setL6TomorrowPrice]   = useState("3450000");
+  const [l6Discount, setL6Discount]             = useState("15");
+
   const [formFields, setFormFields] = useState<FormField[]>([
     { id: 'name', name: 'name', label: '이름', type: 'text', required: true, placeholder: '이름을 입력하세요' },
     { id: 'phone', name: 'phone', label: '전화번호', type: 'tel', required: true, placeholder: '010-1234-5678' },
@@ -814,6 +823,83 @@ export default function EditB2BPage() {
                         className="border border-gray-200 rounded px-2 py-1 text-xs"
                       />
                     </>
+                  )}
+                </div>
+
+                {/* L6 렌즈 (타이밍/손실회피) 설정 */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <label className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1.5">
+                    <input type="checkbox" checked={l6Enabled} onChange={(e) => setL6Enabled(e.target.checked)} className="w-3 h-3" />
+                    L6 렌즈 (타이밍/손실회피) 적용
+                  </label>
+                  {l6Enabled && (
+                    <div className="space-y-2 mt-2 bg-blue-50 p-3 rounded-lg border border-blue-200">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-gray-600">마감까지 시간</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="72"
+                            value={l6HoursRemaining}
+                            onChange={(e) => setL6HoursRemaining(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs mt-0.5"
+                          />
+                          <span className="text-xs text-gray-400">시간</span>
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-600">남은 객실</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={l6SeatsAvailable}
+                            onChange={(e) => setL6SeatsAvailable(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs mt-0.5"
+                          />
+                          <span className="text-xs text-gray-400">개</span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-gray-600">현재 가격</label>
+                          <input
+                            type="number"
+                            min="10000"
+                            value={l6CurrentPrice}
+                            onChange={(e) => setL6CurrentPrice(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs mt-0.5"
+                          />
+                          <span className="text-xs text-gray-400">원</span>
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-600">내일 예상 가격</label>
+                          <input
+                            type="number"
+                            min="10000"
+                            value={l6TomorrowPrice}
+                            onChange={(e) => setL6TomorrowPrice(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs mt-0.5"
+                          />
+                          <span className="text-xs text-gray-400">원</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-600">조기예약 할인율</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="50"
+                          value={l6Discount}
+                          onChange={(e) => setL6Discount(e.target.value)}
+                          className="w-full border border-gray-300 rounded px-2 py-1 text-xs mt-0.5"
+                        />
+                        <span className="text-xs text-gray-400">%</span>
+                      </div>
+                      <p className="text-xs text-blue-600 mt-2">
+                        💡 L6 렌즈 적용 시: 형태변환율 +12-18%, 즉시 구매율 +8-12% 예상
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>

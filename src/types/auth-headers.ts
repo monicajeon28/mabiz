@@ -5,9 +5,15 @@
  */
 
 /**
- * User role types from mabiz_admin and mabiz_member tables
+ * User role types from mabiz_admin and organization_member tables
+ * GLOBAL_ADMIN: Global administrator (mabiz_admin)
+ * OWNER: Organization owner / 대리점장 (organization_member)
+ * AGENT: Sales agent / 판매원 (organization_member)
+ * MEMBER: Legacy member (organization_member)
+ * FREE_SALES: Pre-sales / 프리세일즈 (organization_member)
+ * UNKNOWN: Unauthenticated
  */
-export type AuthRole = 'GLOBAL_ADMIN' | 'MEMBER' | 'UNKNOWN';
+export type AuthRole = 'GLOBAL_ADMIN' | 'OWNER' | 'AGENT' | 'MEMBER' | 'FREE_SALES' | 'UNKNOWN';
 
 /**
  * Auth headers object injected into NextRequest by middleware

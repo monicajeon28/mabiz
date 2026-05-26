@@ -13,15 +13,16 @@ export async function GET(req: Request, { params }: Params) {
     const { id } = await params;
 
     // 소유권 검증
-    const page = await prisma.b2BLandingPage.findFirst({
+    const landingPage = await prisma.b2BLandingPage.findFirst({
       where: { id, organizationId: orgId },
       select: { id: true, title: true },
     });
-    if (!page) return NextResponse.json({ ok: false, error: 'NOT_FOUND' }, { status: 404 });
+    if (!landingPage) return NextResponse.json({ ok: false, error: 'NOT_FOUND' }, { status: 404 });
 
     const { searchParams } = new URL(req.url);
-    const skip   = Math.max(0, parseInt(searchParams.get("skip") ?? "0"));
+    const page   = Math.max(1, parseInt(searchParams.get("page") ?? "1"));
     const limit  = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") ?? "20")));
+    const skip   = (page - 1) * limit;
 
     const [registrations, total] = await Promise.all([
       prisma.b2BLandingRegistration.findMany({
@@ -45,17 +46,16 @@ export async function GET(req: Request, { params }: Params) {
       prisma.b2BLandingRegistration.count({ where: { landingPageId: id } }),
     ]);
 
+    const totalPages = Math.ceil(total / limit);
+
     logger.log("[GET /api/b2b-landing/[id]/registrations]", {
-      landingPageId: id, total, skip, limit,
+      landingPageId: id, total, page, limit, totalPages,
     });
 
     return NextResponse.json({
       ok: true,
       registrations,
-      total,
-      skip,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      pagination: { page, limit, total, totalPages },
     });
   } catch (err) {
     logger.error("[GET /api/b2b-landing/[id]/registrations]", { err });

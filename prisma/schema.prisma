@@ -57,6 +57,7 @@ model Organization {
   l1PriceObjections          L1PriceObjectionAttempt[]
   l1ABTestVariants           L1ABTestVariant[]
   l1OptimizationScores       L1OptimizationScore[]
+  marketingMessages          CrmMarketingMessage[]       @relation("CrmMarketingMessages")
 }
 
 model OrgSmsConfig {
@@ -352,6 +353,7 @@ model Contact {
   shortLinks                 ShortLink[]
   shortLinkClicks            ShortLinkClick[]
   vipSequences               VipCareSequence[]
+  marketingMessages          CrmMarketingMessage[]       @relation("CrmMarketingMessages")
 
   @@unique([phone, organizationId])
   @@index([organizationId])
@@ -661,6 +663,20 @@ model CrmLandingPage {
   regEmailSubject   String?
   regEmailContent   String?
   createdByUserId   String?
+
+  // L6 Loss Aversion 렌즈 설정
+  l6Enabled         Boolean                  @default(false)
+  l6PriceAnchors    Json?                    // [{day, price, label}, ...]
+  l6StockCurrent    Int                      @default(0)
+  l6StockTotal      Int                      @default(0)
+  l6WeeklyBurnRate  Int                      @default(5)
+  l6CountdownEnd    DateTime?
+
+  // SMS 자동화 설정
+  smsL6Day0Enabled  Boolean                  @default(true)
+  smsL6Day1Enabled  Boolean                  @default(true)
+  smsL6Day2Enabled  Boolean                  @default(true)
+
   comments          CrmLandingComment[]
   group             ContactGroup?            @relation(fields: [groupId], references: [id])
   organization      Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -5303,6 +5319,62 @@ model ContractTemplateAuditLog {
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+}
+
+model CrmMarketingMessage {
+  id                    String    @id @default(cuid())
+
+  // 관계설정
+  contactId             String
+  contact               Contact   @relation("CrmMarketingMessages", fields: [contactId], references: [id], onDelete: Cascade)
+
+  organizationId        String
+  organization          Organization @relation("CrmMarketingMessages", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // 메시지 정보
+  templateId            String    // "A1_default", "A1_variantb", "B2_default", etc.
+  segment               String    // "newlywed" | "family" | "couple"
+  variant               String    // "default" | "variantb"
+  day                   Int       // 0, 1, 3, 7
+
+  // 스케줄 & 발송
+  scheduledTime         DateTime
+  sentTime              DateTime?
+  status                String    // "pending" | "sent" | "failed" | "opened" | "clicked" | "converted"
+
+  // 콘텐츠
+  content               String    @db.Text
+  psychologyLenses      String[]  // ["L6", "L10"]
+  ctaUrl                String?
+  ctaButtonText         String?
+
+  // 성과 추적
+  clickCount            Int       @default(0)
+  lastClickTime         DateTime?
+  conversionTime        DateTime?
+
+  // A/B 테스트
+  abTestGroup           String?   // null or "default" or "variantb"
+  expectedResponseRate  Float?
+  actualResponseTime    Int?      // minutes
+
+  // 메타데이터
+  metadata              Json?
+
+  // 예약 연결
+  bookingId             String?
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([contactId])
+  @@index([organizationId])
+  @@index([templateId])
+  @@index([segment])
+  @@index([status])
+  @@index([scheduledTime])
+  @@index([organizationId, status, scheduledTime])
+  @@map("CrmMarketingMessage")
 }
 
 enum PaymentStatus {

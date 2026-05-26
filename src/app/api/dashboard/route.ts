@@ -91,11 +91,17 @@ export async function GET() {
           GROUP BY TO_CHAR("saleDate", 'YYYY-MM')
           ORDER BY month ASC
         `),
-        // 파트너 신청 대기 건수
-        prisma.$queryRaw<CountRow[]>(Prisma.sql`
-          SELECT COUNT(*)::bigint AS count FROM "GmAffiliateContract"
-          WHERE status = 'submitted'
-        `),
+        // 파트너 신청 대기 건수 (에러 무시)
+        (async () => {
+          try {
+            return await prisma.$queryRaw<CountRow[]>(Prisma.sql`
+              SELECT COUNT(*)::bigint AS count FROM "AffiliateContract"
+              WHERE status = 'submitted'
+            `);
+          } catch {
+            return [{ count: BigInt(0) }];
+          }
+        })(),
       ]);
 
       const monthlyData = monthlyDataRows.map(r => ({

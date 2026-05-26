@@ -24,7 +24,16 @@ export async function GET(req: Request) {
         select: { orderId: true },
         take: 50,
       });
-      extraOrderIds = matchedPayments.map(p => p.orderId);
+
+      // 권한 검사: 현재 조직의 AffiliateSale과 교차 확인
+      const orgOrderIds = await prisma.affiliateSale.findMany({
+        where: {
+          organizationId: orgId,
+          orderId: { in: matchedPayments.map(p => p.orderId) },
+        },
+        select: { orderId: true },
+      });
+      extraOrderIds = orgOrderIds.map(o => o.orderId).filter((id): id is string => id !== null);
     }
 
     // ── 2단계: AffiliateSale 검색 (조직 소유 필터 + 전체 상태) ──

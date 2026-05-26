@@ -118,7 +118,7 @@ export async function DELETE(_req: Request, { params }: Params) {
     const existing = await prisma.b2BLandingPage.findFirst({ where });
     if (!existing) return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: "페이지를 찾을 수 없습니다." }, { status: 404 });
 
-    await prisma.b2BLandingPage.delete({ where: { id } });
+    await prisma.b2BLandingPage.delete({ where });
     return NextResponse.json({ ok: true, data: null, message: '삭제되었습니다.' });
   } catch (err) {
     return handleB2BError(err, "DELETE /api/b2b-landing/[id]");

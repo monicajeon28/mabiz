@@ -64,7 +64,7 @@ export async function validateSessionInMiddleware(
       return null;
     }
 
-    // Determine role from session type (lightweight determination)
+    // Determine role from session type
     if (session.adminId) {
       return {
         valid: true,
@@ -75,9 +75,19 @@ export async function validateSessionInMiddleware(
     }
 
     if (session.memberId && session.organizationId) {
+      // Fetch actual member role from database
+      const member = await prisma.organizationMember.findUnique({
+        where: { id: session.memberId },
+        select: { role: true },
+      });
+
+      if (!member) {
+        return null;
+      }
+
       return {
         valid: true,
-        role: 'MEMBER',
+        role: member.role as any,
         organizationId: session.organizationId,
       };
     }

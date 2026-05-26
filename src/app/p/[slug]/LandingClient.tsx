@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from "react";
 import { CountdownTimer } from "@/components/landing/CountdownTimer";
 import { StockGaugeWidget } from "@/components/landing/StockGaugeWidget";
 import { L6LossAnchorSection } from "@/components/landing/L6LossAnchorSection";
-import "@/components/landing/l6-styles.css";
 
 interface PaymentConfig {
   type:         "onetime" | "subscription";
@@ -427,7 +426,7 @@ export function LandingClient({
           />
 
           {/* Stock Gauge + Countdown 섹션 */}
-          <div className="l6-main-visual">
+          <div className="bg-white rounded-2xl p-6 md:p-8 border border-gray-200 mb-8 space-y-6">
             <StockGaugeWidget
               currentStock={l6Config.stockConfig.currentStock}
               totalStock={l6Config.stockConfig.totalStock}
@@ -435,14 +434,14 @@ export function LandingClient({
               weeksToZero={l6Config.stockConfig.weeksToZero}
             />
 
-            <div className="l6-countdown">
-              <h3 className="countdown-title">⏰ {l6Config.hoursUntilIncrease ?? 48}시간 후 가격 인상</h3>
+            <div className="bg-gradient-to-r from-red-50 to-pink-50 rounded-xl p-5 border-2 border-red-300 text-center">
+              <h3 className="text-base font-bold text-gray-900 mb-4">⏰ {l6Config.hoursUntilIncrease ?? 48}시간 후 가격 인상</h3>
               <CountdownTimer
                 targetDate={new Date(l6Config.stockConfig.countdownTarget)}
               />
-              <p className="countdown-warning">
-                가격: <span className="current">${l6Config.priceAnchors[0].price}</span> →{" "}
-                <span className="future">${l6Config.priceAnchors[1]?.price ?? l6Config.priceAnchors[0].price}</span>
+              <p className="text-sm text-gray-700 mt-3">
+                가격: <span className="font-bold text-green-600">${l6Config.priceAnchors[0].price}</span> →{" "}
+                <span className="font-bold text-red-600">${l6Config.priceAnchors[1]?.price ?? l6Config.priceAnchors[0].price}</span>
               </p>
             </div>
           </div>

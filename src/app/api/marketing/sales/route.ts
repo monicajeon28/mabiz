@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgIdOrNull } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
-// GET /api/marketing/sales
-export async function GET() {
+// GET /api/marketing/sales?page=1&limit=20
+export async function GET(req: NextRequest) {
   try {
     const ctx   = await getAuthContext();
     const orgId = resolveOrgIdOrNull(ctx);
@@ -12,6 +12,11 @@ export async function GET() {
     if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false }, { status: 403 });
     }
+
+    // 페이지네이션 파라미터
+    const page  = Math.max(1, parseInt(req.nextUrl.searchParams.get('page') ?? '1', 10));
+    const limit = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') ?? '20', 10)));
+    const skip  = (page - 1) * limit;
 
     const now   = new Date();
     const thisMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -136,8 +141,10 @@ export async function GET() {
       }))
       .sort((a, b) => b.revenue - a.revenue);
 
-    // ─── 최근 20건 ───────────────────────────────────────────
-    const recent = payments.slice(0, 20).map((p) => ({
+    // ─── 페이지네이션 최근 결제 내역 ──────────────────────────
+    const totalCount = payments.length;
+    const totalPages = Math.ceil(totalCount / limit);
+    const recent = payments.slice(skip, skip + limit).map((p) => ({
       orderId:       p.orderId,
       amount:        p.amount,
       status:        p.status,
@@ -147,9 +154,16 @@ export async function GET() {
       landingPageId: p.landingPageId ?? null,
     }));
 
-    logger.log("[GET /api/marketing/sales] 조회", { orgId, orderCount: payments.length });
+    logger.log("[GET /api/marketing/sales] 조회", { orgId, page, limit, totalCount, orderCount: payments.length });
 
-    return NextResponse.json({ ok: true, summary, monthly, byLanding, recent });
+    return NextResponse.json({
+      ok: true,
+      summary,
+      monthly,
+      byLanding,
+      recent,
+      pagination: { page, limit, totalCount, totalPages }
+    });
   } catch (err: unknown) {
     if (err instanceof Error && err.message === "UNAUTHORIZED") {
       return NextResponse.json({ ok: false }, { status: 401 });

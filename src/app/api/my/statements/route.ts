@@ -55,6 +55,6 @@ export async function GET() {
 
   } catch (e) {
     logger.log('[Statements] 오류', { error: e instanceof Error ? e.message : String(e) });
-    return NextResponse.json({ ok: true, sales: [] });
+    return NextResponse.json({ ok: true, statements: [] });
   }
 }

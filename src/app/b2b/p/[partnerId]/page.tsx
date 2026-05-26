@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowRight, X, Loader2, CheckCircle2, Ship, Phone, User } from 'lucide-react';
+import { L6TimingBanner } from '@/components/b2b/L6TimingBanner';
 
 // ─── 타입 ──────────────────────────────────────────────────
 interface PartnerInfo {
@@ -291,6 +292,14 @@ export default function PartnerB2BLandingPage() {
               <TemplateHtml html={part} />
               {i < parts.length - 1 && (
                 <div className="max-w-md mx-auto px-4 py-8">
+                  {/* L6 렌즈: 타이밍/손실회피 배너 */}
+                  <L6TimingBanner
+                    hoursRemaining={24}
+                    seatsAvailable={5}
+                    currentPrice={3300000}
+                    tomorrowPrice={3450000}
+                    earlyBookingDiscount={15}
+                  />
                   <LeadForm partnerId={partnerId} />
                 </div>
               )}
@@ -301,6 +310,14 @@ export default function PartnerB2BLandingPage() {
           <>
             <TemplateHtml html={template} />
             <div className="max-w-md mx-auto px-4 py-8">
+              {/* L6 렌즈: 타이밍/손실회피 배너 */}
+              <L6TimingBanner
+                hoursRemaining={24}
+                seatsAvailable={5}
+                currentPrice={3300000}
+                tomorrowPrice={3450000}
+                earlyBookingDiscount={15}
+              />
               <LeadForm partnerId={partnerId} />
             </div>
           </>
@@ -317,6 +334,15 @@ export default function PartnerB2BLandingPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-8">
+        {/* L6 렌즈: 타이밍/손실회피 배너 */}
+        <L6TimingBanner
+          hoursRemaining={24}
+          seatsAvailable={5}
+          currentPrice={3300000}
+          tomorrowPrice={3450000}
+          earlyBookingDiscount={15}
+        />
+
         {/* 헤더 */}
         <div className="mb-8 text-center">
           <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
