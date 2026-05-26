@@ -71,6 +71,22 @@
     {
       "path": "/api/sms/automation/send-scheduled",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/sms-day0-init",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/sms-day1-objection",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/sms-day2-value",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/sms-day3-action",
+      "schedule": "0 15 * * *"
     }
   ]
 }
