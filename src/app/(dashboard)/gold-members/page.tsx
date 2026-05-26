@@ -46,7 +46,7 @@ const COURSE_BADGE: Record<string, string> = {
 
 const INITIAL_FORM = {
   name: "", phone: "", email: "",
-  courseType: "A" as const,
+  courseType: "A" as "A" | "B" | "C" | "HEALTH",
   joinDate: new Date().toISOString().slice(0, 10),
   paymentDay: "",
   totalPayments: "",
@@ -430,7 +430,7 @@ export default function GoldMembersPage() {
                         checked={form.courseType === c}
                         onChange={() => setForm(f => ({
                           ...f,
-                          courseType: c,
+                          courseType: c as typeof f.courseType,
                           // 건강코스 선택 시 의무납입 없으므로 총 횟수 초기화
                           totalPayments: c === "HEALTH" ? "" : f.totalPayments,
                         }))}

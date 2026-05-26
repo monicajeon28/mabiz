@@ -34,6 +34,7 @@ type CampaignDetail = {
 
 type CostReportResponse = {
   ok: boolean;
+  error?: string;
   summary: {
     totalCost: number;
     totalSent: number;
@@ -190,8 +191,8 @@ function MonthlyCostChart({
               border: '1px solid #e5e7eb',
               borderRadius: '8px',
             }}
-            formatter={(value) => [formatCurrency(value as number), '']}
-            labelFormatter={(label) => `${label}월`}
+            formatter={(value: any) => (value !== undefined ? [formatCurrency(value as number), ''] : ['', ''])}
+            labelFormatter={(label: any) => (label !== undefined ? `${label}월` : '')}
           />
           <Legend
             wrapperStyle={{ fontSize: '13px', color: '#6b7280' }}
@@ -248,11 +249,12 @@ function ChannelComparisonChart({
               border: '1px solid #e5e7eb',
               borderRadius: '8px',
             }}
-            formatter={((value: number, name: string) => {
+            formatter={((value: any, name: any) => {
+              if (value === undefined || name === undefined) return '';
               if (name === '비용') return [formatCurrency(value), name];
-              if (name === '발송건수') return [value.toLocaleString(), name];
+              if (name === '발송건수') return [String(value).toLocaleString(), name];
               return [`${value}%`, name];
-            })}
+            }) as any}
           />
           <Legend wrapperStyle={{ fontSize: '13px', color: '#6b7280' }} />
           <Bar dataKey="비용" fill="#3b82f6" />

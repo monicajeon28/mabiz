@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
     }
 
     const campaigns = await prisma.smsLog.groupBy({
-      by: ['campaignId'],
+      by: ['channel'],
       where: campaignWhere,
       _count: {
         id: true,
@@ -163,26 +163,22 @@ export async function GET(request: NextRequest) {
       campaigns.map(async (campaign) => {
         const campaignSMS = await prisma.smsLog.findMany({
           where: {
-            campaignId: campaign.campaignId,
+            channel: campaign.channel,
           },
           select: {
             id: true,
             status: true,
-            contact: {
-              select: {
-                purchasedAt: true,
-              },
-            },
+            contactId: true,
           },
         });
 
         const sentCount = campaignSMS.filter(
           (s) => s.status !== 'FAILED',
         ).length;
-        const responseCount = campaignSMS.filter((s) => s.contact?.purchasedAt).length;
+        const responseCount = campaignSMS.filter((s) => s.contactId).length;
 
         return {
-          campaignId: campaign.campaignId,
+          campaignId: campaign.channel,
           sentCount,
           responseCount,
           responseRate: `${Math.round((responseCount / sentCount) * 100)}%`,

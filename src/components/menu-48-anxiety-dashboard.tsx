@@ -228,7 +228,7 @@ export function Menu48AnxietyDashboard() {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => `${value}명`} />
+                  <Tooltip formatter={(value: any) => (value !== undefined ? `${value}명` : '')} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -280,7 +280,7 @@ export function Menu48AnxietyDashboard() {
                   tick={{ fontSize: 12 }}
                 />
                 <YAxis />
-                <Tooltip formatter={(value) => `${value}명`} />
+                <Tooltip formatter={(value: any) => (value !== undefined ? `${value}명` : '')} />
                 <Bar dataKey="count" fill="#3b82f6" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -316,7 +316,7 @@ export function Menu48AnxietyDashboard() {
                 label={{ value: 'Day', position: 'insideBottomRight', offset: -5 }}
               />
               <YAxis label={{ value: '비율 (%)', angle: -90, position: 'insideLeft' }} />
-              <Tooltip formatter={(value) => `${value}%`} />
+              <Tooltip formatter={(value: any) => (value !== undefined ? `${value}%` : '')} />
               <Legend />
               <Line
                 type="monotone"
