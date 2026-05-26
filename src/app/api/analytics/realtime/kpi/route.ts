@@ -154,14 +154,14 @@ export async function GET(req: Request) {
     const campaignCosts = await prisma.campaignCost.aggregate({
       where: {
         organizationId: orgId,
-        date: { gte: today },
+        createdAt: { gte: today },
       },
       _sum: {
-        cost: true,
+        actualCostTotal: true,
       },
     });
 
-    const totalCost = campaignCosts._sum.cost || 0;
+    const totalCost = Number(campaignCosts._sum.actualCostTotal || 0);
     const currentCpa = purchasedContacts > 0 ? totalCost / purchasedContacts : totalCost || 0;
     const targetCpa = 20000; // 목표 CPA ($)
 

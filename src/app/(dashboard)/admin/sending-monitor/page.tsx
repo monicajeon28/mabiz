@@ -367,7 +367,7 @@ export default function SendingMonitorPage() {
                     border: '1px solid #e5e7eb',
                     borderRadius: '0.5rem',
                   }}
-                  formatter={(value) => `${value}%`}
+                  formatter={(value: any) => (value !== undefined ? `${value}%` : '')}
                 />
                 <Bar dataKey="successRate" fill="#10b981" name="성공률" />
               </BarChart>
