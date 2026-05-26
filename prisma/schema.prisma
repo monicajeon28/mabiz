@@ -412,6 +412,23 @@ model Contact {
   @@index([organizationId, tripleChoiceOffered], map: "idx_contact_triple_choice_offered")
   @@index([organizationId, urgencyExpiresAt], map: "idx_contact_urgency_expires")
   @@index([organizationId, l10ConversionAt], map: "idx_contact_l10_conversion")
+
+  // P0-1/2/3/4/5: Contact 상품/예약 FK 및 필드 추가
+  cruiseProductId           Int?
+  reservationId             Int?
+  preferredCabinType        String?
+  quotedPrice               Int?
+  priceAcceptedAt           DateTime?
+
+  // P0-1/2/3/4/5: Relationships
+  cruiseProduct             CruiseProduct?            @relation("ContactCruiseProducts", fields: [cruiseProductId], references: [id], onDelete: SetNull)
+  reservation               GmReservation?            @relation("ContactReservations", fields: [reservationId], references: [id], onDelete: SetNull)
+
+  // P0-1/2/3/4/5: Product FK indexes
+  @@index([organizationId, cruiseProductId], map: "idx_contact_cruise_product_id")
+  @@index([organizationId, reservationId], map: "idx_contact_reservation_id")
+  @@index([organizationId, quotedPrice], map: "idx_contact_quoted_price")
+  @@index([organizationId, priceAcceptedAt], map: "idx_contact_price_accepted")
 }
 
 model ContactLensClassification {
