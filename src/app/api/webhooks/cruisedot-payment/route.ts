@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Contact 찾기 (bookingRef + organizationId로 테넌트 격리)
-    const contact = await prisma.contact.findFirst({
+    const existingContact = await prisma.contact.findFirst({
       where: {
         bookingRef,
         organizationId: affiliateSale.organizationId
@@ -111,6 +111,25 @@ export async function POST(req: NextRequest) {
 
     // 트랜잭션 처리
     await prisma.$transaction(async (tx) => {
+      let contact = existingContact;
+
+      // Contact 없으면 자동생성 (P0-CRITICAL: ISS-01 Fix)
+      if (!existingContact) {
+        contact = await tx.contact.create({
+          data: {
+            bookingRef,
+            organizationId: affiliateSale.organizationId,
+            phone: '', // 필수값 (cruisedot에서 제공되면 나중에 업데이트)
+            name: `예약 ${bookingRef}`, // 임시 이름
+            type: 'PURCHASED',
+            lastPaymentStatus: status === 'CONFIRMED' ? 'paid' : 'pending',
+            lastPaymentAt: status === 'CONFIRMED' ? new Date(timestamp) : undefined,
+          },
+          select: { id: true, organizationId: true, phone: true, userId: true, name: true },
+        });
+        logger.log('[CruisedotWebhook] Contact 자동생성', { contactId: contact.id, bookingRef });
+      }
+
       // Contact 상태 업데이트
       if (contact) {
         const paymentStatus =
