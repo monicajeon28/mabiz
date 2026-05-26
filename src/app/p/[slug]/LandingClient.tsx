@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { CountdownTimer } from "@/components/landing/CountdownTimer";
+import { StockGaugeWidget } from "@/components/landing/StockGaugeWidget";
+import { L6LossAnchorSection } from "@/components/landing/L6LossAnchorSection";
+import "@/components/landing/l6-styles.css";
 
 interface PaymentConfig {
   type:         "onetime" | "subscription";
@@ -8,6 +12,19 @@ interface PaymentConfig {
   productPrice: number;
   cycleDay:     number;
   expireDate:   string;
+}
+
+interface L6Config {
+  enabled: boolean;
+  priceAnchors?: Array<{day: number; price: number; label: string}>;
+  stockConfig?: {
+    currentStock: number;
+    totalStock: number;
+    weeklyBurnRate: number;
+    weeksToZero: number;
+    countdownTarget: string;
+  };
+  hoursUntilIncrease?: number;
 }
 
 interface Props {
@@ -19,6 +36,7 @@ interface Props {
   buttonTitle?:      string;
   completionPageUrl?: string;
   footer?:           string;
+  l6Config?:         L6Config;
 }
 
 type Comment = {
@@ -34,7 +52,9 @@ type Comment = {
  * - 폼 submit 인터셉트 → register API 호출
  * - 완료 화면 표시
  */
-export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payment, buttonTitle, completionPageUrl, footer }: Props) {
+export function LandingClient({
+  pageId, slug, htmlContent, commentEnabled, payment, buttonTitle, completionPageUrl, footer, l6Config
+}: Props) {
   const [done,        setDone]        = useState(false);
   const [isDuplicate, setIsDuplicate] = useState(false);
   const [submitting,  setSubmitting]  = useState(false);
@@ -112,6 +132,11 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payme
     if (buttonTitle) {
       container.querySelectorAll<HTMLButtonElement>('form button[type="submit"], form button:not([type])').forEach((btn) => {
         btn.textContent = buttonTitle;
+      });
+    } else if (slug.startsWith('b2b')) {
+      // B2B 페이지의 기본 버튼 문구 (Loss Aversion #5)
+      container.querySelectorAll<HTMLButtonElement>('form button[type="submit"], form button:not([type])').forEach((btn) => {
+        btn.textContent = '지금 신청하기 (조조 할인 보장)';
       });
     }
 
@@ -205,6 +230,23 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payme
           setRegisteredPhone(phoneVal);
           setDone(true);
           try { localStorage.setItem(`registered_${slug}`, '1'); } catch {}
+
+          // L6 Day 0 SMS 트리거 (자동 발송 백그라운드)
+          if (l6Config?.enabled && data.registrationId) {
+            try {
+              fetch(`/api/landing-pages/${pageId}/sms-trigger`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  registrationId: data.registrationId,
+                  phoneNumber: phoneVal,
+                  customerName: nameVal,
+                  messageType: "l6_day0",
+                }),
+              }).catch(() => {}); // 백그라운드 작업 - 에러 무시
+            } catch {}
+          }
+
           if (completionPageUrl) {
             window.location.href = completionPageUrl;
             return;
@@ -269,7 +311,9 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payme
               ? "담당자가 곧 연락드릴 예정이에요."
               : payment
                 ? "결제를 진행하시면 예약이 확정됩니다."
-                : "담당자가 빠르면 1시간 이내로 연락드립니다."}
+                : slug.startsWith('b2b')
+                  ? "조조 할인은 6월 말까지만 유효합니다. 담당자가 빠르면 1시간 이내로 연락드립니다."
+                  : "담당자가 빠르면 1시간 이내로 연락드립니다."}
           </p>
 
           {/* 결제 버튼 (결제 설정이 있는 경우) */}
@@ -372,6 +416,128 @@ export function LandingClient({ pageId, slug, htmlContent, commentEnabled, payme
           </div>
         </div>
       )}
+
+      {/* L6 Loss Aversion 섹션 (활성화된 경우) */}
+      {l6Config?.enabled && l6Config.priceAnchors && l6Config.stockConfig && (
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          {/* Price Anchor 섹션 */}
+          <L6LossAnchorSection
+            priceAnchors={l6Config.priceAnchors}
+            hoursUntilIncrease={l6Config.hoursUntilIncrease ?? 48}
+          />
+
+          {/* Stock Gauge + Countdown 섹션 */}
+          <div className="l6-main-visual">
+            <StockGaugeWidget
+              currentStock={l6Config.stockConfig.currentStock}
+              totalStock={l6Config.stockConfig.totalStock}
+              weeklyBurnRate={l6Config.stockConfig.weeklyBurnRate}
+              weeksToZero={l6Config.stockConfig.weeksToZero}
+            />
+
+            <div className="l6-countdown">
+              <h3 className="countdown-title">⏰ {l6Config.hoursUntilIncrease ?? 48}시간 후 가격 인상</h3>
+              <CountdownTimer
+                targetDate={new Date(l6Config.stockConfig.countdownTarget)}
+              />
+              <p className="countdown-warning">
+                가격: <span className="current">${l6Config.priceAnchors[0].price}</span> →{" "}
+                <span className="future">${l6Config.priceAnchors[1]?.price ?? l6Config.priceAnchors[0].price}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* B2B 페이지용 SPIN + Loss Aversion 섹션 (slug이 'b2b'로 시작하는 경우) */}
+      {slug.startsWith('b2b') && (
+        <div className="max-w-4xl mx-auto px-4 py-12 border-b border-gray-200">
+          {/* SPIN S→P→I 섹션 */}
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              당신의 팀이 정말 충분히 쉬고 있나요?
+            </h2>
+            <p className="text-lg text-gray-700 mb-6">
+              지속적인 업무 스트레스는 팀의 창의성을 낮추고,
+              <span className="font-semibold"> 이직률</span>을 높입니다.
+            </p>
+
+            {/* Implication Box - Loss Aversion #1 */}
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-4">
+              <p className="text-sm font-bold text-red-800 mb-2">
+                💭 10년 뒤 당신의 팀은
+              </p>
+              <p className="text-sm text-red-700">
+                "그때 함께하는 시간을 가질 걸" 이라고 말할 거예요.
+              </p>
+              <p className="text-xs text-red-600 mt-2">
+                팀 결속력이 약해진 후에 돌이키기는 어렵습니다.
+              </p>
+            </div>
+          </div>
+
+          {/* Loss Aversion #5, #7: 시간 + 가격 제한 */}
+          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-8">
+            <p className="text-sm font-bold text-yellow-900 mb-2">⏰ 조조 할인 (6월 말까지)</p>
+            <p className="text-base font-bold text-yellow-900">
+              330만원 / 이후: 480만원
+            </p>
+            <p className="text-xs text-yellow-700 mt-1">
+              1주 후 신청하면 150만원 추가 비용이 발생합니다.
+            </p>
+          </div>
+
+          {/* 팀빌딩의 실제 효과 (Need-Payoff) */}
+          <div className="mb-8">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">팀빌딩 크루즈의 실제 효과</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h4 className="font-semibold text-blue-900 mb-2">팀 결속력</h4>
+                <p className="text-xs text-blue-700 mb-2">
+                  일상에서는 볼 수 없는 동료의 모습을 경험합니다.
+                </p>
+                <p className="text-xs font-semibold text-blue-600">
+                  팀 신뢰도 +38% (참여 기업 평균)
+                </p>
+              </div>
+
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <h4 className="font-semibold text-green-900 mb-2">창의성 향상</h4>
+                <p className="text-xs text-green-700 mb-2">
+                  새로운 환경에서 아이디어가 나옵니다.
+                </p>
+                <p className="text-xs font-semibold text-green-600">
+                  팀 프로젝트 만족도 +45%
+                </p>
+              </div>
+
+              <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                <h4 className="font-semibold text-purple-900 mb-2">이직률 감소</h4>
+                <p className="text-xs text-purple-700 mb-2">
+                  "함께하는 팀"의 경험이 충성도를 높입니다.
+                </p>
+                <p className="text-xs font-semibold text-purple-600">
+                  연 이직률 -22% (3년 데이터)
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Loss Aversion #10: 사회적 증명 */}
+          <div className="bg-gray-50 border-l-4 border-gray-400 p-4 rounded-lg">
+            <p className="text-sm font-bold text-gray-800 mb-1">
+              📊 같은 업계 경쟁사 80%
+            </p>
+            <p className="text-sm text-gray-700">
+              는 이미 팀빌딩 크루즈를 경험했습니다.
+            </p>
+            <p className="text-xs text-gray-600 mt-2">
+              "우리만 못 가면, 팀원들이 다른 회사로 흘러나갑니다"
+            </p>
+          </div>
+        </div>
+      )}
+
       <div
         ref={containerRef}
         role="main"

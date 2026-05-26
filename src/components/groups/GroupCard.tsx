@@ -1,6 +1,7 @@
 'use client';
 
-import { GitBranch, Zap } from 'lucide-react';
+import { GitBranch, Zap, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 type Group = {
   id: string;
@@ -48,8 +49,12 @@ export function GroupCard({
               {group._count.members}명
             </span>
           </div>
-          {group.description && (
-            <p className="text-xs text-gray-400 mt-0.5 truncate">{group.description}</p>
+          {group.description ? (
+            <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{group.description}</p>
+          ) : (
+            <p className="text-xs text-orange-600 font-medium mt-0.5">
+              ⚠️ 아직 퍼널을 연결하지 않았나요? 고객이 신청 후 3일간 자동으로 메시지를 받지 못합니다.
+            </p>
           )}
 
           {/* 연결된 퍼널 표시 */}
@@ -66,6 +71,13 @@ export function GroupCard({
         </div>
 
         <div className="flex items-center gap-1 flex-wrap justify-end">
+          <Link
+            href={`/groups/${group.id}`}
+            className="flex items-center gap-1 px-3 py-1.5 bg-green-50 border border-green-300 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100"
+            title="그룹 상세 페이지 (가입)"
+          >
+            <ArrowRight className="w-3 h-3" aria-hidden="true" /> 보기
+          </Link>
           <button
             onClick={() => onClone(group.id)}
             className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-100"
