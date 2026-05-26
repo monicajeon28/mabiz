@@ -59,6 +59,7 @@ export async function POST(req: Request) {
             organizationId: orgId,
             adminId: ctx.userId,
             messageType: 'sms',
+            channel: 'MANUAL',
             content,
             totalSent: 1,
             successCount: 1,
