@@ -1,10 +1,10 @@
-# 마비즈 CRM 에이전트 지시서 (2026-05-24)
+# 마비즈 CRM 에이전트 지시서 (2026-05-26)
 
-에이전트는 모든 작업에서 **심리학 + 마케팅 + 자동화** 통합 프레임워크를 적용하고, 6가지 Template과 195+ 메모리 파일을 자동으로 활용합니다.
+에이전트는 모든 작업에서 **심리학 + 마케팅 + 자동화** 통합 프레임워크를 적용하고, 12가지 Template과 195+ 메모리 파일을 자동으로 활용합니다.
 
 ---
 
-## 🎯 6가지 Agent Template 자동 선택 규칙
+## 🎯 12가지 Agent Template 자동 선택 규칙
 
 ### 작업 유형별 Template 선택
 
@@ -16,6 +16,12 @@
 | **T4: SMS 자동화** | `CLAUDE_AGENT_PROMPTS.md - Template 4` | 메시지 시퀀스, Day 0-3 자동화, 렌탈 마법사 | ✅ PASONA + SPIN 통합 / ✅ 심리학 트리거 / ✅ A/B테스트 자동화 |
 | **T5: CRM 자동화** | `CLAUDE_AGENT_PROMPTS.md - Template 5` | Contact 분류, Workflow, Risk Flag, 태그 규칙 | ✅ 렌즈 감지 엔진 / ✅ 자동 세그먼테이션 / ✅ Risk Score 산출 |
 | **T6: 대시보드/KPI** | `CLAUDE_AGENT_PROMPTS.md - Template 6` | 성과 리포팅, 대시보드 설계, KPI 추적 | ✅ 현재 vs 목표 메트릭 / ✅ 주간/월간 리포팅 / ✅ 자동 경고 시스템 |
+| **T7: CRM 자동화 고급** | `CLAUDE_AGENT_PROMPTS.md - Template 7` | Menu #42-45, Workflow Chain, Multi-step Auto | ✅ Trigger Chain 3단계 / ✅ Workflow 8가지 패턴 / ✅ Risk Flag 10개 + 가중치 |
+| **T8: Affiliate 시스템** | `CLAUDE_AGENT_PROMPTS.md - Template 8` | Menu #46-48, 제휴 파트너, Commission 추적 | ✅ Affiliate Type 4가지 / ✅ Commission 3단계 자동화 / ✅ Attribution 6메트릭 |
+| **T9: SMS/Email 고급** | `CLAUDE_AGENT_PROMPTS.md - Template 9` | Menu #29, #38 심화, Dynamic Content, A/B Test | ✅ Dynamic Content 5가지 / ✅ A/B 테스트 자동화 / ✅ Ebbinghaus 망각곡선 |
+| **T10: 심리학 렌즈 통합** | `CLAUDE_AGENT_PROMPTS.md - Template 10` | Menu #49-52, L3-L10 구현, Lens Detection Engine | ✅ 렌즈 감지 엔진 10가지 / ✅ Auto-Segmentation / ✅ 렌즈별 Workflow 10가지 |
+| **T11: Analytics 대시보드** | `CLAUDE_AGENT_PROMPTS.md - Template 11` | Menu #9, #35, 심화 성과 추적, 의사결정 자동화 | ✅ 5계층 피라미드 / ✅ 위험도 대시보드 / ✅ 주간/월간 리포트 자동생성 |
+| **T12: Partner Success** | `CLAUDE_AGENT_PROMPTS.md - Template 12` | Menu #21 심화, 파트너 온보딩, 교육, 추적 | ✅ 4단계 라이프사이클 / ✅ 페르소나별 맞춤경로 / ✅ Churn 방지 자동화 |
 
 ---
 
@@ -173,6 +179,72 @@
 ✅ 월 $XXXX 예상 효과 산출
 ```
 
+### T7: CRM 자동화 고급 (Workflow + Risk Flag)
+```
+✅ Trigger Chain 3단계 (감지→분기→액션)
+✅ Workflow 자동화 8가지 패턴 (신규/부재/이의/업셀/재구매/의료/가족/Risk)
+✅ Risk Flag 10개 가중치 자동 계산
+✅ Multi-step Workflow 에러 처리 (Fallback)
+✅ 성과 메트릭 자동 추적 (자동화율/수동시간 단축)
+✅ Workflow 분기별 이벤트 로깅 (감사추적)
+✅ A/B 테스트 (Workflow 변형 2가지 이상)
+```
+
+### T8: Affiliate 시스템 구축
+```
+✅ Affiliate Type 4가지 정의 (직접/제휴사/인플루언서/플랫폼)
+✅ Commission 구조 (15-25%) + 3단계 자동화 (기록→계산→정산)
+✅ Revenue Tracking 6가지 메트릭 (소스별/파트너별/CPA/LTV/Retention)
+✅ 파트너 Tier 시스템 4단계 (Tier별 보너스 차등)
+✅ Affiliate Retention 추적 (목표 85%+)
+✅ Churn 신호 감지 + 자동 개입 (Day 7/14/21/30)
+✅ 세금 자동 계산 + 월별 정산서 자동 생성
+```
+
+### T9: SMS/Email 자동화 고급
+```
+✅ Dynamic Content 5가지 (이름/상품/금액/톤/시간) 개인화
+✅ A/B 테스트 자동화 (주간 5가지 테스트 실행)
+✅ 승리 기준 명확화 (오픈율/클릭율/전환율 임계값)
+✅ Ebbinghaus 망각곡선 + Spaced Repetition 설계
+✅ Day 0/1/3/7/14 시퀀스 자동 최적화
+✅ 세그먼트별 언어톤 5가지 변형
+✅ A/B 테스트 결과 자동 집계 + 승패 판정
+```
+
+### T10: 심리학 렌즈 CRM 통합
+```
+✅ 렌즈 감지 엔진 10가지 (L0-L10 자동 분류 규칙)
+✅ 렌즈별 자동 Workflow 10가지 설계 + 트리거
+✅ Auto-Segmentation (렌즈 × 인구통계 × 위험도)
+✅ 렌즈별 기대 전환율 + LTV 정의 (L0: 35% → L10: 95%)
+✅ Contact 자동 태그 생성 (Lens + Segment + SubSegment + Risk)
+✅ 렌즈별 콜 스크립트 자동 제시
+✅ 렌즈별 성과 대시보드 (전환율, LTV, 추이)
+```
+
+### T11: Analytics & Reporting 대시보드 (심화)
+```
+✅ 5계층 피라미드 대시보드 (Hero→렌즈→채널→위험도→BM)
+✅ Hero KPI 실시간 업데이트 (5분 주기)
+✅ 렌즈별 성과 분해 (L0-L10 전환율, LTV, 누적매출)
+✅ 채널별 성과 Matrix (CPA vs ROAS 4사분면)
+✅ 위험도 대시보드 (Risk Scoring 자동계산, GREEN/YELLOW/RED)
+✅ 5가지 필터 기능 (시간/렌즈/채널/세그먼트/담당자)
+✅ 주간/월간 리포트 자동생성 (금요일/월초)
+```
+
+### T12: Partner Success Program
+```
+✅ 4단계 라이프사이클 (Onboarding→Activation→Scaling→Retention)
+✅ 파트너 페르소나 3가지 + 맞춤 경로 (도전형/신중형/기술형)
+✅ Onboarding 자동화 (Day 1-14 이메일+비디오 시퀀스)
+✅ 주간/월간 리포팅 자동생성 (성과 + 격려 + 권장사항)
+✅ 자동화 체크리스트 4단계 (진행상황 추적)
+✅ Churn 신호 감지 + 자동 개입 (Day 1/7/14/21/30)
+✅ Commission 자동계산 + 월별 정산, Tier 시스템 자동관리
+```
+
 ---
 
 ## 🔑 핵심 원칙 (필독)
@@ -222,10 +294,10 @@ Risk Score: [조기신호] → [자동 개입]
 
 ```
 D:\mabiz-crm\
-├── CLAUDE.md (이 파일 - 에이전트 지시서)
+├── CLAUDE.md (이 파일 - 에이전트 지시서, 2026-05-26 업데이트: T7-T12 추가)
 ├── AGENTS.md (Next.js 기본 규칙)
 ├── docs/
-│   ├── CLAUDE_AGENT_PROMPTS.md (6가지 Template T1-T6)
+│   ├── CLAUDE_AGENT_PROMPTS.md (12가지 Template T1-T12, 2026-05-26 완성)
 │   ├── CLAUDE_RAG_INDEX.md (195+ 메모리 파일 매핑)
 │   └── CLAUDE_AGENT_USAGE_GUIDE.md (3가지 활용 방식)
 ├── src/app/(dashboard)/
@@ -259,13 +331,43 @@ D:\mabiz-crm\
 7. KPI 추적: 도달/노출/클릭/전환 일일 리포팅
 ```
 
+### 예시 3: Menu #42-45 (CRM 자동화 고급) - T7 적용
+```
+1. 작업 유형 확인: T7 (CRM 자동화 고급)
+2. Template 선택: CLAUDE_AGENT_PROMPTS.md - Template 7 복사
+3. 설계 항목: Trigger Chain 3단계 + 8가지 Workflow 패턴
+4. Risk Flag: 10개 신호 + 가중치 계산
+5. 성과 목표: 자동화율 30% → 80% (수동작업 40% 단축)
+6. 주간 모니터: Workflow 실행 통계 + A/B 테스트 결과
+```
+
+### 예시 4: Menu #46-48 (Affiliate 시스템) - T8 적용
+```
+1. 작업 유형 확인: T8 (Affiliate 시스템)
+2. Template 선택: CLAUDE_AGENT_PROMPTS.md - Template 8 복사
+3. 설계 항목: 4가지 Affiliate Type + Commission 구조 (15-25%)
+4. 자동화: 3단계 Commission 자동화 (기록→계산→정산)
+5. 파트너 관리: Tier 시스템 + Churn 방지 (목표 85% 유지율)
+6. KPI 추적: 소스별 매출 + 파트너별 성과 Ranking
+```
+
+### 예시 5: Menu #49-52 (심리학 렌즈 통합) - T10 적용
+```
+1. 작업 유형 확인: T10 (심리학 렌즈 CRM 통합)
+2. Template 선택: CLAUDE_AGENT_PROMPTS.md - Template 10 복사
+3. 렌즈 감지 엔진: 10가지 L0-L10 자동 분류 규칙
+4. Auto-Segmentation: 렌즈 × 인구통계 × 위험도
+5. Workflow: 렌즈별 10가지 자동 트리거
+6. 성과 목표: 전환율 15% → 45% (+200% 증대), LTV 800K → 950K
+```
+
 ---
 
 ## ✅ 배포 전 최종 체크리스트
 
 모든 에이전트 작업은 **배포 전 이 체크리스트 완료 필수**:
 
-- [ ] Template 체크리스트 모두 완료 (T1-T6 중 해당 템플릿)
+- [ ] Template 체크리스트 모두 완료 (T1-T12 중 해당 템플릿)
 - [ ] 심리학 10렌즈 최소 3개 이상 코드/설계에 반영
 - [ ] Day 0-3 SMS 시퀀스 자동화 완료 (해당 시)
 - [ ] 세그먼트별 페르소나 3가지 이상 정의
@@ -286,4 +388,8 @@ D:\mabiz-crm\
 
 ---
 
-**마지막 업데이트**: 2026-05-24 | **버전**: 2.0 (Template + RAG 통합)
+**마지막 업데이트**: 2026-05-26 | **버전**: 3.0 (T7-T12 추가 완성)
+
+### 버전 히스토리
+- v2.0 (2026-05-24): T1-T6 Template 6가지 완성
+- v3.0 (2026-05-26): T7-T12 Template 6가지 추가 (CRM고급/Affiliate/SMS고급/렌즈통합/Analytics/Partner)
