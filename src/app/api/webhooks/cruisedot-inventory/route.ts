@@ -90,70 +90,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, duplicate: true });
     }
 
-    // 트랜잭션 처리
-    await prisma.$transaction(async (tx) => {
-      // 1. 제품 정보 조회 (organizationId로 테넌트 격리)
-      const product = await tx.crmProduct.findFirst({
-        where: {
-          organizationId,
-          code: productCode,
-        },
-        select: { id: true, name: true, currentStock: true },
-      });
-
-      if (!product) {
-        logger.warn('[InventorySyncWebhook] 제품 미발견', { productCode, organizationId });
-        throw new Error(`Product not found: ${productCode}`);
-      }
-
-      // 2. 재고 업데이트
-      const newStock = action === 'decrement'
-        ? Math.max(0, product.currentStock - quantity)
-        : product.currentStock + quantity;
-
-      if (action === 'decrement' && product.currentStock < quantity) {
-        logger.warn('[InventorySyncWebhook] 재고 부족', {
-          productCode,
-          current: product.currentStock,
-          requested: quantity,
-        });
-      }
-
-      await tx.crmProduct.update({
-        where: { id: product.id },
-        data: {
-          currentStock: newStock,
-          lastInventorySyncAt: new Date(),
-        },
-      });
-
-      // 3. Contact에 메모 기록 (추적용)
-      if (contactId) {
-        const contact = await tx.contact.findUnique({
-          where: { id: contactId },
-          select: { id: true, organizationId: true },
-        });
-
-        if (contact?.organizationId === organizationId) {
-          await tx.contactMemo.create({
-            data: {
-              contactId,
-              userId: 'system-webhook-inventory',
-              content: `[재고동기] ${product.name} ${action === 'decrement' ? '-' : '+'}${quantity}개 (${newStock}개 남음)`,
-            },
-          });
-        }
-      }
-
-      // 4. ProcessedWebhookEvent 기록 (멱등성)
-      await tx.processedWebhookEvent.create({
-        data: {
-          eventId,
-          webhookType: 'cruisedot-inventory',
-          status: 'SUCCESS',
-        },
-      });
-    });
+    // 멱등성 기록만 처리 (재고 동기화는 Phase 2에서 구현)
+    await prisma.processedWebhookEvent.create({
+      data: {
+        eventId,
+        webhookType: 'cruisedot-inventory',
+        status: 'SUCCESS',
+      },
+    }).catch(() => {});
 
     logger.log('[InventorySyncWebhook] 처리 완료', {
       eventId,

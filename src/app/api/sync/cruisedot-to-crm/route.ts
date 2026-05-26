@@ -51,13 +51,13 @@ async function syncUsersToContact(supabaseClient: Client, defaultOrgId: string) 
         });
         successCount++;
       } catch (e) {
-        logger.error('[sync] User contact upsert failed:', e);
+        logger.error('[sync] User contact upsert failed:', e instanceof Error ? e : { error: String(e) });
       }
     }
 
     return { table: 'User', synced: successCount, total: result.rows.length };
   } catch (e) {
-    logger.error('[sync] User sync failed:', e);
+    logger.error('[sync] User sync failed:', e instanceof Error ? e : { error: String(e) });
     return { table: 'User', error: (e as any).message };
   }
 }
@@ -96,7 +96,7 @@ async function syncInquiriesToContact(supabaseClient: Client, defaultOrgId: stri
         });
         successCount++;
       } catch (e) {
-        logger.error('[sync] Inquiry contact upsert failed:', e);
+        logger.error('[sync] Inquiry contact upsert failed:', e instanceof Error ? e : { error: String(e) });
       }
     }
 
@@ -106,7 +106,7 @@ async function syncInquiriesToContact(supabaseClient: Client, defaultOrgId: stri
       total: result.rows.length,
     };
   } catch (e) {
-    logger.error('[sync] Inquiry sync failed:', e);
+    logger.error('[sync] Inquiry sync failed:', e instanceof Error ? e : { error: String(e) });
     return { table: 'CruiseProductInquiry', error: (e as any).message };
   }
 }
@@ -148,7 +148,7 @@ async function syncAffiliateLeadsToContact(
         });
         successCount++;
       } catch (e) {
-        logger.error('[sync] Affiliate lead upsert failed:', e);
+        logger.error('[sync] Affiliate lead upsert failed:', e instanceof Error ? e : { error: String(e) });
       }
     }
 
@@ -158,7 +158,7 @@ async function syncAffiliateLeadsToContact(
       total: result.rows.length,
     };
   } catch (e) {
-    logger.error('[sync] Affiliate lead sync failed:', e);
+    logger.error('[sync] Affiliate lead sync failed:', e instanceof Error ? e : { error: String(e) });
     return { table: 'AffiliateLead', error: (e as any).message };
   }
 }
@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    logger.error('[sync] Sync failed:', error);
+    logger.error('[sync] Sync failed:', error instanceof Error ? error : { error: String(error) });
     return NextResponse.json(
       {
         error: '동기화 중 오류가 발생했습니다.',
