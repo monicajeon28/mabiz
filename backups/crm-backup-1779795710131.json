@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-05-26T11:41:50.129Z",
+  "backup_summary": {
+    "contact_total": 0,
+    "b2b_registration_total": 0,
+    "crm_landing_total": 0,
+    "group_member_total": 0,
+    "group_total": 0,
+    "sms_total": 0,
+    "call_log_total": 0
+  },
+  "recent_contacts": [],
+  "recent_b2b": [],
+  "recent_crm_landing": []
+}

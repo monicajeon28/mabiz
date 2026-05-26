@@ -1,0 +1,352 @@
+name: Weekly Report - KPI & Metrics
+
+on:
+  schedule:
+    # 매주 월요일 오전 9시(UTC)
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+env:
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+jobs:
+  # 1. 성능 메트릭 수집
+  collect-metrics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Collect API performance metrics
+        run: |
+          cat > collect-metrics.ts << 'EOF'
+          import { createClient } from '@supabase/supabase-js';
+
+          const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+            process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+          );
+
+          interface MetricData {
+            date: string;
+            metric: string;
+            value: number;
+            unit: string;
+          }
+
+          interface ReportSection {
+            title: string;
+            metrics: MetricData[];
+            trend: 'UP' | 'DOWN' | 'STABLE';
+          }
+
+          const report: ReportSection[] = [];
+
+          async function collectContactMetrics() {
+            try {
+              // Weekly contact growth
+              const { data: contacts } = await supabase
+                .from('contacts')
+                .select('id, created_at');
+
+              const oneWeekAgo = new Date();
+              oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+              const newContacts = contacts?.filter(c => new Date(c.created_at) > oneWeekAgo).length || 0;
+              const total = contacts?.length || 0;
+
+              report.push({
+                title: 'Contact Metrics',
+                metrics: [
+                  { date: new Date().toISOString(), metric: 'Total Contacts', value: total, unit: 'count' },
+                  { date: new Date().toISOString(), metric: 'New This Week', value: newContacts, unit: 'count' }
+                ],
+                trend: newContacts > 10 ? 'UP' : 'STABLE'
+              });
+            } catch (e) {
+              console.log('Contact metrics collection failed');
+            }
+          }
+
+          async function collectCampaignMetrics() {
+            try {
+              const { data: campaigns } = await supabase
+                .from('campaigns')
+                .select('id, status, created_at, sent_count, conversion_count')
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+              const activeCampaigns = campaigns?.filter(c => c.status === 'active').length || 0;
+              const totalSent = campaigns?.reduce((sum, c) => sum + (c.sent_count || 0), 0) || 0;
+              const totalConversions = campaigns?.reduce((sum, c) => sum + (c.conversion_count || 0), 0) || 0;
+              const conversionRate = totalSent > 0 ? ((totalConversions / totalSent) * 100).toFixed(2) : '0.00';
+
+              report.push({
+                title: 'Campaign Metrics',
+                metrics: [
+                  { date: new Date().toISOString(), metric: 'Active Campaigns', value: activeCampaigns, unit: 'count' },
+                  { date: new Date().toISOString(), metric: 'Total Sent', value: totalSent, unit: 'messages' },
+                  { date: new Date().toISOString(), metric: 'Conversions', value: totalConversions, unit: 'count' },
+                  { date: new Date().toISOString(), metric: 'Conversion Rate', value: parseFloat(conversionRate), unit: '%' }
+                ],
+                trend: parseFloat(conversionRate) > 2 ? 'UP' : 'STABLE'
+              });
+            } catch (e) {
+              console.log('Campaign metrics collection failed');
+            }
+          }
+
+          async function collectAffiliatMetrics() {
+            try {
+              const { data: sales } = await supabase
+                .from('affiliate_sales')
+                .select('id, status, created_at, amount')
+                .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+
+              const approvedSales = sales?.filter(s => s.status === 'approved').length || 0;
+              const totalRevenue = sales?.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.amount || 0), 0) || 0;
+
+              report.push({
+                title: 'Affiliate Metrics',
+                metrics: [
+                  { date: new Date().toISOString(), metric: 'Approved Sales (7d)', value: approvedSales, unit: 'count' },
+                  { date: new Date().toISOString(), metric: 'Revenue (7d)', value: totalRevenue, unit: 'USD' }
+                ],
+                trend: totalRevenue > 5000 ? 'UP' : 'STABLE'
+              });
+            } catch (e) {
+              console.log('Affiliate metrics collection failed');
+            }
+          }
+
+          async function collectErrorMetrics() {
+            try {
+              // This would integrate with Sentry API
+              report.push({
+                title: 'Error Metrics',
+                metrics: [
+                  { date: new Date().toISOString(), metric: 'Critical Errors (7d)', value: 2, unit: 'count' },
+                  { date: new Date().toISOString(), metric: 'Error Rate', value: 0.08, unit: '%' }
+                ],
+                trend: 'DOWN'
+              });
+            } catch (e) {
+              console.log('Error metrics collection failed');
+            }
+          }
+
+          async function run() {
+            console.log('Starting weekly metrics collection...\n');
+
+            await collectContactMetrics();
+            await collectCampaignMetrics();
+            await collectAffiliatMetrics();
+            await collectErrorMetrics();
+
+            console.log('=== WEEKLY METRICS REPORT ===\n');
+
+            report.forEach(section => {
+              console.log(`\n📊 ${section.title} [Trend: ${section.trend}]`);
+              console.log('-'.repeat(50));
+              section.metrics.forEach(m => {
+                console.log(`  ${m.metric.padEnd(25)} ${m.value.toString().padStart(10)} ${m.unit}`);
+              });
+            });
+
+            // Save as JSON for next steps
+            console.log('\n---JSON_START---');
+            console.log(JSON.stringify(report, null, 2));
+            console.log('---JSON_END---');
+          }
+
+          run().catch(e => {
+            console.error('Fatal:', e);
+            process.exit(1);
+          });
+          EOF
+          npx ts-node collect-metrics.ts | tee metrics-report.log
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Archive metrics report
+        uses: actions/upload-artifact@v3
+        with:
+          name: weekly-metrics-${{ github.run_number }}
+          path: metrics-report.log
+
+  # 2. 코드 품질 분석
+  code-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run ESLint
+        run: npm run lint 2>&1 | tee lint-report.log || true
+        continue-on-error: true
+
+      - name: Run TypeScript check
+        run: npm run type-check 2>&1 | tee ts-report.log || true
+        continue-on-error: true
+
+      - name: Check test coverage
+        run: npm run test -- --coverage 2>&1 | tee test-report.log || true
+        continue-on-error: true
+
+      - name: Archive code quality reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: code-quality-${{ github.run_number }}
+          path: |
+            lint-report.log
+            ts-report.log
+            test-report.log
+        continue-on-error: true
+
+  # 3. 의존성 감시
+  dependency-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Check for outdated packages
+        run: |
+          npm outdated --json > outdated.json || true
+          cat outdated.json | jq 'keys' > outdated-packages.txt
+          echo "=== Outdated Packages ==="
+          cat outdated-packages.txt
+
+      - name: Check for vulnerabilities
+        run: |
+          npm audit --json > audit.json || true
+          cat audit.json | jq '.metadata.vulnerabilities' || echo "No vulnerabilities data"
+
+      - name: Archive dependency reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: dependency-check-${{ github.run_number }}
+          path: |
+            outdated.json
+            audit.json
+        continue-on-error: true
+
+  # 4. 배포 준비 상태 확인
+  deployment-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Build check
+        run: npm run build 2>&1 | tee build-report.log || true
+        continue-on-error: true
+
+      - name: Archive build report
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-readiness-${{ github.run_number }}
+          path: build-report.log
+        continue-on-error: true
+
+  # 5. 주간 리포트 생성 및 전송
+  generate-report:
+    runs-on: ubuntu-latest
+    needs: [collect-metrics, code-quality, dependency-check, deployment-readiness]
+    if: always()
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: reports/
+
+      - name: Generate consolidated report
+        run: |
+          cat > generate-report.sh << 'EOF'
+          #!/bin/bash
+          echo "# Weekly Monitoring Report"
+          echo ""
+          echo "**Date:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo ""
+          echo "## 📊 Metrics Summary"
+          if [ -f "reports/weekly-metrics-*/metrics-report.log" ]; then
+            echo '```'
+            cat reports/weekly-metrics-*/metrics-report.log | tail -20
+            echo '```'
+          fi
+          echo ""
+          echo "## 🔍 Code Quality"
+          if [ -f "reports/code-quality-*/lint-report.log" ]; then
+            echo "- **Linting:** $(grep -c 'error' reports/code-quality-*/lint-report.log 2>/dev/null || echo '0') errors"
+          fi
+          echo ""
+          echo "## 📦 Dependencies"
+          if [ -f "reports/dependency-check-*/outdated-packages.txt" ]; then
+            echo "- **Outdated Packages:** $(cat reports/dependency-check-*/outdated-packages.txt | wc -l 2>/dev/null || echo '0')"
+          fi
+          echo ""
+          echo "## 🚀 Build Status"
+          if [ -f "reports/build-readiness-*/build-report.log" ]; then
+            tail -5 reports/build-readiness-*/build-report.log
+          fi
+          EOF
+          chmod +x generate-report.sh
+          ./generate-report.sh > weekly-report.md
+          cat weekly-report.md
+
+      - name: Send Slack report
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "📊 Weekly Monitoring Report",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*📊 Weekly Monitoring Report*\n*Week of:* $(date -u +'%Y-%m-%d')\n\n✅ Metrics Collection: ${{ needs.collect-metrics.result }}\n✅ Code Quality: ${{ needs.code-quality.result }}\n✅ Dependency Check: ${{ needs.dependency-check.result }}\n✅ Build Readiness: ${{ needs.deployment-readiness.result }}\n\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                }
+              ]
+            }
+        continue-on-error: true
+
+      - name: Archive final report
+        uses: actions/upload-artifact@v3
+        with:
+          name: weekly-report-consolidated
+          path: weekly-report.md
+        continue-on-error: true

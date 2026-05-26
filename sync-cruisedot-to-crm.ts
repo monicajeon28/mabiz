@@ -52,7 +52,7 @@ async function syncData() {
     // 1. Sync Users (구매 고객)
     console.log('📊 1️⃣  구매 고객 동기화 중...');
     const userRes = await supabaseClient.query(`
-      SELECT id, email, phone, name
+      SELECT id, email, phone, name, "externalId"
       FROM "User"
       WHERE phone IS NOT NULL
       ORDER BY id DESC
@@ -62,18 +62,28 @@ async function syncData() {
     let userCount = 0;
     for (const user of userRes.rows) {
       try {
+        // Parse signup method from externalId
+        let signupMethod = 'general';
+        if (user.externalId) {
+          if (user.externalId.includes('kakao')) signupMethod = 'kakao';
+          else if (user.externalId.includes('naver')) signupMethod = 'naver';
+          else if (user.externalId.includes('google')) signupMethod = 'google';
+        }
+
         await neonClient.query(
           `INSERT INTO "Contact"
-           (id, "organizationId", name, phone, email, channel, type, "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, $5, 'cruisedot', 'CUSTOMER', NOW(), NOW())
+           (id, "organizationId", name, phone, email, channel, type, "sourceType", "sourceId", "signupMethod", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, 'cruisedot', 'CUSTOMER', 'user', $6, $7, NOW(), NOW())
            ON CONFLICT ("phone", "organizationId")
-           DO UPDATE SET email = $5, channel = 'cruisedot', "updatedAt" = NOW()`,
+           DO UPDATE SET email = $5, channel = 'cruisedot', "sourceType" = 'user', "sourceId" = $6, "signupMethod" = $7, "updatedAt" = NOW()`,
           [
             `contact_user_${user.id}`,
             orgId,
             user.name || '크루즈닷 고객',
             user.phone,
             user.email || null,
+            user.id.toString(),
+            signupMethod,
           ]
         );
         userCount++;
@@ -81,7 +91,7 @@ async function syncData() {
         // Ignore duplicate key errors
       }
     }
-    console.log(`   ✅ ${userCount}명 동기화\n`);
+    console.log(`   ✅ ${userCount}명 동기화 (가입방법별 분류)\n`);
 
     // 2. Sync Inquiries (상품 문의)
     console.log('📊 2️⃣  상품 문의 동기화 중...');
@@ -98,15 +108,17 @@ async function syncData() {
       try {
         await neonClient.query(
           `INSERT INTO "Contact"
-           (id, "organizationId", name, phone, channel, type, "adminMemo", "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, 'inquiry', 'PROSPECT', $5, NOW(), NOW())
+           (id, "organizationId", name, phone, channel, type, "sourceType", "sourceId", "inquiryProductCode", "adminMemo", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, 'inquiry', 'PROSPECT', 'inquiry', $5, $6, $7, NOW(), NOW())
            ON CONFLICT ("phone", "organizationId")
-           DO UPDATE SET channel = 'inquiry', "adminMemo" = $5, "updatedAt" = NOW()`,
+           DO UPDATE SET channel = 'inquiry', "sourceType" = 'inquiry', "sourceId" = $5, "inquiryProductCode" = $6, "adminMemo" = $7, "updatedAt" = NOW()`,
           [
             `contact_inquiry_${inq.id}`,
             orgId,
             inq.name || '상품문의 고객',
             inq.phone,
+            inq.id.toString(),
+            inq.productCode || null,
             `상품 문의: ${inq.productCode || '미지정'}`,
           ]
         );
@@ -115,12 +127,12 @@ async function syncData() {
         // Ignore duplicate key errors
       }
     }
-    console.log(`   ✅ ${inquiryCount}건 동기화\n`);
+    console.log(`   ✅ ${inquiryCount}건 동기화 (상품코드 추적)\n`);
 
     // 3. Sync Affiliate Leads
     console.log('📊 3️⃣  어필리에이트 리드 동기화 중...');
     const affiliateRes = await supabaseClient.query(`
-      SELECT id, "customerName" as name, "customerPhone" as phone, "agentId", "linkId"
+      SELECT id, "customerName" as name, "customerPhone" as phone, "agentId", "linkId", "managerId"
       FROM "AffiliateLead"
       WHERE "customerPhone" IS NOT NULL
       ORDER BY id DESC
@@ -132,17 +144,21 @@ async function syncData() {
       try {
         await neonClient.query(
           `INSERT INTO "Contact"
-           (id, "organizationId", name, phone, channel, type, "affiliateCode", "adminMemo", "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, 'affiliate', 'PROSPECT', $5, $6, NOW(), NOW())
+           (id, "organizationId", name, phone, channel, type, "affiliateCode", "sourceType", "sourceId", "affiliateLinkId", "affiliateManagerId", "affiliateAgentId", "adminMemo", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, 'affiliate', 'PROSPECT', $5, 'affiliate', $6, $7, $8, $9, $10, NOW(), NOW())
            ON CONFLICT ("phone", "organizationId")
-           DO UPDATE SET channel = 'affiliate', "adminMemo" = $6, "updatedAt" = NOW()`,
+           DO UPDATE SET channel = 'affiliate', "sourceType" = 'affiliate', "sourceId" = $6, "affiliateLinkId" = $7, "affiliateManagerId" = $8, "affiliateAgentId" = $9, "adminMemo" = $10, "updatedAt" = NOW()`,
           [
             `contact_affiliate_${aff.id}`,
             orgId,
             aff.name || '어필리에이트 고객',
             aff.phone,
             aff.linkId || null,
-            `어필리에이트 (Agent: ${aff.agentId || 'N/A'})`,
+            aff.id.toString(),
+            aff.linkId || null,
+            aff.managerId ? aff.managerId.toString() : null,
+            aff.agentId ? aff.agentId.toString() : null,
+            `어필리에이트 (Link: ${aff.linkId || 'N/A'}, Agent: ${aff.agentId || 'N/A'})`,
           ]
         );
         affiliateCount++;
@@ -150,7 +166,7 @@ async function syncData() {
         // Ignore duplicate key errors
       }
     }
-    console.log(`   ✅ ${affiliateCount}명 동기화\n`);
+    console.log(`   ✅ ${affiliateCount}명 동기화 (링크/담당자/에이전트 추적)\n`);
 
     // Get final count
     const finalRes = await neonClient.query(
