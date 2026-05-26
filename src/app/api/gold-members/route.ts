@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      goldMembers: members.map(m => ({
+      goldMembers: members.map((m: any) => ({
         id:             m.id,
         name:           m.name,
         phone:          maskPhone(m.phone),

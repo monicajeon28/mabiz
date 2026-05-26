@@ -107,7 +107,7 @@ export async function updateL1OptimizationScore(
       bestVariant,
     });
   } catch (error) {
-    logger.error('[L1] updateL1OptimizationScore error', error);
+    logger.error('[L1] updateL1OptimizationScore error', error instanceof Error ? error : new Error(String(error)));
   }
 }
 

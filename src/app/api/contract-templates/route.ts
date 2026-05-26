@@ -146,7 +146,7 @@ export async function POST(req: Request) {
     // Zod 검증 에러
     if (err instanceof ZodError) {
       return NextResponse.json(
-        { ok: false, error: "Invalid input data", details: err.errors },
+        { ok: false, error: "Invalid input data", details: err.issues },
         { status: 400 }
       );
     }

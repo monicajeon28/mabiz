@@ -53,8 +53,8 @@ function assessSelfProjectionStrength(
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await validateAuth(req);
-    if (!auth.success) {
+    const auth = await validateAuth();
+    if (!auth) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }

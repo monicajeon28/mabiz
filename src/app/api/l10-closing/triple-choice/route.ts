@@ -297,6 +297,7 @@ export async function POST(request: NextRequest) {
         l10ClosingScore: true,
         emotionalTriggers: true,
         closingStage: true,
+        l10ClosingAttempts: true,
       },
     });
 
@@ -307,7 +308,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (contact.organizationId !== auth.organizationId) {
+    if (contact.organizationId !== auth.orgId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 403 }

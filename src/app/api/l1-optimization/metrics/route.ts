@@ -100,12 +100,9 @@ export async function GET(request: NextRequest): Promise<NextResponse<L1MetricsR
       );
     }
 
-    const { organization } = await validateOrgMembership(request, organizationId);
-    if (!organization) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const authResult = validateOrgMembership(request);
+    if (authResult !== true) {
+      return authResult as any;
     }
 
     const dateFrom = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
@@ -274,7 +271,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<L1MetricsR
       },
     });
   } catch (error) {
-    logger.error('[L1] metrics route error', error);
+    logger.error('[L1] metrics route error', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

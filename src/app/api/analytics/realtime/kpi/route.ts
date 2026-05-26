@@ -161,7 +161,8 @@ export async function GET(req: Request) {
       },
     });
 
-    const totalCost = Number(campaignCosts._sum.actualCostTotal || 0);
+    const totalCostDecimal = campaignCosts._sum.actualCostTotal;
+    const totalCost = totalCostDecimal ? Number(totalCostDecimal) : 0;
     const currentCpa = purchasedContacts > 0 ? totalCost / purchasedContacts : totalCost || 0;
     const targetCpa = 20000; // 목표 CPA ($)
 

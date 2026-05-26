@@ -173,7 +173,7 @@ ${daysUntilDeadline}일 이내 신청하시면, 의료 체크업 + 영양 상담
 
 **이 시점에 예방 조치를 취하면, 향후 의료비 절감 가능**
 
-${daysUuntilDeadline}일 이내 신청 시 건강 검진 패키지 30% 할인.
+${daysUntilDeadline}일 이내 신청 시 건강 검진 패키지 30% 할인.
 
 지금 행동하는 것이 미래의 건강을 보호합니다.`,
       psychologyPrinciple: "손실회피 + 희소성",
@@ -195,7 +195,7 @@ ${daysUuntilDeadline}일 이내 신청 시 건강 검진 패키지 30% 할인.
 
 **많은 가족들이 이미 선택했습니다.**
 
-${daysUuntilDeadline}일 이내 신청하면, 가족 모두의 건강 검진 무료.
+${daysUntilDeadline}일 이내 신청하면, 가족 모두의 건강 검진 무료.
 
 건강한 가족, 행복한 미래. 지금 시작하세요.`,
       psychologyPrinciple: "사회증명 + 자기투영 + 긴박감",
@@ -242,7 +242,7 @@ ${daysUuntilDeadline}일 이내 신청하면, 가족 모두의 건강 검진 무
 
 **지금 신청하면, 가족 패키지 특가 제공**
 
-${daysUuntilDeadline}일 뿐입니다. 놓치지 마세요.`,
+${daysUntilDeadline}일 뿐입니다. 놓치지 마세요.`,
       psychologyPrinciple: "자기투영 + 희소성",
       expectedClickRate: 0.52,
       recommendedTiming: "Day 1-2",
@@ -254,8 +254,8 @@ ${daysUuntilDeadline}일 뿐입니다. 놓치지 마세요.`,
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await validateAuth(req);
-    if (!auth.success) {
+    const auth = await validateAuth();
+    if (!auth) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -310,7 +310,7 @@ export async function POST(req: NextRequest) {
     } else if (medicalRiskLevel === "medium") {
       lossAversionPhrase = `예방의 창은 닫힙니다. ${daysUntilDeadline}일 이내 결정하세요.`;
     } else {
-      lossAversionPhrase = `이 가격은 ${daysUuntilDeadline}일 뿐입니다.`;
+      lossAversionPhrase = `이 가격은 ${daysUntilDeadline}일 뿐입니다.`;
     }
 
     // Deadline 계산

@@ -188,7 +188,7 @@ export async function GET(req: Request, { params }: Params) {
     let totalCost = 0;
     let totalRoiSum = 0;
 
-    campaignCosts.forEach((cost) => {
+    (campaignCosts as any[]).forEach((cost: any) => {
       const month = cost.calculatedAt.toISOString().substring(0, 7);
 
       if (!monthlyMap.has(month)) {
@@ -204,8 +204,8 @@ export async function GET(req: Request, { params }: Params) {
       const monthData = monthlyMap.get(month);
       monthData.campaigns += 1;
       monthData.sent += cost.smsSent + cost.emailSent;
-      monthData.cost += cost.actualCostTotal;
-      monthData.roiSum += cost.estimatedRoi;
+      monthData.cost += Number(cost.actualCostTotal);
+      monthData.roiSum += Number(cost.estimatedRoi);
 
       totalSmsSent += cost.smsSent;
       totalSmsCost += Number(cost.smsCostTotal);

@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -217,8 +216,8 @@ export function Menu48AnxietyDashboard() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ category, percentage }) =>
-                      `${getCategoryLabel(category)} ${percentage}%`
+                    label={(entry: any) =>
+                      `${getCategoryLabel(entry.category)} ${entry.percentage}%`
                     }
                     outerRadius={100}
                     fill="#8884d8"
@@ -434,7 +433,7 @@ export function Menu48AnxietyDashboard() {
                   {stats.conversionRate.toFixed(1)}% → 목표: 82-87%
                 </span>
               </div>
-              <Progress value={stats.conversionRate} max={100} className="h-2" />
+              <Progress value={stats.conversionRate} className="h-2" />
             </div>
 
             <div>
@@ -444,7 +443,7 @@ export function Menu48AnxietyDashboard() {
                   {stats.consultationBookingRate.toFixed(1)}% → 목표: 35-40%
                 </span>
               </div>
-              <Progress value={stats.consultationBookingRate} max={40} className="h-2" />
+              <Progress value={stats.consultationBookingRate} className="h-2" />
             </div>
 
             <div>
@@ -454,7 +453,7 @@ export function Menu48AnxietyDashboard() {
                   {stats.smsClickRate.toFixed(1)}% → 목표: 45-50%
                 </span>
               </div>
-              <Progress value={stats.smsClickRate} max={50} className="h-2" />
+              <Progress value={stats.smsClickRate} className="h-2" />
             </div>
           </div>
 

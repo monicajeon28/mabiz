@@ -126,14 +126,14 @@ export async function POST(req: Request) {
         }
 
         // 응답 여부 분석 (Call + SMS 응답)
-        const callLogCount = await prisma.callLog.count({
+        const callLogCount = contact.smsDay1SentAt ? await prisma.callLog.count({
           where: {
             contactId: contact.id,
             createdAt: {
               gte: contact.smsDay1SentAt,
             },
           },
-        });
+        }) : 0;
 
         const hasEngagement = callLogCount > 0;
         response.highEngagementCount += hasEngagement ? 1 : 0;
@@ -236,7 +236,7 @@ ${isVip ? `⭐ VIP 멤버 할인 코드: ${discountCode} (추가 15% 할인)` : 
           sourceName: 'SMS Day 2 Value Proposition',
           contactId: c.id,
           channel: 'DAY2_VALUE',
-          status: response.errors.find((e) => e.contactId === c.id) ? 'FAILED' : 'COMPLETED',
+          status: response.errors.find((e) => e.contactId === c.id) ? 'FAILED' : 'SENT',
           executeMonth: new Date().toISOString().slice(0, 7),
           scheduledAt: new Date(),
         })),

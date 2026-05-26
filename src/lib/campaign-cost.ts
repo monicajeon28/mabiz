@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { convertToDecimal } from '@/lib/schema-fix-mapper';
 
 interface CampaignCostInput {
   campaignId: string;

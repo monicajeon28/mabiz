@@ -186,7 +186,10 @@ export async function POST(req: NextRequest) {
     const results = [];
     for (const contact of contacts) {
       try {
-        const response = await GET(req, { params: Promise.resolve({ contactId: contact.id }) });
+        const url = new URL(req.url);
+        url.searchParams.set("contactId", contact.id);
+        const contactReq = new NextRequest(url, { method: "GET", headers: req.headers });
+        const response = await GET(contactReq);
         const data = await response.json();
         results.push({ contactId: contact.id, success: response.ok, data });
       } catch (error) {

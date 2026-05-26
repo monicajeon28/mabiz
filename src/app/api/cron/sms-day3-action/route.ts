@@ -102,14 +102,14 @@ export async function POST(req: Request) {
         }
 
         // 누적 응답 여부 분석 (Day 0-2)
-        const totalCallLogs = await prisma.callLog.count({
+        const totalCallLogs = contact.smsDay0SentAt ? await prisma.callLog.count({
           where: {
             contactId: contact.id,
             createdAt: {
               gte: contact.smsDay0SentAt,
             },
           },
-        });
+        }) : 0;
 
         const hasEngagement = totalCallLogs > 0;
         if (hasEngagement) {
@@ -238,7 +238,7 @@ ${isVip ? '⭐ VIP 멤버님께 감사드립니다!' : '🎁 처음 고객님은
           sourceName: 'SMS Day 3 Action & Decision',
           contactId: c.id,
           channel: 'DAY3_ACTION',
-          status: response.errors.find((e) => e.contactId === c.id) ? 'FAILED' : 'COMPLETED',
+          status: response.errors.find((e) => e.contactId === c.id) ? 'FAILED' : 'SENT',
           executeMonth: new Date().toISOString().slice(0, 7),
           scheduledAt: new Date(),
         })),
