@@ -1782,7 +1782,8 @@ model AdminMessage {
   id             String       @id @default(cuid())
   adminId        String
   content        String
-  messageType    String
+  messageType    String       // "sms", "kakao", "email"
+  channel        String       @default("GROUP") // SMS: "GROUP"|"FUNNEL"|"MANUAL", Kakao: "KAKAO", Email: "EMAIL"
   totalSent      Int          @default(0)
   createdAt      DateTime     @default(now())
   organizationId String
@@ -1799,6 +1800,8 @@ model AdminMessage {
 
   @@index([organizationId])
   @@index([organizationId, createdAt(sort: Desc)])
+  @@index([organizationId, messageType])
+  @@index([organizationId, channel])
 }
 
 model Partner {

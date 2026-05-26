@@ -48,6 +48,9 @@ const CHANNEL_LABEL: Record<string, string> = {
   FUNNEL: "퍼널",
   GROUP: "그룹",
   MANUAL: "수동",
+  SMS: "SMS",
+  KAKAO: "카카오",
+  EMAIL: "이메일",
 };
 
 function formatDate(iso: string) {
@@ -299,6 +302,9 @@ export default function SmsLogsPage() {
           <select id="channel-filter" value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)}
             className="border rounded-md px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">전체</option>
+            <option value="SMS">SMS</option>
+            <option value="KAKAO">카카오</option>
+            <option value="EMAIL">이메일</option>
             <option value="FUNNEL">퍼널</option>
             <option value="GROUP">그룹</option>
             <option value="MANUAL">수동</option>

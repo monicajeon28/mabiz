@@ -274,12 +274,33 @@ export async function POST(req: Request, { params }: Params) {
         organizationId: orgId,
         adminId: ctx.userId,
         messageType: 'kakao',
+        channel: 'KAKAO',
         groupId,
         content: `[${trimmedTitle}] ${trimmedMsg}`,
         totalSent: sentCount + failedCount,
         successCount: sentCount,
       },
     });
+
+    // SmsLog에도 각 발송 기록을 저장 (채널 추적 용)
+    const smsLogRecords = targets.map((m, idx) => ({
+      organizationId: orgId,
+      contactId: m.contact.id,
+      phone: m.contact.phone,
+      contentPreview: `[${trimmedTitle}] ${trimmedMsg}`.substring(0, 100),
+      status: failures.some(f => f.phoneNumber === m.contact.phone) ? 'FAILED' : 'SENT',
+      blockReason: failures.find(f => f.phoneNumber === m.contact.phone)?.reason ?? null,
+      resultCode: '1', // Kakao API returns '1' for success
+      channel: 'KAKAO',
+      sentAt: new Date(),
+    }));
+
+    if (smsLogRecords.length > 0) {
+      await prisma.smsLog.createMany({
+        data: smsLogRecords,
+        skipDuplicates: true,
+      });
+    }
 
     logger.log('[KakaoBlast] 발송 완료', {
       group: group.name,

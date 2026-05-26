@@ -1,0 +1,25 @@
+
+! unknown or unexpected option: --skip-generate
+
+Apply pending migrations to update the database schema in production/staging
+
+Usage
+
+  $ prisma migrate deploy [options]
+
+  The datasource URL configuration is read from the Prisma config file (e.g., prisma.config.ts).
+
+Options
+
+  -h, --help   Display this help message
+    --config   Custom path to your Prisma config file
+    --schema   Custom path to your Prisma schema
+
+Examples
+
+  Deploy your pending migrations to your production/staging database
+  $ prisma migrate deploy
+
+  Specify a schema
+  $ prisma migrate deploy --schema=./schema.prisma
+

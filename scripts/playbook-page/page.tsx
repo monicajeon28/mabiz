@@ -2,9 +2,10 @@
 import { useState, useEffect } from "react";
 import { showError } from "@/components/ui/Toast";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { SequenceTab } from "./components";
 
 // 탭 구분
-type ScriptTab = "GOLD" | "GENERAL";
+type ScriptTab = "GOLD" | "GENERAL" | "DAY0_3";
 
 // 상품 목록
 const PRODUCTS = [
@@ -81,6 +82,9 @@ export default function PlaybookPage() {
   const [scripts,  setScripts]  = useState<PlaybookItem[]>([]);
   const [loading,  setLoading]  = useState(false);
 
+  // Get organization ID from session (implement if needed)
+  const organizationId = undefined; // Can be fetched from session
+
   // 골드 탭 — AI 패턴
   useEffect(() => {
     if (tab !== "GOLD") return;
@@ -118,7 +122,7 @@ export default function PlaybookPage() {
     <div className="max-w-2xl mx-auto">
       {/* 최상위 세그먼트 — sticky */}
       <div className="sticky top-0 z-20 bg-white border-b border-gray-100 px-4 pt-4 pb-3">
-        <div className="flex rounded-xl border border-gray-200 overflow-hidden mb-3">
+        <div className="flex rounded-xl border border-gray-200 overflow-hidden mb-3 gap-1">
           <button onClick={() => setTab("GOLD")}
             className={`flex-1 py-2.5 text-sm font-semibold transition-colors
               ${tab === "GOLD" ? "bg-yellow-400 text-white" : "bg-white text-gray-500"}`}>
@@ -128,6 +132,11 @@ export default function PlaybookPage() {
             className={`flex-1 py-2.5 text-sm font-semibold transition-colors
               ${tab === "GENERAL" ? "bg-blue-600 text-white" : "bg-white text-gray-500"}`}>
             🚢 일반여행상담
+          </button>
+          <button onClick={() => setTab("DAY0_3")}
+            className={`flex-1 py-2.5 text-sm font-semibold transition-colors
+              ${tab === "DAY0_3" ? "bg-purple-600 text-white" : "bg-white text-gray-500"}`}>
+            📱 Day 0-3 시퀀스
           </button>
         </div>
 
@@ -165,11 +174,18 @@ export default function PlaybookPage() {
             </div>
           </>
         )}
+        {tab === "DAY0_3" && (
+          <div className="text-xs text-gray-500 py-1">
+            Day 0-3 자동화 시퀀스 관리: 생성, 편집, 미리보기, 배포
+          </div>
+        )}
       </div>
 
       {/* 콘텐츠 */}
       <div className="px-4 py-4 space-y-3">
-        {loading ? (
+        {tab === "DAY0_3" ? (
+          <SequenceTab organizationId={organizationId} />
+        ) : loading ? (
           [1, 2, 3].map((i) => <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />)
         ) : tab === "GOLD" ? (
           sortedPatterns.length === 0
