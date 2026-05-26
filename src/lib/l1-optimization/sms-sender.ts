@@ -52,7 +52,7 @@ export async function sendL1SMS(request: L1SMSSendRequest): Promise<L1SMSSendRes
     // 2. 메시지 렌더링 (변수 치환)
     const contact = await prisma.contact.findUnique({
       where: { id: contactId },
-      select: { name: true, primaryPhone: true },
+      select: { name: true, phone: true },
     });
 
     if (!contact) {
@@ -90,16 +90,11 @@ export async function sendL1SMS(request: L1SMSSendRequest): Promise<L1SMSSendRes
       data: {
         organizationId,
         contactId,
-        phoneNumber,
         message: renderedMessage,
-        templateType: 'L1_PRICE_OBJECTION',
         status: 'SENT',
         sentAt: new Date(),
-        metadata: {
-          copyAngle,
-          variant: 'A', // 기본값, 실제로는 API에서 전달받음
-          isLongMessage,
-        },
+        channel: 'L1_PRICE_OBJECTION',
+        scheduledAt: new Date(),
       },
     });
 
@@ -115,7 +110,7 @@ export async function sendL1SMS(request: L1SMSSendRequest): Promise<L1SMSSendRes
       sentAt: new Date(),
     };
   } catch (error) {
-    logger.error('[L1] sendL1SMS error', error);
+    logger.error('[L1] sendL1SMS error', error instanceof Error ? error : new Error(String(error)));
     return {
       success: false,
       error: 'SMS send failed',
@@ -193,7 +188,7 @@ async function sendViaAligo(params: {
       };
     }
   } catch (error) {
-    logger.error('[L1] Aligo API error', error);
+    logger.error('[L1] Aligo API error', error instanceof Error ? error : new Error(String(error)));
     return {
       success: false,
       error: 'API call failed',

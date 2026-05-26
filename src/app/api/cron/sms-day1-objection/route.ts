@@ -77,6 +77,7 @@ export async function POST(req: Request) {
         name: true,
         organizationId: true,
         smsDay0SentAt: true,
+        lensMetadata: true,
       },
       take: 1000,
     });
@@ -97,14 +98,14 @@ export async function POST(req: Request) {
         }
 
         // Day 0 이후의 Call/Click/CallLog 확인 (응답 신호)
-        const callLogCount = await prisma.callLog.count({
+        const callLogCount = contact.smsDay0SentAt ? await prisma.callLog.count({
           where: {
             contactId: contact.id,
             createdAt: {
               gte: contact.smsDay0SentAt,
             },
           },
-        });
+        }) : 0;
 
         // 간단한 응답 감지 (프로덕션에서는 더 정교함)
         const hasResponse = callLogCount > 0;
@@ -221,7 +222,7 @@ export async function POST(req: Request) {
           sourceName: 'SMS Day 1 Objection Handling',
           contactId: c.id,
           channel: 'DAY1_OBJECTION',
-          status: response.errors.find((e) => e.contactId === c.id) ? 'FAILED' : 'COMPLETED',
+          status: response.errors.find((e) => e.contactId === c.id) ? 'FAILED' : 'SENT',
           executeMonth: new Date().toISOString().slice(0, 7),
           scheduledAt: new Date(),
         })),

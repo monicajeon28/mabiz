@@ -83,9 +83,7 @@ export async function GET(req: Request) {
           role: true,
           isActive: true,
           phone: true,
-          createdAt: true,
         },
-        orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
@@ -100,8 +98,6 @@ export async function GET(req: Request) {
       displayName: m.displayName,
       role: m.role,
       status: m.isActive ? 'active' : 'inactive',
-      invitedAt: m.createdAt.toISOString(),
-      joinedAt: m.createdAt.toISOString(), // OrganizationMember에는 별도 joinedAt이 없으므로 createdAt 사용
       lastActivityAt: null, // 추후 확장: 로그인/활동 기록 추가
     }));
 

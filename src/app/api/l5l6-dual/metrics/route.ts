@@ -70,8 +70,8 @@ interface MetricsResponse {
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = await validateAuth(req);
-    if (!auth.success) {
+    const auth = await validateAuth();
+    if (!auth || !auth.organizationId) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }

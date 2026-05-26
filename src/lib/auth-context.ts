@@ -10,7 +10,7 @@
  * Last updated: 2026-05-26
  */
 
-import React from 'react';
+import React, { createContext, ReactNode, FC, useState, useContext, useEffect } from 'react';
 
 export interface AuthUser {
   id: string;
@@ -29,7 +29,7 @@ export interface AuthContextType {
 /**
  * Auth Context - Use this in Provider component
  */
-export const AuthContext = React.createContext<AuthContextType | undefined>(
+export const AuthContext = createContext<AuthContextType | undefined>(
   undefined
 );
 
@@ -38,7 +38,7 @@ export const AuthContext = React.createContext<AuthContextType | undefined>(
  * @throws Error if used outside AuthProvider
  */
 export const useAuthContext = (): AuthContextType => {
-  const context = React.useContext(AuthContext);
+  const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuthContext must be used within AuthProvider');
   }
@@ -49,14 +49,14 @@ export const useAuthContext = (): AuthContextType => {
  * Auth Provider Component (Stub)
  * TODO: Integrate with Clerk or your auth solution
  */
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+export const AuthProvider: FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const [user, setUser] = React.useState<AuthUser | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<Error | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     // TODO: Initialize auth from Clerk or session
     setLoading(false);
   }, []);
@@ -68,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     isAuthenticated: !!user,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return React.createElement(AuthContext.Provider, { value }, children);
 };
 
 export default {

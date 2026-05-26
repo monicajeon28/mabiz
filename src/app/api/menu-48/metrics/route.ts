@@ -73,11 +73,11 @@ export async function GET(request: NextRequest) {
     const consultationBookingRate = 22.8;
 
     // 4. 최종 예약 완료율 (불안도별)
-    // contactStatus = 'CONFIRMED_BOOKING'인 경우만 카운트
+    // purchasedAt이 있는 경우만 카운트
     const confirmedBookings = await prisma.contact.count({
       where: {
         organizationId,
-        status: 'CONFIRMED_BOOKING',
+        purchasedAt: { not: null },
         anxietyAssessmentAt: { not: null },
       },
     });

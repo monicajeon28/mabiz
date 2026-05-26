@@ -59,12 +59,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1ABTestV
     const { organizationId, objectiveType, variantType, messageTemplate, copyAngle, psychologyLens, description } = body;
 
     // 1. 인증 및 권한 확인
-    const { organization, user } = await validateOrgMembership(request, organizationId);
-    if (!organization || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const authResult = validateOrgMembership(request);
+    if (authResult !== true) {
+      return authResult as NextResponse<L1ABTestVariantResponse>;
     }
 
     // 2. 메시지 템플릿 검증
@@ -184,7 +181,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1ABTestV
       },
     });
   } catch (error) {
-    logger.error('[L1] ab-test-variant route error', error);
+    logger.error('[L1] ab-test-variant route error', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -206,12 +203,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { organization } = await validateOrgMembership(request, organizationId);
-    if (!organization) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const authResult2 = validateOrgMembership(request);
+    if (authResult2 !== true) {
+      return authResult2 as NextResponse<L1ABTestVariantResponse>;
     }
 
     const query: any = {
@@ -246,7 +240,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       },
     });
   } catch (error) {
-    logger.error('[L1] ab-test-variant GET error', error);
+    logger.error('[L1] ab-test-variant GET error', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

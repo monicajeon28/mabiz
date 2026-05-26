@@ -93,9 +93,6 @@ export async function selectOptimalResponseMethod(
         sentAt: { gte: thirtyDaysAgo },
       },
       _count: true,
-      _sum: {
-        conversionResult: true, // Boolean 값을 sum할 수 없으므로 별도 집계
-      },
     });
 
     if (performanceData.length === 0) {

@@ -259,7 +259,7 @@ export async function POST(req: Request) {
           sourceName: 'SMS Day 0 Initialization',
           contactId: c.id,
           channel: 'DAY0_SEQUENCE',
-          status: response.errors.find((e) => e.contactId === c.id) ? 'FAILED' : 'COMPLETED',
+          status: response.errors.find((e) => e.contactId === c.id) ? 'FAILED' : 'SENT',
           executeMonth: new Date().toISOString().slice(0, 7),
           scheduledAt: new Date(),
         })),

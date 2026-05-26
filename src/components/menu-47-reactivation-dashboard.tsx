@@ -97,17 +97,16 @@ export default function Menu47ReactivationDashboard({ organizationId }: Reactiva
 
       {/* 세그먼트 선택 */}
       <div className="flex gap-4">
-        <Select value={selectedSegment} onValueChange={(v: any) => setSelectedSegment(v)}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="세그먼트 선택" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">전체</SelectItem>
-            <SelectItem value="3-6m">3-6개월 부재</SelectItem>
-            <SelectItem value="6-12m">6-12개월 부재</SelectItem>
-            <SelectItem value="1y+">1년+ 부재</SelectItem>
-          </SelectContent>
-        </Select>
+        <select
+          value={selectedSegment}
+          onChange={(e) => setSelectedSegment(e.target.value as any)}
+          className="w-48 rounded-md border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="all">전체</option>
+          <option value="3-6m">3-6개월 부재</option>
+          <option value="6-12m">6-12개월 부재</option>
+          <option value="1y+">1년+ 부재</option>
+        </select>
 
         <Button onClick={fetchAnalytics} variant="outline">
           새로고침

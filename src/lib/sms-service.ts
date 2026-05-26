@@ -26,15 +26,10 @@ export async function sendScheduledSms(input: ScheduledSmsInput): Promise<string
       data: {
         organizationId: input.organizationId,
         contactId: input.contactId,
-        phoneNumber: input.phoneNumber,
-        body: input.body,
-        sendAt: input.sendAt,
+        message: input.body,
+        scheduledAt: input.sendAt,
         status: 'PENDING',
-        campaignType: input.campaignType,
-        metadata: {
-          day: input.day,
-          ...input.metadata,
-        },
+        channel: input.campaignType || 'GENERAL',
       },
       select: { id: true },
     });

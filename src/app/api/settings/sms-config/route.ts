@@ -101,7 +101,7 @@ export async function POST(req: Request) {
         {
           ok: false,
           message: "입력값 검증 실패",
-          errors: parsed.error.errors.map((e) => ({
+          errors: parsed.error.issues.map((e) => ({
             field: e.path.join("."),
             message: e.message,
           })),

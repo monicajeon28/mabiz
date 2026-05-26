@@ -55,12 +55,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1ApplyBe
     const { organizationId, contactId, objectiveType, autoSendSMS = false, segmentId } = body;
 
     // 1. 인증 및 권한 확인
-    const { organization, user } = await validateOrgMembership(request, organizationId);
-    if (!organization || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const authResult = validateOrgMembership(request);
+    if (authResult !== true) {
+      return authResult as any;
     }
 
     // 2. Contact 확인
@@ -69,7 +66,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1ApplyBe
       select: {
         id: true,
         organizationId: true,
-        primaryPhone: true,
+        phone: true,
       },
     });
 
@@ -167,11 +164,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1ApplyBe
 
     // 5. 자동 SMS 발송 (필요 시)
     let smsSentAt: string | undefined;
-    if (autoSendSMS && contact.primaryPhone) {
+    if (autoSendSMS && contact.phone) {
       const smsResult = await sendL1SMS({
         organizationId,
         contactId,
-        phoneNumber: contact.primaryPhone,
+        phoneNumber: contact.phone,
         messageTemplate: selectedVariant.messageTemplate,
         copyAngle: selectedVariant.copyAngle,
       });
@@ -215,7 +212,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1ApplyBe
       },
     });
   } catch (error) {
-    logger.error('[L1] apply-best route error', error);
+    logger.error('[L1] apply-best route error', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

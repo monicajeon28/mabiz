@@ -33,7 +33,13 @@ export async function GET(request: NextRequest) {
     const dateTo = searchParams.get('dateTo');
     const segment = searchParams.get('segment') || 'all';
 
-    const organizationId = auth.organizationId;
+    const organizationId = auth.orgId;
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: 'Organization ID required' },
+        { status: 400 }
+      );
+    }
 
     // 기본 날짜 설정 (지난 30일)
     const from = dateFrom

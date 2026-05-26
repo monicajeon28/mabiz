@@ -53,12 +53,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1PriceOb
     const { organizationId, contactId, initialResponse, channel = 'SMS', agentId } = body;
 
     // 1. 인증 및 권한 확인
-    const { organization, user } = await validateOrgMembership(request, organizationId);
-    if (!organization || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const authResult = validateOrgMembership(request);
+    if (authResult !== true) {
+      return authResult as any;
     }
 
     // 2. Contact 확인
@@ -67,7 +64,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1PriceOb
       select: {
         id: true,
         organizationId: true,
-        primaryPhone: true,
+        phone: true,
         name: true,
       },
     });
@@ -83,7 +80,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1PriceOb
     const objectiveType = detectL1ObjectiveType(initialResponse);
 
     // 4. 최적 대응 방식 선택 (점수 기반)
-    const responseMethod = selectOptimalResponseMethod(organizationId, objectiveType);
+    const responseMethod = await selectOptimalResponseMethod(organizationId, objectiveType);
 
     // 5. 해당 방식의 A/B 테스트 변형 선택
     const abTestVariant = await getABTestVariant(organizationId, objectiveType, responseMethod);
@@ -108,7 +105,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1PriceOb
     const smsResult = await sendL1SMS({
       organizationId,
       contactId,
-      phoneNumber: contact.primaryPhone,
+      phoneNumber: contact.phone,
       messageTemplate: abTestVariant.messageTemplate,
       copyAngle: abTestVariant.copyAngle,
     });
@@ -160,7 +157,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1PriceOb
       },
     });
   } catch (error) {
-    logger.error('[L1] price-objection route error', error);
+    logger.error('[L1] price-objection route error', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

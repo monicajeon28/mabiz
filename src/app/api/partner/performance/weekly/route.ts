@@ -163,7 +163,7 @@ export async function GET(request: NextRequest) {
           )
         : 0;
     const revenueGrowth =
-      prevRevenue > 0n
+      Number(prevRevenue) > 0
         ? Number(
             (((Number(revenue) - Number(prevRevenue)) / Number(prevRevenue)) *
               100

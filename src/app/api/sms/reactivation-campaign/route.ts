@@ -75,7 +75,6 @@ export async function POST(request: NextRequest) {
         type: 'CUSTOMER',
         reactivationSegment: segment,
         reactivationLikelihood: { gte: minLikelihood },
-        phone: { not: null },
       },
       select: {
         id: true,
@@ -140,15 +139,9 @@ export async function POST(request: NextRequest) {
               organizationId,
               contactId: recipient.id,
               phone: recipient.phone!,
-              message: personalizedMessage,
-              templateId,
+              contentPreview: personalizedMessage,
               status: 'PENDING',
-              campaignId,
-              metadata: {
-                segment,
-                likelihood: recipient.reactivationLikelihood,
-                templateType: 'REACTIVATION',
-              },
+              channel: 'REACTIVATION',
             },
           });
         }),
