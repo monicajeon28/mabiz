@@ -68,17 +68,17 @@ export const ROUTE_RULES: RouteRule[] = [
     redirectTo: '/dashboard',
   },
 
-  // Dashboard root - AGENT+ 이상만 (관리자, 대리점장, 판매원)
+  // Dashboard root - MEMBER+ (호환성 유지)
   {
     pattern: '/dashboard',
-    requiredRole: 'AGENT',
+    requiredRole: 'MEMBER',
     redirectTo: '/sign-in',
   },
 
-  // Dashboard pages - AGENT+ 이상만 (프리세일즈 제외)
+  // Dashboard pages - MEMBER+ (호환성 유지)
   {
     pattern: '/dashboard/*',
-    requiredRole: 'AGENT',
+    requiredRole: 'MEMBER',
     redirectTo: '/sign-in',
   },
 
