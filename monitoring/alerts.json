@@ -1,0 +1,512 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "description": "Alert rules for mabiz-crm infinite loop monitoring",
+    "lastUpdated": "2026-05-27T00:00:00Z",
+    "maintainer": "DevOps Team"
+  },
+
+  "alertRules": [
+    {
+      "id": "api_500_error",
+      "name": "API 500 Error",
+      "severity": "CRITICAL",
+      "priority": "P0",
+      "description": "Fatal API errors (500/503)",
+      "channels": ["slack_critical", "email_critical", "pagerduty"],
+      "condition": {
+        "type": "error_count",
+        "metric": "api_errors",
+        "operator": ">=",
+        "threshold": 3,
+        "window": "5m"
+      },
+      "notification": {
+        "slack": {
+          "text": "🔴 CRITICAL: API 500 Error detected",
+          "color": "#FF0000",
+          "fields": [
+            { "name": "Severity", "value": "CRITICAL" },
+            { "name": "Action", "value": "Check server logs immediately" },
+            { "name": "Timestamp", "value": "{timestamp}" }
+          ]
+        },
+        "email": {
+          "subject": "[CRITICAL] mabiz-crm API 500 Error",
+          "template": "critical_error"
+        },
+        "pagerduty": {
+          "severity": "critical",
+          "urgency": "high"
+        }
+      },
+      "escalation": {
+        "enabled": true,
+        "after": "15m",
+        "escalateTo": "on_call_manager"
+      },
+      "autoRemediation": {
+        "enabled": true,
+        "actions": [
+          { "type": "restart_api_server", "delay": "2m" },
+          { "type": "failover_to_backup", "delay": "5m" }
+        ]
+      }
+    },
+
+    {
+      "id": "db_fk_violation",
+      "name": "Database Foreign Key Violation",
+      "severity": "CRITICAL",
+      "priority": "P0",
+      "description": "Data integrity error - orphaned records detected",
+      "channels": ["slack_critical", "email_critical"],
+      "condition": {
+        "type": "error_pattern",
+        "pattern": "foreign key constraint",
+        "operator": "matches",
+        "threshold": 1,
+        "window": "1m"
+      },
+      "notification": {
+        "slack": {
+          "text": "🔴 CRITICAL: Database FK Violation",
+          "color": "#FF0000",
+          "fields": [
+            { "name": "Issue", "value": "Foreign key constraint violated" },
+            { "name": "Impact", "value": "Data integrity at risk" },
+            { "name": "Table", "value": "{error.table}" }
+          ]
+        },
+        "email": {
+          "subject": "[CRITICAL] Database Integrity Issue",
+          "recipients": ["devops@mabiz.com", "cto@mabiz.com"]
+        }
+      },
+      "autoRemediation": {
+        "enabled": true,
+        "actions": [
+          { "type": "rollback_transaction", "delay": "1m" },
+          { "type": "lock_affected_table", "delay": "0m" },
+          { "type": "notify_dba", "delay": "0m" }
+        ]
+      }
+    },
+
+    {
+      "id": "db_connection_pool_exhausted",
+      "name": "Database Connection Pool Exhausted",
+      "severity": "HIGH",
+      "priority": "P1",
+      "description": "Too many concurrent DB connections",
+      "channels": ["slack_high", "email"],
+      "condition": {
+        "type": "metric",
+        "metric": "db_pool_utilization",
+        "operator": ">=",
+        "threshold": 90,
+        "window": "5m"
+      },
+      "notification": {
+        "slack": {
+          "text": "🟠 HIGH: Database Connection Pool at {value}%",
+          "color": "#FF9900"
+        }
+      },
+      "autoRemediation": {
+        "enabled": true,
+        "actions": [
+          { "type": "kill_idle_connections", "delay": "1m" },
+          { "type": "increase_pool_size", "delay": "2m" },
+          { "type": "restart_connection_pool", "delay": "5m" }
+        ]
+      }
+    },
+
+    {
+      "id": "api_slow_response",
+      "name": "API Slow Response (>300ms)",
+      "severity": "MEDIUM",
+      "priority": "P2",
+      "description": "API endpoint response time exceeds 300ms",
+      "channels": ["slack", "daily_email"],
+      "condition": {
+        "type": "performance",
+        "metric": "api_response_time",
+        "operator": ">",
+        "threshold": 300,
+        "window": "10m",
+        "percentile": 95
+      },
+      "notification": {
+        "slack": {
+          "text": "🟡 MEDIUM: Slow API Response - {endpoint}",
+          "color": "#FFCC00"
+        }
+      },
+      "autoRemediation": {
+        "enabled": false
+      }
+    },
+
+    {
+      "id": "error_rate_spike",
+      "name": "Error Rate Spike",
+      "severity": "HIGH",
+      "priority": "P1",
+      "description": "Error rate exceeds normal baseline by 100%",
+      "channels": ["slack_high", "email"],
+      "condition": {
+        "type": "anomaly",
+        "metric": "error_rate",
+        "baselineWindow": "7d",
+        "threshold": 2.0,
+        "operator": ">"
+      },
+      "notification": {
+        "slack": {
+          "text": "🟠 HIGH: Error Rate Spike - {value}%",
+          "color": "#FF9900"
+        }
+      }
+    },
+
+    {
+      "id": "duplicate_contact_detected",
+      "name": "Duplicate Contact Detected",
+      "severity": "HIGH",
+      "priority": "P1",
+      "description": "Duplicate phone numbers in same group detected",
+      "channels": ["slack", "email"],
+      "condition": {
+        "type": "data_quality",
+        "check": "duplicate_contacts",
+        "threshold": 1
+      },
+      "notification": {
+        "slack": {
+          "text": "🟠 HIGH: Duplicate Contact Detected",
+          "fields": [
+            { "name": "Phone", "value": "{contact.phone}" },
+            { "name": "Group", "value": "{contact.group}" }
+          ]
+        }
+      },
+      "autoRemediation": {
+        "enabled": true,
+        "actions": [
+          { "type": "flag_for_review", "delay": "0m" },
+          { "type": "send_to_support", "delay": "5m" }
+        ]
+      }
+    },
+
+    {
+      "id": "sms_send_failure",
+      "name": "SMS Send Failure Rate High",
+      "severity": "HIGH",
+      "priority": "P1",
+      "description": "SMS send failure rate exceeds 5%",
+      "channels": ["slack", "email"],
+      "condition": {
+        "type": "metric",
+        "metric": "sms_failure_rate",
+        "operator": ">",
+        "threshold": 5,
+        "window": "1h"
+      },
+      "notification": {
+        "slack": {
+          "text": "🟠 HIGH: SMS Send Failure Rate - {value}%",
+          "color": "#FF9900"
+        }
+      },
+      "autoRemediation": {
+        "enabled": true,
+        "actions": [
+          { "type": "retry_failed_sms", "delay": "5m" },
+          { "type": "switch_sms_provider", "delay": "10m" }
+        ]
+      }
+    },
+
+    {
+      "id": "campaign_stuck",
+      "name": "Campaign Sending Stuck",
+      "severity": "HIGH",
+      "priority": "P1",
+      "description": "Campaign stuck with no progress for 30 minutes",
+      "channels": ["slack", "email"],
+      "condition": {
+        "type": "state",
+        "metric": "campaign_progress",
+        "operator": "no_change",
+        "duration": "30m"
+      },
+      "notification": {
+        "slack": {
+          "text": "🟠 HIGH: Campaign Stuck - {campaignId}",
+          "color": "#FF9900"
+        }
+      },
+      "autoRemediation": {
+        "enabled": true,
+        "actions": [
+          { "type": "retry_campaign", "delay": "1m" },
+          { "type": "pause_campaign", "delay": "2m" }
+        ]
+      }
+    },
+
+    {
+      "id": "affiliate_suspension",
+      "name": "Affiliate Account Suspended",
+      "severity": "MEDIUM",
+      "priority": "P2",
+      "description": "Affiliate account auto-suspended due to compliance",
+      "channels": ["slack", "email"],
+      "condition": {
+        "type": "event",
+        "event": "affiliate_suspended"
+      },
+      "notification": {
+        "slack": {
+          "text": "🟡 MEDIUM: Affiliate Suspended - {affiliateId}",
+          "color": "#FFCC00"
+        }
+      }
+    },
+
+    {
+      "id": "disk_space_low",
+      "name": "Disk Space Low",
+      "severity": "HIGH",
+      "priority": "P1",
+      "description": "Disk space usage exceeds 85%",
+      "channels": ["slack", "email"],
+      "condition": {
+        "type": "infrastructure",
+        "metric": "disk_usage",
+        "operator": ">",
+        "threshold": 85
+      },
+      "notification": {
+        "slack": {
+          "text": "🟠 HIGH: Disk Space Usage {value}%",
+          "color": "#FF9900"
+        }
+      },
+      "autoRemediation": {
+        "enabled": true,
+        "actions": [
+          { "type": "cleanup_old_logs", "delay": "5m" },
+          { "type": "archive_backups", "delay": "10m" }
+        ]
+      }
+    },
+
+    {
+      "id": "memory_leak_detected",
+      "name": "Memory Leak Detected",
+      "severity": "HIGH",
+      "priority": "P1",
+      "description": "Memory usage continuously increasing",
+      "channels": ["slack", "email"],
+      "condition": {
+        "type": "trend",
+        "metric": "memory_usage",
+        "trend": "increasing",
+        "threshold": "10%",
+        "window": "1h"
+      },
+      "notification": {
+        "slack": {
+          "text": "🟠 HIGH: Memory Leak Detected",
+          "color": "#FF9900"
+        }
+      },
+      "autoRemediation": {
+        "enabled": true,
+        "actions": [
+          { "type": "restart_process", "delay": "5m" }
+        ]
+      }
+    },
+
+    {
+      "id": "daily_backup_failed",
+      "name": "Daily Backup Failed",
+      "severity": "HIGH",
+      "priority": "P1",
+      "description": "Daily backup job failed or didn't complete",
+      "channels": ["slack", "email"],
+      "condition": {
+        "type": "job",
+        "job": "daily_backup",
+        "status": "failed"
+      },
+      "notification": {
+        "slack": {
+          "text": "🟠 HIGH: Daily Backup Failed",
+          "color": "#FF9900"
+        }
+      },
+      "autoRemediation": {
+        "enabled": true,
+        "actions": [
+          { "type": "retry_backup", "delay": "30m" },
+          { "type": "notify_backup_admin", "delay": "0m" }
+        ]
+      }
+    },
+
+    {
+      "id": "ssl_certificate_expiring",
+      "name": "SSL Certificate Expiring",
+      "severity": "HIGH",
+      "priority": "P1",
+      "description": "SSL certificate expires within 30 days",
+      "channels": ["slack", "email"],
+      "condition": {
+        "type": "infrastructure",
+        "metric": "ssl_expiry_days",
+        "operator": "<",
+        "threshold": 30
+      },
+      "notification": {
+        "slack": {
+          "text": "🟠 HIGH: SSL Certificate Expiring in {value} days",
+          "color": "#FF9900"
+        }
+      },
+      "autoRemediation": {
+        "enabled": false
+      }
+    },
+
+    {
+      "id": "weekly_summary",
+      "name": "Weekly Monitoring Summary",
+      "severity": "INFO",
+      "priority": "P3",
+      "description": "Weekly summary of monitoring metrics",
+      "channels": ["email"],
+      "condition": {
+        "type": "schedule",
+        "schedule": "0 9 * * 1"
+      },
+      "notification": {
+        "email": {
+          "subject": "Weekly Monitoring Summary - mabiz-crm",
+          "template": "weekly_summary"
+        }
+      }
+    }
+  ],
+
+  "channels": {
+    "slack_critical": {
+      "type": "slack",
+      "webhook": "${SLACK_WEBHOOK_CRITICAL}",
+      "mentions": ["@devops", "@oncall"],
+      "threadReply": false
+    },
+    "slack_high": {
+      "type": "slack",
+      "webhook": "${SLACK_WEBHOOK_HIGH}",
+      "mentions": ["@devops"],
+      "threadReply": false
+    },
+    "slack": {
+      "type": "slack",
+      "webhook": "${SLACK_WEBHOOK_URL}",
+      "mentions": [],
+      "threadReply": true
+    },
+    "email_critical": {
+      "type": "email",
+      "to": ["devops@mabiz.com", "cto@mabiz.com"],
+      "priority": "high"
+    },
+    "email": {
+      "type": "email",
+      "to": ["devops@mabiz.com"],
+      "priority": "normal"
+    },
+    "daily_email": {
+      "type": "email",
+      "to": ["devops@mabiz.com"],
+      "priority": "normal",
+      "schedule": "0 9 * * *"
+    },
+    "pagerduty": {
+      "type": "pagerduty",
+      "integrationKey": "${PAGERDUTY_INTEGRATION_KEY}",
+      "serviceId": "${PAGERDUTY_SERVICE_ID}"
+    }
+  },
+
+  "escalationPolicies": {
+    "on_call_manager": {
+      "steps": [
+        {
+          "delay": "5m",
+          "notifyUsers": ["on_call_engineer"]
+        },
+        {
+          "delay": "15m",
+          "notifyUsers": ["on_call_manager"]
+        },
+        {
+          "delay": "30m",
+          "notifyUsers": ["cto@mabiz.com"]
+        }
+      ]
+    }
+  },
+
+  "metrics": {
+    "api_errors": {
+      "description": "Count of API errors by status code",
+      "unit": "count",
+      "threshold_critical": 10,
+      "threshold_warning": 5
+    },
+    "api_response_time": {
+      "description": "API response time (p95)",
+      "unit": "ms",
+      "threshold_critical": 5000,
+      "threshold_warning": 1000
+    },
+    "db_pool_utilization": {
+      "description": "Database connection pool usage",
+      "unit": "%",
+      "threshold_critical": 95,
+      "threshold_warning": 80
+    },
+    "error_rate": {
+      "description": "Overall error rate",
+      "unit": "%",
+      "threshold_critical": 5,
+      "threshold_warning": 2
+    },
+    "sms_failure_rate": {
+      "description": "SMS send failure percentage",
+      "unit": "%",
+      "threshold_critical": 10,
+      "threshold_warning": 5
+    },
+    "memory_usage": {
+      "description": "Process memory consumption",
+      "unit": "MB",
+      "threshold_critical": 1024,
+      "threshold_warning": 512
+    },
+    "disk_usage": {
+      "description": "Disk space utilization",
+      "unit": "%",
+      "threshold_critical": 95,
+      "threshold_warning": 80
+    }
+  }
+}

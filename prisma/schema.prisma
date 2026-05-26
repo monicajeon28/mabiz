@@ -430,6 +430,27 @@ model Contact {
   @@index([organizationId, reservationId], map: "idx_contact_reservation_id")
   @@index([organizationId, quotedPrice], map: "idx_contact_quoted_price")
   @@index([organizationId, priceAcceptedAt], map: "idx_contact_price_accepted")
+
+  // P0-6: 고객 출처 분류 (2026-05-27)
+  sourceType               String?        @db.VarChar(30)  // "user", "inquiry", "affiliate", "landing_page", "education", "gold_member"
+  sourceId                 String?        @db.VarChar(50)  // 원본 시스템의 ID
+  signupMethod             String?        @db.VarChar(20)  // User 출처만: "general", "kakao", "naver", "google"
+
+  // Affiliate 전용 필드
+  affiliateLinkId          String?        @db.VarChar(50)  // AffiliateLead.linkId
+  affiliateManagerId       String?        @db.VarChar(50)  // AffiliateLead.managerId (본사)
+  affiliateAgentId         String?        @db.VarChar(50)  // AffiliateLead.agentId (판매원)
+
+  // Inquiry 전용 필드
+  inquiryProductCode       String?        @db.VarChar(50)  // CruiseProductInquiry.productCode
+
+  // P0-6 인덱스
+  @@index([organizationId, sourceType], map: "idx_contact_org_source_type")
+  @@index([organizationId, sourceId], map: "idx_contact_org_source_id")
+  @@index([affiliateLinkId], map: "idx_contact_affiliate_link_id")
+  @@index([affiliateManagerId], map: "idx_contact_affiliate_manager_id")
+  @@index([affiliateAgentId], map: "idx_contact_affiliate_agent_id")
+  @@index([signupMethod], map: "idx_contact_signup_method")
 }
 
 model ContactLensClassification {

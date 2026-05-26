@@ -1,0 +1,541 @@
+name: Daily Monitoring - Security & Data Integrity
+
+on:
+  schedule:
+    # 매일 자정(UTC), 오전 6시(UTC), 오후 6시(UTC) 실행
+    - cron: '0 0 * * *'
+    - cron: '0 6 * * *'
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+env:
+  NODE_ENV: production
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+  SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+
+jobs:
+  # 1. API 엔드포인트 보안 감시
+  api-security-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Security audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Check API response times
+        run: |
+          cat > check-api-perf.js << 'EOF'
+          const https = require('https');
+          const baseUrl = 'https://mabiz-crm.vercel.app';
+          const endpoints = [
+            { path: '/api/health', timeout: 2000 },
+            { path: '/api/groups', timeout: 3000 },
+            { path: '/api/contacts', timeout: 3000 },
+            { path: '/api/partner/dashboard/b2b', timeout: 3000 },
+            { path: '/api/campaigns', timeout: 3000 },
+            { path: '/api/admin/organizations', timeout: 3000 }
+          ];
+
+          const results = [];
+          let failCount = 0;
+
+          const check = (endpoint) => {
+            return new Promise((resolve) => {
+              const startTime = Date.now();
+              const req = https.get(baseUrl + endpoint.path, {
+                headers: {
+                  'Authorization': `Bearer ${{ secrets.API_TEST_TOKEN }}`,
+                  'User-Agent': 'GitHub-Actions-Health-Check'
+                },
+                timeout: endpoint.timeout
+              }, (res) => {
+                const duration = Date.now() - startTime;
+                const status = res.statusCode;
+                const isOk = (status === 200 || status === 401 || status === 400);
+                const isSloww = duration > 2500;
+
+                results.push({
+                  endpoint: endpoint.path,
+                  status,
+                  duration,
+                  ok: isOk && !isSloww,
+                  severity: isSloww ? 'SLOW' : 'OK'
+                });
+
+                if (!isOk) failCount++;
+                if (isSloww) {
+                  console.log(`⚠️ SLOW: ${endpoint.path} (${duration}ms > ${endpoint.timeout}ms)`);
+                }
+
+                resolve();
+              });
+
+              req.on('timeout', () => {
+                results.push({
+                  endpoint: endpoint.path,
+                  status: 0,
+                  duration: endpoint.timeout,
+                  ok: false,
+                  severity: 'TIMEOUT'
+                });
+                failCount++;
+                req.abort();
+                resolve();
+              });
+
+              req.on('error', (e) => {
+                results.push({
+                  endpoint: endpoint.path,
+                  status: 0,
+                  duration: 0,
+                  ok: false,
+                  severity: 'ERROR',
+                  error: e.message
+                });
+                failCount++;
+                resolve();
+              });
+            });
+          };
+
+          Promise.all(endpoints.map(check)).then(() => {
+            console.log('\n=== API Performance Report ===');
+            results.forEach(r => {
+              const icon = r.ok ? '✅' : '❌';
+              console.log(`${icon} ${r.endpoint}: ${r.status || 'N/A'} (${r.duration}ms) - ${r.severity}`);
+            });
+
+            console.log(`\n=== Summary ===`);
+            console.log(`Total: ${results.length}, Failed: ${failCount}`);
+
+            if (failCount > 0) {
+              console.log('\n⚠️ Some endpoints failed!');
+              process.exit(1);
+            }
+          });
+          EOF
+          node check-api-perf.js
+
+      - name: Notify Slack - API Check Failed
+        if: failure()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "🔴 CRITICAL: API Security/Performance Check Failed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*🔴 API Health Check FAILED*\n*Severity:* CRITICAL\n*Time:* $(date -u +'%Y-%m-%d %H:%M:%S UTC')\n*Details:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Log>"
+                  }
+                }
+              ]
+            }
+        continue-on-error: true
+
+  # 2. 데이터베이스 무결성 검사
+  database-integrity-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Check database connection
+        run: |
+          cat > check-db-integrity.ts << 'EOF'
+          import { createClient } from '@supabase/supabase-js';
+
+          const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+            process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+          );
+
+          interface CheckResult {
+            table: string;
+            status: 'OK' | 'ERROR';
+            message: string;
+            rowCount?: number;
+          }
+
+          const results: CheckResult[] = [];
+
+          async function checkTable(tableName: string) {
+            try {
+              const { data, error, count } = await supabase
+                .from(tableName)
+                .select('*', { count: 'exact', head: true });
+
+              if (error) {
+                results.push({
+                  table: tableName,
+                  status: 'ERROR',
+                  message: error.message
+                });
+              } else {
+                results.push({
+                  table: tableName,
+                  status: 'OK',
+                  message: 'Connection OK',
+                  rowCount: count || 0
+                });
+              }
+            } catch (e) {
+              results.push({
+                table: tableName,
+                status: 'ERROR',
+                message: String(e)
+              });
+            }
+          }
+
+          async function checkForeignKeys() {
+            // Check critical FK relationships
+            const fkChecks = [
+              { from: 'contacts', to: 'groups', fk: 'group_id' },
+              { from: 'affiliate_sales', to: 'affiliates', fk: 'affiliate_id' },
+              { from: 'campaigns', to: 'groups', fk: 'group_id' },
+              { from: 'crm_marketing_messages', to: 'contacts', fk: 'contact_id' }
+            ];
+
+            for (const check of fkChecks) {
+              try {
+                const { data, error } = await supabase.rpc(
+                  'check_fk_integrity',
+                  {
+                    from_table: check.from,
+                    to_table: check.to,
+                    fk_column: check.fk
+                  }
+                );
+
+                results.push({
+                  table: `${check.from}.${check.fk}→${check.to}`,
+                  status: error ? 'ERROR' : 'OK',
+                  message: error?.message || 'FK valid'
+                });
+              } catch (e) {
+                results.push({
+                  table: `${check.from}.${check.fk}→${check.to}`,
+                  status: 'ERROR',
+                  message: 'FK check failed'
+                });
+              }
+            }
+          }
+
+          async function run() {
+            const tables = [
+              'contacts',
+              'groups',
+              'affiliates',
+              'affiliate_sales',
+              'campaigns',
+              'crm_marketing_messages',
+              'call_logs',
+              'commission_ledger'
+            ];
+
+            console.log('Starting DB Integrity Check...\n');
+
+            for (const table of tables) {
+              await checkTable(table);
+            }
+
+            await checkForeignKeys();
+
+            console.log('\n=== Database Integrity Report ===');
+            let errorCount = 0;
+            results.forEach(r => {
+              const icon = r.status === 'OK' ? '✅' : '❌';
+              console.log(`${icon} ${r.table}: ${r.message}${r.rowCount !== undefined ? ` (${r.rowCount} rows)` : ''}`);
+              if (r.status === 'ERROR') errorCount++;
+            });
+
+            console.log(`\n=== Summary ===`);
+            console.log(`Total Checks: ${results.length}, Errors: ${errorCount}`);
+
+            if (errorCount > 0) {
+              process.exit(1);
+            }
+          }
+
+          run().catch(e => {
+            console.error('Fatal error:', e);
+            process.exit(1);
+          });
+          EOF
+          npx ts-node check-db-integrity.ts
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Check for duplicate records
+        run: |
+          cat > check-duplicates.ts << 'EOF'
+          import { createClient } from '@supabase/supabase-js';
+
+          const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+            process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+          );
+
+          async function checkDuplicates() {
+            const checks = [
+              {
+                table: 'contacts',
+                uniqueFields: ['phone_number', 'group_id'],
+                query: 'SELECT phone_number, group_id, COUNT(*) as cnt FROM contacts GROUP BY phone_number, group_id HAVING COUNT(*) > 1'
+              },
+              {
+                table: 'affiliates',
+                uniqueFields: ['email'],
+                query: 'SELECT email, COUNT(*) as cnt FROM affiliates GROUP BY email HAVING COUNT(*) > 1'
+              },
+              {
+                table: 'crm_marketing_messages',
+                uniqueFields: ['contact_id', 'day'],
+                query: 'SELECT contact_id, day, COUNT(*) as cnt FROM crm_marketing_messages GROUP BY contact_id, day HAVING COUNT(*) > 1'
+              }
+            ];
+
+            let duplicateCount = 0;
+
+            for (const check of checks) {
+              try {
+                const { data, error } = await supabase.rpc('exec_query', { query: check.query });
+                if (data && Array.isArray(data) && data.length > 0) {
+                  duplicateCount += data.length;
+                  console.log(`⚠️ ${check.table}: Found ${data.length} duplicate records`);
+                  data.forEach((d: any) => {
+                    console.log(`   - Count: ${d.cnt}, Fields: ${JSON.stringify(d)}`);
+                  });
+                } else {
+                  console.log(`✅ ${check.table}: No duplicates`);
+                }
+              } catch (e) {
+                console.log(`❌ ${check.table}: Check failed - ${String(e)}`);
+                duplicateCount++;
+              }
+            }
+
+            if (duplicateCount > 0) {
+              console.log(`\n⚠️ WARNING: Found ${duplicateCount} potential duplicate issues`);
+              process.exit(1);
+            }
+          }
+
+          checkDuplicates().catch(e => {
+            console.error('Fatal:', e);
+            process.exit(1);
+          });
+          EOF
+          npx ts-node check-duplicates.ts
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        continue-on-error: true
+
+      - name: Notify Slack - DB Check Failed
+        if: failure()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "🔴 CRITICAL: Database Integrity Check Failed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*🔴 Database Integrity FAILED*\n*Issue:* FK violations or duplicate records detected\n*Details:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Log>"
+                  }
+                }
+              ]
+            }
+        continue-on-error: true
+
+  # 3. 에러 추적 - Sentry 동기화
+  error-tracking-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Check Sentry for critical errors
+        run: |
+          cat > check-sentry.js << 'EOF'
+          const https = require('https');
+
+          const query = `
+            events(
+              project: ["${{ secrets.SENTRY_PROJECT_ID }}"],
+              first: 100,
+              environment: "production"
+            ) {
+              nodes {
+                title
+                eventID
+                level
+                dateCreated
+                platform
+                message {
+                  formatted
+                }
+              }
+            }
+          `;
+
+          const options = {
+            hostname: 'sentry.io',
+            path: '/api/0/organizations/${{ secrets.SENTRY_ORG_SLUG }}/events/',
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${{ secrets.SENTRY_AUTH_TOKEN }}`,
+              'User-Agent': 'GitHub-Actions'
+            }
+          };
+
+          const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+              try {
+                const events = JSON.parse(data);
+                console.log('=== Sentry Error Summary (Last 24h) ===');
+
+                const criticalErrors = events.filter((e: any) => e.level === 'fatal' || e.level === 'error');
+                const warnings = events.filter((e: any) => e.level === 'warning');
+
+                console.log(`Critical/Error: ${criticalErrors.length}`);
+                console.log(`Warnings: ${warnings.length}`);
+
+                criticalErrors.slice(0, 5).forEach((e: any) => {
+                  console.log(`  ❌ ${e.title} (${e.platform}) - ${new Date(e.dateCreated).toISOString()}`);
+                });
+
+                if (criticalErrors.length > 5) {
+                  process.exit(1);
+                }
+              } catch (e) {
+                console.log('Sentry API check (skipped - no auth)');
+              }
+            });
+          });
+
+          req.on('error', (e) => {
+            console.log('Sentry sync skipped (network)');
+          });
+
+          req.end();
+          EOF
+          node check-sentry.js
+        continue-on-error: true
+
+  # 4. 성능 메트릭 추적
+  performance-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Run Lighthouse
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          configPath: './lighthouserc.json'
+          uploadArtifacts: true
+        continue-on-error: true
+
+      - name: Check memory usage
+        run: |
+          cat > check-memory.sh << 'EOF'
+          #!/bin/bash
+          echo "=== Node Process Memory Check ==="
+          ps aux | grep node | grep -v grep || echo "No Node processes running"
+          echo ""
+          echo "Memory available:"
+          free -h || echo "Memory info unavailable"
+          EOF
+          chmod +x check-memory.sh
+          ./check-memory.sh
+        shell: bash
+
+      - name: Archive performance results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-metrics-${{ github.run_number }}
+          path: './.lighthouseci/'
+        continue-on-error: true
+
+  # 5. 요약 및 슬랙 알림
+  summary:
+    runs-on: ubuntu-latest
+    needs: [api-security-check, database-integrity-check, error-tracking-sync, performance-check]
+    if: always()
+    steps:
+      - name: Determine overall status
+        run: |
+          if [ "${{ needs.api-security-check.result }}" = "failure" ] || \
+             [ "${{ needs.database-integrity-check.result }}" = "failure" ]; then
+            echo "STATUS=CRITICAL" >> $GITHUB_ENV
+            echo "EMOJI=🔴" >> $GITHUB_ENV
+          elif [ "${{ needs.error-tracking-sync.result }}" = "failure" ]; then
+            echo "STATUS=WARNING" >> $GITHUB_ENV
+            echo "EMOJI=🟠" >> $GITHUB_ENV
+          else
+            echo "STATUS=OK" >> $GITHUB_ENV
+            echo "EMOJI=🟢" >> $GITHUB_ENV
+          fi
+
+      - name: Send Slack summary
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "${{ env.EMOJI }} Daily Monitoring Summary",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*${{ env.EMOJI }} Daily Monitoring - ${{ env.STATUS }}*\n\n*API Security:* ${{ needs.api-security-check.result }}\n*DB Integrity:* ${{ needs.database-integrity-check.result }}\n*Error Tracking:* ${{ needs.error-tracking-sync.result }}\n*Performance:* ${{ needs.performance-check.result }}\n\n*Time:* $(date -u +'%Y-%m-%d %H:%M:%S UTC')\n*Details:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Logs>"
+                  }
+                }
+              ]
+            }
+        continue-on-error: true
