@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { AffiliateSalesResponse } from "@/lib/affiliate/types";
+import { useToast } from "@/lib/api/use-toast";
 
 type Sale = {
   id: number;
@@ -31,6 +32,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default function AffiliateSalesPage() {
+  const { toast } = useToast();
   const [sales,   setSales]   = useState<Sale[]>([]);
   const [total,   setTotal]   = useState(0);
   const [page,    setPage]    = useState(1);
@@ -65,7 +67,7 @@ export default function AffiliateSalesPage() {
       if (!r.ok) {
         const errorMsg = await r.text().catch(() => `HTTP ${r.status}`);
         console.warn(`[affiliate-sales] ${action} 실패`, { id, status: r.status, error: errorMsg });
-        alert(`요청 실패 (${r.status}): ${errorMsg}`);
+        toast({ title: '요청 실패', description: `(${r.status}): ${errorMsg}`, variant: 'destructive' });
         setActing(null);
         return;
       }
@@ -74,18 +76,17 @@ export default function AffiliateSalesPage() {
 
       if (!d.ok) {
         console.warn("[affiliate-sales] action 실패", { id, action, message: d.message });
-        alert(`${action} 실패: ${d.message || '서버 오류'}`);
+        toast({ title: `${action} 실패`, description: d.message || '서버 오류', variant: 'destructive' });
         setActing(null);
         return;
       }
 
-      // ✅ 성공 메시지
-      alert(`${action} 완료되었습니다`);
+      toast({ title: `${action} 완료` });
       load();
     } catch (err) {
       const msg = err instanceof Error ? err.message : '네트워크 오류';
       console.warn("[affiliate-sales] action 네트워크 오류", { id, action, err: msg });
-      alert(`네트워크 오류: ${msg}`);
+      toast({ title: '네트워크 오류', description: msg, variant: 'destructive' });
       setActing(null);
     }
   };
