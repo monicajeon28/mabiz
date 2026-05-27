@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, CheckCircle, Clock, ChevronDown } from 'lucide-react';
+import { useToast } from '@/lib/api/use-toast';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -24,6 +25,7 @@ interface Suspension {
 }
 
 export default function PartnerSuspensionsPage() {
+  const { toast } = useToast();
   const router = useRouter();
   const [suspensions, setSuspensions] = useState<Suspension[]>([]);
   const [filter, setFilter] = useState<SuspensionStatus>('SUSPENDED');
@@ -74,16 +76,16 @@ export default function PartnerSuspensionsPage() {
       );
 
       if (res.ok) {
-        alert(action === 'UNSUSPEND' ? '정지가 해제되었습니다' : '이의가 거절되었습니다');
+        toast({ title: action === 'UNSUSPEND' ? '정지 해제 완료' : '이의 거절 완료' });
         setSelectedId(null);
         setResolveNotes('');
         fetchSuspensions();
       } else {
-        alert('처리 실패');
+        toast({ title: '처리 실패', description: '다시 시도해주세요.', variant: 'destructive' });
       }
     } catch (err) {
       console.error('오류:', err);
-      alert('오류가 발생했습니다');
+      toast({ title: '오류 발생', description: '잠시 후 다시 시도해주세요.', variant: 'destructive' });
     } finally {
       setProcessing(false);
     }
