@@ -11,6 +11,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useSession } from '@/hooks/useSession';
+import { useToast } from '@/lib/api/use-toast';
 import {
   LineChart,
   Line,
@@ -57,22 +59,22 @@ const ACTION_COLORS: Record<string, string> = {
 };
 
 export default function SegmentAnalyticsDashboard() {
+  const session = useSession();
+  const { toast } = useToast();
   const [segments, setSegments] = useState<Segment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSegment, setSelectedSegment] = useState<Segment | null>(null);
   const [sortBy, setSortBy] = useState<'size' | 'churn' | 'ltv' | 'engagement'>('size');
 
   useEffect(() => {
-    fetchSegments();
-  }, []);
+    if (session?.organizationId) fetchSegments(session.organizationId);
+  }, [session?.organizationId]);
 
-  const fetchSegments = async () => {
+  const fetchSegments = async (orgId: string) => {
     try {
       setLoading(true);
       const response = await fetch('/api/segments', {
-        headers: {
-          'x-organization-id': 'org_123', // Get from context
-        },
+        headers: { 'x-organization-id': orgId },
       });
 
       if (!response.ok) throw new Error('Failed to fetch segments');
@@ -91,23 +93,24 @@ export default function SegmentAnalyticsDashboard() {
   };
 
   const handleReclustering = async () => {
+    if (!session?.organizationId) return;
     try {
       const response = await fetch('/api/segments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-organization-id': 'org_123',
+          'x-organization-id': session.organizationId,
         },
         body: JSON.stringify({ action: 'refresh' }),
       });
 
       if (!response.ok) throw new Error('Re-clustering failed');
 
-      await fetchSegments();
-      alert('Re-clustering completed successfully');
+      await fetchSegments(session.organizationId);
+      toast({ title: '세그먼트 재분류 완료', description: '고객 세그먼트가 업데이트되었습니다.' });
     } catch (error) {
       console.error('Error:', error);
-      alert('Failed to trigger re-clustering');
+      toast({ title: '재분류 실패', description: '잠시 후 다시 시도해주세요.', variant: 'destructive' });
     }
   };
 

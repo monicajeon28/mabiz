@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { maskPhoneNumber, maskCustomerName } from '@/lib/pii-mask';
 import { genericApiResponseSchema } from '@/lib/schemas/partner-api';
+import { useToast } from '@/lib/api/use-toast';
 
 /* ─────────────────── 타입 ─────────────────── */
 
@@ -729,14 +730,14 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
                                   .then((res) => res.json())
                                   .then((json) => {
                                     if (json.ok) {
-                                      alert('수당 승인이 완료되었습니다.');
+                                      toast({ title: '수당 승인 완료', description: '수당 승인이 완료되었습니다.' });
                                       // @ts-ignore - refreshTrigger is defined in component scope
                                       setRefreshTrigger(t => t + 1);
                                     } else {
-                                      alert(`오류: ${json.error}`);
+                                      toast({ title: '오류', description: json.error || '승인 실패', variant: 'destructive' });
                                     }
                                   })
-                                  .catch(() => alert('요청 실패'));
+                                  .catch(() => toast({ title: '요청 실패', variant: 'destructive' }));
                               }}
                               className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors whitespace-nowrap"
                             >
@@ -1095,6 +1096,7 @@ interface SuspensionInfo {
 }
 
 export default function PartnerDashboardPage() {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>('b2c');
   const [month, setMonth] = useState(() => getMonthOptions()[0].value);
   const [loading, setLoading] = useState(false);
@@ -1206,7 +1208,7 @@ export default function PartnerDashboardPage() {
   // 이의 제기 제출
   const handleSubmitAppeal = async () => {
     if (appealText.length < 10) {
-      alert('최소 10자 이상 입력하세요');
+      toast({ title: '입력 오류', description: '최소 10자 이상 입력하세요.', variant: 'destructive' });
       return;
     }
 
@@ -1219,7 +1221,7 @@ export default function PartnerDashboardPage() {
       });
 
       if (res.ok) {
-        alert('이의가 접수되었습니다');
+        toast({ title: '이의 접수 완료', description: '이의가 정상적으로 접수되었습니다.' });
         setShowAppealForm(false);
         setAppealText('');
         // 정지 상태 갱신
@@ -1231,11 +1233,11 @@ export default function PartnerDashboardPage() {
         }
       } else {
         const error = await res.json();
-        alert(error.error || '제출 실패');
+        toast({ title: '제출 실패', description: error.error || '다시 시도해주세요.', variant: 'destructive' });
       }
     } catch (err) {
       console.error('오류:', err);
-      alert('오류가 발생했습니다');
+      toast({ title: '오류 발생', description: '잠시 후 다시 시도해주세요.', variant: 'destructive' });
     } finally {
       setAppealSubmitting(false);
     }
