@@ -1,188 +1,128 @@
-/**
- * 웹훅 공통 처리 라이브러리
- * - 인증 (Bearer Token)
- * - 서명 검증 (HMAC-SHA256)
- * - 멱등성 (eventId)
- * - 에러 처리
- */
-
-import { NextRequest, NextResponse } from 'next/server';
-import { createHmac } from 'crypto';
 import prisma from '@/lib/prisma';
-import { logger } from '@/lib/logger';
+import { webhookLogger, WebhookLogContext } from './webhook-logger';
+import { idempotency } from './idempotency';
+import { retryStrategy, RetryConfig } from './retry-strategy';
 
-export interface WebhookOptions {
-  webhookType: string;
-  secret: string;
-  requireAuth?: boolean;
-  handler: (payload: any, req: NextRequest) => Promise<any>;
+export interface WebhookHandlerResult {
+  success: boolean;
+  statusCode: number;
+  durationMs: number;
+  errorMessage?: string;
+  responseBody?: any;
 }
 
-export interface WebhookResponse {
-  ok: boolean;
-  message?: string;
-  data?: any;
-  duplicate?: boolean;
+export interface WebhookEventPayload {
+  [key: string]: any;
 }
 
-/**
- * 웹훅 메인 핸들러
- * - Bearer Token 검증
- * - 서명 검증
- * - 멱등성 체크
- * - 비즈니스 로직 호출
- * - 멱등성 기록
- */
-export async function handleWebhook(
-  req: NextRequest,
-  options: WebhookOptions
-): Promise<NextResponse<WebhookResponse>> {
-  const { webhookType, secret, requireAuth = true, handler } = options;
-  const startTime = Date.now();
+export abstract class BaseWebhookHandler {
+  abstract webhookType: string;
+  abstract handle(payload: WebhookEventPayload, organizationId: string): Promise<WebhookHandlerResult>;
 
-  try {
-    // 1. Bearer Token 검증
-    if (requireAuth) {
-      const authHeader = req.headers.get('authorization') ?? '';
-      const token = authHeader.replace('Bearer ', '');
-
-      if (token !== secret) {
-        logger.warn(`[Webhook:${webhookType}] 인증 실패`, { token: token?.slice(0, 10) });
-        return NextResponse.json({ ok: false, message: 'Unauthorized' }, { status: 401 });
-      }
-    }
-
-    // 2. 요청 본문 읽기
-    const body = await req.text();
-
-    if (!body) {
-      return NextResponse.json(
-        { ok: false, message: 'Empty body' },
-        { status: 400 }
-      );
-    }
-
-    // 3. 서명 검증
-    const signature = req.headers.get('x-signature');
-    if (signature) {
-      const expectedSignature = createHmac('sha256', secret)
-        .update(body)
-        .digest('hex');
-
-      if (signature !== expectedSignature) {
-        logger.warn(`[Webhook:${webhookType}] 서명 검증 실패`);
-        return NextResponse.json({ ok: false, message: 'Invalid signature' }, { status: 403 });
-      }
-    }
-
-    // 4. JSON 파싱
-    let payload: any;
-    try {
-      payload = JSON.parse(body);
-    } catch {
-      return NextResponse.json(
-        { ok: false, message: 'Invalid JSON' },
-        { status: 400 }
-      );
-    }
-
-    const { eventId } = payload;
-
-    // 5. eventId 필수 검증 (멱등성을 위해)
-    if (!eventId) {
-      logger.warn(`[Webhook:${webhookType}] eventId 누락`);
-      return NextResponse.json(
-        { ok: false, message: 'Missing eventId' },
-        { status: 400 }
-      );
-    }
-
-    // 6. 멱등성 체크: 이전에 처리한 이벤트인지 확인
-    const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
-      where: { eventId }
-    });
-
-    if (alreadyProcessed) {
-      logger.log(`[Webhook:${webhookType}] 중복 이벤트 무시`, { eventId });
-      return NextResponse.json({
-        ok: true,
-        message: 'Duplicate event',
-        duplicate: true
-      });
-    }
-
-    // 7. 비즈니스 로직 실행
-    let result: any;
-    let error: string | null = null;
+  protected async processEvent(
+    eventId: string,
+    organizationId: string,
+    payload: WebhookEventPayload,
+    retryConfig?: RetryConfig
+  ): Promise<WebhookHandlerResult> {
+    const startTime = Date.now();
+    let attemptNumber = 1;
 
     try {
-      result = await handler(payload, req);
-    } catch (err) {
-      error = (err as Error).message;
-      logger.error(`[Webhook:${webhookType}] 처리 실패`, { eventId, error });
-      throw err;
-    }
-
-    // 8. 멱등성 기록 (성공)
-    await prisma.processedWebhookEvent.create({
-      data: {
-        id: crypto.randomUUID(),
+      const ctx: WebhookLogContext = {
         eventId,
-        webhookType,
-        status: 'SUCCESS',
-        errorMessage: null,
-        retryCount: 0
+        webhookType: this.webhookType,
+        organizationId,
+        attemptNumber,
+      };
+
+      webhookLogger.logStart(ctx);
+
+      const isDuplicate = await idempotency.checkExists(eventId);
+      if (isDuplicate) {
+        const durationMs = Date.now() - startTime;
+        webhookLogger.logSuccess(ctx, durationMs);
+        return {
+          success: true,
+          statusCode: 200,
+          durationMs,
+        };
       }
-    });
 
-    const duration = Date.now() - startTime;
-    logger.log(`[Webhook:${webhookType}] 처리 완료`, { eventId, duration: `${duration}ms` });
+      const result = await this.handle(payload, organizationId);
+      const durationMs = Date.now() - startTime;
 
-    return NextResponse.json({
-      ok: true,
-      message: 'Processed',
-      data: result
-    });
+      if (result.success) {
+        webhookLogger.logSuccess(ctx, durationMs);
 
-  } catch (error) {
-    // 에러 발생 시 멱등성 기록 (FAILED)
-    try {
-      const body = await req.text();
-      const payload = JSON.parse(body);
-      const { eventId } = payload;
-
-      if (eventId) {
-        await prisma.processedWebhookEvent.create({
+        await prisma.webhookEvent.create({
           data: {
-            id: crypto.randomUUID(),
             eventId,
-            webhookType,
-            status: 'FAILED',
-            errorMessage: (error as Error).message,
-            retryCount: 0
-          }
-        }).catch(() => {
-          // 멱등성 기록 실패 무시
+            organizationId,
+            webhookType: this.webhookType,
+            payload,
+            status: 'COMPLETED',
+            processingStartAt: new Date(startTime),
+            processingEndAt: new Date(),
+            executionTimeMs: durationMs,
+          },
         });
+
+        await prisma.webhookLog.create({
+          data: {
+            webhookEventId: eventId,
+            attemptNumber,
+            status: 'SUCCESS',
+            statusCode: result.statusCode,
+            durationMs,
+            handlerName: this.constructor.name,
+            responseBody: JSON.stringify(result.responseBody),
+          },
+        });
+
+        return {
+          ...result,
+          durationMs,
+        };
+      } else {
+        throw new Error(result.errorMessage || 'Handler returned failure');
       }
-    } catch {
-      // 에러 로깅 실패 무시
+    } catch (error) {
+      const durationMs = Date.now() - startTime;
+      const err = error instanceof Error ? error : new Error(String(error));
+
+      const ctx: WebhookLogContext = {
+        eventId,
+        webhookType: this.webhookType,
+        organizationId,
+        attemptNumber,
+      };
+
+      const shouldRetry = retryStrategy.isRetryableError(err);
+
+      if (shouldRetry && retryStrategy.shouldRetry(attemptNumber, retryConfig)) {
+        const nextRetryAt = retryStrategy.calculateNextRetryAt(attemptNumber, retryConfig);
+        webhookLogger.logRetry(ctx, nextRetryAt, err.message);
+
+        await prisma.retryQueue.create({
+          data: {
+            webhookEventId: eventId,
+            scheduledFor: nextRetryAt,
+            backoffFactor: retryConfig?.backoffFactor || 2.0,
+            baseDelayMs: retryConfig?.baseDelayMs || 1000,
+            status: 'QUEUED',
+          },
+        });
+      } else {
+        webhookLogger.logDeadLetterQueue(ctx, err.message);
+      }
+
+      return {
+        success: false,
+        statusCode: 500,
+        durationMs,
+        errorMessage: err.message,
+      };
     }
-
-    logger.error(`[Webhook:${webhookType}] 예상 밖의 에러`, {
-      error: (error as Error).message
-    });
-
-    return NextResponse.json(
-      { ok: false, message: 'Internal Server Error' },
-      { status: 500 }
-    );
   }
-}
-
-/**
- * 웹훅 응답 래퍼
- */
-export function webhookResponse(data: WebhookResponse, status: number = 200) {
-  return NextResponse.json(data, { status });
 }

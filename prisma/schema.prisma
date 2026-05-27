@@ -71,6 +71,11 @@ model Organization {
   dailyReports               DailyReport[]
   // A/B 테스트
   segmentAbTests             SegmentABTest[]             @relation("SegmentABTests")
+  // Loop 4: Partner SMS Logs
+  partnerSmsLogs             PartnerSmsLog[]
+  partnerRiskScoreChanges    PartnerRiskScoreChange[]
+  // Webhook Infrastructure
+  webhookEvents              WebhookEvent[]
 }
 
 model OrgSmsConfig {
@@ -921,10 +926,11 @@ model SmsLog {
   contactId      String?
   phone          String
   contentPreview String
+  msg            String    @default("") // 실제 메시지 내용 (배송 추적용)
   status         String    @default("SENT")
   blockReason    String?
   resultCode     String?
-  msgId          String?
+  msgId          String?   // Aligo 메시지 ID (배송 상태 추적용)
   channel        String    @default("FUNNEL")
   sentAt         DateTime  @default(now())
   // A/B Test Tracking
@@ -939,6 +945,7 @@ model SmsLog {
 
   @@index([organizationId, sentAt])
   @@index([contactId, sentAt])
+  @@index([msgId]) // Aligo msgId로 배송 상태 조회용
   @@index([abTestId])
   @@index([abTestGroup, sentAt])
   @@index([organizationId, abTestId, abTestGroup])
@@ -1085,6 +1092,75 @@ model ExecutionLog {
   @@index([sourceId], map: "idx_execution_source")
   @@index([campaignId], map: "idx_execution_campaign")
   @@map("ExecutionLog")
+}
+
+model WebhookEvent {
+  id                    String          @id @default(cuid())
+  eventId               String          @unique
+  organizationId        String
+  webhookType           String // "MESSAGE_SENT" | "MESSAGE_FAILED" | "MESSAGE_OPENED" | "ANALYTICS_UPDATED" | etc.
+  payload               Json
+  status                String          @default("PENDING") // "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED"
+  processingStartAt     DateTime?
+  processingEndAt       DateTime?
+  executionTimeMs       Int?
+  errorMessage          String?
+  retryCount            Int             @default(0)
+  maxRetries            Int             @default(5)
+  nextRetryAt           DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  logs                  WebhookLog[]
+  retryQueue            RetryQueue?
+  organization          Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, webhookType, createdAt])
+  @@index([organizationId, nextRetryAt, status], map: "idx_webhook_retry_partial")
+  @@index([eventId])
+  @@map("WebhookEvent")
+}
+
+model WebhookLog {
+  id              String        @id @default(cuid())
+  webhookEventId  String
+  attemptNumber   Int
+  status          String        // "PENDING" | "SUCCESS" | "FAILURE" | "TIMEOUT"
+  statusCode      Int?
+  durationMs      Int?
+  handlerName     String
+  errorMessage    String?
+  responseBody    String?
+  createdAt       DateTime      @default(now())
+
+  webhookEvent    WebhookEvent  @relation(fields: [webhookEventId], references: [id], onDelete: Cascade)
+
+  @@index([webhookEventId, attemptNumber])
+  @@index([webhookEventId, status])
+  @@index([status, createdAt])
+  @@map("WebhookLog")
+}
+
+model RetryQueue {
+  id              String        @id @default(cuid())
+  webhookEventId  String        @unique
+  priority        Int           @default(0)
+  scheduledFor    DateTime
+  backoffFactor   Float         @default(2.0)
+  baseDelayMs     Int           @default(1000)
+  status          String        @default("QUEUED") // "QUEUED" | "PROCESSING" | "COMPLETED" | "DEAD_LETTER"
+  lockedUntil     DateTime?
+  lockedBy        String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  webhookEvent    WebhookEvent  @relation(fields: [webhookEventId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledFor, priority])
+  @@index([lockedBy, lockedUntil])
+  @@index([priority, scheduledFor])
+  @@map("RetryQueue")
 }
 
 model SalesPlaybook {
@@ -1846,6 +1922,8 @@ model Partner {
   performances        PartnerPerformance[]
   riskFlags           PartnerRiskFlags?
   onboardingLogs      PartnerOnboardingLog[]
+  smsLogs             PartnerSmsLog[]
+  riskScoreChanges    PartnerRiskScoreChange[]
 
   @@unique([organizationId, name])
   @@index([organizationId])
@@ -1998,6 +2076,84 @@ model PartnerOnboardingLog {
   @@index([partnerId, day])
   @@index([emailSent, day])
   @@map("PartnerOnboardingLog")
+}
+
+// Partner Alert SMS Log (Loop 4)
+model PartnerSmsLog {
+  id              String   @id @default(cuid())
+  organizationId  String
+  partnerId       String?  // Optional for Loop 5 (contactId-based)
+  contactId       String?  // Loop 5: Contact form submission
+  day             String   // "day0", "day1", "day2", "day3"
+  riskLevel       String?  // Loop 4: "RED", "YELLOW", "GREEN" (optional for Loop 5)
+  messageType     String   // "URGENT_RETENTION", "TRAINING_OFFER", "INCENTIVE", "LOOP5_DAY0_PROBLEM_AGITATE", etc.
+  messageContent  String   @db.Text
+  phoneNumber     String
+
+  // Loop 5: Segment & Variant
+  segment         String?  // "A", "B", "C", "D", "E"
+  variant         String?  // "a", "b" for A/B testing
+
+  // SMS Status
+  status          String   @default("PENDING") // "PENDING" | "SENT" | "FAILED" | "BOUNCED" | "CLICKED"
+  smsId           String?  // Aligo SMS ID
+  sentAt          DateTime? @db.Timestamptz(6)
+  failureReason   String?
+  retryCount      Int      @default(0)
+  maxRetries      Int      @default(3)
+
+  // Response Tracking
+  openedAt        DateTime? @db.Timestamptz(6)
+  clickedAt       DateTime? @db.Timestamptz(6)
+
+  // Metadata
+  triggeredBy     String?  // "AUTO_RISK_SCORE" | "MANUAL_ADMIN" | "CRON_JOB" | "AUTO_FORM_SUBMISSION"
+  metadata        Json?
+
+  partner         Partner? @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  contact         Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([organizationId, partnerId])
+  @@index([organizationId, contactId])
+  @@index([organizationId, status])
+  @@index([partnerId, day])
+  @@index([contactId, day])
+  @@index([segment])
+  @@index([riskLevel])
+  @@index([sentAt])
+  @@map("PartnerSmsLog")
+}
+
+// Loop 4: RiskScore 변경 이력 추적
+model PartnerRiskScoreChange {
+  id              String   @id @default(cuid())
+  organizationId  String
+  partnerId       String
+
+  // 변경 정보
+  previousScore   Int
+  currentScore    Int
+  previousLevel   String   // "RED", "YELLOW", "GREEN"
+  currentLevel    String
+
+  // 트리거 정보
+  triggerReason   String   // "LOW_PERFORMANCE", "CHURN_SPIKE", "SKILL_GAP", "DISHONESTY", "RECOVERY"
+  smsTriggered    Boolean  @default(false)
+  triggeredSmsId  String?  // FK to PartnerSmsLog
+  smsMessageType  String?  // "URGENT_RETENTION", "TRAINING_OFFER", "RECOVERY_POSITIVE"
+
+  partner         Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([organizationId, partnerId])
+  @@index([organizationId, currentLevel])
+  @@index([currentScore])
+  @@index([smsTriggered])
+  @@map("PartnerRiskScoreChange")
 }
 
 model ContactFunnelState {
@@ -6218,4 +6374,23 @@ model NextBestAction {
   @@index([organizationId, status])
   @@index([createdAt])
   @@map("NextBestAction")
+}
+
+// Loop 5-C: 폼 최적화 및 A/B 테스트
+model FormSubmission {
+  id String @id @default(cuid())
+  variant String // 'a', 'b', 'c'
+  segment String // 'A', 'B', 'C', 'D', 'E'
+  completionTimeMs Int // 폼 작성 소요시간 (ms)
+  ageRange String // '20s', '30s', '40s', '50s', '60s', '70s+'
+  preferenceType String // 'romance', 'family', 'culture' 등
+  affiliateCode String? // 공유 링크 파트너 코드
+  userAgent String // 디바이스 식별
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([variant])
+  @@index([segment])
+  @@index([variant, createdAt])
+  @@map("FormSubmission")
 }

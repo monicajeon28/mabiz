@@ -4,13 +4,18 @@ export const maxDuration = 60;
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import prisma from "@/lib/prisma";
-import { sendSms, getOrgSmsConfig } from "@/lib/aligo";
+import { processPendingSms } from "@/lib/aligo/batch-sender";
 import { logger } from "@/lib/logger";
 
 /**
  * GET /api/cron/scheduled-sms
  * Vercel Cron (매 5분) — PENDING 상태 + scheduledAt <= now() 발송 처리
  * Authorization: Bearer CRON_SECRET
+ *
+ * 업그레이드 (2026-05-28):
+ * - Aligo 배치 발송 API 사용 (처리량 증대)
+ * - 자동 재시도 (최대 3회)
+ * - 배송 상태 추적 지원
  */
 export async function GET(req: Request) {
   // Cron 인증 — Vercel Cron Bearer token
@@ -36,134 +41,54 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  const now = new Date();
-  const hour = now.getHours();
-  const canProcessNightBlocked = hour >= 8; // 08:00 이후만 NIGHT_BLOCKED 처리 가능
+  try {
+    const now = new Date();
+    const hour = now.getHours();
+    const canProcessNightBlocked = hour >= 8; // 08:00 이후만 NIGHT_BLOCKED 처리 가능
 
-  // 처리할 예약 목록 (최대 50건/회)
-  const due = await prisma.scheduledSms.findMany({
-    where: {
-      status:      canProcessNightBlocked ? { in: ["PENDING", "NIGHT_BLOCKED"] } : "PENDING",
-      scheduledAt: { lte: now },
-    },
-    orderBy: { scheduledAt: "asc" },
-    take:    50,
-  });
+    // 처리할 조직 목록 조회 (PENDING 또는 NIGHT_BLOCKED SMS가 있는 조직만)
+    const organizationsWithSms = await prisma.scheduledSms.findMany({
+      where: {
+        status: canProcessNightBlocked ? { in: ["PENDING", "NIGHT_BLOCKED"] } : "PENDING",
+        scheduledAt: { lte: now },
+      },
+      select: { organizationId: true },
+      distinct: ["organizationId"],
+      take: 10, // 한 번에 최대 10개 조직 처리
+    });
 
-  if (due.length === 0) {
-    return NextResponse.json({ ok: true, processed: 0 });
-  }
-
-  let processed = 0;
-  let errors    = 0;
-
-  for (const item of due) {
-    try {
-      // 낙관적 잠금 — PENDING/NIGHT_BLOCKED → SENDING (다른 인스턴스 중복 처리 방지)
-      const locked = await prisma.scheduledSms.updateMany({
-        where: { id: item.id, status: { in: ["PENDING", "NIGHT_BLOCKED"] } },
-        data:  { status: "SENDING" },
-      });
-      if (locked.count === 0) continue; // 이미 다른 인스턴스가 처리 중
-
-      const smsConfig = await getOrgSmsConfig(item.organizationId);
-      if (!smsConfig) {
-        await prisma.scheduledSms.update({
-          where: { id: item.id },
-          data:  { status: "FAILED" },
-        });
-        errors++;
-        continue;
-      }
-
-      const config = {
-        key:    smsConfig.aligoKey,
-        userId: smsConfig.aligoUserId,
-        sender: smsConfig.senderPhone,
-      };
-
-      // 수신자 목록 조회
-      const recipients: { id: string; name: string; phone: string }[] = [];
-
-      if (item.contactId) {
-        const c = await prisma.contact.findFirst({
-          where: { id: item.contactId, organizationId: item.organizationId, optOutAt: null },
-          select: { id: true, name: true, phone: true },
-        });
-        if (c) recipients.push(c);
-      } else if (item.groupId) {
-        const members = await prisma.contactGroupMember.findMany({
-          where: {
-            groupId: item.groupId,
-            contact: { organizationId: item.organizationId, optOutAt: null, phone: { not: "" } },
-          },
-          include: { contact: { select: { id: true, name: true, phone: true } } },
-          take: 200,
-        });
-        recipients.push(...members.map((m) => m.contact));
-      }
-
-      let sentCount    = 0;
-      let failedCount  = 0;
-      let nightBlocked = false;
-
-      for (const r of recipients) {
-        const msg = item.message
-          .replace(/\[고객명\]/g, r.name)
-          .replace(/\[이름\]/g,   r.name);
-
-        const result = await sendSms({
-          config,
-          receiver:       r.phone,
-          msg,
-          organizationId: item.organizationId,
-          contactId:      r.id,
-          channel:        "MANUAL",
-        });
-
-        if (Number(result.result_code) === 1) {
-          sentCount++;
-        } else if (Number(result.result_code) === -98) {
-          // 야간 차단 — 같은 시간대이므로 전체 중단
-          nightBlocked = true;
-          break;
-        } else {
-          failedCount++;
-        }
-      }
-
-      if (nightBlocked) {
-        await prisma.scheduledSms.update({
-          where: { id: item.id },
-          data:  { status: "NIGHT_BLOCKED" },
-        });
-        logger.log("[Cron/ScheduledSms] 야간 차단 → NIGHT_BLOCKED (다음 08시 이후 재시도)", { id: item.id });
-        continue; // SENT로 덮어쓰기 방지 — 다음 item으로
-      }
-
-      await prisma.scheduledSms.update({
-        where: { id: item.id },
-        data: {
-          status:     "SENT",
-          sentAt:     new Date(),
-          sentCount,
-          failedCount,
-        },
-      });
-
-      logger.log("[Cron/ScheduledSms] 처리 완료", {
-        id: item.id, sentCount, failedCount,
-      });
-      processed++;
-    } catch (err) {
-      logger.error("[Cron/ScheduledSms] 처리 실패", { id: item.id, err });
-      await prisma.scheduledSms.update({
-        where: { id: item.id },
-        data:  { status: "FAILED" },
-      }).catch((e) => logger.log('[CronSMS] FAILED 상태 업데이트 실패', { error: e instanceof Error ? e.message : String(e) }));
-      errors++;
+    if (organizationsWithSms.length === 0) {
+      return NextResponse.json({ ok: true, processed: 0, errors: 0 });
     }
-  }
 
-  return NextResponse.json({ ok: true, processed, errors });
+    let totalProcessed = 0;
+    let totalErrors = 0;
+
+    for (const org of organizationsWithSms) {
+      try {
+        const result = await processPendingSms(org.organizationId, 50);
+
+        totalProcessed += result.processed;
+        totalErrors += result.errors;
+
+        logger.log("[CronScheduledSms] 조직 처리 완료", {
+          organizationId: org.organizationId,
+          ...result,
+        });
+      } catch (err) {
+        logger.error("[CronScheduledSms] 조직 처리 실패", {
+          organizationId: org.organizationId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        totalErrors++;
+      }
+    }
+
+    return NextResponse.json({ ok: true, processed: totalProcessed, errors: totalErrors });
+  } catch (err) {
+    logger.error("[CronScheduledSms] 전체 오류", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
 }
