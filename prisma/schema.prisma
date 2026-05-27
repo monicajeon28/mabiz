@@ -69,11 +69,6 @@ model Organization {
   sequenceTemplates          SmsSequenceTemplate[]
   // Daily Reports
   dailyReports               DailyReport[]
-  // AI Segmentation
-  customerSegments           CustomerSegment[]
-  contactSegmentAssignments  ContactSegmentAssignment[]
-  segmentCampaignMetrics     SegmentCampaignMetric[]
-  segmentAbTests             SegmentABTest[]
 }
 
 model OrgSmsConfig {
