@@ -1,174 +1,173 @@
-export const dynamic = 'force-dynamic';
-import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
-import prisma from '@/lib/prisma';
-import { getMabizSession } from '@/lib/auth';
-import { logger } from '@/lib/logger';
-
-// GMcruise AffiliatePayslip 실제 status 값
-const ALLOWED_STATUSES = new Set(['PENDING', 'APPROVED', 'SENT']);
-const PERIOD_RE        = /^\d{4}-\d{2}$/;
-
-type RawPayslip = {
-  id: number;
-  profileId: number;
-  period: string;
-  totalCommission: number;
-  totalWithholding: number;
-  netPayment: number;
-  bonusAmount: number | null;
-  status: string;
-  sentAt: Date | null;
-  createdAt: Date;
-  agentDisplayName: string | null;
-  agentMallUserId: string | null;
-};
-
 /**
  * GET /api/payslips
- * GMcruise AffiliatePayslip 급여명세 목록 조회
- *
- * GLOBAL_ADMIN: 전체
- * OWNER:        AffiliateRelation 소속 에이전트 급여만
- * AGENT/FREE_SALES: 본인 profileId만
+ * 급여명세서 조회
+ * 원천징수 자동 계산 (3.3%)
  */
+
+import { NextRequest, NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import { getMabizSession } from '@/lib/auth';
+import { getCache, setCache } from '@/lib/redis';
+
+const WITHHOLDING_TAX_RATE = 0.033; // 3.3%
+
+interface PayslipItem {
+  id: string;
+  period: string;
+  profileId: string;
+  profileName: string;
+  commission: number;
+  bonus: number;
+  grossAmount: number;
+  withholdingTax: number;
+  netAmount: number;
+  createdAt: string;
+}
+
 export async function GET(req: NextRequest) {
   try {
-    const ctx = await getMabizSession();
-    if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
-    if (ctx.role === 'FREE_SALES') {
-      return NextResponse.json(
-        { ok: false, error: 'FORBIDDEN', message: '이 기능에 접근할 권한이 없습니다.' },
-        { status: 403 }
-      );
+    const session = await getMabizSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // OWNER는 organizationId가 필수
-    if (ctx.role === 'OWNER' && !ctx.organizationId) {
-      return NextResponse.json(
-        { ok: false, error: 'FORBIDDEN', message: '조직 정보가 없습니다.' },
-        { status: 403 }
-      );
+    const organizationId = session.organizationId;
+    const period = req.nextUrl.searchParams.get('period') || getCurrentPeriod();
+    const page = parseInt(req.nextUrl.searchParams.get('page') || '1', 10);
+    const limit = parseInt(req.nextUrl.searchParams.get('limit') || '50', 10);
+
+    const cacheKey = `payslip:${organizationId}:${period}:${page}:${limit}`;
+    const cached = await getCache<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, { headers: { 'X-Cache': 'HIT' } });
     }
 
-    const { searchParams } = new URL(req.url);
-    const page   = Math.max(1, parseInt(searchParams.get('page')  ?? '1')  || 1);
-    const limit  = Math.min(100, parseInt(searchParams.get('limit') ?? '20') || 20);
+    // 실제 데이터 조회
+    const result = await getPayslipData({
+      organizationId,
+      period,
+      page,
+      limit
+    });
+
+    const response = {
+      success: true,
+      data: result.data,
+      pagination: {
+        total: result.total,
+        page,
+        pageSize: limit,
+        totalPages: Math.ceil(result.total / limit)
+      }
+    };
+
+    await setCache(cacheKey, response, 300);
+    return NextResponse.json(response, { headers: { 'X-Cache': 'MISS' } });
+
+  } catch (error) {
+    console.error('[GET /api/payslips] Error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+/**
+ * 급여명세서 데이터 조회 및 원천징수 자동 계산
+ */
+async function getPayslipData({
+  organizationId,
+  period,
+  page,
+  limit
+}: {
+  organizationId: string;
+  period: string;
+  page: number;
+  limit: number;
+}): Promise<{ data: PayslipItem[]; total: number }> {
+  try {
     const offset = (page - 1) * limit;
 
-    const rawPeriod = searchParams.get('yearMonth')?.trim() ?? '';
-    const rawStatus = searchParams.get('status') ?? '';
+    // 기간 파싱
+    const [year, month] = period.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
 
-    const period = PERIOD_RE.test(rawPeriod) ? rawPeriod : null;
-    const status = ALLOWED_STATUSES.has(rawStatus) ? rawStatus : null;
-
-    // 역할별 스코프 조건
-    let scopeCondition: Prisma.Sql = Prisma.empty;
-
-    if (ctx.role === 'OWNER') {
-      const ownerProfileId = ctx.mallUser?.affiliateProfileId;
-      if (!ownerProfileId) {
-        return NextResponse.json({ ok: false, error: '파트너 프로필이 없습니다.' }, { status: 403 });
-      }
-      scopeCondition = Prisma.sql`
-        AND p."profileId" IN (
-          SELECT ar."agentId"
-          FROM "AffiliateRelation" ar
-          WHERE ar."managerId" = ${ownerProfileId}
-            AND ar.status = 'ACTIVE'
-        )
-      `;
-    } else if (ctx.role === 'AGENT') {
-      const agentProfileId = ctx.mallUser?.affiliateProfileId;
-      if (!agentProfileId) {
-        return NextResponse.json({ ok: false, error: '파트너 프로필이 없습니다.' }, { status: 403 });
-      }
-      scopeCondition = Prisma.sql`AND p."profileId" = ${agentProfileId}`;
-    }
-    // GLOBAL_ADMIN: 조건 없음
-
-    const periodCondition: Prisma.Sql = period
-      ? Prisma.sql`AND p."period" = ${period}`
-      : Prisma.empty;
-    const statusCondition: Prisma.Sql = status
-      ? Prisma.sql`AND p.status = ${status}`
-      : Prisma.empty;
-
-    const [rows, countRows] = await Promise.all([
-      prisma.$queryRaw<RawPayslip[]>(Prisma.sql`
-        SELECT
-          p.id,
-          p."profileId",
-          p."period",
-          p."totalCommission",
-          p."totalWithholding",
-          p."netPayment",
-          COALESCE(pb."bonusAmount", 0)::integer AS "bonusAmount",
-          p.status,
-          p."sentAt",
-          p."createdAt",
-          COALESCE(ap."displayName", u.name) AS "agentDisplayName",
-          u."mallUserId"                      AS "agentMallUserId"
-        FROM "AffiliatePayslip" p
-        JOIN "AffiliateProfile" ap ON ap.id = p."profileId"
-        JOIN "User"             u  ON u.id  = ap."userId"
-        LEFT JOIN "PayslipBonus" pb ON pb."profileId" = p."profileId"
-                                    AND pb."period" = p."period"
-                                    AND pb."deletedAt" IS NULL
-        WHERE 1=1
-          ${scopeCondition}
-          ${periodCondition}
-          ${statusCondition}
-        ORDER BY p."period" DESC, p."createdAt" DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `),
-      prisma.$queryRaw<[{ total: bigint }]>(Prisma.sql`
-        SELECT COUNT(*)::bigint AS total
-        FROM "AffiliatePayslip" p
-        JOIN "AffiliateProfile" ap ON ap.id = p."profileId"
-        JOIN "User"             u  ON u.id  = ap."userId"
-        WHERE 1=1
-          ${scopeCondition}
-          ${periodCondition}
-          ${statusCondition}
-      `),
+    // CommissionLedger에서 정산액 조회
+    const [ledgers, total] = await Promise.all([
+      prisma.commissionLedger.findMany({
+        where: {
+          createdAt: {
+            gte: startDate,
+            lte: endDate
+          }
+        },
+        include: {
+          settlement: {
+            select: {
+              id: true,
+              createdAt: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit
+      }),
+      prisma.commissionLedger.count({
+        where: {
+          createdAt: {
+            gte: startDate,
+            lte: endDate
+          }
+        }
+      })
     ]);
 
-    const total = Number(countRows[0]?.total ?? 0);
+    // PayslipBonus 데이터 조회 (보너스)
+    const bonuses = await prisma.payslipBonus.findMany({
+      where: {
+        period: period // YYYY-MM 형식
+      }
+    });
 
-    const payslips = rows.map((r) => {
-      const baseCommission = Number(r.totalCommission);
-      const bonus = Number(r.bonusAmount) || 0;
-      const grossCommission = baseCommission + bonus;
-      const deduction = Number(r.totalWithholding);
-      const netAmount = Number(r.netPayment);
+    // 보너스 맵 생성
+    const bonusMap = new Map(
+      bonuses.map(b => [b.profileId, b.bonusAmount])
+    );
+
+    // 응답 데이터 변환
+    const data: PayslipItem[] = ledgers.map((ledger, index) => {
+      const commission = Number(ledger.amount) || 0;
+      const bonus = bonusMap.get(ledger.profileId ?? 0) || 0;
+      const grossAmount = commission + bonus;
+      const withholdingTax = Math.round(grossAmount * WITHHOLDING_TAX_RATE);
+      const netAmount = grossAmount - withholdingTax;
 
       return {
-        id:                r.id,
-        agentId:           r.profileId,
-        yearMonth:         r.period,
-        baseCommission,
+        id: ledger.id.toString(),
+        period,
+        profileId: (ledger.profileId ?? 0).toString(),
+        profileName: `Profile ${ledger.profileId}`, // TODO: affiliates 테이블과 조인
+        commission,
         bonus,
-        grossCommission,
-        deduction,
+        grossAmount,
+        withholdingTax,
         netAmount,
-        status:            r.status,
-        paidAt:            r.sentAt?.toISOString() ?? null,
-        createdAt:         r.createdAt.toISOString(),
-        agentDisplayName:  r.agentDisplayName,
-        agentMallUserId:   r.agentMallUserId,
+        createdAt: ledger.settlement?.createdAt?.toISOString() || ''
       };
     });
 
-    const totalPages = Math.ceil(total / limit);
-    logger.log('[GET /api/payslips]', { role: ctx.role, total, page, totalPages });
-    return NextResponse.json({ ok: true, payslips, total, page, totalPages });
+    return { data, total };
 
-  } catch (err) {
-    logger.error('[GET /api/payslips]', { err });
-    return NextResponse.json(
-      { ok: false, error: 'SERVER_ERROR', message: '급여명세 조회 중 오류가 발생했습니다.' },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error('[getPayslipData] Error:', error);
+    return { data: [], total: 0 };
   }
+}
+
+function getCurrentPeriod(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
 }
