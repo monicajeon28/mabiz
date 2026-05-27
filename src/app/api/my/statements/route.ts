@@ -22,6 +22,58 @@ interface ApiResponse {
   totalPages?: number;
 }
 
+async function fallbackFromAffiliateSale(
+  userId: string,
+  opts: { from: string | null; to: string | null; status: string | null; page: number; limit: number }
+): Promise<NextResponse<ApiResponse>> {
+  const { from, to, status, page, limit } = opts;
+
+  const where = {
+    affiliateUserId: userId,
+    ...(status && status !== 'ALL' ? { status } : {}),
+    ...(from || to ? {
+      createdAt: {
+        ...(from ? { gte: new Date(from) } : {}),
+        ...(to ? { lte: new Date(to) } : {}),
+      },
+    } : {}),
+  };
+
+  const [sales, total] = await Promise.all([
+    prisma.affiliateSale.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+      select: {
+        id: true, orderId: true, saleAmount: true,
+        commissionRate: true, commissionAmount: true,
+        status: true, createdAt: true,
+      },
+    }),
+    prisma.affiliateSale.count({ where }),
+  ]);
+
+  const statements: Statement[] = sales.map((s) => ({
+    id:                s.id,
+    saleDate:          s.createdAt.toISOString(),
+    externalOrderCode: s.orderId ?? null,
+    saleAmount:        s.saleAmount,
+    commissionRate:    s.commissionRate,
+    confirmedAmount:   s.commissionAmount,
+    status:            s.status,
+  }));
+
+  return NextResponse.json<ApiResponse>({
+    ok: true,
+    statements,
+    total,
+    page,
+    pageSize: limit,
+    totalPages: Math.ceil(total / limit),
+  });
+}
+
 export async function GET(request: NextRequest) {
   try {
     const ctx = await getAuthContext();
@@ -50,8 +102,8 @@ export async function GET(request: NextRequest) {
     const secret = process.env.CRUISEDOT_INTERNAL_SECRET;
 
     if (!baseUrl || !secret) {
-      logger.log('[Statements] CRUISEDOT 환경변수 미설정');
-      return NextResponse.json<ApiResponse>({ ok: true, statements: [] });
+      logger.log('[Statements] CRUISEDOT 환경변수 미설정 — DB fallback 사용');
+      return fallbackFromAffiliateSale(ctx.userId, { from, to, status, page, limit });
     }
 
     // 쿼리 URL 구성

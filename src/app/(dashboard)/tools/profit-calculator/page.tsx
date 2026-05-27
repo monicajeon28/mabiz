@@ -26,6 +26,12 @@ type InputMode = 'pct' | 'amount'; // 어느 쪽을 사용자가 입력했는지
 
 // 실제 계산기 UI — 권한 통과 후에만 렌더링
 function CalculatorContent() {
+  // 희소성 슬롯 수 (마운트 후 결정 → hydration 안전)
+  const [spotsLeft, setSpotsLeft] = useState<number>(3);
+  useEffect(() => {
+    setSpotsLeft(Math.ceil(Math.random() * 3) + 1);
+  }, []);
+
   // 1단계 — 기본 단가
   const [salePrice, setSalePrice] = useState<string>('1000000');
   const [costPrice, setCostPrice] = useState<string>('800000');
@@ -165,7 +171,7 @@ function CalculatorContent() {
           <br />
           • 이번주 예약 시 카드 할인 2% 추가
           <br />
-          • 내일부터 가격 상승 예정 (주간 마감까지 {Math.ceil(Math.random() * 3) + 1}명만 가능)
+          • 내일부터 가격 상승 예정 (주간 마감까지 {spotsLeft}명만 가능)
         </p>
       </div>
 
