@@ -171,38 +171,39 @@ export default function OptimizationDashboard() {
   );
 
   useEffect(() => {
-    // 실제 API 호출
-    // const fetchData = async () => {
-    //   try {
-    //     const response = await fetch('/api/analytics/optimization');
-    //     const result = await response.json();
-    //     setData(result);
-    //   } catch (error) {
-    //     console.error('Failed to fetch optimization data:', error);
-    //   }
-    // };
-    // fetchData();
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch('/api/analytics/optimization');
+        const result = await response.json();
+        if (result.ok) {
+          setData({
+            ...result,
+            lastUpdateAt: new Date(result.lastUpdateAt),
+            nextUpdateAt: new Date(result.nextUpdateAt),
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch optimization data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
   const handleRefresh = async () => {
     setIsLoading(true);
     try {
-      // 실제 API 호출
-      // const response = await fetch('/api/cron/realtime-optimization', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ type: 'quick' }),
-      // });
-      // const result = await response.json();
-      // setData(result);
-
-      // Mock: 지연 후 업데이트
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setData((prev) => ({
-        ...prev,
-        lastUpdateAt: new Date(),
-        nextUpdateAt: new Date(Date.now() + 30 * 60 * 1000),
-      }));
+      const response = await fetch('/api/analytics/optimization');
+      const result = await response.json();
+      if (result.ok) {
+        setData({
+          ...result,
+          lastUpdateAt: new Date(result.lastUpdateAt),
+          nextUpdateAt: new Date(result.nextUpdateAt),
+        });
+      }
     } catch (error) {
       console.error("Failed to refresh optimization:", error);
     } finally {

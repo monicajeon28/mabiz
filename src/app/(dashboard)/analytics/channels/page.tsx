@@ -131,21 +131,26 @@ export default function ChannelsPage() {
     null
   );
 
-  // 실제 API 호출 (현재는 Mock 데이터 사용)
   useEffect(() => {
-    // const fetchData = async () => {
-    //   setLoading(true);
-    //   try {
-    //     const response = await fetch("/api/analytics/channels");
-    //     const result = await response.json();
-    //     setData(result);
-    //   } catch (error) {
-    //     console.error("Failed to fetch channel data:", error);
-    //   } finally {
-    //     setLoading(false);
-    //   }
-    // };
-    // fetchData();
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch("/api/analytics/channels");
+        const result = await response.json();
+        if (result.ok) {
+          setData({
+            ...result,
+            periodStart: new Date(result.periodStart),
+            periodEnd: new Date(result.periodEnd),
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch channel data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
   const totalSent = data.channels.reduce((sum, c) => sum + c.sent, 0);
