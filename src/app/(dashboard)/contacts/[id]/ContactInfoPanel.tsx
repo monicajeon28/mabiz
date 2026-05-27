@@ -416,6 +416,37 @@ function ContactInfoPanelComponent({
           ))}
         </div>
       </div>
+
+      {/* 결제 상태 */}
+      {contact.lastPaymentStatus && (
+        <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-1">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">결제 정보</h3>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+              contact.lastPaymentStatus === 'PAID' || contact.lastPaymentStatus === 'SUCCESS'
+                ? 'bg-green-100 text-green-700'
+                : contact.lastPaymentStatus === 'FAILED' || contact.lastPaymentStatus === 'DECLINED_PRICE'
+                ? 'bg-red-100 text-red-700'
+                : 'bg-yellow-100 text-yellow-700'
+            }`}>
+              {contact.lastPaymentStatus}
+            </span>
+            {contact.lastPaymentAt && (
+              <span className="text-xs text-gray-400">
+                {new Date(contact.lastPaymentAt).toLocaleDateString('ko-KR')}
+              </span>
+            )}
+          </div>
+          {contact.paymentStatusNote && (
+            <p className="text-xs text-gray-500 mt-1">{contact.paymentStatusNote}</p>
+          )}
+          {contact.lastRefundedAt && (
+            <p className="text-xs text-red-500">
+              환불: {new Date(contact.lastRefundedAt).toLocaleDateString('ko-KR')}
+            </p>
+          )}
+        </div>
+      )}
     </>
   );
 }

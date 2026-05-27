@@ -65,12 +65,17 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const { toast } = useToast();
 
   const [contact,       setContact]       = useState<Contact | null>(null);
-  const [tab,           setTab]           = useState<"call" | "memo" | "group" | "sms">("call");
+  const [tab,           setTab]           = useState<"call" | "memo" | "group" | "sms" | "campaigns">("call");
   const [loading,       setLoading]       = useState(true);
   const [smsLogs,       setSmsLogs]       = useState<{ id: string; phone: string; contentPreview: string; status: string; channel: string; sentAt: string }[]>([]);
   const [smsLoading,    setSmsLoading]    = useState(false);
   const [smsPage,       setSmsPage]       = useState(1);
   const [smsHasMore,    setSmsHasMore]    = useState(true);
+  const [campaignHistories, setCampaignHistories] = useState<Array<{
+    id: string; channel: string; status: string; sentAt: string | null; createdAt: string;
+    campaign: { id: string; title: string; sendSms: boolean; sendEmail: boolean } | null;
+  }>>([]);
+  const [campaignLoading, setCampaignLoading] = useState(false);
 
   // WO-22: 즉시 SMS 발송 모달
   const [showSmsModal,  setShowSmsModal]  = useState(false);
@@ -1074,10 +1079,11 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       {/* 탭 */}
       <div className="flex border-b border-gray-200 mb-4">
         {[
-          { key: "call",  label: `📞 콜기록 (${contact.callLogs.length})` },
-          { key: "memo",  label: `📝 메모 (${contact.memos.length})` },
-          { key: "group", label: "👥 그룹 배정" },
-          { key: "sms",   label: "💬 발송내역" },
+          { key: "call",      label: `📞 콜기록 (${contact.callLogs.length})` },
+          { key: "memo",      label: `📝 메모 (${contact.memos.length})` },
+          { key: "group",     label: "👥 그룹 배정" },
+          { key: "sms",       label: "💬 발송내역" },
+          { key: "campaigns", label: "📣 캠페인" },
         ].map((t) => (
           <button
             key={t.key}
@@ -1098,6 +1104,19 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                   .catch(err => {
                     logger.error("[ContactDetail] SMS 로그 fetch 실패", { contactId: contact.id, err });
                     setSmsLoading(false);
+                  });
+              }
+              if (t.key === "campaigns" && campaignHistories.length === 0) {
+                setCampaignLoading(true);
+                fetch(`/api/contacts/${contact.id}/campaigns?limit=20&page=1`)
+                  .then(r => r.json())
+                  .then(d => {
+                    if (d.ok) setCampaignHistories(d.histories ?? []);
+                    setCampaignLoading(false);
+                  })
+                  .catch(err => {
+                    logger.error("[ContactDetail] 캠페인 이력 fetch 실패", { contactId: contact.id, err });
+                    setCampaignLoading(false);
                   });
               }
             }}
@@ -1214,6 +1233,44 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           smsLogs={smsLogs}
           smsLoading={smsLoading}
         />
+      )}
+
+      {/* Campaigns Tab */}
+      {tab === "campaigns" && (
+        <div className="space-y-2">
+          {campaignLoading ? (
+            <div className="text-center text-sm text-gray-400 py-8">불러오는 중...</div>
+          ) : campaignHistories.length === 0 ? (
+            <p className="text-center text-sm text-gray-400 py-8">캠페인 발송 이력이 없습니다.</p>
+          ) : (
+            campaignHistories.map((h) => (
+              <div key={h.id} className="bg-white border border-gray-200 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                    h.status === "SENT"   ? "bg-green-100 text-green-700" :
+                    h.status === "FAILED" ? "bg-red-100 text-red-700" :
+                    h.status === "PENDING" ? "bg-yellow-100 text-yellow-700" :
+                                            "bg-gray-100 text-gray-500"
+                  }`}>
+                    {h.status}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {new Date(h.sentAt ?? h.createdAt).toLocaleString("ko-KR")}
+                  </span>
+                </div>
+                <p className="text-sm font-medium text-gray-800">
+                  {h.campaign?.title ?? "캠페인 정보 없음"}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {h.channel}
+                  {h.campaign && (
+                    <> · {h.campaign.sendSms ? "SMS" : ""}{h.campaign.sendEmail ? " 이메일" : ""}</>
+                  )}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
       )}
     </div>
   );

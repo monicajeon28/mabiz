@@ -45,4 +45,9 @@ export interface Contact {
   memos: Memo[];
   sharedCallLogs: (CallLog & { _sharedFrom: string })[];
   vipSequences: { id: string; funnelId: string; status: string; startDate: string }[];
+  // 결제 상태
+  lastPaymentStatus?: string | null;
+  lastPaymentAt?: string | null;
+  lastRefundedAt?: string | null;
+  paymentStatusNote?: string | null;
 }
