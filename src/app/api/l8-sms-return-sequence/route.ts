@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, requireOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { sendSms, getOrgSmsConfig } from "@/lib/aligo";
 
 /**
  * L8 렌즈: 재방문 습관화 SMS 자동화 시퀀스
@@ -284,26 +285,35 @@ async function getContactsForDay(organizationId: string, day: number) {
   });
 }
 
-async function sendSmsViaAligo(organizationId: string, phone: string, text: string) {
-  // Aligo API 연동 로직
-  // 실제 구현에서는 OrgSmsConfig에서 API 키 가져오기
+async function sendSmsViaAligo(organizationId: string, phone: string, text: string, contactId?: string) {
   try {
-    const config = await prisma.orgSmsConfig.findUnique({
-      where: { organizationId },
-    });
-
-    if (!config || !config.isActive) {
+    const smsConfig = await getOrgSmsConfig(organizationId);
+    if (!smsConfig || !smsConfig.isActive) {
       logger.warn("[SMS_CONFIG_ERROR] SMS config not found or inactive", { organizationId });
       return false;
     }
 
-    // TODO: Aligo SDK 호출
-    // const response = await aligoClient.send({ phone, text });
-    // return response.success;
+    const result = await sendSms({
+      config: {
+        key: smsConfig.aligoKey,
+        userId: smsConfig.aligoUserId,
+        sender: smsConfig.senderPhone,
+      },
+      receiver: phone,
+      msg: text,
+      msgType: text.length > 90 ? "LMS" : "SMS",
+      organizationId,
+      contactId,
+      channel: "FUNNEL",
+    });
 
-    // 임시: true 반환
-    logger.log(`[SMS_SENT]`, { phone: phone.slice(0, 4) + '***', textPreview: text.substring(0, 50) });
-    return true;
+    if (result.result_code === 1) {
+      logger.log("[SMS_SENT] L8 재방문 SMS 발송 성공", { phone: phone.slice(0, 4) + "***" });
+      return true;
+    }
+
+    logger.warn("[SMS_FAILED] L8 SMS 발송 실패", { code: result.result_code, message: result.message });
+    return false;
   } catch (error) {
     logger.error("[ALIGO_SEND_ERROR]", { error: error instanceof Error ? error.message : String(error) });
     return false;
