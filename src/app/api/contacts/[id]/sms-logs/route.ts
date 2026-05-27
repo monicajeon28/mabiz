@@ -56,13 +56,15 @@ export async function GET(req: Request, { params }: Params) {
 
     logger.log("[GET /api/contacts/[id]/sms-logs]", { contactId, orgId, page, limit, total });
 
+    const totalPages = Math.ceil(total / limit);
     return NextResponse.json({
       ok: true,
       logs,
       total,
       page,
       pageSize: limit,
-      totalPages: Math.ceil(total / limit),
+      totalPages,
+      hasMore: page < totalPages,
     });
   } catch (err) {
     logger.error("[GET /api/contacts/[id]/sms-logs]", { err });
