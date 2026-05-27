@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useToast } from "@/lib/api/use-toast";
 
 interface Contract {
   id: string;
@@ -93,6 +94,7 @@ function formatDate(iso: string | null) {
 }
 
 export default function ContractsPage() {
+  const { toast } = useToast();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -273,7 +275,11 @@ export default function ContractsPage() {
               {/* 옵션 A: 지금 즉시 서명 (추천) */}
               <button
                 onClick={() => {
-                  alert("✅ 옵션 A: 즉시 서명 링크가 발송되었습니다.\n지금 클릭하면 5분 내 완료 가능합니다.");
+                  toast({
+                    title: "✅ 옵션 A: 즉시 서명",
+                    description: "즉시 서명 링크가 발송되었습니다. 지금 클릭하면 5분 내 완료 가능합니다.",
+                    variant: "success",
+                  });
                   setShowOptionsModal(false);
                   // Day 0 SMS 발송 로직 추가 예상
                 }}
@@ -292,7 +298,11 @@ export default function ContractsPage() {
               {/* 옵션 B: 이메일로 링크받기 */}
               <button
                 onClick={() => {
-                  alert("📧 옵션 B: 이메일 링크가 발송되었습니다.\n나중에 클릭하시면 됩니다.");
+                  toast({
+                    title: "📧 옵션 B: 이메일 링크",
+                    description: "이메일 링크가 발송되었습니다. 나중에 클릭하시면 됩니다.",
+                    variant: "default",
+                  });
                   setShowOptionsModal(false);
                   // Day 0 SMS 발송 로직 추가 예상
                 }}
@@ -310,7 +320,11 @@ export default function ContractsPage() {
               {/* 옵션 C: PDF 다운로드 후 인쇄 */}
               <button
                 onClick={() => {
-                  alert("📄 옵션 C: PDF가 다운로드되었습니다.\n인쇄 후 서명하시면 됩니다.");
+                  toast({
+                    title: "📄 옵션 C: PDF 다운로드",
+                    description: "PDF가 다운로드되었습니다. 인쇄 후 서명하시면 됩니다.",
+                    variant: "default",
+                  });
                   setShowOptionsModal(false);
                   // Day 0 SMS 발송 로직 추가 예상
                 }}
