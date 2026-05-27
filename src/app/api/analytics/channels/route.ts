@@ -36,37 +36,41 @@ export async function GET() {
     const smsFailed = smsCur.find(r => r.status === 'FAILED')?._count.id ?? 0;
     const smsPrevSent = smsPrev.find(r => r.status === 'SENT')?._count.id ?? 0;
 
-    // ─── CrmMarketingMessage 통계 (KAKAO / EMAIL) ────────────────────────
-    const [marketingCur, marketingPrev] = await Promise.all([
-      prisma.crmMarketingMessage.groupBy({
-        by: ['channel', 'deliveryStatus'],
+    // ─── AdminMessage 통계 (KAKAO / EMAIL) ───────────────────────────────
+    const [adminMsgCur, adminMsgPrev] = await Promise.all([
+      prisma.adminMessage.groupBy({
+        by: ['messageType'],
         where: {
           organizationId,
-          channel: { in: ['KAKAO', 'EMAIL'] },
+          messageType: { in: ['kakao', 'email'] },
           createdAt: { gte: periodStart },
         },
-        _count: { id: true },
+        _sum: { totalSent: true, successCount: true },
       }),
-      prisma.crmMarketingMessage.groupBy({
-        by: ['channel', 'deliveryStatus'],
+      prisma.adminMessage.groupBy({
+        by: ['messageType'],
         where: {
           organizationId,
-          channel: { in: ['KAKAO', 'EMAIL'] },
+          messageType: { in: ['kakao', 'email'] },
           createdAt: { gte: prevStart, lt: prevEnd },
         },
-        _count: { id: true },
+        _sum: { totalSent: true, successCount: true },
       }),
     ]);
 
-    const getMarketingCount = (rows: typeof marketingCur, channel: string, status: string) =>
-      rows.find(r => r.channel === channel && r.deliveryStatus === status)?._count.id ?? 0;
+    const getAdminMsgSent    = (rows: typeof adminMsgCur, type: string) =>
+      rows.find(r => r.messageType === type)?._sum.successCount ?? 0;
+    const getAdminMsgFailed  = (rows: typeof adminMsgCur, type: string) => {
+      const row = rows.find(r => r.messageType === type);
+      return Math.max(0, (row?._sum.totalSent ?? 0) - (row?._sum.successCount ?? 0));
+    };
 
-    const kakaoSent      = getMarketingCount(marketingCur,  'KAKAO', 'DELIVERED');
-    const kakaoFailed    = getMarketingCount(marketingCur,  'KAKAO', 'FAILED');
-    const emailSent      = getMarketingCount(marketingCur,  'EMAIL', 'DELIVERED');
-    const emailFailed    = getMarketingCount(marketingCur,  'EMAIL', 'FAILED');
-    const kakaoPrevSent  = getMarketingCount(marketingPrev, 'KAKAO', 'DELIVERED');
-    const emailPrevSent  = getMarketingCount(marketingPrev, 'EMAIL', 'DELIVERED');
+    const kakaoSent      = getAdminMsgSent(adminMsgCur,   'kakao');
+    const kakaoFailed    = getAdminMsgFailed(adminMsgCur,  'kakao');
+    const emailSent      = getAdminMsgSent(adminMsgCur,   'email');
+    const emailFailed    = getAdminMsgFailed(adminMsgCur,  'email');
+    const kakaoPrevSent  = getAdminMsgSent(adminMsgPrev,  'kakao');
+    const emailPrevSent  = getAdminMsgSent(adminMsgPrev,  'email');
 
     // ─── 트렌드 계산 ──────────────────────────────────────────────────────
     const calcTrend = (cur: number, prev: number) => {
