@@ -28,6 +28,19 @@ type PlaybookItem = {
   notes?: string;
   pasonaStage?: string;
   effectivenessScore?: number;
+  day0Template?: string;
+  day1Template?: string;
+  day2Template?: string;
+  day3Template?: string;
+  psychologyLens?: "L6" | "L10";
+  lossAversionVariant?: string;
+  immediateClosingVariant?: string;
+};
+
+type PersonalizationVar = {
+  key: string;
+  label: string;
+  example: string;
 };
 
 type ClosingSignal = {
@@ -76,6 +89,42 @@ const MONIKA_AMPLIFY_LEVELS: Record<string, string> = {
   "4": "행동 유도",
 };
 
+const PERSONALIZATION_VARS: PersonalizationVar[] = [
+  { key: "[이름]", label: "고객 이름", example: "김철수" },
+  { key: "[전화번호]", label: "고객 전화번호", example: "010-1234-5678" },
+  { key: "[담당자]", label: "담당 상담사 이름", example: "이모니카" },
+  { key: "[상품명]", label: "관심 상품명", example: "카리브 럭셔리 7박 크루즈" },
+  { key: "[출발일]", label: "예정 출발일", example: "2026-08-15" },
+  { key: "[가격]", label: "상품 가격 (만원)", example: "1,850" },
+  { key: "[출발지]", label: "출발 도시", example: "마이애미" },
+  { key: "[목적지]", label: "목적지 도시", example: "카리브해" },
+  { key: "[일정]", label: "여행 일정 (박수)", example: "7박 8일" },
+  { key: "[객실유형]", label: "선호 객실 유형", example: "발코니 스위트" },
+];
+
+const DAY_0_3_SCHEDULE = [
+  { day: 0, label: "Day 0", stage: "초대 + 문제 인식", time: "즉시 발송", icon: "🔔", color: "bg-red-50" },
+  { day: 1, label: "Day 1", stage: "자극 + 솔루션", time: "24시간 후", icon: "📢", color: "bg-yellow-50" },
+  { day: 2, label: "Day 2", stage: "오퍼 + 좁혀진범위", time: "48시간 후", icon: "💰", color: "bg-green-50" },
+  { day: 3, label: "Day 3", stage: "긴박감 + 최종 액션", time: "72시간 후", icon: "⚡", color: "bg-purple-50" },
+];
+
+const L6_LOSS_AVERSION_TECHNIQUES = [
+  "❌ 기회 비용 강조: '지금 예약하지 않으면 [출발일] 좌석 없을 수 있습니다'",
+  "⏰ 타이밍 희소성: '이 가격은 [YYYY-MM-DD]까지만 유효합니다'",
+  "📉 가격 상승 경고: '한 달 뒤 가격은 [current_price + 300]만원으로 오릅니다'",
+  "🚫 재구매 불가: '이 시즌 [상품명]은 재고가 [N]개뿐입니다'",
+  "👥 경쟁 심화: '[경쟁사명]에서도 같은 일정을 판매하고 있습니다'",
+];
+
+const L10_IMMEDIATE_CLOSING_TECHNIQUES = [
+  "⚡ 즉시 구매 프레임: '지금 바로 신청하면 5분 내에 예약 확정됩니다'",
+  "🎁 제한된 보너스: '오늘 예약 고객에게만 [bonus_name] 무료 추가'",
+  "✅ 간편 결제: '신용카드 한 장으로 [N]분 안에 완료되는 간편 결제'",
+  "🏆 VIP 우대: '지금 예약하면 [특전명](가격: [amount])을 무료로 드립니다'",
+  "📱 모바일 원클릭: '앱에서 원클릭으로 선약금 [amount]만 결제하면 끝'",
+];
+
 const CLOSING_SIGNALS: ClosingSignal[] = [
   { id: "1", text: "언제까지 가능해요?", checked: false },
   { id: "2", text: "어떻게 예약해요?", checked: false },
@@ -99,6 +148,20 @@ export default function PlaybookViewerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
   const [detectedSegment, setDetectedSegment] = useState<Segment>("A");
+  const [selectedPsychologyLens, setSelectedPsychologyLens] = useState<"L6" | "L10" | null>(null);
+  const [showDay03Preview, setShowDay03Preview] = useState(false);
+  const [sampleCustomer, setSampleCustomer] = useState({
+    name: "김철수",
+    phone: "010-1234-5678",
+    agentName: "이모니카",
+    productName: "카리브 럭셔리 7박 크루즈",
+    departDate: "2026-08-15",
+    price: "1,850",
+    departure: "마이애미",
+    destination: "카리브해",
+    duration: "7박 8일",
+    roomType: "발코니 스위트",
+  });
 
   // URL 파라미터로 Contact 정보를 받아 세그먼트 자동 감지
   // 예: /tools/playbook-viewer?age=42&maritalStatus=MARRIED&childrenCount=2
@@ -248,6 +311,21 @@ export default function PlaybookViewerPage() {
       status: "success",
     });
   }, [toast]);
+
+  const personalizeContent = useCallback((content: string): string => {
+    let result = content;
+    result = result.replace(/\[이름\]/g, sampleCustomer.name);
+    result = result.replace(/\[전화번호\]/g, sampleCustomer.phone);
+    result = result.replace(/\[담당자\]/g, sampleCustomer.agentName);
+    result = result.replace(/\[상품명\]/g, sampleCustomer.productName);
+    result = result.replace(/\[출발일\]/g, sampleCustomer.departDate);
+    result = result.replace(/\[가격\]/g, sampleCustomer.price);
+    result = result.replace(/\[출발지\]/g, sampleCustomer.departure);
+    result = result.replace(/\[목적지\]/g, sampleCustomer.destination);
+    result = result.replace(/\[일정\]/g, sampleCustomer.duration);
+    result = result.replace(/\[객실유형\]/g, sampleCustomer.roomType);
+    return result;
+  }, [sampleCustomer]);
 
   // Phase 버튼들
   const phases = Array.from({ length: 10 }, (_, i) => i);
@@ -562,6 +640,150 @@ export default function PlaybookViewerPage() {
                       {PSYCHOLOGY_BADGES[selectedItem.psychology]?.label}
                     </div>
                     <p className="text-xs text-gray-600 mt-1">{PSYCHOLOGY_BADGES[selectedItem.psychology]?.desc}</p>
+                  </div>
+                )}
+
+                {/* Loop 3: Psychology Lens 선택 */}
+                <div className="mb-5">
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">🎯 심리학 렌즈 적용</h4>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSelectedPsychologyLens(selectedPsychologyLens === "L6" ? null : "L6")}
+                      className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                        selectedPsychologyLens === "L6"
+                          ? "bg-orange-500 text-white"
+                          : "bg-orange-100 text-orange-800 hover:bg-orange-200"
+                      }`}
+                    >
+                      ⏰ L6 (손실회피/타이밍)
+                    </button>
+                    <button
+                      onClick={() => setSelectedPsychologyLens(selectedPsychologyLens === "L10" ? null : "L10")}
+                      className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                        selectedPsychologyLens === "L10"
+                          ? "bg-red-500 text-white"
+                          : "bg-red-100 text-red-800 hover:bg-red-200"
+                      }`}
+                    >
+                      ⚡ L10 (즉시구매)
+                    </button>
+                  </div>
+                </div>
+
+                {/* L6 손실회피/타이밍 기법 */}
+                {selectedPsychologyLens === "L6" && (
+                  <div className="mb-5 p-3 bg-orange-50 border-l-4 border-orange-500 rounded">
+                    <h4 className="text-xs font-semibold text-orange-900 uppercase mb-2">⏰ L6: 손실회피 + 타이밍 (Loss Aversion)</h4>
+                    <p className="text-xs text-orange-700 mb-2">고객이 지금 바로 결정해야 하는 심리적 이유를 강조합니다.</p>
+                    <ul className="text-xs text-orange-700 space-y-1">
+                      {L6_LOSS_AVERSION_TECHNIQUES.map((tech, idx) => (
+                        <li key={idx} className="list-none">{tech}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* L10 즉시구매 클로징 기법 */}
+                {selectedPsychologyLens === "L10" && (
+                  <div className="mb-5 p-3 bg-red-50 border-l-4 border-red-500 rounded">
+                    <h4 className="text-xs font-semibold text-red-900 uppercase mb-2">⚡ L10: 즉시구매 클로징 (Immediate Closing)</h4>
+                    <p className="text-xs text-red-700 mb-2">구매 결정을 최대한 간편하게 만드는 강력한 클로징 기법입니다.</p>
+                    <ul className="text-xs text-red-700 space-y-1">
+                      {L10_IMMEDIATE_CLOSING_TECHNIQUES.map((tech, idx) => (
+                        <li key={idx} className="list-none">{tech}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Day 0-3 PASONA 일정 */}
+                <div className="mb-5">
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">📅 Day 0-3 PASONA 일정</h4>
+                  <div className="space-y-2">
+                    {DAY_0_3_SCHEDULE.map((day) => (
+                      <div key={day.day} className={`p-2 rounded-lg border border-gray-200 ${day.color}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{day.icon}</span>
+                            <div>
+                              <p className="text-xs font-semibold text-gray-900">{day.label}: {day.stage}</p>
+                              <p className="text-xs text-gray-600">{day.time}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setShowDay03Preview(!showDay03Preview)}
+                    className="w-full mt-3 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium rounded-lg transition-colors"
+                  >
+                    {showDay03Preview ? "미리보기 닫기" : "🔍 동적 내용 미리보기"}
+                  </button>
+                </div>
+
+                {/* Day 0-3 동적 미리보기 */}
+                {showDay03Preview && (
+                  <div className="mb-5 p-4 bg-blue-50 rounded-lg border border-blue-200 space-y-3">
+                    <h4 className="text-xs font-semibold text-blue-900 uppercase">📝 개인화된 메시지 미리보기</h4>
+
+                    {/* 샘플 고객 정보 편집 */}
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-gray-600 mb-2">샘플 고객 정보 (미리보기용)</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          value={sampleCustomer.name}
+                          onChange={(e) => setSampleCustomer({ ...sampleCustomer, name: e.target.value })}
+                          placeholder="고객 이름"
+                          className="col-span-2 px-2 py-1 text-xs border rounded bg-white"
+                        />
+                        <input
+                          type="text"
+                          value={sampleCustomer.productName}
+                          onChange={(e) => setSampleCustomer({ ...sampleCustomer, productName: e.target.value })}
+                          placeholder="상품명"
+                          className="col-span-2 px-2 py-1 text-xs border rounded bg-white"
+                        />
+                        <input
+                          type="text"
+                          value={sampleCustomer.price}
+                          onChange={(e) => setSampleCustomer({ ...sampleCustomer, price: e.target.value })}
+                          placeholder="가격"
+                          className="px-2 py-1 text-xs border rounded bg-white"
+                        />
+                        <input
+                          type="text"
+                          value={sampleCustomer.departDate}
+                          onChange={(e) => setSampleCustomer({ ...sampleCustomer, departDate: e.target.value })}
+                          placeholder="출발일"
+                          className="px-2 py-1 text-xs border rounded bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 개인화된 메시지 */}
+                    <div className="bg-white rounded p-2 border border-blue-200">
+                      <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
+                        {personalizeContent(selectedItem.content)}
+                      </p>
+                    </div>
+
+                    {/* 사용된 변수 목록 */}
+                    <div>
+                      <p className="text-xs font-medium text-gray-600 mb-1">사용 가능한 변수:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {PERSONALIZATION_VARS.map((var_) => (
+                          <span
+                            key={var_.key}
+                            className="px-2 py-0.5 bg-gray-200 text-gray-700 text-xs rounded font-mono"
+                            title={var_.label}
+                          >
+                            {var_.key}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
 
