@@ -185,7 +185,7 @@ async function handleAutomaticSequence(organizationId: string) {
     results.day10.total++;
     try {
       const smsText = SMS_TEMPLATES[10](contact.name);
-      const sent = await sendSmsViaAligo(organizationId, contact.phone, smsText);
+      const sent = await sendSmsViaAligo(organizationId, contact.phone, smsText, contact.id);
       if (sent) {
         await prisma.contact.update({
           where: { id: contact.id },
@@ -212,7 +212,7 @@ async function handleAutomaticSequence(organizationId: string) {
         contact.name,
         contact.nextCruiseRecommendation || "다음 크루즈"
       );
-      const sent = await sendSmsViaAligo(organizationId, contact.phone, smsText);
+      const sent = await sendSmsViaAligo(organizationId, contact.phone, smsText, contact.id);
       if (sent) {
         await prisma.contact.update({
           where: { id: contact.id },
