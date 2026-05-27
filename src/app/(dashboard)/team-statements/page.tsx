@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/hooks/useSession";
 
 interface TeamStatement {
   id: string;
@@ -149,7 +149,7 @@ export default function TeamStatementsPage() {
   const [memberRole, setMemberRole] = useState<string>("JUNIOR_OWNER");
 
   // 현재 사용자의 role 확인
-  const userRole = (session.data?.user as any)?.role;
+  const userRole = session.role;
   const isOwner = userRole === 'OWNER';
 
   useEffect(() => {
