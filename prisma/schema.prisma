@@ -384,6 +384,7 @@ model Contact {
   shortLinkClicks            ShortLinkClick[]
   vipSequences               VipCareSequence[]
   marketingMessages          CrmMarketingMessage[]       @relation("CrmMarketingMessages")
+  partnerSmsLogs             PartnerSmsLog[]
   // PHASE 7-3/4: Proactive Outreach Predictions
   churnPredictions           ChurnPrediction[]           @relation("ChurnPredictions")
   upsellOpportunities        UpsellOpportunity[]         @relation("UpsellOpportunities")
