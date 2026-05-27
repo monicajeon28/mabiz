@@ -696,6 +696,16 @@ export default function PlaybookViewerPage() {
                   </div>
                 )}
 
+                {/* PASONA 프레임워크 설명 */}
+                <div className="mb-5 p-3 bg-indigo-50 border-l-4 border-indigo-500 rounded">
+                  <h4 className="text-xs font-semibold text-indigo-900 uppercase mb-2">📊 PASONA 심리학 프레임워크</h4>
+                  <div className="space-y-1 text-xs text-indigo-700">
+                    <p><span className="font-semibold">P</span>roblem: 고객의 문제 인식 → <span className="font-semibold">A</span>gitate: 문제의 심각성 강조</p>
+                    <p><span className="font-semibold">S</span>olution: 해결책 제시 → <span className="font-semibold">O</span>ffer: 구체적 조건 제시</p>
+                    <p><span className="font-semibold">N</span>arrow: 범위 좁혀서 결정 단순화 → <span className="font-semibold">A</span>ction: 지금 바로 행동</p>
+                  </div>
+                </div>
+
                 {/* Day 0-3 PASONA 일정 */}
                 <div className="mb-5">
                   <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">📅 Day 0-3 PASONA 일정</h4>
@@ -768,6 +778,19 @@ export default function PlaybookViewerPage() {
                         {personalizeContent(selectedItem.content)}
                       </p>
                     </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(personalizeContent(selectedItem.content));
+                        toast({
+                          title: "복사 완료",
+                          description: "개인화된 메시지가 클립보드에 복사되었습니다.",
+                          variant: "success",
+                        });
+                      }}
+                      className="w-full px-2 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors"
+                    >
+                      복사 (개인화됨)
+                    </button>
 
                     {/* 사용된 변수 목록 */}
                     <div>
