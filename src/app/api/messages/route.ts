@@ -16,6 +16,7 @@ import { logger } from '@/lib/logger';
 import { renderMessage, extractVariables } from '@/lib/message-template-engine';
 import { sendScheduledSms } from '@/lib/sms-service';
 import { sendKakaoMessage, logKakaoMessage } from '@/lib/messages/kakao-service';
+import { sendEmail, getPasonaEmailTemplate, logEmailMessage } from '@/lib/messages/email-service';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -268,6 +269,62 @@ export async function POST(req: NextRequest) {
           error: err instanceof Error ? err.message : String(err),
         });
         usedFallback = true;
+      }
+    } else if (messageType === 'EMAIL') {
+      try {
+        // EMAIL 템플릿 생성
+        const emailTemplate = getPasonaEmailTemplate(
+          (parseInt(dayNumber) as 0 | 1 | 2 | 3) || 0,
+          lens || 'default',
+          contact.name,
+          templateVars
+        );
+
+        // Email 발송
+        const emailResult = await sendEmail({
+          organizationId: session.organizationId,
+          contactId,
+          recipientEmail: contact.email || '',
+          subject: emailTemplate.subject,
+          htmlContent: emailTemplate.html,
+          textContent: emailTemplate.text,
+          templateKey: messageKey,
+          lens,
+          abTestGroup,
+          trackingId: smsLog.trackingId,
+          scheduleAt: scheduleAt ? new Date(scheduleAt) : undefined,
+        });
+
+        if (emailResult.status !== 'FAILED') {
+          // Email 로그 기록
+          await logEmailMessage(
+            session.organizationId,
+            contactId,
+            contact.email || '',
+            emailResult.messageId,
+            emailTemplate.subject,
+            emailResult.status as 'SENT' | 'SCHEDULED'
+          );
+
+          logger.log('[messages] Email 발송 완료', {
+            messageId,
+            contactId,
+            emailMessageId: emailResult.messageId,
+            provider: emailResult.provider,
+            lens,
+          });
+        } else {
+          logger.error('[messages] Email 발송 실패', {
+            messageId,
+            contactId,
+            provider: emailResult.provider,
+          });
+        }
+      } catch (err) {
+        logger.error('[messages] Email 발송 오류', {
+          messageId,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
