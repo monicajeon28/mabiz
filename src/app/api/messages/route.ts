@@ -17,6 +17,7 @@ import { renderMessage, extractVariables } from '@/lib/message-template-engine';
 import { sendScheduledSms } from '@/lib/sms-service';
 import { sendKakaoMessage, logKakaoMessage } from '@/lib/messages/kakao-service';
 import { sendEmail, getPasonaEmailTemplate, logEmailMessage } from '@/lib/messages/email-service';
+import { getSpinQuestion, appendSpinQuestion } from '@/lib/messages/spin-integration';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -152,7 +153,16 @@ export async function POST(req: NextRequest) {
       customVariables: templateVars,
     };
 
-    const renderedMessage = renderMessage(templateContent, renderContext);
+    let renderedMessage = renderMessage(templateContent, renderContext);
+
+    // Day 1/2: SPIN 질문 추가 (고객 자기설득 유도)
+    if ((parsedDay === 1 || parsedDay === 2) && messageType !== 'EMAIL') {
+      // SMS/Kakao만 SPIN 추가 (Email은 이미 복잡함)
+      const spinQuestion = getSpinQuestion(parsedDay as 1 | 2, lens);
+      if (spinQuestion) {
+        renderedMessage = appendSpinQuestion(renderedMessage, spinQuestion);
+      }
+    }
 
     // 발송 시간 결정
     let sendTime = new Date();
