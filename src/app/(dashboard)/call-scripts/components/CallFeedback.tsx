@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useToast } from "@/lib/api/use-toast";
 
 interface CallFeedbackProps {
   category: string;
@@ -18,6 +19,7 @@ const DIFFICULTIES = [
 const CALL_OUTCOMES = ["interested", "not_interested", "not_reached"];
 
 export function CallFeedback({ category, phase, segment }: CallFeedbackProps) {
+  const { toast } = useToast();
   const [effectiveness, setEffectiveness] = useState<number>(0);
   const [difficulties, setDifficulties] = useState<string[]>([]);
   const [improvements, setImprovements] = useState("");
@@ -37,7 +39,11 @@ export function CallFeedback({ category, phase, segment }: CallFeedbackProps) {
     e.preventDefault();
 
     if (effectiveness === 0) {
-      alert("효과 평가를 선택해주세요");
+      toast({
+        title: "필수 항목 누락",
+        description: "효과 평가를 선택해주세요.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -59,16 +65,25 @@ export function CallFeedback({ category, phase, segment }: CallFeedbackProps) {
 
       if (!res.ok) throw new Error("Failed to submit feedback");
 
+      toast({
+        title: "성공",
+        description: "피드백이 저장되었습니다.",
+        variant: "success",
+      });
+
       // 폼 초기화
       setEffectiveness(0);
       setDifficulties([]);
       setImprovements("");
       setCallDuration("");
       setCallOutcome("interested");
-      console.log("Feedback submitted successfully");
     } catch (err) {
       console.error("Error submitting feedback:", err);
-      alert("피드백 저장 중 오류가 발생했습니다");
+      toast({
+        title: "오류 발생",
+        description: "피드백 저장 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }
