@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 
 interface TeamStatement {
   id: string;
@@ -141,10 +142,15 @@ function generateSmsSequenceMetadata(
 }
 
 export default function TeamStatementsPage() {
+  const session = useSession();
   const [statements, setStatements] = useState<TeamStatement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [memberRole, setMemberRole] = useState<string>("JUNIOR_OWNER");
+
+  // 현재 사용자의 role 확인
+  const userRole = (session.data?.user as any)?.role;
+  const isOwner = userRole === 'OWNER';
 
   useEffect(() => {
     const controller = new AbortController();
@@ -209,8 +215,29 @@ export default function TeamStatementsPage() {
       )}
 
       {!loading && !error && statements.length === 0 && (
-        <div className="text-center py-16 text-gray-400">
-          팀 정산 내역이 없습니다 (대리점장 전용)
+        <div className={`text-center py-16 rounded-lg border-2 border-dashed ${
+          isOwner
+            ? 'bg-gray-50 text-gray-500 border-gray-300'
+            : 'bg-yellow-50 text-yellow-700 border-yellow-300'
+        }`}>
+          {isOwner ? (
+            <>
+              <p className="font-medium mb-2">팀 정산 내역이 없습니다</p>
+              <p className="text-sm text-gray-600">
+                팀원들의 정산 내역이 생기면 여기에 표시됩니다.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium mb-2">🔒 대리점장(OWNER) 전용 페이지</p>
+              <p className="text-sm">
+                이 페이지는 대리점장만 접근할 수 있습니다.
+              </p>
+              <p className="text-xs text-yellow-600 mt-2">
+                현재 역할: {userRole || '미확인'}
+              </p>
+            </>
+          )}
         </div>
       )}
 
