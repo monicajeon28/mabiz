@@ -127,7 +127,8 @@ export async function POST(req: NextRequest) {
     const smsSent = await sendSmsViaAligo(
       contact.organizationId,
       contact.phone,
-      smsText
+      smsText,
+      contactId
     );
 
     if (!smsSent) {
