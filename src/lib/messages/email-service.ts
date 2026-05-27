@@ -10,6 +10,17 @@ import { logger } from '@/lib/logger';
 import prisma from '@/lib/prisma';
 import { renderMessage } from '@/lib/message-template-engine';
 
+function escapeHtml(text: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return text.replace(/[&<>"']/g, (char) => map[char]);
+}
+
 interface EmailPayload {
   organizationId: string;
   contactId: string;
@@ -55,7 +66,7 @@ export async function sendEmail(
 
     // SendGrid 우선, SMTP 폴백
     if (process.env.SENDGRID_API_KEY) {
-      return await sendViasendGrid(payload);
+      return await sendViaSendGrid(payload);
     } else {
       return await sendViaSMTP(payload, emailConfig);
     }
@@ -77,7 +88,7 @@ export async function sendEmail(
  * SendGrid API를 통한 이메일 발송
  * https://docs.sendgrid.com/api-reference/mail-send/mail-send
  */
-async function sendViasenGrid(
+async function sendViaSendGrid(
   payload: EmailPayload
 ): Promise<SendEmailResponse> {
   try {
@@ -209,7 +220,7 @@ export function getPasonaEmailTemplate(
   vars: Record<string, string>
 ): { subject: string; html: string; text: string } {
   const baseTemplate = {
-    subject: getPasonaEmailSubject(day, lens),
+    subject: getPasonaEmailSubject(day, lens, contactName),
     html: getPasonaEmailHTML(day, lens, contactName, vars),
     text: getPasonaEmailText(day, lens, contactName, vars),
   };
@@ -217,7 +228,7 @@ export function getPasonaEmailTemplate(
   return baseTemplate;
 }
 
-function getPasonaEmailSubject(day: 0 | 1 | 2 | 3, lens: string): string {
+function getPasonaEmailSubject(day: 0 | 1 | 2 | 3, lens: string, contactName?: string): string {
   const subjects: Record<number, Record<string, string>> = {
     0: {
       L6: '🚢 48시간 한정 크루즈 특가 안내',
@@ -242,6 +253,9 @@ function getPasonaEmailSubject(day: 0 | 1 | 2 | 3, lens: string): string {
   };
 
   const template = subjects[day]?.[lens] || subjects[day]?.['default'] || '안내';
+  if (contactName) {
+    return template.replace('{{name}}', escapeHtml(contactName));
+  }
   return template.replace('{{name}}', '');
 }
 
@@ -251,7 +265,7 @@ function getPasonaEmailHTML(
   contactName: string,
   vars: Record<string, string>
 ): string {
-  const greeting = `안녕하세요, ${contactName}님!`;
+  const greeting = `안녕하세요, ${escapeHtml(contactName)}님!`;
 
   const contents: Record<number, string> = {
     0: `
@@ -287,10 +301,10 @@ function getPasonaEmailHTML(
 
   let html = contents[day] || '';
   html = html.replace('{{greeting}}', greeting);
-  html = html.replace('{{name}}', contactName);
+  html = html.replace('{{name}}', escapeHtml(contactName));
 
   for (const [key, value] of Object.entries(vars)) {
-    html = html.replace(`{{${key}}}`, value);
+    html = html.replace(`{{${key}}}`, escapeHtml(value));
   }
 
   // 이메일 래퍼
@@ -323,7 +337,7 @@ function getPasonaEmailText(
   contactName: string,
   vars: Record<string, string>
 ): string {
-  const greeting = `안녕하세요, ${contactName}님!`;
+  const greeting = `안녕하세요, ${escapeHtml(contactName)}님!`;
 
   const texts: Record<number, string> = {
     0: `${greeting}\n\n5월 특가 안내\n크루즈 한 번 떠나고 싶지 않으세요?\n\n특가: ¥{{price}}K → ¥{{discount}}K\n(48시간 한정)\n\n지금 예약하기: {{link}}`,
@@ -333,10 +347,10 @@ function getPasonaEmailText(
   };
 
   let text = texts[day] || '';
-  text = text.replace('{{name}}', contactName);
+  text = text.replace('{{name}}', escapeHtml(contactName));
 
   for (const [key, value] of Object.entries(vars)) {
-    text = text.replace(`{{${key}}}`, value);
+    text = text.replace(`{{${key}}}`, escapeHtml(value));
   }
 
   return text;

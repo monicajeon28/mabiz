@@ -125,6 +125,14 @@ export async function POST(req: NextRequest) {
     // PASONA 템플릿 로드
     const dayMatch = messageKey.match(/day(\d)/i);
     const dayNumber = dayMatch ? dayMatch[1] : '0';
+    const parsedDay = parseInt(dayNumber, 10);
+    if (isNaN(parsedDay)) {
+      logger.warn('[messages] Invalid day number', { messageKey, dayNumber });
+      return NextResponse.json(
+        { ok: false, message: 'Invalid messageKey format' },
+        { status: 400 }
+      );
+    }
     const dayKey = `day${dayNumber}` as keyof typeof PASONA_TEMPLATES;
     const lensKey = `${lens}_${messageKey.split('_').pop()?.toUpperCase()}` || 'default';
 
@@ -150,10 +158,10 @@ export async function POST(req: NextRequest) {
     let sendTime = new Date();
     if (scheduleAt) {
       sendTime = new Date(scheduleAt);
-    } else if (dayNumber !== '0') {
+    } else if (parsedDay !== 0) {
       // 현재 시간 기준으로 Day N 자동 계산
       sendTime = new Date(
-        sendTime.getTime() + parseInt(dayNumber) * 24 * 60 * 60 * 1000
+        sendTime.getTime() + parsedDay * 24 * 60 * 60 * 1000
       );
     }
 
@@ -200,7 +208,7 @@ export async function POST(req: NextRequest) {
           body: renderedMessage,
           sendAt: sendTime,
           campaignType: `PASONA_${lens || 'DEFAULT'}`,
-          day: (parseInt(dayNumber) as 0 | 1 | 2 | 3 | 7) || 0,
+          day: (parsedDay as 0 | 1 | 2 | 3 | 7) || 0,
           metadata: {
             messageKey,
             abTestGroup,
@@ -271,10 +279,19 @@ export async function POST(req: NextRequest) {
         usedFallback = true;
       }
     } else if (messageType === 'EMAIL') {
+      // EMAIL 발송 시 email 필드 검증
+      if (!contact.email) {
+        logger.warn('[messages] Email address missing', { contactId, messageType });
+        return NextResponse.json(
+          { ok: false, message: 'Contact email address is required for EMAIL message type' },
+          { status: 400 }
+        );
+      }
+
       try {
         // EMAIL 템플릿 생성
         const emailTemplate = getPasonaEmailTemplate(
-          (parseInt(dayNumber) as 0 | 1 | 2 | 3) || 0,
+          (parsedDay as 0 | 1 | 2 | 3) || 0,
           lens || 'default',
           contact.name,
           templateVars
@@ -284,7 +301,7 @@ export async function POST(req: NextRequest) {
         const emailResult = await sendEmail({
           organizationId: session.organizationId,
           contactId,
-          recipientEmail: contact.email || '',
+          recipientEmail: contact.email,
           subject: emailTemplate.subject,
           htmlContent: emailTemplate.html,
           textContent: emailTemplate.text,
@@ -300,7 +317,7 @@ export async function POST(req: NextRequest) {
           await logEmailMessage(
             session.organizationId,
             contactId,
-            contact.email || '',
+            contact.email,
             emailResult.messageId,
             emailTemplate.subject,
             emailResult.status as 'SENT' | 'SCHEDULED'
