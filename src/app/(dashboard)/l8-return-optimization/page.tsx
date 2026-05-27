@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useSession } from "@/hooks/useSession";
 
 interface LTVStats {
   totalLtv: number;
@@ -37,21 +38,19 @@ interface SMSStats {
 }
 
 export default function L8ReturnOptimizationPage() {
+  const session = useSession();
   const [ltvStats, setLtvStats] = useState<LTVStats | null>(null);
   const [smsStats, setSmsStats] = useState<SMSStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadStats();
-  }, []);
+    if (session?.organizationId) loadStats(session.organizationId);
+  }, [session?.organizationId]);
 
-  const loadStats = async () => {
+  const loadStats = async (orgId: string) => {
     try {
       setLoading(true);
-
-      // Get organization ID from session/context
-      const orgId = "your-org-id"; // TODO: from auth context
 
       const [ltvRes, smsRes] = await Promise.all([
         fetch(`/api/l8-ltv-tracking/stats?organizationId=${orgId}`),

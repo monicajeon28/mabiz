@@ -15,6 +15,7 @@ import ContactCallTab from "./ContactCallTab";
 import ContactMemoTab from "./ContactMemoTab";
 import ContactGroupTab from "./ContactGroupTab";
 import ContactSmsTab from "./ContactSmsTab";
+import ContactAffiliateCard from "./ContactAffiliateCard";
 import { getAllObjectionIds, getObjectionData } from "@/lib/objections/validation";
 import objectionsData from "@/../TRACK_A_OBJECTIONS.json";
 import { Contact, CallLog, Memo } from "@/types/contact";
@@ -65,7 +66,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const { toast } = useToast();
 
   const [contact,       setContact]       = useState<Contact | null>(null);
-  const [tab,           setTab]           = useState<"call" | "memo" | "group" | "sms" | "campaigns">("call");
+  const [tab,           setTab]           = useState<"call" | "memo" | "group" | "sms" | "campaigns" | "reservations">("call");
   const [loading,       setLoading]       = useState(true);
   const [smsLogs,       setSmsLogs]       = useState<{ id: string; phone: string; contentPreview: string; status: string; channel: string; sentAt: string }[]>([]);
   const [smsLoading,    setSmsLoading]    = useState(false);
@@ -76,6 +77,22 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     campaign: { id: string; title: string; sendSms: boolean; sendEmail: boolean } | null;
   }>>([]);
   const [campaignLoading, setCampaignLoading] = useState(false);
+
+  // 예약 탭
+  type ReservationItem = {
+    id: number; status: string; totalPeople: number; cabinType: string | null;
+    paymentDate: string | null; paymentMethod: string | null; paymentAmount: number | null;
+    agentName: string | null; remarks: string | null; passportStatus: string; pnrStatus: string;
+    createdAt: string;
+    trip: {
+      id: number; cruiseName: string | null; shipName: string; productCode: string;
+      startDate: string | null; endDate: string | null; nights: number; status: string;
+      departureDate: string; reservationCode: string | null;
+    };
+  };
+  const [reservations, setReservations] = useState<ReservationItem[]>([]);
+  const [reservationLoading, setReservationLoading] = useState(false);
+  const [reservationLoaded, setReservationLoaded] = useState(false);
 
   // WO-22: 즉시 SMS 발송 모달
   const [showSmsModal,  setShowSmsModal]  = useState(false);
@@ -147,6 +164,9 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const [transferLogs,    setTransferLogs]    = useState<TransferLog[]>([]);
   const [loadingTransfer, setLoadingTransfer] = useState(false);
 
+  // Day 0-3 SMS 자동화 시퀀스
+  const [sequenceLoading, setSequenceLoading] = useState(false);
+
   // 콜 기록 accordion
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
 
@@ -163,6 +183,32 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   // 이 고객 Drive 백업
   const [backingContact, setBackingContact] = useState(false);
   const [contactBackupMsg, setContactBackupMsg] = useState("");
+
+  // Day 0-3 SMS 자동화 시퀀스 시작 (L6 손실회피 + L10 클로징)
+  const startDay0_3Sequence = async (contactId: string) => {
+    if (!confirm("Day 0-3 SMS 자동화 시퀀스를 시작하시겠어요?\n\n- Day 0: 즉시 발송\n- Day 1-3: 자동 스케줄")) return;
+
+    setSequenceLoading(true);
+    try {
+      const res = await fetch(`/api/contacts/${contactId}/start-day0-3-sequence`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sendNow: true }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        toast({ message: "✅ Day 0-3 시퀀스가 시작되었습니다!", type: "success" });
+        logger.log("[startDay0_3Sequence] 시퀀스 시작 성공", { contactId, ...data.data });
+      } else {
+        toast({ message: data.message ?? "시퀀스 시작 실패", type: "error" });
+      }
+    } catch (err) {
+      logger.error("[startDay0_3Sequence]", { err, contactId });
+      toast({ message: "시퀀스 시작 중 오류 발생", type: "error" });
+    } finally {
+      setSequenceLoading(false);
+    }
+  };
 
   // 콜 기록 삭제
   const deleteCallLog = async (logId: string) => {
@@ -1011,6 +1057,13 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         SUGGESTED_TAGS={SUGGESTED_TAGS}
       />
 
+      {/* Phase 3.4: 제휴 담당자 정보 (L9 신뢰도 + L10 클로징) */}
+      <ContactAffiliateCard
+        contactId={id}
+        onStartSequence={startDay0_3Sequence}
+        sequenceLoading={sequenceLoading}
+      />
+
       {/* 최근 활동 타임라인 */}
       {(() => {
         const items: TimelineItem[] = [
@@ -1083,7 +1136,8 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           { key: "memo",      label: `📝 메모 (${contact.memos.length})` },
           { key: "group",     label: "👥 그룹 배정" },
           { key: "sms",       label: "💬 발송내역" },
-          { key: "campaigns", label: "📣 캠페인" },
+          { key: "campaigns",    label: "📣 캠페인" },
+          { key: "reservations", label: "🚢 예약" },
         ].map((t) => (
           <button
             key={t.key}
@@ -1117,6 +1171,20 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                   .catch(err => {
                     logger.error("[ContactDetail] 캠페인 이력 fetch 실패", { contactId: contact.id, err });
                     setCampaignLoading(false);
+                  });
+              }
+              if (t.key === "reservations" && !reservationLoaded) {
+                setReservationLoading(true);
+                fetch(`/api/contacts/${contact.id}/reservations`)
+                  .then(r => r.json())
+                  .then(d => {
+                    if (d.ok) setReservations(d.reservations ?? []);
+                    setReservationLoaded(true);
+                    setReservationLoading(false);
+                  })
+                  .catch(err => {
+                    logger.error("[ContactDetail] 예약 fetch 실패", { contactId: contact.id, err });
+                    setReservationLoading(false);
                   });
               }
             }}
