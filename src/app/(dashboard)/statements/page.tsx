@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 
 interface Statement {
   id: string;
@@ -15,7 +16,17 @@ interface Statement {
 interface ApiResponse {
   ok: boolean;
   statements: Statement[];
+  total?: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
   message?: string;
+}
+
+interface FilterState {
+  month: string; // YYYY-MM
+  status: "ALL" | "COMPLETED" | "APPROVED";
+  page: number;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -55,23 +66,83 @@ export default function StatementsPage() {
   const [statements, setStatements] = useState<Statement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const [filters, setFilters] = useState<FilterState>(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    return {
+      month: `${year}-${month}`,
+      status: "ALL",
+      page: 1,
+    };
+  });
+
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    pageSize: 20,
+    totalPages: 1,
+  });
+
+  // 월 선택 목록 생성 (최근 12개월)
+  const getMonthOptions = () => {
+    const options = [];
+    const today = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const value = `${year}-${month}`;
+      const label = `${year}년 ${month}월`;
+      options.push({ value, label });
+    }
+    return options;
+  };
 
   useEffect(() => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    abortRef.current?.abort();
+    abortRef.current = controller;
 
-    fetch("/api/my/statements", { signal: controller.signal })
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    setLoading(true);
+    setError(null);
+
+    // 쿼리 파라미터 구성
+    const params = new URLSearchParams();
+    const [year, month] = filters.month.split("-");
+    const from = `${year}-${month}-01`;
+    const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+    const to = `${year}-${month}-${lastDay}`;
+
+    params.set("from", from);
+    params.set("to", to);
+    if (filters.status !== "ALL") {
+      params.set("status", filters.status);
+    }
+    params.set("page", String(filters.page));
+    params.set("limit", "20");
+
+    fetch(`/api/my/statements?${params.toString()}`, { signal: controller.signal })
       .then((res) => res.json())
       .then((data: ApiResponse) => {
         if (data.ok) {
           setStatements(data.statements ?? []);
+          setPagination({
+            total: data.total ?? 0,
+            page: data.page ?? 1,
+            pageSize: data.pageSize ?? 20,
+            totalPages: data.totalPages ?? 1,
+          });
         } else {
           setError(data.message ?? "데이터를 불러오지 못했습니다.");
         }
       })
       .catch((err) => {
-        if (err.name === 'AbortError') {
-          setError("요청 시간 초과 - 다시 시도해주세요.");
+        if (err.name === "AbortError") {
+          // 요청 취소 - 에러 표시 안 함
         } else {
           setError("네트워크 오류가 발생했습니다.");
         }
@@ -80,7 +151,9 @@ export default function StatementsPage() {
         clearTimeout(timeout);
         setLoading(false);
       });
-  }, []);
+
+    return () => controller.abort();
+  }, [filters]);
 
   const isDeadlineImminent = () => {
     const today = new Date();
@@ -96,6 +169,55 @@ export default function StatementsPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">내 정산 내역</h1>
+
+      {/* 필터 섹션 */}
+      <div className="mb-6 bg-white rounded-lg border border-gray-200 p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* 월 선택 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">기간</label>
+            <select
+              value={filters.month}
+              onChange={(e) => setFilters({ ...filters, month: e.target.value, page: 1 })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {getMonthOptions().map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 상태 필터 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">상태</label>
+            <select
+              value={filters.status}
+              onChange={(e) =>
+                setFilters({
+                  ...filters,
+                  status: e.target.value as "ALL" | "COMPLETED" | "APPROVED",
+                  page: 1,
+                })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="ALL">모두</option>
+              <option value="COMPLETED">완료</option>
+              <option value="APPROVED">승인</option>
+            </select>
+          </div>
+
+          {/* 조회 결과 요약 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">결과</label>
+            <div className="px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-600">
+              총 {pagination.total.toLocaleString()}건 (페이지 {pagination.page} / {pagination.totalPages})
+            </div>
+          </div>
+        </div>
+      </div>
 
       {!loading && !error && statements.length > 0 && (
         <>
@@ -201,50 +323,98 @@ export default function StatementsPage() {
 
       {!loading && !error && statements.length === 0 && (
         <div className="text-center py-16 text-gray-400">
-          아직 확정된 정산 내역이 없습니다
+          {pagination.total === 0 ? (
+            <>
+              <p className="text-lg font-medium mb-2">정산 내역이 없습니다</p>
+              <p className="text-sm">다른 기간이나 상태를 선택해보세요</p>
+            </>
+          ) : (
+            <p>조건에 맞는 정산 내역이 없습니다</p>
+          )}
         </div>
       )}
 
       {!loading && !error && statements.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-gray-200">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">판매일</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">상품명 (주문코드)</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600">판매액</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600">수당율</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600">확정금액</th>
-                <th className="text-center px-4 py-3 font-medium text-gray-600">상태</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {statements.map((s) => (
-                <tr key={s.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 text-gray-700">{formatDate(s.saleDate)}</td>
-                  <td className="px-4 py-3 text-gray-700 font-mono text-xs">
-                    {s.externalOrderCode ?? "-"}
-                  </td>
-                  <td className="px-4 py-3 text-right text-gray-700">{formatAmount(s.saleAmount)}</td>
-                  <td className="px-4 py-3 text-right text-gray-700">{s.commissionRate}%</td>
-                  <td className="px-4 py-3 text-right font-semibold text-gray-900">
-                    {formatAmount(s.confirmedAmount)}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                        STATUS_CLASS[s.status] ?? "bg-gray-100 text-gray-600"
-                      }`}
-                      aria-label={`상태: ${STATUS_LABEL[s.status] ?? s.status}`}
-                    >
-                      {STATUS_LABEL[s.status] ?? s.status}
-                    </span>
-                  </td>
+        <>
+          <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">판매일</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">상품명 (주문코드)</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-600">판매액</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-600">수당율</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-600">확정금액</th>
+                  <th className="text-center px-4 py-3 font-medium text-gray-600">상태</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {statements.map((s) => (
+                  <tr key={s.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 text-gray-700">{formatDate(s.saleDate)}</td>
+                    <td className="px-4 py-3 text-gray-700 font-mono text-xs">
+                      {s.externalOrderCode ?? "-"}
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-700">{formatAmount(s.saleAmount)}</td>
+                    <td className="px-4 py-3 text-right text-gray-700">{s.commissionRate}%</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                      {formatAmount(s.confirmedAmount)}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                          STATUS_CLASS[s.status] ?? "bg-gray-100 text-gray-600"
+                        }`}
+                        aria-label={`상태: ${STATUS_LABEL[s.status] ?? s.status}`}
+                      >
+                        {STATUS_LABEL[s.status] ?? s.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* 페이지네이션 */}
+          {pagination.totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-center gap-2">
+              <button
+                onClick={() => setFilters({ ...filters, page: Math.max(1, filters.page - 1) })}
+                disabled={filters.page === 1}
+                className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                aria-label="이전 페이지"
+              >
+                <ChevronLeftIcon className="w-5 h-5" />
+              </button>
+
+              <div className="flex gap-1">
+                {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    onClick={() => setFilters({ ...filters, page: pageNum })}
+                    className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                      filters.page === pageNum
+                        ? "bg-blue-500 text-white"
+                        : "border border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setFilters({ ...filters, page: Math.min(pagination.totalPages, filters.page + 1) })}
+                disabled={filters.page >= pagination.totalPages}
+                className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                aria-label="다음 페이지"
+              >
+                <ChevronRightIcon className="w-5 h-5" />
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
