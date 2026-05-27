@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { VariantCard } from '@/components/campaigns/VariantCard';
 import { VariantStats } from '@/components/campaigns/VariantStats';
 import { logger } from '@/lib/logger';
+import { useToast } from '@/lib/api/use-toast';
 
 interface Variant {
   id: string;
@@ -51,6 +52,7 @@ interface StatsData {
 export default function VariantPage() {
   const params = useParams();
   const campaignId = params.id as string;
+  const { toast } = useToast();
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [variants, setVariants] = useState<Variant[]>([]);
@@ -111,16 +113,16 @@ export default function VariantPage() {
       const data = await res.json();
 
       if (!data.ok) {
-        alert(data.error || 'Variant 생성 실패');
+        toast({ title: 'Variant 생성 실패', description: data.error || '다시 시도해주세요.', variant: 'destructive' });
         return;
       }
 
       setVariants([...variants, data.variant]);
-      alert(`Variant ${variantKey} 생성되었습니다.`);
+      toast({ title: `Variant ${variantKey} 생성 완료` });
       await loadData();
     } catch (error) {
       logger.error('[handleCreateVariant]', { error });
-      alert('Variant 생성 중 오류 발생');
+      toast({ title: '오류 발생', description: 'Variant 생성 중 문제가 발생했습니다.', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -139,23 +141,23 @@ export default function VariantPage() {
       const data = await res.json();
 
       if (!data.ok) {
-        alert(data.error || 'Variant 수정 실패');
+        toast({ title: 'Variant 수정 실패', description: data.error || '다시 시도해주세요.', variant: 'destructive' });
         return;
       }
 
       setVariants(variants.map(v => (v.variantKey === variantKey ? data.variant : v)));
-      alert(`Variant ${variantKey} 수정되었습니다.`);
+      toast({ title: `Variant ${variantKey} 수정 완료` });
       await loadData();
     } catch (error) {
       logger.error('[handleUpdateVariant]', { error });
-      alert('Variant 수정 중 오류 발생');
+      toast({ title: '오류 발생', description: 'Variant 수정 중 문제가 발생했습니다.', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteVariant = async (variantKey: 'A' | 'B') => {
-    if (!confirm(`Variant ${variantKey}를 삭제하시겠어요?`)) {
+    if (!window.confirm(`Variant ${variantKey}를 삭제하시겠어요?`)) {
       return;
     }
 
@@ -169,16 +171,16 @@ export default function VariantPage() {
       const data = await res.json();
 
       if (!data.ok) {
-        alert(data.error || 'Variant 삭제 실패');
+        toast({ title: 'Variant 삭제 실패', description: data.error || '다시 시도해주세요.', variant: 'destructive' });
         return;
       }
 
       setVariants(variants.filter(v => v.variantKey !== variantKey));
-      alert(`Variant ${variantKey} 삭제되었습니다.`);
+      toast({ title: `Variant ${variantKey} 삭제 완료` });
       await loadData();
     } catch (error) {
       logger.error('[handleDeleteVariant]', { error });
-      alert('Variant 삭제 중 오류 발생');
+      toast({ title: '오류 발생', description: 'Variant 삭제 중 문제가 발생했습니다.', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
