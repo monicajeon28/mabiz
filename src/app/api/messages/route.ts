@@ -15,6 +15,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { renderMessage, extractVariables } from '@/lib/message-template-engine';
 import { sendScheduledSms } from '@/lib/sms-service';
+import { sendKakaoMessage, logKakaoMessage } from '@/lib/messages/kakao-service';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -184,8 +185,11 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // SMS 스케줄링
+    // SMS 또는 Kakao 메시지 발송
     let scheduledSmsId: string | null = null;
+    let kakaoMessageId: string | null = null;
+    let usedFallback = false;
+
     if (messageType === 'SMS') {
       try {
         scheduledSmsId = await sendScheduledSms({
@@ -215,7 +219,55 @@ export async function POST(req: NextRequest) {
           messageId,
           error: err instanceof Error ? err.message : String(err),
         });
-        // SMS 스케줄 실패는 전체 요청 실패로 처리하지 않음 (파트셜 성공)
+      }
+    } else if (messageType === 'KAKAO') {
+      try {
+        // Kakao 메시지 즉시 발송 (예약 발송은 Kakao가 미지원)
+        const kakaoResult = await sendKakaoMessage({
+          organizationId: session.organizationId,
+          phoneNumber: contact.phone,
+          templateId: `pasona_${dayKey}_${lens || 'default'}`,
+          templateArgs: [
+            contact.name,
+            templateVars.price || '',
+            templateVars.discount || '',
+            templateVars.link || '',
+          ],
+        });
+
+        if (!kakaoResult.fallbackToSms) {
+          kakaoMessageId = kakaoResult.messageId;
+
+          // Kakao 로그 기록
+          await logKakaoMessage(
+            session.organizationId,
+            contactId,
+            contact.phone,
+            kakaoMessageId,
+            renderedMessage,
+            'SENT'
+          );
+
+          logger.log('[messages] Kakao 메시지 발송 완료', {
+            messageId,
+            contactId,
+            kakaoMessageId,
+            lens,
+          });
+        } else {
+          // Kakao 실패 시 SMS로 자동 fallback
+          usedFallback = true;
+          logger.warn('[messages] Kakao 발송 실패, SMS로 Fallback', {
+            messageId,
+            contactId,
+          });
+        }
+      } catch (err) {
+        logger.error('[messages] Kakao 발송 오류', {
+          messageId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        usedFallback = true;
       }
     }
 
@@ -231,6 +283,8 @@ export async function POST(req: NextRequest) {
         name: contact.name,
         phone: contact.phone,
       },
+      ...(kakaoMessageId && { kakaoMessageId }),
+      ...(usedFallback && { fallbackToSms: true, note: 'Kakao failed, SMS scheduled instead' }),
     });
   } catch (error) {
     logger.error('[messages] 예상 밖의 에러', {
