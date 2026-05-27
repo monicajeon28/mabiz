@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useToast } from "@/lib/api/use-toast";
 import Link from "next/link";
 import {
   Plus, Eye, Copy, Globe, Files,
@@ -326,6 +327,7 @@ function PageCard({
 
 // ─── 메인 페이지 ─────────────────────────────────────────
 export default function B2BEditorPage() {
+  const { toast } = useToast();
   const router = useRouter();
   const [pages, setPages]             = useState<B2BLandingPage[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -370,7 +372,7 @@ export default function B2BEditorPage() {
 
   const createShortLink = async (page: B2BLandingPage) => {
     if (!page.partnerId) {
-      alert("기본 페이지는 미리보기 URL이 없습니다.");
+      toast({ title: '미리보기 URL 없음', description: '기본 페이지는 미리보기 URL이 없습니다.', variant: 'destructive' });
       return;
     }
     const landingUrl = `${window.location.origin}/b2b/p/${page.partnerId}`;
@@ -389,7 +391,7 @@ export default function B2BEditorPage() {
 
   const copyLink = (partnerId?: string | null) => {
     if (!partnerId) {
-      alert("기본 페이지는 미리보기 URL이 없습니다.");
+      toast({ title: '미리보기 URL 없음', description: '기본 페이지는 미리보기 URL이 없습니다.', variant: 'destructive' });
       return;
     }
     navigator.clipboard.writeText(`${window.location.origin}/b2b/p/${partnerId}`);
@@ -430,7 +432,7 @@ export default function B2BEditorPage() {
       setPages((prev) => prev.filter((p) => p.id !== pageId));
       setSelectedIds((prev) => { const n = new Set(prev); n.delete(pageId); return n; });
     } else {
-      alert(data.message ?? "삭제에 실패했습니다.");
+      toast({ title: '삭제 실패', description: data.message ?? '다시 시도해주세요.', variant: 'destructive' });
     }
     setDeletingId(null);
   };
@@ -447,7 +449,7 @@ export default function B2BEditorPage() {
     const failCount = ids.length - deleted.length;
     setPages((prev) => prev.filter((p) => !deleted.includes(p.id)));
     setSelectedIds(new Set());
-    if (failCount > 0) alert(`${failCount}개 삭제에 실패했습니다.`);
+    if (failCount > 0) toast({ title: `${failCount}개 삭제 실패`, description: '일부 페이지 삭제에 실패했습니다.', variant: 'destructive' });
     setBulkDeleting(false);
   };
 

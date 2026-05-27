@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Phone, X, Trash2, ChevronRight, Search, MessageSquare } from "lucide-react";
+import { useToast } from "@/lib/api/use-toast";
 
 type Prospect = {
   id: string;
@@ -27,6 +28,7 @@ const STATUSES = [
 const EMPTY_FORM = { name: "", phone: "", email: "", notes: "", status: "잠재고객" };
 
 export default function InquirersPage() {
+  const { toast } = useToast();
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [total,     setTotal]     = useState(0);
   const [filter,    setFilter]    = useState("");
@@ -106,10 +108,10 @@ export default function InquirersPage() {
         setDetail({ ...detail, notes: notesDraft });
         setProspects((prev) => prev.map((p) => p.id === detail.id ? { ...p, notes: notesDraft } : p));
       } else {
-        alert("메모 저장에 실패했습니다.");
+        toast({ title: '메모 저장 실패', description: '다시 시도해주세요.', variant: 'destructive' });
       }
     } catch {
-      alert("메모 저장 중 오류가 발생했습니다.");
+      toast({ title: '오류 발생', description: '메모 저장 중 문제가 발생했습니다.', variant: 'destructive' });
     }
   };
 
