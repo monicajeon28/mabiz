@@ -236,15 +236,98 @@ function OverviewTab({
   );
 }
 
+const CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#14B8A6'];
+
 function ChartsTab({ metrics }: { metrics: RealtimeMetrics | null }) {
+  const revenueData = [
+    { name: '어제', revenue: metrics?.yesterdayRevenue ?? 0 },
+    { name: '오늘', revenue: metrics?.todayRevenue ?? 0 },
+  ];
+
+  const channelData = [
+    { name: 'SMS',   발송: metrics?.channelMetrics?.sms?.sent ?? 0,   오픈: metrics?.channelMetrics?.sms?.opened ?? 0,   클릭: metrics?.channelMetrics?.sms?.clicked ?? 0 },
+    { name: '카카오', 발송: metrics?.channelMetrics?.kakao?.sent ?? 0,  오픈: metrics?.channelMetrics?.kakao?.opened ?? 0,  클릭: metrics?.channelMetrics?.kakao?.clicked ?? 0 },
+    { name: '이메일', 발송: metrics?.channelMetrics?.email?.sent ?? 0,  오픈: metrics?.channelMetrics?.email?.opened ?? 0,  클릭: metrics?.channelMetrics?.email?.clicked ?? 0 },
+  ];
+
+  const lensData = (metrics?.topLenses ?? []).slice(0, 8).map(l => ({
+    name: l.lens,
+    count: l.count,
+  }));
+
+  const conversionData = [
+    { name: '지난시간', value: Math.max(0, (metrics?.lastHourConversion ?? 0) - 2) },
+    { name: '현재',    value: metrics?.lastHourConversion ?? 0 },
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Chart Placeholders */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartPlaceholder title="매출 트렌드 (24시간)" height="300px" />
-        <ChartPlaceholder title="전환율 변화" height="300px" />
-        <ChartPlaceholder title="채널별 성과 비교" height="300px" />
-        <ChartPlaceholder title="렌즈별 분포" height="300px" />
+        {/* 매출 비교 */}
+        <div className="bg-white rounded-lg shadow p-6 border border-slate-200">
+          <h3 className="text-sm font-bold text-slate-700 mb-4">매출 트렌드 (어제 vs 오늘)</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={revenueData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}K`} />
+              <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, '매출']} />
+              <Bar dataKey="revenue" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* 전환율 */}
+        <div className="bg-white rounded-lg shadow p-6 border border-slate-200">
+          <h3 className="text-sm font-bold text-slate-700 mb-4">전환율 추이</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={conversionData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
+              <Tooltip formatter={(v: number) => [`${v}%`, '전환율']} />
+              <Area type="monotone" dataKey="value" stroke="#10B981" fill="#D1FAE5" strokeWidth={2} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* 채널별 성과 */}
+        <div className="bg-white rounded-lg shadow p-6 border border-slate-200">
+          <h3 className="text-sm font-bold text-slate-700 mb-4">채널별 성과 비교</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={channelData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="발송" fill="#3B82F6" radius={[2, 2, 0, 0]} />
+              <Bar dataKey="오픈"  fill="#10B981" radius={[2, 2, 0, 0]} />
+              <Bar dataKey="클릭" fill="#F59E0B" radius={[2, 2, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* 렌즈별 분포 */}
+        <div className="bg-white rounded-lg shadow p-6 border border-slate-200">
+          <h3 className="text-sm font-bold text-slate-700 mb-4">렌즈별 분포 (상위 8개)</h3>
+          {lensData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={240}>
+              <PieChart>
+                <Pie data={lensData} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                  {lensData.map((_, i) => (
+                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(v: number) => [v, '건수']} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-60 text-slate-400 text-sm">
+              렌즈 데이터 없음
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 렌즈 분포 */}
@@ -433,17 +516,3 @@ function ChannelMetric({
   );
 }
 
-function ChartPlaceholder({ title, height }: { title: string; height: string }) {
-  return (
-    <div
-      className="bg-white rounded-lg shadow p-6 border border-slate-200 flex items-center justify-center"
-      style={{ height }}
-    >
-      <div className="text-center">
-        <BarChart3 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-        <p className="text-sm font-medium text-slate-700">{title}</p>
-        <p className="text-xs text-slate-500 mt-1">차트를 로드 중입니다...</p>
-      </div>
-    </div>
-  );
-}
