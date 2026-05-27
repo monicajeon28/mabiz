@@ -16,6 +16,7 @@ import ContactMemoTab from "./ContactMemoTab";
 import ContactGroupTab from "./ContactGroupTab";
 import ContactSmsTab from "./ContactSmsTab";
 import ContactAffiliateCard from "./ContactAffiliateCard";
+import ContactRiskPanel from "./ContactRiskPanel";
 import { getAllObjectionIds, getObjectionData } from "@/lib/objections/validation";
 import objectionsData from "@/../TRACK_A_OBJECTIONS.json";
 import { Contact, CallLog, Memo } from "@/types/contact";
@@ -1063,6 +1064,9 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         onStartSequence={startDay0_3Sequence}
         sequenceLoading={sequenceLoading}
       />
+
+      {/* Phase 4D: 거래 위험도 (10개 신호 자동 감지) */}
+      <ContactRiskPanel contactId={id} />
 
       {/* 최근 활동 타임라인 */}
       {(() => {
