@@ -1,6 +1,9 @@
 import crypto from 'crypto';
 
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'dev-secret-change-in-production';
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
+if (!WEBHOOK_SECRET) {
+  throw new Error('WEBHOOK_SECRET environment variable must be set');
+}
 
 export const signatureVerify = {
   sign: (payload: string): string => {
@@ -12,6 +15,7 @@ export const signatureVerify = {
 
   verify: (payload: string, signature: string): boolean => {
     const expected = signatureVerify.sign(payload);
+    if (signature.length !== expected.length) return false;
     return crypto.timingSafeEqual(
       Buffer.from(signature),
       Buffer.from(expected)

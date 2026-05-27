@@ -398,7 +398,7 @@ function analyzeContactBehavior(contact: any): {
           ? "MEDIUM"
           : "LOW",
     preferredChannel: "SMS",
-    response Time: { SMS: 30 },
+    responseTime: { SMS: 30 },
     openRates: {
       SMS: smsOpenRate,
       KAKAO: 0,
