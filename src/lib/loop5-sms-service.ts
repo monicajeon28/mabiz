@@ -10,12 +10,13 @@ import { logger } from '@/lib/logger';
 
 // Segment 정의 (age × preference)
 export type Segment = 'A' | 'B' | 'C' | 'D' | 'E';
-export type Day = 0 | 1 | 2 | 3;
+export type Day = 'day0' | 'day1' | 'day2' | 'day3';
+export type DayNumber = 0 | 1 | 2 | 3;
 export type ABVariant = 'a' | 'b';
 
 interface SMSTemplateInput {
   segment: Segment;
-  day: Day;
+  day: DayNumber;
   variant?: ABVariant;
   contactData?: {
     name: string;
@@ -107,7 +108,7 @@ async function sendSmsWithAligo(
  */
 export function generateDayNMessage(
   segment: Segment,
-  day: Day,
+  day: DayNumber,
   variant: ABVariant = 'a',
   contactName?: string
 ): string {
@@ -145,7 +146,7 @@ export function generateDayNMessage(
   const profile = segmentProfiles[segment];
 
   // Day별 PASONA 단계 메시지
-  const templates: Record<Day, Record<ABVariant, string>> = {
+  const templates: Record<DayNumber, Record<ABVariant, string>> = {
     // Day 0: P(Problem) + A(Agitate) — 공감 + 자극
     0: {
       a: `${name}님, 크루즈닷이에요.\n${profile.tension}를 원하시나요? 🚢\n내일 오후 한정, ${profile.offer} 안내드립니다.\n링크: [shorturl]\n\n24시간 내 신청하시면 추가 선물까지! ✨`,
@@ -536,13 +537,13 @@ export async function retryFailedLoop5Sms(
     }
 
     // 재발송
-    const day = smsLog.day as Day;
+    const dayStr = smsLog.day;
     const segment = smsLog.segment as Segment;
     const variant = (smsLog.variant as ABVariant) || 'a';
 
     let result: SmsSendResult;
 
-    switch (day) {
+    switch (dayStr) {
       case 'day0':
         result = await sendDay0Sms(
           smsLog.organizationId,
