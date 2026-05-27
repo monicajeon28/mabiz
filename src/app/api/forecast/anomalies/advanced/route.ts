@@ -1,0 +1,76 @@
+/**
+ * Advanced Anomaly Detection Endpoint
+ * GET /api/forecast/anomalies/advanced?sensitivity=0.9&metric=revenue
+ *
+ * Returns multi-algorithm anomaly detection results
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { AnomalyDetectionManager } from '@/lib/ai/advanced-anomaly-detector';
+import { logger } from '@/lib/logger';
+
+export const runtime = 'nodejs';
+
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const sensitivity = Math.min(0.95, Math.max(0.5, parseFloat(searchParams.get('sensitivity') || '0.85')));
+    const metric = (searchParams.get('metric') || 'revenue') as 'revenue' | 'orders' | 'customers';
+
+    logger.info(`[Anomaly] Advanced detection: ${metric}, sensitivity=${sensitivity}`);
+
+    const startTime = Date.now();
+
+    // Detect anomalies
+    const anomalies = await AnomalyDetectionManager.detectAnomalies(metric, sensitivity);
+
+    // Detect changepoints
+    const changepoints = await AnomalyDetectionManager.detectChangepoints(metric);
+
+    // Summarize results
+    const critical = anomalies.filter((a) => a.severity === 'critical');
+    const high = anomalies.filter((a) => a.severity === 'high');
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          anomalies,
+          changepoints,
+          summary: {
+            totalAnomalies: anomalies.length,
+            critical: critical.length,
+            high: high.length,
+            avgConfidence: anomalies.length > 0
+              ? anomalies.reduce((s, a) => s + a.confidence, 0) / anomalies.length
+              : 0,
+            changePointsDetected: changepoints.length,
+          },
+          recommendations: {
+            immediateAction:
+              critical.length > 0
+                ? `${critical.length} critical anomalies detected. Investigate immediately.`
+                : high.length > 0
+                  ? `${high.length} high-severity anomalies. Review and take action.`
+                  : 'No critical anomalies detected.',
+            pattern: changepoints.length > 0
+              ? `${changepoints.length} trend changes detected. Possible market shift.`
+              : 'No significant trend changes detected.',
+          },
+          generatedAt: new Date().toISOString(),
+          processingTime: `${(Date.now() - startTime).toFixed(0)}ms`,
+        },
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    logger.error('[Anomaly] Advanced detection error:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Anomaly detection failed',
+      },
+      { status: 500 }
+    );
+  }
+}

@@ -47,6 +47,12 @@ model Organization {
   partners                   Partner[]
   partnerSuspensions         PartnerSuspension[]
   salesDocuments             SalesDocument[]
+  // PHASE 7-3/4: Proactive Outreach Predictions
+  churnPredictions           ChurnPrediction[]           @relation("ChurnPredictions")
+  upsellOpportunities        UpsellOpportunity[]         @relation("UpsellOpportunities")
+  winBackOpportunities       WinBackOpportunity[]        @relation("WinBackOpportunities")
+  proactiveWorkflows         ProactiveWorkflow[]         @relation("ProactiveWorkflows")
+  nextBestActions            NextBestAction[]            @relation("NextBestActions")
   salesDocApprovals          SalesDocumentApproval[]
   scheduledSmsList           ScheduledSms[]
   scriptPatterns             ScriptPattern[]
@@ -376,6 +382,12 @@ model Contact {
   shortLinkClicks            ShortLinkClick[]
   vipSequences               VipCareSequence[]
   marketingMessages          CrmMarketingMessage[]       @relation("CrmMarketingMessages")
+  // PHASE 7-3/4: Proactive Outreach Predictions
+  churnPredictions           ChurnPrediction[]           @relation("ChurnPredictions")
+  upsellOpportunities        UpsellOpportunity[]         @relation("UpsellOpportunities")
+  winBackOpportunities       WinBackOpportunity[]        @relation("WinBackOpportunities")
+  proactiveWorkflows         ProactiveWorkflow[]         @relation("ProactiveWorkflows")
+  nextBestActions            NextBestAction[]            @relation("NextBestActions")
 
   // P0-1/2/3/4/5: Contact 상품/예약 FK 및 필드 추가
   cruiseProductId    Int?
@@ -6012,4 +6024,137 @@ model DailyReport {
   @@index([organizationId, reportDate])
   @@index([reportDate])
   @@map("DailyReport")
+}
+
+/// PHASE 7-3/4: Predictive Proactive Outreach - Churn Prediction
+model ChurnPrediction {
+  id                   String   @id @default(cuid())
+  contactId            String
+  organizationId       String
+  churnProbability     Int      @default(0) // 0-100
+  confidence           Int      @default(0) // 0-100
+  riskLevel            String   @default("LOW") // LOW, MEDIUM, HIGH, CRITICAL
+  signals              Json     // ChurnSignal object
+  reasonsForChurn      String[] @default([])
+  estimatedChurnDate   DateTime
+  workflowTriggeredAt  DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  contact      Contact @relation("ChurnPredictions", fields: [contactId], references: [id], onDelete: Cascade)
+  organization Organization @relation("ChurnPredictions", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([contactId, organizationId])
+  @@index([organizationId, riskLevel])
+  @@index([organizationId, createdAt])
+  @@index([estimatedChurnDate])
+  @@map("ChurnPrediction")
+}
+
+/// PHASE 7-3/4: Predictive Proactive Outreach - Upsell Opportunity
+model UpsellOpportunity {
+  id                               String   @id @default(cuid())
+  contactId                        String
+  organizationId                   String
+  opportunityScore                 Int      @default(0) // 0-100
+  readinessLevel                   String   @default("NOT_READY") // NOT_READY, READY, HIGHLY_READY
+  signals                          Json     // UpsellSignal object
+  recommendedProduct               Json     // Recommended product details
+  expectedConversionProbability    Int      @default(0) // 0-100
+  suggestedOfferType               String   @default("UPGRADE") // UPGRADE, CROSS_SELL, BUNDLE, LOYALTY_REWARD
+  urgency                          String   @default("LOW") // LOW, MEDIUM, HIGH
+  createdAt                        DateTime @default(now())
+  updatedAt                        DateTime @updatedAt
+
+  contact      Contact @relation("UpsellOpportunities", fields: [contactId], references: [id], onDelete: Cascade)
+  organization Organization @relation("UpsellOpportunities", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([contactId, organizationId])
+  @@index([organizationId, readinessLevel])
+  @@index([organizationId, createdAt])
+  @@map("UpsellOpportunity")
+}
+
+/// PHASE 7-3/4: Predictive Proactive Outreach - Win-Back Opportunity
+model WinBackOpportunity {
+  id                            String   @id @default(cuid())
+  contactId                     String
+  organizationId                String
+  reactivationProbability       Int      @default(0) // 0-100
+  reactivationUrgency           Int      @default(0) // 0-100
+  signals                       Json     // WinBackSignal object
+  winBackReason                 String[] @default([])
+  bestOffer                     Json     // Best offer recommendation
+  expectedReactivationValue     Int      @default(0) // $
+  expectedFirstPurchaseValue    Int      @default(0) // $
+  optimalContactTime            DateTime
+  contentTheme                  String   @default("NOSTALGIA") // NOSTALGIA, APOLOGY, EXCLUSIVE_OFFER, SEASONAL, LOYALTY
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+
+  contact      Contact @relation("WinBackOpportunities", fields: [contactId], references: [id], onDelete: Cascade)
+  organization Organization @relation("WinBackOpportunities", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([contactId, organizationId])
+  @@index([organizationId, reactivationUrgency])
+  @@index([organizationId, createdAt])
+  @@index([optimalContactTime])
+  @@map("WinBackOpportunity")
+}
+
+/// PHASE 7-3/4: Predictive Proactive Outreach - Proactive Workflow
+model ProactiveWorkflow {
+  id                String   @id @default(cuid())
+  contactId         String
+  organizationId    String
+  workflowType      String   @default("VIP_SAVE") // VIP_SAVE, UPGRADE, COME_BACK
+  status            String   @default("PENDING") // PENDING, IN_PROGRESS, PAUSED, COMPLETED, FAILED
+  stage             Int      @default(0) // Current stage
+  startedAt         DateTime @default(now())
+  completedAt       DateTime?
+  abTestVariant     String   @default("A") // A or B
+  messagesSent      Int      @default(0)
+  expectedRevenue   BigInt   @default(0) // $
+  actualRevenue     BigInt?  // $ actual if converted
+  conversionTracking Json    @default("{}") // Tracking data for conversion
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  contact      Contact @relation("ProactiveWorkflows", fields: [contactId], references: [id], onDelete: Cascade)
+  organization Organization @relation("ProactiveWorkflows", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, workflowType])
+  @@index([organizationId, status])
+  @@index([contactId, organizationId])
+  @@index([createdAt])
+  @@map("ProactiveWorkflow")
+}
+
+/// PHASE 7-3/4: Predictive Proactive Outreach - Next Best Action
+model NextBestAction {
+  id                                   String   @id @default(cuid())
+  contactId                            String
+  organizationId                       String
+  recommendedAction                    String   @default("EMAIL") // EMAIL, SMS, CALL, OFFER, PAUSE
+  actionType                           String   @default("NURTURE") // SAVE_VIP, UPSELL, WINBACK, NURTURE, NONE
+  priority                             Int      @default(50) // 1-100
+  expectedRevenue                      BigInt   @default(0) // $
+  expectedConversionProbability        Int      @default(0) // 0-100%
+  message                              Json     // Message details and personalization
+  reasoning                            String[] @default([])
+  abTestVariant                        String   @default("A") // A or B
+  status                               String   @default("PENDING") // PENDING, SENT, CONVERTED, FAILED
+  actionSentAt                         DateTime?
+  createdAt                            DateTime @default(now())
+  updatedAt                            DateTime @updatedAt
+
+  contact      Contact @relation("NextBestActions", fields: [contactId], references: [id], onDelete: Cascade)
+  organization Organization @relation("NextBestActions", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([contactId, organizationId])
+  @@index([organizationId, actionType])
+  @@index([organizationId, priority])
+  @@index([organizationId, status])
+  @@index([createdAt])
+  @@map("NextBestAction")
 }
