@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/useSession';
 import { logger } from '@/lib/logger';
 
 export type KpiEvent =
@@ -36,7 +36,7 @@ const WEBSOCKET_RECONNECT_INTERVAL = 3000; // 3 seconds
 const MAX_RECONNECT_ATTEMPTS = 10;
 
 export function useKpiSocket() {
-  const { data: session } = useSession();
+  const session = useSession();
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
@@ -46,11 +46,11 @@ export function useKpiSocket() {
   const [lastEvent, setLastEvent] = useState<KpiEvent | null>(null);
 
   const initializeSocket = useCallback(() => {
-    if (!session?.user?.organizationId) return;
+    if (!session?.organizationId) return;
     if (socketRef.current?.readyState === WebSocket.OPEN) return;
 
     try {
-      const wsUrl = `${SOCKET_URL}/api/realtime/kpi?org=${session.user.organizationId}`;
+      const wsUrl = `${SOCKET_URL}/api/realtime/kpi?org=${session.organizationId}`;
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
@@ -104,15 +104,15 @@ export function useKpiSocket() {
       logger.error('Failed to initialize WebSocket', error);
       startPollingFallback();
     }
-  }, [session?.user?.organizationId]);
+  }, [session?.organizationId]);
 
   const startPollingFallback = useCallback(() => {
-    if (!session?.user?.organizationId) return;
+    if (!session?.organizationId) return;
 
     const pollMetrics = async () => {
       try {
         const response = await fetch(
-          `/api/realtime/kpi/metrics?org=${session.user.organizationId}`
+          `/api/realtime/kpi/metrics?org=${session.organizationId}`
         );
 
         if (response.ok) {
@@ -131,10 +131,10 @@ export function useKpiSocket() {
 
     // Initial poll
     pollMetrics();
-  }, [session?.user?.organizationId]);
+  }, [session?.organizationId]);
 
   useEffect(() => {
-    if (!session?.user?.organizationId) return;
+    if (!session?.organizationId) return;
 
     initializeSocket();
 
@@ -175,7 +175,7 @@ export function useKpiMetrics() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!session?.user?.organizationId) return;
+    if (!session?.organizationId) return;
 
     const fetchMetrics = async () => {
       try {
@@ -202,7 +202,7 @@ export function useKpiMetrics() {
     const interval = setInterval(fetchMetrics, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [session?.user?.organizationId]);
+  }, [session?.organizationId]);
 
   return { metrics, loading, error };
 }
