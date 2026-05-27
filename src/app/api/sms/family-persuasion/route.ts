@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+import { sendSms, resolveUserSmsConfig } from '@/lib/aligo';
 
 interface FamilySmsPayload {
   contactId: string;
@@ -161,15 +162,37 @@ export async function POST(req: NextRequest) {
       data: updateData,
     });
 
-    // Log SMS sending (in real implementation, actually send via SMS provider)
+    // 실제 Aligo SMS 발송
+    const smsConfig = await resolveUserSmsConfig(organizationId, String(ctx.userId));
+    let smsStatus: 'SENT' | 'FAILED' | 'PENDING' = 'PENDING';
+    let msgId: string | null = null;
+
+    if (smsConfig) {
+      const aligoResult = await sendSms({
+        config: smsConfig,
+        receiver: recipientPhone,
+        msg: messageTemplate,
+        msgType: messageTemplate.length > 90 ? 'LMS' : 'SMS',
+        organizationId,
+        contactId,
+        channel: 'FUNNEL',
+      });
+      smsStatus = aligoResult.result_code === 1 ? 'SENT' : 'FAILED';
+      msgId = aligoResult.msg_id ?? null;
+      logger.info('[FamilyPersuasion] Aligo 발송 결과', { result_code: aligoResult.result_code, targetRole, day });
+    } else {
+      logger.warn('[FamilyPersuasion] SMS 설정 없음 — PENDING 상태로 기록', { organizationId });
+    }
+
     await prisma.smsLog.create({
       data: {
         organizationId,
         contactId,
         phone: recipientPhone,
         contentPreview: messageTemplate.substring(0, 100),
-        status: 'SENT',
+        status: smsStatus,
         channel: 'FAMILY_PERSUASION',
+        msgId,
       },
     });
 

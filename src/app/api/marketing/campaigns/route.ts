@@ -14,16 +14,26 @@ export async function GET(req: NextRequest) {
 
     const url = new URL(req.url);
     const organizationId = ctx.organizationId!;
+    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
+    const limit = Math.min(50, parseInt(url.searchParams.get('limit') || '20') || 20);
+    const offset = (page - 1) * limit;
 
-    const campaigns = await prisma.crmMarketingCampaign.findMany({
-      where: { organizationId },
-      include: {
-        group: { select: { id: true, name: true } },
-      },
-      orderBy: { createdAt: 'desc' },
+    const [campaigns, total] = await Promise.all([
+      prisma.crmMarketingCampaign.findMany({
+        where: { organizationId },
+        include: { group: { select: { id: true, name: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.crmMarketingCampaign.count({ where: { organizationId } }),
+    ]);
+
+    return NextResponse.json({
+      ok: true,
+      campaigns,
+      pagination: { total, page, pageSize: limit, totalPages: Math.ceil(total / limit) },
     });
-
-    return NextResponse.json({ ok: true, campaigns });
   } catch (err) {
     logger.error('[GET /api/marketing/campaigns]', { err });
     return NextResponse.json({ ok: false }, { status: 500 });

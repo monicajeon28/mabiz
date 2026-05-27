@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { sendSms, resolveUserSmsConfig } from '@/lib/aligo';
 
 type SMSVariant = 'family' | 'medical' | 'timing';
 
@@ -110,19 +111,39 @@ export async function POST(req: Request) {
     // SMS 메시지 선택
     const message = SMS_MESSAGES[variant];
 
-    // SMS 발송 (시뮬레이션 - 실제 SMTP/SMS 서비스 연동 필요)
-    // TODO: 실제 SMS 서비스 (Twilio, Naver Sens 등)와 연동
+    // SMS 실제 발송 (Aligo)
+    const smsConfig = await resolveUserSmsConfig(orgId, String(ctx.userId));
+    let smsStatus: 'SENT' | 'FAILED' | 'SCHEDULED' = 'SCHEDULED';
+    let aligoMsgId = `day0-${variant}-${Date.now()}`;
+
+    if (smsConfig) {
+      const aligoResult = await sendSms({
+        config: smsConfig,
+        receiver: phoneNumber,
+        msg: message,
+        msgType: message.length > 90 ? 'LMS' : 'SMS',
+        organizationId: orgId,
+        contactId,
+        channel: 'FUNNEL',
+      });
+      smsStatus = aligoResult.result_code === 1 ? 'SENT' : 'FAILED';
+      if (aligoResult.msg_id) aligoMsgId = aligoResult.msg_id;
+      logger.info('[Day0SMS] Aligo 발송 결과', { result_code: aligoResult.result_code, variant });
+    } else {
+      logger.warn('[Day0SMS] SMS 설정 없음 — SCHEDULED 상태로 기록', { orgId });
+    }
+
     const smsLog = await prisma.smsLog.create({
       data: {
         organizationId: orgId,
         contactId,
         phone: phoneNumber,
         contentPreview: message.substring(0, 100),
-        status: 'SCHEDULED',
+        status: smsStatus,
         channel: 'DAY0_EMOTIONAL',
         blockReason: null,
         resultCode: null,
-        msgId: `day0-${variant}-${Date.now()}`,
+        msgId: aligoMsgId,
       },
     });
 
