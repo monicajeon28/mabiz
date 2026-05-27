@@ -1340,6 +1340,89 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
       )}
+
+      {/* Reservations Tab */}
+      {tab === "reservations" && (
+        <div className="space-y-3">
+          {reservationLoading ? (
+            <div className="text-center text-sm text-gray-400 py-8">불러오는 중...</div>
+          ) : reservations.length === 0 ? (
+            <p className="text-center text-sm text-gray-400 py-8">연결된 예약 정보가 없습니다.</p>
+          ) : (
+            reservations.map((r) => (
+              <div key={r.id} className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      r.status === "CONFIRMED"  ? "bg-green-100 text-green-700"  :
+                      r.status === "CANCELLED"  ? "bg-red-100 text-red-700"     :
+                      r.status === "PENDING"    ? "bg-yellow-100 text-yellow-700" :
+                                                  "bg-gray-100 text-gray-500"
+                    }`}>
+                      {r.status}
+                    </span>
+                    <span className="text-xs text-gray-400">예약 #{r.id}</span>
+                  </div>
+                  <span className="text-xs text-gray-400">
+                    {new Date(r.createdAt).toLocaleDateString("ko-KR")}
+                  </span>
+                </div>
+
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {r.trip.cruiseName ?? r.trip.shipName ?? "크루즈 정보 없음"}
+                  </p>
+                  {r.trip.reservationCode && (
+                    <p className="text-xs text-gray-500">예약코드: {r.trip.reservationCode}</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600">
+                  {r.trip.startDate && (
+                    <div><span className="text-gray-400">출발: </span>
+                      {new Date(r.trip.startDate).toLocaleDateString("ko-KR")}
+                    </div>
+                  )}
+                  {r.trip.endDate && (
+                    <div><span className="text-gray-400">귀국: </span>
+                      {new Date(r.trip.endDate).toLocaleDateString("ko-KR")}
+                    </div>
+                  )}
+                  {r.trip.nights > 0 && (
+                    <div><span className="text-gray-400">기간: </span>{r.trip.nights}박</div>
+                  )}
+                  {r.totalPeople > 0 && (
+                    <div><span className="text-gray-400">인원: </span>{r.totalPeople}명</div>
+                  )}
+                  {r.cabinType && (
+                    <div><span className="text-gray-400">객실: </span>{r.cabinType}</div>
+                  )}
+                  {r.paymentAmount && (
+                    <div><span className="text-gray-400">결제: </span>
+                      {r.paymentAmount.toLocaleString()}원
+                    </div>
+                  )}
+                </div>
+
+                {(r.passportStatus !== "PENDING" || r.pnrStatus !== "PENDING") && (
+                  <div className="flex gap-2 pt-1">
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
+                      여권 {r.passportStatus}
+                    </span>
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
+                      PNR {r.pnrStatus}
+                    </span>
+                  </div>
+                )}
+
+                {r.remarks && (
+                  <p className="text-xs text-gray-500 border-t border-gray-100 pt-2">{r.remarks}</p>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }

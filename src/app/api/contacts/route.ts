@@ -4,6 +4,7 @@ import { getAuthContext, buildContactWhere, maskContactInfo } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
 import { detectSegment } from "@/lib/segment-detector";
+import { detectLenses, sortLensesByPriority } from "@/lib/lens-detector";
 import { recommendProducts } from "@/lib/product-recommender";
 import { sendSms, resolveUserSmsConfig } from "@/lib/aligo";
 
@@ -246,6 +247,23 @@ export async function POST(req: Request) {
     });
 
     logger.log("[POST /api/contacts] 고객 생성", { id: contact.id, segment });
+
+    // Phase 4A: 렌즈 감지 (L0-L10 자동 분류)
+    const detectedLenses = detectLenses({
+      ...contact,
+      callLogs: [],
+      memos: [],
+    });
+    const sortedLenses = sortLensesByPriority(detectedLenses);
+
+    if (sortedLenses.length > 0) {
+      const newTags = [...(contact.tags || []), ...sortedLenses];
+      await prisma.contact.update({
+        where: { id: contact.id },
+        data: { tags: newTags },
+      });
+      logger.log("[POST /api/contacts] 렌즈 감지 완료", { id: contact.id, lenses: sortedLenses });
+    }
 
     // C-1: 세그먼트별 SMS 템플릿 조회 및 발송 (fire-and-forget)
     (async () => {

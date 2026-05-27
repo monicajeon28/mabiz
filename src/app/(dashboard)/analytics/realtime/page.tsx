@@ -18,6 +18,10 @@ import {
 import { useKpiSocket } from '@/lib/realtime/kpi-socket';
 import { RealtimeMetrics } from '@/lib/realtime/kpi-socket';
 import { logger } from '@/lib/logger';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area,
+} from 'recharts';
 
 export default function RealtimeDashboard() {
   const session = useSession();
