@@ -26,24 +26,28 @@ export async function GET() {
     const smsSent   = smsStats.find(r => r.status === 'SENT')?._count.id ?? 0;
     const smsFailed = smsStats.find(r => r.status === 'FAILED')?._count.id ?? 0;
 
-    // ─── KAKAO / EMAIL 채널 통계 ──────────────────────────────────────────
-    const marketingStats = await prisma.crmMarketingMessage.groupBy({
-      by: ['channel', 'deliveryStatus'],
+    // ─── KAKAO / EMAIL 채널 통계 (AdminMessage 기반) ─────────────────────
+    const adminMsgStats = await prisma.adminMessage.groupBy({
+      by: ['messageType'],
       where: {
         organizationId,
-        channel: { in: ['KAKAO', 'EMAIL'] },
+        messageType: { in: ['kakao', 'email'] },
         createdAt: { gte: periodStart },
       },
-      _count: { id: true },
+      _sum: { totalSent: true, successCount: true },
     });
 
-    const get = (ch: string, st: string) =>
-      marketingStats.find(r => r.channel === ch && r.deliveryStatus === st)?._count.id ?? 0;
+    const getAdminSent = (type: string) =>
+      adminMsgStats.find(r => r.messageType === type)?._sum.successCount ?? 0;
+    const getAdminFailed = (type: string) => {
+      const row = adminMsgStats.find(r => r.messageType === type);
+      return Math.max(0, (row?._sum.totalSent ?? 0) - (row?._sum.successCount ?? 0));
+    };
 
-    const kakaoSent   = get('KAKAO', 'DELIVERED');
-    const kakaoFailed = get('KAKAO', 'FAILED');
-    const emailSent   = get('EMAIL', 'DELIVERED');
-    const emailFailed = get('EMAIL', 'FAILED');
+    const kakaoSent   = getAdminSent('kakao');
+    const kakaoFailed = getAdminFailed('kakao');
+    const emailSent   = getAdminSent('email');
+    const emailFailed = getAdminFailed('email');
 
     const total = smsSent + smsFailed + kakaoSent + kakaoFailed + emailSent + emailFailed;
     const totalSent = smsSent + kakaoSent + emailSent;

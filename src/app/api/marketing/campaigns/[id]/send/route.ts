@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
+import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
+import { sendEmail, getOrgEmailConfig } from '@/lib/email';
 
 // 배치 처리 유틸리티
 function chunk<T>(array: T[], size: number): T[][] {
@@ -104,22 +106,25 @@ async function sendCampaignAsync(
       data: { status: 'SENDING' },
     });
 
-    const BATCH_SIZE = 100;
+    // 발송 설정 미리 로드 (배치마다 재조회 방지)
+    const [smsConfig, emailConfig] = await Promise.all([
+      campaign.sendSms ? getOrgSmsConfig(organizationId) : Promise.resolve(null),
+      campaign.sendEmail ? getOrgEmailConfig(organizationId) : Promise.resolve(null),
+    ]);
+
+    const BATCH_SIZE = 50;
     const CONCURRENT_BATCHES = 3;
 
-    // 배치로 나누기
     const batches = chunk(members, BATCH_SIZE);
 
-    // 동시성 제어하면서 배치 처리
     for (let i = 0; i < batches.length; i += CONCURRENT_BATCHES) {
       const batchGroup = batches.slice(i, i + CONCURRENT_BATCHES);
 
       await Promise.all(
-        batchGroup.map((batch) => processBatch(campaignId, campaign, batch, organizationId))
+        batchGroup.map((batch) => processBatch(campaignId, campaign, batch, organizationId, smsConfig, emailConfig))
       );
     }
 
-    // 발송 완료 후 통계 업데이트
     await prisma.crmMarketingCampaign.update({
       where: { id: campaignId },
       data: {
@@ -131,12 +136,10 @@ async function sendCampaignAsync(
     logger.info('[sendCampaignAsync] Campaign sent successfully', {
       campaignId,
       sentCount: members.length,
-      total: members.length,
     });
   } catch (err) {
     logger.error('[sendCampaignAsync] Error', { err, campaignId });
 
-    // 실패 시 상태 업데이트
     await prisma.crmMarketingCampaign.update({
       where: { id: campaignId },
       data: { status: 'FAILED' },
@@ -149,10 +152,12 @@ async function processBatch(
   campaignId: string,
   campaign: any,
   members: any[],
-  organizationId: string
+  organizationId: string,
+  smsConfig: Awaited<ReturnType<typeof getOrgSmsConfig>>,
+  emailConfig: Awaited<ReturnType<typeof getOrgEmailConfig>>
 ) {
   const promises = members.map((member) =>
-    processRecipient(campaignId, campaign, member, organizationId)
+    processRecipient(campaignId, campaign, member, organizationId, smsConfig, emailConfig)
   );
 
   await Promise.all(promises);
@@ -163,28 +168,50 @@ async function processRecipient(
   campaignId: string,
   campaign: any,
   member: any,
-  organizationId: string
+  organizationId: string,
+  smsConfig: Awaited<ReturnType<typeof getOrgSmsConfig>>,
+  emailConfig: Awaited<ReturnType<typeof getOrgEmailConfig>>
 ) {
+  const contact = member.contact;
+  let smsSent = false;
+  let emailSent = false;
+
   try {
-    const contact = member.contact;
+    // SMS 발송
+    if (campaign.sendSms && campaign.smsBody && contact.phone && smsConfig?.isActive) {
+      const text = campaign.smsBody.replace(/\{name\}/g, contact.name ?? '고객');
+      const result = await sendSms({
+        config: { key: smsConfig.aligoKey, userId: smsConfig.aligoUserId, sender: smsConfig.senderPhone },
+        receiver: contact.phone,
+        msg: text,
+        msgType: text.length > 90 ? 'LMS' : 'SMS',
+        organizationId,
+        contactId: contact.id,
+        channel: 'CAMPAIGN',
+      });
+      smsSent = result.result_code === 1;
+    }
 
-    // TODO: 실제 이메일/SMS 발송 로직
-    // if (campaign.sendEmail && contact.email) {
-    //   await sendEmail(contact.email, campaign);
-    // }
-    // if (campaign.sendSms && contact.phone) {
-    //   await sendSms(contact.phone, campaign);
-    // }
-    // if (campaign.includeLanding) {
-    //   await generateLandingLink(contact.id, campaign);
-    // }
+    // 이메일 발송
+    if (campaign.sendEmail && campaign.emailSubject && campaign.emailBody && contact.email && emailConfig) {
+      const html = campaign.emailBody.replace(/\{name\}/g, contact.name ?? '고객');
+      emailSent = await sendEmail({
+        smtpHost: emailConfig.smtpHost,
+        smtpPort: emailConfig.smtpPort,
+        smtpUser: emailConfig.smtpUser,
+        smtpPassEncrypted: emailConfig.smtpPassEncrypted,
+        senderName: emailConfig.senderName,
+        senderEmail: emailConfig.senderEmail,
+        to: contact.email,
+        subject: campaign.emailSubject,
+        html,
+      });
+    }
 
-    logger.info('[processRecipient] Message created', {
-      campaignId,
-      recipientId: contact.id,
-      name: contact.name,
-    });
+    // 발송 기록은 SmsLog (sendSms 내부에서 자동 기록) 및 EmailLog에서 처리
+
+    logger.info('[processRecipient] done', { campaignId, contactId: contact.id, smsSent, emailSent });
   } catch (err) {
-    logger.error('[processRecipient] Error', { err, campaignId, recipientId: member.contact.id });
+    logger.error('[processRecipient] Error', { err, campaignId, recipientId: contact.id });
   }
 }
