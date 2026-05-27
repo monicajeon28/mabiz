@@ -53,18 +53,29 @@ export default function L8ReturnOptimizationPage() {
       setLoading(true);
 
       const [ltvRes, smsRes] = await Promise.all([
-        fetch(`/api/l8-ltv-tracking/stats?organizationId=${orgId}`),
-        fetch(`/api/l8-sms-return-sequence/stats?organizationId=${orgId}`),
+        fetch(`/api/l8-ltv-tracking`),
+        fetch(`/api/l8-sms-return-sequence`),
       ]);
 
       if (ltvRes.ok) {
         const ltvData = await ltvRes.json();
-        setLtvStats(ltvData.stats);
+        setLtvStats({
+          ...(ltvData.stats ?? {}),
+          tierDistribution: ltvData.tierDistribution ?? {},
+          avgReturnInterestLevel: ltvData.avgReturnInterestLevel ?? 0,
+        });
       }
 
       if (smsRes.ok) {
         const smsData = await smsRes.json();
-        setSmsStats(smsData);
+        setSmsStats({
+          day10:          smsData.stats?.day10 ?? 0,
+          day30:          smsData.stats?.day30 ?? 0,
+          day60:          smsData.stats?.day60 ?? 0,
+          day90:          smsData.stats?.day90 ?? 0,
+          totalEligible:  smsData.totalEligible ?? 0,
+          conversionRate: smsData.conversionRate ?? { day10: 0, day30: 0, day60: 0, day90: 0 },
+        });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load stats");
