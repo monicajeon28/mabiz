@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, Plus, Filter, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet, Loader2, Share2, FolderDown } from "lucide-react";
 import { logger } from "@/lib/logger";
+import { useToast } from "@/lib/api/use-toast";
 
 type Contact = {
   id: string;
@@ -121,6 +122,7 @@ function getSourceLabel(contact: Contact): string {
 }
 
 export default function ContactsPage() {
+  const { toast } = useToast();
   const router = useRouter();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
@@ -314,10 +316,10 @@ export default function ContactsPage() {
           c.id === contactId ? { ...c, lastTransferredTo: null } : c
         ));
       } else {
-        alert(data.message ?? "회수에 실패했습니다.");
+        toast({ title: '회수 실패', description: data.message ?? '다시 시도해주세요.', variant: 'destructive' });
       }
     } catch {
-      alert("네트워크 오류가 발생했습니다.");
+      toast({ title: '네트워크 오류', description: '잠시 후 다시 시도해주세요.', variant: 'destructive' });
     } finally {
       setRecalling(null);
     }
@@ -410,7 +412,7 @@ export default function ContactsPage() {
       fetch("/api/contacts/assign-stats").then(r => r.json()).then(d => {
         if (d.ok) { setAssignStats(d.stats); setUnassignedCount(d.unassigned); }
       });
-    } else { alert(data.message ?? "할당 실패"); }
+    } else { toast({ title: '할당 실패', description: data.message ?? '다시 시도해주세요.', variant: 'destructive' }); }
   };
 
   const runImport = async () => {

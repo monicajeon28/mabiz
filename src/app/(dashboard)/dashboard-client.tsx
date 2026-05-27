@@ -5,6 +5,7 @@ import { Users, TrendingUp, RotateCcw, Clock, Star, Phone, Settings, Send, Alert
 import Link from "next/link";
 import { AuthSession } from '@/types/auth';
 import { logger } from '@/lib/logger';
+import { useToast } from '@/lib/api/use-toast';
 
 type DashboardData = {
   role: string;
@@ -139,6 +140,7 @@ function CampaignStatusCard({
 }
 
 function PushCallNotification({ callDueCount }: { callDueCount: number }) {
+  const { toast } = useToast();
   const [sending, setSending] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [pushSettings, setPushSettings] = useState<{ notifyEnabled: boolean; notifyAtHour: number }>({
@@ -170,12 +172,12 @@ function PushCallNotification({ callDueCount }: { callDueCount: number }) {
       const data = await result.json();
 
       if (data.ok) {
-        alert(`${callDueCount}명의 고객 콜 알림을 폰으로 보냈습니다`);
+        toast({ title: '푸시 알림 발송 완료', description: `${callDueCount}명의 고객 콜 알림을 폰으로 보냈습니다.` });
       } else {
-        alert(data.error || '푸시 발송 실패');
+        toast({ title: '푸시 발송 실패', description: data.error || '다시 시도해주세요.', variant: 'destructive' });
       }
     } catch (err) {
-      alert('푸시 발송 중 오류가 발생했습니다');
+      toast({ title: '오류 발생', description: '푸시 발송 중 오류가 발생했습니다.', variant: 'destructive' });
     } finally {
       setSending(false);
     }
@@ -191,13 +193,13 @@ function PushCallNotification({ callDueCount }: { callDueCount: number }) {
       const data = await result.json();
 
       if (data.ok) {
-        alert('설정이 저장되었습니다');
+        toast({ title: '설정 저장 완료' });
         setShowSettings(false);
       } else {
-        alert(data.error || '설정 저장 실패');
+        toast({ title: '설정 저장 실패', description: data.error || '다시 시도해주세요.', variant: 'destructive' });
       }
     } catch (err) {
-      alert('설정 저장 중 오류가 발생했습니다');
+      toast({ title: '오류 발생', description: '설정 저장 중 오류가 발생했습니다.', variant: 'destructive' });
     }
   };
 

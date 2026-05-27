@@ -240,7 +240,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       const res = await fetch(`/api/contacts/${id}/call-logs/backup`, { method: "POST" });
       const data = await res.json();
       if (data.ok) setBackupResult({ url: data.viewUrl, count: data.count });
-      else alert(data.message ?? "백업 실패");
+      else toast({ title: '백업 실패', description: data.message ?? '다시 시도해주세요.', variant: 'destructive' });
     } finally {
       setBacking(false);
     }
@@ -617,10 +617,10 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       if (data.ok) {
         setTransferLogs(prev => prev.filter(l => l.id !== log.id));
       } else {
-        alert(data.message ?? "회수에 실패했습니다.");
+        toast({ title: '회수 실패', description: data.message ?? '다시 시도해주세요.', variant: 'destructive' });
       }
     } catch {
-      alert("네트워크 오류가 발생했습니다.");
+      toast({ title: '네트워크 오류', description: '잠시 후 다시 시도해주세요.', variant: 'destructive' });
     } finally {
       setRecalling(false);
     }
