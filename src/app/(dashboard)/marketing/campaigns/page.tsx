@@ -6,7 +6,10 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { CampaignRow } from '@/components/marketing/CampaignRow';
 import { logger } from '@/lib/logger';
+import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import type { Campaign } from '@/types/marketing';
+
+interface Pagination { total: number; page: number; pageSize: number; totalPages: number; }
 
 export default function MarketingCampaignsPage() {
   const router = useRouter();
@@ -14,6 +17,7 @@ export default function MarketingCampaignsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [csrfToken, setCsrfToken] = useState('');
+  const [pagination, setPagination] = useState<Pagination>({ total: 0, page: 1, pageSize: 20, totalPages: 1 });
 
   useEffect(() => {
     fetch('/api/csrf-token')
@@ -32,10 +36,10 @@ export default function MarketingCampaignsPage() {
       });
   }, []);
 
-  const fetchCampaigns = useCallback(async () => {
+  const fetchCampaigns = useCallback(async (page = 1) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/marketing/campaigns');
+      const res = await fetch(`/api/marketing/campaigns?page=${page}&limit=20`);
       if (!res.ok) throw new Error('캠페인 목록을 불러올 수 없습니다.');
 
       const data = await res.json();
@@ -43,6 +47,7 @@ export default function MarketingCampaignsPage() {
         throw new Error('캠페인 데이터 형식이 잘못되었습니다.');
       }
       setCampaigns(data.campaigns);
+      if (data.pagination) setPagination(data.pagination);
     } catch (err) {
       logger.error('[MarketingCampaignsPage]', { err });
       setError(err instanceof Error ? err.message : '오류 발생');
@@ -52,7 +57,8 @@ export default function MarketingCampaignsPage() {
   }, []);
 
   useEffect(() => {
-    fetchCampaigns();
+    fetchCampaigns(pagination.page);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchCampaigns]);
 
   const handleDelete = async (id: string) => {
@@ -159,10 +165,40 @@ export default function MarketingCampaignsPage() {
               ))}
             </tbody>
           </table>
-          {/* 페이지네이션 (P2-4) */}
-          {campaigns.length > 10 && (
-            <div className="px-6 py-4 border-t border-gray-100 text-center">
-              <p className="text-xs text-gray-400">페이지네이션 추가 예정</p>
+          {/* 페이지네이션 */}
+          {pagination.totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+              <p className="text-sm text-gray-500">
+                총 {pagination.total}개 · {pagination.page}/{pagination.totalPages} 페이지
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => fetchCampaigns(pagination.page - 1)}
+                  disabled={pagination.page <= 1}
+                  className="p-1.5 rounded-md border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+                >
+                  <ChevronLeftIcon className="h-4 w-4" />
+                </button>
+                {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                  const p = Math.max(1, Math.min(pagination.page - 2, pagination.totalPages - 4)) + i;
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => fetchCampaigns(p)}
+                      className={`px-3 py-1 rounded-md text-sm border ${p === pagination.page ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 hover:bg-gray-50'}`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => fetchCampaigns(pagination.page + 1)}
+                  disabled={pagination.page >= pagination.totalPages}
+                  className="p-1.5 rounded-md border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+                >
+                  <ChevronRightIcon className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           )}
         </div>

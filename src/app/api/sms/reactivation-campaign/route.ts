@@ -28,6 +28,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getReactivationTemplate } from '@/lib/sms/reactivation-templates';
 import { logger } from '@/lib/logger';
+import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
 
 export async function POST(request: NextRequest) {
   try {
@@ -120,34 +121,59 @@ export async function POST(request: NextRequest) {
     let sentCount = 0;
     let skippedCount = 0;
 
-    // 배치 처리로 SMS 발송
+    // OrgSmsConfig 조회 (배치 외부에서 1회만)
+    const smsConfigRecord = await getOrgSmsConfig(organizationId);
+    const aligoConfig = smsConfigRecord?.isActive
+      ? { key: smsConfigRecord.aligoKey, userId: smsConfigRecord.aligoUserId, sender: smsConfigRecord.senderPhone }
+      : null;
+
+    // 배치 처리로 SMS 실제 발송 (50건씩)
     const batchSize = 50;
     for (let i = 0; i < recipients.length; i += batchSize) {
       const batch = recipients.slice(i, i + batchSize);
 
       const results = await Promise.allSettled(
         batch.map(async (recipient) => {
-          // 개인화 메시지 생성
           const personalizedMessage = template.content
             .replace('{name}', recipient.name || '고객님')
             .replace('{segment}', segment)
             .replace('{likelihood}', `${recipient.reactivationLikelihood}%`);
 
-          // SMS 발송 (큐에 추가)
+          let smsStatus: 'SENT' | 'FAILED' | 'PENDING' = 'PENDING';
+          let msgId: string | null = null;
+          let resultCode: string | null = null;
+
+          if (aligoConfig) {
+            const aligoResult = await sendSms({
+              config: aligoConfig,
+              receiver: recipient.phone!,
+              msg: personalizedMessage,
+              msgType: personalizedMessage.length > 90 ? 'LMS' : 'SMS',
+              organizationId,
+              contactId: recipient.id,
+              channel: 'FUNNEL',
+            });
+            smsStatus = aligoResult.result_code === 1 ? 'SENT' : 'FAILED';
+            msgId = aligoResult.msg_id ?? null;
+            resultCode = String(aligoResult.result_code);
+          }
+
           return prisma.smsLog.create({
             data: {
               organizationId,
               contactId: recipient.id,
               phone: recipient.phone!,
-              contentPreview: personalizedMessage,
-              status: 'PENDING',
+              contentPreview: personalizedMessage.substring(0, 100),
+              status: smsStatus,
               channel: 'REACTIVATION',
+              msgId,
+              resultCode,
             },
           });
         }),
       );
 
-      sentCount += results.filter((r) => r.status === 'fulfilled').length;
+      sentCount += results.filter((r) => r.status === 'fulfilled' && (r.value as { status: string }).status === 'SENT').length;
       skippedCount += results.filter((r) => r.status === 'rejected').length;
 
       logger.info('[Reactivation Campaign] Batch progress', {

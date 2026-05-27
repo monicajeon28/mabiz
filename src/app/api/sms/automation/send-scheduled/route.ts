@@ -1,73 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
 
-/**
- * SMS 발송을 위한 Aligo 또는 Twilio 클라이언트
- * 현재는 로그만 출력하고, 실제 발송은 OrgSmsConfig 기반으로 처리
- */
 async function sendSmsToContact(
   organizationId: string,
   phoneNumber: string,
-  content: string
+  content: string,
+  contactId?: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  try {
-    // OrgSmsConfig에서 SMS 제공자 설정 조회
-    const smsConfig = await prisma.orgSmsConfig.findUnique({
-      where: { organizationId }
-    });
+  const smsConfig = await getOrgSmsConfig(organizationId);
 
-    if (!smsConfig || !smsConfig.isActive) {
-      return {
-        success: false,
-        error: 'SMS config not found or inactive for organization'
-      };
-    }
-
-    // TODO: Aligo API 호출 (기존 구현과 통합)
-    // Aligo 발송 로직
-    const response = await fetch('https://api.aligo.in/send/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
-        apikey: smsConfig.aligoKey,
-        userid: smsConfig.aligoUserId,
-        sender: smsConfig.senderPhone,
-        receiver: phoneNumber,
-        msg: content
-      }).toString()
-    });
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: `Aligo API error: ${response.statusText}`
-      };
-    }
-
-    const result = await response.text();
-
-    // Aligo 응답 파싱 (예: "RESULT|0|msg_id|...")
-    const parts = result.split('|');
-    if (parts[1] === '0') {
-      return {
-        success: true,
-        messageId: parts[2] || 'aligo_' + Date.now()
-      };
-    } else {
-      return {
-        success: false,
-        error: `Aligo error: ${parts[1]}`
-      };
-    }
-  } catch (error) {
-    console.error('SMS sending error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
+  if (!smsConfig || !smsConfig.isActive) {
+    return { success: false, error: 'SMS config not found or inactive for organization' };
   }
+
+  const result = await sendSms({
+    config: { key: smsConfig.aligoKey, userId: smsConfig.aligoUserId, sender: smsConfig.senderPhone },
+    receiver: phoneNumber,
+    msg: content,
+    msgType: content.length > 90 ? 'LMS' : 'SMS',
+    organizationId,
+    contactId,
+    channel: 'FUNNEL',
+  });
+
+  return result.result_code === 1
+    ? { success: true, messageId: result.msg_id }
+    : { success: false, error: result.message };
 }
 
 export async function GET(request: NextRequest) {
@@ -109,7 +68,8 @@ export async function GET(request: NextRequest) {
         const sendResult = await sendSmsToContact(
           message.organizationId,
           message.contact.phone,
-          message.content
+          message.content,
+          message.contactId
         );
 
         if (sendResult.success) {

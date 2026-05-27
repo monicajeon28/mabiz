@@ -69,6 +69,8 @@ model Organization {
   sequenceTemplates          SmsSequenceTemplate[]
   // Daily Reports
   dailyReports               DailyReport[]
+  // A/B 테스트
+  segmentAbTests             SegmentABTest[]             @relation("SegmentABTests")
 }
 
 model OrgSmsConfig {
@@ -5740,6 +5742,30 @@ enum PaymentStatus {
   partial_refunded
   refund_pending
   pending_vbank
+}
+
+model SegmentABTest {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  segmentType    String       // "age" | "gender" | "lens" | "reactivation"
+  variantA       Json         // 메시지 템플릿 A
+  variantB       Json         // 메시지 템플릿 B
+  status         String       @default("DRAFT") // DRAFT | RUNNING | COMPLETED | PAUSED
+  winnerVariant  String?      // "A" | "B"
+  totalSent      Int          @default(0)
+  aConversions   Int          @default(0)
+  bConversions   Int          @default(0)
+  startedAt      DateTime?
+  endedAt        DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation("SegmentABTests", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([organizationId, status])
 }
 
 enum RecaptchaVerificationStatus {

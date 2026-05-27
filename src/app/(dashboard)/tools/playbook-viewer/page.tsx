@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { Copy, Check, ChevronDown, BookOpen, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { detectSegment, SEGMENT_PROFILES, SEGMENT_RECOMMENDED_TECHNIQUES } from "@/lib/segment-detector";
@@ -87,6 +88,7 @@ const CLOSING_SIGNALS: ClosingSignal[] = [
 
 export default function PlaybookViewerPage() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<PlaybookItem[]>([]);
   const [selectedPhase, setSelectedPhase] = useState<number | null>(null);
   const [selectedSegment, setSelectedSegment] = useState("ALL");
@@ -97,6 +99,22 @@ export default function PlaybookViewerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
   const [detectedSegment, setDetectedSegment] = useState<Segment>("A");
+
+  // URL 파라미터로 Contact 정보를 받아 세그먼트 자동 감지
+  // 예: /tools/playbook-viewer?age=42&maritalStatus=MARRIED&childrenCount=2
+  useEffect(() => {
+    const age = parseInt(searchParams.get("age") || "0") || undefined;
+    const maritalStatus = searchParams.get("maritalStatus") || undefined;
+    const childrenCount = parseInt(searchParams.get("childrenCount") || "0");
+    const segmentOverride = searchParams.get("segment") || undefined;
+
+    if (age || segmentOverride) {
+      const detected = detectSegment({ age, maritalStatus, childrenCount, segmentOverride });
+      setDetectedSegment(detected);
+      setSelectedSegment(detected);
+      logger.log("[PlaybookViewer] URL 파라미터로 세그먼트 자동 감지", { detected, age, maritalStatus, childrenCount });
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     fetchPlaybooks();
