@@ -4636,6 +4636,24 @@ model Salary {
   @@index([status, createdAt])
 }
 
+model PayslipBonus {
+  id               Int       @id @default(autoincrement())
+  profileId        Int       // GMcruise AffiliateProfile.id
+  period           String    // YYYY-MM 형식 (AffiliatePayslip.period와 매칭)
+  bonusAmount      Int       @default(0) // 추가 보너스 금액 (원화)
+  reason           String?   // 보너스 사유
+  approvedBy       Int?      // 승인자 User id
+  approvedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime? @db.Timestamptz(6)
+
+  @@unique([profileId, period], where: { deletedAt: null })
+  @@index([period])
+  @@index([profileId, period])
+  @@index([deletedAt])
+}
+
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model ScheduledMessage {
   id             Int       @id @default(autoincrement())

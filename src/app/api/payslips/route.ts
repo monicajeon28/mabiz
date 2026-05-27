@@ -16,6 +16,7 @@ type RawPayslip = {
   totalCommission: number;
   totalWithholding: number;
   netPayment: number;
+  bonusAmount: number | null;
   status: string;
   sentAt: Date | null;
   createdAt: Date;
@@ -102,6 +103,7 @@ export async function GET(req: NextRequest) {
           p."totalCommission",
           p."totalWithholding",
           p."netPayment",
+          COALESCE(pb."bonusAmount", 0)::integer AS "bonusAmount",
           p.status,
           p."sentAt",
           p."createdAt",
@@ -110,6 +112,9 @@ export async function GET(req: NextRequest) {
         FROM "AffiliatePayslip" p
         JOIN "AffiliateProfile" ap ON ap.id = p."profileId"
         JOIN "User"             u  ON u.id  = ap."userId"
+        LEFT JOIN "PayslipBonus" pb ON pb."profileId" = p."profileId"
+                                    AND pb."period" = p."period"
+                                    AND pb."deletedAt" IS NULL
         WHERE 1=1
           ${scopeCondition}
           ${periodCondition}
@@ -131,21 +136,29 @@ export async function GET(req: NextRequest) {
 
     const total = Number(countRows[0]?.total ?? 0);
 
-    const payslips = rows.map((r) => ({
-      id:               r.id,
-      agentId:          r.profileId,   // UI 호환성: agentId로 노출
-      yearMonth:        r.period,      // UI 호환성: yearMonth로 노출
-      baseCommission:   Number(r.totalCommission),
-      deduction:        Number(r.totalWithholding),
-      netAmount:        Number(r.netPayment),
-      bonus:            null,          // AffiliatePayslip에 별도 bonus 컬럼 없음
-      status:           r.status,
-      paidAt:           r.sentAt?.toISOString() ?? null,
-      note:             null,
-      createdAt:        r.createdAt.toISOString(),
-      agentDisplayName: r.agentDisplayName,
-      agentMallUserId:  r.agentMallUserId,
-    }));
+    const payslips = rows.map((r) => {
+      const baseCommission = Number(r.totalCommission);
+      const bonus = Number(r.bonusAmount) || 0;
+      const grossCommission = baseCommission + bonus;
+      const deduction = Number(r.totalWithholding);
+      const netAmount = Number(r.netPayment);
+
+      return {
+        id:                r.id,
+        agentId:           r.profileId,
+        yearMonth:         r.period,
+        baseCommission,
+        bonus,
+        grossCommission,
+        deduction,
+        netAmount,
+        status:            r.status,
+        paidAt:            r.sentAt?.toISOString() ?? null,
+        createdAt:         r.createdAt.toISOString(),
+        agentDisplayName:  r.agentDisplayName,
+        agentMallUserId:   r.agentMallUserId,
+      };
+    });
 
     const totalPages = Math.ceil(total / limit);
     logger.log('[GET /api/payslips]', { role: ctx.role, total, page, totalPages });
