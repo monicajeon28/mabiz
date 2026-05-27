@@ -61,6 +61,13 @@ model Organization {
   marketingMessages          CrmMarketingMessage[]       @relation("CrmMarketingMessages")
   // Day 0-3 Sequences
   sequenceTemplates          SmsSequenceTemplate[]
+  // Daily Reports
+  dailyReports               DailyReport[]
+  // AI Segmentation
+  customerSegments           CustomerSegment[]
+  contactSegmentAssignments  ContactSegmentAssignment[]
+  segmentCampaignMetrics     SegmentCampaignMetric[]
+  segmentAbTests             SegmentABTest[]
 }
 
 model OrgSmsConfig {
@@ -5938,4 +5945,71 @@ model DataAccessRequest {
   @@index([organizationId, createdAt])
   @@index([status, expiresAt])
   @@map("DataAccessRequest")
+}
+
+/// Daily Performance Report
+model DailyReport {
+  id               String   @id @default(cuid())
+  organizationId   String
+  reportDate       DateTime // Date of report (YYYY-MM-DD at 00:00)
+
+  // Summary metrics
+  revenue          BigInt   @default(0) // Total revenue (today)
+  weeklyRevenue    BigInt   @default(0)
+  monthlyRevenue   BigInt   @default(0)
+
+  conversionRate   Float    @default(0) // Overall conversion %
+  conversionCount  Int      @default(0) // Number of conversions today
+
+  // Sequence metrics
+  sequenceCompletions Int @default(0) // Day 0-3 completions
+  day0Sent         Int      @default(0)
+  day0Opened       Int      @default(0)
+  day0Clicked      Int      @default(0)
+  day0Converted    Int      @default(0)
+
+  // Channel metrics
+  smsSent          Int      @default(0)
+  smsOpenRate      Float    @default(0)
+  kakaoSent        Int      @default(0)
+  kakaoClickRate   Float    @default(0)
+  emailSent        Int      @default(0)
+  emailOpenRate    Float    @default(0)
+
+  // Partner metrics
+  topPartnerCount  Int      @default(0) // Number of top performers
+  partnerRevenue   BigInt   @default(0) // Sum of partner revenue
+
+  // Alert data (JSON array of alerts)
+  alerts           Json     @default("[]") // [{ type: "RED"|"YELLOW", metric: string, value: number, threshold: number, message: string }]
+
+  // Recommendation data (JSON array)
+  recommendations  Json     @default("[]") // [{ title: string, description: string, impact: string, priority: "HIGH"|"MEDIUM"|"LOW" }]
+
+  // By-channel breakdown (JSON)
+  channelMetrics   Json     @default("{}") // { sms: {...}, kakao: {...}, email: {...} }
+
+  // By-lens breakdown (JSON)
+  lensMetrics      Json     @default("{}") // { L0: {...}, L1: {...}, ... }
+
+  // Top performers (JSON array)
+  topPartners      Json     @default("[]") // [{ id, name, revenue, conversionCount }]
+  topSequences     Json     @default("[]") // [{ id, name, conversionRate, completionCount }]
+
+  // Raw data for charts
+  rawData          Json?    // Optional detailed data for frontend charts
+
+  // Status
+  status           String   @default("COMPLETED") @db.VarChar(20) // GENERATING, COMPLETED, FAILED
+  errorMessage     String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, reportDate])
+  @@index([organizationId, reportDate])
+  @@index([reportDate])
+  @@map("DailyReport")
 }
