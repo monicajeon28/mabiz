@@ -5969,6 +5969,28 @@ model BackupAuditTrail {
   @@map("BackupAuditTrail")
 }
 
+/// GDPR Right to be Forgotten - 데이터 삭제 요청
+model DataDeletionRequest {
+  id             String   @id @default(cuid())
+  contactId      String
+  organizationId String   @db.VarChar(255)
+  requestedBy    String   @db.VarChar(255)
+  reason         String   @db.Text
+  requestedAt    DateTime @default(now())
+  scheduledDeleteAt DateTime
+  status         String   @default("PENDING_DELETION") @db.VarChar(30)
+  // PENDING_DELETION | SCHEDULED_FOR_DELETE | HARD_DELETED | RESTORED
+  gracePeriodDays Int     @default(30)
+  cancelledAt    DateTime?
+  cancelledBy    String?  @db.VarChar(255)
+  completedAt    DateTime?
+
+  @@index([organizationId, status])
+  @@index([scheduledDeleteAt, status])
+  @@index([contactId])
+  @@map("DataDeletionRequest")
+}
+
 /// GDPR/CCPA 데이터 접근 요청
 model DataAccessRequest {
   id             Int    @id @default(autoincrement())

@@ -84,6 +84,11 @@ export default function CompliancePage() {
   const [compliance, setCompliance] = useState<ComplianceStatus | null>(null);
   const [deletionRequests, setDeletionRequests] = useState<DataDeletionRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [monitoring, setMonitoring] = useState<{
+    summary?: { piiAccessCountToday?: number; anomalyCount?: number };
+    topPiiAccessors?: { userId: string; count: number }[];
+    recentAnomalies?: { id: number; anomalyType: string; severity: string; createdAt: string }[];
+  }>({});
 
   // 필터
   const [actionFilter, setActionFilter] = useState('ALL');
@@ -112,6 +117,7 @@ export default function CompliancePage() {
       if (complianceRes.ok) {
         const data = await complianceRes.json();
         setCompliance(data);
+        setMonitoring(data);
       }
 
       if (deletionRes.ok) {
@@ -297,51 +303,69 @@ export default function CompliancePage() {
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium text-gray-600">
-                      어제 PII 접근
+                      오늘 PII 접근
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">142</div>
-                    <p className="text-xs text-gray-500 mt-1">전일 대비: +8%</p>
+                    <div className="text-2xl font-bold">
+                      {monitoring.summary?.piiAccessCountToday ?? '—'}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">실시간 집계</p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium text-gray-600">
-                      이상 접근
+                      이상 탐지
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-yellow-600">2</div>
-                    <p className="text-xs text-gray-500 mt-1">검토 필요</p>
+                    <div className="text-2xl font-bold text-yellow-600">
+                      {monitoring.recentAnomalies?.length ?? 0}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">최근 30일</p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium text-gray-600">
-                      마스킹된 필드
+                      PII 상위 접근자
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">8/10</div>
-                    <p className="text-xs text-gray-500 mt-1">전체 필드 기준</p>
+                    <div className="text-2xl font-bold">
+                      {monitoring.topPiiAccessors?.length ?? 0}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Top 5 사용자</p>
                   </CardContent>
                 </Card>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex gap-3">
-                  <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-semibold text-blue-900">알림</h4>
-                    <p className="text-sm text-blue-800 mt-1">
-                      지난 1시간 동안 user@example.com이 124개의 연락처 전화번호에 접근했습니다.
-                    </p>
-                  </div>
+              {/* 이상 탐지 목록 */}
+              {(monitoring.recentAnomalies?.length ?? 0) > 0 && (
+                <div className="space-y-2">
+                  {monitoring.recentAnomalies!.map((a) => (
+                    <div key={a.id} className={`border rounded-lg p-3 flex items-center gap-3 ${
+                      a.severity === 'CRITICAL' ? 'bg-red-50 border-red-200' :
+                      a.severity === 'HIGH' ? 'bg-orange-50 border-orange-200' :
+                      'bg-blue-50 border-blue-200'
+                    }`}>
+                      <AlertCircle className={`w-5 h-5 flex-shrink-0 ${
+                        a.severity === 'CRITICAL' ? 'text-red-600' :
+                        a.severity === 'HIGH' ? 'text-orange-600' : 'text-blue-600'
+                      }`} />
+                      <div>
+                        <p className="text-sm font-medium">{a.anomalyType}</p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(a.createdAt).toLocaleString('ko-KR')} · {a.severity}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
