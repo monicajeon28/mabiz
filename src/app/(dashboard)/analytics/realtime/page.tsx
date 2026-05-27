@@ -20,7 +20,7 @@ import { RealtimeMetrics } from '@/lib/realtime/kpi-socket';
 import { logger } from '@/lib/logger';
 
 export default function RealtimeDashboard() {
-  const { data: session } = useSession();
+  const session = useSession();
   const { isConnected, metrics } = useKpiSocket();
   const [selectedTab, setSelectedTab] = useState<'overview' | 'charts' | 'health'>('overview');
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
@@ -37,7 +37,7 @@ export default function RealtimeDashboard() {
     return ((metrics.todayRevenue - metrics.yesterdayRevenue) / metrics.yesterdayRevenue) * 100;
   }, [metrics]);
 
-  if (!session?.user) {
+  if (!session?.organizationId) {
     return <div className="flex items-center justify-center h-screen">로그인이 필요합니다</div>;
   }
 
