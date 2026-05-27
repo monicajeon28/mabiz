@@ -99,6 +99,9 @@ function SmsTab() {
   const [csrfToken,      setCsrfToken]      = useState("");
   const [rateLimitStatus, setRateLimitStatus] = useState<{ used: number; remaining: number; resetAt: string } | null>(null);
   const [userRole,       setUserRole]       = useState<UserRole | null>(null);
+  // 스케줄링 기능
+  const [scheduleMode,   setScheduleMode]   = useState<"now" | "scheduled">("now");
+  const [scheduledTime,  setScheduledTime]  = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // CSRF 토큰 획득
@@ -155,6 +158,7 @@ function SmsTab() {
   // useCallback: dry-run 메모이제이션 (반복 호출 방지)
   const doDryRun = useCallback(async () => {
     if (!selectedGroup || !message.trim()) { showError("그룹과 메시지를 입력하세요"); return; }
+    if (scheduleMode === "scheduled" && !scheduledTime) { showError("발송 시간을 선택해주세요"); return; }
 
     // AbortController로 fetch 취소 관리
     const controller = new AbortController();
@@ -168,7 +172,11 @@ function SmsTab() {
           "Content-Type": "application/json",
           ...(csrfToken && { "X-CSRF-Token": csrfToken }),
         },
-        body: JSON.stringify({ message, dryRun: true }),
+        body: JSON.stringify({
+          message,
+          dryRun: true,
+          ...(scheduleMode === "scheduled" && { scheduledTime })
+        }),
       });
       const d = await res.json() as {
         ok: boolean; count?: number; willSend?: number; sampleMessages?: string[]; linkNoCount?: number; rateLimitStatus?: any;
@@ -216,7 +224,7 @@ function SmsTab() {
     } finally {
       clearTimeout(timeoutId);
     }
-  }, [selectedGroup, message, csrfToken]);
+  }, [selectedGroup, message, csrfToken, scheduleMode, scheduledTime]);
 
   // useCallback: 발송 메모이제이션 (반복 호출 방지)
   const doSend = useCallback(async () => {
@@ -253,7 +261,11 @@ function SmsTab() {
           "Content-Type": "application/json",
           ...(csrfToken && { "X-CSRF-Token": csrfToken }),
         },
-        body: JSON.stringify({ message, dryRun: false }),
+        body: JSON.stringify({
+          message,
+          dryRun: false,
+          ...(scheduleMode === "scheduled" && { scheduledTime })
+        }),
       });
       const d = await res.json() as { ok: boolean; sentCount?: number; failedCount?: number; message?: string };
       if (!d.ok) {
@@ -272,7 +284,7 @@ function SmsTab() {
       clearTimeout(timeoutId);
       setSending(false);
     }
-  }, [selectedGroup, message, csrfToken, dryRunResult, confirmed]);
+  }, [selectedGroup, message, csrfToken, dryRunResult, confirmed, scheduleMode, scheduledTime]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -380,6 +392,31 @@ function SmsTab() {
             rows={6}
             className="w-full border rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
           />
+
+          {/* 스케줄링 옵션 */}
+          <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center gap-4 mb-3">
+              <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+                <input type="radio" name="schedule" value="now" checked={scheduleMode === "now"}
+                  onChange={() => setScheduleMode("now")} className="rounded" />
+                즉시 발송
+              </label>
+              <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+                <input type="radio" name="schedule" value="scheduled" checked={scheduleMode === "scheduled"}
+                  onChange={() => setScheduleMode("scheduled")} className="rounded" />
+                예약 발송
+              </label>
+            </div>
+            {scheduleMode === "scheduled" && (
+              <input
+                type={supportsDatetimeLocal() ? "datetime-local" : "text"}
+                value={scheduledTime}
+                onChange={(e) => setScheduledTime(e.target.value)}
+                placeholder="2026-05-28 14:00"
+                className="w-full px-2 py-1.5 border rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+            )}
+          </div>
 
           {/* 치환변수 패널 */}
           <div className="mt-2">
@@ -857,6 +894,9 @@ function KakaoTab() {
   const [csrfToken,      setCsrfToken]      = useState("");
   const [rateLimitStatus, setRateLimitStatus] = useState<{ used: number; remaining: number; resetAt: string } | null>(null);
   const [userRole,       setUserRole]       = useState<UserRole | null>(null);
+  // 스케줄링 기능
+  const [scheduleMode,   setScheduleMode]   = useState<"now" | "scheduled">("now");
+  const [scheduledTime,  setScheduledTime]  = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // CSRF 토큰 획득
@@ -908,6 +948,7 @@ function KakaoTab() {
       showError("그룹, 제목, 메시지를 모두 입력하세요");
       return;
     }
+    if (scheduleMode === "scheduled" && !scheduledTime) { showError("발송 시간을 선택해주세요"); return; }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -920,7 +961,12 @@ function KakaoTab() {
           "Content-Type": "application/json",
           ...(csrfToken && { "X-CSRF-Token": csrfToken }),
         },
-        body: JSON.stringify({ title, message, dryRun: true }),
+        body: JSON.stringify({
+          title,
+          message,
+          dryRun: true,
+          ...(scheduleMode === "scheduled" && { scheduledTime })
+        }),
       });
       const d = await res.json() as {
         ok: boolean; willSend?: number; sample?: string; rateLimitStatus?: any;
@@ -965,7 +1011,7 @@ function KakaoTab() {
     } finally {
       clearTimeout(timeoutId);
     }
-  }, [selectedGroup, title, message, csrfToken]);
+  }, [selectedGroup, title, message, csrfToken, scheduleMode, scheduledTime]);
 
   // 발송 콜백
   const doSend = useCallback(async () => {
@@ -998,7 +1044,12 @@ function KakaoTab() {
           "Content-Type": "application/json",
           ...(csrfToken && { "X-CSRF-Token": csrfToken }),
         },
-        body: JSON.stringify({ title, message, dryRun: false }),
+        body: JSON.stringify({
+          title,
+          message,
+          dryRun: false,
+          ...(scheduleMode === "scheduled" && { scheduledTime })
+        }),
       });
       const d = await res.json() as { ok: boolean; sentCount?: number; failedCount?: number; message?: string };
       if (!d.ok) {
@@ -1017,7 +1068,7 @@ function KakaoTab() {
       clearTimeout(timeoutId);
       setSending(false);
     }
-  }, [selectedGroup, title, message, csrfToken, dryRunResult, confirmed]);
+  }, [selectedGroup, title, message, csrfToken, dryRunResult, confirmed, scheduleMode, scheduledTime]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1108,6 +1159,31 @@ function KakaoTab() {
             rows={8}
             className="w-full border rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
           />
+
+          {/* 스케줄링 옵션 */}
+          <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center gap-4 mb-3">
+              <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+                <input type="radio" name="schedule" value="now" checked={scheduleMode === "now"}
+                  onChange={() => setScheduleMode("now")} className="rounded" />
+                즉시 발송
+              </label>
+              <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+                <input type="radio" name="schedule" value="scheduled" checked={scheduleMode === "scheduled"}
+                  onChange={() => setScheduleMode("scheduled")} className="rounded" />
+                예약 발송
+              </label>
+            </div>
+            {scheduleMode === "scheduled" && (
+              <input
+                type={supportsDatetimeLocal() ? "datetime-local" : "text"}
+                value={scheduledTime}
+                onChange={(e) => setScheduledTime(e.target.value)}
+                placeholder="2026-05-28 14:00"
+                className="w-full px-2 py-1.5 border rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+            )}
+          </div>
 
           {/* 치환변수 패널 */}
           <div className="mt-2">
