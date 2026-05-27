@@ -25,14 +25,25 @@ const REPLACEMENTS = [
   { label: "[담당자]",     desc: "나의 이름" },
   { label: "[상품명]",     desc: "관심 상품명" },
   { label: "[출발일]",     desc: "예정 출발일" },
+  { label: "[가격]",       desc: "상품 가격" },
+  { label: "[출발지]",     desc: "출발 도시" },
+  { label: "[목적지]",     desc: "목적지 도시" },
+  { label: "[일정]",       desc: "여행 일정 (박수)" },
+  { label: "[객실유형]",   desc: "선호 객실 유형" },
 ];
 
 const TEMPLATE_CATEGORIES = [
   { value: "",                label: "전체" },
-  { value: "CARE_VIP",       label: "VIP 케어" },
-  { value: "SEQUENCE",       label: "시퀀스" },
-  { value: "LIVE_BROADCAST", label: "라이브 방송" },
-  { value: "GENERAL",        label: "일반" },
+  // 심리학 렌즈 기반 Day 0-3 시퀀스
+  { value: "DAY_0",          label: "🔔 Day 0 (초대/문제)" },
+  { value: "DAY_1",          label: "📢 Day 1 (자극/솔루션)" },
+  { value: "DAY_2",          label: "💰 Day 2 (오퍼)" },
+  { value: "DAY_3",          label: "⚡ Day 3 (긴박/액션)" },
+  // 기타 카테고리
+  { value: "CARE_VIP",       label: "👑 VIP 케어" },
+  { value: "SEQUENCE",       label: "🔗 시퀀스" },
+  { value: "LIVE_BROADCAST", label: "📺 라이브 방송" },
+  { value: "GENERAL",        label: "📝 일반" },
 ];
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "";
