@@ -73,6 +73,19 @@ export async function sendKakaoMessage(
       };
     }
 
+    if (!response.messages || response.messages.length === 0) {
+      logger.error('[KakaoService] No messages in response', {
+        organizationId: payload.organizationId,
+        responseMessagesLength: response.messages?.length || 0,
+      });
+
+      return {
+        messageId: '',
+        status: 'FAILED',
+        fallbackToSms: true,
+      };
+    }
+
     const message = response.messages[0];
     logger.log('[KakaoService] Message sent successfully', {
       organizationId: payload.organizationId,
