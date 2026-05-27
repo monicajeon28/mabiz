@@ -151,24 +151,26 @@ export default function PlaybookViewerPage() {
   const [selectedPsychologyLens, setSelectedPsychologyLens] = useState<"L6" | "L10" | null>(null);
   const [showDay03Preview, setShowDay03Preview] = useState(false);
   const [sampleCustomer, setSampleCustomer] = useState({
-    name: "김철수",
-    phone: "010-1234-5678",
-    agentName: "이모니카",
-    productName: "카리브 럭셔리 7박 크루즈",
-    departDate: "2026-08-15",
-    price: "1,850",
-    departure: "마이애미",
-    destination: "카리브해",
-    duration: "7박 8일",
-    roomType: "발코니 스위트",
+    name: "",
+    phone: "",
+    agentName: "",
+    productName: "",
+    departDate: "",
+    price: "",
+    departure: "",
+    destination: "",
+    duration: "",
+    roomType: "",
   });
 
   // URL 파라미터로 Contact 정보를 받아 세그먼트 자동 감지
   // 예: /tools/playbook-viewer?age=42&maritalStatus=MARRIED&childrenCount=2
   useEffect(() => {
-    const age = parseInt(searchParams.get("age") || "0") || undefined;
+    const ageStr = searchParams.get("age") || "0";
+    const age = /^\d+$/.test(ageStr) ? parseInt(ageStr, 10) : undefined;
     const maritalStatus = searchParams.get("maritalStatus") || undefined;
-    const childrenCount = parseInt(searchParams.get("childrenCount") || "0");
+    const childrenCountStr = searchParams.get("childrenCount") || "0";
+    const childrenCount = /^\d+$/.test(childrenCountStr) ? parseInt(childrenCountStr, 10) : 0;
     const segmentOverride = searchParams.get("segment") || undefined;
 
     if (age || segmentOverride) {
@@ -228,25 +230,38 @@ export default function PlaybookViewerPage() {
   };
 
   const copy = useCallback((text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(text);
-    toast({
-      title: "복사 완료",
-      description: "스크립트가 클립보드에 복사되었습니다.",
-      variant: "success",
-    });
-    setTimeout(() => setCopied(null), 2000);
-
-    logger.log("[PlaybookViewer]", {
-      action: "copy-script",
-      textLength: text.length,
-      status: "success",
-    });
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        setCopied(text);
+        toast({
+          title: "복사 완료",
+          description: "스크립트가 클립보드에 복사되었습니다.",
+          variant: "success",
+        });
+        setTimeout(() => setCopied(null), 2000);
+        logger.log("[PlaybookViewer]", {
+          action: "copy-script",
+          textLength: text.length,
+          status: "success",
+        });
+      })
+      .catch((err) => {
+        logger.error("[PlaybookViewer]", {
+          action: "copy-script",
+          error: err instanceof Error ? err.message : "Unknown error",
+          status: "failed",
+        });
+        toast({
+          title: "복사 실패",
+          description: "클립보드 접근 권한이 없거나 HTTPS 환경이 아닙니다.",
+          variant: "destructive",
+        });
+      });
   }, [toast]);
 
   const toggleClosingSignal = useCallback((id: string) => {
-    setClosingSignals(
-      closingSignals.map((s) => (s.id === id ? { ...s, checked: !s.checked } : s))
+    setClosingSignals((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, checked: !s.checked } : s))
     );
 
     logger.log("[PlaybookViewer]", {
@@ -254,7 +269,7 @@ export default function PlaybookViewerPage() {
       signalId: id,
       status: "success",
     });
-  }, [closingSignals]);
+  }, []);
 
   const closingCount = useMemo(
     () => closingSignals.filter((s) => s.checked).length,
@@ -264,7 +279,7 @@ export default function PlaybookViewerPage() {
   const handleSegmentChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedSegment(e.target.value);
 
-    const segmentName = e.target.options[e.target.selectedIndex]?.text;
+    const segmentName = e.target.options?.[e.target.selectedIndex]?.text || e.target.value;
     toast({
       title: "필터 변경",
       description: `세그먼트: ${segmentName}로 변경했습니다.`,
@@ -298,7 +313,7 @@ export default function PlaybookViewerPage() {
   const handleProductChange = useCallback((code: ProductCode | "ALL") => {
     setSelectedProductCode(code);
 
-    const productName = code === "ALL" ? "전체 상품" : CRUISE_PRODUCTS[code]?.name || code;
+    const productName = code === "ALL" ? "전체 상품" : (CRUISE_PRODUCTS[code]?.name || code);
     toast({
       title: "필터 변경",
       description: `상품: ${productName}로 변경했습니다.`,
@@ -447,22 +462,25 @@ export default function PlaybookViewerPage() {
             >
               전체 상품
             </motion.button>
-            {PRODUCT_CODES.map((code) => (
-              <motion.button
-                key={code}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => handleProductChange(code as ProductCode)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                  selectedProductCode === code
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                <span>{CRUISE_PRODUCTS[code as ProductCode].emoji}</span>
-                {CRUISE_PRODUCTS[code as ProductCode].name}
-              </motion.button>
-            ))}
+            {PRODUCT_CODES.map((code) => {
+              const product = CRUISE_PRODUCTS[code as ProductCode];
+              return product ? (
+                <motion.button
+                  key={code}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleProductChange(code as ProductCode)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                    selectedProductCode === code
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  <span>{product.emoji}</span>
+                  {product.name}
+                </motion.button>
+              ) : null;
+            })}
           </div>
         </motion.div>
 
@@ -518,9 +536,9 @@ export default function PlaybookViewerPage() {
                             {item.productCode}
                           </span>
                         )}
-                        {item.pasonaStage && (
-                          <span className={`inline-block px-2 py-1 text-xs rounded font-medium ${PASONA_STAGE_BADGES[item.pasonaStage]?.color}`}>
-                            {PASONA_STAGE_BADGES[item.pasonaStage]?.icon} {PASONA_STAGE_BADGES[item.pasonaStage]?.label}
+                        {item.pasonaStage && PASONA_STAGE_BADGES[item.pasonaStage] && (
+                          <span className={`inline-block px-2 py-1 text-xs rounded font-medium ${PASONA_STAGE_BADGES[item.pasonaStage].color}`}>
+                            {PASONA_STAGE_BADGES[item.pasonaStage].icon} {PASONA_STAGE_BADGES[item.pasonaStage].label}
                           </span>
                         )}
                         {item.effectivenessScore && (
@@ -570,12 +588,12 @@ export default function PlaybookViewerPage() {
                 </div>
 
                 {/* PASONA 단계 배지 */}
-                {selectedItem?.pasonaStage && (
+                {selectedItem?.pasonaStage && PASONA_STAGE_BADGES[selectedItem.pasonaStage] && (
                   <div className="mb-5">
                     <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">PASONA 단계</h4>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`inline-block px-3 py-1.5 rounded-lg text-sm font-semibold ${PASONA_STAGE_BADGES[selectedItem.pasonaStage]?.color}`}>
-                        {PASONA_STAGE_BADGES[selectedItem.pasonaStage]?.icon} {PASONA_STAGE_BADGES[selectedItem.pasonaStage]?.label}
+                      <span className={`inline-block px-3 py-1.5 rounded-lg text-sm font-semibold ${PASONA_STAGE_BADGES[selectedItem.pasonaStage].color}`}>
+                        {PASONA_STAGE_BADGES[selectedItem.pasonaStage].icon} {PASONA_STAGE_BADGES[selectedItem.pasonaStage].label}
                       </span>
                       {selectedItem.effectivenessScore && (
                         <span className="inline-block px-3 py-1.5 rounded-lg text-sm font-semibold bg-purple-100 text-purple-800">
@@ -587,17 +605,17 @@ export default function PlaybookViewerPage() {
                 )}
 
                 {/* 신민형 5단계 배지 */}
-                {selectedItem?.shinminStep && (
+                {selectedItem?.shinminStep && SHINMIN_STEPS[selectedItem.shinminStep] && (
                   <div className="mb-5">
                     <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">신민형 5단계</h4>
-                    <span className={`inline-block px-3 py-1.5 rounded-lg text-sm font-semibold ${SHINMIN_STEPS[selectedItem.shinminStep]?.color}`}>
-                      {SHINMIN_STEPS[selectedItem.shinminStep]?.emoji} {SHINMIN_STEPS[selectedItem.shinminStep]?.label}
+                    <span className={`inline-block px-3 py-1.5 rounded-lg text-sm font-semibold ${SHINMIN_STEPS[selectedItem.shinminStep].color}`}>
+                      {SHINMIN_STEPS[selectedItem.shinminStep].emoji} {SHINMIN_STEPS[selectedItem.shinminStep].label}
                     </span>
                   </div>
                 )}
 
                 {/* 모니카 욕망 증폭 레벨 */}
-                {selectedItem?.type === "AMPLIFY" && selectedItem?.monikaAmplifyLevel && (
+                {selectedItem?.type === "AMPLIFY" && selectedItem?.monikaAmplifyLevel && MONIKA_AMPLIFY_LEVELS[selectedItem.monikaAmplifyLevel] && (
                   <div className="mb-5 bg-purple-50 border-l-4 border-purple-500 rounded p-3">
                     <p className="text-xs font-semibold text-purple-900 uppercase mb-1">모니카 욕망 증폭</p>
                     <p className="text-sm font-bold text-purple-900">
@@ -633,13 +651,13 @@ export default function PlaybookViewerPage() {
                 )}
 
                 {/* 심리학 배지 */}
-                {selectedItem?.psychology && (
+                {selectedItem?.psychology && PSYCHOLOGY_BADGES[selectedItem.psychology] && (
                   <div className="mb-5">
                     <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">심리학 이론</h4>
-                    <div className={`inline-block px-3 py-1.5 rounded-lg text-sm font-medium ${PSYCHOLOGY_BADGES[selectedItem.psychology]?.bg} ${PSYCHOLOGY_BADGES[selectedItem.psychology]?.text}`}>
-                      {PSYCHOLOGY_BADGES[selectedItem.psychology]?.label}
+                    <div className={`inline-block px-3 py-1.5 rounded-lg text-sm font-medium ${PSYCHOLOGY_BADGES[selectedItem.psychology].bg} ${PSYCHOLOGY_BADGES[selectedItem.psychology].text}`}>
+                      {PSYCHOLOGY_BADGES[selectedItem.psychology].label}
                     </div>
-                    <p className="text-xs text-gray-600 mt-1">{PSYCHOLOGY_BADGES[selectedItem.psychology]?.desc}</p>
+                    <p className="text-xs text-gray-600 mt-1">{PSYCHOLOGY_BADGES[selectedItem.psychology].desc}</p>
                   </div>
                 )}
 
@@ -733,7 +751,7 @@ export default function PlaybookViewerPage() {
                 </div>
 
                 {/* Day 0-3 동적 미리보기 */}
-                {showDay03Preview && (
+                {showDay03Preview && selectedItem && (
                   <div className="mb-5 p-4 bg-blue-50 rounded-lg border border-blue-200 space-y-3">
                     <h4 className="text-xs font-semibold text-blue-900 uppercase">📝 개인화된 메시지 미리보기</h4>
 
@@ -780,12 +798,25 @@ export default function PlaybookViewerPage() {
                     </div>
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(personalizeContent(selectedItem.content));
-                        toast({
-                          title: "복사 완료",
-                          description: "개인화된 메시지가 클립보드에 복사되었습니다.",
-                          variant: "success",
-                        });
+                        navigator.clipboard.writeText(personalizeContent(selectedItem.content))
+                          .then(() => {
+                            toast({
+                              title: "복사 완료",
+                              description: "개인화된 메시지가 클립보드에 복사되었습니다.",
+                              variant: "success",
+                            });
+                          })
+                          .catch((err) => {
+                            logger.error("[PlaybookViewer]", {
+                              action: "copy-personalized-content",
+                              error: err instanceof Error ? err.message : "Unknown error",
+                            });
+                            toast({
+                              title: "복사 실패",
+                              description: "클립보드 접근 권한이 없거나 HTTPS 환경이 아닙니다.",
+                              variant: "destructive",
+                            });
+                          });
                       }}
                       className="w-full px-2 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors"
                     >
@@ -857,18 +888,21 @@ export default function PlaybookViewerPage() {
               </div>
               <div className="space-y-2">
                 {closingSignals.map((signal) => (
-                  <label
-                    key={signal.id}
-                    className="flex items-center gap-3 p-2.5 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
-                  >
+                  <div key={signal.id} className="flex items-center gap-3 p-2.5 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                     <input
+                      id={`signal-${signal.id}`}
                       type="checkbox"
                       checked={signal.checked}
                       onChange={() => toggleClosingSignal(signal.id)}
-                      className="w-4 h-4 rounded text-green-600"
+                      className="w-4 h-4 rounded text-green-600 cursor-pointer"
                     />
-                    <span className="text-sm text-gray-700 flex-1">{signal.text}</span>
-                  </label>
+                    <label
+                      htmlFor={`signal-${signal.id}`}
+                      className="text-sm text-gray-700 flex-1 cursor-pointer"
+                    >
+                      {signal.text}
+                    </label>
+                  </div>
                 ))}
               </div>
             </div>
