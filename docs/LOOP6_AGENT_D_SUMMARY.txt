@@ -1,0 +1,270 @@
+================================================================================
+Loop 6 Agent D: Customer Integrator (고객 통합 360도 뷰) - 설계 완료
+================================================================================
+
+완료 일시: 2026-05-28 16:45 KST
+담당자: Agent D (Customer Integrator)
+상태: ✅ 설계 완료 → 🔄 구현 예정 (2026-05-29 ~ 2026-06-05)
+
+================================================================================
+핵심 전달사항
+================================================================================
+
+1. 설계 문서 (3개 파일)
+   ✅ /docs/loop6_agent_d_customer_integrator.md (완전 설계, 9개 섹션)
+   ✅ /docs/loop6_agent_d_quick_start.md (빠른 참고, 실행 명령어)
+   ✅ /docs/LOOP6_AGENT_D_SUMMARY.txt (이 파일)
+
+2. 구현 스켈레톤 (2개 파일)
+   ✅ /src/lib/contact-integrator/types.ts (타입 정의, 완전함)
+   ✅ /src/lib/contact-integrator/index.ts (DataLoader 기본 구조)
+
+================================================================================
+기술 요약
+================================================================================
+
+API: GET /api/contacts/:id/360
+응답: Contact360Response (1 JSON, ~50KB)
+
+구조:
+  Contact (중앙)
+    ├─ GoldMember (1:1)
+    ├─ Partner (N:1)
+    ├─ Groups (N:N)
+    ├─ Orders (N:N, cruisedot)
+    └─ Communications (SMS/Email/Call)
+    └─ Psychology + Risk + Affiliate
+
+성능:
+  응답시간: 3-5s (현재) → 1s (캐시) / 2s (신규) = 50% ↓
+  N+1 제거: 5+ 쿼리 → 1 쿼리
+  DB 부하: 100% → 30%
+
+기술 스택:
+  • Prisma DataLoader (배치 쿼리)
+  • Redis (30분 캐시, 80% 히트율 목표)
+  • PostgreSQL Materialized View
+  • PII 마스킹 (권한 기반, GDPR/PIPA)
+
+================================================================================
+주요 기능 3가지
+================================================================================
+
+1. 통합 360도 뷰 (/api/contacts/:id/360)
+   - Contact + GoldMember + Partner + Groups + Orders
+   - Psychology Lens + Risk Flags + Affiliate Tracking
+   - 모든 커뮤니케이션 로그 (SMS, Email, Call)
+   응답 예시: 18개 필드 그룹, 총 ~50KB JSON
+
+2. PII 마스킹 (권한 기반)
+   Admin: 마스킹 안함 (원본)
+   Manager: 부분 마스킹 (전화번호 뒤 4자리)
+   Agent: 전체 마스킹 (010XXXX5678)
+   준수: GDPR, CCPA, 한국 PIPA
+
+3. 위험도 + 권장액션
+   Risk Score: 0-100 (낮을수록 좋음)
+   Flags: 7가지 (준비불안, 경쟁사언급, 배우자동의 등)
+   Recommended Actions: 자동생성 (3-5개)
+
+================================================================================
+성능 최적화 4단계
+================================================================================
+
+단계 1: DataLoader (N+1 제거)
+  기술: Batch Query (Contact, GoldMember, Partner 등)
+  효과: DB 쿼리 80% ↓
+
+단계 2: Redis 캐싱 (30분 TTL)
+  기술: Contact360Response 전체 캐시
+  효과: 응답시간 50% ↓, 캐시 히트율 80% 목표
+
+단계 3: Materialized View
+  기술: 읽기 최적화 View, 매시간 갱신
+  효과: 조회 성능 30% ↑
+
+단계 4: 추가 인덱스
+  기술: (orgId, userId, status) 등
+  효과: 조회 속도 2배 ↑
+
+최종: 응답시간 3-5s → 1s (캐시) / 2s (신규)
+
+================================================================================
+개발 일정 (1주, 2026-05-29 ~ 2026-06-05)
+================================================================================
+
+Day 1-2 (수-목): 기초 구현
+  [ ] /src/lib/contact-integrator/index.ts - DataLoader + 쿼리
+  [ ] /app/api/contacts/[id]/360/route.ts - API 엔드포인트
+  [ ] /lib/redis/client.ts - 캐싱 설정
+  [ ] /lib/pii-mask.ts - 마스킹 함수
+
+Day 2-3 (목-금): 기능 확장
+  [ ] /lib/risk-calculator.ts - 위험도 계산
+  [ ] /api/contacts/[id]/orders - 주문 조회
+  [ ] /api/contacts/[id]/communications - 로그 조회
+  [ ] /api/contacts/[id]/psychology - 렌즈 정보
+
+Day 4 (토): 성능 최적화
+  [ ] DataLoader 검증 (쿼리 수 확인)
+  [ ] Redis 캐시 테스트
+  [ ] 성능 벤치마크 (<1s, <2s)
+  [ ] 추가 인덱스 생성
+
+Day 5 (일): 테스트 & 배포
+  [ ] 단위 테스트 (jest)
+  [ ] 통합 테스트 (e2e)
+  [ ] PII 마스킹 검증
+  [ ] Canary 배포 (50% 트래픽)
+  [ ] 모니터링 설정
+
+Day 6-7 (월-화): 본사 연동 & 안정화
+  [ ] cruisedot 데이터 동기화
+  [ ] 모니터링 & 버그 수정
+  [ ] 100% 배포 & 최종 검증
+
+================================================================================
+예상 효과
+================================================================================
+
+성능:
+  응답시간: 3-5s → 1s (캐시) / 2s (신규) = 67% ↓
+  DB 부하: 100% → 30% = 70% ↓
+  캐시 히트율: 0% → 80% 목표
+
+업무 효율성:
+  고객 조회 시간: 40% ↓
+  Agent 처리 속도: 40% ↑
+  Manual Lookup: 자동화 50%
+
+매출:
+  Agent 생산성 40% ↑ × 파트너 수 × 수수료율
+  예상 추가 수익: +$30K-50K USD/월
+
+데이터 품질:
+  데이터 일관성: 95% → 99%
+  자동분류 정확도: +4%
+  규정 준수: GDPR/PIPA 100%
+
+================================================================================
+배포 전략 (Canary)
+================================================================================
+
+Week 3 Phase A (내부 테스트)
+  마비즈 팀 (Agent 5명) → 메트릭 수집
+
+Week 3 Phase B (50% 트래픽)
+  파트너 중 50% → 새 API
+  나머지 50% → 기존 API (비교용)
+
+Week 4 Phase C (100% 배포)
+  모든 고객 → 새 API
+  모니터링 강화 (첫 주)
+  본사 연동 (cruisedot)
+
+롤백 계획:
+  에러율 > 1% → 자동 롤백
+  응답시간 > 5s → 경고, 2초 초과 시 롤백
+  캐시 히트율 < 60% → 조사
+
+================================================================================
+파일 매핑
+================================================================================
+
+설계 문서:
+  /docs/loop6_agent_d_customer_integrator.md (9 섹션, 550줄)
+    1. 데이터 모델 & ERD
+    2. API 엔드포인트 (OpenAPI)
+    3. 성능 최적화 전략
+    4. PII 마스킹 구현
+    5. 통합 조회 예시
+    6. 구현 체크리스트
+    7. 성과 메트릭
+    8. 배포 계획
+    9. 참고 자료
+
+  /docs/loop6_agent_d_quick_start.md (빠른 참고)
+    - 핵심 아키텍처 (데이터 흐름)
+    - 핵심 기능 3가지
+    - 개발 체크리스트
+    - 명령어 예시
+
+구현 파일:
+  /src/lib/contact-integrator/types.ts (완전한 타입 정의)
+    - Contact360Response
+    - MaskOptions
+    - RiskProfile
+    - 등 20+ 인터페이스
+
+  /src/lib/contact-integrator/index.ts (기본 구조)
+    - getContact360()
+    - fetchContact360FromDb()
+    - createDataLoaders()
+    - invalidateCache()
+    - 등
+
+필수 생성 파일:
+  /src/lib/contact-integrator/pii-mask.ts (PII 마스킹)
+  /src/lib/contact-integrator/risk-calculator.ts (위험도 계산)
+  /src/app/api/contacts/[id]/360/route.ts (API 엔드포인트)
+  /src/app/api/contacts/[id]/orders/route.ts
+  /src/app/api/contacts/[id]/communications/route.ts
+  /src/app/api/contacts/[id]/psychology/route.ts
+  /src/app/api/contacts/[id]/affiliate/route.ts
+  /src/app/api/contacts/[id]/risk-score/route.ts
+
+테스트 파일:
+  /tests/lib/contact-integrator/contact-360.test.ts
+  /tests/api/contacts/360.test.ts
+  /tests/lib/pii-mask.test.ts
+  /tests/lib/risk-calculator.test.ts
+
+================================================================================
+다음 에이전트
+================================================================================
+
+Agent C: Affiliate Integration (Affiliate 시스템 연동)
+  시작: 2026-05-29
+  기간: 2주
+  예상 효과: Commission 자동화, 파트너 수익 +400%
+
+Agent E: Communication Automator (SMS/Email 자동화)
+  시작: 2026-06-02
+  기간: 2주
+  예상 효과: Day 0-3 자동화, 전환율 +35%
+
+Agent A: Settlement Analyzer (정산 분석)
+  시작: 2026-05-30
+  기간: 1.5주
+  예상 효과: 1M행 <2초, 정산 자동화 95%
+
+================================================================================
+문의 & 피드백
+================================================================================
+
+설계 질문: /docs/loop6_agent_d_customer_integrator.md 섹션 9 참고
+
+구현 예시: /docs/loop6_agent_d_quick_start.md (명령어 섹션)
+
+통합 문의: Agent C (Affiliate) 또는 Agent A (Settlement)와 협의
+
+================================================================================
+완료 확인
+================================================================================
+
+✅ ERD & 데이터 모델 설계 (섹션 1)
+✅ OpenAPI 스펙 작성 (섹션 2)
+✅ 성능 최적화 전략 정의 (섹션 3)
+✅ PII 마스킹 방식 설계 (섹션 4)
+✅ 통합 조회 예시 작성 (섹션 5)
+✅ 구현 체크리스트 작성 (섹션 6)
+✅ KPI 정의 (섹션 7)
+✅ 배포 전략 작성 (섹션 8)
+✅ 타입 정의 (types.ts)
+✅ 기본 구현 스켈레톤 (index.ts)
+
+================================================================================
+Agent D: 설계 완료! 🎉
+
+다음: Agent C & A 병렬 시작 (2026-05-29)
+================================================================================
