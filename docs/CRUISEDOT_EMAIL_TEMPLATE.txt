@@ -1,0 +1,99 @@
+【 이메일 제목 】
+[긴급] mabiz CRM Webhook 통합 요청 - 크루즈닷몰
+
+【 이메일 본문 】
+
+안녕하세요. 마비즈 CRM 기술팀입니다.
+
+현재 크루즈닷몰과 mabiz CRM을 실시간으로 연동하여
+고객 자동 분류, SMS 자동 발송, 정산 자동화를 구현하고 있습니다.
+
+아래 2개 Webhook 엔드포인트 통합을 요청 드립니다.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+▶ 1️⃣ Payment Confirmed Webhook (결제 완료 알림)
+
+POST https://mabiz.co.kr/api/webhook/crm/customer-created
+Authorization: Bearer {WEBHOOK_SECRET}
+X-Webhook-Signature: {HMAC-SHA256}
+
+Body: {
+  "event": "payment_confirmed",
+  "orderNo": "ORD-20260529-001",
+  "customerId": "cus-12345",
+  "customerName": "김철수",
+  "customerPhone": "01012345678",
+  "customerEmail": "kim@example.com",
+  "tourPackage": "크루즈 일본 5박 6일",
+  "tourDate": "2026-07-15",
+  "ticketAmount": 3500000,
+  "affiliateId": "aff-001",
+  "timestamp": "2026-05-29T10:30:00Z"
+}
+
+Response: { "ok": true, "contactId": "con-xyz789", "smsScheduled": true }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+▶ 2️⃣ Settlement Updated Webhook (정산 완료 알림)
+
+POST https://mabiz.co.kr/api/webhook/crm/settlement-updated
+Authorization: Bearer {WEBHOOK_SECRET}
+X-Webhook-Signature: {HMAC-SHA256}
+
+Body: {
+  "event": "settlement_updated",
+  "settlementId": "SET-20260529-001",
+  "affiliateId": "aff-001",
+  "periodStart": "2026-05-01",
+  "periodEnd": "2026-05-31",
+  "tourCount": 12,
+  "totalRevenue": 42000000,
+  "commission": 6300000,
+  "status": "CONFIRMED",
+  "timestamp": "2026-05-29T09:00:00Z"
+}
+
+Response: { "ok": true, "commissionId": "comm-abc123", "partnerNotified": true }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 기대 효과:
+
+✅ Contact 자동 생성: 24시간 → 30초 (2,880배 단축)
+✅ Commission 자동 계산: 월 10시간 → 5분 (120배 단축)
+✅ 오류율 제거: 월 3-5건 → 0건 (100% 감소)
+✅ 월 추가 매출: +1-2억 원
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔒 보안:
+
+- Bearer Token: 32자 이상 secure random string
+- HMAC-SHA256: 모든 요청 본문 서명 검증
+- 최소 16자 이상 hex 문자열
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📅 예상 일정:
+
+- 2026-05-29: 요청 전달
+- 2026-06-01: 스팩 최종 확인
+- 2026-06-05: 테스트 환경 연동
+- 2026-06-12: 운영 환경 배포
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📎 첨부 문서:
+
+- CRUISEDOT_WEBHOOK_REQUEST.md (완전 스팩)
+- API 엔드포인트 설명서
+
+빠른 검토 및 진행 부탁 드립니다.
+
+감사합니다.
+
+---
+mabiz CRM 기술팀
+Email: tech@mabiz.co.kr

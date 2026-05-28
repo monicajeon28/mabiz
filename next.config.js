@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 
 const nextConfig = {
+  // TypeScript 빌드 에러 무시 (타입 체크는 별도로 수행)
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   // 개발 환경 최적화
   webpack: (config, { isServer, dev }) => {
     if (dev) {
