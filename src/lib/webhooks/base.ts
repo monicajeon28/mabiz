@@ -15,6 +15,15 @@ export interface WebhookEventPayload {
   [key: string]: any;
 }
 
+export async function handleWebhook(payload: WebhookEventPayload, organizationId: string): Promise<WebhookHandlerResult> {
+  return {
+    success: false,
+    statusCode: 501,
+    durationMs: 0,
+    errorMessage: 'Not implemented',
+  };
+}
+
 export abstract class BaseWebhookHandler {
   abstract webhookType: string;
   abstract handle(payload: WebhookEventPayload, organizationId: string): Promise<WebhookHandlerResult>;

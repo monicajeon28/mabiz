@@ -5,8 +5,9 @@ import { getSession } from '@/lib/auth';
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
   try {
     const session = await getSession();
     if (!session?.userId || !session?.organizationId) {
@@ -34,7 +35,7 @@ export async function PATCH(
     }
 
     const sale = await prisma.affiliateSale.findUnique({
-      where: { id: params.id },
+      where: { id: resolvedParams.id },
     });
 
     if (!sale) {
@@ -62,7 +63,7 @@ export async function PATCH(
     }
 
     const updatedSale = await prisma.affiliateSale.update({
-      where: { id: params.id },
+      where: { id: resolvedParams.id },
       data: {
         status,
         ...(status === 'APPROVED' && {
