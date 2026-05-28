@@ -150,13 +150,15 @@ export default function ContactAffiliateCard({
               </div>
 
               {affiliateInfo.manager.phone && (
-                <a
-                  href={`tel:${affiliateInfo.manager.phone}`}
-                  className="flex items-center gap-2 text-blue-600 hover:text-blue-700 mt-3 pt-3 border-t border-blue-200"
-                >
-                  <Phone className="w-4 h-4" />
-                  <span className="text-sm font-medium">{affiliateInfo.manager.phone}</span>
-                </a>
+                <div className="flex items-center gap-2 text-blue-600 mt-3 pt-3 border-t border-blue-200">
+                  <a
+                    href={`tel:${affiliateInfo.manager.phone}`}
+                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700 flex-1"
+                  >
+                    <Phone className="w-4 h-4" />
+                    <span className="text-sm font-medium">{affiliateInfo.manager.phone}</span>
+                  </a>
+                </div>
               )}
 
               {affiliateInfo.manager.email && (
@@ -215,13 +217,15 @@ export default function ContactAffiliateCard({
               </div>
 
               {affiliateInfo.agent.phone && (
-                <a
-                  href={`tel:${affiliateInfo.agent.phone}`}
-                  className="flex items-center gap-2 text-green-600 hover:text-green-700 mt-3 pt-3 border-t border-green-200"
-                >
-                  <Phone className="w-4 h-4" />
-                  <span className="text-sm font-medium">{affiliateInfo.agent.phone}</span>
-                </a>
+                <div className="flex items-center gap-2 text-green-600 mt-3 pt-3 border-t border-green-200">
+                  <a
+                    href={`tel:${affiliateInfo.agent.phone}`}
+                    className="flex items-center gap-2 text-green-600 hover:text-green-700 flex-1"
+                  >
+                    <Phone className="w-4 h-4" />
+                    <span className="text-sm font-medium">{affiliateInfo.agent.phone}</span>
+                  </a>
+                </div>
               )}
 
               {affiliateInfo.agent.email && (
