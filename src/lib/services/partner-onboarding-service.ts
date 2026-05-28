@@ -34,7 +34,12 @@ interface OnboardingTemplate {
   variables: string[];
 }
 
-const ONBOARDING_TEMPLATES: Record<number, OnboardingTemplate> = {
+let ONBOARDING_TEMPLATES: Record<number, OnboardingTemplate> | null = null;
+
+function initTemplates(): Record<number, OnboardingTemplate> {
+  if (ONBOARDING_TEMPLATES) return ONBOARDING_TEMPLATES;
+
+  ONBOARDING_TEMPLATES = {
   // Day 1: Welcome
   1: {
     day: 1,
@@ -282,7 +287,10 @@ You're going to crush it!
       'organizationName',
     ],
   },
-};
+  };
+
+  return ONBOARDING_TEMPLATES;
+}
 
 /**
  * Get onboarding template and fill variables
@@ -291,8 +299,9 @@ export function getOnboardingTemplate(
   day: number,
   variables: Record<string, any>
 ): Partial<OnboardingTemplate> {
+  const templates = initTemplates();
   const templateKey = day === 1 ? 1 : day === 3 ? 3 : day === 7 ? 7 : 14;
-  const template = ONBOARDING_TEMPLATES[templateKey];
+  const template = templates[templateKey];
 
   if (!template) {
     throw new Error(`Onboarding template not found for day ${day}`);

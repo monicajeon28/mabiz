@@ -1,0 +1,16 @@
+
+> mabiz@0.1.0 build
+> prisma generate && next build
+
+Prisma schema loaded from prisma\schema.prisma.
+
+✔ Generated Prisma Client (v7.8.0) to .\node_modules\@prisma\client in 1.13s
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+
+   ▲ Next.js 15.5.18
+   - Environments: .env.production.local, .env.local, .env.production, .env
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'D:\mabiz-crm\.next\cache\webpack\server-production\0.pack_' -> 'D:\mabiz-crm\.next\cache\webpack\server-production\0.pack'

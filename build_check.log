@@ -1,0 +1,81 @@
+
+> mabiz@0.1.0 build
+> prisma generate && next build
+
+Prisma schema loaded from prisma\schema.prisma.
+
+✔ Generated Prisma Client (v7.8.0) to .\node_modules\@prisma\client in 12.07s
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+
+   ▲ Next.js 15.5.18
+   - Environments: .env.production.local, .env.local, .env.production, .env
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'D:\mabiz-crm\.next\cache\webpack\server-production\1.pack_' -> 'D:\mabiz-crm\.next\cache\webpack\server-production\1.pack'
+ ⚠ Compiled with warnings in 5.3min
+
+./node_modules/@prisma/instrumentation/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@prisma/instrumentation/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+./node_modules/@prisma/instrumentation/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+./node_modules/@prisma/instrumentation/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+./node_modules/@prisma/instrumentation/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+./node_modules/@prisma/instrumentation/dist/index.js
+./node_modules/@sentry/node/build/cjs/integrations/tracing/prisma.js
+./node_modules/@sentry/node/build/cjs/index.js
+./node_modules/@sentry/nextjs/build/cjs/index.server.js
+./src/lib/sentry.ts
+
+   Skipping validation of types
+   Linting ...
+   Collecting page data ...
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+ReferenceError: commissionAmount is not defined
+    at <unknown> (D:\mabiz-crm\.next\server\app\api\cron\partner-onboarding\route.js:21:44)
+    at c.a (D:\mabiz-crm\.next\server\webpack-runtime.js:1:721)
+    at 72435 (D:\mabiz-crm\.next\server\app\api\cron\partner-onboarding\route.js:1:3500)
+    at c (D:\mabiz-crm\.next\server\webpack-runtime.js:1:143)
+    at <unknown> (D:\mabiz-crm\.next\server\app\api\cron\partner-onboarding\route.js:1:397)
+    at c.a (D:\mabiz-crm\.next\server\webpack-runtime.js:1:721)
+    at 7112 (D:\mabiz-crm\.next\server\app\api\cron\partner-onboarding\route.js:1:296)
+    at c (D:\mabiz-crm\.next\server\webpack-runtime.js:1:143)
+    at <unknown> (D:\mabiz-crm\.next\server\app\api\cron\partner-onboarding\route.js:162:4498)
+    at c.a (D:\mabiz-crm\.next\server\webpack-runtime.js:1:721)
+
+> Build error occurred
+[Error: Failed to collect page data for /api/cron/partner-onboarding] {
+  type: 'Error'
+}
