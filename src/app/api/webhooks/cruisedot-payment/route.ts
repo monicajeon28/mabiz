@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { createRefundNotifications } from '@/lib/notification-service';
 import { handleCabinInventoryRefund } from '@/lib/cabin-inventory-refund';
+import { sendDay0Sms, type Segment, type ABVariant } from '@/lib/loop5-sms-service';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -102,6 +103,7 @@ export async function POST(req: NextRequest) {
 
     // P0-ISS-02: UPSERT 패턴으로 동시 결제 중복 생성 방지 (Race condition 해결)
     let contact: any = null;
+    let shouldSendDay0Sms = false;
     // 트랜잭션 처리
     await prisma.$transaction(async (tx) => {
       // UPSERT: bookingRef + organizationId 기준 (unique constraint 필수)
@@ -127,11 +129,27 @@ export async function POST(req: NextRequest) {
         select: { id: true, organizationId: true, phone: true, userId: true, name: true },
       });
 
+      const isNewContact = !contact.id || (contact.phone === '' && !contact.userId);
       logger.log('[CruisedotWebhook] Contact upsert', {
         contactId: contact.id,
         bookingRef,
-        isNew: !contact.phone ? '신규' : '기존',
+        isNew: isNewContact ? '신규' : '기존',
       });
+
+      // Loop 6 Agent A: FormSubmission 기록 (A/B 테스트 추적용)
+      if (isNewContact && contact.id) {
+        await tx.formSubmission.create({
+          data: {
+            variant: 'cruisedot_payment', // 결제 완료 채널 표시
+            segment: 'A', // 기본값 (나중에 Contact 정보로 개선)
+            completionTimeMs: 0, // 웹훅 처리이므로 시간값 없음
+            ageRange: 'unknown', // 크루즈닷몰에서 제공 받을 때까지
+            preferenceType: 'cruise_booking', // 크루즈 예약
+            affiliateCode: (contact as any).affiliateCode || undefined,
+            userAgent: `cruisedot-webhook-${bookingRef}`,
+          },
+        });
+      }
 
       // Contact 상태 업데이트
       if (contact) {
@@ -158,6 +176,11 @@ export async function POST(req: NextRequest) {
                   ? `취소됨: ${reason || '사유 미기재'}`
                   : undefined,
         };
+
+        // Loop 6: 결제완료 시 Day 0 SMS 발송 플래그 설정
+        if (status === 'CONFIRMED' && !contact.smsDay0Sent) {
+          shouldSendDay0Sms = true;
+        }
 
         // 환불 시 SMS Day0-3 플래그 초기화 (재구매 가능성 대비)
         if (status === 'REFUNDED') {
@@ -253,11 +276,55 @@ export async function POST(req: NextRequest) {
       affiliateSaleFound: !!affiliateSale,
       bookingRef,
       status,
+      day0SmsSent: shouldSendDay0Sms,
     });
 
-    return NextResponse.json({ ok: true });
+    // Loop 6 Agent A: Day 0 SMS 발송 (트랜잭션 후 비동기 처리)
+    if (shouldSendDay0Sms && contact?.phone && contact?.organizationId) {
+      try {
+        // 세그먼트 자동 결정 (기본값: A, 나중에 Contact 정보로 개선)
+        const segment: Segment = 'A';
+        const variant: ABVariant = Math.random() > 0.5 ? 'a' : 'b';
+
+        const smsResult = await sendDay0Sms(
+          contact.organizationId,
+          contact.id,
+          segment,
+          contact.phone,
+          contact.name,
+          variant
+        );
+
+        logger.log('[CruisedotWebhook] Day 0 SMS 발송', {
+          contactId: contact.id,
+          bookingRef,
+          segment,
+          variant,
+          success: smsResult.success,
+          smsId: smsResult.smsId,
+          error: smsResult.error,
+        });
+      } catch (smsError: unknown) {
+        logger.warn('[CruisedotWebhook] Day 0 SMS 발송 실패', {
+          contactId: contact.id,
+          error: smsError instanceof Error ? smsError.message : String(smsError),
+        });
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      contactId: contact?.id,
+      orderId: bookingRef,
+      day0SmsSent: shouldSendDay0Sms,
+    });
   } catch (err) {
-    logger.error('[CruisedotWebhook] 처리 실패', { err, eventId });
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    logger.error('[CruisedotWebhook] 처리 실패', {
+      err: errorMessage,
+      eventId,
+      stack: err instanceof Error ? err.stack : undefined,
+    });
 
     // 실패 기록
     await prisma.processedWebhookEvent
@@ -266,11 +333,21 @@ export async function POST(req: NextRequest) {
           eventId,
           webhookType: 'cruisedot-payment',
           status: 'FAILED',
-          errorMessage: err instanceof Error ? err.message : String(err),
+          errorMessage: errorMessage,
         },
       })
-      .catch(() => {});
+      .catch((dbErr) => {
+        logger.error('[CruisedotWebhook] 실패 기록 저장 불가', {
+          eventId,
+          originalError: errorMessage,
+          dbError: dbErr instanceof Error ? dbErr.message : String(dbErr),
+        });
+      });
 
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return NextResponse.json({
+      ok: false,
+      error: 'Payment webhook processing failed',
+      eventId,
+    }, { status: 500 });
   }
 }
