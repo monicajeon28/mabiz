@@ -17,6 +17,7 @@
 
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
+import { createHmac } from "crypto";
 import { logger } from "@/lib/logger";
 import { enqueueDLQ } from "@/lib/mabiz-dlq";
 import {
@@ -43,7 +44,61 @@ export async function GET(req: NextRequest) {
   let params: AligoStatusParams | null = null;
 
   try {
-    // 1. 쿼리 파라미터 파싱
+    // 1. 서명 검증 (Authorization Bearer token + X-Webhook-Signature)
+    const authHeader = req.headers.get("Authorization") || "";
+    const signature = req.headers.get("X-Webhook-Signature") || "";
+    const webhookSecret = process.env.ALIGO_WEBHOOK_SECRET;
+
+    if (!webhookSecret) {
+      logger.error("[AligoStatusWebhook] ALIGO_WEBHOOK_SECRET 설정 없음");
+      return NextResponse.json(
+        { ok: false, error: "서버 설정 오류" },
+        { status: 500 },
+      );
+    }
+
+    if (!authHeader.startsWith("Bearer ")) {
+      logger.warn("[AligoStatusWebhook] Authorization Bearer token 없음");
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized" },
+        { status: 401 },
+      );
+    }
+
+    const token = authHeader.substring(7);
+    if (token !== webhookSecret) {
+      logger.warn("[AligoStatusWebhook] Bearer token 불일치");
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized" },
+        { status: 401 },
+      );
+    }
+
+    if (!signature || signature.length < 16) {
+      logger.warn("[AligoStatusWebhook] X-Webhook-Signature 유효하지 않음");
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized" },
+        { status: 401 },
+      );
+    }
+
+    const queryString = req.nextUrl.search.substring(1);
+    const expectedSignature = createHmac("sha256", webhookSecret)
+      .update(queryString)
+      .digest("hex");
+
+    if (signature !== expectedSignature) {
+      logger.warn("[AligoStatusWebhook] 서명 불일치", {
+        expected: expectedSignature.substring(0, 8),
+        actual: signature.substring(0, 8),
+      });
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized" },
+        { status: 401 },
+      );
+    }
+
+    // 2. 쿼리 파라미터 파싱
     const searchParams = req.nextUrl.searchParams;
     params = {
       msg_id: searchParams.get("msg_id") || "",
@@ -60,7 +115,7 @@ export async function GET(req: NextRequest) {
       result: params.result,
     });
 
-    // 2. 필수 파라미터 검증
+    // 3. 필수 파라미터 검증
     if (!params.msg_id) {
       logger.warn("[AligoStatusWebhook] msg_id 누락");
       return NextResponse.json(
@@ -79,7 +134,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 3. 멱등성: msg_id를 eventId로 사용하여 중복 확인
+    // 4. 멱등성: msg_id를 eventId로 사용하여 중복 확인
     const eventId = `aligo-${params.msg_id}`;
     if (await isProcessedWebhook(eventId)) {
       logger.info("[AligoStatusWebhook] 중복 콜백 (멱등성)", {
@@ -97,11 +152,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 4. stat 코드 → SendingStatus 변환
+    // 5. stat 코드 → SendingStatus 변환
     const stat = parseInt(params.stat, 10);
     const sendingStatus = mapAligoStatusToSending(stat);
 
-    // 5. result 코드 → SendingFailureReason 변환 (실패 시)
+    // 6. result 코드 → SendingFailureReason 변환 (실패 시)
     const result = params.result;
     const failureReason =
       sendingStatus === "FAILED" ? mapAligoResultToReason(result) : undefined;
@@ -110,7 +165,7 @@ export async function GET(req: NextRequest) {
         ? getAligoUserMessage(stat, result)
         : undefined;
 
-    // 6. SendingHistory 조회 (messageId = msg_id)
+    // 7. SendingHistory 조회 (messageId = msg_id)
     const sending = await getSendingHistoryByMessageId(params.msg_id);
     if (!sending) {
       logger.warn("[AligoStatusWebhook] SendingHistory 없음", {
@@ -134,7 +189,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 7. SendingHistory 상태 업데이트
+    // 8. SendingHistory 상태 업데이트
     await updateSendingStatus(
       sending.id,
       sendingStatus,
@@ -142,7 +197,7 @@ export async function GET(req: NextRequest) {
       failureUserMsg,
     );
 
-    // 8. ProcessedWebhookEvent 기록 (멱등성)
+    // 9. ProcessedWebhookEvent 기록 (멱등성)
     await markWebhookProcessed(eventId, "aligo_status");
 
     logger.info("[AligoStatusWebhook] 처리 완료", {
@@ -152,7 +207,7 @@ export async function GET(req: NextRequest) {
       duration: Date.now() - startTime,
     });
 
-    // 9. JSON 응답
+    // 10. JSON 응답
     return NextResponse.json(
       {
         ok: true,

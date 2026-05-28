@@ -8,7 +8,14 @@ export const runtime = 'nodejs';
 export async function GET(req: NextRequest) {
   try {
     const secret = req.headers.get('x-cron-secret');
-    if (secret !== process.env.CRON_SECRET) {
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (!cronSecret) {
+      logger.error('[Cron/Webhooks-Retry] CRON_SECRET not configured');
+      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (secret !== cronSecret) {
       logger.warn('[Cron/Webhooks-Retry] Unauthorized');
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
