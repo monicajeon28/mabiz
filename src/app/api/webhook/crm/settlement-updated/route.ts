@@ -9,12 +9,22 @@
  *  3. PartnerTier 자동 재평가
  *  4. Churn 신호 감지 (수입 감소)
  *  5. 정산 알림 SMS 발송
+ *  6. SettlementLedger 기록 저장
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { handleWebhook } from '@/lib/webhooks/base';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import {
+  calculateTier,
+  updatePartnerTier,
+  detectChurnSignal,
+  setChurnRiskFlag,
+  sendSettlementNotificationSms,
+  sendChurnAlertSms,
+  upsertSettlementLedger
+} from '@/lib/webhooks/settlement-handler';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -29,6 +39,7 @@ interface SettlementUpdatedPayload {
   totalCommission: number;
   totalWithholding: number;
   profileId: number; // 제휴사 ID
+  organizationId?: string; // Optional: Mabiz Organization ID
 }
 
 export async function POST(req: NextRequest) {
@@ -61,53 +72,160 @@ export async function POST(req: NextRequest) {
       }
 
       const netAmount = totalCommission - totalWithholding;
+      const partnerId = profileId.toString();
 
-      // Partner 업데이트
-      const partner = await prisma.partner.upsert({
-        where: { id: profileId.toString() },
-        create: {
-          id: profileId.toString(),
-          displayName: `Partner ${profileId}`,
-          lastSettlementAt: new Date(),
-          totalEarnings: netAmount,
-          status: 'ACTIVE'
-        },
-        update: {
+      // 1. Partner 조회 또는 생성
+      let partner = await prisma.partner.findUnique({
+        where: { id: partnerId }
+      });
+
+      if (!partner) {
+        // Partner 생성 (첫 정산)
+        const org = await prisma.organization.findFirst({
+          where: {
+            externalAffiliateProfileId: profileId
+          }
+        });
+
+        if (!org) {
+          logger.warn('[settlement-updated] 연결된 Organization 없음', {
+            profileId
+          });
+          throw new Error(`No organization found for profileId: ${profileId}`);
+        }
+
+        partner = await prisma.partner.create({
+          data: {
+            id: partnerId,
+            organizationId: org.id,
+            name: `Partner ${profileId}`,
+            status: 'ACTIVE'
+          }
+        });
+
+        logger.log('[settlement-updated] Partner 신규 생성', {
+          partnerId: partner.id,
+          organizationId: org.id
+        });
+      }
+
+      // 2. Partner 업데이트 (lastSettlementAt, totalEarnings)
+      partner = await prisma.partner.update({
+        where: { id: partnerId },
+        data: {
           lastSettlementAt: new Date(),
           totalEarnings: {
             increment: netAmount
           }
-        },
-        select: {
-          id: true,
-          totalEarnings: true,
-          displayName: true
         }
       });
 
-      logger.log('[settlement-updated] Partner 업데이트', {
+      logger.log('[settlement-updated] Partner 누적 수익 업데이트', {
         partnerId: partner.id,
-        totalEarnings: partner.totalEarnings,
-        netAmount
+        netAmount,
+        totalEarnings: partner.totalEarnings
       });
 
-      // TODO: PartnerTier 자동 재평가
-      // Tier 기준:
-      // - Bronze: $0-$10K
-      // - Silver: $10K-$50K
-      // - Gold: $50K-$200K
-      // - Platinum: $200K+
+      // 3. PartnerTier 자동 재평가
+      const monthlyUSD = netAmount / 100;
+      const newTier = calculateTier(netAmount);
 
-      // TODO: Churn 신호 감지 (수입 감소)
-      // 지난 3개월 평균 vs 현재: 20% 이상 감소
+      await updatePartnerTier(partnerId, newTier);
 
-      // TODO: 정산 알림 SMS 발송
-      // "정산 ${period}: ¥${netAmount.toLocaleString()}K 지급 예정"
+      // 4. Churn 신호 감지
+      const isChurnDetected = await detectChurnSignal(partnerId, netAmount);
+
+      if (isChurnDetected) {
+        // Churn 플래그 설정
+        await setChurnRiskFlag(partnerId);
+
+        // 감소율 계산 (알림용)
+        const previousMonthLedger = await prisma.settlementLedger.findFirst({
+          where: {
+            partnerId,
+            status: 'PAID'
+          },
+          select: { netAmount: true },
+          orderBy: { period: 'desc' },
+          take: 1
+        });
+
+        const decreasePercent = previousMonthLedger
+          ? (previousMonthLedger.netAmount - netAmount) /
+            previousMonthLedger.netAmount
+          : 0;
+
+        logger.log('[settlement-updated] Churn 신호 감지', {
+          partnerId,
+          currentMonth: monthlyUSD,
+          previousMonth: previousMonthLedger?.netAmount
+            ? previousMonthLedger.netAmount / 100
+            : 'N/A',
+          decreasePercent: `${(decreasePercent * 100).toFixed(1)}%`
+        });
+
+        // Churn 알림 SMS 발송
+        if (decreasePercent > 0) {
+          try {
+            await sendChurnAlertSms(
+              partner.organizationId,
+              partnerId,
+              decreasePercent
+            );
+          } catch (error) {
+            logger.error('[settlement-updated] Churn 알림 SMS 발송 실패', {
+              partnerId,
+              error: error instanceof Error ? error.message : String(error)
+            });
+            // SMS 실패는 프로세스를 중단하지 않음
+          }
+        }
+      }
+
+      // 5. SettlementLedger 저장
+      await upsertSettlementLedger(
+        partnerId,
+        period,
+        settlementId,
+        status,
+        totalCommission,
+        totalWithholding,
+        isChurnDetected
+      );
+
+      logger.log('[settlement-updated] SettlementLedger 저장', {
+        partnerId,
+        period,
+        settlementId,
+        status,
+        netAmount: monthlyUSD,
+        churnDetected: isChurnDetected
+      });
+
+      // 6. 정산 알림 SMS 발송 (status가 PAID일 때)
+      if (status === 'PAID') {
+        try {
+          await sendSettlementNotificationSms(
+            partner.organizationId,
+            partnerId,
+            netAmount,
+            period
+          );
+        } catch (error) {
+          logger.error('[settlement-updated] 정산 알림 SMS 발송 실패', {
+            partnerId,
+            error: error instanceof Error ? error.message : String(error)
+          });
+          // SMS 실패는 프로세스를 중단하지 않음
+        }
+      }
 
       return {
-        partnerId: partner.id,
+        partnerId,
         totalEarnings: partner.totalEarnings,
-        status: 'updated'
+        tier: newTier,
+        churnDetected: isChurnDetected,
+        status: 'processed'
       };
     }
   });
