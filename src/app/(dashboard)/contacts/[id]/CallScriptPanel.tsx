@@ -86,7 +86,9 @@ export default function CallScriptPanel({ contact, isExpanded = true, onPhaseCha
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/call-scripts/track-b?segment=${seg}&phase=${phase}`);
+      const response = await fetch(`/api/call-scripts/track-b?segment=${seg}&phase=${phase}`, {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error("스크립트 로드 실패");
       const data = await response.json();
       if (data.ok) {
@@ -185,7 +187,7 @@ export default function CallScriptPanel({ contact, isExpanded = true, onPhaseCha
 
               {/* 심리학 렌즈 */}
               <div className="flex flex-wrap gap-2">
-                {script.psychologyLenses.map((lens) => (
+                {script?.psychologyLenses?.map((lens) => (
                   <span key={lens} className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-medium">
                     <Zap className="w-3 h-3" />
                     {lens}
@@ -197,20 +199,20 @@ export default function CallScriptPanel({ contact, isExpanded = true, onPhaseCha
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="bg-white p-2 rounded border border-blue-200">
                   <div className="font-semibold text-blue-700">PASONA</div>
-                  <div className="text-gray-600">{script.pasona.join(" → ")}</div>
+                  <div className="text-gray-600">{script?.pasona?.join(" → ")}</div>
                 </div>
                 <div className="bg-white p-2 rounded border border-blue-200">
                   <div className="font-semibold text-blue-700">SPIN</div>
-                  <div className="text-gray-600">{script.spin.join(" → ")}</div>
+                  <div className="text-gray-600">{script?.spin?.join(" → ")}</div>
                 </div>
               </div>
 
               {/* 핵심 메시지 */}
-              {script.keyMessages.length > 0 && (
+              {script?.keyMessages?.length > 0 && (
                 <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
                   <div className="font-semibold text-yellow-900 text-sm mb-2">🎯 핵심 메시지</div>
                   <ul className="text-sm text-yellow-800 space-y-1">
-                    {script.keyMessages.map((msg, idx) => (
+                    {script?.keyMessages?.map((msg, idx) => (
                       <li key={idx} className="flex gap-2">
                         <span className="text-yellow-600">•</span>
                         <span>{msg}</span>
@@ -228,11 +230,11 @@ export default function CallScriptPanel({ contact, isExpanded = true, onPhaseCha
               </div>
 
               {/* 목표 */}
-              {script.objectives.length > 0 && (
+              {script?.objectives?.length > 0 && (
                 <div className="bg-green-50 p-3 rounded border border-green-200">
                   <div className="font-semibold text-green-900 text-sm mb-2">✓ 단계 목표</div>
                   <ul className="text-sm text-green-800 space-y-1">
-                    {script.objectives.map((obj, idx) => (
+                    {script?.objectives?.map((obj, idx) => (
                       <li key={idx} className="flex gap-2">
                         <span className="text-green-600">→</span>
                         <span>{obj}</span>
@@ -243,11 +245,11 @@ export default function CallScriptPanel({ contact, isExpanded = true, onPhaseCha
               )}
 
               {/* 팁 */}
-              {script.tips && script.tips.length > 0 && (
+              {script?.tips?.length > 0 && (
                 <div className="bg-indigo-50 p-3 rounded border border-indigo-200">
                   <div className="font-semibold text-indigo-900 text-sm mb-2">💡 실전 팁</div>
                   <ul className="text-sm text-indigo-800 space-y-1">
-                    {script.tips.map((tip, idx) => (
+                    {script?.tips?.map((tip, idx) => (
                       <li key={idx} className="flex gap-2">
                         <span className="text-indigo-600">•</span>
                         <span>{tip}</span>
@@ -258,11 +260,11 @@ export default function CallScriptPanel({ contact, isExpanded = true, onPhaseCha
               )}
 
               {/* 침묵 포인트 */}
-              {script.silencePoints && script.silencePoints.length > 0 && (
+              {script?.silencePoints?.length > 0 && (
                 <div className="bg-orange-50 p-3 rounded border border-orange-200">
                   <div className="font-semibold text-orange-900 text-sm mb-2">⏸️ 침묵 포인트</div>
                   <p className="text-sm text-orange-800">
-                    {script.silencePoints.map(p => `${p}번 위치`).join(", ")}에서 고객의 답변을 기다리세요.
+                    {script?.silencePoints?.map(p => `${p}번 위치`).join(", ")}에서 고객의 답변을 기다리세요.
                   </p>
                 </div>
               )}

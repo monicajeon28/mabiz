@@ -756,7 +756,7 @@ ${footerBlock}
 
         {/* iPhone 프레임 */}
         <div className="flex-1 overflow-y-auto flex flex-col items-center py-8 px-6 gap-6">
-          <div className="relative w-[280px]" style={{ userSelect: "none" }}>
+          <div className="relative w-[280px] select-none">
             {/* 폰 외곽 — z-0: 스크린 뒤에서 베젤 역할 */}
             <div className="absolute inset-0 rounded-[40px] pointer-events-none z-0"
               style={{ background: "#2d3748", boxShadow: "0 0 0 1.5px #4a5568, 0 24px 64px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08)" }} />
