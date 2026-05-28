@@ -13,3 +13,23 @@ Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
    - Environments: .env.production.local, .env.local, .env.production, .env
 
    Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'D:\mabiz-crm\.next\cache\webpack\server-production\2.pack_' -> 'D:\mabiz-crm\.next\cache\webpack\server-production\2.pack'
+ ⚠ Compiled with warnings in 20.2min
+
+./node_modules/@prisma/instrumentation/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@prisma/instrumentation/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+./node_modules/@prisma/instrumentation/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+./node_modules/@prisma/instrumentation/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+./node_modules/@prisma/instrumentation/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+./node_modules/@prisma/instrumentation/dist/index.js
+./node_modules/@sentry/node/build/cjs/integrations/tracing/prisma.js
+./node_modules/@sentry/node/build/cjs/index.js
+./node_modules/@sentry/nextjs/build/cjs/index.server.js
+./src/lib/sentry.ts
+
+   Skipping validation of types
+   Linting ...
+Next.js build worker exited with code: 3221225794 and signal: null
