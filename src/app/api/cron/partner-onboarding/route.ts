@@ -36,6 +36,7 @@ interface OnboardingCronResponse {
 
 export async function POST(req: Request) {
   const startTime = Date.now();
+
   const response: OnboardingCronResponse = {
     status: 'PROCESSING',
     timestamp: new Date().toISOString(),
@@ -49,25 +50,41 @@ export async function POST(req: Request) {
   };
 
   try {
+    // Verify auth
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     // Get all active organizations
     const organizations = await prisma.organization.findMany({
       where: { status: 'ACTIVE' },
       select: { id: true },
     });
 
+    if (!organizations || organizations.length === 0) {
+      logger.warn('No active organizations found for onboarding');
+      response.status = 'SUCCESS';
+      return NextResponse.json(response, { status: 200 });
+    }
+
     for (const org of organizations) {
       try {
         const result = await processOnboardingSequence(org.id);
-        response.organizationsProcessed++;
-        response.day1Sent += result.day1Sent;
-        response.day3Sent += result.day3Sent;
-        response.day7Sent += result.day7Sent;
-        response.day14Sent += result.day14Sent;
-        response.completed += result.completed;
 
-        if (result.errors.length > 0) {
+        response.organizationsProcessed += 1;
+        response.day1Sent += result?.day1Sent || 0;
+        response.day3Sent += result?.day3Sent || 0;
+        response.day7Sent += result?.day7Sent || 0;
+        response.day14Sent += result?.day14Sent || 0;
+        response.completed += result?.completed || 0;
+
+        if (result?.errors && result.errors.length > 0) {
           response.errors.push(
-            ...result.errors.map((err) => ({
+            ...result.errors.map((err: string) => ({
               organizationId: org.id,
               error: err,
             }))
