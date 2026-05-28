@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { Decimal } from '@prisma/client/runtime/library';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -20,14 +19,6 @@ interface CruisedotSettlementPayload {
   commissionRate?: number; // 커미션 비율 (%)
   paymentDate?: string; // ISO 8601 날짜
 }
-
-// Partner Tier 별 기본 CommissionRate (환경설정으로 대체 가능)
-const PARTNER_TIER_RATES: Record<string, number> = {
-  BRONZE: 10,
-  SILVER: 15,
-  GOLD: 20,
-  PLATINUM: 25,
-};
 
 export async function POST(req: NextRequest) {
   const secret = process.env.CRUISEDOT_WEBHOOK_SECRET;
@@ -103,52 +94,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, duplicate: true });
     }
 
-    let partner: any = null;
     let commissionLedgerEntry: any = null;
     let settlementEventEntry: any = null;
+    const profileIdInt = parseInt(partnerId, 10);
+    const settlementIdInt = parseInt(settlementId, 10);
+
+    // Validate that partnerId is a valid number
+    if (isNaN(profileIdInt)) {
+      logger.warn('[SettlementWebhook] 유효하지 않은 partnerId', { partnerId });
+      return NextResponse.json({ ok: false, message: '유효하지 않은 partnerId' }, { status: 400 });
+    }
 
     // 트랜잭션 처리
     await prisma.$transaction(async (tx) => {
-      // 1. Partner 찾기 또는 생성
-      partner = await tx.partner.upsert({
-        where: { id: partnerId },
-        create: {
-          id: partnerId,
-          organizationId: 'org_cruisedot', // 기본값 (나중에 환경설정으로 변경)
-          name: `Partner ${partnerId}`,
-          email: undefined,
-          phone: undefined,
-          status: 'ACTIVE',
-          commissionRate: commissionRate ? new Decimal(commissionRate) : null,
-          totalRevenue: BigInt(0),
-        },
-        update: {
-          // Partner가 이미 존재하면 수익만 업데이트 (아래 진행)
-        },
-        select: {
-          id: true,
-          organizationId: true,
-          name: true,
-          commissionRate: true,
-          totalRevenue: true,
-        },
-      });
+      // 1. CommissionLedger 기록 (CommissionRate 결정)
+      // CommissionRate가 없으면 기본값 사용
+      let finalCommissionRate = commissionRate ?? 18; // 기본값: SILVER 18%
 
-      // 2. CommissionLedger 기록
-      // CommissionRate가 없으면 Partner Tier 기반 계산 (임시: 기본값 사용)
-      const finalCommissionRate = commissionRate ?? PARTNER_TIER_RATES.SILVER; // SILVER를 기본값으로
+      // TODO: Partner Tier 기반 자동 계산 (추후 Partner 모델 개선 시)
+      // 현재는 commissionRate 파라미터 또는 기본값 사용
+
       const calculatedNetAmount = netAmount ?? Math.floor(amount * (1 - finalCommissionRate / 100));
       const commissionAmount = Math.floor(amount - calculatedNetAmount);
 
       commissionLedgerEntry = await tx.commissionLedger.create({
         data: {
-          saleId: parseInt(settlementId, 10),
-          profileId: parseInt(partnerId, 10),
+          saleId: settlementIdInt,
+          profileId: profileIdInt, // GMCruise affiliate profileId (Int)
           entryType: 'SETTLEMENT_COMMISSION',
           amount: commissionAmount,
           currency: 'KRW',
           withholdingAmount: 0,
-          settlementId: parseInt(settlementId, 10),
+          settlementId: settlementIdInt,
           isSettled: status === 'PAID',
           notes: `정산 ${period}: ${amount.toLocaleString()}원 → ${calculatedNetAmount.toLocaleString()}원`,
           metadata: {
@@ -157,7 +134,8 @@ export async function POST(req: NextRequest) {
             period,
             settlementStatus: status,
             paymentDate,
-          },
+            commissionRate: finalCommissionRate,
+          } as any,
         },
         select: {
           id: true,
@@ -168,44 +146,28 @@ export async function POST(req: NextRequest) {
 
       logger.log('[SettlementWebhook] CommissionLedger 기록', {
         ledgerId: commissionLedgerEntry.id,
-        partnerId,
+        profileId: profileIdInt,
         amount: commissionAmount,
         settlementAmount: calculatedNetAmount,
+        commissionRate: finalCommissionRate,
       });
 
-      // 3. Partner totalRevenue 누적
-      if (status === 'PAID') {
-        await tx.partner.update({
-          where: { id: partnerId },
-          data: {
-            totalRevenue: {
-              increment: BigInt(calculatedNetAmount),
-            },
-          },
-        });
-
-        logger.log('[SettlementWebhook] Partner 수익 누적', {
-          partnerId,
-          addedAmount: calculatedNetAmount,
-        });
-      }
-
-      // 4. SettlementEvent 로깅
+      // 2. SettlementEvent 로깅
       settlementEventEntry = await tx.settlementEvent.create({
         data: {
-          settlementId: parseInt(settlementId, 10),
+          settlementId: settlementIdInt,
           userId: undefined,
           eventType: `SETTLEMENT_${status}`,
           description: `정산 ${status}: ${period} ${amount.toLocaleString()}원`,
           metadata: {
             eventId,
             eventType,
-            partnerId,
+            partnerId: profileIdInt,
             amount,
             netAmount: calculatedNetAmount,
             commissionRate: finalCommissionRate,
             paymentDate,
-          },
+          } as any,
         },
         select: {
           id: true,
@@ -214,11 +176,11 @@ export async function POST(req: NextRequest) {
 
       logger.log('[SettlementWebhook] SettlementEvent 기록', {
         eventId: settlementEventEntry.id,
-        settlementId,
+        settlementId: settlementIdInt,
         status,
       });
 
-      // 5. ProcessedWebhookEvent 기록 (중복 방지)
+      // 3. ProcessedWebhookEvent 기록 (중복 방지)
       await tx.processedWebhookEvent.create({
         data: {
           eventId,
@@ -235,8 +197,8 @@ export async function POST(req: NextRequest) {
       // TODO: SMS 알림 (선택적)
 
       logger.log('[SettlementWebhook] 알림 발송 대기', {
-        partnerId,
-        settlementId,
+        partnerId: profileIdInt,
+        settlementId: settlementIdInt,
         commissionAmount: commissionLedgerEntry.amount,
       });
     }
@@ -253,8 +215,8 @@ export async function POST(req: NextRequest) {
     }
 
     logger.log('[SettlementWebhook] 처리 완료', {
-      settlementId,
-      partnerId,
+      settlementId: settlementIdInt,
+      partnerId: profileIdInt,
       period,
       status,
       commissionAmount: commissionLedgerEntry?.amount,
@@ -263,8 +225,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       success: true,
-      settlementId,
-      partnerId,
+      settlementId: settlementIdInt,
+      partnerId: profileIdInt,
       commissionAmount: commissionLedgerEntry?.amount ?? 0,
       status: 'processed',
     });

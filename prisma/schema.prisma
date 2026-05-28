@@ -1906,8 +1906,10 @@ model Partner {
   status         String   @default("ACTIVE")
   commissionRate Decimal? @db.Decimal(5, 2)
   totalRevenue   BigInt   @default(0)
+  totalEarnings  BigInt   @default(0) // 누적 수입 (정산액)
   createdAt      DateTime @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+  lastSettlementAt DateTime? @db.Timestamptz(6) // 마지막 정산 시각
 
   // Menu #57: 신입 온보딩 필드
   onboardingStatus    String    @default("NOT_STARTED") // "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED" | "FAILED"
@@ -1915,6 +1917,11 @@ model Partner {
   incomeLevel         String    @default("BEGINNER") // "BEGINNER" | "INTERMEDIATE" | "ADVANCED"
   monthlyIncomeGoal   BigInt? // 목표 월 수익 (단위: 원)
   automationRate      Int       @default(0) // 0-100 (자동화율)
+
+  // Settlement Webhook: Partner Tier & Churn Detection (Phase 6)
+  tier              String    @default("Bronze") // "Bronze" | "Silver" | "Gold" | "Platinum"
+  churnRiskFlag     Boolean   @default(false) // Churn 신호 감지 (수입 20% 이상 감소)
+  churnRiskDetectedAt DateTime? @db.Timestamptz(6) // Churn 신호 감지 시각
 
   contacts            Contact[]
   organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -1925,12 +1932,15 @@ model Partner {
   onboardingLogs      PartnerOnboardingLog[]
   smsLogs             PartnerSmsLog[]
   riskScoreChanges    PartnerRiskScoreChange[]
+  settlementLedger    SettlementLedger[]
 
   @@unique([organizationId, name])
   @@index([organizationId])
   @@index([status])
   @@index([onboardingStatus])
   @@index([automationRate])
+  @@index([tier])
+  @@index([churnRiskFlag])
 }
 
 model PartnerMetrics {
@@ -6394,4 +6404,28 @@ model FormSubmission {
   @@index([segment])
   @@index([variant, createdAt])
   @@map("FormSubmission")
+}
+
+// Phase 6: Settlement Webhook Infrastructure
+// SettlementLedger: Partner의 월별 정산 기록
+model SettlementLedger {
+  id                String   @id @default(cuid())
+  partnerId         String
+  period            String   @db.VarChar(7) // YYYY-MM format
+  settlementId      String   @unique // 크루즈닷몰 정산 ID
+  status            String   @default("DRAFT") // DRAFT | APPROVED | LOCKED | PAID
+  totalCommission   BigInt   @default(0) // 총 수수료 (센트 단위)
+  totalWithholding  BigInt   @default(0) // 총 제외액 (센트 단위)
+  netAmount         BigInt   @default(0) // 순 지급액 (센트 단위)
+  previousMonthRevenue BigInt? // 이전달 수입 (Churn 감지용)
+  churnDetected     Boolean  @default(false) // 20% 이상 감소 여부
+  smsNotificationSentAt DateTime? @db.Timestamptz(6) // SMS 발송 시각
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(6)
+  partner           Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, period])
+  @@index([partnerId, period])
+  @@index([status])
+  @@index([churnDetected])
 }
