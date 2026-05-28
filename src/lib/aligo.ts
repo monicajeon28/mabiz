@@ -421,3 +421,12 @@ export async function sendByChannel(params: SendByChannelParams): Promise<AligoR
     }
   }
 }
+
+export function createAligoClient(config: AligoConfig) {
+  return {
+    sendSms: (receiver: string, msg: string, msgType?: "SMS" | "LMS") =>
+      sendSms({ config, receiver, msg, msgType }),
+    verifySender: () => verifySenderNumber(config),
+    config,
+  };
+}

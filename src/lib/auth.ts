@@ -36,6 +36,18 @@ type RawMallUser = {
   affiliateProfileId: number | null;
 };
 
+export const getSession = cache(async (): Promise<MabizAuthContext | null> => {
+  return getMabizSession();
+});
+
+export const getAuthSession = cache(async (): Promise<MabizAuthContext | null> => {
+  return getMabizSession();
+});
+
+export const authOptions = {
+  providers: [],
+};
+
 export const getMabizSession = cache(async (): Promise<MabizAuthContext | null> => {
   try {
     const cookieStore = await cookies();

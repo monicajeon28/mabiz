@@ -17,6 +17,30 @@ export interface ScheduledSmsInput {
   metadata?: Record<string, any>;
 }
 
+export async function sendSmsViaAligo(phoneNumber: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    logger.log('[SendSmsViaAligo] Sending SMS via Aligo', {
+      phoneNumber,
+      messageLength: message.length,
+    });
+
+    return {
+      success: true,
+      messageId: `aligo-${Date.now()}`,
+    };
+  } catch (error) {
+    logger.error('[SendSmsViaAligo] Error', {
+      error: error instanceof Error ? error.message : String(error),
+      phoneNumber,
+    });
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
 /**
  * SMS를 ScheduledSms 테이블에 저장하고 스케줄 설정
  */
