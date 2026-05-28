@@ -85,7 +85,7 @@ X-Webhook-Signature: {HMAC-SHA256(body, WEBHOOK_SECRET)}
 Authorization: Bearer {WEBHOOK_SECRET}
 ```
 - WEBHOOK_SECRET은 32자 이상의 secure random string
-- 예: `{32자 이상 무작위 문자열}`
+- 예: `{uuid 또는 secure random string}`
 
 ### HMAC-SHA256 서명 검증
 ```
