@@ -224,6 +224,20 @@ const affiliateStatusLabel: Record<string, string> = {
   TERMINATED: '종료',
 };
 
+// P2-3: 컴포넌트 외부 모듈 스코프로 이동 — 매 렌더링마다 재생성되지 않음
+const interactionTypeLabels: Record<string, string> = {
+  call: '전화',
+  sms: 'SMS',
+  email: '이메일',
+  visit: '방문',
+  meeting: '미팅',
+  kakao: '카카오톡',
+  other: '기타',
+};
+
+// P2-5: limit 하드코딩 → 단일 상수로 관리
+const AFFILIATE_MANAGERS_LIMIT = 200;
+
 const relationStatusLabel: Record<string, string> = {
   ACTIVE: '활성',
   PAUSED: '일시중지',
@@ -257,11 +271,12 @@ export default function AffiliateTeamDashboardPage() {
     resolve: null,
   });
 
-  const confirm = (opts: { message: string; isDangerous?: boolean }): Promise<boolean> => {
+  // P2-2: useCallback으로 감싸서 매 렌더링마다 재생성 방지
+  const confirm = useCallback((opts: { message: string; isDangerous?: boolean }): Promise<boolean> => {
     return new Promise((resolve) => {
       setConfirmState({ open: true, message: opts.message, isDangerous: opts.isDangerous ?? false, resolve });
     });
-  };
+  }, []);
 
   const handleConfirmOk = () => {
     confirmState.resolve?.(true);
@@ -297,7 +312,7 @@ export default function AffiliateTeamDashboardPage() {
   const [actingManager, setActingManager] = useState<string | null>(null); // userId
 
   useEffect(() => {
-    fetch('/api/admin/affiliate-managers?limit=200')
+    fetch(`/api/admin/affiliate-managers?limit=${AFFILIATE_MANAGERS_LIMIT}`)
       .then(r => r.json())
       .then(d => {
         if (!d.ok || !d.managers) return;
@@ -361,18 +376,8 @@ export default function AffiliateTeamDashboardPage() {
   const [totals, setTotals] = useState<DashboardResponse['totals']>(null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
-  const [teamMessages, setTeamMessages] = useState<Array<{
-    id: number;
-    title: string;
-    content: string;
-    createdAt: string;
-    admin?: { id: number; name: string | null };
-    sender?: { id: number; name: string | null };
-    recipient?: { id: number; name: string | null };
-    messageType?: string;
-    isRead: boolean;
-    isSent?: boolean;
-  }>>([]);
+  // P2-1: 인라인 타입 → 파일 상단 TeamMessage 타입으로 교체
+  const [teamMessages, setTeamMessages] = useState<TeamMessage[]>([]);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [showSendMessageModal, setShowSendMessageModal] = useState(false);
@@ -728,15 +733,7 @@ export default function AffiliateTeamDashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const interactionTypeLabels: Record<string, string> = {
-    call: '전화',
-    sms: 'SMS',
-    email: '이메일',
-    visit: '방문',
-    meeting: '미팅',
-    kakao: '카카오톡',
-    other: '기타',
-  };
+  // P2-3: interactionTypeLabels는 모듈 스코프로 이동됨 (컴포넌트 위 선언 참조)
 
   const processedReceivedMessages = useMemo(() => {
     let result = [...teamMessages];

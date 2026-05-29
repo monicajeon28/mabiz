@@ -169,6 +169,10 @@ export function LandingClient({
       }
 
       // [WO-15] 시간 기반 방어 (1.5초 미만 = 봇)
+      // [P2-14] 현재: 클라이언트 타이밍 체크 유지 (loadTimeRef 초기값 변경 없음).
+      // 향후 개선: POST body에 submittedAt: Date.now() 포함 → 서버에서
+      //   if (Date.now() - submittedAt > 10 * 60 * 1000) → 400 반환.
+      //   단, 봇이 submittedAt 조작 가능하므로 honeypot + IP rate limit(분당 5건)과 함께 적용 권장.
       if (Date.now() - loadTimeRef.current < 1500) {
         setDone(true);
         return;
@@ -605,6 +609,7 @@ export function LandingClient({
               placeholder="이름"
               value={commentForm.authorName}
               onChange={(e) => setCommentForm({ ...commentForm, authorName: e.target.value })}
+              maxLength={50}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
             />
             <textarea

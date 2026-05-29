@@ -12,6 +12,19 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { AligoClient, createAligoClient } from './client';
 
+/**
+ * Aligo EUC-KR 바이트 기준 LMS/SMS 분류
+ * 한글 1자 = 2바이트, ASCII 1자 = 1바이트
+ * 80바이트 초과 시 LMS
+ */
+export function getAligoMessageType(msg: string): 'SMS' | 'LMS' {
+  let bytes = 0;
+  for (const ch of msg) {
+    bytes += ch.charCodeAt(0) > 127 ? 2 : 1;
+  }
+  return bytes > 80 ? 'LMS' : 'SMS';
+}
+
 export interface BatchSenderResult {
   processed: number;
   sent: number;
@@ -77,20 +90,21 @@ export async function processPendingSms(
       senderPhone: smsConfig.senderPhone,
     });
 
-    // 배치 그룹 생성 (수신거부 및 야간 차단 제외)
+    // 배치 그룹 생성 (수신거부 및 야간 차단 분리)
     const validSms: typeof pendingSms = [];
-    const blockedSms: typeof pendingSms = [];
+    const optOutBlocked: typeof pendingSms = [];
+    const nightBlocked: typeof pendingSms = [];
 
     for (const sms of pendingSms) {
-      // 수신거부 확인
+      // 수신거부 확인 — 야간 여부와 무관하게 항상 BLOCKED
       if (sms.contact?.optOutAt) {
-        blockedSms.push(sms);
+        optOutBlocked.push(sms);
         continue;
       }
 
       // 야간 발송 차단
       if (isNightTime) {
-        blockedSms.push(sms);
+        nightBlocked.push(sms);
         result.nightBlocked = true;
         continue;
       }
@@ -100,17 +114,25 @@ export async function processPendingSms(
 
     result.processed = pendingSms.length;
 
-    // 차단된 SMS 상태 업데이트
-    if (blockedSms.length > 0) {
-      const blockStatus = isNightTime ? 'NIGHT_BLOCKED' : 'BLOCKED';
+    // 수신거부 SMS → BLOCKED
+    if (optOutBlocked.length > 0) {
       await Promise.all(
-        blockedSms.map(sms =>
+        optOutBlocked.map(sms =>
           prisma.scheduledSms.update({
             where: { id: sms.id },
-            data: {
-              status: blockStatus,
-              updatedAt: new Date(),
-            },
+            data: { status: 'BLOCKED', updatedAt: new Date() },
+          })
+        )
+      );
+    }
+
+    // 야간 차단 SMS → NIGHT_BLOCKED
+    if (nightBlocked.length > 0) {
+      await Promise.all(
+        nightBlocked.map(sms =>
+          prisma.scheduledSms.update({
+            where: { id: sms.id },
+            data: { status: 'NIGHT_BLOCKED', updatedAt: new Date() },
           })
         )
       );
@@ -150,7 +172,11 @@ export async function processPendingSms(
       message: sms.message
         .replace(/\[고객명\]/g, sms.contact?.name || '고객님')
         .replace(/\[이름\]/g, sms.contact?.name || '고객님'),
-      messageType: sms.message.length > 80 ? ('LMS' as const) : ('SMS' as const),
+      messageType: getAligoMessageType(
+        sms.message
+          .replace(/\[고객명\]/g, sms.contact?.name || '고객님')
+          .replace(/\[이름\]/g, sms.contact?.name || '고객님')
+      ),
     }));
 
     // Aligo 배치 발송
@@ -242,12 +268,13 @@ async function processIndividualSms(
 
   for (const sms of smsList) {
     try {
+      const resolvedMessage = sms.message
+        .replace(/\[고객명\]/g, sms.contact?.name || '고객님')
+        .replace(/\[이름\]/g, sms.contact?.name || '고객님');
       const response = await aligoClient.sendSms({
         receiver: sms.contact?.phone || '',
-        message: sms.message
-          .replace(/\[고객명\]/g, sms.contact?.name || '고객님')
-          .replace(/\[이름\]/g, sms.contact?.name || '고객님'),
-        messageType: sms.message.length > 80 ? 'LMS' : 'SMS',
+        message: resolvedMessage,
+        messageType: getAligoMessageType(resolvedMessage),
       });
 
       if (response.resultCode === 1) {
@@ -276,6 +303,8 @@ async function processIndividualSms(
           },
         });
 
+        // Aligo 개별 발송 rate limit 방지 (1건/초 기준 + 안전 마진)
+        await new Promise<void>(r => setTimeout(r, 1200));
         sent++;
       } else {
         // 실패
@@ -303,6 +332,8 @@ async function processIndividualSms(
           },
         });
 
+        // Aligo 개별 발송 rate limit 방지 (1건/초 기준 + 안전 마진)
+        await new Promise<void>(r => setTimeout(r, 1200));
         failed++;
       }
     } catch (error) {
@@ -310,6 +341,8 @@ async function processIndividualSms(
         smsId: sms.id,
         error: error instanceof Error ? error.message : String(error),
       });
+      // Aligo 개별 발송 rate limit 방지 (1건/초 기준 + 안전 마진)
+      await new Promise<void>(r => setTimeout(r, 1200));
       failed++;
     }
   }
