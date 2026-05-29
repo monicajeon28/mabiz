@@ -11,6 +11,16 @@ import { fillTemplate } from '@/lib/passport-utils';
 
 // ─── 타입 (API 응답에 맞게 정확히 정의) ────────────────────────────
 
+interface SubmissionGuestItem {
+  id: number;
+  groupNumber: number;
+  name: string;
+  nationality: string | null;
+  passportNumber: string | null;
+  dateOfBirth: string | null;
+  passportExpiryDate: string | null;
+}
+
 interface PassportCustomer {
   id: number;
   name: string | null;
@@ -209,17 +219,24 @@ export default function PassportPage() {
   } | null>(null);
 
   const [refreshTick, setRefreshTick] = useState(0);
+  // 페이지네이션: "더 보기" 방식
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const searchRef = useRef(search);
 
   // ── 데이터 로드 ─────────────────────────────────────────────────
 
-  const loadCustomers = useCallback(async () => {
-    setLoading(true);
+  const loadCustomers = useCallback(async (page = 1, append = false) => {
+    if (append) setLoadingMore(true);
+    else setLoading(true);
     try {
       const p = new URLSearchParams();
       if (searchRef.current.trim()) p.set('search', searchRef.current.trim());
       if (statusFilter !== 'all') p.set('status', statusFilter);
       if (productFilter !== 'all') p.set('productCode', productFilter);
+      p.set('page', String(page));
+      p.set('limit', '100');
       const res = await fetch(`/api/passport/admin/customers?${p}`, { credentials: 'include' });
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
@@ -227,22 +244,39 @@ export default function PassportPage() {
         } else {
           showError(`고객 목록 로드 실패 (${res.status})`);
         }
-        setCustomers([]);
+        if (!append) setCustomers([]);
         return;
       }
       const data = await res.json();
       if (data.ok && Array.isArray(data.data)) {
-        setCustomers(data.data);
-        setSelectedIds(prev => {
-          const ids = new Set(data.data.map((c: PassportCustomer) => c.id));
-          return new Set([...prev].filter(id => ids.has(id)));
-        });
+        const newItems: PassportCustomer[] = data.data;
+        const meta: { page: number; limit: number; count: number; total: number } = data.meta ?? {};
+        const loadedSoFar = (page - 1) * (meta.limit ?? 100) + newItems.length;
+        setHasNextPage(loadedSoFar < (meta.total ?? 0));
+        setCurrentPage(page);
+
+        if (append) {
+          setCustomers(prev => {
+            const existing = new Set(prev.map(c => c.id));
+            const deduped = newItems.filter(c => !existing.has(c.id));
+            return [...prev, ...deduped];
+          });
+        } else {
+          setCustomers(newItems);
+          setSelectedIds(prev => {
+            const ids = new Set(newItems.map((c: PassportCustomer) => c.id));
+            return new Set([...prev].filter(id => ids.has(id)));
+          });
+        }
       } else {
         showError(data.message ?? '고객 목록을 불러오지 못했습니다.');
-        setCustomers([]);
+        if (!append) setCustomers([]);
       }
     } catch { showError('고객 목록을 불러오지 못했습니다.'); }
-    finally { setLoading(false); }
+    finally {
+      if (append) setLoadingMore(false);
+      else setLoading(false);
+    }
   }, [statusFilter, productFilter]);
 
   const loadTemplates = useCallback(async () => {
@@ -268,13 +302,16 @@ export default function PassportPage() {
   }, [loadTemplates]);
 
   useEffect(() => {
-    const t = setTimeout(loadCustomers, 350);
+    // 필터·검색·새로고침 변경 시 항상 page=1 부터 재조회
+    const t = setTimeout(() => loadCustomers(1, false), 350);
     return () => clearTimeout(t);
   }, [loadCustomers, refreshTick]);
 
-  // 필터 변경 시 이전 선택 클리어 (다른 필터 그룹 ID 잔존 방지)
+  // 필터 변경 시 이전 선택 + 페이지 클리어
   useEffect(() => {
     setSelectedIds(new Set());
+    setHasNextPage(false);
+    setCurrentPage(1);
   }, [statusFilter, productFilter]);
 
   // ── 파생값 ──────────────────────────────────────────────────────
@@ -630,16 +667,32 @@ export default function PassportPage() {
                 )}
               </div>
             ) : (
-              <ul className="divide-y divide-gray-100 max-h-[55vh] overflow-y-auto">
-                {customers.map(c => (
-                  <CustomerRow
-                    key={c.id}
-                    customer={c}
-                    selected={selectedIds.has(c.id)}
-                    onToggle={() => toggle(c.id)}
-                  />
-                ))}
-              </ul>
+              <>
+                <ul className="divide-y divide-gray-100 max-h-[55vh] overflow-y-auto">
+                  {customers.map(c => (
+                    <CustomerRow
+                      key={c.id}
+                      customer={c}
+                      selected={selectedIds.has(c.id)}
+                      onToggle={() => toggle(c.id)}
+                    />
+                  ))}
+                </ul>
+                {/* 더 보기 버튼 */}
+                {hasNextPage && (
+                  <div className="px-4 py-2 border-t border-gray-100 bg-white">
+                    <button
+                      onClick={() => loadCustomers(currentPage + 1, true)}
+                      disabled={loadingMore}
+                      className="w-full py-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {loadingMore
+                        ? <><RefreshCw className="w-3 h-3 animate-spin" /> 불러오는 중...</>
+                        : `다음 100명 더 보기 (현재 ${customers.length}명 표시)`}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -807,9 +860,35 @@ function CustomerRow({
   onToggle: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const hasPhone = c.hasPhone;
+
+  // ── 탑승자 데이터 (lazy load) ──────────────────────────────────
+  const [guests, setGuests] = useState<SubmissionGuestItem[] | null>(null);
+  const [guestsLoading, setGuestsLoading] = useState(false);
+  const [guestsError, setGuestsError] = useState(false);
+  const guestsFetchedRef = useRef(false);
+
   const isSubmitted = c.submissionStatus === 'submitted';
+  const hasPhone = c.hasPhone;
   const dday = calcDday(c.latestTrip?.departureDate ?? null);
+
+  // open=true & isSubmitted=true 일 때 한 번만 fetch
+  useEffect(() => {
+    if (!open || !isSubmitted || guestsFetchedRef.current) return;
+    guestsFetchedRef.current = true;
+    setGuestsLoading(true);
+    setGuestsError(false);
+    fetch(`/api/passport/admin/submission-guests?userId=${c.id}`, { credentials: 'include' })
+      .then(r => r.json())
+      .then((data: { ok: boolean; guests?: SubmissionGuestItem[] }) => {
+        if (data.ok && Array.isArray(data.guests)) {
+          setGuests(data.guests);
+        } else {
+          setGuestsError(true);
+        }
+      })
+      .catch(() => setGuestsError(true))
+      .finally(() => setGuestsLoading(false));
+  }, [open, isSubmitted, c.id]);
 
   const statusBadge = {
     submitted: { cls: 'bg-green-100 text-green-700', label: '✓ 제출 완료' },
@@ -819,6 +898,14 @@ function CustomerRow({
 
   const lastSentDate = c.lastRequest?.sentAt
     ? new Date(c.lastRequest.sentAt).toLocaleDateString('ko-KR')
+    : null;
+
+  // 그룹별로 게스트 묶기
+  const guestsByGroup = guests
+    ? guests.reduce<Record<number, SubmissionGuestItem[]>>((acc, g) => {
+        (acc[g.groupNumber] ??= []).push(g);
+        return acc;
+      }, {})
     : null;
 
   return (
@@ -877,18 +964,87 @@ function CustomerRow({
       </div>
 
       {open && (
-        <div className="px-4 pb-3 pl-11 space-y-1 bg-gray-50 border-t border-gray-100">
+        <div className="px-4 pb-3 pl-11 space-y-2 bg-gray-50 border-t border-gray-100">
           {c.email && <p className="text-xs text-gray-500">이메일: {c.email}</p>}
+
           {c.submission?.isSubmitted && c.submission.submittedAt && (
             <p className="text-xs text-green-600">
               ✓ 여권 제출 완료: {new Date(c.submission.submittedAt).toLocaleDateString('ko-KR')}
             </p>
           )}
-          {c.lastRequest && (
-            <p className="text-xs text-gray-400">
-              마지막 발송: {lastSentDate} ({c.lastRequest.messageChannel})
-              {c.lastRequest.status === 'FAILED' && <span className="text-red-400 ml-1">— 발송 실패</span>}
-            </p>
+
+          {/* ── 탑승자 여권 데이터 (isSubmitted=true 일 때만) ─────── */}
+          {isSubmitted && (
+            <div className="pt-1">
+              {guestsLoading && (
+                <div className="flex items-center gap-1.5 text-xs text-gray-400 py-1">
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                  탑승자 정보 불러오는 중...
+                </div>
+              )}
+
+              {guestsError && (
+                <p className="text-xs text-red-400 py-1">상세 정보를 불러오지 못했습니다.</p>
+              )}
+
+              {!guestsLoading && !guestsError && guestsByGroup && (
+                Object.keys(guestsByGroup).length === 0 ? (
+                  <p className="text-xs text-gray-400 py-1">등록된 탑승자 정보가 없습니다.</p>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-gray-600">
+                        탑승자 정보 ({guests!.length}명)
+                      </p>
+                    </div>
+                    <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+                      {/* 헤더 */}
+                      <div className="grid grid-cols-4 gap-2 px-3 py-1.5 bg-gray-100 text-xs font-medium text-gray-500">
+                        <span>이름</span>
+                        <span>국적</span>
+                        <span>여권번호</span>
+                        <span>만료일</span>
+                      </div>
+                      {/* 그룹별 행 */}
+                      {Object.entries(guestsByGroup).map(([groupNum, members]) => (
+                        <div key={groupNum}>
+                          {Object.keys(guestsByGroup).length > 1 && (
+                            <div className="px-3 py-1 bg-blue-50 border-t border-gray-100">
+                              <span className="text-xs font-semibold text-blue-600">
+                                그룹 {groupNum}
+                              </span>
+                            </div>
+                          )}
+                          {members.map((g, idx) => (
+                            <div
+                              key={g.id}
+                              className="grid grid-cols-4 gap-2 px-3 py-1.5 border-t border-gray-100 text-xs text-gray-700 hover:bg-gray-50"
+                            >
+                              <span className="font-medium truncate">
+                                <span className="text-gray-400 mr-1">{(['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'][idx] ?? `${idx + 1}.`)}</span>
+                                {g.name}
+                              </span>
+                              <span className="text-gray-500">{g.nationality ?? '—'}</span>
+                              <span className="font-mono tracking-wide">
+                                {g.passportNumber ?? '—'}
+                              </span>
+                              <span className={g.passportExpiryDate ? '' : 'text-gray-400'}>
+                                {g.passportExpiryDate ? `${g.passportExpiryDate} 까지` : '—'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+
+          {/* ── 발송 이력 (lazy load: 미제출 고객) ─────────────────── */}
+          {!isSubmitted && (
+            <HistorySection userId={c.id} open={open} lastRequest={c.lastRequest} lastSentDate={lastSentDate} />
           )}
           {!c.latestTrip && (
             <p className="text-xs text-gray-400">여행 정보 없음</p>
@@ -896,6 +1052,103 @@ function CustomerRow({
         </div>
       )}
     </li>
+  );
+}
+
+// ─── 발송 이력 섹션 (분리 컴포넌트 — CustomerRow가 너무 길어지지 않도록) ──
+
+interface HistoryLog {
+  id: number;
+  status: string;
+  messageChannel: string;
+  sentAt: string;
+  errorReason: string | null;
+}
+
+function HistorySection({
+  userId,
+  open,
+  lastRequest,
+  lastSentDate,
+}: {
+  userId: number;
+  open: boolean;
+  lastRequest: PassportCustomer['lastRequest'];
+  lastSentDate: string | null;
+}) {
+  // null = 미조회, [] = 없음, HistoryLog[] = 결과
+  const [history, setHistory] = useState<HistoryLog[] | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // 드롭다운이 열릴 때 최초 1회만 조회
+  useEffect(() => {
+    if (!open || history !== null) return;
+    setLoading(true);
+    fetch(`/api/passport/admin/history?userId=${userId}&limit=5`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        setHistory(d?.ok && Array.isArray(d.data) ? (d.data as HistoryLog[]) : []);
+      })
+      .catch(() => setHistory([]))
+      .finally(() => setLoading(false));
+  }, [open, history, userId]);
+
+  const channelLabel: Record<string, string> = {
+    SMS: 'SMS', KAKAO: '카카오', ALIMTALK: '알림톡',
+    MANUAL_COPY: '수동복사', MANUAL: '수동',
+  };
+
+  return (
+    <div>
+      {/* 최근 1건은 기존 방식 그대로 (이미 가져온 데이터 재활용) */}
+      {lastRequest && (
+        <p className="text-xs text-gray-400">
+          마지막 발송: {lastSentDate} ({lastRequest.messageChannel})
+          {lastRequest.status === 'FAILED' && <span className="text-red-400 ml-1">— 발송 실패</span>}
+        </p>
+      )}
+
+      {/* 전체 이력 (lazy) */}
+      <div className="mt-1">
+        {loading && (
+          <div className="flex items-center gap-1 text-xs text-gray-400">
+            <RefreshCw className="w-3 h-3 animate-spin" /> 이력 불러오는 중...
+          </div>
+        )}
+        {!loading && history !== null && history.length === 0 && !lastRequest && (
+          <p className="text-xs text-gray-400">발송 이력 없음</p>
+        )}
+        {!loading && history !== null && history.length > 1 && (
+          <details className="mt-1">
+            <summary className="text-xs text-blue-600 cursor-pointer hover:underline select-none">
+              발송 이력 전체 보기 ({history.length}건)
+            </summary>
+            <ul className="mt-1 space-y-0.5 pl-1">
+              {history.map(log => (
+                <li key={log.id} className="flex items-center gap-2 text-xs">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    log.status === 'SUCCESS' ? 'bg-green-500' :
+                    log.status === 'FAILED' ? 'bg-red-400' : 'bg-gray-400'
+                  }`} />
+                  <span className="text-gray-500 shrink-0">
+                    {new Date(log.sentAt).toLocaleDateString('ko-KR')}{' '}
+                    {new Date(log.sentAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  <span className="text-gray-400 shrink-0">
+                    {channelLabel[log.messageChannel] ?? log.messageChannel}
+                  </span>
+                  {log.status === 'FAILED' && log.errorReason && (
+                    <span className="text-red-400 truncate">— {log.errorReason}</span>
+                  )}
+                  {log.status === 'SUCCESS' && <span className="text-green-600">완료</span>}
+                  {log.status === 'MANUAL' && <span className="text-blue-500">수동</span>}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://cruiseguide.co.kr';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://cruiseguide.co.kr';
     const passportLink = `${baseUrl}/passport/${token}?mode=passport`;
     const pnrLink = `${baseUrl}/passport/${token}?mode=pnr`;
 
