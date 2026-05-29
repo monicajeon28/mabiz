@@ -20,7 +20,6 @@ import { logger } from '@/lib/logger';
 import { getAuthContext } from '@/lib/rbac';
 import { provisionAffiliateAccounts } from '@/lib/affiliate/provision';
 import {
-  CONTRACT_PRICE_TIERS,
   VALID_AMOUNTS,
   VALID_AMOUNTS_LABEL,
   getPriceTierByAmount,
@@ -381,7 +380,6 @@ export async function GET(
           ? {
               label: tierInfo.label,
               amount: metadata?.amount,
-              commissionRate: tierInfo.commissionRate,
             }
           : null,
         approvedAt: metadata?.approvedAt || null,

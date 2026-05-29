@@ -76,8 +76,6 @@ export async function provisionAffiliateAccounts(
 
   // 단일 트랜잭션 — 전부 성공 or 전부 롤백
   const result = await prisma.$transaction(async (tx) => {
-    const ts = randomBytes(4).toString('hex'); // 유니크 식별자 (Date.now 충돌 방지)
-
     // Phase 4: partnerId 자동 생성 (boss1, boss2... / sales1, sales2...)
     const managerPartnerId = await generateUniquePartnerId('boss', tx);
     const agentPartnerId = await generateUniquePartnerId('sales', tx);
@@ -276,7 +274,7 @@ export async function provisionAffiliateAccounts(
         const dlq = await prisma.syncDeadLetterQueue.create({
           data: {
             syncType: 'NEON_TO_SUPABASE',
-            operationType: 'INSERT_OR_UPDATE',
+            operationType: 'INSERT',
             tableName: 'User',
             recordId: String(result.manager.gmUserId),
             data: { gmUserId: result.manager.gmUserId, partnerId: result.managerPartnerId, name: `${contractorName} 대리점장`, passwordHash },
@@ -327,7 +325,7 @@ export async function provisionAffiliateAccounts(
         const dlq = await prisma.syncDeadLetterQueue.create({
           data: {
             syncType: 'NEON_TO_SUPABASE',
-            operationType: 'INSERT_OR_UPDATE',
+            operationType: 'INSERT',
             tableName: 'User',
             recordId: String(result.agent.gmUserId),
             data: dlqData,
