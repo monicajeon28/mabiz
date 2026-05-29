@@ -526,6 +526,7 @@ function EnrollModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const [mode, setMode] = useState<'contact' | 'group'>('contact');
   const [q, setQ] = useState('');
   const [contacts, setContacts] = useState<{ id: string; name: string; phone: string; type: string }[]>([]);
   const [selected, setSelected] = useState<{ id: string; name: string } | null>(null);
@@ -534,6 +535,43 @@ function EnrollModal({
   const [enrolling, setEnrolling] = useState(false);
   const [error, setError] = useState('');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 그룹 일괄 등록
+  const [groups, setGroups] = useState<{ id: string; name: string; _count: { members: number } }[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [enrollResult, setEnrollResult] = useState<{ enrolled: number; skipped: number } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/groups').then(r => r.json())
+      .then(d => { if (d.ok) setGroups(d.groups ?? []); })
+      .catch(() => {});
+  }, []);
+
+  const handleGroupEnroll = async () => {
+    if (!selectedGroup) return;
+    setEnrolling(true);
+    setError('');
+    setEnrollResult(null);
+    try {
+      const res = await fetch(`/api/funnels/${funnelId}/enroll-group`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId: selectedGroup, startDate: startDate || undefined }),
+      });
+      const d = await res.json() as { ok: boolean; enrolled?: number; skipped?: number; message?: string };
+      if (d.ok) {
+        setEnrollResult({ enrolled: d.enrolled ?? 0, skipped: d.skipped ?? 0 });
+        onDone();
+      } else {
+        setError(d.message ?? '그룹 등록 실패');
+        showError(d.message ?? '그룹 등록 실패');
+      }
+    } catch {
+      setError('그룹 등록 중 오류가 발생했습니다');
+      showError('그룹 등록 중 오류가 발생했습니다');
+    } finally {
+      setEnrolling(false);
+    }
+  };
 
   // 고객 검색 (디바운스 300ms)
   const search = (val: string) => {
@@ -590,11 +628,58 @@ function EnrollModal({
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b">
-          <h2 className="font-semibold">고객 퍼널 등록</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+        <div className="px-5 py-4 border-b">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold">퍼널 등록</h2>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+          </div>
+          {/* 등록 방식 탭 */}
+          <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
+            <button onClick={() => setMode('contact')}
+              className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-all ${mode === 'contact' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>
+              개인 등록
+            </button>
+            <button onClick={() => setMode('group')}
+              className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-all ${mode === 'group' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>
+              그룹 일괄 등록
+            </button>
+          </div>
         </div>
         <div className="p-5 space-y-4">
+          {/* 그룹 일괄 등록 탭 */}
+          {mode === 'group' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">수신 그룹 선택</label>
+                <select value={selectedGroup} onChange={e => setSelectedGroup(e.target.value)}
+                  className="w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">그룹 선택...</option>
+                  {groups.map(g => (
+                    <option key={g.id} value={g.id}>{g.name} ({g._count.members}명)</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">시작일 (선택 — 기본: 오늘)</label>
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                  className="w-full border rounded-xl px-3 py-2.5 text-sm" />
+              </div>
+              {enrollResult && (
+                <div className="p-3 bg-green-50 rounded-xl text-sm text-green-700">
+                  ✅ {enrollResult.enrolled}명 등록 완료
+                  {enrollResult.skipped > 0 && ` (이미 등록된 ${enrollResult.skipped}명 건너뜀)`}
+                </div>
+              )}
+              {error && <p className="text-xs text-red-500">{error}</p>}
+              <button onClick={handleGroupEnroll} disabled={!selectedGroup || enrolling}
+                className="w-full bg-blue-600 text-white rounded-xl py-2.5 text-sm font-medium disabled:opacity-50 hover:bg-blue-700 transition-colors">
+                {enrolling ? '등록 중...' : `그룹 일괄 등록 시작`}
+              </button>
+            </div>
+          )}
+          {/* 개인 등록 탭 */}
+          {mode === 'contact' && (
+          <div className="contents">
           {/* 고객 검색 */}
           {!selected ? (
             <div>
@@ -649,6 +734,8 @@ function EnrollModal({
             className="w-full py-3 bg-navy-900 text-white rounded-xl text-sm font-medium disabled:opacity-50">
             {enrolling ? '등록 중...' : '퍼널 등록'}
           </button>
+          </div>
+          )}
         </div>
       </div>
     </div>
