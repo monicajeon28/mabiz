@@ -70,6 +70,7 @@ type DetailData = {
   member: {
     id: string;
     userId: string;
+    organizationId: string;
     phone: string | null;
     email: string | null;
     displayName: string | null;
@@ -241,11 +242,13 @@ function RejectModal({
 
 function DeleteMemberModal({
   name,
+  orgName,
   onClose,
   onConfirm,
   loading,
 }: {
   name: string;
+  orgName?: string;
   onClose: () => void;
   onConfirm: () => void;
   loading: boolean;
@@ -256,7 +259,9 @@ function DeleteMemberModal({
       <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-4">
         <h2 className="text-base font-bold text-gray-900">계정 삭제 확인</h2>
         <p className="text-sm text-gray-600">
-          <strong className="text-red-600">{name}</strong> 계정을 삭제합니다.
+          <strong className="text-red-600">{name}</strong>
+          {orgName && <span className="text-gray-500 text-xs ml-1">({orgName})</span>}
+          {' '}계정을 삭제합니다.
           <br />이 작업은 되돌릴 수 없습니다.
         </p>
         <div className="flex gap-2">
@@ -280,6 +285,7 @@ function DeleteMemberModal({
 function MemberActions({
   userId,
   orgId,
+  orgName,
   isActive,
   displayName,
   onChanged,
@@ -287,6 +293,7 @@ function MemberActions({
 }: {
   userId: string;
   orgId: string;
+  orgName?: string;
   isActive: boolean;
   displayName: string | null;
   onChanged: () => void;
@@ -324,14 +331,15 @@ function MemberActions({
         method: 'DELETE',
       });
       const data = await res.json();
-      if (!data.ok) { showError(data.message ?? '삭제 실패'); setDeleting(false); return; }
+      if (!data.ok) { showError(data.message ?? '삭제 실패'); return; }
       showSuccess('계정을 삭제했습니다.');
-      // 삭제 성공: 모달 닫고 상위에 알림 (onDeleted가 있으면 패널 닫힘)
       setShowDeleteModal(false);
       if (onDeleted) onDeleted();
       else onChanged();
     } catch {
       showError('요청 중 오류가 발생했습니다.');
+    } finally {
+      // React 18: unmounted 상태 setState 안전. 컴포넌트 유지 시에도 스피너 해제 필요
       setDeleting(false);
     }
   };
@@ -365,6 +373,7 @@ function MemberActions({
       {showDeleteModal && (
         <DeleteMemberModal
           name={displayName ?? userId}
+          orgName={orgName}
           onClose={() => !deleting && setShowDeleteModal(false)}
           onConfirm={handleDelete}
           loading={deleting}
@@ -480,16 +489,15 @@ function DetailPanel({
                       </span>
                     </div>
                   </div>
-                  {data.organization && (
-                    <MemberActions
-                      userId={data.member.userId}
-                      orgId={data.organization.id}
-                      isActive={data.member.isActive}
-                      displayName={data.member.displayName}
-                      onChanged={handleChanged}
-                      onDeleted={handleMainDeleted}
-                    />
-                  )}
+                  <MemberActions
+                    userId={data.member.userId}
+                    orgId={data.member.organizationId}
+                    orgName={data.organization?.name}
+                    isActive={data.member.isActive}
+                    displayName={data.member.displayName}
+                    onChanged={handleChanged}
+                    onDeleted={handleMainDeleted}
+                  />
                 </div>
               </section>
 
@@ -567,15 +575,14 @@ function DetailPanel({
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[s.role] ?? 'bg-gray-100 text-gray-500'}`}>
                             {ROLE_LABEL[s.role] ?? s.role}
                           </span>
-                          {data.organization && (
-                            <MemberActions
-                              userId={s.userId}
-                              orgId={data.organization.id}
-                              isActive={s.isActive !== false}
-                              displayName={s.displayName}
-                              onChanged={handleChanged}
-                            />
-                          )}
+                          <MemberActions
+                            userId={s.userId}
+                            orgId={data.member.organizationId}
+                            orgName={data.organization?.name}
+                            isActive={s.isActive !== false}
+                            displayName={s.displayName}
+                            onChanged={handleChanged}
+                          />
                         </div>
                       </div>
                     ))}
@@ -657,7 +664,11 @@ function ManagerCard({
   onChanged: () => void;
 }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 hover:border-blue-300 hover:shadow-sm transition-all">
+    <div className={`border rounded-xl p-4 transition-all ${
+      manager.isActive
+        ? 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'
+        : 'bg-red-50/40 border-red-200 hover:border-red-300'
+    }`}>
       <div className="flex items-start justify-between gap-2">
         {/* 클릭 영역 (상세 보기) */}
         <button onClick={onClick} className="min-w-0 flex-1 text-left group">
@@ -680,6 +691,7 @@ function ManagerCard({
           <MemberActions
             userId={manager.userId}
             orgId={manager.organizationId}
+            orgName={manager.organizationName}
             isActive={manager.isActive}
             displayName={manager.displayName}
             onChanged={onChanged}
@@ -808,14 +820,20 @@ export default function OrganizationsPage() {
   const [approveContractId, setApproveContractId] = useState<number | null>(null);
   // 반려 모달
   const [rejectContract, setRejectContract] = useState<PendingContract | null>(null);
+  const fetchAbortRef = useRef<AbortController | null>(null);
 
   const fetchManagers = useCallback(async (q?: string) => {
+    // 이전 요청 취소 (검색 빠른 클릭 레이스컨디션 방지)
+    fetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
+
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams({ limit: '50' });
       if (q) params.set('q', q);
-      const res = await fetch(`/api/admin/affiliate-managers?${params}`);
+      const res = await fetch(`/api/admin/affiliate-managers?${params}`, { signal: controller.signal });
       const data = await res.json();
       if (data.ok) {
         setManagers(data.data.managers ?? []);
@@ -824,7 +842,8 @@ export default function OrganizationsPage() {
       } else {
         setError(data.error ?? '목록을 불러오지 못했습니다.');
       }
-    } catch {
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return;
       setError('네트워크 오류가 발생했습니다.');
     } finally {
       setLoading(false);
