@@ -1,47 +1,10 @@
 import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import { headers } from "next/headers";
-import { createHash } from "crypto";
 import { cache } from "react";
 import Script from "next/script";
 import { LandingClient } from "./LandingClient";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
-
-// P0-6: headerScript 허용 목록 방식 sanitize
-function sanitizeHeaderScript(script: string | null): string | null {
-  if (!script) return null;
-  const ALLOWED_DOMAINS = [
-    'www.googletagmanager.com',
-    'www.google-analytics.com',
-    'connect.facebook.net',
-    'cdn.jsdelivr.net',
-    'developers.kakao.com',
-    'wcs.naver.net',
-    'cdn.channel.io',
-    't1.kakaocdn.net',
-  ];
-  // 인라인 스크립트 차단 (src= 없는 script 태그)
-  const inlineScriptPattern = /<script(?![^>]*src=)[^>]*>/gi;
-  if (inlineScriptPattern.test(script)) {
-    console.warn('[Security] headerScript: 인라인 스크립트 차단됨');
-    return null;
-  }
-  // src URL 도메인 검증
-  const srcPattern = /src=["']([^"']+)["']/gi;
-  let match;
-  while ((match = srcPattern.exec(script)) !== null) {
-    try {
-      const url = new URL(match[1]);
-      if (!ALLOWED_DOMAINS.some(d => url.hostname === d || url.hostname.endsWith('.' + d))) {
-        console.warn('[Security] headerScript: 허용되지 않은 도메인 차단', url.hostname);
-        return null;
-      }
-    } catch {
-      return null; // 잘못된 URL
-    }
-  }
-  return script;
-}
+import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
 
 // [T17] React cache()로 같은 요청 내 중복 DB 쿼리 제거
 const getLandingPageBySlug = cache(async (slug: string) => {
@@ -77,28 +40,11 @@ export default async function PublicLandingPage({
 
   if (!page) notFound();
 
-  // IP 해시 dedup — 24시간 내 동일 IP 재방문은 viewCount 증가 스킵
-  const hdrs = await headers();
-  const rawIP =
-    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    hdrs.get("x-real-ip") ??
-    "unknown";
-  const salt = process.env.LANDING_VIEW_SALT ?? "default-salt";
-  const ipHash = createHash("sha256").update(rawIP + salt).digest("hex");
-
-  // Cron으로 이전됨: /api/cron/cleanup-landing-views
-
-  try {
-    await prisma.crmLandingView.create({
-      data: { landingPageId: page.id, ipHash },
-    });
-    // 신규 방문 → viewCount 증가 (비동기, 오류 무시)
-    prisma.crmLandingPage
-      .update({ where: { id: page.id }, data: { viewCount: { increment: 1 } } })
-      .catch(() => {});
-  } catch {
-    // unique 위반(P2002) = 24시간 내 재방문 → viewCount 증가 스킵
-  }
+  // [P0-7] viewCount 업데이트는 서버 컴포넌트에서 제거.
+  // Vercel Serverless는 응답 반환 후 비동기 작업 완료를 보장하지 않으므로
+  // fire-and-forget (.catch(() => {})) 패턴 대신 LandingClient에서
+  // POST /api/landing-pages/[id]/view 호출로 이전함.
+  // 해당 API는 IP 해시 dedup + 트랜잭션 처리를 포함합니다.
 
   // P0-6: sanitize headerScript 적용
   const safeHeaderScript = sanitizeHeaderScript(page.headerScript);

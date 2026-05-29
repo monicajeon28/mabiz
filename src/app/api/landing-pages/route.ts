@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, BONSA_ORG_ID } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
+import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
 
 // GET /api/landing-pages
 export async function GET() {
@@ -110,7 +111,7 @@ export async function POST(req: Request) {
         ...(rest.description      ? { description: rest.description }            : {}),
         ...(rest.buttonTitle      ? { buttonTitle: rest.buttonTitle }             : {}),
         ...(rest.completionPageUrl ? { completionPageUrl: rest.completionPageUrl } : {}),
-        ...(rest.headerScript     ? { headerScript: rest.headerScript }           : {}),
+        ...(rest.headerScript     ? { headerScript: sanitizeHeaderScript(rest.headerScript) } : {}),
         ...(rest.exposureTitle    ? { exposureTitle: rest.exposureTitle }         : {}),
         ...(rest.exposureImage    ? { exposureImage: rest.exposureImage }         : {}),
         ...(rest.formConfig       ? { formConfig: rest.formConfig, infoCollection: true } : {}),

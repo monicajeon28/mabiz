@@ -65,6 +65,6 @@ export async function POST(req: Request, { params }: Params) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     logger.error('[LandingView] viewCount 증가 실패', { err });
-    return NextResponse.json({ ok: false }, { status: 200 });
+    return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
