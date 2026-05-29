@@ -106,6 +106,7 @@ function SmsTab() {
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [dryRunResult,   setDryRunResult]   = useState<{ count: number; sample: string } | null>(null);
   const [linkNoCount,    setLinkNoCount]    = useState(0);
+  const [unreplacedVars, setUnreplacedVars] = useState<string[]>([]);
   const [confirmed,      setConfirmed]      = useState(false);
   const [sending,        setSending]        = useState(false);
   const [csrfToken,      setCsrfToken]      = useState("");
@@ -177,6 +178,10 @@ function SmsTab() {
   const doDryRun = useCallback(async () => {
     if (!selectedGroup || !message.trim()) { showError("그룹과 메시지를 입력하세요"); return; }
     if (scheduleMode === "scheduled" && !scheduledTime) { showError("발송 시간을 선택해주세요"); return; }
+
+    // [P0-4] 미치환 변수 감지 — [이름] 형태 중 남은 것 경고
+    const found = message.match(/\[[^\]]{2,10}\]/g);
+    setUnreplacedVars(found ? [...new Set(found)] : []);
 
     // AbortController로 fetch 취소 관리
     const controller = new AbortController();
@@ -341,9 +346,14 @@ function SmsTab() {
 
         {/* 그룹 선택 */}
         <div className="rounded-xl border bg-white p-4">
-          <label className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1 block">
-            <Users className="w-3.5 h-3.5" /> 수신 그룹
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-semibold text-gray-500 flex items-center gap-1">
+              <Users className="w-3.5 h-3.5" /> 수신 그룹
+            </label>
+            <a href="/groups" className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+              그룹 관리 →
+            </a>
+          </div>
           <select value={selectedGroup}
             onChange={e => { setSelectedGroup(e.target.value); setDryRunResult(null); setRateLimitStatus(null); }}
             className="w-full border rounded-lg px-3 py-2 text-sm">
@@ -352,6 +362,12 @@ function SmsTab() {
               <option key={g.id} value={g.id}>{g.name} ({g._count.members}명)</option>
             ))}
           </select>
+          {groups.length === 0 && (
+            <p className="text-xs text-gray-400 mt-1.5">
+              그룹이 없습니다.{" "}
+              <a href="/groups" className="text-blue-500 underline">그룹 관리</a>에서 먼저 만들어 주세요.
+            </p>
+          )}
           {currentGroup && (
             <p className="text-xs text-gray-400 mt-1">최대 {currentGroup._count.members}명에게 발송됩니다.</p>
           )}
@@ -517,6 +533,15 @@ function SmsTab() {
 
           {dryRunResult && (
             <div className="space-y-3">
+              {/* [P0-4] 미치환 변수 경고 */}
+              {unreplacedVars.length > 0 && (
+                <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-xs text-amber-700">
+                  <span className="font-semibold">⚠ 치환 안 된 변수:</span>{" "}
+                  <strong>{unreplacedVars.join(", ")}</strong>
+                  <br />
+                  <span>상품 선택 또는 직접 입력 후 발송하세요. 그대로 발송 시 고객에게 변수명이 노출됩니다.</span>
+                </div>
+              )}
               <div className="p-3 bg-gray-50 rounded-lg">
                 <p className="text-xs font-medium text-gray-600 mb-2">
                   발송 예정:{" "}

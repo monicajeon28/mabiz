@@ -15,6 +15,30 @@ const DISALLOWED_CHARS = /[\x00-\x1F\x7F​-⁯﻿]/;
 
 type Params = { params: Promise<{ id: string }> };
 
+/** Contact 필드 + 담당자 이름으로 치환변수 8개 처리 */
+interface PersonalizeContext {
+  name: string;
+  phone: string;
+  assignedUserName: string;   // OrganizationMember.displayName or ''
+  cruiseInterest: string;     // 상품명
+  departureDate: string;      // 출발일 (포맷 적용)
+}
+
+function personalizeMessage(template: string, ctx: PersonalizeContext): string {
+  return template
+    .replace(/\[고객명\]/g, ctx.name)
+    .replace(/\[이름\]/g,   ctx.name)
+    .replace(/\[전화번호\]/g, ctx.phone)
+    .replace(/\[담당자\]/g,  ctx.assignedUserName)
+    .replace(/\[상품명\]/g,  ctx.cruiseInterest)
+    .replace(/\[출발일\]/g,  ctx.departureDate)
+    .replace(/\[가격\]/g,    '')
+    .replace(/\[출발지\]/g,  '')
+    .replace(/\[목적지\]/g,  '')
+    .replace(/\[일정\]/g,    '')
+    .replace(/\[객실유형\]/g, '');
+}
+
 /**
  * POST /api/groups/[id]/blast
  * 그룹 전체에 즉시 SMS 일괄 발송
@@ -32,7 +56,7 @@ export async function POST(req: Request, { params }: Params) {
     }
     const { id: groupId } = await params;
 
-    const { message, dryRun = false } = await req.json();
+    const { message, dryRun = false, scheduledTime } = await req.json();
 
     if (!message?.trim()) {
       return NextResponse.json({ ok: false, message: '메시지를 입력하세요.' }, { status: 400 });
@@ -76,7 +100,16 @@ export async function POST(req: Request, { params }: Params) {
         },
       },
       include: {
-        contact: { select: { id: true, name: true, phone: true } },
+        contact: {
+          select: {
+            id:             true,
+            name:           true,
+            phone:          true,
+            assignedUserId: true,
+            cruiseInterest: true,
+            departureDate:  true,
+          },
+        },
       },
       take: MAX_RECIPIENTS + 1, // +1로 초과 여부 감지
     });
@@ -100,7 +133,7 @@ export async function POST(req: Request, { params }: Params) {
 
     // dryRun: 실제 발송 없이 인원만 반환
     if (dryRun) {
-      const rlKey = `sms_blast:${ctx.userId || ''}:${groupId}`;
+      const rlKey = `sms_blast:${ctx.userId || ''}`;
       const rateLimitStatus = getRateLimitStatus(rlKey, SMS_BLAST_MAX_PER_DAY, SMS_BLAST_WINDOW_MS);
 
       return NextResponse.json({
@@ -118,9 +151,38 @@ export async function POST(req: Request, { params }: Params) {
       });
     }
 
-    // [T4] Rate limit 확인 (Redis 우선, 폴백 메모리)
+    // [P0-3] 예약발송 처리 (scheduledTime 있으면 ScheduledSms 저장 후 종료)
+    if (scheduledTime && !dryRun) {
+      const scheduledAt = new Date(scheduledTime);
+      if (isNaN(scheduledAt.getTime()) || scheduledAt <= new Date()) {
+        return NextResponse.json(
+          { ok: false, message: '유효한 미래 시간을 선택하세요.' },
+          { status: 400 }
+        );
+      }
+      await prisma.scheduledSms.create({
+        data: {
+          organizationId:   orgId,
+          groupId,
+          message:          trimmedMsg,
+          scheduledAt,
+          status:           'PENDING',
+          channel:          'GROUP',
+          createdByUserId:  ctx.userId ?? null,
+        },
+      });
+      return NextResponse.json({
+        ok:          true,
+        scheduled:   true,
+        scheduledAt: scheduledAt.toISOString(),
+        groupName:   group.name,
+        willSend:    targets.length,
+      });
+    }
+
+    // [T4] Rate limit — 사용자 단위로 체크 (그룹별 우회 방지)
     const userId = ctx.userId || '';
-    const rlKey2 = `sms_blast:${userId}:${groupId}`;
+    const rlKey2 = `sms_blast:${userId}`;
     const { allowed } = await checkRateLimitAsync(rlKey2, SMS_BLAST_MAX_PER_DAY, SMS_BLAST_WINDOW_MS);
     if (!allowed) {
       const status = getRateLimitStatus(rlKey2, SMS_BLAST_MAX_PER_DAY, SMS_BLAST_WINDOW_MS);
@@ -138,6 +200,29 @@ export async function POST(req: Request, { params }: Params) {
 
     const config = { key: smsConfig.aligoKey, userId: smsConfig.aligoUserId, sender: smsConfig.senderPhone };
 
+    // 담당자 이름 맵 구축 (assignedUserId → displayName)
+    // Contact.assignedUserId 는 OrganizationMember.userId 와 동일
+    const assignedUserIds = [
+      ...new Set(
+        targets
+          .map(m => m.contact.assignedUserId)
+          .filter((uid): uid is string => !!uid)
+      ),
+    ];
+    const assignedUserMap: Record<string, string> = {};
+    if (assignedUserIds.length > 0) {
+      const orgMembers = await prisma.organizationMember.findMany({
+        where: {
+          organizationId: orgId,
+          userId:         { in: assignedUserIds },
+        },
+        select: { userId: true, displayName: true },
+      });
+      for (const om of orgMembers) {
+        assignedUserMap[om.userId] = om.displayName ?? '';
+      }
+    }
+
     // 10건씩 배치 발송
     let sentCount    = 0;
     let blockedCount = 0;
@@ -149,9 +234,20 @@ export async function POST(req: Request, { params }: Params) {
 
       const results = await Promise.allSettled(
         batch.map(async (m) => {
-          const personalizedMsg = trimmedMsg
-            .replace(/\[고객명\]/g, m.contact.name)
-            .replace(/\[이름\]/g,   m.contact.name);
+          const departureDateStr = m.contact.departureDate
+            ? m.contact.departureDate.toLocaleDateString('ko-KR', {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+              })
+            : '';
+          const personalizedMsg = personalizeMessage(trimmedMsg, {
+            name:             m.contact.name,
+            phone:            m.contact.phone,
+            assignedUserName: m.contact.assignedUserId
+              ? (assignedUserMap[m.contact.assignedUserId] ?? '')
+              : '',
+            cruiseInterest:   m.contact.cruiseInterest ?? '',
+            departureDate:    departureDateStr,
+          });
 
           const result = await sendSms({
             config,
