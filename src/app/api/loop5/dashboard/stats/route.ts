@@ -2,10 +2,55 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+interface SmsLog {
+  id: string;
+  created_at: string;
+  response_type?: string;
+  sent_date?: string;
+  contact_id?: string;
+}
+
+interface CampaignEvent {
+  id: string;
+  event_type: 'LINK_CLICKED' | 'FORM_SUBMITTED' | string;
+  created_at: string;
+  contact_id?: string;
+}
+
+interface DayStats {
+  sent: number;
+  clicked: number;
+  submitted: number;
+  rate: number;
+  completionRate: number;
+}
+
+interface TrendStats {
+  responseRateChange: number;
+  formCompletionChange: number;
+  revenueChange: number;
+}
+
+interface StatsResponse {
+  totalSent: number;
+  totalClicked: number;
+  totalFormSubmitted: number;
+  responseRate: number;
+  formCompletionRate: number;
+  estimatedRevenue: number;
+  byDay: Record<number, DayStats>;
+  trends: TrendStats;
+  lastUpdated: string;
+}
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('Missing Supabase configuration');
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function GET(req: NextRequest) {
   try {
@@ -29,7 +74,7 @@ export async function GET(req: NextRequest) {
     const toIso = to.toISOString();
 
     // sms_logs 테이블에서 데이터 조회 (범위 쿼리로 INDEX 활용)
-    const { data: smsLogs, error: smsError } = await supabase
+    const { data: smsLogsData, error: smsError } = await supabase
       .from('sms_logs')
       .select('id, created_at, response_type, sent_date, contact_id')
       .gte('created_at', fromIso)
@@ -38,8 +83,16 @@ export async function GET(req: NextRequest) {
 
     if (smsError) throw smsError;
 
+    const smsLogs: SmsLog[] = (smsLogsData || []).map(log => ({
+      id: log.id,
+      created_at: log.created_at,
+      response_type: log.response_type,
+      sent_date: log.sent_date,
+      contact_id: log.contact_id
+    }));
+
     // CRM campaign_events 테이블에서 클릭/폼 제출 데이터 (범위 쿼리)
-    const { data: campaignEvents, error: eventError } = await supabase
+    const { data: campaignEventsData, error: eventError } = await supabase
       .from('campaign_events')
       .select('id, event_type, created_at, contact_id')
       .gte('created_at', fromIso)
@@ -48,6 +101,13 @@ export async function GET(req: NextRequest) {
       .order('created_at', { ascending: true });
 
     if (eventError) throw eventError;
+
+    const campaignEvents: CampaignEvent[] = (campaignEventsData || []).map(event => ({
+      id: event.id,
+      event_type: event.event_type,
+      created_at: event.created_at,
+      contact_id: event.contact_id
+    }));
 
     // 집계 계산
     const totalSent = smsLogs?.length || 0;
@@ -59,7 +119,7 @@ export async function GET(req: NextRequest) {
     const estimatedRevenue = totalFormSubmitted * 8.25; // 평균 $8.25
 
     // Day별 분석 (메모리 기반 필터링 - 이미 조회된 데이터 활용)
-    const dayStats: Record<number, any> = {};
+    const dayStats: Record<number, DayStats> = {};
     for (let d = 0; d <= 7; d++) {
       const dayStart = new Date(from);
       dayStart.setDate(dayStart.getDate() + d);
@@ -125,9 +185,13 @@ export async function GET(req: NextRequest) {
         : 0;
 
     const formCompletionChange = formCompletionRate - prevFormCompletionRate;
-    const revenueChange = ((estimatedRevenue - (totalFormSubmitted * 0.75 * 8.25)) / (totalFormSubmitted * 0.75 * 8.25 || 1)) * 100;
 
-    return NextResponse.json({
+    const prevRevenue = totalFormSubmitted * 0.75 * 8.25;
+    const revenueChange = prevRevenue > 0
+      ? ((estimatedRevenue - prevRevenue) / prevRevenue) * 100
+      : 0;
+
+    const response: StatsResponse = {
       totalSent,
       totalClicked,
       totalFormSubmitted,
@@ -141,9 +205,14 @@ export async function GET(req: NextRequest) {
         revenueChange: Math.round(revenueChange * 10) / 10,
       },
       lastUpdated: new Date().toISOString(),
-    });
+    };
+
+    return NextResponse.json(response);
   } catch (error) {
-    logger.error('Loop5 stats error:', error);
+    logger.error('Loop5 stats error:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json(
       { error: 'Failed to fetch stats' },
       { status: 500 }
