@@ -138,8 +138,13 @@ export async function GET(
         id: guest.id,
         groupNumber: guest.groupNumber,
         name: guest.name,
-        phone: guest.phone,
-        passportNumber: guest.passportNumber,
+        // 퍼블릭 API — 링크 유출 시 PII 노출 방지
+        phone: guest.phone ? guest.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-****-$3') : null,
+        passportNumber: guest.passportNumber
+          ? guest.passportNumber.length >= 5
+            ? `${guest.passportNumber.slice(0, 1)}****${guest.passportNumber.slice(-3)}`
+            : '****'
+          : null,
         nationality: guest.nationality,
         dateOfBirth: guest.dateOfBirth?.toISOString() ?? null,
         passportExpiryDate: guest.passportExpiryDate?.toISOString() ?? null,

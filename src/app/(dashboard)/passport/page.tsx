@@ -294,11 +294,19 @@ export default function PassportPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    const ac1 = new AbortController();
+    const ac2 = new AbortController();
     loadTemplates();
-    fetch('/api/passport/admin/aligo-status', { credentials: 'include' })
-      .then(r => r.json()).then(d => { if (d.ok) setAligoBalance(d.balance); }).catch(() => {});
-    fetch('/api/passport/admin/product-codes', { credentials: 'include' })
-      .then(r => r.json()).then(d => { if (d.ok) setProductCodes(d.productCodes ?? []); }).catch(() => {});
+    fetch('/api/passport/admin/aligo-status', { credentials: 'include', signal: ac1.signal })
+      .then(r => r.json())
+      .then(d => { if (!cancelled && d.ok) setAligoBalance(d.balance); })
+      .catch(() => {});
+    fetch('/api/passport/admin/product-codes', { credentials: 'include', signal: ac2.signal })
+      .then(r => r.json())
+      .then(d => { if (!cancelled && d.ok) setProductCodes(d.productCodes ?? []); })
+      .catch(() => {});
+    return () => { cancelled = true; ac1.abort(); ac2.abort(); };
   }, [loadTemplates]);
 
   useEffect(() => {
@@ -871,23 +879,27 @@ function CustomerRow({
   const hasPhone = c.hasPhone;
   const dday = calcDday(c.latestTrip?.departureDate ?? null);
 
-  // open=true & isSubmitted=true 일 때 한 번만 fetch
+  // open=true & isSubmitted=true 일 때 한 번만 fetch (AbortController로 언마운트 정리)
   useEffect(() => {
     if (!open || !isSubmitted || guestsFetchedRef.current) return;
     guestsFetchedRef.current = true;
+    let cancelled = false;
+    const controller = new AbortController();
     setGuestsLoading(true);
     setGuestsError(false);
-    fetch(`/api/passport/admin/submission-guests?userId=${c.id}`, { credentials: 'include' })
+    fetch(`/api/passport/admin/submission-guests?userId=${c.id}`, {
+      credentials: 'include',
+      signal: controller.signal,
+    })
       .then(r => r.json())
       .then((data: { ok: boolean; guests?: SubmissionGuestItem[] }) => {
-        if (data.ok && Array.isArray(data.guests)) {
-          setGuests(data.guests);
-        } else {
-          setGuestsError(true);
-        }
+        if (cancelled) return;
+        if (data.ok && Array.isArray(data.guests)) setGuests(data.guests);
+        else setGuestsError(true);
       })
-      .catch(() => setGuestsError(true))
-      .finally(() => setGuestsLoading(false));
+      .catch(() => { if (!cancelled) setGuestsError(true); })
+      .finally(() => { if (!cancelled) setGuestsLoading(false); });
+    return () => { cancelled = true; controller.abort(); guestsFetchedRef.current = false; };
   }, [open, isSubmitted, c.id]);
 
   const statusBadge = {
@@ -1080,17 +1092,24 @@ function HistorySection({
   const [history, setHistory] = useState<HistoryLog[] | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // 드롭다운이 열릴 때 최초 1회만 조회
+  // 드롭다운이 열릴 때 최초 1회만 조회 (AbortController로 언마운트 정리)
   useEffect(() => {
     if (!open || history !== null) return;
+    let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
-    fetch(`/api/passport/admin/history?userId=${userId}&limit=5`, { credentials: 'include' })
+    fetch(`/api/passport/admin/history?userId=${userId}&limit=5`, {
+      credentials: 'include',
+      signal: controller.signal,
+    })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        setHistory(d?.ok && Array.isArray(d.data) ? (d.data as HistoryLog[]) : []);
+        if (!cancelled)
+          setHistory(d?.ok && Array.isArray(d.data) ? (d.data as HistoryLog[]) : []);
       })
-      .catch(() => setHistory([]))
-      .finally(() => setLoading(false));
+      .catch(() => { if (!cancelled) setHistory([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; controller.abort(); };
   }, [open, history, userId]);
 
   const channelLabel: Record<string, string> = {

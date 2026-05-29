@@ -181,6 +181,15 @@ export async function POST(
       );
     }
 
+    // bcrypt는 CPU 집약적 — 트랜잭션 밖에서 미리 해시 계산 (DB 커넥션 점유 방지)
+    const phoneHashMap = new Map<string, string>();
+    for (const guest of guestRecords) {
+      if (guest.phone && !phoneHashMap.has(guest.phone)) {
+        const randomPw = randomBytes(16).toString('hex');
+        phoneHashMap.set(guest.phone, await hashPassword(randomPw));
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       // 1. 기존 게스트 정보 삭제
       await tx.gmPassportSubmissionGuest.deleteMany({ where: { submissionId: submission.id } });
@@ -232,9 +241,8 @@ export async function POST(
             if (guest.phone) {
               let user = await tx.gmUser.findFirst({ where: { phone: guest.phone } });
               if (!user) {
-                // 랜덤 비밀번호 해시 저장 (로그인 차단 목적 — 실제 로그인 불필요)
-                const randomPw = randomBytes(16).toString('hex');
-                const hashedPw = await hashPassword(randomPw);
+                // 트랜잭션 밖에서 미리 계산된 해시 사용 (bcrypt 트랜잭션 내 실행 방지)
+                const hashedPw = phoneHashMap.get(guest.phone) ?? randomBytes(16).toString('hex');
                 user = await tx.gmUser.create({
                   data: {
                     name: guest.name,
