@@ -7,7 +7,7 @@ import {
   ChevronDown, ChevronUp, ArrowRight, Info,
 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
-import { fillTemplate, LINK_ONLY_PASSPORT_MESSAGE } from '@/lib/passport-utils';
+import { fillTemplate } from '@/lib/passport-utils';
 
 // ─── 타입 (API 응답에 맞게 정확히 정의) ────────────────────────────
 
@@ -69,15 +69,13 @@ type SendTarget = 'passport' | 'pnr';
 
 // ─── 유틸 ─────────────────────────────────────────────────────────
 
-function hasValidPhone(phone: string | null): boolean {
-  if (!phone) return false;
-  const digits = phone.replace(/[^0-9]/g, '');
-  return digits.length >= 10;
-}
-
 function calcDday(departureDate: string | null): { label: string; urgent: boolean } | null {
   if (!departureDate) return null;
-  const diff = Math.ceil((new Date(departureDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  // 날짜만 비교 (시간 성분 제거) — KST 기준으로 통일
+  const depDate = new Date(departureDate.split('T')[0] + 'T00:00:00+09:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.ceil((depDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   if (diff < 0) return null;
   if (diff === 0) return { label: 'D-day', urgent: true };
   return { label: `D-${diff}`, urgent: diff <= 7 };
@@ -223,6 +221,15 @@ export default function PassportPage() {
       if (statusFilter !== 'all') p.set('status', statusFilter);
       if (productFilter !== 'all') p.set('productCode', productFilter);
       const res = await fetch(`/api/passport/admin/customers?${p}`, { credentials: 'include' });
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          showError('세션이 만료됐습니다. 다시 로그인해 주세요.');
+        } else {
+          showError(`고객 목록 로드 실패 (${res.status})`);
+        }
+        setCustomers([]);
+        return;
+      }
       const data = await res.json();
       if (data.ok && Array.isArray(data.data)) {
         setCustomers(data.data);
@@ -230,6 +237,9 @@ export default function PassportPage() {
           const ids = new Set(data.data.map((c: PassportCustomer) => c.id));
           return new Set([...prev].filter(id => ids.has(id)));
         });
+      } else {
+        showError(data.message ?? '고객 목록을 불러오지 못했습니다.');
+        setCustomers([]);
       }
     } catch { showError('고객 목록을 불러오지 못했습니다.'); }
     finally { setLoading(false); }
@@ -244,7 +254,9 @@ export default function PassportPage() {
         const def = data.templates.find((t: Template) => t.isDefault) ?? data.templates[0];
         if (def) setTemplateId(def.id);
       }
-    } catch { /* silently fail */ }
+    } catch {
+      showError('메시지 템플릿을 불러오지 못했습니다. 기본 템플릿으로 발송됩니다.');
+    }
   }, []);
 
   useEffect(() => {
@@ -310,16 +322,15 @@ export default function PassportPage() {
   // ── 선택 ────────────────────────────────────────────────────────
 
   const toggle = (id: number) => setSelectedIds(prev => {
-    if (customers.find(c => c.id === id)?.submissionStatus === 'submitted') return prev;
     const next = new Set(prev);
     next.has(id) ? next.delete(id) : next.add(id);
     return next;
   });
 
-  // submitted 고객 제외, 미제출 고객만 전체 선택
-  const toggleAll = () => setSelectedIds(() => {
+  // submitted 고객 제외, 미제출 고객만 전체 선택 (prev 사용으로 stale closure 방지)
+  const toggleAll = () => setSelectedIds((prev) => {
     const allSelected = selectableCustomers.length > 0 &&
-      selectableCustomers.every(c => selectedIds.has(c.id));
+      selectableCustomers.every(c => prev.has(c.id));
     return allSelected ? new Set() : new Set(selectableCustomers.map(c => c.id));
   });
 
@@ -351,8 +362,11 @@ export default function PassportPage() {
       const noPhone: NonNullable<typeof result>['noPhone'] = [];
       const failed: NonNullable<typeof result>['failed'] = [];
 
+      // O(n²) find → O(1) Map 조회
+      const customersMap = new Map(customers.map(c => [c.id, c]));
+
       for (const item of items) {
-        const c = customers.find(x => x.id === item.userId);
+        const c = customersMap.get(item.userId);
         const name = c?.name ?? null;
 
         if (item.link && item.noPhone) {
@@ -369,6 +383,7 @@ export default function PassportPage() {
       }
 
       setResult({ ok, noPhone, failed, expiresInHours });
+      setSelectedIds(new Set()); // 발송 완료 후 선택 초기화 (재발송 방지)
       setRefreshTick(t => t + 1);
 
       const smsSent = ok.filter(x => x.smsSent).length;
@@ -718,7 +733,8 @@ export default function PassportPage() {
               type="range" min={24} max={168} step={24}
               value={expiresInHours}
               onChange={e => setExpiresInHours(Number(e.target.value))}
-              className="w-full accent-blue-600"
+              disabled={sending}
+              className="w-full accent-blue-600 disabled:opacity-50"
             />
             <div className="flex justify-between text-xs text-gray-400">
               <span>1일</span><span>3일 (권장)</span><span>1주일</span>

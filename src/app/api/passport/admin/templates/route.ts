@@ -4,10 +4,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireCrmManager } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
-import {
-  DEFAULT_PASSPORT_TEMPLATE_BODY,
-  sanitizeLegacyTemplateBody,
-} from '@/lib/passport-utils';
+import { DEFAULT_PASSPORT_TEMPLATE_BODY } from '@/lib/passport-utils';
 
 export async function GET() {
   try {
@@ -30,24 +27,11 @@ export async function GET() {
       updatedAt: true,
     } as const;
 
-    let templates = await prisma.gmPassportRequestTemplate.findMany({
+    // GET은 읽기 전용 — sanitize는 PUT/POST(저장) 시에만 수행
+    const templates = await prisma.gmPassportRequestTemplate.findMany({
       orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
       select: templateSelect,
     });
-
-    templates = await Promise.all(
-      templates.map(async (template) => {
-        const sanitizedBody = sanitizeLegacyTemplateBody(template.body);
-        if (sanitizedBody !== template.body) {
-          return prisma.gmPassportRequestTemplate.update({
-            where: { id: template.id },
-            data: { body: sanitizedBody },
-            select: templateSelect,
-          });
-        }
-        return template;
-      })
-    );
 
     if (templates.length === 0) {
       const created = await prisma.gmPassportRequestTemplate.create({
@@ -74,20 +58,14 @@ export async function GET() {
         updatedAt: template.updatedAt.toISOString(),
       })),
     });
-  } catch (error: any) {
-    logger.error('[PassportRequest] GET /templates error:', { error });
-    logger.error('[PassportRequest] Error details:', {
-      message: error?.message,
-      code: error?.code,
-      meta: error?.meta,
-      stack: error?.stack,
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error('[PassportRequest] GET /templates error:', {
+      message: err.message,
+      stack: err.stack,
     });
     return NextResponse.json(
-      {
-        ok: false,
-        message: '템플릿을 불러올 수 없습니다.',
-        error: process.env.NODE_ENV === 'development' ? error?.message : undefined
-      },
+      { ok: false, message: '템플릿을 불러올 수 없습니다.' },
       { status: 500 }
     );
   }

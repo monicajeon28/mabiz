@@ -24,14 +24,15 @@ async function retryWithBackoff<T>(
   throw lastErr;
 }
 
-// ─── 환경변수 ────────────────────────────────────────────────
-const CLIENT_ID = process.env.GOOGLE_CALENDAR_CLIENT_ID;
-const CLIENT_SECRET = process.env.GOOGLE_CALENDAR_CLIENT_SECRET;
-const REDIRECT_URI = process.env.GOOGLE_CALENDAR_REDIRECT_URI;
-
-// 필수 환경변수 검증
-if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
-  throw new Error('Missing required Google Calendar configuration: GOOGLE_CALENDAR_CLIENT_ID, GOOGLE_CALENDAR_CLIENT_SECRET, GOOGLE_CALENDAR_REDIRECT_URI');
+// ─── 환경변수 (지연 검증 — 빌드 시 모듈 로드 오류 방지) ──────
+function getGCalConfig() {
+  const CLIENT_ID = process.env.GOOGLE_CALENDAR_CLIENT_ID;
+  const CLIENT_SECRET = process.env.GOOGLE_CALENDAR_CLIENT_SECRET;
+  const REDIRECT_URI = process.env.GOOGLE_CALENDAR_REDIRECT_URI;
+  if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
+    throw new Error('Missing required Google Calendar configuration: GOOGLE_CALENDAR_CLIENT_ID, GOOGLE_CALENDAR_CLIENT_SECRET, GOOGLE_CALENDAR_REDIRECT_URI');
+  }
+  return { CLIENT_ID, CLIENT_SECRET, REDIRECT_URI };
 }
 
 /** AES-256 키 반환 — 미설정 또는 32자 미만이면 즉시 오류 */
@@ -109,6 +110,7 @@ const SCOPES = [
 ];
 
 export function getAuthUrl(state: string): string {
+  const { CLIENT_ID, REDIRECT_URI } = getGCalConfig();
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     redirect_uri: REDIRECT_URI,
@@ -130,6 +132,7 @@ interface GoogleTokenResponse {
 }
 
 export async function exchangeCode(code: string): Promise<GoogleTokenResponse> {
+  const { CLIENT_ID, CLIENT_SECRET, REDIRECT_URI } = getGCalConfig();
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -151,6 +154,7 @@ export async function exchangeCode(code: string): Promise<GoogleTokenResponse> {
 // ─── Refresh Token → 새 Access Token ────────────────────────
 /** 갱신 실패 시 `error` 필드를 포함한 객체를 throw하므로 호출자가 분기 처리 가능 */
 export async function refreshAccessToken(refreshToken: string): Promise<{ access_token: string; expires_in: number }> {
+  const { CLIENT_ID, CLIENT_SECRET } = getGCalConfig();
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
