@@ -136,6 +136,7 @@ export function VariantCard({
                   charCount > charLimit * 0.9 ? 'bg-red-500' : 'bg-blue-500'
                 }`}
                 style={{ width: `${Math.min(progress, 100)}%` }}
+                suppressHydrationWarning
               />
             </div>
           </div>
