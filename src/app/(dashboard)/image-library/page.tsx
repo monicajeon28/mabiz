@@ -78,9 +78,11 @@ export default function ImageLibraryPage() {
       });
 
       const json = await res.json();
-      if (json.ok) {
-        setAssets(json.data.assets);
-        setTotal(json.data.total);
+      if (json.ok && json.data) {
+        setAssets(json.data.assets ?? []);
+        setTotal(json.data.total ?? 0);
+      } else if (!res.ok) {
+        console.error('Failed to fetch assets: HTTP', res.status, json.message ?? '');
       }
     } catch (err) {
       console.error('Failed to fetch assets:', err);

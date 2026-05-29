@@ -201,6 +201,9 @@ export async function POST(req: Request) {
     if (msg === 'UNAUTHORIZED') {
       return NextResponse.json({ ok: false, message: '인증이 필요합니다' }, { status: 401 });
     }
+    if (msg === 'ORGANIZATION_REQUIRED' || msg === 'NO_ORGANIZATION') {
+      return NextResponse.json({ ok: false, message: '조직 정보가 필요합니다' }, { status: 403 });
+    }
     logger.error('[landing-images] 업로드 실패 RAW', { message: msg, stack: err instanceof Error ? err.stack : '' });
     logger.error('[landing-images] 업로드 실패', { message: msg });
     return NextResponse.json({ ok: false, message: msg || '이미지 업로드 중 오류 발생' }, { status: 500 });
@@ -280,6 +283,9 @@ export async function GET(req: Request) {
     if (msg === 'UNAUTHORIZED') {
       return NextResponse.json({ ok: false, message: '인증이 필요합니다' }, { status: 401 });
     }
+    if (msg === 'ORGANIZATION_REQUIRED' || msg === 'NO_ORGANIZATION') {
+      return NextResponse.json({ ok: false, message: '조직 정보가 필요합니다' }, { status: 403 });
+    }
     logger.error('[landing-images] 목록 조회 실패', { err });
     return NextResponse.json({ ok: false, message: '조회 중 오류 발생' }, { status: 500 });
   }
@@ -327,6 +333,9 @@ export async function PATCH(req: Request) {
     if (msg === 'UNAUTHORIZED') {
       return NextResponse.json({ ok: false, message: '인증이 필요합니다' }, { status: 401 });
     }
+    if (msg === 'ORGANIZATION_REQUIRED' || msg === 'NO_ORGANIZATION') {
+      return NextResponse.json({ ok: false, message: '조직 정보가 필요합니다' }, { status: 403 });
+    }
     logger.error('[landing-images] 순서 변경 실패', { err });
     return NextResponse.json({ ok: false, message: '순서 변경 중 오류 발생' }, { status: 500 });
   }
@@ -372,7 +381,11 @@ export async function DELETE(req: Request) {
     if (msg === 'UNAUTHORIZED') {
       return NextResponse.json({ ok: false, message: '인증이 필요합니다' }, { status: 401 });
     }
+    if (msg === 'ORGANIZATION_REQUIRED' || msg === 'NO_ORGANIZATION') {
+      return NextResponse.json({ ok: false, message: '조직 정보가 필요합니다' }, { status: 403 });
+    }
     logger.error('[landing-images] 삭제 실패', { err });
     return NextResponse.json({ ok: false, message: '삭제 중 오류 발생' }, { status: 500 });
   }
 }
+
