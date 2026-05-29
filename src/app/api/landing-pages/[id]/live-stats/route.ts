@@ -54,10 +54,10 @@ export async function GET(_req: Request, { params }: Params) {
     );
   } catch {
     return NextResponse.json(
-      { viewersNow: 0, recentRegistrants: [] },
+      { error: 'unavailable' },
       {
-        status: 200,
-        headers: { 'Cache-Control': 'public, max-age=5' },
+        status: 503,
+        headers: { 'Cache-Control': 'no-store' },
       }
     );
   }

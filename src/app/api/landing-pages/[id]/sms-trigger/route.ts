@@ -2,24 +2,6 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 
-// [T9] In-memory IP rate-limit: landingPageId + IP 기준 분당 3건
-const ipRateMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 3;
-const RATE_WINDOW_MS = 60_000;
-
-function checkRateLimit(ip: string, landingPageId: string): boolean {
-  const key = `${landingPageId}:${ip}`;
-  const now = Date.now();
-  const entry = ipRateMap.get(key);
-  if (!entry || now >= entry.resetAt) {
-    ipRateMap.set(key, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return true; // 허용
-  }
-  if (entry.count >= RATE_LIMIT) return false; // 초과
-  entry.count++;
-  return true;
-}
-
 type Params = { params: Promise<{ id: string }> };
 
 // L6 Day 0 SMS 템플릿
@@ -64,27 +46,30 @@ export async function POST(req: Request, { params }: Params) {
       );
     }
 
-    // [T9] IP rate-limit: 분당 3건 제한
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    if (!checkRateLimit(ip, landingPageId)) {
-      logger.warn("[L6SmsTrigger] IP rate-limit 초과", { ip, landingPageId });
-      return NextResponse.json(
-        { ok: false, message: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
-        { status: 429 }
-      );
-    }
-
     // P1-24: 전화번호/이름을 DB에서 직접 조회 (클라이언트 신뢰 불필요)
     // [T9] landingPageId 교차 검증: registration이 해당 landingPageId에 속하는지 확인
     const registration = await prisma.crmLandingRegistration.findUnique({
       where: { id: registrationId },
-      select: { phone: true, name: true, landingPageId: true },
+      select: { phone: true, name: true, landingPageId: true, createdAt: true },
     });
 
     if (!registration) {
       return NextResponse.json(
         { ok: false, message: "등록 정보를 찾을 수 없습니다." },
         { status: 404 }
+      );
+    }
+
+    // 1시간 이내 등록만 허용 (in-memory rate limit 대신 시간 기반)
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    if (Date.now() - registration.createdAt.getTime() > ONE_HOUR_MS) {
+      logger.warn("[L6SmsTrigger] 등록 후 1시간 초과 — SMS 트리거 거부", {
+        registrationId,
+        createdAt: registration.createdAt,
+      });
+      return NextResponse.json(
+        { ok: false, message: "SMS 트리거 유효 시간이 초과되었습니다." },
+        { status: 410 }
       );
     }
 
@@ -147,6 +132,22 @@ export async function POST(req: Request, { params }: Params) {
       }
     }
 
+    // [버그2] SmsOptOut 글로벌 옵트아웃 체크
+    const globalOptOut = await prisma.smsOptOut.findFirst({
+      where: { phone: phoneNumber },
+      select: { id: true },
+    });
+    if (globalOptOut) {
+      logger.info("[L6SmsTrigger] 글로벌 수신 거부(SmsOptOut) — SMS 발송 건너뜀", {
+        registrationId,
+      });
+      return NextResponse.json({
+        ok: true,
+        message: "수신 거부 고객입니다.",
+        smsSent: false,
+      });
+    }
+
     // SMS 콘텐츠 조립
     const priceAnchors = landingPage.l6PriceAnchors
       ? Array.isArray(landingPage.l6PriceAnchors)
@@ -196,9 +197,7 @@ export async function POST(req: Request, { params }: Params) {
 
     return NextResponse.json({
       ok: true,
-      message: "SMS 발송 예약됨",
       smsSent: true,
-      smsContent: smsContent.trim(),
     });
   } catch (err) {
     logger.error("[L6SmsTrigger] 에러", { err });

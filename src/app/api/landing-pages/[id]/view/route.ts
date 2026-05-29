@@ -35,19 +35,32 @@ export async function POST(req: Request, { params }: Params) {
     }
 
     // 새 방문: viewCount++ + CrmLandingView 기록
-    // @@unique([landingPageId, ipHash]) 충돌 방지: 기존 레코드 삭제 후 재생성
-    await prisma.crmLandingView.deleteMany({ where: { landingPageId: id, ipHash } });
+    // @@unique([landingPageId, ipHash]) 충돌 방지: deleteMany + update + create를 단일 트랜잭션으로 묶어 race condition 제거
     const now = new Date();
-    await prisma.$transaction([
-      prisma.crmLandingPage.update({
-        where: { id },
-        data: { viewCount: { increment: 1 } },
-        select: { id: true },
-      }),
-      prisma.crmLandingView.create({
-        data: { landingPageId: id, ipHash, viewedAt: now },
-      }),
-    ]);
+    try {
+      await prisma.$transaction([
+        prisma.crmLandingView.deleteMany({ where: { landingPageId: id, ipHash } }),
+        prisma.crmLandingPage.update({
+          where: { id },
+          data: { viewCount: { increment: 1 } },
+          select: { id: true },
+        }),
+        prisma.crmLandingView.create({
+          data: { landingPageId: id, ipHash, viewedAt: now },
+        }),
+      ]);
+    } catch (txErr: unknown) {
+      // P2002: 동시 요청 충돌 — viewCount는 이미 증가됐을 수 있으므로 무시하고 ok 반환
+      if (
+        typeof txErr === 'object' &&
+        txErr !== null &&
+        'code' in txErr &&
+        (txErr as { code: string }).code === 'P2002'
+      ) {
+        return NextResponse.json({ ok: true });
+      }
+      throw txErr;
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
