@@ -83,9 +83,10 @@ export async function GET(req: NextRequest) {
       }
       const accessCheck = await prisma.$queryRaw<Array<{ cnt: bigint }>>`
         SELECT COUNT(*) AS cnt
-        FROM "CrmAffiliateSale" af
-        JOIN "Reservation" rv ON rv.id::text = af."orderId"
-        WHERE rv."mainUserId" = ${userId}
+        FROM "User" u
+        JOIN "CrmAffiliateSale" af ON REGEXP_REPLACE(af."customerPhone", '[^0-9]', '', 'g')
+            = REGEXP_REPLACE(u.phone, '[^0-9]', '', 'g')
+        WHERE u.id = ${userId}
           AND af."organizationId" = ${manager.organizationId}
       `;
       const cnt = Number(accessCheck[0]?.cnt ?? 0);

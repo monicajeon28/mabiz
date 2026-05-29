@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
@@ -191,6 +192,15 @@ export async function POST(
     }
 
     await prisma.$transaction(async (tx) => {
+      // TOCTOU 방지 — 트랜잭션 안에서 isSubmitted 재확인 (행 잠금)
+      const locked = await tx.gmPassportSubmission.findUnique({
+        where: { id: submission.id },
+        select: { isSubmitted: true },
+      });
+      if (locked?.isSubmitted) {
+        throw Object.assign(new Error('ALREADY_SUBMITTED'), { code: 'ALREADY_SUBMITTED' });
+      }
+
       // 1. 기존 게스트 정보 삭제
       await tx.gmPassportSubmissionGuest.deleteMany({ where: { submissionId: submission.id } });
 
@@ -323,6 +333,10 @@ export async function POST(
 
     return NextResponse.json({ ok: true, message: '여권 정보가 제출되었습니다.' });
   } catch (error) {
+    // TOCTOU: 동시 제출 충돌
+    if (error instanceof Error && (error as Error & { code?: string }).code === 'ALREADY_SUBMITTED') {
+      return NextResponse.json({ ok: false, error: '이미 제출된 정보입니다. 수정이 필요하시면 담당자에게 문의하세요.' }, { status: 409 });
+    }
     const err = error as Record<string, unknown>;
     logger.error('[Passport] POST /passport/:token/submit error:', { err });
     return NextResponse.json({ ok: false, error: '제출 중 오류가 발생했습니다.' }, { status: 500 });

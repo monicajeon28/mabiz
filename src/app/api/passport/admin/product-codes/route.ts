@@ -30,12 +30,13 @@ export async function GET() {
       );
     }
 
-    // OWNER 테넌트 격리: 소속 조직 고객 상품만 표시
+    // OWNER 테넌트 격리: 구매 고객 전화번호 기준으로 소속 조직 확인
     const ownerFilter = (manager.role === 'OWNER' && manager.organizationId)
       ? Prisma.sql`AND EXISTS(
-          SELECT 1 FROM "CrmAffiliateSale" af
-          JOIN "Reservation" rv ON rv.id::text = af."orderId"
-          WHERE rv."mainUserId" = r."mainUserId"
+          SELECT 1 FROM "User" u2
+          JOIN "CrmAffiliateSale" af ON REGEXP_REPLACE(af."customerPhone", '[^0-9]', '', 'g')
+              = REGEXP_REPLACE(u2.phone, '[^0-9]', '', 'g')
+          WHERE u2.id = r."mainUserId"
             AND af."organizationId" = ${manager.organizationId}
         )`
       : Prisma.sql``;
