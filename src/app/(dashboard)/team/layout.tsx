@@ -35,8 +35,8 @@ export default async function TeamLayout({ children }: TeamLayoutProps) {
     redirect('/sign-in');
   }
 
-  // 조직 없음 → 로그인 페이지로
-  if (!ctx.organizationId) {
+  // 조직 없음 → 로그인 페이지로 (GLOBAL_ADMIN은 organizationId=null이 정상)
+  if (!ctx.organizationId && ctx.role !== 'GLOBAL_ADMIN') {
     logger.warn(`team.layout: no organization - userId=${ctx.userId}`);
     redirect('/sign-in');
   }
