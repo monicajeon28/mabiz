@@ -4,17 +4,32 @@ import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { normalizePhone } from '@/lib/import-utils';
 import { logger } from '@/lib/logger';
 
+interface KakaoSendRequest {
+  phone: string;
+  content: string;
+  tplCode?: string;
+  subject?: string;
+}
+
+interface AligoKakaoResponse {
+  result_code: string;
+  message?: string;
+  msg_id?: string;
+}
+
+interface KakaoSendResponse {
+  ok: boolean;
+  message: string;
+  msgId?: string;
+}
+
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
     const orgId = resolveOrgId(ctx);
 
-    const { phone, content, tplCode, subject } = await req.json() as {
-      phone: string;
-      content: string;
-      tplCode?: string;
-      subject?: string;
-    };
+    const body: KakaoSendRequest = await req.json();
+    const { phone, content, tplCode, subject } = body;
 
     if (!phone || !content) {
       return NextResponse.json(
@@ -35,12 +50,28 @@ export async function POST(req: Request) {
     }
 
     // Aligo 카카오 알림톡 API 호출
+    const aligoKey = process.env.ALIGO_API_KEY;
+    const aligoUserId = process.env.ALIGO_USER_ID;
+    const aligoKakaoSenderKey = process.env.ALIGO_KAKAO_SENDER_KEY;
+
+    if (!aligoKey || !aligoUserId || !aligoKakaoSenderKey) {
+      logger.error('[kakao/send] 필수 환경변수 누락', {
+        hasKey: !!aligoKey,
+        hasUserId: !!aligoUserId,
+        hasSenderKey: !!aligoKakaoSenderKey,
+      });
+      return NextResponse.json(
+        { ok: false, message: '카카오톡 서비스 설정 오류' },
+        { status: 500 }
+      );
+    }
+
     const res = await fetch('https://apis.aligo.in/send/', {
       method: 'POST',
       body: new URLSearchParams({
-        key: process.env.ALIGO_API_KEY!,
-        user_id: process.env.ALIGO_USER_ID!,
-        senderkey: process.env.ALIGO_KAKAO_SENDER_KEY!,
+        key: aligoKey,
+        user_id: aligoUserId,
+        senderkey: aligoKakaoSenderKey,
         tpl_code: kakaoTplCode,
         receiver: normalizedPhone,
         subject: kakaoSubject,
@@ -49,7 +80,7 @@ export async function POST(req: Request) {
       }),
     });
 
-    const data = await res.json();
+    const data: AligoKakaoResponse = await res.json();
 
     if (data.result_code !== '1') {
       logger.error('[kakao/send] Aligo 카카오 전송 실패', {
@@ -81,9 +112,17 @@ export async function POST(req: Request) {
     })();
 
     logger.log('[kakao/send] 완료', { phone: normalizedPhone, orgId });
-    return NextResponse.json({ ok: true, messageId: data.msg_id });
+    const response: KakaoSendResponse = {
+      ok: true,
+      message: '발송 완료',
+      msgId: data.msg_id
+    };
+    return NextResponse.json(response);
   } catch (err) {
-    logger.error('[kakao/send]', { err });
+    logger.error('[kakao/send]', {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined
+    });
     return NextResponse.json(
       { ok: false, message: '서버 오류' },
       { status: 500 }
