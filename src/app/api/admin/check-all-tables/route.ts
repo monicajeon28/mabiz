@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from 'pg';
+import { getMabizSession } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
+  // DB 스키마 노출 차단 — GLOBAL_ADMIN만 접근 가능
+  const ctx = await getMabizSession();
+  if (!ctx || ctx.role !== 'GLOBAL_ADMIN') {
+    return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
+  }
   const client = new Client({
     connectionString: process.env.SUPABASE_BACKUP_URL,
     ssl: { rejectUnauthorized: false },

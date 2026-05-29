@@ -12,8 +12,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, message: '접근 권한이 없습니다.' }, { status: 403 });
     }
 
+    if (!ctx.organizationId) {
+      return NextResponse.json({ ok: false, message: '조직 정보가 없습니다. 조직을 선택해주세요.' }, { status: 403 });
+    }
     const url = new URL(req.url);
-    const organizationId = ctx.organizationId!;
+    const organizationId = ctx.organizationId;
     const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
     const limit = Math.min(50, parseInt(url.searchParams.get('limit') || '20') || 20);
     const offset = (page - 1) * limit;
@@ -124,7 +127,7 @@ export async function POST(req: NextRequest) {
     const group = await prisma.contactGroup.findFirst({
       where: {
         id: groupId,
-        organizationId: ctx.organizationId!,
+        organizationId: ctx.organizationId,
       },
       include: {
         _count: { select: { members: true } },
@@ -150,7 +153,7 @@ export async function POST(req: NextRequest) {
 
     const campaign = await prisma.crmMarketingCampaign.create({
       data: {
-        organizationId: ctx.organizationId!,
+        organizationId: ctx.organizationId,
         groupId,
         title,
         sendEmail: sendEmail === true,

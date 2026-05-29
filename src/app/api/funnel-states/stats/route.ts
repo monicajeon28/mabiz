@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, requireOrgId, BONSA_ORG_ID } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { FunnelState } from '@/lib/funnel-state-machine';
 
-const BONSA_ORG_ID = 'org-cruisedot-main';
 
 function resolveOrgId(ctx: Awaited<ReturnType<typeof getAuthContext>>): string {
   return ctx.role === 'GLOBAL_ADMIN' ? BONSA_ORG_ID : requireOrgId(ctx);
