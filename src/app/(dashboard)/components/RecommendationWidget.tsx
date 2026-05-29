@@ -188,6 +188,7 @@ export function RecommendationWidget() {
               key={item.segment}
               className="bg-gray-50 rounded-lg border border-gray-200 p-4"
               style={{ borderLeftColor: SEGMENT_COLORS[item.segment] ?? '#cccccc', borderLeftWidth: '4px' }}
+              suppressHydrationWarning
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="font-semibold text-gray-900">{item.segment}</span>

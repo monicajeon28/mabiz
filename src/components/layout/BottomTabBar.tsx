@@ -69,6 +69,7 @@ export function BottomTabBar({ className }: BottomTabBarProps) {
           className
         )}
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        suppressHydrationWarning
       >
         <ul className="flex h-14">
           {tabs.map((tab) => {
@@ -122,6 +123,7 @@ export function BottomTabBar({ className }: BottomTabBarProps) {
           <div
             className="fixed bottom-14 left-0 right-0 z-50 bg-white rounded-t-2xl p-4 shadow-2xl"
             style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+            suppressHydrationWarning
           >
             {/* 핸들 바 */}
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />

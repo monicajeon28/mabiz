@@ -144,11 +144,9 @@ export function SidebarNav({ className, session }: SidebarNavProps) {
   }
 
   return (
-    <nav className={cn("w-60 min-h-screen flex flex-col shrink-0", className)}
-         style={{ backgroundColor: '#1E2D4E', color: 'white' }}>
+    <nav className={cn("w-60 min-h-screen flex flex-col shrink-0 bg-[#1E2D4E] text-white", className)}>
       {/* 로고 */}
-      <div className="px-6 py-5 flex items-center justify-between"
-           style={{ borderBottom: '1px solid #2A4080' }}>
+      <div className="px-6 py-5 flex items-center justify-between border-b border-[#2A4080]">
         <div className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="크루즈닷파트너스" className="h-8 w-auto object-contain" />
@@ -158,7 +156,7 @@ export function SidebarNav({ className, session }: SidebarNavProps) {
 
       {/* 사용자 정보 */}
       {(role || displayName) && (
-        <div className="px-4 py-3" style={{ borderBottom: '1px solid #2A4080' }}>
+        <div className="px-4 py-3 border-b border-[#2A4080]">
           <div className="text-xs text-gray-400">
             {role === 'GLOBAL_ADMIN' && '관리자'}
             {role === 'OWNER' && '대리점장'}
@@ -181,15 +179,11 @@ export function SidebarNav({ className, session }: SidebarNavProps) {
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    "flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                     isActive
-                      ? "text-white"
-                      : "hover:text-white"
+                      ? "text-white bg-[#2A4080] border-l-2 border-[#C9A84C] pl-[10px] pr-3"
+                      : "text-[#D1D5DB] hover:text-white px-3"
                   )}
-                  style={isActive
-                    ? { backgroundColor: '#2A4080', borderLeft: '2px solid #C9A84C', paddingLeft: '10px' }
-                    : { color: '#D1D5DB' }
-                  }
                 >
                   <item.icon className="w-4 h-4 shrink-0" />
                   {item.label}
@@ -210,8 +204,7 @@ export function SidebarNav({ className, session }: SidebarNavProps) {
               <li key={section.label}>
                 <ul>
                   <li className="px-3 pt-4 pb-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider"
-                          style={{ color: '#6B7280' }}>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">
                       {section.label}
                     </span>
                   </li>
@@ -221,23 +214,12 @@ export function SidebarNav({ className, session }: SidebarNavProps) {
                       <li key={item.href}>
                         <Link
                           href={item.href}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
-                          style={isActive
-                            ? { backgroundColor: '#2A4080', color: 'white', borderLeft: '2px solid #C9A84C', paddingLeft: '10px' }
-                            : { color: '#D1D5DB' }
-                          }
-                          onMouseEnter={(e) => {
-                            if (!isActive) {
-                              (e.currentTarget as HTMLElement).style.backgroundColor = '#2A4080';
-                              (e.currentTarget as HTMLElement).style.color = 'white';
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (!isActive) {
-                              (e.currentTarget as HTMLElement).style.backgroundColor = '';
-                              (e.currentTarget as HTMLElement).style.color = '#D1D5DB';
-                            }
-                          }}
+                          className={cn(
+                            "flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                            isActive
+                              ? "bg-[#2A4080] text-white border-l-2 border-[#C9A84C] pl-[10px] pr-3"
+                              : "text-[#D1D5DB] hover:bg-[#2A4080] hover:text-white px-3"
+                          )}
                         >
                           <item.icon className="w-4 h-4 shrink-0" />
                           {item.label}
@@ -253,27 +235,17 @@ export function SidebarNav({ className, session }: SidebarNavProps) {
       </ul>
 
       {/* 하단 설정 */}
-      <div className="px-3 pb-4 space-y-0.5 pt-3" style={{ borderTop: '1px solid #2A4080' }}>
+      <div className="px-3 pb-4 space-y-0.5 pt-3 border-t border-[#2A4080]">
         <Link
           href="/settings"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors"
-          style={{ color: '#D1D5DB' }}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-[#D1D5DB]"
         >
           <Settings className="w-4 h-4" />
           설정
         </Link>
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors"
-          style={{ color: '#D1D5DB' }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.color = '#F87171';
-            (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(127,29,29,0.4)';
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.color = '#D1D5DB';
-            (e.currentTarget as HTMLElement).style.backgroundColor = '';
-          }}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-[#D1D5DB] hover:text-[#F87171] hover:bg-red-900/40"
         >
           <LogOut className="w-4 h-4" />
           로그아웃
