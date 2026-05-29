@@ -16,7 +16,18 @@ export async function POST(req: Request) {
     if (ctx.role !== 'OWNER' && ctx.role !== 'GLOBAL_ADMIN') {
       return NextResponse.json({ ok: false, message: '삭제 권한이 없습니다' }, { status: 403 });
     }
-    const orgId = requireOrgId(ctx);
+
+    // GLOBAL_ADMIN은 organizationId가 없을 수 있음
+    let orgId: string;
+    try {
+      orgId = requireOrgId(ctx);
+    } catch (err) {
+      if (ctx.role === 'GLOBAL_ADMIN') {
+        // GLOBAL_ADMIN이 organizationId 없으면 거절
+        return NextResponse.json({ ok: false, message: '조직을 선택한 후 삭제해주세요' }, { status: 400 });
+      }
+      throw err;
+    }
 
     const body = await req.json() as { contactIds: string[] };
     const { contactIds } = body;
