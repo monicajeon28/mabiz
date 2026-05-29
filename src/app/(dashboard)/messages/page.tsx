@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   MessageSquare, Mail, Send, ChevronDown, ChevronUp,
@@ -73,8 +73,19 @@ export default function MessagesPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold mb-1">📨 문자 CRM</h1>
-      <p className="text-sm text-gray-500 mb-6">SMS · 이메일 · 카카오 — 그룹 대상 마케팅 발송</p>
+      <h1 className="text-2xl font-bold mb-1">📨 단체 메시지 보내기</h1>
+      <p className="text-base text-gray-600 mb-3">고객 그룹에게 한 번에 문자 또는 이메일을 보냅니다.</p>
+      {/* 50대 친화적 사용 순서 안내 */}
+      <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-5 text-sm text-blue-700 flex-wrap">
+        <span className="font-semibold whitespace-nowrap">📋 사용 순서:</span>
+        <span>① 수신 그룹 선택</span>
+        <span className="text-blue-300">→</span>
+        <span>② 메시지 작성</span>
+        <span className="text-blue-300">→</span>
+        <span>③ 발송 전 확인하기</span>
+        <span className="text-blue-300">→</span>
+        <span>④ 최종 발송</span>
+      </div>
 
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6 w-fit">
         <button onClick={() => setTab("sms")}
@@ -291,7 +302,7 @@ function SmsTab() {
         if (d.rateLimitStatus?.remaining === 0) {
           showError("일일 발송 한도를 모두 사용했습니다. 내일 초기화됩니다.");
         } else {
-          showError("미리보기 실패");
+          showError("확인 실패");
         }
         setDryRunResult(null);
         setConfirmed(false);
@@ -322,7 +333,7 @@ function SmsTab() {
       if (err instanceof Error && err.name === 'AbortError') {
         showError("요청 시간 초과 - 다시 시도해주세요");
       } else {
-        showError("미리보기 중 오류 발생");
+        showError("확인 중 오류가 발생했습니다");
       }
       setDryRunResult(null);
       setConfirmed(false);
@@ -335,7 +346,7 @@ function SmsTab() {
   const doSend = useCallback(async () => {
     // Step A: 미리보기 확인
     if (!dryRunResult) {
-      showError("먼저 발송 대상을 확인해주세요.");
+      showError("먼저 '발송 전 확인하기' 버튼을 눌러주세요.");
       return;
     }
 
@@ -404,23 +415,23 @@ function SmsTab() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <CheckCircle className="w-4 h-4 text-green-500" />
-                <span className="text-sm font-medium text-green-700">알리고 연결됨</span>
+                <span className="text-sm font-medium text-green-700">문자 서비스 연결됨</span>
               </div>
               <p className="text-xs text-green-600">발신번호: {smsConfig.senderPhone}</p>
-              <p className="text-xs text-green-600">ID: {smsConfig.aligoUserId} · 키 ****{smsConfig.aligoKeyTail}</p>
+              <p className="text-xs text-green-600">계정 ID: {smsConfig.aligoUserId} · 인증키 ****{smsConfig.aligoKeyTail}</p>
               {!smsConfig.senderVerified && (
-                <p className="text-xs text-amber-600 mt-1">⚠ 발신번호 미인증 — Aligo 콘솔에서 ARS 인증 필요</p>
+                <p className="text-sm text-amber-600 mt-1">⚠ 발신번호 미인증 — 알리고 사이트에서 전화 인증 필요</p>
               )}
             </div>
           ) : (
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <AlertCircle className="w-4 h-4 text-amber-500" />
-                <span className="text-sm font-medium text-amber-700">알리고 미연결</span>
+                <span className="text-sm font-medium text-amber-700">문자 서비스 미연결</span>
               </div>
-              <p className="text-xs text-amber-600 mb-2">내 알리고 계정을 연결해야 SMS를 보낼 수 있습니다.</p>
-              <a href="/settings/sms" className="text-xs text-blue-600 underline flex items-center gap-1">
-                <Settings className="w-3 h-3" /> 알리고 계정 연결하기
+              <p className="text-sm text-amber-600 mb-2">문자 서비스 계정을 연결해야 SMS를 보낼 수 있습니다.</p>
+              <a href="/settings/sms" className="text-sm text-blue-600 underline flex items-center gap-1">
+                <Settings className="w-3 h-3" /> 문자 서비스 연결하기
               </a>
             </div>
           )}
@@ -445,7 +456,7 @@ function SmsTab() {
             ))}
           </select>
           {groups.length === 0 && !showNewGroup && (
-            <p className="text-xs text-gray-400 mt-1.5">
+            <p className="text-sm text-gray-400 mt-1.5">
               그룹이 없습니다.{" "}
               <a href="/groups" className="text-blue-500 underline">그룹 관리</a>에서 먼저 만들어 주세요.
             </p>
@@ -458,7 +469,7 @@ function SmsTab() {
           {!showNewGroup ? (
             <button
               onClick={() => setShowNewGroup(true)}
-              className="mt-2 flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-medium">
+              className="mt-2 flex items-center gap-1 text-sm px-2 py-2 text-green-600 hover:text-green-700 font-medium px-1 py-2">
               <span className="text-base leading-none">+</span> 새 그룹 만들기
             </button>
           ) : (
@@ -474,12 +485,12 @@ function SmsTab() {
               <button
                 onClick={createGroup}
                 disabled={!newGroupName.trim() || creatingGroup}
-                className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg disabled:opacity-40">
+                className="px-3 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg disabled:opacity-40">
                 {creatingGroup ? "생성 중..." : "생성"}
               </button>
               <button
                 onClick={() => { setShowNewGroup(false); setNewGroupName(""); }}
-                className="px-2 py-1.5 text-xs text-gray-400 hover:text-gray-600">
+                className="px-3 py-2.5 text-sm text-gray-400 hover:text-gray-600">
                 취소
               </button>
             </div>
@@ -498,7 +509,7 @@ function SmsTab() {
               <div className="flex gap-1 flex-wrap mb-3">
                 {TEMPLATE_CATEGORIES.map(c => (
                   <button key={c.value} onClick={() => setTemplateCat(c.value)}
-                    className={`px-2 py-0.5 rounded-full text-xs border ${templateCat === c.value ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600"}`}>
+                    className={`px-3 py-2 rounded-full text-sm border ${templateCat === c.value ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600"}`}>
                     {c.label}
                   </button>
                 ))}
@@ -515,7 +526,7 @@ function SmsTab() {
                 ) : templates.map(t => (
                   <button key={t.id} onClick={() => { setMessage(t.content); setShowTemplates(false); }}
                     className="w-full text-left p-2.5 rounded-lg border hover:border-blue-300 hover:bg-blue-50 transition-colors">
-                    <p className="text-xs font-medium text-gray-700">{t.title}</p>
+                    <p className="text-sm font-medium text-gray-700">{t.title}</p>
                     <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{t.content}</p>
                   </button>
                 ))}
@@ -537,7 +548,7 @@ function SmsTab() {
               let byteColor = "text-green-600";
               let byteLabel = "단문";
               if (byteLen > 2000) { byteColor = "text-red-500 font-bold"; byteLabel = "발송불가"; }
-              else if (byteLen > 90) { byteColor = "text-orange-500 font-medium"; byteLabel = "장문 MMS (+추가요금)"; }
+              else if (byteLen > 90) { byteColor = "text-orange-500 font-medium"; byteLabel = "장문 메시지 (+추가요금)"; }
               return (
                 <span className={`text-xs ${byteColor}`}>
                   {byteLen}바이트 · {byteLabel}
@@ -558,21 +569,21 @@ function SmsTab() {
             className="w-full border rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
           />
           {hasEmoji && (
-            <p className="mt-1.5 text-xs text-amber-600 flex items-center gap-1">
+            <p className="mt-1.5 text-sm text-amber-600 flex items-center gap-1">
               <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-              ⚠ 이모지는 알리고 SMS에서 발송 거절될 수 있습니다
+              ⚠ 이모지(그림문자)는 문자 발송 시 거절될 수 있습니다
             </p>
           )}
           {(() => {
             const byteLen = new TextEncoder().encode(message).length;
             if (byteLen > 2000) return (
-              <p className="mt-1 text-xs text-red-500 font-medium">
+              <p className="mt-1 text-sm text-red-500 font-medium">
                 메시지가 너무 깁니다 ({byteLen}바이트). 2000바이트 이하로 줄여주세요.
               </p>
             );
             if (byteLen > 90) return (
-              <p className="mt-1 text-xs text-orange-500">
-                장문 MMS로 발송됩니다 ({byteLen}/2000바이트). 추가 요금이 발생합니다.
+              <p className="mt-1 text-sm text-orange-500">
+                장문 메시지로 발송됩니다 ({byteLen}/2000바이트). 추가 요금이 발생합니다.
               </p>
             );
             return null;
@@ -608,16 +619,16 @@ function SmsTab() {
             <button onClick={() => setShowReplace(v => !v)}
               className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700">
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showReplace ? "rotate-180" : ""}`} />
-              치환변수 & 어필리에이트 링크
+              자동채우기 & 개인링크
             </button>
             {showReplace && (
               <div className="mt-2 p-3 bg-gray-50 rounded-lg space-y-3">
                 <div>
-                  <p className="text-xs font-medium text-gray-600 mb-1.5">기본 치환변수 (클릭 시 삽입)</p>
+                  <p className="text-xs font-medium text-gray-600 mb-1.5">자동채우기 항목 (클릭하면 메시지에 추가됩니다)</p>
                   <div className="flex flex-wrap gap-1.5">
                     {REPLACEMENTS.map(r => (
                       <button key={r.label} onClick={() => insertAtCursor(r.label)}
-                        className="px-2 py-1 bg-white border rounded text-xs text-gray-700 hover:border-blue-400 hover:text-blue-600">
+                        className="px-2.5 py-2 bg-white border rounded text-sm text-gray-700 hover:border-blue-400 hover:text-blue-600">
                         {r.label} <span className="text-gray-400">({r.desc})</span>
                       </button>
                     ))}
@@ -627,7 +638,7 @@ function SmsTab() {
                 <div>
                   <p className="text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1">
                     <Link2 className="w-3 h-3 text-blue-500" />
-                    내 어필리에이트 추적링크
+                    내 개인 홍보링크
                   </p>
                   {myLinks.length > 0 ? (
                     <>
@@ -635,7 +646,7 @@ function SmsTab() {
                         {myLinks.map(l => (
                           <button key={l.id}
                             onClick={() => insertAtCursor(`${APP_URL}/l/${l.code}`)}
-                            className="px-2 py-1 bg-white border rounded text-xs text-blue-600 hover:border-blue-400">
+                            className="px-2.5 py-2 bg-white border rounded text-sm text-blue-600 hover:border-blue-400">
                             🔗 {l.title ?? l.code}
                           </button>
                         ))}
@@ -645,8 +656,8 @@ function SmsTab() {
                       </p>
                     </>
                   ) : (
-                    <p className="text-xs text-gray-400">
-                      개인 추적링크가 없습니다.{" "}
+                    <p className="text-sm text-gray-400">
+                      개인 홍보링크가 없습니다.{" "}
                       <a href="/links" className="text-blue-500 underline">상담 링크</a>에서
                       고객에게 연결된 링크를 만들어주세요.
                     </p>
@@ -656,13 +667,13 @@ function SmsTab() {
                 {/* 상품 드롭다운 — 메시지에 상품 치환변수가 있을 때만 표시 */}
                 {hasProductVars && products.length > 0 && (
                   <div className="pt-2 border-t border-gray-200">
-                    <p className="text-xs font-medium text-gray-600 mb-1.5">상품 선택 (치환변수 자동 대입)</p>
+                    <p className="text-xs font-medium text-gray-600 mb-1.5">상품 선택 (자동으로 내용을 채웁니다)</p>
                     <select
                       value={selectedProduct}
                       onChange={e => applyProductReplacement(e.target.value)}
                       className="w-full border rounded-lg px-3 py-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
                     >
-                      <option value="">상품을 선택하면 [상품명]/[출발일]/[가격]/[일정]이 자동 치환됩니다</option>
+                      <option value="">상품을 선택하면 [상품명]/[출발일]/[가격]/[일정]이 자동으로 입력됩니다</option>
                       {products.map(p => {
                         const depStr = p.departureDate
                           ? new Date(p.departureDate).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })
@@ -676,7 +687,7 @@ function SmsTab() {
                       })}
                     </select>
                     {selectedProduct && (
-                      <p className="text-xs text-green-600 mt-1">치환 완료. 메시지를 확인해주세요.</p>
+                      <p className="text-xs text-green-600 mt-1">내용이 입력되었습니다. 메시지를 확인해주세요.</p>
                     )}
                   </div>
                 )}
@@ -689,15 +700,15 @@ function SmsTab() {
         <div className="rounded-xl border bg-white p-4">
           <button onClick={doDryRun} disabled={!selectedGroup || !message.trim()}
             className="w-full py-2.5 border-2 border-blue-300 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed mb-3">
-            발송 대상 미리보기
+            발송 전 확인하기
           </button>
 
           {selectedGroup && rateLimitStatus && (
             <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
               <p className="text-sm text-blue-700">
-                📊 발송 횟수: {rateLimitStatus.used}/5회
+                📊 오늘 발송 횟수: {rateLimitStatus.used}/5회
                 {rateLimitStatus.remaining === 0 && (
-                  <span className="block text-xs text-red-600 font-semibold mt-1">
+                  <span className="block text-sm text-red-600 font-semibold mt-1">
                     ⏰ 내일 {rateLimitStatus.resetAt}부터 가능
                   </span>
                 )}
@@ -709,11 +720,11 @@ function SmsTab() {
             <div className="space-y-3">
               {/* [P0-4] 미치환 변수 경고 */}
               {unreplacedVars.length > 0 && (
-                <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-xs text-amber-700">
-                  <span className="font-semibold">⚠ 치환 안 된 변수:</span>{" "}
+                <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-sm text-amber-700">
+                  <span className="font-semibold">⚠ 아직 입력 안 된 항목:</span>{" "}
                   <strong>{unreplacedVars.join(", ")}</strong>
                   <br />
-                  <span>상품 선택 또는 직접 입력 후 발송하세요. 그대로 발송 시 고객에게 변수명이 노출됩니다.</span>
+                  <span>상품 선택 또는 직접 입력 후 발송하세요. 그대로 발송하면 고객에게 괄호 문자가 그대로 보입니다.</span>
                 </div>
               )}
               <div className="p-3 bg-gray-50 rounded-lg">
@@ -722,7 +733,7 @@ function SmsTab() {
                   <span className="text-blue-600 font-bold text-base">{dryRunResult.count}명</span>
                   {linkNoCount > 0 && (
                     <span className="text-amber-500 ml-2 text-xs">
-                      (추적링크 없는 고객 {linkNoCount}명 자동 제외)
+                      (홍보링크 없는 고객 {linkNoCount}명 자동 제외)
                     </span>
                   )}
                 </p>
@@ -974,8 +985,8 @@ function EmailTab() {
             </div>
           ) : (
             <div>
-              <p className="text-xs text-amber-600 mb-2">이메일 설정이 필요합니다.</p>
-              <a href="/settings/email" className="text-xs text-blue-600 underline flex items-center gap-1">
+              <p className="text-sm text-amber-600 mb-2">이메일 설정이 필요합니다.</p>
+              <a href="/settings/email" className="text-sm text-blue-600 underline flex items-center gap-1">
                 <Settings className="w-3 h-3" /> 이메일 설정하기
               </a>
             </div>
@@ -1056,7 +1067,7 @@ function EmailTab() {
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs font-semibold text-gray-500">본문 내용</label>
             <button onClick={loadImages}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 border border-blue-200 px-2 py-1 rounded-lg">
+              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 border border-blue-200 px-3 py-2 rounded-lg">
               <ImageIcon className="w-3.5 h-3.5" /> 이미지 라이브러리
             </button>
           </div>
@@ -1065,7 +1076,7 @@ function EmailTab() {
           <div className="flex flex-wrap gap-1.5 mb-2">
             {REPLACEMENTS.map(r => (
               <button key={r.label} onClick={() => insertBodyAtCursor(r.label)}
-                className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600 hover:bg-blue-100 hover:text-blue-600">
+                className="px-2.5 py-2 bg-gray-100 rounded text-sm text-gray-600 hover:bg-blue-100 hover:text-blue-600">
                 {r.label}
               </button>
             ))}
@@ -1091,9 +1102,9 @@ function EmailTab() {
                 </div>
               ) : imageLoadError ? (
                 <div className="text-center py-4">
-                  <p className="text-xs text-red-500 mb-2">이미지를 불러오지 못했습니다.</p>
+                  <p className="text-sm text-red-500 mb-2">이미지를 불러오지 못했습니다.</p>
                   <button onClick={loadImages}
-                    className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    className="px-3 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                     다시 시도
                   </button>
                 </div>
@@ -1152,4 +1163,5 @@ function KakaoTab() {
     </div>
   );
 }
+
 
