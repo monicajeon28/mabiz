@@ -43,7 +43,7 @@ export function generateRecommendation(result: ABTestResult, minSampleSize: numb
       color: "gray",
       actionItems: [
         `Continue sending messages to reach ${minSampleSize} samples per variant`,
-        `Expected completion: in ${Math.ceil((minSampleSize - Math.min(totalA, totalB)) / ((totalA + totalB) / Math.max(1, Math.floor((new Date().getTime() - result.timestamp.getTime()) / (1000 * 60 * 60 * 24))))))} days`,
+        `Expected completion: in ${Math.ceil((minSampleSize - Math.min(totalA, totalB)) / ((totalA + totalB) / Math.max(1, Math.floor((new Date().getTime() - result.timestamp.getTime()) / (1000 * 60 * 60 * 24)))))} days`,
       ],
     };
   }

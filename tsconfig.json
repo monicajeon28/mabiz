@@ -40,6 +40,7 @@
     "node_modules",
     "node_modules_backup",
     "prisma/**",
+    "tmp/**",
     "scripts/**",
     "크루즈닷기능/**",
     "**/__tests__/**",

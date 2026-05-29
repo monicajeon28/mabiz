@@ -11,6 +11,7 @@
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { AligoClient, createAligoClient } from './client';
+import { getAligoMessageType } from './batch-sender';
 
 export interface DeliveryTrackerResult {
   checked: number;
@@ -50,13 +51,14 @@ export async function trackSmsDelivery(organizationId: string): Promise<Delivery
       senderPhone: smsConfig.senderPhone,
     });
 
-    // SENT 상태이며 sentAt이 1시간 이상 지난 SMS 조회
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    // SENT 상태이며 sentAt이 1시간 이상 ~ 7일 이내인 SMS 조회
+    const oneHourAgo  = new Date(Date.now() - 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const sentSms = await prisma.scheduledSms.findMany({
       where: {
         organizationId,
         status: 'SENT',
-        sentAt: { lte: oneHourAgo },
+        sentAt: { gte: sevenDaysAgo, lte: oneHourAgo },
       },
       select: {
         id: true,
@@ -203,7 +205,7 @@ async function retryFailedSms(smsId: string, organizationId: string): Promise<bo
     const response = await aligoClient.sendSms({
       receiver: scheduledSms.contact.phone,
       message: scheduledSms.message,
-      messageType: scheduledSms.message.length > 80 ? 'LMS' : 'SMS',
+      messageType: getAligoMessageType(scheduledSms.message),
     });
 
     if (response.resultCode === 1) {

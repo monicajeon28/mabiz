@@ -220,21 +220,21 @@ export default function ScheduledSmsPage() {
                   <div className="flex items-center gap-1 shrink-0">
                     {/* 일시정지 (PENDING/NIGHT_BLOCKED) */}
                     {(item.status === "PENDING" || item.status === "NIGHT_BLOCKED") && (
-                      <button onClick={() => doAction(item.id, "pause")} disabled={acting === item.id}
+                      <button onClick={() => doAction(item.id, "pause")} disabled={acting === item.id || cancelling === item.id}
                         className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors" title="일시정지">
                         <Pause className="w-4 h-4" />
                       </button>
                     )}
                     {/* 재개 (PAUSED) */}
                     {item.status === "PAUSED" && (
-                      <button onClick={() => doAction(item.id, "resume")} disabled={acting === item.id}
+                      <button onClick={() => doAction(item.id, "resume")} disabled={acting === item.id || cancelling === item.id}
                         className="p-1.5 text-gray-400 hover:text-green-500 hover:bg-green-50 rounded-lg transition-colors" title="재개">
                         <Play className="w-4 h-4" />
                       </button>
                     )}
                     {/* 재발송 (FAILED) */}
                     {item.status === "FAILED" && (
-                      <button onClick={() => doAction(item.id, "retry")} disabled={acting === item.id}
+                      <button onClick={() => doAction(item.id, "retry")} disabled={acting === item.id || cancelling === item.id}
                         className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="재발송">
                         <RotateCcw className="w-4 h-4" />
                       </button>
