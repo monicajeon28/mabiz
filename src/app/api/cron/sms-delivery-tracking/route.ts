@@ -2,9 +2,9 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "crypto";
 import { trackAllSmsDelivery } from "@/lib/aligo/delivery-tracker";
 import { logger } from "@/lib/logger";
+import { validateCronSecret } from "@/lib/cron-middleware";
 
 /**
  * GET /api/cron/sms-delivery-tracking
@@ -18,26 +18,10 @@ import { logger } from "@/lib/logger";
  * - SmsLog 기록
  */
 export async function GET(req: Request) {
-  // Cron 인증
-  const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get("authorization") ?? "";
-
-  if (!secret) {
-    logger.error("[CronSmsDeliveryTracking] CRON_SECRET 미설정");
-    return NextResponse.json({ ok: false }, { status: 401 });
-  }
-
-  const expected = `Bearer ${secret}`;
-  let authValid = false;
-  try {
-    authValid = auth.length === expected.length && timingSafeEqual(Buffer.from(auth), Buffer.from(expected));
-  } catch {
-    authValid = false;
-  }
-
-  if (!authValid) {
-    logger.warn("[CronSmsDeliveryTracking] 인증 실패", { ip: req.headers.get("x-forwarded-for") });
-    return NextResponse.json({ ok: false }, { status: 401 });
+  // Cron 인증 (통일된 미들웨어 사용)
+  const authResult = validateCronSecret(req);
+  if (!authResult.ok) {
+    return authResult.response || NextResponse.json({ ok: false }, { status: 401 });
   }
 
   try {

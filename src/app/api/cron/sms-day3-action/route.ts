@@ -2,6 +2,7 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { validateCronSecret } from '@/lib/cron-middleware';
 
 /**
  * POST /api/cron/sms-day3-action
@@ -47,10 +48,10 @@ export async function POST(req: Request) {
   };
 
   try {
-    // 인증 검증
-    const cronSecret = req.headers.get('x-vercel-cron-secret');
-    if (process.env.CRON_SECRET && cronSecret !== process.env.CRON_SECRET) {
-      return NextResponse.json({ ok: false, message: '인증 실패' }, { status: 401 });
+    // 인증 검증 (통일된 미들웨어 사용)
+    const authResult = validateCronSecret(req);
+    if (!authResult.ok) {
+      return authResult.response || NextResponse.json({ ok: false, message: '인증 실패' }, { status: 401 });
     }
 
     logger.log('[CRON/SMS-DAY3] 시작');
