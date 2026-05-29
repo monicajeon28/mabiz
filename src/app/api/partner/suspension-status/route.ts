@@ -74,7 +74,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { message } = await req.json() as { message: string };
+    let body: { message?: string };
+    try {
+      body = await req.json() as { message?: string };
+    } catch {
+      return NextResponse.json({ ok: false, error: '잘못된 요청 형식입니다' }, { status: 400 });
+    }
+    const { message } = body;
 
     if (!message || message.length < 10) {
       return NextResponse.json(

@@ -20,7 +20,8 @@ async function fetchRemain(): Promise<AligoRemainResponse> {
   const apiKey = process.env.ALIGO_API_KEY;
   const userId = process.env.ALIGO_USER_ID;
   if (!apiKey || !userId) {
-    throw new Error('ALIGO 환경변수 미설정');
+    // 환경변수 미설정 → 에러가 아닌 0원 반환 (Vercel 배포 환경에서 안전하게)
+    return { result_code: 1, message: 'ENV_NOT_SET', SMS_CNT: '0', cash: '0' };
   }
 
   const formData = new URLSearchParams({ key: apiKey, user_id: userId });
@@ -29,6 +30,7 @@ async function fetchRemain(): Promise<AligoRemainResponse> {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: formData.toString(),
   });
+  if (!res.ok) throw new Error(`Aligo HTTP ${res.status}`);
   return (await res.json()) as AligoRemainResponse;
 }
 
@@ -56,10 +58,34 @@ export async function GET(request: NextRequest) {
     }
 
     // Aligo API 호출
-    const aligoResponse = await fetchRemain();
+    let aligoResponse: AligoRemainResponse;
+    try {
+      aligoResponse = await fetchRemain();
+    } catch (fetchErr) {
+      // 외부 API 연결 실패 → 500 대신 graceful 처리
+      logger.warn('[AligoStatus] Aligo API 연결 실패 (환경변수 또는 네트워크):', {
+        error: fetchErr instanceof Error ? fetchErr.message : String(fetchErr),
+      });
+      return NextResponse.json({
+        ok: true,
+        balance: 0,
+        lastUpdated: new Date().toISOString(),
+        message: 'SMS 잔액 조회 불가 (설정 확인 필요)',
+        unavailable: true,
+      });
+    }
 
-    if (aligoResponse.result_code !== 1 && aligoResponse.result_code !== 0) {
-      throw new Error(`Aligo API Error: ${aligoResponse.message}`);
+    // result_code가 문자열 "1"로 올 수 있어 Number()로 강제 변환
+    if (Number(aligoResponse.result_code) !== 1) {
+      // Aligo API가 에러 코드 반환 → 500 대신 graceful 처리
+      logger.warn('[AligoStatus] Aligo API 에러 응답:', { message: aligoResponse.message });
+      return NextResponse.json({
+        ok: true,
+        balance: 0,
+        lastUpdated: new Date().toISOString(),
+        message: `SMS 서비스 오류: ${aligoResponse.message}`,
+        unavailable: true,
+      });
     }
 
     // 잔액 파싱
@@ -72,16 +98,16 @@ export async function GET(request: NextRequest) {
       message: `현재 잔액: ${balance.toLocaleString('ko-KR')}원`,
     });
   } catch (error) {
-    logger.error('[AligoStatus] Error:', {
+    logger.error('[AligoStatus] Unexpected error:', {
       error: error instanceof Error ? error.message : String(error),
     });
-
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : '알리고 잔액 조회 실패',
-      },
-      { status: 500 }
-    );
+    // 예상치 못한 에러도 UI가 깨지지 않도록 graceful 처리
+    return NextResponse.json({
+      ok: true,
+      balance: 0,
+      lastUpdated: new Date().toISOString(),
+      message: 'SMS 잔액 조회 중 오류 발생',
+      unavailable: true,
+    });
   }
 }

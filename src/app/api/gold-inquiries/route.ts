@@ -108,8 +108,8 @@ export async function GET(req: NextRequest) {
       phone:       r.phone ? maskPhone(r.phone) : null,
       message:     r.message,
       status:      r.status,
-      submittedAt: r.createdAt.toISOString(), // UI 호환성
-      createdAt:   r.createdAt.toISOString(),
+      submittedAt: new Date(r.createdAt).toISOString(), // $queryRaw는 문자열 반환 가능 → 방어적 처리
+      createdAt:   new Date(r.createdAt).toISOString(),
       tier:        null,     // ProductInquiry에 tier 컬럼 없음
       agentName:   null,     // ProductInquiry에 agentId 컬럼 없음
     }));
