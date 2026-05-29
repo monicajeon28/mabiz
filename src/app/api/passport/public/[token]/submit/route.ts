@@ -1,9 +1,73 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { randomBytes } from 'crypto';
 import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
+import { hashPassword } from '@/lib/password';
+
+// ── 관리자 SMS 알림 (fire-and-forget) ──────────────────────────────────────
+/**
+ * 여권 제출 완료 시 관리자에게 SMS 알림 발송.
+ * - 반환값 없음: 실패해도 제출 결과에 영향 없음
+ * - Vercel 함수 타임아웃 고려: 최대 7초 후 abort
+ */
+async function notifyAdminPassportSubmitted(params: {
+  guestName: string;
+  departureDate: string | null;
+}): Promise<void> {
+  const adminPhone = process.env.ADMIN_NOTIFY_PHONE;
+  const apiKey = process.env.ALIGO_API_KEY;
+  const userId = process.env.ALIGO_USER_ID;
+  const senderPhone = process.env.ALIGO_SENDER_PHONE;
+
+  if (!adminPhone || !apiKey || !userId || !senderPhone) {
+    // 환경변수 미설정 시 조용히 스킵 (배포 초기 환경 안전 처리)
+    return;
+  }
+
+  const departurePart = params.departureDate ? ` (${params.departureDate})` : '';
+  const message = `[여권제출] ${params.guestName}님이 여권을 제출했습니다.${departurePart}`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 7000); // 7초 타임아웃
+
+  try {
+    const formData = new URLSearchParams({
+      key: apiKey,
+      user_id: userId,
+      sender: senderPhone,
+      receiver: adminPhone,
+      msg: message,
+      msg_type: 'SMS',
+    });
+
+    const res = await fetch('https://apis.aligo.in/send/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData.toString(),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      logger.warn('[PassportSubmit] 관리자 알림 HTTP 오류:', { status: res.status });
+      return;
+    }
+
+    const data = (await res.json()) as { result_code?: number | string; message?: string };
+    if (Number(data.result_code) !== 1) {
+      logger.warn('[PassportSubmit] 관리자 알림 Aligo 오류:', { message: data.message });
+    }
+  } catch (err) {
+    // abort 포함한 모든 오류 — 제출 흐름과 완전 분리
+    logger.warn('[PassportSubmit] 관리자 알림 발송 실패 (무시됨):', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 interface GuestPayload {
   name: string;
@@ -32,7 +96,7 @@ export async function POST(
 ) {
   try {
     const token = (await params).token;
-    if (!token || token.length < 10) {
+    if (!token || token.length < 10 || token.length > 200) {
       return NextResponse.json({ ok: false, error: '잘못된 토큰입니다.' }, { status: 400 });
     }
 
@@ -43,7 +107,10 @@ export async function POST(
 
     const submission = await prisma.gmPassportSubmission.findFirst({
       where: { token },
-      include: { user: true },
+      include: {
+        user: true,
+        trip: { select: { startDate: true, cruiseName: true } },
+      },
     });
 
     if (!submission) {
@@ -54,11 +121,23 @@ export async function POST(
       return NextResponse.json({ ok: false, error: '제출 가능 시간이 만료되었습니다.' }, { status: 410 });
     }
 
+    // 재제출 방지 — 이미 제출된 경우 차단 (관리자 승인 없이 덮어쓰기 금지)
+    if (submission.isSubmitted) {
+      return NextResponse.json(
+        { ok: false, error: '이미 제출된 정보입니다. 수정이 필요하시면 담당자에게 문의하세요.' },
+        { status: 409 }
+      );
+    }
+
+    const MAX_GUESTS_PER_GROUP = 50;
+    const MAX_TOTAL_GUESTS = 300;
+    const MAX_REMARKS_LENGTH = 500;
+
     const validGroups = body.groups
       .slice(0, MAX_GROUPS)
       .map((group) => ({
         groupNumber: Number(group.groupNumber),
-        guests: Array.isArray(group.guests) ? group.guests : [],
+        guests: Array.isArray(group.guests) ? group.guests.slice(0, MAX_GUESTS_PER_GROUP) : [],
       }))
       .filter((group) => group.groupNumber >= 1 && group.groupNumber <= MAX_GROUPS);
 
@@ -66,16 +145,24 @@ export async function POST(
       return NextResponse.json({ ok: false, error: '최소 한 개 이상의 그룹이 필요합니다.' }, { status: 400 });
     }
 
+    // ISO 8601 날짜 형식(YYYY-MM-DD)만 허용 — Invalid Date DB 저장 방지
+    function parseDate(input: string | undefined): Date | null {
+      if (!input) return null;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(input)) return null;
+      const d = new Date(input + 'T00:00:00.000Z');
+      return isNaN(d.getTime()) ? null : d;
+    }
+
     const guestRecords = validGroups.flatMap((group) => {
       return group.guests
         .map((guest) => ({
           groupNumber: group.groupNumber,
-          name: guest.name?.trim() ?? '',
+          name: (guest.name?.trim() ?? '').substring(0, 100),
           phone: guest.phone?.trim() || null,
-          passportNumber: guest.passportNumber?.trim() || null,
-          nationality: guest.nationality?.trim() || null,
-          dateOfBirth: guest.dateOfBirth ? new Date(guest.dateOfBirth) : null,
-          passportExpiryDate: guest.passportExpiryDate ? new Date(guest.passportExpiryDate) : null,
+          passportNumber: guest.passportNumber?.trim().substring(0, 20) || null,
+          nationality: guest.nationality?.trim().substring(0, 50) || null,
+          dateOfBirth: parseDate(guest.dateOfBirth),
+          passportExpiryDate: parseDate(guest.passportExpiryDate),
         }))
         .filter((guest) => guest.name.length > 0);
     });
@@ -83,6 +170,13 @@ export async function POST(
     if (guestRecords.length === 0) {
       return NextResponse.json(
         { ok: false, error: '각 그룹에 최소 한 명 이상의 탑승자를 입력해주세요.' },
+        { status: 400 }
+      );
+    }
+
+    if (guestRecords.length > MAX_TOTAL_GUESTS) {
+      return NextResponse.json(
+        { ok: false, error: `탑승자 수가 허용 한도(${MAX_TOTAL_GUESTS}명)를 초과했습니다.` },
         { status: 400 }
       );
     }
@@ -117,7 +211,7 @@ export async function POST(
               groupNumber: group.groupNumber,
               guests: group.guests,
             })),
-            remarks: body.remarks ?? '',
+            remarks: (body.remarks ?? '').substring(0, MAX_REMARKS_LENGTH),
           } as unknown as Prisma.InputJsonValue,
         },
       });
@@ -138,12 +232,14 @@ export async function POST(
             if (guest.phone) {
               let user = await tx.gmUser.findFirst({ where: { phone: guest.phone } });
               if (!user) {
-                // 새 사용자 생성 (비밀번호 3800)
+                // 랜덤 비밀번호 해시 저장 (로그인 차단 목적 — 실제 로그인 불필요)
+                const randomPw = randomBytes(16).toString('hex');
+                const hashedPw = await hashPassword(randomPw);
                 user = await tx.gmUser.create({
                   data: {
                     name: guest.name,
                     phone: guest.phone,
-                    password: '3800', // Fixed password as per requirement
+                    password: hashedPw,
                     role: 'user',
                     onboarded: false,
                   },
@@ -206,6 +302,15 @@ export async function POST(
           },
         });
       }
+    });
+
+    // ── 관리자 알림 (fire-and-forget: 실패해도 제출 성공에 영향 없음) ──────
+    // void 캐스팅으로 floating Promise 경고 억제 (await 의도적 생략)
+    void notifyAdminPassportSubmitted({
+      guestName: submission.user.name ?? '고객',
+      departureDate: submission.trip?.startDate
+        ? submission.trip.startDate.toISOString().split('T')[0]
+        : null,
     });
 
     return NextResponse.json({ ok: true, message: '여권 정보가 제출되었습니다.' });

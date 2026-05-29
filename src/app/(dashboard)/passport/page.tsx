@@ -392,6 +392,14 @@ export default function PassportPage() {
       setSelectedIds(new Set()); // 발송 완료 후 선택 초기화 (재발송 방지)
       setRefreshTick(t => t + 1);
 
+      // 발송 후 잔액 UI 갱신
+      if (typeof data.remainingCash === 'number') {
+        setAligoBalance(data.remainingCash);
+      }
+      if (data.lowBalance) {
+        showError(`⚠ 문자 잔액이 ${(data.remainingCash as number)?.toLocaleString()}원으로 부족합니다. 충전이 필요합니다.`);
+      }
+
       // 찾지 못한 고객 안내
       const missing = (data.missingUserIds ?? []) as number[];
       if (missing.length > 0) {

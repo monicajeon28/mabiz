@@ -104,7 +104,9 @@ type PassportSendUser = {
 
 function formatDate(value: Date | null | undefined) {
   if (!value) return '';
-  return value.toISOString().split('T')[0];
+  // KST(UTC+9) 기준 날짜 반환 — UTC 기준 시 하루 오차 가능
+  const kst = new Date(value.getTime() + 9 * 60 * 60 * 1000);
+  return kst.toISOString().split('T')[0];
 }
 
 export async function POST(req: NextRequest) {

@@ -65,11 +65,11 @@ export function buildPassportLink(token: string): string {
 export function decodePassportToken(shortToken: string): string {
   // 이미 hex 형식인 경우
   if (/^[0-9a-f]+$/.test(shortToken)) {
-    if (shortToken.length >= 48) {
-      return shortToken.substring(0, 48);
-    }
     if (shortToken.length === 32 || shortToken.length === 48) {
       return shortToken;
+    }
+    if (shortToken.length > 48) {
+      return shortToken.substring(0, 48);
     }
   }
 
