@@ -45,7 +45,7 @@ async function sendPartnerSms(
     msg: message,
     msgType: 'SMS',
     organizationId,
-    channel: 'PARTNER_SETTLEMENT'
+    channel: 'MANUAL'
   });
 }
 
@@ -90,7 +90,7 @@ export async function getPreviousMonthRevenue(
     select: { netAmount: true }
   });
 
-  return previousLedger?.netAmount || null;
+  return previousLedger?.netAmount != null ? Number(previousLedger.netAmount) : null;
 }
 
 /**
@@ -120,7 +120,7 @@ export async function detectChurnSignal(
   }
 
   const averageAmount =
-    lastThreeMonths.reduce((sum, ledger) => sum + ledger.netAmount, 0) /
+    lastThreeMonths.reduce((sum, ledger) => sum + Number(ledger.netAmount), 0) /
     lastThreeMonths.length;
 
   // 평균 금액이 0 이하이면 Churn 신호 아님
@@ -210,7 +210,7 @@ export async function sendSettlementNotificationSms(
     where: { id: partnerId },
     select: {
       phone: true,
-      displayName: true
+      name: true
     }
   });
 
@@ -260,7 +260,7 @@ export async function sendChurnAlertSms(
     where: { id: partnerId },
     select: {
       phone: true,
-      displayName: true
+      name: true
     }
   });
 

@@ -23,7 +23,7 @@ export async function GET(_req: Request, { params }: Params) {
 
     // 권한 검증
     const where = buildContactWhere(ctx, { id });
-    if (!where.id) {
+    if (!(where as Record<string, unknown>).id) {
       return NextResponse.json(
         { ok: false, error: 'Contact not found' },
         { status: 404 }
@@ -31,10 +31,10 @@ export async function GET(_req: Request, { params }: Params) {
     }
 
     // 360도 뷰 조회 (캐시 포함)
-    const contact360 = await getContact360(id, ctx.organizationId);
+    const contact360 = await getContact360(id, ctx.organizationId ?? '');
 
     // PII 마스킹 적용 (역할 기반)
-    const masked = await applyMaskingPolicy(contact360, ctx.role, ctx.organizationId);
+    const masked = await applyMaskingPolicy(contact360, ctx.role, ctx.organizationId ?? '');
 
     // 응답 시간 로깅
     const responseTime = Date.now() - startTime;
@@ -83,8 +83,8 @@ export async function POST(req: Request, { params }: Params) {
     const ctx = await getAuthContext();
     const { id } = await params;
 
-    // ADMIN 권한만 허용
-    if (ctx.role !== 'ADMIN') {
+    // GLOBAL_ADMIN 권한만 허용
+    if (ctx.role !== 'GLOBAL_ADMIN') {
       return NextResponse.json(
         { ok: false, error: 'Forbidden' },
         { status: 403 }
@@ -92,7 +92,7 @@ export async function POST(req: Request, { params }: Params) {
     }
 
     // 캐시 무효화
-    await invalidateContact360Cache(id, ctx.organizationId);
+    await invalidateContact360Cache(id, ctx.organizationId ?? '');
 
     logger.info('[POST /api/contacts/[id]/integrated-360/invalidate] Success', {
       contactId: id

@@ -94,12 +94,12 @@ export async function monitorWebhookHealth(
       : 0;
 
     const executionTimes = events
-      .filter(e => e.executionTimeMs !== null)
+      .filter((e): e is typeof e & { executionTimeMs: number } => e.executionTimeMs !== null)
       .map(e => e.executionTimeMs)
-      .sort((a, b) => a! - b!);
+      .sort((a, b) => a - b);
 
-    const p95ExecutionTime = executionTimes.length > 0
-      ? executionTimes[Math.floor(executionTimes.length * 0.95)]
+    const p95ExecutionTime: number = executionTimes.length > 0
+      ? executionTimes[Math.floor(executionTimes.length * 0.95)] ?? 0
       : 0;
 
     // Alert 1: Low Success Rate

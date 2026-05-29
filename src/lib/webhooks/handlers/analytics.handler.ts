@@ -34,9 +34,9 @@ export class AnalyticsWebhookHandler extends BaseWebhookHandler {
         await prisma.crmMarketingCampaign.update({
           where: { id: campaignId },
           data: {
-            metrics: {
-              ...(campaign.metrics as any),
-              ...metrics,
+            lensMetadata: {
+              ...(campaign.lensMetadata as Record<string, unknown> | null ?? {}),
+              metrics,
               lastUpdated: new Date(timestamp || Date.now()).toISOString(),
             },
           },

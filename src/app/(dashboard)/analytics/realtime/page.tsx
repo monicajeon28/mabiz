@@ -271,7 +271,7 @@ function ChartsTab({ metrics }: { metrics: RealtimeMetrics | null }) {
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}K`} />
-              <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, '매출']} />
+              <Tooltip formatter={(v) => [`$${(v as number).toLocaleString()}`, '매출']} />
               <Bar dataKey="revenue" fill="#3B82F6" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -285,7 +285,7 @@ function ChartsTab({ metrics }: { metrics: RealtimeMetrics | null }) {
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
-              <Tooltip formatter={(v: number) => [`${v}%`, '전환율']} />
+              <Tooltip formatter={(v) => [`${v}%`, '전환율']} />
               <Area type="monotone" dataKey="value" stroke="#10B981" fill="#D1FAE5" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
@@ -314,12 +314,12 @@ function ChartsTab({ metrics }: { metrics: RealtimeMetrics | null }) {
           {lensData.length > 0 ? (
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
-                <Pie data={lensData} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                <Pie data={lensData} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
                   {lensData.map((_, i) => (
                     <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(v: number) => [v, '건수']} />
+                <Tooltip formatter={(v) => [v, '건수']} />
               </PieChart>
             </ResponsiveContainer>
           ) : (

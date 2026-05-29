@@ -404,6 +404,7 @@ function DrilldownDrawer({
 function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; loading: boolean; month: string; onDrilldown: (config: DrilldownConfig) => void }) {
   const [passportSubTab, setPassportSubTab] = useState<'pending' | 'complete'>('pending');
   const router = useRouter();
+  const { toast } = useToast();
 
   // 드릴다운 config들을 useMemo로 메모이제이션 (month 변경 시만 재생성)
   const salesConfig = useMemo(() => ({

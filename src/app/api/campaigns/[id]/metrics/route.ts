@@ -17,7 +17,7 @@ export async function GET(req: Request, { params }: Params) {
     const { id: campaignId } = await params;
 
     // 캠페인 소유권 확인
-    const campaign = await prisma.multiChannelCampaign.findFirst({
+    const campaign = await prisma.crmMarketingCampaign.findFirst({
       where: { id: campaignId, organizationId },
     });
 

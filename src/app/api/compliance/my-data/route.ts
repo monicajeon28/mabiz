@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
     // 감시 로그 기록
     await auditLogger.record({
-      organizationId: ctx.organizationId,
+      organizationId: ctx.organizationId ?? undefined,
       userId: ctx.userId,
       action: 'EXPORT',
       resourceType: 'Contact',

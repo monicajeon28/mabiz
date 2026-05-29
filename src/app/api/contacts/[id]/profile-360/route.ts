@@ -31,16 +31,51 @@ export async function GET(_req: Request, { params }: Params) {
 
     // 렌즈 감지
     const lenses = detectLenses({
-      ...contact,
-      callLogs: contact.callLogs || [],
-      memos: contact.memos || [],
+      id: contact.id,
+      name: contact.name,
+      phone: contact.phone,
+      email: contact.email ?? undefined,
+      type: contact.type,
+      cruiseInterest: contact.cruiseInterest,
+      budgetRange: contact.budgetRange,
+      lastContactedAt: contact.lastContactedAt,
+      createdAt: contact.createdAt,
+      segment: contact.segment,
+      age: contact.age,
+      maritalStatus: contact.maritalStatus,
+      childrenCount: contact.childrenCount,
+      affiliateManagerId: contact.affiliateManagerId,
+      affiliateAgentId: contact.affiliateAgentId,
+      callLogs: (contact.callLogs || []).map((l) => ({
+        content: l.content ?? null,
+        createdAt: l.createdAt,
+      })),
+      memos: (contact.memos || []).map((m) => ({
+        content: m.content,
+        createdAt: m.createdAt,
+      })),
     });
 
     // Risk Flag 감지
     const { flags: riskFlags, riskScore, severity } = detectRiskFlags({
-      ...contact,
-      callLogs: contact.callLogs || [],
-      memos: contact.memos || [],
+      id: contact.id,
+      name: contact.name,
+      type: contact.type,
+      lastContactedAt: contact.lastContactedAt,
+      createdAt: contact.createdAt,
+      segment: contact.segment,
+      leadScore: contact.leadScore ?? undefined,
+      adminMemo: contact.adminMemo,
+      departureDate: contact.departureDate,
+      tags: contact.tags,
+      callLogs: (contact.callLogs || []).map((l) => ({
+        content: l.content ?? null,
+        createdAt: l.createdAt,
+      })),
+      memos: (contact.memos || []).map((m) => ({
+        content: m.content,
+        createdAt: m.createdAt,
+      })),
     });
 
     // 통계

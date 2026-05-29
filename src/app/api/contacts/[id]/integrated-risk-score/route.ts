@@ -94,8 +94,13 @@ export async function GET(_req: Request, { params }: Params) {
       );
     }
 
-    // Risk Score 계산
-    const riskProfile = await calculateRiskScore(contact);
+    // Risk Score 계산 (callLogs 배열 → callCount 변환, callLogs 필드 제외)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { callLogs: _callLogs, ...contactData } = contact;
+    const riskProfile = await calculateRiskScore({
+      ...contactData,
+      callCount: contact.callLogs?.length ?? 0,
+    });
 
     // Risk Profile 요약
     const summary = summarizeRiskProfile(riskProfile);

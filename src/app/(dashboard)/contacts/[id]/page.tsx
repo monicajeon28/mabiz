@@ -198,14 +198,14 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       });
       const data = await res.json();
       if (data.ok) {
-        toast({ message: "✅ Day 0-3 시퀀스가 시작되었습니다!", type: "success" });
+        toast({ title: "✅ Day 0-3 시퀀스가 시작되었습니다!", variant: "success" });
         logger.log("[startDay0_3Sequence] 시퀀스 시작 성공", { contactId, ...data.data });
       } else {
-        toast({ message: data.message ?? "시퀀스 시작 실패", type: "error" });
+        toast({ title: data.message ?? "시퀀스 시작 실패", variant: "destructive" });
       }
     } catch (err) {
       logger.error("[startDay0_3Sequence]", { err, contactId });
-      toast({ message: "시퀀스 시작 중 오류 발생", type: "error" });
+      toast({ title: "시퀀스 시작 중 오류 발생", variant: "destructive" });
     } finally {
       setSequenceLoading(false);
     }

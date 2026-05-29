@@ -22,14 +22,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: '인증 필요' }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+    const member = await prisma.organizationMember.findFirst({
+      where: { email: session.user.email, isActive: true },
       select: { organizationId: true, role: true },
     });
 
-    if (!user?.organizationId || user.role !== 'ADMIN') {
+    if (!member?.organizationId || member.role !== 'ADMIN') {
       return NextResponse.json({ error: '권한 없음' }, { status: 403 });
     }
+
+    // user 변수를 member로 통일
+    const user = member;
 
     // 쿼리 파라미터
     const url = new URL(req.url);
