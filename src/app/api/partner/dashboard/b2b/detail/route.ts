@@ -38,7 +38,7 @@ export async function GET(req: Request) {
     const endDate = new Date(year, month, 1);
 
     const isAdmin = ctx.sessionUser.role === 'admin';
-    const orgFilter = isAdmin ? {} : { organizationId: ctx.organizationId! };
+    const orgFilter = isAdmin ? {} : { organizationId: ctx.organizationId ?? "" };
 
     if (type === 'leads') {
       const [rows, total] = await Promise.all([
@@ -73,7 +73,7 @@ export async function GET(req: Request) {
     }
 
     if (type === 'registrations') {
-      const landingOrgFilter = isAdmin ? {} : { organizationId: ctx.organizationId! };
+      const landingOrgFilter = isAdmin ? {} : { organizationId: ctx.organizationId ?? "" };
       const [rows, total] = await Promise.all([
         prisma.crmLandingRegistration.findMany({
           where: {
@@ -112,7 +112,7 @@ export async function GET(req: Request) {
     }
 
     if (type === 'payments') {
-      const payOrgFilter = isAdmin ? {} : { organizationId: ctx.organizationId! };
+      const payOrgFilter = isAdmin ? {} : { organizationId: ctx.organizationId ?? "" };
       const [rows, total] = await Promise.all([
         prisma.payAppPayment.findMany({
           where: { ...payOrgFilter, status: 'paid', paidAt: { gte: startDate, lt: endDate } },
@@ -148,3 +148,4 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: '서버 오류' }, { status: 500 });
   }
 }
+

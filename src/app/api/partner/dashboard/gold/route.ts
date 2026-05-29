@@ -29,8 +29,8 @@ export async function GET(req: Request) {
     const prevEnd = startDate;
 
     const isAdmin = ctx.sessionUser.role === 'admin';
-    const orgFilter = isAdmin ? {} : { organizationId: ctx.organizationId! };
-    const consultOrgFilter = isAdmin ? {} : { organizationId: ctx.organizationId! };
+    const orgFilter = isAdmin ? {} : { organizationId: ctx.organizationId ?? "" };
+    const consultOrgFilter = isAdmin ? {} : { organizationId: ctx.organizationId ?? "" };
 
     // ── 1) 골드회원 수 + 상담 수 + 납부율 (현재 + 전월 병렬) ──
     const [
@@ -136,3 +136,4 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: '서버 오류가 발생했습니다' }, { status: 500 });
   }
 }
+

@@ -29,13 +29,13 @@ export async function GET(req: Request) {
     const prevEnd = startDate;
 
     const isAdmin = ctx.sessionUser.role === 'admin';
-    const orgFilter = isAdmin ? {} : { organizationId: ctx.organizationId! };
-    const payOrgFilter = isAdmin ? {} : { organizationId: ctx.organizationId! };
+    const orgFilter = isAdmin ? {} : { organizationId: ctx.organizationId ?? "" };
+    const payOrgFilter = isAdmin ? {} : { organizationId: ctx.organizationId ?? "" };
 
     // ── 1) 리드 수 + 등록 수 + 결제 합계 (현재 + 전월 병렬) ──
     const dateFilter = { createdAt: { gte: startDate, lt: endDate } };
     const prevDateFilter = { createdAt: { gte: prevStart, lt: prevEnd } };
-    const landingOrgFilter = isAdmin ? {} : { organizationId: ctx.organizationId! };
+    const landingOrgFilter = isAdmin ? {} : { organizationId: ctx.organizationId ?? "" };
 
     const [
       leadCount, prevLeadCount,
@@ -125,3 +125,4 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: '서버 오류가 발생했습니다' }, { status: 500 });
   }
 }
+

@@ -59,7 +59,10 @@ export async function GET() {
       });
     }
 
-    const orgId = ctx.organizationId!;
+    if (!ctx.organizationId) {
+      return NextResponse.json({ ok: false, error: 'ORGANIZATION_REQUIRED' }, { status: 400 });
+    }
+    const orgId = ctx.organizationId;
 
     // ── BRANCH_MANAGER(OWNER) ────────────────────────────────────
     if (ctx.role === "OWNER") {

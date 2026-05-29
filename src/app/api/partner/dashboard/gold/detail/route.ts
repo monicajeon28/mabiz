@@ -38,7 +38,7 @@ export async function GET(req: Request) {
     const endDate = new Date(year, month, 1);
 
     const isAdmin = ctx.sessionUser.role === 'admin';
-    const orgFilter = isAdmin ? {} : { organizationId: ctx.organizationId! };
+    const orgFilter = isAdmin ? {} : { organizationId: ctx.organizationId ?? "" };
 
     if (type === 'members') {
       const [rows, total] = await Promise.all([
@@ -72,7 +72,7 @@ export async function GET(req: Request) {
     }
 
     if (type === 'consultations') {
-      const consultOrgFilter = isAdmin ? {} : { organizationId: ctx.organizationId! };
+      const consultOrgFilter = isAdmin ? {} : { organizationId: ctx.organizationId ?? "" };
       const [rows, total] = await Promise.all([
         prisma.goldMemberConsultation.findMany({
           where: {
@@ -155,3 +155,4 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: '서버 오류' }, { status: 500 });
   }
 }
+
