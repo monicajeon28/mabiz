@@ -195,6 +195,10 @@ export default function ContactsPage() {
   const [sharing,        setSharing]        = useState(false);
   const [shareResult,    setShareResult]    = useState("");
 
+  // 복수 선택 삭제
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   // 그룹 추가 모달 (목록에서)
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [groupAddForContact, setGroupAddForContact] = useState<string | null>(null); // 배정할 contactId
@@ -226,6 +230,39 @@ export default function ContactsPage() {
     const res = await fetch("/api/org/agents").then(r => r.json());
     if (res.ok) setShareSections(res.sections ?? []);
     setShowShareModal(true);
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/contacts/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactIds: Array.from(selectedIds) }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast(`${data.count}명 삭제되었습니다`);
+        setSelectedIds(new Set());
+        setShowDeleteConfirm(false);
+        // 목록 새로고침
+        setPage(1);
+        const res = await fetch(`/api/contacts/all?q=${q}&type=${type}&page=${1}&limit=${10}&filterGroupId=${filterGroupId}&filterSourceType=${filterSourceType}&filterAssignedTo=${filterAssignedTo}${selectedTags.length > 0 ? `&tags=${selectedTags.join(",")}` : ""}`);
+        const json = await res.json();
+        if (json.ok) {
+          setContacts(json.contacts || []);
+          setTotal(json.total || 0);
+        }
+      } else {
+        showToast(`삭제 실패: ${data.message}`, "error");
+      }
+    } catch (err) {
+      logger.error("[ContactsPage] Bulk delete error:", err);
+      showToast("삭제 중 오류가 발생했습니다", "error");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleBulkShare = async () => {
@@ -657,14 +694,24 @@ export default function ContactsPage() {
         <div className="flex gap-2">
           {/* L7: 팀 공유 기능 강화 */}
           {selectedIds.size > 0 && (
-            <button
-              onClick={openShareModal}
-              className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors shadow-sm"
-              title="팀원들과 이 고객들의 정보를 함께 봐요"
-            >
-              <Share2 className="w-4 h-4" />
-              팀에 알려주기 ({selectedIds.size}명)
-            </button>
+            <>
+              <button
+                onClick={openShareModal}
+                className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors shadow-sm"
+                title="팀원들과 이 고객들의 정보를 함께 봐요"
+              >
+                <Share2 className="w-4 h-4" />
+                팀에 알려주기 ({selectedIds.size}명)
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
+                title="선택된 고객을 삭제합니다"
+              >
+                <X className="w-4 h-4" />
+                삭제 ({selectedIds.size}명)
+              </button>
+            </>
           )}
           {selectedTags.length > 0 && (
             <button
@@ -1371,6 +1418,33 @@ export default function ContactsPage() {
               <button onClick={doBulkAssign} disabled={bulkAssigning}
                 className="flex-1 px-4 py-2.5 bg-purple-600 text-white rounded-lg text-sm font-bold hover:bg-purple-700 disabled:opacity-50">
                 {bulkAssigning ? "할당 중..." : "할당하기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 삭제 확인 다이얼로그 */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <X className="w-5 h-5 text-red-600" />
+              </div>
+              <h2 className="text-lg font-bold text-navy-900">고객 삭제</h2>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              선택한 <span className="font-bold text-red-600">{selectedIds.size}명</span>의 고객을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setShowDeleteConfirm(false)} disabled={deleting}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50">
+                취소
+              </button>
+              <button onClick={handleDeleteSelected} disabled={deleting}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 disabled:opacity-50">
+                {deleting ? "삭제 중..." : "삭제하기"}
               </button>
             </div>
           </div>
