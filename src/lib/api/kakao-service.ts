@@ -170,16 +170,18 @@ export async function sendKakaoMessage(
   try {
     const aligoKey = process.env.ALIGO_API_KEY;
     const aligoUserId = process.env.ALIGO_USER_ID;
+    const kakaoTplCode = process.env.ALIGO_KAKAO_TPL_CODE;
 
-    if (!aligoKey || !aligoUserId) {
+    // P0-1: 모든 필수 환경변수 검증 (테스트 템플릿 허용 안 함)
+    if (!aligoKey || !aligoUserId || !kakaoTplCode) {
       logger.error('[kakao-service] 필수 환경변수 누락', {
         hasKey: !!aligoKey,
         hasUserId: !!aligoUserId,
+        hasKakaoTplCode: !!kakaoTplCode,
       });
-      return {
-        success: false,
-        error: 'Kakao 서비스 설정 오류',
-      };
+      throw new Error(
+        `Kakao 발송 환경변수 누락: ALIGO_API_KEY=${!!aligoKey}, ALIGO_USER_ID=${!!aligoUserId}, ALIGO_KAKAO_TPL_CODE=${!!kakaoTplCode}`
+      );
     }
 
     const response = await fetch('https://apis.aligo.in/send/', {
@@ -188,7 +190,7 @@ export async function sendKakaoMessage(
         key: aligoKey,
         user_id: aligoUserId,
         senderkey: senderKey,
-        tpl_code: process.env.ALIGO_KAKAO_TPL_CODE || 'EXAM',
+        tpl_code: kakaoTplCode,
         receiver,
         subject: title,
         message,
