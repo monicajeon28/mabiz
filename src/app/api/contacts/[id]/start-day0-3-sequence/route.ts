@@ -84,7 +84,7 @@ export async function POST(req: Request, { params }: Params) {
         msgType: day0Message.length > 90 ? "LMS" : "SMS",
         organizationId: contact.organizationId,
         contactId: contact.id,
-        channel: "DAY0_3_SEQUENCE",
+        channel: "FUNNEL",
       });
 
       // Day 0 스케줄 상태 업데이트

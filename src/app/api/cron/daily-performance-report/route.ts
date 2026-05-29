@@ -132,18 +132,18 @@ async function generateAndDistributeReport(org: { id: string; name: string; slug
         organizationId: org.id,
         role: { in: ['ADMIN', 'OWNER'] },
       },
-      select: { email: true, name: true },
+      select: { email: true },
     }),
     prisma.organizationMember.findMany({
       where: {
         organizationId: org.id,
         role: 'TEAM_LEAD',
       },
-      select: { email: true, name: true },
+      select: { email: true },
     }),
   ]);
 
-  const recipients = [...admins, ...teamLeads].filter((r) => r.email).map((r) => r.email);
+  const recipients = [...admins, ...teamLeads].map((r) => r.email).filter((e): e is string => e !== null);
 
   logger.log('[DailyPerfReport] Recipients identified', {
     orgId: org.id,
@@ -165,7 +165,7 @@ async function generateAndDistributeReport(org: { id: string; name: string; slug
   const criticalAlerts = metrics.alerts.filter((a) => a.type === 'RED');
   if (criticalAlerts.length > 0 && slackUrl) {
     for (const alert of criticalAlerts) {
-      await sendCriticalAlertToSlack(alert.metric, alert.message, alert.action || 'Check dashboard', slackUrl);
+      await sendCriticalAlertToSlack(alert.metric, alert.message, (alert as any).action || 'Check dashboard', slackUrl);
     }
   }
 

@@ -66,7 +66,7 @@ export async function GET(_req: Request, { params }: Params) {
       segment: contact.segment,
       leadScore: contact.leadScore ?? undefined,
       adminMemo: contact.adminMemo,
-      departureDate: contact.departureDate,
+      departureDate: contact.departureDate ? contact.departureDate.toISOString() : null,
       tags: contact.tags,
       callLogs: (contact.callLogs || []).map((l) => ({
         content: l.content ?? null,
@@ -103,7 +103,7 @@ export async function GET(_req: Request, { params }: Params) {
         // 여행 정보
         travelInfo: {
           cruiseInterest: contact.cruiseInterest,
-          departureDate: contact.departureDate,
+          departureDate: contact.departureDate ? contact.departureDate.toISOString() : null,
           budgetRange: contact.budgetRange,
           recommendedProduct: contact.recommendedProduct,
           segment: contact.segment,

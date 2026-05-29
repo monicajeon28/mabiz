@@ -100,7 +100,7 @@ export async function GET(_req: Request, { params }: Params) {
     const riskProfile = await calculateRiskScore({
       ...contactData,
       callCount: contact.callLogs?.length ?? 0,
-    });
+    } as Parameters<typeof calculateRiskScore>[0]);
 
     // Risk Profile 요약
     const summary = summarizeRiskProfile(riskProfile);

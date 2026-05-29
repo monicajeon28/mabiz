@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     }
 
     const organizationId = (request.nextUrl.searchParams.get("orgId") ||
-      session.user?.organizationId) as string;
+      (session as any).user?.organizationId) as string;
 
     if (!organizationId) {
       return NextResponse.json(

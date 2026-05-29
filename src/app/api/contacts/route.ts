@@ -59,7 +59,7 @@ export async function GET(req: Request) {
 
     if (cursor) {
       skip = 1;  // cursor 항목 제외
-      where = { ...baseWhere, id: { gt: cursor } };  // id > cursor
+      where = { ...baseWhere, id: { gt: cursor } } as unknown as typeof baseWhere;  // id > cursor
     } else {
       take = safeLimit;  // offset 방식일 때는 +1 안 함
       skip = (page - 1) * safeLimit;
@@ -170,7 +170,7 @@ export async function GET(req: Request) {
       return {
         ...c,
         lastTransferredTo: transferInfo
-          ? { name: transferInfo.name, orgName: transferInfo.orgName, logId: log.id, transferType: log.transferType, canRecall: log.transferredBy === ctx.userId || ctx.role === "GLOBAL_ADMIN" }
+          ? { name: transferInfo.name, orgName: transferInfo.orgName, logId: log!.id, transferType: log!.transferType, canRecall: log!.transferredBy === ctx.userId || ctx.role === "GLOBAL_ADMIN" }
           : null,
         // P0-6/7: 제휴 담당자 실제 이름
         affiliateManagerName: c.affiliateManagerId ? affiliateNameMap.get(c.affiliateManagerId) : undefined,
@@ -259,7 +259,7 @@ export async function POST(req: Request) {
       ...contact,
       callLogs: [],
       memos: [],
-    });
+    } as Parameters<typeof detectLenses>[0]);
     const sortedLenses = sortLensesByPriority(detectedLenses);
 
     if (sortedLenses.length > 0) {

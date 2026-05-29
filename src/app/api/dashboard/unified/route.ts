@@ -129,7 +129,7 @@ async function getRecentActivity(
       where: { organizationId, sentAt: { gte: today } },
     }),
     prisma.callLog.count({
-      where: { organizationId, createdAt: { gte: today } },
+      where: { contact: { organizationId }, createdAt: { gte: today } },
     }),
   ]);
 

@@ -201,13 +201,8 @@ async function runRealtimeOptimization(
         }
 
         // 3. 활성 캠페인에 최적 채널 적용
-        const activeCampaigns = await prisma.multiChannelCampaign.findMany({
-          where: {
-            organizationId: org.id,
-            status: "ACTIVE",
-          },
-          select: { id: true },
-        });
+        // multiChannelCampaign 모델 미구현 — 빈 배열로 처리
+        const activeCampaigns: Array<{ id: string }> = [];
 
         for (const campaign of activeCampaigns) {
           await optimizer.applyAllocationToCampaign(
