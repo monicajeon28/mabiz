@@ -191,17 +191,32 @@ function generateSuggestedResponse(lensType: string, inquiryType: string | undef
 
 export async function POST(req: NextRequest) {
   const secret = process.env.MABIZ_INQUIRY_WEBHOOK_SECRET;
+
+  // [P0-SEC-101] MABIZ_INQUIRY_WEBHOOK_SECRET 필수
   if (!secret) {
-    logger.error('[InquiryWebhook] MABIZ_INQUIRY_WEBHOOK_SECRET 미설정');
-    return NextResponse.json({ ok: false }, { status: 500 });
+    logger.error('[InquiryWebhook] CRITICAL: MABIZ_INQUIRY_WEBHOOK_SECRET 미설정. 웹훅 수신 불가능합니다. DevOps에 연락하세요.');
+    return NextResponse.json({ ok: false, error: 'Webhook secret not configured' }, { status: 500 });
   }
-  const token = (req.headers.get('authorization') ?? '').replace('Bearer ', '');
+
+  // [P0-SEC-102] Bearer Token 검증 (필수)
+  const authHeader = req.headers.get('authorization') ?? '';
+  if (!authHeader.startsWith('Bearer ')) {
+    logger.warn('[InquiryWebhook] Bearer token 미제공 — 요청 차단');
+    return NextResponse.json({ ok: false, error: 'Missing Bearer token' }, { status: 401 });
+  }
+
+  const token = authHeader.slice(7);
+  if (token.length === 0) {
+    logger.warn('[InquiryWebhook] Bearer token 값 비어있음 — 요청 차단');
+    return NextResponse.json({ ok: false, error: 'Empty Bearer token' }, { status: 401 });
+  }
+
   if (
     token.length !== secret.length ||
     !timingSafeEqual(Buffer.from(token), Buffer.from(secret))
   ) {
-    logger.error('[InquiryWebhook] 인증 실패');
-    return NextResponse.json({ ok: false }, { status: 401 });
+    logger.warn('[InquiryWebhook] Bearer token 불일치 — 인증 실패');
+    return NextResponse.json({ ok: false, error: 'Authentication failed' }, { status: 401 });
   }
 
   const body = await req.json() as InquiryRequest;
@@ -213,7 +228,7 @@ export async function POST(req: NextRequest) {
 
   logger.log('[InquiryWebhook] 수신', { phone: phone.slice(0, 4) + '***', inquiryType, lensDetectionEnabled: true });
 
-  // 1. organizationId 결정
+  // [P0-SEC-103] organizationId 검증 — 테넌트 격리
   let organizationId = bodyOrgId;
   if (!organizationId) {
     organizationId = process.env.DEFAULT_ORGANIZATION_ID;
@@ -221,6 +236,17 @@ export async function POST(req: NextRequest) {
       logger.error('[InquiryWebhook] organizationId 미제공 + DEFAULT_ORGANIZATION_ID 미설정');
       return NextResponse.json({ ok: false, message: 'organizationId 필수' }, { status: 400 });
     }
+  }
+
+  // [P0-SEC-104] organizationId가 유효한지 확인 (cross-tenant 접근 방지)
+  const isValidOrg = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { id: true },
+  });
+
+  if (!isValidOrg) {
+    logger.warn('[InquiryWebhook] 조직 미존재 — 접근 차단', { organizationId });
+    return NextResponse.json({ ok: false, error: 'Organization not found' }, { status: 403 });
   }
 
   const normalizedPhone = normalizePhone(phone);

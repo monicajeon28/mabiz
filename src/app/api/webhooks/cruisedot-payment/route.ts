@@ -26,18 +26,29 @@ interface CruisedotPaymentPayload {
 export async function POST(req: NextRequest) {
   const secret = process.env.CRUISEDOT_WEBHOOK_SECRET;
 
+  // [P0-SEC-001] CRUISEDOT_WEBHOOK_SECRET 필수 — 없으면 웹훅 비활성화
   if (!secret) {
-    logger.error('[CruisedotWebhook] CRUISEDOT_WEBHOOK_SECRET 미설정');
-    return NextResponse.json({ ok: false }, { status: 500 });
+    logger.error('[CruisedotWebhook] CRITICAL: CRUISEDOT_WEBHOOK_SECRET 미설정. 웹훅 수신 불가능합니다. DevOps에 연락하세요.');
+    return NextResponse.json({ ok: false, error: 'Webhook secret not configured' }, { status: 500 });
   }
 
-  // Bearer Token 검증
+  // [P0-SEC-002] Bearer Token 검증 (필수)
   const authHeader = req.headers.get('authorization') ?? '';
-  const token = authHeader.replace('Bearer ', '');
+  if (!authHeader.startsWith('Bearer ')) {
+    logger.warn('[CruisedotWebhook] Bearer token 미제공 — 요청 차단');
+    return NextResponse.json({ ok: false, error: 'Missing Bearer token' }, { status: 401 });
+  }
 
+  const token = authHeader.slice(7); // "Bearer " 제거
+  if (token.length === 0) {
+    logger.warn('[CruisedotWebhook] Bearer token 값 비어있음 — 요청 차단');
+    return NextResponse.json({ ok: false, error: 'Empty Bearer token' }, { status: 401 });
+  }
+
+  // [P0-SEC-003] Timing-safe 비교로 토큰 검증
   if (token.length !== secret.length || !timingSafeEqual(Buffer.from(token), Buffer.from(secret))) {
-    logger.warn('[CruisedotWebhook] 인증 실패');
-    return NextResponse.json({ ok: false }, { status: 401 });
+    logger.warn('[CruisedotWebhook] Bearer token 불일치 — 인증 실패');
+    return NextResponse.json({ ok: false, error: 'Authentication failed' }, { status: 401 });
   }
 
   // 요청 본문 읽기
