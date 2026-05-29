@@ -83,41 +83,40 @@ export async function POST(req: Request, { params }: Params) {
 
     const baseDate = body.startDate ? new Date(body.startDate) : new Date();
 
-    // 고객별 VipCareSequence + VipCareLog 생성
-    let enrolled = 0;
-    for (const contact of toEnroll) {
-      const logs = funnel.stages.map(stage => {
-        const scheduledAt = new Date(baseDate);
-        scheduledAt.setUTCDate(scheduledAt.getUTCDate() + (stage.triggerOffset ?? 0));
-        scheduledAt.setUTCHours(1, 0, 0, 0); // UTC 01:00 = KST 10:00
+    // 일괄 등록 — N+1 방지: 루프 대신 $transaction createMany 패턴
+    await prisma.$transaction(
+      toEnroll.map(contact => {
+        const logs = funnel.stages.map(stage => {
+          const scheduledAt = new Date(baseDate);
+          scheduledAt.setUTCDate(scheduledAt.getUTCDate() + (stage.triggerOffset ?? 0));
+          scheduledAt.setUTCHours(1, 0, 0, 0); // UTC 01:00 = KST 10:00
 
-        const rawContent: string | null = (stage as Record<string, unknown>).messageContent as string | null ?? null;
-        const content = rawContent
-          ? rawContent
-              .replace(/\[고객명\]/g, contact.name)
-              .replace(/\[이름\]/g,   contact.name)
-          : null;
+          const rawContent = (stage as Record<string, unknown>).messageContent as string | null ?? null;
+          const content = rawContent
+            ? rawContent.replace(/\[고객명\]/g, contact.name).replace(/\[이름\]/g, contact.name)
+            : null;
 
-        return {
-          stageOrder:  stage.order,
-          scheduledAt,
-          status:      "PENDING",
-          channel:     (stage as Record<string, unknown>).channel as string | null ?? "SMS",
-          content,
-        };
-      });
+          return {
+            stageOrder: stage.order,
+            scheduledAt,
+            status:     "PENDING",
+            channel:    (stage as Record<string, unknown>).channel as string | null ?? "SMS",
+            content,
+          };
+        });
 
-      await prisma.vipCareSequence.create({
-        data: {
-          contactId: contact.id,
-          funnelId,
-          startDate: baseDate,
-          status:    "ACTIVE",
-          logs:      { create: logs },
-        },
-      });
-      enrolled++;
-    }
+        return prisma.vipCareSequence.create({
+          data: {
+            contactId: contact.id,
+            funnelId,
+            startDate: baseDate,
+            status:    "ACTIVE",
+            logs:      { create: logs },
+          },
+        });
+      })
+    );
+    const enrolled = toEnroll.length;
 
     logger.log("[POST /api/funnels/[id]/enroll-group]", {
       funnelId,

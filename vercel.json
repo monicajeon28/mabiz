@@ -53,16 +53,8 @@
       "schedule": "*/2 * * * *"
     },
     {
-      "path": "/api/cron/delta-sms?schedule=morning",
-      "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/cron/delta-sms?schedule=afternoon",
-      "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/cron/delta-sms?schedule=evening",
-      "schedule": "0 19 * * *"
+      "path": "/api/cron/delta-sms",
+      "schedule": "0 9,14,19 * * *"
     },
     {
       "path": "/api/cron/retry-mabiz-dlq",
@@ -115,6 +107,10 @@
     {
       "path": "/api/cron/partner-tier-calc",
       "schedule": "0 8 1 * *"
+    },
+    {
+      "path": "/api/cron/passport-reminder",
+      "schedule": "0 0 * * *"
     }
   ]
 }
