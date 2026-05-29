@@ -132,6 +132,11 @@ export async function detectChurnSignal(
     lastThreeMonths.reduce((sum, ledger) => sum + ledger.netAmount, 0) /
     lastThreeMonths.length;
 
+  // 평균 금액이 0 이하이면 Churn 신호 아님
+  if (averageAmount <= 0) {
+    return false;
+  }
+
   const decreasePercent = (averageAmount - currentMonthAmount) / averageAmount;
 
   return decreasePercent > 0.2; // 20% 이상 감소

@@ -15,7 +15,7 @@ function calculateConfidence(variant1Clicks: number, variant1Total: number, vari
   const rate2 = variant2Clicks / variant2Total;
   const pooledRate = (variant1Clicks + variant2Clicks) / (variant1Total + variant2Total);
   const se = Math.sqrt(pooledRate * (1 - pooledRate) * (1 / variant1Total + 1 / variant2Total));
-  const z = Math.abs((rate1 - rate2) / se);
+  const z = se > 0 ? Math.abs((rate1 - rate2) / se) : 0;
 
   // Z-score to confidence mapping
   if (z > 2.576) return 99; // 99%
