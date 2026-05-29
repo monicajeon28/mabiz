@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import {
-  Badge,
   AlertCircle,
   TrendingUp,
   Target,
@@ -16,6 +15,15 @@ import {
   EyeOff,
   Loader2,
 } from "lucide-react";
+
+function Badge({ children, className, variant }: { children: React.ReactNode; className?: string; variant?: 'outline' | 'secondary' | 'default' }) {
+  const base = "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold";
+  const variantClass =
+    variant === 'outline' ? 'border border-gray-300 text-gray-700' :
+    variant === 'secondary' ? 'bg-gray-100 text-gray-700' :
+    'bg-gray-900 text-white';
+  return <span className={`${base} ${variantClass} ${className || ''}`}>{children}</span>;
+}
 
 interface Customer360Data {
   data: {

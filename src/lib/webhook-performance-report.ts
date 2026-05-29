@@ -279,8 +279,8 @@ async function collectMetrics(
   }
 
   const slowestType = Object.entries(typeMetrics).reduce((prev, curr) => {
-    const prevAvg = prev[1].times.length > 0 ? prev[1].times.reduce((a, b) => a + b) / prev[1].times.length : 0;
-    const currAvg = curr[1].times.length > 0 ? curr[1].times.reduce((a, b) => a + b) / curr[1].times.length : 0;
+    const prevAvg = prev[1].times.length > 0 ? prev[1].times.reduce((a: number, b: number) => a + b) / prev[1].times.length : 0;
+    const currAvg = curr[1].times.length > 0 ? curr[1].times.reduce((a: number, b: number) => a + b) / curr[1].times.length : 0;
     return currAvg > prevAvg ? curr : prev;
   });
 
@@ -315,7 +315,7 @@ async function collectMetrics(
     peakHour: peakHourStr,
     peakHourVolume,
     slowestType: slowestType[0],
-    slowestTypeAvgTime: Math.round((slowestType[1].times.reduce((a, b) => a + b, 0) / slowestType[1].times.length) * 100) / 100,
+    slowestTypeAvgTime: Math.round((slowestType[1].times.reduce((a: number, b: number) => a + b, 0) / slowestType[1].times.length) * 100) / 100,
     mostReliableType: mostReliableType[0],
     mostReliableTypeSuccessRate: Math.round(((mostReliableType[1].success / mostReliableType[1].total) * 100) * 100) / 100,
   };

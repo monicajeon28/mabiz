@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
           });
         }
       } catch (rpcErr) {
-        logger.warn('RPC get_ab_test_summary failed, using Prisma:', rpcErr);
+        logger.warn('RPC get_ab_test_summary failed, using Prisma:', rpcErr as object);
       }
     }
 

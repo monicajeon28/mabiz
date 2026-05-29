@@ -20,7 +20,7 @@ export class MessagesWebhookHandler extends BaseWebhookHandler {
       await prisma.smsLog.updateMany({
         where: {
           organizationId,
-          messageId,
+          msgId: messageId,
         },
         data: {
           status: deliveryStatus || status || 'SENT',

@@ -259,7 +259,7 @@ export default function ContactsPage() {
         toast({ title: '삭제 실패', description: data.message ?? '다시 시도해주세요.', variant: 'destructive' });
       }
     } catch (err) {
-      logger.error("[ContactsPage] Bulk delete error:", err);
+      logger.error("[ContactsPage] Bulk delete error:", err as object);
       toast({ title: '네트워크 오류', description: '삭제 중 오류가 발생했습니다. 다시 시도해주세요.', variant: 'destructive' });
     } finally {
       setDeleting(false);
@@ -560,7 +560,7 @@ export default function ContactsPage() {
   const todayCallList = contacts
     .filter((c) => {
       if (c.type !== "LEAD") return false;
-      const days = getDaysSince(c.lastContactedAt);
+      const days = getDaysSince(c.lastContactedAt ?? null);
       if (days === null) return true;
       return days >= 3;
     })
@@ -978,7 +978,7 @@ export default function ContactsPage() {
                   >
                     {c.phone}
                   </a>
-                  <span className="text-xs text-amber-600">{formatDaysSince(c.lastContactedAt)}</span>
+                  <span className="text-xs text-amber-600">{formatDaysSince(c.lastContactedAt ?? null)}</span>
                   <span className="text-xs text-gray-400">{c.leadScore ?? 0}점</span>
                 </span>
               </button>
@@ -1099,7 +1099,7 @@ export default function ContactsPage() {
                       )}
                       {/* D-day 뱃지 */}
                       {(() => {
-                        const dday = getDDay(c.departureDate);
+                        const dday = getDDay(c.departureDate ?? null);
                         if (!dday) return null;
                         return (
                           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${dday.urgent ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>

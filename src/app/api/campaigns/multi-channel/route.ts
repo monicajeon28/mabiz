@@ -89,14 +89,13 @@ export async function GET(req: Request) {
     }
 
     const [campaigns, total] = await Promise.all([
-      prisma.multiChannelCampaign.findMany({
+      prisma.crmMarketingCampaign.findMany({
         where,
         orderBy: { createdAt: "desc" },
         take: limit,
         skip: offset,
-        include: { metrics: true },
       }),
-      prisma.multiChannelCampaign.count({ where }),
+      prisma.crmMarketingCampaign.count({ where }),
     ]);
 
     return NextResponse.json({

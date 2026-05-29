@@ -1,7 +1,12 @@
 import * as React from "react"
 
-const Select = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className = "", ...props }, ref) => (
+type SelectProps = React.HTMLAttributes<HTMLDivElement> & {
+  value?: string;
+  onValueChange?: (value: string) => void;
+};
+
+const Select = React.forwardRef<HTMLDivElement, SelectProps>(
+  ({ className = "", value: _value, onValueChange: _onValueChange, ...props }, ref) => (
     <div ref={ref} className={className} {...props} />
   )
 )

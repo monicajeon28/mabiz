@@ -388,8 +388,94 @@ D:\mabiz-crm\
 
 ---
 
-**마지막 업데이트**: 2026-05-26 | **버전**: 3.0 (T7-T12 추가 완성)
+---
+
+## ⚡ 병렬 서브에이전트 워크플로우 (v4.0 핵심 규칙)
+
+### 왜 병렬 에이전트가 필요한가?
+- `npm run build`는 dev 서버 실행 중 실행하면 EBUSY 파일 잠금 오류 발생
+- 에이전트가 같은 파일을 동시에 수정하면 Git 충돌 발생
+- **해결책**: 도메인별 파일 소유권을 명확히 분리하고, 빌드 대신 TSC만 사용
+
+---
+
+### 도메인 격리 테이블 (에이전트별 파일 소유권)
+
+| 도메인 | 에이전트 코드 | 전담 경로 | 공유 금지 |
+|--------|------------|---------|---------|
+| **CRM/Contacts** | Agent-CRM | `src/app/(dashboard)/contacts/` `src/app/api/contacts/` | prisma/schema.prisma |
+| **Marketing/Campaigns** | Agent-MKT | `src/app/(dashboard)/marketing/` `src/app/(dashboard)/campaigns/` `src/app/api/campaigns/` | prisma/schema.prisma |
+| **SMS/Messages** | Agent-SMS | `src/app/(dashboard)/messages/` `src/app/(dashboard)/sms-logs/` `src/app/api/messages/` `src/app/api/cron/` | prisma/schema.prisma |
+| **Affiliate/Partner** | Agent-AFF | `src/app/(dashboard)/partner*/` `src/app/(dashboard)/commission-ledger/` `src/app/api/affiliate*/` | prisma/schema.prisma |
+| **Admin/Analytics** | Agent-ADM | `src/app/(dashboard)/admin/` `src/app/(dashboard)/dashboard/` `src/app/api/admin/` | prisma/schema.prisma |
+| **Webhooks** | Agent-WHK | `src/app/api/webhooks/` `src/app/api/payapp/` | prisma/schema.prisma |
+| **Settings/Auth** | Agent-SET | `src/app/(dashboard)/settings/` `src/app/api/auth/` | prisma/schema.prisma |
+| **Lib/Utils** | Agent-LIB | `src/lib/` | 다른 에이전트와 동시 수정 금지 |
+| **Prisma/DB** | (순차 전용) | `prisma/` | **병렬 절대 금지** |
+
+> **규칙**: 각 에이전트는 자기 도메인 파일만 수정. `src/lib/` 수정 필요시 순차 실행.
+
+---
+
+### 빌드 검증 전략 (EBUSY 완전 방지)
+
+```powershell
+# ✅ 올바른 방법: TSC만 실행 (dev 서버 실행 중에도 안전)
+npx tsc --noEmit
+
+# ✅ Prisma 타입만 재생성 (dev 서버 실행 중에도 안전)
+npx prisma generate
+
+# ❌ 절대 금지: dev 서버 실행 중 전체 빌드
+npm run build   # EBUSY 오류 → 사용 금지
+
+# ✅ 풀 빌드가 꼭 필요하면: dev 서버 먼저 종료
+# Ctrl+C로 dev 서버 종료 → npm run build
+```
+
+---
+
+### 병렬 에이전트 실행 프로토콜
+
+```
+Phase 1: 분석 (1개 에이전트, 순차)
+  └─ 작업 분해 → 도메인별 서브태스크 목록 생성
+
+Phase 2: 병렬 구현 (도메인별 독립 에이전트 동시 실행)
+  ├─ Agent-CRM  → contacts 도메인 파일만 수정
+  ├─ Agent-MKT  → campaigns 도메인 파일만 수정
+  ├─ Agent-SMS  → messages/cron 도메인 파일만 수정
+  └─ Agent-AFF  → affiliate 도메인 파일만 수정
+
+Phase 3: 검증 (1개 에이전트, 순차)
+  └─ npx tsc --noEmit → 에러 0개 확인 → git commit
+```
+
+---
+
+### 에이전트 프롬프트 필수 헤더
+
+모든 서브에이전트 프롬프트 시작에 아래 헤더 포함 필수:
+
+```
+[도메인: Agent-CRM | 전담 경로: src/app/(dashboard)/contacts/, src/app/api/contacts/]
+[금지: prisma/schema.prisma 수정, 다른 도메인 파일 수정]
+[검증: npx tsc --noEmit (npm run build 절대 사용 금지)]
+```
+
+---
+
+### Workflow 스크립트 위치
+
+병렬 에이전트 실행을 위한 Workflow 스크립트:
+- `scripts/parallel-agents.js` — 도메인별 병렬 에이전트 실행 템플릿
+- 호출: `/workflow scripts/parallel-agents.js`
+
+---
+
+**마지막 업데이트**: 2026-05-30 | **버전**: 4.0 (병렬 에이전트 워크플로우 추가)
 
 ### 버전 히스토리
 - v2.0 (2026-05-24): T1-T6 Template 6가지 완성
 - v3.0 (2026-05-26): T7-T12 Template 6가지 추가 (CRM고급/Affiliate/SMS고급/렌즈통합/Analytics/Partner)
+- v4.0 (2026-05-30): 병렬 서브에이전트 워크플로우 + 도메인 격리 + EBUSY 방지 규칙 추가

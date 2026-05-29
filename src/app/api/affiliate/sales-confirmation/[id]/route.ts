@@ -78,7 +78,7 @@ export async function PATCH(
     });
 
     logger.log('[sales-confirmation PATCH] 판매 상태 업데이트', {
-      saleId: params.id,
+      saleId: resolvedParams.id,
       prevStatus: sale.status,
       newStatus: status,
       approverId: session.userId,

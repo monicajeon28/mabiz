@@ -114,7 +114,7 @@ export async function processWebhookQueue(): Promise<void> {
     job.status = "PROCESSING";
     const success = await processWebhookRetry(job);
 
-    if (success || job.status === "FAILED") {
+    if (success || job.retryCount >= 5) {
       // 큐에서 제거 (성공 또는 최대 재시도 초과)
       const idx = webhookQueue.indexOf(job);
       if (idx > -1) webhookQueue.splice(idx, 1);

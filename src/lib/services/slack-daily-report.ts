@@ -182,7 +182,7 @@ export function generateDailyReportSlackMessage(
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `• *${alert.metric}*: ${alert.message}\n${alert.action ? `  ➜ ${alert.action}` : ''}`,
+          text: `• *${alert.metric}*: ${alert.message}`,
         },
       });
     });

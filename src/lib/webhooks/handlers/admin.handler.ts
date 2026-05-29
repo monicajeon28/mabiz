@@ -21,7 +21,7 @@ export class AdminWebhookHandler extends BaseWebhookHandler {
         data: {
           organizationId,
           title: `${actionType}: ${targetType}`,
-          message: JSON.stringify(metadata || {}),
+          content: JSON.stringify(metadata || {}),
           messageType: 'SYSTEM',
           isRead: false,
         },

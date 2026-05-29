@@ -43,7 +43,14 @@
     "tmp/**",
     "scripts/**",
     "크루즈닷기능/**",
+    "docs/**",
+    ".next/**",
     "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "src/tests/**",
     "cypress/**"
   ]
 }

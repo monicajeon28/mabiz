@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     // 삭제 요청 생성
     const deletionRequest = await dataDeletionManager.scheduleContactDeletion({
       contactId,
-      organizationId: ctx.organizationId,
+      organizationId: ctx.organizationId ?? '',
       requestedBy: ctx.userId,
       reason,
       gracePeriodDays: 30,
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     // 감시 로그 기록
     await auditLogger.record({
-      organizationId: ctx.organizationId,
+      organizationId: ctx.organizationId ?? undefined,
       userId: ctx.userId,
       action: 'DELETE',
       resourceType: 'Contact',
@@ -62,11 +62,12 @@ export async function POST(req: NextRequest) {
       scheduledDeleteAt: deletionRequest.scheduledDeleteAt,
     });
 
+    const dr = deletionRequest as typeof deletionRequest & { id?: string };
     return NextResponse.json({
       success: true,
       message: '30일 유예기간으로 삭제 요청이 등록되었습니다',
       deletionRequest: {
-        id: deletionRequest.id,
+        id: dr.id,
         contactId: deletionRequest.contactId,
         requestedAt: deletionRequest.requestedAt,
         scheduledDeleteAt: deletionRequest.scheduledDeleteAt,

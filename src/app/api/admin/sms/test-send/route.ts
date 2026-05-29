@@ -20,13 +20,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '인증 필요' }, { status: 401 });
     }
 
-    // 관리자 권한 확인
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+    // 관리자 권한 확인 (OrganizationMember 사용)
+    const member = await prisma.organizationMember.findFirst({
+      where: { email: session.user.email, isActive: true },
       select: { role: true, organizationId: true },
     });
 
-    if (!user?.organizationId || user.role !== 'ADMIN') {
+    if (!member?.organizationId || member.role !== 'ADMIN') {
       return NextResponse.json({ error: '권한 없음' }, { status: 403 });
     }
 
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
 
     // SMS 설정 조회
     const smsConfig = await prisma.orgSmsConfig.findUnique({
-      where: { organizationId: user.organizationId },
+      where: { organizationId: member.organizationId },
     });
 
     if (!smsConfig || !smsConfig.isActive) {
@@ -64,16 +64,16 @@ export async function POST(req: Request) {
     // 발신자 번호 검증 확인
     if (!smsConfig.senderVerified) {
       logger.warn('[SMSTestSend] 발신자 번호 미검증', {
-        organizationId: user.organizationId,
+        organizationId: member.organizationId,
         senderPhone: smsConfig.senderPhone,
       });
     }
 
-    // Aligo 클라이언트 생성
+    // Aligo 클라이언트 생성 (AligoConfig: key, userId, sender)
     const aligoClient = createAligoClient({
-      apiKey: smsConfig.aligoKey,
+      key: smsConfig.aligoKey,
       userId: smsConfig.aligoUserId,
-      senderPhone: smsConfig.senderPhone,
+      sender: smsConfig.senderPhone,
     });
 
     // 발신자 번호 검증
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
       senderPhone: smsConfig.senderPhone,
     });
 
-    const isValidSender = await aligoClient.verifySenderNumber();
+    const isValidSender = await aligoClient.verifySender();
 
     if (!isValidSender) {
       logger.error('[SMSTestSend] 발신자 번호 검증 실패', {
@@ -98,33 +98,34 @@ export async function POST(req: Request) {
 
     // 테스트 SMS 발송
     logger.log('[SMSTestSend] SMS 발송 시작', {
-      organizationId: user.organizationId,
+      organizationId: member.organizationId,
       receiver: cleanPhone.substring(0, 4) + '****',
       messageLength: message.length,
     });
 
-    const response = await aligoClient.sendSms({
-      receiver: cleanPhone,
-      message: `[테스트] ${message}`,
-      messageType: message.length > 80 ? 'LMS' : 'SMS',
-    });
+    const response = await aligoClient.sendSms(
+      cleanPhone,
+      `[테스트] ${message}`,
+      message.length > 80 ? 'LMS' : 'SMS'
+    );
 
-    if (response.resultCode === 1) {
+    if (response.result_code === 1) {
       // 성공
       logger.log('[SMSTestSend] SMS 발송 성공', {
-        organizationId: user.organizationId,
-        msgId: response.msgId,
+        organizationId: member.organizationId,
+        msgId: response.msg_id,
         receiver: cleanPhone.substring(0, 4) + '****',
       });
 
       // SmsLog 기록
       await prisma.smsLog.create({
         data: {
-          organizationId: user.organizationId,
+          organizationId: member.organizationId,
           phone: cleanPhone,
           msg: message,
+          contentPreview: message.substring(0, 50),
           status: 'SENT',
-          msgId: response.msgId,
+          msgId: response.msg_id,
           channel: 'ADMIN_TEST',
         },
       });
@@ -132,24 +133,25 @@ export async function POST(req: Request) {
       return NextResponse.json({
         success: true,
         message: '테스트 SMS가 발송되었습니다',
-        msgId: response.msgId,
+        msgId: response.msg_id,
         receiver: cleanPhone.substring(0, 4) + '****',
         expectedArrival: '약 1-10초 내',
       });
     } else {
       // 실패
       logger.error('[SMSTestSend] SMS 발송 실패', {
-        organizationId: user.organizationId,
-        resultCode: response.resultCode,
+        organizationId: member.organizationId,
+        result_code: response.result_code,
         message: response.message,
       });
 
       // SmsLog 기록 (실패)
       await prisma.smsLog.create({
         data: {
-          organizationId: user.organizationId,
+          organizationId: member.organizationId,
           phone: cleanPhone,
           msg: message,
+          contentPreview: message.substring(0, 50),
           status: 'FAILED',
           blockReason: response.message,
           channel: 'ADMIN_TEST',
@@ -159,9 +161,9 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error: 'SMS 발송 실패',
-          resultCode: response.resultCode,
+          resultCode: response.result_code,
           message: response.message,
-          troubleshooting: getTroubleshooting(response.resultCode),
+          troubleshooting: getTroubleshooting(response.result_code),
         },
         { status: 400 }
       );
