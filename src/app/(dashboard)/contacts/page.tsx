@@ -18,7 +18,7 @@ type Contact = {
   departureDate: string | null;
   leadScore: number;
   tags: string[] | null;
-  groups: { group: { id: string; name: string; color: string | null } }[];
+  groups?: { group: { id: string; name: string; color: string | null } }[];
   _count: { callLogs: number };
   createdAt?: string; // 신청 일시
   sourceType?: string; // P0-6: user, inquiry, affiliate, landing_page, education, gold_member
@@ -249,14 +249,9 @@ export default function ContactsPage() {
         toast({ title: '삭제 완료', description: `${data.count}명의 고객이 삭제되었습니다` });
         setSelectedIds(new Set());
         setShowDeleteConfirm(false);
-        // 목록 새로고침
+        // 목록 새로고침 — fetchContacts 재호출 (groups 포함 보장)
         setPage(1);
-        const refreshRes = await fetch(`/api/contacts/all?q=${q}&type=${type}&page=${1}&limit=${10}&filterGroupId=${filterGroupId}&filterSourceType=${filterSourceType}&filterAssignedTo=${filterAssignedTo}${selectedTags.length > 0 ? `&tags=${selectedTags.join(",")}` : ""}`);
-        const json = await refreshRes.json();
-        if (json.ok) {
-          setContacts(json.contacts || []);
-          setTotal(json.total || 0);
-        }
+        await fetchContacts();
       } else {
         toast({ title: '삭제 실패', description: data.message ?? '다시 시도해주세요.', variant: 'destructive' });
       }
