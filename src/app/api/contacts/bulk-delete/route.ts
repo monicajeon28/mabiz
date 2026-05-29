@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, requireOrgId, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 /**
@@ -84,15 +84,8 @@ export async function POST(req: Request) {
     // organizationId 결정
     let orgId: string;
     if (ctx.role === 'GLOBAL_ADMIN') {
-      // GLOBAL_ADMIN: Body에서 organizationId를 받거나 기본값 사용
-      // (현재는 bodyOrgId가 없으면 에러 반환, 향후 본사 기본값 추가 가능)
-      if (!bodyOrgId && !ctx.organizationId) {
-        return NextResponse.json(
-          { ok: false, message: '조직을 선택한 후 삭제해주세요', code: 'ORG_REQUIRED', requiresOrgSelection: true },
-          { status: 400 }
-        );
-      }
-      orgId = bodyOrgId || ctx.organizationId!;
+      // GLOBAL_ADMIN: Body에 organizationId가 있으면 사용, 없으면 resolveOrgId()로 본사 기본값(BONSA_ORG_ID) 사용
+      orgId = bodyOrgId || resolveOrgId(ctx);
     } else {
       // OWNER: 자신의 organizationId 사용 (필수)
       try {
