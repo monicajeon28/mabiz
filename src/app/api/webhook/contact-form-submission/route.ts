@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { generateErrorId, logSafeError } from '@/lib/pii-masker';
@@ -27,6 +28,40 @@ interface FormSubmissionPayload {
 }
 
 export async function POST(req: NextRequest) {
+  // [P0-SEC-501] Bearer token 검증 (WEBHOOK_SECRET)
+  const authHeader = req.headers.get('authorization') ?? '';
+  const secret = process.env.WEBHOOK_SECRET;
+
+  if (!secret) {
+    logger.error('[ContactFormSubmission] CRITICAL: WEBHOOK_SECRET 미설정. 웹훅 수신 불가능합니다. DevOps에 연락하세요.');
+    return NextResponse.json(
+      { ok: false, message: 'Server configuration error' },
+      { status: 500 }
+    );
+  }
+
+  // [P0-SEC-502] Bearer token 형식 검증
+  if (!authHeader.startsWith('Bearer ')) {
+    logger.warn('[ContactFormSubmission] Bearer token 미제공 — 요청 차단');
+    return NextResponse.json(
+      { ok: false, message: 'Unauthorized' },
+      { status: 401 }
+    );
+  }
+
+  const token = authHeader.slice(7);
+  if (
+    token.length === 0 ||
+    token.length !== secret.length ||
+    !timingSafeEqual(Buffer.from(token), Buffer.from(secret))
+  ) {
+    logger.warn('[ContactFormSubmission] Bearer token 불일치 — 인증 실패');
+    return NextResponse.json(
+      { ok: false, message: 'Unauthorized' },
+      { status: 401 }
+    );
+  }
+
   try {
     const body = await req.json() as FormSubmissionPayload;
 
@@ -38,16 +73,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // [P0-SEC-503] User-Agent 길이 제한 (DDoS/메모리 공격 방지)
+    const MAX_USER_AGENT_LENGTH = 500; // 표준 UA는 150-300자
+    const userAgentRaw = body.userAgent || 'unknown';
+    if (userAgentRaw.length > MAX_USER_AGENT_LENGTH) {
+      logger.warn('[ContactFormSubmission] User-Agent 길이 초과 — 요청 차단', {
+        length: userAgentRaw.length,
+        max: MAX_USER_AGENT_LENGTH,
+      });
+      return NextResponse.json(
+        { ok: false, message: 'User-Agent too long' },
+        { status: 400 }
+      );
+    }
+
+    const userAgent = userAgentRaw.slice(0, 512);
+    const affiliateCode = body.affiliateCode ? body.affiliateCode.slice(0, 64) : null;
+    const segment = body.segment.slice(0, 8) as FormSubmissionPayload['segment'];
+
     // FormSubmission 레코드 생성 (A/B 테스트 추적용)
     const submission = await prisma.formSubmission.create({
       data: {
         variant: body.variant,
-        segment: body.segment,
+        segment,
         completionTimeMs: body.completionTimeMs,
-        ageRange: body.ageRange,
-        preferenceType: body.preferenceType,
-        affiliateCode: body.affiliateCode || null,
-        userAgent: body.userAgent || 'unknown',
+        ageRange: body.ageRange.slice(0, 32),
+        preferenceType: body.preferenceType.slice(0, 64),
+        affiliateCode,
+        userAgent,
       },
       select: { id: true, createdAt: true },
     });

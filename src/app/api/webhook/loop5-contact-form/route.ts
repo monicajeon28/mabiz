@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { sendDay0Sms } from '@/lib/loop5-sms-service';
@@ -33,7 +34,7 @@ interface ContactFormPayload {
   ageRange?: string;
   preferenceType?: string;
   variant?: ABVariant;
-  organizationId: string;
+  organizationId?: string; // 클라이언트 제공값은 무시됨 — 서버에서 환경변수로 결정
   timestamp?: string;
   userAgent?: string;
   abVariant?: ABVariant;
@@ -80,15 +81,46 @@ function classifySegment(ageRange?: string, preferenceType?: string): Segment {
 }
 
 export async function POST(request: NextRequest) {
+  // [P0-SEC-401] Bearer 시크릿 검증 (timingSafeEqual)
+  const secret = process.env.LOOP5_CONTACT_FORM_WEBHOOK_SECRET;
+  if (!secret) {
+    logger.error('[Loop5 Contact Form] CRITICAL: LOOP5_CONTACT_FORM_WEBHOOK_SECRET 미설정. 웹훅 수신 불가능합니다. DevOps에 연락하세요.');
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+  }
+
+  // [P0-SEC-402] Bearer token 형식 검증
+  const authHeader = request.headers.get('authorization') ?? '';
+  if (!authHeader.startsWith('Bearer ')) {
+    logger.warn('[Loop5 Contact Form] Bearer token 미제공 — 요청 차단');
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const token = authHeader.slice(7);
+  if (
+    token.length === 0 ||
+    token.length !== secret.length ||
+    !timingSafeEqual(Buffer.from(token), Buffer.from(secret))
+  ) {
+    logger.warn('[Loop5 Contact Form] Bearer token 불일치 — 인증 실패');
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const payload = (await request.json()) as ContactFormPayload;
 
-    // 필수 필드 검증
-    if (!payload.name || !payload.phone || !payload.organizationId) {
+    // 필수 필드 검증 (organizationId는 클라이언트 제공값을 사용하지 않음)
+    if (!payload.name || !payload.phone) {
       return NextResponse.json(
-        { error: 'Missing required fields: name, phone, organizationId' },
+        { error: 'Missing required fields: name, phone' },
         { status: 400 }
       );
+    }
+
+    // [P0-SEC-403] organizationId는 서버 환경변수에서만 결정 — 클라이언트 제공값 무시 (테넌트 격리)
+    const organizationId = process.env.DEFAULT_ORGANIZATION_ID;
+    if (!organizationId) {
+      logger.error('[Loop5 Contact Form] DEFAULT_ORGANIZATION_ID 미설정');
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
     const normalizedPhone = normalizePhoneNumber(payload.phone);
@@ -106,7 +138,7 @@ export async function POST(request: NextRequest) {
     let existingContact = await prisma.contact.findFirst({
       where: {
         phone: normalizedPhone,
-        organizationId: payload.organizationId,
+        organizationId,
       },
     });
 
@@ -143,7 +175,7 @@ export async function POST(request: NextRequest) {
       // 신규 Contact 생성
       contact = await prisma.contact.create({
         data: {
-          organizationId: payload.organizationId,
+          organizationId,
           phone: normalizedPhone,
           name: payload.name,
           email: payload.email,
@@ -173,7 +205,7 @@ export async function POST(request: NextRequest) {
     let smsSendResult = { success: false, smsId: undefined };
     if (normalizedPhone) {
       smsSendResult = await sendDay0Sms(
-        payload.organizationId,
+        organizationId,
         contact.id,
         segment,
         normalizedPhone,
@@ -198,7 +230,7 @@ export async function POST(request: NextRequest) {
     let emailSendResult = { success: false };
     if (payload.email) {
       emailSendResult = await sendDay0Email(
-        payload.organizationId,
+        organizationId,
         contact.id,
         payload.email,
         segment,

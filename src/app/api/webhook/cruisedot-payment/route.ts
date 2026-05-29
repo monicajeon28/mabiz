@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { logger } from '@/lib/logger';
 import {
   integrateContactWithLoop5Sms,
@@ -64,17 +65,23 @@ function verifyWebhookSignature(
   signature: string,
   secret: string
 ): boolean {
-  const crypto = require('crypto');
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
+  const expectedSignature = createHmac('sha256', secret)
     .update(payload)
     .digest('hex');
 
-  // 타이밍 공격 방지: 문자 단위 비교
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature)
-  );
+  // [P0-SEC-301] Timing-safe 비교로 타이밍 공격 방지
+  if (signature.length !== expectedSignature.length) {
+    return false;
+  }
+
+  try {
+    return timingSafeEqual(
+      Buffer.from(signature, 'hex'),
+      Buffer.from(expectedSignature, 'hex')
+    );
+  } catch {
+    return false;
+  }
 }
 
 // ============================================
@@ -163,38 +170,71 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // 2. Webhook 서명 검증 (선택)
+    // 2. Webhook 서명 검증 (필수)
     // ============================================
 
-    if (signature && process.env.WEBHOOK_SECRET) {
-      try {
-        const isValid = verifyWebhookSignature(
-          rawBody,
-          signature,
-          process.env.WEBHOOK_SECRET
-        );
+    // [P0-SEC-302] WEBHOOK_SECRET 필수 검증
+    if (!process.env.WEBHOOK_SECRET) {
+      logger.error('[Webhook] CRITICAL: WEBHOOK_SECRET 환경변수 미설정. 웹훅 수신 불가능합니다. DevOps에 연락하세요.');
+      return NextResponse.json(
+        { error: 'Server misconfiguration' },
+        { status: 500 }
+      );
+    }
 
-        if (!isValid) {
-          logger.warn('[Webhook] 서명 검증 실패', {
-            paymentId: paymentData.payment_id,
-            signature: signature.slice(0, 10) + '...',
-          });
+    // [P0-SEC-303] 서명 헤더 필수 검증
+    if (!signature) {
+      logger.warn('[Webhook] 서명 헤더 누락 — 요청 차단');
+      return NextResponse.json(
+        { error: 'Missing signature' },
+        { status: 403 }
+      );
+    }
 
-          return NextResponse.json(
-            { error: 'Invalid signature' },
-            { status: 403 }
-          );
-        }
+    // [P0-SEC-304] 서명 길이 검증 (기본 SHA256 hex는 64자)
+    if (signature.length !== 64) {
+      logger.warn('[Webhook] 서명 길이 불일치 — 위조 의심', {
+        paymentId: paymentData.payment_id,
+        receivedLength: signature.length,
+        expected: 64,
+      });
+      return NextResponse.json(
+        { error: 'Invalid signature format' },
+        { status: 403 }
+      );
+    }
 
-        logger.log('[Webhook] 서명 검증 성공', {
+    try {
+      const isValid = verifyWebhookSignature(
+        rawBody,
+        signature,
+        process.env.WEBHOOK_SECRET
+      );
+
+      if (!isValid) {
+        logger.warn('[Webhook] 서명 검증 실패 — 인증 오류', {
           paymentId: paymentData.payment_id,
+          signature: signature.slice(0, 8) + '***' + signature.slice(-8),
         });
-      } catch (error) {
-        logger.error('[Webhook] 서명 검증 오류', {
-          error: error instanceof Error ? error.message : String(error),
-        });
-        // 서명 검증 오류는 무시하고 진행 (개발 환경)
+
+        return NextResponse.json(
+          { error: 'Invalid signature' },
+          { status: 403 }
+        );
       }
+
+      logger.log('[Webhook] 서명 검증 성공', {
+        paymentId: paymentData.payment_id,
+      });
+    } catch (error) {
+      logger.error('[Webhook] 서명 검증 오류', {
+        error: error instanceof Error ? error.message : String(error),
+        paymentId: paymentData.payment_id,
+      });
+      return NextResponse.json(
+        { error: 'Signature verification failed' },
+        { status: 403 }
+      );
     }
 
     // ============================================
