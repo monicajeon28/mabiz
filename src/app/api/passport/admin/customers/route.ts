@@ -116,9 +116,11 @@ export async function GET(req: NextRequest) {
     ];
 
     // OWNER 테넌트 격리: AffiliateSale을 통해 소속 조직 고객만 조회
-    // GmTrip에 organizationId가 없으므로 AffiliateSale 경로로 필터링
-    // GLOBAL_ADMIN은 필터 없이 모든 고객 조회
-    if (manager.role === 'OWNER' && manager.organizationId) {
+    if (manager.role === 'OWNER') {
+      if (!manager.organizationId) {
+        // organizationId 없는 OWNER는 데이터 없음 (보안 기본값)
+        return NextResponse.json({ ok: true, data: [], meta: { page, limit: take, count: 0, total: 0 } });
+      }
       whereConditions.push(
         Prisma.sql`EXISTS(
           SELECT 1 FROM "CrmAffiliateSale" af

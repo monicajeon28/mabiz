@@ -57,32 +57,28 @@ function parseBalance(response: AligoRemainResponse): number {
  *   에러 발생 시마다 재시도하게 되며 캐시 히트가 안 됨. 따라서 graceful fallback 값을 반환해
  *   정상 케이스처럼 캐시되도록 함.
  */
-const fetchCachedBalance = unstable_cache(
-  async (): Promise<BalanceResult> => {
-    try {
-      const response = await fetchRemain();
-
-      // result_code가 문자열 "1"로 올 수 있어 Number()로 강제 변환
-      if (Number(response.result_code) !== 1) {
-        logger.warn('[AligoStatus] Aligo API 에러 응답 (캐시됨):', { message: response.message });
-        // unavailable 플래그를 balance에 음수로 인코딩하는 대신 별도 필드 사용 불가(타입 단순화).
-        // -1을 반환해 호출부에서 unavailable 처리.
-        return { balance: -1, fetchedAt: new Date().toISOString() };
+// organizationId별로 독립 캐시 (대리점별 알리고 계정 분리)
+function fetchCachedBalance(orgId: string | null) {
+  return unstable_cache(
+    async (): Promise<BalanceResult> => {
+      try {
+        const response = await fetchRemain();
+        if (Number(response.result_code) !== 1) {
+          logger.warn('[AligoStatus] Aligo API 에러 응답 (캐시됨):', { message: response.message });
+          return { balance: -1, fetchedAt: new Date().toISOString() };
+        }
+        return { balance: parseBalance(response), fetchedAt: new Date().toISOString() };
+      } catch (fetchErr) {
+        logger.warn('[AligoStatus] Aligo API 연결 실패 (캐시됨):', {
+          error: fetchErr instanceof Error ? fetchErr.message : String(fetchErr),
+        });
+        return { balance: -2, fetchedAt: new Date().toISOString() };
       }
-
-      return { balance: parseBalance(response), fetchedAt: new Date().toISOString() };
-    } catch (fetchErr) {
-      // 외부 API 연결 실패 → graceful fallback (캐시에 저장되어 5분간 재시도 방지)
-      logger.warn('[AligoStatus] Aligo API 연결 실패 (캐시됨):', {
-        error: fetchErr instanceof Error ? fetchErr.message : String(fetchErr),
-      });
-      // -2: 네트워크/연결 오류 구분용
-      return { balance: -2, fetchedAt: new Date().toISOString() };
-    }
-  },
-  ['aligo-balance'],
-  { revalidate: 300 } // 5분
-);
+    },
+    ['aligo-balance', orgId ?? 'global'], // 조직별 독립 캐시 키
+    { revalidate: 300 }
+  )();
+}
 
 // ── GET /api/passport/admin/aligo-status ────────────
 export async function GET(request: NextRequest) {
@@ -95,7 +91,7 @@ export async function GET(request: NextRequest) {
 
     let result: BalanceResult;
     try {
-      result = await fetchCachedBalance();
+      result = await fetchCachedBalance(manager.organizationId ?? null);
     } catch (cacheErr) {
       // unstable_cache 자체 오류 (런타임 이상 등) — 극히 드문 케이스
       logger.error('[AligoStatus] unstable_cache 오류:', {

@@ -382,8 +382,8 @@ export async function GET(req: Request) {
       reminder72hTargets.map((t) => sendReminder(t, buildReminderMessage, "[72h리마인더]"))
     );
 
-    // Stage 1에서 처리된 userId 집합 (중복 발송 방지용)
-    const processedUserIds = new Set(reminder72hTargets.map((t) => t.userId));
+    // Stage 1에서 처리된 submissionId 집합 (중복 발송 방지 — userId 기준이면 다중 여행 고객 오차단)
+    const processedSubmissionIds = new Set(reminder72hTargets.map((t) => t.submissionId));
 
     let sent72h = 0;
     let skipped72h = 0;
@@ -416,8 +416,8 @@ export async function GET(req: Request) {
     for (const sub of pendingSubmissions) {
       if (d3Targets.length >= BATCH_SIZE) break;
 
-      // Stage 1에서 이미 처리된 userId 중복 제외
-      if (processedUserIds.has(sub.userId)) continue;
+      // Stage 1에서 이미 처리된 submission 중복 제외 (submissionId 기준)
+      if (processedSubmissionIds.has(sub.id)) continue;
 
       const log = logMap.get(sub.userId);
       const trip = tripMap.get(sub.userId);
@@ -429,9 +429,9 @@ export async function GET(req: Request) {
       const departure = trip?.departure ?? null;
       if (!departure || departure < now) continue;
 
-      // D-3 조건: 출발일까지 ≤ D3_DAYS_THRESHOLD 일
+      // D-3 조건: 출발일까지 0~D3_DAYS_THRESHOLD 일 (이미 지난 경우 제외)
       const days = calcDaysUntilDeparture(departure);
-      if (days === null || days > D3_DAYS_THRESHOLD) continue;
+      if (days === null || days < 0 || days > D3_DAYS_THRESHOLD) continue;
 
       // 24h 쿨다운 유지
       if (log?.lastSentAt && log.lastSentAt > cutoff24h) continue;

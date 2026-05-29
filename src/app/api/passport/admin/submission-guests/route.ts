@@ -76,8 +76,11 @@ export async function GET(req: NextRequest) {
     }
 
     // ── OWNER 테넌트 격리 ───────────────────────────────────────
-    // OWNER는 자신의 organizationId에 속한 고객만 조회 가능
-    if (manager.role === 'OWNER' && manager.organizationId) {
+    if (manager.role === 'OWNER') {
+      if (!manager.organizationId) {
+        // organizationId 없는 OWNER는 접근 불가 (보안 기본값)
+        return NextResponse.json({ ok: false, message: '권한이 없습니다.' }, { status: 403 });
+      }
       const accessCheck = await prisma.$queryRaw<Array<{ cnt: bigint }>>`
         SELECT COUNT(*) AS cnt
         FROM "CrmAffiliateSale" af
@@ -87,7 +90,6 @@ export async function GET(req: NextRequest) {
       `;
       const cnt = Number(accessCheck[0]?.cnt ?? 0);
       if (cnt === 0) {
-        // 권한 없는 경우 빈 데이터 반환 (에러 표시 안 함 — 스펙)
         return NextResponse.json({ ok: true, submittedAt: null, guests: [] } satisfies SubmissionGuestsResponse);
       }
     }

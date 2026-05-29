@@ -301,10 +301,8 @@ export async function POST(req: NextRequest) {
     const missingUserIds = userIds.filter((id) => !usersById.has(id));
 
     // 발송 전 잔액 사전 확인 (50% 미만이면 차단, 110% 미만이면 경고)
-    const withPhoneCount = usersData.filter(u => {
-      const digits = (u.phone ?? '').replace(/[^0-9]/g, '');
-      return digits.length === 11 && /^01[016789]/.test(digits);
-    }).length;
+    // normalizePhoneForSms 기준으로 통일 (withPhoneCount 판별 일관성)
+    const withPhoneCount = usersData.filter(u => normalizePhoneForSms(u.phone) !== null).length;
     const estimatedCost = withPhoneCount * 20; // SMS 건당 20원
     let preCheckLowBalance = false;
     try {
@@ -353,6 +351,17 @@ export async function POST(req: NextRequest) {
     let remainingCash: number | null = null;
     let lowBalance = false;
 
+    // Aligo 환경변수 사전 검증 — Stage 1 전에 fail-fast (이후 SMS 발송 불가 상황 방지)
+    const aligoApiKey = process.env.ALIGO_API_KEY;
+    const aligoUserId = process.env.ALIGO_USER_ID;
+    const aligoSender = process.env.ALIGO_SENDER_PHONE;
+    if (!aligoApiKey || !aligoUserId || !aligoSender) {
+      return NextResponse.json(
+        { ok: false, message: '알리고 API 설정이 완료되지 않았습니다. 환경 변수를 확인해주세요.' },
+        { status: 500 }
+      );
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     // Stage 1: DB 작업 + 링크 생성 (순차 처리)
     //   - PassportSubmission upsert / PNR reservationId 조회
@@ -394,7 +403,6 @@ export async function POST(req: NextRequest) {
         if (sendTarget === 'passport') {
           // ── 여권 발송 ──
           token = generatePassportToken();
-          const tokenExpiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
           link = buildPassportLink(token);
 
           personalizedMessage = fillTemplate(baseMessage, {
@@ -547,7 +555,8 @@ export async function POST(req: NextRequest) {
         }
 
         const messageByteLength = new Blob([personalizedMessage]).size;
-        const msgType: 'SMS' | 'LMS' = messageByteLength > 90 ? 'LMS' : 'SMS';
+        // 알리고 기준: 90바이트 이상이면 LMS (>= 90, 경계값 포함)
+        const msgType: 'SMS' | 'LMS' = messageByteLength >= 90 ? 'LMS' : 'SMS';
 
         // SMS 발송 대기열에 추가 (Stage 2에서 청크 병렬 처리)
         preparedSends.push({
@@ -590,21 +599,14 @@ export async function POST(req: NextRequest) {
     //   - DB 작업은 Stage 1에서 이미 완료 → SMS 실패해도 링크는 유효
     // ════════════════════════════════════════════════════════════════════════
     const SMS_CHUNK_SIZE = 20;
-
     const ALIGO_BASE_URL = 'https://apis.aligo.in';
-    const aligoApiKey = process.env.ALIGO_API_KEY;
-    const aligoUserId = process.env.ALIGO_USER_ID;
-    const aligoSender = process.env.ALIGO_SENDER_PHONE;
-    const aligoEnvMissing = !aligoApiKey || !aligoUserId || !aligoSender;
+    // aligoApiKey/aligoUserId/aligoSender는 위 fail-fast에서 검증됨 (null 아님 보장)
 
     for (let chunkStart = 0; chunkStart < preparedSends.length; chunkStart += SMS_CHUNK_SIZE) {
       const chunk = preparedSends.slice(chunkStart, chunkStart + SMS_CHUNK_SIZE);
 
       const chunkResults = await Promise.allSettled(
         chunk.map(async (item) => {
-          if (aligoEnvMissing) {
-            throw new Error('알리고 API 설정이 완료되지 않았습니다. 환경 변수를 확인해주세요.');
-          }
 
           const formData = new URLSearchParams();
           formData.append('key', aligoApiKey!);
