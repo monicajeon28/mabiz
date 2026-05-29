@@ -63,15 +63,16 @@ const maskingPolicies: Record<string, MaskingPolicy> = {
  * 예: 01012345678 → 010****5678 (level=partial) → 01XXXXXXXX (level=full)
  */
 function maskPhone(phone: string | null, policy: MaskingPolicy): string | null {
-  if (!phone || !policy.maskPhone) return phone;
+  if (!phone?.length || !policy.maskPhone) return phone ?? null; // 길이 체크
 
   if (policy.level === 'none') return phone;
   if (policy.level === 'partial') {
     // 첫 3자리 + 끝 4자리만 노출
-    return phone.slice(0, 3) + '*'.repeat(phone.length - 7) + phone.slice(-4);
+    if (phone.length < 7) return '*'.repeat(phone.length); // 짧은 번호는 전체 마스킹
+    return phone.slice(0, 3) + '*'.repeat(Math.max(0, phone.length - 7)) + phone.slice(-4);
   }
   // full: 처음 3자리만 노출
-  return phone.slice(0, 3) + '*'.repeat(phone.length - 3);
+  return phone.slice(0, 3) + '*'.repeat(Math.max(0, phone.length - 3));
 }
 
 /**
@@ -81,17 +82,20 @@ function maskPhone(phone: string | null, policy: MaskingPolicy): string | null {
 function maskEmail(email: string | null, policy: MaskingPolicy): string | null {
   if (!email || !policy.maskEmail) return email;
 
-  const [user, domain] = email.split('@');
-  if (!domain) return email;
+  const parts = email.split('@');
+  if (parts.length !== 2) return email; // 형식 검증
+
+  const [user, domain] = parts;
+  if (!user || !domain) return email; // null 체크
 
   if (policy.level === 'none') return email;
   if (policy.level === 'partial') {
     // 첫 2글자 + @ + 도메인
     const visible = Math.max(1, Math.ceil(user.length * 0.3));
-    return user.slice(0, visible) + '*'.repeat(user.length - visible) + '@' + domain;
+    return user.slice(0, visible) + '*'.repeat(Math.max(0, user.length - visible)) + '@' + domain;
   }
   // full: 첫 글자 + @ + 도메인
-  return user[0] + '*'.repeat(user.length - 1) + '@' + domain;
+  return user[0] + '*'.repeat(Math.max(0, user.length - 1)) + '@' + domain;
 }
 
 /**
