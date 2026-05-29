@@ -1,23 +1,59 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import prisma from "@/lib/prisma";
 import { getAuthContext, requireOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { checkOrigin } from "@/lib/origin-guard";
+import { getCache, setCache } from "@/lib/redis";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 type Params = { params: Promise<{ id: string }> };
 
+// 버그4: 프롬프트 인젝션 방지용 sanitizer
+const sanitize = (s: string, max: number) => s.replace(/[\r\n]/g, ' ').trim().slice(0, max);
+
 // POST /api/landing-pages/[id]/generate-copy
 // body: { productName: string, targetAudience: string, tone?: string }
 export async function POST(req: Request, { params }: Params) {
   try {
+    // 버그1: CSRF 검증
+    if (!checkOrigin(req, 'GenerateCopy')) {
+      return NextResponse.json(
+        { ok: false, message: '접근 권한이 없습니다.' },
+        { status: 403 }
+      );
+    }
+
     const ctx = await getAuthContext();
-    requireOrgId(ctx);
+    const orgId = requireOrgId(ctx);
     const { id } = await params;
 
     if (!id) {
       return NextResponse.json({ ok: false, message: "페이지 ID가 없습니다." }, { status: 400 });
     }
+
+    // 버그2: 소유권 검증
+    const page = await prisma.crmLandingPage.findFirst({
+      where: { id, organizationId: orgId },
+      select: { id: true },
+    });
+    if (!page) {
+      return NextResponse.json({ ok: false, message: '랜딩페이지를 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    // 버그3: Rate limit (orgId 기준 시간당 3회)
+    const rateLimitKey = `landing:generate-copy:${orgId}`;
+    const requestCount = await getCache<number>(rateLimitKey);
+    const rateLimitMax = 3;
+    if (requestCount !== null && requestCount >= rateLimitMax) {
+      logger.warn('[POST /api/landing-pages/[id]/generate-copy] Rate limit exceeded', { orgId, requestCount });
+      return NextResponse.json(
+        { ok: false, message: `시간당 ${rateLimitMax}회 이상 생성할 수 없습니다. (1시간 후 다시 시도)` },
+        { status: 429 }
+      );
+    }
+    await setCache(rateLimitKey, (requestCount ?? 0) + 1, 3600);
 
     const body = await req.json();
     const { productName, targetAudience, tone } = body as {
@@ -33,12 +69,17 @@ export async function POST(req: Request, { params }: Params) {
       );
     }
 
-    const toneDesc = tone?.trim()
-      ? `말투/톤: ${tone}`
+    // 버그4: 입력값 sanitize (프롬프트 인젝션 방지)
+    const safeProductName = sanitize(productName, 100);
+    const safeTargetAudience = sanitize(targetAudience, 200);
+    const safeTone = tone ? sanitize(tone, 50) : '';
+
+    const toneDesc = safeTone
+      ? `말투/톤: ${safeTone}`
       : "말투/톤: 친근하고 신뢰감 있는 한국어";
 
     const prompt = `크루즈 관광 상품 랜딩페이지 HTML 카피를 PASONA 공식으로 작성해주세요.
-상품명: ${productName}, 타겟: ${targetAudience}
+상품명: ${safeProductName}, 타겟: ${safeTargetAudience}
 ${toneDesc}
 
 P(문제) → A(공감/자극) → S(해결책) → O(제안) → N(범위좁히기) → A(행동촉구)
@@ -59,9 +100,13 @@ P(문제) → A(공감/자극) → S(해결책) → O(제안) → N(범위좁히
 
 완전한 HTML 섹션 코드만 반환하세요 (<!DOCTYPE html> 불필요, <body> 내부 코드만).`;
 
+    // 버그5: 모델명 환경변수화, max_tokens 2048로 조정
+    const anthropicModel =
+      process.env.ANTHROPIC_COPY_MODEL ?? process.env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5-20251001';
+
     const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
+      model: anthropicModel,
+      max_tokens: 2048,
       messages: [{ role: "user", content: prompt }],
     });
 
@@ -77,8 +122,10 @@ P(문제) → A(공감/자극) → S(해결책) → O(제안) → N(범위좁히
 
     logger.log("[POST /api/landing-pages/[id]/generate-copy]", {
       landingPageId: id,
-      productName,
-      targetAudience,
+      orgId,
+      productName: safeProductName,
+      targetAudience: safeTargetAudience,
+      model: anthropicModel,
     });
 
     return NextResponse.json({ ok: true, htmlContent });

@@ -19,10 +19,11 @@ export default function LiveSocialProof({ pageId }: Props) {
   // 현재 순환 중인 인덱스
   const toastIndexRef = useRef(0);
   const toastTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const toastFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch(`/api/landing-pages/${pageId}/live-stats`);
+      const res = await fetch(`/api/landing-pages/${encodeURIComponent(pageId)}/live-stats`);
       if (!res.ok) return;
       const data: LiveStats = await res.json();
       setStats(data);
@@ -63,7 +64,7 @@ export default function LiveSocialProof({ pageId }: Props) {
 
       // 짧은 fade-out → 새 이름 설정 → fade-in
       setToastVisible(false);
-      setTimeout(() => {
+      toastFadeTimerRef.current = setTimeout(() => {
         setToastName(next);
         setToastVisible(true);
       }, 300);
@@ -74,8 +75,12 @@ export default function LiveSocialProof({ pageId }: Props) {
         clearInterval(toastTimerRef.current);
         toastTimerRef.current = null;
       }
+      if (toastFadeTimerRef.current) {
+        clearTimeout(toastFadeTimerRef.current);
+        toastFadeTimerRef.current = null;
+      }
     };
-  }, [stats.recentRegistrants]);
+  }, [stats.recentRegistrants.join(',')]);
 
   const showViewers = stats.viewersNow >= 3;
   const showToast = toastVisible && toastName !== null;
@@ -94,7 +99,7 @@ export default function LiveSocialProof({ pageId }: Props) {
           max-sm:left-1/2 max-sm:-translate-x-1/2 max-sm:right-auto max-sm:items-center
         "
         aria-live="polite"
-        aria-atomic="false"
+        aria-atomic="true"
       >
         {/* 실시간 방문자 배지 */}
         {showViewers && (
