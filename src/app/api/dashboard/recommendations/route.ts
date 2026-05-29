@@ -23,8 +23,13 @@ type ProductRow = { recommendedProduct: string | null; count: bigint };
 export async function GET(request: Request) {
   try {
     const ctx = await getMabizSession();
-    if (!ctx || !ctx.organizationId) {
+    if (!ctx) {
+      logger.warn('[RecommendationAPI] No session found');
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!ctx.organizationId) {
+      logger.warn('[RecommendationAPI] No organizationId', { userId: ctx.userId, role: ctx.role });
+      return NextResponse.json({ ok: false, error: 'Organization not configured' }, { status: 401 });
     }
 
     const organizationId = ctx.organizationId;

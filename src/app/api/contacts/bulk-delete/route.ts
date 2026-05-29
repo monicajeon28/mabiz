@@ -52,8 +52,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, count: result });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : '';
     if (msg === 'UNAUTHORIZED') return NextResponse.json({ ok: false }, { status: 401 });
-    logger.error('[POST /api/contacts/bulk-delete]', { err });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    logger.error('[POST /api/contacts/bulk-delete]', { message: msg, stack });
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
