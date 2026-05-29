@@ -233,12 +233,34 @@ export async function POST(req: Request) {
             const message = sequence.message(contact.name);
 
             // Aligo API 호출
+            const aligoKey = process.env.ALIGO_API_KEY;
+            const aligoUserId = process.env.ALIGO_USER_ID;
+            const aligoSender = process.env.ALIGO_SENDER_PHONE;
+
+            if (!aligoKey || !aligoUserId || !aligoSender) {
+              logger.error('[SMS/ALIGO-FOLLOWUP] 필수 환경변수 누락', {
+                hasKey: !!aligoKey,
+                hasUserId: !!aligoUserId,
+                hasSender: !!aligoSender,
+              });
+              response.failCount++;
+              await prisma.scheduledSms.update({
+                where: { id: scheduledSms.id },
+                data: { status: 'FAILED' },
+              });
+              response.errors.push({
+                contactId: contact.id,
+                error: 'SMS 서비스 설정 오류',
+              });
+              continue;
+            }
+
             const res = await fetch('https://apis.aligo.in/send/', {
               method: 'POST',
               body: new URLSearchParams({
-                key: process.env.ALIGO_API_KEY!,
-                user_id: process.env.ALIGO_USER_ID!,
-                sender: process.env.ALIGO_SENDER_PHONE!,
+                key: aligoKey,
+                user_id: aligoUserId,
+                sender: aligoSender,
                 receiver: normalizedPhone,
                 msg: message,
               }),

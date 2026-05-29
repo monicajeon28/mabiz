@@ -10,15 +10,25 @@ import { google } from 'googleapis';
 import { logger } from '@/lib/logger';
 import { formatKSTDate } from '@/lib/utils/dateUtils';
 
-const CRM_BACKUP_ROOT = process.env.GOOGLE_DRIVE_CRM_BACKUP_FOLDER_ID!;
+const CRM_BACKUP_ROOT = process.env.GOOGLE_DRIVE_CRM_BACKUP_FOLDER_ID;
 
 function getDriveClient() {
+  if (!CRM_BACKUP_ROOT) {
+    throw new Error('GOOGLE_DRIVE_CRM_BACKUP_FOLDER_ID is not configured');
+  }
+
   const privateKey = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? '')
     .replace(/\\n/g, '\n');
+  const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+
+  if (!serviceAccountEmail || !privateKey) {
+    throw new Error('Google Service Account credentials not configured');
+  }
+
   const auth = new google.auth.GoogleAuth({
     credentials: {
-      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key:  privateKey,
+      client_email: serviceAccountEmail,
+      private_key: privateKey,
     },
     scopes: ['https://www.googleapis.com/auth/drive'],
   });

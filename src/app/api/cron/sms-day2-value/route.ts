@@ -158,12 +158,30 @@ ${isVip ? `⭐ VIP 멤버 할인 코드: ${discountCode} (추가 15% 할인)` : 
 `;
 
         // SMS 발송
+        const aligoKey = process.env.ALIGO_API_KEY;
+        const aligoUserId = process.env.ALIGO_USER_ID;
+        const aligoSender = process.env.ALIGO_SENDER_PHONE;
+
+        if (!aligoKey || !aligoUserId || !aligoSender) {
+          logger.error('[SMS/ALIGO-DAY2] 필수 환경변수 누락', {
+            hasKey: !!aligoKey,
+            hasUserId: !!aligoUserId,
+            hasSender: !!aligoSender,
+          });
+          response.failCount++;
+          response.errors.push({
+            contactId: contact.id,
+            error: 'SMS 서비스 설정 오류',
+          });
+          continue;
+        }
+
         const res = await fetch('https://apis.aligo.in/send/', {
           method: 'POST',
           body: new URLSearchParams({
-            key: process.env.ALIGO_API_KEY!,
-            user_id: process.env.ALIGO_USER_ID!,
-            sender: process.env.ALIGO_SENDER_PHONE!,
+            key: aligoKey,
+            user_id: aligoUserId,
+            sender: aligoSender,
             receiver: normalizedPhone,
             msg: message,
           }),

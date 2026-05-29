@@ -168,11 +168,25 @@ export async function sendKakaoMessage(
   senderKey: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
+    const aligoKey = process.env.ALIGO_API_KEY;
+    const aligoUserId = process.env.ALIGO_USER_ID;
+
+    if (!aligoKey || !aligoUserId) {
+      logger.error('[kakao-service] 필수 환경변수 누락', {
+        hasKey: !!aligoKey,
+        hasUserId: !!aligoUserId,
+      });
+      return {
+        success: false,
+        error: 'Kakao 서비스 설정 오류',
+      };
+    }
+
     const response = await fetch('https://apis.aligo.in/send/', {
       method: 'POST',
       body: new URLSearchParams({
-        key: process.env.ALIGO_API_KEY!,
-        user_id: process.env.ALIGO_USER_ID!,
+        key: aligoKey,
+        user_id: aligoUserId,
         senderkey: senderKey,
         tpl_code: process.env.ALIGO_KAKAO_TPL_CODE || 'EXAM',
         receiver,

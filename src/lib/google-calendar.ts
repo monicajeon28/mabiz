@@ -25,9 +25,14 @@ async function retryWithBackoff<T>(
 }
 
 // ─── 환경변수 ────────────────────────────────────────────────
-const CLIENT_ID = process.env.GOOGLE_CALENDAR_CLIENT_ID!;
-const CLIENT_SECRET = process.env.GOOGLE_CALENDAR_CLIENT_SECRET!;
-const REDIRECT_URI = process.env.GOOGLE_CALENDAR_REDIRECT_URI!;
+const CLIENT_ID = process.env.GOOGLE_CALENDAR_CLIENT_ID;
+const CLIENT_SECRET = process.env.GOOGLE_CALENDAR_CLIENT_SECRET;
+const REDIRECT_URI = process.env.GOOGLE_CALENDAR_REDIRECT_URI;
+
+// 필수 환경변수 검증
+if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
+  throw new Error('Missing required Google Calendar configuration: GOOGLE_CALENDAR_CLIENT_ID, GOOGLE_CALENDAR_CLIENT_SECRET, GOOGLE_CALENDAR_REDIRECT_URI');
+}
 
 /** AES-256 키 반환 — 미설정 또는 32자 미만이면 즉시 오류 */
 function getEncryptKey(): Buffer {
