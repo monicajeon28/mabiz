@@ -340,6 +340,7 @@ export default function PartnerAlertPage() {
                               style={{
                                 width: `${partner.automationRate}%`,
                               }}
+                              suppressHydrationWarning
                             />
                           </div>
                           <span className="text-xs text-gray-600 w-10">
