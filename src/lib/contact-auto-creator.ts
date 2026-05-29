@@ -241,124 +241,125 @@ export async function createOrUpdateContact(
     });
 
     // 5. Contact 생성 또는 업데이트
-    const contact = await prisma.contact.upsert({
-      where: {
-        id: existingContact?.id || 'new',
-      },
-      update: {
-        // 기존 Contact 업데이트 (중요 필드만)
-        name: payload.name,
-        email: payload.email || existingContact?.email,
-        age: payload.age || existingContact?.age,
-        segment: segment,
-        autoSegment: segment,
-        segmentUpdatedAt: new Date(),
+    const contact = existingContact
+      ? await prisma.contact.update({
+          where: { id: existingContact.id },
+          data: {
+            // 기존 Contact 업데이트 (중요 필드만)
+            name: payload.name,
+            email: payload.email || existingContact.email,
+            age: payload.age || existingContact.age,
+            segment: segment,
+            autoSegment: segment,
+            segmentUpdatedAt: new Date(),
 
-        // Cruise 관련 정보
-        cruiseInterest: payload.cruiseInterest || existingContact?.cruiseInterest,
-        budgetRange: payload.budgetRange || existingContact?.budgetRange,
-        departureDate: payload.departureDate ? new Date(payload.departureDate) : existingContact?.departureDate,
+            // Cruise 관련 정보
+            cruiseInterest: payload.cruiseInterest || existingContact.cruiseInterest,
+            budgetRange: payload.budgetRange || existingContact.budgetRange,
+            departureDate: payload.departureDate ? new Date(payload.departureDate) : existingContact.departureDate,
 
-        // 추적용 태그
-        tags: Array.from(new Set([
-          ...(existingContact?.tags || []),
-          `source:${payload.source}`,
-          `segment:${segment}`,
-          `lens:${lens}`,
-        ])),
+            // 추적용 태그
+            tags: Array.from(new Set([
+              ...(existingContact.tags || []),
+              `source:${payload.source}`,
+              `segment:${segment}`,
+              `lens:${lens}`,
+            ])),
 
-        // 마지막 연락 시간 업데이트
-        lastContactedAt: new Date(),
+            // 마지막 연락 시간 업데이트
+            lastContactedAt: new Date(),
 
-        // 심리학 메타데이터
-        lensMetadata: {
-          ...(existingContact?.lensMetadata || {}),
-          currentLens: lens,
-          detectedAt: new Date().toISOString(),
-          detectionMethod: 'auto_webhook',
-        },
+            // 심리학 메타데이터
+            lensMetadata: {
+              ...(existingContact.lensMetadata || {}),
+              currentLens: lens,
+              detectedAt: new Date().toISOString(),
+              detectionMethod: 'auto_webhook',
+            },
 
-        // Lens별 특수 필드
-        ...(lens === 'L2' && {
-          anxietyScore: 70,
-          anxietyCategory: 'high',
-          preparationStage: 'inquiry',
-          anxietyAssessmentAt: new Date(),
-        }),
-        ...(lens === 'L3' && {
-          competitorMentioned: payload.competitorMentioned?.[0] ? true : false,
-          competitorNames: payload.competitorMentioned || [],
-          lastCompetitorMentionAt: new Date(),
-        }),
-        ...(lens === 'L7' && {
-          familyComposition: payload.familyComposition,
-          familyObjections: payload.familyObjections || [],
-          familyAssessmentCompletedAt: new Date(),
-        }),
-        ...(lens === 'L8' && {
-          cruiseCount: (payload.pastCruiseCount || 0) + 1,
-          cruiseReturnInterestLevel: 80,
-        }),
-        ...(lens === 'L9' && {
-          healthConcerns: payload.healthConcerns?.join(',') || null,
-        }),
-      },
-      create: {
-        // 신규 Contact 생성
-        organizationId,
-        phone: normalizedPhone,
-        name: payload.name,
-        email: payload.email || null,
+            // Lens별 특수 필드
+            ...(lens === 'L2' && {
+              anxietyScore: 70,
+              anxietyCategory: 'high',
+              preparationStage: 'inquiry',
+              anxietyAssessmentAt: new Date(),
+            }),
+            ...(lens === 'L3' && {
+              competitorMentioned: payload.competitorMentioned?.[0] ? true : false,
+              competitorNames: payload.competitorMentioned || [],
+              lastCompetitorMentionAt: new Date(),
+            }),
+            ...(lens === 'L7' && {
+              familyComposition: payload.familyComposition,
+              familyObjections: payload.familyObjections || [],
+              familyAssessmentCompletedAt: new Date(),
+            }),
+            ...(lens === 'L8' && {
+              cruiseCount: (payload.pastCruiseCount || 0) + 1,
+              cruiseReturnInterestLevel: 80,
+            }),
+            ...(lens === 'L9' && {
+              healthConcerns: payload.healthConcerns?.join(',') || null,
+            }),
+          },
+        })
+      : await prisma.contact.create({
+          data: {
+            // 신규 Contact 생성
+            organizationId,
+            phone: normalizedPhone,
+            name: payload.name,
+            email: payload.email || null,
 
-        // 기본 정보
-        age: payload.age,
-        segment: segment,
-        autoSegment: segment,
-        channel: 'webhook',
-        type: 'LEAD',
+            // 기본 정보
+            age: payload.age,
+            segment: segment,
+            autoSegment: segment,
+            channel: 'webhook',
+            type: 'LEAD',
 
-        // Cruise 관련
-        cruiseInterest: payload.cruiseInterest,
-        budgetRange: payload.budgetRange,
-        departureDate: payload.departureDate ? new Date(payload.departureDate) : null,
+            // Cruise 관련
+            cruiseInterest: payload.cruiseInterest,
+            budgetRange: payload.budgetRange,
+            departureDate: payload.departureDate ? new Date(payload.departureDate) : null,
 
-        // 추적용 태그
-        tags: [`source:${payload.source}`, `segment:${segment}`, `lens:${lens}`, 'loop6-agent-d'],
+            // 추적용 태그
+            tags: [`source:${payload.source}`, `segment:${segment}`, `lens:${lens}`, 'loop6-agent-d'],
 
-        // 심리학 메타데이터
-        lensMetadata: {
-          currentLens: lens,
-          detectedAt: new Date().toISOString(),
-          detectionMethod: 'auto_webhook',
-        },
+            // 심리학 메타데이터
+            lensMetadata: {
+              currentLens: lens,
+              detectedAt: new Date().toISOString(),
+              detectionMethod: 'auto_webhook',
+            },
 
-        // Lens별 특수 필드 초기화
-        ...(lens === 'L2' && {
-          anxietyScore: 70,
-          anxietyCategory: 'high',
-          preparationStage: 'inquiry',
-          anxietyAssessmentAt: new Date(),
-        }),
-        ...(lens === 'L3' && {
-          competitorMentioned: payload.competitorMentioned?.[0] ? true : false,
-          competitorNames: payload.competitorMentioned || [],
-          lastCompetitorMentionAt: new Date(),
-        }),
-        ...(lens === 'L7' && {
-          familyComposition: payload.familyComposition,
-          familyObjections: payload.familyObjections || [],
-          familyAssessmentCompletedAt: new Date(),
-        }),
-        ...(lens === 'L8' && {
-          cruiseCount: payload.pastCruiseCount || 1,
-          cruiseReturnInterestLevel: 80,
-          ltvTotal: 2500, // 예상 LTV
-        }),
-        ...(lens === 'L9' && {
-          healthConcerns: payload.healthConcerns?.join(',') || null,
-        }),
-      },
-    });
+            // Lens별 특수 필드 초기화
+            ...(lens === 'L2' && {
+              anxietyScore: 70,
+              anxietyCategory: 'high',
+              preparationStage: 'inquiry',
+              anxietyAssessmentAt: new Date(),
+            }),
+            ...(lens === 'L3' && {
+              competitorMentioned: payload.competitorMentioned?.[0] ? true : false,
+              competitorNames: payload.competitorMentioned || [],
+              lastCompetitorMentionAt: new Date(),
+            }),
+            ...(lens === 'L7' && {
+              familyComposition: payload.familyComposition,
+              familyObjections: payload.familyObjections || [],
+              familyAssessmentCompletedAt: new Date(),
+            }),
+            ...(lens === 'L8' && {
+              cruiseCount: payload.pastCruiseCount || 1,
+              cruiseReturnInterestLevel: 80,
+              ltvTotal: 2500, // 예상 LTV
+            }),
+            ...(lens === 'L9' && {
+              healthConcerns: payload.healthConcerns?.join(',') || null,
+            }),
+          },
+        });
 
     logger.log('[ContactAutoCreator] Contact 생성/업데이트 완료', {
       contactId: contact.id,

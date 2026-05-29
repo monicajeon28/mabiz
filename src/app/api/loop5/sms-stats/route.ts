@@ -206,14 +206,22 @@ export async function GET(request: NextRequest) {
       successRate: result.successRate,
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      ok: true,
+      data: result,
+      timestamp: new Date().toISOString(),
+    });
   } catch (error: unknown) {
     logger.error('[Loop5 SMS Stats] 오류', {
       error: error instanceof Error ? error.message : String(error),
     });
 
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        ok: false,
+        error: 'Internal server error',
+        timestamp: new Date().toISOString(),
+      },
       { status: 500 }
     );
   }

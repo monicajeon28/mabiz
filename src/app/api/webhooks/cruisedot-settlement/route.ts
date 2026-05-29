@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization') ?? '';
   const token = authHeader.replace('Bearer ', '');
 
-  if (token !== secret) {
+  if (token.length !== secret.length || !timingSafeEqual(Buffer.from(token), Buffer.from(secret))) {
     logger.warn('[SettlementWebhook] 인증 실패');
     return NextResponse.json({ ok: false }, { status: 401 });
   }
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     .update(body)
     .digest('hex');
 
-  if (signature !== expectedSignature) {
+  if (signature.length !== expectedSignature.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
     logger.warn('[SettlementWebhook] 서명 검증 실패');
     return NextResponse.json({ ok: false }, { status: 403 });
   }

@@ -84,16 +84,27 @@ async function handleHttpMetricsRequest(organizationId: string) {
   try {
     const metrics = await realtimeMetricsService.getAllMetrics(organizationId);
 
-    return NextResponse.json(metrics, {
-      headers: {
-        'Cache-Control': 'no-store, max-age=0',
-        'Content-Type': 'application/json',
+    return NextResponse.json(
+      {
+        ok: true,
+        data: metrics,
+        timestamp: new Date().toISOString(),
       },
-    });
+      {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+          'Content-Type': 'application/json',
+        },
+      }
+    );
   } catch (error) {
     logger.error('Error fetching metrics', error);
     return NextResponse.json(
-      { error: 'Failed to fetch metrics' },
+      {
+        ok: false,
+        error: 'Failed to fetch metrics',
+        timestamp: new Date().toISOString(),
+      },
       { status: 500 }
     );
   }
@@ -137,11 +148,19 @@ export async function POST(request: NextRequest) {
     // Invalidate cache to force fresh metrics
     await realtimeMetricsService.invalidateCache(organizationId);
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      ok: true,
+      data: { success: true },
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
     logger.error('Error processing event', error);
     return NextResponse.json(
-      { error: 'Failed to process event' },
+      {
+        ok: false,
+        error: 'Failed to process event',
+        timestamp: new Date().toISOString(),
+      },
       { status: 500 }
     );
   }
