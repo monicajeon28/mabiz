@@ -180,7 +180,6 @@ export async function PUT(
         contractorName: contract.name || '계약자',
         contractorEmail: contract.email,
         contractorPhone: contract.phone || '',
-        commissionRate: tierInfo.commissionRate,
         organizationId,
         approvedByMemberId: ctx.userId,
         managerId,
@@ -298,7 +297,6 @@ export async function PUT(
           key: tierKey,
           label: tierInfo.label,
           amount,
-          commissionRate: tierInfo.commissionRate,
         },
         manager: {
           gmUserId: provisionResult.manager.gmUserId,

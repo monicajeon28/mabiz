@@ -44,7 +44,6 @@ interface ProvisionInput {
   contractorName: string;
   contractorEmail: string;
   contractorPhone: string;
-  commissionRate: number;
   organizationId: string; // CRM 조직 ID (대리점이 속할 조직)
   approvedByMemberId: string; // 승인한 관리자 ID
   managerId?: number; // 담당 매니저 ID (선택사항)
@@ -62,7 +61,6 @@ export async function provisionAffiliateAccounts(
     contractorName,
     contractorEmail,
     contractorPhone,
-    commissionRate,
     organizationId,
     approvedByMemberId,
   } = input;
@@ -119,7 +117,7 @@ export async function provisionAffiliateAccounts(
         contactPhone: contractorPhone,
         contactEmail: contractorEmail,
         affiliateCode: managerCode,
-        agentCommissionRate: commissionRate,
+        agentCommissionRate: null, // 수수료율은 상품별 별도 관리
         contractSignedAt: new Date(),
         onboardedAt: new Date(),
         publishedAt: new Date(),
