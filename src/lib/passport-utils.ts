@@ -82,13 +82,8 @@ export function decodePassportToken(shortToken: string): string {
     ) {
       const buffer = base62Decode(shortToken);
       const decodedHex = buffer.toString('hex');
-      if (decodedHex.length <= 32) {
-        return decodedHex.padStart(32, '0');
-      } else if (decodedHex.length <= 48) {
-        return decodedHex.padStart(48, '0');
-      } else {
-        return decodedHex.substring(0, 48);
-      }
+      // 항상 48자로 정규화 (leading zero 손실 복원 — BigInt 변환 시 발생)
+      return decodedHex.padStart(48, '0').substring(0, 48);
     }
   } catch (error) {
     logger.warn('[decodePassportToken] Failed to decode token:', error as Record<string, unknown>);

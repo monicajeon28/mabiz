@@ -343,9 +343,13 @@ export async function GET(req: Request) {
 
     // ── 6. Stage 1: 72h 리마인더 대상 필터링 + 발송 ─────────────
     const reminder72hTargets: ReminderTarget[] = [];
+    const processedUserIds72h = new Set<number>(); // userId 중복 발송 방지
 
     for (const sub of pendingSubmissions) {
       if (reminder72hTargets.length >= BATCH_SIZE) break;
+
+      // 동일 userId의 여러 submission → 첫 번째만 처리
+      if (processedUserIds72h.has(sub.userId)) continue;
 
       const log = logMap.get(sub.userId);
       const trip = tripMap.get(sub.userId);
@@ -367,6 +371,7 @@ export async function GET(req: Request) {
       // D) 총 발송 횟수 초과 시 제외
       if (log.totalCount >= MAX_TOTAL_SENDS) continue;
 
+      processedUserIds72h.add(sub.userId);
       reminder72hTargets.push({
         userId: sub.userId,
         submissionId: sub.id,
@@ -382,19 +387,22 @@ export async function GET(req: Request) {
       reminder72hTargets.map((t) => sendReminder(t, buildReminderMessage, "[72h리마인더]"))
     );
 
-    // Stage 1에서 처리된 submissionId 집합 (중복 발송 방지 — userId 기준이면 다중 여행 고객 오차단)
-    const processedSubmissionIds = new Set(reminder72hTargets.map((t) => t.submissionId));
+    // Stage 1에서 성공 발송된 submissionId만 집합에 포함
+    // (실패 항목은 Stage 2 D-3 경고에서 재시도 가능해야 함)
+    const processedSubmissionIds = new Set<number>();
 
     let sent72h = 0;
     let skipped72h = 0;
     const errors72h: Array<{ userId: number; reason: string }> = [];
 
-    for (const result of settled72h) {
+    for (let i = 0; i < settled72h.length; i++) {
+      const result = settled72h[i];
       if (result.status === "rejected") {
         skipped72h++;
         errors72h.push({ userId: -1, reason: String(result.reason) });
       } else if (result.value.kind === "sent") {
         sent72h++;
+        processedSubmissionIds.add(reminder72hTargets[i].submissionId); // 성공만 추가
       } else {
         skipped72h++;
         errors72h.push({ userId: result.value.userId, reason: result.value.reason });

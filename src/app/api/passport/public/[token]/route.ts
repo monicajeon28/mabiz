@@ -121,7 +121,6 @@ export async function GET(
       ok: true,
       submission: {
         id: submission.id,
-        token: submission.token,
         expiresAt: submission.tokenExpiresAt.toISOString(),
         isExpired,
         isSubmitted: submission.isSubmitted,

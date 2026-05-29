@@ -474,9 +474,13 @@ Key rules:
 
     if (token) {
       try {
-        // token으로 GmPassportSubmission 조회
+        // token으로 GmPassportSubmission 조회 (만료/제출완료 토큰 차단)
         const submission = await prisma.gmPassportSubmission.findFirst({
-          where: { token },
+          where: {
+            token,
+            isSubmitted: false,
+            tokenExpiresAt: { gt: new Date() },
+          },
           select: { id: true },
         });
 
@@ -574,7 +578,7 @@ Key rules:
       ok: true,
       data: normalizedData,
       warnings: warnings.length > 0 ? `일부 정보를 읽지 못했습니다: ${warnings.join(', ')}. 수동으로 입력해주세요.` : null,
-      rawText: text,
+      // rawText 제거 — 여권 전체 텍스트(MRZ 등)를 클라이언트에 노출하지 않음
       uploadedFile: uploadedFileInfo,
     });
   } catch (error) {
