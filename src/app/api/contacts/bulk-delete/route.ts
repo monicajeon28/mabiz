@@ -6,9 +6,21 @@ import { logger } from '@/lib/logger';
 /**
  * POST /api/contacts/bulk-delete
  * 고객 일괄 삭제 (소프트 삭제: deletedAt 설정)
- * OWNER/GLOBAL_ADMIN 전용
+ * 대리점장(OWNER) 및 관리자(GLOBAL_ADMIN)만 가능
  *
- * Body: { contactIds: string[] }
+ * Request:
+ *   {
+ *     contactIds: string[]           // 삭제할 고객 ID 배열 (1-500개)
+ *     organizationId?: string         // GLOBAL_ADMIN이 명시적으로 선택한 조직 (선택)
+ *   }
+ *
+ * Response:
+ *   {
+ *     ok: boolean
+ *     count: number                   // 삭제된 고객 수
+ *     message?: string                // 에러 메시지
+ *     code?: string                   // 에러 코드 (FORBIDDEN, INVALID_JSON, INVALID_TYPE, EMPTY_ARRAY, LIMIT_EXCEEDED, INVALID_ID_FORMAT)
+ *   }
  */
 export async function POST(req: Request) {
   try {
@@ -18,31 +30,79 @@ export async function POST(req: Request) {
     // 판매원(AGENT, FREE_SALES) 불가
     if (ctx.role !== 'OWNER' && ctx.role !== 'GLOBAL_ADMIN') {
       return NextResponse.json(
-        { ok: false, message: '고객 삭제는 대리점장 이상만 가능합니다' },
+        { ok: false, message: '고객 삭제는 대리점장 이상만 가능합니다', code: 'FORBIDDEN' },
         { status: 403 }
       );
     }
 
-    // GLOBAL_ADMIN은 organizationId가 없을 수 있음
-    let orgId: string;
+    // JSON 파싱 에러 처리
+    let body;
     try {
-      orgId = requireOrgId(ctx);
-    } catch (err) {
-      if (ctx.role === 'GLOBAL_ADMIN') {
-        // GLOBAL_ADMIN이 organizationId 없으면 거절
-        return NextResponse.json({ ok: false, message: '조직을 선택한 후 삭제해주세요' }, { status: 400 });
-      }
-      throw err;
+      body = await req.json();
+    } catch (e) {
+      return NextResponse.json(
+        { ok: false, message: 'JSON 파싱 오류', code: 'INVALID_JSON' },
+        { status: 400 }
+      );
     }
 
-    const body = await req.json() as { contactIds: string[] };
-    const { contactIds } = body;
+    const { contactIds, organizationId: bodyOrgId } = body as { contactIds?: unknown; organizationId?: string };
 
-    if (!Array.isArray(contactIds) || contactIds.length === 0) {
-      return NextResponse.json({ ok: false, message: '삭제할 고객을 선택하세요' }, { status: 400 });
+    // 타입 검증: contactIds는 배열이어야 함
+    if (!Array.isArray(contactIds)) {
+      return NextResponse.json(
+        { ok: false, message: 'contactIds는 배열이어야 합니다', code: 'INVALID_TYPE' },
+        { status: 400 }
+      );
     }
+
+    // 빈 배열 검증
+    if (contactIds.length === 0) {
+      return NextResponse.json(
+        { ok: false, message: '삭제할 고객을 선택하세요', code: 'EMPTY_ARRAY' },
+        { status: 400 }
+      );
+    }
+
+    // 500명 초과 검증
     if (contactIds.length > 500) {
-      return NextResponse.json({ ok: false, message: '한 번에 500명까지 삭제 가능합니다' }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, message: '한 번에 500명까지 삭제 가능합니다', code: 'LIMIT_EXCEEDED' },
+        { status: 400 }
+      );
+    }
+
+    // ID 형식 검증: 모두 문자열이어야 함
+    const invalidIds = contactIds.filter(id => typeof id !== 'string' || !String(id).trim());
+    if (invalidIds.length > 0) {
+      return NextResponse.json(
+        { ok: false, message: '모든 ID는 빈 문자열이 아닌 문자열이어야 합니다', code: 'INVALID_ID_FORMAT', invalidIds },
+        { status: 400 }
+      );
+    }
+
+    // organizationId 결정
+    let orgId: string;
+    if (ctx.role === 'GLOBAL_ADMIN') {
+      // GLOBAL_ADMIN: Body에서 organizationId를 받거나 기본값 사용
+      // (현재는 bodyOrgId가 없으면 에러 반환, 향후 본사 기본값 추가 가능)
+      if (!bodyOrgId && !ctx.organizationId) {
+        return NextResponse.json(
+          { ok: false, message: '조직을 선택한 후 삭제해주세요', code: 'ORG_REQUIRED', requiresOrgSelection: true },
+          { status: 400 }
+        );
+      }
+      orgId = bodyOrgId || ctx.organizationId!;
+    } else {
+      // OWNER: 자신의 organizationId 사용 (필수)
+      try {
+        orgId = requireOrgId(ctx);
+      } catch (err) {
+        return NextResponse.json(
+          { ok: false, message: '조직 정보가 없습니다', code: 'ORG_REQUIRED' },
+          { status: 400 }
+        );
+      }
     }
 
     // 트랜잭션: 일괄 소프트 삭제
@@ -50,7 +110,7 @@ export async function POST(req: Request) {
       // 소유권 확인 + 소프트 삭제 (deletedAt 설정)
       const deleted = await tx.contact.updateMany({
         where: {
-          id: { in: contactIds },
+          id: { in: contactIds as string[] },
           organizationId: orgId,
           deletedAt: null, // 이미 삭제된 것은 제외
         },
@@ -60,9 +120,21 @@ export async function POST(req: Request) {
       return deleted.count;
     });
 
+    // 🔴 부분 삭제 경고: 요청한 ID 중 일부만 삭제됨
+    if (result < contactIds.length) {
+      logger.warn('[POST /api/contacts/bulk-delete] Partial deletion detected', {
+        orgId,
+        requested: contactIds.length,
+        deleted: result,
+        missing: contactIds.length - result,
+        deletedBy: ctx.userId,
+      });
+    }
+
     logger.log('[POST /api/contacts/bulk-delete]', {
       orgId,
       count: result,
+      total: contactIds.length,
       deletedBy: ctx.userId,
     });
 
@@ -70,8 +142,25 @@ export async function POST(req: Request) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : '';
-    if (msg === 'UNAUTHORIZED') return NextResponse.json({ ok: false }, { status: 401 });
+
+    if (msg === 'UNAUTHORIZED') {
+      return NextResponse.json(
+        { ok: false, message: '인증이 필요합니다', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      );
+    }
+
+    if (msg === 'ORGANIZATION_REQUIRED') {
+      return NextResponse.json(
+        { ok: false, message: '조직 정보가 없습니다', code: 'ORG_REQUIRED' },
+        { status: 400 }
+      );
+    }
+
     logger.error('[POST /api/contacts/bulk-delete]', { message: msg, stack });
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, message: '고객 삭제 중 오류가 발생했습니다', code: 'INTERNAL_ERROR', error: msg },
+      { status: 500 }
+    );
   }
 }
