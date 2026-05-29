@@ -1197,14 +1197,17 @@ export default function ContactsPage() {
 
                   {/* 빠른 액션 (PC hover) */}
                   <div className="hidden md:flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <a
-                      href={`tel:${c.phone}`}
-                      onClick={(e) => e.stopPropagation()}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.location.href = `tel:${c.phone}`;
+                      }}
                       className="p-2 rounded-lg hover:bg-blue-50 text-blue-600"
                       aria-label={`전화 걸기: ${c.name}`}
                     >
                       <Phone className="w-4 h-4" />
-                    </a>
+                    </button>
                     <button
                       type="button"
                       onClick={(e) => {
