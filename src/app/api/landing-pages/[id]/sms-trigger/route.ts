@@ -109,10 +109,21 @@ export async function POST(req: Request, { params }: Params) {
     }
 
     // [T14] opt-out 고객 SMS 차단: Contact.optOutAt 확인
-    const org = await prisma.organization.findFirst({
-      where: { landingPages: { some: { id: landingPageId } } },
-      select: { id: true },
+    // [P1-5] organizationId를 직접 조회 (organization.findFirst() 신뢰성 개선)
+    const landingPageOrg = await prisma.crmLandingPage.findUnique({
+      where: { id: landingPageId },
+      select: { organizationId: true },
     });
+
+    if (!landingPageOrg?.organizationId) {
+      logger.warn("[L6SmsTrigger] organizationId 조회 실패", { landingPageId });
+      return NextResponse.json(
+        { ok: false, message: "조직 정보를 찾을 수 없습니다." },
+        { status: 404 }
+      );
+    }
+
+    const org = { id: landingPageOrg.organizationId };
 
     if (org) {
       const contact = await prisma.contact.findFirst({
