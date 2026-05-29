@@ -11,38 +11,30 @@ export async function GET(
 ) {
   try {
     let token = (await params).token;
-    if (!token || token.length < 10) {
+    if (!token || token.length < 10 || token.length > 200) {
       return NextResponse.json({ ok: false, error: '잘못된 토큰입니다.' }, { status: 400 });
     }
 
-    // base62로 인코딩된 토큰인 경우 디코딩
-    // 또는 기존 hex 형식 토큰인 경우 그대로 사용
     const originalToken = token;
     try {
       const decodedToken = decodePassportToken(token);
       if (decodedToken && decodedToken !== token) {
-        logger.log('[Passport] Token decoded:', { original: originalToken, decoded: decodedToken });
+        // 토큰 앞 8자만 로그 (전체 토큰 노출 방지)
+        logger.log('[Passport] Token decoded', { prefix: originalToken.substring(0, 8) + '...' });
         token = decodedToken;
-      } else {
-        logger.log('[Passport] Token not decoded (already hex or same):', { original: originalToken, decoded: decodedToken });
       }
     } catch {
-      // 디코딩 실패 시 원본 토큰 사용
       logger.warn('[Passport] Token decode failed, using original');
     }
 
-    logger.log('[Passport] Searching for token:', { token, length: token.length });
-
-    // DB에서 토큰 조회 (32자 또는 48자 hex 형식)
-    const submission = await prisma.gmPassportSubmission.findFirst({
+    // findUnique 사용 (token은 @unique 제약 — findFirst보다 의미론적으로 정확)
+    const submission = await prisma.gmPassportSubmission.findUnique({
       where: { token },
       include: {
         user: {
           select: {
             id: true,
             name: true,
-            phone: true,
-            email: true,
             role: true,
             customerStatus: true,
           },

@@ -256,6 +256,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 파일 타입 검증 — 이미지 파일만 허용 (악성 파일 Gemini 전달 차단)
+    if (!file.type.startsWith('image/')) {
+      return NextResponse.json(
+        { ok: false, error: '이미지 파일만 업로드할 수 있습니다.' },
+        { status: 400 }
+      );
+    }
+
     // 파일을 Buffer로 변환
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
