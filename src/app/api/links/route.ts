@@ -11,9 +11,10 @@ function generateCode(): string {
 export async function GET(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    // GLOBAL_ADMIN은 organizationId 없음 → null 분기로 전체 조회
+    const orgId = ctx.role === 'GLOBAL_ADMIN' ? null : requireOrgId(ctx);
     const links = await prisma.shortLink.findMany({
-      where:   { organizationId: orgId, isActive: true },
+      where:   { ...(orgId ? { organizationId: orgId } : {}), isActive: true },
       orderBy: { createdAt: 'desc' },
       take:    50,
       select:  { id: true, code: true, title: true, targetUrl: true, category: true, clickCount: true, createdAt: true, contactId: true, autoGroupId: true },

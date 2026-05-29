@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
+import { resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 // ── GET /api/marketing/campaigns/[id]/track — 추적 데이터 조회 ─────────
@@ -17,7 +18,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     const campaign = await prisma.crmMarketingCampaign.findFirst({
       where: {
         id,
-        organizationId: ctx.organizationId!,
+        organizationId: resolveOrgId(ctx),
       },
     });
 

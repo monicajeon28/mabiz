@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
-import { getAuthContext } from '@/lib/rbac';
+import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 /**
@@ -205,7 +205,7 @@ export async function GET(req: Request) {
       `);
 
     } else if (ctx.role === 'OWNER') {
-      const orgId = ctx.organizationId!;
+      const orgId = requireOrgId(ctx);
 
       // ── LANDING_REG (조직 랜딩페이지) ──
       parts.push(Prisma.sql`
@@ -311,7 +311,7 @@ export async function GET(req: Request) {
 
     } else {
       // AGENT
-      const orgId = ctx.organizationId!;
+      const orgId = requireOrgId(ctx);
 
       // ── LANDING_REG (조직 랜딩페이지) ──
       parts.push(Prisma.sql`

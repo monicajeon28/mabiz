@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { getAuthContext } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import prisma from "@/lib/prisma";
 
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     const rawTextMasked = text.replace(/01[0-9]-?\d{3,4}-?\d{4}/g, "010-****-****");
     const callLog = await prisma.aiCallLog.create({
       data: {
-        organizationId: ctx.organizationId!,
+        organizationId: resolveOrgId(ctx),
         agentUserId: ctx.userId,
         productType: productType ?? "GENERAL",
         rawTextMasked,
@@ -116,3 +116,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, message: "분석 중 오류가 발생했습니다." }, { status: 500 });
   }
 }
+

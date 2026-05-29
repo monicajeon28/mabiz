@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
+import { resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
 import { sendEmail, getOrgEmailConfig } from '@/lib/email';
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const campaign = await prisma.crmMarketingCampaign.findFirst({
       where: {
         id,
-        organizationId: ctx.organizationId!,
+        organizationId: resolveOrgId(ctx),
       },
     });
 
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     // 배경 작업으로 발송 시작 (비동기 처리)
     // 상태 업데이트는 sendCampaignAsync 내부에서 관리하여 레이스 컨디션 방지
-    sendCampaignAsync(id, campaign, members, ctx.organizationId!).catch((err) => {
+    sendCampaignAsync(id, campaign, members, resolveOrgId(ctx)).catch((err) => {
       logger.error('[sendCampaignAsync]', { err, campaignId: id });
     });
 

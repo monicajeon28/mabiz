@@ -249,7 +249,12 @@ export default function ContactsPage() {
         toast({ title: '삭제 완료', description: `${data.count}명의 고객이 삭제되었습니다` });
         setSelectedIds(new Set());
         setShowDeleteConfirm(false);
-        setPage(1); // page 변경 → useEffect → fetchContacts 자동 재호출
+        // page가 이미 1이면 setPage(1)은 no-op → 직접 호출
+        if (page === 1) {
+          fetchContacts();
+        } else {
+          setPage(1);
+        }
       } else {
         toast({ title: '삭제 실패', description: data.message ?? '다시 시도해주세요.', variant: 'destructive' });
       }
@@ -1059,7 +1064,7 @@ export default function ContactsPage() {
                 >
                   {/* 아바타 */}
                   <div className="w-10 h-10 rounded-full bg-navy-900 text-white flex items-center justify-center text-sm font-bold shrink-0">
-                    {c.name[0]}
+                    {c.name?.[0] || '?'}
                   </div>
 
                   {/* 정보 */}
@@ -1182,7 +1187,7 @@ export default function ContactsPage() {
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            handleRecall(c.id, c.lastTransferredTo!.logId);
+                            handleRecall(c.id, c.lastTransferredTo?.logId ?? '');
                           }}
                           disabled={recalling === c.id}
                           className="text-[10px] text-red-400 hover:text-red-600 hover:underline disabled:opacity-50"
