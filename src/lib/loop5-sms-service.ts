@@ -35,6 +35,8 @@ interface SmsSendResult {
 /**
  * Aligo REST API를 통한 SMS 발송
  * @see https://aligo.in/api/send/
+ *
+ * P0-1: 환경변수 검증 강화
  */
 async function sendSmsWithAligo(
   aligoUserId: string,
@@ -44,6 +46,40 @@ async function sendSmsWithAligo(
   message: string
 ): Promise<SmsSendResult> {
   try {
+    // P0-1: 필수 매개변수 검증
+    if (!aligoUserId || !aligoKey) {
+      logger.error('[Loop5 SMS] 필수 인증 정보 누락', {
+        hasUserId: !!aligoUserId,
+        hasKey: !!aligoKey,
+      });
+      return {
+        success: false,
+        error: 'Loop5 SMS: Aligo 인증 정보 누락 (user_id 또는 key 없음)',
+        retryable: false,
+      };
+    }
+
+    if (!senderPhone || !recipientPhone) {
+      logger.error('[Loop5 SMS] 전화번호 누락', {
+        hasSenderPhone: !!senderPhone,
+        hasRecipientPhone: !!recipientPhone,
+      });
+      return {
+        success: false,
+        error: 'Loop5 SMS: 송신자 또는 수신자 전화번호 없음',
+        retryable: false,
+      };
+    }
+
+    if (!message || message.trim().length === 0) {
+      logger.error('[Loop5 SMS] 메시지 내용 없음');
+      return {
+        success: false,
+        error: 'Loop5 SMS: 메시지 내용 필수',
+        retryable: false,
+      };
+    }
+
     const formData = new URLSearchParams();
     formData.append('user_id', aligoUserId);
     formData.append('key', aligoKey);
