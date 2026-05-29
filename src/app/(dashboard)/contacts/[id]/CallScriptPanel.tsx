@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ChevronDown, ChevronUp, BookOpen, Zap } from "lucide-react";
 
 interface ScriptPhase {
@@ -75,11 +75,17 @@ export default function CallScriptPanel({ contact, isExpanded = true, onPhaseCha
   const [script, setScript] = useState<ScriptPhase | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const segment = detectSegmentTrackB(contact);
 
   useEffect(() => {
+    abortControllerRef.current = new AbortController();
     fetchScript(segment, currentPhase);
+
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [segment, currentPhase]);
 
   async function fetchScript(seg: string, phase: number) {
@@ -87,7 +93,8 @@ export default function CallScriptPanel({ contact, isExpanded = true, onPhaseCha
     setError(null);
     try {
       const response = await fetch(`/api/call-scripts/track-b?segment=${seg}&phase=${phase}`, {
-        credentials: 'include'
+        credentials: 'include',
+        signal: abortControllerRef.current?.signal
       });
       if (!response.ok) throw new Error("스크립트 로드 실패");
       const data = await response.json();
@@ -98,7 +105,10 @@ export default function CallScriptPanel({ contact, isExpanded = true, onPhaseCha
         setError(data.error);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "알 수 없는 오류");
+      // AbortError는 정상적인 정리이므로 무시
+      if (err instanceof Error && err.name !== 'AbortError') {
+        setError(err.message || "알 수 없는 오류");
+      }
     } finally {
       setLoading(false);
     }

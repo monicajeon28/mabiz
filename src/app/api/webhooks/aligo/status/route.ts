@@ -17,7 +17,7 @@
 
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { logger } from "@/lib/logger";
 import { enqueueDLQ } from "@/lib/mabiz-dlq";
 import {
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    if (token !== webhookSecret) {
+    if (token.length !== webhookSecret.length || !timingSafeEqual(Buffer.from(token), Buffer.from(webhookSecret))) {
       logger.warn("[AligoStatusWebhook] Bearer token 불일치");
       return NextResponse.json(
         { ok: false, error: "Unauthorized" },
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
       .update(queryString)
       .digest("hex");
 
-    if (signature !== expectedSignature) {
+    if (signature.length !== expectedSignature.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
       logger.warn("[AligoStatusWebhook] 서명 불일치", {
         expected: expectedSignature.substring(0, 8),
         actual: signature.substring(0, 8),

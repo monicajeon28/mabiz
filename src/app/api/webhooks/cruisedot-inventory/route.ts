@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization') ?? '';
   const token = authHeader.replace('Bearer ', '');
 
-  if (token !== secret) {
+  if (token.length !== secret.length || !timingSafeEqual(Buffer.from(token), Buffer.from(secret))) {
     logger.warn('[InventorySyncWebhook] 인증 실패');
     return NextResponse.json({ ok: false, error: '인증 실패' }, { status: 401 });
   }
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     .update(body)
     .digest('hex');
 
-  if (signature !== expectedSignature) {
+  if (signature.length !== expectedSignature.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
     logger.warn('[InventorySyncWebhook] 서명 검증 실패');
     return NextResponse.json({ ok: false, error: '서명 검증 실패' }, { status: 403 });
   }

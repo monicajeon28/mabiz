@@ -103,25 +103,15 @@ export async function detectChurnSignal(
   partnerId: string,
   currentMonthAmount: number
 ): Promise<boolean> {
-  // 지난 3개월 평균 조회
-  const currentDate = new Date();
-  const threeMonthsAgo = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth() - 3,
-    1
-  );
-
+  // 지난 3개월 평균 조회 (period 기준으로 정렬하여 INDEX 활용)
   const lastThreeMonths = await prisma.settlementLedger.findMany({
     where: {
       partnerId,
-      status: 'PAID',
-      createdAt: {
-        gte: threeMonthsAgo
-      }
+      status: 'PAID'
     },
     select: { netAmount: true },
     orderBy: { period: 'desc' },
-    take: 3
+    take: 3  // 최근 3개월만 조회
   });
 
   if (lastThreeMonths.length === 0) {
