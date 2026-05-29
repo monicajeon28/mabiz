@@ -587,7 +587,7 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                 <>
                   <div className="bg-gray-50 rounded-xl p-3">
                     <p className="text-xs text-gray-500 mb-2">미리보기</p>
-                    <div className="relative" style={{ paddingBottom: "56.25%" }}>
+                    <div className="relative aspect-video">
                       <iframe
                         src={`https://www.youtube.com/embed/${extractYtId(ytInput)}`}
                         className="absolute inset-0 w-full h-full rounded-lg"

@@ -1,5 +1,7 @@
 'use client';
 
+import { cn } from '@/lib/utils';
+
 /**
  * Delta SMS TriggerSelector Component
  *
@@ -30,11 +32,12 @@ export default function TriggerSelector({
       <div className="space-y-4">
         {/* PURCHASE 옵션 */}
         <label className="block">
-          <div className="flex items-start gap-4 p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 transition"
-               style={{
-                 borderColor: value === 'PURCHASE' ? '#2563eb' : '#e5e7eb',
-                 backgroundColor: value === 'PURCHASE' ? '#f0f9ff' : 'white'
-               }}>
+          <div className={cn(
+            "flex items-start gap-4 p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 transition",
+            value === 'PURCHASE'
+              ? "border-blue-500 bg-blue-50"
+              : "border-gray-200 bg-white"
+          )}>
             <input
               type="radio"
               name="trigger"
