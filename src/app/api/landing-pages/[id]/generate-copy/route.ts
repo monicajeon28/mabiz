@@ -4,7 +4,8 @@ import prisma from "@/lib/prisma";
 import { getAuthContext, requireOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { checkOrigin } from "@/lib/origin-guard";
-import { getCache, setCache } from "@/lib/redis";
+import { rlIncr } from "@/lib/redis";
+import { sanitizeHtml } from "@/lib/html-sanitizer";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -42,18 +43,16 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: '랜딩페이지를 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // 버그3: Rate limit (orgId 기준 시간당 3회)
+    // P0-3: Rate limit — 원자적 INCR (getCache/setCache 비원자적 패턴 제거)
     const rateLimitKey = `landing:generate-copy:${orgId}`;
-    const requestCount = await getCache<number>(rateLimitKey);
-    const rateLimitMax = 3;
-    if (requestCount !== null && requestCount >= rateLimitMax) {
-      logger.warn('[POST /api/landing-pages/[id]/generate-copy] Rate limit exceeded', { orgId, requestCount });
+    const count = await rlIncr(rateLimitKey, 3600);
+    if (count !== null && count > 3) {
+      logger.warn('[POST /api/landing-pages/[id]/generate-copy] Rate limit exceeded', { orgId, count });
       return NextResponse.json(
-        { ok: false, message: `시간당 ${rateLimitMax}회 이상 생성할 수 없습니다. (1시간 후 다시 시도)` },
+        { ok: false, message: '생성 횟수 초과' },
         { status: 429 }
       );
     }
-    await setCache(rateLimitKey, (requestCount ?? 0) + 1, 3600);
 
     const body = await req.json();
     const { productName, targetAudience, tone } = body as {
@@ -128,7 +127,8 @@ P(문제) → A(공감/자극) → S(해결책) → O(제안) → N(범위좁히
       model: anthropicModel,
     });
 
-    return NextResponse.json({ ok: true, htmlContent });
+    // P0-6: AI 생성 HTML sanitize 후 반환
+    return NextResponse.json({ ok: true, htmlContent: sanitizeHtml(htmlContent) });
   } catch (err) {
     logger.error("[POST /api/landing-pages/[id]/generate-copy]", { err });
     return NextResponse.json({ ok: false, message: "카피 생성에 실패했습니다." }, { status: 500 });

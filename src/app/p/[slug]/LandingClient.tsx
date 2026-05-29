@@ -111,6 +111,14 @@ export function LandingClient({
     } catch {}
   }, [slug]);
 
+  // [P0-7] viewCount 업데이트 — 클라이언트에서 fire-and-forget으로 호출.
+  // 서버 컴포넌트의 .catch(() => {}) 패턴을 대체합니다.
+  // Vercel에서 응답 후 비동기 작업이 중단되는 문제를 우회하며,
+  // IP 해시 dedup + 트랜잭션은 API 내부에서 처리됩니다.
+  useEffect(() => {
+    fetch(`/api/landing-pages/${pageId}/view`, { method: "POST" }).catch(() => {});
+  }, [pageId]);
+
   // T38: IntersectionObserver — 폼 섹션이 뷰포트 밖으로 나가면 Sticky CTA 표시
   useEffect(() => {
     const target = formSectionRef.current ?? document.getElementById("landing-form");

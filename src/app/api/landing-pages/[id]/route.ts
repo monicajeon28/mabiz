@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, canDelete } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
+import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
 
 const PatchSchema = z.object({
   title:          z.string().min(1).max(200).optional(),
@@ -110,7 +111,7 @@ export async function PATCH(req: Request, { params }: Params) {
         ...(pageGroup         !== undefined ? { pageGroup: pageGroup ?? null }          : {}),
         ...(buttonTitle       !== undefined ? { buttonTitle: buttonTitle ?? null }       : {}),
         ...(completionPageUrl !== undefined ? { completionPageUrl: completionPageUrl ?? null } : {}),
-        ...(headerScript      !== undefined ? { headerScript: headerScript ?? null }    : {}),
+        ...(headerScript      !== undefined ? { headerScript: sanitizeHeaderScript(headerScript) } : {}),
         ...(exposureTitle     !== undefined ? { exposureTitle: exposureTitle ?? null }   : {}),
         ...(exposureImage     !== undefined ? { exposureImage: exposureImage ?? null }   : {}),
         ...(infoCollection    !== undefined ? { infoCollection }                         : {}),
