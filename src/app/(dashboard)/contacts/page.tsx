@@ -13,24 +13,24 @@ type Contact = {
   name: string;
   phone: string;
   type: string;
-  cruiseInterest: string | null;
-  lastContactedAt: string | null;
-  departureDate: string | null;
-  leadScore: number;
-  tags: string[] | null;
+  cruiseInterest?: string | null;
+  lastContactedAt?: string | null;
+  departureDate?: string | null;
+  leadScore?: number;
+  tags?: string[] | null;
   groups?: { group: { id: string; name: string; color: string | null } }[];
-  _count: { callLogs: number };
-  createdAt?: string; // 신청 일시
-  sourceType?: string; // P0-6: user, inquiry, affiliate, landing_page, education, gold_member
+  _count?: { callLogs: number };
+  createdAt?: string;
+  sourceType?: string;
   sourceId?: string;
-  signupMethod?: string; // general, kakao, naver, google
+  signupMethod?: string;
   affiliateLinkId?: string;
   affiliateManagerId?: string;
   affiliateAgentId?: string;
   inquiryProductCode?: string;
-  affiliateManagerName?: string; // P0-6/7: 제휴 본사 담당자 실제 이름
-  affiliateAgentName?: string; // P0-6/7: 제휴 판매원 담당자 실제 이름
-  lastTransferredTo: {
+  affiliateManagerName?: string;
+  affiliateAgentName?: string;
+  lastTransferredTo?: {
     name: string;
     orgName: string;
     logId: string;
@@ -249,9 +249,7 @@ export default function ContactsPage() {
         toast({ title: '삭제 완료', description: `${data.count}명의 고객이 삭제되었습니다` });
         setSelectedIds(new Set());
         setShowDeleteConfirm(false);
-        // 목록 새로고침 — fetchContacts 재호출 (groups 포함 보장)
-        setPage(1);
-        await fetchContacts();
+        setPage(1); // page 변경 → useEffect → fetchContacts 자동 재호출
       } else {
         toast({ title: '삭제 실패', description: data.message ?? '다시 시도해주세요.', variant: 'destructive' });
       }
@@ -1089,9 +1087,9 @@ export default function ContactsPage() {
                     <div className="text-sm text-gray-500 mt-0.5 flex items-center gap-3 flex-wrap">
                       <span>{c.phone}</span>
                       {c.cruiseInterest && <span className="text-gold-500">{c.cruiseInterest}</span>}
-                      {c._count.callLogs > 0 && (
+                      {(c._count?.callLogs ?? 0) > 0 && (
                         <span className="flex items-center gap-1">
-                          <Phone className="w-3 h-3" /> {c._count.callLogs}회
+                          <Phone className="w-3 h-3" /> {c._count?.callLogs ?? 0}회
                         </span>
                       )}
                       {/* D-day 뱃지 */}
