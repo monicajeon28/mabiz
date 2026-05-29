@@ -272,6 +272,11 @@ export default function PassportPage() {
     return () => clearTimeout(t);
   }, [loadCustomers, refreshTick]);
 
+  // 필터 변경 시 이전 선택 클리어 (다른 필터 그룹 ID 잔존 방지)
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [statusFilter, productFilter]);
+
   // ── 파생값 ──────────────────────────────────────────────────────
 
   const stats = useMemo(() => {
@@ -386,6 +391,12 @@ export default function PassportPage() {
       setResult({ ok, noPhone, failed, expiresInHours });
       setSelectedIds(new Set()); // 발송 완료 후 선택 초기화 (재발송 방지)
       setRefreshTick(t => t + 1);
+
+      // 찾지 못한 고객 안내
+      const missing = (data.missingUserIds ?? []) as number[];
+      if (missing.length > 0) {
+        showError(`${missing.length}명의 고객 정보를 찾지 못해 발송되지 않았습니다.`);
+      }
 
       const smsSent = ok.filter(x => x.smsSent).length;
       const linkOnly = noPhone.length + ok.filter(x => !x.smsSent).length;
@@ -670,7 +681,8 @@ export default function PassportPage() {
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setSendTarget('passport')}
-                className={`py-2.5 rounded-xl text-sm font-medium border-2 transition-all ${
+                disabled={sending}
+                className={`py-2.5 rounded-xl text-sm font-medium border-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                   sendTarget === 'passport'
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
@@ -680,7 +692,8 @@ export default function PassportPage() {
               </button>
               <button
                 onClick={() => setSendTarget('pnr')}
-                className={`py-2.5 rounded-xl text-sm font-medium border-2 transition-all ${
+                disabled={sending}
+                className={`py-2.5 rounded-xl text-sm font-medium border-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                   sendTarget === 'pnr'
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
@@ -699,7 +712,8 @@ export default function PassportPage() {
                 <select
                   value={templateId ?? ''}
                   onChange={e => setTemplateId(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  disabled={sending}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {templates.map(t => (
                     <option key={t.id} value={t.id}>
