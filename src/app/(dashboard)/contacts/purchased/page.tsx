@@ -47,7 +47,8 @@ export default function PurchasedPage() {
   const fetchContacts = useCallback(async () => {
     setLoading(true);
     setFetchError('');
-    const params = new URLSearchParams({ page: String(page), limit: "30", type: "CUSTOMER" });
+    // type 필터: "CUSTOMER"(영문) + "구매완료"(한글) 모두 포함해야 함 → API에 customerOnly 파라미터 사용
+    const params = new URLSearchParams({ page: String(page), limit: "30", type: "CUSTOMER", customerOnly: "true" });
     if (channelFilter) params.set("channel", channelFilter);
     if (q) params.set("q", q);
     if (selectedTags.length > 0) params.set("tags", selectedTags.join(","));

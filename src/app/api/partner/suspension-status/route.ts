@@ -9,7 +9,18 @@ import { logger } from '@/lib/logger';
  */
 export async function GET(req: NextRequest) {
   try {
-    const ctx = await getAuthContext();
+    let ctx;
+    try {
+      ctx = await getAuthContext();
+    } catch (err) {
+      // getAuthContext가 에러를 throw하면 (세션 없음) → 401
+      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // GLOBAL_ADMIN은 조직이 없어도 정지 기록 없는 것으로 처리
+    if (ctx.role === 'GLOBAL_ADMIN') {
+      return NextResponse.json({ ok: true, data: { status: 'ACTIVE' } });
+    }
 
     if (!ctx.organizationId) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
@@ -52,7 +63,12 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const ctx = await getAuthContext();
+    let ctx;
+    try {
+      ctx = await getAuthContext();
+    } catch (err) {
+      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+    }
 
     if (!ctx.organizationId) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });

@@ -29,6 +29,15 @@ export async function GET(request: Request) {
     }
     if (!ctx.organizationId) {
       logger.warn('[RecommendationAPI] No organizationId', { userId: ctx.userId, role: ctx.role });
+      // GLOBAL_ADMIN은 조직 미선택 시 빈 데이터 반환 (401 대신)
+      if (ctx.role === 'GLOBAL_ADMIN') {
+        return NextResponse.json({
+          ok: true,
+          segment_distribution: {},
+          conversion_rates: {},
+          top_products: [],
+        });
+      }
       return NextResponse.json({ ok: false, error: 'Organization not configured' }, { status: 401 });
     }
 

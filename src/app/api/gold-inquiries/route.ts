@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
       ? Prisma.sql`AND pi.status = ${status}`
       : Prisma.empty;
     const searchCondition: Prisma.Sql = q
-      ? Prisma.sql`AND (pi.name ILIKE ${'%' + q + '%'} OR pi.phone ILIKE ${'%' + q + '%'})`
+      ? Prisma.sql`AND (pi.name ILIKE ${`%${q}%`} OR pi.phone ILIKE ${`%${q}%`})`
       : Prisma.empty;
 
     const [rows, countRows] = await Promise.all([
@@ -99,13 +99,13 @@ export async function GET(req: NextRequest) {
       `),
     ]);
 
-    const total = Number(countRows[0]?.total ?? 0);
+    const total = countRows.length > 0 && countRows[0] ? Number(countRows[0].total) : 0;
 
     const inquiries = rows.map((r) => ({
       id:          r.id,
       productCode: r.productCode,
       name:        r.name,
-      phone:       maskPhone(r.phone),
+      phone:       r.phone ? maskPhone(r.phone) : null,
       message:     r.message,
       status:      r.status,
       submittedAt: r.createdAt.toISOString(), // UI 호환성
