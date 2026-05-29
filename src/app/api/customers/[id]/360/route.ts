@@ -25,6 +25,7 @@ import { getCustomer360 } from "@/lib/customers/customer-aggregator";
 import { detectCustomerLenses } from "@/lib/customers/lens-detector";
 import { maskCustomer360, UserRole } from "@/lib/customers/pii-masker";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 import { getServerSession } from "next-auth";
 import { headers } from "next/headers";
 
@@ -157,16 +158,9 @@ async function logCustomerAccess(
     const headersList = await headers();
     const userAgent = headersList.get("user-agent") || "unknown";
 
-    // Log to audit system (future implementation)
-    console.log(
-      `[AUDIT] Customer accessed: ${contactId} | Org: ${organizationId} | Mask: ${maskLevel} | UA: ${userAgent}`
-    );
-
-    // Could store in database:
-    // await prisma.accessAuditLog.create({ ... })
+    logger.log(`[AUDIT] Customer accessed: ${contactId} | Org: ${organizationId} | Mask: ${maskLevel} | UA: ${userAgent}`);
   } catch (e) {
-    // Don't fail the request if logging fails
-    console.error("[Audit Log] Error:", e);
+    logger.error("[Audit Log] Error", { error: String(e) });
   }
 }
 

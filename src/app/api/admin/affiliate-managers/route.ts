@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
@@ -54,15 +55,12 @@ export async function GET(req: NextRequest) {
     const limit = 50;
     const offset = (page - 1) * limit;
 
-    const searchCondition = q
-      ? `AND (om."displayName" ILIKE '%' || $1 || '%' OR om."userId" ILIKE '%' || $1 || '%' OR om.phone ILIKE '%' || $1 || '%' OR o.name ILIKE '%' || $1 || '%')`
-      : '';
+    // Prisma.sql 파라미터 바인딩으로 SQL 인젝션 구조적 차단
+    const searchFragment = q
+      ? Prisma.sql`AND (om."displayName" ILIKE ${'%' + q + '%'} OR om."userId" ILIKE ${'%' + q + '%'} OR om.phone ILIKE ${'%' + q + '%'} OR o.name ILIKE ${'%' + q + '%'})`
+      : Prisma.empty;
 
-    const queryArgs = q ? [q, limit, offset] : [limit, offset];
-    const limitIdx = q ? 2 : 1;
-    const offsetIdx = q ? 3 : 2;
-
-    const rows = await prisma.$queryRawUnsafe<Row[]>(`
+    const rows = await prisma.$queryRaw<Row[]>(Prisma.sql`
       SELECT
         om.id                           AS "memberId",
         om."userId",
@@ -85,25 +83,24 @@ export async function GET(req: NextRequest) {
         AND sub."isActive" = true
       WHERE om.role IN ('BRANCH_MANAGER','OWNER')
         AND om."isActive" = true
-        ${searchCondition}
+        ${searchFragment}
       GROUP BY
         om.id, om."userId", om.phone, om.email, om."displayName",
         om.role, om."isActive", om."organizationId",
         o.name, o.plan, o.status, o."externalAffiliateProfileId"
       ORDER BY o.name ASC
-      LIMIT $${limitIdx} OFFSET $${offsetIdx}
-    `, ...queryArgs);
+      LIMIT ${limit} OFFSET ${offset}
+    `);
 
     // total 카운트
-    const countArgs = q ? [q] : [];
-    const countRows = await prisma.$queryRawUnsafe<[{ total: bigint }]>(`
+    const countRows = await prisma.$queryRaw<[{ total: bigint }]>(Prisma.sql`
       SELECT COUNT(DISTINCT om.id)::bigint AS total
       FROM "OrganizationMember" om
       JOIN "Organization" o ON o.id = om."organizationId"
       WHERE om.role IN ('BRANCH_MANAGER','OWNER')
         AND om."isActive" = true
-        ${searchCondition}
-    `, ...countArgs);
+        ${searchFragment}
+    `);
     const total = Number(countRows[0]?.total ?? 0);
 
     // AffiliateProfile 연결 여부
@@ -113,10 +110,11 @@ export async function GET(req: NextRequest) {
 
     const profileMap: Record<number, AffRow> = {};
     if (profileIds.length > 0) {
-      const profiles = await prisma.$queryRawUnsafe<AffRow[]>(
-        `SELECT id, "affiliateCode", status FROM "AffiliateProfile" WHERE id = ANY($1::int[])`,
-        profileIds,
-      );
+      const profiles = await prisma.$queryRaw<AffRow[]>(Prisma.sql`
+        SELECT id, "affiliateCode", status
+        FROM "AffiliateProfile"
+        WHERE id = ANY(${profileIds}::int[])
+      `);
       for (const p of profiles) profileMap[p.id] = p;
     }
 

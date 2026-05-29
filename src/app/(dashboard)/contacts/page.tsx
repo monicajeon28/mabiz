@@ -322,8 +322,8 @@ export default function ContactsPage() {
           body: JSON.stringify({ contactIds: [groupAddForContact] }),
         });
         setContacts(prev => prev.map(c =>
-          c.id === groupAddForContact && !c.groups.some(g => g.group.id === newGroup.id)
-            ? { ...c, groups: [...c.groups, { group: { id: newGroup.id, name: newGroup.name, color: null } }] }
+          c.id === groupAddForContact && !(c.groups ?? []).some(g => g.group.id === newGroup.id)
+            ? { ...c, groups: [...(c.groups ?? []), { group: { id: newGroup.id, name: newGroup.name, color: null } }] }
             : c
         ));
       }
@@ -476,9 +476,9 @@ export default function ContactsPage() {
 
     // 기존 그룹 제거 후 새 그룹 배정 (그룹은 1개만) — 병렬 처리
     const contact = contacts.find(c => c.id === contactId);
-    if (contact && contact.groups.length > 0) {
+    if (contact && (contact.groups ?? []).length > 0) {
       await Promise.all(
-        contact.groups.map((g) =>
+        (contact.groups ?? []).map((g) =>
           fetch(`/api/groups/${g.group.id}/members`, {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
@@ -508,7 +508,7 @@ export default function ContactsPage() {
 
   const bulkAssignUnassigned = async () => {
     if (!bulkGroupId) return;
-    const unassigned = contacts.filter((c) => c.groups.length === 0);
+    const unassigned = contacts.filter((c) => (c.groups ?? []).length === 0);
     if (unassigned.length === 0) return;
     // 단일 배치 API 호출 (그룹 없는 고객이므로 기존 그룹 제거 불필요)
     await fetch(`/api/groups/${bulkGroupId}/members`, {
@@ -1010,7 +1010,7 @@ export default function ContactsPage() {
             disabled={!bulkGroupId}
             className="text-sm px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-40 transition-colors shrink-0"
           >
-            배정 ({contacts.filter((c) => c.groups.length === 0).length}명)
+            배정 ({contacts.filter((c) => (c.groups ?? []).length === 0).length}명)
           </button>
         </div>
       )}
@@ -1082,7 +1082,7 @@ export default function ContactsPage() {
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${typeInfo.color}`}>
                         {typeInfo.label}
                       </span>
-                      {c.groups.slice(0, 2).map((g) => (
+                      {(c.groups ?? []).slice(0, 2).map((g) => (
                         <span
                           key={g.group.id}
                           className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"

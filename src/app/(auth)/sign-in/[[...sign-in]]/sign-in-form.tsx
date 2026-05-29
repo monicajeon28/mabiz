@@ -15,7 +15,6 @@ export default function SignInContent() {
     const phoneVal = phone.trim();
     const passVal = password;
 
-    console.log('[SignIn] 시작:', { phoneVal, passVal });
     setError(null);
     setLoading(true);
 
@@ -27,19 +26,14 @@ export default function SignInContent() {
         body: JSON.stringify({ phone: phoneVal, password: passVal }),
       });
 
-      console.log('[SignIn] 응답:', response.status);
       const data = await response.json();
-      console.log('[SignIn] 데이터:', data);
 
       if (data.ok) {
-        console.log('[SignIn] 성공! 리다이렉트...');
         window.location.href = '/dashboard';
       } else {
-        console.log('[SignIn] 실패:', data.error);
         setError(data.error || '로그인 실패');
       }
     } catch (err) {
-      console.error('[SignIn] 에러:', err);
       setError('네트워크 오류');
     } finally {
       setLoading(false);

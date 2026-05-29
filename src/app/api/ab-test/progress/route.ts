@@ -45,55 +45,53 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const weekParam = searchParams.get("week");
 
-    // CallLog에서 A/B 테스트 데이터 조회
-    const callLogs = await prisma.callLog.findMany({
-      where: {
-        abTestGroup: { not: null },
-        contact: {
-          organizationId,
+    // DB groupBy로 집계 — findMany 전체 행 메모리 로드 제거
+    const [countRows, conversionRows] = await Promise.all([
+      prisma.callLog.groupBy({
+        by: ['abTestWeek', 'abTestGroup'],
+        where: { abTestGroup: { not: null }, contact: { organizationId } },
+        _count: { _all: true },
+      }),
+      prisma.callLog.groupBy({
+        by: ['abTestWeek', 'abTestGroup'],
+        where: {
+          abTestGroup: { not: null },
+          conversionDay: { not: null },
+          contact: { organizationId },
         },
-      },
-      select: {
-        abTestGroup: true,
-        abTestWeek: true,
-        conversionDay: true,
-      },
-    });
+        _count: { _all: true },
+        _avg: { conversionDay: true },
+      }),
+    ]);
 
-    // 주별 집계
+    // 집계된 소수 행만 JS에서 처리
     const weeklyData = new Map<
       number,
       {
-        aGroup: {
-          calls: number;
-          conversions: number;
-          conversionDays: number[];
-        };
-        bGroup: {
-          calls: number;
-          conversions: number;
-          conversionDays: number[];
-        };
+        aGroup: { calls: number; conversions: number; avgConversionDay: number };
+        bGroup: { calls: number; conversions: number; avgConversionDay: number };
       }
     >();
 
-    for (const log of callLogs) {
-      const week = log.abTestWeek || 1;
-
+    for (const row of countRows) {
+      const week = row.abTestWeek ?? 1;
       if (!weeklyData.has(week)) {
         weeklyData.set(week, {
-          aGroup: { calls: 0, conversions: 0, conversionDays: [] },
-          bGroup: { calls: 0, conversions: 0, conversionDays: [] },
+          aGroup: { calls: 0, conversions: 0, avgConversionDay: 0 },
+          bGroup: { calls: 0, conversions: 0, avgConversionDay: 0 },
         });
       }
+      const side = row.abTestGroup === 'A' ? 'aGroup' : 'bGroup';
+      weeklyData.get(week)![side].calls = row._count._all;
+    }
 
-      const data = weeklyData.get(week)!;
-      const group = log.abTestGroup === "A" ? data.aGroup : data.bGroup;
-
-      group.calls++;
-      if (log.conversionDay !== null) {
-        group.conversions++;
-        group.conversionDays.push(log.conversionDay);
+    for (const row of conversionRows) {
+      const week = row.abTestWeek ?? 1;
+      const side = row.abTestGroup === 'A' ? 'aGroup' : 'bGroup';
+      const entry = weeklyData.get(week);
+      if (entry) {
+        entry[side].conversions = row._count._all;
+        entry[side].avgConversionDay = row._avg.conversionDay ?? 0;
       }
     }
 
@@ -108,15 +106,8 @@ export async function GET(request: NextRequest) {
           ? (data.bGroup.conversions / data.bGroup.calls) * 100
           : 0;
 
-        const aAvgConversionDay = data.aGroup.conversionDays.length > 0
-          ? data.aGroup.conversionDays.reduce((a, b) => a + b, 0) /
-            data.aGroup.conversionDays.length
-          : 0;
-
-        const bAvgConversionDay = data.bGroup.conversionDays.length > 0
-          ? data.bGroup.conversionDays.reduce((a, b) => a + b, 0) /
-            data.bGroup.conversionDays.length
-          : 0;
+        const aAvgConversionDay = data.aGroup.avgConversionDay;
+        const bAvgConversionDay = data.bGroup.avgConversionDay;
 
         const pooledConversionRate = ((
           (data.aGroup.conversions + data.bGroup.conversions) /
