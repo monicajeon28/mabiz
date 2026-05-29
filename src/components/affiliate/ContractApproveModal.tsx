@@ -20,14 +20,14 @@ interface ContractInfo {
   email: string | null;
   phone: string | null;
   isApproved: boolean;
-  tier: { label: string; amount: number; commissionRate: number } | null;
+  tier: { label: string; amount: number } | null;
   approvedAt: string | null;
   links: { managerCode: string; agentCode: string } | null;
 }
 
 interface ApproveResult {
   contractId: number;
-  tier: { key: string; label: string; amount: number; commissionRate: number };
+  tier: { key: string; label: string; amount: number };
   manager: { gmUserId: number; crmMemberId: string; affiliateCode: string; linkCode: string; linkUrl: string };
   agent: { gmUserId: number; affiliateCode: string; linkCode: string; linkUrl: string };
   smsSent: boolean;
@@ -235,11 +235,8 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
                             <div className={`text-xs font-semibold mb-1 ${isSelected ? 'text-blue-700' : 'text-gray-700'}`}>
                               {tier.label}
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {(tier.priceKRW / 10_000).toLocaleString()}만원
-                            </div>
                             <div className={`text-sm font-bold mt-1 ${isSelected ? 'text-blue-600' : 'text-gray-900'}`}>
-                              수수료 {tier.commissionRate}%
+                              {(tier.priceKRW / 10_000).toLocaleString()}만원
                             </div>
                           </button>
                         );

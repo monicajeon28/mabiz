@@ -167,7 +167,6 @@ export async function PUT(req: NextRequest) {
             contractorName: contract.name || '계약자',
             contractorEmail: contract.email,
             contractorPhone: contract.phone || '',
-            commissionRate: tierInfo.commissionRate,
             organizationId,
             approvedByMemberId: ctx.userId,
           });
