@@ -420,7 +420,7 @@ function SmsTab() {
               <p className="text-xs text-green-600">발신번호: {smsConfig.senderPhone}</p>
               <p className="text-xs text-green-600">계정 ID: {smsConfig.aligoUserId} · 인증키 ****{smsConfig.aligoKeyTail}</p>
               {!smsConfig.senderVerified && (
-                <p className="text-sm text-amber-600 mt-1">⚠ 발신번호 미인증 — 알리고 사이트에서 전화 인증 필요</p>
+                <p className="text-sm text-amber-600 mt-1">⚠ 발신번호 미인증 — 설정 메뉴에서 전화 인증이 필요합니다</p>
               )}
             </div>
           ) : (
