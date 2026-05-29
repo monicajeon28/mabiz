@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Search, Plus, Filter, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet, Loader2, Share2, FolderDown } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/lib/api/use-toast";
+import { useSession } from "@/hooks/useSession";
 
 type Contact = {
   id: string;
@@ -123,6 +124,8 @@ function getSourceLabel(contact: Contact): string {
 
 export default function ContactsPage() {
   const { toast } = useToast();
+  const { role } = useSession();
+  const canDelete = role === 'OWNER' || role === 'GLOBAL_ADMIN';
   const router = useRouter();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
@@ -703,14 +706,16 @@ export default function ContactsPage() {
                 <Share2 className="w-4 h-4" />
                 팀에 알려주기 ({selectedIds.size}명)
               </button>
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
-                title="선택된 고객을 삭제합니다"
-              >
-                <X className="w-4 h-4" />
-                삭제 ({selectedIds.size}명)
-              </button>
+              {canDelete && (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
+                  title="선택된 고객을 삭제합니다 (대리점장/관리자 전용)"
+                >
+                  <X className="w-4 h-4" />
+                  삭제 ({selectedIds.size}명)
+                </button>
+              )}
             </>
           )}
           {selectedTags.length > 0 && (

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
+import { getMabizSession } from '@/lib/auth';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -17,6 +18,12 @@ const supabase = createClient(
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
   try {
+    // 인증 검증 — 미인증 요청 차단 (IDOR 방지)
+    const ctx = await getMabizSession();
+    if (!ctx) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const searchParams = req.nextUrl.searchParams;
     const fromDate = searchParams.get('fromDate');
     const toDate = searchParams.get('toDate');
@@ -28,11 +35,20 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // GLOBAL_ADMIN만 헤더로 org 선택 가능, 일반 사용자는 자신의 org만
+    const orgId = ctx.role === 'GLOBAL_ADMIN'
+      ? (req.headers.get('x-organization-id') || ctx.organizationId || '')
+      : (ctx.organizationId || '');
+
+    if (!orgId) {
+      return NextResponse.json({ error: 'organizationId is required' }, { status: 400 });
+    }
+
     // DB 함수 호출 (모든 Day별 집계를 데이터베이스에서 처리)
     const { data: dayStats, error: rpcError } = await supabase.rpc(
       'get_day_progression_stats',
       {
-        p_org_id: req.headers.get('x-organization-id') || '',
+        p_org_id: orgId,
         p_from_date: fromDate,
         p_to_date: toDate,
       }

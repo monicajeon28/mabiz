@@ -37,22 +37,21 @@ const nextConfig = {
   poweredByHeader: false,
   compress: true,
 
-  // 성능 모니터링 (프로덕션만)
-  ...(process.env.NODE_ENV === 'production' && {
-    headers: async () => {
-      return [
-        {
-          source: '/:path*',
-          headers: [
-            {
-              key: 'Cache-Control',
-              value: 'public, max-age=31536000, immutable',
-            },
-          ],
-        },
-      ];
-    },
-  }),
+  // 캐시 헤더 — API 경로 제외, 정적 에셋만 적용
+  headers: async () => {
+    return [
+      {
+        // /api/* 는 절대 CDN 캐시 안 함 (동적 데이터)
+        source: '/api/:path*',
+        headers: [{ key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate' }],
+      },
+      {
+        // 정적 에셋만 장기 캐시
+        source: '/((?!api/).*)',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

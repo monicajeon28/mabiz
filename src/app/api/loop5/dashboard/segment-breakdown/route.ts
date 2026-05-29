@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
+import { getMabizSession } from '@/lib/auth';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -25,10 +26,15 @@ const SEGMENT_MAPPING: Record<string, string> = {
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
   try {
+    // 인증 검증 — 미인증 요청 차단 (IDOR 방지)
+    const ctx = await getMabizSession();
+    if (!ctx) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const searchParams = req.nextUrl.searchParams;
     const fromDate = searchParams.get('fromDate');
     const toDate = searchParams.get('toDate');
-    const organizationId = searchParams.get('organizationId');
 
     if (!fromDate || !toDate) {
       return NextResponse.json(
@@ -36,6 +42,11 @@ export async function GET(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // GLOBAL_ADMIN만 쿼리파라미터로 org 선택 가능, 일반 사용자는 자신의 org만
+    const organizationId = ctx.role === 'GLOBAL_ADMIN'
+      ? (searchParams.get('organizationId') || ctx.organizationId || '')
+      : (ctx.organizationId || '');
 
     if (!organizationId) {
       return NextResponse.json(

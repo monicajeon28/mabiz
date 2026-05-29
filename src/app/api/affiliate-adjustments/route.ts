@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
       reason:           r.reason,
       yearMonth:        r.yearMonth,
       createdBy:        r.createdBy,
-      createdAt:        r.createdAt.toISOString(),
+      createdAt:        new Date(r.createdAt).toISOString(),
       agentDisplayName: r.agentDisplayName,
       agentMallUserId:  r.agentMallUserId,
     }));
