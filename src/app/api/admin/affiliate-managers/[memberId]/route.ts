@@ -148,6 +148,7 @@ export async function GET(
         member: {
           id: member.id,
           userId: member.userId,
+          organizationId: member.organizationId,
           phone: member.phone,
           email: member.email,
           displayName: member.displayName,
