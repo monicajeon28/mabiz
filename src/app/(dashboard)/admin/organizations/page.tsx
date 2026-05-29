@@ -1,29 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  Plus,
-  X,
-  Loader2,
-  ShieldOff,
-  Users,
-  FileCheck,
-  Clock,
-  ChevronRight,
-  Copy,
-  Check,
-  ExternalLink,
-  RefreshCw,
-  UserCheck,
-  Link2,
-  AlertTriangle,
-  Building2,
-  Share2,
+  Plus, X, Loader2, ShieldOff, Users, FileCheck, Clock,
+  ChevronRight, Copy, Check, ExternalLink, RefreshCw,
+  UserCheck, Link2, AlertTriangle, Building2, Share2,
+  ToggleLeft, ToggleRight, Trash2, XCircle, CheckCircle,
 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import ContractApproveModal from '@/components/affiliate/ContractApproveModal';
 
-// ─── Types ───────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────
 
 type Manager = {
   memberId: string;
@@ -49,6 +36,7 @@ type SubMember = {
   phone: string | null;
   displayName: string | null;
   role: string;
+  isActive?: boolean;
 };
 
 type AffiliateDetail = {
@@ -103,7 +91,7 @@ type PendingContract = {
   createdAt: string;
 };
 
-// ─── Constants ────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────
 
 const ROLE_LABEL: Record<string, string> = {
   BRANCH_MANAGER: '대리점장',
@@ -119,13 +107,13 @@ const ROLE_BADGE: Record<string, string> = {
   SALES_AGENT: 'bg-green-100 text-green-700',
   FREE_SALES: 'bg-gray-100 text-gray-600',
   PRE_SALES: 'bg-gray-100 text-gray-600',
+  AGENT: 'bg-indigo-100 text-indigo-600',
 };
 
 const TIER_LABEL: Record<string, string> = {
   SALES_330: '직속마케터 330만',
   SALES_540: '직속인솔스탭 540만',
   BRANCH_750: '대리점',
-  // 구 키 호환
   BASIC: '직속마케터 330만',
   STANDARD: '직속인솔스탭 540만',
   PREMIUM: '대리점',
@@ -142,25 +130,14 @@ const CONTRACT_STATUS_LABEL: Record<string, string> = {
   APPROVED: '승인완료',
 };
 
-// ─── CopyButton ─────────────────────────────────────────
+// ─── CopyBtn ──────────────────────────────────────────────────
 
-function CopyApplyLink({
-  path = '/affiliate/apply',
-  colorClass = 'bg-white text-blue-700 hover:bg-blue-50',
-}: {
-  path?: string;
-  colorClass?: string;
-}) {
+function CopyApplyLink({ path = '/affiliate/apply', colorClass = 'bg-white text-blue-700 hover:bg-blue-50' }: { path?: string; colorClass?: string }) {
   const [copied, setCopied] = useState(false);
   const url = typeof window !== 'undefined' ? `${window.location.origin}${path}` : path;
   return (
     <button
-      onClick={() =>
-        navigator.clipboard.writeText(url).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        })
-      }
+      onClick={() => navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); })}
       className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-colors ${colorClass}`}
     >
       {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
@@ -173,12 +150,7 @@ function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
-      onClick={() =>
-        navigator.clipboard.writeText(text).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1800);
-        })
-      }
+      onClick={() => navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); })}
       className="shrink-0 flex items-center gap-1 px-2 py-0.5 bg-gray-100 hover:bg-gray-200 rounded text-xs text-gray-600 transition-colors"
     >
       {copied ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
@@ -187,33 +159,273 @@ function CopyBtn({ text }: { text: string }) {
   );
 }
 
-// ─── Detail slide-over panel ─────────────────────────────
+// ─── 반려 확인 모달 ───────────────────────────────────────────
+
+function RejectModal({
+  contractId,
+  contractName,
+  onClose,
+  onRejected,
+}: {
+  contractId: number;
+  contractName: string | null;
+  onClose: () => void;
+  onRejected: () => void;
+}) {
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleReject(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/affiliate/contracts/${contractId}/reject`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason.trim() }),
+      });
+      const data = await res.json();
+      if (!data.ok) { showError(data.message ?? '반려 실패'); return; }
+      showSuccess('신청이 반려되었습니다.');
+      onRejected();
+      onClose();
+    } catch {
+      showError('요청 처리 중 오류가 발생했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-gray-900">계약 신청 반려</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-700">
+          <strong>{contractName ?? '해당 신청'}</strong>을 반려합니다.
+        </div>
+        <form onSubmit={handleReject} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">반려 사유 (선택)</label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="반려 사유를 입력하세요 (예: 정보 불일치, 서류 미비 등)"
+              rows={3}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-red-400"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">
+              취소
+            </button>
+            <button type="submit" disabled={submitting}
+              className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              반려 확정
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── 계정 삭제 확인 모달 ─────────────────────────────────────
+
+function DeleteMemberModal({
+  name,
+  onClose,
+  onConfirm,
+  loading,
+}: {
+  name: string;
+  onClose: () => void;
+  onConfirm: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-4">
+        <h2 className="text-base font-bold text-gray-900">계정 삭제 확인</h2>
+        <p className="text-sm text-gray-600">
+          <strong className="text-red-600">{name}</strong> 계정을 삭제합니다.
+          <br />이 작업은 되돌릴 수 없습니다.
+        </p>
+        <div className="flex gap-2">
+          <button onClick={onClose} disabled={loading}
+            className="flex-1 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            취소
+          </button>
+          <button onClick={onConfirm} disabled={loading}
+            className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+            삭제
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 멤버 액션 버튼 (정지/활성화 + 삭제) ────────────────────
+
+function MemberActions({
+  userId,
+  orgId,
+  isActive,
+  displayName,
+  onChanged,
+  onDeleted,
+}: {
+  userId: string;
+  orgId: string;
+  isActive: boolean;
+  displayName: string | null;
+  onChanged: () => void;
+  onDeleted?: () => void;
+}) {
+  const [toggling, setToggling] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleToggle = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (toggling) return;
+    setToggling(true);
+    try {
+      const res = await fetch(`/api/admin/organizations/${orgId}/members/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !isActive }),
+      });
+      const data = await res.json();
+      if (!data.ok) { showError(data.message ?? '변경 실패'); return; }
+      showSuccess(isActive ? '계정을 정지했습니다.' : '계정을 활성화했습니다.');
+      onChanged();
+    } catch {
+      showError('요청 중 오류가 발생했습니다.');
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/organizations/${orgId}/members/${userId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!data.ok) { showError(data.message ?? '삭제 실패'); setDeleting(false); return; }
+      showSuccess('계정을 삭제했습니다.');
+      // 삭제 성공: 모달 닫고 상위에 알림 (onDeleted가 있으면 패널 닫힘)
+      setShowDeleteModal(false);
+      if (onDeleted) onDeleted();
+      else onChanged();
+    } catch {
+      showError('요청 중 오류가 발생했습니다.');
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        {/* 탭 영역 44px 확보 (p-2.5 = 10px padding + 아이콘 = 36px+) */}
+        <button
+          onClick={handleToggle}
+          disabled={toggling}
+          title={isActive ? '계정 정지' : '계정 활성화'}
+          className="p-2.5 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-40"
+        >
+          {toggling
+            ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+            : isActive
+              ? <ToggleRight className="w-5 h-5 text-green-500" />
+              : <ToggleLeft className="w-5 h-5 text-gray-400" />
+          }
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); setShowDeleteModal(true); }}
+          title="계정 삭제"
+          className="p-2.5 rounded-lg hover:bg-red-50 transition-colors"
+        >
+          <Trash2 className="w-4 h-4 text-red-400 hover:text-red-600" />
+        </button>
+      </div>
+
+      {showDeleteModal && (
+        <DeleteMemberModal
+          name={displayName ?? userId}
+          onClose={() => !deleting && setShowDeleteModal(false)}
+          onConfirm={handleDelete}
+          loading={deleting}
+        />
+      )}
+    </>
+  );
+}
+
+// ─── Detail slide-over panel ──────────────────────────────────
 
 function DetailPanel({
   memberId,
   onClose,
+  onMemberChanged,
 }: {
   memberId: string;
   onClose: () => void;
+  onMemberChanged: () => void;
 }) {
   const [data, setData] = useState<DetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(() => {
+    // 이전 요청 취소 (빠른 패널 전환 시 레이스컨디션 방지)
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setLoading(true);
     setError(null);
-    fetch(`/api/admin/affiliate-managers/${memberId}`)
+    fetch(`/api/admin/affiliate-managers/${memberId}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((res) => {
         if (res.ok) setData(res.data);
         else setError(res.error ?? '불러오기 실패');
       })
-      .catch(() => setError('네트워크 오류'))
+      .catch((err) => {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        setError('네트워크 오류');
+      })
       .finally(() => setLoading(false));
   }, [memberId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    return () => { abortRef.current?.abort(); };
+  }, [load]);
+
+  const handleChanged = useCallback(() => {
+    load();
+    onMemberChanged();
+  }, [load, onMemberChanged]);
+
+  // 대리점장 본인 삭제 시 패널 닫힘
+  const handleMainDeleted = useCallback(() => {
+    onMemberChanged();
+    onClose();
+  }, [onMemberChanged, onClose]);
 
   return (
     <>
@@ -252,6 +464,35 @@ function DetailPanel({
 
           {data && (
             <>
+              {/* 대리점장 계정 관리 */}
+              <section className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {data.member.displayName ?? data.member.phone ?? '-'}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[data.member.role] ?? 'bg-gray-100 text-gray-500'}`}>
+                        {ROLE_LABEL[data.member.role] ?? data.member.role}
+                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${data.member.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                        {data.member.isActive ? '활성' : '정지됨'}
+                      </span>
+                    </div>
+                  </div>
+                  {data.organization && (
+                    <MemberActions
+                      userId={data.member.userId}
+                      orgId={data.organization.id}
+                      isActive={data.member.isActive}
+                      displayName={data.member.displayName}
+                      onChanged={handleChanged}
+                      onDeleted={handleMainDeleted}
+                    />
+                  )}
+                </div>
+              </section>
+
               {/* A) 어필리에이트 코드 & 추적 링크 */}
               <section>
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
@@ -260,26 +501,19 @@ function DetailPanel({
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-3">
                   {data.affiliate ? (
                     <>
-                      {/* 어필리에이트 코드 */}
                       <div className="flex items-center gap-2">
                         <span className="w-16 text-xs text-gray-500 shrink-0">코드</span>
                         <span className="flex-1 font-mono text-sm font-semibold text-blue-700 bg-white px-2 py-1 rounded border border-blue-200 truncate">
                           {data.affiliate.affiliateCode ?? '-'}
                         </span>
-                        {data.affiliate.affiliateCode && (
-                          <CopyBtn text={data.affiliate.affiliateCode} />
-                        )}
+                        {data.affiliate.affiliateCode && <CopyBtn text={data.affiliate.affiliateCode} />}
                       </div>
-                      {/* 수수료 */}
                       {data.affiliate.agentCommissionRate != null && (
                         <div className="flex items-center gap-2">
                           <span className="w-16 text-xs text-gray-500 shrink-0">수수료</span>
-                          <span className="text-sm font-semibold text-green-700">
-                            {data.affiliate.agentCommissionRate}%
-                          </span>
+                          <span className="text-sm font-semibold text-green-700">{data.affiliate.agentCommissionRate}%</span>
                         </div>
                       )}
-                      {/* 추적 링크들 */}
                       {data.affiliate.links.length === 0 ? (
                         <p className="text-xs text-gray-400">추적 링크가 없습니다.</p>
                       ) : (
@@ -287,12 +521,9 @@ function DetailPanel({
                           <div key={link.id} className="space-y-1">
                             <div className="flex items-center gap-2">
                               <span className="w-16 text-xs text-gray-500 shrink-0">링크</span>
-                              <span className="flex-1 font-mono text-xs text-gray-700 bg-white border border-gray-200 px-2 py-1 rounded truncate">
-                                {link.url}
-                              </span>
+                              <span className="flex-1 font-mono text-xs text-gray-700 bg-white border border-gray-200 px-2 py-1 rounded truncate">{link.url}</span>
                               <CopyBtn text={link.url} />
-                              <a href={link.url} target="_blank" rel="noopener noreferrer"
-                                className="text-gray-400 hover:text-blue-600 shrink-0">
+                              <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600 shrink-0">
                                 <ExternalLink className="w-3.5 h-3.5" />
                               </a>
                             </div>
@@ -312,7 +543,7 @@ function DetailPanel({
                 </div>
               </section>
 
-              {/* B) 산하 판매원 */}
+              {/* B) 산하 판매원 (계정 관리 포함) */}
               <section>
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                   B · 산하 판매원 ({data.subMembers.length}명)
@@ -324,14 +555,28 @@ function DetailPanel({
                     {data.subMembers.map((s) => (
                       <div key={s.id} className="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-3 py-2.5">
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{s.displayName ?? '-'}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {s.phone ?? '-'}
-                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-medium text-gray-900">{s.displayName ?? '-'}</p>
+                            {s.isActive === false && (
+                              <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">정지됨</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-400 mt-0.5">{s.phone ?? '-'}</p>
                         </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[s.role] ?? 'bg-gray-100 text-gray-500'}`}>
-                          {ROLE_LABEL[s.role] ?? s.role}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[s.role] ?? 'bg-gray-100 text-gray-500'}`}>
+                            {ROLE_LABEL[s.role] ?? s.role}
+                          </span>
+                          {data.organization && (
+                            <MemberActions
+                              userId={s.userId}
+                              orgId={data.organization.id}
+                              isActive={s.isActive !== false}
+                              displayName={s.displayName}
+                              onChanged={handleChanged}
+                            />
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -359,9 +604,7 @@ function DetailPanel({
                           <p className="text-sm font-semibold text-gray-900">
                             {TIER_LABEL[String(c.tierKey)] ?? String(c.tierKey)}
                             {c.amount != null && (
-                              <span className="ml-1 text-xs font-normal text-gray-500">
-                                ({Number(c.amount).toLocaleString()}원)
-                              </span>
+                              <span className="ml-1 text-xs font-normal text-gray-500">({Number(c.amount).toLocaleString()}원)</span>
                             )}
                           </p>
                         )}
@@ -379,9 +622,7 @@ function DetailPanel({
               {/* 조직 정보 */}
               {data.organization && (
                 <section className="border-t pt-4">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                    조직
-                  </h3>
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">조직</h3>
                   <div className="flex items-start gap-2 text-sm">
                     <Building2 className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                     <div>
@@ -404,16 +645,22 @@ function DetailPanel({
   );
 }
 
-// ─── Manager card ────────────────────────────────────────
+// ─── Manager card ─────────────────────────────────────────────
 
-function ManagerCard({ manager, onClick }: { manager: Manager; onClick: () => void }) {
+function ManagerCard({
+  manager,
+  onClick,
+  onChanged,
+}: {
+  manager: Manager;
+  onClick: () => void;
+  onChanged: () => void;
+}) {
   return (
-    <button
-      onClick={onClick}
-      className="w-full text-left bg-white border border-gray-200 rounded-xl p-4 hover:border-blue-300 hover:shadow-sm transition-all group"
-    >
+    <div className="bg-white border border-gray-200 rounded-xl p-4 hover:border-blue-300 hover:shadow-sm transition-all">
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
+        {/* 클릭 영역 (상세 보기) */}
+        <button onClick={onClick} className="min-w-0 flex-1 text-left group">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-sm text-gray-900">
               {manager.displayName || manager.phone || manager.userId}
@@ -422,42 +669,43 @@ function ManagerCard({ manager, onClick }: { manager: Manager; onClick: () => vo
               {ROLE_LABEL[manager.role] ?? manager.role}
             </span>
             {!manager.isActive && (
-              <span title="비활성">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-              </span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">정지됨</span>
             )}
           </div>
           <p className="text-xs text-gray-400 mt-1">{manager.organizationName}</p>
+        </button>
+
+        {/* 액션 버튼 */}
+        <div className="flex items-center gap-1 shrink-0">
+          <MemberActions
+            userId={manager.userId}
+            orgId={manager.organizationId}
+            isActive={manager.isActive}
+            displayName={manager.displayName}
+            onChanged={onChanged}
+          />
+          <button onClick={onClick} className="p-1.5 text-gray-300 hover:text-gray-500 transition-colors">
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
-        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 shrink-0 mt-1 transition-colors" />
       </div>
 
       <div className="flex items-center gap-3 mt-2.5 flex-wrap">
-        {manager.phone && (
-          <span className="text-xs text-gray-500">{manager.phone}</span>
-        )}
+        {manager.phone && <span className="text-xs text-gray-500">{manager.phone}</span>}
         {manager.affiliateCode ? (
-          <span className="font-mono text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-            {manager.affiliateCode}
-          </span>
+          <span className="font-mono text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{manager.affiliateCode}</span>
         ) : (
-          <span className="text-xs text-gray-300 flex items-center gap-1">
-            <Link2 className="w-3 h-3" />
-            링크 미할당
-          </span>
+          <span className="text-xs text-gray-300 flex items-center gap-1"><Link2 className="w-3 h-3" />링크 미할당</span>
         )}
         {manager.subMemberCount > 0 && (
-          <span className="text-xs text-gray-500 flex items-center gap-1">
-            <Users className="w-3 h-3" />
-            산하 {manager.subMemberCount}명
-          </span>
+          <span className="text-xs text-gray-500 flex items-center gap-1"><Users className="w-3 h-3" />산하 {manager.subMemberCount}명</span>
         )}
       </div>
-    </button>
+    </div>
   );
 }
 
-// ─── Shimmer ─────────────────────────────────────────────
+// ─── Shimmer ──────────────────────────────────────────────────
 
 function Shimmer() {
   return (
@@ -475,7 +723,7 @@ function Shimmer() {
   );
 }
 
-// ─── Register modal ──────────────────────────────────────
+// ─── Register modal ───────────────────────────────────────────
 
 function RegisterModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [orgName, setOrgName] = useState('');
@@ -513,9 +761,7 @@ function RegisterModal({ onClose, onCreated }: { onClose: () => void; onCreated:
       <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-5">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-gray-900">신규 대리점 수동 등록</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="w-5 h-5" />
-          </button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           {[
@@ -524,25 +770,16 @@ function RegisterModal({ onClose, onCreated }: { onClose: () => void; onCreated:
             { label: '연락처', value: ownerPhone, set: setOwnerPhone, type: 'tel', placeholder: '예: 010-1234-5678' },
           ].map(({ label, value, set, type, placeholder }) => (
             <div key={label} className="space-y-1">
-              <label className="block text-xs font-medium text-gray-600">
-                {label} <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-xs font-medium text-gray-600">{label} <span className="text-red-500">*</span></label>
               <input
-                type={type}
-                value={value}
-                onChange={(e) => set(e.target.value)}
-                placeholder={placeholder}
+                type={type} value={value} onChange={(e) => set(e.target.value)} placeholder={placeholder}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
             </div>
           ))}
           <div className="flex gap-2 pt-1">
-            <button type="button" onClick={onClose}
-              className="flex-1 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">
-              취소
-            </button>
-            <button type="submit" disabled={submitting}
-              className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
+            <button type="button" onClick={onClose} className="flex-1 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">취소</button>
+            <button type="submit" disabled={submitting} className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
               등록
             </button>
@@ -553,7 +790,7 @@ function RegisterModal({ onClose, onCreated }: { onClose: () => void; onCreated:
   );
 }
 
-// ─── Main page ────────────────────────────────────────────
+// ─── Main page ────────────────────────────────────────────────
 
 export default function OrganizationsPage() {
   const [managers, setManagers] = useState<Manager[]>([]);
@@ -566,7 +803,11 @@ export default function OrganizationsPage() {
 
   const [pendingContracts, setPendingContracts] = useState<PendingContract[]>([]);
   const [contractsLoading, setContractsLoading] = useState(true);
+
+  // 승인 모달: contractId
   const [approveContractId, setApproveContractId] = useState<number | null>(null);
+  // 반려 모달
+  const [rejectContract, setRejectContract] = useState<PendingContract | null>(null);
 
   const fetchManagers = useCallback(async (q?: string) => {
     setLoading(true);
@@ -596,12 +837,19 @@ export default function OrganizationsPage() {
       const res = await fetch('/api/affiliate/contracts?status=submitted');
       const data = await res.json();
       if (data.ok) setPendingContracts(data.data.contracts ?? []);
+      else showError('계약 목록을 불러오지 못했습니다.');
     } catch {
-      // 조용히 실패
+      showError('계약 목록 네트워크 오류');
     } finally {
       setContractsLoading(false);
     }
   }, []);
+
+  // useCallback으로 안정적인 참조 유지 (DetailPanel 불필요한 리렌더 방지)
+  const handleMemberChanged = useCallback(
+    () => fetchManagers(search),
+    [fetchManagers, search],
+  );
 
   useEffect(() => {
     fetchManagers();
@@ -627,8 +875,6 @@ export default function OrganizationsPage() {
           <Share2 className="w-4 h-4 text-gray-500 shrink-0" />
           <h2 className="text-sm font-semibold text-gray-700">계약서 가입 신청 링크</h2>
         </div>
-
-        {/* 판매 파트너 계약 신청 */}
         <div className="bg-blue-600 rounded-xl p-4 text-white">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -636,26 +882,16 @@ export default function OrganizationsPage() {
               <p className="text-xs text-blue-200 font-mono truncate">
                 {typeof window !== 'undefined' ? window.location.origin : ''}/affiliate/apply
               </p>
-              <p className="text-xs text-blue-300 mt-1">
-                잠재 판매 파트너에게 이 링크를 공유하세요. 신청 완료 시 아래 승인 대기 목록에 자동 표시됩니다.
-              </p>
+              <p className="text-xs text-blue-300 mt-1">잠재 판매 파트너에게 이 링크를 공유하세요.</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <CopyApplyLink path="/affiliate/apply" />
-              <a
-                href="/affiliate/apply"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors"
-                title="페이지 열기"
-              >
+              <a href="/affiliate/apply" target="_blank" rel="noopener noreferrer" className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors" title="페이지 열기">
                 <ExternalLink className="w-4 h-4" />
               </a>
             </div>
           </div>
         </div>
-
-        {/* 크루즈닷 파트너스 가입신청 */}
         <div className="bg-emerald-600 rounded-xl p-4 text-white">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -663,19 +899,11 @@ export default function OrganizationsPage() {
               <p className="text-xs text-emerald-200 font-mono truncate">
                 {typeof window !== 'undefined' ? window.location.origin : ''}/affiliate/pre-sales
               </p>
-              <p className="text-xs text-emerald-300 mt-1">
-                잠재 크루즈닷 파트너스에게 이 링크를 공유하세요.
-              </p>
+              <p className="text-xs text-emerald-300 mt-1">잠재 크루즈닷 파트너스에게 이 링크를 공유하세요.</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <CopyApplyLink path="/affiliate/pre-sales" colorClass="bg-white text-emerald-700 hover:bg-emerald-50" />
-              <a
-                href="/affiliate/pre-sales"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 bg-emerald-500 hover:bg-emerald-400 rounded-lg transition-colors"
-                title="페이지 열기"
-              >
+              <a href="/affiliate/pre-sales" target="_blank" rel="noopener noreferrer" className="p-2 bg-emerald-500 hover:bg-emerald-400 rounded-lg transition-colors" title="페이지 열기">
                 <ExternalLink className="w-4 h-4" />
               </a>
             </div>
@@ -685,10 +913,7 @@ export default function OrganizationsPage() {
 
       {/* 파트너스 신청 관리 링크 */}
       <section>
-        <a
-          href="/admin/partner-applications"
-          className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl p-4 hover:bg-blue-100 transition-colors group"
-        >
+        <a href="/admin/partner-applications" className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl p-4 hover:bg-blue-100 transition-colors group">
           <div>
             <p className="text-sm font-bold text-blue-800">파트너스 신청 관리</p>
             <p className="text-xs text-blue-600 mt-0.5">크루즈닷 파트너스 가입 신청 검토 · 승인/반려</p>
@@ -718,46 +943,55 @@ export default function OrganizationsPage() {
         ) : (
           <div className="space-y-2">
             {pendingContracts.map((c) => (
-              <div key={c.id} className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-                <div>
+              <div key={c.id} className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
+                {/* 클릭하면 상세/승인 모달 (접근성: button 태그) */}
+                <button
+                  type="button"
+                  onClick={() => setApproveContractId(c.id)}
+                  className="flex-1 min-w-0 text-left px-4 py-3 hover:bg-amber-100 transition-colors"
+                >
                   <p className="text-sm font-semibold text-gray-900">{c.name ?? '이름 없음'}</p>
                   <p className="text-xs text-gray-500 mt-0.5">
                     {c.phone ?? '-'} · {c.email ?? '-'}
                     <span className="ml-2 text-gray-400">{new Date(c.createdAt).toLocaleDateString('ko-KR')} 접수</span>
                   </p>
-                </div>
-                <button
-                  onClick={() => setApproveContractId(c.id)}
-                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap"
-                >
-                  승인하기
                 </button>
+                {/* 반려 + 승인 버튼 (부모 클릭과 독립) */}
+                <div className="flex items-center gap-2 px-3 py-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setRejectContract(c)}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-white border border-red-300 text-red-600 hover:bg-red-50 text-xs font-semibold rounded-lg transition-colors"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    반려
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setApproveContractId(c.id)}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg transition-colors"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    승인
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </section>
 
-      {/* 헤더 */}
+      {/* 대리점 목록 헤더 */}
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900">대리점 관리</h1>
-          {!loading && (
-            <p className="text-sm text-gray-500 mt-0.5">{managers.length}명의 대리점장</p>
-          )}
+          {!loading && <p className="text-sm text-gray-500 mt-0.5">{managers.length}명의 대리점장</p>}
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => { setSearch(''); fetchManagers(); }}
-            className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-            title="새로고침"
-          >
+          <button onClick={() => { setSearch(''); fetchManagers(); }} className="p-2 text-gray-400 hover:text-gray-600 transition-colors" title="새로고침">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-          >
+          <button onClick={() => setShowModal(true)} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
             <Plus className="w-4 h-4" />
             대리점 등록
           </button>
@@ -767,19 +1001,13 @@ export default function OrganizationsPage() {
       {/* 검색 */}
       <div className="flex gap-2">
         <input
-          type="text"
-          value={search}
+          type="text" value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') fetchManagers(search); }}
           placeholder="이름 / 전화번호 / 조직명 검색"
           className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
         />
-        <button
-          onClick={() => fetchManagers(search)}
-          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-colors"
-        >
-          검색
-        </button>
+        <button onClick={() => fetchManagers(search)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-colors">검색</button>
       </div>
 
       {/* 에러 */}
@@ -793,11 +1021,7 @@ export default function OrganizationsPage() {
       {/* 대리점장 목록 */}
       <section className="space-y-2.5">
         {loading ? (
-          <>
-            <Shimmer />
-            <Shimmer />
-            <Shimmer />
-          </>
+          <><Shimmer /><Shimmer /><Shimmer /></>
         ) : managers.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-14 text-gray-400">
             <UserCheck className="w-10 h-10" />
@@ -812,6 +1036,7 @@ export default function OrganizationsPage() {
               key={mgr.memberId}
               manager={mgr}
               onClick={() => setSelectedMemberId(mgr.memberId)}
+              onChanged={() => fetchManagers(search)}
             />
           ))
         )}
@@ -830,7 +1055,20 @@ export default function OrganizationsPage() {
         />
       )}
 
-      {/* 등록 모달 */}
+      {/* 계약 반려 모달 */}
+      {rejectContract !== null && (
+        <RejectModal
+          contractId={rejectContract.id}
+          contractName={rejectContract.name}
+          onClose={() => setRejectContract(null)}
+          onRejected={() => {
+            setRejectContract(null);
+            fetchPendingContracts();
+          }}
+        />
+      )}
+
+      {/* 대리점 등록 모달 */}
       {showModal && (
         <RegisterModal
           onClose={() => setShowModal(false)}
@@ -843,6 +1081,7 @@ export default function OrganizationsPage() {
         <DetailPanel
           memberId={selectedMemberId}
           onClose={() => setSelectedMemberId(null)}
+          onMemberChanged={handleMemberChanged}
         />
       )}
     </div>

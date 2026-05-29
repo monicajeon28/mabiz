@@ -56,12 +56,11 @@ export async function GET(
       return NextResponse.json({ ok: false, error: '멤버를 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // 2. 산하 판매원 (같은 Organization, 판매 역할)
+    // 2. 산하 판매원 (같은 Organization, 판매 역할 — 정지된 계정도 포함)
     const subMembers = await prisma.organizationMember.findMany({
       where: {
         organizationId: member.organizationId,
         role: { in: ['SALES_AGENT', 'FREE_SALES', 'PRE_SALES', 'AGENT'] },
-        isActive: true,
       },
       select: {
         id: true,
@@ -70,8 +69,9 @@ export async function GET(
         email: true,
         displayName: true,
         role: true,
+        isActive: true,
       },
-      orderBy: { role: 'asc' },
+      orderBy: [{ isActive: 'desc' }, { role: 'asc' }],
     });
 
     // 3. AffiliateProfile + AffiliateLink (연결된 경우)
@@ -140,7 +140,7 @@ export async function GET(
         `
       : [];
 
-    logger.log('[GET /api/admin/affiliate-managers/:memberId]', { memberId, role: ctx.role });
+    logger.info('[GET /api/admin/affiliate-managers/:memberId]', { memberId, role: ctx.role });
 
     return NextResponse.json({
       ok: true,
@@ -170,6 +170,7 @@ export async function GET(
           phone: s.phone,
           displayName: s.displayName,
           role: s.role,
+          isActive: s.isActive,
         })),
         affiliate: affiliateData,
         contracts: contracts.map((c) => {
