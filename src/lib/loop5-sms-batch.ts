@@ -184,11 +184,21 @@ export async function sendDayNSmsBatch(
     // 3단계: SMS 메시지 생성 + 병렬 발송 준비
     const smsToSend = targetLogs
       .map((log) => {
+        // 필수 필드 null 체크
+        if (!log.contact || !log.phoneNumber || !log.contactId) {
+          failedCount++;
+          errors.push({
+            contactId: log.contactId || 'unknown',
+            error: 'Missing contact data',
+          });
+          return null;
+        }
+
         const config = orgConfigMap.get(log.organizationId);
         if (!config) {
           failedCount++;
           errors.push({
-            contactId: log.contactId || 'unknown',
+            contactId: log.contactId,
             error: 'SMS config not found',
           });
           return null;
@@ -198,7 +208,7 @@ export async function sendDayNSmsBatch(
           log.segment as Segment,
           dayNumber,
           (log.variant as ABVariant) || 'a',
-          log.contact?.name
+          log.contact.name
         );
 
         return {
@@ -215,7 +225,8 @@ export async function sendDayNSmsBatch(
       .filter((x) => x !== null) as Array<any>;
 
     // 4단계: 병렬 발송 (동시 100개 제한)
-    const smsResults = await Promise.all(
+    // Promise.allSettled 사용으로 일부 실패해도 모두 실행되도록
+    const smsResultsSettled = await Promise.allSettled(
       smsToSend.map((sms) =>
         sendSmsViaAligoParallel(
           sms.config.aligoUserId,
@@ -234,6 +245,24 @@ export async function sendDayNSmsBatch(
           }))
       )
     );
+
+    // 성공/실패 결과 변환
+    const smsResults = smsResultsSettled
+      .map((settled, idx) => {
+        if (settled.status === 'fulfilled') {
+          return settled.value;
+        } else {
+          // Promise 자체가 실패한 경우
+          return {
+            ...smsToSend[idx],
+            result: {
+              success: false,
+              error: settled.reason?.message || 'Promise rejection',
+            },
+          };
+        }
+      })
+      .filter((x): x is any => x !== undefined);
 
     // 5단계: 성공/실패 분리
     const successfulSms = smsResults.filter((x) => x.result.success);

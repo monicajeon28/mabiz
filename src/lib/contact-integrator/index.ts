@@ -11,6 +11,18 @@ import { maskPII, MaskOptions } from './pii-mask';
 import { calculateRiskScore } from './risk-calculator';
 
 /**
+ * DataLoader 싱글톤 (메모리 누수 방지)
+ */
+let dataLoadersInstance: ReturnType<typeof createDataLoaders> | null = null;
+
+function getDataLoaders() {
+  if (!dataLoadersInstance) {
+    dataLoadersInstance = createDataLoaders();
+  }
+  return dataLoadersInstance;
+}
+
+/**
  * Contact 360도 뷰 조회 (캐시 포함)
  */
 export async function getContact360(
@@ -59,8 +71,8 @@ async function fetchContact360FromDb(
 ): Promise<Contact360Response> {
   const startTime = Date.now();
 
-  // DataLoader 생성
-  const loaders = createDataLoaders();
+  // DataLoader 싱글톤 사용 (메모리 누수 방지)
+  const loaders = getDataLoaders();
 
   // 1. Contact 조회
   const contact = await loaders.contactLoader.load(contactId);
@@ -168,9 +180,9 @@ function createDataLoaders() {
         include: { consultations: true }
       });
 
-      return userIds.map(uid =>
-        uid ? members.find(m => m.userId === uid) || null : null
-      );
+      // Map을 사용하여 null 참조 방지
+      const memberMap = new Map(members.map(m => [m.userId, m]));
+      return userIds.map(uid => uid ? memberMap.get(uid) ?? null : null);
     }),
 
     // Partner 로더
