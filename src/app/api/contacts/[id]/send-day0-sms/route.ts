@@ -76,7 +76,7 @@ export async function POST(req: Request, { params }: Params) {
       msgType: message.length > 90 ? "LMS" : "SMS",
       organizationId: contact.organizationId,
       contactId: contact.id,
-      channel: "DAY0_3_SEQUENCE",
+      channel: "FUNNEL",
     });
 
     logger.log("[POST /api/contacts/[id]/send-day0-sms] Day SMS 발송", {

@@ -286,7 +286,7 @@ export default function Loop5DashboardPage() {
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                   Segment별 성과 분해
                 </h2>
-                <Loop5SegmentTable data={segments.segments} loading={loading} />
+                <Loop5SegmentTable data={segments.segments as any} loading={loading} />
               </div>
             )}
           </div>

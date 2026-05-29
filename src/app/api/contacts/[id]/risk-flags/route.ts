@@ -46,9 +46,10 @@ export async function GET(_req: Request, { params }: Params) {
     // Phase 4C: Risk Flag 감지
     const { flags, riskScore, severity } = detectRiskFlags({
       ...contact,
+      departureDate: contact.departureDate ? contact.departureDate.toISOString() : null,
       callLogs: contact.callLogs || [],
       memos: contact.memos || [],
-    });
+    } as Parameters<typeof detectRiskFlags>[0]);
 
     // 상세 정보
     const details = getRiskFlagDetails_Array(flags);

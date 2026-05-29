@@ -77,7 +77,7 @@ export default function SalesConfirmationPage() {
   const [approvalNote, setApprovalNote] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [approving, setApproving] = useState(false);
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const totalPages = Math.ceil(total / 50);
 
