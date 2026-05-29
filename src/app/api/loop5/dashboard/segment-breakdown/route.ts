@@ -23,6 +23,7 @@ const SEGMENT_MAPPING: Record<string, string> = {
 };
 
 export async function GET(req: NextRequest) {
+  const startTime = Date.now();
   try {
     const searchParams = req.nextUrl.searchParams;
     const fromDate = searchParams.get('fromDate');
@@ -43,81 +44,67 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // contacts 테이블에서 segment 정보 조회 (서버 측 필터링)
-    const { data: contacts, error: contactError } = await supabase
-      .from('contacts')
-      .select('id, segment')
-      .in('segment', ['A', 'B', 'C', 'D', 'E'])
-      .eq('organization_id', organizationId);
+    // DB 함수 호출 (모든 계산을 데이터베이스에서 처리)
+    const { data: segmentStats, error: rpcError } = await supabase.rpc(
+      'get_segment_stats',
+      {
+        p_org_id: organizationId,
+        p_from_date: fromDate,
+        p_to_date: toDate,
+      }
+    );
 
-    if (contactError) throw contactError;
+    if (rpcError) {
+      logger.error('RPC get_segment_stats error:', rpcError);
+      throw rpcError;
+    }
 
-    // sms_logs와 contact segment 결합 (서버 측 필터링)
-    const { data: smsLogs, error: smsError } = await supabase
-      .from('sms_logs')
-      .select('id, contact_id, created_at')
-      .eq('organization_id', organizationId)
-      .gte('created_at', fromDate)
-      .lte('created_at', toDate);
-
-    if (smsError) throw smsError;
-
-    // campaign_events와 contact segment 결합 (서버 측 필터링)
-    const { data: campaignEvents, error: eventError } = await supabase
-      .from('campaign_events')
-      .select('id, contact_id, event_type, created_at')
-      .eq('organization_id', organizationId)
-      .gte('created_at', fromDate)
-      .lte('created_at', toDate);
-
-    if (eventError) throw eventError;
-
-    // Segment별 집계
-    const segmentStats: Record<string, any> = {};
-
-    Object.keys(SEGMENT_MAPPING).forEach(segment => {
-      const contactIds = contacts
-        ?.filter(c => c.segment === segment)
-        .map(c => c.id) || [];
-
-      const segmentSent = smsLogs?.filter(log =>
-        contactIds.includes(log.contact_id)
-      ).length || 0;
-
-      const segmentClicked = campaignEvents?.filter(
-        e => contactIds.includes(e.contact_id) && e.event_type === 'LINK_CLICKED'
-      ).length || 0;
-
-      const segmentSubmitted = campaignEvents?.filter(
-        e => contactIds.includes(e.contact_id) && e.event_type === 'FORM_SUBMITTED'
-      ).length || 0;
-
-      const responseRate = segmentSent > 0 ? (segmentClicked / segmentSent) * 100 : 0;
-      const completionRate = segmentClicked > 0 ? (segmentSubmitted / segmentClicked) * 100 : 0;
-      const estimatedRevenue = segmentSubmitted * 8.25;
-
-      segmentStats[segment] = {
-        name: SEGMENT_MAPPING[segment],
-        sent: segmentSent,
-        clicked: segmentClicked,
-        submitted: segmentSubmitted,
-        responseRate: Math.round(responseRate * 10) / 10,
-        formCompletionRate: Math.round(completionRate * 10) / 10,
-        estimatedRevenue: Math.round(estimatedRevenue),
-        trend: responseRate > 35 ? 'up' : responseRate < 30 ? 'down' : 'stable',
-      };
-    });
+    if (!segmentStats || segmentStats.length === 0) {
+      return NextResponse.json({
+        segments: Object.keys(SEGMENT_MAPPING).map(key => ({
+          key,
+          name: SEGMENT_MAPPING[key],
+          sent: 0,
+          clicked: 0,
+          submitted: 0,
+          responseRate: 0,
+          formCompletionRate: 0,
+          estimatedRevenue: 0,
+          trend: 'stable',
+        })).concat({
+          key: 'TOTAL',
+          name: '합계',
+          sent: 0,
+          clicked: 0,
+          submitted: 0,
+          responseRate: 0,
+          formCompletionRate: 0,
+          estimatedRevenue: 0,
+          trend: 'neutral',
+        }),
+        lastUpdated: new Date().toISOString(),
+        performanceMs: Date.now() - startTime,
+      });
+    }
 
     // 합계 계산
-    const totalSent = Object.values(segmentStats).reduce((sum: number, s: any) => sum + s.sent, 0);
-    const totalClicked = Object.values(segmentStats).reduce((sum: number, s: any) => sum + s.clicked, 0);
-    const totalSubmitted = Object.values(segmentStats).reduce((sum: number, s: any) => sum + s.submitted, 0);
+    const totalSent = segmentStats.reduce((sum: number, s: any) => sum + (s.sent_count || 0), 0);
+    const totalClicked = segmentStats.reduce((sum: number, s: any) => sum + (s.clicked_count || 0), 0);
+    const totalSubmitted = segmentStats.reduce((sum: number, s: any) => sum + (s.submitted_count || 0), 0);
 
-    const segments = Object.entries(segmentStats).map(([key, stats]) => ({
-      key,
-      ...stats,
+    const segments = segmentStats.map((s: any) => ({
+      key: s.segment,
+      name: s.segment_name,
+      sent: s.sent_count,
+      clicked: s.clicked_count,
+      submitted: s.submitted_count,
+      responseRate: Number(s.response_rate || 0),
+      formCompletionRate: Number(s.completion_rate || 0),
+      estimatedRevenue: Math.round(s.estimated_revenue || 0),
+      trend: s.response_rate > 35 ? 'up' : s.response_rate < 30 ? 'down' : 'stable',
     }));
 
+    // 합계 행 추가
     segments.push({
       key: 'TOTAL',
       name: '합계',
@@ -130,9 +117,18 @@ export async function GET(req: NextRequest) {
       trend: 'neutral',
     });
 
+    const elapsedMs = Date.now() - startTime;
+    logger.log(`[SegmentBreakdown] Completed in ${elapsedMs}ms`, {
+      segmentCount: segmentStats.length,
+      totalSent,
+      totalClicked,
+      totalSubmitted,
+    });
+
     return NextResponse.json({
       segments,
       lastUpdated: new Date().toISOString(),
+      performanceMs: elapsedMs,
     });
   } catch (error) {
     logger.error('Loop5 segment breakdown error:', error);
