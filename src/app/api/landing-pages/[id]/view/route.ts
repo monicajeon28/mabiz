@@ -35,6 +35,9 @@ export async function POST(req: Request, { params }: Params) {
     }
 
     // 새 방문: viewCount++ + CrmLandingView 기록
+    // @@unique([landingPageId, ipHash]) 충돌 방지: 기존 레코드 삭제 후 재생성
+    await prisma.crmLandingView.deleteMany({ where: { landingPageId: id, ipHash } });
+    const now = new Date();
     await prisma.$transaction([
       prisma.crmLandingPage.update({
         where: { id },
@@ -42,7 +45,7 @@ export async function POST(req: Request, { params }: Params) {
         select: { id: true },
       }),
       prisma.crmLandingView.create({
-        data: { landingPageId: id, ipHash },
+        data: { landingPageId: id, ipHash, viewedAt: now },
       }),
     ]);
 

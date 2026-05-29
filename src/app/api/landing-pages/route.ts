@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, BONSA_ORG_ID } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { sanitizeHtml } from "@/lib/html-sanitizer";
 
 // GET /api/landing-pages
 export async function GET() {
@@ -101,7 +102,7 @@ export async function POST(req: Request) {
     const page = await prisma.crmLandingPage.create({
       data: {
         organizationId: orgId, title, slug,
-        htmlContent: htmlContent ?? "",
+        htmlContent: sanitizeHtml(htmlContent ?? ""),
         groupId: groupId ?? null,
         editorMode: mode,
         commentEnabled: commentEnabled === true,

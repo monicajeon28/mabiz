@@ -128,6 +128,9 @@ export async function PATCH(req: Request, { params }: Params) {
     });
     return NextResponse.json({ ok: true, page });
   } catch (err) {
+    if ((err as { code?: string }).code === 'P2002') {
+      return NextResponse.json({ ok: false, message: '이미 사용 중인 슬러그입니다.' }, { status: 409 });
+    }
     logger.error("[PATCH /api/landing-pages/[id]]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
   }

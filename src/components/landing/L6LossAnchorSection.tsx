@@ -31,14 +31,14 @@ export function L6LossAnchorSection({
             >
               <span className="text-xs text-gray-500 font-medium">{anchor.label}</span>
               <span className="text-xl md:text-2xl font-bold text-gray-900 mt-1">
-                ${anchor.price}
+                {anchor.price.toLocaleString('ko-KR')}원
                 <span className="text-sm font-normal text-gray-500 ml-1">/인</span>
               </span>
               {index === 0 ? (
                 <span className="text-[11px] text-green-600 font-semibold mt-1">오늘</span>
               ) : (
                 <span className="text-sm font-semibold text-red-600 mt-1">
-                  +${anchor.price - priceAnchors[0].price}
+                  +{(anchor.price - priceAnchors[0].price).toLocaleString('ko-KR')}원
                 </span>
               )}
             </div>
