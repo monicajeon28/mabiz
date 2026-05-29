@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSession } from "@/hooks/useSession";
 import type { ApisRow } from "@/app/api/admin/apis/excel/route";
 import {
   ShoppingBag,
@@ -817,14 +818,16 @@ export default function ProductsPage() {
   const [refundProduct, setRefundProduct] = useState<Product | null>(null);
   const [apisProduct, setApisProduct] = useState<Product | null>(null);
   const [cabinRegisterCode, setCabinRegisterCode] = useState<string | null>(null);
+  // useSession으로 role/orgId 가져오기 (layout의 SessionProvider에서 주입)
+  const { role: sessionRole, organizationId: sessionOrgId } = useSession();
   const [userRole, setUserRole] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
 
-  // 권한은 layout에서 관리하므로 여기서는 기본값으로 설정
-  // 실제 사용자 역할과 orgId는 다른 API 응답에서 가져옴
+  // 세션에서 role과 orgId 동기화
   useEffect(() => {
-    // 기본값 설정만 수행 (실제 권한은 API 레벨에서 확인됨)
-  }, []);
+    if (sessionRole) setUserRole(sessionRole);
+    if (sessionOrgId) setOrgId(sessionOrgId);
+  }, [sessionRole, sessionOrgId]);
 
   const canDownloadApis = userRole === "OWNER" || userRole === "GLOBAL_ADMIN";
   const canRegisterCabin = userRole === "OWNER" || userRole === "GLOBAL_ADMIN";
@@ -1155,11 +1158,11 @@ export default function ProductsPage() {
       )}
 
       {/* 객실 등록 모달 */}
-      {cabinRegisterProduct && orgId && (
+      {cabinRegisterProduct && (orgId || userRole === 'GLOBAL_ADMIN') && (
         <CabinRegisterModal
           productCode={cabinRegisterProduct.code}
           productName={cabinRegisterProduct.name}
-          organizationId={orgId}
+          organizationId={orgId ?? ''}
           cabinSummary={cabinRegisterProduct.cabinSummary}
           onClose={() => setCabinRegisterCode(null)}
           onSaved={() => {
