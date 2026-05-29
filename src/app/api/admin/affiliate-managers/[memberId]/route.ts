@@ -130,23 +130,15 @@ export async function GET(
       createdAt: Date;
     };
     // phone 기준으로 매칭 (OrganizationMember.phone = AffiliateContract.phone)
-    // displayName이 없으면 phone만 검색 (빈 name으로 무관한 계약 매칭 방지)
+    // phone으로만 계약 조회 (OR name 조건 제거 — 동명이인 계약 노출 방지)
     const contracts = member.phone
-      ? member.displayName
-        ? await prisma.$queryRaw<ContractRow[]>`
-            SELECT id, status, name, phone, metadata, "contractSignedAt", "createdAt"
-            FROM "AffiliateContract"
-            WHERE phone = ${member.phone} OR name = ${member.displayName}
-            ORDER BY "createdAt" DESC
-            LIMIT 5
-          `
-        : await prisma.$queryRaw<ContractRow[]>`
-            SELECT id, status, name, phone, metadata, "contractSignedAt", "createdAt"
-            FROM "AffiliateContract"
-            WHERE phone = ${member.phone}
-            ORDER BY "createdAt" DESC
-            LIMIT 5
-          `
+      ? await prisma.$queryRaw<ContractRow[]>`
+          SELECT id, status, name, phone, metadata, "contractSignedAt", "createdAt"
+          FROM "AffiliateContract"
+          WHERE phone = ${member.phone}
+          ORDER BY "createdAt" DESC
+          LIMIT 5
+        `
       : [];
 
     logger.info('[GET /api/admin/affiliate-managers/:memberId]', { memberId, role: ctx.role });

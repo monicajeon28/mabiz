@@ -135,10 +135,18 @@ const CONTRACT_STATUS_LABEL: Record<string, string> = {
 
 function CopyApplyLink({ path = '/affiliate/apply', colorClass = 'bg-white text-blue-700 hover:bg-blue-50' }: { path?: string; colorClass?: string }) {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const url = typeof window !== 'undefined' ? `${window.location.origin}${path}` : path;
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
   return (
     <button
-      onClick={() => navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); })}
+      onClick={() => navigator.clipboard.writeText(url).then(() => {
+        setCopied(true);
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => setCopied(false), 2000);
+      })}
       className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-colors ${colorClass}`}
     >
       {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
@@ -149,9 +157,17 @@ function CopyApplyLink({ path = '/affiliate/apply', colorClass = 'bg-white text-
 
 function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
   return (
     <button
-      onClick={() => navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); })}
+      onClick={() => navigator.clipboard.writeText(text).then(() => {
+        setCopied(true);
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => setCopied(false), 1800);
+      })}
       className="shrink-0 flex items-center gap-1 px-2 py-0.5 bg-gray-100 hover:bg-gray-200 rounded text-xs text-gray-600 transition-colors"
     >
       {copied ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
@@ -849,7 +865,7 @@ export default function OrganizationsPage() {
       if (e instanceof Error && e.name === 'AbortError') return;
       setError('네트워크 오류가 발생했습니다.');
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, []);
 
@@ -869,8 +885,8 @@ export default function OrganizationsPage() {
 
   // searchRef: 검색어 최신값을 ref로 추적 → handleMemberChanged deps에서 search 제거
   // (search가 deps에 있으면 타이핑마다 DetailPanel 리렌더 발생)
+  // onChange에서 직접 갱신하므로 별도 useEffect 동기화 불필요
   const searchRef = useRef(search);
-  useEffect(() => { searchRef.current = search; }, [search]);
 
   const handleMemberChanged = useCallback(
     () => fetchManagers(searchRef.current),
@@ -1015,7 +1031,7 @@ export default function OrganizationsPage() {
           {!loading && <p className="text-sm text-gray-500 mt-0.5">{managers.length}명의 대리점장</p>}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => { setSearch(''); fetchManagers(); }} className="p-2 text-gray-400 hover:text-gray-600 transition-colors" title="새로고침">
+          <button onClick={() => { searchRef.current = ''; setSearch(''); fetchManagers(); }} className="p-2 text-gray-400 hover:text-gray-600 transition-colors" title="새로고침">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button onClick={() => setShowModal(true)} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
@@ -1029,12 +1045,12 @@ export default function OrganizationsPage() {
       <div className="flex gap-2">
         <input
           type="text" value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') fetchManagers(search); }}
+          onChange={(e) => { searchRef.current = e.target.value; setSearch(e.target.value); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') fetchManagers(searchRef.current); }}
           placeholder="이름 / 전화번호 / 조직명 검색"
           className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
         />
-        <button onClick={() => fetchManagers(search)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-colors">검색</button>
+        <button onClick={() => fetchManagers(searchRef.current)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-colors">검색</button>
       </div>
 
       {/* 에러 */}
@@ -1096,6 +1112,7 @@ export default function OrganizationsPage() {
           onRejected={() => {
             setRejectContract(null);
             fetchPendingContracts();
+            fetchManagers(searchRef.current);
           }}
         />
       )}
@@ -1104,7 +1121,7 @@ export default function OrganizationsPage() {
       {showModal && (
         <RegisterModal
           onClose={() => setShowModal(false)}
-          onCreated={() => fetchManagers(search)}
+          onCreated={() => fetchManagers(searchRef.current)}
         />
       )}
 
