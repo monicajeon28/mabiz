@@ -57,6 +57,7 @@ export async function GET(req: Request) {
           tags: true,
           organizationId: true,
           organization: { select: { name: true } },
+          groups: { select: { group: { select: { id: true, name: true, color: true } } } },
         },
       }),
       prisma.contact.count({ where }),
