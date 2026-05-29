@@ -3,10 +3,10 @@
  * 고객 360도 통합 뷰 조회 및 캐싱 관리
  */
 
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import DataLoader from 'dataloader';
-import { Contact360Response, Contact360Metrics } from './types';
+import { Contact360Response, Contact360Metrics, Contact360Group } from './types';
 import { maskPII, MaskOptions } from './pii-mask';
 import { calculateRiskScore } from './risk-calculator';
 
