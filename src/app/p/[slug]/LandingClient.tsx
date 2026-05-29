@@ -5,6 +5,16 @@ import { CountdownTimer } from "@/components/landing/CountdownTimer";
 import { StockGaugeWidget } from "@/components/landing/StockGaugeWidget";
 import { L6LossAnchorSection } from "@/components/landing/L6LossAnchorSection";
 
+// P0-8: URL 프로토콜 검증 헬퍼
+function isSafeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 interface PaymentConfig {
   type:         "onetime" | "subscription";
   productName:  string;
@@ -72,6 +82,12 @@ export function LandingClient({
   const containerRef  = useRef<HTMLDivElement>(null);
   const submittingRef = useRef(false);
   const loadTimeRef = useRef<number>(Date.now());
+
+  // P1-23: 스테일 클로저 방지용 Ref — useEffect 의존성 배열에서 제외
+  const completionPageUrlRef = useRef(completionPageUrl);
+  const l6ConfigRef = useRef(l6Config);
+  useEffect(() => { completionPageUrlRef.current = completionPageUrl; }, [completionPageUrl]);
+  useEffect(() => { l6ConfigRef.current = l6Config; }, [l6Config]);
 
   // 에러 토스트 4초 자동 dismiss
   useEffect(() => {
@@ -231,23 +247,29 @@ export function LandingClient({
           try { localStorage.setItem(`registered_${slug}`, '1'); } catch {}
 
           // L6 Day 0 SMS 트리거 (자동 발송 백그라운드)
-          if (l6Config?.enabled && data.registrationId) {
+          // P1-24: phoneNumber/customerName을 클라이언트에서 전달하지 않음
+          // 서버가 registrationId로 Contact를 조회하여 전화번호를 직접 사용
+          // P1-23: l6ConfigRef.current 사용 — 스테일 클로저 방지
+          if (l6ConfigRef.current?.enabled && data.registrationId) {
             try {
               fetch(`/api/landing-pages/${pageId}/sms-trigger`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   registrationId: data.registrationId,
-                  phoneNumber: phoneVal,
-                  customerName: nameVal,
                   messageType: "l6_day0",
                 }),
               }).catch(() => {}); // 백그라운드 작업 - 에러 무시
             } catch {}
           }
 
-          if (completionPageUrl) {
-            window.location.href = completionPageUrl;
+          // P1-23: completionPageUrlRef.current 사용 — 스테일 클로저 방지
+          if (completionPageUrlRef.current) {
+            if (isSafeUrl(completionPageUrlRef.current)) {
+              window.location.href = completionPageUrlRef.current;
+            } else {
+              console.error('[Security] 안전하지 않은 completionPageUrl 차단:', completionPageUrlRef.current);
+            }
             return;
           }
           window.scrollTo({ top: 0, behavior: "smooth" });
@@ -282,17 +304,19 @@ export function LandingClient({
 
     // submit-btn 클래스 버튼 클릭 인터셉트 (form 태그 없는 경우 대비)
     const btn = container.querySelector(".submit-btn, button[type='submit']");
-    btn?.addEventListener("click", (e) => {
-      const form = btn.closest("form");
+    const handleBtnClick = (e: Event) => {
+      const form = (btn as Element).closest("form");
       if (!form) {
         e.preventDefault();
         const syntheticForm = { target: container.querySelector("form") ?? container };
         handleSubmit(syntheticForm as unknown as Event);
       }
-    });
+    };
+    btn?.addEventListener("click", handleBtnClick);
 
     return () => {
       forms.forEach((f) => f.removeEventListener("submit", handleSubmit));
+      btn?.removeEventListener("click", handleBtnClick);
     };
   // submitting은 submittingRef로 처리 → 의존성 제거 (중복 주입 방지)
   }, [pageId, slug]);
@@ -345,7 +369,12 @@ export function LandingClient({
                     });
                     const data = await res.json();
                     if (data.ok && data.payUrl) {
-                      window.location.href = data.payUrl;
+                      if (isSafeUrl(data.payUrl)) {
+                        window.location.href = data.payUrl;
+                      } else {
+                        console.error('[Security] 안전하지 않은 payUrl 차단:', data.payUrl);
+                        setFieldError("결제 URL이 유효하지 않습니다.");
+                      }
                     } else {
                       setFieldError(data.message ?? "결제 요청에 실패했습니다.");
                     }

@@ -9,6 +9,7 @@
  *    이 모듈은 CRM 자체 PayAppPayment/PayAppSubscription만 사용
  */
 
+import { createHmac, timingSafeEqual } from 'crypto';
 import { logger } from '@/lib/logger';
 
 const PAYAPP_API_URL = 'https://api.payapp.kr/oapi/apiLoad.html';
@@ -174,7 +175,10 @@ export async function requestCancelAfterSettlement(params: {
  */
 export function validateFeedback(linkval: string): boolean {
   const config = getConfig();
-  return linkval === config.linkval;
+  const a = Buffer.from(linkval || '', 'utf8');
+  const b = Buffer.from(config.linkval || '', 'utf8');
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }
 
 /**
@@ -200,18 +204,23 @@ export function validateFeedbackWithHMAC(
   params: Record<string, string>,
   receivedHmac: string
 ): boolean {
-  // 아직 미구현. 다음 주에 PayApp 협의 후 추가
-  try {
-    const config = getConfig();
-    if (!config.linkkey) {
-      throw new Error(
-        "HMAC 검증을 위해 PAYAPP_LINKKEY 환경변수가 필요합니다"
-      );
-    }
-    // 구현 예정: crypto.createHmac('sha256', config.linkkey)...
+  const linkkey = process.env.PAYAPP_LINKKEY;
+  if (!linkkey) {
+    logger.warn('[PayApp] PAYAPP_LINKKEY 미설정 — HMAC 검증 불가');
     return false;
-  } catch (e) {
-    logger.warn('[PayApp] HMAC 검증 미구현', { error: e instanceof Error ? e.message : String(e) });
+  }
+  const sorted = Object.entries(params)
+    .filter(([k]) => k !== 'hmac')
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join('&');
+  const expected = createHmac('sha256', linkkey).update(sorted).digest('hex');
+  try {
+    const eBuf = Buffer.from(expected, 'utf8');
+    const rBuf = Buffer.from(receivedHmac, 'utf8');
+    if (eBuf.length !== rBuf.length) return false;
+    return timingSafeEqual(eBuf, rBuf);
+  } catch {
     return false;
   }
 }

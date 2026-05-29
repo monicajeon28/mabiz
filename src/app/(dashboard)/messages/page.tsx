@@ -6,7 +6,13 @@ import {
   Image as ImageIcon, Clock, Zap, X, User, MessageCircle,
 } from "lucide-react";
 import { showError, showSuccess } from "@/components/ui/Toast";
-import DOMPurify from "dompurify";
+// DOMPurify: window 없는 SSR 환경에서 window is not defined 방어
+const sanitize = (html: string): string => {
+  if (typeof window === "undefined") return html.replace(/<[^>]*>/g, "");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const DP = require("dompurify") as { sanitize: (h: string, o: object) => string };
+  return DP.sanitize(html, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+};
 import { ReviewTab } from "@/components/messages/ReviewTab";
 import { canReview } from "@/lib/rbac-client";
 import type { UserRole } from "@/lib/rbac-client";
@@ -722,7 +728,7 @@ function SmsTab() {
                 </p>
                 <p className="text-xs text-gray-500 font-medium mb-1">첫 번째 고객 미리보기:</p>
                 <div className="text-sm bg-white border rounded p-2.5 whitespace-pre-wrap break-words">
-                  {DOMPurify.sanitize(dryRunResult.sample, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] })}
+                  {sanitize(dryRunResult.sample)}
                 </div>
               </div>
 
@@ -826,15 +832,16 @@ function EmailTab() {
 
   const insertImage = (url: string) => {
     if (!url) return;
+    // P1-11: URL 검증 — http(s):// 로 시작하지 않으면 early return
+    if (!url.startsWith('https://') && !url.startsWith('http://')) return;
     const imgTag = `<img src="${url}" alt="이미지" style="max-width:100%;height:auto;display:block;margin:8px 0;" />`;
-    const el = emailBodyRef.current;
-    if (!el) {
-      setBody(prev => prev + '\n\n' + imgTag);
-    } else {
-      const start = el.selectionStart ?? body.length;
-      const end   = el.selectionEnd   ?? body.length;
-      setBody(body.substring(0, start) + '\n\n' + imgTag + body.substring(end));
-    }
+    // P1-12: 스테일 클로저 수정 — ref로 커서 위치를 미리 캡처 후 functional updater 사용
+    const cursorPos = emailBodyRef.current?.selectionStart ?? undefined;
+    const insertPos = (typeof cursorPos === 'number') ? cursorPos : undefined;
+    setBody(prev => {
+      const pos = insertPos ?? prev.length;
+      return prev.substring(0, pos) + '\n\n' + imgTag + prev.substring(pos);
+    });
     setShowImages(false);
   };
 
@@ -1126,214 +1133,23 @@ function EmailTab() {
   );
 }
 
-// ─── 카카오톡 탭 ─────────────────────────────────────────────
+
+// ─── 카카오톡 탭 (개발 중) ───────────────────────────────────
 function KakaoTab() {
-  const [kakaoConfig,    setKakaoConfig]    = useState<{ senderKey: string; isActive: boolean } | null>(null);
-  const [configLoading,  setConfigLoading]  = useState(true);
-  const [groups,         setGroups]         = useState<Group[]>([]);
-  const [selectedGroup,  setSelectedGroup]  = useState("");
-  const [title,          setTitle]          = useState("");
-  const [message,        setMessage]        = useState("");
-  const [showReplace,    setShowReplace]    = useState(false);
-  const [myLinks,        setMyLinks]        = useState<ShortLink[]>([]);
-  const [dryRunResult,   setDryRunResult]   = useState<{ count: number; sample: string } | null>(null);
-  const [confirmed,      setConfirmed]      = useState(false);
-  const [sending,        setSending]        = useState(false);
-  const [csrfToken,      setCsrfToken]      = useState("");
-  const [rateLimitStatus, setRateLimitStatus] = useState<{ used: number; remaining: number; resetAt: string } | null>(null);
-  const [userRole,       setUserRole]       = useState<UserRole | null>(null);
-  // 스케줄링 기능
-  const [scheduleMode,   setScheduleMode]   = useState<"now" | "scheduled">("now");
-  const [scheduledTime,  setScheduledTime]  = useState("");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // CSRF 토큰 획득
-  useEffect(() => {
-    fetch("/api/csrf-token").then(r => r.json())
-      .then(d => { if (d.ok && d.token) setCsrfToken(d.token); })
-      .catch(() => { /* silently fail */ });
-  }, []);
-
-  // 사용자 역할 조회
-  useEffect(() => {
-    fetch("/api/user/role").then(r => r.json())
-      .then(d => { if (d.ok && d.role) setUserRole(d.role as UserRole); })
-      .catch(() => { /* silently fail */ });
-  }, []);
-
-  // 초기 데이터 로드
-  useEffect(() => {
-    fetch("/api/settings/kakao-config").then(r => r.json())
-      .then(d => { if (d.ok) setKakaoConfig(d.config); })
-      .finally(() => setConfigLoading(false));
-    fetch("/api/groups").then(r => r.json()).then(d => { if (d.ok) setGroups(d.groups ?? []); });
-    fetch("/api/links").then(r => r.json())
-      .then(d => { if (d.ok) setMyLinks((d.links ?? []).filter((l: ShortLink) => l.contactId)); });
-  }, []);
-
-  const insertAtCursor = (token: string) => {
-    const el = textareaRef.current;
-    if (!el) { setMessage(prev => prev + token); return; }
-    const start = el.selectionStart ?? message.length;
-    const end   = el.selectionEnd   ?? message.length;
-    const next  = message.substring(0, start) + token + message.substring(end);
-    setMessage(next);
-    requestAnimationFrame(() => {
-      el.selectionStart = el.selectionEnd = start + token.length;
-      el.focus();
-    });
-  };
-
-  // currentGroup 메모이제이션
-  const currentGroup = useMemo(
-    () => groups.find(g => g.id === selectedGroup),
-    [groups, selectedGroup]
-  );
-
-  // Dry-run 콜백
-  const doDryRun = useCallback(async () => {
-    if (!selectedGroup || !title.trim() || !message.trim()) {
-      showError("그룹, 제목, 메시지를 모두 입력하세요");
-      return;
-    }
-    if (scheduleMode === "scheduled" && !scheduledTime) { showError("발송 시간을 선택해주세요"); return; }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    try {
-      const res = await fetch(`/api/groups/${selectedGroup}/blast-kakao`, {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken && { "X-CSRF-Token": csrfToken }),
-        },
-        body: JSON.stringify({
-          title,
-          message,
-          dryRun: true,
-          ...(scheduleMode === "scheduled" && { scheduledTime })
-        }),
-      });
-      const d = await res.json() as {
-        ok: boolean; willSend?: number; sample?: string; rateLimitStatus?: any;
-      };
-      if (!d.ok) {
-        if (d.rateLimitStatus?.remaining === 0) {
-          showError("일일 발송 한도를 모두 사용했습니다. 내일 초기화됩니다.");
-        } else {
-          showError("미리보기 실패");
-        }
-        setDryRunResult(null);
-        setConfirmed(false);
-        if (d.rateLimitStatus) {
-          const resetDate = new Date(d.rateLimitStatus.resetAt);
-          setRateLimitStatus({
-            used: d.rateLimitStatus.used,
-            remaining: d.rateLimitStatus.remaining,
-            resetAt: resetDate.toLocaleTimeString('ko-KR'),
-          });
-        }
-        return;
-      }
-      const sampleMsg = d.sample ?? `${title}\n${message}`;
-      setDryRunResult({ count: d.willSend ?? 0, sample: sampleMsg });
-      setConfirmed(false);
-      if (d.rateLimitStatus) {
-        const resetDate = new Date(d.rateLimitStatus.resetAt);
-        setRateLimitStatus({
-          used: d.rateLimitStatus.used,
-          remaining: d.rateLimitStatus.remaining,
-          resetAt: resetDate.toLocaleTimeString('ko-KR'),
-        });
-      }
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        showError("요청 시간 초과 - 다시 시도해주세요");
-      } else {
-        showError("미리보기 중 오류 발생");
-      }
-      setDryRunResult(null);
-      setConfirmed(false);
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }, [selectedGroup, title, message, csrfToken, scheduleMode, scheduledTime]);
-
-  // 발송 콜백
-  const doSend = useCallback(async () => {
-    if (!dryRunResult) {
-      showError("먼저 발송 대상을 확인해주세요.");
-      return;
-    }
-
-    if (!confirmed) {
-      showError("발송 확인 체크박스를 선택해주세요.");
-      return;
-    }
-
-    const willSend = dryRunResult.count || 0;
-    const confirmMsg = `정말 ${willSend}명에게 카카오톡을 발송하시겠습니까?\n\n제목: ${title}\n내용: ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}`;
-
-    if (typeof window === "undefined" || !window.confirm(confirmMsg)) {
-      return;
-    }
-
-    setSending(true);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    try {
-      const res = await fetch(`/api/groups/${selectedGroup}/blast-kakao`, {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken && { "X-CSRF-Token": csrfToken }),
-        },
-        body: JSON.stringify({
-          title,
-          message,
-          dryRun: false,
-          ...(scheduleMode === "scheduled" && { scheduledTime })
-        }),
-      });
-      const d = await res.json() as { ok: boolean; sentCount?: number; failedCount?: number; message?: string };
-      if (!d.ok) {
-        showError(d.message ?? "발송 실패");
-        return;
-      }
-      showSuccess(`발송 완료: ${d.sentCount ?? 0}명 성공, ${d.failedCount ?? 0}명 실패`);
-      setTitle(""); setMessage(""); setDryRunResult(null); setConfirmed(false); setRateLimitStatus(null);
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        showError("발송 요청 시간 초과 - 다시 시도해주세요");
-      } else {
-        showError("발송 중 오류가 발생했습니다");
-      }
-    } finally {
-      clearTimeout(timeoutId);
-      setSending(false);
-    }
-  }, [selectedGroup, title, message, csrfToken, dryRunResult, confirmed, scheduleMode, scheduledTime]);
-
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
       <div className="text-5xl mb-4">💬</div>
       <h2 className="text-lg font-bold text-gray-700 mb-2">카카오톡 알림톡</h2>
       <p className="text-sm text-gray-500 mb-4 max-w-sm">
         카카오 비즈니스 채널 연동 기능을 준비 중입니다.<br/>
-        SMS 탭에서 그룹 발송하거나, 오픈채팅방을 활용해주세요.
+        SMS 탭에서 그룹 발송하거나, 아래 오픈채팅방을 활용해주세요.
       </p>
       <a href="https://open.kakao.com/o/plREDDUh" target="_blank" rel="noopener noreferrer"
         className="flex items-center gap-2 px-5 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold rounded-xl text-sm">
         카카오 오픈채팅방 바로가기
       </a>
-      <p className="text-xs text-gray-400 mt-4">정식 알림톡 발송은 추후 업데이트 예정입니다.</p>
+      <p className="text-sm text-gray-500 mt-4">정식 알림톡 발송은 추후 업데이트 예정입니다.</p>
     </div>
   );
 }
-
-
 

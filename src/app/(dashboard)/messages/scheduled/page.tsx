@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AlarmClock, X, CheckCircle, Clock, XCircle, Pause, Play, RotateCcw } from "lucide-react";
 
 type ScheduledItem = {
@@ -29,40 +29,96 @@ const STATUS_INFO: Record<string, { label: string; icon: React.ReactNode; color:
 export default function ScheduledSmsPage() {
   const [list,      setList]      = useState<ScheduledItem[]>([]);
   const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState<string | null>(null);
   const [filter,    setFilter]    = useState("PENDING");
   const [cancelling, setCancelling] = useState<string | null>(null);
+  // P1-13: CSRF 토큰 상태
+  const [csrfToken, setCsrfToken] = useState("");
+  // P1-14: filterRef — doAction 내 스테일 클로저 방지
+  const filterRef = useRef(filter);
+
+  // P1-13: CSRF 토큰 로드
+  useEffect(() => {
+    fetch("/api/csrf-token").then(r => r.json())
+      .then(d => { if (d.ok && d.token) setCsrfToken(d.token); })
+      .catch(() => { /* silently fail */ });
+  }, []);
+
+  // P1-14: filter 변경 시 filterRef 동기화
+  useEffect(() => { filterRef.current = filter; }, [filter]);
 
   const load = async (status: string) => {
     setLoading(true);
-    const res = await fetch(`/api/scheduled-sms?status=${status}`);
-    const data = await res.json();
-    if (data.ok) setList(data.list);
-    setLoading(false);
+    setError(null);
+    try {
+      const res = await fetch(`/api/scheduled-sms?status=${status}`);
+      if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
+      const data = await res.json();
+      if (data.ok) setList(data.list);
+      else throw new Error(data.message ?? "조회 실패");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "데이터를 불러올 수 없습니다.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(filter); }, [filter]);
 
+  const [actionError, setActionError] = useState<string | null>(null);
+
   const cancel = async (id: string) => {
     setCancelling(id);
-    const res = await fetch(`/api/scheduled-sms?id=${id}`, { method: "DELETE" });
-    const data = await res.json();
-    if (data.ok) setList((prev) => prev.filter((item) => item.id !== id));
-    setCancelling(null);
+    setActionError(null);
+    try {
+      // P1-13: CSRF 헤더 추가
+      const res = await fetch(`/api/scheduled-sms?id=${id}`, {
+        method: "DELETE",
+        headers: {
+          ...(csrfToken && { "X-CSRF-Token": csrfToken }),
+        },
+      });
+      const data = await res.json();
+      if (data.ok) {
+        if (filter === "") {
+          setList((prev) => prev.map((item) => item.id === id ? { ...item, status: "CANCELLED" } : item));
+        } else {
+          setList((prev) => prev.filter((item) => item.id !== id));
+        }
+      } else {
+        setActionError(data.message ?? "취소 실패");
+      }
+    } catch {
+      setActionError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setCancelling(null);
+    }
   };
 
   const [acting, setActing] = useState<string | null>(null);
 
   const doAction = async (id: string, action: "pause" | "resume" | "retry") => {
     setActing(id);
-    const res = await fetch("/api/scheduled-sms", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, action }),
-    });
-    const data = await res.json();
-    if (data.ok) load(filter);
-    else alert(data.message ?? "작업 실패");
-    setActing(null);
+    setActionError(null);
+    try {
+      // P1-13: CSRF 헤더 추가
+      const res = await fetch("/api/scheduled-sms", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken && { "X-CSRF-Token": csrfToken }),
+        },
+        body: JSON.stringify({ id, action }),
+      });
+      const data = await res.json();
+      // P1-14: filterRef.current 사용 — 스테일 클로저 방지
+      if (data.ok) load(filterRef.current);
+      else setActionError(data.message ?? "작업 실패");
+    } catch {
+      setActionError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setActing(null);
+    }
   };
 
   return (
@@ -91,7 +147,7 @@ export default function ScheduledSmsPage() {
           </button>
         ))}
         <button
-          onClick={() => { setFilter(""); load(""); }}
+          onClick={() => setFilter("")}
           className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
             filter === "" ? "bg-navy-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
@@ -99,6 +155,14 @@ export default function ScheduledSmsPage() {
           전체
         </button>
       </div>
+
+      {/* 에러 메시지 */}
+      {(error || actionError) && (
+        <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700 mb-4 flex items-center justify-between gap-2">
+          <span>{error || actionError}</span>
+          <button onClick={() => { setError(null); setActionError(null); }} className="text-red-400 hover:text-red-600 shrink-0">✕</button>
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-3">
@@ -177,8 +241,8 @@ export default function ScheduledSmsPage() {
                     )}
                     {/* 취소 (PENDING/PAUSED/NIGHT_BLOCKED) */}
                     {(item.status === "PENDING" || item.status === "PAUSED" || item.status === "NIGHT_BLOCKED") && (
-                      <button onClick={() => cancel(item.id)} disabled={cancelling === item.id}
-                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="취소">
+                      <button onClick={() => cancel(item.id)} disabled={cancelling === item.id || acting === item.id}
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40" title="취소">
                         <X className="w-4 h-4" />
                       </button>
                     )}

@@ -4,6 +4,43 @@ import { headers } from "next/headers";
 import { createHash } from "crypto";
 import Script from "next/script";
 import { LandingClient } from "./LandingClient";
+import { sanitizeHtml } from "@/lib/html-sanitizer";
+
+// P0-6: headerScript 허용 목록 방식 sanitize
+function sanitizeHeaderScript(script: string | null): string | null {
+  if (!script) return null;
+  const ALLOWED_DOMAINS = [
+    'www.googletagmanager.com',
+    'www.google-analytics.com',
+    'connect.facebook.net',
+    'cdn.jsdelivr.net',
+    'developers.kakao.com',
+    'wcs.naver.net',
+    'cdn.channel.io',
+    't1.kakaocdn.net',
+  ];
+  // 인라인 스크립트 차단 (src= 없는 script 태그)
+  const inlineScriptPattern = /<script(?![^>]*src=)[^>]*>/gi;
+  if (inlineScriptPattern.test(script)) {
+    console.warn('[Security] headerScript: 인라인 스크립트 차단됨');
+    return null;
+  }
+  // src URL 도메인 검증
+  const srcPattern = /src=["']([^"']+)["']/gi;
+  let match;
+  while ((match = srcPattern.exec(script)) !== null) {
+    try {
+      const url = new URL(match[1]);
+      if (!ALLOWED_DOMAINS.some(d => url.hostname === d || url.hostname.endsWith('.' + d))) {
+        console.warn('[Security] headerScript: 허용되지 않은 도메인 차단', url.hostname);
+        return null;
+      }
+    } catch {
+      return null; // 잘못된 URL
+    }
+  }
+  return script;
+}
 
 // 공개 랜딩페이지 — 인증 불필요
 export default async function PublicLandingPage({
@@ -61,16 +98,19 @@ export default async function PublicLandingPage({
     // unique 위반(P2002) = 24시간 내 재방문 → viewCount 증가 스킵
   }
 
+  // P0-6: sanitize headerScript 적용
+  const safeHeaderScript = sanitizeHeaderScript(page.headerScript);
+
   return (
     <>
-      {page.headerScript && (
+      {safeHeaderScript && (
         <Script id="landing-header-script" strategy="afterInteractive"
-          dangerouslySetInnerHTML={{ __html: page.headerScript }} />
+          dangerouslySetInnerHTML={{ __html: safeHeaderScript }} />
       )}
       <LandingClient
         pageId={page.id}
         slug={slug}
-        htmlContent={page.htmlContent ?? ""}
+        htmlContent={sanitizeHtml(page.htmlContent ?? "")}
         commentEnabled={page.commentEnabled}
         buttonTitle={page.buttonTitle ?? undefined}
         completionPageUrl={page.completionPageUrl ?? undefined}
