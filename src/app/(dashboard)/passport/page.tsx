@@ -227,7 +227,16 @@ export default function PassportPage() {
 
   // ── 데이터 로드 ─────────────────────────────────────────────────
 
+  // in-flight 요청 취소용 ref (race condition 방지)
+  const fetchAbortRef = useRef<AbortController | null>(null);
+
   const loadCustomers = useCallback(async (page = 1, append = false) => {
+    if (!append) {
+      fetchAbortRef.current?.abort();
+      fetchAbortRef.current = new AbortController();
+    }
+    const signal = !append ? fetchAbortRef.current?.signal : undefined;
+
     if (append) setLoadingMore(true);
     else setLoading(true);
     try {
@@ -237,7 +246,7 @@ export default function PassportPage() {
       if (productFilter !== 'all') p.set('productCode', productFilter);
       p.set('page', String(page));
       p.set('limit', '100');
-      const res = await fetch(`/api/passport/admin/customers?${p}`, { credentials: 'include' });
+      const res = await fetch(`/api/passport/admin/customers?${p}`, { credentials: 'include', signal });
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
           showError('세션이 만료됐습니다. 다시 로그인해 주세요.');
@@ -264,7 +273,7 @@ export default function PassportPage() {
         } else {
           setCustomers(newItems);
           setSelectedIds(prev => {
-            const ids = new Set(newItems.map((c: PassportCustomer) => c.id));
+            const ids = new Set(newItems.map(c => c.id));
             return new Set([...prev].filter(id => ids.has(id)));
           });
         }
@@ -272,24 +281,27 @@ export default function PassportPage() {
         showError(data.message ?? '고객 목록을 불러오지 못했습니다.');
         if (!append) setCustomers([]);
       }
-    } catch { showError('고객 목록을 불러오지 못했습니다.'); }
-    finally {
+    } catch (e) {
+      if ((e as Error)?.name !== 'AbortError') showError('고객 목록을 불러오지 못했습니다.');
+    } finally {
       if (append) setLoadingMore(false);
       else setLoading(false);
     }
   }, [statusFilter, productFilter]);
 
-  const loadTemplates = useCallback(async () => {
+  const loadTemplates = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch('/api/passport/admin/templates', { credentials: 'include' });
+      const res = await fetch('/api/passport/admin/templates', { credentials: 'include', signal });
+      if (!res.ok) return;
       const data = await res.json();
       if (data.ok && Array.isArray(data.templates)) {
         setTemplates(data.templates);
         const def = data.templates.find((t: Template) => t.isDefault) ?? data.templates[0];
         if (def) setTemplateId(def.id);
       }
-    } catch {
-      showError('메시지 템플릿을 불러오지 못했습니다. 기본 템플릿으로 발송됩니다.');
+    } catch (e) {
+      if ((e as Error)?.name !== 'AbortError')
+        showError('메시지 템플릿을 불러오지 못했습니다. 기본 템플릿으로 발송됩니다.');
     }
   }, []);
 
@@ -297,7 +309,8 @@ export default function PassportPage() {
     let cancelled = false;
     const ac1 = new AbortController();
     const ac2 = new AbortController();
-    loadTemplates();
+    const ac3 = new AbortController();
+    loadTemplates(ac3.signal);
     fetch('/api/passport/admin/aligo-status', { credentials: 'include', signal: ac1.signal })
       .then(r => r.json())
       .then(d => { if (!cancelled && d.ok) setAligoBalance(d.balance); })
@@ -306,14 +319,22 @@ export default function PassportPage() {
       .then(r => r.json())
       .then(d => { if (!cancelled && d.ok) setProductCodes(d.productCodes ?? []); })
       .catch(() => {});
-    return () => { cancelled = true; ac1.abort(); ac2.abort(); };
+    return () => { cancelled = true; ac1.abort(); ac2.abort(); ac3.abort(); };
   }, [loadTemplates]);
 
   useEffect(() => {
-    // 필터·검색·새로고침 변경 시 항상 page=1 부터 재조회
+    // 필터·새로고침 변경 시 재조회
     const t = setTimeout(() => loadCustomers(1, false), 350);
     return () => clearTimeout(t);
   }, [loadCustomers, refreshTick]);
+
+  // 검색어 변경 시 디바운스 재조회 (search → loadCustomers 의존성 분리 패턴)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setRefreshTick(prev => prev + 1);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [search]);
 
   // 필터 변경 시 이전 선택 + 페이지 클리어
   useEffect(() => {
@@ -442,7 +463,8 @@ export default function PassportPage() {
         setAligoBalance(data.remainingCash);
       }
       if (data.lowBalance) {
-        showError(`⚠ 문자 잔액이 ${(data.remainingCash as number)?.toLocaleString()}원으로 부족합니다. 충전이 필요합니다.`);
+        const cashStr = typeof data.remainingCash === 'number' ? data.remainingCash.toLocaleString() : '알 수 없음';
+        showError(`⚠ 문자 잔액이 ${cashStr}원으로 부족합니다. 충전이 필요합니다.`);
       }
 
       // 찾지 못한 고객 안내
@@ -899,7 +921,7 @@ function CustomerRow({
       })
       .catch(() => { if (!cancelled) setGuestsError(true); })
       .finally(() => { if (!cancelled) setGuestsLoading(false); });
-    return () => { cancelled = true; controller.abort(); guestsFetchedRef.current = false; };
+    return () => { cancelled = true; controller.abort(); };
   }, [open, isSubmitted, c.id]);
 
   const statusBadge = {

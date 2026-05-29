@@ -52,8 +52,12 @@ export async function GET(req: NextRequest) {
       if (VALID_STATUS.has(normalizedStatus)) where.status = normalizedStatus;
     }
 
-    // OWNER는 자신이 발송한 로그만 조회 (manager.id=0이면 격리 스킵 — GLOBAL_ADMIN 위장 방지)
-    if (manager.role === 'OWNER' && manager.id > 0) {
+    // OWNER는 자신이 발송한 로그만 조회
+    if (manager.role === 'OWNER') {
+      if (manager.id <= 0) {
+        // mallUser 없는 비정상 세션 → 빈 결과 (전체 노출 차단)
+        return NextResponse.json({ ok: true, data: [], meta: { page, limit: take, count: 0 } });
+      }
       where.adminId = manager.id;
     }
 
