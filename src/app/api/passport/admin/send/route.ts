@@ -2,7 +2,6 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Vercel Free=60s / Pro=300s — 플랜 확인 후 조정
 
 import { NextRequest, NextResponse } from 'next/server';
-import { randomBytes } from 'crypto';
 import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { requireCrmManager } from '@/lib/passport-auth';
@@ -12,6 +11,8 @@ import {
   buildPassportLink,
   fillTemplate,
   sanitizeLegacyTemplateBody,
+  normalizePhoneForSms,
+  generatePassportToken,
 } from '@/lib/passport-utils';
 
 export const runtime = 'nodejs';
@@ -30,6 +31,7 @@ interface AligoRemainResponse {
   SMS_CNT?: string;
   LMS_CNT?: string;
   MMS_CNT?: string;
+  cash?: string;
 }
 
 async function fetchRemain(): Promise<AligoRemainResponse> {
@@ -99,10 +101,6 @@ type PassportSendUser = {
   }>;
 };
 
-function generateToken() {
-  // 16바이트로 줄여서 base62 인코딩 시 약 22자 정도로 짧게 만듦
-  return randomBytes(16).toString('hex');
-}
 
 function formatDate(value: Date | null | undefined) {
   if (!value) return '';
@@ -221,9 +219,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // template.body는 이미 위에서 sanitize됨 — 이중 처리 불필요
     const baseMessage =
       body.messageBody?.trim() ||
-      sanitizeLegacyTemplateBody(template?.body) ||
+      template?.body ||
       DEFAULT_PASSPORT_TEMPLATE_BODY;
 
     if (!baseMessage) {
@@ -299,7 +298,23 @@ export async function POST(req: NextRequest) {
     const usersById = new Map<number, PassportSendUser>(usersData.map((user) => [user.id, user]));
     const missingUserIds = userIds.filter((id) => !usersById.has(id));
 
+    // 일일 발송 제한 — 루프 전 일괄 조회 (N+1 제거: 100명 = 100쿼리 → 1쿼리)
+    const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentLogGroups = await prisma.gmPassportRequestLog.groupBy({
+      by: ['userId'],
+      where: { userId: { in: userIds }, status: 'SUCCESS', sentAt: { gte: cutoff24h } },
+      _count: { userId: true },
+    });
+    const recentSendMap = new Map<number, number>(
+      recentLogGroups.map((r) => [r.userId, r._count.userId])
+    );
+
     const results: Array<SendResultItem> = [];
+    const pendingLogs: Array<{
+      userId: number; adminId: number | null; templateId: number | null;
+      messageBody: string; messageChannel: string; status: string;
+      errorReason: string | null; sentAt: Date;
+    }> = [];
     let aligoRemain: AligoRemainResponse | null = null;
     let remainingCash: number | null = null;
     let lowBalance = false;
@@ -312,14 +327,8 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 일일 발송 횟수 제한 (24시간 내 성공 2회 초과 시 스킵)
-      const recentSendCount = await prisma.gmPassportRequestLog.count({
-        where: {
-          userId,
-          status: 'SUCCESS',
-          sentAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-        },
-      });
+      // 일일 발송 횟수 제한 (Map 조회 — O(1))
+      const recentSendCount = recentSendMap.get(userId) ?? 0;
       if (recentSendCount >= 2) {
         results.push({
           userId,
@@ -338,13 +347,13 @@ export async function POST(req: NextRequest) {
         const latestTrip = user.trips[0] ?? null;
         const existingSubmission = user.passportSubmissions[0] ?? null;
         // 전화번호는 SMS 발송에만 필요 — 링크 생성은 전화번호 없어도 항상 진행
-        const normalizedPhone = normalizePhone(user.phone);
+        const normalizedPhone = normalizePhoneForSms(user.phone);
 
         // 여권 또는 PNR 발송에 따른 분기
         let personalizedMessage = '';
         if (sendTarget === 'passport') {
           // ── 여권 발송 ──
-          token = generateToken();
+          token = generatePassportToken();
           const tokenExpiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
           link = buildPassportLink(token);
 
@@ -411,14 +420,15 @@ export async function POST(req: NextRequest) {
 
         // 전화번호 없으면 링크만 반환 (SMS 없이)
         if (!normalizedPhone) {
-          await recordPassportLog({
+          pendingLogs.push({
             userId: user.id,
-            managerId: manager.id,
+            adminId: manager.id > 0 ? manager.id : null,
             templateId: template?.id ?? null,
             messageBody: personalizedMessage,
             messageChannel,
             status: 'FAILED',
             errorReason: '전화번호 없음 — 링크만 생성됨',
+            sentAt: new Date(),
           });
           results.push({
             userId: user.id,
@@ -485,14 +495,15 @@ export async function POST(req: NextRequest) {
         const status = sendError ? 'FAILED' : 'SUCCESS';
         const messageId = sendResponse?.message_id || (sendResponse?.msg_id as string | undefined) || null;
 
-        await recordPassportLog({
+        pendingLogs.push({
           userId: user.id,
-          managerId: manager.id,
+          adminId: manager.id > 0 ? manager.id : null,
           templateId: template?.id ?? null,
           messageBody: personalizedMessage,
           messageChannel,
           status,
-          errorReason: sendError,
+          errorReason: sendError ?? null,
+          sentAt: new Date(),
         });
 
         // SMS 실패해도 링크는 포함 (success 여부는 SMS 성공 기준)
@@ -520,16 +531,29 @@ export async function POST(req: NextRequest) {
           ...(submissionId !== undefined && link ? { submissionId, link } : {}),
         };
 
-        await recordPassportLog({
+        pendingLogs.push({
           userId: user.id,
-          managerId: manager.id,
+          adminId: manager.id > 0 ? manager.id : null,
           templateId: template?.id ?? null,
           messageBody: baseMessage,
           messageChannel,
           status: 'FAILED',
           errorReason: message,
+          sentAt: new Date(),
         });
         results.push(errorResult);
+      }
+    }
+
+    // 로그 배치 flush (N+1 제거: 100명 = 100 create → createMany 1쿼리)
+    if (pendingLogs.length > 0) {
+      try {
+        await prisma.gmPassportRequestLog.createMany({ data: pendingLogs });
+      } catch (logErr) {
+        logger.error('[PassportRequest] Failed to batch insert logs', {
+          err: logErr instanceof Error ? logErr.message : String(logErr),
+          count: pendingLogs.length,
+        });
       }
     }
 
@@ -565,53 +589,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        message: 'Failed to send passport request.',
-        error: error instanceof Error ? error.message : String(error),
-        details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
+        message: '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+        ...(process.env.NODE_ENV === 'development' ? {
+          error: error instanceof Error ? error.message : String(error),
+          details: error instanceof Error ? error.stack : undefined,
+        } : {}),
       },
       { status: 500 }
     );
   }
 }
 
-function normalizePhone(phone: string | null): string | null {
-  if (!phone) return null;
-  const digits = phone.replace(/[^0-9]/g, '');
-  // 한국 휴대전화 11자리 (010/011/016/017/018/019)
-  if (digits.length === 11 && /^01[016789]/.test(digits)) return digits;
-  // 앞 0이 누락된 10자리 (1012345678 → 01012345678)
-  if (digits.length === 10 && digits.startsWith('10')) return `0${digits}`;
-  // 지역번호(02/031/051 등) → SMS 발송 불가
-  return null;
-}
 
-async function recordPassportLog(params: {
-  userId: number;
-  managerId: number;
-  templateId: number | null;
-  messageBody: string;
-  messageChannel: string;
-  status: 'SUCCESS' | 'FAILED';
-  errorReason?: string | null;
-}) {
-  const { userId, managerId, templateId, messageBody, messageChannel, status, errorReason } = params;
-
-  try {
-    await prisma.gmPassportRequestLog.create({
-      data: {
-        userId,
-        adminId: managerId > 0 ? managerId : null, // ← managerId가 0이면 null로 처리 (FK 제약 조건 회피)
-        templateId,
-        messageBody,
-        messageChannel,
-        status,
-        errorReason: errorReason ?? null,
-        sentAt: new Date(),
-      },
-    });
-  } catch (error) {
-    logger.error('[PassportRequest] Failed to insert request log', {
-      err: error instanceof Error ? error.message : String(error),
-    });
-  }
-}

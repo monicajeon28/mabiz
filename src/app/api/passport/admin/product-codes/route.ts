@@ -32,7 +32,7 @@ export async function GET() {
     // OWNER 테넌트 격리: 소속 조직 고객 상품만 표시
     const ownerFilter = (manager.role === 'OWNER' && manager.organizationId)
       ? Prisma.sql`AND EXISTS(
-          SELECT 1 FROM "AffiliateSale" af
+          SELECT 1 FROM "CrmAffiliateSale" af
           JOIN "Reservation" rv ON rv.id::text = af."orderId"
           WHERE rv."mainUserId" = r."mainUserId"
             AND af."organizationId" = ${manager.organizationId}

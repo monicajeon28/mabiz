@@ -28,7 +28,7 @@ export async function GET() {
     } as const;
 
     // GET은 읽기 전용 — sanitize는 PUT/POST(저장) 시에만 수행
-    const templates = await prisma.gmPassportRequestTemplate.findMany({
+    let templates = await prisma.gmPassportRequestTemplate.findMany({
       orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
       select: templateSelect,
     });
