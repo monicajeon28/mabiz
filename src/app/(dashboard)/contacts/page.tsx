@@ -243,23 +243,23 @@ export default function ContactsPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        showToast(`${data.count}명 삭제되었습니다`);
+        toast({ title: '삭제 완료', description: `${data.count}명의 고객이 삭제되었습니다` });
         setSelectedIds(new Set());
         setShowDeleteConfirm(false);
         // 목록 새로고침
         setPage(1);
-        const res = await fetch(`/api/contacts/all?q=${q}&type=${type}&page=${1}&limit=${10}&filterGroupId=${filterGroupId}&filterSourceType=${filterSourceType}&filterAssignedTo=${filterAssignedTo}${selectedTags.length > 0 ? `&tags=${selectedTags.join(",")}` : ""}`);
-        const json = await res.json();
+        const refreshRes = await fetch(`/api/contacts/all?q=${q}&type=${type}&page=${1}&limit=${10}&filterGroupId=${filterGroupId}&filterSourceType=${filterSourceType}&filterAssignedTo=${filterAssignedTo}${selectedTags.length > 0 ? `&tags=${selectedTags.join(",")}` : ""}`);
+        const json = await refreshRes.json();
         if (json.ok) {
           setContacts(json.contacts || []);
           setTotal(json.total || 0);
         }
       } else {
-        showToast(`삭제 실패: ${data.message}`, "error");
+        toast({ title: '삭제 실패', description: data.message ?? '다시 시도해주세요.', variant: 'destructive' });
       }
     } catch (err) {
       logger.error("[ContactsPage] Bulk delete error:", err);
-      showToast("삭제 중 오류가 발생했습니다", "error");
+      toast({ title: '네트워크 오류', description: '삭제 중 오류가 발생했습니다. 다시 시도해주세요.', variant: 'destructive' });
     } finally {
       setDeleting(false);
     }
