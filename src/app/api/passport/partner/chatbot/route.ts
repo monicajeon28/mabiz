@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 ﻿export const dynamic = 'force-dynamic';
 
 // 파트너용 여권 챗봇 플로우 조회/생성 API

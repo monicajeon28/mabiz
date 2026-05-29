@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -124,7 +125,6 @@ export async function POST(req: NextRequest) {
       const updated = await prisma.gmPassportSubmission.update({
         where: { id: existingSubmission.id },
         data: {
-          token,
           tokenExpiresAt,
           isSubmitted: false,
           updatedAt: new Date(),
@@ -136,7 +136,6 @@ export async function POST(req: NextRequest) {
       const created = await prisma.gmPassportSubmission.create({
         data: {
           userId: leadUser.id,
-          token,
           tokenExpiresAt,
           isSubmitted: false,
           driveFolderUrl: null,
@@ -178,7 +177,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       link,
-      token,
       submissionId,
       expiresAt: tokenExpiresAt.toISOString(),
       message: '여권 제출 링크가 생성되었습니다.',

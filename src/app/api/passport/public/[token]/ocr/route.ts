@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -5,8 +6,11 @@ import prisma from '@/lib/prisma';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { logger } from '@/lib/logger';
 
-const apiKey = process.env.GEMINI_API_KEY || '';
-const genAI = new GoogleGenerativeAI(apiKey);
+function getGenAI(): GoogleGenerativeAI {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error('GEMINI_API_KEY_MISSING');
+  return new GoogleGenerativeAI(key);
+}
 
 function getGeminiModelName(): string {
   return process.env.GEMINI_MODEL_NAME || 'gemini-2.0-flash';
@@ -42,10 +46,22 @@ export async function POST(
       return NextResponse.json({ ok: false, error: '파일이 없습니다.' }, { status: 400 });
     }
 
+    // 파일 크기 제한 (10MB)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ ok: false, error: '파일 크기는 10MB 이하여야 합니다.' }, { status: 413 });
+    }
+
+    // 이미지 파일 타입 검증
+    if (!file.type.startsWith('image/')) {
+      return NextResponse.json({ ok: false, error: '이미지 파일만 업로드할 수 있습니다.' }, { status: 400 });
+    }
+
     const buffer = Buffer.from(await file.arrayBuffer());
     const base64String = buffer.toString('base64');
 
     // OCR 처리
+    const genAI = getGenAI();
     const modelName = getGeminiModelName();
     const model = genAI.getGenerativeModel({
       model: modelName,

@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 ﻿export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -122,7 +123,6 @@ async function upsertSubmission(params: {
     const updated = await prisma.gmPassportSubmission.update({
       where: { id: existingSubmission.id },
       data: {
-        token,
         tokenExpiresAt,
         tripId: tripId ?? existingSubmission.tripId,
         isSubmitted: false,
@@ -136,7 +136,6 @@ async function upsertSubmission(params: {
   const now = new Date();
   const createData: Record<string, unknown> = {
     userId,
-    token,
     tokenExpiresAt,
     isSubmitted: false,
     driveFolderUrl: null,
@@ -275,7 +274,6 @@ export async function POST(req: NextRequest) {
     const submissionId = await upsertSubmission({
       userId: user.id,
       tripId: null,
-      token,
       tokenExpiresAt,
     });
 
@@ -299,7 +297,6 @@ export async function POST(req: NextRequest) {
         leadId: lead.id,
         submissionId,
         link,
-        token,
         message: personalizedMessage,
         expiresAt: tokenExpiresAt.toISOString(),
       },

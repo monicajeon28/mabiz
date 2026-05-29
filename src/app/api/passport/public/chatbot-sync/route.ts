@@ -1,6 +1,8 @@
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -8,11 +10,29 @@ import { logger } from '@/lib/logger';
  * 여권 챗봇 연동 API
  * POST /api/passport/public/chatbot-sync
  *
- * 외부 챗봇에서 여권 정보를 받아서 Traveler 정보를 업데이트합니다.
- * Public API — 인증 없음
+ * 내부 챗봇 서버에서 여권 정보를 받아서 Traveler 정보를 업데이트합니다.
+ * CHATBOT_SECRET 헤더로 내부 서버 인증 (Bearer 토큰)
  */
 export async function POST(req: NextRequest) {
   try {
+    // 내부 서버 인증 (timingSafeEqual로 타이밍 공격 방지)
+    const secret = process.env.CHATBOT_SECRET;
+    const auth = req.headers.get('authorization') ?? '';
+    if (!secret) {
+      logger.error('[ChatbotSync] CHATBOT_SECRET 환경변수 미설정');
+      return NextResponse.json({ ok: false, message: 'Unauthorized' }, { status: 401 });
+    }
+    const expected = `Bearer ${secret}`;
+    let authValid = false;
+    try {
+      authValid = auth.length === expected.length &&
+        timingSafeEqual(Buffer.from(auth), Buffer.from(expected));
+    } catch { authValid = false; }
+    if (!authValid) {
+      logger.warn('[ChatbotSync] 인증 실패', { ip: req.headers.get('x-forwarded-for') });
+      return NextResponse.json({ ok: false, message: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { reservationId, passportData } = body;
 
