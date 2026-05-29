@@ -15,6 +15,7 @@
 export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { calculateAllPartnerChurnRisks } from '@/lib/services/partner-churn-detector';
@@ -39,6 +40,28 @@ interface RiskScoringResponse {
 }
 
 export async function POST(req: Request) {
+  // Cron 인증 — Vercel Cron Bearer token
+  const secret = process.env.CRON_SECRET;
+  const auth = req.headers.get('authorization') ?? '';
+
+  if (!secret) {
+    logger.error('[CronPartnerRiskScoring] 인증 실패', { reason: 'CRON_SECRET 환경변수 미설정' });
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
+
+  const expected = `Bearer ${secret}`;
+  let authValid = false;
+  try {
+    authValid = auth.length === expected.length && timingSafeEqual(Buffer.from(auth), Buffer.from(expected));
+  } catch {
+    authValid = false;
+  }
+
+  if (!authValid) {
+    logger.warn('[CronPartnerRiskScoring] 인증 실패', { ip: req.headers.get('x-forwarded-for') });
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
+
   const startTime = Date.now();
   const response: RiskScoringResponse = {
     status: 'PROCESSING',

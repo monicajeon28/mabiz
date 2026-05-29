@@ -2,6 +2,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 import { NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -16,8 +17,23 @@ import { logger } from '@/lib/logger';
  */
 export async function GET(req: Request) {
   try {
-    const cronSecret = req.headers.get('x-vercel-cron-secret');
-    if (process.env.CRON_SECRET && cronSecret !== process.env.CRON_SECRET) {
+    // Cron 인증 — CRON_SECRET 환경변수
+    const secret = process.env.CRON_SECRET;
+    if (!secret) {
+      logger.error('[CronCleanup] 인증 실패', { reason: 'CRON_SECRET 환경변수 미설정' });
+      throw new Error('CRON_SECRET environment variable is not set');
+    }
+
+    const auth = req.headers.get('x-cron-secret') ?? req.headers.get('x-vercel-cron-secret') ?? '';
+    let authValid = false;
+    try {
+      authValid = auth.length === secret.length && timingSafeEqual(Buffer.from(auth), Buffer.from(secret));
+    } catch {
+      authValid = false;
+    }
+
+    if (!authValid) {
+      logger.warn('[CronCleanup] 인증 실패', { ip: req.headers.get('x-forwarded-for') });
       return NextResponse.json({ ok: false, message: '인증 실패' }, { status: 401 });
     }
 
