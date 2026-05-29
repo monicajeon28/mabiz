@@ -131,10 +131,28 @@ export async function POST(req: Request, { params }: Params) {
       dryRun,
     });
 
-    // dryRun: 실제 발송 없이 인원만 반환
+    // dryRun: 실제 발송 없이 인원만 반환 (+ 첫 고객 치환 미리보기)
     if (dryRun) {
       const rlKey = `sms_blast:${ctx.userId || ''}`;
       const rateLimitStatus = getRateLimitStatus(rlKey, SMS_BLAST_MAX_PER_DAY, SMS_BLAST_WINDOW_MS);
+
+      // [C-3] 첫 번째 대상 고객으로 치환된 미리보기 생성
+      let sampleMessages: string[] = [];
+      const firstTarget = targets[0];
+      if (firstTarget) {
+        const depStr = firstTarget.contact.departureDate
+          ? firstTarget.contact.departureDate.toLocaleDateString('ko-KR', {
+              year: 'numeric', month: '2-digit', day: '2-digit',
+            })
+          : '';
+        sampleMessages = [personalizeMessage(trimmedMsg, {
+          name:             firstTarget.contact.name,
+          phone:            firstTarget.contact.phone,
+          assignedUserName: '', // dryRun 시 담당자 조회 생략
+          cruiseInterest:   firstTarget.contact.cruiseInterest ?? '',
+          departureDate:    depStr,
+        })];
+      }
 
       return NextResponse.json({
         ok:          true,
@@ -142,6 +160,7 @@ export async function POST(req: Request, { params }: Params) {
         groupName:   group.name,
         total:       totalInGroup,
         willSend:    targets.length,
+        sampleMessages,
         blockedByOptOut,
         isOverLimit,
         overLimitMsg: isOverLimit

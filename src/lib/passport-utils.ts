@@ -134,6 +134,20 @@ export function fillTemplate(
   });
 }
 
+/**
+ * 한국 휴대전화 번호 정규화 — SMS 발송 가능 여부 검증 포함
+ * - 010/011/016/017/018/019 로 시작하는 11자리만 유효
+ * - 앞 0이 누락된 10자리 (10으로 시작) → 0 prefix 복원
+ * - 02/031 등 지역번호, 12자리 이상 이상 번호 → null (발송 불가)
+ */
+export function normalizePhoneForSms(phone: string | null): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/[^0-9]/g, '');
+  if (digits.length === 11 && /^01[016789]/.test(digits)) return digits;
+  if (digits.length === 10 && digits.startsWith('10')) return `0${digits}`;
+  return null;
+}
+
 /** 레거시 이모지 템플릿 → 텍스트 전환 */
 export function sanitizeLegacyTemplateBody(body: string | null | undefined): string {
   if (!body) return '';

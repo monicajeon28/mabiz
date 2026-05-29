@@ -302,13 +302,14 @@ export default function PassportPage() {
     [templates, templateId],
   );
 
-  // 발송 버튼 문구 (상황별)
+  // 발송 버튼 문구 (withPhone/withoutPhone이 파생값이므로 selectedIds.size 의존성 제거)
   const sendBtnLabel = useMemo(() => {
-    if (selectedIds.size === 0) return '고객을 먼저 선택하세요';
-    if (withPhone.length === 0) return `여권 링크 생성 (${selectedIds.size}명) — 직접 전달 필요`;
-    if (withoutPhone.length === 0) return `여권 요청 문자 발송 (${selectedIds.size}명)`;
+    const total = withPhone.length + withoutPhone.length;
+    if (total === 0) return '고객을 먼저 선택하세요';
+    if (withPhone.length === 0) return `여권 링크 생성 (${total}명) — 직접 전달 필요`;
+    if (withoutPhone.length === 0) return `여권 요청 문자 발송 (${total}명)`;
     return `여권 요청 발송 — 문자 ${withPhone.length}명 · 링크만 ${withoutPhone.length}명`;
-  }, [selectedIds.size, withPhone.length, withoutPhone.length]);
+  }, [withPhone.length, withoutPhone.length]);
 
   // 출발 7일 이내 미제출 긴급 고객 수
   const urgentCount = useMemo(() =>
@@ -430,7 +431,7 @@ export default function PassportPage() {
       </div>
 
       {/* 긴급 처리 배너 */}
-      {urgentCount > 0 && (
+      {urgentCount > 0 && (statusFilter === 'all' || statusFilter === 'pending') && (
         <div className="bg-red-50 border border-red-300 rounded-xl px-4 py-3 flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
           <div className="flex-1">

@@ -94,7 +94,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ok: true, data, meta: { page, limit: take, count: data.length } });
   } catch (error) {
-    logger.error('[PassportRequest] GET /history error', { error });
+    logger.error('[PassportRequest] GET /history error', {
+      message: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { ok: false, message: 'Failed to load passport request history.' },
       { status: 500 },

@@ -373,23 +373,21 @@ export default function FunnelEditPage() {
                     </div>
 
                     {isPreview ? (() => {
-                      const previewText = useMemo(() =>
-                        (stage.messageContent || "(메시지 없음)")
-                          .replace(/\[고객명\]/g, "김민준")
-                          .replace(/\[이름\]/g,   "김민준")
-                          .replace(/\[출발일\]/g, "2025.09.15")
-                          .replace(/\[링크\]/g,   "https://cruisedot.co.kr"),
-                        [stage.messageContent]
-                      );
+                      // useMemo 제거 — 루프 안 Hook 호출은 Rules of Hooks 위반
+                      const previewText = (stage.messageContent || "(메시지 없음)")
+                        .replace(/\[고객명\]/g, "김민준")
+                        .replace(/\[이름\]/g,   "김민준")
+                        .replace(/\[출발일\]/g, "2025.09.15")
+                        .replace(/\[링크\]/g,   "https://cruisedot.co.kr");
                       return (
                       <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                        <p className="text-xs text-green-600 font-medium mb-2">{channelInfo(stage.channel).icon} {channelInfo(stage.channel).label} 미리보기 (예시 고객: 김민준)</p>
+                        <p className="text-sm text-green-600 font-medium mb-2">{channelInfo(stage.channel).icon} {channelInfo(stage.channel).label} 미리보기 (예시 고객: 김민준)</p>
                         <div className="bg-white rounded-xl p-3 shadow-sm">
                           <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
                             {previewText}
                           </p>
                         </div>
-                        <p className="text-xs text-gray-400 mt-2 text-right">
+                        <p className="text-sm text-gray-400 mt-2 text-right">
                           {stage.messageContent.length}자 (90자 초과 시 장문 요금)
                         </p>
                       </div>
@@ -507,7 +505,7 @@ export default function FunnelEditPage() {
         <EnrollModal
           funnelId={id}
           onClose={() => setShowEnroll(false)}
-          onDone={() => { /* 필요시 load() 호출 */ }}
+          onDone={() => load()}
         />
       )}
     </div>
@@ -572,6 +570,11 @@ function EnrollModal({
       setEnrolling(false);
     }
   };
+
+  // timerRef cleanup (메모리 누수 방지)
+  useEffect(() => {
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, []);
 
   // 고객 검색 (디바운스 300ms)
   const search = (val: string) => {
