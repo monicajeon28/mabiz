@@ -1,5 +1,5 @@
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300; // Vercel Pro 최대 실행 시간 (대량 발송 타임아웃 방지)
+export const maxDuration = 60; // Vercel Free=60s / Pro=300s — 플랜 확인 후 조정
 
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
@@ -47,8 +47,8 @@ async function fetchRemain(): Promise<AligoRemainResponse> {
 }
 
 function parseCashValue(response: AligoRemainResponse): number | null {
-  // SMS_CNT 문자열에서 숫자 추출
-  const raw = response.SMS_CNT;
+  // cash 필드에서 원화 잔액 추출 (SMS_CNT는 건수이므로 사용 안 함)
+  const raw = response.cash;
   if (!raw) return null;
   const num = parseInt(String(raw).replace(/[^0-9]/g, ''), 10);
   return Number.isNaN(num) ? null : num;
@@ -374,17 +374,8 @@ export async function POST(req: NextRequest) {
           const tokenExpiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
 
           if (existingSubmission && !existingSubmission.isSubmitted) {
-            // 새로운 Trip이 있으면 그것을 사용, 없으면 기존 tripId 유지
-            let nextTripId = existingSubmission.tripId;
-            if (latestTrip?.id) {
-              // Trip이 실제로 존재하는지 확인 (FK 제약 조건 위반 방지)
-              const tripExists = await prisma.gmTrip.count({
-                where: { id: latestTrip.id },
-              });
-              if (tripExists > 0) {
-                nextTripId = latestTrip.id;
-              }
-            }
+            // user.trips[0]이 존재하면 DB에 이미 있는 trip — 별도 count 불필요
+            const nextTripId = latestTrip?.id ?? existingSubmission.tripId;
 
             const updated = await prisma.gmPassportSubmission.update({
               where: { id: existingSubmission.id },
@@ -399,28 +390,17 @@ export async function POST(req: NextRequest) {
             });
             submissionId = updated.id;
           } else {
-            const now = new Date();
-            const createData: any = {
+            // user.trips[0]이 존재하면 DB에 이미 있는 trip — 별도 count 불필요
+            const createData: Prisma.GmPassportSubmissionUncheckedCreateInput = {
               userId: user.id,
               token: token!,
               tokenExpiresAt,
               isSubmitted: false,
               driveFolderUrl: null,
               extraData: Prisma.JsonNull,
-              updatedAt: now,
+              updatedAt: new Date(),
+              ...(latestTrip?.id ? { tripId: latestTrip.id } : {}),
             };
-
-            // latestTrip?.id가 있으면 설정하되, FK 제약 확인
-            if (latestTrip?.id) {
-              // Trip이 실제로 존재하는지 확인 (FK 제약 조건 위반 방지)
-              const tripExists = await prisma.gmTrip.count({
-                where: { id: latestTrip.id },
-              });
-              if (tripExists > 0) {
-                createData.tripId = latestTrip.id;
-              }
-              // Trip이 없으면 tripId를 설정하지 않음 (null로 유지)
-            }
 
             const created = await prisma.gmPassportSubmission.create({
               data: createData,
@@ -597,9 +577,12 @@ export async function POST(req: NextRequest) {
 function normalizePhone(phone: string | null): string | null {
   if (!phone) return null;
   const digits = phone.replace(/[^0-9]/g, '');
-  if (digits.length === 11 && digits.startsWith('010')) return digits;
-  if (digits.length === 10) return `0${digits}`;
-  return digits.length >= 10 ? digits : null;
+  // 한국 휴대전화 11자리 (010/011/016/017/018/019)
+  if (digits.length === 11 && /^01[016789]/.test(digits)) return digits;
+  // 앞 0이 누락된 10자리 (1012345678 → 01012345678)
+  if (digits.length === 10 && digits.startsWith('10')) return `0${digits}`;
+  // 지역번호(02/031/051 등) → SMS 발송 불가
+  return null;
 }
 
 async function recordPassportLog(params: {

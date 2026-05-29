@@ -29,7 +29,16 @@ export async function GET() {
       );
     }
 
-    // ── 구매 고객이 있는 유니크한 productCode 목록 조회 ──────────
+    // OWNER 테넌트 격리: 소속 조직 고객 상품만 표시
+    const ownerFilter = (manager.role === 'OWNER' && manager.organizationId)
+      ? Prisma.sql`AND EXISTS(
+          SELECT 1 FROM "AffiliateSale" af
+          JOIN "Reservation" rv ON rv.id::text = af."orderId"
+          WHERE rv."mainUserId" = r."mainUserId"
+            AND af."organizationId" = ${manager.organizationId}
+        )`
+      : Prisma.sql``;
+
     const productCodes = await prisma.$queryRaw<ProductCodeResult[]>(Prisma.sql`
       SELECT t."productCode",
              MAX(t."cruiseName") as "cruiseName",
@@ -40,6 +49,7 @@ export async function GET() {
       WHERE r.status = 'CONFIRMED'
         AND r."paymentAmount" > 0
         AND t."productCode" != ''
+        ${ownerFilter}
       GROUP BY t."productCode"
       ORDER BY "customerCount" DESC, t."productCode" ASC
     `);

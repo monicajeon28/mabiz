@@ -4,6 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireCrmManager } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
 
+// 5분 메모리 캐시 (외부 알리고 API 트래픽 절감)
+let aligoCache: { balance: number; expiresAt: number } | null = null;
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
 export const runtime = 'nodejs';
 
 // ── Aligo 타입 ────────────────────────────────────────
@@ -45,19 +49,22 @@ function parseBalance(response: AligoRemainResponse): number {
 // ── GET /api/passport/admin/aligo-status ────────────
 export async function GET(request: NextRequest) {
   try {
-    // 권한 검증: GLOBAL_ADMIN 또는 OWNER만 접근 가능
     const manager = await requireCrmManager();
     if (!manager) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: '인증이 필요합니다.',
-        },
-        { status: 403 }
-      );
+      return NextResponse.json({ ok: false, error: '인증이 필요합니다.' }, { status: 401 });
     }
 
-    // Aligo API 호출
+    // 5분 캐시 히트
+    if (aligoCache && aligoCache.expiresAt > Date.now()) {
+      return NextResponse.json({
+        ok: true,
+        balance: aligoCache.balance,
+        lastUpdated: new Date(aligoCache.expiresAt - CACHE_TTL_MS).toISOString(),
+        message: `현재 잔액: ${aligoCache.balance.toLocaleString('ko-KR')}원`,
+        cached: true,
+      });
+    }
+
     let aligoResponse: AligoRemainResponse;
     try {
       aligoResponse = await fetchRemain();
@@ -88,8 +95,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 잔액 파싱
     const balance = parseBalance(aligoResponse);
+    // 캐시 갱신
+    aligoCache = { balance, expiresAt: Date.now() + CACHE_TTL_MS };
 
     return NextResponse.json({
       ok: true,
