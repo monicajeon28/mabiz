@@ -23,7 +23,6 @@ export class AdminWebhookHandler extends BaseWebhookHandler {
           title: `${actionType}: ${targetType}`,
           content: JSON.stringify(metadata || {}),
           messageType: 'SYSTEM',
-          isRead: false,
         },
       });
 
