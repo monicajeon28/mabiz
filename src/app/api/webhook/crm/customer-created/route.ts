@@ -38,24 +38,49 @@ function classifyL0Lens(contactId: string, organizationId: string): L0Classifica
   };
 }
 
+interface AligoResponse {
+  result_code: string;
+  msg_id?: string;
+  message?: string;
+}
+
+interface SmsSendResult {
+  success: boolean;
+  msgId?: string;
+  errorCode?: string;
+}
+
 async function sendSmsViaAligo(
   organizationId: string,
   phone: string,
   message: string
-): Promise<{ success: boolean; msgId?: string; errorCode?: string }> {
+): Promise<SmsSendResult> {
   try {
+    const aligoKey = process.env.ALIGO_API_KEY;
+    const aligoUserId = process.env.ALIGO_USER_ID;
+    const aligoSender = process.env.ALIGO_SENDER_PHONE;
+
+    if (!aligoKey || !aligoUserId || !aligoSender) {
+      logger.error('[SMS/ALIGO] 필수 환경변수 누락', {
+        hasKey: !!aligoKey,
+        hasUserId: !!aligoUserId,
+        hasSender: !!aligoSender
+      });
+      return { success: false, errorCode: 'MISSING_CONFIG' };
+    }
+
     const res = await fetch('https://apis.aligo.in/send/', {
       method: 'POST',
       body: new URLSearchParams({
-        key: process.env.ALIGO_API_KEY!,
-        user_id: process.env.ALIGO_USER_ID!,
-        sender: process.env.ALIGO_SENDER_PHONE!,
+        key: aligoKey,
+        user_id: aligoUserId,
+        sender: aligoSender,
         receiver: phone,
         msg: message,
       }),
     });
 
-    const data = await res.json();
+    const data: AligoResponse = await res.json();
 
     if (data.result_code === '1') {
       return { success: true, msgId: data.msg_id };
@@ -68,7 +93,7 @@ async function sendSmsViaAligo(
       return { success: false, errorCode: data.result_code };
     }
   } catch (err) {
-    logger.error('[SMS/ALIGO] 네트워크 오류', { phone, err });
+    logger.error('[SMS/ALIGO] 네트워크 오류', { phone, error: err instanceof Error ? err.message : String(err) });
     return { success: false, errorCode: 'NETWORK_ERROR' };
   }
 }
@@ -82,9 +107,15 @@ interface CustomerCreatedPayload {
   timestamp: string;
   customerId: string; // GMcruise User ID
   email: string;
-  phoneNumber: string;
+  phoneNumber: string | null;
   name: string;
   affiliateId?: number; // 제휴사 ID
+}
+
+interface WebhookResponse {
+  contactId: string;
+  email: string;
+  status: 'created' | 'updated';
 }
 
 export async function POST(req: NextRequest) {
@@ -250,11 +281,13 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      return {
+      const response: WebhookResponse = {
         contactId: contact.id,
         email: contact.email,
         status: 'created'
       };
+
+      return response;
     }
   });
 }
