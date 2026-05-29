@@ -64,6 +64,12 @@ export function RecommendationWidget() {
           credentials: 'include',
         });
 
+        if (res.status === 401) {
+          setError('조직을 선택한 후 이용 가능합니다');
+          setLoading(false);
+          return;
+        }
+
         if (!res.ok) {
           throw new Error(`API request failed with status ${res.status}`);
         }

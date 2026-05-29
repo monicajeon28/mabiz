@@ -40,7 +40,7 @@ export default async function DashboardLayout({
         isAdmin: session?.role === "GLOBAL_ADMIN",
       }}
     >
-      <div className="flex h-screen bg-[#F7F8FC]">
+      <div className="flex h-screen bg-[#F7F8FC]" suppressHydrationWarning>
         {/* PC: 좌측 사이드바 */}
         <SidebarNav className="hidden md:flex" session={session} />
 
