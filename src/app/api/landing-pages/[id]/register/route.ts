@@ -5,6 +5,7 @@ import { logger } from "@/lib/logger";
 import { addLeadScore } from "@/lib/lead-score";
 import { normalizePhone } from "@/lib/phone-normalize";
 import { sendFunnelEmail } from "@/lib/email";
+import sanitizeHtml from "sanitize-html";
 
 type FormConfig = {
   b2bEduType?: "INQUIRER" | "BUYER";
@@ -66,6 +67,7 @@ export async function POST(req: Request, { params }: Params) {
         id: true, organizationId: true, groupId: true, autoFunnelId: true, title: true,
         regEmailEnabled: true, regEmailSubject: true, regEmailContent: true,
         formConfig: true,
+        smsL6Day0Enabled: true,
       },
     });
     if (!landingPage) {
@@ -203,7 +205,8 @@ export async function POST(req: Request, { params }: Params) {
           organizationId: orgId,
         });
 
-        funnelStarted = triggered;
+        // [T8] OR 연산으로 true 상태 유지 (autoFunnelId + groupId 동시 사용 시 오염 방지)
+        funnelStarted = funnelStarted || triggered;
 
         // funnelStarted 업데이트 (fire-and-forget)
         if (triggered) {
@@ -216,14 +219,48 @@ export async function POST(req: Request, { params }: Params) {
       }
     }
 
+    // [T12] Day 0 SMS 즉시 예약 (smsL6Day0Enabled ON + orgId + contact 존재 시)
+    if (orgId && landingPage.smsL6Day0Enabled) {
+      const smsContact = await prisma.contact.findFirst({
+        where: { phone: normalizedPhone, organizationId: orgId },
+        select: { id: true, optOutAt: true },
+      });
+      if (smsContact && !smsContact.optOutAt) {
+        // [T14] opt-out 고객은 Day 0 SMS도 건너뜀
+        const defaultMsg = `${name}님, 신청해 주셔서 감사합니다. 곧 담당자가 안내해 드리겠습니다.`;
+        prisma.scheduledSms.create({
+          data: {
+            organizationId: orgId,
+            contactId: smsContact.id,
+            message: defaultMsg,
+            scheduledAt: new Date(), // 즉시 발송
+            status: "PENDING",
+            channel: "L6_DAY0",
+          },
+        }).catch((e) => logger.warn("[LandingRegister] Day 0 SMS 예약 실패", { err: e }));
+      } else if (smsContact?.optOutAt) {
+        logger.info("[LandingRegister] 수신 거부 고객 — Day 0 SMS 건너뜀", { phone: normalizedPhone.substring(0, 4) + "***" });
+      }
+    }
+
     // 신청 완료 이메일 자동 발송 (설정 ON + 이메일 주소 있을 때만)
     if (landingPage.regEmailEnabled && email && landingPage.regEmailSubject) {
       const subject = (landingPage.regEmailSubject)
         .replace(/\[고객명\]/g, name).replace(/\[이름\]/g, name);
-      const rawContent = landingPage.regEmailContent || `${name}님, 신청이 완료되었습니다.`;
-      const htmlContent = rawContent.includes("<")
+      const rawContent = (landingPage.regEmailContent || `${name}님, 신청이 완료되었습니다.`)
+        .replace(/\[고객명\]/g, name).replace(/\[이름\]/g, name);
+
+      // [T11] XSS 방지: sendFunnelEmail 호출 전 HTML sanitize
+      const unsafeHtml = rawContent.includes("<")
         ? rawContent
-        : `<div style="font-family:sans-serif;line-height:1.8;white-space:pre-wrap">${rawContent.replace(/\[고객명\]/g, name).replace(/\[이름\]/g, name)}</div>`;
+        : `<div style="font-family:sans-serif;line-height:1.8;white-space:pre-wrap">${rawContent}</div>`;
+      const htmlContent = sanitizeHtml(unsafeHtml, {
+        allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "h1", "h2", "br"]),
+        allowedAttributes: {
+          ...sanitizeHtml.defaults.allowedAttributes,
+          "*": ["style", "class"],
+        },
+      });
 
       sendFunnelEmail({
         organizationId: orgId,

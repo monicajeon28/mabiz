@@ -40,9 +40,11 @@ export async function GET(_req: Request, { params }: Params) {
         where:  { landingPageId: id },
         _count: { id: true },
       }),
+      // [T20] 무제한 풀 로드 방지 — 최대 5000건 상한
       prisma.crmLandingRegistration.findMany({
         where:  { landingPageId: id },
         select: { phone: true },
+        take:   5000,
       }),
     ]);
 

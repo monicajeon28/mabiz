@@ -45,6 +45,7 @@ export default function EditLandingPage() {
   const [title, setTitle]       = useState("");
   const [slug, setSlug]         = useState("");
   const [html, setHtml]         = useState("");
+  const [unsaved, setUnsaved]   = useState(false);
   const [editorMode, setEditorMode] = useState<"html" | "image">("html");
   const [preview, setPreview]   = useState(false);
   const [saving, setSaving]     = useState(false);
@@ -53,6 +54,14 @@ export default function EditLandingPage() {
   const [saveMsg, setSaveMsg]   = useState("");
   const [uploadProgress, setUploadProgress] = useState({ processed: 0, total: 0, percent: 0 });
   const [success, setSuccess]   = useState("");
+
+  // AI 카피 생성 모달
+  const [aiModalOpen, setAiModalOpen]       = useState(false);
+  const [aiProductName, setAiProductName]   = useState("");
+  const [aiTargetAudience, setAiTargetAudience] = useState("");
+  const [aiTone, setAiTone]                 = useState("");
+  const [aiGenerating, setAiGenerating]     = useState(false);
+  const [aiError, setAiError]               = useState("");
 
   // 이미지 모드
   const [images, setImages]     = useState<UploadedImage[]>([]);
@@ -314,6 +323,26 @@ export default function EditLandingPage() {
       timeoutIds.forEach((id) => clearTimeout(id));
     };
   }, [emailSaveMsg, shareMsg, saveMsg]);
+
+  // T28: Auto-save — 5초 debounce (html 변경 시)
+  useEffect(() => {
+    if (loading) return; // 초기 로딩 중에는 트리거하지 않음
+    setUnsaved(true);
+    const timer = setTimeout(() => {
+      save().then(() => setUnsaved(false)).catch(() => {/* save() 내부에서 에러 처리 */});
+    }, 5000);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [html]);
+
+  // T28: beforeunload — 미저장 시 경고
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (unsaved) { e.preventDefault(); e.returnValue = ""; }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [unsaved]);
 
   useEffect(() => {
     if (tab === "registrations") loadRegistrations(1);
@@ -587,6 +616,44 @@ export default function EditLandingPage() {
     return `<div style="margin:0;padding:0;line-height:0;background:#fff;">\n${imgTags}\n</div>\n<form style="max-width:480px;margin:0 auto;padding:32px 20px 48px;background:#fff;font-family:'Pretendard',sans-serif;"><h3 style="text-align:center;font-size:22px;font-weight:700;color:#1a1a1a;margin:0 0 8px;">지금 바로 신청하세요</h3><p style="text-align:center;font-size:14px;color:#888;margin:0 0 24px;">상담 신청 후 담당자가 연락드립니다</p>${formFieldsHtml}<button type="submit" style="width:100%;padding:16px;background:#FF6B35;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;">${encodedButtonTitle}</button>${encodedFooter ? `<p style="text-align:center;font-size:12px;color:#999;margin-top:12px;">${encodedFooter}</p>` : ""}</form>`;
   };
 
+  // T42: AI 카피 생성 — PASONA 기반 HTML 카피 생성 후 에디터에 삽입
+  const generateAiCopy = async () => {
+    if (!aiProductName.trim() || !aiTargetAudience.trim()) {
+      setAiError("상품명과 타겟 고객을 모두 입력하세요.");
+      return;
+    }
+    setAiGenerating(true);
+    setAiError("");
+    try {
+      const res = await fetch(`/api/landing-pages/${id}/generate-copy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productName: aiProductName,
+          targetAudience: aiTargetAudience,
+          tone: aiTone || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.ok && data.htmlContent) {
+        setHtml((prev) => (prev ? prev + "\n\n" + data.htmlContent : data.htmlContent));
+        setUnsaved(true);
+        setAiModalOpen(false);
+        setAiProductName("");
+        setAiTargetAudience("");
+        setAiTone("");
+        setSaveMsg("AI 카피가 에디터에 삽입됐어요!");
+      } else {
+        setAiError(data.message ?? "카피 생성에 실패했습니다.");
+      }
+    } catch (err) {
+      setAiError(`생성 실패: ${err instanceof Error ? err.message : "알 수 없음"}`);
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
   // Task 1-5: save 함수 — HTTP 에러 처리 추가
   const save = async () => {
     if (!title.trim() || !slug.trim()) { setError("제목과 슬러그를 입력하세요."); return; }
@@ -629,6 +696,7 @@ export default function EditLandingPage() {
       if (data.ok) {
         // Task 1: setTimeout 제거 - useEffect cleanup이 자동으로 처리함 (줄 291-311)
         setSaveMsg("저장됐어요!");
+        setUnsaved(false); // T28: 저장 성공 시 unsaved 해제
       } else {
         throw new Error(data.message ?? "저장 실패");
       }
@@ -651,7 +719,15 @@ export default function EditLandingPage() {
         </button>
         <input
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => {
+            const newTitle = e.target.value;
+            setTitle(newTitle);
+            // T32: slug가 비어있을 때만 자동 생성
+            if (!slug) {
+              const autoSlug = newTitle.toLowerCase().replace(/[^a-z0-9가-힣]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+              setSlug(autoSlug);
+            }
+          }}
           placeholder="랜딩페이지 제목"
           className="flex-1 text-base font-semibold bg-transparent outline-none"
         />
@@ -699,7 +775,11 @@ export default function EditLandingPage() {
                 <Code className="w-3 h-3" /> HTML형
               </button>
             </div>
-            <button onClick={() => setPreview(!preview)} className="text-gray-500 hover:text-navy-900 p-1.5">
+            <button
+              onClick={() => setPreview(!preview)}
+              className={`p-1.5 rounded-lg transition-colors ${preview ? "bg-blue-100 text-blue-600 ring-2 ring-blue-500" : "text-gray-500 hover:text-navy-900"}`}
+              title={preview ? "미리보기 끄기" : "미리보기"}
+            >
               <Eye className="w-4 h-4" />
             </button>
             {error && <span className="text-xs text-red-500">{error}</span>}
@@ -925,6 +1005,19 @@ export default function EditLandingPage() {
             >저장</button>
             {emailSaveMsg && <span className={`text-xs mt-1 ${emailSaveMsg.includes("실패") ? "text-red-500" : "text-green-600"}`}>{emailSaveMsg}</span>}
           </div>
+          {/* T42: AI 카피 생성 버튼 — HTML형 에디터 전용 */}
+          {!preview && editorMode === "html" && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-50 to-blue-50 border-b border-violet-100 shrink-0">
+              <button
+                onClick={() => { setAiModalOpen(true); setAiError(""); }}
+                className="flex items-center gap-1.5 bg-violet-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-violet-700 transition-colors"
+              >
+                ✨ AI 카피 생성
+              </button>
+              <span className="text-xs text-violet-500">PASONA 기반 크루즈 랜딩 카피를 자동 생성합니다</span>
+            </div>
+          )}
+
           <div className="flex-1 overflow-hidden">
             {preview ? (
               <iframe srcDoc={editorMode === "image" ? buildHtmlFromImages() : html} className="w-full h-full border-0" title="preview" sandbox="allow-scripts" />
@@ -1067,6 +1160,73 @@ export default function EditLandingPage() {
             ) : (
               <p className="text-sm text-gray-500">통계를 불러오지 못했습니다.</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* T42: AI 카피 생성 모달 */}
+      {aiModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setAiModalOpen(false); }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <h2 className="text-base font-bold text-gray-900 mb-1">✨ AI 카피 생성</h2>
+            <p className="text-xs text-gray-500 mb-4">PASONA 공식(P→A→S→O→N→A)으로 크루즈 랜딩 HTML 카피를 자동 생성합니다.</p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">상품명 <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={aiProductName}
+                  onChange={(e) => setAiProductName(e.target.value)}
+                  placeholder="예: 지중해 크루즈 7박 8일"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-400"
+                  disabled={aiGenerating}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">타겟 고객 <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={aiTargetAudience}
+                  onChange={(e) => setAiTargetAudience(e.target.value)}
+                  placeholder="예: 50대 부부, 은퇴 후 첫 여행을 계획 중인 분"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-400"
+                  disabled={aiGenerating}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">말투/톤 (선택)</label>
+                <input
+                  type="text"
+                  value={aiTone}
+                  onChange={(e) => setAiTone(e.target.value)}
+                  placeholder="예: 따뜻하고 감성적인 톤, 신뢰감 있는 전문가 말투"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-400"
+                  disabled={aiGenerating}
+                />
+              </div>
+            </div>
+
+            {aiError && (
+              <p className="mt-3 text-xs text-red-500">{aiError}</p>
+            )}
+
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={() => { setAiModalOpen(false); setAiError(""); }}
+                disabled={aiGenerating}
+                className="flex-1 border border-gray-200 text-gray-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-40"
+              >
+                취소
+              </button>
+              <button
+                onClick={generateAiCopy}
+                disabled={aiGenerating || !aiProductName.trim() || !aiTargetAudience.trim()}
+                className="flex-1 bg-violet-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-violet-700 disabled:opacity-50 transition-colors"
+              >
+                {aiGenerating ? "생성 중..." : "카피 생성"}
+              </button>
+            </div>
           </div>
         </div>
       )}

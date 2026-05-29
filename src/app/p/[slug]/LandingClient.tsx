@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { CountdownTimer } from "@/components/landing/CountdownTimer";
 import { StockGaugeWidget } from "@/components/landing/StockGaugeWidget";
 import { L6LossAnchorSection } from "@/components/landing/L6LossAnchorSection";
+import LiveSocialProof from "@/components/landing/LiveSocialProof";
 
 // P0-8: URL 프로토콜 검증 헬퍼
 function isSafeUrl(url: string): boolean {
@@ -74,6 +75,10 @@ export function LandingClient({
   const [registeredName, setRegisteredName] = useState("");
   const [registeredPhone, setRegisteredPhone] = useState("");
 
+  // T38: Sticky CTA
+  const [showStickyCta, setShowStickyCta] = useState(false);
+  const formSectionRef = useRef<HTMLDivElement>(null);
+
   // 댓글
   const [comments,     setComments]    = useState<Comment[]>([]);
   const [commentForm,  setCommentForm] = useState({ authorName: "", content: "" });
@@ -105,6 +110,24 @@ export function LandingClient({
       }
     } catch {}
   }, [slug]);
+
+  // T38: IntersectionObserver — 폼 섹션이 뷰포트 밖으로 나가면 Sticky CTA 표시
+  useEffect(() => {
+    const target = formSectionRef.current ?? document.getElementById("landing-form");
+    if (!target) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { setShowStickyCta(!entry.isIntersecting); },
+      { threshold: 0, rootMargin: "0px" }
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
+
+  // T38: scrollToForm 헬퍼
+  const scrollToForm = () => {
+    const target = formSectionRef.current ?? document.getElementById("landing-form") ?? containerRef.current?.querySelector("form");
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   // 댓글 로드
   useEffect(() => {
@@ -230,6 +253,12 @@ export function LandingClient({
       }
       setFieldError('');
 
+      // UTM 파라미터 파싱 (window.location.search)
+      const utmParams = new URLSearchParams(window.location.search);
+      const utmSource   = utmParams.get('utm_source')   || undefined;
+      const utmMedium   = utmParams.get('utm_medium')   || undefined;
+      const utmCampaign = utmParams.get('utm_campaign') || undefined;
+
       submittingRef.current = true;
       setSubmitting(true);
       try {
@@ -239,6 +268,9 @@ export function LandingClient({
           body:    JSON.stringify({
             name: nameVal, phone: phoneVal, email: emailVal || undefined,
             loadedAt: loadTimeRef.current,
+            ...(utmSource   ? { utmSource }   : {}),
+            ...(utmMedium   ? { utmMedium }   : {}),
+            ...(utmCampaign ? { utmCampaign } : {}),
             ...(hasMetadata ? { metadata } : {}),
           }),
         });
@@ -343,8 +375,8 @@ export function LandingClient({
                   : "담당자가 빠르면 1시간 이내로 연락드립니다."}
           </p>
 
-          {/* 결제 버튼 (결제 설정이 있는 경우) */}
-          {payment && !alreadyRegistered && (
+          {/* 결제 버튼 (결제 설정이 있는 경우 — 재방문자도 표시) */}
+          {payment && (
             <div className="mt-4 p-4 bg-blue-50 rounded-xl">
               <p className="text-sm font-semibold text-gray-800 mb-1">{payment.productName}</p>
               <p className="text-2xl font-bold text-navy-900 mb-3">
@@ -473,8 +505,8 @@ export function LandingClient({
                 targetDate={new Date(l6Config.stockConfig.countdownTarget)}
               />
               <p className="text-sm text-gray-700 mt-3">
-                가격: <span className="font-bold text-green-600">${l6Config.priceAnchors[0].price}</span> →{" "}
-                <span className="font-bold text-red-600">${l6Config.priceAnchors[1]?.price ?? l6Config.priceAnchors[0].price}</span>
+                가격: <span className="font-bold text-green-600">{l6Config.priceAnchors[0].price.toLocaleString('ko-KR')}원</span> →{" "}
+                <span className="font-bold text-red-600">{(l6Config.priceAnchors[1]?.price ?? l6Config.priceAnchors[0].price).toLocaleString('ko-KR')}원</span>
               </p>
             </div>
           </div>
@@ -570,6 +602,9 @@ export function LandingClient({
         </div>
       )}
 
+      {/* T38: formSectionRef 앵커 — 폼 섹션 상단에 위치 */}
+      <div ref={formSectionRef} id="landing-form" />
+
       <div
         ref={containerRef}
         role="main"
@@ -641,6 +676,22 @@ export function LandingClient({
             <span key={i}>{line}{i < footer.split('\n').length - 1 && <br />}</span>
           ))}
         </footer>
+      )}
+
+      {/* 실시간 소셜 증명 위젯 */}
+      <LiveSocialProof pageId={pageId} />
+
+      {/* T38: Sticky CTA 바 — 모바일 전용, 폼 섹션이 뷰포트 밖일 때 표시 */}
+      {showStickyCta && !done && !alreadyRegistered && (
+        <div className="fixed bottom-0 left-0 right-0 bg-blue-600 text-white p-4 z-50 flex justify-between items-center md:hidden shadow-2xl">
+          <span className="text-sm font-semibold">{buttonTitle || '지금 신청하기'}</span>
+          <button
+            onClick={scrollToForm}
+            className="bg-white text-blue-600 px-4 py-2 rounded-full text-sm font-bold hover:bg-blue-50 transition-colors"
+          >
+            신청 →
+          </button>
+        </div>
       )}
     </div>
   );

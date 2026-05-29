@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { createHash } from "crypto";
+import { cache } from "react";
 import Script from "next/script";
 import { LandingClient } from "./LandingClient";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
@@ -42,15 +43,9 @@ function sanitizeHeaderScript(script: string | null): string | null {
   return script;
 }
 
-// 공개 랜딩페이지 — 인증 불필요
-export default async function PublicLandingPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
-
-  const page = await prisma.crmLandingPage.findFirst({
+// [T17] React cache()로 같은 요청 내 중복 DB 쿼리 제거
+const getLandingPageBySlug = cache(async (slug: string) => {
+  return prisma.crmLandingPage.findFirst({
     where:  { slug, isActive: true, isPublic: true },
     select: {
       id: true, title: true, htmlContent: true, commentEnabled: true,
@@ -58,7 +53,7 @@ export default async function PublicLandingPage({
       cycleDay: true, expireDate: true,
       buttonTitle: true, completionPageUrl: true, headerScript: true,
       exposureTitle: true, exposureImage: true,
-      formConfig: true,
+      formConfig: true, description: true,
       // L6 설정 필드 추가
       l6Enabled: true,
       l6PriceAnchors: true,
@@ -68,6 +63,17 @@ export default async function PublicLandingPage({
       l6CountdownEnd: true,
     },
   });
+});
+
+// 공개 랜딩페이지 — 인증 불필요
+export default async function PublicLandingPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+
+  const page = await getLandingPageBySlug(slug);
 
   if (!page) notFound();
 
@@ -80,11 +86,7 @@ export default async function PublicLandingPage({
   const salt = process.env.LANDING_VIEW_SALT ?? "default-salt";
   const ipHash = createHash("sha256").update(rawIP + salt).digest("hex");
 
-  // 24시간 이상 된 뷰 비동기 정리 (오류 무시)
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  prisma.crmLandingView
-    .deleteMany({ where: { viewedAt: { lt: since } } })
-    .catch(() => {});
+  // Cron으로 이전됨: /api/cron/cleanup-landing-views
 
   try {
     await prisma.crmLandingView.create({
@@ -129,15 +131,18 @@ export default async function PublicLandingPage({
               ? page.l6PriceAnchors as Array<{day: number; price: number; label: string}>
               : JSON.parse(String(page.l6PriceAnchors)) as Array<{day: number; price: number; label: string}>
             : undefined,
-          stockConfig: {
-            currentStock: page.l6StockCurrent,
-            totalStock: page.l6StockTotal,
-            weeklyBurnRate: page.l6WeeklyBurnRate,
-            weeksToZero: page.l6StockTotal > 0
-              ? Math.ceil(page.l6StockCurrent / (page.l6WeeklyBurnRate || 5))
-              : 0,
-            countdownTarget: page.l6CountdownEnd?.toISOString() ?? new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-          },
+          stockConfig: (() => {
+            const burnRate = Math.max(1, page.l6WeeklyBurnRate ?? 5);
+            return {
+              currentStock: page.l6StockCurrent,
+              totalStock: page.l6StockTotal,
+              weeklyBurnRate: burnRate,
+              weeksToZero: page.l6StockTotal > 0
+                ? Math.ceil(page.l6StockCurrent / burnRate)
+                : 0,
+              countdownTarget: page.l6CountdownEnd?.toISOString() ?? new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+            };
+          })(),
           hoursUntilIncrease: page.l6CountdownEnd
             ? Math.max(1, Math.floor((page.l6CountdownEnd.getTime() - Date.now()) / (60 * 60 * 1000)))
             : 48,
@@ -150,10 +155,8 @@ export default async function PublicLandingPage({
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://mabizcruisedot.com';
-  const page = await prisma.crmLandingPage.findFirst({
-    where:  { slug, isActive: true, isPublic: true },
-    select: { title: true, exposureTitle: true, exposureImage: true, description: true },
-  });
+  // [T17] getLandingPageBySlug 재사용 — 같은 요청에서 캐시 히트 (DB 쿼리 1회)
+  const page = await getLandingPageBySlug(slug);
   const title = page?.exposureTitle || page?.title || "크루즈닷 랜딩페이지";
   const description = page?.description || `${title} - 크루즈 전문 여행사 크루즈닷 상담 신청`;
   const url = `${baseUrl}/p/${slug}`;
@@ -168,7 +171,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       type: 'website' as const,
       url,
       siteName: '크루즈닷',
-      ...(page?.exposureImage ? { images: [{ url: page.exposureImage }] } : {}),
+      ...(page?.exposureImage ? { images: [{ url: page.exposureImage, width: 1200, height: 630, alt: title }] } : {}),
     },
     twitter: {
       card: 'summary' as const,

@@ -46,6 +46,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: '페이지 ID 배열이 필요합니다.' }, { status: 400 });
     }
 
+    if (pageIds.length > 200) {
+      return NextResponse.json({ ok: false, message: 'pageIds는 최대 200개까지 가능합니다.' }, { status: 400 });
+    }
+
     // [보안] 소유권 검증 (IDOR 방지)
     const pages = await prisma.crmLandingPage.findMany({
       where: { id: { in: pageIds }, ...(orgId ? { organizationId: orgId } : {}) },
@@ -69,8 +73,8 @@ export async function POST(req: Request) {
     validPageIds.forEach(id => regsByPage[id] = []);
     allRegs.forEach(reg => regsByPage[reg.landingPageId].push(reg));
 
-    // 모든 전화번호 수집
-    const allPhones = allRegs.map(r => r.phone).filter(Boolean) as string[];
+    // 모든 전화번호 수집 (중복 제거)
+    const allPhones = [...new Set(allRegs.map(r => r.phone).filter(Boolean) as string[])];
     let phoneToContact: Record<string, { id: string; purchasedAt: Date | null }> = {};
 
     if (allPhones.length > 0) {
@@ -139,11 +143,15 @@ export async function POST(req: Request) {
       };
     });
 
-    logger.log('[LandingBatchStats] 조회', { pageCount: validPageIds.length, orgId });
+    const foundIds = new Set(validPageIds);
+    const notFound = pageIds.filter((id: string) => !foundIds.has(id));
+
+    logger.log('[LandingBatchStats] 조회', { pageCount: validPageIds.length, notFoundCount: notFound.length, orgId });
 
     return NextResponse.json({
       ok: true,
       stats,
+      ...(notFound.length > 0 ? { notFound } : {}),
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

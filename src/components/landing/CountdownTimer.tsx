@@ -34,17 +34,35 @@ export function CountdownTimer({ targetDate, onExpire }: CountdownTimerProps) {
       };
     };
 
-    setTimeLeft(calculateTimeLeft());
+    const initial = calculateTimeLeft();
+    setTimeLeft(initial);
 
-    const interval = setInterval(() => {
+    // [T19] 1시간 미만이면 1초, 이상이면 60초 간격으로 업데이트
+    const getInterval = (tl: typeof initial) =>
+      tl && tl.days === 0 && tl.hours < 1 ? 1000 : 60000;
+
+    let timerId: ReturnType<typeof setInterval>;
+    let currentInterval = getInterval(initial);
+
+    const tick = () => {
       const result = calculateTimeLeft();
-      if (result === null) {
-        clearInterval(interval);
-      }
       setTimeLeft(result);
-    }, 1000);
+      if (result === null) {
+        clearInterval(timerId);
+        return;
+      }
+      // 남은 시간에 따라 간격이 바뀌면 interval 재등록
+      const nextInterval = getInterval(result);
+      if (nextInterval !== currentInterval) {
+        currentInterval = nextInterval;
+        clearInterval(timerId);
+        timerId = setInterval(tick, nextInterval);
+      }
+    };
 
-    return () => clearInterval(interval);
+    timerId = setInterval(tick, currentInterval);
+
+    return () => clearInterval(timerId);
   }, [targetDate, onExpire]);
 
   const days = timeLeft?.days ?? 0;

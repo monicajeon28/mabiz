@@ -2,6 +2,24 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 
+// [T9] In-memory IP rate-limit: landingPageId + IP 기준 분당 3건
+const ipRateMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 3;
+const RATE_WINDOW_MS = 60_000;
+
+function checkRateLimit(ip: string, landingPageId: string): boolean {
+  const key = `${landingPageId}:${ip}`;
+  const now = Date.now();
+  const entry = ipRateMap.get(key);
+  if (!entry || now >= entry.resetAt) {
+    ipRateMap.set(key, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return true; // 허용
+  }
+  if (entry.count >= RATE_LIMIT) return false; // 초과
+  entry.count++;
+  return true;
+}
+
 type Params = { params: Promise<{ id: string }> };
 
 // L6 Day 0 SMS 템플릿
@@ -46,10 +64,21 @@ export async function POST(req: Request, { params }: Params) {
       );
     }
 
+    // [T9] IP rate-limit: 분당 3건 제한
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    if (!checkRateLimit(ip, landingPageId)) {
+      logger.warn("[L6SmsTrigger] IP rate-limit 초과", { ip, landingPageId });
+      return NextResponse.json(
+        { ok: false, message: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+        { status: 429 }
+      );
+    }
+
     // P1-24: 전화번호/이름을 DB에서 직접 조회 (클라이언트 신뢰 불필요)
+    // [T9] landingPageId 교차 검증: registration이 해당 landingPageId에 속하는지 확인
     const registration = await prisma.crmLandingRegistration.findUnique({
       where: { id: registrationId },
-      select: { phoneNumber: true, name: true, organizationId: true },
+      select: { phone: true, name: true, landingPageId: true },
     });
 
     if (!registration) {
@@ -59,7 +88,20 @@ export async function POST(req: Request, { params }: Params) {
       );
     }
 
-    const phoneNumber = registration.phoneNumber;
+    // [T9] landingPageId 불일치 = 타 페이지 registration 악용 방지
+    if (registration.landingPageId !== landingPageId) {
+      logger.warn("[L6SmsTrigger] landingPageId 불일치 — 교차 접근 차단", {
+        registrationId,
+        expected: landingPageId,
+        actual: registration.landingPageId,
+      });
+      return NextResponse.json(
+        { ok: false, message: "등록 정보를 찾을 수 없습니다." },
+        { status: 404 }
+      );
+    }
+
+    const phoneNumber = registration.phone;
     const customerName = registration.name;
 
     // 랜딩페이지 L6 설정 조회
@@ -79,6 +121,30 @@ export async function POST(req: Request, { params }: Params) {
         ok: true,
         message: "L6 SMS 자동화 비활성화 상태",
       });
+    }
+
+    // [T14] opt-out 고객 SMS 차단: Contact.optOutAt 확인
+    const org = await prisma.organization.findFirst({
+      where: { landingPages: { some: { id: landingPageId } } },
+      select: { id: true },
+    });
+
+    if (org) {
+      const contact = await prisma.contact.findFirst({
+        where: { phone: phoneNumber, organizationId: org.id },
+        select: { optOutAt: true },
+      });
+      if (contact?.optOutAt) {
+        logger.info("[L6SmsTrigger] 수신 거부 고객 — SMS 발송 건너뜀", {
+          registrationId,
+          optOutAt: contact.optOutAt,
+        });
+        return NextResponse.json({
+          ok: true,
+          message: "수신 거부 고객입니다.",
+          smsSent: false,
+        });
+      }
     }
 
     // SMS 콘텐츠 조립
@@ -102,17 +168,8 @@ export async function POST(req: Request, { params }: Params) {
 
     const smsContent = L6_DAY0_SMS(customerName, currentPrice, futurePrice, hoursUntilIncrease);
 
-    // SMS 로그 저장 (기존 CrmSmsLog 사용)
+    // SMS 로그 저장 (기존 CrmSmsLog 사용, 위에서 조회한 org 재사용)
     try {
-      const org = await prisma.organization.findFirst({
-        where: {
-          landingPages: {
-            some: { id: landingPageId }
-          }
-        },
-        select: { id: true }
-      });
-
       if (org) {
         await prisma.smsLog.create({
           data: {
