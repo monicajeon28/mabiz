@@ -72,12 +72,12 @@ type SendResultItem = {
   userId: number;
   success: boolean;
   link?: string;
-  token?: string;
   submissionId?: number;
   message?: string;
   error?: string;
   messageId?: string | null;
   resultCode?: string;
+  noPhone?: boolean;
 };
 
 type PassportSendUser = {
@@ -312,6 +312,23 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
+      // 일일 발송 횟수 제한 (24시간 내 성공 2회 초과 시 스킵)
+      const recentSendCount = await prisma.gmPassportRequestLog.count({
+        where: {
+          userId,
+          status: 'SUCCESS',
+          sentAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+        },
+      });
+      if (recentSendCount >= 2) {
+        results.push({
+          userId,
+          success: false,
+          error: `오늘 이미 ${recentSendCount}회 발송됨 (일일 최대 2회 — 스팸 방지)`,
+        });
+        continue;
+      }
+
       // 변수 스코프 문제 해결: try 블록 밖에서 선언
       let submissionId: number | undefined;
       let link: string | undefined;
@@ -427,10 +444,9 @@ export async function POST(req: NextRequest) {
             userId: user.id,
             success: true,  // 링크는 생성됨
             link,
-            token,
             submissionId,
             message: personalizedMessage,
-            error: '전화번호 없음 — SMS 미발송 (링크 복사 후 직접 전달 필요)',
+            noPhone: true,  // 명시적 플래그 (프론트 분기용)
           });
           continue;
         }
@@ -504,7 +520,6 @@ export async function POST(req: NextRequest) {
           userId: user.id,
           success: !sendError,
           link,
-          token,
           submissionId,
           message: personalizedMessage,
           messageId,
@@ -522,7 +537,7 @@ export async function POST(req: NextRequest) {
           userId: user.id,
           success: false,
           error: message,
-          ...(submissionId !== undefined && link && token ? { submissionId, link, token } : {}),
+          ...(submissionId !== undefined && link ? { submissionId, link } : {}),
         };
 
         await recordPassportLog({
