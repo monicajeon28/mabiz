@@ -4,9 +4,24 @@ import { logger } from "@/lib/logger";
 import { enqueueDLQ } from "@/lib/mabiz-dlq";
 import { NextResponse } from "next/server";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
-import { validateFeedback, parsePayState, parsePayType, issueCashReceipt } from "@/lib/payapp";
+import { validateFeedback, validateFeedbackWithHMAC, parsePayState, parsePayType, issueCashReceipt } from "@/lib/payapp";
 import { normalizePhone } from "@/lib/phone-normalize";
 import { createRefundNotifications } from "@/lib/notification-service";
+
+/**
+ * PayApp 날짜 형식: YYYYMMDDHHMMSS (14자리, 구분자 없음)
+ * 잘못된 문자열은 현재 시각으로 폴백
+ */
+const parseCancelDate = (raw: string | null): Date => {
+  if (!raw) return new Date();
+  // YYYYMMDDHHMMSS → YYYY-MM-DDTHH:MM:SSZ
+  const iso = raw.replace(
+    /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/,
+    '$1-$2-$3T$4:$5:$6Z'
+  );
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? new Date() : d;
+};
 
 /**
  * POST /api/webhooks/payapp
@@ -31,6 +46,11 @@ export async function POST(req: Request) {
       process.env.PAYAPP_ALLOWED_IPS?.split(",")
         .map((s) => s.trim())
         .filter(Boolean) ?? [];
+    // TODO(P0-2): X-Forwarded-For 헤더는 클라이언트가 위조 가능.
+    // 배포 환경(Vercel/Cloudflare/Nginx)의 trusted proxy 설정 확인 후 수정 필요.
+    // Vercel: req.headers.get('x-real-ip') 사용 권장
+    // Cloudflare: req.headers.get('cf-connecting-ip') 사용 권장
+    // DevOps 담당자에게 프록시 레이어 수 확인 후 PAYAPP_TRUSTED_PROXY 환경변수 설정
     const requestIP =
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
       req.headers.get("x-real-ip") ??
@@ -81,7 +101,19 @@ export async function POST(req: Request) {
       return new Response("FAIL", { status: 403 });
     }
 
-    // ── [3단계] 요청 본문 파싱 (성공 로그) ──────────────────────
+    // ── [3단계] HMAC 검증 (PayApp이 hmac 파라미터 전송 시만 동작) ──
+    // linkval 검증 성공 후, hmac 파라미터가 있을 때만 추가 검증 (비활성 배포 방식)
+    const hmacValue = params.get('hmac');
+    if (hmacValue) {
+      const paramsObj = Object.fromEntries(params.entries());
+      if (!validateFeedbackWithHMAC(paramsObj, String(hmacValue))) {
+        logger.error('[PayApp Webhook] HMAC 검증 실패', { requestIP });
+        return new Response('FAIL', { status: 403 });
+      }
+      logger.info('[PayApp Webhook] HMAC 검증 통과', { requestIP });
+    }
+
+    // ── [4단계] 요청 본문 파싱 (성공 로그) ──────────────────────
     logger.info("[PayApp Webhook] 검증 통과 - 처리 시작", { requestIP });
 
     const payState    = params.get("pay_state") ?? "";
@@ -250,45 +282,54 @@ export async function POST(req: Request) {
 
     // ─── 취소 (pay_state=8,9,16,32,64) ───────────────────────
     if (status === "cancelled") {
-      const canceldate = params.get("canceldate") ?? "";
+      const canceldate = params.get("canceldate") ?? null;
       const cancelmemo = params.get("cancelmemo") ?? "";
 
       if (orderId) {
-        // PayAppPayment 취소
-        await prisma.payAppPayment.updateMany({
-          where: { orderId, status: { not: "cancelled" } },
-          data: {
-            status: "cancelled",
-            refundedAt: canceldate ? new Date(canceldate) : new Date(),
-            refundReason: cancelmemo || "PayApp 취소",
-          },
-        });
-
-        // ★ NEW: AffiliateSale 수당 100% 취소 (P0 요구사항)
-        const affiliateSale = await prisma.affiliateSale.findUnique({
-          where: { orderId },
-          select: {
-            id: true,
-            saleAmount: true,
-            commissionAmount: true,
-            commissionRate: true,
-            organizationId: true,
-          },
-        });
-
-        if (affiliateSale && affiliateSale.commissionAmount > 0) {
-          await prisma.affiliateSale.update({
-            where: { id: affiliateSale.id },
+        // PayAppPayment + AffiliateSale 원자적 취소
+        const { cancelResult, affiliateSale } = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+          const cancelResult = await tx.payAppPayment.updateMany({
+            where: { orderId, status: { not: "cancelled" } },
             data: {
-              refundedAmount: affiliateSale.saleAmount,
-              refundedAt: canceldate ? new Date(canceldate) : new Date(),
-              commissionAmount: 0, // ★ 100% 완전 취소
-              status: "REFUNDED",
-              cancelReason: "PAYMENT_CANCELLED_PAYAPP",
+              status: "cancelled",
+              refundedAt: parseCancelDate(canceldate),
+              refundReason: cancelmemo || "PayApp 취소",
             },
           });
 
-          // ★ P2: 환불 알림 생성
+          const sale = await tx.affiliateSale.findUnique({
+            where: { orderId },
+            select: {
+              id: true,
+              saleAmount: true,
+              commissionAmount: true,
+              commissionRate: true,
+              organizationId: true,
+            },
+          });
+
+          if (sale && sale.commissionAmount > 0) {
+            await tx.affiliateSale.update({
+              where: { id: sale.id },
+              data: {
+                refundedAmount: sale.saleAmount,
+                refundedAt: parseCancelDate(canceldate),
+                commissionAmount: 0, // ★ 100% 완전 취소
+                status: "REFUNDED",
+                cancelReason: "PAYMENT_CANCELLED_PAYAPP",
+              },
+            });
+          }
+
+          return { cancelResult, affiliateSale: sale };
+        });
+
+        if (cancelResult.count === 0) {
+          logger.warn("[PayApp Webhook] 취소 대상 없음 — orderId 미존재 또는 이미 취소됨", { orderId });
+        }
+
+        // ★ P2: 환불 알림 생성 (트랜잭션 밖 — 롤백 영향 없도록)
+        if (affiliateSale && affiliateSale.commissionAmount > 0) {
           const contact = await prisma.contact.findFirst({
             where: { bookingRef: orderId },
             select: { name: true },
@@ -310,14 +351,17 @@ export async function POST(req: Request) {
           });
         }
       } else if (mulNo) {
-        await prisma.payAppPayment.updateMany({
+        const cancelByMulResult = await prisma.payAppPayment.updateMany({
           where: { mulNo, status: { not: "cancelled" } },
           data: {
             status: "cancelled",
-            refundedAt: canceldate ? new Date(canceldate) : new Date(),
+            refundedAt: parseCancelDate(canceldate),
             refundReason: cancelmemo || "PayApp 취소",
           },
         });
+        if (cancelByMulResult.count === 0) {
+          logger.warn("[PayApp Webhook] 취소 대상 없음 — mulNo 미존재 또는 이미 취소됨", { mulNo });
+        }
       }
 
       logger.log("[PayApp Webhook] 취소 처리", { orderId, mulNo, cancelmemo });
@@ -328,7 +372,7 @@ export async function POST(req: Request) {
     if (status === "partial_refunded") {
       const origMulNo = params.get("orig_mul_no") ?? "";
       const origPrice = parseInt(params.get("orig_price") ?? "0");
-      const canceldate = params.get("canceldate") ?? "";
+      const canceldate = params.get("canceldate") ?? null;
 
       // 원거래 찾기
       const lookupKey = orderId || origMulNo;
@@ -339,19 +383,25 @@ export async function POST(req: Request) {
 
         if (original) {
           const partialAmount = origPrice - price; // 원금 - 현재금 = 환불액
-          await prisma.payAppPayment.update({
-            where: { id: original.id },
-            data: {
-              status: "partial_refunded",
-              refundAmount: (original.refundAmount ?? 0) + (partialAmount > 0 ? partialAmount : 0),
-              refundedAt: canceldate ? new Date(canceldate) : new Date(),
-              mulNo: mulNo || original.mulNo, // 부분취소 시 mul_no 변경됨
-            },
-          });
 
-          // ★ NEW: AffiliateSale 수당 비례 감액 (P0 요구사항)
-          if (orderId) {
-            const affiliateSale = await prisma.affiliateSale.findUnique({
+          // PayAppPayment + AffiliateSale 원자적 부분취소
+          const { affiliateSale, commissionDeduction } = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+            await tx.payAppPayment.update({
+              where: { id: original.id },
+              data: {
+                status: "partial_refunded",
+                refundAmount: (original.refundAmount ?? 0) + (partialAmount > 0 ? partialAmount : 0),
+                refundedAt: parseCancelDate(canceldate),
+                mulNo: mulNo || original.mulNo, // 부분취소 시 mul_no 변경됨
+              },
+            });
+
+            // ★ NEW: AffiliateSale 수당 비례 감액 (P0 요구사항)
+            if (!orderId || partialAmount <= 0) {
+              return { affiliateSale: null, commissionDeduction: 0 };
+            }
+
+            const sale = await tx.affiliateSale.findUnique({
               where: { orderId },
               select: {
                 id: true,
@@ -362,50 +412,49 @@ export async function POST(req: Request) {
               },
             });
 
-            if (
-              affiliateSale &&
-              affiliateSale.commissionAmount > 0 &&
-              partialAmount > 0
-            ) {
-              // 환불액 비율만큼 수당 감액
-              const refundRatio = partialAmount / affiliateSale.saleAmount;
-              const commissionDeduction = Math.floor(
-                affiliateSale.commissionAmount * refundRatio
-              );
-
-              await prisma.affiliateSale.update({
-                where: { id: affiliateSale.id },
-                data: {
-                  refundedAmount: { increment: partialAmount },
-                  commissionAmount: { decrement: commissionDeduction },
-                  status: "PARTIAL_REFUNDED",
-                },
-              });
-
-              // ★ P2: 부분취소 알림 생성
-              const contact = await prisma.contact.findFirst({
-                where: { bookingRef: orderId },
-                select: { name: true },
-              });
-
-              await createRefundNotifications({
-                organizationId: affiliateSale.organizationId,
-                orderId,
-                customerName: contact?.name || '고객',
-                refundAmount: partialAmount,
-                refundReason: `부분취소: ${partialAmount.toLocaleString()}원`,
-                type: 'partial_refund',
-              }).catch(() => {});
-
-              logger.log("[PayApp Webhook] AffiliateSale 수당 부분감액", {
-                affiliateSaleId: affiliateSale.id,
-                refundAmount: partialAmount,
-                originalCommission: affiliateSale.commissionAmount,
-                commissionDeduction,
-                newCommission:
-                  affiliateSale.commissionAmount - commissionDeduction,
-              });
+            if (!sale || sale.commissionAmount <= 0) {
+              return { affiliateSale: sale, commissionDeduction: 0 };
             }
+
+            // 환불액 비율만큼 수당 감액
+            const refundRatio = partialAmount / sale.saleAmount;
+            const deduction = Math.floor(sale.commissionAmount * refundRatio);
+
+            await tx.affiliateSale.update({
+              where: { id: sale.id },
+              data: {
+                refundedAmount: { increment: partialAmount },
+                commissionAmount: { decrement: deduction },
+                status: "PARTIAL_REFUNDED",
+              },
+            });
+
+            return { affiliateSale: sale, commissionDeduction: deduction };
+          });
+
+          // ★ P2: 부분취소 알림 생성 (트랜잭션 밖 — 롤백 영향 없도록)
+          if (affiliateSale && affiliateSale.commissionAmount > 0 && commissionDeduction > 0) {
+            const contact = await prisma.contact.findFirst({
+              where: { bookingRef: orderId },
+              select: { name: true },
+            });
+
+            await createRefundNotifications({
+              organizationId: affiliateSale.organizationId,
+              orderId,
+              customerName: contact?.name || '고객',
+              refundAmount: partialAmount,
+              refundReason: `부분취소: ${partialAmount.toLocaleString()}원`,
+              type: 'partial_refund',
+            }).catch(() => {});
+
+            logger.log("[PayApp Webhook] AffiliateSale 수당 부분감액", {
+              affiliateSaleId: affiliateSale.id,
+              refundAmount: partialAmount,
+              originalCommission: affiliateSale.commissionAmount,
+              commissionDeduction,
+              newCommission: affiliateSale.commissionAmount - commissionDeduction,
+            });
           }
         }
       }
@@ -420,13 +469,16 @@ export async function POST(req: Request) {
       const vbankno = params.get("vbankno") ?? "";
 
       if (orderId) {
-        await prisma.payAppPayment.updateMany({
+        const waitResult = await prisma.payAppPayment.updateMany({
           where: { orderId },
           data: {
             status: "waiting",
             metadata: { vbank, vbankno },
           },
         });
+        if (waitResult.count === 0) {
+          logger.warn("[PayApp Webhook] 가상계좌 대기 대상 없음 — orderId 미존재 (선(先)웹훅 가능성)", { orderId, vbank });
+        }
       }
 
       logger.log("[PayApp Webhook] 가상계좌 대기", { orderId, vbank, vbankno });

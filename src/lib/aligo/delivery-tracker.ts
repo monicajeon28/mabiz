@@ -72,13 +72,22 @@ export async function trackSmsDelivery(organizationId: string): Promise<Delivery
     // 각 SMS의 배송 상태 확인
     for (const sms of sentSms) {
       try {
-        // SmsLog에서 msgId 조회
+        // P1-18: sentAt 정확 일치 대신 ±30초 범위 조회 — createdAt 오차로 msgId가 항상 null이던 문제 수정
+        const sentAt = sms.sentAt;
+        if (!sentAt) {
+          logger.warn('[DeliveryTracker] sentAt 없음 — 건너뜀', { smsId: sms.id });
+          continue;
+        }
+        const from = new Date(sentAt.getTime() - 30_000); // 30초 전
+        const to   = new Date(sentAt.getTime() + 30_000); // 30초 후
         const smsLog = await prisma.smsLog.findFirst({
           where: {
             organizationId,
             contactId: sms.contactId,
-            createdAt: sms.sentAt,
+            createdAt: { gte: from, lte: to },
+            msgId: { not: null },
           },
+          orderBy: { createdAt: 'desc' },
           select: { msgId: true, phone: true },
         });
 
@@ -198,13 +207,14 @@ async function retryFailedSms(smsId: string, organizationId: string): Promise<bo
     });
 
     if (response.resultCode === 1) {
-      // 성공
+      // 성공 — P1-19: failedCount를 0으로 리셋하지 않고 시도 횟수 누적 유지
+      // (리셋 시 3회 제한이 우회되어 무한 재시도 가능)
       await prisma.scheduledSms.update({
         where: { id: smsId },
         data: {
           status: 'SENT',
           sentAt: new Date(),
-          failedCount: 0,
+          failedCount: retryCount + 1, // 성공해도 시도 횟수 보존
           updatedAt: new Date(),
         },
       });
@@ -215,6 +225,7 @@ async function retryFailedSms(smsId: string, organizationId: string): Promise<bo
           organizationId,
           contactId: scheduledSms.contactId,
           phone: scheduledSms.contact.phone,
+          contentPreview: scheduledSms.message.slice(0, 100),
           msg: scheduledSms.message,
           status: 'SENT',
           msgId: response.msgId,

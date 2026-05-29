@@ -90,8 +90,9 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const search = searchParams.get('search')?.trim() ?? '';
-    const statusFilter = searchParams.get('status')?.trim() ?? '';
+    // P1-7: 입력 길이 제한 — ReDoS / 과도한 LIKE 패턴 방지
+    const search = (searchParams.get('search')?.trim() ?? '').substring(0, 100);
+    const statusFilter = (searchParams.get('status')?.trim() ?? '').substring(0, 30);
     // roleFilterParam 제거: 모든 구매 고객을 표시하므로 역할 필터 불필요
     const productCodeParam = searchParams.get('productCode')?.trim() ?? '';
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1);
@@ -119,7 +120,7 @@ export async function GET(req: NextRequest) {
     if (manager.role === 'OWNER' && manager.organizationId) {
       whereConditions.push(
         Prisma.sql`EXISTS(
-          SELECT 1 FROM "AffiliateSale" af
+          SELECT 1 FROM "CrmAffiliateSale" af
           JOIN "Reservation" rv ON rv.id::text = af."orderId"
           WHERE rv."mainUserId" = u.id
             AND af."organizationId" = ${manager.organizationId}
@@ -158,8 +159,10 @@ export async function GET(req: NextRequest) {
           Prisma.sql`ps.id IS NOT NULL AND ps."isSubmitted" = false`
         );
       } else if (statusFilter === 'not_requested') {
+        // P1-9: 'not_requested' = PassportSubmission 없음 (ps.id IS NULL)
         whereConditions.push(Prisma.sql`ps.id IS NULL`);
       } else if (statusFilter === 'no_request') {
+        // P1-9: 'no_request' = PassportRequestLog 없음 (prl.id IS NULL) — 발송 이력 자체가 없는 경우
         whereConditions.push(Prisma.sql`prl.id IS NULL`);
       }
     }
@@ -182,7 +185,44 @@ export async function GET(req: NextRequest) {
     // Prisma.sql로 매개변수 바인딩하여 SQL 인젝션 방지
     const whereClause = Prisma.sql`WHERE ${Prisma.join(whereConditions, ' AND ')}`;
 
-    const users = await prisma.$queryRaw<RawCustomerRecord[]>`
+    // P1-8: 전체 건수를 정확히 산출하기 위한 COUNT 쿼리 (동일 WHERE 조건 사용)
+    const [countResult, users] = await Promise.all([
+      prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT COUNT(*) as count
+        FROM "User" u
+        LEFT JOIN LATERAL (
+          SELECT id, "userId", "cruiseName", "productCode", "shipName", "departureDate"
+          FROM "Trip"
+          WHERE "userId" = u.id
+          ORDER BY "departureDate" DESC
+          LIMIT 1
+        ) t ON true
+        LEFT JOIN LATERAL (
+          SELECT id, "tripId"
+          FROM "Reservation"
+          WHERE "tripId" = t.id
+          ORDER BY "createdAt" DESC
+          LIMIT 1
+        ) r ON true
+        LEFT JOIN LATERAL (
+          SELECT id, "userId", "tripId", "tokenExpiresAt",
+                  "isSubmitted", "submittedAt", "createdAt", "updatedAt"
+          FROM "PassportSubmission"
+          WHERE "userId" = u.id
+          ORDER BY "updatedAt" DESC
+          LIMIT 1
+        ) ps ON true
+        LEFT JOIN LATERAL (
+          SELECT id, "userId", status, "messageChannel", "sentAt", "adminId"
+          FROM "PassportRequestLog"
+          WHERE "userId" = u.id
+          ORDER BY "sentAt" DESC
+          LIMIT 1
+        ) prl ON true
+        LEFT JOIN "User" a ON prl."adminId" = a.id
+        ${whereClause}
+      `,
+      prisma.$queryRaw<RawCustomerRecord[]>`
       SELECT
         u.id, u.name, u.phone, u.email, u.role, u."createdAt",
         u."tripCount", u."customerStatus",
@@ -233,7 +273,9 @@ export async function GET(req: NextRequest) {
         CASE WHEN t."departureDate" IS NOT NULL THEN t."departureDate" ELSE '9999-12-31'::date END ASC,
         u."createdAt" DESC
       LIMIT ${take} OFFSET ${skip}
-    `;
+    `,
+    ]);
+    const totalCount = Number(countResult[0]?.count ?? 0);
 
     // ── 결과 매핑 (메모리 최적화: Map 제거, 직접 배열 변환) ──────────
     // LEFT JOIN LATERAL는 이미 LIMIT 1이므로 중복 제거 불필요
@@ -251,7 +293,8 @@ export async function GET(req: NextRequest) {
         email: row.email,
         role: row.role,
         customerStatus: row.customerStatus,
-        createdAt: row.createdAt?.toISOString() ?? new Date().toISOString(),
+        // P1-10: DB 값이 null이면 null 반환 — 현재시각으로 위장하지 않음
+        createdAt: row.createdAt?.toISOString() ?? null,
         tripCount: row.tripCount || 0,
         latestTrip: row.tripId ? {
           id: row.tripId,
@@ -267,8 +310,9 @@ export async function GET(req: NextRequest) {
           tokenExpiresAt: row.tokenExpiresAt?.toISOString() ?? null,
           isSubmitted: row.isSubmitted || false,
           submittedAt: row.submittedAt?.toISOString() ?? null,
-          createdAt: row.submissionCreatedAt?.toISOString() ?? new Date().toISOString(),
-          updatedAt: row.submissionUpdatedAt?.toISOString() ?? new Date().toISOString(),
+          // P1-10: submission.createdAt / updatedAt null이면 null 반환
+          createdAt: row.submissionCreatedAt?.toISOString() ?? null,
+          updatedAt: row.submissionUpdatedAt?.toISOString() ?? null,
         } : null,
         lastRequest: row.logId ? {
           id: row.logId,
@@ -287,7 +331,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       data: filtered,
-      meta: { page, limit: take, count: filtered.length },
+      // P1-8: total = 전체 매칭 건수 (COUNT 쿼리), count = 현재 페이지 건수
+      meta: { page, limit: take, count: filtered.length, total: totalCount },
     });
   } catch (error) {
     logger.error('[PassportCustomers] GET 실패', { error });

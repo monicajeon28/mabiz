@@ -25,13 +25,14 @@ ${customerName}님의 여행 신청 감사합니다.
 
 // POST /api/landing-pages/[id]/sms-trigger
 // L6 Day 0 SMS 발송 트리거 (폼 제출 후 자동 호출)
+// P1-24: phoneNumber/customerName은 클라이언트에서 받지 않고 DB에서 직접 조회
 export async function POST(req: Request, { params }: Params) {
   try {
     const { id: landingPageId } = await params;
     const body = await req.json();
-    const { registrationId, phoneNumber, customerName, messageType } = body;
+    const { registrationId, messageType } = body;
 
-    if (!registrationId || !phoneNumber || !customerName) {
+    if (!registrationId) {
       return NextResponse.json(
         { ok: false, message: "필수 파라미터 누락" },
         { status: 400 }
@@ -44,6 +45,22 @@ export async function POST(req: Request, { params }: Params) {
         { status: 400 }
       );
     }
+
+    // P1-24: 전화번호/이름을 DB에서 직접 조회 (클라이언트 신뢰 불필요)
+    const registration = await prisma.crmLandingRegistration.findUnique({
+      where: { id: registrationId },
+      select: { phoneNumber: true, name: true, organizationId: true },
+    });
+
+    if (!registration) {
+      return NextResponse.json(
+        { ok: false, message: "등록 정보를 찾을 수 없습니다." },
+        { status: 404 }
+      );
+    }
+
+    const phoneNumber = registration.phoneNumber;
+    const customerName = registration.name;
 
     // 랜딩페이지 L6 설정 조회
     const landingPage = await prisma.crmLandingPage.findFirst({

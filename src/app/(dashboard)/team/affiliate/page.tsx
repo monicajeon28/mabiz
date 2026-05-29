@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ChevronDown,
@@ -21,10 +21,15 @@ import {
   Square,
   Check,
   FileCheck,
+  Bell,
+  ToggleLeft,
+  ToggleRight,
+  ExternalLink,
 } from 'lucide-react';
+import { showSuccess } from '@/components/ui/Toast';
 import { showError } from '@/components/ui/Toast';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import ContractApproveModal from '@/components/affiliate/ContractApproveModal';
+// ContractApproveModal 제거 — 계약 승인은 /admin/organizations 페이지에서 처리
 
 // dayjs 없음 → 간단한 상대 시간 유틸
 function fromNow(dateStr: string | null): string {
@@ -240,6 +245,10 @@ type ConfirmState = {
 export default function AffiliateTeamDashboardPage() {
   const router = useRouter();
 
+  // 언마운트 후 setState 차단용 ref (P1-3, P1-4, P1-5 공유)
+  const mountedRef = useRef(true);
+  useEffect(() => { return () => { mountedRef.current = false; }; }, []);
+
   // ConfirmDialog 상태 관리 (useConfirm 대체)
   const [confirmState, setConfirmState] = useState<ConfirmState>({
     open: false,
@@ -264,26 +273,87 @@ export default function AffiliateTeamDashboardPage() {
     setConfirmState((prev) => ({ ...prev, open: false, resolve: null }));
   };
 
-  // ── 대기 중인 계약 목록 ─────────────────────────────────────────
-  const [pendingContracts, setPendingContracts] = useState<Array<{
-    id: number; name: string | null; email: string | null; phone: string | null;
-    status: string; createdAt: string;
-  }>>([]);
-  const [approveModalContractId, setApproveModalContractId] = useState<number | null>(null);
+  // ── 대기 중인 계약 카운트 (뱃지용 — 상세는 대리점 관리 페이지에서) ──────
+  const [pendingCount, setPendingCount] = useState<number>(0);
+
+  const fetchPendingCount = () => {
+    fetch('/api/affiliate/contracts?status=submitted&page=1')
+      .then(r => r.json())
+      .then(d => { if (d.ok && mountedRef.current) setPendingCount(d.data?.total ?? d.data?.contracts?.length ?? 0); })
+      .catch(() => {});
+  };
 
   useEffect(() => {
-    fetch('/api/affiliate/contracts?status=submitted')
+    fetchPendingCount();
+    // 30초마다 자동 폴링 (대기 건수 실시간 반영)
+    const timer = setInterval(fetchPendingCount, 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // ── 대리점장 CRM 연결 정보 (활성화/비활성화/삭제용) ──────────────────────
+  const [managerLookup, setManagerLookup] = useState<Map<number, {
+    userId: string; orgId: string; orgName: string; isActive: boolean;
+  }>>(new Map());
+  const [actingManager, setActingManager] = useState<string | null>(null); // userId
+
+  useEffect(() => {
+    fetch('/api/admin/affiliate-managers?limit=200')
       .then(r => r.json())
-      .then(d => { if (d.ok) setPendingContracts(d.data.contracts); })
+      .then(d => {
+        if (!d.ok || !d.managers) return;
+        const map = new Map<number, { userId: string; orgId: string; orgName: string; isActive: boolean }>();
+        for (const m of d.managers) {
+          if (m.externalAffiliateProfileId != null) {
+            map.set(m.externalAffiliateProfileId, {
+              userId: m.userId,
+              orgId: m.organizationId,
+              orgName: m.organizationName ?? '',
+              isActive: m.isActive,
+            });
+          }
+        }
+        setManagerLookup(map);
+      })
       .catch(() => {});
   }, []);
 
-  const handleApproved = () => {
-    setApproveModalContractId(null);
-    // 승인 후 목록 새로고침
-    fetch('/api/affiliate/contracts?status=submitted')
-      .then(r => r.json())
-      .then(d => { if (d.ok) setPendingContracts(d.data.contracts); });
+  const handleToggleManager = async (userId: string, orgId: string, currentIsActive: boolean, name: string) => {
+    setActingManager(userId);
+    try {
+      const res = await fetch(`/api/admin/organizations/${orgId}/members/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !currentIsActive }),
+      });
+      if (!res.ok) { showError('변경 실패'); return; }
+      showSuccess(`${name} ${currentIsActive ? '비활성화' : '활성화'} 완료`);
+      setManagerLookup(prev => {
+        const next = new Map(prev);
+        for (const [k, v] of next) {
+          if (v.userId === userId) next.set(k, { ...v, isActive: !currentIsActive });
+        }
+        return next;
+      });
+    } catch { showError('네트워크 오류'); }
+    finally { setActingManager(null); }
+  };
+
+  const handleDeleteManager = async (userId: string, orgId: string, name: string, affiliateId: number) => {
+    const confirmed = await confirm({
+      message: `"${name}" 대리점장을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`,
+      isDangerous: true,
+    });
+    if (!confirmed) return;
+    setActingManager(userId);
+    try {
+      const res = await fetch(`/api/admin/organizations/${orgId}/members/${userId}`, { method: 'DELETE' });
+      if (!mountedRef.current) return;
+      if (!res.ok) { showError('삭제 실패'); return; }
+      showSuccess(`${name} 삭제 완료`);
+      setManagerLookup(prev => { const next = new Map(prev); next.delete(affiliateId); return next; });
+      await loadMetrics();
+    } catch { showError('네트워크 오류'); }
+    finally { if (mountedRef.current) setActingManager(null); }
   };
 
   const [filters, setFilters] = useState<Filters>({ search: '', from: '', to: '' });
@@ -357,12 +427,6 @@ export default function AffiliateTeamDashboardPage() {
       }
       setMetrics(json.managers || []);
       setTotals(json.totals || null);
-      setFilters((prev) => ({
-        ...prev,
-        search: json.filters.search ?? '',
-        from: json.filters.from ?? '',
-        to: json.filters.to ?? '',
-      }));
     } catch (error: unknown) {
       showError((error instanceof Error ? error.message : String(error)) || '팀 성과 데이터를 불러오는 중 오류가 발생했습니다.');
     } finally {
@@ -499,7 +563,7 @@ export default function AffiliateTeamDashboardPage() {
     if (unreadMessages.length === 0) return;
 
     try {
-      await Promise.all(unreadMessages.map(m =>
+      await Promise.allSettled(unreadMessages.map(m =>
         fetch('/api/team/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -507,6 +571,7 @@ export default function AffiliateTeamDashboardPage() {
           body: JSON.stringify({ messageId: m.id }),
         })
       ));
+      if (!mountedRef.current) return;
       setTeamMessages(prev => prev.map(m => ({ ...m, isRead: true })));
       setUnreadMessageCount(0);
     } catch {
@@ -549,9 +614,21 @@ export default function AffiliateTeamDashboardPage() {
 
     setDeletingMessages(true);
     try {
-      await Promise.all(selectedMessageIds.map(id =>
-        fetch(`/api/team/messages/${id}`, { method: 'DELETE', credentials: 'include' })
-      ));
+      const results = await Promise.allSettled(
+        selectedMessageIds.map(id =>
+          fetch(`/api/team/messages/${id}`, { method: 'DELETE', credentials: 'include' })
+        )
+      );
+      const rejectedCount = results.filter(
+        (r): r is PromiseRejectedResult => r.status === 'rejected'
+      ).length;
+      const failedFetchCount = results.filter(
+        (r): r is PromiseFulfilledResult<Response> => r.status === 'fulfilled' && !r.value.ok
+      ).length;
+      const totalFailed = rejectedCount + failedFetchCount;
+      if (totalFailed > 0) {
+        showError(`${selectedMessageIds.length - totalFailed}개 삭제됨, ${totalFailed}개 실패`);
+      }
       setSelectedMessageIds([]);
       setMessageSelectionMode(false);
       loadTeamMessages(true);
@@ -635,6 +712,21 @@ export default function AffiliateTeamDashboardPage() {
     setActivitySelectionMode(false);
     setSelectedActivityIds([]);
   };
+
+  const handleDeleteActivity = useCallback(async (activityId: number) => {
+    if (!(await confirm({ message: '이 기록을 삭제하시겠습니까?', isDangerous: true }))) return;
+    try {
+      const res = await fetch(`/api/team/messages/activities/${activityId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) { showError('기록 삭제에 실패했습니다.'); return; }
+      loadActivities(1);
+    } catch {
+      showError('기록 삭제 중 오류가 발생했습니다.');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const interactionTypeLabels: Record<string, string> = {
     call: '전화',
@@ -780,6 +872,18 @@ export default function AffiliateTeamDashboardPage() {
           <p className="mt-1 text-sm text-slate-600">대리점장별 판매/리드/커미션 현황과 판매원 실적을 한눈에 확인할 수 있습니다.</p>
         </div>
         <div className="flex items-center gap-3">
+          {/* 승인 대기 알림 뱃지 */}
+          {pendingCount > 0 && (
+            <a
+              href="/admin/organizations"
+              className="relative flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
+            >
+              <Bell className="w-4 h-4" />
+              계약 승인 대기
+              <span className="ml-0.5 px-1.5 py-0.5 bg-amber-500 text-white text-xs font-bold rounded-full">{pendingCount}</span>
+              <ExternalLink className="w-3 h-3 ml-0.5 opacity-60" />
+            </a>
+          )}
           <button
             type="button"
             disabled
@@ -801,50 +905,7 @@ export default function AffiliateTeamDashboardPage() {
         </div>
       </div>
 
-      {/* ── 대기 중인 계약 ── */}
-      {pendingContracts.length > 0 && (
-        <div className="rounded-2xl bg-amber-50 border border-amber-200 p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <FileCheck className="w-5 h-5 text-amber-600" />
-            <h2 className="text-base font-semibold text-amber-900">
-              승인 대기 중인 계약 ({pendingContracts.length}건)
-            </h2>
-          </div>
-          <div className="space-y-2">
-            {pendingContracts.map((c) => (
-              <div
-                key={c.id}
-                className="flex items-center justify-between bg-white rounded-xl px-4 py-3 border border-amber-100"
-              >
-                <div className="flex items-center gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{c.name || '이름 없음'}</p>
-                    <p className="text-xs text-gray-500">{c.email || '-'} · {c.phone || '-'}</p>
-                  </div>
-                  <span className="text-xs text-gray-400">
-                    {new Date(c.createdAt).toLocaleDateString('ko-KR')} 접수
-                  </span>
-                </div>
-                <button
-                  onClick={() => setApproveModalContractId(c.id)}
-                  className="px-4 py-1.5 bg-amber-600 text-white text-xs font-semibold rounded-lg hover:bg-amber-700 transition-colors"
-                >
-                  승인하기
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 승인 모달 */}
-      {approveModalContractId !== null && (
-        <ContractApproveModal
-          contractId={approveModalContractId}
-          onClose={() => setApproveModalContractId(null)}
-          onApproved={handleApproved}
-        />
-      )}
+      {/* 계약 승인 대기는 헤더 뱃지로 표시됨 — 상세 처리는 /admin/organizations */}
 
       <form onSubmit={handleSubmit} className="rounded-3xl bg-white/90 p-6 shadow-sm backdrop-blur">
         <div className="grid gap-4 md:grid-cols-[2fr_1fr_1fr_auto]">
@@ -951,6 +1012,37 @@ export default function AffiliateTeamDashboardPage() {
                       <span className="text-slate-400">판매 {item.sales.count.toLocaleString('ko-KR')}건</span>
                     </div>
                   </div>
+                  {/* 대리점장 관리 버튼 */}
+                  {(() => {
+                    const crm = managerLookup.get(item.manager.id);
+                    if (!crm) return null;
+                    const isActing = actingManager === crm.userId;
+                    const mgrName = item.manager.displayName || item.manager.nickname || `대리점장 #${item.manager.id}`;
+                    return (
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          title={crm.isActive ? '비활성화' : '활성화'}
+                          disabled={isActing}
+                          onClick={() => handleToggleManager(crm.userId, crm.orgId, crm.isActive, mgrName)}
+                          className={`p-2 rounded-lg transition-colors disabled:opacity-40 ${crm.isActive ? 'text-emerald-500 hover:bg-emerald-50' : 'text-gray-400 hover:bg-gray-100'}`}
+                        >
+                          {crm.isActive
+                            ? <ToggleRight className="w-5 h-5" />
+                            : <ToggleLeft className="w-5 h-5" />}
+                        </button>
+                        <button
+                          type="button"
+                          title="삭제"
+                          disabled={isActing}
+                          onClick={() => handleDeleteManager(crm.userId, crm.orgId, mgrName, item.manager.id)}
+                          className="p-2 rounded-lg text-red-400 hover:bg-red-50 transition-colors disabled:opacity-40"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    );
+                  })()}
                   <button
                     type="button"
                     onClick={() => toggleManager(item.manager.id)}
@@ -1649,15 +1741,7 @@ export default function AffiliateTeamDashboardPage() {
 
                             {!activitySelectionMode && (
                               <button
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  if (await confirm({ message: '이 기록을 삭제하시겠습니까?', isDangerous: true })) {
-                                    fetch(`/api/team/messages/activities/${activity.id}`, {
-                                      method: 'DELETE',
-                                      credentials: 'include',
-                                    }).then(() => loadActivities(1));
-                                  }
-                                }}
+                                onClick={(e) => { e.stopPropagation(); handleDeleteActivity(activity.id); }}
                                 className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
                                 title="삭제"
                               >

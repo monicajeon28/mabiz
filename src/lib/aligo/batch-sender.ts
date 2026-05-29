@@ -120,8 +120,32 @@ export async function processPendingSms(
       return result;
     }
 
+    // P1-17: 전화번호 없는 연락처 사전 필터링 — receiver 빈값으로 Aligo 전송 방지
+    const phonelessSms = validSms.filter(sms => !sms.contact?.phone?.trim());
+    if (phonelessSms.length > 0) {
+      await Promise.allSettled(
+        phonelessSms.map(sms =>
+          prisma.scheduledSms.update({
+            where: { id: sms.id },
+            data: { status: 'FAILED', failureReason: '전화번호 없음', updatedAt: new Date() },
+          })
+        )
+      );
+      result.failed += phonelessSms.length;
+      logger.warn('[BatchSender] 전화번호 없음 — 일괄 FAILED 처리', {
+        organizationId,
+        count: phonelessSms.length,
+        ids: phonelessSms.map(s => s.id),
+      });
+    }
+    const smsToSend = validSms.filter(sms => !!sms.contact?.phone?.trim());
+
+    if (smsToSend.length === 0) {
+      return result;
+    }
+
     // 배치 발송 준비
-    const batchRequests = validSms.map(sms => ({
+    const batchRequests = smsToSend.map(sms => ({
       receiver: sms.contact?.phone || '',
       message: sms.message
         .replace(/\[고객명\]/g, sms.contact?.name || '고객님')
@@ -134,32 +158,49 @@ export async function processPendingSms(
 
     if (sendResponse.resultCode === 1) {
       // 배치 전체 성공
-      result.sent = validSms.length;
+      result.sent = smsToSend.length;
 
-      // ScheduledSms 상태 업데이트
-      await Promise.all(
-        validSms.map(sms =>
+      // P1-15 + P1-16: Promise.allSettled — 일부 DB 실패해도 전체 롤백하지 않고 개별 오류 집계
+      const sentAt = new Date();
+      const updateResults = await Promise.allSettled(
+        smsToSend.map(sms =>
           prisma.scheduledSms.update({
-            where: { id: sms.id },
+            where: { id: sms.id, status: 'PENDING' },
             data: {
               status: 'SENT',
-              sentAt: new Date(),
+              sentAt,
               sentCount: 1,
-              updatedAt: new Date(),
+              updatedAt: sentAt,
             },
           })
         )
       );
 
+      // 개별 업데이트 실패 집계 — SENT로 처리됐지만 DB 기록 실패한 건 errors로 카운트
+      const dbFailCount = updateResults.filter(r => r.status === 'rejected').length;
+      if (dbFailCount > 0) {
+        result.errors += dbFailCount;
+        result.sent -= dbFailCount;
+        logger.warn(`[BatchSender] DB 업데이트 실패: ${dbFailCount}건`);
+        updateResults.forEach((r, i) => {
+          if (r.status === 'rejected') {
+            logger.error('[BatchSender] SENT 상태 업데이트 실패', {
+              smsId: smsToSend[i].id,
+              error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+            });
+          }
+        });
+      }
+
       logger.log('[BatchSender] 배치 발송 완료', {
         organizationId,
-        count: validSms.length,
+        count: smsToSend.length,
         msgId: sendResponse.msgId,
       });
     } else {
       // 부분 실패 또는 전체 실패
-      result.failed = (sendResponse.failCount || validSms.length);
-      result.sent = validSms.length - result.failed;
+      result.failed += (sendResponse.failCount || smsToSend.length);
+      result.sent = smsToSend.length - (sendResponse.failCount || smsToSend.length);
 
       // 개별 발송으로 재처리
       logger.warn('[BatchSender] 배치 발송 실패 → 개별 발송 재시도', {
@@ -168,7 +209,7 @@ export async function processPendingSms(
       });
 
       const individualResults = await processIndividualSms(
-        validSms,
+        smsToSend,
         aligoClient,
         organizationId
       );
@@ -227,6 +268,7 @@ async function processIndividualSms(
             organizationId,
             contactId: sms.contactId,
             phone: sms.contact?.phone || '',
+            contentPreview: sms.message.slice(0, 100),
             msg: sms.message,
             status: 'SENT',
             msgId: response.msgId,
@@ -253,6 +295,7 @@ async function processIndividualSms(
             organizationId,
             contactId: sms.contactId,
             phone: sms.contact?.phone || '',
+            contentPreview: sms.message.slice(0, 100),
             msg: sms.message,
             status: 'FAILED',
             blockReason: response.message,

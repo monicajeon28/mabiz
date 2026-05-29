@@ -21,7 +21,10 @@ export async function GET(req: NextRequest) {
     if (ctx.organizationId) {
       orgId = ctx.organizationId;
     } else if (ctx.role === 'GLOBAL_ADMIN') {
-      const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
+      const firstOrg = await prisma.organization.findFirst({
+        select: { id: true },
+        orderBy: { createdAt: 'asc' },  // ★ 결정론적 순서 보장
+      });
       if (!firstOrg) return NextResponse.json({ ok: true, logs: [], summary: { total: 0, sent: 0, failed: 0, blocked: 0 } });
       orgId = firstOrg.id;
     } else {
@@ -68,15 +71,22 @@ export async function GET(req: NextRequest) {
           organizationId: orgId,
           ...(contactId ? { contactId } : {}),
           ...(status    ? { status }    : {}),
+          ...(channel   ? { channel }   : {}),
           sentAt: { gte: since },
         },
       }),
     ]);
 
-    // 요약 통계
+    // 요약 통계 (필터 동일하게 적용)
     const stats = await prisma.smsLog.groupBy({
       by: ['status'],
-      where: { organizationId: orgId, sentAt: { gte: since } },
+      where: {
+        organizationId: orgId,
+        ...(contactId ? { contactId } : {}),
+        ...(status    ? { status }    : {}),
+        ...(channel   ? { channel }   : {}),
+        sentAt: { gte: since },
+      },
       _count: { status: true },
     });
 
