@@ -15,9 +15,10 @@ import { checkContractApplicationRateLimit } from '@/lib/affiliate-rate-limit';
 export async function GET(req: NextRequest) {
   try {
     const ctx = await getAuthContext();
-    if (!ctx || ctx.role !== 'GLOBAL_ADMIN') {
+    // GLOBAL_ADMIN(관리자) 또는 OWNER(대리점장)만 접근 가능
+    if (!ctx || (ctx.role !== 'GLOBAL_ADMIN' && ctx.role !== 'OWNER')) {
       return NextResponse.json(
-        { ok: false, message: '관리자 권한이 필요합니다.' },
+        { ok: false, message: '관리자 또는 대리점장 권한이 필요합니다.' },
         { status: 403 },
       );
     }

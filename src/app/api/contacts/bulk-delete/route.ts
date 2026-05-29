@@ -13,8 +13,14 @@ import { logger } from '@/lib/logger';
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
+
+    // ⚠️ 대리점장(OWNER)과 관리자(GLOBAL_ADMIN)만 삭제 가능
+    // 판매원(AGENT, FREE_SALES) 불가
     if (ctx.role !== 'OWNER' && ctx.role !== 'GLOBAL_ADMIN') {
-      return NextResponse.json({ ok: false, message: '삭제 권한이 없습니다' }, { status: 403 });
+      return NextResponse.json(
+        { ok: false, message: '고객 삭제는 대리점장 이상만 가능합니다' },
+        { status: 403 }
+      );
     }
 
     // GLOBAL_ADMIN은 organizationId가 없을 수 있음
