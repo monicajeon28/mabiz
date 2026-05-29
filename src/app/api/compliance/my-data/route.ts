@@ -26,6 +26,17 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // 테넌트 격리: 요청한 contactId가 자기 조직 소속인지 검증
+    if (ctx.organizationId) {
+      const contact = await (await import('@/lib/prisma')).default.contact.findFirst({
+        where: { id: contactId, organizationId: ctx.organizationId },
+        select: { id: true },
+      });
+      if (!contact) {
+        return NextResponse.json({ error: '접근 권한이 없습니다.' }, { status: 403 });
+      }
+    }
+
     // 데이터 내보내기
     const userData = await dataDeletionManager.exportUserData(contactId);
 

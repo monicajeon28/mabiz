@@ -17,6 +17,14 @@ export async function PATCH(
       );
     }
 
+    // 역할 검증: OWNER, GLOBAL_ADMIN만 판매 승인/거절 가능
+    if (!['OWNER', 'GLOBAL_ADMIN'].includes(session.role)) {
+      return NextResponse.json(
+        { ok: false, error: '판매 승인/거절은 관리자만 가능합니다.' },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const { status, approverNote, rejectionReason } = body;
 

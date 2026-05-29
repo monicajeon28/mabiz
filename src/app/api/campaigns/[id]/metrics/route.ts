@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, requireOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
-import { getCampaignMetrics } from "@/lib/services/multi-channel-campaign";
+// NOTE: getCampaignMetrics는 MultiChannelCampaign 마이그레이션 후 활성화
+// import { getCampaignMetrics } from "@/lib/services/multi-channel-campaign";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -28,11 +29,16 @@ export async function GET(req: Request, { params }: Params) {
       );
     }
 
-    const metrics = await getCampaignMetrics(campaignId);
-
+    // 기본 메트릭은 crmMarketingCampaign 필드에서 직접 반환
     return NextResponse.json({
       ok: true,
-      ...metrics,
+      campaignId,
+      sentCount: campaign.sentCount,
+      failedCount: campaign.failedCount,
+      openCount: campaign.openCount,
+      clickCount: campaign.clickCount,
+      registeredCount: campaign.registeredCount,
+      totalCount: campaign.totalCount,
     });
   } catch (error) {
     logger.error("[GET /api/campaigns/[id]/metrics] 오류", { error });
