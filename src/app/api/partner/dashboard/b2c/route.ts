@@ -10,7 +10,18 @@ export async function GET(req: Request) {
     const ctx = await requirePartnerContext();
     if (!ctx) return NextResponse.json({ ok: false, error: '인증이 필요합니다' }, { status: 403 });
 
+    // GLOBAL_ADMIN은 organizationId 없어도 접근 가능 (전체 통합 통계 빈 데이터 반환)
     if (!ctx.organizationId) {
+      if (ctx.sessionUser?.role === 'admin') {
+        return NextResponse.json({
+          ok: true,
+          message: '조직을 선택하면 상세 데이터를 볼 수 있습니다',
+          period: {}, monthSales: 0, prevMonthSales: 0, salesGrowth: 0,
+          reservationCount: 0, prevReservationCount: 0,
+          recentSales: [], passportPnrList: [], passportAgg: {},
+          pnrAgg: {}, totalCount: 0,
+        });
+      }
       logger.error('[b2c] organizationId 없음', { userId: ctx.sessionUser?.id });
       return NextResponse.json({ ok: false, error: '조직 정보 없음. 관리자에게 문의하세요.' }, { status: 403 });
     }

@@ -14,7 +14,10 @@ export async function GET(req: Request) {
     const ctx = await getAuthContext();
     const { searchParams } = new URL(req.url);
 
-    const type    = searchParams.get("type");
+    const rawType  = searchParams.get("type");
+    const customerOnly = searchParams.get("customerOnly") === "true";
+    // customerOnly=true: "CUSTOMER"(영문) + "구매완료"(한글) 모두 포함
+    const type = customerOnly ? undefined : rawType;
     const channel = searchParams.get("channel"); // b2c, b2b, direct
     const sourceType = searchParams.get("sourceType"); // P0-6: user, inquiry, affiliate, landing_page, education, gold_member
     const q       = searchParams.get("q");
@@ -29,7 +32,10 @@ export async function GET(req: Request) {
     const safeLimit = Math.min(Number(searchParams.get("limit")) || 30, 200); // limit 상한 강제 (200건)
 
     const baseWhere = buildContactWhere(ctx, {
-      ...(type ? { type } : {}),
+      // customerOnly: CUSTOMER + 구매완료 두 가지 type 모두 포함
+      ...(customerOnly
+        ? { type: { in: ["CUSTOMER", "구매완료"] } }
+        : type ? { type } : {}),
       ...(channel ? { channel } : {}),
       ...(sourceType ? { sourceType } : {}), // P0-6: 출처 필터링
       ...(q
