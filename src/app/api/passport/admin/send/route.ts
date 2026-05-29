@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // Vercel Pro 최대 실행 시간 (대량 발송 타임아웃 방지)
 
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
@@ -319,13 +320,8 @@ export async function POST(req: NextRequest) {
       try {
         const latestTrip = user.trips[0] ?? null;
         const existingSubmission = user.passportSubmissions[0] ?? null;
+        // 전화번호는 SMS 발송에만 필요 — 링크 생성은 전화번호 없어도 항상 진행
         const normalizedPhone = normalizePhone(user.phone);
-
-        if (!normalizedPhone) {
-          const errorMessage = '유효한 전화번호가 없습니다.';
-          results.push({ userId: user.id, success: false, error: errorMessage });
-          continue;
-        }
 
         // 여권 또는 PNR 발송에 따른 분기
         let personalizedMessage = '';
@@ -416,6 +412,29 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        // 전화번호 없으면 링크만 반환 (SMS 없이)
+        if (!normalizedPhone) {
+          await recordPassportLog({
+            userId: user.id,
+            managerId: manager.id,
+            templateId: template?.id ?? null,
+            messageBody: personalizedMessage,
+            messageChannel,
+            status: 'FAILED',
+            errorReason: '전화번호 없음 — 링크만 생성됨',
+          });
+          results.push({
+            userId: user.id,
+            success: true,  // 링크는 생성됨
+            link,
+            token,
+            submissionId,
+            message: personalizedMessage,
+            error: '전화번호 없음 — SMS 미발송 (링크 복사 후 직접 전달 필요)',
+          });
+          continue;
+        }
+
         const messageByteLength = new Blob([personalizedMessage]).size;
         const msgType: 'SMS' | 'LMS' = messageByteLength > 90 ? 'LMS' : 'SMS';
 
@@ -423,7 +442,6 @@ export async function POST(req: NextRequest) {
         let sendError: string | null = null;
 
         try {
-          // 대리점장 대시보드와 동일한 방식으로 알리고 API 호출
           const ALIGO_BASE_URL = 'https://apis.aligo.in';
           const apiKey = process.env.ALIGO_API_KEY;
           const aligoUserId = process.env.ALIGO_USER_ID;
@@ -446,9 +464,7 @@ export async function POST(req: NextRequest) {
 
           const aligoResponse = await fetch(`${ALIGO_BASE_URL}/send/`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            },
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
             body: formData.toString(),
           });
 
@@ -458,7 +474,6 @@ export async function POST(req: NextRequest) {
           }
 
           sendResponse = await aligoResponse.json();
-
           if (sendResponse && String(sendResponse.result_code) !== '1') {
             sendError = sendResponse.message
               ? String(sendResponse.message)
@@ -468,7 +483,7 @@ export async function POST(req: NextRequest) {
           logger.error(`[PassportRequest] Aligo send error for user ${user.id}`, {
             err: sendErr instanceof Error ? sendErr.message : String(sendErr),
           });
-          sendError = sendErr instanceof Error ? sendErr.message : '알 수 없는 오류가 발생했습니다.';
+          sendError = sendErr instanceof Error ? sendErr.message : '알 수 없는 오류';
         }
 
         const status = sendError ? 'FAILED' : 'SUCCESS';
@@ -484,29 +499,17 @@ export async function POST(req: NextRequest) {
           errorReason: sendError,
         });
 
-        // SMS 발송 실패해도 토큰은 이미 생성되었으므로 링크는 포함
-        if (sendError) {
-          results.push({
-            userId: user.id,
-            success: false,
-            link, // 토큰은 생성되었으므로 링크 포함
-            token, // 토큰 포함
-            submissionId, // submission ID 포함
-            error: sendError,
-            resultCode: sendResponse?.result_code,
-          });
-          continue;
-        }
-
+        // SMS 실패해도 링크는 포함 (success 여부는 SMS 성공 기준)
         results.push({
           userId: user.id,
-          success: true,
+          success: !sendError,
           link,
           token,
           submissionId,
           message: personalizedMessage,
           messageId,
           resultCode: sendResponse?.result_code,
+          ...(sendError ? { error: sendError } : {}),
         });
       } catch (error) {
         logger.error(`[PassportRequest] send error for user ${user.id}`, {

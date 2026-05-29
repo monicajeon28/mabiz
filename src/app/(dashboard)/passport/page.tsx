@@ -1,43 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, CheckCircle, RefreshCw, Search, Send, UserCheck, Download, FileText, Link, Copy, X, Info, RotateCcw } from 'lucide-react';
+import {
+  AlertCircle, CheckCircle, RefreshCw, Search, Send,
+  UserCheck, Copy, Check, X, Phone, PhoneOff, FileText,
+  ChevronDown, ChevronUp, Download,
+} from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
-import { logger } from '@/lib/logger';
 import { fillTemplate, LINK_ONLY_PASSPORT_MESSAGE } from '@/lib/passport-utils';
 
-interface PassportRequestTemplate {
-  id: number;
-  title: string;
-  body: string;
-  variables: Record<string, any> | null;
-  isDefault: boolean;
-  updatedAt: string;
-}
+// ─── 타입 ─────────────────────────────────────────────────────────
 
-interface PassportRequestLogSummary {
-  id: number;
-  status: string;
-  messageChannel: string;
-  sentAt: string;
-  admin: {
-    id: number;
-    name: string | null;
-  } | null;
-}
-
-interface PassportSubmissionSummary {
-  id: number;
-  tripId: number | null;
-  token: string;
-  tokenExpiresAt: string;
-  isSubmitted: boolean;
-  submittedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface PassportRequestCustomer {
+interface PassportCustomer {
   id: number;
   name: string | null;
   phone: string | null;
@@ -54,1905 +28,718 @@ interface PassportRequestCustomer {
     startDate: string | null;
     endDate: string | null;
   } | null;
-  submission: PassportSubmissionSummary | null;
-  lastRequest: PassportRequestLogSummary | null;
+  submission: {
+    id: number; tripId: number | null; token: string;
+    tokenExpiresAt: string; isSubmitted: boolean;
+    submittedAt: string | null; createdAt: string; updatedAt: string;
+  } | null;
+  lastRequest: {
+    id: number; status: string; messageChannel: string; sentAt: string;
+    admin: { id: number; name: string | null } | null;
+  } | null;
   submissionStatus: 'submitted' | 'pending' | 'not_requested';
 }
 
+interface Template {
+  id: number; title: string; body: string;
+  variables: Record<string, unknown> | null; isDefault: boolean; updatedAt: string;
+}
+
 interface SendResultItem {
-  userId: number;
-  success: boolean;
-  link?: string;
-  token?: string;
-  submissionId?: number;
-  message?: string;
-  error?: string;
-  messageId?: string | null;
-  resultCode?: string;
+  userId: number; success: boolean;
+  link?: string; token?: string; submissionId?: number;
+  message?: string; error?: string; messageId?: string | null;
 }
 
-interface SendResultResponse {
-  ok: boolean;
-  channel: string;
-  expiresInHours: number;
-  results: SendResultItem[];
-  missingUserIds: number[];
-  aligoRemain?: AligoRemainSummary;
-  remainingCash?: number;
-  lowBalance?: boolean;
+type StatusFilter = 'all' | 'submitted' | 'pending' | 'not_requested';
+type SendTarget = 'passport' | 'pnr';
+
+// ─── 유틸 ─────────────────────────────────────────────────────────
+
+function hasValidPhone(phone: string | null): boolean {
+  if (!phone) return false;
+  const digits = phone.replace(/[^0-9]/g, '');
+  return digits.length >= 10;
 }
 
-interface AligoRemainSummary {
-  result_code: string;
-  message?: string;
-  SMS_CNT?: string;
-  LMS_CNT?: string;
-  MMS_CNT?: string;
-  cash?: string;
+function CopyButton({ text, label }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  return (
+    <button
+      onClick={() => navigator.clipboard.writeText(text).then(() => {
+        setCopied(true);
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => setCopied(false), 2000);
+      })}
+      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs text-gray-600 transition-colors shrink-0"
+    >
+      {copied ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+      {label ?? (copied ? '복사됨' : '복사')}
+    </button>
+  );
 }
 
-interface AligoStatusResponse {
-  ok: boolean;
-  balance: number;
-  lastUpdated: string;
-  message?: string;
-  error?: string;
-}
+// ─── 메인 페이지 ──────────────────────────────────────────────────
 
-const STATUS_OPTIONS = [
-  { value: 'all', label: '전체' },
-  { value: 'submitted', label: '제출 완료' },
-  { value: 'pending', label: '제출 대기' },
-  { value: 'not_requested', label: '요청 없음' },
-  { value: 'no_request', label: '발송 이력 없음' },
-] as const;
+export default function PassportPage() {
+  // 데이터
+  const [customers, setCustomers] = useState<PassportCustomer[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [productCodes, setProductCodes] = useState<{ code: string; cruiseName: string | null; customerCount: number }[]>([]);
+  const [aligoBalance, setAligoBalance] = useState<number | null>(null);
 
-type StatusFilter = (typeof STATUS_OPTIONS)[number]['value'];
+  // 로딩
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
 
-type RoleFilter = 'all' | 'guide' | 'mall' | 'test';
-
-type ChannelOption = 'SMS' | 'ALIMTALK';
-
-const CHANNEL_LABELS: Record<ChannelOption, string> = {
-  SMS: 'SMS (알리고)',
-  ALIMTALK: '알림톡 (카카오)',
-};
-
-const formatChannelLabel = (channel: string) => {
-  if (channel in CHANNEL_LABELS) {
-    return CHANNEL_LABELS[channel as ChannelOption];
-  }
-  if (channel === 'KAKAO') return '카카오 메시지';
-  return channel;
-};
-
-type SearchMatch = {
-  id: number;
-  name: string | null;
-  phone: string | null;
-  email: string | null;
-  role: string;
-  customerStatus: string | null;
-  createdAt: string;
-  tripCount: number;
-  trips: Array<{
-    id: number;
-    productCode: string | null;
-    cruiseName: string | null;
-    departureDate: string;
-    startDate: string | null;
-    endDate: string | null;
-  }>;
-  passportSubmissions: Array<{
-    id: number;
-    isSubmitted: boolean;
-    updatedAt: string;
-    submittedAt: string | null;
-    tokenExpiresAt: string;
-  }>;
-  passportRequestLogs: Array<{
-    id: number;
-    status: string;
-    sentAt: string;
-    messageChannel: string;
-  }>;
-};
-
-type SendMode = 'link' | 'message';
-
-interface ProductCode {
-  code: string;
-  cruiseName: string | null;
-  shipName: string;
-  customerCount: number;
-}
-
-// 검색 API 응답을 고객 객체로 변환하는 헬퍼
-const convertSearchMatchToCustomer = (match: SearchMatch): PassportRequestCustomer => ({
-  id: match.id,
-  name: match.name,
-  phone: match.phone,
-  email: match.email,
-  role: match.role,
-  customerStatus: match.customerStatus,
-  createdAt: match.createdAt,
-  tripCount: match.tripCount,
-  latestTrip: match.trips && match.trips.length > 0 ? {
-    id: match.trips[0].id,
-    cruiseName: match.trips[0].cruiseName,
-    reservationCode: null,
-    productId: null,
-    startDate: match.trips[0].startDate,
-    endDate: match.trips[0].endDate,
-  } : null,
-  submission: match.passportSubmissions && match.passportSubmissions.length > 0 ? {
-    id: match.passportSubmissions[0].id,
-    tripId: null,
-    token: '',
-    tokenExpiresAt: match.passportSubmissions[0].tokenExpiresAt,
-    isSubmitted: match.passportSubmissions[0].isSubmitted,
-    submittedAt: match.passportSubmissions[0].submittedAt,
-    createdAt: match.createdAt,
-    updatedAt: match.passportSubmissions[0].updatedAt,
-  } : null,
-  lastRequest: match.passportRequestLogs && match.passportRequestLogs.length > 0 ? {
-    id: match.passportRequestLogs[0].id,
-    status: match.passportRequestLogs[0].status,
-    messageChannel: match.passportRequestLogs[0].messageChannel,
-    sentAt: match.passportRequestLogs[0].sentAt,
-    admin: null,
-  } : null,
-  submissionStatus: match.passportSubmissions && match.passportSubmissions.length > 0
-    ? (match.passportSubmissions[0].isSubmitted ? 'submitted' : 'pending')
-    : 'not_requested',
-});
-
-export default function PassportRequestPage() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSending, setIsSending] = useState(false);
-  const [customers, setCustomers] = useState<PassportRequestCustomer[]>([]);
-  const [templates, setTemplates] = useState<PassportRequestTemplate[]>([]);
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  // 필터
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  // roleFilter 제거: 모든 구매 고객을 표시하므로 역할 구분 불필요
-  const [productCodeFilter, setProductCodeFilter] = useState<string>('all');
-  const [productCodes, setProductCodes] = useState<ProductCode[]>([]);
-  const [sortBy, setSortBy] = useState<'status' | 'name' | 'submittedAt'>('status');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
-  const [messageBody, setMessageBody] = useState('');
-  const [channel, setChannel] = useState<ChannelOption>('SMS');
-  const [expiresInHours, setExpiresInHours] = useState<number>(72);
-  const [lastResult, setLastResult] = useState<SendResultResponse | null>(null);
-  const [refreshFlag, setRefreshFlag] = useState(0);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchMatches, setSearchMatches] = useState<SearchMatch[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const [downloadingApis, setDownloadingApis] = useState<number | null>(null);
-  const searchDropdownRef = useRef<HTMLLabelElement | null>(null);
-  const [showManualModal, setShowManualModal] = useState(false);
-  const [selectedCustomerForManual, setSelectedCustomerForManual] = useState<PassportRequestCustomer | null>(null);
-  const [manualTemplateId, setManualTemplateId] = useState<number | null>(null);
-  const [manualMessageBody, setManualMessageBody] = useState('');
-  const [manualExpiresInHours, setManualExpiresInHours] = useState<number>(72);
-  const [isGeneratingManual, setIsGeneratingManual] = useState(false);
-  const [manualResult, setManualResult] = useState<{ link: string; message: string; token: string; submissionId: number; expiresAt: string } | null>(null);
-  const [sendMode, setSendMode] = useState<SendMode>('link');
-  const [aligoStatus, setAligoStatus] = useState<AligoStatusResponse | null>(null);
-  const [isLoadingAligoStatus, setIsLoadingAligoStatus] = useState(false);
+  const [productFilter, setProductFilter] = useState('all');
 
-  // 일괄 링크 생성 결과 (인라인 표시용)
-  const [bulkLinkResult, setBulkLinkResult] = useState<{
-    items: Array<{ userId: number; name: string | null; link: string; message: string }>;
+  // 선택
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  // 발송 설정
+  const [sendTarget, setSendTarget] = useState<SendTarget>('passport');
+  const [templateId, setTemplateId] = useState<number | null>(null);
+  const [expiresInHours, setExpiresInHours] = useState(72);
+
+  // 결과
+  const [result, setResult] = useState<{
+    ok: Array<{ userId: number; name: string | null; link: string; message: string; smsSent: boolean }>;
+    noPhone: Array<{ userId: number; name: string | null; link: string; message: string }>;
+    failed: Array<{ userId: number; name: string | null; error: string }>;
     expiresAt: string;
-    selectedSendMode: SendMode;
-    templateId?: number;
   } | null>(null);
-  const [isBulkGenerating, setIsBulkGenerating] = useState(false);
-  const [copiedButtonId, setCopiedButtonId] = useState<string | null>(null);
-  const [sendTarget, setSendTarget] = useState<'passport' | 'pnr'>('passport');
 
-  const selectedTemplates = useMemo(() => {
-    if (selectedTemplateId === null) return null;
-    return templates.find((tpl) => tpl.id === selectedTemplateId) ?? null;
-  }, [selectedTemplateId, templates]);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const searchRef = useRef(search);
+  useEffect(() => { searchRef.current = search; }, [search]);
 
-  const selectedCustomers = useMemo(() => {
-    const selectedSet = new Set(selectedIds);
-    return customers.filter((customer) => selectedSet.has(customer.id));
-  }, [customers, selectedIds]);
+  // ── 데이터 로드 ─────────────────────────────────────────────────
 
-  // 여권 제출 상태 통계
-  const submissionStats = useMemo(() => {
-    const stats = {
-      submitted: 0,
-      pending: 0,
-      notRequested: 0,
-      total: customers.length,
-    };
-    customers.forEach((customer) => {
-      if (customer.submissionStatus === 'submitted') {
-        stats.submitted++;
-      } else if (customer.submissionStatus === 'pending') {
-        stats.pending++;
-      } else {
-        stats.notRequested++;
-      }
-    });
-    return stats;
-  }, [customers]);
-
-  // 예상 SMS 발송 비용 계산 (SMS 기준: 메시지당 100원)
-  const estimatedCost = useMemo(() => {
-    if (channel !== 'SMS') {
-      // SMS가 아닌 경우 비용 계산 안 함 (알림톡은 별도 가격)
-      return {
-        count: selectedIds.length,
-        messageLength: messageBody.length,
-        costPerMessage: 0,
-        totalCost: 0,
-        isLowBalance: false,
-      };
-    }
-
-    const costPerMessage = 100; // SMS 메시지당 100원
-    const selectedCount = selectedIds.length;
-    const messageLength = messageBody.length;
-    const totalCost = selectedCount * costPerMessage;
-    const isLowBalance = aligoStatus ? totalCost > aligoStatus.balance : false;
-
-    return {
-      count: selectedCount,
-      messageLength,
-      costPerMessage,
-      totalCost,
-      isLowBalance,
-    };
-  }, [selectedIds.length, messageBody.length, channel, aligoStatus]);
-
-  // 정렬된 고객 목록
-  const sortedCustomers = useMemo(() => {
-    const sorted = [...customers];
-    sorted.sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
-
-      if (sortBy === 'status') {
-        const statusOrder = { submitted: 3, pending: 2, not_requested: 1 };
-        aValue = statusOrder[a.submissionStatus] || 0;
-        bValue = statusOrder[b.submissionStatus] || 0;
-      } else if (sortBy === 'name') {
-        aValue = (a.name || '').toLowerCase();
-        bValue = (b.name || '').toLowerCase();
-      } else if (sortBy === 'submittedAt') {
-        aValue = a.submission?.submittedAt ? new Date(a.submission.submittedAt).getTime() : 0;
-        bValue = b.submission?.submittedAt ? new Date(b.submission.submittedAt).getTime() : 0;
-      }
-
-      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-    return sorted;
-  }, [customers, sortBy, sortOrder]);
-
-  // sendTarget 기준 필터링된 고객 목록
-  const filteredCustomers = useMemo(() => {
-    if (sendTarget === 'pnr') {
-      return sortedCustomers.filter(
-        (customer) => customer.latestTrip?.id && customer.latestTrip?.reservationCode
-      );
-    }
-    return sortedCustomers;
-  }, [sortedCustomers, sendTarget]);
+  const loadCustomers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const p = new URLSearchParams();
+      if (search.trim()) p.set('search', search.trim());
+      if (statusFilter !== 'all') p.set('status', statusFilter);
+      if (productFilter !== 'all') p.set('productCode', productFilter);
+      const res = await fetch(`/api/passport/admin/customers?${p}`, { credentials: 'include' });
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.data)) setCustomers(data.data);
+    } catch { showError('고객 목록을 불러오지 못했습니다.'); }
+    finally { setLoading(false); }
+  }, [search, statusFilter, productFilter]);
 
   const loadTemplates = useCallback(async () => {
     try {
-      const res = await fetch('/api/passport/admin/templates', {
-        credentials: 'include',
-      });
-
-      if (!res.ok) {
-        throw new Error(`서버 오류 (${res.status})`);
-      }
-
+      const res = await fetch('/api/passport/admin/templates', { credentials: 'include' });
       const data = await res.json();
-      if (!data.ok) {
-        throw new Error('템플릿을 불러올 수 없습니다.');
-      }
-
-      if (Array.isArray(data.templates)) {
+      if (data.ok && Array.isArray(data.templates)) {
         setTemplates(data.templates);
-        if (data.templates.length > 0) {
-          const defaultTemplate = data.templates.find((tpl: PassportRequestTemplate) => tpl.isDefault);
-          const firstTemplate = defaultTemplate ?? data.templates[0];
-          setSelectedTemplateId(firstTemplate.id);
-          setMessageBody((body) => body || firstTemplate.body || '');
-        }
-      } else {
-        throw new Error('템플릿 데이터 형식이 올바르지 않습니다.');
+        const def = data.templates.find((t: Template) => t.isDefault) ?? data.templates[0];
+        if (def) setTemplateId(def.id);
       }
-    } catch (error) {
-      logger.error('[PassportRequest] Load templates error:', { error: error instanceof Error ? error.message : String(error) });
-      showError('템플릿을 불러오는 중 문제가 발생했습니다.');
-    }
-  }, []);
-
-  const loadCustomers = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (search.trim()) params.set('search', search.trim());
-      if (statusFilter !== 'all') params.set('status', statusFilter);
-      if (productCodeFilter !== 'all') params.set('productCode', productCodeFilter);
-      // roleFilter 제거: 모든 구매 고객을 조회하므로 역할 필터 불필요
-
-      const res = await fetch(`/api/passport/admin/customers?${params.toString()}`, {
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        throw new Error('고객 목록을 불러올 수 없습니다.');
-      }
-      const data = await res.json();
-      if (data.ok && Array.isArray(data.data)) {
-        setCustomers(data.data);
-        setSelectedIds((prev) => prev.filter((id) => data.data.some((item: PassportRequestCustomer) => item.id === id)));
-      } else {
-        throw new Error('응답 형식이 올바르지 않습니다.');
-      }
-    } catch (error) {
-      logger.error('[PassportRequest] Load customers error:', { error: error instanceof Error ? error.message : String(error) });
-      showError('고객 정보를 불러오는 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [search, statusFilter, productCodeFilter]);
-
-  const loadAligoStatus = useCallback(async () => {
-    setIsLoadingAligoStatus(true);
-    try {
-      const res = await fetch('/api/passport/admin/aligo-status', {
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        throw new Error('Aligo 잔액 조회 실패');
-      }
-      const data = await res.json();
-      if (data.ok) {
-        setAligoStatus(data);
-      } else {
-        throw new Error(data.error || 'Aligo 잔액 조회 실패');
-      }
-    } catch (error) {
-      logger.error('[PassportRequest] Load Aligo status error:', { error: error instanceof Error ? error.message : String(error) });
-      setAligoStatus(null);
-    } finally {
-      setIsLoadingAligoStatus(false);
-    }
-  }, []);
-
-  const handleDownloadApis = useCallback(async (tripId: number, cruiseName: string | null) => {
-    setDownloadingApis(tripId);
-    try {
-      const res = await fetch(`/api/admin/apis/excel?tripId=${tripId}`, {
-        credentials: 'include',
-      });
-
-      if (!res.ok) {
-        throw new Error('APIS 다운로드에 실패했습니다.');
-      }
-
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `APIS_${cruiseName || 'Trip'}_${tripId}_${new Date().toISOString().slice(0, 10)}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-
-      showSuccess('APIS 엑셀이 다운로드되었습니다.');
-    } catch (error) {
-      logger.error('[PassportRequest] APIS 다운로드 오류:', { error: error instanceof Error ? error.message : String(error) });
-      showError('APIS 다운로드 중 오류가 발생했습니다.');
-    } finally {
-      setDownloadingApis(null);
-    }
+    } catch { /* silently fail */ }
   }, []);
 
   useEffect(() => {
     loadTemplates();
-    loadAligoStatus();
-
-    // 상품 코드 목록 로드
-    const loadProductCodes = async () => {
-      try {
-        const res = await fetch('/api/passport/admin/product-codes', {
-          credentials: 'include',
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.ok && Array.isArray(data.productCodes)) {
-            setProductCodes(data.productCodes);
-          }
-        }
-      } catch (error) {
-        logger.error('[PassportRequest] Load product codes error:', { error });
-      }
-    };
-
-    loadProductCodes();
-  }, [loadTemplates, loadAligoStatus]);
+    fetch('/api/passport/admin/aligo-status', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => { if (d.ok) setAligoBalance(d.balance); })
+      .catch(() => {});
+    fetch('/api/passport/admin/product-codes', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => { if (d.ok) setProductCodes(d.productCodes ?? []); })
+      .catch(() => {});
+  }, [loadTemplates]);
 
   useEffect(() => {
-    const handler = setTimeout(() => {
-      loadCustomers();
-    }, 350);
-    return () => clearTimeout(handler);
-  }, [loadCustomers, refreshFlag]);
+    const t = setTimeout(loadCustomers, 350);
+    return () => clearTimeout(t);
+  }, [loadCustomers, refreshTick]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    const term = search.trim();
+  // ── 파생 데이터 ─────────────────────────────────────────────────
 
-    setSearchLoading(true);
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/passport/admin/search?q=${encodeURIComponent(term)}`, {
-          signal: controller.signal,
-          credentials: 'include',
-        });
-        if (!res.ok) {
-          throw new Error('검색에 실패했습니다.');
-        }
-        const data = await res.json();
-        if (data.ok && Array.isArray(data.data)) {
-          const matches = data.data as SearchMatch[];
-          setSearchMatches(matches);
-          setIsSearchOpen((prev) => (prev ? matches.length > 0 : prev));
-        } else {
-          setSearchMatches([]);
-          setIsSearchOpen((prev) => (prev ? false : prev));
-        }
-      } catch (error) {
-        if (!(error instanceof DOMException && error.name === 'AbortError')) {
-          logger.error('[PassportRequest] 검색 오류:', { error: error instanceof Error ? error.message : String(error) });
-        }
-        setSearchMatches([]);
-        setIsSearchOpen((prev) => (prev ? false : prev));
-      } finally {
-        setSearchLoading(false);
-      }
-    }, 200);
-
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
-  }, [search]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (
-        searchDropdownRef.current &&
-        !searchDropdownRef.current.contains(target) &&
-        searchInputRef.current &&
-        !searchInputRef.current.contains(target)
-      ) {
-        setIsSearchOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const toggleSelectAll = () => {
-    if (selectedIds.length === customers.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(customers.map((customer) => customer.id));
-    }
-  };
-
-  const toggleSelect = (id: number) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]
-    );
-  };
-
-  const handleMatchClick = (match: SearchMatch) => {
-    const keyword = match.phone?.trim() || match.email?.trim() || match.name?.trim() || '';
-    if (keyword) {
-      setSearch(keyword);
-    }
-    setSelectedIds((prev) => (prev.includes(match.id) ? prev : [...prev, match.id]));
-
-    // 검색 결과로 고객 정보 구성
-    const searchResultCustomer = convertSearchMatchToCustomer(match);
-
-    // 고객 목록에 추가 또는 업데이트
-    setCustomers((prev) => {
-      const index = prev.findIndex((c) => c.id === match.id);
-      if (index >= 0) {
-        const updated = [...prev];
-        updated[index] = searchResultCustomer;
-        return updated;
-      } else {
-        return [...prev, searchResultCustomer];
-      }
+  const stats = useMemo(() => {
+    let submitted = 0, pending = 0, notRequested = 0;
+    customers.forEach(c => {
+      if (c.submissionStatus === 'submitted') submitted++;
+      else if (c.submissionStatus === 'pending') pending++;
+      else notRequested++;
     });
+    return { submitted, pending, notRequested, total: customers.length };
+  }, [customers]);
 
-    setIsSearchOpen(false);
-    setSearchMatches([]);
-    setSearchLoading(false);
-    searchInputRef.current?.focus();
-  };
+  const selectedCustomers = useMemo(
+    () => customers.filter(c => selectedIds.has(c.id)),
+    [customers, selectedIds],
+  );
 
-  const handleTemplateChange = (templateId: number) => {
-    setSelectedTemplateId(templateId);
-    const template = templates.find((tpl) => tpl.id === templateId);
-    if (template) {
-      setMessageBody(template.body || '');
-    }
-  };
+  const withPhone = useMemo(() => selectedCustomers.filter(c => hasValidPhone(c.phone)), [selectedCustomers]);
+  const withoutPhone = useMemo(() => selectedCustomers.filter(c => !hasValidPhone(c.phone)), [selectedCustomers]);
 
-  const handleAddMatches = () => {
-    if (searchMatches.length === 0) return;
-    setSelectedIds((prev) => Array.from(new Set([...prev, ...searchMatches.map((item) => item.id)])));
+  const selectedTemplate = useMemo(
+    () => templates.find(t => t.id === templateId) ?? templates.find(t => t.isDefault) ?? templates[0] ?? null,
+    [templates, templateId],
+  );
 
-    // 검색 결과 모두를 고객 목록에 추가
-    const searchResultCustomers = searchMatches.map(convertSearchMatchToCustomer);
+  // ── 선택 액션 ───────────────────────────────────────────────────
 
-    setCustomers((prev) => {
-      const existingIds = new Set(prev.map((c) => c.id));
-      const newCustomers = searchResultCustomers.filter((c) => !existingIds.has(c.id));
-      return [...prev, ...newCustomers];
-    });
+  const toggle = (id: number) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
 
-    setIsSearchOpen(false);
-  };
+  const toggleAll = () => setSelectedIds(prev =>
+    prev.size === customers.length ? new Set() : new Set(customers.map(c => c.id))
+  );
 
-  const handleOpenManualModal = (customer: PassportRequestCustomer) => {
-    if (customer.submission && !customer.submission.isSubmitted) {
-      showError('이미 여권 요청이 진행 중입니다.');
-      return;
-    }
-    setSelectedCustomerForManual(customer);
-    setManualResult(null);
-    const defaultTemplate = templates.find((tpl) => tpl.isDefault) ?? templates[0];
-    if (defaultTemplate) {
-      setManualTemplateId(defaultTemplate.id);
-      setManualMessageBody(defaultTemplate.body || '');
-    } else {
-      setManualTemplateId(null);
-      setManualMessageBody('');
-    }
-    setManualExpiresInHours(72);
-    setShowManualModal(true);
-  };
-
-  const handleManualTemplateChange = (templateId: number) => {
-    setManualTemplateId(templateId);
-    const template = templates.find((tpl) => tpl.id === templateId);
-    if (template) {
-      setManualMessageBody(template.body || '');
-    }
-    setManualResult(null);
-  };
-
-  const handleGenerateManualLink = async () => {
-    if (!selectedCustomerForManual) return;
-    if (!manualMessageBody.trim()) {
-      showError('메시지 내용을 입력해주세요.');
-      return;
-    }
-
-    setIsGeneratingManual(true);
-    setManualResult(null);
-    try {
-      const res = await fetch('/api/passport/admin/manual', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          userId: selectedCustomerForManual.id,
-          templateId: manualTemplateId ?? undefined,
-          messageBody: manualMessageBody,
-          expiresInHours: manualExpiresInHours,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        logger.error('[PassportRequest] Manual API error response:', { status: res.status });
-        throw new Error('여권 제출 링크 생성에 실패했습니다.');
-      }
-
-      setManualResult(data.result);
-      showSuccess('여권 제출 링크가 생성되었습니다. 메시지를 복사해 고객에게 전달하세요.');
-      setRefreshFlag((prev) => prev + 1);
-    } catch (error: any) {
-      logger.error('[PassportRequest] Manual error', { error: error?.message });
-      showError('여권 제출 링크를 생성하지 못했습니다.');
-    } finally {
-      setIsGeneratingManual(false);
-    }
-  };
-
-  const handleCopy = async (value: string, label: string, buttonId?: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      showSuccess(`${label} 복사 완료`);
-      if (buttonId) {
-        setCopiedButtonId(buttonId);
-        setTimeout(() => setCopiedButtonId(null), 2000);
-      }
-    } catch {
-      showError('클립보드에 복사하지 못했습니다. 직접 선택해서 복사해주세요.');
-    }
-  };
+  // ── 발송 ────────────────────────────────────────────────────────
 
   const handleSend = async () => {
-    if (selectedIds.length === 0) {
-      showError('먼저 발송할 고객을 선택해주세요.');
-      return;
-    }
+    if (selectedIds.size === 0) { showError('발송할 고객을 선택하세요.'); return; }
 
-    setIsBulkGenerating(true);
+    setSending(true);
+    setResult(null);
     try {
-      // 1. 메시지 선택: "메시지로 발송" 모드일 때만 필요
-      let requestMessageBody = '';
-      if (sendMode === 'message') {
-        const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
-        const template = selectedTemplate || templates.find((t) => t.isDefault);
-        if (!template?.body) {
-          throw new Error('템플릿을 선택해주세요.');
-        }
-        requestMessageBody = template.body;
-      } else {
-        // "링크만 전송" - 메시지 없이 처리 (API에서 처리)
-        requestMessageBody = '';
-      }
-
-      // 2. 링크 생성 API 호출 (실제로는 send API가 링크도 생성)
       const res = await fetch('/api/passport/admin/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          userIds: selectedIds,
-          templateId: sendMode === 'message' ? selectedTemplateId ?? undefined : undefined,
-          messageBody: requestMessageBody,
-          channel,
+          userIds: [...selectedIds],
+          templateId: templateId ?? undefined,
+          channel: 'SMS',
           expiresInHours,
           sendTarget,
         }),
       });
-
       const data = await res.json();
-      if (!res.ok || !data.ok) {
-        logger.error('[PassportRequest] Send API error response:', { status: res.status, data });
-        throw new Error(data.message || '링크 생성에 실패했습니다.');
-      }
+      if (!res.ok || !data.ok) throw new Error(data.message || '발송 실패');
 
-      // 3. 전체 결과에서 링크 생성 성공 항목만 추출
-      const successResults: SendResultItem[] = (data.results ?? []).filter(
-        (r: SendResultItem) => r.link
-      );
-      if (successResults.length === 0) {
-        const firstErr = (data.results?.[0] as SendResultItem | undefined);
-        throw new Error(firstErr?.error || '링크 생성에 실패했습니다.');
-      }
+      const items: SendResultItem[] = data.results ?? [];
+      const expiresAt = new Date(Date.now() + expiresInHours * 3600_000).toISOString();
 
-      // 4. 고객별 메시지 렌더링
-      const selectedTemplate = templates.find((t) => t.id === selectedTemplateId)
-        ?? templates.find((t) => t.isDefault);
+      const ok: typeof result['ok'] = [];
+      const noPhone: typeof result['noPhone'] = [];
+      const failed: typeof result['failed'] = [];
 
-      const items = successResults.map((r: SendResultItem) => {
-        const customer = customers.find((c) => c.id === r.userId);
-        let msg = '';
-        if (sendMode === 'message' && selectedTemplate) {
-          msg = selectedTemplate.body
-            .replace(/{고객명}/g, customer?.name ?? '고객님')
-            .replace(/{링크}/g, r.link!)
-            .replace(/{상품명}/g, customer?.latestTrip?.cruiseName ?? '')
-            .replace(/{출발일}/g, customer?.latestTrip?.startDate?.split('T')[0] ?? '');
+      for (const item of items) {
+        const c = customers.find(x => x.id === item.userId);
+        const name = c?.name ?? null;
+
+        if (item.link && item.error?.includes('전화번호 없음')) {
+          noPhone.push({ userId: item.userId, name, link: item.link, message: item.message ?? '' });
+        } else if (item.link && item.success) {
+          ok.push({ userId: item.userId, name, link: item.link, message: item.message ?? '', smsSent: true });
+        } else if (item.link && !item.success) {
+          // SMS 실패했지만 링크는 생성됨
+          ok.push({ userId: item.userId, name, link: item.link, message: item.message ?? '', smsSent: false });
         } else {
-          msg = fillTemplate(LINK_ONLY_PASSPORT_MESSAGE, {
-            고객명: customer?.name ? `${customer.name}님` : '고객님',
-            링크: r.link!,
-            상품명: customer?.latestTrip?.cruiseName ?? '',
-            출발일: customer?.latestTrip?.startDate?.split('T')[0] ?? '',
-          });
+          failed.push({ userId: item.userId, name, error: item.error ?? '알 수 없는 오류' });
         }
-        return { userId: r.userId, name: customer?.name ?? null, link: r.link!, message: msg };
-      });
-
-      // 5. 결과를 인라인 표시 상태에 저장
-      setBulkLinkResult({
-        items,
-        expiresAt: new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString(),
-        selectedSendMode: sendMode,
-        templateId: sendMode === 'message' ? selectedTemplateId ?? undefined : undefined,
-      });
-
-      showSuccess(`${selectedIds.length}명에게 링크가 생성되었습니다.`);
-    } catch (error) {
-      logger.error('[PassportRequest] handleSend error:', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      showError(error instanceof Error ? error.message : '링크 생성 중 오류가 발생했습니다.');
-    } finally {
-      setIsBulkGenerating(false);
-    }
-  };
-
-  // 링크 생성 후 SMS 발송
-  const handleBulkSendAfterLinkGeneration = async () => {
-    if (!bulkLinkResult) {
-      showError('먼저 링크를 생성해주세요.');
-      return;
-    }
-
-    setIsSending(true);
-    try {
-      const res = await fetch('/api/passport/admin/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          userIds: selectedIds,
-          templateId: bulkLinkResult.templateId ?? undefined,
-          messageBody: bulkLinkResult.items[0]?.message ?? '',
-          channel,
-          expiresInHours,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        logger.error('[PassportRequest] Send API error:', { status: res.status });
-        throw new Error(data.message || 'SMS 발송에 실패했습니다.');
       }
 
-      setLastResult(data);
-      showSuccess(`${selectedIds.length}명에게 SMS가 발송되었습니다.`);
-      setBulkLinkResult(null);
-      setSelectedIds([]);
-      setRefreshFlag((prev) => prev + 1);
-    } catch (error) {
-      logger.error('[PassportRequest] handleBulkSendAfterLinkGeneration error:', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      showError(error instanceof Error ? error.message : 'SMS 발송 중 오류가 발생했습니다.');
+      setResult({ ok, noPhone, failed, expiresAt });
+      setRefreshTick(t => t + 1);
+
+      const smsSent = ok.filter(x => x.smsSent).length;
+      const linkOnly = noPhone.length + ok.filter(x => !x.smsSent).length;
+      if (failed.length === 0) {
+        showSuccess(`완료: SMS ${smsSent}명 발송, 링크만 생성 ${linkOnly}명`);
+      } else {
+        showSuccess(`완료: ${smsSent}명 SMS, ${linkOnly}명 링크 생성 (${failed.length}명 실패)`);
+      }
+    } catch (e) {
+      showError(e instanceof Error ? e.message : '발송 중 오류가 발생했습니다.');
     } finally {
-      setIsSending(false);
+      setSending(false);
     }
   };
+
+  // ── 렌더 ────────────────────────────────────────────────────────
 
   return (
-    <div className="p-6 space-y-6">
-      <section className="bg-white rounded-2xl shadow-lg border border-blue-100 p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-extrabold text-blue-800 flex items-center gap-3">
-              <span className="text-4xl">🛂</span>
-              여권 요청 관리
-            </h1>
-            <p className="mt-2 text-base md:text-lg text-gray-600 leading-relaxed">
-              선택한 고객에게 여권 제출 링크를 일괄로 발송하고 진행 상태를 한눈에 확인하세요.
-            </p>
-          </div>
-          <button
-            onClick={() => setRefreshFlag((prev) => prev + 1)}
-            className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-blue-600 text-white font-semibold shadow-md hover:bg-blue-700 transition-colors"
-          >
-            <RefreshCw className="mr-2 h-4 w-4" /> 새로고침
-          </button>
-        </div>
-      </section>
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-4">
 
-      {/* 여권 제출 상태 통계 카드 */}
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl shadow-lg border-2 border-green-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-green-700 mb-1">제출 완료</p>
-              <p className="text-3xl font-bold text-green-900">{submissionStats.submitted}</p>
-              <p className="text-xs text-green-600 mt-1">
-                {submissionStats.total > 0 ? Math.round((submissionStats.submitted / submissionStats.total) * 100) : 0}%
-              </p>
-            </div>
-            <CheckCircle className="h-9 w-9 text-green-500" />
-          </div>
+      {/* 헤더 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">여권 요청 관리</h1>
+          <p className="text-sm text-gray-500 mt-0.5">고객에게 여권 제출 링크를 발송합니다</p>
         </div>
-        <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-2xl shadow-lg border-2 border-yellow-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-yellow-700 mb-1">제출 대기</p>
-              <p className="text-3xl font-bold text-yellow-900">{submissionStats.pending}</p>
-              <p className="text-xs text-yellow-600 mt-1">
-                {submissionStats.total > 0 ? Math.round((submissionStats.pending / submissionStats.total) * 100) : 0}%
-              </p>
-            </div>
-            <AlertCircle className="h-9 w-9 text-yellow-500" />
-          </div>
-        </div>
-        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl shadow-lg border-2 border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-gray-700 mb-1">요청 없음</p>
-              <p className="text-3xl font-bold text-gray-900">{submissionStats.notRequested}</p>
-              <p className="text-xs text-gray-600 mt-1">
-                {submissionStats.total > 0 ? Math.round((submissionStats.notRequested / submissionStats.total) * 100) : 0}%
-              </p>
-            </div>
-            <UserCheck className="h-9 w-9 text-gray-500" />
-          </div>
-        </div>
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl shadow-lg border-2 border-blue-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-blue-700 mb-1">전체 고객</p>
-              <p className="text-3xl font-bold text-blue-900">{submissionStats.total}</p>
-              <p className="text-xs text-blue-600 mt-1">현재 필터 기준</p>
-            </div>
-            <UserCheck className="h-9 w-9 text-blue-500" />
-          </div>
-        </div>
-      </section>
-
-      {/* Aligo 잔액 카드 */}
-      <section className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl shadow-lg border-2 border-emerald-200 p-6">
-        <div className="flex items-center justify-between">
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <span className="text-4xl">💚</span>
-              <div>
-                <p className="text-sm font-semibold text-emerald-700">Aligo 잔액</p>
-                {isLoadingAligoStatus ? (
-                  <p className="text-2xl font-bold text-emerald-900 flex items-center gap-2">
-                    <RefreshCw className="h-5 w-5 animate-spin" /> 조회 중...
-                  </p>
-                ) : aligoStatus && aligoStatus.ok ? (
-                  <div>
-                    <p className="text-2xl font-bold text-emerald-900">
-                      {aligoStatus.balance.toLocaleString('ko-KR')}원
-                    </p>
-                    {aligoStatus.balance <= 5000 && (
-                      <p className="text-sm font-semibold text-red-600 mt-1">
-                        🚨 저잔액 경고 (5,000원 이하)
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-lg font-semibold text-red-600">조회 불가</p>
-                )}
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={loadAligoStatus}
-            disabled={isLoadingAligoStatus}
-            className={`inline-flex items-center justify-center px-4 py-2.5 rounded-xl font-semibold shadow-md transition-colors ${
-              isLoadingAligoStatus
-                ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                : 'bg-emerald-600 text-white hover:bg-emerald-700'
-            }`}
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoadingAligoStatus ? 'animate-spin' : ''}`} />
-            <span className="ml-2">새로고침</span>
-          </button>
-        </div>
-      </section>
-
-      <section className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 space-y-6">
-        <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
-          <label className="flex flex-col relative" ref={searchDropdownRef}>
-            <span className="text-gray-700 font-semibold mb-2 flex items-center gap-2">
-              <Search className="h-4 w-4" /> 이름/전화/이메일 검색
+        <div className="flex items-center gap-2">
+          {aligoBalance !== null && (
+            <span className={`text-xs px-3 py-1.5 rounded-full font-medium ${
+              aligoBalance <= 5000 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+            }`}>
+              알리고 {aligoBalance.toLocaleString()}원
+              {aligoBalance <= 5000 && ' ⚠ 저잔액'}
             </span>
-            <input
-              type="text"
-              value={search}
-              ref={searchInputRef}
-              onFocus={() => setIsSearchOpen(true)}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setIsSearchOpen(true);
-              }}
-              placeholder="예: 홍길동 또는 010"
-              className="px-4 py-3 rounded-xl border-2 border-blue-100 focus:border-blue-500 focus:outline-none text-lg"
-            />
-            {isSearchOpen && (
-              <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-blue-200 rounded-xl shadow-xl z-20 max-h-80 overflow-auto">
-                <div className="flex items-center justify-between px-4 py-2 border-b border-blue-100 bg-blue-50">
-                  <p className="text-sm font-semibold text-blue-700">
-                    {search.trim() ? `검색 결과 (${searchMatches.length}명)` : '최근 고객 목록'}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={handleAddMatches}
-                      disabled={searchMatches.length === 0}
-                      className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
-                        searchMatches.length === 0
-                          ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                          : 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
-                      }`}
-                    >
-                      결과 전체 선택
-                    </button>
-                  </div>
-                </div>
-                {searchLoading ? (
-                  <div className="px-4 py-3 text-sm text-blue-600">검색 중...</div>
-                ) : searchMatches.length === 0 ? (
-                  <div className="px-4 py-3 text-sm text-gray-500">검색 결과가 없습니다.</div>
-                ) : (
-                  <ul className="divide-y divide-blue-50">
-                    {searchMatches.map((match) => (
-                      <li key={`match-${match.id}`} className="px-4 py-3 hover:bg-blue-50 flex items-center justify-between gap-4">
-                        <button
-                          type="button"
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={() => handleMatchClick(match)}
-                          className="flex-1 text-left"
-                        >
-                          <div className="text-sm text-gray-700">
-                            <p className="font-semibold text-gray-900">{match.name ?? '이름 없음'}</p>
-                            <p className="text-xs text-gray-500">
-                              {match.phone ?? '전화번호 없음'} / {match.email ?? '이메일 없음'}
-                            </p>
-                          </div>
-                        </button>
-                        <button
-                          type="button"
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            toggleSelect(match.id);
-                          }}
-                          className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
-                            selectedIds.includes(match.id)
-                              ? 'bg-green-100 text-green-700 border-green-200'
-                              : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'
-                          }`}
-                        >
-                          {selectedIds.includes(match.id) ? '선택됨' : '선택'}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-          </label>
+          )}
+          <button
+            onClick={() => setRefreshTick(t => t + 1)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            새로고침
+          </button>
+        </div>
+      </div>
 
-          <label className="flex flex-col">
-            <span className="text-gray-700 font-semibold mb-2">제출 상태</span>
+      {/* 통계 */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: '제출 완료', value: stats.submitted, color: 'green', icon: CheckCircle },
+          { label: '발송 대기', value: stats.pending, color: 'amber', icon: AlertCircle },
+          { label: '미발송', value: stats.notRequested, color: 'gray', icon: FileText },
+          { label: '전체', value: stats.total, color: 'blue', icon: UserCheck },
+        ].map(({ label, value, color, icon: Icon }) => (
+          <div key={label} className={`bg-${color}-50 border border-${color}-200 rounded-xl p-3`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-xs font-medium text-${color}-600`}>{label}</p>
+                <p className={`text-2xl font-bold text-${color}-900 mt-0.5`}>{value}</p>
+              </div>
+              <Icon className={`w-7 h-7 text-${color}-400`} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 메인 2컬럼 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* 왼쪽: 고객 목록 */}
+        <div className="lg:col-span-2 space-y-3">
+
+          {/* 필터 */}
+          <div className="bg-white border border-gray-200 rounded-xl p-3 flex flex-wrap gap-2">
+            <div className="flex-1 min-w-[140px] flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              <Search className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+              <input
+                value={search}
+                onChange={e => { searchRef.current = e.target.value; setSearch(e.target.value); }}
+                placeholder="이름·전화번호·이메일"
+                className="bg-transparent text-sm flex-1 focus:outline-none"
+              />
+              {search && <button onClick={() => { searchRef.current = ''; setSearch(''); }} className="text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>}
+            </div>
+
             <select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-              className="px-4 py-3 rounded-xl border-2 border-blue-100 focus:border-blue-500 focus:outline-none text-lg"
+              onChange={e => setStatusFilter(e.target.value as StatusFilter)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
             >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
+              <option value="all">전체 상태</option>
+              <option value="submitted">제출 완료</option>
+              <option value="pending">발송 대기</option>
+              <option value="not_requested">미발송</option>
             </select>
-          </label>
 
-          <label className="flex flex-col">
-            <span className="text-gray-700 font-semibold mb-2">상품별</span>
             <select
-              value={productCodeFilter}
-              onChange={(event) => setProductCodeFilter(event.target.value)}
-              className="px-4 py-3 rounded-xl border-2 border-blue-100 focus:border-blue-500 focus:outline-none text-lg"
+              value={productFilter}
+              onChange={e => setProductFilter(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
             >
               <option value="all">전체 상품</option>
-              {productCodes.map((pc) => (
-                <option key={pc.code} value={pc.code}>
-                  {pc.cruiseName || pc.shipName || pc.code} ({pc.customerCount}명)
+              {productCodes.map(p => (
+                <option key={p.code} value={p.code}>
+                  {p.cruiseName || p.code} ({p.customerCount}명)
                 </option>
               ))}
             </select>
-          </label>
 
-          <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4 flex items-center gap-3">
-            <UserCheck className="h-7 w-7 text-blue-600" />
-            <div>
-              <p className="text-blue-900 font-bold text-xl">선택된 고객</p>
-              <p className="text-blue-700 text-lg">{selectedIds.length}명</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto rounded-2xl border border-gray-200">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-blue-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-blue-900">
-                  <input
-                    type="checkbox"
-                    checked={filteredCustomers.length > 0 && selectedIds.length === filteredCustomers.length}
-                    onChange={() => {
-                      if (selectedIds.length === filteredCustomers.length) {
-                        setSelectedIds([]);
-                      } else {
-                        setSelectedIds(filteredCustomers.map((customer) => customer.id));
-                      }
-                    }}
-                    className="w-5 h-5"
-                    aria-label="전체 선택"
-                  />
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-blue-900">
-                  <button
-                    onClick={() => {
-                      if (sortBy === 'name') {
-                        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                      } else {
-                        setSortBy('name');
-                        setSortOrder('asc');
-                      }
-                    }}
-                    className="flex items-center gap-1 hover:text-blue-700"
-                  >
-                    고객 정보
-                    {sortBy === 'name' && (sortOrder === 'asc' ? ' ↑' : ' ↓')}
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-blue-900">최근 여행/상태</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-blue-900">
-                  <button
-                    onClick={() => {
-                      if (sortBy === 'status') {
-                        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                      } else {
-                        setSortBy('status');
-                        setSortOrder('desc');
-                      }
-                    }}
-                    className="flex items-center gap-1 hover:text-blue-700"
-                  >
-                    여권 제출
-                    {sortBy === 'status' && (sortOrder === 'asc' ? ' ↑' : ' ↓')}
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-blue-900">
-                  <button
-                    onClick={() => {
-                      if (sortBy === 'submittedAt') {
-                        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                      } else {
-                        setSortBy('submittedAt');
-                        setSortOrder('desc');
-                      }
-                    }}
-                    className="flex items-center gap-1 hover:text-blue-700"
-                  >
-                    최근 발송
-                    {sortBy === 'submittedAt' && (sortOrder === 'asc' ? ' ↑' : ' ↓')}
-                  </button>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-lg text-gray-500">
-                    데이터를 불러오는 중입니다...
-                  </td>
-                </tr>
-              ) : filteredCustomers.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-lg text-gray-500">
-                    {sendTarget === 'pnr'
-                      ? 'PNR 정보가 있는 고객이 없습니다.'
-                      : '조건에 맞는 고객이 없습니다.'}
-                  </td>
-                </tr>
-              ) : (
-                filteredCustomers.map((customer) => {
-                  const isSelected = selectedIds.includes(customer.id);
-                  const submission = customer.submission;
-                  const lastRequest = customer.lastRequest;
-                  const roleLabel = customer.role === 'community' ? '크루즈몰 고객' : '크루즈가이드 고객';
-                  const isTestCustomer = (customer.customerStatus || '').toLowerCase() === 'test';
-
-                  const isSubmitted = submission?.isSubmitted ?? false;
-                  const isPending = submission && !submission.isSubmitted;
-
-                  return (
-                    <tr
-                      key={customer.id}
-                      className={`transition-colors ${
-                        isSelected
-                          ? 'bg-blue-50/70'
-                          : isSubmitted
-                          ? 'bg-green-50/50 hover:bg-green-50'
-                          : isPending
-                          ? 'bg-yellow-50/50 hover:bg-yellow-50'
-                          : 'hover:bg-gray-50'
-                      }`}
-                    >
-                      <td className="px-4 py-4">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleSelect(customer.id)}
-                          className="w-5 h-5"
-                          aria-label={`${customer.name ?? '이름 없음'} 선택`}
-                        />
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="space-y-1">
-                          <p className="text-lg font-bold text-gray-900">{customer.name ?? '이름 없음'}</p>
-                          <p className="text-sm text-gray-600">{customer.phone ?? '전화번호 없음'}</p>
-                          <p className="text-sm text-gray-500">{customer.email ?? '이메일 없음'}</p>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
-                              {roleLabel}
-                            </span>
-                            {isTestCustomer && (
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
-                                테스트 고객
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        {customer.latestTrip ? (
-                          <div className="space-y-2">
-                            <div className="space-y-1">
-                              <p className="font-semibold text-gray-800">{customer.latestTrip.cruiseName || '여행명 없음'}</p>
-                              <p className="text-sm text-gray-600">
-                                {customer.latestTrip.startDate ? customer.latestTrip.startDate.slice(0, 10) : '?'} ~{' '}
-                                {customer.latestTrip.endDate ? customer.latestTrip.endDate.slice(0, 10) : '?'}
-                              </p>
-                              {customer.latestTrip.reservationCode && (
-                                <p className="text-sm text-gray-500">PNR: {customer.latestTrip.reservationCode}</p>
-                              )}
-                            </div>
-                            <button
-                              onClick={() => handleDownloadApis(customer.latestTrip!.id, customer.latestTrip!.cruiseName)}
-                              disabled={downloadingApis === customer.latestTrip.id}
-                              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                                downloadingApis === customer.latestTrip.id
-                                  ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                                  : 'bg-green-500 text-white hover:bg-green-600 shadow-sm hover:shadow-md'
-                              }`}
-                            >
-                              {downloadingApis === customer.latestTrip.id ? (
-                                <>
-                                  <RefreshCw className="h-3 w-3 animate-spin" />
-                                  다운로드 중...
-                                </>
-                              ) : (
-                                <>
-                                  <Download className="h-3 w-3" />
-                                  APIS 다운로드
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        ) : (
-                          <p className="text-sm text-gray-500">여행 정보 없음</p>
-                        )}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="space-y-2">
-                          {!submission && (
-                            <button
-                              onClick={() => handleOpenManualModal(customer)}
-                              className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
-                            >
-                              <Link className="h-3 w-3" />
-                              링크 생성
-                            </button>
-                          )}
-                          {submission ? (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                {submission.isSubmitted ? (
-                                  <CheckCircle className="h-5 w-5 text-green-500" />
-                                ) : (
-                                  <AlertCircle className="h-5 w-5 text-yellow-500" />
-                                )}
-                                <span
-                                  className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-bold shadow-sm ${
-                                    submission.isSubmitted
-                                      ? 'bg-gradient-to-r from-green-500 to-green-600 text-white'
-                                      : 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-white'
-                                  }`}
-                                >
-                                  {submission.isSubmitted ? '제출 완료' : '제출 대기'}
-                                </span>
-                              </div>
-                              {submission.isSubmitted && submission.submittedAt && (
-                                <div className="bg-green-50 border border-green-200 rounded-lg p-2">
-                                  <p className="text-xs font-semibold text-green-700">
-                                    제출 완료일: {new Date(submission.submittedAt).toLocaleDateString('ko-KR', {
-                                      year: 'numeric',
-                                      month: 'long',
-                                      day: 'numeric',
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                    })}
-                                  </p>
-                                </div>
-                              )}
-                              <div className="text-xs text-gray-500 space-y-0.5">
-                                <p>링크 만료: {new Date(submission.tokenExpiresAt).toLocaleDateString('ko-KR')}</p>
-                                {!submission.isSubmitted && (
-                                  <p className="text-yellow-600 font-semibold">아직 제출되지 않았습니다</p>
-                                )}
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        {lastRequest ? (
-                          <div className="space-y-1">
-                            <span
-                              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                                lastRequest.status === 'SUCCESS'
-                                  ? 'bg-green-100 text-green-700'
-                                  : lastRequest.status === 'FAILED'
-                                  ? 'bg-red-100 text-red-700'
-                                  : 'bg-yellow-100 text-yellow-700'
-                              }`}
-                            >
-                              {lastRequest.status}
-                            </span>
-                            <p className="text-xs text-gray-500">
-                              {lastRequest.sentAt.slice(0, 16).replace('T', ' ')}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              채널: {lastRequest.messageChannel}
-                            </p>
-                            <p className="text-xs text-gray-400">
-                              담당: {lastRequest.admin?.name ?? '관리자'}
-                            </p>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-gray-500">발송 이력 없음</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* 링크로 직접 보내기 섹션 */}
-      <section className="bg-white rounded-2xl shadow-lg border border-green-100 p-6 space-y-6">
-        <h2 className="text-2xl font-bold text-green-800 flex items-center gap-3">
-          <span className="text-3xl">🔗</span>
-          링크로 직접 보내기 (비용 0원)
-        </h2>
-
-        <div className="flex gap-4 border-b border-gray-200 pb-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="sendTarget"
-              value="passport"
-              checked={sendTarget === 'passport'}
-              onChange={() => setSendTarget('passport')}
-              className="w-5 h-5"
-            />
-            <span className="text-lg font-semibold text-gray-700">여권 링크 발송</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="sendTarget"
-              value="pnr"
-              checked={sendTarget === 'pnr'}
-              onChange={() => setSendTarget('pnr')}
-              className="w-5 h-5"
-            />
-            <span className="text-lg font-semibold text-gray-700">PNR 링크 발송</span>
-          </label>
-        </div>
-
-        <div className="bg-green-50 border-2 border-green-200 rounded-2xl p-4 flex items-center gap-3">
-          <UserCheck className="h-7 w-7 text-green-600" />
-          <div>
-            <p className="text-green-900 font-bold text-xl">선택된 고객</p>
-            <p className="text-green-700 text-lg">{selectedIds.length}명</p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <label className="flex flex-col">
-            <span className="text-gray-700 font-semibold mb-2">링크 만료 시간 (시간 단위)</span>
-            <input
-              type="number"
-              min={1}
-              max={24 * 14}
-              value={expiresInHours}
-              onChange={(event) => setExpiresInHours(Math.max(1, Math.min(24 * 14, Number(event.target.value) || 1)))}
-              className="px-4 py-3 rounded-xl border-2 border-green-100 focus:border-green-500 focus:outline-none text-lg"
-            />
-            <span className="text-xs text-gray-500 mt-1">최대 14일(336시간)까지 지정 가능합니다.</span>
-          </label>
-
-          <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-sm text-green-800 leading-relaxed">
-            <p className="font-semibold mb-2">링크 생성 방식</p>
-            <ul className="list-disc list-inside space-y-1">
-              <li>SMS/카톡으로 보낼 고객을 선택하세요</li>
-              <li>링크 생성하기를 누르면 여권 제출 링크가 생성됩니다</li>
-              <li>생성된 링크를 복사해 고객에게 직접 전달하세요</li>
-              <li>제출이 완료되면 자동으로 현황이 갱신됩니다</li>
-            </ul>
-          </div>
-        </div>
-
-        <button
-          onClick={handleSend}
-          disabled={isBulkGenerating || selectedIds.length === 0}
-          className="w-full inline-flex items-center justify-center px-6 py-3 rounded-2xl text-lg font-bold text-white bg-gradient-to-r from-green-600 to-emerald-600 shadow-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-transform hover:scale-[1.02]"
-        >
-          {isBulkGenerating ? (
-            <span className="flex items-center gap-2">
-              <RefreshCw className="h-5 w-5 animate-spin" /> 링크 생성 중...
-            </span>
-          ) : (
-            <span className="flex items-center gap-2">
-              <Link className="h-5 w-5" /> {sendTarget === 'passport' ? '여권' : 'PNR'} 링크 생성하기
-            </span>
-          )}
-        </button>
-
-        {/* 링크 생성 결과 인라인 표시 */}
-        {bulkLinkResult && (
-          <div className="mt-6 space-y-4 border border-green-200 bg-green-50 rounded-2xl p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-green-800 flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                ✅ {bulkLinkResult.items.length}명의 링크가 생성되었습니다
-              </h3>
+            {selectedIds.size > 0 && (
               <button
-                onClick={() => setBulkLinkResult(null)}
-                aria-label="모달 닫기"
-                className="rounded-lg p-1 text-green-600 hover:bg-green-100"
+                onClick={() => setSelectedIds(new Set())}
+                className="flex items-center gap-1 px-3 py-2 text-sm rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100"
               >
-                <X className="h-5 w-5" />
+                <X className="w-3.5 h-3.5" />
+                선택 해제 ({selectedIds.size})
               </button>
-            </div>
-
-            <p className="text-xs text-green-700">
-              ⏰ 만료: {new Date(bulkLinkResult.expiresAt).toLocaleString('ko-KR')}
-            </p>
-
-            {/* 단일 고객 — 기존 메시지+링크 표시 */}
-            {bulkLinkResult.items.length === 1 && (() => {
-              const item = bulkLinkResult.items[0];
-              return (
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-green-800">
-                      {bulkLinkResult.selectedSendMode === 'message' ? '📝 완성된 메시지' : '📋 복사할 메시지'}
-                    </p>
-                    <textarea
-                      value={item.message}
-                      readOnly
-                      rows={bulkLinkResult.selectedSendMode === 'message' ? 6 : 12}
-                      className="w-full rounded-lg border border-green-200 bg-white px-3 py-2 text-sm text-green-900 font-mono whitespace-pre-wrap"
-                    />
-                    <button
-                      onClick={() => handleCopy(item.message, '메시지', 'bulk-message')}
-                      className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 transition-colors"
-                    >
-                      {copiedButtonId === 'bulk-message' ? <><CheckCircle className="h-3 w-3" />복사됨</> : <><Copy className="h-3 w-3" />메시지 복사</>}
-                    </button>
-                  </div>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <input type="text" value={item.link} readOnly
-                      className="flex-1 rounded-lg border border-green-200 bg-white px-3 py-2 text-sm text-green-900 font-mono" />
-                    <button
-                      onClick={() => handleCopy(item.link, '링크', 'bulk-link')}
-                      className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition-colors whitespace-nowrap"
-                    >
-                      {copiedButtonId === 'bulk-link' ? <><CheckCircle className="h-4 w-4" />복사됨</> : <><Copy className="h-4 w-4" />링크 복사</>}
-                    </button>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* 복수 고객 — 전체 링크 목록 */}
-            {bulkLinkResult.items.length > 1 && (
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-green-800">🔗 고객별 링크 목록</p>
-                <div className="max-h-72 overflow-y-auto rounded-xl border border-green-200 bg-white divide-y divide-green-100">
-                  {bulkLinkResult.items.map((item, idx) => (
-                    <div key={item.userId} className="flex items-center gap-2 px-3 py-2">
-                      <span className="text-xs text-gray-400 w-5 shrink-0">{idx + 1}</span>
-                      <span className="text-sm font-medium text-gray-700 w-20 shrink-0 truncate">
-                        {item.name ?? '(이름없음)'}
-                      </span>
-                      <input type="text" value={item.link} readOnly
-                        className="flex-1 min-w-0 rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 font-mono" />
-                      <button
-                        onClick={() => handleCopy(item.link, `${item.name ?? ''}링크`, `bulk-link-${item.userId}`)}
-                        className="shrink-0 rounded px-2 py-1 text-xs bg-green-600 text-white hover:bg-green-700 flex items-center gap-1"
-                      >
-                        {copiedButtonId === `bulk-link-${item.userId}` ? <><CheckCircle className="h-3 w-3" />완료</> : <><Copy className="h-3 w-3" />복사</>}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-xs text-green-600">💡 각 고객에게 고유한 링크를 개별로 전달하세요.</p>
-              </div>
             )}
+          </div>
 
-            {/* 다음 단계 선택 */}
-            <div className="border-t border-green-200 pt-4 space-y-3">
-              <p className="text-sm font-semibold text-green-800">📋 다음 단계</p>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <button
-                  onClick={() => setBulkLinkResult(null)}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border-2 border-green-600 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-50 transition-colors"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  다시 선택
-                </button>
-                <button
-                  onClick={handleBulkSendAfterLinkGeneration}
-                  disabled={isSending}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isSending ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      발송 중...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="h-4 w-4" />
-                      SMS로 발송하기 ({selectedIds.length}명 × 100원)
-                    </>
-                  )}
-                </button>
-              </div>
-              <p className="text-xs text-green-700 bg-green-100/50 rounded p-2">
-                💡 복사 후 카톡/문자로 직접 보내도 됩니다.
-              </p>
+          {/* 테이블 */}
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b bg-gray-50">
+              <label className="flex items-center gap-2 text-xs font-medium text-gray-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={customers.length > 0 && selectedIds.size === customers.length}
+                  onChange={toggleAll}
+                  className="w-4 h-4 rounded"
+                />
+                전체 선택 ({customers.length}명)
+              </label>
+              <span className="text-xs text-gray-400">선택: {selectedIds.size}명</span>
             </div>
-          </div>
-        )}
-      </section>
 
-      <section className="bg-white rounded-2xl shadow-lg border border-indigo-100 p-6 space-y-6">
-        <h2 className="text-2xl font-bold text-indigo-800 flex items-center gap-3">
-          <span className="text-3xl">📝</span>
-          메시지 설정 및 발송
-        </h2>
-
-        {/* 메시지/링크 탭 선택 */}
-        <div className="flex flex-wrap gap-3 items-center">
-          <span className="text-sm font-semibold text-gray-700">발송 방식 선택:</span>
-          <div className="flex gap-2">
-            <label className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 cursor-pointer transition-colors" style={{
-              borderColor: sendMode === 'link' ? '#10b981' : '#e5e7eb',
-              backgroundColor: sendMode === 'link' ? '#ecfdf5' : '#f9fafb',
-            }}>
-              <input
-                type="radio"
-                name="sendMode"
-                value="link"
-                checked={sendMode === 'link'}
-                onChange={(e) => setSendMode(e.target.value as SendMode)}
-                className="w-4 h-4"
-              />
-              <span className="text-sm font-semibold text-gray-700">링크만 전송</span>
-            </label>
-            <label className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 cursor-pointer transition-colors" style={{
-              borderColor: sendMode === 'message' ? '#6366f1' : '#e5e7eb',
-              backgroundColor: sendMode === 'message' ? '#eef2ff' : '#f9fafb',
-            }}>
-              <input
-                type="radio"
-                name="sendMode"
-                value="message"
-                checked={sendMode === 'message'}
-                onChange={(e) => setSendMode(e.target.value as SendMode)}
-                className="w-4 h-4"
-              />
-              <span className="text-sm font-semibold text-gray-700">메시지로 발송</span>
-            </label>
-          </div>
-        </div>
-
-        {/* 권장사항 표시 */}
-        {selectedIds.length < 10 && sendMode === 'link' && (
-          <div className="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4 text-sm text-blue-900">
-            <p className="font-semibold flex items-center gap-2">
-              <Info className="h-4 w-4" />
-              추천: 링크로 보내기가 가장 경제적입니다 (비용 0원)
-            </p>
-          </div>
-        )}
-
-        {selectedIds.length >= 10 && sendMode === 'message' && (
-          <div className="bg-yellow-50 border-l-4 border-yellow-500 rounded-lg p-4 text-sm text-yellow-900">
-            <p className="font-semibold flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
-              {selectedIds.length}명에게 발송 시: 약 {Math.ceil(selectedIds.length / 60)}분 소요, SMS 비용 약 {selectedIds.length * 50}원 예상
-            </p>
-          </div>
-        )}
-
-        {sendMode === 'message' && (
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <label className="flex flex-col">
-              <span className="text-gray-700 font-semibold mb-2">사용할 템플릿</span>
-              <select
-                value={selectedTemplateId ?? ''}
-                onChange={(event) => handleTemplateChange(Number(event.target.value))}
-                className="px-4 py-3 rounded-xl border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none text-lg"
-              >
-                {templates.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.title} {template.isDefault ? '(기본)' : ''}
-                  </option>
+            {loading ? (
+              <div className="py-12 flex justify-center">
+                <RefreshCw className="w-6 h-6 text-blue-400 animate-spin" />
+              </div>
+            ) : customers.length === 0 ? (
+              <div className="py-12 text-center text-gray-400">
+                <UserCheck className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                <p className="text-sm">표시할 고객이 없습니다</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto">
+                {customers.map(c => (
+                  <CustomerRow
+                    key={c.id}
+                    customer={c}
+                    selected={selectedIds.has(c.id)}
+                    onToggle={() => toggle(c.id)}
+                  />
                 ))}
-              </select>
-            </label>
-
-            <label className="flex flex-col">
-              <span className="text-gray-700 font-semibold mb-2">발송 채널</span>
-              <select
-                value={channel}
-                onChange={(event) => setChannel(event.target.value as ChannelOption)}
-                className="px-4 py-3 rounded-xl border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none text-lg"
-              >
-                <option value="SMS">SMS (알리고)</option>
-                <option value="ALIMTALK">알림톡 (카카오)</option>
-              </select>
-            </label>
-
-            <label className="flex flex-col">
-              <span className="text-gray-700 font-semibold mb-2">링크 만료 시간 (시간 단위)</span>
-              <input
-                type="number"
-                min={1}
-                max={24 * 14}
-                value={expiresInHours}
-                onChange={(event) => setExpiresInHours(Math.max(1, Math.min(24 * 14, Number(event.target.value) || 1)))}
-                className="px-4 py-3 rounded-xl border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none text-lg"
-              />
-              <span className="text-xs text-gray-500 mt-1">최대 14일(336시간)까지 지정 가능합니다.</span>
-            </label>
-
-            <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 text-sm text-indigo-800 leading-relaxed">
-              <p className="font-semibold mb-2">사용 가능한 변수</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li><code>{`{고객명}`}</code> – 고객 이름</li>
-                <li><code>{`{링크}`}</code> – 여권 제출 링크</li>
-                <li><code>{`{상품명}`}</code> – 최근 여행/상품 이름</li>
-                <li><code>{`{출발일}`}</code> – 최근 여행 출발일</li>
               </ul>
-            </div>
-          </div>
-
-          <label className="flex flex-col h-full">
-            <span className="text-gray-700 font-semibold mb-2">메시지 내용</span>
-            <textarea
-              value={messageBody}
-              onChange={(event) => setMessageBody(event.target.value)}
-              rows={14}
-              className="flex-1 px-4 py-3 rounded-2xl border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none text-lg leading-relaxed"
-              placeholder="고객에게 발송할 안내 메시지를 입력하세요."
-            />
-            <span className="text-xs text-gray-500 mt-2">링크와 고객 이름이 자동으로 삽입됩니다.</span>
-          </label>
-        </div>
-        )}
-
-        {/* SMS 예상 비용 섹션 */}
-        {sendMode === 'message' && channel === 'SMS' && (
-          <div className={`rounded-2xl p-6 ${estimatedCost.isLowBalance ? 'bg-red-50 border-2 border-red-200' : 'bg-blue-50 border border-blue-200'}`}>
-            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <span>📊</span> 예상 비용
-            </h3>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600">선택된 고객</p>
-                  <p className="text-xl font-bold text-gray-900">{estimatedCost.count}명</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">메시지 길이</p>
-                  <p className="text-xl font-bold text-gray-900">
-                    {estimatedCost.messageLength} / 90자
-                    <span className={`text-sm ml-2 ${estimatedCost.messageLength > 90 ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
-                      {estimatedCost.messageLength > 90 ? `(LMS: ${Math.ceil(estimatedCost.messageLength / 150)}건 필요)` : '(SMS)'}
-                    </span>
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600">메시지당 비용</p>
-                  <p className="text-xl font-bold text-blue-600">{estimatedCost.costPerMessage}원</p>
-                </div>
-                <div className="bg-white rounded-lg p-3 border border-blue-200">
-                  <p className="text-sm text-gray-600">총 예상 비용</p>
-                  <p className={`text-2xl font-bold ${estimatedCost.isLowBalance ? 'text-red-600' : 'text-blue-600'}`}>
-                    {estimatedCost.totalCost.toLocaleString('ko-KR')}원
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* 잔액 부족 경고 */}
-            {estimatedCost.isLowBalance && aligoStatus && (
-              <div className="mt-4 bg-red-100 border border-red-300 rounded-lg p-3">
-                <p className="text-sm font-semibold text-red-700 flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5" />
-                  잔액 부족: 현재 {aligoStatus.balance.toLocaleString('ko-KR')}원 / 필요 {estimatedCost.totalCost.toLocaleString('ko-KR')}원
-                </p>
-              </div>
             )}
           </div>
-        )}
+        </div>
 
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 flex items-center gap-3 text-gray-700 text-sm leading-relaxed">
-            <AlertCircle className="h-6 w-6 text-yellow-500" />
-            <p>
-              선택된 고객에게는 즉시 여권 제출 링크가 생성되고 SMS 발송 결과가 기록됩니다.
-            </p>
+        {/* 오른쪽: 발송 패널 */}
+        <div className="space-y-3">
+
+          {/* 선택 요약 */}
+          <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+            <p className="text-sm font-semibold text-gray-700">발송 대상</p>
+            <div className="flex gap-2">
+              <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-blue-700">{selectedIds.size}</p>
+                <p className="text-xs text-blue-500">선택</p>
+              </div>
+              <div className="flex-1 bg-green-50 rounded-lg p-3 text-center">
+                <div className="flex items-center justify-center gap-1">
+                  <Phone className="w-3.5 h-3.5 text-green-600" />
+                  <p className="text-2xl font-bold text-green-700">{withPhone.length}</p>
+                </div>
+                <p className="text-xs text-green-500">SMS 가능</p>
+              </div>
+              {withoutPhone.length > 0 && (
+                <div className="flex-1 bg-amber-50 rounded-lg p-3 text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <PhoneOff className="w-3.5 h-3.5 text-amber-600" />
+                    <p className="text-2xl font-bold text-amber-700">{withoutPhone.length}</p>
+                  </div>
+                  <p className="text-xs text-amber-500">링크만</p>
+                </div>
+              )}
+            </div>
+            {withoutPhone.length > 0 && (
+              <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+                전화번호 없는 {withoutPhone.length}명은 링크만 생성됩니다. 직접 전달이 필요합니다.
+              </p>
+            )}
           </div>
+
+          {/* 발송 유형 */}
+          <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+            <p className="text-sm font-semibold text-gray-700">발송 유형</p>
+            <div className="flex gap-2">
+              {(['passport', 'pnr'] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setSendTarget(t)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${
+                    sendTarget === t ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {t === 'passport' ? '여권 제출' : 'PNR 입력'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 템플릿 */}
+          {sendTarget === 'passport' && (
+            <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+              <p className="text-sm font-semibold text-gray-700">메시지 템플릿</p>
+              {templates.length === 0 ? (
+                <p className="text-xs text-gray-400">기본 템플릿을 사용합니다</p>
+              ) : (
+                <select
+                  value={templateId ?? ''}
+                  onChange={e => setTemplateId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                >
+                  {templates.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.title}{t.isDefault ? ' (기본)' : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {selectedTemplate && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-400 mb-1">미리보기</p>
+                  <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
+                    {fillTemplate(selectedTemplate.body, {
+                      고객명: selectedCustomers[0]?.name ? `${selectedCustomers[0].name}님` : '고객님',
+                      링크: 'https://example.com/p/xxxxx',
+                      상품명: selectedCustomers[0]?.latestTrip?.cruiseName ?? '크루즈 여행',
+                      출발일: selectedCustomers[0]?.latestTrip?.startDate?.split('T')[0] ?? '2026-01-01',
+                    })}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 만료 기간 */}
+          <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-gray-700">링크 유효 기간</p>
+              <span className="text-sm font-medium text-blue-600">{expiresInHours}시간</span>
+            </div>
+            <input
+              type="range" min={24} max={168} step={24}
+              value={expiresInHours}
+              onChange={e => setExpiresInHours(Number(e.target.value))}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-gray-400">
+              <span>24시간</span><span>72시간</span><span>1주일</span>
+            </div>
+          </div>
+
+          {/* 발송 버튼 */}
           <button
             onClick={handleSend}
-            disabled={isSending}
-            className="inline-flex items-center justify-center px-6 py-3 rounded-2xl text-lg font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 shadow-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-transform hover:scale-[1.02]"
+            disabled={sending || selectedIds.size === 0}
+            className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-2 transition-colors"
           >
-            {isSending ? (
-              <span className="flex items-center gap-2">
-                <RefreshCw className="h-5 w-5 animate-spin" /> 발송 준비 중...
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                <Send className="h-5 w-5" /> {selectedIds.length}명에게 {sendTarget === 'passport' ? '여권' : 'PNR'} 링크 발송하기
-              </span>
-            )}
+            {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {sending ? '발송 중...' : `링크 생성 + SMS 발송 (${selectedIds.size}명)`}
           </button>
-        </div>
-      </section>
-
-      {lastResult && (
-        <section className="bg-white rounded-2xl shadow-lg border border-green-100 p-6 space-y-4">
-          <h3 className="text-2xl font-bold text-green-700 flex items-center gap-3">
-            <CheckCircle className="h-8 w-8" /> 최신 발송 결과
-          </h3>
-
-          <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
-            <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-green-900">
-              <p className="text-sm font-semibold">발송 채널</p>
-              <p className="text-xl font-bold mt-1">{formatChannelLabel(lastResult.channel)}</p>
-            </div>
-            <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-green-900">
-              <p className="text-sm font-semibold">만료 시간</p>
-              <p className="text-xl font-bold mt-1">{lastResult.expiresInHours}시간</p>
-            </div>
-            <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-green-900">
-              <p className="text-sm font-semibold">성공/실패</p>
-              <p className="text-xl font-bold mt-1">
-                {lastResult.results.filter((item) => item.success).length}명 성공 /{' '}
-                {lastResult.results.filter((item) => !item.success).length}명 실패
-              </p>
-            </div>
-          </div>
-
-          {lastResult.missingUserIds.length > 0 && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 text-yellow-800 text-sm">
-              선택한 고객 중 {lastResult.missingUserIds.length}명은 찾을 수 없어 제외되었습니다.
-            </div>
+          {selectedIds.size > 0 && withPhone.length < selectedIds.size && (
+            <p className="text-xs text-center text-amber-600">
+              * 전화번호 없는 {withoutPhone.length}명은 링크만 생성 → 직접 전달 필요
+            </p>
           )}
-        </section>
-      )}
+        </div>
+      </div>
 
-      {/* 수동 링크 생성 모달 */}
-      {showManualModal && selectedCustomerForManual && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">여권 제출 링크 생성</h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  메시지를 복사해 고객에게 직접 전달하면 제출 현황이 자동으로 갱신됩니다.
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowManualModal(false);
-                  setSelectedCustomerForManual(null);
-                  setManualResult(null);
-                }}
-                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      {/* 결과 */}
+      {result && <ResultPanel result={result} onClose={() => setResult(null)} />}
+    </div>
+  );
+}
 
-            <div className="px-6 py-6 space-y-6">
-              <div className="rounded-xl bg-blue-50 border border-blue-200 p-4">
-                <div className="flex items-start gap-3 text-sm text-blue-900">
-                  <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div className="space-y-2">
-                    <p className="font-semibold">복사해서 보내는 방식</p>
-                    <ul className="list-disc list-inside space-y-1 text-blue-800">
-                      <li>링크를 생성하면 고객별 제출 페이지가 만들어집니다.</li>
-                      <li>완성된 메시지와 링크를 복사해서 카카오톡/문자로 직접 보내주세요.</li>
-                      <li>제출이 완료되면 이 화면에 상태가 자동으로 표시됩니다.</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
+// ─── 고객 행 ──────────────────────────────────────────────────────
 
-              <div className="rounded-xl bg-gray-50 p-4">
-                <p className="text-sm font-semibold text-gray-700 mb-2">고객 정보</p>
-                <div className="space-y-1 text-sm text-gray-600">
-                  <p>
-                    <span className="font-semibold text-gray-800">고객명:</span> {selectedCustomerForManual.name ?? '이름 없음'}
-                  </p>
-                  <p>
-                    <span className="font-semibold text-gray-800">전화번호:</span> {selectedCustomerForManual.phone ?? '-'}
-                  </p>
-                  <p>
-                    <span className="font-semibold text-gray-800">이메일:</span> {selectedCustomerForManual.email ?? '-'}
-                  </p>
-                </div>
-              </div>
+function CustomerRow({
+  customer: c, selected, onToggle,
+}: {
+  customer: PassportCustomer;
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasPhone = hasValidPhone(c.phone);
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="flex flex-col gap-2">
-                  <span className="text-sm font-semibold text-gray-700">사용할 템플릿</span>
-                  <select
-                    value={manualTemplateId ?? ''}
-                    onChange={(e) => handleManualTemplateChange(Number(e.target.value))}
-                    disabled={!templates.length}
-                    className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-gray-50"
-                  >
-                    {templates.map((template) => (
-                      <option key={template.id} value={template.id}>
-                        {template.title} {template.isDefault ? '(기본)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex flex-col gap-2">
-                  <span className="text-sm font-semibold text-gray-700">링크 만료 시간 (최대 14일)</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={336}
-                    value={manualExpiresInHours}
-                    onChange={(e) => setManualExpiresInHours(Math.max(1, Math.min(336, Number(e.target.value) || 1)))}
-                    className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                  />
-                </label>
-              </div>
+  const statusColor = {
+    submitted: 'bg-green-100 text-green-700',
+    pending: 'bg-amber-100 text-amber-700',
+    not_requested: 'bg-gray-100 text-gray-500',
+  }[c.submissionStatus];
 
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">메시지 기본 내용</label>
-                <textarea
-                  value={manualMessageBody}
-                  onChange={(e) => {
-                    setManualMessageBody(e.target.value);
-                    setManualResult(null);
-                  }}
-                  rows={8}
-                  className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm leading-relaxed focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                  placeholder="템플릿 내용을 입력하거나 수정하세요."
-                />
-                <p className="text-xs text-gray-500">
-                  사용 가능한 변수: <code>{'{고객명}'}</code>, <code>{'{링크}'}</code>, <code>{'{상품명}'}</code>,{' '}
-                  <code>{'{출발일}'}</code>
-                </p>
-              </div>
+  const statusLabel = {
+    submitted: '제출 완료',
+    pending: '발송됨',
+    not_requested: '미발송',
+  }[c.submissionStatus];
 
-              <button
-                onClick={handleGenerateManualLink}
-                disabled={isGeneratingManual || !manualMessageBody.trim()}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-base font-semibold text-white shadow hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-              >
-                {isGeneratingManual ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    생성 중...
-                  </>
-                ) : (
-                  <>
-                    <Link className="h-4 w-4" />
-                    링크 생성하기
-                  </>
-                )}
-              </button>
-
-              {manualResult && (
-                <div className="space-y-4 border border-green-200 bg-green-50 rounded-2xl p-4">
-                  <div>
-                    <p className="text-sm font-semibold text-green-800 mb-2">완성된 메시지</p>
-                    <textarea
-                      value={manualResult.message}
-                      readOnly
-                      rows={6}
-                      className="w-full rounded-xl border border-green-200 bg-white px-4 py-3 text-sm text-green-900"
-                    />
-                    <button
-                      onClick={() => handleCopy(manualResult.message, '메시지', 'manual-message')}
-                      className="mt-2 inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 transition-colors"
-                    >
-                      {copiedButtonId === 'manual-message' ? (
-                        <>
-                          <CheckCircle className="h-3 w-3" />
-                          복사됨
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3 w-3" />
-                          메시지 복사
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-green-800 mb-2">제출 링크</p>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <input
-                        type="text"
-                        value={manualResult.link}
-                        readOnly
-                        className="flex-1 rounded-xl border border-green-200 bg-white px-4 py-2 text-sm text-green-900"
-                      />
-                      <button
-                        onClick={() => handleCopy(manualResult.link, '링크', 'manual-link')}
-                        className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition-colors"
-                      >
-                        {copiedButtonId === 'manual-link' ? (
-                          <>
-                            <CheckCircle className="h-4 w-4" />
-                            복사됨
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-4 w-4" />
-                            링크 복사
-                          </>
-                        )}
-                      </button>
-                    </div>
-                    <p className="mt-1 text-xs text-green-700">
-                      만료 예정: {new Date(manualResult.expiresAt).toLocaleString('ko-KR')}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+  return (
+    <li className={`transition-colors ${selected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+      <div className="flex items-center gap-3 px-4 py-3">
+        <input
+          type="checkbox" checked={selected} onChange={onToggle}
+          className="w-4 h-4 rounded shrink-0"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-gray-900 truncate">
+              {c.name ?? '이름 없음'}
+            </span>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor}`}>
+              {statusLabel}
+            </span>
+            {hasPhone
+              ? <span className="flex items-center gap-0.5 text-xs text-green-600"><Phone className="w-3 h-3" />{c.phone}</span>
+              : <span className="flex items-center gap-0.5 text-xs text-red-400"><PhoneOff className="w-3 h-3" />전화번호 없음</span>
+            }
           </div>
+          {c.latestTrip?.cruiseName && (
+            <p className="text-xs text-gray-400 mt-0.5">
+              {c.latestTrip.cruiseName}
+              {c.latestTrip.startDate && ` · ${c.latestTrip.startDate.split('T')[0]}`}
+            </p>
+          )}
+        </div>
+        <button
+          onClick={() => setOpen(v => !v)}
+          className="p-1 text-gray-400 hover:text-gray-600 shrink-0"
+        >
+          {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
+      </div>
+
+      {open && (
+        <div className="px-4 pb-3 pl-11 space-y-1.5">
+          {c.email && <p className="text-xs text-gray-500">이메일: {c.email}</p>}
+          {c.submission?.isSubmitted && c.submission.submittedAt && (
+            <p className="text-xs text-green-600">
+              ✓ 제출됨: {new Date(c.submission.submittedAt).toLocaleDateString('ko-KR')}
+            </p>
+          )}
+          {c.lastRequest && (
+            <p className="text-xs text-gray-400">
+              마지막 발송: {new Date(c.lastRequest.sentAt).toLocaleDateString('ko-KR')} ({c.lastRequest.messageChannel})
+            </p>
+          )}
         </div>
       )}
+    </li>
+  );
+}
+
+// ─── 결과 패널 ────────────────────────────────────────────────────
+
+function ResultPanel({
+  result,
+  onClose,
+}: {
+  result: {
+    ok: Array<{ userId: number; name: string | null; link: string; message: string; smsSent: boolean }>;
+    noPhone: Array<{ userId: number; name: string | null; link: string; message: string }>;
+    failed: Array<{ userId: number; name: string | null; error: string }>;
+    expiresAt: string;
+  };
+  onClose: () => void;
+}) {
+  const expiresStr = new Date(result.expiresAt).toLocaleString('ko-KR');
+  const smsSent = result.ok.filter(x => x.smsSent).length;
+  const linkOnly = result.noPhone.length + result.ok.filter(x => !x.smsSent).length;
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+        <div>
+          <p className="text-sm font-semibold text-gray-900">발송 결과</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            SMS {smsSent}명 발송 · 링크만 {linkOnly}명 · 실패 {result.failed.length}명 · 만료 {expiresStr}
+          </p>
+        </div>
+        <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="p-4 space-y-4 max-h-96 overflow-y-auto">
+
+        {/* SMS 발송 성공 */}
+        {result.ok.filter(x => x.smsSent).length > 0 && (
+          <ResultSection
+            title={`SMS 발송 완료 (${result.ok.filter(x => x.smsSent).length}명)`}
+            color="green"
+            items={result.ok.filter(x => x.smsSent).map(x => ({ name: x.name, link: x.link, message: x.message }))}
+          />
+        )}
+
+        {/* 링크만 생성 (전화번호 없음) */}
+        {result.noPhone.length > 0 && (
+          <ResultSection
+            title={`링크만 생성 — 직접 전달 필요 (${result.noPhone.length}명)`}
+            color="amber"
+            items={result.noPhone.map(x => ({ name: x.name, link: x.link, message: x.message }))}
+            warning="전화번호가 없어 SMS를 보내지 못했습니다. 아래 링크를 복사해 직접 전달하세요."
+          />
+        )}
+
+        {/* SMS 실패 (링크는 있음) */}
+        {result.ok.filter(x => !x.smsSent).length > 0 && (
+          <ResultSection
+            title={`SMS 실패 — 링크 복사 필요 (${result.ok.filter(x => !x.smsSent).length}명)`}
+            color="orange"
+            items={result.ok.filter(x => !x.smsSent).map(x => ({ name: x.name, link: x.link, message: x.message }))}
+            warning="SMS 발송에 실패했지만 링크는 생성되었습니다."
+          />
+        )}
+
+        {/* 완전 실패 */}
+        {result.failed.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-red-600 mb-2 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" />
+              실패 ({result.failed.length}명)
+            </p>
+            <div className="space-y-1">
+              {result.failed.map(f => (
+                <div key={f.userId} className="flex items-center justify-between bg-red-50 rounded-lg px-3 py-2">
+                  <span className="text-sm text-gray-900">{f.name ?? `ID:${f.userId}`}</span>
+                  <span className="text-xs text-red-600">{f.error}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ResultSection({
+  title, color, items, warning,
+}: {
+  title: string;
+  color: 'green' | 'amber' | 'orange';
+  items: Array<{ name: string | null; link: string; message: string }>;
+  warning?: string;
+}) {
+  const colorMap = {
+    green: { badge: 'text-green-700', bg: 'bg-green-50', row: 'bg-green-50 border-green-100' },
+    amber: { badge: 'text-amber-700', bg: 'bg-amber-50', row: 'bg-amber-50 border-amber-100' },
+    orange: { badge: 'text-orange-700', bg: 'bg-orange-50', row: 'bg-orange-50 border-orange-100' },
+  }[color];
+
+  return (
+    <div>
+      <p className={`text-xs font-semibold ${colorMap.badge} mb-2 flex items-center gap-1`}>
+        <CheckCircle className="w-3.5 h-3.5" />
+        {title}
+      </p>
+      {warning && (
+        <p className={`text-xs ${colorMap.badge} ${colorMap.bg} rounded-lg px-3 py-2 mb-2`}>{warning}</p>
+      )}
+      <div className="space-y-2">
+        {items.map((item, i) => (
+          <div key={i} className={`border rounded-lg p-3 space-y-2 ${colorMap.row}`}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-gray-900">{item.name ?? `고객 ${i + 1}`}</span>
+              <CopyButton text={item.link} label="링크 복사" />
+            </div>
+            {item.message && (
+              <div className="flex items-start gap-2">
+                <p className="text-xs text-gray-600 bg-white border border-gray-100 rounded px-2 py-1.5 flex-1 whitespace-pre-wrap">
+                  {item.message}
+                </p>
+                <CopyButton text={item.message} label="메시지 복사" />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

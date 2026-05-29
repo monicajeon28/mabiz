@@ -922,8 +922,8 @@ export default function OrganizationsPage() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold mb-0.5">판매 파트너 계약 신청</p>
-              <p suppressHydrationWarning className="text-xs text-blue-200 font-mono truncate">
-                {typeof window !== 'undefined' ? window.location.origin : ''}/affiliate/apply
+              <p className="text-xs text-blue-200 font-mono truncate">
+                /affiliate/apply
               </p>
               <p className="text-xs text-blue-300 mt-1">잠재 판매 파트너에게 이 링크를 공유하세요.</p>
             </div>
@@ -939,8 +939,8 @@ export default function OrganizationsPage() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold mb-0.5">크루즈닷 파트너스 가입 신청</p>
-              <p suppressHydrationWarning className="text-xs text-emerald-200 font-mono truncate">
-                {typeof window !== 'undefined' ? window.location.origin : ''}/affiliate/pre-sales
+              <p className="text-xs text-emerald-200 font-mono truncate">
+                /affiliate/pre-sales
               </p>
               <p className="text-xs text-emerald-300 mt-1">잠재 크루즈닷 파트너스에게 이 링크를 공유하세요.</p>
             </div>
