@@ -26,8 +26,13 @@ export async function POST(req: Request) {
     if (!content?.trim())  return NextResponse.json({ ok: false, message: "내용 필수" }, { status: 400 });
     if (!contactId && !groupId) return NextResponse.json({ ok: false, message: "contactId 또는 groupId 필수" }, { status: 400 });
 
-    const html = content.includes("<") ? content
-      : `<div style="font-family:sans-serif;line-height:1.8;white-space:pre-wrap">${content}</div>`;
+    // [이미지: URL] 플레이스홀더를 HTML <img> 태그로 변환 (하위호환)
+    const withImages = content.replace(
+      /\[이미지:\s*(https?:\/\/[^\]\s]+)\]/g,
+      '<img src="$1" alt="이미지" style="max-width:100%;height:auto;display:block;margin:8px 0;" />'
+    );
+    const html = withImages.includes("<") ? withImages
+      : `<div style="font-family:sans-serif;line-height:1.8;white-space:pre-wrap">${withImages}</div>`;
 
     // ── 즉시 발송 ───────────────────────────────────────────────
     if (sendNow) {

@@ -15,7 +15,7 @@ import type { UserRole } from "@/lib/rbac-client";
 type Group       = { id: string; name: string; color: string | null; _count: { members: number } };
 type ShortLink   = { id: string; code: string; title: string | null; contactId: string | null };
 type SmsTemplate = { id: string; title: string; content: string; category: string | null };
-type ImageItem   = { id: number | string; title: string; thumbnailUrl: string | null; driveUrl: string | null };
+type ImageItem   = { id: number | string; title: string; thumbnailUrl: string | null; fullUrl: string | null };
 type SmsConfig   = { aligoUserId: string; senderPhone: string; senderVerified: boolean; aligoKeyTail: string } | null;
 type EmailConfig = { senderName: string; senderEmail: string; isActive: boolean } | null;
 
@@ -100,9 +100,10 @@ function SmsTab() {
   const [message,        setMessage]        = useState("");
   const [showReplace,    setShowReplace]    = useState(false);
   const [myLinks,        setMyLinks]        = useState<ShortLink[]>([]);
-  const [templates,      setTemplates]      = useState<SmsTemplate[]>([]);
-  const [templateCat,    setTemplateCat]    = useState("");
-  const [showTemplates,  setShowTemplates]  = useState(false);
+  const [templates,        setTemplates]        = useState<SmsTemplate[]>([]);
+  const [templateCat,      setTemplateCat]      = useState("");
+  const [showTemplates,    setShowTemplates]    = useState(false);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
   const [dryRunResult,   setDryRunResult]   = useState<{ count: number; sample: string } | null>(null);
   const [linkNoCount,    setLinkNoCount]    = useState(0);
   const [confirmed,      setConfirmed]      = useState(false);
@@ -142,7 +143,13 @@ function SmsTab() {
     const url = templateCat
       ? `/api/tools/sms-templates?category=${templateCat}`
       : "/api/tools/sms-templates";
-    fetch(url).then(r => r.json()).then(d => { if (d.ok) setTemplates(d.templates ?? []); });
+    setTemplatesLoading(true);
+    setTemplates([]);
+    fetch(url)
+      .then(r => r.json())
+      .then(d => { if (d.ok) setTemplates(d.templates ?? []); })
+      .catch(() => showError("템플릿 로드 실패"))
+      .finally(() => setTemplatesLoading(false));
   }, [templateCat]);
 
   useEffect(() => { if (showTemplates) loadTemplates(); }, [showTemplates, loadTemplates]);
@@ -368,16 +375,21 @@ function SmsTab() {
                 ))}
               </div>
               <div className="space-y-2 max-h-56 overflow-y-auto">
-                {templates.length === 0
-                  ? <p className="text-xs text-gray-400 text-center py-3">템플릿 없음</p>
-                  : templates.map(t => (
-                    <button key={t.id} onClick={() => { setMessage(t.content); setShowTemplates(false); }}
-                      className="w-full text-left p-2.5 rounded-lg border hover:border-blue-300 hover:bg-blue-50 transition-colors">
-                      <p className="text-xs font-medium text-gray-700">{t.title}</p>
-                      <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{t.content}</p>
-                    </button>
-                  ))
-                }
+                {templatesLoading ? (
+                  <div className="space-y-2 py-1">
+                    {[1,2,3].map(i => <div key={i} className="h-12 bg-gray-100 rounded-lg animate-pulse" />)}
+                  </div>
+                ) : templates.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-3">
+                    {templateCat ? "해당 카테고리에 템플릿이 없습니다" : "템플릿이 없습니다"}
+                  </p>
+                ) : templates.map(t => (
+                  <button key={t.id} onClick={() => { setMessage(t.content); setShowTemplates(false); }}
+                    className="w-full text-left p-2.5 rounded-lg border hover:border-blue-300 hover:bg-blue-50 transition-colors">
+                    <p className="text-xs font-medium text-gray-700">{t.title}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{t.content}</p>
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -408,12 +420,12 @@ function SmsTab() {
           <div className="mt-3 p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center gap-4 mb-3">
               <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
-                <input type="radio" name="schedule" value="now" checked={scheduleMode === "now"}
+                <input type="radio" name="sms-schedule" value="now" checked={scheduleMode === "now"}
                   onChange={() => setScheduleMode("now")} className="rounded" />
                 즉시 발송
               </label>
               <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
-                <input type="radio" name="schedule" value="scheduled" checked={scheduleMode === "scheduled"}
+                <input type="radio" name="sms-schedule" value="scheduled" checked={scheduleMode === "scheduled"}
                   onChange={() => setScheduleMode("scheduled")} className="rounded" />
                 예약 발송
               </label>
@@ -572,14 +584,16 @@ function EmailTab() {
   const [selectedGroup, setSelectedGroup] = useState("");
   const [subject,       setSubject]       = useState("");
   const [body,          setBody]          = useState("");
-  const [images,        setImages]        = useState<ImageItem[]>([]);
-  const [showImages,    setShowImages]    = useState(false);
-  const [imagesLoaded,  setImagesLoaded]  = useState(false);
-  const [sendMode,      setSendMode]      = useState<"now" | "schedule">("now");
-  const [scheduledAt,   setScheduledAt]   = useState("");
-  const [sending,       setSending]       = useState(false);
-  const [savingName,    setSavingName]    = useState(false);
-  const [csrfToken,     setCsrfToken]     = useState("");
+  const [images,         setImages]         = useState<ImageItem[]>([]);
+  const [showImages,     setShowImages]     = useState(false);
+  const [imagesLoaded,   setImagesLoaded]   = useState(false);
+  const [imageLoadError, setImageLoadError] = useState(false);
+  const [sendMode,       setSendMode]       = useState<"now" | "schedule">("now");
+  const [scheduledAt,    setScheduledAt]    = useState("");
+  const [sending,        setSending]        = useState(false);
+  const [savingName,     setSavingName]     = useState(false);
+  const [csrfToken,      setCsrfToken]      = useState("");
+  const emailBodyRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     fetch("/api/csrf-token").then(r => r.json())
@@ -596,11 +610,11 @@ function EmailTab() {
 
   const loadImages = useCallback(() => {
     setShowImages(true);
-    if (imagesLoaded) return;
+    if (imagesLoaded && !imageLoadError) return;
 
-    // AbortController로 fetch 취소 관리
+    setImageLoadError(false);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8초 타임아웃
 
     fetch("/api/image-library", { signal: controller.signal })
       .then(r => r.json())
@@ -609,17 +623,39 @@ function EmailTab() {
         setImagesLoaded(true);
       })
       .catch((err) => {
+        setImagesLoaded(true);
         if (!(err instanceof Error && err.name === 'AbortError')) {
-          console.debug('이미지 라이브러리 로드 실패:', err);
+          setImageLoadError(true);
         }
       })
       .finally(() => clearTimeout(timeoutId));
-  }, [imagesLoaded]);
+  }, [imagesLoaded, imageLoadError]);
 
   const insertImage = (url: string) => {
     if (!url) return;
-    setBody(prev => prev + `\n\n[이미지: ${url}]`);
+    const imgTag = `<img src="${url}" alt="이미지" style="max-width:100%;height:auto;display:block;margin:8px 0;" />`;
+    const el = emailBodyRef.current;
+    if (!el) {
+      setBody(prev => prev + '\n\n' + imgTag);
+    } else {
+      const start = el.selectionStart ?? body.length;
+      const end   = el.selectionEnd   ?? body.length;
+      setBody(body.substring(0, start) + '\n\n' + imgTag + body.substring(end));
+    }
     setShowImages(false);
+  };
+
+  const insertBodyAtCursor = (token: string) => {
+    const el = emailBodyRef.current;
+    if (!el) { setBody(prev => prev + token); return; }
+    const start = el.selectionStart ?? body.length;
+    const end   = el.selectionEnd   ?? body.length;
+    const next  = body.substring(0, start) + token + body.substring(end);
+    setBody(next);
+    requestAnimationFrame(() => {
+      el.selectionStart = el.selectionEnd = start + token.length;
+      el.focus();
+    });
   };
 
   // useCallback: 발신자 이름 저장 메모이제이션
@@ -688,7 +724,7 @@ function EmailTab() {
       const d = await res.json() as { ok: boolean; sentCount?: number };
       if (!d.ok) throw new Error();
       showSuccess(sendMode === "now" ? `${d.sentCount ?? 0}명에게 발송 완료` : "예약 발송 등록됨");
-      setSubject(""); setBody("");
+      setSubject(""); setBody(""); setSelectedGroup(""); setSendMode("now"); setScheduledAt("");
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         showError("요청 시간 초과 - 다시 시도해주세요");
@@ -828,14 +864,14 @@ function EmailTab() {
           {/* 치환변수 빠른 삽입 */}
           <div className="flex flex-wrap gap-1.5 mb-2">
             {REPLACEMENTS.map(r => (
-              <button key={r.label} onClick={() => setBody(prev => prev + r.label)}
+              <button key={r.label} onClick={() => insertBodyAtCursor(r.label)}
                 className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600 hover:bg-blue-100 hover:text-blue-600">
                 {r.label}
               </button>
             ))}
           </div>
 
-          <textarea value={body} onChange={e => setBody(e.target.value)}
+          <textarea ref={emailBodyRef} value={body} onChange={e => setBody(e.target.value)}
             placeholder={"안녕하세요 [이름]님,\n\n크루즈닷에서 특별한 소식을 전합니다."}
             rows={10}
             className="w-full border rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300" />
@@ -851,15 +887,23 @@ function EmailTab() {
               </div>
               {!imagesLoaded ? (
                 <div className="grid grid-cols-4 gap-2">
-                  {[1,2,3,4].map(i => <div key={i} className="aspect-square bg-gray-200 rounded-lg animate-pulse" />)}
+                  {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="aspect-square bg-gray-200 rounded-lg animate-pulse" />)}
+                </div>
+              ) : imageLoadError ? (
+                <div className="text-center py-4">
+                  <p className="text-xs text-red-500 mb-2">이미지를 불러오지 못했습니다.</p>
+                  <button onClick={loadImages}
+                    className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    다시 시도
+                  </button>
                 </div>
               ) : images.length === 0 ? (
                 <p className="text-xs text-gray-400 text-center py-4">이미지 라이브러리가 비어있습니다.</p>
               ) : (
-                <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+                <div className="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto">
                   {images.map(img => (
                     <button key={img.id}
-                      onClick={() => insertImage((img.driveUrl ?? img.thumbnailUrl) ?? "")}
+                      onClick={() => insertImage((img.fullUrl ?? img.thumbnailUrl) ?? "")}
                       title={img.title}
                       className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-400 bg-gray-200 transition-colors">
                       {img.thumbnailUrl ? (
@@ -1175,12 +1219,12 @@ function KakaoTab() {
           <div className="mt-3 p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center gap-4 mb-3">
               <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
-                <input type="radio" name="schedule" value="now" checked={scheduleMode === "now"}
+                <input type="radio" name="kakao-schedule" value="now" checked={scheduleMode === "now"}
                   onChange={() => setScheduleMode("now")} className="rounded" />
                 즉시 발송
               </label>
               <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
-                <input type="radio" name="schedule" value="scheduled" checked={scheduleMode === "scheduled"}
+                <input type="radio" name="kakao-schedule" value="scheduled" checked={scheduleMode === "scheduled"}
                   onChange={() => setScheduleMode("scheduled")} className="rounded" />
                 예약 발송
               </label>
@@ -1325,31 +1369,3 @@ function KakaoTab() {
   );
 }
 
-// ─── XSS 방지를 위한 Sanitized 샘플 프리뷰 ────────────────────
-function SanitizedSamplePreview({ sample }: { sample: string }) {
-  const [sanitized, setSanitized] = useState(sample);
-
-  useEffect(() => {
-    // DOMPurify 동적 로드 및 sanitize
-    const sanitizeContent = async () => {
-      try {
-        const DOMPurify = (await import("dompurify")).default;
-        const cleaned = DOMPurify.sanitize(sample, {
-          ALLOWED_TAGS: [],
-          ALLOWED_ATTR: [],
-        });
-        setSanitized(cleaned);
-      } catch {
-        // DOMPurify 로드 실패 시 원본 사용 (안전한 텍스트만 허용)
-        setSanitized(sample);
-      }
-    };
-    sanitizeContent();
-  }, [sample]);
-
-  return (
-    <p className="text-sm bg-white border rounded p-2.5 whitespace-pre-wrap">
-      {sanitized}
-    </p>
-  );
-}
