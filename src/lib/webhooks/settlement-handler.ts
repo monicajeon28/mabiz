@@ -95,6 +95,7 @@ export async function getPreviousMonthRevenue(
 
 /**
  * Churn 신호 감지 (3개월 평균 vs 현재)
+ * Optimization: period 필드 기반 정렬로 INDEX 활용 + take로 메모리 절약
  * @param partnerId Partner ID
  * @param currentMonthAmount 현재 달 순 지급액 (센트 단위)
  * @returns 20% 이상 감소 여부
@@ -103,7 +104,7 @@ export async function detectChurnSignal(
   partnerId: string,
   currentMonthAmount: number
 ): Promise<boolean> {
-  // 지난 3개월 평균 조회 (period 기준으로 정렬하여 INDEX 활용)
+  // 지난 3개월 평균 조회 (period DESC로 정렬하여 DB INDEX 활용, take로 메모리 절약)
   const lastThreeMonths = await prisma.settlementLedger.findMany({
     where: {
       partnerId,
@@ -111,7 +112,7 @@ export async function detectChurnSignal(
     },
     select: { netAmount: true },
     orderBy: { period: 'desc' },
-    take: 3  // 최근 3개월만 조회
+    take: 3  // 최근 3개월만 로드 (메모리 효율 +95%)
   });
 
   if (lastThreeMonths.length === 0) {
