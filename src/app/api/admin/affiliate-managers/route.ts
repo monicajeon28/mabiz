@@ -82,7 +82,6 @@ export async function GET(req: NextRequest) {
         AND sub.role IN ('SALES_AGENT','FREE_SALES','PRE_SALES','AGENT')
         AND sub."isActive" = true
       WHERE om.role IN ('BRANCH_MANAGER','OWNER')
-        AND om."isActive" = true
         ${searchFragment}
       GROUP BY
         om.id, om."userId", om.phone, om.email, om."displayName",
@@ -98,7 +97,6 @@ export async function GET(req: NextRequest) {
       FROM "OrganizationMember" om
       JOIN "Organization" o ON o.id = om."organizationId"
       WHERE om.role IN ('BRANCH_MANAGER','OWNER')
-        AND om."isActive" = true
         ${searchFragment}
     `);
     const total = Number(countRows[0]?.total ?? 0);
