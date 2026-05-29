@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { generateErrorId, logSafeError } from '@/lib/pii-masker';
 
 /**
  * POST /api/webhook/contact-form-submission
@@ -66,13 +67,16 @@ export async function POST(req: NextRequest) {
       createdAt: submission.createdAt.toISOString(),
     });
   } catch (err) {
-    logger.error('[ContactFormSubmission] Error', {
-      error: err instanceof Error ? err.message : String(err),
-      stack: err instanceof Error ? err.stack : undefined,
-    });
+    const errorId = generateErrorId();
+    logSafeError(logger, err, '[ContactFormSubmission] Error');
 
     return NextResponse.json(
-      { ok: false, message: 'Internal server error' },
+      {
+        ok: false,
+        message: '폼 제출을 처리할 수 없습니다',
+        errorId,
+        contactSupport: true,
+      },
       { status: 500 }
     );
   }

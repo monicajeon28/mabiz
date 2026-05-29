@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { maskPayloadForLogging, logSafeError, maskPhone } from '@/lib/pii-masker';
 
 /**
  * Loop 6 - Agent D: Contact 자동생성 엔진
@@ -776,13 +777,7 @@ export async function createOrUpdateContact(
       tags,
     };
   } catch (error: unknown) {
-    logger.error('[ContactAutoCreator] 오류 발생', {
-      error: error instanceof Error ? error.message : String(error),
-      payload: {
-        ...payload,
-        phone: payload.phone ? payload.phone.slice(-4) : 'unknown', // 마지막 4자리만
-      },
-    });
+    logSafeError(logger, error, '[ContactAutoCreator] 오류 발생');
 
     return {
       success: false,
@@ -793,7 +788,7 @@ export async function createOrUpdateContact(
       riskScore: 100,
       riskLevel: 'CRITICAL',
       tags: [],
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: 'Contact creation failed - please contact support',
     };
   }
 }
