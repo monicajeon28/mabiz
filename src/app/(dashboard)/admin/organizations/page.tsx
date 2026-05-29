@@ -36,7 +36,7 @@ type SubMember = {
   phone: string | null;
   displayName: string | null;
   role: string;
-  isActive?: boolean;
+  isActive: boolean;
 };
 
 type AffiliateDetail = {
@@ -199,7 +199,7 @@ function RejectModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40" onClick={() => !submitting && onClose()} />
       <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-gray-900">계약 신청 반려</h2>
@@ -417,7 +417,10 @@ function DetailPanel({
         if (err instanceof Error && err.name === 'AbortError') return;
         setError('네트워크 오류');
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        // abort된 요청은 새 요청이 로딩 중이므로 setLoading 스킵
+        if (!controller.signal.aborted) setLoading(false);
+      });
   }, [memberId]);
 
   useEffect(() => {
@@ -579,7 +582,7 @@ function DetailPanel({
                             userId={s.userId}
                             orgId={data.member.organizationId}
                             orgName={data.organization?.name}
-                            isActive={s.isActive !== false}
+                            isActive={s.isActive}
                             displayName={s.displayName}
                             onChanged={handleChanged}
                           />
@@ -696,7 +699,7 @@ function ManagerCard({
             displayName={manager.displayName}
             onChanged={onChanged}
           />
-          <button onClick={onClick} className="p-1.5 text-gray-300 hover:text-gray-500 transition-colors">
+          <button onClick={onClick} className="p-2.5 text-gray-300 hover:text-gray-500 transition-colors">
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -864,15 +867,20 @@ export default function OrganizationsPage() {
     }
   }, []);
 
-  // useCallback으로 안정적인 참조 유지 (DetailPanel 불필요한 리렌더 방지)
+  // searchRef: 검색어 최신값을 ref로 추적 → handleMemberChanged deps에서 search 제거
+  // (search가 deps에 있으면 타이핑마다 DetailPanel 리렌더 발생)
+  const searchRef = useRef(search);
+  useEffect(() => { searchRef.current = search; }, [search]);
+
   const handleMemberChanged = useCallback(
-    () => fetchManagers(search),
-    [fetchManagers, search],
+    () => fetchManagers(searchRef.current),
+    [fetchManagers],
   );
 
   useEffect(() => {
     fetchManagers();
     fetchPendingContracts();
+    return () => { fetchAbortRef.current?.abort(); };
   }, [fetchManagers, fetchPendingContracts]);
 
   if (forbidden) {
@@ -898,7 +906,7 @@ export default function OrganizationsPage() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold mb-0.5">판매 파트너 계약 신청</p>
-              <p className="text-xs text-blue-200 font-mono truncate">
+              <p suppressHydrationWarning className="text-xs text-blue-200 font-mono truncate">
                 {typeof window !== 'undefined' ? window.location.origin : ''}/affiliate/apply
               </p>
               <p className="text-xs text-blue-300 mt-1">잠재 판매 파트너에게 이 링크를 공유하세요.</p>
@@ -915,7 +923,7 @@ export default function OrganizationsPage() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold mb-0.5">크루즈닷 파트너스 가입 신청</p>
-              <p className="text-xs text-emerald-200 font-mono truncate">
+              <p suppressHydrationWarning className="text-xs text-emerald-200 font-mono truncate">
                 {typeof window !== 'undefined' ? window.location.origin : ''}/affiliate/pre-sales
               </p>
               <p className="text-xs text-emerald-300 mt-1">잠재 크루즈닷 파트너스에게 이 링크를 공유하세요.</p>
@@ -1055,7 +1063,7 @@ export default function OrganizationsPage() {
               key={mgr.memberId}
               manager={mgr}
               onClick={() => setSelectedMemberId(mgr.memberId)}
-              onChanged={() => fetchManagers(search)}
+              onChanged={handleMemberChanged}
             />
           ))
         )}
@@ -1065,11 +1073,16 @@ export default function OrganizationsPage() {
       {approveContractId !== null && (
         <ContractApproveModal
           contractId={approveContractId}
-          onClose={() => setApproveContractId(null)}
-          onApproved={() => {
+          onClose={() => {
             setApproveContractId(null);
+            // 닫기 버튼 클릭 시 목록 새로고침 (승인됐을 수도 있으므로)
             fetchPendingContracts();
-            fetchManagers(search);
+            fetchManagers(searchRef.current);
+          }}
+          onApproved={() => {
+            // 모달은 닫지 않음 — 결과 화면(어필리에이트 코드/링크)을 사용자가 확인 후 닫기 버튼 클릭
+            fetchPendingContracts();
+            fetchManagers(searchRef.current);
           }}
         />
       )}
