@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
     const fromDate = searchParams.get('fromDate');
     const toDate = searchParams.get('toDate');
+    const organizationId = searchParams.get('organizationId');
 
     if (!fromDate || !toDate) {
       return NextResponse.json(
@@ -28,26 +29,37 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // contacts 테이블에서 segment 정보 조회
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: 'organizationId is required' },
+        { status: 400 }
+      );
+    }
+
+    // contacts 테이블에서 segment 정보 조회 (서버 측 필터링)
     const { data: contacts, error: contactError } = await supabase
       .from('contacts')
-      .select('id, segment');
+      .select('id, segment')
+      .in('segment', ['A', 'B', 'C', 'D', 'E'])
+      .eq('organization_id', organizationId);
 
     if (contactError) throw contactError;
 
-    // sms_logs와 contact segment 결합
+    // sms_logs와 contact segment 결합 (서버 측 필터링)
     const { data: smsLogs, error: smsError } = await supabase
       .from('sms_logs')
       .select('id, contact_id, created_at')
+      .eq('organization_id', organizationId)
       .gte('created_at', fromDate)
       .lte('created_at', toDate);
 
     if (smsError) throw smsError;
 
-    // campaign_events와 contact segment 결합
+    // campaign_events와 contact segment 결합 (서버 측 필터링)
     const { data: campaignEvents, error: eventError } = await supabase
       .from('campaign_events')
       .select('id, contact_id, event_type, created_at')
+      .eq('organization_id', organizationId)
       .gte('created_at', fromDate)
       .lte('created_at', toDate);
 

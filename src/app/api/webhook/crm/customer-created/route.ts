@@ -19,10 +19,13 @@ import { logger } from '@/lib/logger';
  * 신규 고객은 모두 L0_ACTIVE로 분류됨
  * 향후 고객이 부재중이 되면 다른 L0 세그먼트로 자동 재분류됨
  */
+type ReactivationSegment = '3-6m' | '6-12m' | '1y+' | null;
+type ReactivationTag = '신규활성' | '재활성화-3-6m' | '재활성화-6-12m' | '재활성화-1년이상' | null;
+
 interface L0Classification {
-  segment: string; // "3-6m" | "6-12m" | "1y+" | null (신규는 null)
+  segment: ReactivationSegment;
   likelihood: number; // 0-100 (신규는 50)
-  tag: string; // "신규활성" | "재활성화-3-6m" | "재활성화-6-12m" | "재활성화-1년이상" | null
+  tag: ReactivationTag;
 }
 
 function classifyL0Lens(contactId: string, organizationId: string): L0Classification {
@@ -180,7 +183,7 @@ export async function POST(req: NextRequest) {
 답장 불가능한 자동 발송입니다.`;
 
       try {
-        const normalizedPhone = phoneNumber.replace(/[^\d]/g, '');
+        const normalizedPhone = (phoneNumber || '').replace(/[^\d]/g, '');
 
         if (normalizedPhone && normalizedPhone.length >= 10) {
           const smsResult = await sendSmsViaAligo(
