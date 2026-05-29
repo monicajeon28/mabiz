@@ -122,6 +122,7 @@ export function GroupForm({
                 style={{ backgroundColor: c }}
                 aria-label={`${COLOR_NAMES[c]} 색상 선택`}
                 title={`${COLOR_NAMES[c]} (${c})`}
+                suppressHydrationWarning
               />
             ))}
           </div>

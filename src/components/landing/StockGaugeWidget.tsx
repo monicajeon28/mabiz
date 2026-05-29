@@ -29,6 +29,7 @@ export function StockGaugeWidget({
           <div
             className="h-full bg-gradient-to-r from-green-500 to-yellow-500 transition-all duration-500"
             style={{ width: `${percentage}%` }}
+            suppressHydrationWarning
           />
         </div>
         <div className="flex justify-between text-xs text-gray-600">

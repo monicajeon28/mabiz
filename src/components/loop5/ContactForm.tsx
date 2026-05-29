@@ -258,7 +258,7 @@ export const ContactForm: React.FC<ContactFormProps> = ({
     <div className={`contact-form contact-form-${variant}`}>
       {/* 프로그레스 바 */}
       <div className="progress-bar">
-        <div className="progress" style={{ width: `${(currentStep / 3) * 100}%` }} />
+        <div className="progress" style={{ width: `${(currentStep / 3) * 100}%` }} suppressHydrationWarning />
         <span className="progress-text">{currentStep} of 3</span>
       </div>
 

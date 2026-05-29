@@ -38,6 +38,7 @@ export function GroupCard({
           className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
           style={{ backgroundColor: group.color ?? '#6B7280' }}
           aria-label={`그룹 색상: ${group.color}`}
+          suppressHydrationWarning
         >
           {group.name[0]}
         </div>

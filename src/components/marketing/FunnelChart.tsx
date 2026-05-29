@@ -30,6 +30,7 @@ export function FunnelChart({ summary }: FunnelChartProps) {
                 <div
                   className={`w-full ${step.color} rounded-t transition-all`}
                   style={{ height: `${h}px` }}
+                  suppressHydrationWarning
                 />
               </div>
               <span className="text-xs text-gray-500">{step.label}</span>
