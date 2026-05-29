@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { timingSafeEqual } from "crypto";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { enqueueDLQ } from "@/lib/mabiz-dlq";
@@ -74,8 +75,39 @@ export async function POST(req: Request) {
       return new Response("FAIL", { status: 403 });
     }
 
+    // [P0-SEC-201] Bearer Token 검증 (선택적 → 향후 필수 변경)
+    // 현재: IP 화이트리스트만으로 충분 (PayApp 서버 고정)
+    // 향후: PayApp 요청 시 Authorization: Bearer PAYAPP_WEBHOOK_TOKEN 추가 예정
+    const authHeader = req.headers.get("authorization") ?? "";
+    if (authHeader) {
+      if (!authHeader.startsWith("Bearer ")) {
+        logger.warn("[PayApp Webhook] 잘못된 Bearer format — 요청 차단", { requestIP });
+        return new Response("FAIL", { status: 401 });
+      }
+
+      const token = authHeader.slice(7);
+      const payappToken = process.env.PAYAPP_WEBHOOK_TOKEN;
+
+      if (payappToken && (token.length !== payappToken.length || !timingSafeEqual(Buffer.from(token), Buffer.from(payappToken)))) {
+        logger.warn("[PayApp Webhook] Bearer token 불일치 — 인증 실패", { requestIP });
+        return new Response("FAIL", { status: 401 });
+      }
+    }
+
     const body = await req.text();
     params = new URLSearchParams(body);
+
+    // [P0-SEC-202] User-Agent 길이 제한 (DDoS/메모리 공격 방지)
+    const userAgent = req.headers.get("user-agent") ?? "";
+    const MAX_USER_AGENT_LENGTH = 500; // 표준 UA는 150-300자
+    if (userAgent.length > MAX_USER_AGENT_LENGTH) {
+      logger.warn("[PayApp Webhook] User-Agent 길이 초과 — 요청 차단", {
+        requestIP,
+        length: userAgent.length,
+        max: MAX_USER_AGENT_LENGTH,
+      });
+      return new Response("FAIL", { status: 400 });
+    }
 
     // ── [2단계] linkval 검증 (필수) ────────────────────────────
     const linkval = params.get("linkval");
