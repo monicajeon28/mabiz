@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   MessageSquare, Mail, Send, ChevronDown, ChevronUp,
@@ -18,6 +18,7 @@ type SmsTemplate = { id: string; title: string; content: string; category: strin
 type ImageItem   = { id: number | string; title: string; thumbnailUrl: string | null; fullUrl: string | null };
 type SmsConfig   = { aligoUserId: string; senderPhone: string; senderVerified: boolean; aligoKeyTail: string } | null;
 type EmailConfig = { senderName: string; senderEmail: string; isActive: boolean } | null;
+type Product     = { id: string; name: string; departureDate: string | null; price: number | null; nights: number | null; days: number | null };
 
 const REPLACEMENTS = [
   { label: "[이름]",       desc: "고객 이름" },
@@ -115,6 +116,14 @@ function SmsTab() {
   // 스케줄링 기능
   const [scheduleMode,   setScheduleMode]   = useState<"now" | "scheduled">("now");
   const [scheduledTime,  setScheduledTime]  = useState("");
+  const [hasEmoji,       setHasEmoji]       = useState(false);
+  // 상품 드롭다운
+  const [products,       setProducts]       = useState<Product[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState("");
+  // 인라인 그룹 생성
+  const [showNewGroup,   setShowNewGroup]   = useState(false);
+  const [newGroupName,   setNewGroupName]   = useState("");
+  const [creatingGroup,  setCreatingGroup]  = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // CSRF 토큰 획득
@@ -139,6 +148,73 @@ function SmsTab() {
     fetch("/api/links").then(r => r.json())
       .then(d => { if (d.ok) setMyLinks((d.links ?? []).filter((l: ShortLink) => l.contactId)); });
   }, []);
+
+  // 상품 목록 로드
+  useEffect(() => {
+    fetch("/api/products?isActive=true&limit=100").then(r => r.json())
+      .then(d => { if (d.ok) setProducts(d.products ?? []); })
+      .catch(() => { /* silently fail */ });
+  }, []);
+
+  // 메시지에 상품 치환변수가 있는지 감지
+  const hasProductVars = useMemo(
+    () => /\[상품명\]|\[출발일\]|\[가격\]|\[일정\]/.test(message),
+    [message]
+  );
+
+  // 상품 선택 시 치환 처리
+  const applyProductReplacement = useCallback((productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+    const schedule = product.nights != null && product.days != null
+      ? `${product.nights}박 ${product.days}일`
+      : product.nights != null
+        ? `${product.nights}박`
+        : "";
+    const depDate = product.departureDate
+      ? new Date(product.departureDate).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })
+      : "";
+    const priceStr = product.price != null
+      ? product.price.toLocaleString("ko-KR") + "원"
+      : "";
+    setMessage(prev =>
+      prev
+        .replaceAll("[상품명]", product.name)
+        .replaceAll("[출발일]", depDate)
+        .replaceAll("[가격]", priceStr)
+        .replaceAll("[일정]", schedule)
+    );
+    setSelectedProduct(productId);
+  }, [products]);
+
+  const createGroup = useCallback(async () => {
+    const name = newGroupName.trim();
+    if (!name) return;
+    setCreatingGroup(true);
+    try {
+      const res = await fetch("/api/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const d = await res.json() as { ok: boolean; group?: Group; message?: string };
+      if (!d.ok || !d.group) {
+        showError(d.message ?? "그룹 생성 실패");
+        return;
+      }
+      setGroups(prev => [...prev, d.group!]);
+      setSelectedGroup(d.group!.id);
+      setNewGroupName("");
+      setShowNewGroup(false);
+      setDryRunResult(null);
+      setRateLimitStatus(null);
+      showSuccess(`"${d.group!.name}" 그룹이 생성되었습니다.`);
+    } catch (_err) {
+      showError("그룹 생성 중 오류가 발생했습니다.");
+    } finally {
+      setCreatingGroup(false);
+    }
+  }, [newGroupName]);
 
   const loadTemplates = useCallback(() => {
     const url = templateCat
@@ -362,7 +438,7 @@ function SmsTab() {
               <option key={g.id} value={g.id}>{g.name} ({g._count.members}명)</option>
             ))}
           </select>
-          {groups.length === 0 && (
+          {groups.length === 0 && !showNewGroup && (
             <p className="text-xs text-gray-400 mt-1.5">
               그룹이 없습니다.{" "}
               <a href="/groups" className="text-blue-500 underline">그룹 관리</a>에서 먼저 만들어 주세요.
@@ -370,6 +446,37 @@ function SmsTab() {
           )}
           {currentGroup && (
             <p className="text-xs text-gray-400 mt-1">최대 {currentGroup._count.members}명에게 발송됩니다.</p>
+          )}
+
+          {/* 인라인 그룹 생성 */}
+          {!showNewGroup ? (
+            <button
+              onClick={() => setShowNewGroup(true)}
+              className="mt-2 flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-medium">
+              <span className="text-base leading-none">+</span> 새 그룹 만들기
+            </button>
+          ) : (
+            <div className="mt-2 flex gap-2 items-center">
+              <input
+                autoFocus
+                value={newGroupName}
+                onChange={e => setNewGroupName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") createGroup(); if (e.key === "Escape") { setShowNewGroup(false); setNewGroupName(""); } }}
+                placeholder="그룹 이름 입력..."
+                className="flex-1 border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-300"
+              />
+              <button
+                onClick={createGroup}
+                disabled={!newGroupName.trim() || creatingGroup}
+                className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg disabled:opacity-40">
+                {creatingGroup ? "생성 중..." : "생성"}
+              </button>
+              <button
+                onClick={() => { setShowNewGroup(false); setNewGroupName(""); }}
+                className="px-2 py-1.5 text-xs text-gray-400 hover:text-gray-600">
+                취소
+              </button>
+            </div>
           )}
         </div>
 
@@ -419,18 +526,51 @@ function SmsTab() {
         <div className="rounded-xl border bg-white p-4">
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs font-semibold text-gray-500">메시지 내용</label>
-            <span className={`text-xs ${message.length > 80 ? "text-red-500 font-medium" : "text-gray-400"}`}>
-              {message.length}/90자
-            </span>
+            {(() => {
+              const byteLen = new TextEncoder().encode(message).length;
+              let byteColor = "text-green-600";
+              let byteLabel = "단문";
+              if (byteLen > 2000) { byteColor = "text-red-500 font-bold"; byteLabel = "발송불가"; }
+              else if (byteLen > 90) { byteColor = "text-orange-500 font-medium"; byteLabel = "장문 MMS (+추가요금)"; }
+              return (
+                <span className={`text-xs ${byteColor}`}>
+                  {byteLen}바이트 · {byteLabel}
+                </span>
+              );
+            })()}
           </div>
           <textarea
             ref={textareaRef}
             value={message}
-            onChange={e => setMessage(e.target.value)}
+            onChange={e => {
+              const val = e.target.value;
+              setMessage(val);
+              setHasEmoji(/\p{Emoji_Presentation}/u.test(val));
+            }}
             placeholder="내용을 입력하거나 왼쪽에서 템플릿을 선택하세요"
             rows={6}
             className="w-full border rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
           />
+          {hasEmoji && (
+            <p className="mt-1.5 text-xs text-amber-600 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+              ⚠ 이모지는 알리고 SMS에서 발송 거절될 수 있습니다
+            </p>
+          )}
+          {(() => {
+            const byteLen = new TextEncoder().encode(message).length;
+            if (byteLen > 2000) return (
+              <p className="mt-1 text-xs text-red-500 font-medium">
+                메시지가 너무 깁니다 ({byteLen}바이트). 2000바이트 이하로 줄여주세요.
+              </p>
+            );
+            if (byteLen > 90) return (
+              <p className="mt-1 text-xs text-orange-500">
+                장문 MMS로 발송됩니다 ({byteLen}/2000바이트). 추가 요금이 발생합니다.
+              </p>
+            );
+            return null;
+          })()}
 
           {/* 스케줄링 옵션 */}
           <div className="mt-3 p-3 bg-gray-50 rounded-lg">
@@ -506,6 +646,34 @@ function SmsTab() {
                     </p>
                   )}
                 </div>
+
+                {/* 상품 드롭다운 — 메시지에 상품 치환변수가 있을 때만 표시 */}
+                {hasProductVars && products.length > 0 && (
+                  <div className="pt-2 border-t border-gray-200">
+                    <p className="text-xs font-medium text-gray-600 mb-1.5">상품 선택 (치환변수 자동 대입)</p>
+                    <select
+                      value={selectedProduct}
+                      onChange={e => applyProductReplacement(e.target.value)}
+                      className="w-full border rounded-lg px-3 py-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    >
+                      <option value="">상품을 선택하면 [상품명]/[출발일]/[가격]/[일정]이 자동 치환됩니다</option>
+                      {products.map(p => {
+                        const depStr = p.departureDate
+                          ? new Date(p.departureDate).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })
+                          : "";
+                        const priceStr = p.price != null ? (p.price / 10000).toFixed(0) + "만원" : "";
+                        return (
+                          <option key={p.id} value={p.id}>
+                            {p.name}{depStr ? ` · ${depStr}` : ""}{priceStr ? ` · ${priceStr}` : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    {selectedProduct && (
+                      <p className="text-xs text-green-600 mt-1">치환 완료. 메시지를 확인해주세요.</p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1151,246 +1319,21 @@ function KakaoTab() {
   }, [selectedGroup, title, message, csrfToken, dryRunResult, confirmed, scheduleMode, scheduledTime]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* 좌측 설정 패널 */}
-      <div className="lg:col-span-1 space-y-4">
-
-        {/* 카카오 연결 상태 */}
-        <div className={`rounded-xl p-4 border ${kakaoConfig ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
-          {configLoading ? (
-            <div className="h-5 bg-gray-200 rounded animate-pulse" />
-          ) : kakaoConfig ? (
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span className="text-sm font-medium text-green-700">카카오톡 연결됨</span>
-              </div>
-              <p className="text-xs text-green-600">발신키: {kakaoConfig.senderKey.substring(0, 10)}***</p>
-              {!kakaoConfig.isActive && (
-                <p className="text-xs text-amber-600 mt-1">⚠ 카카오톡 알림톡이 비활성화되어 있습니다.</p>
-              )}
-            </div>
-          ) : (
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <AlertCircle className="w-4 h-4 text-amber-500" />
-                <span className="text-sm font-medium text-amber-700">카카오톡 미연결</span>
-              </div>
-              <p className="text-xs text-amber-600 mb-2">카카오톡 알림톡을 사용하려면 설정이 필요합니다.</p>
-              <a href="/settings/kakao" className="text-xs text-blue-600 underline flex items-center gap-1">
-                <Settings className="w-3 h-3" /> 카카오톡 설정하기
-              </a>
-            </div>
-          )}
-        </div>
-
-        {/* 그룹 선택 */}
-        <div className="rounded-xl border bg-white p-4">
-          <label className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1 block">
-            <Users className="w-3.5 h-3.5" /> 수신 그룹
-          </label>
-          <select value={selectedGroup}
-            onChange={e => { setSelectedGroup(e.target.value); setDryRunResult(null); setRateLimitStatus(null); }}
-            className="w-full border rounded-lg px-3 py-2 text-sm">
-            <option value="">그룹 선택...</option>
-            {groups.map(g => (
-              <option key={g.id} value={g.id}>{g.name} ({g._count.members}명)</option>
-            ))}
-          </select>
-          {currentGroup && (
-            <p className="text-xs text-gray-400 mt-1">최대 {currentGroup._count.members}명에게 발송됩니다.</p>
-          )}
-        </div>
-      </div>
-
-      {/* 우측 작성 영역 */}
-      <div className="lg:col-span-2 space-y-4">
-
-        {/* 제목 입력 */}
-        <div className="rounded-xl border bg-white p-4">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-semibold text-gray-500">제목 (알림톡 헤더)</label>
-            <span className={`text-xs ${title.length > 25 ? "text-red-500 font-medium" : "text-gray-400"}`}>
-              {title.length}/30자
-            </span>
-          </div>
-          <input
-            value={title}
-            onChange={e => setTitle(e.target.value.slice(0, 30))}
-            placeholder="예: 크루즈닷 예약 확인"
-            maxLength={30}
-            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-          />
-        </div>
-
-        {/* 메시지 작성 */}
-        <div className="rounded-xl border bg-white p-4">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-semibold text-gray-500">메시지 내용</label>
-            <span className={`text-xs ${message.length > 900 ? "text-red-500 font-medium" : "text-gray-400"}`}>
-              {message.length}/1000자
-            </span>
-          </div>
-          <textarea
-            ref={textareaRef}
-            value={message}
-            onChange={e => setMessage(e.target.value)}
-            placeholder="카카오톡 알림톡 내용을 입력하세요"
-            rows={8}
-            className="w-full border rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
-          />
-
-          {/* 스케줄링 옵션 */}
-          <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-            <div className="flex items-center gap-4 mb-3">
-              <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
-                <input type="radio" name="kakao-schedule" value="now" checked={scheduleMode === "now"}
-                  onChange={() => setScheduleMode("now")} className="rounded" />
-                즉시 발송
-              </label>
-              <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
-                <input type="radio" name="kakao-schedule" value="scheduled" checked={scheduleMode === "scheduled"}
-                  onChange={() => setScheduleMode("scheduled")} className="rounded" />
-                예약 발송
-              </label>
-            </div>
-            {scheduleMode === "scheduled" && (
-              <input
-                type={supportsDatetimeLocal() ? "datetime-local" : "text"}
-                value={scheduledTime}
-                onChange={(e) => setScheduledTime(e.target.value)}
-                placeholder="2026-05-28 14:00"
-                className="w-full px-2 py-1.5 border rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
-              />
-            )}
-          </div>
-
-          {/* 치환변수 패널 */}
-          <div className="mt-2">
-            <button onClick={() => setShowReplace(v => !v)}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700">
-              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showReplace ? "rotate-180" : ""}`} />
-              치환변수 & 어필리에이트 링크
-            </button>
-            {showReplace && (
-              <div className="mt-2 p-3 bg-gray-50 rounded-lg space-y-3">
-                <div>
-                  <p className="text-xs font-medium text-gray-600 mb-1.5">기본 치환변수 (클릭 시 삽입)</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {REPLACEMENTS.map(r => (
-                      <button key={r.label} onClick={() => insertAtCursor(r.label)}
-                        className="px-2 py-1 bg-white border rounded text-xs text-gray-700 hover:border-blue-400 hover:text-blue-600">
-                        {r.label} <span className="text-gray-400">({r.desc})</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1">
-                    <Link2 className="w-3 h-3 text-blue-500" />
-                    내 어필리에이트 추적링크
-                  </p>
-                  {myLinks.length > 0 ? (
-                    <>
-                      <div className="flex flex-wrap gap-1.5">
-                        {myLinks.map(l => (
-                          <button key={l.id}
-                            onClick={() => insertAtCursor(`${APP_URL}/l/${l.code}`)}
-                            className="px-2 py-1 bg-white border rounded text-xs text-blue-600 hover:border-blue-400">
-                            🔗 {l.title ?? l.code}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-xs text-gray-400">
-                      개인 추적링크가 없습니다.{" "}
-                      <a href="/links" className="text-blue-500 underline">상담 링크</a>에서
-                      고객에게 연결된 링크를 만들어주세요.
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* 미리보기 & 발송 */}
-        <div className="rounded-xl border bg-white p-4">
-          <button onClick={doDryRun} disabled={!selectedGroup || !title.trim() || !message.trim()}
-            className="w-full py-2.5 border-2 border-blue-300 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed mb-3">
-            발송 대상 미리보기
-          </button>
-
-          {selectedGroup && rateLimitStatus && (
-            <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-sm text-blue-700">
-                📊 발송 횟수: {rateLimitStatus.used}/5회
-                {rateLimitStatus.remaining === 0 && (
-                  <span className="block text-xs text-red-600 font-semibold mt-1">
-                    ⏰ 내일 {rateLimitStatus.resetAt}부터 가능
-                  </span>
-                )}
-              </p>
-            </div>
-          )}
-
-          {dryRunResult && (
-            <div className="space-y-3">
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-xs font-medium text-gray-600 mb-2">
-                  발송 예정:{" "}
-                  <span className="text-blue-600 font-bold text-base">{dryRunResult.count}명</span>
-                </p>
-                <p className="text-xs text-gray-500 font-medium mb-1">미리보기:</p>
-                <div className="text-sm bg-white border rounded p-2.5">
-                  <strong className="block mb-1">{title}</strong>
-                  <div className="whitespace-pre-wrap break-words">
-                    {DOMPurify.sanitize(dryRunResult.sample, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] })}
-                  </div>
-                </div>
-              </div>
-
-              {/* 검수 탭 */}
-              {userRole && canReview(userRole) && (
-                <ReviewTab
-                  groupId={selectedGroup}
-                  message={`${title}\n${message}`}
-                  dryRunResult={dryRunResult}
-                  onApprove={doSend}
-                  onReject={() => {
-                    setDryRunResult(null);
-                    setConfirmed(false);
-                    showError("검수가 거절되었습니다.");
-                  }}
-                  approving={sending}
-                />
-              )}
-
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 rounded" />
-                <span className="text-sm text-gray-700">
-                  위 내용을 확인했으며,{" "}
-                  <strong className="text-blue-600">{dryRunResult.count}명</strong>에게 카카오톡을 발송합니다.
-                </span>
-              </label>
-
-              <button onClick={doSend} disabled={!dryRunResult || !confirmed || sending}
-                className={`w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
-                  !dryRunResult || !confirmed || sending
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-red-600 text-white hover:bg-red-700'
-                }`}>
-                <Send className="w-4 h-4" />
-                {sending ? "발송 중..." : `✓ 발송 (${dryRunResult?.count || 0}명)`}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+    <div className="flex flex-col items-center justify-center py-20 text-center">
+      <div className="text-5xl mb-4">💬</div>
+      <h2 className="text-lg font-bold text-gray-700 mb-2">카카오톡 알림톡</h2>
+      <p className="text-sm text-gray-500 mb-4 max-w-sm">
+        카카오 비즈니스 채널 연동 기능을 준비 중입니다.<br/>
+        SMS 탭에서 그룹 발송하거나, 오픈채팅방을 활용해주세요.
+      </p>
+      <a href="https://open.kakao.com/o/plREDDUh" target="_blank" rel="noopener noreferrer"
+        className="flex items-center gap-2 px-5 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold rounded-xl text-sm">
+        카카오 오픈채팅방 바로가기
+      </a>
+      <p className="text-xs text-gray-400 mt-4">정식 알림톡 발송은 추후 업데이트 예정입니다.</p>
     </div>
   );
 }
+
+
 
