@@ -24,7 +24,6 @@ interface RawCustomerRecord {
   reservationId: number | null;
   submissionId: number | null;
   tripId_submission: number | null;
-  token: string | null;
   tokenExpiresAt: Date | null;
   isSubmitted: boolean;
   submittedAt: Date | null;
@@ -55,8 +54,8 @@ const MAX_LIMIT = 200;
 function maskPhoneNumber(phone: string | null, role: string): string | null {
   if (!phone) return null;
 
-  // 관리자, 대리점장, 정식판매원: 전체 번호 공개
-  if (['GLOBAL_ADMIN', 'OWNER', 'AGENT'].includes(role)) return phone;
+  // 관리자, 대리점장: 전체 번호 공개
+  if (['GLOBAL_ADMIN', 'OWNER'].includes(role)) return phone;
 
   // 기타 역할: 숫자만 추출하여 마스킹
   const digits = phone.replace(/[^0-9]/g, '');
@@ -87,7 +86,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         ok: false,
         message: '인증이 필요합니다. 다시 로그인해 주세요.',
-      }, { status: 403 });
+      }, { status: 401 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -113,6 +112,20 @@ export async function GET(req: NextRequest) {
         AND r."paymentAmount" > 0
       )`
     ];
+
+    // OWNER 테넌트 격리: AffiliateSale을 통해 소속 조직 고객만 조회
+    // GmTrip에 organizationId가 없으므로 AffiliateSale 경로로 필터링
+    // GLOBAL_ADMIN은 필터 없이 모든 고객 조회
+    if (manager.role === 'OWNER' && manager.organizationId) {
+      whereConditions.push(
+        Prisma.sql`EXISTS(
+          SELECT 1 FROM "AffiliateSale" af
+          JOIN "Reservation" rv ON rv.id::text = af."orderId"
+          WHERE rv."mainUserId" = u.id
+            AND af."organizationId" = ${manager.organizationId}
+        )`
+      );
+    }
 
     // search 필터 조건 추가
     if (search) {
@@ -177,7 +190,7 @@ export async function GET(req: NextRequest) {
         t."shipName", t."departureDate",
         r.id as "reservationId",
         ps.id as "submissionId", ps."tripId" as "tripId_submission",
-        ps.token, ps."tokenExpiresAt", ps."isSubmitted",
+        ps."tokenExpiresAt", ps."isSubmitted",
         ps."submittedAt", ps."createdAt" as "submissionCreatedAt",
         ps."updatedAt" as "submissionUpdatedAt",
         prl.id as "logId", prl.status as "logStatus",
@@ -199,7 +212,7 @@ export async function GET(req: NextRequest) {
         LIMIT 1
       ) r ON true
       LEFT JOIN LATERAL (
-        SELECT id, "userId", "tripId", token, "tokenExpiresAt",
+        SELECT id, "userId", "tripId", "tokenExpiresAt",
                 "isSubmitted", "submittedAt", "createdAt", "updatedAt"
         FROM "PassportSubmission"
         WHERE "userId" = u.id
@@ -215,7 +228,10 @@ export async function GET(req: NextRequest) {
       ) prl ON true
       LEFT JOIN "User" a ON prl."adminId" = a.id
       ${whereClause}
-      ORDER BY u."createdAt" DESC
+      ORDER BY
+        CASE WHEN ps."isSubmitted" = true THEN 1 ELSE 0 END ASC,
+        CASE WHEN t."departureDate" IS NOT NULL THEN t."departureDate" ELSE '9999-12-31'::date END ASC,
+        u."createdAt" DESC
       LIMIT ${take} OFFSET ${skip}
     `;
 
@@ -231,6 +247,7 @@ export async function GET(req: NextRequest) {
         name: row.name,
         // 민감정보 마스킹: GLOBAL_ADMIN만 전체 공개, 그 외는 모두 마스킹
         phone: maskPhoneNumber(row.phone, manager.role),
+        hasPhone: !!row.phone && row.phone.replace(/[^0-9]/g, '').length >= 10,
         email: row.email,
         role: row.role,
         customerStatus: row.customerStatus,
@@ -247,7 +264,6 @@ export async function GET(req: NextRequest) {
         submission: row.submissionId ? {
           id: row.submissionId,
           tripId: row.tripId_submission,
-          token: row.token,
           tokenExpiresAt: row.tokenExpiresAt?.toISOString() ?? null,
           isSubmitted: row.isSubmitted || false,
           submittedAt: row.submittedAt?.toISOString() ?? null,

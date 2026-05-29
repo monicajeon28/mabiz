@@ -4,17 +4,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle, CheckCircle, RefreshCw, Search, Send,
   UserCheck, Copy, Check, X, Phone, PhoneOff, FileText,
-  ChevronDown, ChevronUp, Download,
+  ChevronDown, ChevronUp, ArrowRight, Info,
 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import { fillTemplate, LINK_ONLY_PASSPORT_MESSAGE } from '@/lib/passport-utils';
 
-// ─── 타입 ─────────────────────────────────────────────────────────
+// ─── 타입 (API 응답에 맞게 정확히 정의) ────────────────────────────
 
 interface PassportCustomer {
   id: number;
   name: string | null;
   phone: string | null;
+  hasPhone: boolean;
   email: string | null;
   role: string;
   customerStatus: string | null;
@@ -22,19 +23,26 @@ interface PassportCustomer {
   tripCount: number;
   latestTrip: {
     id: number;
+    reservationId: number | null;
     cruiseName: string | null;
-    reservationCode: string | null;
-    productId: number | null;
-    startDate: string | null;
-    endDate: string | null;
+    productCode: string | null;
+    shipName: string;
+    departureDate: string | null;  // API가 departureDate로 반환
   } | null;
   submission: {
-    id: number; tripId: number | null; token: string;
-    tokenExpiresAt: string; isSubmitted: boolean;
-    submittedAt: string | null; createdAt: string; updatedAt: string;
+    id: number;
+    tripId: number | null;
+    tokenExpiresAt: string | null;
+    isSubmitted: boolean;
+    submittedAt: string | null;
+    createdAt: string;
+    updatedAt: string;
   } | null;
   lastRequest: {
-    id: number; status: string; messageChannel: string; sentAt: string;
+    id: number;
+    status: string;
+    messageChannel: string;
+    sentAt: string | null;
     admin: { id: number; name: string | null } | null;
   } | null;
   submissionStatus: 'submitted' | 'pending' | 'not_requested';
@@ -46,9 +54,14 @@ interface Template {
 }
 
 interface SendResultItem {
-  userId: number; success: boolean;
-  link?: string; token?: string; submissionId?: number;
-  message?: string; error?: string; messageId?: string | null;
+  userId: number;
+  success: boolean;
+  link?: string;
+  submissionId?: number;
+  message?: string;
+  error?: string;
+  messageId?: string | null;
+  noPhone?: boolean;
 }
 
 type StatusFilter = 'all' | 'submitted' | 'pending' | 'not_requested';
@@ -62,6 +75,14 @@ function hasValidPhone(phone: string | null): boolean {
   return digits.length >= 10;
 }
 
+function calcDday(departureDate: string | null): { label: string; urgent: boolean } | null {
+  if (!departureDate) return null;
+  const diff = Math.ceil((new Date(departureDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  if (diff < 0) return null;
+  if (diff === 0) return { label: 'D-day', urgent: true };
+  return { label: `D-${diff}`, urgent: diff <= 7 };
+}
+
 function CopyButton({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -69,11 +90,15 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
 
   return (
     <button
-      onClick={() => navigator.clipboard.writeText(text).then(() => {
-        setCopied(true);
-        if (timerRef.current) clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => setCopied(false), 2000);
-      })}
+      onClick={() =>
+        navigator.clipboard.writeText(text)
+          .then(() => {
+            setCopied(true);
+            if (timerRef.current) clearTimeout(timerRef.current);
+            timerRef.current = setTimeout(() => setCopied(false), 2000);
+          })
+          .catch(() => showError('클립보드에 복사하지 못했습니다.'))
+      }
       className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs text-gray-600 transition-colors shrink-0"
     >
       {copied ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
@@ -82,43 +107,111 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
   );
 }
 
+// ─── 발송 확인 모달 (50대 안전장치) ─────────────────────────────────
+
+function ConfirmSendModal({
+  selectedCount,
+  withPhoneCount,
+  withoutPhoneCount,
+  onConfirm,
+  onCancel,
+  sending,
+}: {
+  selectedCount: number;
+  withPhoneCount: number;
+  withoutPhoneCount: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+  sending: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={sending ? undefined : onCancel} />
+      <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-5">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+            <Send className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-gray-900">여권 요청 발송 확인</h2>
+            <p className="text-sm text-gray-500 mt-0.5">발송 후에는 취소할 수 없습니다</p>
+          </div>
+        </div>
+
+        <div className="bg-blue-50 rounded-xl p-4 space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">선택한 고객</span>
+            <span className="font-bold text-gray-900">{selectedCount}명</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600 flex items-center gap-1"><Phone className="w-3.5 h-3.5 text-green-500" />문자(SMS) 발송</span>
+            <span className="font-bold text-green-700">{withPhoneCount}명</span>
+          </div>
+          {withoutPhoneCount > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600 flex items-center gap-1"><PhoneOff className="w-3.5 h-3.5 text-amber-500" />링크만 생성 (직접 전달)</span>
+              <span className="font-bold text-amber-700">{withoutPhoneCount}명</span>
+            </div>
+          )}
+          <div className="flex justify-between text-sm border-t border-blue-100 pt-2">
+            <span className="text-gray-600">예상 비용 (SMS)</span>
+            <span className="font-bold text-gray-900">약 {(withPhoneCount * 20).toLocaleString()}원</span>
+          </div>
+        </div>
+
+        {withoutPhoneCount > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700">
+            📌 전화번호 없는 {withoutPhoneCount}명은 문자를 보내지 못합니다.<br />
+            발송 후 결과 화면에서 링크를 복사해 카카오톡으로 직접 전달하세요.
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <button onClick={onCancel} disabled={sending}
+            className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            취소
+          </button>
+          <button onClick={onConfirm} disabled={sending}
+            className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl disabled:opacity-50 flex items-center justify-center gap-2">
+            {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {sending ? '발송 중...' : '발송 시작'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── 메인 페이지 ──────────────────────────────────────────────────
 
 export default function PassportPage() {
-  // 데이터
   const [customers, setCustomers] = useState<PassportCustomer[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [productCodes, setProductCodes] = useState<{ code: string; cruiseName: string | null; customerCount: number }[]>([]);
   const [aligoBalance, setAligoBalance] = useState<number | null>(null);
 
-  // 로딩
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  // 필터
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [productFilter, setProductFilter] = useState('all');
-
-  // 선택
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-  // 발송 설정
   const [sendTarget, setSendTarget] = useState<SendTarget>('passport');
   const [templateId, setTemplateId] = useState<number | null>(null);
   const [expiresInHours, setExpiresInHours] = useState(72);
 
-  // 결과
   const [result, setResult] = useState<{
     ok: Array<{ userId: number; name: string | null; link: string; message: string; smsSent: boolean }>;
     noPhone: Array<{ userId: number; name: string | null; link: string; message: string }>;
     failed: Array<{ userId: number; name: string | null; error: string }>;
-    expiresAt: string;
+    expiresInHours: number;
   } | null>(null);
 
   const [refreshTick, setRefreshTick] = useState(0);
   const searchRef = useRef(search);
-  useEffect(() => { searchRef.current = search; }, [search]);
 
   // ── 데이터 로드 ─────────────────────────────────────────────────
 
@@ -126,15 +219,21 @@ export default function PassportPage() {
     setLoading(true);
     try {
       const p = new URLSearchParams();
-      if (search.trim()) p.set('search', search.trim());
+      if (searchRef.current.trim()) p.set('search', searchRef.current.trim());
       if (statusFilter !== 'all') p.set('status', statusFilter);
       if (productFilter !== 'all') p.set('productCode', productFilter);
       const res = await fetch(`/api/passport/admin/customers?${p}`, { credentials: 'include' });
       const data = await res.json();
-      if (data.ok && Array.isArray(data.data)) setCustomers(data.data);
+      if (data.ok && Array.isArray(data.data)) {
+        setCustomers(data.data);
+        setSelectedIds(prev => {
+          const ids = new Set(data.data.map((c: PassportCustomer) => c.id));
+          return new Set([...prev].filter(id => ids.has(id)));
+        });
+      }
     } catch { showError('고객 목록을 불러오지 못했습니다.'); }
     finally { setLoading(false); }
-  }, [search, statusFilter, productFilter]);
+  }, [statusFilter, productFilter]);
 
   const loadTemplates = useCallback(async () => {
     try {
@@ -151,13 +250,9 @@ export default function PassportPage() {
   useEffect(() => {
     loadTemplates();
     fetch('/api/passport/admin/aligo-status', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => { if (d.ok) setAligoBalance(d.balance); })
-      .catch(() => {});
+      .then(r => r.json()).then(d => { if (d.ok) setAligoBalance(d.balance); }).catch(() => {});
     fetch('/api/passport/admin/product-codes', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => { if (d.ok) setProductCodes(d.productCodes ?? []); })
-      .catch(() => {});
+      .then(r => r.json()).then(d => { if (d.ok) setProductCodes(d.productCodes ?? []); }).catch(() => {});
   }, [loadTemplates]);
 
   useEffect(() => {
@@ -165,7 +260,7 @@ export default function PassportPage() {
     return () => clearTimeout(t);
   }, [loadCustomers, refreshTick]);
 
-  // ── 파생 데이터 ─────────────────────────────────────────────────
+  // ── 파생값 ──────────────────────────────────────────────────────
 
   const stats = useMemo(() => {
     let submitted = 0, pending = 0, notRequested = 0;
@@ -181,32 +276,57 @@ export default function PassportPage() {
     () => customers.filter(c => selectedIds.has(c.id)),
     [customers, selectedIds],
   );
-
-  const withPhone = useMemo(() => selectedCustomers.filter(c => hasValidPhone(c.phone)), [selectedCustomers]);
-  const withoutPhone = useMemo(() => selectedCustomers.filter(c => !hasValidPhone(c.phone)), [selectedCustomers]);
+  // 미제출 고객만 선택 가능 (submitted 제외)
+  const selectableCustomers = useMemo(
+    () => customers.filter(c => c.submissionStatus !== 'submitted'),
+    [customers],
+  );
+  // 전화번호 유무는 API hasPhone 필드 기준 (마스킹된 phone 문자열이 아님)
+  const withPhone = useMemo(() => selectedCustomers.filter(c => c.hasPhone), [selectedCustomers]);
+  const withoutPhone = useMemo(() => selectedCustomers.filter(c => !c.hasPhone), [selectedCustomers]);
 
   const selectedTemplate = useMemo(
     () => templates.find(t => t.id === templateId) ?? templates.find(t => t.isDefault) ?? templates[0] ?? null,
     [templates, templateId],
   );
 
-  // ── 선택 액션 ───────────────────────────────────────────────────
+  // 발송 버튼 문구 (상황별)
+  const sendBtnLabel = useMemo(() => {
+    if (selectedIds.size === 0) return '고객을 먼저 선택하세요';
+    if (withPhone.length === 0) return `여권 링크 생성 (${selectedIds.size}명) — 직접 전달 필요`;
+    if (withoutPhone.length === 0) return `여권 요청 문자 발송 (${selectedIds.size}명)`;
+    return `여권 요청 발송 — 문자 ${withPhone.length}명 · 링크만 ${withoutPhone.length}명`;
+  }, [selectedIds.size, withPhone.length, withoutPhone.length]);
+
+  // 출발 7일 이내 미제출 긴급 고객 수
+  const urgentCount = useMemo(() =>
+    customers.filter(c => {
+      if (c.submissionStatus === 'submitted') return false;
+      const d = calcDday(c.latestTrip?.departureDate ?? null);
+      return d !== null && d.urgent;
+    }).length,
+  [customers]);
+
+  // ── 선택 ────────────────────────────────────────────────────────
 
   const toggle = (id: number) => setSelectedIds(prev => {
+    if (customers.find(c => c.id === id)?.submissionStatus === 'submitted') return prev;
     const next = new Set(prev);
     next.has(id) ? next.delete(id) : next.add(id);
     return next;
   });
 
-  const toggleAll = () => setSelectedIds(prev =>
-    prev.size === customers.length ? new Set() : new Set(customers.map(c => c.id))
-  );
+  // submitted 고객 제외, 미제출 고객만 전체 선택
+  const toggleAll = () => setSelectedIds(() => {
+    const allSelected = selectableCustomers.length > 0 &&
+      selectableCustomers.every(c => selectedIds.has(c.id));
+    return allSelected ? new Set() : new Set(selectableCustomers.map(c => c.id));
+  });
 
   // ── 발송 ────────────────────────────────────────────────────────
 
-  const handleSend = async () => {
-    if (selectedIds.size === 0) { showError('발송할 고객을 선택하세요.'); return; }
-
+  const doSend = async () => {
+    setShowConfirm(false);
     setSending(true);
     setResult(null);
     try {
@@ -225,38 +345,38 @@ export default function PassportPage() {
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.message || '발송 실패');
 
-      const items: SendResultItem[] = data.results ?? [];
-      const expiresAt = new Date(Date.now() + expiresInHours * 3600_000).toISOString();
+      const items: (SendResultItem & { noPhone?: boolean })[] = data.results ?? [];
 
-      const ok: typeof result['ok'] = [];
-      const noPhone: typeof result['noPhone'] = [];
-      const failed: typeof result['failed'] = [];
+      const ok: NonNullable<typeof result>['ok'] = [];
+      const noPhone: NonNullable<typeof result>['noPhone'] = [];
+      const failed: NonNullable<typeof result>['failed'] = [];
 
       for (const item of items) {
         const c = customers.find(x => x.id === item.userId);
         const name = c?.name ?? null;
 
-        if (item.link && item.error?.includes('전화번호 없음')) {
+        if (item.link && item.noPhone) {
+          // 명시적 플래그: 전화번호 없음 → 링크만 생성됨
           noPhone.push({ userId: item.userId, name, link: item.link, message: item.message ?? '' });
         } else if (item.link && item.success) {
           ok.push({ userId: item.userId, name, link: item.link, message: item.message ?? '', smsSent: true });
         } else if (item.link && !item.success) {
-          // SMS 실패했지만 링크는 생성됨
+          // SMS 실패했지만 링크는 있음
           ok.push({ userId: item.userId, name, link: item.link, message: item.message ?? '', smsSent: false });
         } else {
           failed.push({ userId: item.userId, name, error: item.error ?? '알 수 없는 오류' });
         }
       }
 
-      setResult({ ok, noPhone, failed, expiresAt });
+      setResult({ ok, noPhone, failed, expiresInHours });
       setRefreshTick(t => t + 1);
 
       const smsSent = ok.filter(x => x.smsSent).length;
       const linkOnly = noPhone.length + ok.filter(x => !x.smsSent).length;
       if (failed.length === 0) {
-        showSuccess(`완료: SMS ${smsSent}명 발송, 링크만 생성 ${linkOnly}명`);
+        showSuccess(`완료: 문자 ${smsSent}명 발송, 링크만 생성 ${linkOnly}명`);
       } else {
-        showSuccess(`완료: ${smsSent}명 SMS, ${linkOnly}명 링크 생성 (${failed.length}명 실패)`);
+        showSuccess(`완료: ${smsSent}명 문자, ${linkOnly}명 링크 생성 (${failed.length}명 실패)`);
       }
     } catch (e) {
       showError(e instanceof Error ? e.message : '발송 중 오류가 발생했습니다.');
@@ -274,15 +394,14 @@ export default function PassportPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900">여권 요청 관리</h1>
-          <p className="text-sm text-gray-500 mt-0.5">고객에게 여권 제출 링크를 발송합니다</p>
+          <p className="text-sm text-gray-500 mt-0.5">고객에게 여권 제출 링크를 문자로 보냅니다</p>
         </div>
         <div className="flex items-center gap-2">
           {aligoBalance !== null && (
             <span className={`text-xs px-3 py-1.5 rounded-full font-medium ${
               aligoBalance <= 5000 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
             }`}>
-              알리고 {aligoBalance.toLocaleString()}원
-              {aligoBalance <= 5000 && ' ⚠ 저잔액'}
+              문자 잔액: {aligoBalance.toLocaleString()}원{aligoBalance <= 5000 ? ' ⚠ 충전 필요' : ''}
             </span>
           )}
           <button
@@ -295,56 +414,130 @@ export default function PassportPage() {
         </div>
       </div>
 
-      {/* 통계 */}
-      <div className="grid grid-cols-4 gap-3">
-        {[
-          { label: '제출 완료', value: stats.submitted, color: 'green', icon: CheckCircle },
-          { label: '발송 대기', value: stats.pending, color: 'amber', icon: AlertCircle },
-          { label: '미발송', value: stats.notRequested, color: 'gray', icon: FileText },
-          { label: '전체', value: stats.total, color: 'blue', icon: UserCheck },
-        ].map(({ label, value, color, icon: Icon }) => (
-          <div key={label} className={`bg-${color}-50 border border-${color}-200 rounded-xl p-3`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`text-xs font-medium text-${color}-600`}>{label}</p>
-                <p className={`text-2xl font-bold text-${color}-900 mt-0.5`}>{value}</p>
-              </div>
-              <Icon className={`w-7 h-7 text-${color}-400`} />
-            </div>
+      {/* 긴급 처리 배너 */}
+      {urgentCount > 0 && (
+        <div className="bg-red-50 border border-red-300 rounded-xl px-4 py-3 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-red-800">🚨 출발 7일 이내 미제출 {urgentCount}명</p>
+            <p className="text-xs text-red-600">지금 바로 연락해야 합니다 — 여권 미제출 시 탑승 불가</p>
           </div>
-        ))}
+          <button
+            onClick={() => setStatusFilter('pending')}
+            className="px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg shrink-0 hover:bg-red-700"
+          >
+            바로 보기
+          </button>
+        </div>
+      )}
+
+      {/* 3단계 안내 (50대 기준) */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+        <div className="flex items-center gap-1 text-xs text-blue-600 font-medium mb-2">
+          <Info className="w-3.5 h-3.5" /> 사용 방법
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">1</span>
+            <span className="text-sm text-blue-800">왼쪽 목록에서 고객 체크박스 선택</span>
+          </div>
+          <ArrowRight className="w-4 h-4 text-blue-300 shrink-0 hidden sm:block" />
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">2</span>
+            <span className="text-sm text-blue-800">오른쪽에서 발송 방식 선택</span>
+          </div>
+          <ArrowRight className="w-4 h-4 text-blue-300 shrink-0 hidden sm:block" />
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">3</span>
+            <span className="text-sm text-blue-800">발송 버튼 클릭</span>
+          </div>
+        </div>
       </div>
 
+      {/* 통계 — Tailwind 클래스 하드코딩 (동적 클래스는 Vercel 빌드에서 사라짐) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <button
+          onClick={() => setStatusFilter(f => f === 'submitted' ? 'all' : 'submitted')}
+          className={`bg-green-50 border-2 rounded-xl p-3 text-left transition-all ${
+            statusFilter === 'submitted' ? 'border-green-500 shadow-md' : 'border-green-200 hover:border-green-400'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-green-600">제출 완료</p>
+              <p className="text-2xl font-bold text-green-900 mt-0.5">{stats.submitted}</p>
+            </div>
+            <CheckCircle className="w-7 h-7 text-green-400" />
+          </div>
+        </button>
+        <button
+          onClick={() => setStatusFilter(f => f === 'pending' ? 'all' : 'pending')}
+          className={`bg-amber-50 border-2 rounded-xl p-3 text-left transition-all ${
+            statusFilter === 'pending' ? 'border-amber-500 shadow-md' : 'border-amber-200 hover:border-amber-400'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-amber-600">요청 전송됨 (미제출)</p>
+              <p className="text-2xl font-bold text-amber-900 mt-0.5">{stats.pending}</p>
+            </div>
+            <AlertCircle className="w-7 h-7 text-amber-400" />
+          </div>
+        </button>
+        <button
+          onClick={() => setStatusFilter(f => f === 'not_requested' ? 'all' : 'not_requested')}
+          className={`bg-gray-50 border-2 rounded-xl p-3 text-left transition-all ${
+            statusFilter === 'not_requested' ? 'border-gray-500 shadow-md' : 'border-gray-200 hover:border-gray-400'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-gray-600">아직 요청 안 함</p>
+              <p className="text-2xl font-bold text-gray-900 mt-0.5">{stats.notRequested}</p>
+            </div>
+            <FileText className="w-7 h-7 text-gray-400" />
+          </div>
+        </button>
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-blue-600">전체 고객</p>
+              <p className="text-2xl font-bold text-blue-900 mt-0.5">{stats.total}</p>
+            </div>
+            <UserCheck className="w-7 h-7 text-blue-400" />
+          </div>
+        </div>
+      </div>
+      {statusFilter !== 'all' && (
+        <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+          <span>필터 적용 중: <strong>{{submitted:'제출 완료',pending:'요청 전송됨',not_requested:'아직 요청 안 함'}[statusFilter]}</strong></span>
+          <button onClick={() => setStatusFilter('all')} className="ml-auto flex items-center gap-1 hover:text-blue-900">
+            <X className="w-3.5 h-3.5" /> 필터 해제
+          </button>
+        </div>
+      )}
+
       {/* 메인 2컬럼 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
 
         {/* 왼쪽: 고객 목록 */}
         <div className="lg:col-span-2 space-y-3">
-
-          {/* 필터 */}
+          {/* 검색/필터 */}
           <div className="bg-white border border-gray-200 rounded-xl p-3 flex flex-wrap gap-2">
             <div className="flex-1 min-w-[140px] flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
               <Search className="w-3.5 h-3.5 text-gray-400 shrink-0" />
               <input
                 value={search}
                 onChange={e => { searchRef.current = e.target.value; setSearch(e.target.value); }}
-                placeholder="이름·전화번호·이메일"
+                placeholder="이름·전화번호·이메일 검색"
                 className="bg-transparent text-sm flex-1 focus:outline-none"
               />
-              {search && <button onClick={() => { searchRef.current = ''; setSearch(''); }} className="text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>}
+              {search && (
+                <button onClick={() => { searchRef.current = ''; setSearch(''); setRefreshTick(t => t + 1); }} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-
-            <select
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value as StatusFilter)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
-            >
-              <option value="all">전체 상태</option>
-              <option value="submitted">제출 완료</option>
-              <option value="pending">발송 대기</option>
-              <option value="not_requested">미발송</option>
-            </select>
-
             <select
               value={productFilter}
               onChange={e => setProductFilter(e.target.value)}
@@ -357,14 +550,12 @@ export default function PassportPage() {
                 </option>
               ))}
             </select>
-
             {selectedIds.size > 0 && (
               <button
                 onClick={() => setSelectedIds(new Set())}
                 className="flex items-center gap-1 px-3 py-2 text-sm rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100"
               >
-                <X className="w-3.5 h-3.5" />
-                선택 해제 ({selectedIds.size})
+                <X className="w-3.5 h-3.5" /> 선택 해제 ({selectedIds.size})
               </button>
             )}
           </div>
@@ -375,13 +566,18 @@ export default function PassportPage() {
               <label className="flex items-center gap-2 text-xs font-medium text-gray-600 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={customers.length > 0 && selectedIds.size === customers.length}
+                  checked={selectableCustomers.length > 0 && selectableCustomers.every(c => selectedIds.has(c.id))}
                   onChange={toggleAll}
                   className="w-4 h-4 rounded"
                 />
-                전체 선택 ({customers.length}명)
+                미제출 전체 선택 ({selectableCustomers.length}명)
+                {stats.submitted > 0 && (
+                  <span className="text-green-600 font-normal">· 제출완료 {stats.submitted}명 제외</span>
+                )}
               </label>
-              <span className="text-xs text-gray-400">선택: {selectedIds.size}명</span>
+              <span className="text-xs text-gray-400">
+                {selectedIds.size > 0 ? `✓ ${selectedIds.size}명 선택됨` : '체크박스로 선택하세요'}
+              </span>
             </div>
 
             {loading ? (
@@ -392,9 +588,14 @@ export default function PassportPage() {
               <div className="py-12 text-center text-gray-400">
                 <UserCheck className="w-10 h-10 mx-auto mb-2 text-gray-300" />
                 <p className="text-sm">표시할 고객이 없습니다</p>
+                {statusFilter !== 'all' && (
+                  <button onClick={() => setStatusFilter('all')} className="mt-2 text-xs text-blue-600 hover:underline">
+                    필터 해제하기
+                  </button>
+                )}
               </div>
             ) : (
-              <ul className="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto">
+              <ul className="divide-y divide-gray-100 max-h-[55vh] overflow-y-auto">
                 {customers.map(c => (
                   <CustomerRow
                     key={c.id}
@@ -409,65 +610,76 @@ export default function PassportPage() {
         </div>
 
         {/* 오른쪽: 발송 패널 */}
-        <div className="space-y-3">
+        <div className="space-y-3 relative">
+
+          {/* 선택 안 된 경우 안내 오버레이 */}
+          {selectedIds.size === 0 && (
+            <div className="absolute inset-0 bg-white/90 rounded-xl z-10 flex flex-col items-center justify-center gap-3 border-2 border-dashed border-blue-200">
+              <div className="text-4xl">←</div>
+              <p className="text-sm font-medium text-blue-700 text-center px-4">
+                왼쪽 목록에서<br />고객을 먼저 선택하세요
+              </p>
+              <p className="text-xs text-gray-400 text-center px-4">체크박스를 클릭하면<br />발송 설정이 나타납니다</p>
+            </div>
+          )}
 
           {/* 선택 요약 */}
           <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-            <p className="text-sm font-semibold text-gray-700">발송 대상</p>
-            <div className="flex gap-2">
-              <div className="flex-1 bg-blue-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-blue-700">{selectedIds.size}</p>
-                <p className="text-xs text-blue-500">선택</p>
+            <p className="text-sm font-semibold text-gray-700">선택한 고객 요약</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-blue-50 rounded-lg p-2.5 text-center">
+                <p className="text-xl font-bold text-blue-700">{selectedIds.size}</p>
+                <p className="text-xs text-blue-500 mt-0.5">선택</p>
               </div>
-              <div className="flex-1 bg-green-50 rounded-lg p-3 text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <Phone className="w-3.5 h-3.5 text-green-600" />
-                  <p className="text-2xl font-bold text-green-700">{withPhone.length}</p>
-                </div>
-                <p className="text-xs text-green-500">SMS 가능</p>
+              <div className="bg-green-50 rounded-lg p-2.5 text-center">
+                <p className="text-xl font-bold text-green-700">{withPhone.length}</p>
+                <p className="text-xs text-green-500 mt-0.5">📱 문자 가능</p>
               </div>
-              {withoutPhone.length > 0 && (
-                <div className="flex-1 bg-amber-50 rounded-lg p-3 text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <PhoneOff className="w-3.5 h-3.5 text-amber-600" />
-                    <p className="text-2xl font-bold text-amber-700">{withoutPhone.length}</p>
-                  </div>
-                  <p className="text-xs text-amber-500">링크만</p>
-                </div>
-              )}
+              <div className="bg-amber-50 rounded-lg p-2.5 text-center">
+                <p className="text-xl font-bold text-amber-700">{withoutPhone.length}</p>
+                <p className="text-xs text-amber-500 mt-0.5">🔗 링크만</p>
+              </div>
             </div>
             {withoutPhone.length > 0 && (
-              <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
-                전화번호 없는 {withoutPhone.length}명은 링크만 생성됩니다. 직접 전달이 필요합니다.
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                전화번호 없는 {withoutPhone.length}명은 문자를 보내지 못합니다.<br />
+                발송 후 링크를 복사해 카카오톡으로 직접 보내세요.
               </p>
             )}
           </div>
 
-          {/* 발송 유형 */}
+          {/* 발송 대상 */}
           <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-            <p className="text-sm font-semibold text-gray-700">발송 유형</p>
-            <div className="flex gap-2">
-              {(['passport', 'pnr'] as const).map(t => (
-                <button
-                  key={t}
-                  onClick={() => setSendTarget(t)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${
-                    sendTarget === t ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  {t === 'passport' ? '여권 제출' : 'PNR 입력'}
-                </button>
-              ))}
+            <p className="text-sm font-semibold text-gray-700">무엇을 요청하시나요?</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setSendTarget('passport')}
+                className={`py-2.5 rounded-xl text-sm font-medium border-2 transition-all ${
+                  sendTarget === 'passport'
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                }`}
+              >
+                🛂 여권 정보 제출
+              </button>
+              <button
+                onClick={() => setSendTarget('pnr')}
+                className={`py-2.5 rounded-xl text-sm font-medium border-2 transition-all ${
+                  sendTarget === 'pnr'
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                }`}
+              >
+                ✈️ 항공 정보 입력
+              </button>
             </div>
           </div>
 
-          {/* 템플릿 */}
+          {/* 메시지 템플릿 */}
           {sendTarget === 'passport' && (
             <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-              <p className="text-sm font-semibold text-gray-700">메시지 템플릿</p>
-              {templates.length === 0 ? (
-                <p className="text-xs text-gray-400">기본 템플릿을 사용합니다</p>
-              ) : (
+              <p className="text-sm font-semibold text-gray-700">메시지 내용</p>
+              {templates.length > 0 && (
                 <select
                   value={templateId ?? ''}
                   onChange={e => setTemplateId(e.target.value ? Number(e.target.value) : null)}
@@ -480,15 +692,15 @@ export default function PassportPage() {
                   ))}
                 </select>
               )}
-              {selectedTemplate && (
+              {selectedTemplate && selectedCustomers.length > 0 && (
                 <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-400 mb-1">미리보기</p>
-                  <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
+                  <p className="text-xs text-gray-400 mb-1.5">📱 미리보기 (첫 번째 선택 고객 기준)</p>
+                  <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed bg-white border border-gray-100 rounded p-2">
                     {fillTemplate(selectedTemplate.body, {
                       고객명: selectedCustomers[0]?.name ? `${selectedCustomers[0].name}님` : '고객님',
-                      링크: 'https://example.com/p/xxxxx',
+                      링크: 'https://크루즈닷.com/p/xxxxx',
                       상품명: selectedCustomers[0]?.latestTrip?.cruiseName ?? '크루즈 여행',
-                      출발일: selectedCustomers[0]?.latestTrip?.startDate?.split('T')[0] ?? '2026-01-01',
+                      출발일: selectedCustomers[0]?.latestTrip?.departureDate?.split('T')[0] ?? '',
                     })}
                   </p>
                 </div>
@@ -496,42 +708,52 @@ export default function PassportPage() {
             </div>
           )}
 
-          {/* 만료 기간 */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+          {/* 링크 유효기간 */}
+          <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-gray-700">링크 유효 기간</p>
-              <span className="text-sm font-medium text-blue-600">{expiresInHours}시간</span>
+              <span className="text-sm font-bold text-blue-600">{expiresInHours}시간</span>
             </div>
             <input
               type="range" min={24} max={168} step={24}
               value={expiresInHours}
               onChange={e => setExpiresInHours(Number(e.target.value))}
-              className="w-full"
+              className="w-full accent-blue-600"
             />
             <div className="flex justify-between text-xs text-gray-400">
-              <span>24시간</span><span>72시간</span><span>1주일</span>
+              <span>1일</span><span>3일 (권장)</span><span>1주일</span>
             </div>
           </div>
 
           {/* 발송 버튼 */}
           <button
-            onClick={handleSend}
+            onClick={() => {
+              if (selectedIds.size === 0) { showError('고객을 먼저 선택하세요.'); return; }
+              setShowConfirm(true);
+            }}
             disabled={sending || selectedIds.size === 0}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-2 transition-colors"
+            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 transition-colors shadow-sm"
           >
-            {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {sending ? '발송 중...' : `링크 생성 + SMS 발송 (${selectedIds.size}명)`}
+            <Send className="w-4 h-4" />
+            {sendBtnLabel}
           </button>
-          {selectedIds.size > 0 && withPhone.length < selectedIds.size && (
-            <p className="text-xs text-center text-amber-600">
-              * 전화번호 없는 {withoutPhone.length}명은 링크만 생성 → 직접 전달 필요
-            </p>
-          )}
         </div>
       </div>
 
-      {/* 결과 */}
+      {/* 결과 패널 */}
       {result && <ResultPanel result={result} onClose={() => setResult(null)} />}
+
+      {/* 발송 확인 모달 */}
+      {showConfirm && (
+        <ConfirmSendModal
+          selectedCount={selectedIds.size}
+          withPhoneCount={withPhone.length}
+          withoutPhoneCount={withoutPhone.length}
+          onConfirm={doSend}
+          onCancel={() => setShowConfirm(false)}
+          sending={sending}
+        />
+      )}
     </div>
   );
 }
@@ -546,67 +768,91 @@ function CustomerRow({
   onToggle: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const hasPhone = hasValidPhone(c.phone);
+  const hasPhone = c.hasPhone;
+  const isSubmitted = c.submissionStatus === 'submitted';
+  const dday = calcDday(c.latestTrip?.departureDate ?? null);
 
-  const statusColor = {
-    submitted: 'bg-green-100 text-green-700',
-    pending: 'bg-amber-100 text-amber-700',
-    not_requested: 'bg-gray-100 text-gray-500',
+  const statusBadge = {
+    submitted: { cls: 'bg-green-100 text-green-700', label: '✓ 제출 완료' },
+    pending: { cls: 'bg-amber-100 text-amber-700', label: '⏳ 요청 전송됨' },
+    not_requested: { cls: 'bg-gray-100 text-gray-500', label: '— 아직 요청 안 함' },
   }[c.submissionStatus];
 
-  const statusLabel = {
-    submitted: '제출 완료',
-    pending: '발송됨',
-    not_requested: '미발송',
-  }[c.submissionStatus];
+  const lastSentDate = c.lastRequest?.sentAt
+    ? new Date(c.lastRequest.sentAt).toLocaleDateString('ko-KR')
+    : null;
 
   return (
-    <li className={`transition-colors ${selected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+    <li className={`transition-colors ${selected ? 'bg-blue-50' : isSubmitted ? 'bg-green-50/30' : 'hover:bg-gray-50'}`}>
       <div className="flex items-center gap-3 px-4 py-3">
         <input
-          type="checkbox" checked={selected} onChange={onToggle}
-          className="w-4 h-4 rounded shrink-0"
+          type="checkbox" checked={selected} onChange={isSubmitted ? undefined : onToggle}
+          disabled={isSubmitted}
+          title={isSubmitted ? '이미 여권을 제출한 고객입니다' : undefined}
+          className={`w-4 h-4 rounded border-gray-300 shrink-0 ${isSubmitted ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-gray-900 truncate">
-              {c.name ?? '이름 없음'}
+            <span className="text-sm font-semibold text-gray-900">{c.name ?? '이름 없음'}</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge.cls}`}>
+              {statusBadge.label}
             </span>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor}`}>
-              {statusLabel}
-            </span>
-            {hasPhone
-              ? <span className="flex items-center gap-0.5 text-xs text-green-600"><Phone className="w-3 h-3" />{c.phone}</span>
-              : <span className="flex items-center gap-0.5 text-xs text-red-400"><PhoneOff className="w-3 h-3" />전화번호 없음</span>
-            }
+            {dday && !isSubmitted && (
+              <span className={`text-xs px-1.5 py-0.5 rounded font-bold ${
+                dday.urgent ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-gray-100 text-gray-500'
+              }`}>
+                {dday.label}
+              </span>
+            )}
           </div>
-          {c.latestTrip?.cruiseName && (
-            <p className="text-xs text-gray-400 mt-0.5">
-              {c.latestTrip.cruiseName}
-              {c.latestTrip.startDate && ` · ${c.latestTrip.startDate.split('T')[0]}`}
-            </p>
-          )}
+          <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+            {hasPhone ? (
+              <span className="flex items-center gap-1 text-xs text-gray-500">
+                <Phone className="w-3 h-3 text-green-500" />
+                {c.phone}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-xs text-red-400 font-medium">
+                <PhoneOff className="w-3 h-3" />
+                전화번호 없음 (링크만 생성됩니다)
+              </span>
+            )}
+            {c.latestTrip?.cruiseName && (
+              <span className="text-xs text-gray-400 truncate">
+                {c.latestTrip.cruiseName}
+                {c.latestTrip.departureDate && ` · ${c.latestTrip.departureDate.split('T')[0]}`}
+              </span>
+            )}
+            {lastSentDate && c.submissionStatus === 'pending' && (
+              <span className="text-xs text-amber-600">{lastSentDate} 발송됨</span>
+            )}
+          </div>
         </div>
         <button
           onClick={() => setOpen(v => !v)}
-          className="p-1 text-gray-400 hover:text-gray-600 shrink-0"
+          title="상세 정보 보기"
+          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 shrink-0"
         >
           {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </button>
       </div>
 
       {open && (
-        <div className="px-4 pb-3 pl-11 space-y-1.5">
+        <div className="px-4 pb-3 pl-11 space-y-1 bg-gray-50 border-t border-gray-100">
           {c.email && <p className="text-xs text-gray-500">이메일: {c.email}</p>}
           {c.submission?.isSubmitted && c.submission.submittedAt && (
             <p className="text-xs text-green-600">
-              ✓ 제출됨: {new Date(c.submission.submittedAt).toLocaleDateString('ko-KR')}
+              ✓ 여권 제출 완료: {new Date(c.submission.submittedAt).toLocaleDateString('ko-KR')}
             </p>
           )}
           {c.lastRequest && (
             <p className="text-xs text-gray-400">
-              마지막 발송: {new Date(c.lastRequest.sentAt).toLocaleDateString('ko-KR')} ({c.lastRequest.messageChannel})
+              마지막 발송: {lastSentDate} ({c.lastRequest.messageChannel})
+              {c.lastRequest.status === 'FAILED' && <span className="text-red-400 ml-1">— 발송 실패</span>}
             </p>
+          )}
+          {!c.latestTrip && (
+            <p className="text-xs text-gray-400">여행 정보 없음</p>
           )}
         </div>
       )}
@@ -624,71 +870,98 @@ function ResultPanel({
     ok: Array<{ userId: number; name: string | null; link: string; message: string; smsSent: boolean }>;
     noPhone: Array<{ userId: number; name: string | null; link: string; message: string }>;
     failed: Array<{ userId: number; name: string | null; error: string }>;
-    expiresAt: string;
+    expiresInHours: number;
   };
   onClose: () => void;
 }) {
-  const expiresStr = new Date(result.expiresAt).toLocaleString('ko-KR');
   const smsSent = result.ok.filter(x => x.smsSent).length;
-  const linkOnly = result.noPhone.length + result.ok.filter(x => !x.smsSent).length;
+  const smsFailed = result.ok.filter(x => !x.smsSent).length;
+  const totalIssues = result.noPhone.length + smsFailed + result.failed.length;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
       <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
         <div>
-          <p className="text-sm font-semibold text-gray-900">발송 결과</p>
+          <p className="text-sm font-bold text-gray-900">📋 발송 결과</p>
           <p className="text-xs text-gray-500 mt-0.5">
-            SMS {smsSent}명 발송 · 링크만 {linkOnly}명 · 실패 {result.failed.length}명 · 만료 {expiresStr}
+            문자 발송 {smsSent}명 · 링크만 생성 {result.noPhone.length + smsFailed}명 · 실패 {result.failed.length}명 ·
+            링크 유효기간 {result.expiresInHours}시간
           </p>
         </div>
-        <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600">
+        <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
           <X className="w-4 h-4" />
         </button>
       </div>
 
       <div className="p-4 space-y-4 max-h-96 overflow-y-auto">
 
-        {/* SMS 발송 성공 */}
+        {/* 다음 할 일 안내 */}
+        {totalIssues > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 space-y-1">
+            <p className="text-sm font-bold text-blue-800">📌 지금 해야 할 일</p>
+            {result.noPhone.length > 0 && (
+              <p className="text-xs text-blue-700">
+                ① 아래 "{result.noPhone.length}명" 항목에서 링크를 복사해 카카오톡으로 직접 보내세요
+              </p>
+            )}
+            {smsFailed > 0 && (
+              <p className="text-xs text-blue-700">
+                ② 문자 발송에 실패한 {smsFailed}명도 링크를 복사해 직접 전달하세요
+              </p>
+            )}
+            <p className="text-xs text-blue-600 mt-1">
+              ✓ 고객이 링크를 클릭해 여권을 제출하면 상태가 자동으로 "제출 완료"로 바뀝니다
+            </p>
+          </div>
+        )}
+        {totalIssues === 0 && (
+          <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+            <p className="text-sm font-bold text-green-800">✅ 모두 정상 발송됐습니다</p>
+            <p className="text-xs text-green-700 mt-1">
+              고객이 링크를 클릭해 여권을 제출하면 상태가 자동으로 "제출 완료"로 바뀝니다
+            </p>
+          </div>
+        )}
+
+        {/* 문자 발송 성공 */}
         {result.ok.filter(x => x.smsSent).length > 0 && (
           <ResultSection
-            title={`SMS 발송 완료 (${result.ok.filter(x => x.smsSent).length}명)`}
-            color="green"
-            items={result.ok.filter(x => x.smsSent).map(x => ({ name: x.name, link: x.link, message: x.message }))}
+            title={`📱 문자(SMS) 발송 완료 — ${result.ok.filter(x => x.smsSent).length}명`}
+            bgClass="bg-green-50 border-green-200"
+            titleClass="text-green-800"
+            items={result.ok.filter(x => x.smsSent)}
           />
         )}
 
-        {/* 링크만 생성 (전화번호 없음) */}
+        {/* 문자 실패 (링크는 있음) */}
+        {smsFailed > 0 && (
+          <ResultSection
+            title={`⚠️ 문자 실패 — ${smsFailed}명 (링크 복사 후 직접 전달하세요)`}
+            bgClass="bg-orange-50 border-orange-200"
+            titleClass="text-orange-800"
+            items={result.ok.filter(x => !x.smsSent)}
+          />
+        )}
+
+        {/* 전화번호 없음 */}
         {result.noPhone.length > 0 && (
           <ResultSection
-            title={`링크만 생성 — 직접 전달 필요 (${result.noPhone.length}명)`}
-            color="amber"
-            items={result.noPhone.map(x => ({ name: x.name, link: x.link, message: x.message }))}
-            warning="전화번호가 없어 SMS를 보내지 못했습니다. 아래 링크를 복사해 직접 전달하세요."
-          />
-        )}
-
-        {/* SMS 실패 (링크는 있음) */}
-        {result.ok.filter(x => !x.smsSent).length > 0 && (
-          <ResultSection
-            title={`SMS 실패 — 링크 복사 필요 (${result.ok.filter(x => !x.smsSent).length}명)`}
-            color="orange"
-            items={result.ok.filter(x => !x.smsSent).map(x => ({ name: x.name, link: x.link, message: x.message }))}
-            warning="SMS 발송에 실패했지만 링크는 생성되었습니다."
+            title={`📵 전화번호 없음 — ${result.noPhone.length}명 (링크 복사 후 카카오톡으로 보내세요)`}
+            bgClass="bg-amber-50 border-amber-200"
+            titleClass="text-amber-800"
+            items={result.noPhone}
           />
         )}
 
         {/* 완전 실패 */}
         {result.failed.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-red-600 mb-2 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" />
-              실패 ({result.failed.length}명)
-            </p>
-            <div className="space-y-1">
+            <p className="text-sm font-bold text-red-700 mb-2">❌ 처리 실패 — {result.failed.length}명</p>
+            <div className="space-y-1.5">
               {result.failed.map(f => (
-                <div key={f.userId} className="flex items-center justify-between bg-red-50 rounded-lg px-3 py-2">
-                  <span className="text-sm text-gray-900">{f.name ?? `ID:${f.userId}`}</span>
-                  <span className="text-xs text-red-600">{f.error}</span>
+                <div key={f.userId} className="flex items-center justify-between bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                  <span className="text-sm text-gray-900 font-medium">{f.name ?? `고객 ID:${f.userId}`}</span>
+                  <span className="text-xs text-red-600 ml-2">{f.error}</span>
                 </div>
               ))}
             </div>
@@ -700,38 +973,26 @@ function ResultPanel({
 }
 
 function ResultSection({
-  title, color, items, warning,
+  title, bgClass, titleClass, items,
 }: {
   title: string;
-  color: 'green' | 'amber' | 'orange';
-  items: Array<{ name: string | null; link: string; message: string }>;
-  warning?: string;
+  bgClass: string;
+  titleClass: string;
+  items: Array<{ userId: number; name: string | null; link: string; message: string }>;
 }) {
-  const colorMap = {
-    green: { badge: 'text-green-700', bg: 'bg-green-50', row: 'bg-green-50 border-green-100' },
-    amber: { badge: 'text-amber-700', bg: 'bg-amber-50', row: 'bg-amber-50 border-amber-100' },
-    orange: { badge: 'text-orange-700', bg: 'bg-orange-50', row: 'bg-orange-50 border-orange-100' },
-  }[color];
-
   return (
     <div>
-      <p className={`text-xs font-semibold ${colorMap.badge} mb-2 flex items-center gap-1`}>
-        <CheckCircle className="w-3.5 h-3.5" />
-        {title}
-      </p>
-      {warning && (
-        <p className={`text-xs ${colorMap.badge} ${colorMap.bg} rounded-lg px-3 py-2 mb-2`}>{warning}</p>
-      )}
+      <p className={`text-sm font-bold ${titleClass} mb-2`}>{title}</p>
       <div className="space-y-2">
-        {items.map((item, i) => (
-          <div key={i} className={`border rounded-lg p-3 space-y-2 ${colorMap.row}`}>
+        {items.map(item => (
+          <div key={item.userId} className={`border rounded-xl p-3 space-y-2 ${bgClass}`}>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium text-gray-900">{item.name ?? `고객 ${i + 1}`}</span>
+              <span className="text-sm font-semibold text-gray-900">{item.name ?? `고객 ID:${item.userId}`}</span>
               <CopyButton text={item.link} label="링크 복사" />
             </div>
             {item.message && (
               <div className="flex items-start gap-2">
-                <p className="text-xs text-gray-600 bg-white border border-gray-100 rounded px-2 py-1.5 flex-1 whitespace-pre-wrap">
+                <p className="text-xs text-gray-700 bg-white border border-gray-100 rounded-lg px-3 py-2 flex-1 whitespace-pre-wrap leading-relaxed">
                   {item.message}
                 </p>
                 <CopyButton text={item.message} label="메시지 복사" />
