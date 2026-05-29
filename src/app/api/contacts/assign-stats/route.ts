@@ -18,7 +18,18 @@ export async function GET() {
     if (ctx.role !== 'OWNER' && ctx.role !== 'GLOBAL_ADMIN') {
       return NextResponse.json({ ok: false, message: '권한 없음' }, { status: 403 });
     }
-    const orgId = requireOrgId(ctx);
+
+    // GLOBAL_ADMIN은 organizationId가 없을 수 있음
+    let orgId: string;
+    try {
+      orgId = requireOrgId(ctx);
+    } catch (err) {
+      if (ctx.role === 'GLOBAL_ADMIN') {
+        // GLOBAL_ADMIN이 organizationId 없으면 빈 통계 반환
+        return NextResponse.json({ ok: true, stats: [], unassigned: 0, total: 0 });
+      }
+      throw err;
+    }
 
     // 단일 쿼리: LEFT JOIN으로 담당자별 고객 수 + 미배정 카운트
     const [memberStats, unassignedCount] = await Promise.all([
