@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
     // Get final count
     const contactCount = await prisma.contact.count();
 
-    console.log('✅ CRM 데이터 동기화 완료!');
+    logger.log('[Sync] CRM 데이터 동기화 완료', { totalContacts: contactCount });
 
     return NextResponse.json({
       ok: true,
