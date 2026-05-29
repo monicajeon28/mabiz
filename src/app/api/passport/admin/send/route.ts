@@ -298,6 +298,28 @@ export async function POST(req: NextRequest) {
     const usersById = new Map<number, PassportSendUser>(usersData.map((user) => [user.id, user]));
     const missingUserIds = userIds.filter((id) => !usersById.has(id));
 
+    // 발송 전 잔액 사전 확인 (50% 미만이면 차단, 110% 미만이면 경고)
+    const withPhoneCount = usersData.filter(u => {
+      const digits = (u.phone ?? '').replace(/[^0-9]/g, '');
+      return digits.length === 11 && /^01[016789]/.test(digits);
+    }).length;
+    const estimatedCost = withPhoneCount * 20; // SMS 건당 20원
+    let preCheckLowBalance = false;
+    try {
+      const preBalance = parseCashValue(await fetchRemain());
+      if (preBalance !== null && estimatedCost > 0) {
+        if (preBalance < estimatedCost * 0.5) {
+          return NextResponse.json({
+            ok: false,
+            message: `알리고 잔액 부족 (현재 ${preBalance.toLocaleString()}원, 예상 비용 ${estimatedCost.toLocaleString()}원). 충전 후 다시 시도해 주세요.`,
+            remainingCash: preBalance,
+            lowBalance: true,
+          }, { status: 402 });
+        }
+        preCheckLowBalance = preBalance < estimatedCost * 1.1;
+      }
+    } catch { /* 잔액 조회 실패 시 발송은 계속 진행 */ }
+
     // 일일 발송 제한 — 루프 전 일괄 조회 (N+1 제거: 100명 = 100쿼리 → 1쿼리)
     const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const recentLogGroups = await prisma.gmPassportRequestLog.groupBy({
@@ -309,6 +331,16 @@ export async function POST(req: NextRequest) {
       recentLogGroups.map((r) => [r.userId, r._count.userId])
     );
 
+    // ── PreparedSend: DB 작업 완료 후 SMS 발송 대기 레코드 ──────────────────
+    interface PreparedSend {
+      userId: number;
+      normalizedPhone: string | null;   // null = 전화번호 없음 → noPhone 처리
+      personalizedMessage: string;
+      link: string;
+      submissionId: number | undefined;
+      msgType: 'SMS' | 'LMS';
+    }
+
     const results: Array<SendResultItem> = [];
     const pendingLogs: Array<{
       userId: number; adminId: number | null; templateId: number | null;
@@ -318,6 +350,14 @@ export async function POST(req: NextRequest) {
     let aligoRemain: AligoRemainResponse | null = null;
     let remainingCash: number | null = null;
     let lowBalance = false;
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Stage 1: DB 작업 + 링크 생성 (순차 처리)
+    //   - PassportSubmission upsert / PNR reservationId 조회
+    //   - SMS 발송 가능한 항목만 preparedSends에 쌓음
+    //   - 전화번호 없음, 예약 없음, 일일 초과 등은 즉시 results에 push
+    // ════════════════════════════════════════════════════════════════════════
+    const preparedSends: PreparedSend[] = [];
 
     for (const userId of userIds) {
       const user = usersById.get(userId);
@@ -338,14 +378,12 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 변수 스코프 문제 해결: try 블록 밖에서 선언
       let submissionId: number | undefined;
       let link: string | undefined;
       let token: string | undefined;
 
       try {
         const latestTrip = user.trips[0] ?? null;
-        const existingSubmission = user.passportSubmissions[0] ?? null;
         // 전화번호는 SMS 발송에만 필요 — 링크 생성은 전화번호 없어도 항상 진행
         const normalizedPhone = normalizePhoneForSms(user.phone);
 
@@ -369,8 +407,7 @@ export async function POST(req: NextRequest) {
           const reservationId = tripId ? reservationIds.get(tripId) : null;
 
           if (!reservationId) {
-            const errorMessage = '예약 정보가 없습니다.';
-            results.push({ userId: user.id, success: false, error: errorMessage });
+            results.push({ userId: user.id, success: false, error: '예약 정보가 없습니다.' });
             continue;
           }
 
@@ -378,47 +415,113 @@ export async function POST(req: NextRequest) {
           personalizedMessage = `${user.name ? `${user.name}님` : '고객님'}의 여행 정보 입력을 위한 링크입니다. 아래 링크를 통해 객실 정보 등을 입력해 주세요.\n${link}`;
         }
 
-        // 여권 발송 시에만 PassportSubmission 업데이트
+        // 여권 발송 시에만 PassportSubmission upsert
         if (sendTarget === 'passport') {
           const tokenExpiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
+          const nextTripId = latestTrip?.id ?? null;
 
-          if (existingSubmission && !existingSubmission.isSubmitted) {
-            // user.trips[0]이 존재하면 DB에 이미 있는 trip — 별도 count 불필요
-            const nextTripId = latestTrip?.id ?? existingSubmission.tripId;
+          // ── Upsert 전략 ──────────────────────────────────────────────────────
+          // Case A: tripId not null
+          //   → @@unique([userId, tripId]) composite key로 upsert
+          //   → isSubmitted=true(기제출)이어도 새 token으로 안전하게 재발급 (P2002 없음)
+          //
+          // Case B: tripId IS NULL
+          //   → SQL NULL != NULL이므로 Prisma compound upsert 불가
+          //   → findFirst → update or create (P2002 race condition fallback 포함)
+          // ─────────────────────────────────────────────────────────────────────
 
-            const updated = await prisma.gmPassportSubmission.update({
-              where: { id: existingSubmission.id },
-              data: {
+          if (nextTripId !== null) {
+            // Case A: composite unique key upsert
+            const upserted = await prisma.gmPassportSubmission.upsert({
+              where: { userId_tripId: { userId: user.id, tripId: nextTripId } },
+              update: {
                 token: token!,
                 tokenExpiresAt,
-                tripId: nextTripId,
                 isSubmitted: false,
                 updatedAt: new Date(),
                 extraData: Prisma.JsonNull,
               },
+              create: {
+                userId: user.id,
+                tripId: nextTripId,
+                token: token!,
+                tokenExpiresAt,
+                isSubmitted: false,
+                driveFolderUrl: null,
+                extraData: Prisma.JsonNull,
+                updatedAt: new Date(),
+              },
             });
-            submissionId = updated.id;
+            submissionId = upserted.id;
           } else {
-            // user.trips[0]이 존재하면 DB에 이미 있는 trip — 별도 count 불필요
-            const createData: Prisma.GmPassportSubmissionUncheckedCreateInput = {
-              userId: user.id,
-              token: token!,
-              tokenExpiresAt,
-              isSubmitted: false,
-              driveFolderUrl: null,
-              extraData: Prisma.JsonNull,
-              updatedAt: new Date(),
-              ...(latestTrip?.id ? { tripId: latestTrip.id } : {}),
-            };
-
-            const created = await prisma.gmPassportSubmission.create({
-              data: createData,
+            // Case B: tripId IS NULL — findFirst → update or create (with P2002 fallback)
+            const existingNull = await prisma.gmPassportSubmission.findFirst({
+              where: { userId: user.id, tripId: null },
+              orderBy: { updatedAt: 'desc' },
+              select: { id: true },
             });
-            submissionId = created.id;
+
+            if (existingNull) {
+              const updated = await prisma.gmPassportSubmission.update({
+                where: { id: existingNull.id },
+                data: {
+                  token: token!,
+                  tokenExpiresAt,
+                  isSubmitted: false,
+                  updatedAt: new Date(),
+                  extraData: Prisma.JsonNull,
+                },
+              });
+              submissionId = updated.id;
+            } else {
+              try {
+                const created = await prisma.gmPassportSubmission.create({
+                  data: {
+                    userId: user.id,
+                    token: token!,
+                    tokenExpiresAt,
+                    isSubmitted: false,
+                    driveFolderUrl: null,
+                    extraData: Prisma.JsonNull,
+                    updatedAt: new Date(),
+                  },
+                });
+                submissionId = created.id;
+              } catch (createErr) {
+                // P2002: 동시 요청으로 인한 race condition → update로 fallback
+                if (
+                  createErr instanceof Prisma.PrismaClientKnownRequestError &&
+                  createErr.code === 'P2002'
+                ) {
+                  const raceRecord = await prisma.gmPassportSubmission.findFirst({
+                    where: { userId: user.id, tripId: null },
+                    orderBy: { updatedAt: 'desc' },
+                    select: { id: true },
+                  });
+                  if (raceRecord) {
+                    const updated = await prisma.gmPassportSubmission.update({
+                      where: { id: raceRecord.id },
+                      data: {
+                        token: token!,
+                        tokenExpiresAt,
+                        isSubmitted: false,
+                        updatedAt: new Date(),
+                        extraData: Prisma.JsonNull,
+                      },
+                    });
+                    submissionId = updated.id;
+                  } else {
+                    throw createErr; // 재조회도 실패하면 상위로 전파
+                  }
+                } else {
+                  throw createErr;
+                }
+              }
+            }
           }
         }
 
-        // 전화번호 없으면 링크만 반환 (SMS 없이)
+        // 전화번호 없으면 링크만 반환 (SMS 스킵 — noPhone 플래그)
         if (!normalizedPhone) {
           pendingLogs.push({
             userId: user.id,
@@ -432,11 +535,11 @@ export async function POST(req: NextRequest) {
           });
           results.push({
             userId: user.id,
-            success: true,  // 링크는 생성됨
+            success: true,
             link,
             submissionId,
             message: personalizedMessage,
-            noPhone: true,  // 명시적 플래그 (프론트 분기용)
+            noPhone: true,
           });
           continue;
         }
@@ -444,27 +547,71 @@ export async function POST(req: NextRequest) {
         const messageByteLength = new Blob([personalizedMessage]).size;
         const msgType: 'SMS' | 'LMS' = messageByteLength > 90 ? 'LMS' : 'SMS';
 
-        let sendResponse: AligoSendResponse | null = null;
-        let sendError: string | null = null;
+        // SMS 발송 대기열에 추가 (Stage 2에서 청크 병렬 처리)
+        preparedSends.push({
+          userId: user.id,
+          normalizedPhone,
+          personalizedMessage,
+          link: link!,
+          submissionId,
+          msgType,
+        });
+      } catch (error) {
+        logger.error(`[PassportRequest] Stage1 DB error for user ${userId}`, {
+          err: error instanceof Error ? error.message : String(error),
+        });
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        const errorResult: SendResultItem = {
+          userId,
+          success: false,
+          error: message,
+          ...(submissionId !== undefined && link ? { submissionId, link } : {}),
+        };
+        pendingLogs.push({
+          userId,
+          adminId: manager.id > 0 ? manager.id : null,
+          templateId: template?.id ?? null,
+          messageBody: baseMessage,
+          messageChannel,
+          status: 'FAILED',
+          errorReason: message,
+          sentAt: new Date(),
+        });
+        results.push(errorResult);
+      }
+    }
 
-        try {
-          const ALIGO_BASE_URL = 'https://apis.aligo.in';
-          const apiKey = process.env.ALIGO_API_KEY;
-          const aligoUserId = process.env.ALIGO_USER_ID;
-          const sender = process.env.ALIGO_SENDER_PHONE;
+    // ════════════════════════════════════════════════════════════════════════
+    // Stage 2: Aligo SMS 청크 병렬 발송 (20건씩 Promise.allSettled)
+    //   - 200명 기준: 순차 60s → 병렬(20건 청크) ≈ 3~4s (10배 단축)
+    //   - 청크 내 개별 실패는 결과에 기록 후 나머지 계속 진행
+    //   - DB 작업은 Stage 1에서 이미 완료 → SMS 실패해도 링크는 유효
+    // ════════════════════════════════════════════════════════════════════════
+    const SMS_CHUNK_SIZE = 20;
 
-          if (!apiKey || !aligoUserId || !sender) {
+    const ALIGO_BASE_URL = 'https://apis.aligo.in';
+    const aligoApiKey = process.env.ALIGO_API_KEY;
+    const aligoUserId = process.env.ALIGO_USER_ID;
+    const aligoSender = process.env.ALIGO_SENDER_PHONE;
+    const aligoEnvMissing = !aligoApiKey || !aligoUserId || !aligoSender;
+
+    for (let chunkStart = 0; chunkStart < preparedSends.length; chunkStart += SMS_CHUNK_SIZE) {
+      const chunk = preparedSends.slice(chunkStart, chunkStart + SMS_CHUNK_SIZE);
+
+      const chunkResults = await Promise.allSettled(
+        chunk.map(async (item) => {
+          if (aligoEnvMissing) {
             throw new Error('알리고 API 설정이 완료되지 않았습니다. 환경 변수를 확인해주세요.');
           }
 
           const formData = new URLSearchParams();
-          formData.append('key', apiKey);
-          formData.append('user_id', aligoUserId);
-          formData.append('sender', sender);
-          formData.append('receiver', normalizedPhone);
-          formData.append('msg', personalizedMessage);
-          formData.append('msg_type', msgType);
-          if (msgType === 'LMS' && template?.title) {
+          formData.append('key', aligoApiKey!);
+          formData.append('user_id', aligoUserId!);
+          formData.append('sender', aligoSender!);
+          formData.append('receiver', item.normalizedPhone!);
+          formData.append('msg', item.personalizedMessage);
+          formData.append('msg_type', item.msgType);
+          if (item.msgType === 'LMS' && template?.title) {
             formData.append('title', template.title);
           }
 
@@ -479,69 +626,60 @@ export async function POST(req: NextRequest) {
             throw new Error(`알리고 API 요청이 실패했습니다. (${aligoResponse.status}) ${text}`);
           }
 
-          sendResponse = await aligoResponse.json();
-          if (sendResponse && String(sendResponse.result_code) !== '1') {
+          const sendResponse = (await aligoResponse.json()) as AligoSendResponse;
+          return { item, sendResponse };
+        })
+      );
+
+      for (let i = 0; i < chunkResults.length; i++) {
+        const settled = chunkResults[i];
+        const item = chunk[i];
+
+        let sendResponse: AligoSendResponse | null = null;
+        let sendError: string | null = null;
+
+        if (settled.status === 'fulfilled') {
+          sendResponse = settled.value.sendResponse;
+          if (String(sendResponse.result_code) !== '1') {
             sendError = sendResponse.message
               ? String(sendResponse.message)
               : `알리고 오류 (코드: ${sendResponse.result_code})`;
           }
-        } catch (sendErr) {
-          logger.error(`[PassportRequest] Aligo send error for user ${user.id}`, {
-            err: sendErr instanceof Error ? sendErr.message : String(sendErr),
+        } else {
+          const reason = settled.reason;
+          sendError = reason instanceof Error ? reason.message : '알 수 없는 오류';
+          logger.error(`[PassportRequest] Aligo send error for user ${item.userId}`, {
+            err: sendError,
           });
-          sendError = sendErr instanceof Error ? sendErr.message : '알 수 없는 오류';
         }
 
         const status = sendError ? 'FAILED' : 'SUCCESS';
-        const messageId = sendResponse?.message_id || (sendResponse?.msg_id as string | undefined) || null;
+        const messageId =
+          sendResponse?.message_id ||
+          (sendResponse?.msg_id as string | undefined) ||
+          null;
 
         pendingLogs.push({
-          userId: user.id,
+          userId: item.userId,
           adminId: manager.id > 0 ? manager.id : null,
           templateId: template?.id ?? null,
-          messageBody: personalizedMessage,
+          messageBody: item.personalizedMessage,
           messageChannel,
           status,
           errorReason: sendError ?? null,
           sentAt: new Date(),
         });
 
-        // SMS 실패해도 링크는 포함 (success 여부는 SMS 성공 기준)
         results.push({
-          userId: user.id,
+          userId: item.userId,
           success: !sendError,
-          link,
-          submissionId,
-          message: personalizedMessage,
+          link: item.link,
+          submissionId: item.submissionId,
+          message: item.personalizedMessage,
           messageId,
           resultCode: sendResponse?.result_code,
           ...(sendError ? { error: sendError } : {}),
         });
-      } catch (error) {
-        logger.error(`[PassportRequest] send error for user ${user.id}`, {
-          err: error instanceof Error ? error.message : String(error),
-        });
-        const message = error instanceof Error ? error.message : 'Unknown error';
-
-        // 토큰이 생성되었는지 확인 (submissionId가 있으면 토큰도 생성됨)
-        const errorResult: SendResultItem = {
-          userId: user.id,
-          success: false,
-          error: message,
-          ...(submissionId !== undefined && link ? { submissionId, link } : {}),
-        };
-
-        pendingLogs.push({
-          userId: user.id,
-          adminId: manager.id > 0 ? manager.id : null,
-          templateId: template?.id ?? null,
-          messageBody: baseMessage,
-          messageChannel,
-          status: 'FAILED',
-          errorReason: message,
-          sentAt: new Date(),
-        });
-        results.push(errorResult);
       }
     }
 
@@ -561,9 +699,11 @@ export async function POST(req: NextRequest) {
       const remainResponse = await fetchRemain();
       aligoRemain = remainResponse;
       remainingCash = parseCashValue(remainResponse);
-      lowBalance = typeof remainingCash === 'number' && ALIGO_LOW_BALANCE_THRESHOLD > 0
-        ? remainingCash <= ALIGO_LOW_BALANCE_THRESHOLD
-        : false;
+      lowBalance = preCheckLowBalance || (
+        typeof remainingCash === 'number' && ALIGO_LOW_BALANCE_THRESHOLD > 0
+          ? remainingCash <= ALIGO_LOW_BALANCE_THRESHOLD
+          : false
+      );
     } catch (remainError) {
       logger.error('[PassportRequest] Failed to fetch Aligo remaining balance', {
         err: remainError instanceof Error ? remainError.message : String(remainError),
