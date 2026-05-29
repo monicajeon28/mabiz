@@ -115,17 +115,16 @@ export async function GET(req: NextRequest) {
       )`
     ];
 
-    // OWNER 테넌트 격리: AffiliateSale을 통해 소속 조직 고객만 조회
+    // OWNER 테넌트 격리: 구매 고객 전화번호 기준으로 소속 조직 확인
     if (manager.role === 'OWNER') {
       if (!manager.organizationId) {
-        // organizationId 없는 OWNER는 데이터 없음 (보안 기본값)
         return NextResponse.json({ ok: true, data: [], meta: { page, limit: take, count: 0, total: 0 } });
       }
       whereConditions.push(
         Prisma.sql`EXISTS(
           SELECT 1 FROM "CrmAffiliateSale" af
-          JOIN "Reservation" rv ON rv.id::text = af."orderId"
-          WHERE rv."mainUserId" = u.id
+          WHERE REGEXP_REPLACE(af."customerPhone", '[^0-9]', '', 'g')
+              = REGEXP_REPLACE(u.phone, '[^0-9]', '', 'g')
             AND af."organizationId" = ${manager.organizationId}
         )`
       );
