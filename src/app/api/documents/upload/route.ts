@@ -10,14 +10,24 @@ import { logger } from '@/lib/logger';
 
 const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024; // 10MB
 
-const DOCUMENTS_FOLDER_ID = process.env.GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID!;
+const DOCUMENTS_FOLDER_ID = process.env.GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID;
 
 function getDriveClient() {
+  if (!DOCUMENTS_FOLDER_ID) {
+    throw new Error('GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID is not configured');
+  }
+
   const privateKey = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? '')
     .replace(/\\n/g, '\n');
+  const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+
+  if (!serviceAccountEmail || !privateKey) {
+    throw new Error('Google Service Account credentials not configured');
+  }
+
   const auth = new google.auth.GoogleAuth({
     credentials: {
-      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      client_email: serviceAccountEmail,
       private_key: privateKey,
     },
     scopes: ['https://www.googleapis.com/auth/drive'],

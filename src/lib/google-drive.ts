@@ -3,16 +3,27 @@
  * - 콜기록 백업: Drive > 콜기록 > {userId}_{name}/ > {고객명}.txt
  */
 import { google } from 'googleapis';
+import { logger } from '@/lib/logger';
 
-const CALL_LOG_FOLDER_ID = process.env.GOOGLE_DRIVE_CALL_LOG_FOLDER_ID!;
+const CALL_LOG_FOLDER_ID = process.env.GOOGLE_DRIVE_CALL_LOG_FOLDER_ID;
 
 function getDriveClient() {
+  if (!CALL_LOG_FOLDER_ID) {
+    throw new Error('GOOGLE_DRIVE_CALL_LOG_FOLDER_ID is not configured');
+  }
+
   const privateKey = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? '')
     .replace(/\\n/g, '\n');
+  const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+
+  if (!serviceAccountEmail || !privateKey) {
+    throw new Error('Google Service Account credentials not configured');
+  }
+
   const auth = new google.auth.GoogleAuth({
     credentials: {
-      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key:  privateKey,
+      client_email: serviceAccountEmail,
+      private_key: privateKey,
     },
     scopes: ['https://www.googleapis.com/auth/drive'],
   });

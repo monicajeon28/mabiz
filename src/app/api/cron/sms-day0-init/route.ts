@@ -44,12 +44,25 @@ async function sendSmsViaAligo(
   message: string
 ): Promise<{ success: boolean; msgId?: string; errorCode?: string }> {
   try {
+    const aligoKey = process.env.ALIGO_API_KEY;
+    const aligoUserId = process.env.ALIGO_USER_ID;
+    const aligoSender = process.env.ALIGO_SENDER_PHONE;
+
+    if (!aligoKey || !aligoUserId || !aligoSender) {
+      logger.error('[SMS/ALIGO-DAY0] 필수 환경변수 누락', {
+        hasKey: !!aligoKey,
+        hasUserId: !!aligoUserId,
+        hasSender: !!aligoSender,
+      });
+      return { success: false, errorCode: 'MISSING_CONFIG' };
+    }
+
     const res = await fetch('https://apis.aligo.in/send/', {
       method: 'POST',
       body: new URLSearchParams({
-        key: process.env.ALIGO_API_KEY!,
-        user_id: process.env.ALIGO_USER_ID!,
-        sender: process.env.ALIGO_SENDER_PHONE!,
+        key: aligoKey,
+        user_id: aligoUserId,
+        sender: aligoSender,
         receiver: phone,
         msg: message,
       }),

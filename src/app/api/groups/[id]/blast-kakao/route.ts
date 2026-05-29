@@ -200,11 +200,18 @@ export async function POST(req: Request, { params }: Params) {
             .replace(/\[전화번호\]/g, m.contact.phone);
 
           try {
+            const aligoKey = process.env.ALIGO_API_KEY;
+            const aligoUserId = process.env.ALIGO_USER_ID;
+
+            if (!aligoKey || !aligoUserId) {
+              throw new Error('Missing ALIGO_API_KEY or ALIGO_USER_ID');
+            }
+
             const res = await fetch('https://apis.aligo.in/send/', {
               method: 'POST',
               body: new URLSearchParams({
-                key: process.env.ALIGO_API_KEY!,
-                user_id: process.env.ALIGO_USER_ID!,
+                key: aligoKey,
+                user_id: aligoUserId,
                 senderkey: kakaoConfig.senderKey,
                 tpl_code: process.env.ALIGO_KAKAO_TPL_CODE || 'EXAM',
                 receiver: m.contact.phone,
