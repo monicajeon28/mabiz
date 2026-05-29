@@ -5,6 +5,13 @@ import {
   getLoop6AgentDStats,
 } from '@/lib/loop6-agent-d-integrator';
 import { WebhookPayload } from '@/lib/contact-auto-creator';
+import {
+  maskPhone,
+  maskPayloadForLogging,
+  createSafeErrorResponse,
+  generateErrorId,
+  logSafeError,
+} from '@/lib/pii-masker';
 
 /**
  * POST /api/webhook/cruisedot-payment
@@ -215,8 +222,8 @@ export async function POST(request: NextRequest) {
 
     logger.log('[Webhook] Contact 자동 생성 시작', {
       paymentId: paymentData.payment_id,
-      name: paymentData.customer_name,
-      phone: paymentData.customer_phone.slice(-4),
+      name: paymentData.customer_name ? paymentData.customer_name.substring(0, 1) + '*'.repeat(Math.max(0, paymentData.customer_name.length - 1)) : 'unknown',
+      phone: maskPhone(paymentData.customer_phone),
     });
 
     const integrationResult = await integrateContactWithLoop5Sms(
@@ -271,16 +278,15 @@ export async function POST(request: NextRequest) {
     // 6. 예기치 않은 에러 처리
     // ============================================
 
-    logger.error('[Webhook] 예기치 않은 오류', {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      processingTime: Date.now() - startTime,
-    });
+    const errorId = generateErrorId();
+    logSafeError(logger, error, '[Webhook] 예기치 않은 오류');
 
     return NextResponse.json(
       {
         success: false,
-        error: 'Internal server error',
+        message: '요청을 처리할 수 없습니다',
+        errorId,
+        contactSupport: true,
         processingTime: Date.now() - startTime,
       },
       { status: 500 }
@@ -310,14 +316,15 @@ export async function GET(request: NextRequest) {
       { status: 200 }
     );
   } catch (error: unknown) {
-    logger.error('[Webhook GET] 오류', {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    const errorId = generateErrorId();
+    logSafeError(logger, error, '[Webhook GET] 오류');
 
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to fetch stats',
+        message: '통계를 조회할 수 없습니다',
+        errorId,
+        contactSupport: true,
       },
       { status: 500 }
     );

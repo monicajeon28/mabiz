@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { createHmac, timingSafeEqual } from "crypto";
+import { generateErrorId, logSafeError } from "@/lib/pii-masker";
 
 interface WebhookPayload {
   eventId: string;
@@ -79,10 +80,16 @@ export async function POST(request: NextRequest) {
       contactId: contact.id,
     });
   } catch (err) {
-    logger.error("[Webhook] 고객 생성 실패", { err });
+    const errorId = generateErrorId();
+    logSafeError(logger, err, "[Webhook] 고객 생성 실패");
     // 재시도 가능하도록 5xx 반환
     return NextResponse.json(
-      { ok: false, message: "Processing failed" },
+      {
+        ok: false,
+        message: "고객을 처리할 수 없습니다",
+        errorId,
+        contactSupport: true,
+      },
       { status: 500 }
     );
   }

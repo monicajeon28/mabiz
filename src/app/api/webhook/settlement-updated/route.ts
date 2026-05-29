@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { createHmac, timingSafeEqual } from "crypto";
+import { generateErrorId, logSafeError } from "@/lib/pii-masker";
 
 interface SettlementWebhookPayload {
   eventId: string;
@@ -103,9 +104,15 @@ export async function POST(request: NextRequest) {
       settlementId: settlement.id,
     });
   } catch (err) {
-    logger.error("[Webhook] 정산 업데이트 실패", { err });
+    const errorId = generateErrorId();
+    logSafeError(logger, err, "[Webhook] 정산 업데이트 실패");
     return NextResponse.json(
-      { ok: false, message: "Processing failed" },
+      {
+        ok: false,
+        message: "정산을 처리할 수 없습니다",
+        errorId,
+        contactSupport: true,
+      },
       { status: 500 }
     );
   }

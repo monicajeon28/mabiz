@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { handleWebhook } from '@/lib/webhooks/base';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { logSafeError } from '@/lib/pii-masker';
 import {
   calculateTier,
   updatePartnerTier,
@@ -173,10 +174,7 @@ export async function POST(req: NextRequest) {
               decreasePercent
             );
           } catch (error) {
-            logger.error('[settlement-updated] Churn 알림 SMS 발송 실패', {
-              partnerId,
-              error: error instanceof Error ? error.message : String(error)
-            });
+            logSafeError(logger, error, '[settlement-updated] Churn 알림 SMS 발송 실패');
             // SMS 실패는 프로세스를 중단하지 않음
           }
         }
@@ -212,10 +210,7 @@ export async function POST(req: NextRequest) {
             period
           );
         } catch (error) {
-          logger.error('[settlement-updated] 정산 알림 SMS 발송 실패', {
-            partnerId,
-            error: error instanceof Error ? error.message : String(error)
-          });
+          logSafeError(logger, error, '[settlement-updated] 정산 알림 SMS 발송 실패');
           // SMS 실패는 프로세스를 중단하지 않음
         }
       }

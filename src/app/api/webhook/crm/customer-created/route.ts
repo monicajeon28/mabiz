@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { handleWebhook } from '@/lib/webhooks/base';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { maskPhone, maskEmail, maskName, logSafeError } from '@/lib/pii-masker';
 
 /**
  * L0 렌즈 분류 규칙
@@ -61,7 +62,7 @@ async function sendSmsViaAligo(
     const aligoSender = process.env.ALIGO_SENDER_PHONE;
 
     if (!aligoKey || !aligoUserId || !aligoSender) {
-      logger.error('[SMS/ALIGO] 필수 환경변수 누락', {
+      logger.error('[SMS/ALIGO] Configuration missing', {
         hasKey: !!aligoKey,
         hasUserId: !!aligoUserId,
         hasSender: !!aligoSender
@@ -85,15 +86,15 @@ async function sendSmsViaAligo(
     if (data.result_code === '1') {
       return { success: true, msgId: data.msg_id };
     } else {
-      logger.error('[SMS/ALIGO] 발송 실패', {
-        phone,
+      logger.error('[SMS/ALIGO] Send failed', {
+        phone: maskPhone(phone),
         code: data.result_code,
         message: data.message,
       });
       return { success: false, errorCode: data.result_code };
     }
   } catch (err) {
-    logger.error('[SMS/ALIGO] 네트워크 오류', { phone, error: err instanceof Error ? err.message : String(err) });
+    logger.error('[SMS/ALIGO] Network error', { phone: maskPhone(phone), error: err instanceof Error ? err.message : String(err) });
     return { success: false, errorCode: 'NETWORK_ERROR' };
   }
 }
@@ -250,13 +251,13 @@ export async function POST(req: NextRequest) {
 
             logger.log('[customer-created] Day 0 SMS 발송 성공', {
               contactId: contact.id,
-              phone: normalizedPhone,
+              phone: maskPhone(normalizedPhone),
               msgId: smsResult.msgId
             });
           } else {
             logger.warn('[customer-created] Day 0 SMS 발송 실패', {
               contactId: contact.id,
-              phone: normalizedPhone,
+              phone: maskPhone(normalizedPhone),
               errorCode: smsResult.errorCode
             });
 
@@ -275,10 +276,7 @@ export async function POST(req: NextRequest) {
           }
         }
       } catch (smsErr) {
-        logger.error('[customer-created] SMS 발송 중 오류', {
-          contactId: contact.id,
-          err: smsErr
-        });
+        logSafeError(logger, smsErr, '[customer-created] SMS 발송 중 오류');
       }
 
       const response: WebhookResponse = {

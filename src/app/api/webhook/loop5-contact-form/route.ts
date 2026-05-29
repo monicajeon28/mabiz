@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { sendDay0Sms } from '@/lib/loop5-sms-service';
 import { sendDay0Email } from '@/lib/loop5-email-service';
+import { maskPhone, maskName, generateErrorId, logSafeError } from '@/lib/pii-masker';
 
 /**
  * Loop 5: Contact Form 제출 → Contact 자동 생성 + Day 0 자동화
@@ -95,8 +96,8 @@ export async function POST(request: NextRequest) {
     const variant = (payload.variant || payload.abVariant || 'a') as ABVariant;
 
     logger.log('[Loop5 Contact Form] 신청 접수', {
-      name: payload.name,
-      phone: normalizedPhone,
+      name: maskName(payload.name),
+      phone: maskPhone(normalizedPhone),
       segment,
       variant,
     });
@@ -232,13 +233,15 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error: unknown) {
-    logger.error('[Loop5 Contact Form] 오류', {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
+    const errorId = generateErrorId();
+    logSafeError(logger, error, '[Loop5 Contact Form] 오류');
 
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        error: '신청을 처리할 수 없습니다',
+        errorId,
+        contactSupport: true,
+      },
       { status: 500 }
     );
   }
