@@ -42,22 +42,23 @@ export async function getAuthContext(): Promise<AuthContext> {
 
 /** 고객 목록 조회 조건 (역할 기반 + P0-6 출처 기반) */
 export function buildContactWhere(ctx: AuthContext, extra: Record<string, unknown> = {}) {
-  if (ctx.role === "GLOBAL_ADMIN") {
-    return extra;
-  }
   if (ctx.role === "FREE_SALES") {
     // 프리세일즈: 고객 DB 접근 불가 — API에서 차단
     throw new Error("FREE_SALES_NO_ACCESS");
   }
+  // deletedAt: null은 항상 마지막에 고정 — extra로 덮어씌워지지 않도록
+  if (ctx.role === "GLOBAL_ADMIN") {
+    return { ...extra, deletedAt: null };
+  }
   if (ctx.role === "OWNER") {
-    return { organizationId: ctx.organizationId!, deletedAt: null, ...extra };
+    return { ...extra, organizationId: ctx.organizationId!, deletedAt: null };
   }
   // AGENT: 할당된 고객만
   return {
+    ...extra,
     organizationId: ctx.organizationId!,
     assignedUserId: ctx.userId,
     deletedAt: null,
-    ...extra,
   };
 }
 
