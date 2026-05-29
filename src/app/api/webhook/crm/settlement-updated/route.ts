@@ -44,7 +44,11 @@ interface SettlementUpdatedPayload {
 }
 
 export async function POST(req: NextRequest) {
-  const secret = process.env.CRUISEDOT_WEBHOOK_SECRET || 'test-secret';
+  const secret = process.env.CRUISEDOT_WEBHOOK_SECRET;
+  if (!secret) {
+    logger.error('[Webhook] CRUISEDOT_WEBHOOK_SECRET is required');
+    return NextResponse.json({ ok: false, error: 'Missing CRUISEDOT_WEBHOOK_SECRET' }, { status: 500 });
+  }
 
   return handleWebhook(req, {
     webhookType: 'settlement-updated',

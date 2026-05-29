@@ -120,7 +120,11 @@ interface WebhookResponse {
 }
 
 export async function POST(req: NextRequest) {
-  const secret = process.env.CRUISEDOT_WEBHOOK_SECRET || 'test-secret';
+  const secret = process.env.CRUISEDOT_WEBHOOK_SECRET;
+  if (!secret) {
+    logger.error('[Webhook] CRUISEDOT_WEBHOOK_SECRET is required');
+    return NextResponse.json({ ok: false, error: 'Missing CRUISEDOT_WEBHOOK_SECRET' }, { status: 500 });
+  }
 
   return handleWebhook(req, {
     webhookType: 'customer-created',
@@ -142,9 +146,23 @@ export async function POST(req: NextRequest) {
         throw new Error('Missing required fields: customerId, email, name');
       }
 
-      // 기본 organizationId (나중에 affiliateId 기반으로 결정)
-      // TODO: affiliateId → organizationId 매핑
-      const organizationId = 'org_cruisedot'; // 임시
+      // organizationId 조회 (affiliateId 기반)
+      let organizationId: string | undefined;
+
+      if (affiliateId) {
+        const org = await prisma.organization.findFirst({
+          where: { externalAffiliateProfileId: affiliateId }
+        });
+        organizationId = org?.id;
+      }
+
+      if (!organizationId) {
+        logger.error('[customer-created] Organization not found', {
+          affiliateId,
+          email: maskEmail(email)
+        });
+        throw new Error(`Organization not found for affiliateId: ${affiliateId}`);
+      }
 
       // Contact 생성/업데이트
       const contact = await prisma.contact.upsert({

@@ -15,6 +15,7 @@ const supabase = createClient(
 );
 
 export async function GET(req: NextRequest) {
+  const startTime = Date.now();
   try {
     const searchParams = req.nextUrl.searchParams;
     const fromDate = searchParams.get('fromDate');
@@ -27,113 +28,80 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // sms_logs 테이블에서 Day별 데이터 조회
-    const { data: smsLogs, error: smsError } = await supabase
-      .from('sms_logs')
-      .select('id, created_at, contact_id, day_index')
-      .gte('created_at', fromDate)
-      .lte('created_at', toDate)
-      .order('created_at', { ascending: true });
-
-    if (smsError) throw smsError;
-
-    // campaign_events에서 클릭/폼 제출 데이터
-    const { data: campaignEvents, error: eventError } = await supabase
-      .from('campaign_events')
-      .select('id, event_type, created_at, contact_id')
-      .gte('created_at', fromDate)
-      .lte('created_at', toDate)
-      .in('event_type', ['LINK_CLICKED', 'FORM_SUBMITTED']);
-
-    if (eventError) throw eventError;
-
-    // Day 0-3별 진행 상황 분석
-    const dayProgression: Array<{
-      day: number;
-      sent: number;
-      clicked: number;
-      submitted: number;
-      openRate: string;
-      completionRate: string;
-      estimatedRevenue: number;
-      trend: string;
-    }> = [];
-
-    const dayRange = [0, 1, 2, 3];
-    const baseDateObj = new Date(fromDate);
-
-    dayRange.forEach(day => {
-      // 해당 day의 시작/종료 시간 계산
-      const dayStart = new Date(baseDateObj);
-      dayStart.setDate(dayStart.getDate() + day);
-      const dayStartStr = dayStart.toISOString().split('T')[0];
-
-      const dayEnd = new Date(dayStart);
-      dayEnd.setDate(dayEnd.getDate() + 1);
-      const dayEndStr = dayEnd.toISOString().split('T')[0];
-
-      // Day별 SMS 발송 수
-      const daySent = smsLogs?.filter(
-        log => log.created_at >= dayStartStr && log.created_at < dayEndStr
-      ).length || 0;
-
-      // Day별 클릭 수
-      const dayClicked = campaignEvents?.filter(
-        e =>
-          e.created_at >= dayStartStr &&
-          e.created_at < dayEndStr &&
-          e.event_type === 'LINK_CLICKED'
-      ).length || 0;
-
-      // Day별 폼 제출 수
-      const daySubmitted = campaignEvents?.filter(
-        e =>
-          e.created_at >= dayStartStr &&
-          e.created_at < dayEndStr &&
-          e.event_type === 'FORM_SUBMITTED'
-      ).length || 0;
-
-      const openRate = daySent > 0 ? ((dayClicked / daySent) * 100).toFixed(1) : '0.0';
-      const completionRate = dayClicked > 0 ? ((daySubmitted / dayClicked) * 100).toFixed(1) : '0.0';
-      const estimatedRevenue = daySubmitted * 8.25;
-
-      // 트렌드 판정 (Day 0 대비)
-      let trend = 'stable';
-      if (day === 0) {
-        trend = 'baseline';
-      } else if (Number(openRate) > 35) {
-        trend = 'up';
-      } else if (Number(openRate) < 25) {
-        trend = 'down';
+    // DB 함수 호출 (모든 Day별 집계를 데이터베이스에서 처리)
+    const { data: dayStats, error: rpcError } = await supabase.rpc(
+      'get_day_progression_stats',
+      {
+        p_org_id: req.headers.get('x-organization-id') || '',
+        p_from_date: fromDate,
+        p_to_date: toDate,
       }
+    );
 
-      dayProgression.push({
-        day,
-        sent: daySent,
-        clicked: dayClicked,
-        submitted: daySubmitted,
-        openRate,
-        completionRate,
-        estimatedRevenue: Math.round(estimatedRevenue * 10) / 10,
-        trend,
+    if (rpcError) {
+      logger.error('RPC get_day_progression_stats error:', rpcError);
+      throw rpcError;
+    }
+
+    if (!dayStats || dayStats.length === 0) {
+      return NextResponse.json({
+        progression: [0, 1, 2, 3].map(day => ({
+          day,
+          sent: 0,
+          clicked: 0,
+          submitted: 0,
+          openRate: '0.0',
+          completionRate: '0.0',
+          estimatedRevenue: 0,
+          trend: day === 0 ? 'baseline' : 'stable',
+        })),
+        cumulative: {
+          totalSent: 0,
+          totalClicked: 0,
+          totalSubmitted: 0,
+          totalRevenue: 0,
+        },
+        summary: {
+          overallSuccessRate: '0.0%',
+          avgOpenRate: '0.0',
+          dayComparison: [1, 2, 3].map(day => ({
+            day,
+            clicksDelta: 0,
+            changePercent: '+0.0%',
+          })),
+        },
+        lastUpdated: new Date().toISOString(),
+        performanceMs: Date.now() - startTime,
       });
-    });
+    }
+
+    // 결과 포맷팅
+    const dayProgression = dayStats.map((d: any) => ({
+      day: d.day_index,
+      sent: d.sent_count,
+      clicked: d.clicked_count,
+      submitted: d.submitted_count,
+      openRate: String(d.open_rate || 0),
+      completionRate: String(d.completion_rate || 0),
+      estimatedRevenue: Number(d.estimated_revenue || 0),
+      trend: d.trend,
+    }));
 
     // 누적 지표 계산
     const cumulativeStats = {
-      totalSent: dayProgression.reduce((sum, d) => sum + d.sent, 0),
-      totalClicked: dayProgression.reduce((sum, d) => sum + d.clicked, 0),
-      totalSubmitted: dayProgression.reduce((sum, d) => sum + d.submitted, 0),
-      totalRevenue: Math.round(dayProgression.reduce((sum, d) => sum + d.estimatedRevenue, 0) * 10) / 10,
+      totalSent: dayProgression.reduce((sum: number, d: any) => sum + d.sent, 0),
+      totalClicked: dayProgression.reduce((sum: number, d: any) => sum + d.clicked, 0),
+      totalSubmitted: dayProgression.reduce((sum: number, d: any) => sum + d.submitted, 0),
+      totalRevenue: Math.round(dayProgression.reduce((sum: number, d: any) => sum + d.estimatedRevenue, 0) * 10) / 10,
     };
 
-    // 종합 성공도 (Day 0→3 누적)
+    // 종합 성공도
     const overallSuccessRate =
       cumulativeStats.totalSent > 0
         ? ((cumulativeStats.totalSubmitted / cumulativeStats.totalSent) * 100).toFixed(1)
         : '0.0';
 
-    // Day별 대비 분석 (Day 0 → Day 1, 2, 3)
+    // Day별 대비 분석
     const dayComparison = [];
     const day0Data = dayProgression[0];
 
@@ -151,18 +119,26 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    const elapsedMs = Date.now() - startTime;
+    logger.log(`[DayProgression] Completed in ${elapsedMs}ms`, {
+      dayCount: dayStats.length,
+      totalSent: cumulativeStats.totalSent,
+      totalClicked: cumulativeStats.totalClicked,
+    });
+
     return NextResponse.json({
       progression: dayProgression,
       cumulative: cumulativeStats,
       summary: {
         overallSuccessRate: `${overallSuccessRate}%`,
         avgOpenRate: (
-          dayProgression.reduce((sum, d) => sum + Number(d.openRate), 0) /
+          dayProgression.reduce((sum: number, d: any) => sum + Number(d.openRate), 0) /
           dayProgression.length
         ).toFixed(1),
         dayComparison,
       },
       lastUpdated: new Date().toISOString(),
+      performanceMs: elapsedMs,
     });
   } catch (error) {
     logger.error('Loop5 day progression error:', error);

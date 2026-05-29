@@ -4,11 +4,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { getMabizSession } from '@/lib/auth';
+import { createClient } from '@supabase/supabase-js';
 
 /**
  * GET /api/admin/loop5/ab-test-results?days=14
  *
- * Loop 5-C A/B 테스트 결과 조회
+ * Loop 5-C A/B 테스트 결과 조회 (DB 최적화 버전)
  * 변형별 성과 메트릭 계산 (완성율, 신뢰도 등)
  */
 
@@ -22,6 +23,13 @@ interface TestResult {
   isWinner: boolean;
   segments: Record<string, { visitors: number; completions: number; rate: number }>;
 }
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = supabaseUrl && supabaseServiceKey
+  ? createClient(supabaseUrl, supabaseServiceKey)
+  : null;
 
 // Chi-Square 검정을 위한 p-value 계산 (근사)
 function calculateChiSquareSignificance(controlRate: number, variantRate: number, controlN: number, variantN: number): number {
@@ -45,6 +53,7 @@ function calculateChiSquareSignificance(controlRate: number, variantRate: number
 }
 
 export async function GET(req: NextRequest) {
+  const startTime = Date.now();
   try {
     const ctx = await getMabizSession();
     if (!ctx || !['OWNER', 'GLOBAL_ADMIN'].includes(ctx.role)) {
@@ -54,6 +63,58 @@ export async function GET(req: NextRequest) {
     // 쿼리 파라미터
     const searchParams = new URL(req.url).searchParams;
     const days = parseInt(searchParams.get('days') || '14', 10);
+
+    // DB 함수 사용: Supabase RPC가 가능하면 사용, 아니면 Prisma 사용
+    if (supabase) {
+      try {
+        const { data: testResults, error: rpcError } = await supabase.rpc(
+          'get_ab_test_summary',
+          { p_days: days }
+        );
+
+        if (rpcError) {
+          logger.warn('RPC failed, falling back to Prisma:', rpcError);
+          throw rpcError; // Prisma fallback으로 이동
+        }
+
+        if (testResults && testResults.length > 0) {
+          const elapsedMs = Date.now() - startTime;
+          const results = testResults.map((r: any) => ({
+            variant: r.variant,
+            visitors: r.visitors,
+            completions: r.completions,
+            completionRate: r.completion_rate,
+            avgCompletionTimeMs: r.avg_completion_time_ms || 0,
+            confidence: r.confidence || 0,
+            isWinner: r.is_winner || false,
+            segments: {},
+          }));
+
+          logger.log('[ABTestResults-RPC]', {
+            days,
+            variants: results.map((r: any) => ({ variant: r.variant, completions: r.completions })),
+            performanceMs: elapsedMs,
+          });
+
+          return NextResponse.json({
+            ok: true,
+            testPeriod: { startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString(), endDate: new Date().toISOString(), days },
+            variants: results,
+            metadata: {
+              totalSubmissions: results.reduce((sum: number, r: any) => sum + r.completions, 0),
+              testStatus: results.some((r: any) => r.completions >= 300) ? 'ONGOING' : 'WARMING_UP',
+              minSampleRequired: 300,
+              minConfidenceRequired: 95,
+              performanceMs: elapsedMs,
+            },
+          });
+        }
+      } catch (rpcErr) {
+        logger.warn('RPC get_ab_test_summary failed, using Prisma:', rpcErr);
+      }
+    }
+
+    // Prisma Fallback: 기존 로직 유지
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
@@ -98,8 +159,7 @@ export async function GET(req: NextRequest) {
       segmentStats[variant][sub.segment].times.push(sub.completionTimeMs);
     }
 
-    // 완성율 계산 (전체 방문 = 3배의 제출 수, Step 1 방문자)
-    // 가정: 각 variant별 진입자가 동등하게 배분
+    // 완성율 계산
     const totalSubmissions = submissions.length;
     const estimatedTotalVisitors = totalSubmissions > 0 ? Math.ceil((totalSubmissions / 3) * 1.33) : 0;
 
@@ -118,14 +178,14 @@ export async function GET(req: NextRequest) {
         completions: stats.visitors,
         completionRate,
         avgCompletionTimeMs,
-        confidence: 0, // 아래에서 계산
-        isWinner: false, // 아래에서 결정
+        confidence: 0,
+        isWinner: false,
         segments: Object.entries(segmentStats[variant as 'a' | 'b' | 'c']).reduce(
           (acc, [seg, data]) => {
             acc[seg] = {
               visitors: data.visitors,
               completions: data.visitors,
-              rate: 1, // 모두 완성으로 간주
+              rate: 1,
             };
             return acc;
           },
@@ -134,9 +194,9 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 신뢰도 계산 (Control vs 다른 변형)
+    // 신뢰도 계산
     if (results.length >= 2) {
-      const controlResult = results[0]; // Variant A (Control)
+      const controlResult = results[0];
 
       for (let i = 1; i < results.length; i++) {
         const variantResult = results[i];
@@ -150,7 +210,6 @@ export async function GET(req: NextRequest) {
         results[i] = variantResult;
       }
 
-      // 승자 판정: 완성율이 높고 신뢰도 >= 95%
       const maxCompletionRate = Math.max(...results.map(r => r.completionRate));
       const winner = results.find(r => r.completionRate === maxCompletionRate && r.confidence >= 95);
       if (winner) {
@@ -158,10 +217,12 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    logger.log('[ABTestResults]', {
+    const elapsedMs = Date.now() - startTime;
+    logger.log('[ABTestResults-Prisma]', {
       days,
       totalSubmissions,
       variants: results.map(r => ({ variant: r.variant, completions: r.completions })),
+      performanceMs: elapsedMs,
     });
 
     return NextResponse.json({
@@ -174,6 +235,7 @@ export async function GET(req: NextRequest) {
         testStatus: results.some(r => r.completions >= 300) ? 'ONGOING' : 'WARMING_UP',
         minSampleRequired: 300,
         minConfidenceRequired: 95,
+        performanceMs: elapsedMs,
       },
     });
   } catch (err) {

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { normalizePhone } from '@/lib/phone-normalize';
+import { logger } from '@/lib/logger';
 import './ContactForm.css';
 
 interface ContactFormProps {
@@ -57,6 +58,7 @@ export const ContactForm: React.FC<ContactFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [startTime] = useState(Date.now());
 
   // 이벤트 로깅 함수
@@ -158,24 +160,39 @@ export const ContactForm: React.FC<ContactFormProps> = ({
         }),
       });
 
-      // CRM inquiry 웹훅 호출
-      await fetch('/api/webhooks/inquiry', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_INQUIRY_WEBHOOK_SECRET || 'test'}`,
-        },
-        body: JSON.stringify({
-          phone: phoneDigits,
-          name: formData.name.trim(),
-          email: formData.email || null,
-          affiliateCode: new URLSearchParams(window.location.search).get('ref') || null,
-          inquiryType: 'cruise_inquiry',
-          message: `선호도: ${formData.preferenceType} | 연령: ${formData.ageRange}`,
-          submittedAt: new Date().toISOString(),
-          organizationId: process.env.NEXT_PUBLIC_DEFAULT_ORG_ID,
-        }),
-      }).catch(err => console.error('Inquiry webhook error:', err));
+      // CRM inquiry 웹훅 호출 (서버 프록시 경유)
+      const inquiryPayload = {
+        phone: phoneDigits,
+        name: formData.name.trim(),
+        email: formData.email || null,
+        affiliateCode: new URLSearchParams(window.location.search).get('ref') || null,
+        inquiryType: 'cruise_inquiry',
+        message: `선호도: ${formData.preferenceType} | 연령: ${formData.ageRange}`,
+        submittedAt: new Date().toISOString(),
+        organizationId: process.env.NEXT_PUBLIC_DEFAULT_ORG_ID || '',
+      };
+
+      try {
+        const response = await fetch('/api/loop5/webhook-proxy', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(inquiryPayload),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          logger.error('[ContactForm] Inquiry webhook failed', {
+            status: response.status,
+            error: errorData.error || 'Unknown error'
+          });
+        }
+      } catch (err) {
+        logger.error('[ContactForm] Inquiry webhook error', {
+          error: err instanceof Error ? err.message : String(err)
+        });
+      }
 
       logEvent('form_complete', {
         completionTimeMs,
@@ -201,8 +218,14 @@ export const ContactForm: React.FC<ContactFormProps> = ({
         setSuccessMessage('');
       }, 3000);
     } catch (error) {
-      console.error('Form submission error:', error);
-      logEvent('form_submit_error', { error: String(error) });
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error('[ContactForm] Form submission error', {
+        error: errorMsg,
+        phone: phoneDigits.replace(/\d(?=\d{4})/g, '*'),
+        variant
+      });
+      logEvent('form_submit_error', { error: errorMsg });
+      setErrorMessage('제출 중 오류가 발생했습니다. 다시 시도해주세요.');
       onError?.('제출 중 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       setIsSubmitting(false);
