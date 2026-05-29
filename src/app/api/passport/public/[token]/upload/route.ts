@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -20,6 +21,7 @@ export async function POST(
       select: {
         id: true,
         tokenExpiresAt: true,
+        isSubmitted: true,
         extraData: true,
       },
     });
@@ -30,6 +32,11 @@ export async function POST(
 
     if (submission.tokenExpiresAt.getTime() < Date.now()) {
       return NextResponse.json({ ok: false, error: '업로드 가능한 시간이 만료되었습니다.' }, { status: 410 });
+    }
+
+    // 이미 제출 완료된 경우 파일 교체 차단
+    if (submission.isSubmitted) {
+      return NextResponse.json({ ok: false, error: '이미 제출이 완료되었습니다. 수정이 필요하면 담당자에게 문의하세요.' }, { status: 409 });
     }
 
     const formData = await req.formData();

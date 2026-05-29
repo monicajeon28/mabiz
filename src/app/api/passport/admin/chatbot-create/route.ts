@@ -1,8 +1,10 @@
-﻿export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 // 여권 챗봇 플로우 자동 생성 (GMcruise ChatBotFlow/ChatBotQuestion 테이블 사용)
 
 import { NextRequest, NextResponse } from 'next/server';
+import { randomBytes } from 'crypto';
 import prisma from '@/lib/prisma';
 import { requireCrmManager } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
@@ -35,7 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 플로우 생성
-    const shareToken = `passport_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    const shareToken = `passport_${randomBytes(16).toString('hex')}`;
 
     const createdFlows = await prisma.$queryRaw<
       Array<{ id: number; shareToken: string }>

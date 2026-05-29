@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -7,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { requireCrmManager } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
+import { hashPassword } from '@/lib/password';
 
 // ── Zod 스키마 ──────────────────────────────────────────────
 
@@ -290,11 +292,13 @@ export async function POST(req: NextRequest) {
 
               const now = new Date();
               // 여권 등록 = 구매 확정으로 간주하여 purchase_confirmed로 생성
+              const randomPw = randomBytes(16).toString('hex');
+              const hashedPw = await hashPassword(randomPw);
               const newUser = await tx.gmUser.create({
                 data: {
                   name: guest.name,
                   phone: normalizedPhone,
-                  password: '3800',
+                  password: hashedPw,
                   role: 'user',
                   customerStatus: 'purchase_confirmed',
                   onboarded: false,

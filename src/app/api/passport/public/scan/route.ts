@@ -14,8 +14,12 @@ import { checkRateLimitAsync } from '@/lib/rate-limit';
 
 const MAX_OCR_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-const apiKey = process.env.GEMINI_API_KEY || '';
-const genAI = new GoogleGenerativeAI(apiKey);
+/** 요청 시점에 환경변수를 읽어 인스턴스화 (빈 키로 모듈 초기화 방지) */
+function getGenAI(): GoogleGenerativeAI {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error('GEMINI_API_KEY_MISSING');
+  return new GoogleGenerativeAI(key);
+}
 
 /** Gemini 모델명 결정 (환경변수 → 기본값) */
 function resolveGeminiModelName(): string {
@@ -34,7 +38,7 @@ export async function GET(req: NextRequest) {
     const token = searchParams.get('token');
     const phone = searchParams.get('phone');
 
-    if (!token || token.length < 10) {
+    if (!token || token.length < 10 || token.length > 512) {
       return NextResponse.json(
         { ok: false, error: '잘못된 토큰입니다.' },
         { status: 400 }
@@ -168,11 +172,30 @@ export async function GET(req: NextRequest) {
       guests = [];
     }
 
+    // 민감 정보 마스킹 헬퍼
+    const maskPhone = (p: string | null | undefined) => {
+      if (!p) return null;
+      const n = p.replace(/[-\s()]/g, '');
+      if (n.length >= 7) return n.slice(0, 3) + '****' + n.slice(-4);
+      return '****';
+    };
+    const maskEmail = (e: string | null | undefined) => {
+      if (!e) return null;
+      const [local, domain] = e.split('@');
+      if (!domain) return '****';
+      return local.slice(0, 2) + '****@' + domain;
+    };
+    const maskPassportNo = (pn: string | null | undefined) => {
+      if (!pn) return null;
+      if (pn.length <= 4) return '****';
+      return pn.slice(0, 2) + '****' + pn.slice(-2);
+    };
+
     return NextResponse.json({
       ok: true,
       submission: {
         id: submission.id,
-        token: submission.token,
+        // token은 클라이언트가 이미 보유 중 — 재전송 불필요, 생략
         expiresAt: submission.tokenExpiresAt.toISOString(),
         isExpired,
         isSubmitted: submission.isSubmitted,
@@ -184,14 +207,23 @@ export async function GET(req: NextRequest) {
           remarks: (extraData?.remarks as string) ?? '',
         },
       },
-      user: submission.user,
+      user: submission.user
+        ? {
+            id: submission.user.id,
+            name: submission.user.name,
+            phone: maskPhone(submission.user.phone),
+            email: maskEmail(submission.user.email),
+            role: submission.user.role,
+            customerStatus: submission.user.customerStatus,
+          }
+        : null,
       trip,
       guests: guests.map((guest) => ({
         id: guest.id,
         groupNumber: guest.groupNumber,
         name: guest.name,
-        phone: guest.phone,
-        passportNumber: guest.passportNumber,
+        phone: maskPhone(guest.phone),
+        passportNumber: maskPassportNo(guest.passportNumber),
         nationality: guest.nationality,
         dateOfBirth: guest.dateOfBirth?.toISOString() ?? null,
         passportExpiryDate: guest.passportExpiryDate?.toISOString() ?? null,
@@ -221,14 +253,24 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    if (!apiKey) {
+    let genAI: GoogleGenerativeAI;
+    try {
+      genAI = getGenAI();
+    } catch {
       return NextResponse.json(
-        { ok: false, error: 'GEMINI_API_KEY가 설정되지 않았습니다.' },
+        { ok: false, error: 'AI 서비스가 구성되지 않았습니다.' },
         { status: 500 }
       );
     }
 
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+    // 신뢰할 수 있는 IP 추출: 클라이언트 조작 불가 헤더 우선 사용
+    // cf-connecting-ip (Cloudflare) > x-real-ip (Vercel/Nginx) > x-forwarded-for 마지막 값(프록시 추가분)
+    const rawForwarded = req.headers.get('x-forwarded-for') || '';
+    const ip =
+      req.headers.get('cf-connecting-ip')?.trim() ||
+      req.headers.get('x-real-ip')?.trim() ||
+      rawForwarded.split(',').pop()?.trim() ||
+      'unknown';
     const { allowed } = await checkRateLimitAsync(`passport-ocr:${ip}`, 10, 5 * 60_000);
     if (!allowed) {
       return NextResponse.json({ ok: false, error: '요청이 너무 많습니다. 잠시 후 다시 시도하세요.' }, { status: 429 });
@@ -236,7 +278,9 @@ export async function POST(req: NextRequest) {
 
     // query에서 token 받기
     const { searchParams } = new URL(req.url);
-    const token = searchParams.get('token');
+    const rawToken = searchParams.get('token');
+    // 토큰 길이 검증 (최소 10, 최대 512자)
+    const token = rawToken && rawToken.length >= 10 && rawToken.length <= 512 ? rawToken : null;
 
     const formData = await req.formData();
     // 프론트엔드에서 'file' 또는 'passportImage' 둘 다 지원
@@ -335,8 +379,7 @@ Key rules:
       return NextResponse.json(
         {
           ok: false,
-          error: `AI 여권 인식 서비스에 오류가 발생했습니다.\n\n기술 정보: ${err.message}\n\n해결 방법:\n- 이미지 크기를 줄여보세요 (최대 5MB 권장)\n- 다른 이미지 형식으로 변환해보세요\n- 잠시 후 다시 시도해주세요`,
-          technicalError: String(err.message || ''),
+          error: 'AI 여권 인식 서비스에 오류가 발생했습니다.\n\n해결 방법:\n- 이미지 크기를 줄여보세요 (최대 5MB 권장)\n- 다른 이미지 형식으로 변환해보세요\n- 잠시 후 다시 시도해주세요',
         },
         { status: 500 }
       );
@@ -355,7 +398,6 @@ Key rules:
         {
           ok: false,
           error: 'AI 응답을 처리할 수 없습니다.\n\n잠시 후 다시 시도해주세요.',
-          technicalError: String(err.message || ''),
         },
         { status: 500 }
       );
@@ -369,8 +411,6 @@ Key rules:
         {
           ok: false,
           error: 'AI가 빈 응답을 반환했습니다.\n\n가능한 원인:\n- 이미지가 너무 흐릿합니다\n- 이미지가 여권이 아닙니다\n- 이미지가 손상되었습니다\n\n더 선명한 여권 사진을 업로드해주세요.',
-          rawResponse: text,
-          technicalError: 'Empty response from AI'
         },
         { status: 400 }
       );
@@ -417,8 +457,6 @@ Key rules:
           {
             ok: false,
             error: '여권 정보를 읽을 수 없습니다. 여권의 정보면(사진이 있는 면)을 더 선명하게 촬영해주세요.',
-            rawResponse: text,
-            technicalError: String(err.message || ''),
           },
           { status: 400 }
         );
@@ -448,8 +486,6 @@ Key rules:
         {
           ok: false,
           error: '여권 정보를 읽을 수 없습니다.\n\n다음을 확인해주세요:\n- 여권의 정보면(사진이 있는 면)을 촬영했는지\n- 모든 텍스트가 선명하게 보이는지\n- 사진이 너무 어둡거나 밝지 않은지\n- 반사광이 텍스트를 가리지 않는지',
-          rawResponse: text,
-          extractedData: normalizedData
         },
         { status: 400 }
       );
@@ -524,38 +560,24 @@ Key rules:
             const uploadedUrl = driveResponse.data.webViewLink || `https://drive.google.com/file/d/${uploadedFileId}/view`;
 
             if (uploadedFileId) {
-              // extraData에 저장된 이미지 목록에 추가
-              const existing = await prisma.gmPassportSubmission.findUnique({
-                where: { id: submission.id },
-                select: { extraData: true },
-              });
-
-              const existingExtra =
-                existing?.extraData && typeof existing.extraData === 'object'
-                  ? (existing.extraData as Record<string, unknown>)
-                  : {};
-
-              const passportFiles = Array.isArray(existingExtra.passportFiles)
-                ? (existingExtra.passportFiles as any[])
-                : [];
-
-              passportFiles.push({
+              // 경쟁 상태 방지: PostgreSQL jsonb 원자 연산으로 배열에 직접 append
+              // read-modify-write 패턴 대신 DB 레벨 원자적 업데이트 사용
+              const newEntry = JSON.stringify({
                 fileName: safeFileName,
                 url: uploadedUrl,
                 fileId: uploadedFileId,
                 uploadedAt: new Date().toISOString(),
                 source: 'scan',
               });
-
-              await prisma.gmPassportSubmission.update({
-                where: { id: submission.id },
-                data: {
-                  extraData: {
-                    ...(existingExtra ?? {}),
-                    passportFiles,
-                  } as any,
-                },
-              });
+              await prisma.$executeRaw`
+                UPDATE "GmPassportSubmission"
+                SET "extraData" = jsonb_set(
+                  COALESCE("extraData", '{}'::jsonb),
+                  '{passportFiles}',
+                  COALESCE("extraData"->'passportFiles', '[]'::jsonb) || ${newEntry}::jsonb
+                )
+                WHERE id = ${submission.id}
+              `;
 
               uploadedFileInfo = {
                 fileId: uploadedFileId,
@@ -587,7 +609,7 @@ Key rules:
     return NextResponse.json(
       {
         ok: false,
-        error: String(err.message || '여권 스캔 중 오류가 발생했습니다.')
+        error: '여권 스캔 중 오류가 발생했습니다.',
       },
       { status: 500 }
     );
