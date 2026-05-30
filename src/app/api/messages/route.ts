@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getMabizSession } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { renderMessage, extractVariables } from '@/lib/message-template-engine';
+import { renderMessage, extractVariables, MessageContext } from '@/lib/message-template-engine';
 import { sendScheduledSms } from '@/lib/sms-service';
 import { sendKakaoMessage, logKakaoMessage } from '@/lib/messages/kakao-service';
 import { sendEmail, getPasonaEmailTemplate, logEmailMessage } from '@/lib/messages/email-service';
@@ -123,6 +123,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // SMS/Kakao 발송 시 phone 필드 검증
+    if ((messageType === 'SMS' || messageType === 'KAKAO') && !contact.phone) {
+      logger.warn('[messages] Phone number missing', { contactId, messageType });
+      return NextResponse.json(
+        { ok: false, message: 'Contact phone number is required for SMS/KAKAO message type' },
+        { status: 400 }
+      );
+    }
+
     // PASONA 템플릿 로드
     const dayMatch = messageKey.match(/day(\d)/i);
     const dayNumber = dayMatch ? dayMatch[1] : '0';
@@ -135,19 +144,34 @@ export async function POST(req: NextRequest) {
       );
     }
     const dayKey = `day${dayNumber}` as keyof typeof PASONA_TEMPLATES;
-    const lensKey = `${lens}_${messageKey.split('_').pop()?.toUpperCase()}` || 'default';
+
+    // 렌즈 기반 템플릿 키 결정 (L0-L10 + 메시지 타입)
+    let templateKey = 'default';
+    if (lens) {
+      const upperLens = lens.toUpperCase();
+      const messageTypePart = messageKey.includes('urgent') ? 'URGENT' :
+                             messageKey.includes('immediate') ? 'IMMEDIATE' :
+                             messageKey.includes('anxiety') ? 'ANXIETY' :
+                             messageKey.includes('trust') ? 'TRUST' :
+                             messageKey.includes('habit') ? 'HABIT' :
+                             messageKey.includes('companion') ? 'COMPANION' :
+                             messageKey.includes('closing') ? 'CLOSING' :
+                             messageKey.includes('scarcity') ? 'SCARCITY' : 'default';
+      const compositeKey = messageTypePart !== 'default' ? `${upperLens}_${messageTypePart}` : `${upperLens}_IMMEDIATE`;
+      templateKey = PASONA_TEMPLATES[dayKey]?.[compositeKey] ? compositeKey : 'default';
+    }
 
     const templateContent =
-      PASONA_TEMPLATES[dayKey]?.[lensKey] ||
+      PASONA_TEMPLATES[dayKey]?.[templateKey] ||
       PASONA_TEMPLATES[dayKey]?.['default'] ||
       `{{name}}님, {{messageKey}} 메시지입니다.`;
 
     // 메시지 렌더링
-    const renderContext = {
+    const renderContext: MessageContext = {
       contactId,
-      contactName: contact.name,
-      contactPhone: contact.phone,
-      contactEmail: contact.email,
+      contactName: contact.name || 'Guest',
+      contactPhone: contact.phone || undefined,
+      contactEmail: contact.email ?? undefined,
       segment: lens,
       lens: lens,
       customVariables: templateVars,
@@ -185,22 +209,15 @@ export async function POST(req: NextRequest) {
         id: messageId,
         organizationId: session.organizationId,
         contactId,
-        phone: contact.phone,
+        phone: contact.phone || '',
         contentPreview: renderedMessage.substring(0, 100),
-        status: scheduleAt ? 'PENDING' : 'SENT',
-        messageType,
+        msg: renderedMessage,
+        status: 'PENDING',
         channel: 'API',
         sentAt: scheduleAt ? undefined : new Date(),
         segmentCode: lens,
         psychologyLens: lens,
-        abTestGroup,
-        trackingId,
-        // 캠페인 링크
-        ...(campaignId && { campaignId }),
-      },
-      select: {
-        id: true,
-        trackingId: true,
+        abTestGroup: abTestGroup || undefined,
       },
     });
 
@@ -222,7 +239,7 @@ export async function POST(req: NextRequest) {
           metadata: {
             messageKey,
             abTestGroup,
-            trackingId: smsLog.trackingId,
+            trackingId: trackingId,
           },
         });
 
@@ -244,10 +261,10 @@ export async function POST(req: NextRequest) {
         // Kakao 메시지 즉시 발송 (예약 발송은 Kakao가 미지원)
         const kakaoResult = await sendKakaoMessage({
           organizationId: session.organizationId,
-          phoneNumber: contact.phone,
+          phoneNumber: contact.phone || '',
           templateId: `pasona_${dayKey}_${lens || 'default'}`,
           templateArgs: [
-            contact.name,
+            contact.name || 'Guest',
             templateVars.price || '',
             templateVars.discount || '',
             templateVars.link || '',
@@ -318,7 +335,7 @@ export async function POST(req: NextRequest) {
           templateKey: messageKey,
           lens,
           abTestGroup,
-          trackingId: smsLog.trackingId,
+          trackingId: trackingId,
           scheduleAt: scheduleAt ? new Date(scheduleAt) : undefined,
         });
 
@@ -330,7 +347,7 @@ export async function POST(req: NextRequest) {
             contact.email,
             emailResult.messageId,
             emailTemplate.subject,
-            emailResult.status as 'SENT' | 'SCHEDULED'
+            emailResult.status === 'PENDING' ? 'SENT' : emailResult.status
           );
 
           logger.log('[messages] Email 발송 완료', {
@@ -355,12 +372,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 응답 상태 결정: scheduleAt이 있으면 PENDING (예약), 없으면 SENT (즉시 발송)
+    const responseStatus = scheduleAt ? 'PENDING' : 'SENT';
+
     return NextResponse.json({
       ok: true,
       messageId: smsLog.id,
-      trackingId: smsLog.trackingId,
+      trackingId: trackingId,
       trackingUrl,
-      status: scheduleAt ? 'SCHEDULED' : 'SENT',
+      status: responseStatus,
       sentAt: new Date(),
       contact: {
         id: contact.id,

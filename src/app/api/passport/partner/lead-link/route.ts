@@ -125,6 +125,7 @@ export async function POST(req: NextRequest) {
       const updated = await prisma.gmPassportSubmission.update({
         where: { id: existingSubmission.id },
         data: {
+          token, // ✅ P0 FIX: 새 토큰 할당
           tokenExpiresAt,
           isSubmitted: false,
           updatedAt: new Date(),
@@ -136,10 +137,12 @@ export async function POST(req: NextRequest) {
       const created = await prisma.gmPassportSubmission.create({
         data: {
           userId: leadUser.id,
+          token,
           tokenExpiresAt,
           isSubmitted: false,
           driveFolderUrl: null,
           extraData: Prisma.JsonNull,
+          createdAt: new Date(),
           updatedAt: new Date(),
         },
       });
@@ -155,12 +158,18 @@ export async function POST(req: NextRequest) {
     });
 
     // PassportRequestLog 생성
+    // ✅ L6 심리학 (타이밍 손실회피): 기한 임박 메시지로 긴박감 조성
+    const hoursRemaining = 72;
+    const messageBody = existingSubmission
+      ? `[재제출] 여권 재제출 링크: ${link}\n⏰ 기한 임박: ${hoursRemaining}시간 남음\n놓치지 마세요!`
+      : `여권 제출 링크: ${link}\n📋 제출 기한: ${hoursRemaining}시간`;
+
     await prisma.gmPassportRequestLog.create({
       data: {
         userId: leadUser.id,
         adminId: sessionUser.id,
         templateId: null,
-        messageBody: `여권 제출 링크: ${link}`,
+        messageBody,
         messageChannel: 'LINK',
         status: 'SUCCESS',
         errorReason: null,

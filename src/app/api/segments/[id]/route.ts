@@ -2,6 +2,10 @@
  * GET /api/segments/[id] - Get segment details
  * GET /api/segments/[id]/contacts - Get contacts in segment
  * GET /api/segments/[id]/recommendation - Get campaign recommendation
+ *
+ * NOTE: CustomerSegment model currently disabled in schema.prisma
+ * These endpoints return placeholder responses to prevent null reference errors
+ * TODO: Re-enable CustomerSegment model and implement actual database queries
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -31,40 +35,80 @@ export async function GET(
 
     const segmentId = params.id;
 
+    // Validate segmentId format
+    if (!segmentId || typeof segmentId !== "string") {
+      return NextResponse.json(
+        { error: "Invalid segment ID" },
+        { status: 400 }
+      );
+    }
+
     // GET /api/segments/[id]/contacts
     if (path.endsWith("/contacts")) {
-      // TODO: Implement once CustomerSegment model is re-enabled in schema.prisma
-      // This endpoint should return contacts assigned to the segment
+      // DISABLED: CustomerSegment model not available
+      // When re-enabled, implement:
+      // 1. Fetch segment by ID and orgId
+      // 2. Query contacts where segmentId matches
+      // 3. Apply pagination (limit, offset from query params)
+      // 4. Return contact list with count
       return NextResponse.json({
         success: true,
+        segmentId,
         total: 0,
         contacts: [],
+        pagination: {
+          limit: 10,
+          offset: 0,
+          hasMore: false
+        },
+        status: "DISABLED",
         message: "CustomerSegment functionality disabled - awaiting schema update"
       });
     }
 
     // GET /api/segments/[id]/recommendation
     if (path.endsWith("/recommendation")) {
-      // TODO: Implement once segmentation engine is re-enabled
-      // This endpoint should recommend campaigns based on segment profile
+      // DISABLED: Segmentation engine not available
+      // When re-enabled, implement:
+      // 1. Fetch segment profile (demographics, behavior, psychology lenses)
+      // 2. Analyze segment characteristics (L0-L10 lens distribution)
+      // 3. Recommend campaigns based on lens profile
+      // 4. Suggest A/B test variants for this segment
       return NextResponse.json({
         success: true,
-        recommendation: null,
-        suggestedABTest: null,
+        segmentId,
+        recommendation: {
+          campaigns: [],
+          suggestedABTest: null,
+          targetLenses: [],
+          expectedCVR: 0
+        },
+        status: "DISABLED",
         message: "Campaign recommendation disabled - awaiting schema update"
       });
     }
 
     // GET /api/segments/[id] - Default: segment details
+    // DISABLED: When re-enabled, fetch from database:
+    // SELECT * FROM CustomerSegment WHERE id = segmentId AND orgId = orgId
     return NextResponse.json({
       success: true,
       segment: {
         id: segmentId,
+        orgId,
         name: "Placeholder Segment",
+        description: null,
         size: 0,
-        profile: null,
-        status: "DISABLED"
+        profile: {
+          demographics: {},
+          behavior: {},
+          psychologyLenses: {}
+        },
+        status: "DISABLED",
+        createdAt: null,
+        updatedAt: null
       },
+      status: "DISABLED",
       message: "CustomerSegment functionality disabled - awaiting schema update"
     });
   } catch (error) {

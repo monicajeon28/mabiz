@@ -7,8 +7,29 @@ import { requireCrmManager } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const apiKey = process.env.GEMINI_API_KEY || '';
-const genAI = new GoogleGenerativeAI(apiKey);
+function getGenAI(): GoogleGenerativeAI {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error('GEMINI_API_KEY_MISSING');
+  return new GoogleGenerativeAI(key);
+}
+
+// SSRF 방지: 허용된 도메인에서만 이미지 다운로드
+const ALLOWED_IMAGE_HOSTS = [
+  'drive.google.com',
+  'lh3.googleusercontent.com',
+  'storage.googleapis.com',
+  'firebasestorage.googleapis.com',
+];
+
+function isAllowedImageUrl(url: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(url);
+    if (protocol !== 'https:') return false;
+    return ALLOWED_IMAGE_HOSTS.some(h => hostname === h || hostname.endsWith(`.${h}`));
+  } catch {
+    return false;
+  }
+}
 
 /** Gemini 모델명 — 환경변수 우선, 없으면 기본값 */
 function resolveGeminiModelName(): string {
@@ -34,7 +55,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!apiKey) {
+    // GEMINI_API_KEY 확인
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) {
       return NextResponse.json(
         { ok: false, message: 'GEMINI_API_KEY가 설정되지 않았습니다.' },
         { status: 500 }
@@ -78,6 +101,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // SSRF 방지: 허용된 도메인 검증
+    if (!isAllowedImageUrl(body.imageUrl)) {
+      return NextResponse.json(
+        { ok: false, message: '허용되지 않은 이미지 URL입니다.' },
+        { status: 400 }
+      );
+    }
+
     // 이미지 다운로드
     logger.log('[OCR to APIS] 이미지 다운로드 시작', { imageUrl: body.imageUrl });
     let imageBuffer: Buffer;
@@ -100,6 +131,7 @@ export async function POST(req: NextRequest) {
     // OCR 처리
     const base64String = imageBuffer.toString('base64');
     const modelName = resolveGeminiModelName();
+    const genAI = getGenAI();
     const model = genAI.getGenerativeModel({
       model: modelName,
       generationConfig: {
