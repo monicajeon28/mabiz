@@ -5,16 +5,24 @@ const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 
 if (!redisUrl || !redisToken) {
-  throw new Error('Missing required Redis configuration: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN');
+  logger.warn('[Redis] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN — Redis disabled');
 }
 
-const redis = new Redis({
-  url: redisUrl,
-  token: redisToken,
-});
+// Lazy singleton: null when env vars are missing
+let _redis: Redis | null = null;
+
+function getRedis(): Redis | null {
+  if (!redisUrl || !redisToken) return null;
+  if (!_redis) {
+    _redis = new Redis({ url: redisUrl, token: redisToken });
+  }
+  return _redis;
+}
 
 // 캐시 조회 (실패 시 null 반환)
 export async function getCache<T>(key: string): Promise<T | null> {
+  const redis = getRedis();
+  if (!redis) return null;
   try {
     return await redis.get<T>(key);
   } catch (err) {
@@ -29,6 +37,8 @@ export async function setCache(
   data: unknown,
   ttlSeconds = 60
 ) {
+  const redis = getRedis();
+  if (!redis) return;
   try {
     await redis.set(key, JSON.stringify(data), { ex: ttlSeconds });
   } catch {
@@ -38,6 +48,8 @@ export async function setCache(
 
 // 캐시 무효화
 export async function invalidateCache(pattern: string) {
+  const redis = getRedis();
+  if (!redis) return;
   try {
     const keys = await redis.keys(pattern);
     if (keys.length) await redis.del(...keys);
@@ -54,6 +66,8 @@ export async function invalidateCache(pattern: string) {
  * @returns 현재 카운트 (실패 시 null → 메모리 폴백 유도)
  */
 export async function rlIncr(key: string, windowSec: number): Promise<number | null> {
+  const redis = getRedis();
+  if (!redis) return null;
   try {
     const count = await redis.incr(key);
     // 처음 생성된 키에만 TTL 설정 (레이스컨디션 방지: INCR 결과가 1이면 처음)
@@ -72,6 +86,8 @@ export async function rlIncr(key: string, windowSec: number): Promise<number | n
  * @returns 남은 초 (키 없으면 -2, TTL 없으면 -1, 실패 시 null)
  */
 export async function rlTtl(key: string): Promise<number | null> {
+  const redis = getRedis();
+  if (!redis) return null;
   try {
     return await redis.ttl(key);
   } catch (err) {
@@ -92,6 +108,8 @@ export async function csrfSet(
   token: string,
   ttlSec = 3600
 ): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return false;
   try {
     await redis.set(`csrf:${sessionId}`, token, { ex: ttlSec });
     return true;
@@ -106,6 +124,8 @@ export async function csrfSet(
  * @returns 토큰 문자열 또는 null (없거나 실패)
  */
 export async function csrfGet(sessionId: string): Promise<string | null> {
+  const redis = getRedis();
+  if (!redis) return null;
   try {
     return await redis.get<string>(`csrf:${sessionId}`);
   } catch (err) {
@@ -118,6 +138,8 @@ export async function csrfGet(sessionId: string): Promise<string | null> {
  * CSRF 토큰 삭제 (로그아웃 시)
  */
 export async function csrfDel(sessionId: string): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
   try {
     await redis.del(`csrf:${sessionId}`);
   } catch {
@@ -125,4 +147,4 @@ export async function csrfDel(sessionId: string): Promise<void> {
   }
 }
 
-export { redis };
+export { getRedis };
