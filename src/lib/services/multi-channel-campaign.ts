@@ -117,7 +117,10 @@ export function convertMessageForChannel(
 }
 
 /**
- * 캠페인 생성 (멀티채널 통합)
+ * 캠페인 생성 (멀티채널 통합) — DISABLED
+ *
+ * 비활성화 사유: MultiChannelCampaign Prisma 모델 미마이그레이션
+ * 활성화 조건: prisma migration 완료 + Prisma schema 업데이트
  *
  * 프로세스:
  * 1. Campaign 레코드 생성
@@ -133,119 +136,18 @@ export async function createCampaign(
   metrics: { channel: MessageChannel; estimatedRecipients: number }[];
   estimatedCost: number;
 }> {
-  const {
-    organizationId,
-    name,
-    channels,
-    message,
-    subject,
-    recipients,
-    scheduleAt,
-    templateIds,
-    lensType,
-    segmentId,
-  } = params;
-
-  try {
-    // 1. Campaign 레코드 생성
-    const campaign = await prisma.multiChannelCampaign.create({
-      data: {
-        organizationId,
-        name,
-        channels: channels,
-        message,
-        subject: subject || null,
-        status: "DRAFT",
-        totalRecipients: recipients.length,
-        lensType: lensType || null,
-        segmentId: segmentId || null,
-        scheduleAt: scheduleAt || null,
-        createdAt: new Date(),
-      },
-    });
-
-    // 2. 채널별 메시지 생성
-    const channelMessages = channels.map((channel) => {
-      const converted = convertMessageForChannel(message, channel);
-      return {
-        campaignId: campaign.id,
-        channel,
-        originalMessage: message,
-        convertedMessage: converted.message,
-        charCount: converted.message.length,
-        limitExceeded: converted.message.length > CHANNEL_LIMITS[channel],
-      };
-    });
-
-    await prisma.campaignChannelMessage.createMany({
-      data: channelMessages,
-    });
-
-    // 3. 수신자별 발송 예약 생성
-    for (const recipient of recipients) {
-      for (const channel of channels) {
-        // 해당 채널에 맞는 수신 정보 확인
-        let recipientData: any = { channel };
-
-        if (channel === "SMS" && recipient.phone) {
-          recipientData.phone = recipient.phone;
-        } else if (channel === "EMAIL" && recipient.email) {
-          recipientData.email = recipient.email;
-        } else if (channel === "KAKAO" && recipient.phone) {
-          recipientData.phone = recipient.phone;
-        }
-
-        // 채널 정보 없으면 스킵
-        if (!recipientData.phone && !recipientData.email) continue;
-
-        await prisma.campaignRecipient.create({
-          data: {
-            campaignId: campaign.id,
-            contactId: recipient.contactId,
-            channel,
-            status: "PENDING",
-            phone: recipient.phone || null,
-            email: recipient.email || null,
-            scheduledAt: scheduleAt || null,
-          },
-        });
-      }
-    }
-
-    // 4. 예상 비용 계산
-    const estimatedCost = channels.reduce((sum, channel) => {
-      return sum + recipients.length * CHANNEL_COSTS[channel];
-    }, 0);
-
-    logger.log("[createCampaign] 캠페인 생성 완료", {
-      campaignId: campaign.id,
-      channels,
-      recipientCount: recipients.length,
-      estimatedCost,
-    });
-
-    return {
-      campaignId: campaign.id,
-      status: campaign.status,
-      metrics: channels.map((channel) => ({
-        channel,
-        estimatedRecipients: recipients.filter(
-          (r) =>
-            (channel === "SMS" && r.phone) ||
-            (channel === "EMAIL" && r.email) ||
-            (channel === "KAKAO" && r.phone)
-        ).length,
-      })),
-      estimatedCost,
-    };
-  } catch (error) {
-    logger.error("[createCampaign] 캠페인 생성 실패", { error });
-    throw error;
-  }
+  throw new Error(
+    "[DISABLED] createCampaign() — MultiChannelCampaign Prisma 모델이 마이그레이션되지 않았습니다. " +
+      "Prisma schema에 multiChannelCampaign, campaignRecipient, campaignChannelMessage 모델 추가 후 " +
+      "migrations 실행이 필요합니다."
+  );
 }
 
 /**
- * 캠페인 발송 (스케줄링 또는 즉시)
+ * 캠페인 발송 (스케줄링 또는 즉시) — DISABLED
+ *
+ * 비활성화 사유: MultiChannelCampaign Prisma 모델 미마이그레이션
+ * 활성화 조건: prisma migration 완료 + Prisma schema 업데이트
  *
  * 프로세스:
  * 1. Campaign 상태를 ACTIVE로 변경
@@ -261,84 +163,18 @@ export async function executeCampaign(
   failed: number;
   byChan: Record<MessageChannel, number>;
 }> {
-  try {
-    const campaign = await prisma.multiChannelCampaign.findUnique({
-      where: { id: campaignId },
-      include: {
-        recipients: true,
-        messages: true,
-      },
-    });
-
-    if (!campaign) {
-      throw new Error(`Campaign not found: ${campaignId}`);
-    }
-
-    // 캠페인 상태 업데이트
-    await prisma.multiChannelCampaign.update({
-      where: { id: campaignId },
-      data: { status: "ACTIVE", sentAt: new Date() },
-    });
-
-    let totalSent = 0;
-    let failed = 0;
-    const byChannel: Record<MessageChannel, number> = {
-      SMS: 0,
-      KAKAO: 0,
-      EMAIL: 0,
-    };
-
-    const recipients = await prisma.campaignRecipient.findMany({
-      where: { campaignId },
-    });
-
-    for (const recipient of recipients) {
-      try {
-        // 채널별 발송 API 호출 (실제 구현은 separate service)
-        const sent = await sendToRecipient(
-          recipient,
-          campaign,
-          organizationId
-        );
-
-        if (sent) {
-          totalSent++;
-          byChannel[recipient.channel]++;
-          await prisma.campaignRecipient.update({
-            where: { id: recipient.id },
-            data: { status: "SENT", sentAt: new Date() },
-          });
-        } else {
-          failed++;
-          await prisma.campaignRecipient.update({
-            where: { id: recipient.id },
-            data: { status: "FAILED" },
-          });
-        }
-      } catch (error) {
-        failed++;
-        logger.error("[executeCampaign] 수신자 발송 실패", {
-          recipientId: recipient.id,
-          error,
-        });
-      }
-    }
-
-    // 캠페인 메트릭 기록
-    await updateCampaignMetrics(campaignId, {
-      totalSent,
-      totalFailed: failed,
-    });
-
-    return { totalSent, failed, byChan: byChannel };
-  } catch (error) {
-    logger.error("[executeCampaign] 캠페인 발송 실패", { error });
-    throw error;
-  }
+  throw new Error(
+    "[DISABLED] executeCampaign() — MultiChannelCampaign Prisma 모델이 마이그레이션되지 않았습니다. " +
+      "Prisma schema에 multiChannelCampaign, campaignRecipient 모델 추가 후 " +
+      "migrations 실행이 필요합니다."
+  );
 }
 
 /**
- * 채널별 성과 메트릭 조회
+ * 채널별 성과 메트릭 조회 — DISABLED
+ *
+ * 비활성화 사유: MultiChannelCampaign Prisma 모델 미마이그레이션
+ * 활성화 조건: prisma migration 완료 + Prisma schema 업데이트
  *
  * 반환값:
  * - 각 채널별: 발송, 오픈, 클릭, 전환 수 + 비율
@@ -357,66 +193,11 @@ export async function getCampaignMetrics(
   };
   recommendations: string[];
 }> {
-  try {
-    const campaign = await prisma.multiChannelCampaign.findUnique({
-      where: { id: campaignId },
-      include: { metrics: true },
-    });
-
-    if (!campaign) {
-      throw new Error(`Campaign not found: ${campaignId}`);
-    }
-
-    const metrics = await Promise.all(
-      campaign.channels.map(async (channel: MessageChannel) => {
-        const recipientData = await prisma.campaignRecipient.groupBy({
-          by: ["status"],
-          where: { campaignId, channel },
-          _count: true,
-        });
-
-        const sent = recipientData.find((r) => r.status === "SENT")?._count || 0;
-        const failed = recipientData.find((r) => r.status === "FAILED")?._count || 0;
-
-        // TODO: 오픈/클릭/전환은 추적 시스템 통합 필요
-        return {
-          channel,
-          sent,
-          opened: 0,
-          clicked: 0,
-          converted: 0,
-          failed,
-          cost: sent * CHANNEL_COSTS[channel],
-        };
-      })
-    );
-
-    // 크로스채널 어트리뷰션 (기본 구현)
-    const attribution = {
-      firstTouch: {} as Record<MessageChannel, number>,
-      lastTouch: {} as Record<MessageChannel, number>,
-      assisted: {} as Record<MessageChannel, number>,
-    };
-
-    campaign.channels.forEach((channel: MessageChannel) => {
-      attribution.firstTouch[channel] = 0;
-      attribution.lastTouch[channel] = 0;
-      attribution.assisted[channel] = 0;
-    });
-
-    // 추천사항 생성
-    const recommendations = generateRecommendations(metrics);
-
-    return {
-      campaign,
-      metrics,
-      crossChannelAttribution: attribution,
-      recommendations,
-    };
-  } catch (error) {
-    logger.error("[getCampaignMetrics] 메트릭 조회 실패", { error });
-    throw error;
-  }
+  throw new Error(
+    "[DISABLED] getCampaignMetrics() — MultiChannelCampaign Prisma 모델이 마이그레이션되지 않았습니다. " +
+      "Prisma schema에 multiChannelCampaign, campaignRecipient 모델 추가 후 " +
+      "migrations 실행이 필요합니다."
+  );
 }
 
 /**
@@ -513,7 +294,10 @@ function generateRecommendations(metrics: CampaignMetrics[]): string[] {
 }
 
 /**
- * A/B 테스트 설정 (채널별)
+ * A/B 테스트 설정 (채널별) — DISABLED
+ *
+ * 비활성화 사유: MultiChannelCampaign Prisma 모델 미마이그레이션
+ * 활성화 조건: prisma migration 완료 + Prisma schema 업데이트
  *
  * 예: SMS 메시지 A vs B, Kakao 메시지 A vs B
  */
@@ -526,22 +310,10 @@ export async function setupABTest(
     allocation: number; // 0-100
   }>
 ): Promise<string> {
-  try {
-    const test = await prisma.campaignABTest.create({
-      data: {
-        campaignId,
-        channels,
-        variants: JSON.stringify(variants),
-        status: "ACTIVE",
-        createdAt: new Date(),
-      },
-    });
-
-    return test.id;
-  } catch (error) {
-    logger.error("[setupABTest] A/B 테스트 설정 실패", { error });
-    throw error;
-  }
+  throw new Error(
+    "[DISABLED] setupABTest() — MultiChannelCampaign Prisma 모델이 마이그레이션되지 않았습니다. " +
+      "Prisma schema에 campaignABTest 모델 추가 후 migrations 실행이 필요합니다."
+  );
 }
 
 export default {
