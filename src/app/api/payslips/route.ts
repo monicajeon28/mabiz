@@ -101,14 +101,6 @@ async function getPayslipData({
             lte: endDate
           }
         },
-        include: {
-          settlement: {
-            select: {
-              id: true,
-              createdAt: true
-            }
-          }
-        },
         orderBy: { createdAt: 'desc' },
         skip: offset,
         take: limit
@@ -153,7 +145,7 @@ async function getPayslipData({
         grossAmount,
         withholdingTax,
         netAmount,
-        createdAt: ledger.settlement?.createdAt?.toISOString() || ''
+        createdAt: ledger.createdAt.toISOString()
       };
     });
 
