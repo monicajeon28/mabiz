@@ -135,6 +135,7 @@ export async function POST(req: NextRequest) {
           token: token,
           tokenExpiresAt: expiresAt,
           isSubmitted: false,
+          createdAt: new Date(),
         },
       });
     }

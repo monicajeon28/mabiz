@@ -136,10 +136,12 @@ async function upsertSubmission(params: {
   const now = new Date();
   const createData: Record<string, unknown> = {
     userId,
+    token: generateToken(),
     tokenExpiresAt,
     isSubmitted: false,
     driveFolderUrl: null,
     extraData: Prisma.JsonNull,
+    createdAt: now,
     updatedAt: now,
   };
 
