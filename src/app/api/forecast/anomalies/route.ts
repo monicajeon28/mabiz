@@ -11,11 +11,18 @@ import { detectAnomalies } from '@/lib/ai/forecast-anomaly-detector';
 import { getAuthSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
+/**
+ * Type guard for lookback parameter
+ */
+function isValidLookback(value: number): value is number {
+  return value >= 1 && value <= 90;
+}
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     // 1. Authenticate
     const session = await getAuthSession();
-    if (!session?.user?.email) {
+    if (!session?.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -28,9 +35,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // 3. Parse query parameters
+    // 3. Parse query parameters with type validation
     const searchParams = request.nextUrl.searchParams;
-    const lookback = Math.min(90, Math.max(1, parseInt(searchParams.get('lookback') || '7')));
+    const lookbackParam = parseInt(searchParams.get('lookback') || '7', 10);
+    const lookback = isValidLookback(lookbackParam)
+      ? lookbackParam
+      : Math.min(90, Math.max(1, lookbackParam));
 
     // 4. Get forecast and detect anomalies
     const forecast = await forecastRevenue(organizationId, lookback);

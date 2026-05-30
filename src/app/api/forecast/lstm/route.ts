@@ -9,12 +9,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { LSTMForecastManager } from '@/lib/ai/lstm-forecaster';
 import { logger } from '@/lib/logger';
 
+/**
+ * Type guard for days parameter
+ */
+function isValidDays(value: number): value is number {
+  return value >= 7 && value <= 90;
+}
+
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const days = Math.min(90, Math.max(7, parseInt(searchParams.get('days') || '30', 10)));
+    const daysParam = parseInt(searchParams.get('days') || '30', 10);
+    const days = isValidDays(daysParam)
+      ? daysParam
+      : Math.min(90, Math.max(7, daysParam));
 
     logger.info(`[Forecast] LSTM request for ${days} days`);
 
@@ -53,12 +63,13 @@ export async function GET(request: NextRequest) {
       },
       { status: 200 }
     );
-  } catch (error) {
-    logger.error('[Forecast] LSTM error:', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('[Forecast] LSTM error:', { message: errorMessage });
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'LSTM forecasting failed',
+        error: errorMessage || 'LSTM forecasting failed',
       },
       { status: 500 }
     );

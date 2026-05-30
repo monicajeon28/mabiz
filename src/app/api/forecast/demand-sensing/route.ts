@@ -9,13 +9,31 @@ import { NextRequest, NextResponse } from 'next/server';
 import { DemandSensingManager } from '@/lib/ai/demand-sensing';
 import { logger } from '@/lib/logger';
 
+/**
+ * Type guards for demand sensing parameters
+ */
+function isValidLookback(value: number): value is number {
+  return value >= 14 && value <= 90;
+}
+
+function isValidForecastDays(value: number): value is number {
+  return value >= 3 && value <= 14;
+}
+
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const lookback = Math.min(90, Math.max(14, parseInt(searchParams.get('lookback') || '30', 10)));
-    const forecastDays = Math.min(14, Math.max(3, parseInt(searchParams.get('forecast') || '7', 10)));
+    const lookbackParam = parseInt(searchParams.get('lookback') || '30', 10);
+    const lookback = isValidLookback(lookbackParam)
+      ? lookbackParam
+      : Math.min(90, Math.max(14, lookbackParam));
+
+    const forecastDaysParam = parseInt(searchParams.get('forecast') || '7', 10);
+    const forecastDays = isValidForecastDays(forecastDaysParam)
+      ? forecastDaysParam
+      : Math.min(14, Math.max(3, forecastDaysParam));
 
     logger.info(`[Demand Sensing] Request: lookback=${lookback}d, forecast=${forecastDays}d`);
 
@@ -55,12 +73,13 @@ export async function GET(request: NextRequest) {
     };
 
     return NextResponse.json(responseData, { status: 200 });
-  } catch (error) {
-    logger.error('[Demand Sensing] Error:', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('[Demand Sensing] Error:', { message: errorMessage });
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Demand sensing failed',
+        error: errorMessage || 'Demand sensing failed',
       },
       { status: 500 }
     );

@@ -9,13 +9,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AnomalyDetectionManager } from '@/lib/ai/advanced-anomaly-detector';
 import { logger } from '@/lib/logger';
 
+/**
+ * Type guard for sensitivity parameter
+ */
+function isValidSensitivity(value: number): value is number {
+  return value >= 0.5 && value <= 0.95;
+}
+
+/**
+ * Type guard for metric parameter
+ */
+function isValidMetric(value: unknown): value is 'revenue' | 'orders' | 'customers' {
+  return value === 'revenue' || value === 'orders' || value === 'customers';
+}
+
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const sensitivity = Math.min(0.95, Math.max(0.5, parseFloat(searchParams.get('sensitivity') || '0.85')));
-    const metric = (searchParams.get('metric') || 'revenue') as 'revenue' | 'orders' | 'customers';
+    const sensitivityParam = parseFloat(searchParams.get('sensitivity') || '0.85');
+    const sensitivity = isValidSensitivity(sensitivityParam)
+      ? sensitivityParam
+      : Math.min(0.95, Math.max(0.5, sensitivityParam));
+
+    const metricParam = searchParams.get('metric') || 'revenue';
+    const metric = isValidMetric(metricParam) ? metricParam : 'revenue';
 
     logger.info(`[Anomaly] Advanced detection: ${metric}, sensitivity=${sensitivity}`);
 
@@ -63,12 +82,13 @@ export async function GET(request: NextRequest) {
       },
       { status: 200 }
     );
-  } catch (error) {
-    logger.error('[Anomaly] Advanced detection error:', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('[Anomaly] Advanced detection error:', errorMessage);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Anomaly detection failed',
+        error: errorMessage || 'Anomaly detection failed',
       },
       { status: 500 }
     );

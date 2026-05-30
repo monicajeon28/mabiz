@@ -16,16 +16,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { predictWithScenario, ScenarioChange } from '@/lib/services/scenario-planner';
 import { getAuthSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
+import { parseRequestBody, isValidArray } from '@/lib/utils/json-parser';
 
 interface ScenarioRequest {
   changes: ScenarioChange[];
+}
+
+/**
+ * Type guard for ScenarioRequest validation
+ */
+function isScenarioRequest(data: unknown): data is ScenarioRequest {
+  if (!data || typeof data !== 'object') return false;
+  const obj = data as Record<string, unknown>;
+  return 'changes' in obj && isValidArray<ScenarioChange>(obj.changes);
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     // 1. Authenticate
     const session = await getAuthSession();
-    if (!session?.user?.email) {
+    if (!session?.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -38,18 +48,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // 3. Parse request body
-    const body: ScenarioRequest = await request.json();
+    // 3. Parse request body with type validation
+    const body = parseRequestBody<ScenarioRequest>(
+      await request.json(),
+      isScenarioRequest
+    );
 
-    if (!body.changes || !Array.isArray(body.changes) || body.changes.length === 0) {
+    if (!body.changes || body.changes.length === 0) {
       return NextResponse.json(
         { error: 'At least one scenario change required' },
         { status: 400 }
       );
     }
 
-    // 4. Validate changes
-    const validTypes = [
+    // 4. Validate changes with type safety
+    const VALID_CHANGE_TYPES = [
       'sms_volume_increase',
       'new_sequence',
       'partner_commission',
@@ -57,22 +70,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       'pricing',
       'conversion_lift',
       'channel_shift',
-    ];
+    ] as const;
+
+    const isValidChangeType = (type: unknown): type is typeof VALID_CHANGE_TYPES[number] => {
+      return VALID_CHANGE_TYPES.includes(type as typeof VALID_CHANGE_TYPES[number]);
+    };
+
+    const isValidChangeValue = (value: unknown): value is number => {
+      return typeof value === 'number' && value >= 0 && value <= 200;
+    };
 
     for (const change of body.changes) {
-      if (!validTypes.includes(change.type)) {
+      if (!isValidChangeType(change.type)) {
         return NextResponse.json(
           {
             error: `Invalid change type: ${change.type}`,
-            validTypes,
+            validTypes: VALID_CHANGE_TYPES,
           },
           { status: 400 }
         );
       }
 
-      if (typeof change.value !== 'number' || change.value < 0 || change.value > 200) {
+      if (!isValidChangeValue(change.value)) {
         return NextResponse.json(
-          { error: 'Change value must be between 0 and 200' },
+          { error: 'Change value must be a number between 0 and 200' },
           { status: 400 }
         );
       }
