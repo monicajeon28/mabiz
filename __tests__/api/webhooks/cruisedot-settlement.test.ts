@@ -251,7 +251,10 @@ describe('Commission Ledger Integration', () => {
 
 describe('Error Handling', () => {
   it('should handle invalid partnerId gracefully', async () => {
-    const testSecret = process.env.CRUISEDOT_WEBHOOK_SECRET || 'test-secret';
+    const testSecret = process.env.CRUISEDOT_WEBHOOK_SECRET;
+    if (!testSecret) {
+      throw new Error('CRUISEDOT_WEBHOOK_SECRET environment variable is required');
+    }
     const payload = {
       eventId: 'evt_invalid_partner',
       eventType: 'settlement.paid',
