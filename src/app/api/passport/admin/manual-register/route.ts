@@ -214,13 +214,14 @@ export async function POST(req: NextRequest) {
       // 새 submission 생성
       const token = generateToken();
       const tokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30일 후 만료
+      const now = new Date();
 
       const createData: any = {
         userId: user.id,
         token,
         tokenExpiresAt,
         isSubmitted: true, // 수동 등록은 바로 제출 완료로 처리
-        submittedAt: new Date(),
+        submittedAt: now,
         driveFolderUrl: null,
         extraData: {
           groups: validGroups.map((group) => ({
@@ -231,9 +232,10 @@ export async function POST(req: NextRequest) {
           passportFiles: [],
           manuallyRegistered: true, // 수동 등록 표시
           registeredBy: manager.id,
-          registeredAt: new Date().toISOString(),
+          registeredAt: now.toISOString(),
         },
-        updatedAt: new Date(),
+        createdAt: now,
+        updatedAt: now,
       };
 
       if (latestTrip) {
