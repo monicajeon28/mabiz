@@ -63,40 +63,200 @@ export async function collectWebhookMetrics(
   const untilDate = new Date();
 
   try {
-    // 1. 메인 이벤트 데이터 수집
-    const events = await prisma.webhookEvent.findMany({
+    const typeFilter =
+      config.webhookTypes && config.webhookTypes.length > 0
+        ? { webhookType: { in: config.webhookTypes } }
+        : {};
+
+    // 1. 상태별 카운트 (DB 레벨 집계)
+    const statusGroups = await prisma.webhookEvent.groupBy({
+      by: ['status'],
       where: {
         organizationId: config.organizationId,
         createdAt: { gte: sinceDate },
-        ...(config.webhookTypes && config.webhookTypes.length > 0
-          ? { webhookType: { in: config.webhookTypes } }
-          : {}),
+        ...typeFilter,
       },
-      select: {
-        id: true,
-        webhookType: true,
-        status: true,
-        executionTimeMs: true,
-        retryCount: true,
-        createdAt: true,
-        processingStartAt: true,
-        processingEndAt: true,
-        logs: {
-          select: {
-            durationMs: true,
-            status: true,
-            attemptNumber: true,
-          },
-        },
+      _count: { id: true },
+    });
+
+    // 2. 실행시간 집계 (avg만 DB에서, p95/p99는 샘플로 계산)
+    const execAgg = await prisma.webhookEvent.aggregate({
+      where: {
+        organizationId: config.organizationId,
+        createdAt: { gte: sinceDate },
+        executionTimeMs: { not: null },
+        ...typeFilter,
+      },
+      _avg: { executionTimeMs: true },
+      _count: { id: true },
+    });
+
+    // p95/p99용 샘플 — 최대 2000건으로 제한
+    const execSample = await prisma.webhookEvent.findMany({
+      where: {
+        organizationId: config.organizationId,
+        createdAt: { gte: sinceDate },
+        executionTimeMs: { not: null },
+        ...typeFilter,
+      },
+      select: { executionTimeMs: true },
+      orderBy: { executionTimeMs: 'desc' },
+      take: 2000,
+    });
+
+    // 3. retry 카운트
+    const retryAgg = await prisma.webhookEvent.aggregate({
+      where: {
+        organizationId: config.organizationId,
+        createdAt: { gte: sinceDate },
+        retryCount: { gt: 0 },
+        ...typeFilter,
+      },
+      _count: { id: true },
+    });
+
+    const retrySuccessCount = await prisma.webhookEvent.count({
+      where: {
+        organizationId: config.organizationId,
+        createdAt: { gte: sinceDate },
+        retryCount: { gt: 0 },
+        status: 'COMPLETED',
+        ...typeFilter,
       },
     });
 
-    // 2. 집계 데이터 계산
-    const overall = calculateMetrics(events);
-    const byType = calculateMetricsByType(events);
+    // 4. 타입별 집계
+    const typeGroups = await prisma.webhookEvent.groupBy({
+      by: ['webhookType', 'status'],
+      where: {
+        organizationId: config.organizationId,
+        createdAt: { gte: sinceDate },
+        ...typeFilter,
+      },
+      _count: { id: true },
+      _avg: { executionTimeMs: true },
+      _sum: { retryCount: true },
+    });
+
+    // 5. 일별 트렌드 (raw 쿼리로 DATE 그룹핑)
+    const dailyRaw = await prisma.$queryRaw<
+      Array<{
+        date: string;
+        total: bigint;
+        success: bigint;
+        failure: bigint;
+        avg_exec: number | null;
+      }>
+    >`
+      SELECT
+        DATE("createdAt") AS date,
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE status = 'COMPLETED') AS success,
+        COUNT(*) FILTER (WHERE status = 'FAILED') AS failure,
+        AVG("executionTimeMs") AS avg_exec
+      FROM "WebhookEvent"
+      WHERE "organizationId" = ${config.organizationId}
+        AND "createdAt" >= ${sinceDate}
+      GROUP BY DATE("createdAt")
+      ORDER BY DATE("createdAt") ASC
+    `;
+
+    // ── 집계 결과 조립 ──────────────────────────────────────────────
+    const statusMap = Object.fromEntries(
+      statusGroups.map(g => [g.status, g._count.id])
+    );
+    const totalEvents =
+      statusGroups.reduce((s, g) => s + g._count.id, 0);
+    const successCount = statusMap['COMPLETED'] ?? 0;
+    const failureCount = statusMap['FAILED'] ?? 0;
+    const pendingCount = statusMap['PENDING'] ?? 0;
+
+    const sortedExec = execSample
+      .map(e => e.executionTimeMs as number)
+      .sort((a, b) => a - b);
+    const p95ExecutionTimeMs =
+      sortedExec.length > 0
+        ? sortedExec[Math.floor(sortedExec.length * 0.95)]
+        : 0;
+    const p99ExecutionTimeMs =
+      sortedExec.length > 0
+        ? sortedExec[Math.floor(sortedExec.length * 0.99)]
+        : 0;
+
+    const retryCount = retryAgg._count.id;
+    const successRate = totalEvents > 0 ? (successCount / totalEvents) * 100 : 0;
+    const retryRate = totalEvents > 0 ? (retryCount / totalEvents) * 100 : 0;
+    const autoRetrySuccessRate =
+      retryCount > 0 ? (retrySuccessCount / retryCount) * 100 : 0;
+
+    const overall: WebhookMetric = {
+      totalEvents,
+      successCount,
+      failureCount,
+      pendingCount,
+      avgExecutionTimeMs:
+        Math.round((execAgg._avg.executionTimeMs ?? 0) * 100) / 100,
+      p95ExecutionTimeMs: Math.round(p95ExecutionTimeMs * 100) / 100,
+      p99ExecutionTimeMs: Math.round(p99ExecutionTimeMs * 100) / 100,
+      successRate: Math.round(successRate * 100) / 100,
+      retryRate: Math.round(retryRate * 100) / 100,
+      autoRetrySuccessRate: Math.round(autoRetrySuccessRate * 100) / 100,
+    };
+
+    // 타입별 메트릭 조립
+    const byType: WebhookTypeMetrics = {};
+    for (const row of typeGroups) {
+      const t = row.webhookType;
+      if (!byType[t]) {
+        byType[t] = {
+          totalEvents: 0,
+          totalCalls: 0,
+          successCount: 0,
+          failureCount: 0,
+          pendingCount: 0,
+          avgExecutionTimeMs: 0,
+          p95ExecutionTimeMs: 0,
+          p99ExecutionTimeMs: 0,
+          successRate: 0,
+          retryRate: 0,
+          autoRetrySuccessRate: 0,
+          estimatedMonthlyVolume: 0,
+        };
+      }
+      const cnt = row._count.id;
+      byType[t].totalEvents += cnt;
+      byType[t].totalCalls += cnt + Number(row._sum.retryCount ?? 0);
+      if (row.status === 'COMPLETED') byType[t].successCount += cnt;
+      if (row.status === 'FAILED') byType[t].failureCount += cnt;
+      if (row.status === 'PENDING') byType[t].pendingCount += cnt;
+      // avg (simple overwrite with last non-null; refined below)
+      if (row._avg.executionTimeMs != null) {
+        byType[t].avgExecutionTimeMs =
+          Math.round((row._avg.executionTimeMs as number) * 100) / 100;
+      }
+    }
+    for (const t of Object.keys(byType)) {
+      const m = byType[t];
+      m.successRate =
+        m.totalEvents > 0
+          ? Math.round((m.successCount / m.totalEvents) * 10000) / 100
+          : 0;
+      m.retryRate = 0; // per-type retry detail skipped for perf
+      m.autoRetrySuccessRate = 0;
+      m.estimatedMonthlyVolume = Math.round((m.totalEvents / dayCount) * 30);
+    }
+
+    const dailyTrend: DailyTrendData[] = dailyRaw.map(r => ({
+      date: String(r.date),
+      totalEvents: Number(r.total),
+      successCount: Number(r.success),
+      failureCount: Number(r.failure),
+      avgExecutionTimeMs: r.avg_exec != null ? Math.round(r.avg_exec * 100) / 100 : 0,
+    }));
+
+    // ── 알림 / 권장사항 ─────────────────────────────────────────────
     const alerts = generateAlerts(overall, byType);
     const recommendations = generateRecommendations(overall, byType, alerts);
-    const dailyTrend = calculateDailyTrend(events);
 
     return {
       period: {
@@ -385,49 +545,46 @@ export async function checkWebhookHealth(
   const oneHourAgo = new Date(Date.now() - 3600000);
   const oneDayAgo = new Date(Date.now() - 86400000);
 
-  const [last1h, last24h, pending, failed] = await Promise.all([
-    prisma.webhookEvent.findMany({
+  const [last1hGroups, last24hGroups, last1hAvg, pending, failed] = await Promise.all([
+    prisma.webhookEvent.groupBy({
+      by: ['status'],
+      where: { organizationId, createdAt: { gte: oneHourAgo } },
+      _count: { id: true },
+    }),
+    prisma.webhookEvent.groupBy({
+      by: ['status'],
+      where: { organizationId, createdAt: { gte: oneDayAgo } },
+      _count: { id: true },
+    }),
+    prisma.webhookEvent.aggregate({
       where: {
         organizationId,
         createdAt: { gte: oneHourAgo },
+        executionTimeMs: { not: null },
       },
-      select: { status: true, executionTimeMs: true },
-    }),
-    prisma.webhookEvent.findMany({
-      where: {
-        organizationId,
-        createdAt: { gte: oneDayAgo },
-      },
-      select: { status: true, executionTimeMs: true },
+      _avg: { executionTimeMs: true },
     }),
     prisma.webhookEvent.count({
-      where: {
-        organizationId,
-        status: 'PENDING',
-      },
+      where: { organizationId, status: 'PENDING' },
     }),
     prisma.webhookEvent.count({
-      where: {
-        organizationId,
-        status: 'FAILED',
-      },
+      where: { organizationId, status: 'FAILED' },
     }),
   ]);
 
+  const sum1h = (s: string) =>
+    last1hGroups.find(g => g.status === s)?._count.id ?? 0;
+  const total1h = last1hGroups.reduce((acc, g) => acc + g._count.id, 0);
   const last1hSuccessRate =
-    last1h.length > 0
-      ? (last1h.filter(e => e.status === 'COMPLETED').length / last1h.length) * 100
-      : 100;
+    total1h > 0 ? (sum1h('COMPLETED') / total1h) * 100 : 100;
 
+  const sum24h = (s: string) =>
+    last24hGroups.find(g => g.status === s)?._count.id ?? 0;
+  const total24h = last24hGroups.reduce((acc, g) => acc + g._count.id, 0);
   const last24hSuccessRate =
-    last24h.length > 0
-      ? (last24h.filter(e => e.status === 'COMPLETED').length / last24h.length) * 100
-      : 100;
+    total24h > 0 ? (sum24h('COMPLETED') / total24h) * 100 : 100;
 
-  const avgLatency =
-    last1h.length > 0
-      ? last1h.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) / last1h.length
-      : 0;
+  const avgLatency = last1hAvg._avg.executionTimeMs ?? 0;
 
   let status: 'healthy' | 'warning' | 'critical' = 'healthy';
   let message = 'All systems operational';

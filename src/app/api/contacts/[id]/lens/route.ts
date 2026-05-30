@@ -89,7 +89,7 @@ export async function GET(
       {
         success: true as const,
         data: lensClassification,
-      } as any,
+      },
       { status: 200 }
     );
   } catch (error) {

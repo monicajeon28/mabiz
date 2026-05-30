@@ -150,8 +150,8 @@ async function checkWebhooks() {
   // Check recent webhook executions
   const recentWebhooks = await prisma.executionLog.count({
     where: {
-      action: { in: ["WEBHOOK_RECEIVED", "WEBHOOK_PROCESSED"] },
-      executedAt: {
+      sourceType: { in: ["WEBHOOK", "WEBHOOK_RECEIVED", "WEBHOOK_PROCESSED"] },
+      createdAt: {
         gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
       },
     },

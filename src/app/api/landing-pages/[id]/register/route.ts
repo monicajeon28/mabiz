@@ -22,6 +22,15 @@ export async function POST(req: Request, { params }: Params) {
     const body = await req.json();
     const { name, phone, email, metadata } = body;
 
+    // [P1-6] formConfig JSON 유효성 검증 (body에 있으면 검증)
+    if (body.formConfig) {
+      try {
+        JSON.parse(JSON.stringify(body.formConfig)); // 직렬화 가능 확인
+      } catch {
+        return NextResponse.json({ ok: false, message: "formConfig가 유효한 JSON이 아닙니다." }, { status: 400 });
+      }
+    }
+
     // [WO-15] Honeypot: 봇이 website 필드를 채우면 조용히 성공 반환 (website만 사용)
     const honeypot = (body.website ?? '').toString();
     if (honeypot.trim()) {
@@ -43,6 +52,15 @@ export async function POST(req: Request, { params }: Params) {
     // 필수값 먼저 체크 (UTM 파싱보다 앞)
     if (!name?.trim() || !phone?.trim()) {
       return NextResponse.json({ ok: false, message: "이름과 전화번호는 필수입니다." }, { status: 400 });
+    }
+
+    // [P1-6] 결제 필드 검증: paymentEnabled=true면 paymentType/productPrice 필수
+    if (body.paymentEnabled === true) {
+      const paymentType = body.paymentType?.trim();
+      const productPrice = body.productPrice;
+      if (!paymentType || typeof productPrice !== 'number' || productPrice <= 0) {
+        return NextResponse.json({ ok: false, message: "결제 활성화 시 결제유형과 상품가격(양수)은 필수입니다." }, { status: 400 });
+      }
     }
 
     // 전화번호 정규화 (공통 유틸 사용)

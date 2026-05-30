@@ -76,7 +76,7 @@ export async function GET(req: Request): Promise<NextResponse<FailuresResponse>>
         where: {
           organizationId: orgId,
           campaignId,
-          status: statusFilter as any, // SendingStatus enum
+          status: statusFilter as 'FAILED' | 'ABANDONED', // SendingStatus enum
         },
         select: {
           id: true,

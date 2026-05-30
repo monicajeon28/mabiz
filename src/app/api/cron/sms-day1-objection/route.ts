@@ -142,7 +142,7 @@ export async function POST(req: Request) {
             where: { id: contact.id },
             data: {
               lensMetadata: {
-                ...((contact.lensMetadata as any) || {}),
+                ...(typeof contact.lensMetadata === 'object' && contact.lensMetadata !== null ? contact.lensMetadata as Record<string, unknown> : {}),
                 priceObjectionDetected: true,
                 detectedAt: new Date().toISOString(),
               },

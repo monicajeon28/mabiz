@@ -165,7 +165,7 @@ async function generateAndDistributeReport(org: { id: string; name: string; slug
   const criticalAlerts = metrics.alerts.filter((a) => a.type === 'RED');
   if (criticalAlerts.length > 0 && slackUrl) {
     for (const alert of criticalAlerts) {
-      await sendCriticalAlertToSlack(alert.metric, alert.message, (alert as any).action || 'Check dashboard', slackUrl);
+      await sendCriticalAlertToSlack(alert.metric, alert.message, typeof alert === 'object' && alert !== null && 'action' in alert ? String((alert as { action?: unknown }).action) : 'Check dashboard', slackUrl);
     }
   }
 

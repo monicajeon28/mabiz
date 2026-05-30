@@ -32,13 +32,15 @@ const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 
 if (!redisUrl || !redisToken) {
-  throw new Error('Missing required Redis configuration: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN');
+  logger.warn('[RateLimit] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN — rate limiting disabled (fail-open)');
 }
 
-const redis = new Redis({
-  url: redisUrl,
-  token: redisToken,
-});
+let _redis: Redis | null = null;
+function getRedis(): Redis | null {
+  if (!redisUrl || !redisToken) return null;
+  if (!_redis) _redis = new Redis({ url: redisUrl, token: redisToken });
+  return _redis;
+}
 
 interface RateLimitCheckResult {
   allowed: boolean;
@@ -65,6 +67,8 @@ export async function checkChannelRateLimit(
   channel: "SMS" | "EMAIL",
   organizationId: string
 ): Promise<RateLimitCheckResult> {
+  const redis = getRedis();
+  if (!redis) return { allowed: true, remaining: 1000, resetAt: Date.now() + 60 * 1000 };
   try {
     const policy = getRateLimitPolicy(organizationId);
     const limit = channel === "SMS" ? policy.SMS_PER_MINUTE : policy.EMAIL_PER_MINUTE;
@@ -124,6 +128,8 @@ export async function checkContactRateLimit(
   contactId: string,
   limit?: number
 ): Promise<RateLimitCheckResult> {
+  const redis = getRedis();
+  if (!redis) return { allowed: true, remaining: 1000, resetAt: Date.now() + 24 * 60 * 60 * 1000 };
   try {
     const dailyLimit = limit ?? DEFAULT_RATE_LIMIT_POLICY.CONTACT_PER_DAY;
     const key = RATE_LIMIT_KEYS.CONTACT_PER_DAY(contactId);
@@ -183,6 +189,8 @@ export async function checkContactRateLimit(
 export async function checkOrganizationRateLimit(
   organizationId: string
 ): Promise<RateLimitCheckResult> {
+  const redis = getRedis();
+  if (!redis) return { allowed: true, remaining: 1000000, resetAt: Date.now() + 30 * 24 * 60 * 60 * 1000 };
   try {
     const policy = getRateLimitPolicy(organizationId);
     const monthlyLimit = policy.ORGANIZATION_PER_MONTH;
@@ -265,6 +273,8 @@ export async function checkAllRateLimits(
  * - 특정 키의 rate limit 초기화
  */
 export async function resetRateLimit(key: string): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
   try {
     await redis.del(key);
     logger.info(`[RateLimit] 리셋 완료: ${key}`);

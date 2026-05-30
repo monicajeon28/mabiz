@@ -147,11 +147,14 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    const complianceStatus: Record<string, any> = {};
+    const complianceStatus: Record<string, { completionRate: number; items: unknown[] }> = {};
     for (const checklist of complianceChecklists) {
+      const itemsData = typeof checklist.items === 'object' && checklist.items !== null && 'items' in checklist.items
+        ? (checklist.items as { items: unknown[] }).items
+        : [];
       complianceStatus[checklist.regulationType.toLowerCase()] = {
         completionRate: checklist.completionRate,
-        items: (checklist.items as any)?.items || [],
+        items: itemsData || [],
       };
     }
 

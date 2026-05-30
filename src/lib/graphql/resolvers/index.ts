@@ -52,7 +52,8 @@ const createDataLoaders = () => ({
   }),
 
   segmentLoader: new DataLoader(async (segmentIds: readonly string[]) => {
-    const segments = await prisma.customerSegment.findMany({
+    // NOTE: customerSegment table does not exist. Using contactGroup as alternative
+    const segments = await prisma.contactGroup.findMany({
       where: { id: { in: segmentIds as string[] } },
     });
     return segmentIds.map(
@@ -96,7 +97,7 @@ const queryResolvers = {
         where: { id },
         include: {
           contactLensClassifications: true,
-          contactSegmentAssignments: true,
+          groups: true,
         },
       });
 
@@ -179,7 +180,7 @@ const queryResolvers = {
         where,
         include: {
           contactLensClassifications: true,
-          contactSegmentAssignments: true,
+          groups: true,
         },
         orderBy: { [orderBy]: orderDirection.toUpperCase() },
         take: limit,
@@ -352,7 +353,8 @@ const queryResolvers = {
     }
 
     try {
-      const segments = await prisma.customerSegment.findMany({
+      // NOTE: customerSegment table does not exist. Using contactGroup as alternative
+      const segments = await prisma.contactGroup.findMany({
         where: { organizationId: context.organizationId },
       });
 
@@ -378,7 +380,8 @@ const queryResolvers = {
     }
 
     try {
-      const segment = await prisma.customerSegment.findUnique({
+      // NOTE: customerSegment table does not exist. Using contactGroup as alternative
+      const segment = await prisma.contactGroup.findUnique({
         where: { id },
       });
 
@@ -695,7 +698,8 @@ const mutationResolvers = {
 const contactResolvers = {
   async segment(parent: any, _: unknown, context: GraphQLContext) {
     if (!parent.segmentId) return null;
-    return await prisma.customerSegment.findUnique({
+    // NOTE: customerSegment table does not exist. Using contactGroup as alternative
+    return await prisma.contactGroup.findUnique({
       where: { id: parent.segmentId },
     });
   },

@@ -1,0 +1,26 @@
+yarn run v1.22.22
+$ prisma generate && next build
+Prisma schema loaded from prisma\schema.prisma.
+
+✔ Generated Prisma Client (v7.8.0) to .\node_modules\@prisma\client in 984ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+
+ ⚠ Invalid next.config.js options detected: 
+ ⚠     Unrecognized key(s) in object: 'nodeMiddleware' at "experimental"
+ ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+   ▲ Next.js 15.5.18
+   - Environments: .env.production.local, .env.local, .env.production, .env
+   - Experiments (use with caution):
+     ✓ nodeMiddleware
+
+   Creating an optimized production build ...
+Failed to compile.
+
+Error: ENOENT: no such file or directory, open 'D:\mabiz-crm\.next\server\app\(dashboard)\marketing\sales\page_client-reference-manifest.js'
+
+
+> Build failed because of webpack errors
+error Command failed with exit code 1.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.

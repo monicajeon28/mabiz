@@ -67,36 +67,98 @@ export async function backupPassportDataToUser(
 }
 
 /**
- * 이름과 전화번호로 GmUser 찾기
+ * 이름과 전화번호로 GmUser 찾기 (동명이인 감지)
+ *
+ * 반환:
+ * - { id, ambiguous: false } — 유일한 사용자 확인
+ * - { ids: [1,2,3], ambiguous: true, count } — 동명이인 2명 이상
+ * - null — 사용자 없음
+ *
  * @param korName - 한국 이름
- * @param phone - 전화번호 (선택)
+ * @param phone - 전화번호 (선택, 우선순위 높음)
  */
 export async function findUserByNameAndPhone(
   korName: string,
   phone?: string
-): Promise<number | null> {
+): Promise<
+  | { id: number; ambiguous: false; createdAt: Date }
+  | { ids: number[]; ambiguous: true; count: number }
+  | null
+> {
   try {
-    let user = null;
-
-    // 전화번호가 있으면 전화번호로 먼저 검색
+    // 전화번호가 있으면 전화번호+이름으로 검색 (가장 정확)
     if (phone) {
-      user = await prisma.gmUser.findFirst({
+      const usersByPhoneName = await prisma.gmUser.findMany({
         where: { phone, name: korName },
-        select: { id: true },
+        select: { id: true, createdAt: true },
+        take: 10, // 동명이인 최대 10명까지만 로드
       });
+
+      if (usersByPhoneName.length === 1) {
+        return { id: usersByPhoneName[0].id, ambiguous: false, createdAt: usersByPhoneName[0].createdAt };
+      }
+
+      if (usersByPhoneName.length > 1) {
+        // 동명이인 — UI에서 선택하게 해야 함
+        return {
+          ids: usersByPhoneName.map((u) => u.id),
+          ambiguous: true,
+          count: usersByPhoneName.length,
+        };
+      }
+
+      // 전화번호+이름으로 못 찾으면 이름만으로 검색
     }
 
-    // 전화번호로 못 찾으면 이름만으로 검색
-    if (!user) {
-      user = await prisma.gmUser.findFirst({
-        where: { name: korName },
-        select: { id: true },
-      });
+    // 이름만으로 검색
+    const usersByName = await prisma.gmUser.findMany({
+      where: { name: korName },
+      select: { id: true, createdAt: true, phone: true },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+
+    if (usersByName.length === 0) {
+      return null;
     }
 
-    return user?.id || null;
+    if (usersByName.length === 1) {
+      return { id: usersByName[0].id, ambiguous: false, createdAt: usersByName[0].createdAt };
+    }
+
+    // 동명이인 2명 이상 감지
+    // 전화번호가 제공되었다면 일치하는 항목으로 좁혀보기
+    if (phone) {
+      const normalized = (p: string) => p.replace(/[-\s()]/g, '');
+      const phoneNorm = normalized(phone);
+      const matching = usersByName.filter(
+        (u) => u.phone && normalized(u.phone) === phoneNorm
+      );
+
+      if (matching.length === 1) {
+        return { id: matching[0].id, ambiguous: false, createdAt: matching[0].createdAt };
+      }
+
+      if (matching.length > 1) {
+        return {
+          ids: matching.map((u) => u.id),
+          ambiguous: true,
+          count: matching.length,
+        };
+      }
+    }
+
+    // 동명이인 확인됨
+    return {
+      ids: usersByName.map((u) => u.id),
+      ambiguous: true,
+      count: usersByName.length,
+    };
   } catch (error: unknown) {
-    logger.error('[Passport Utils] Error finding user:', error instanceof Error ? { message: error.message } : undefined);
+    logger.error(
+      '[Passport Utils] Error finding user:',
+      error instanceof Error ? { message: error.message } : undefined
+    );
     return null;
   }
 }

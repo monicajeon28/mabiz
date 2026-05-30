@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
     const scheduledToday = await prisma.crmMarketingCampaign.count({
       where: {
         ...campaignWhere,
-        status: { in: ['DRAFT', 'SCHEDULED'] },
+        status: { in: ['DRAFT'] },
       } as any,
     });
 

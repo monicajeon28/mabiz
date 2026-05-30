@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
         organizationId,
         templateId,
         contactId: contactId || null,
-        boundData: boundData as any,
+        boundData: boundData as unknown as Record<string, unknown>,
         status: "DRAFT",
         expiresAt,
         appliedLenses: template.psychologyLenses,

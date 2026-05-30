@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 type Params = { params: Promise<{ id: string }> };
 
 /**
@@ -16,6 +18,15 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, { params }: Params) {
   try {
     const { id } = await params;
+
+    // 공개 페이지 검증
+    const landingPage = await prisma.crmLandingPage.findUnique({
+      where: { id },
+      select: { isPublic: true },
+    });
+    if (!landingPage?.isPublic) {
+      return NextResponse.json({ error: 'not found' }, { status: 404 });
+    }
 
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
 

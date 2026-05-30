@@ -33,7 +33,14 @@ function verifyWebhookSignature(
 
 export async function POST(request: NextRequest) {
   try {
-    const secret = process.env.CRUISEDOT_WEBHOOK_SECRET || "dev-secret";
+    const secret = process.env.CRUISEDOT_WEBHOOK_SECRET;
+    if (!secret) {
+      logger.warn("[Webhook] CRUISEDOT_WEBHOOK_SECRET 환경변수 미설정");
+      return NextResponse.json(
+        { ok: false, message: "Server misconfiguration" },
+        { status: 500 }
+      );
+    }
     const signature = request.headers.get("x-webhook-signature") || "";
     const payload = await request.text();
 
@@ -65,14 +72,14 @@ export async function POST(request: NextRequest) {
         summary: {
           totalAmount: data.settlement.totalAmount,
           itemCount: data.settlement.itemCount,
-        } as any,
+        } as unknown as Record<string, unknown>,
       },
       update: {
         status: data.settlement.status,
         summary: {
           totalAmount: data.settlement.totalAmount,
           itemCount: data.settlement.itemCount,
-        } as any,
+        } as unknown as Record<string, unknown>,
         updatedAt: new Date(),
       },
     });
@@ -84,10 +91,10 @@ export async function POST(request: NextRequest) {
         eventType: "STATUS_CHANGED",
         description: `Status changed to ${data.settlement.status}`,
         metadata: {
-          oldAmount: (settlement.summary as any)?.previousAmount,
+          oldAmount: typeof settlement.summary === 'object' && settlement.summary !== null ? (settlement.summary as Record<string, unknown>).previousAmount : undefined,
           newAmount: data.settlement.totalAmount,
           changes: data.settlement.changes,
-        } as any,
+        } as unknown as Record<string, unknown>,
       },
     });
 

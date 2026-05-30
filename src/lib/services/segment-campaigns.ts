@@ -13,7 +13,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { CustomerSegment } from "@prisma/client";
+// NOTE: CustomerSegment import removed - table does not exist in schema
 
 // ============================================================================
 // Types & Interfaces

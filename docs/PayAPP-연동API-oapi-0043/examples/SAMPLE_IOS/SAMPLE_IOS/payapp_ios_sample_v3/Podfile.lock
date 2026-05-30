@@ -1,0 +1,43 @@
+PODS:
+  - Alamofire (4.9.1)
+  - AlamofireObjectMapper (5.2.1):
+    - Alamofire (~> 4.7)
+    - ObjectMapper (~> 3.4)
+  - ObjectMapper (3.5.3)
+  - RxAlamofire (4.4.1):
+    - RxAlamofire/Core (= 4.4.1)
+  - RxAlamofire/Core (4.4.1):
+    - Alamofire (~> 4.8)
+    - RxSwift (~> 4.5)
+  - RxSwift (4.5.0)
+  - Toaster (2.3.0)
+  - XLPagerTabStrip (9.1.0)
+
+DEPENDENCIES:
+  - AlamofireObjectMapper (= 5.2.1)
+  - RxAlamofire (= 4.4.1)
+  - Toaster
+  - XLPagerTabStrip
+
+SPEC REPOS:
+  trunk:
+    - Alamofire
+    - AlamofireObjectMapper
+    - ObjectMapper
+    - RxAlamofire
+    - RxSwift
+    - Toaster
+    - XLPagerTabStrip
+
+SPEC CHECKSUMS:
+  Alamofire: 85e8a02c69d6020a0d734f6054870d7ecb75cf18
+  AlamofireObjectMapper: 1989f690e982b71921b9253f53a4f33a9bc00d88
+  ObjectMapper: 97111c97e054a6ee25917662106689f0b4127b37
+  RxAlamofire: ed65f451f5a9a59419b0b9e705043dc01410edd9
+  RxSwift: f172070dfd1a93d70a9ab97a5a01166206e1c575
+  Toaster: c3473963c78e8cabbf6ea6f11ad0fdaae6f54987
+  XLPagerTabStrip: 27f3bfe23c53b4251c6481b06b1c289458a3fc1d
+
+PODFILE CHECKSUM: 8fe958e96594c86767bda986211c2771cff84b5b
+
+COCOAPODS: 1.16.2

@@ -1,6 +1,6 @@
 "use client";
 
-import { Users, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, ChevronLeft, ChevronRight, Download } from "lucide-react";
 
 type Registration = {
   id: string;
@@ -21,6 +21,20 @@ interface Props {
 }
 
 export function RegistrationsTab({ registrations, regTotal, regPage, regLoading, onPageChange }: Props) {
+  // T30: CSV 내보내기
+  const handleCsvExport = () => {
+    const csvData = registrations.map((r) =>
+      `${r.name},${r.phone},${r.email ?? ""},${r.createdAt}`
+    ).join("\n");
+    const blob = new Blob(["이름,전화번호,이메일,신청일\n" + csvData], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `등록자_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (regLoading) {
     return (
       <div className="flex-1 overflow-y-auto p-4">
@@ -44,7 +58,17 @@ export function RegistrationsTab({ registrations, regTotal, regPage, regLoading,
 
   return (
     <div className="flex-1 overflow-y-auto p-4">
-      <p className="text-sm text-gray-500 mb-3">총 <strong>{regTotal}</strong>명 등록</p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm text-gray-500">총 <strong>{regTotal}</strong>명 등록</p>
+        {registrations.length > 0 && (
+          <button
+            onClick={handleCsvExport}
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-navy-900 border border-gray-200 hover:border-gray-400 rounded-lg px-2.5 py-1 transition-colors"
+          >
+            <Download className="w-3 h-3" /> CSV 내보내기
+          </button>
+        )}
+      </div>
       <div className="space-y-2">
         {registrations.map((r) => (
           <div key={r.id} className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3">

@@ -91,10 +91,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 파트너 권한 확인: 자신의 고객인지 확인
+    // 파트너 권한 확인: 이 고객 전화번호의 리드를 본인이 담당하는지 확인 (IDOR 방지)
+    const customerPhone = submission.user?.phone;
+    if (!customerPhone) {
+      return NextResponse.json(
+        { ok: false, message: '고객 연락처 정보가 없습니다.' },
+        { status: 403 },
+      );
+    }
     const lead = await prisma.gmAffiliateLead.findFirst({
       where: {
         OR: [{ managerId: profile.id }, { agentId: profile.id }],
+        customerPhone, // 고객 전화번호 일치 필수
       },
     });
 

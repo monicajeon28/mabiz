@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:text="OApi 연동"
+        android:background="@color/gray"
+        android:textColor="@color/white"
+        android:gravity="center"
+        android:textSize="20dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="10dp">
+        <LinearLayout
+            style="@style/container">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <TextView
+                    android:text="판매자 아이디"
+                    style="@style/titleTxt"/>
+                <EditText
+                    android:id="@+id/userIDETxt"
+                    android:imeOptions="actionDone"
+                    style="@style/editText"/>
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="5dp">
+                <TextView
+                    android:text="연동 키"
+                    style="@style/titleTxt"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <EditText
+                            android:id="@+id/linkKeyETxt"
+                            android:imeOptions="actionDone"
+                            style="@style/editText"
+                            android:layout_width="0dp"
+                            android:layout_weight="2"/>
+                        <Button
+                            android:id="@+id/linkKeyBtn"
+                            style="@style/button"
+                            android:layout_marginLeft="5dp"
+                            android:text="GET"/>
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:text="* 결제 취소 시 사용"
+                        style="@style/intoTxt"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="5dp">
+                <TextView
+                    android:text="고객전화번호"
+                    style="@style/titleTxt"/>
+                <EditText
+                    android:id="@+id/recvPhoneETxt"
+                    android:imeOptions="actionDone"
+                    android:inputType="phone"
+                    style="@style/editText"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="5dp">
+                <TextView
+                    android:text="이메일"
+                    style="@style/titleTxt"/>
+                <EditText
+                    android:id="@+id/emailETxt"
+                    android:imeOptions="actionDone"
+                    android:inputType="textEmailAddress"
+                    style="@style/editText"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="5dp">
+
+                <TextView
+                    android:text="정기결제 만료일 "
+                    style="@style/titleTxt"/>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <EditText
+                            android:id="@+id/rebillExprieETxt"
+                            android:imeOptions="actionDone"
+                            android:inputType="phone"
+                            android:enabled="false"
+                            android:layout_width="0dp"
+                            android:layout_weight="2"
+                            style="@style/editText"/>
+                        <Button
+                            android:id="@+id/rebillExprieBtn"
+                            style="@style/button"
+                            android:layout_marginLeft="5dp"
+                            android:text="SET"/>
+                    </LinearLayout>
+                    <TextView
+                        android:text="*오늘 이후 날짜"
+                        style="@style/intoTxt"/>
+                </LinearLayout>
+            </LinearLayout>
+
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="15dp"
+                android:text="금액: 1,000원 / 상품명: 테스트 상품" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="10dp">
+
+            <LinearLayout
+                style="@style/container">
+                <TextView
+                    android:text="* 결제 "
+                    style="@style/titleTxt"/>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <Button
+                        android:id="@+id/reqPaymentBtn"
+                        android:text="결제 요청(SMS, WEB)"
+                        style="@style/button"/>
+                    <Button
+                        android:id="@+id/payCancelBtn"
+                        android:layout_marginLeft="10dp"
+                        android:text="결제(요청, 승인)취소"
+                        style="@style/button"/>
+                </LinearLayout>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="5dp">
+                    <Button
+                        android:id="@+id/paycancelreqBtn"
+                        android:text="결제 취소 요청(결제승인 후 D+5일이 경과 및 정산)"
+                        style="@style/button"/>
+                </LinearLayout>
+            </LinearLayout>
+
+
+            <LinearLayout
+                style="@style/container"
+                android:layout_marginTop="5dp">
+                <TextView
+                    android:text="* 정기결제 "
+                    style="@style/titleTxt"/>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <Button
+                        android:id="@+id/rebillRegistBtn"
+                        android:text="정기 결제 요청"
+                        style="@style/button"/>
+                    <Button
+                        android:id="@+id/rebillCancelBtn"
+                        android:layout_marginLeft="10dp"
+                        android:text="정기 결제 해지"
+                        style="@style/button"/>
+                </LinearLayout>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="5dp">
+                    <Button
+                        android:id="@+id/rebillStopBtn"
+                        android:text="정기 결제 일시 정지"
+                        style="@style/button"/>
+                    <Button
+                        android:id="@+id/rebillStartBtn"
+                        android:layout_marginLeft="10dp"
+                        android:text="정기 결제 승인"
+                        style="@style/button"/>
+                </LinearLayout>
+            </LinearLayout>
+
+
+            <LinearLayout
+                style="@style/container"
+                android:layout_marginTop="5dp">
+                <TextView
+                    android:text="* 회원가입 "
+                    style="@style/titleTxt"/>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <Button
+                        android:id="@+id/sellerRegistBtn"
+                        android:text="판매자 회원가입"
+                        style="@style/button"/>
+                    <Button
+                        android:id="@+id/useridCheckBtn"
+                        android:layout_marginLeft="10dp"
+                        android:text="판매자 아이디 중복 체크"
+                        style="@style/button"/>
+                </LinearLayout>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="5dp">
+                    <Button
+                        android:id="@+id/subidregistBtn"
+                        android:text="부계정 등록"
+                        style="@style/button"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                style="@style/container"
+                android:layout_marginTop="5dp">
+                <TextView
+                    android:text="* 현금영수증 "
+                    style="@style/titleTxt"/>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <Button
+                        android:id="@+id/cashStBtn"
+                        android:text="현금영수증 발행"
+                        style="@style/button"/>
+                    <Button
+                        android:id="@+id/cashStCnBtn"
+                        android:layout_marginLeft="10dp"
+                        android:text="현금영수증 발행 취소"
+                        style="@style/button"/>
+                </LinearLayout>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="5dp">
+                    <Button
+                        android:id="@+id/checkNpayCashReceiptReqBtn"
+                        android:text="네이버페이 현금 영수증 발행 대상 금액 조회"
+                        style="@style/button"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                style="@style/container"
+                android:layout_marginTop="5dp">
+                <TextView
+                    android:text="* 등록결제(BILL)"
+                    style="@style/titleTxt"/>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <Button
+                        android:id="@+id/billRegisterBtn"
+                        android:text="등록결제(BILL) 등록"
+                        style="@style/button"/>
+                    <Button
+                        android:id="@+id/showBillList"
+                        android:layout_marginLeft="10dp"
+                        android:text="등록결제(BILL) 리스트"
+                        style="@style/button"/>
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <Button
+            android:id="@+id/closeBtn"
+            android:text="닫기"
+            style="@style/button"/>
+    </LinearLayout>
+
+</LinearLayout>

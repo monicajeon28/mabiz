@@ -5,13 +5,15 @@ const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 
 if (!redisUrl || !redisToken) {
-  throw new Error('Missing required Redis configuration: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN');
+  logger.warn('[Email Queue] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN — Email queue disabled');
 }
 
-const redis = new Redis({
-  url: redisUrl,
-  token: redisToken,
-});
+let _redis: Redis | null = null;
+function getRedis(): Redis | null {
+  if (!redisUrl || !redisToken) return null;
+  if (!_redis) _redis = new Redis({ url: redisUrl, token: redisToken });
+  return _redis;
+}
 
 interface EmailLogData {
   organizationId: string;
@@ -35,6 +37,8 @@ const EMAIL_QUEUE_BATCH_TIMEOUT_MS = 5000; // 5초마다 배치 처리
  * - DB 오버로드 시 메모리 큐에서 안전하게 대기
  */
 export async function addEmailLog(logData: Omit<EmailLogData, 'timestamp'>) {
+  const redis = getRedis();
+  if (!redis) return;
   try {
     const data: EmailLogData = {
       ...logData,
@@ -56,6 +60,11 @@ export async function addEmailLog(logData: Omit<EmailLogData, 'timestamp'>) {
  * - 실패 시 자동 재시도 로직 포함
  */
 export async function processEmailQueue() {
+  const redis = getRedis();
+  if (!redis) {
+    logger.warn('[Email Queue] Redis 미설정 — processEmailQueue 건너뜀');
+    return;
+  }
   const { default: prisma } = await import('@/lib/prisma');
 
   try {
@@ -115,7 +124,7 @@ export async function processEmailQueue() {
 
     // 에러 발생 시에도 플래그 제거하여 다음 시도 가능하게
     try {
-      await redis.del(EMAIL_QUEUE_PROCESSING);
+      await getRedis()?.del(EMAIL_QUEUE_PROCESSING);
     } catch {
       // 플래그 제거 실패는 무시 (30초 후 자동 해제)
     }
@@ -126,6 +135,8 @@ export async function processEmailQueue() {
  * Email 큐 상태 조회 (모니터링용)
  */
 export async function getEmailQueueStatus() {
+  const redis = getRedis();
+  if (!redis) return { queueLength: -1, isProcessing: false, disabled: true };
   try {
     const queueLength = await redis.llen(EMAIL_QUEUE_KEY);
     const isProcessing = await redis.get(EMAIL_QUEUE_PROCESSING);
@@ -150,6 +161,8 @@ export async function getEmailQueueStatus() {
  * Email 큐 비우기 (테스트/유지보수용)
  */
 export async function clearEmailQueue() {
+  const redis = getRedis();
+  if (!redis) return;
   try {
     await redis.del(EMAIL_QUEUE_KEY);
     await redis.del(EMAIL_QUEUE_PROCESSING);

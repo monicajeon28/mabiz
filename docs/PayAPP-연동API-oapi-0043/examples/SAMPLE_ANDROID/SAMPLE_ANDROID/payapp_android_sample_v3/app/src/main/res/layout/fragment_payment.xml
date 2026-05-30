@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:padding="10dp">
+
+        <LinearLayout
+            style="@style/container">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:text="고객전화번호"
+                    style="@style/titleTxt"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <EditText
+                        android:id="@+id/phoneNumberETxt"
+                        android:imeOptions="actionDone"
+                        style="@style/editText"  />
+                    <TextView
+                        android:text="* 휴대번호는 010으로 시작해야 합니다."
+                        style="@style/intoTxt"/>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="5dp">
+
+                <TextView
+                    android:text="상품명"
+                    style="@style/titleTxt"/>
+
+                <EditText
+                    android:id="@+id/goodsNameETxt"
+                    android:background="@drawable/ractangle_border"
+                    android:imeOptions="actionDone"
+                    android:text="테스트 상품"
+                    style="@style/editText"/>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="5dp">
+
+                <TextView
+                    android:text="상품금액"
+                    style="@style/titleTxt"/>
+
+                <EditText
+                    android:id="@+id/priceETxt"
+                    android:imeOptions="actionDone"
+                    android:text="1000"
+                    style="@style/editText"/>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="5dp">
+
+                <TextView
+                    android:text="할부 (1~12)"
+                    style="@style/titleTxt"/>
+
+                <EditText
+                    android:id="@+id/cardinstETxt"
+                    android:imeOptions="actionDone"
+                    android:text="1"
+                    style="@style/editText"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="10dp">
+
+                <TextView
+                    android:text="과세/면세"
+                    style="@style/titleTxt"/>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+                        <RadioGroup
+                            android:id="@+id/taxRG"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+                            <RadioButton
+                                android:id="@+id/taxRBtn"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:text="과세"
+                                android:checked="true"/>
+                            <RadioButton
+                                android:id="@+id/taxFreeRBtn"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:text="면세"
+                                android:checked="false"/>
+                        </RadioGroup>
+                    </LinearLayout>
+                    <TextView
+                        android:text="* 개인은 면세로 요청해야 합니다."
+                        style="@style/intoTxt"/>
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            style="@style/container"
+            android:layout_marginTop="10dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:text="대면결제 시 결제타입 모두 사용"
+                    style="@style/titleTxt"/>
+
+                <Switch
+                    android:id="@+id/isAllPayReqTypeSch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"/>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:text="var1 (Option)"
+                    style="@style/titleTxt"/>
+
+                <EditText
+                    android:id="@+id/var1ETxt"
+                    android:imeOptions="actionDone"
+                    android:textSize="14dp"
+                    android:hint="임의 사용 변수1"
+                    style="@style/editText"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="5dp">
+
+                <TextView
+                    android:text="var2 (Option)"
+                    style="@style/titleTxt"/>
+
+                <EditText
+                    android:id="@+id/var2ETxt"
+                    android:imeOptions="actionDone"
+                    android:padding="10dp"
+                    android:hint="임의 사용 변수2"
+                    style="@style/editText"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="10dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/payappRemotePaymentBtn"
+                        android:text="원격결제"
+                        style="@style/button"/>
+
+                    <Button
+                        android:id="@+id/payappOcrPaymentBtn"
+                        android:text="카메라결제"
+                        android:layout_marginLeft="5dp"
+                        style="@style/button"/>
+
+                    <Button
+                        android:id="@+id/payappManualPaymentBtn"
+                        android:text="수기결제"
+                        style="@style/button"
+                        android:layout_marginLeft="5dp"/>
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="5dp">
+
+                    <Button
+                        android:id="@+id/payappNaverPayPaymentBtn"
+                        android:text="네이버"
+                        style="@style/button"/>
+
+                    <Button
+                        android:id="@+id/payappKakaoPayPaymentBtn"
+                        android:text="카카오"
+                        style="@style/button"
+                        android:layout_marginLeft="5dp"/>
+
+                    <Button
+                        android:id="@+id/payappSmilePayPaymentBtn"
+                        android:text="스마일"
+                        style="@style/button"
+                        android:layout_marginLeft="5dp"/>
+
+                    <Button
+                        android:id="@+id/payappApplePayPaymentBtn"
+                        android:text="애플"
+                        style="@style/button"
+                        android:layout_marginLeft="5dp"/>
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="5dp">
+
+                    <Button
+                        android:id="@+id/payappPaycoPaymentBtn"
+                        android:text="페이코"
+                        style="@style/button"/>
+
+                    <Button
+                        android:id="@+id/payappWechatPayPaymentBtn"
+                        android:text="위챗"
+                        style="@style/button"
+                        android:layout_marginLeft="5dp"/>
+
+                    <Button
+                        android:id="@+id/payappMyaccountPaymentBtn"
+                        android:text="내통장"
+                        style="@style/button"
+                        android:layout_marginLeft="5dp"/>
+
+                    <Button
+                        android:id="@+id/payappTossPayPaymentBtn"
+                        android:text="토스"
+                        style="@style/button"
+                        android:layout_marginLeft="5dp"/>
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="5dp">
+
+                    <Button
+                        android:id="@+id/payappQRPaymentBtn"
+                        android:text="QR"
+                        style="@style/button"/>
+
+                    <Button
+                        android:id="@+id/payappNfcPaymentBtn"
+                        android:text="NFC"
+                        style="@style/button"
+                        android:layout_marginLeft="5dp"/>
+
+                    <Button
+                        android:id="@+id/payappSamsungPaymentBtn"
+                        android:text="삼성페이"
+                        style="@style/button"
+                        android:layout_marginLeft="5dp"/>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </ScrollView>
+
+    </LinearLayout>
+
+</LinearLayout>

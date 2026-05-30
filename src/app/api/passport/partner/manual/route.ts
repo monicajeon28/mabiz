@@ -276,6 +276,7 @@ export async function POST(req: NextRequest) {
     const submissionId = await upsertSubmission({
       userId: user.id,
       tripId: null,
+      token,
       tokenExpiresAt,
     });
 

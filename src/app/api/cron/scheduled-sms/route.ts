@@ -43,8 +43,8 @@ export async function GET(req: Request) {
 
   try {
     const now = new Date();
-    const hour = now.getHours();
-    const canProcessNightBlocked = hour >= 8; // 08:00 이후만 NIGHT_BLOCKED 처리 가능
+    const kstHour = (now.getUTCHours() + 9) % 24; // Vercel 서버는 UTC — KST = UTC+9
+    const canProcessNightBlocked = kstHour >= 8; // 08:00 KST 이후만 NIGHT_BLOCKED 처리
 
     // 처리할 조직 목록 조회 (PENDING 또는 NIGHT_BLOCKED SMS가 있는 조직만)
     const organizationsWithSms = await prisma.scheduledSms.findMany({

@@ -119,9 +119,8 @@ export async function GET(req: Request, { params }: Params) {
     return NextResponse.json(response);
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
-    const errorCode =
-      err instanceof Error && 'code' in err && typeof (err as any).code === 'string'
-        ? (err as any).code
+    const errorCode = err instanceof Error && 'code' in err && typeof (err as object & { code?: unknown }).code === 'string'
+        ? String((err as object & { code?: unknown }).code)
         : 'UNKNOWN';
     logger.error('[GET /api/b2b-landing/[id]/comments] Error', {
       error: errorMsg,

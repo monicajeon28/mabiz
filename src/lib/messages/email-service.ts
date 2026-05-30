@@ -37,7 +37,7 @@ interface EmailPayload {
 
 interface SendEmailResponse {
   messageId: string;
-  status: 'SENT' | 'SCHEDULED' | 'FAILED';
+  status: 'PENDING' | 'SENT' | 'FAILED';
   provider: 'SENDGRID' | 'SMTP' | 'NONE';
 }
 
@@ -157,7 +157,7 @@ async function sendViaSendGrid(
 
       return {
         messageId,
-        status: payload.scheduleAt ? 'SCHEDULED' : 'SENT',
+        status: payload.scheduleAt ? 'PENDING' : 'SENT',
         provider: 'SENDGRID',
       };
     } else {
@@ -361,11 +361,11 @@ function getPasonaEmailText(
  */
 export async function logEmailMessage(
   organizationId: string,
-  contactId: string,
+  contactId: string | undefined,
   recipientEmail: string,
   messageId: string,
   subject: string,
-  status: 'SENT' | 'FAILED' | 'PENDING'
+  status: 'PENDING' | 'SENT' | 'FAILED'
 ): Promise<void> {
   try {
     await prisma.smsLog.create({

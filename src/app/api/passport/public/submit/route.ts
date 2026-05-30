@@ -101,6 +101,15 @@ export async function POST(req: NextRequest) {
         }
 
         if (travelerData.id) {
+          // 소유권 확인: traveler가 이 reservation에 속하는지 검증 (IDOR 방지)
+          const travelerCheck = await prisma.gmTraveler.findUnique({
+            where: { id: travelerData.id },
+            select: { reservationId: true },
+          });
+          if (!travelerCheck || travelerCheck.reservationId !== reservationId) {
+            logger.warn('[Passport Submit] 잘못된 traveler ID', { travelerDataId: travelerData.id, reservationId });
+            continue; // 소유권 없으면 건너뜀
+          }
           // 기존 Traveler 업데이트
           const updated = await prisma.gmTraveler.update({
             where: { id: travelerData.id },

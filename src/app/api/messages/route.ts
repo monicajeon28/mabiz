@@ -218,6 +218,8 @@ export async function POST(req: NextRequest) {
         segmentCode: lens,
         psychologyLens: lens,
         abTestGroup: abTestGroup || undefined,
+        trackingId,
+        trackingUrl,
       },
     });
 

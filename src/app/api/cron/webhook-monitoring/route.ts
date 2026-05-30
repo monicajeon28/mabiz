@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import {
@@ -18,8 +19,20 @@ export const runtime = 'nodejs';
 export async function POST(req: NextRequest) {
   try {
     // 인증 확인
-    const authHeader = req.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    const secret = process.env.CRON_SECRET;
+    if (!secret) {
+      logger.warn('[CronWebhookMonitoring] CRON_SECRET 환경변수 미설정');
+      return NextResponse.json({ ok: false }, { status: 401 });
+    }
+    const auth = req.headers.get('authorization') ?? '';
+    const expected = `Bearer ${secret}`;
+    let authValid = false;
+    try {
+      authValid = auth.length === expected.length && timingSafeEqual(Buffer.from(auth), Buffer.from(expected));
+    } catch {
+      authValid = false;
+    }
+    if (!authValid) {
       logger.warn('[CronWebhookMonitoring] Unauthorized cron call');
       return NextResponse.json({ ok: false }, { status: 401 });
     }

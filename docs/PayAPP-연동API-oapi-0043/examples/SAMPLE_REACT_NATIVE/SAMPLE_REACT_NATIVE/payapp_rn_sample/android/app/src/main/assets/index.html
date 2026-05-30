@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        a {
+            font-size: 25px;
+        }
+    </style>
+    <script>
+        function call(reqType, isAllPayReqType) {
+            document.location.href = "https://payapp.kr/sdk-app?reqType="+reqType+"&isAllPayReqType="+isAllPayReqType+"&phoneNumber=01000000000&goodPrice=1000&goodName="+reqType+" 테스트&hasTax=1 &returnUri=https://my_returnUrl.kr&var1="+reqType+" test&var2=var2 test&feedbackurl=&checkretry=n"
+        }
+    </script>
+</head>
+<body>
+    <a href="javascript:void(0);" onclick="call('REMOTE', '0')">원격결제</a>
+    <br/>
+    <a href="javascript:void(0);" onclick="call('OCR', '0')">카메라결제</a>
+    <br/>
+    <a href="javascript:void(0);" onclick="call('OCR', '1')"> 카메라결제(모든 결제타입 사용)</a>
+    <br/>
+    <a href="javascript:void(0);" onclick="call('MANUAL', '0')">수기결제</a>
+    <br/>    
+    <a href="javascript:void(0);" onclick="call('NAVER_PAY', '0')">네이버페이</a>
+    <br/>
+    <a href="javascript:void(0);" onclick="call('KAKAO_PAY', '0')">카카오페이</a>
+    <br/>
+    <a href="javascript:void(0);" onclick="call('SMILE_PAY', '0')">스마일페이</a>
+    <br/>
+    <a href="javascript:void(0);" onclick="call('APPLE_PAY', '0')">애플페이</a>
+    <br/> 
+    <a href="javascript:void(0);" onclick="call('PAYCO', '0')">페이코</a>
+    <br/>
+    <a href="javascript:void(0);" onclick="call('WECHAT_PAY', '0')">위챗페이</a>
+    <br/>
+    <a href="javascript:void(0);" onclick="call('MY_ACCOUNT', '0')">내통장결제</a>
+    <br/>
+    <a href="javascript:void(0);" onclick="call('TOSS_PAY', '0')">토스페이</a>
+    <br/>
+    <a href="javascript:void(0);" onclick="call('QR', '0')">QR</a>
+    <br/>    
+    <a href="javascript:void(0);" onclick="call('NFC', '0')">NFC결제(카드)</a>
+    <br/>
+    <a href="javascript:void(0);" onclick="call('SAMSUNG', '0')">NFC결제(삼성페이)</a>
+    <br/>
+</body>
+</html>

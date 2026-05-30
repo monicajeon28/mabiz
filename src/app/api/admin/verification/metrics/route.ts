@@ -25,13 +25,15 @@ const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 
 if (!redisUrl || !redisToken) {
-  throw new Error('Missing required Redis configuration: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN');
+  logger.warn('[Verification Metrics] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN — Redis metrics disabled');
 }
 
-const redis = new Redis({
-  url: redisUrl,
-  token: redisToken,
-});
+let _redis: Redis | null = null;
+function getRedis(): Redis | null {
+  if (!redisUrl || !redisToken) return null;
+  if (!_redis) _redis = new Redis({ url: redisUrl, token: redisToken });
+  return _redis;
+}
 
 interface VerificationMetrics {
   consistency_rate: number;
@@ -282,7 +284,8 @@ async function getRollbackMetric(): Promise<{
 
     // Redis에서 롤백 기록 조회
     const rollbackKey = "menu38:phase3:rollback_history";
-    const rollbackHistory = await redis.lrange(rollbackKey, 0, -1);
+    const redis = getRedis();
+    const rollbackHistory = redis ? await redis.lrange(rollbackKey, 0, -1) : [];
 
     const rollbacks = (rollbackHistory || [])
       .map((item) => {
@@ -338,7 +341,8 @@ async function getVerificationTimeMetric(): Promise<{
     // Redis에서 검증 시간 기록 조회
     const verificationTimesKey =
       "menu38:phase3:verification_times";
-    const times = await redis.lrange(verificationTimesKey, 0, 9999);
+    const redis = getRedis();
+    const times = redis ? await redis.lrange(verificationTimesKey, 0, 9999) : [];
 
     if (!times || times.length === 0) {
       return { p50: 0, p99: 0, max: 0 };
@@ -380,7 +384,8 @@ async function getEnumMappingFallbackMetric(): Promise<{
 }> {
   try {
     const fallbackKey = "menu38:phase3:enum_mapping_fallbacks";
-    const fallbacks = await redis.lrange(fallbackKey, 0, -1);
+    const redis = getRedis();
+    const fallbacks = redis ? await redis.lrange(fallbackKey, 0, -1) : [];
 
     if (!fallbacks || fallbacks.length === 0) {
       return { count: 0, types: {}, trend: [] };
@@ -451,11 +456,14 @@ async function getRecoveryStatusMetric(): Promise<{
     const recoveryAttemptKey = "menu38:phase3:last_recovery_attempt";
     const featureFlagKey = "menu38:phase3:feature_enabled";
 
-    const [lastRollbackStr, lastRecoveryStr, featureFlagStr] = await Promise.all([
-      redis.get(rollbackKey),
-      redis.get(recoveryAttemptKey),
-      redis.get(featureFlagKey),
-    ]);
+    const redis = getRedis();
+    const [lastRollbackStr, lastRecoveryStr, featureFlagStr] = redis
+      ? await Promise.all([
+          redis.get(rollbackKey),
+          redis.get(recoveryAttemptKey),
+          redis.get(featureFlagKey),
+        ])
+      : [null, null, null];
 
     return {
       last_rollback: lastRollbackStr

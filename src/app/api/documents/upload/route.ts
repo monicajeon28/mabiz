@@ -10,7 +10,7 @@ import { logger } from '@/lib/logger';
 
 const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024; // 10MB
 
-const DOCUMENTS_FOLDER_ID = process.env.GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID;
+const DOCUMENTS_FOLDER_ID = process.env.GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID!;
 
 function getDriveClient() {
   if (!DOCUMENTS_FOLDER_ID) {
@@ -96,6 +96,12 @@ export async function POST(req: Request) {
     }
 
     // 조직별 폴더 확인
+    if (!DOCUMENTS_FOLDER_ID) {
+      return NextResponse.json(
+        { ok: false, message: 'Google Drive 폴더 ID 설정 안됨' },
+        { status: 500 }
+      );
+    }
     const orgFolder = await findOrCreateFolder(orgId, DOCUMENTS_FOLDER_ID);
 
     // Google Drive에 파일 업로드

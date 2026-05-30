@@ -249,7 +249,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         title,
         body: templateBody,
         psychologyPrinciple,
-        estimatedClickRate: estimatedClickRate || 0.5,
+        expectedClickRate: estimatedClickRate || 0.5,
         sendDelayMinutes: sendDelayMinutes || 5,
         version: 1,
       },
@@ -257,7 +257,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         title,
         body: templateBody,
         psychologyPrinciple,
-        estimatedClickRate: estimatedClickRate || 0.5,
+        expectedClickRate: estimatedClickRate || 0.5,
         sendDelayMinutes: sendDelayMinutes || 5,
       },
     });

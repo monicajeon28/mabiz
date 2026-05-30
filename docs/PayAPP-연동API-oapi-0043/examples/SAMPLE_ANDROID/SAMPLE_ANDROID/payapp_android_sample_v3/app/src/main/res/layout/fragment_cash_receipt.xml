@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".CashReceiptFragment"
+    android:orientation="vertical"
+    android:padding="10dp">
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            style="@style/container">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="10dp">
+
+                <TextView
+                    android:text="용도(필수)"
+                    style="@style/titleTxt"/>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+                        <RadioGroup
+                            android:id="@+id/trCodeRG"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+                            <RadioButton
+                                android:id="@+id/trCode0RBtn"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:text="소득공제용"
+                                android:checked="true"/>
+                            <RadioButton
+                                android:id="@+id/trCode1RBtn"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:text="지출증빙용"
+                                android:checked="false"/>
+                        </RadioGroup>
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="5dp">
+                <TextView
+                    android:text="원거래시간(필수)"
+                    style="@style/titleTxt"/>
+                <EditText
+                    android:id="@+id/tradTimeETxt"
+                    android:background="@drawable/ractangle_border"
+                    android:imeOptions="actionDone"
+                    android:inputType="number"
+                    android:text="6일 이내 발행 가능 "
+                    style="@style/editText" />
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="10dp">
+
+                <TextView
+                    android:id="@+id/cashPublishNumTv"
+                    android:text="발행번호(필수)"
+                    style="@style/titleTxt"/>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <EditText
+                        android:id="@+id/idInfoETxt"
+                        android:imeOptions="actionDone"
+                        android:inputType="number"
+                        style="@style/editText"  />
+
+                    <TextView
+                        android:text="* 소득공제: 휴대폰번호, 지출증빙: 사업자번호"
+                        style="@style/intoTxt"/>
+                </LinearLayout>
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="5dp">
+
+                <TextView
+                    android:id="@+id/nameTv"
+                    android:text="구매자명(필수)"
+                    style="@style/titleTxt"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <EditText
+                        android:id="@+id/nameETxt"
+                        android:background="@drawable/ractangle_border"
+                        android:imeOptions="actionDone"
+                        style="@style/editText" />
+
+                    <TextView
+                        android:text="* 소득공제: 구매자명, 지출증빙: 사업자명"
+                        style="@style/intoTxt"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="5dp">
+
+                <TextView
+                    android:text="상품명(필수)"
+                    style="@style/titleTxt"/>
+                <EditText
+                    android:id="@+id/goodsNameETxt"
+                    android:background="@drawable/ractangle_border"
+                    android:imeOptions="actionDone"
+                    style="@style/editText" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="5dp">
+
+                <TextView
+                    android:text="거래금액(필수)"
+                    style="@style/titleTxt"/>
+
+                <EditText
+                    android:id="@+id/priceETxt"
+                    android:imeOptions="actionDone"
+                    android:inputType="number"
+                    android:text="1000"
+                    style="@style/editText"/>
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="10dp">
+
+                <TextView
+                    android:text="부가세(필수)"
+                    style="@style/titleTxt"/>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+                        <RadioGroup
+                            android:id="@+id/taxRG"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+                            <RadioButton
+                                android:id="@+id/taxRBtn"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:text="과세"
+                                android:checked="true"/>
+                            <RadioButton
+                                android:id="@+id/taxFreeRBtn"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:text="면세"
+                                android:checked="false"/>
+                        </RadioGroup>
+                    </LinearLayout>
+                    <TextView
+                        android:text="* 개인은 면세로 요청해야 합니다."
+                        style="@style/intoTxt"/>
+                </LinearLayout>
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="5dp">
+
+                <TextView
+                    android:text="봉사료"
+                    style="@style/titleTxt"/>
+
+                <EditText
+                    android:id="@+id/svcETxt"
+                    android:imeOptions="actionDone"
+                    android:inputType="number"
+                    style="@style/editText"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="5dp">
+
+                <TextView
+                    android:text="구매자 E-Mail"
+                    style="@style/titleTxt"/>
+
+                <EditText
+                    android:id="@+id/emailETxt"
+                    android:imeOptions="actionDone"
+                    android:inputType="textEmailAddress"
+                    style="@style/editText"/>
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="10dp">
+
+                <TextView
+                    android:text="var1 (Option)"
+                    style="@style/titleTxt"/>
+
+                <EditText
+                    android:id="@+id/var1ETxt"
+                    android:imeOptions="actionDone"
+                    android:textSize="14dp"
+                    android:hint="임의 사용 변수1"
+                    style="@style/editText"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="5dp">
+
+                <TextView
+                    android:text="var2 (Option)"
+                    style="@style/titleTxt"/>
+
+                <EditText
+                    android:id="@+id/var2ETxt"
+                    android:imeOptions="actionDone"
+                    android:padding="10dp"
+                    android:hint="임의 사용 변수2"
+                    style="@style/editText"/>
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="10dp">
+
+        <Button
+            android:id="@+id/cashReceiptCancelBtn"
+            android:text="영수증 취소"
+            style="@style/button"/>
+
+        <Button
+            android:id="@+id/cashReceiptDoneBtn"
+            android:text="영수증 발행"
+            android:layout_marginLeft="10dp"
+            style="@style/button"/>
+
+    </LinearLayout>
+
+
+</LinearLayout>

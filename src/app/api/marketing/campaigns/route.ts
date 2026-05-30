@@ -126,10 +126,12 @@ export async function POST(req: NextRequest) {
     // 그룹 멤버 수를 포함해 조회 (단일 원자 연산)
     const group = await prisma.contactGroup.findFirst({
       where: {
-        id: groupId,
-        organizationId: ctx.organizationId,
+        id: groupId ?? undefined,
+        organizationId: ctx.organizationId ?? undefined,
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
         _count: { select: { members: true } },
       },
     });
@@ -153,8 +155,8 @@ export async function POST(req: NextRequest) {
 
     const campaign = await prisma.crmMarketingCampaign.create({
       data: {
-        organizationId: ctx.organizationId,
-        groupId,
+        organizationId: ctx.organizationId ?? '',
+        groupId: groupId ?? '',
         title,
         sendEmail: sendEmail === true,
         emailSubject: emailSubject || null,
