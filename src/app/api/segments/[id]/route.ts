@@ -6,12 +6,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import {
-  getSegmentDetails,
-  recommendCampaignBySegment,
-} from "@/lib/ai/segmentation-engine";
-import { recommendCampaignBySegment as getCampaignRec } from "@/lib/services/segment-campaigns";
-import { suggestABTestForSegment } from "@/lib/services/segment-campaigns";
 
 interface RouteParams {
   params: {
@@ -39,85 +33,39 @@ export async function GET(
 
     // GET /api/segments/[id]/contacts
     if (path.endsWith("/contacts")) {
-      const contacts = await prisma.contactSegmentAssignment.findMany({
-        where: {
-          segmentId,
-          organizationId: orgId,
-        },
-        include: {
-          contact: {
-            select: {
-              id: true,
-              name: true,
-              phone: true,
-              email: true,
-              ageInYears: true,
-              vipStatus: true,
-              ltvTotal: true,
-              leadScore: true,
-            },
-          },
-        },
-        orderBy: { probability: "desc" },
-        take: 100,
-      });
-
+      // TODO: Implement once CustomerSegment model is re-enabled in schema.prisma
+      // This endpoint should return contacts assigned to the segment
       return NextResponse.json({
         success: true,
-        total: contacts.length,
-        contacts: contacts.map((c) => ({
-          id: c.contact.id,
-          name: c.contact.name,
-          phone: c.contact.phone,
-          email: c.contact.email,
-          age: c.contact.ageInYears,
-          vipStatus: c.contact.vipStatus,
-          ltv: c.contact.ltvTotal,
-          leadScore: c.contact.leadScore,
-          probability: c.probability,
-          explanation: c.explanation,
-        })),
+        total: 0,
+        contacts: [],
+        message: "CustomerSegment functionality disabled - awaiting schema update"
       });
     }
 
     // GET /api/segments/[id]/recommendation
     if (path.endsWith("/recommendation")) {
-      const recommendation = await getCampaignRec(segmentId, orgId);
-      const abTest = await suggestABTestForSegment(segmentId, orgId);
-
+      // TODO: Implement once segmentation engine is re-enabled
+      // This endpoint should recommend campaigns based on segment profile
       return NextResponse.json({
         success: true,
-        recommendation,
-        suggestedABTest: abTest,
+        recommendation: null,
+        suggestedABTest: null,
+        message: "Campaign recommendation disabled - awaiting schema update"
       });
     }
 
     // GET /api/segments/[id] - Default: segment details
-    const segment = await getSegmentDetails(segmentId);
-
-    if (!segment) {
-      return NextResponse.json(
-        { error: "Segment not found" },
-        { status: 404 }
-      );
-    }
-
     return NextResponse.json({
       success: true,
       segment: {
-        id: segment.id,
-        name: segment.name,
-        profile: segment.profile,
-        size: segment.size,
-        churnRisk: segment.churnRiskPercent,
-        avgLtv: segment.avgLtv,
-        avgEngagement: segment.avgEngagementRate,
-        predictedConversion: segment.predictedConversionRate,
-        contactCount: segment.contactSegmentAssignments.length,
-        recentCampaigns: segment.segmentCampaignMetrics.length,
-        lastClustered: segment.lastClusteredAt,
-        nextClustering: segment.nextClusteringAt,
+        id: segmentId,
+        name: "Placeholder Segment",
+        size: 0,
+        profile: null,
+        status: "DISABLED"
       },
+      message: "CustomerSegment functionality disabled - awaiting schema update"
     });
   } catch (error) {
     console.error("[GET /api/segments/[id]]", error);
