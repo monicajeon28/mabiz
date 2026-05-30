@@ -17,14 +17,18 @@ export async function POST(req: NextRequest) {
 
     const body = await req.text();
 
+    // [P0-SEC-301] Webhook 서명 검증 필수 (헤더 누락 시 401)
     const signature = req.headers.get('x-webhook-signature');
-    if (signature) {
-      try {
-        signatureVerify.verify(body, signature);
-      } catch {
-        logger.warn('[Webhook/Analytics] Invalid signature');
-        return NextResponse.json({ ok: false, error: 'Invalid signature' }, { status: 403 });
-      }
+    if (!signature) {
+      logger.warn('[Webhook/Analytics] Signature missing');
+      return NextResponse.json({ ok: false, error: 'Missing signature' }, { status: 401 });
+    }
+
+    try {
+      signatureVerify.verify(body, signature);
+    } catch {
+      logger.warn('[Webhook/Analytics] Invalid signature');
+      return NextResponse.json({ ok: false, error: 'Invalid signature' }, { status: 403 });
     }
 
     let payload: any;

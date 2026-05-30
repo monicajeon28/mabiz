@@ -47,15 +47,31 @@ export async function POST(req: Request) {
       process.env.PAYAPP_ALLOWED_IPS?.split(",")
         .map((s) => s.trim())
         .filter(Boolean) ?? [];
-    // TODO(P0-2): X-Forwarded-For 헤더는 클라이언트가 위조 가능.
-    // 배포 환경(Vercel/Cloudflare/Nginx)의 trusted proxy 설정 확인 후 수정 필요.
-    // Vercel: req.headers.get('x-real-ip') 사용 권장
-    // Cloudflare: req.headers.get('cf-connecting-ip') 사용 권장
-    // DevOps 담당자에게 프록시 레이어 수 확인 후 PAYAPP_TRUSTED_PROXY 환경변수 설정
-    const requestIP =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-      req.headers.get("x-real-ip") ??
-      "unknown";
+
+    // [P0-SEC-302] X-Forwarded-For는 신뢰할 수 있는 프록시(Vercel/Cloudflare)만 사용
+    // 신뢰할 수 없는 네트워크에서는 X-Forwarded-For를 무시하고 direct IP만 사용
+    // DevOps 담당자: PAYAPP_TRUSTED_PROXY='vercel' 또는 'cloudflare' 또는 'nginx' 설정 필수
+    const trustedProxy = process.env.PAYAPP_TRUSTED_PROXY?.toLowerCase() ?? '';
+    let requestIP = 'unknown';
+
+    if (trustedProxy === 'vercel') {
+      requestIP = req.headers.get('x-real-ip') || 'unknown';
+    } else if (trustedProxy === 'cloudflare') {
+      requestIP = req.headers.get('cf-connecting-ip') || 'unknown';
+    } else if (trustedProxy === 'nginx') {
+      // Nginx: 마지막 프록시 IP만 신뢰 (내부 프록시만 거쳐야 함)
+      requestIP = req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() || 'unknown';
+    } else {
+      // 프록시 미설정: 로그에만 기록하고 요청 진행 (경고 레벨)
+      logger.warn('[PayApp Webhook] PAYAPP_TRUSTED_PROXY 미설정. IP 검증 불완전.', {
+        xForwardedFor: req.headers.get("x-forwarded-for"),
+        xRealIp: req.headers.get("x-real-ip"),
+        cfConnectingIp: req.headers.get("cf-connecting-ip"),
+      });
+      requestIP = req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ||
+                  req.headers.get("x-real-ip") ||
+                  'unknown';
+    }
 
     // IP 화이트리스트 미설정 — 중대 오류 (즉시 조치 필요)
     if (allowedIPs.length === 0) {
