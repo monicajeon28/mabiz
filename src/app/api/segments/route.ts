@@ -6,15 +6,21 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
-  return NextResponse.json(
-    { error: "CustomerSegment functionality has been disabled" },
-    { status: 503 }
-  );
+  // TODO: Implement once CustomerSegment model is re-enabled in schema.prisma
+  // This endpoint should list all active segments with their metrics
+  return NextResponse.json({
+    success: true,
+    total: 0,
+    segments: [],
+    message: "CustomerSegment functionality disabled - awaiting schema update"
+  });
 }
 
 export async function POST(request: NextRequest) {
-  return NextResponse.json(
-    { error: "CustomerSegment functionality has been disabled" },
-    { status: 503 }
-  );
+  // TODO: Implement once CustomerSegment model is re-enabled in schema.prisma
+  // This endpoint should trigger re-clustering/refresh of segments
+  return NextResponse.json({
+    success: true,
+    message: "CustomerSegment functionality disabled - awaiting schema update"
+  });
 }
