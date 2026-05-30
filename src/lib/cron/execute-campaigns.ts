@@ -64,18 +64,20 @@ import {
   getRentalSendingData,
 } from "../rental-sending-helper";
 
-// Redis 인스턴스 (분산 락용)
+// Redis 인스턴스 (분산 락용) — 환경변수 없을 때 graceful fallback
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 
 if (!redisUrl || !redisToken) {
-  throw new Error('Missing required Redis configuration: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN');
+  logger.warn('[execute-campaigns] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN — distributed lock disabled');
 }
 
-const redis = new Redis({
-  url: redisUrl,
-  token: redisToken,
-});
+let _redis: Redis | null = null;
+function getRedis(): Redis | null {
+  if (!redisUrl || !redisToken) return null;
+  if (!_redis) _redis = new Redis({ url: redisUrl, token: redisToken });
+  return _redis;
+}
 
 interface ExecutionCampaignParams {
   campaignId: string;
@@ -815,6 +817,12 @@ export async function executePendingCampaigns() {
  * Upstash Redis SET NX EX: "SET key value NX EX ttl"
  */
 async function acquireDistributedLock(lockKey: string, ttlSeconds: number): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) {
+    // Redis 없으면 락 없이 진행 (단일 인스턴스 환경에서는 안전)
+    logger.warn("[Cron] Redis 미설정 — 분산 락 없이 진행", { lockKey });
+    return true;
+  }
   try {
     const lockValue = `lock:${Date.now()}:${Math.random()}`;
     // Upstash Redis: SET with NX and EX options
@@ -843,6 +851,8 @@ async function acquireDistributedLock(lockKey: string, ttlSeconds: number): Prom
  * Phase 3-γ: P0-3 솔루션 - DEL
  */
 async function releaseDistributedLock(lockKey: string): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
   try {
     await redis.del(lockKey);
     logger.log("[Cron] 분산 락 해제 완료", { lockKey });

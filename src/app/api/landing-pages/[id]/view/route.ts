@@ -50,14 +50,16 @@ export async function POST(req: Request, { params }: Params) {
         }),
       ]);
     } catch (txErr: unknown) {
-      // P2002: 동시 요청 충돌 — viewCount는 이미 증가됐을 수 있으므로 무시하고 ok 반환
+      // P2002: Unique constraint 위반 (동시 요청 중복)
+      // 트랜잭션이 부분 실행되어 viewCount는 증가했을 수 있음
+      // → duplicate: true로 표시하고 200 반환 (재시도 불필요)
       if (
         typeof txErr === 'object' &&
         txErr !== null &&
         'code' in txErr &&
         (txErr as { code: string }).code === 'P2002'
       ) {
-        return NextResponse.json({ ok: true });
+        return NextResponse.json({ ok: true, duplicate: true }, { status: 200 });
       }
       throw txErr;
     }

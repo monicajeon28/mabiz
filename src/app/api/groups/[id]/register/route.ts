@@ -140,7 +140,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
             funnelId: group.funnelId,
             contactId: contact.id,
             errorMessage,
-            errorCode: err instanceof Error && 'code' in err ? (err as any).code : undefined,
+            errorCode: err instanceof Error && 'code' in err ? String((err as object & { code?: unknown }).code) : undefined,
             timestamp: new Date().toISOString(),
           });
           // 펀널 실패는 트랜잭션을 롤백하지 않음 (Contact/GroupMember는 성공)

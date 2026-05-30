@@ -122,8 +122,6 @@ export async function processWebhookQueue(): Promise<void> {
   }
 }
 
-// 5분마다 큐 처리
-if (typeof globalThis !== "undefined") {
-  const interval = setInterval(processWebhookQueue, 5 * 60 * 1000);
-  if (interval.unref) interval.unref();
-}
+// NOTE: 서버리스(Vercel/AWS Lambda) 환경에서는 모듈 최상위 setInterval이
+// 동작하지 않으며, 핫 리로드 시 누적 등록으로 메모리 누수가 발생합니다.
+// processWebhookQueue는 export만 하고 호출은 /api/cron/webhook-retry 에서 수행합니다.

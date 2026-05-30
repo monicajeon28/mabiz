@@ -4,7 +4,7 @@
  */
 
 import prisma from '@/lib/prisma';
-import { redis } from '@/lib/redis';
+import { getRedis } from '@/lib/redis';
 import DataLoader from 'dataloader';
 import { Contact360Response, Contact360Metrics, Contact360Group } from './types';
 import { maskPII, MaskOptions } from './pii-mask';
@@ -34,10 +34,11 @@ export async function getContact360(
 
   // 1. 캐시 조회
   const cacheKey = `contact:360:${orgId}:${contactId}`;
-  const cached = await redis.get(cacheKey);
+  const redisClient = getRedis();
+  const cached = redisClient ? await redisClient.get(cacheKey) : null;
 
   if (cached) {
-    const data = JSON.parse(cached);
+    const data = JSON.parse(cached as string);
 
     // PII 마스킹 적용 (필요시)
     if (maskOptions) {
@@ -52,7 +53,7 @@ export async function getContact360(
 
   // 3. 캐시 저장 (TTL: 30분)
   const ttl = 30 * 60;
-  await redis.setex(cacheKey, ttl, JSON.stringify(contact360));
+  if (redisClient) await redisClient.setex(cacheKey, ttl, JSON.stringify(contact360));
 
   // 4. PII 마스킹 적용 (필요시)
   if (maskOptions) {
@@ -349,7 +350,8 @@ export async function invalidateContact360Cache(
   orgId: string
 ) {
   const cacheKey = `contact:360:${orgId}:${contactId}`;
-  await redis.del(cacheKey);
+  const redisClient = getRedis();
+  if (redisClient) await redisClient.del(cacheKey);
 }
 
 /**
@@ -360,7 +362,8 @@ export async function invalidateContact360CacheBatch(
   orgId: string
 ) {
   const keys = contactIds.map(id => `contact:360:${orgId}:${id}`);
-  if (keys.length > 0) {
-    await redis.del(...keys);
+  const redisClient = getRedis();
+  if (keys.length > 0 && redisClient) {
+    await redisClient.del(...keys);
   }
 }

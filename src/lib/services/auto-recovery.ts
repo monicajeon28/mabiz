@@ -25,13 +25,15 @@ const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 
 if (!redisUrl || !redisToken) {
-  throw new Error('Missing required Redis configuration: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN');
+  logger.warn('[Auto Recovery] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN — auto-recovery disabled');
 }
 
-const redis = new Redis({
-  url: redisUrl,
-  token: redisToken,
-});
+let _redis: Redis | null = null;
+function getRedis(): Redis | null {
+  if (!redisUrl || !redisToken) return null;
+  if (!_redis) _redis = new Redis({ url: redisUrl, token: redisToken });
+  return _redis;
+}
 
 /**
  * Redis 키
@@ -51,6 +53,11 @@ export async function autoRecoverExecutionLog(): Promise<{
   reason: string;
   duration?: number;
 }> {
+  const redis = getRedis();
+  if (!redis) {
+    logger.warn("[Auto Recovery] Redis 미설정 — 복구 건너뜀");
+    return { recovered: false, reason: "Redis not configured" };
+  }
   const startTime = performance.now();
 
   try {
@@ -68,7 +75,7 @@ export async function autoRecoverExecutionLog(): Promise<{
 
     try {
       // Step 2: 마지막 롤백 시간 확인
-      const lastRollbackStr = await redis.get(ROLLBACK_TIME_KEY);
+      const lastRollbackStr = await redis!.get(ROLLBACK_TIME_KEY);
       if (!lastRollbackStr) {
         logger.log("[Auto Recovery] 롤백 기록 없음 (첫 실행 또는 자동 정리됨)");
         return {
@@ -118,8 +125,8 @@ export async function autoRecoverExecutionLog(): Promise<{
 
       // Step 5: 복구 시간 기록
       const duration = performance.now() - startTime;
-      await redis.del(ROLLBACK_TIME_KEY); // 롤백 시간 정리
-      await redis.setex(RECOVERY_ATTEMPT_KEY, 86400, new Date().toISOString()); // 24시간 기록
+      await redis!.del(ROLLBACK_TIME_KEY); // 롤백 시간 정리
+      await redis!.setex(RECOVERY_ATTEMPT_KEY, 86400, new Date().toISOString()); // 24시간 기록
 
       logger.info("[Auto Recovery] ExecutionLog 복구 완료", {
         durationMs: duration,
@@ -164,6 +171,8 @@ export async function autoRecoverExecutionLog(): Promise<{
  * - 복구 트리거 설정
  */
 export async function recordRollback(): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
   try {
     const timestamp = Date.now();
     await redis.setex(ROLLBACK_TIME_KEY, 24 * 60 * 60, timestamp.toString()); // 24시간 유지
@@ -249,6 +258,8 @@ async function checkRecentErrors(): Promise<boolean> {
  * 헬퍼 2: 복구 락 획득 (중복 실행 방지)
  */
 async function acquireRecoveryLock(): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return false;
   try {
     const lockValue = `lock:${Date.now()}:${Math.random()}`;
     const result = await redis.set(RECOVERY_LOCK_KEY, lockValue, {
@@ -267,6 +278,8 @@ async function acquireRecoveryLock(): Promise<boolean> {
  * 헬퍼 3: 복구 락 해제
  */
 async function releaseRecoveryLock(): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
   try {
     await redis.del(RECOVERY_LOCK_KEY);
   } catch (err) {

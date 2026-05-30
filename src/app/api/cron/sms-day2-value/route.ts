@@ -212,7 +212,7 @@ ${isVip ? `⭐ VIP 멤버 할인 코드: ${discountCode} (추가 15% 할인)` : 
               smsDay2SentAt: new Date(),
               // 메타데이터에 제공된 할인 코드 기록
               lensMetadata: {
-                ...((contact.lensMetadata as any) || {}),
+                ...(typeof contact.lensMetadata === 'object' && contact.lensMetadata !== null ? contact.lensMetadata as Record<string, unknown> : {}),
                 offeredDiscountCode: discountCode,
                 dayTwoEngagement: hasEngagement ? 'HIGH' : 'LOW',
               },

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/AppLink/Payapp_Android_Sample_V3.AppLink.iml" filepath="$PROJECT_DIR$/.idea/modules/AppLink/Payapp_Android_Sample_V3.AppLink.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/AppLink/Payapp_Android_Sample_V3.AppLink.androidTest.iml" filepath="$PROJECT_DIR$/.idea/modules/AppLink/Payapp_Android_Sample_V3.AppLink.androidTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/AppLink/Payapp_Android_Sample_V3.AppLink.main.iml" filepath="$PROJECT_DIR$/.idea/modules/AppLink/Payapp_Android_Sample_V3.AppLink.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/AppLink/Payapp_Android_Sample_V3.AppLink.unitTest.iml" filepath="$PROJECT_DIR$/.idea/modules/AppLink/Payapp_Android_Sample_V3.AppLink.unitTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/OApi/Payapp_Android_Sample_V3.OApi.iml" filepath="$PROJECT_DIR$/.idea/modules/OApi/Payapp_Android_Sample_V3.OApi.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/OApi/Payapp_Android_Sample_V3.OApi.androidTest.iml" filepath="$PROJECT_DIR$/.idea/modules/OApi/Payapp_Android_Sample_V3.OApi.androidTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/OApi/Payapp_Android_Sample_V3.OApi.main.iml" filepath="$PROJECT_DIR$/.idea/modules/OApi/Payapp_Android_Sample_V3.OApi.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/OApi/Payapp_Android_Sample_V3.OApi.unitTest.iml" filepath="$PROJECT_DIR$/.idea/modules/OApi/Payapp_Android_Sample_V3.OApi.unitTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/Payapp_Android_Sample_V3.app.iml" filepath="$PROJECT_DIR$/.idea/modules/app/Payapp_Android_Sample_V3.app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/Payapp_Android_Sample_V3.app.androidTest.iml" filepath="$PROJECT_DIR$/.idea/modules/app/Payapp_Android_Sample_V3.app.androidTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/Payapp_Android_Sample_V3.app.main.iml" filepath="$PROJECT_DIR$/.idea/modules/app/Payapp_Android_Sample_V3.app.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/Payapp_Android_Sample_V3.app.unitTest.iml" filepath="$PROJECT_DIR$/.idea/modules/app/Payapp_Android_Sample_V3.app.unitTest.iml" />
+    </modules>
+  </component>
+</project>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        style="@style/container">
+            <ListView
+                android:id="@+id/billListView"
+                android:layout_width="match_parent"
+                android:layout_height="400dp"
+                android:background="@color/white"/>
+
+            <Button
+                android:id="@+id/billCloseDialog"
+                android:layout_marginTop="10dp"
+                android:layout_width="match_parent"
+                android:text="닫기"
+                style="@style/button"/>
+        </LinearLayout>
+
+
+</LinearLayout>

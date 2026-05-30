@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
-const DOCUMENTS_FOLDER_ID = process.env.GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID;
+const DOCUMENTS_FOLDER_ID = process.env.GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID!;
 
 function getDriveClient() {
   if (!DOCUMENTS_FOLDER_ID) {

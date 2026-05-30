@@ -1,0 +1,24 @@
+yarn run v1.22.22
+$ prisma generate && next build
+Prisma schema loaded from prisma\schema.prisma.
+
+✔ Generated Prisma Client (v7.8.0) to .\node_modules\@prisma\client in 944ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+
+   ▲ Next.js 15.5.18
+   - Environments: .env.production.local, .env.local, .env.production, .env
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'D:\mabiz-crm\.next\cache\webpack\server-production\0.pack_' -> 'D:\mabiz-crm\.next\cache\webpack\server-production\0.pack'
+ ✓ Compiled successfully in 2.8min
+   Skipping validation of types
+   Linting ...
+   Collecting page data ...
+
+> Build error occurred
+SyntaxError: Unexpected non-whitespace character after JSON at position 4 (line 1 column 5)
+    at JSON.parse (<anonymous>)
+error Command failed with exit code 1.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.

@@ -245,7 +245,7 @@ export async function DELETE(
         message: `Variant ${resolvedParams.key} deleted`,
       });
     } catch (deleteError) {
-      if ((deleteError as any).code === 'P2025') {
+      if (deleteError instanceof Error && 'code' in deleteError && (deleteError as object & { code?: unknown }).code === 'P2025') {
         logger.warn(
           `[DELETE /variants/[key]] Variant not found during deletion`,
           { campaignId: resolvedParams.id, key: resolvedParams.key }

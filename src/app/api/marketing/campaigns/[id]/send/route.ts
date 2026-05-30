@@ -188,7 +188,7 @@ async function processRecipient(
         msgType: text.length > 90 ? 'LMS' : 'SMS',
         organizationId,
         contactId: contact.id,
-        channel: 'CAMPAIGN',
+        channel: 'MANUAL',
       });
       smsSent = result.result_code === 1;
     }

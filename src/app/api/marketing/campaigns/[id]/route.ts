@@ -16,8 +16,8 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
 
     const campaign = await prisma.crmMarketingCampaign.findFirst({
       where: {
-        id,
-        organizationId: ctx.organizationId,
+        id: id ?? undefined,
+        organizationId: ctx.organizationId ?? undefined,
       },
       include: {
         group: { select: { id: true, name: true } },
@@ -52,8 +52,8 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 
     const existing = await prisma.crmMarketingCampaign.findFirst({
       where: {
-        id,
-        organizationId: ctx.organizationId,
+        id: id ?? undefined,
+        organizationId: ctx.organizationId ?? undefined,
       },
     });
 
@@ -101,8 +101,8 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
 
     const existing = await prisma.crmMarketingCampaign.findFirst({
       where: {
-        id,
-        organizationId: ctx.organizationId,
+        id: id ?? undefined,
+        organizationId: ctx.organizationId ?? undefined,
       },
     });
 

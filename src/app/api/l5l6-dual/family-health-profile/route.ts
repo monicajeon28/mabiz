@@ -192,7 +192,7 @@ export async function POST(req: NextRequest) {
     await prisma.contact.update({
       where: { id: contactId },
       data: {
-        familyHealthProfile: familyProfile as any,
+        familyHealthProfile: familyProfile as unknown as Record<string, unknown>,
         selfProjectionScore: totalFamilyRiskScore,
         compoundHealthRisk: criticalMemberCount >= 1,
         selfProjectionSequenceStartedAt: new Date(),

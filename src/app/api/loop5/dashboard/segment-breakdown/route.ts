@@ -141,8 +141,8 @@ export async function GET(req: NextRequest) {
       lastUpdated: new Date().toISOString(),
       performanceMs: elapsedMs,
     });
-  } catch (error) {
-    logger.error('Loop5 segment breakdown error:', error);
+  } catch (error: unknown) {
+    logger.error('Loop5 segment breakdown error:', { message: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Failed to fetch segment breakdown' },
       { status: 500 }

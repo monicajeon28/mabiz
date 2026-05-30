@@ -89,18 +89,18 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // korName으로 못 찾으면, phone으로 매칭 시도
+        // korName으로 못 찾으면, phone+tripId 기준으로 같은 여행의 예약에서만 매칭 시도
         if (!traveler && phone) {
-          // GmUser를 통해 매칭
           const matchedUser = await tx.gmUser.findFirst({
             where: { name: korName, phone },
             select: { id: true },
           });
           if (matchedUser) {
+            // 같은 tripId에 속한 예약만 허용 (크로스-예약 공격 차단)
             const relatedReservation = await tx.gmReservation.findFirst({
               where: {
                 mainUserId: matchedUser.id,
-                tripId: reservation.tripId,
+                tripId: reservation.tripId, // 동일 여행만
               },
             });
             if (relatedReservation) {

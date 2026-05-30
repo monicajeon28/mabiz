@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        style="@style/container">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <TextView
+                android:text="유저 아이디"
+                style="@style/titleTxt"/>
+            <EditText
+                android:id="@+id/userIDETxt"
+                android:imeOptions="actionDone"
+                style="@style/editText"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="5dp">
+            <TextView
+                android:text="카드번호"
+                style="@style/titleTxt"/>
+            <EditText
+                android:id="@+id/cardNoETxt"
+                android:imeOptions="actionDone"
+                android:inputType="number"
+                style="@style/editText"
+                android:layout_width="0dp"
+                android:layout_weight="2"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="5dp">
+            <TextView
+                android:text="유효기간 (M/Y)"
+                style="@style/titleTxt"/>
+
+            <EditText
+                android:id="@+id/expMonthETxt"
+                android:imeOptions="actionDone"
+                android:inputType="number"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                style="@style/editText"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:text="/"
+                android:gravity="center_vertical"
+                android:layout_marginLeft="10dp"
+                android:layout_marginRight="10dp"/>
+
+            <EditText
+                android:id="@+id/expYearETxt"
+                android:imeOptions="actionDone"
+                android:inputType="number"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                style="@style/editText"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="5dp">
+
+            <TextView
+                android:text="인증번호"
+                style="@style/titleTxt"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <EditText
+                        android:id="@+id/buyerAuthNoETxt"
+                        android:imeOptions="actionDone"
+                        android:inputType="number"
+                        style="@style/editText"/>
+                </LinearLayout>
+                <TextView
+                    android:text="* 개인: YYMMDD / 법인: 사업자번호"
+                    style="@style/intoTxt"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="5dp">
+
+            <TextView
+                android:text="카드 비밀번호"
+                style="@style/titleTxt"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <EditText
+                        android:id="@+id/cardPwETxt"
+                        android:imeOptions="actionDone"
+                        android:inputType="numberPassword"
+                        style="@style/editText"/>
+                </LinearLayout>
+                <TextView
+                    android:text="* 앞 두자리 (**)"
+                    style="@style/intoTxt"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="5dp">
+            <TextView
+                android:text="구매자 전화번호"
+                style="@style/titleTxt"/>
+            <EditText
+                android:id="@+id/buyerPhoneETxt"
+                android:imeOptions="actionDone"
+                android:inputType="number"
+                style="@style/editText"
+                android:layout_width="0dp"
+                android:layout_weight="2"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="5dp">
+
+            <TextView
+                android:text="구매자 성함"
+                style="@style/titleTxt"/>
+            <EditText
+                android:id="@+id/buyerNameETxt"
+                android:imeOptions="actionDone"
+                style="@style/editText"
+                android:layout_width="0dp"
+                android:layout_weight="2"/>
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/billRegisterDialog"
+            android:layout_marginTop="10dp"
+            android:layout_width="match_parent"
+            android:text="등록"
+            style="@style/button"/>
+    </LinearLayout>
+</LinearLayout>

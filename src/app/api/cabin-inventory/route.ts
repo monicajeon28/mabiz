@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     const status = url.searchParams.get('status');
     const search = url.searchParams.get('search');
 
-    const where: Record<string, unknown> = {} as any;
+    const where: Record<string, unknown> = {};
 
     // OWNER는 자기 조직만
     if (ctx.role === 'OWNER') {
@@ -173,7 +173,7 @@ export async function POST(req: NextRequest) {
           const tripIds = trips.map((t) => t.id);
 
           if (tripIds.length > 0) {
-            const reservationGroups = await (tx.gmReservation.groupBy as any)({
+            const reservationGroups = await (tx.gmReservation.groupBy as typeof tx.gmReservation.groupBy)({
               by: ['cabinType'],
               where: {
                 tripId: { in: tripIds },

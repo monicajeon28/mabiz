@@ -780,27 +780,28 @@ export async function runSegmentation(
 
 /**
  * Get segment details with contact count and metrics
+ * NOTE: Disabled - customerSegment table does not exist
  */
-export async function getSegmentDetails(segmentId: string) {
-  const segment = await prisma.customerSegment.findUnique({
-    where: { id: segmentId },
-    include: {
-      contactSegmentAssignments: {
-        select: {
-          id: true,
-          probability: true,
-          explanation: true,
-        },
-      },
-      segmentCampaignMetrics: {
-        take: 5,
-        orderBy: { createdAt: "desc" },
-      },
-    },
-  });
-
-  return segment;
-}
+// export async function getSegmentDetails(segmentId: string) {
+//   const segment = await prisma.customerSegment.findUnique({
+//     where: { id: segmentId },
+//     include: {
+//       contactSegmentAssignments: {
+//         select: {
+//           id: true,
+//           probability: true,
+//           explanation: true,
+//         },
+//       },
+//       segmentCampaignMetrics: {
+//         take: 5,
+//         orderBy: { createdAt: "desc" },
+//       },
+//     },
+//   });
+//
+//   return segment;
+// }
 
 /**
  * Force re-clustering for an organization (monthly)

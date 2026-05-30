@@ -46,7 +46,7 @@ export async function GET(
     }
 
     const organizationId = (request.nextUrl.searchParams.get("orgId") ||
-      (session as any).user?.organizationId) as string;
+      (typeof session === 'object' && session !== null && 'user' in session ? (session as { user?: { organizationId?: string } }).user?.organizationId : undefined)) as string;
 
     if (!organizationId) {
       return NextResponse.json(

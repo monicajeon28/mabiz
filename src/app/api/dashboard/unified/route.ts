@@ -190,7 +190,7 @@ async function getSystemHealth(
   const recentLogs = await prisma.executionLog.count({
     where: {
       organizationId,
-      executedAt: {
+      sentAt: {
         gte: new Date(Date.now() - 60 * 60 * 1000),
       },
     },

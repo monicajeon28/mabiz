@@ -5,13 +5,15 @@ const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 
 if (!redisUrl || !redisToken) {
-  throw new Error('Missing required Redis configuration: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN');
+  logger.warn('[SMS Queue] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN — SMS queue disabled');
 }
 
-const redis = new Redis({
-  url: redisUrl,
-  token: redisToken,
-});
+let _redis: Redis | null = null;
+function getRedis(): Redis | null {
+  if (!redisUrl || !redisToken) return null;
+  if (!_redis) _redis = new Redis({ url: redisUrl, token: redisToken });
+  return _redis;
+}
 
 interface SmsLogData {
   organizationId: string;
@@ -37,6 +39,8 @@ const SMS_QUEUE_BATCH_TIMEOUT_MS = 5000; // 5초마다 배치 처리
  * - DB 오버로드 시 메모리 큐에서 안전하게 대기
  */
 export async function addSmsLog(logData: Omit<SmsLogData, 'timestamp'>) {
+  const redis = getRedis();
+  if (!redis) return;
   try {
     const data: SmsLogData = {
       ...logData,
@@ -58,6 +62,11 @@ export async function addSmsLog(logData: Omit<SmsLogData, 'timestamp'>) {
  * - 실패 시 자동 재시도 로직 포함
  */
 export async function processSmsQueue() {
+  const redis = getRedis();
+  if (!redis) {
+    logger.warn('[SMS Queue] Redis 미설정 — processSmsQueue 건너뜀');
+    return;
+  }
   const { default: prisma } = await import('@/lib/prisma');
 
   try {
@@ -119,7 +128,7 @@ export async function processSmsQueue() {
 
     // 에러 발생 시에도 플래그 제거하여 다음 시도 가능하게
     try {
-      await redis.del(SMS_QUEUE_PROCESSING);
+      await getRedis()?.del(SMS_QUEUE_PROCESSING);
     } catch {
       // 플래그 제거 실패는 무시 (30초 후 자동 해제)
     }
@@ -130,6 +139,8 @@ export async function processSmsQueue() {
  * SMS 큐 상태 조회 (모니터링용)
  */
 export async function getSmsQueueStatus() {
+  const redis = getRedis();
+  if (!redis) return { queueLength: -1, isProcessing: false, disabled: true };
   try {
     const queueLength = await redis.llen(SMS_QUEUE_KEY);
     const isProcessing = await redis.get(SMS_QUEUE_PROCESSING);
@@ -154,6 +165,8 @@ export async function getSmsQueueStatus() {
  * SMS 큐 비우기 (테스트/유지보수용)
  */
 export async function clearSmsQueue() {
+  const redis = getRedis();
+  if (!redis) return;
   try {
     await redis.del(SMS_QUEUE_KEY);
     await redis.del(SMS_QUEUE_PROCESSING);

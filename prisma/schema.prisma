@@ -941,6 +941,8 @@ model SmsLog {
   responseAt     DateTime?
   segmentCode    String? // e.g., "L0_INACTIVE", "L1_PRICE", "L6_TIMING"
   psychologyLens String? // e.g., "LOSS_AVERSION", "SCARCITY", "URGENCY"
+  trackingId     String?  @unique // SMS 추적 ID (메시지 수신/오픈/클릭 추적용)
+  trackingUrl    String?  // SMS 내 클릭 추적 URL
 
   @@index([organizationId, sentAt])
   @@index([contactId, sentAt])
@@ -949,6 +951,7 @@ model SmsLog {
   @@index([abTestGroup, sentAt])
   @@index([organizationId, abTestId, abTestGroup])
   @@index([organizationId, segmentCode, abTestGroup])
+  @@index([trackingId]) // trackingId 추적용
   @@map("CrmSmsLog")
 }
 

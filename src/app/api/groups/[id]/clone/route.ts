@@ -160,7 +160,7 @@ export async function POST(_req: Request, { params }: Params) {
   } catch (e) {
     // [LOG-003] Clone 전체 실패: 트랜잭션 롤백으로 부분 데이터 없음을 보장
     const errorMessage = e instanceof Error ? e.message : String(e);
-    const errorCode = e instanceof Error && 'code' in e ? (e as any).code : undefined;
+    const errorCode = e instanceof Error && 'code' in e ? String((e as object & { code?: unknown }).code) : undefined;
     logger.error('[GroupClone] 트랜잭션 실패 (전체 롤백됨)', {
       errorMessage,
       errorCode,

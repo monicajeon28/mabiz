@@ -218,7 +218,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         }),
         ...(validatedData.status && { status: validatedData.status }),
         version: template.version + 1,
-      } as any,
+      },
     });
 
     // 변경값 마스킹 후 감사 로그

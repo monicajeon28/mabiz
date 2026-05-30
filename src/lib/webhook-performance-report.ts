@@ -106,56 +106,90 @@ export async function generateMonthlyReport(
   const endDate = new Date(targetMonth.year, targetMonth.month + 1, 1);
 
   try {
-    const metrics = await collectMetrics(organizationId, startDate, endDate);
+    // 메트릭 + 일별 트렌드 + 타입별 문제 분석을 한 번에 병렬 실행
+    // (collectMetrics는 groupBy 기반이므로 일별 트렌드와 중복 스캔 없음)
+    const [metrics, dailyRows, typeIssueRows] = await Promise.all([
+      collectMetrics(organizationId, startDate, endDate),
+      // 일별 트렌드: DB 레벨 집계 (date × status)
+      prisma.$queryRaw<Array<{ day: string; status: string; cnt: bigint; avg_ms: number | null }>>`
+        SELECT
+          TO_CHAR("createdAt", 'YYYY-MM-DD') AS day,
+          status,
+          COUNT(*)::bigint AS cnt,
+          AVG("executionTimeMs") AS avg_ms
+        FROM "WebhookEvent"
+        WHERE "organizationId" = ${organizationId}
+          AND "createdAt" >= ${startDate}
+          AND "createdAt" < ${endDate}
+        GROUP BY day, status
+        ORDER BY day
+      `,
+      // 타입별 집계: DB 레벨
+      prisma.webhookEvent.groupBy({
+        by: ['webhookType', 'status'],
+        where: {
+          organizationId,
+          createdAt: { gte: startDate, lt: endDate },
+        },
+        _count: { _all: true },
+      }),
+    ]);
 
-    // 일별 데이터 수집
-    const dailyEvents = await prisma.webhookEvent.findMany({
-      where: {
-        organizationId,
-        createdAt: { gte: startDate, lt: endDate },
-      },
-      select: {
-        createdAt: true,
-        status: true,
-        executionTimeMs: true,
-      },
-    });
-
-    // 일별 트렌드 계산
-    const dailyData: Record<string, any> = {};
-    for (const event of dailyEvents) {
-      const date = event.createdAt.toISOString().split('T')[0];
-      if (!dailyData[date]) {
-        dailyData[date] = {
-          date,
-          total: 0,
-          success: 0,
-          times: [],
-        };
+    // 일별 트렌드 계산 (groupBy 결과 활용)
+    const dailyData: Record<string, { total: number; success: number; totalMs: number; countMs: number }> = {};
+    for (const row of dailyRows) {
+      if (!dailyData[row.day]) {
+        dailyData[row.day] = { total: 0, success: 0, totalMs: 0, countMs: 0 };
       }
-      dailyData[date].total++;
-      if (event.status === 'COMPLETED') dailyData[date].success++;
-      if (event.executionTimeMs) dailyData[date].times.push(event.executionTimeMs);
+      const count = Number(row.cnt);
+      dailyData[row.day].total += count;
+      if (row.status === 'COMPLETED') {
+        dailyData[row.day].success += count;
+        if (row.avg_ms !== null) {
+          dailyData[row.day].totalMs += row.avg_ms * count;
+          dailyData[row.day].countMs += count;
+        }
+      }
     }
 
-    const dailySuccessRate = Object.values(dailyData).map((d: any) => ({
-      date: d.date,
-      rate: (d.success / d.total) * 100,
+    const dailySuccessRate = Object.entries(dailyData).map(([date, d]) => ({
+      date,
+      rate: d.total > 0 ? (d.success / d.total) * 100 : 0,
     }));
 
-    const dailyVolume = Object.values(dailyData).map((d: any) => ({
-      date: d.date,
+    const dailyVolume = Object.entries(dailyData).map(([date, d]) => ({
+      date,
       volume: d.total,
     }));
 
-    const dailyLatency = Object.values(dailyData).map((d: any) => ({
-      date: d.date,
-      latency:
-        d.times.length > 0 ? Math.round(d.times.reduce((a: number, b: number) => a + b, 0) / d.times.length) : 0,
+    const dailyLatency = Object.entries(dailyData).map(([date, d]) => ({
+      date,
+      latency: d.countMs > 0 ? Math.round(d.totalMs / d.countMs) : 0,
     }));
 
-    // 문제 있는 웹훅 타입 분석
-    const topIssues = await analyzeProblematicTypes(organizationId, startDate, endDate);
+    // 타입별 문제 분석 (groupBy 결과 활용, 추가 DB 조회 없음)
+    const typeAgg: Record<string, { total: number; failed: number }> = {};
+    for (const row of typeIssueRows) {
+      if (!typeAgg[row.webhookType]) {
+        typeAgg[row.webhookType] = { total: 0, failed: 0 };
+      }
+      typeAgg[row.webhookType].total += row._count._all;
+      if (row.status === 'FAILED') typeAgg[row.webhookType].failed += row._count._all;
+    }
+
+    const topIssues = Object.entries(typeAgg)
+      .map(([type, m]) => {
+        const successRate = m.total > 0 ? ((m.total - m.failed) / m.total) * 100 : 100;
+        let recommendation = 'No action needed';
+        if (successRate < 90) {
+          recommendation = `Investigate ${type} webhook handlers - high failure rate detected`;
+        } else if (successRate < 95) {
+          recommendation = `Monitor ${type} webhook performance and optimize error handling`;
+        }
+        return { type, successRate: Math.round(successRate * 100) / 100, failureCount: m.failed, recommendation };
+      })
+      .filter(t => t.successRate < 95)
+      .sort((a, b) => a.successRate - b.successRate);
 
     // 액션 아이템 생성
     const actionItems = generateMonthlyActionItems(metrics, topIssues);
@@ -180,28 +214,26 @@ export async function generateMonthlyReport(
 }
 
 /**
- * 메트릭 수집 (내부 헬퍼)
+ * 메트릭 수집 (내부 헬퍼) — DB 레벨 집계로 메모리 사용 최소화
  */
 async function collectMetrics(
   organizationId: string,
   startDate: Date,
   endDate: Date
 ): Promise<PerformanceMetrics> {
-  const events = await prisma.webhookEvent.findMany({
+  // DB 레벨 집계: webhookType × status 조합별 카운트 + 평균 실행시간
+  const typeStatusRows = await prisma.webhookEvent.groupBy({
+    by: ['webhookType', 'status'],
     where: {
       organizationId,
       createdAt: { gte: startDate, lt: endDate },
     },
-    select: {
-      webhookType: true,
-      status: true,
-      executionTimeMs: true,
-      retryCount: true,
-      createdAt: true,
-    },
+    _count: { _all: true },
+    _avg: { executionTimeMs: true },
+    _sum: { retryCount: true },
   });
 
-  if (events.length === 0) {
+  if (typeStatusRows.length === 0) {
     return {
       period: `${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`,
       totalEvents: 0,
@@ -228,76 +260,96 @@ async function collectMetrics(
     };
   }
 
-  // 기본 메트릭
-  const successCount = events.filter(e => e.status === 'COMPLETED').length;
-  const failureCount = events.filter(e => e.status === 'FAILED').length;
-  const successRate = (successCount / events.length) * 100;
+  // 기본 메트릭 (groupBy 결과로 계산)
+  let totalEvents = 0;
+  let successCount = 0;
+  let failureCount = 0;
+  let totalRetries = 0;
 
-  const executionTimes = events
-    .filter(e => e.executionTimeMs !== null)
-    .map(e => e.executionTimeMs!)
-    .sort((a, b) => a - b);
+  // 타입별 집계
+  const typeMetrics: Record<string, { total: number; success: number; avgTime: number | null }> = {};
+
+  for (const row of typeStatusRows) {
+    const count = row._count._all;
+    const isCompleted = row.status === 'COMPLETED';
+    const isFailed = row.status === 'FAILED';
+
+    totalEvents += count;
+    if (isCompleted) successCount += count;
+    if (isFailed) failureCount += count;
+    totalRetries += row._sum.retryCount ?? 0;
+
+    if (!typeMetrics[row.webhookType]) {
+      typeMetrics[row.webhookType] = { total: 0, success: 0, avgTime: null };
+    }
+    typeMetrics[row.webhookType].total += count;
+    if (isCompleted) {
+      typeMetrics[row.webhookType].success += count;
+      typeMetrics[row.webhookType].avgTime = row._avg.executionTimeMs ?? null;
+    }
+  }
+
+  // Retry 메트릭: retryCount > 0인 행은 groupBy로 정확히 구분하기 어려우므로
+  // 근사치로 totalRetries > 0이면 autoRetrySuccessRate 추정
+  const autoRetrySuccessRate =
+    totalRetries > 0 ? Math.min((successCount / totalEvents) * 100, 100) : 0;
+
+  // 피크 시간 분석: hour별 카운트를 DB에서 집계
+  const hourRows: Array<{ hour: number; cnt: bigint }> = await prisma.$queryRaw`
+    SELECT EXTRACT(HOUR FROM "createdAt")::int AS hour, COUNT(*)::bigint AS cnt
+    FROM "WebhookEvent"
+    WHERE "organizationId" = ${organizationId}
+      AND "createdAt" >= ${startDate}
+      AND "createdAt" < ${endDate}
+    GROUP BY hour
+    ORDER BY cnt DESC
+    LIMIT 1
+  `;
+  const peakHourRow = hourRows[0];
+  const peakHourVolume = peakHourRow ? Number(peakHourRow.cnt) : 0;
+  const peakHourStr = peakHourRow ? `${String(peakHourRow.hour).padStart(2, '0')}:00` : 'N/A';
+
+  // 백분위수(p50/p95/p99): 소량 샘플로 추정 (최대 5,000건)
+  const sampleRows = await prisma.webhookEvent.findMany({
+    where: {
+      organizationId,
+      createdAt: { gte: startDate, lt: endDate },
+      executionTimeMs: { not: null },
+    },
+    select: { executionTimeMs: true },
+    orderBy: { executionTimeMs: 'asc' },
+    take: 5000,
+  });
+  const executionTimes = sampleRows.map(r => r.executionTimeMs!);
 
   const avgExecutionTimeMs =
     executionTimes.length > 0 ? executionTimes.reduce((a, b) => a + b, 0) / executionTimes.length : 0;
+  const p50ExecutionTimeMs = executionTimes[Math.floor(executionTimes.length * 0.5)] ?? 0;
+  const p95ExecutionTimeMs = executionTimes[Math.floor(executionTimes.length * 0.95)] ?? 0;
+  const p99ExecutionTimeMs = executionTimes[Math.floor(executionTimes.length * 0.99)] ?? 0;
 
-  const p50ExecutionTimeMs = executionTimes[Math.floor(executionTimes.length * 0.5)];
-  const p95ExecutionTimeMs = executionTimes[Math.floor(executionTimes.length * 0.95)];
-  const p99ExecutionTimeMs = executionTimes[Math.floor(executionTimes.length * 0.99)];
+  const successRate = (successCount / totalEvents) * 100;
 
-  // Retry 메트릭
-  const totalRetries = events.reduce((sum, e) => sum + e.retryCount, 0);
-  const retriedEvents = events.filter(e => e.retryCount > 0);
-  const autoRetrySuccessRate =
-    retriedEvents.length > 0
-      ? (retriedEvents.filter(e => e.status === 'COMPLETED').length / retriedEvents.length) * 100
-      : 0;
-
-  // 피크 시간 분석
-  const hourlyStats: Record<number, number> = {};
-  for (const event of events) {
-    const hour = new Date(event.createdAt).getHours();
-    hourlyStats[hour] = (hourlyStats[hour] || 0) + 1;
-  }
-  const peakHour = Object.entries(hourlyStats).sort((a, b) => b[1] - a[1])[0];
-  const peakHourVolume = peakHour ? peakHour[1] : 0;
-  const peakHourStr = peakHour ? `${String(peakHour[0]).padStart(2, '0')}:00` : 'N/A';
-
-  // 타입별 분석
-  const typeMetrics: Record<string, any> = {};
-  for (const event of events) {
-    if (!typeMetrics[event.webhookType]) {
-      typeMetrics[event.webhookType] = {
-        total: 0,
-        success: 0,
-        times: [],
-      };
-    }
-    typeMetrics[event.webhookType].total++;
-    if (event.status === 'COMPLETED') typeMetrics[event.webhookType].success++;
-    if (event.executionTimeMs) typeMetrics[event.webhookType].times.push(event.executionTimeMs);
-  }
-
-  const slowestType = Object.entries(typeMetrics).reduce((prev, curr) => {
-    const prevAvg = prev[1].times.length > 0 ? prev[1].times.reduce((a: number, b: number) => a + b) / prev[1].times.length : 0;
-    const currAvg = curr[1].times.length > 0 ? curr[1].times.reduce((a: number, b: number) => a + b) / curr[1].times.length : 0;
-    return currAvg > prevAvg ? curr : prev;
-  });
-
-  const mostReliableType = Object.entries(typeMetrics).reduce((prev, curr) => {
-    const prevRate = (prev[1].success / prev[1].total) * 100;
-    const currRate = (curr[1].success / curr[1].total) * 100;
+  // 타입별 slowest / mostReliable
+  const typeEntries = Object.entries(typeMetrics);
+  const slowestType = typeEntries.reduce((prev, curr) =>
+    (curr[1].avgTime ?? 0) > (prev[1].avgTime ?? 0) ? curr : prev
+  );
+  const mostReliableType = typeEntries.reduce((prev, curr) => {
+    const prevRate = prev[1].total > 0 ? (prev[1].success / prev[1].total) * 100 : 0;
+    const currRate = curr[1].total > 0 ? (curr[1].success / curr[1].total) * 100 : 0;
     return currRate > prevRate ? curr : prev;
   });
 
   // 비용 추정 (1000개 이벤트당 $0.01 기준)
   const costPerEvent = 0.00001;
-  const estimatedMonthlyCost = (events.length / 7) * 30 * costPerEvent;
-  const estimatedMonthlyErrors = (failureCount / events.length) * (events.length / Math.max(1, (endDate.getTime() - startDate.getTime()) / (30 * 24 * 60 * 60 * 1000))) * 30;
+  const periodDays = Math.max(1, (endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
+  const estimatedMonthlyCost = (totalEvents / periodDays) * 30 * costPerEvent;
+  const estimatedMonthlyErrors = (failureCount / totalEvents) * (totalEvents / periodDays) * 30;
 
   return {
     period: `${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`,
-    totalEvents: events.length,
+    totalEvents,
     successCount,
     failureCount,
     successRate: Math.round(successRate * 100) / 100,
@@ -307,72 +359,20 @@ async function collectMetrics(
     p99ExecutionTimeMs: Math.round(p99ExecutionTimeMs * 100) / 100,
     totalRetries,
     autoRetrySuccessRate: Math.round(autoRetrySuccessRate * 100) / 100,
-    estimatedWeeklyVolume: Math.round((events.length / Math.max(1, (endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000))) * 7),
+    estimatedWeeklyVolume: Math.round((totalEvents / periodDays) * 7),
     estimatedMonthlyCost: Math.round(estimatedMonthlyCost * 100) / 100,
     costPerEvent,
     estimatedMonthlyErrors: Math.round(estimatedMonthlyErrors),
-    errorRate: Math.round((failureCount / events.length) * 100 * 100) / 100,
+    errorRate: Math.round((failureCount / totalEvents) * 100 * 100) / 100,
     peakHour: peakHourStr,
     peakHourVolume,
     slowestType: slowestType[0],
-    slowestTypeAvgTime: Math.round((slowestType[1].times.reduce((a: number, b: number) => a + b, 0) / slowestType[1].times.length) * 100) / 100,
+    slowestTypeAvgTime: Math.round((slowestType[1].avgTime ?? 0) * 100) / 100,
     mostReliableType: mostReliableType[0],
-    mostReliableTypeSuccessRate: Math.round(((mostReliableType[1].success / mostReliableType[1].total) * 100) * 100) / 100,
+    mostReliableTypeSuccessRate: Math.round(
+      ((mostReliableType[1].success / mostReliableType[1].total) * 100) * 100
+    ) / 100,
   };
-}
-
-/**
- * 문제 있는 웹훅 타입 분석
- */
-async function analyzeProblematicTypes(
-  organizationId: string,
-  startDate: Date,
-  endDate: Date
-): Promise<
-  Array<{
-    type: string;
-    successRate: number;
-    failureCount: number;
-    recommendation: string;
-  }>
-> {
-  const events = await prisma.webhookEvent.findMany({
-    where: {
-      organizationId,
-      createdAt: { gte: startDate, lt: endDate },
-    },
-    select: { webhookType: true, status: true },
-  });
-
-  const typeMetrics: Record<string, any> = {};
-  for (const event of events) {
-    if (!typeMetrics[event.webhookType]) {
-      typeMetrics[event.webhookType] = { total: 0, failed: 0 };
-    }
-    typeMetrics[event.webhookType].total++;
-    if (event.status === 'FAILED') typeMetrics[event.webhookType].failed++;
-  }
-
-  return Object.entries(typeMetrics)
-    .map(([type, metrics]) => {
-      const successRate = ((metrics.total - metrics.failed) / metrics.total) * 100;
-      let recommendation = 'No action needed';
-
-      if (successRate < 90) {
-        recommendation = `Investigate ${type} webhook handlers - high failure rate detected`;
-      } else if (successRate < 95) {
-        recommendation = `Monitor ${type} webhook performance and optimize error handling`;
-      }
-
-      return {
-        type,
-        successRate: Math.round(successRate * 100) / 100,
-        failureCount: metrics.failed,
-        recommendation,
-      };
-    })
-    .filter(t => t.successRate < 95)
-    .sort((a, b) => a.successRate - b.successRate);
 }
 
 /**

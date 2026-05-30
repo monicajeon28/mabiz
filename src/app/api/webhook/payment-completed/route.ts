@@ -35,7 +35,14 @@ function verifyWebhookSignature(
 
 export async function POST(request: NextRequest) {
   try {
-    const secret = process.env.CRUISEDOT_WEBHOOK_SECRET || "dev-secret";
+    const secret = process.env.CRUISEDOT_WEBHOOK_SECRET;
+    if (!secret) {
+      logger.error("[Webhook] CRUISEDOT_WEBHOOK_SECRET 환경변수가 설정되지 않았습니다");
+      return NextResponse.json(
+        { ok: false, message: "Server misconfiguration" },
+        { status: 500 }
+      );
+    }
     const signature = request.headers.get("x-webhook-signature") || "";
     const payload = await request.text();
 

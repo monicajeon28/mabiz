@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="Gradle: com.facebook.react:hermes-engine:0.70.0@aar" external-system-id="GRADLE">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/transforms-3/eecd00cb0d197556ce9103d8fe7d411a/transformed/jetified-hermes-engine-0.70.0-debug/jars/classes.jar!/" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-3/eecd00cb0d197556ce9103d8fe7d411a/transformed/jetified-hermes-engine-0.70.0-debug/AndroidManifest.xml" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

@@ -55,7 +55,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1PriceOb
     // 1. 인증 및 권한 확인
     const authResult = validateOrgMembership(request);
     if (authResult !== true) {
-      return authResult as any;
+      return authResult as unknown as NextResponse<L1PriceObjectionResponse>;
     }
 
     // 2. Contact 확인

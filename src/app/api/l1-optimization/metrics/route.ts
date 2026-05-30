@@ -102,7 +102,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<L1MetricsR
 
     const authResult = validateOrgMembership(request);
     if (authResult !== true) {
-      return authResult as any;
+      return authResult as unknown as NextResponse;
     }
 
     const dateFrom = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);

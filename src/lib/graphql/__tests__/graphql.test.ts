@@ -35,7 +35,7 @@ jest.mock("@/lib/prisma", () => ({
       update: jest.fn(),
       delete: jest.fn(),
     },
-    customerSegment: {
+    contactGroup: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
     },
@@ -425,7 +425,7 @@ describe("GraphQL Mutations", () => {
     it("should not allow updates to completed campaigns", () => {
       const campaign = { status: "COMPLETED" };
       const canUpdate = campaign.status === "DRAFT" ||
-        campaign.status === "SCHEDULED";
+        campaign.status === "PENDING";
 
       expect(canUpdate).toBe(false);
     });

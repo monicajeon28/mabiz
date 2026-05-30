@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import prisma from "@/lib/prisma";
 import { sendSms, getOrgSmsConfig } from "@/lib/aligo";
 import { logger } from "@/lib/logger";
@@ -36,8 +37,20 @@ const DEFAULT_MSG_2 =
 
 export async function GET(req: Request) {
   // Cron 보안 검증
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    logger.warn("[Cron/re-engage] CRON_SECRET 환경변수 미설정");
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
+  const auth = req.headers.get("authorization") ?? "";
+  const expected = `Bearer ${secret}`;
+  let authValid = false;
+  try {
+    authValid = auth.length === expected.length && timingSafeEqual(Buffer.from(auth), Buffer.from(expected));
+  } catch {
+    authValid = false;
+  }
+  if (!authValid) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
