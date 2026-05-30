@@ -11,7 +11,15 @@ import { logger } from '@/lib/logger';
  */
 export async function GET(req: NextRequest) {
   const authToken = req.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET || 'default-secret';
+  const cronSecret = process.env.CRON_SECRET;
+
+  if (!cronSecret) {
+    logger.error('[Monitor] CRON_SECRET is not configured');
+    return NextResponse.json(
+      { ok: false, error: 'UNAUTHORIZED' },
+      { status: 401 }
+    );
+  }
 
   // [SEC] Cron 요청 검증
   if (authToken !== `Bearer ${cronSecret}`) {
@@ -160,7 +168,15 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   const authToken = req.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET || 'default-secret';
+  const cronSecret = process.env.CRON_SECRET;
+
+  if (!cronSecret) {
+    logger.error('[Monitor] CRON_SECRET is not configured');
+    return NextResponse.json(
+      { ok: false, error: 'UNAUTHORIZED' },
+      { status: 401 }
+    );
+  }
 
   if (authToken !== `Bearer ${cronSecret}`) {
     return NextResponse.json(
