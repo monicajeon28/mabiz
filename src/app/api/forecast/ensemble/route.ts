@@ -9,13 +9,29 @@ import { NextRequest, NextResponse } from 'next/server';
 import { EnsembleForecastManager } from '@/lib/ai/ensemble-forecaster';
 import { logger } from '@/lib/logger';
 
+/**
+ * Type guards for ensemble parameters
+ */
+function isValidDays(value: number): value is number {
+  return value >= 7 && value <= 90;
+}
+
+function isValidBoolean(value: unknown): value is boolean {
+  return typeof value === 'boolean';
+}
+
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const days = Math.min(90, Math.max(7, parseInt(searchParams.get('days') || '30', 10)));
-    const compare = searchParams.get('compare') === 'true';
+    const daysParam = parseInt(searchParams.get('days') || '30', 10);
+    const days = isValidDays(daysParam)
+      ? daysParam
+      : Math.min(90, Math.max(7, daysParam));
+
+    const compareParam = searchParams.get('compare') === 'true';
+    const compare = isValidBoolean(compareParam) ? compareParam : false;
 
     logger.info(`[Forecast] Ensemble request for ${days} days${compare ? ' (with comparison)' : ''}`);
 
@@ -73,12 +89,13 @@ export async function GET(request: NextRequest) {
         { status: 200 }
       );
     }
-  } catch (error) {
-    logger.error('[Forecast] Ensemble error:', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('[Forecast] Ensemble error:', { message: errorMessage });
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Ensemble forecasting failed',
+        error: errorMessage || 'Ensemble forecasting failed',
       },
       { status: 500 }
     );

@@ -10,11 +10,18 @@ import { forecastConversion } from '@/lib/ai/conversion-forecaster';
 import { getAuthSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
+/**
+ * Type guard for period parameter
+ */
+function isValidPeriod(value: number): value is number {
+  return value >= 7 && value <= 90;
+}
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     // 1. Authenticate
     const session = await getAuthSession();
-    if (!session?.user?.email) {
+    if (!session?.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -27,9 +34,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // 3. Parse query parameters
+    // 3. Parse query parameters with type validation
     const searchParams = request.nextUrl.searchParams;
-    const period = Math.min(90, Math.max(7, parseInt(searchParams.get('period') || '30')));
+    const periodParam = parseInt(searchParams.get('period') || '30', 10);
+    const period = isValidPeriod(periodParam)
+      ? periodParam
+      : Math.min(90, Math.max(7, periodParam));
 
     // 4. Generate conversion forecast
     const forecast = await forecastConversion(organizationId, period);

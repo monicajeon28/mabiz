@@ -10,11 +10,18 @@ import { forecastRevenue } from '@/lib/ai/revenue-forecaster';
 import { getAuthSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
+/**
+ * Type guard for days parameter
+ */
+function isValidDays(value: number): value is number {
+  return value >= 7 && value <= 90;
+}
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     // 1. Authenticate
     const session = await getAuthSession();
-    if (!session?.user?.email) {
+    if (!session?.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -27,9 +34,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // 3. Parse query parameters
+    // 3. Parse query parameters with type validation
     const searchParams = request.nextUrl.searchParams;
-    const days = Math.min(90, Math.max(7, parseInt(searchParams.get('days') || '30')));
+    const daysParam = parseInt(searchParams.get('days') || '30', 10);
+    const days = isValidDays(daysParam)
+      ? daysParam
+      : Math.min(90, Math.max(7, daysParam));
 
     // 4. Generate forecast
     const forecast = await forecastRevenue(organizationId, days);

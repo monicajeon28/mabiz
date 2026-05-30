@@ -9,13 +9,29 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ProphetForecastManager } from '@/lib/ai/prophet-forecaster';
 import { logger } from '@/lib/logger';
 
+/**
+ * Type guards for prophet parameters
+ */
+function isValidDays(value: number): value is number {
+  return value >= 7 && value <= 90;
+}
+
+function isValidMetric(value: unknown): value is 'revenue' | 'orders' | 'customers' {
+  return value === 'revenue' || value === 'orders' || value === 'customers';
+}
+
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const days = Math.min(90, Math.max(7, parseInt(searchParams.get('days') || '30', 10)));
-    const metric = (searchParams.get('metric') || 'revenue') as 'revenue' | 'orders' | 'customers';
+    const daysParam = parseInt(searchParams.get('days') || '30', 10);
+    const days = isValidDays(daysParam)
+      ? daysParam
+      : Math.min(90, Math.max(7, daysParam));
+
+    const metricParam = searchParams.get('metric') || 'revenue';
+    const metric = isValidMetric(metricParam) ? metricParam : 'revenue';
 
     logger.info(`[Forecast] Prophet request: ${metric} for ${days} days`);
 
@@ -36,12 +52,13 @@ export async function GET(request: NextRequest) {
       },
       { status: 200 }
     );
-  } catch (error) {
-    logger.error('[Forecast] Prophet error:', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('[Forecast] Prophet error:', { message: errorMessage });
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Forecasting failed',
+        error: errorMessage || 'Forecasting failed',
       },
       { status: 500 }
     );
