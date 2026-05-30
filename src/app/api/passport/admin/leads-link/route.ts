@@ -160,6 +160,7 @@ export async function POST(req: NextRequest) {
       submissionId = updated.id;
     } else {
       const latestTrip = customerUser.trips[0];
+      const now = new Date();
       const createData: Record<string, unknown> = {
         userId: customerUser.id,
         token,
@@ -167,7 +168,8 @@ export async function POST(req: NextRequest) {
         isSubmitted: false,
         driveFolderUrl: null,
         extraData: Prisma.JsonNull,
-        updatedAt: new Date(),
+        createdAt: now,
+        updatedAt: now,
       };
 
       if (latestTrip?.id) {

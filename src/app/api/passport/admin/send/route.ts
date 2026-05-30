@@ -459,6 +459,7 @@ export async function POST(req: NextRequest) {
                 isSubmitted: false,
                 driveFolderUrl: null,
                 extraData: Prisma.JsonNull,
+                createdAt: new Date(),
                 updatedAt: new Date(),
               },
             });
@@ -493,6 +494,7 @@ export async function POST(req: NextRequest) {
                     isSubmitted: false,
                     driveFolderUrl: null,
                     extraData: Prisma.JsonNull,
+                    createdAt: new Date(),
                     updatedAt: new Date(),
                   },
                 });

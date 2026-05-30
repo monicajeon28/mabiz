@@ -142,6 +142,7 @@ async function upsertSubmission(params: {
     isSubmitted: false,
     driveFolderUrl: null,
     extraData: Prisma.JsonNull,
+    createdAt: now,
     updatedAt: now,
   };
 
