@@ -10,8 +10,8 @@ interface PartnerAnalytics {
   name: string;
   email: string | null;
   currentTier: string;
-  monthlyRevenue: number;
-  totalRevenue: number;
+  monthlyRevenue: bigint;
+  totalRevenue: bigint;
   customerCount: number;
   salesCount: number;
   churnRiskScore: number;
@@ -19,7 +19,7 @@ interface PartnerAnalytics {
   tierUpgradeProgress?: {
     nextTier?: string;
     percentageToNext: number;
-    revenueGapToNext: number;
+    revenueGapToNext: bigint;
   };
   performance: {
     confirmedRate: number; // 확인율
@@ -42,9 +42,13 @@ export async function GET(request: NextRequest) {
         ...(partnerId ? { id: partnerId } : {}),
       },
       include: {
-        affiliateSales: {
+        metrics: {
           orderBy: { createdAt: "desc" },
-          take: 180, // 6개월
+          take: 6, // 6개월
+        },
+        settlementLedger: {
+          orderBy: { createdAt: "desc" },
+          take: 100, // 최근 정산 100건 조회
         },
       },
     });
@@ -61,23 +65,20 @@ export async function GET(request: NextRequest) {
         new Date().getMonth(),
         1
       );
-      const monthlyRevenue = partner.affiliateSales
+      const monthlyRevenue = partner.settlementLedger
         .filter((s) => new Date(s.createdAt) >= monthStart)
-        .reduce((sum, s) => sum + (s.confirmedAmount || 0), 0);
+        .reduce((sum: bigint, s) => sum + (s.totalAmount || 0n), 0n);
 
-      // 총 수익
-      const totalRevenue = partner.affiliateSales.reduce(
-        (sum, s) => sum + (s.confirmedAmount || 0),
-        0
-      );
+      // 총 수익 (Partner 모델의 totalRevenue 사용)
+      const totalRevenue = partner.totalRevenue;
 
       // 확인율
-      const confirmedCount = partner.affiliateSales.filter(
-        (s) => s.status === "CONFIRMED"
+      const confirmedCount = partner.metrics.filter(
+        (m) => m.status === "CONFIRMED"
       ).length;
       const confirmedRate =
-        partner.affiliateSales.length > 0
-          ? (confirmedCount / partner.affiliateSales.length) * 100
+        partner.metrics.length > 0
+          ? (confirmedCount / partner.metrics.length) * 100
           : 0;
 
       // 월간 성장률 (vs 지난달)
@@ -94,23 +95,26 @@ export async function GET(request: NextRequest) {
         0
       );
 
-      const lastMonthRevenue = partner.affiliateSales
+      const lastMonthRevenue = partner.settlementLedger
         .filter(
           (s) =>
             new Date(s.createdAt) >= lastMonthStart &&
             new Date(s.createdAt) <= lastMonthEnd
         )
-        .reduce((sum, s) => sum + (s.confirmedAmount || 0), 0);
+        .reduce((sum: bigint, s) => sum + (s.totalAmount || 0n), 0n);
 
       const monthlyGrowth =
-        lastMonthRevenue > 0
-          ? ((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
+        lastMonthRevenue > 0n
+          ? (Number(monthlyRevenue - lastMonthRevenue) / Number(lastMonthRevenue)) * 100
           : 0;
 
-      // 고객 수
-      const uniqueCustomers = new Set(
-        partner.affiliateSales.map((s) => s.customerId)
-      ).size;
+      // 고객 수 (Partner가 담당하는 Contact 수)
+      const customerCount = await prisma.contact.count({
+        where: {
+          partnerId: partner.id,
+          organizationId: orgId,
+        },
+      });
 
       // Tier upgrade progress
       const tierUpgrade = await getTierUpgradeOpportunities(partner.id);
@@ -122,19 +126,19 @@ export async function GET(request: NextRequest) {
         currentTier,
         monthlyRevenue,
         totalRevenue,
-        customerCount: uniqueCustomers,
-        salesCount: partner.affiliateSales.length,
+        customerCount,
+        salesCount: partner.settlementLedger.length,
         churnRiskScore: churnRisk?.churnRiskScore || 0,
         churnSeverity: churnRisk?.severity || "LOW",
         tierUpgradeProgress: {
           nextTier: tierUpgrade.nextTier,
           percentageToNext: tierUpgrade.percentageToNextTier || 0,
-          revenueGapToNext: tierUpgrade.revenueGapToNextTier || 0,
+          revenueGapToNext: tierUpgrade.revenueGapToNextTier || 0n,
         },
         performance: {
           confirmedRate,
           avgRevenuePerCustomer:
-            uniqueCustomers > 0 ? totalRevenue / uniqueCustomers : 0,
+            customerCount > 0 ? Number(totalRevenue) / customerCount : 0,
           monthlyGrowth,
         },
       });
