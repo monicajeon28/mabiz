@@ -58,8 +58,8 @@ export class DeliveryOptimizer {
 
     // Check opt-outs
     const optedOut =
-      (proposedChannel === 'SMS' && contact?.optOutAt) ||
-      (proposedChannel === 'EMAIL' && contact?.optOutAt);
+      (proposedChannel === 'SMS' && contact.smsOptOut) ||
+      (proposedChannel === 'EMAIL' && contact.emailOptOut);
 
     if (optedOut && constraints.respectOptOut) {
       return {
@@ -232,8 +232,8 @@ export class DeliveryOptimizer {
   private getAvailableChannels(contact: Contact): ('SMS' | 'EMAIL' | 'CALL')[] {
     const channels: ('SMS' | 'EMAIL' | 'CALL')[] = ['CALL']; // Always available
 
-    if (!contact?.optOutAt) channels.push('SMS');
-    if (!contact?.optOutAt) channels.push('EMAIL');
+    if (!contact.smsOptOut) channels.push('SMS');
+    if (!contact.emailOptOut) channels.push('EMAIL');
 
     return channels;
   }

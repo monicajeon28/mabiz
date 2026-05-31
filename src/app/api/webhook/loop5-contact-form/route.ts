@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Day 0 SMS 자동 발송
-    let smsSendResult: { success: boolean; smsId?: string; error?: string; retryable?: boolean } = { success: false, smsId: undefined };
+    let smsSendResult = { success: false, smsId: undefined };
     if (normalizedPhone) {
       smsSendResult = await sendDay0Sms(
         organizationId,

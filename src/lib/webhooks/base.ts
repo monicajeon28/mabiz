@@ -15,21 +15,13 @@ export interface WebhookEventPayload {
   [key: string]: any;
 }
 
-export interface WebhookConfig<T = WebhookEventPayload> {
-  webhookType: string;
-  secret: string;
-  requireAuth: boolean;
-  handler: (payload: T) => Promise<any>;
-}
-
-export async function handleWebhook<T = WebhookEventPayload>(req: any, config: WebhookConfig<T>): Promise<Response> {
-  return new Response(JSON.stringify({
+export async function handleWebhook(payload: WebhookEventPayload, organizationId: string): Promise<WebhookHandlerResult> {
+  return {
     success: false,
-    error: 'Not implemented'
-  }), {
-    status: 501,
-    headers: { 'Content-Type': 'application/json' }
-  });
+    statusCode: 501,
+    durationMs: 0,
+    errorMessage: 'Not implemented',
+  };
 }
 
 export abstract class BaseWebhookHandler {

@@ -27,14 +27,14 @@ interface PayslipItem {
 export async function GET(req: NextRequest) {
   try {
     const session = await getMabizSession();
-    if (!session || !session.organizationId) {
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const organizationId: string = session.organizationId;
-    const period: string = req.nextUrl.searchParams.get('period') ?? getCurrentPeriod();
-    const page = parseInt(req.nextUrl.searchParams.get('page') ?? '1', 10);
-    const limit = parseInt(req.nextUrl.searchParams.get('limit') ?? '50', 10);
+    const organizationId = session.organizationId;
+    const period = req.nextUrl.searchParams.get('period') || getCurrentPeriod();
+    const page = parseInt(req.nextUrl.searchParams.get('page') || '1', 10);
+    const limit = parseInt(req.nextUrl.searchParams.get('limit') || '50', 10);
 
     const cacheKey = `payslip:${organizationId}:${period}:${page}:${limit}`;
     const cached = await getCache<any>(cacheKey);

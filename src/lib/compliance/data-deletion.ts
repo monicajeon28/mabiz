@@ -14,7 +14,6 @@ import { auditLogger } from './audit-logger';
 export type DeletionStatus = 'PENDING_DELETION' | 'SCHEDULED_FOR_DELETE' | 'HARD_DELETED' | 'RESTORED';
 
 export interface DataDeletionRequest {
-  id: string;
   contactId: string;
   organizationId: string;
   requestedBy: string;
@@ -23,9 +22,6 @@ export interface DataDeletionRequest {
   scheduledDeleteAt: Date;
   status: DeletionStatus;
   gracePeriodDays?: number;
-  cancelledAt?: Date | null;
-  cancelledBy?: string | null;
-  completedAt?: Date | null;
 }
 
 /**
@@ -63,11 +59,11 @@ export class DataDeletionManager {
         },
       });
 
-      // 2. Contact를 optOut으로 표시
+      // 2. Contact를 PENDING_DELETION으로 표시
       await prisma.contact.update({
         where: { id: payload.contactId },
         data: {
-          optOutAt: now,
+          status: 'PENDING_DELETION',
           updatedAt: now,
         },
       });
@@ -348,7 +344,7 @@ export class DataDeletionManager {
             score: l.score,
             detectedAt: l.detectedAt,
           })),
-          groups: contact.groups.map(gm => ({
+          groups: contact.groupMembers.map(gm => ({
             groupId: gm.group.id,
             groupName: gm.group.name,
             joinedAt: gm.createdAt,
