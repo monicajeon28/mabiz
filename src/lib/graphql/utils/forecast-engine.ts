@@ -356,7 +356,7 @@ export class ForecastEngine {
       }
 
       // Clicked = conversion = $2000 revenue
-      if (msg.clickedAt) {
+      if (msg.status === "clicked" || msg.status === "converted" || msg.lastClickTime) {
         dailyRevenue[dateKey] += 2000;
       }
     }
@@ -401,7 +401,7 @@ export class ForecastEngine {
       }
 
       dailyStats[dateKey].sent++;
-      if (msg.clickedAt) {
+      if (msg.status === "clicked" || msg.status === "converted" || msg.lastClickTime) {
         dailyStats[dateKey].clicked++;
       }
     }

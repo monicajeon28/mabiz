@@ -93,7 +93,7 @@ export async function calculateHeroKPIs(
         createdAt: { gte: monthStart },
         status: "CONFIRMED",
       },
-      _sum: { confirmedAmount: true },
+      _sum: { saleAmount: true },
     }),
     prisma.affiliateSale.aggregate({
       where: {
@@ -101,7 +101,7 @@ export async function calculateHeroKPIs(
         createdAt: { gte: lastMonthStart, lt: monthStart },
         status: "CONFIRMED",
       },
-      _sum: { confirmedAmount: true },
+      _sum: { saleAmount: true },
     }),
     prisma.affiliateSale.count({
       where: {
@@ -119,8 +119,8 @@ export async function calculateHeroKPIs(
     }),
   ]);
 
-  const totalRevenue = currentRevenue._sum.confirmedAmount || 0;
-  const previousTotalRevenue = previousRevenue._sum.confirmedAmount || 0;
+  const totalRevenue = currentRevenue._sum.saleAmount || 0;
+  const previousTotalRevenue = previousRevenue._sum.saleAmount || 0;
   const revenueChange =
     previousTotalRevenue > 0
       ? ((totalRevenue - previousTotalRevenue) / previousTotalRevenue) * 100
@@ -246,7 +246,7 @@ export async function calculateMetricsPyramid(
           contactCount,
           conversionRate:
             contactCount > 0 ? (conversions / contactCount) * 100 : 0,
-          revenue: revenue._sum.confirmedAmount || 0,
+          revenue: revenue._sum.saleAmount || 0,
           trend: "STABLE" as const,
         };
       }
@@ -310,16 +310,23 @@ export async function calculateMetricsPyramid(
   // Layer 5: Business model
   const partners = await prisma.partner.findMany({
     where: { organizationId },
-    include: {
-      affiliateSales: {
-        where: { createdAt: { gte: monthStart } },
-      },
-    },
+    select: { id: true, name: true, totalRevenue: true, totalEarnings: true },
   });
 
-  const partnerRevenues = partners.map((p) =>
-    p.affiliateSales.reduce((sum, s) => sum + (s.confirmedAmount || 0), 0)
-  );
+  // Get affiliate sales separately
+  const affiliateSales = await prisma.affiliateSale.findMany({
+    where: {
+      organizationId,
+      createdAt: { gte: monthStart },
+    },
+    select: { affiliateCode: true, saleAmount: true, commissionAmount: true, refundedAmount: true },
+  });
+
+  // Group affiliate sales by partner (using affiliate code or similar mapping)
+  const partnerRevenues = partners.map((p) => {
+    const sales = affiliateSales.filter(s => s.affiliateCode === p.id);
+    return sales.reduce((sum, s) => sum + (s.saleAmount - (s.refundedAmount || 0)), 0);
+  });
 
   const businessModel = {
     partnerCount: partners.length,
