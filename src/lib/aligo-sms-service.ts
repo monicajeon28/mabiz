@@ -247,6 +247,14 @@ export async function retryFailedPartnerSms(
     }
 
     // 재발송
+    if (!smsLog.phoneNumber) {
+      return {
+        success: false,
+        error: 'Phone number not available for retry',
+        retryable: false,
+      };
+    }
+
     const result = await sendPartnerAlertSms(
       smsLog.organizationId,
       smsLog.partnerId,
