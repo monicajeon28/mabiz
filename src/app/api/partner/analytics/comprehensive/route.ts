@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
         tierUpgradeProgress: {
           nextTier: tierUpgrade.nextTier,
           percentageToNext: tierUpgrade.percentageToNextTier || 0,
-          revenueGapToNext: tierUpgrade.revenueGapToNextTier || BigInt(0),
+          revenueGapToNext: BigInt(tierUpgrade.revenueGapToNextTier ?? 0),
         },
         performance: {
           confirmedRate,

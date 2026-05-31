@@ -19,6 +19,7 @@ export class AdminWebhookHandler extends BaseWebhookHandler {
 
       await prisma.adminMessage.create({
         data: {
+          adminId: 'webhook-system',
           organizationId,
           title: `${actionType}: ${targetType}`,
           content: JSON.stringify(metadata || {}),

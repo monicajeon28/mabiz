@@ -56,12 +56,19 @@ export async function POST(request: NextRequest) {
     }
 
     const data: PaymentWebhookPayload = JSON.parse(payload);
+    const organizationId = process.env.MABIZ_ORGANIZATION_ID || "default-org-id";
 
-    // Contact 업데이트 (외부 결제 ID로 매칭)
-    const contact = await prisma.contact.findFirst({
-      where: { externalCustomerId: data.payment.customerId },
+    // Contact 조회 (customerId로 매칭)
+    const contacts = await prisma.contact.findMany({
+      where: {
+        organizationId,
+        sourceId: data.payment.customerId
+      },
       select: { id: true, organizationId: true },
+      take: 1,
     });
+
+    const contact = contacts[0];
 
     if (!contact) {
       logger.warn("[Webhook] Contact not found", {
@@ -79,20 +86,22 @@ export async function POST(request: NextRequest) {
         where: { id: contact.id },
         data: {
           purchasedAt: new Date(data.timestamp),
-          // 추가 필드들
+          lastPaymentStatus: "COMPLETED"
         },
       });
     }
 
-    // 활동 로그 생성
+    // 활동 로그 생성 (userId는 webhook에서 받지 않으므로 기본값 사용)
+    const systemUserId = "webhook-system"; // TODO: 시스템 사용자 ID 설정
+
     await prisma.callLog.create({
       data: {
         contactId: contact.id,
-        organizationId: contact.organizationId,
+        userId: systemUserId,
         content: `Payment ${data.payment.status}: ${data.payment.amount} ${data.payment.currency}`,
-        callType: "PAYMENT",
-        createdAt: new Date(data.timestamp),
       },
+    }).catch(() => {
+      // CallLog 생성 실패는 무시
     });
 
     logger.log("[Webhook] 결제 처리", {

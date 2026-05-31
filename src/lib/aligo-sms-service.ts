@@ -255,6 +255,14 @@ export async function retryFailedPartnerSms(
       };
     }
 
+    if (!smsLog.messageContent) {
+      return {
+        success: false,
+        error: 'Message content not available for retry',
+        retryable: false,
+      };
+    }
+
     const result = await sendPartnerAlertSms(
       smsLog.organizationId,
       smsLog.partnerId,
@@ -262,7 +270,7 @@ export async function retryFailedPartnerSms(
       smsLog.riskLevel as 'RED' | 'YELLOW' | 'GREEN',
       smsLog.messageType,
       smsLog.messageContent,
-      smsLog.phoneNumber
+      smsLog.phoneNumber || ''
     );
 
     // 재시도 횟수 업데이트

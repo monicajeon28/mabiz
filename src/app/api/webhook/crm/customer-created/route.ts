@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
     webhookType: 'customer-created',
     secret,
     requireAuth: true,
-    handler: async (payload: CustomerCreatedPayload) => {
+    handler: async (payload: CustomerCreatedPayload, organizationId: string) => {
       const {
         eventId,
         customerId,
@@ -146,24 +146,6 @@ export async function POST(req: NextRequest) {
         throw new Error('Missing required fields: customerId, email, name');
       }
 
-      // organizationId 조회 (affiliateId 기반)
-      let organizationId: string | undefined;
-
-      if (affiliateId) {
-        const org = await prisma.organization.findFirst({
-          where: { externalAffiliateProfileId: affiliateId }
-        });
-        organizationId = org?.id;
-      }
-
-      if (!organizationId) {
-        logger.error('[customer-created] Organization not found', {
-          affiliateId,
-          email: maskEmail(email)
-        });
-        throw new Error(`Organization not found for affiliateId: ${affiliateId}`);
-      }
-
       // Contact 생성/업데이트
       const contact = await prisma.contact.upsert({
         where: {
@@ -177,15 +159,12 @@ export async function POST(req: NextRequest) {
           phone: phoneNumber || '',
           name,
           organizationId,
-          type: 'PROSPECT', // 아직 구매 전
-          externalId: customerId, // GMcruise User ID
+          type: 'PROSPECT',
           lastContactedAt: new Date(),
-          dataSource: 'cruisedot'
         },
         update: {
           phone: phoneNumber || undefined,
           name,
-          externalId: customerId,
           lastContactedAt: new Date()
         },
         select: {
@@ -210,7 +189,7 @@ export async function POST(req: NextRequest) {
         data: {
           reactivationSegment: l0Classification.segment, // "3-6m", "6-12m", "1y+"
           reactivationLikelihood: l0Classification.likelihood, // 0-100
-          tags: ['신규가입', l0Classification.tag].filter(Boolean),
+          tags: ['신규가입', l0Classification.tag].filter((v): v is string => v !== null),
         }
       });
 
@@ -299,7 +278,7 @@ export async function POST(req: NextRequest) {
 
       const response: WebhookResponse = {
         contactId: contact.id,
-        email: contact.email,
+        email: contact.email || '',
         status: 'created'
       };
 

@@ -312,10 +312,10 @@ export async function piiAccessControlMiddleware(
     // 요청 객체에 PII 필터 함수 추가
     req.piiControl = {
       canAccess: async (field: string, action: 'read' | 'write' = 'read') =>
-        piiAccessControl.canAccessField(role, field, action, ctx.organizationId),
+        piiAccessControl.canAccessField(role, field, action, ctx.organizationId ?? undefined),
 
       filterFields: async (fields: string[], action: 'read' | 'write' = 'read') =>
-        piiAccessControl.filterAccessibleFields(role, fields, action, ctx.organizationId),
+        piiAccessControl.filterAccessibleFields(role, fields, action, ctx.organizationId ?? undefined),
 
       maskValue: (field: string, value: any) =>
         piiAccessControl.maskPiiValue(field, value),

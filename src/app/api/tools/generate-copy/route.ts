@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
-import { rlIncr } from "@/lib/rate-limit";
+import { rlIncr } from "@/lib/redis";
 
 /**
  * POST /api/tools/generate-copy
@@ -191,7 +191,12 @@ export async function GET(req: Request) {
 
     // 사용자의 최근 생성 내역 조회 (선택사항)
     // 실제 구현에서는 DB에서 로그 조회
-    const recentGenerations = [
+    const recentGenerations: Array<{
+      id: string;
+      productId: string;
+      createdAt: string;
+      copy: { headline: string; body: string; cta: string };
+    }> = [
       // { id: "...", productId: "...", createdAt: "...", copy: {...} }
     ];
 

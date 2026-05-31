@@ -10,7 +10,7 @@ import { google } from 'googleapis';
 import { logger } from '@/lib/logger';
 import { formatKSTDate } from '@/lib/utils/dateUtils';
 
-const CRM_BACKUP_ROOT = process.env.GOOGLE_DRIVE_CRM_BACKUP_FOLDER_ID;
+const CRM_BACKUP_ROOT = process.env.GOOGLE_DRIVE_CRM_BACKUP_FOLDER_ID!;
 
 function getDriveClient() {
   if (!CRM_BACKUP_ROOT) {

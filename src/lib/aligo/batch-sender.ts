@@ -61,15 +61,31 @@ export async function processPendingSms(
         status: 'PENDING',
         scheduledAt: { lte: new Date() },
       },
-      include: {
-        contact: { select: { id: true, phone: true, name: true, optOutAt: true } },
-        organization: { select: { id: true } },
-      },
       orderBy: { scheduledAt: 'asc' },
       take: maxItems,
     });
 
-    if (pendingSms.length === 0) {
+    // 연락처 정보 배치 로드 (contactId가 있는 경우만)
+    const contactIds = pendingSms
+      .filter((sms): sms is typeof pendingSms[0] & { contactId: string } => !!sms.contactId)
+      .map(sms => sms.contactId);
+
+    const contacts = contactIds.length > 0
+      ? await prisma.contact.findMany({
+          where: { id: { in: contactIds } },
+          select: { id: true, phone: true, name: true, optOutAt: true },
+        })
+      : [];
+
+    const contactMap = new Map(contacts.map(c => [c.id, c]));
+
+    // SMS 객체에 연락처 정보 추가 (타입 호환성을 위해 contact 필드 추가)
+    const pendingSmsWithContact = pendingSms.map(sms => ({
+      ...sms,
+      contact: sms.contactId ? contactMap.get(sms.contactId) ?? null : null,
+    }));
+
+    if (pendingSmsWithContact.length === 0) {
       return result;
     }
 
@@ -91,11 +107,11 @@ export async function processPendingSms(
     });
 
     // 배치 그룹 생성 (수신거부 및 야간 차단 분리)
-    const validSms: typeof pendingSms = [];
-    const optOutBlocked: typeof pendingSms = [];
-    const nightBlocked: typeof pendingSms = [];
+    const validSms: typeof pendingSmsWithContact = [];
+    const optOutBlocked: typeof pendingSmsWithContact = [];
+    const nightBlocked: typeof pendingSmsWithContact = [];
 
-    for (const sms of pendingSms) {
+    for (const sms of pendingSmsWithContact) {
       // 수신거부 확인 — 야간 여부와 무관하게 항상 BLOCKED
       if (sms.contact?.optOutAt) {
         optOutBlocked.push(sms);
@@ -112,7 +128,7 @@ export async function processPendingSms(
       validSms.push(sms);
     }
 
-    result.processed = pendingSms.length;
+    result.processed = pendingSmsWithContact.length;
 
     // 수신거부 SMS → BLOCKED
     if (optOutBlocked.length > 0) {

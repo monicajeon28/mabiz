@@ -166,7 +166,7 @@ export const calculateMetrics = (
 ): CacheMetrics => {
   const total = hits + misses;
   const hitRatio = total > 0 ? hits / total : 0;
-  const costSavings = hitRatio * 95; // Cache saves ~95% of DB time
+  const estimatedCostSavings = hitRatio * 95; // Cache saves ~95% of DB time
 
   return {
     strategy,

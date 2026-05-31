@@ -32,13 +32,17 @@ export async function GET(req: NextRequest) {
     }
 
     const organizationId = session.organizationId;
+    if (!organizationId) {
+      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+    }
+
     const period = req.nextUrl.searchParams.get('period') || getCurrentPeriod();
     const page = parseInt(req.nextUrl.searchParams.get('page') || '1', 10);
     const limit = parseInt(req.nextUrl.searchParams.get('limit') || '50', 10);
 
     const cacheKey = `payslip:${organizationId}:${period}:${page}:${limit}`;
     const cached = await getCache<any>(cacheKey);
-    if (cached) {
+    if (cached !== null && cached !== undefined) {
       return NextResponse.json(cached, { headers: { 'X-Cache': 'HIT' } });
     }
 

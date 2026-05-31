@@ -72,7 +72,7 @@ export class AuditLogger {
       const startTime = Date.now();
 
       // PII 값 마스킹 (저장소에 민감한 값을 저장하지 않음)
-      const maskedPayload = this.maskPiiValues({
+      const maskedPayload: Record<string, any> = this.maskPiiValues({
         before: payload.piiValuesBefore,
         after: payload.piiValuesAfter,
       });
@@ -91,7 +91,7 @@ export class AuditLogger {
           resourceId: payload.resourceId,
 
           piiFieldsAccessed: payload.piiFieldsAccessed || [],
-          piiValuesModified: maskedPayload,
+          piiValuesModified: maskedPayload as any,
 
           status: payload.status || 'SUCCESS',
           errorMessage: payload.errorMessage?.substring(0, 500),
@@ -302,7 +302,7 @@ export class AuditLogger {
           userId: payload.userId,
           anomalyType: payload.anomalyType,
           severity: this.calculateSeverity(payload.riskScore),
-          details: payload.details,
+          details: payload.details as any,
           riskScore: payload.riskScore,
           status: 'PENDING',
         },
@@ -318,7 +318,7 @@ export class AuditLogger {
   private isSensitiveAccess(payload: AuditLogPayload): boolean {
     const sensitivePiiFields = ['phone', 'email', 'bankAccount', 'idNumber'];
 
-    return (
+    return Boolean(
       payload.piiFieldsAccessed?.some(field => sensitivePiiFields.includes(field)) &&
       (payload.action === 'EXPORT' || payload.action === 'BULK_EXPORT')
     );

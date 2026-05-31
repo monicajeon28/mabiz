@@ -634,12 +634,6 @@ export async function createOrUpdateContact(
             budgetRange: payload.budgetRange || existingContact.budgetRange,
             departureDate: payload.departureDate ? new Date(payload.departureDate) : existingContact.departureDate,
 
-            // Risk Score 업데이트
-            riskScore: riskResult.riskScore,
-            riskLevel: riskResult.riskLevel,
-            riskSignals: riskResult.signals,
-            riskAssessmentAt: new Date(),
-
             // 추적용 태그
             tags: Array.from(new Set([
               ...(existingContact.tags || []),
@@ -651,7 +645,7 @@ export async function createOrUpdateContact(
 
             // 심리학 메타데이터
             lensMetadata: {
-              ...(existingContact.lensMetadata || {}),
+              ...(typeof existingContact.lensMetadata === 'object' && existingContact.lensMetadata ? existingContact.lensMetadata : {}),
               currentLens: lensResult.currentLens,
               confidence: lensResult.confidence,
               triggers: lensResult.triggers,
@@ -661,29 +655,29 @@ export async function createOrUpdateContact(
             },
 
             // Lens별 특수 필드
-            ...(lensResult.currentLens === 'L2' && {
+            ...(lensResult.currentLens === 'L2' ? {
               anxietyScore: 70,
               anxietyCategory: 'high',
               preparationStage: 'inquiry',
               anxietyAssessmentAt: new Date(),
-            }),
-            ...(lensResult.currentLens === 'L3' && {
+            } : {}),
+            ...(lensResult.currentLens === 'L3' ? {
               competitorMentioned: payload.competitorMentioned?.[0] ? true : false,
               competitorNames: payload.competitorMentioned || [],
               lastCompetitorMentionAt: new Date(),
-            }),
-            ...(lensResult.currentLens === 'L7' && {
+            } : {}),
+            ...(lensResult.currentLens === 'L7' ? {
               familyComposition: payload.familyComposition,
               familyObjections: payload.familyObjections || [],
               familyAssessmentCompletedAt: new Date(),
-            }),
-            ...(lensResult.currentLens === 'L8' && {
+            } : {}),
+            ...(lensResult.currentLens === 'L8' ? {
               cruiseCount: (payload.pastCruiseCount || 0) + 1,
               cruiseReturnInterestLevel: 80,
-            }),
-            ...(lensResult.currentLens === 'L9' && {
+            } : {}),
+            ...(lensResult.currentLens === 'L9' ? {
               healthConcerns: payload.healthConcerns?.join(',') || null,
-            }),
+            } : {}),
           },
         })
       : await prisma.contact.create({
@@ -706,12 +700,6 @@ export async function createOrUpdateContact(
             budgetRange: payload.budgetRange,
             departureDate: payload.departureDate ? new Date(payload.departureDate) : null,
 
-            // Risk Score 초기화
-            riskScore: riskResult.riskScore,
-            riskLevel: riskResult.riskLevel,
-            riskSignals: riskResult.signals,
-            riskAssessmentAt: new Date(),
-
             // 추적용 태그
             tags: [...tags, 'loop6-agent-d'],
 
@@ -726,30 +714,30 @@ export async function createOrUpdateContact(
             },
 
             // Lens별 특수 필드 초기화
-            ...(lensResult.currentLens === 'L2' && {
+            ...(lensResult.currentLens === 'L2' ? {
               anxietyScore: 70,
               anxietyCategory: 'high',
               preparationStage: 'inquiry',
               anxietyAssessmentAt: new Date(),
-            }),
-            ...(lensResult.currentLens === 'L3' && {
+            } : {}),
+            ...(lensResult.currentLens === 'L3' ? {
               competitorMentioned: payload.competitorMentioned?.[0] ? true : false,
               competitorNames: payload.competitorMentioned || [],
               lastCompetitorMentionAt: new Date(),
-            }),
-            ...(lensResult.currentLens === 'L7' && {
+            } : {}),
+            ...(lensResult.currentLens === 'L7' ? {
               familyComposition: payload.familyComposition,
               familyObjections: payload.familyObjections || [],
               familyAssessmentCompletedAt: new Date(),
-            }),
-            ...(lensResult.currentLens === 'L8' && {
+            } : {}),
+            ...(lensResult.currentLens === 'L8' ? {
               cruiseCount: payload.pastCruiseCount || 1,
               cruiseReturnInterestLevel: 80,
               ltvTotal: 2500, // 예상 LTV
-            }),
-            ...(lensResult.currentLens === 'L9' && {
+            } : {}),
+            ...(lensResult.currentLens === 'L9' ? {
               healthConcerns: payload.healthConcerns?.join(',') || null,
-            }),
+            } : {}),
           },
         });
 

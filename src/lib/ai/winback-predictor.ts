@@ -51,7 +51,7 @@ export class WinBackPredictor {
    */
   private async extractSignals(contact: Contact): Promise<WinBackSignal> {
     const now = Date.now();
-    const lastPurchaseTime = contact.lastPaymentDate ? new Date(contact.lastPaymentDate).getTime() : 0;
+    const lastPurchaseTime = contact.lastPaymentAt ? new Date(contact.lastPaymentAt).getTime() : 0;
     const timeSinceLastPurchase = lastPurchaseTime ? Math.floor((now - lastPurchaseTime) / (1000 * 60 * 60 * 24)) : 999;
 
     // Determine if in sweet spot for reactivation (30-90 days = optimal)
@@ -337,12 +337,8 @@ export class WinBackPredictor {
         organizationId,
         deletedAt: null,
         lastPaymentStatus: 'PAID', // Was a customer
-        cruiseCount: { gte: 1 } // Had at least one purchase
-      },
-      where: {
-        organizationId,
-        deletedAt: null,
-        lastPaymentDate: {
+        cruiseCount: { gte: 1 }, // Had at least one purchase
+        lastPaymentAt: {
           lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Inactive 30+ days
         }
       },

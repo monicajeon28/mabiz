@@ -60,29 +60,41 @@ export async function POST(request: NextRequest) {
     const periodStart = new Date(`${year}-${month}-01`);
     const periodEnd = new Date(parseInt(year), parseInt(month), 0);
 
-    const settlement = await prisma.monthlySettlement.upsert({
+    // Try to find existing settlement by period
+    let settlement = await prisma.monthlySettlement.findFirst({
       where: {
-        id: data.settlement.id,
-      },
-      create: {
-        id: data.settlement.id,
-        periodStart,
-        periodEnd,
-        status: data.settlement.status,
-        summary: {
-          totalAmount: data.settlement.totalAmount,
-          itemCount: data.settlement.itemCount,
-        } as unknown as Record<string, unknown>,
-      },
-      update: {
-        status: data.settlement.status,
-        summary: {
-          totalAmount: data.settlement.totalAmount,
-          itemCount: data.settlement.itemCount,
-        } as unknown as Record<string, unknown>,
-        updatedAt: new Date(),
-      },
+        periodStart: {
+          gte: new Date(`${year}-${month}-01`),
+          lt: new Date(`${year}-${parseInt(month) + 1}-01`),
+        }
+      }
     });
+
+    const summaryData = JSON.parse(JSON.stringify({
+      totalAmount: data.settlement.totalAmount,
+      itemCount: data.settlement.itemCount,
+    }));
+
+    if (settlement) {
+      settlement = await prisma.monthlySettlement.update({
+        where: { id: settlement.id },
+        data: {
+          status: data.settlement.status,
+          summary: summaryData,
+          updatedAt: new Date(),
+        }
+      });
+    } else {
+      settlement = await prisma.monthlySettlement.create({
+        data: {
+          periodStart,
+          periodEnd,
+          status: data.settlement.status,
+          summary: summaryData,
+          updatedAt: new Date(),
+        }
+      });
+    }
 
     // Settlement Event 로깅
     await prisma.settlementEvent.create({
@@ -90,11 +102,10 @@ export async function POST(request: NextRequest) {
         settlementId: settlement.id,
         eventType: "STATUS_CHANGED",
         description: `Status changed to ${data.settlement.status}`,
-        metadata: {
-          oldAmount: typeof settlement.summary === 'object' && settlement.summary !== null ? (settlement.summary as Record<string, unknown>).previousAmount : undefined,
+        metadata: JSON.stringify({
           newAmount: data.settlement.totalAmount,
           changes: data.settlement.changes,
-        } as unknown as Record<string, unknown>,
+        }),
       },
     });
 

@@ -94,7 +94,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<L1MetricsR
     const contactId = searchParams.get('contactId');
 
     if (!organizationId) {
-      return NextResponse.json(
+      return NextResponse.json<L1MetricsResponse>(
         { success: false, error: 'organizationId required' },
         { status: 400 }
       );
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<L1MetricsR
 
     const authResult = validateOrgMembership(request);
     if (authResult !== true) {
-      return authResult as unknown as NextResponse;
+      return authResult as any as NextResponse<L1MetricsResponse>;
     }
 
     const dateFrom = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
@@ -251,7 +251,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<L1MetricsR
       conversionRate: Math.round(conversionRate * 100) / 100,
     });
 
-    return NextResponse.json(
+    return NextResponse.json<L1MetricsResponse>(
       {
         success: true,
         data: {
@@ -270,11 +270,11 @@ export async function GET(request: NextRequest): Promise<NextResponse<L1MetricsR
           abTestPerformance,
           trend: trendData,
         },
-      } as L1MetricsResponse
+      }
     );
   } catch (error) {
     logger.error('[L1] metrics route error', error instanceof Error ? error : new Error(String(error)));
-    return NextResponse.json(
+    return NextResponse.json<L1MetricsResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }
     );

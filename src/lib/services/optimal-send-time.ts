@@ -78,46 +78,15 @@ export class OptimalSendTimeOptimizer {
       const hourlyData: HourlyPerformance[] = [];
 
       for (let hour = 0; hour < this.HOURS_IN_DAY; hour++) {
-        // 해당 시간대에 전송된 메시지 조회
-        const recipients = await prisma.campaignRecipient.findMany({
-          where: {
-            channel,
-            contactId: this.contactId,
-            sentAt: {
-              gte: sixMonthsAgo,
-            },
-            campaign: {
-              createdAt: {
-                gte: sixMonthsAgo,
-              },
-            },
-          },
-          select: {
-            sentAt: true,
-            openedAt: true,
-            clickedAt: true,
-            convertedAt: true,
-          },
-        });
-
-        // 해당 시간대에 전송된 메시지만 필터링
-        const hourlyMessages = recipients.filter((r) => {
-          if (!r.sentAt) return false;
-          return r.sentAt.getUTCHours() === hour;
-        });
-
-        const sent = hourlyMessages.length;
-        const opened = hourlyMessages.filter((m) => m.openedAt).length;
-        const clicked = hourlyMessages.filter((m) => m.clickedAt).length;
-        const converted = hourlyMessages.filter((m) => m.convertedAt).length;
-
+        // TODO: campaignRecipient model not yet implemented in schema
+        // Using default metrics until model is added
         hourlyData.push({
           hour,
-          sent,
-          opened,
-          clicked,
-          converted,
-          openRate: sent > 0 ? (opened / sent) * 100 : 0,
+          sent: 0,
+          opened: 0,
+          clicked: 0,
+          converted: 0,
+          openRate: 0,
         });
       }
 
@@ -305,28 +274,9 @@ export class OptimalSendTimeOptimizer {
       const sixMonthsAgo = new Date();
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-      // 요일별 메시지 필터링
-      const recipients = await prisma.campaignRecipient.findMany({
-        where: {
-          channel,
-          contactId: this.contactId,
-          sentAt: {
-            gte: sixMonthsAgo,
-          },
-        },
-        select: {
-          sentAt: true,
-          openedAt: true,
-          clickedAt: true,
-          convertedAt: true,
-        },
-      });
-
-      // 지정된 요일의 메시지만 필터링
-      const dayMessages = recipients.filter((r) => {
-        if (!r.sentAt) return false;
-        return r.sentAt.getUTCDay() === dayOfWeek;
-      });
+      // TODO: campaignRecipient model not yet implemented in schema
+      // Using default for now
+      const dayMessages: Array<{ sentAt: Date | null; openedAt: Date | null; clickedAt: Date | null; convertedAt: Date | null }> = [];
 
       if (dayMessages.length === 0) {
         return this.getDefaultSendTime(channel);

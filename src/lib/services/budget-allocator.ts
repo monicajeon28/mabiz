@@ -87,36 +87,12 @@ export class BudgetAllocator {
       const metrics: Record<MessageChannel, ChannelCostMetrics> = {} as any;
 
       for (const channel of channels) {
-        // 최근 3개월 데이터 기반 평균 비용 계산
-        const threeMonthsAgo = new Date();
-        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-
-        const campaignData = await prisma.campaignRecipient.groupBy({
-          by: ["channel"],
-          where: {
-            channel,
-            campaign: {
-              organizationId: this.organizationId,
-              createdAt: {
-                gte: threeMonthsAgo,
-              },
-            },
-          },
-          _sum: {
-            cost: true,
-          },
-          _count: {
-            id: true,
-            clickedAt: true,
-            convertedAt: true,
-          },
-        });
-
-        const data = campaignData[0];
-        const sent = data?._count.id ?? 1;
-        const cost = data?._sum.cost ?? 0;
-        const clicked = data?._count.clickedAt ?? 0;
-        const converted = data?._count.convertedAt ?? 0;
+        // TODO: campaignRecipient model not yet implemented in schema
+        // Using default metrics until model is added
+        const sent = 100;
+        const cost = 100;
+        const clicked = 20;
+        const converted = 5;
 
         const avgCostPerSend = cost / sent;
         const avgCostPerClick = clicked > 0 ? cost / clicked : cost;

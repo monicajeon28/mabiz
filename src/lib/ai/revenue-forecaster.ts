@@ -279,27 +279,31 @@ export class RevenueForecast {
     const smsSequences = await prisma.contactLensSequence.findMany({
       where: {
         organizationId: this.organizationId,
-        createdAt: { gte: startDate },
+        startedAt: { gte: startDate },
       },
       select: {
-        createdAt: true,
-        sequenceName: true,
-        channel: true,
+        startedAt: true,
+        sequenceType: true,
+        lensType: true,
       },
     });
 
     smsSequences.forEach((seq) => {
-      const dateKey = this.getDateKey(seq.createdAt);
+      const dateKey = this.getDateKey(seq.startedAt);
       if (!result.has(dateKey)) {
         result.set(dateKey, { sequences: 0, sms: 0, email: 0, partners: 0 });
       }
 
       const data = result.get(dateKey)!;
       data.sequences++;
-      if (seq.channel === 'SMS' || seq.sequenceName?.includes('SMS')) {
+      // Default to SMS if sequenceType indicates SMS
+      if (seq.sequenceType?.toUpperCase().includes('SMS') || seq.sequenceType === 'DAY_0_3') {
         data.sms++;
-      } else if (seq.channel === 'EMAIL' || seq.sequenceName?.includes('EMAIL')) {
+      } else if (seq.sequenceType?.toUpperCase().includes('EMAIL')) {
         data.email++;
+      } else {
+        // Default to SMS for unspecified types
+        data.sms++;
       }
     });
 
@@ -339,13 +343,13 @@ export class RevenueForecast {
       },
       select: {
         createdAt: true,
-        cost: true,
+        actualCostTotal: true,
       },
     });
 
     costs.forEach((cost) => {
       const dateKey = this.getDateKey(cost.createdAt);
-      result.set(dateKey, (result.get(dateKey) || 0) + cost.cost);
+      result.set(dateKey, (result.get(dateKey) || 0) + Number(cost.actualCostTotal || 0));
     });
 
     return result;

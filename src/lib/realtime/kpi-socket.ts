@@ -73,8 +73,8 @@ export function useKpiSocket() {
           } else {
             setLastEvent(data);
           }
-        } catch (error) {
-          logger.error('Failed to parse WebSocket message', error);
+        } catch (error: unknown) {
+          logger.error('Failed to parse WebSocket message', error as object);
         }
       };
 
@@ -100,8 +100,8 @@ export function useKpiSocket() {
       };
 
       socketRef.current = ws;
-    } catch (error) {
-      logger.error('Failed to initialize WebSocket', error);
+    } catch (error: unknown) {
+      logger.error('Failed to initialize WebSocket', error as object);
       startPollingFallback();
     }
   }, [session?.organizationId]);
@@ -120,8 +120,8 @@ export function useKpiSocket() {
           setMetrics(data);
           setIsConnected(true);
         }
-      } catch (error) {
-        logger.error('Polling fallback failed', error);
+      } catch (error: unknown) {
+        logger.error('Polling fallback failed', error as object);
         setIsConnected(false);
       }
 

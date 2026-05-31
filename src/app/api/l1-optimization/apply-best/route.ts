@@ -57,7 +57,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1ApplyBe
     // 1. 인증 및 권한 확인
     const authResult = validateOrgMembership(request);
     if (authResult !== true) {
-      return authResult as unknown as NextResponse;
+      return authResult as any as NextResponse<L1ApplyBestResponse>;
     }
 
     // 2. Contact 확인
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1ApplyBe
     });
 
     if (!contact || contact.organizationId !== organizationId) {
-      return NextResponse.json(
+      return NextResponse.json<L1ApplyBestResponse>(
         { success: false, error: 'Contact not found' },
         { status: 404 }
       );
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1ApplyBe
     }
 
     if (!selectedVariant) {
-      return NextResponse.json(
+      return NextResponse.json<L1ApplyBestResponse>(
         { success: false, error: 'No active variant found' },
         { status: 404 }
       );
@@ -198,7 +198,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1ApplyBe
       autoSendSMS,
     });
 
-    return NextResponse.json(
+    return NextResponse.json<L1ApplyBestResponse>(
       {
         success: true,
         data: {
@@ -211,11 +211,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1ApplyBe
           reasonForSelection,
           smsSentAt,
         },
-      } as L1ApplyBestResponse
+      }
     );
   } catch (error) {
     logger.error('[L1] apply-best route error', error instanceof Error ? error : new Error(String(error)));
-    return NextResponse.json(
+    return NextResponse.json<L1ApplyBestResponse>(
       { success: false, error: 'Internal server error' },
       { status: 500 }
     );

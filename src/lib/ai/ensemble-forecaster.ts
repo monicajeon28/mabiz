@@ -111,8 +111,8 @@ export class EnsembleForecaster {
       });
       await this.prophetForecaster.fit(historicalData);
       logger.info('Prophet model fitted successfully');
-    } catch (error) {
-      logger.warn('Prophet training failed:', error);
+    } catch (error: unknown) {
+      logger.warn('Prophet training failed:', error as object);
       errors.push('prophet');
     }
 
@@ -126,8 +126,8 @@ export class EnsembleForecaster {
       });
       await this.lstmForecaster.train(values);
       logger.info('LSTM model fitted successfully');
-    } catch (error) {
-      logger.warn('LSTM training failed:', error);
+    } catch (error: unknown) {
+      logger.warn('LSTM training failed:', error as object);
       errors.push('lstm');
     }
 
@@ -176,8 +176,8 @@ export class EnsembleForecaster {
         valData.map((d) => d.value)
       );
       this.modelAccuracies.set('arima', arimaMape);
-    } catch (error) {
-      logger.warn('Could not evaluate model accuracies:', error);
+    } catch (error: unknown) {
+      logger.warn('Could not evaluate model accuracies:', error as object);
     }
   }
 
@@ -211,8 +211,8 @@ export class EnsembleForecaster {
       try {
         prophetForecasts = await this.prophetForecaster.forecast(periodsAhead);
         usedModels.push('prophet');
-      } catch (error) {
-        logger.warn('Prophet forecast failed:', error);
+      } catch (error: unknown) {
+        logger.warn('Prophet forecast failed:', error as object);
         failedModels.push('prophet');
       }
     }
@@ -225,8 +225,8 @@ export class EnsembleForecaster {
         const emptyData = new Array(30).fill(100); // dummy data
         lstmForecasts = await this.lstmForecaster.forecast(emptyData);
         usedModels.push('lstm');
-      } catch (error) {
-        logger.warn('LSTM forecast failed:', error);
+      } catch (error: unknown) {
+        logger.warn('LSTM forecast failed:', error as object);
         failedModels.push('lstm');
       }
     }

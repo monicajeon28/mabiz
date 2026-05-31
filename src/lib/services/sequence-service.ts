@@ -53,7 +53,7 @@ export async function createSequence(
       day1Delay,
       day2Delay,
       day3Delay,
-      conditions: conditions || null,
+      conditions: conditions || undefined,
       triggerOn,
       status: 'DRAFT',
       createdByUserId: userId

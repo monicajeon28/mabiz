@@ -108,7 +108,14 @@ async function fetchContact360FromDb(
     : null;
 
   // 7. Risk Score 계산
-  const riskProfile = await calculateRiskScore(contact);
+  const contactForRisk = {
+    ...contact,
+    reactivationSegment: contact.reactivationSegment ?? undefined,
+    lastCruiseDate: contact.lastCruiseDate ?? undefined,
+    lastCompetitorMentionAt: contact.lastCompetitorMentionAt ?? undefined,
+    lastContactedAt: contact.lastContactedAt ?? undefined,
+  };
+  const riskProfile = await calculateRiskScore(contactForRisk as any);
 
   // 8. 응답 구성
   const response: Contact360Response = {
@@ -120,7 +127,7 @@ async function fetchContact360FromDb(
       organizationId: contact.organizationId,
       type: contact.type as 'LEAD' | 'CUSTOMER' | 'VIP',
       segment: contact.segment,
-      autoSegment: contact.autoSegment,
+      autoSegment: contact.autoSegment ?? '',
       createdAt: contact.createdAt,
       updatedAt: contact.updatedAt,
       lastContactedAt: contact.lastContactedAt,
@@ -157,7 +164,7 @@ async function fetchContact360FromDb(
 function createDataLoaders() {
   return {
     // Contact 로더
-    contactLoader: new DataLoader(async (contactIds: string[]) => {
+    contactLoader: new DataLoader(async (contactIds: readonly string[]) => {
       const contacts = await prisma.contact.findMany({
         where: { id: { in: contactIds } },
         include: {
@@ -172,7 +179,7 @@ function createDataLoaders() {
     }),
 
     // GoldMember 로더
-    goldMemberLoader: new DataLoader(async (userIds: (number | null)[]) => {
+    goldMemberLoader: new DataLoader(async (userIds: readonly (number | null)[]) => {
       const filtered = userIds.filter((uid): uid is number => uid !== null);
       if (filtered.length === 0) return userIds.map(() => null);
 
@@ -187,7 +194,7 @@ function createDataLoaders() {
     }),
 
     // Partner 로더
-    partnerLoader: new DataLoader(async (partnerIds: string[]) => {
+    partnerLoader: new DataLoader(async (partnerIds: readonly string[]) => {
       const partners = await prisma.partner.findMany({
         where: { id: { in: partnerIds } },
         include: {
@@ -203,10 +210,10 @@ function createDataLoaders() {
     }),
 
     // Groups 로더
-    groupsLoader: new DataLoader(async (contactIds: string[]) => {
+    groupsLoader: new DataLoader(async (contactIds: readonly string[]) => {
       const members = await prisma.contactGroupMember.findMany({
         where: { contactId: { in: contactIds } },
-        include: { group: true }
+        include: { group: { select: { id: true, name: true, color: true, ownerId: true } } }
       });
 
       const grouped = new Map<string, Contact360Group[]>();
@@ -227,7 +234,7 @@ function createDataLoaders() {
     }),
 
     // Orders 로더
-    ordersLoader: new DataLoader(async (contactIds: string[]) => {
+    ordersLoader: new DataLoader(async (contactIds: readonly string[]) => {
       const reservations = await prisma.gmReservation.findMany({
         where: {
           contacts: { some: { id: { in: contactIds } } }
@@ -241,7 +248,7 @@ function createDataLoaders() {
     }),
 
     // Communications 로더
-    communicationsLoader: new DataLoader(async (contactIds: string[]) => {
+    communicationsLoader: new DataLoader(async (contactIds: readonly string[]) => {
       // TODO: SMS, Email, Call 로그 조회
       return contactIds.map(() => ({
         smsLogs: [],
@@ -253,7 +260,7 @@ function createDataLoaders() {
     }),
 
     // Psychology 로더
-    psychologyLoader: new DataLoader(async (contactIds: string[]) => {
+    psychologyLoader: new DataLoader(async (contactIds: readonly string[]) => {
       const classifications = await prisma.contactLensClassification.findMany({
         where: { contactId: { in: contactIds }, status: 'ACTIVE' },
         include: { sequences: true }
@@ -284,7 +291,7 @@ function createDataLoaders() {
     }),
 
     // Affiliate 로더
-    affiliateLoader: new DataLoader(async (contactIds: string[]) => {
+    affiliateLoader: new DataLoader(async (contactIds: readonly string[]) => {
       // TODO: Affiliate 추적 정보 조회
       return contactIds.map(() => null);
     })
