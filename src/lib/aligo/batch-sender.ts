@@ -11,6 +11,7 @@
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { AligoClient, createAligoClient } from './client';
+import type { ScheduledSms, Contact } from '@prisma/client';
 
 /**
  * Aligo EUC-KR 바이트 기준 LMS/SMS 분류
@@ -24,6 +25,11 @@ export function getAligoMessageType(msg: string): 'SMS' | 'LMS' {
   }
   return bytes > 80 ? 'LMS' : 'SMS';
 }
+
+type ScheduledSmsWithContact = ScheduledSms & {
+  contact: Contact | null;
+  organization: { id: string } | null;
+};
 
 export interface BatchSenderResult {
   processed: number;
@@ -55,19 +61,32 @@ export async function processPendingSms(
     const isNightTime = isNightSmsBlocked();
 
     // PENDING 상태 SMS 조회
-    const pendingSms = await prisma.scheduledSms.findMany({
+    const pendingSmsRaw = await prisma.scheduledSms.findMany({
       where: {
         organizationId,
         status: 'PENDING',
         scheduledAt: { lte: new Date() },
       },
       include: {
-        contact: { select: { id: true, phone: true, name: true, optOutAt: true } },
         organization: { select: { id: true } },
       },
       orderBy: { scheduledAt: 'asc' },
       take: maxItems,
     });
+
+    // Contact 정보 별도 로드
+    const contactIds = pendingSmsRaw.map(s => s.contactId).filter((id): id is string => id !== null);
+    const contacts = new Map(
+      (await prisma.contact.findMany({
+        where: { id: { in: contactIds } },
+        select: { id: true, name: true, phone: true, email: true },
+      })).map(c => [c.id, c])
+    );
+
+    const pendingSms: ScheduledSmsWithContact[] = pendingSmsRaw.map(sms => ({
+      ...sms,
+      contact: sms.contactId ? (contacts.get(sms.contactId) as any) ?? null : null,
+    }));
 
     if (pendingSms.length === 0) {
       return result;
@@ -91,9 +110,9 @@ export async function processPendingSms(
     });
 
     // 배치 그룹 생성 (수신거부 및 야간 차단 분리)
-    const validSms: typeof pendingSms = [];
-    const optOutBlocked: typeof pendingSms = [];
-    const nightBlocked: typeof pendingSms = [];
+    const validSms: ScheduledSmsWithContact[] = [];
+    const optOutBlocked: ScheduledSmsWithContact[] = [];
+    const nightBlocked: ScheduledSmsWithContact[] = [];
 
     for (const sms of pendingSms) {
       // 수신거부 확인 — 야간 여부와 무관하게 항상 BLOCKED

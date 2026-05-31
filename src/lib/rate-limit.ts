@@ -13,6 +13,9 @@
 
 import { rlIncr, rlTtl } from '@/lib/redis';
 
+// Re-export for use in other modules
+export { rlIncr, rlTtl };
+
 // ─── 메모리 폴백 저장소 ─────────────────────────────────────────────────────
 interface RateLimitEntry {
   timestamps: number[];
