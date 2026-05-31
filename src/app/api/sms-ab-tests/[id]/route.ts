@@ -155,7 +155,7 @@ export async function GET(
       copyAngle: test.copyAngle || undefined,
       variantATemplate: test.variantATemplate || '',
       variantBTemplate: test.variantBTemplate || '',
-      status: test.status || 'ACTIVE',
+      status: (test.status || 'ACTIVE') as 'ACTIVE' | 'COMPLETED' | 'PAUSED',
       startedAt: test.startedAt.toISOString(),
       testDays: test.testDays || 7,
       minSampleSize: test.minSampleSize || 100,

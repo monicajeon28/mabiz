@@ -49,10 +49,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // 3. Parse request body with type validation
-    const body = parseRequestBody<ScenarioRequest>(
-      await request.json(),
-      isScenarioRequest
-    );
+    const rawBody = await request.json();
+    if (!isScenarioRequest(rawBody)) {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+    const body = rawBody as ScenarioRequest;
 
     if (!body.changes || body.changes.length === 0) {
       return NextResponse.json(

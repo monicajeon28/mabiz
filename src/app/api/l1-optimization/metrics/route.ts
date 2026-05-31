@@ -251,25 +251,27 @@ export async function GET(request: NextRequest): Promise<NextResponse<L1MetricsR
       conversionRate: Math.round(conversionRate * 100) / 100,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        organization: {
-          totalObjections,
-          totalConverted,
-          conversionRate: Math.round(conversionRate * 100) / 100,
-          avgAttempts: Math.round(avgAttempts * 100) / 100,
-          dateRange: {
-            from: dateFrom.toISOString(),
-            to: dateTo.toISOString(),
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          organization: {
+            totalObjections,
+            totalConverted,
+            conversionRate: Math.round(conversionRate * 100) / 100,
+            avgAttempts: Math.round(avgAttempts * 100) / 100,
+            dateRange: {
+              from: dateFrom.toISOString(),
+              to: dateTo.toISOString(),
+            },
           },
+          byObjectiveType: objectiveTypeMetrics,
+          byResponseMethod: responseMethodMetrics,
+          abTestPerformance,
+          trend: trendData,
         },
-        byObjectiveType: objectiveTypeMetrics,
-        byResponseMethod: responseMethodMetrics,
-        abTestPerformance,
-        trend: trendData,
-      },
-    });
+      } as L1MetricsResponse
+    );
   } catch (error) {
     logger.error('[L1] metrics route error', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(

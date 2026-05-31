@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId, BONSA_ORG_ID } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
-import { getAvailableTransitions } from '@/lib/funnel-state-machine';
+import { getAvailableTransitions, FunnelState } from '@/lib/funnel-state-machine';
 
 
 
@@ -57,7 +57,7 @@ export async function GET(
     }
 
     // 가능한 다음 상태 계산
-    const availableTransitions = getAvailableTransitions(state.status as string);
+    const availableTransitions = getAvailableTransitions(state.status as FunnelState);
 
     return NextResponse.json({
       ok: true,

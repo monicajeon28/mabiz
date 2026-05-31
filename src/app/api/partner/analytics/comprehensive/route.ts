@@ -67,14 +67,14 @@ export async function GET(request: NextRequest) {
       );
       const monthlyRevenue = partner.settlementLedger
         .filter((s) => new Date(s.createdAt) >= monthStart)
-        .reduce((sum: bigint, s) => sum + (s.totalAmount || 0n), 0n);
+        .reduce((sum: bigint, s) => sum + (s.netAmount || BigInt(0)), BigInt(0));
 
       // 총 수익 (Partner 모델의 totalRevenue 사용)
       const totalRevenue = partner.totalRevenue;
 
-      // 확인율
+      // 확인율 (PartnerMetrics에 status가 없으므로, customerCount 기반으로 계산)
       const confirmedCount = partner.metrics.filter(
-        (m) => m.status === "CONFIRMED"
+        (m) => m.customerCount && m.customerCount > 0
       ).length;
       const confirmedRate =
         partner.metrics.length > 0
@@ -101,10 +101,10 @@ export async function GET(request: NextRequest) {
             new Date(s.createdAt) >= lastMonthStart &&
             new Date(s.createdAt) <= lastMonthEnd
         )
-        .reduce((sum: bigint, s) => sum + (s.totalAmount || 0n), 0n);
+        .reduce((sum: bigint, s) => sum + (s.netAmount || BigInt(0)), BigInt(0));
 
       const monthlyGrowth =
-        lastMonthRevenue > 0n
+        lastMonthRevenue > BigInt(0)
           ? (Number(monthlyRevenue - lastMonthRevenue) / Number(lastMonthRevenue)) * 100
           : 0;
 
@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
         tierUpgradeProgress: {
           nextTier: tierUpgrade.nextTier,
           percentageToNext: tierUpgrade.percentageToNextTier || 0,
-          revenueGapToNext: tierUpgrade.revenueGapToNextTier || 0n,
+          revenueGapToNext: tierUpgrade.revenueGapToNextTier || BigInt(0),
         },
         performance: {
           confirmedRate,

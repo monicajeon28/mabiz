@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     );
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error('[Anomaly] Advanced detection error:', errorMessage);
+    logger.error('[Anomaly] Advanced detection error:', { message: errorMessage });
     return NextResponse.json(
       {
         success: false,

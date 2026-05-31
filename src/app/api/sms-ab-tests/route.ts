@@ -70,11 +70,6 @@ export async function GET(req: NextRequest) {
           abTestGroup: 'A',
         },
         _count: { id: true },
-        _sum: {
-          openedAt: true,
-          clickedAt: true,
-          convertedAt: true,
-        },
       });
 
       const groupASent = groupALogs._count.id;
@@ -172,7 +167,7 @@ export async function GET(req: NextRequest) {
         copyAngle: test.copyAngle || undefined,
         variantATemplate: test.variantATemplate || '',
         variantBTemplate: test.variantBTemplate || '',
-        status: test.status || 'ACTIVE',
+        status: (test.status || 'ACTIVE') as 'ACTIVE' | 'COMPLETED' | 'PAUSED',
         startedAt: test.startedAt.toISOString(),
         testDays: test.testDays || 7,
         minSampleSize: test.minSampleSize || 100,

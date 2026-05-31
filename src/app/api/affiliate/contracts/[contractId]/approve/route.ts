@@ -63,7 +63,7 @@ export async function PUT(
         { status: 400 },
       );
     }
-    if (!VALID_AMOUNTS.includes(Number(amount))) {
+    if (!VALID_AMOUNTS.includes(amount as any)) {
       return NextResponse.json(
         { ok: false, message: `유효하지 않은 계약금입니다. (${VALID_AMOUNTS_LABEL})` },
         { status: 400 },

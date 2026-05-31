@@ -130,7 +130,9 @@ async function getPayslipData({
     // 응답 데이터 변환
     const data: PayslipItem[] = ledgers.map((ledger, index) => {
       const commission = Number(ledger.amount) || 0;
-      const bonus = bonusMap.get(ledger.profileId ?? 0) || 0;
+      const profileIdNum = ledger.profileId || 0;
+      const profileId: string = String(profileIdNum);
+      const bonus = bonusMap.get(Number(profileId)) || 0;
       const grossAmount = commission + bonus;
       const withholdingTax = Math.round(grossAmount * WITHHOLDING_TAX_RATE);
       const netAmount = grossAmount - withholdingTax;
@@ -138,8 +140,8 @@ async function getPayslipData({
       return {
         id: ledger.id.toString(),
         period,
-        profileId: (ledger.profileId ?? 0).toString(),
-        profileName: `Profile ${ledger.profileId}`, // TODO: affiliates 테이블과 조인
+        profileId,
+        profileName: `Profile ${profileIdNum}`, // TODO: affiliates 테이블과 조인
         commission,
         bonus,
         grossAmount,

@@ -89,7 +89,7 @@ export async function GET(request: Request) {
 
     // Get risk distribution
     const riskCounts = await prisma.partnerRiskFlags.groupBy({
-      by: [],
+      by: ['partnerId'],
       where: {
         partner: {
           organizationId,

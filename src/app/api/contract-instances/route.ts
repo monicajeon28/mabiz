@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { getMabizSession } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import {
@@ -227,7 +228,7 @@ export async function POST(request: NextRequest) {
         organizationId,
         templateId,
         contactId: contactId || null,
-        boundData: boundData as unknown as Record<string, unknown>,
+        boundData: boundData as Prisma.InputJsonValue,
         status: "DRAFT",
         expiresAt,
         appliedLenses: template.psychologyLenses,
