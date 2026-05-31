@@ -86,10 +86,10 @@ export async function trackSmsDelivery(organizationId: string): Promise<Delivery
           where: {
             organizationId,
             contactId: sms.contactId,
-            createdAt: { gte: from, lte: to },
+            sentAt: { gte: from, lte: to },
             msgId: { not: null },
           },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { sentAt: 'desc' },
           select: { msgId: true, phone: true },
         });
 
@@ -168,13 +168,21 @@ async function retryFailedSms(smsId: string, organizationId: string): Promise<bo
   try {
     const scheduledSms = await prisma.scheduledSms.findUnique({
       where: { id: smsId },
-      include: {
-        contact: { select: { phone: true } },
-      },
     });
 
-    if (!scheduledSms || !scheduledSms.contact?.phone) {
+    if (!scheduledSms || !scheduledSms.contactId) {
       logger.warn('[RetryFailedSms] SMS 또는 연락처 정보 없음', { smsId });
+      return false;
+    }
+
+    // 연락처 정보 조회
+    const contact = await prisma.contact.findUnique({
+      where: { id: scheduledSms.contactId },
+      select: { phone: true },
+    });
+
+    if (!contact?.phone) {
+      logger.warn('[RetryFailedSms] 연락처 전화번호 없음', { smsId, contactId: scheduledSms.contactId });
       return false;
     }
 
@@ -203,7 +211,7 @@ async function retryFailedSms(smsId: string, organizationId: string): Promise<bo
 
     // 재발송
     const response = await aligoClient.sendSms({
-      receiver: scheduledSms.contact.phone,
+      receiver: contact.phone,
       message: scheduledSms.message,
       messageType: getAligoMessageType(scheduledSms.message),
     });
@@ -226,7 +234,7 @@ async function retryFailedSms(smsId: string, organizationId: string): Promise<bo
         data: {
           organizationId,
           contactId: scheduledSms.contactId,
-          phone: scheduledSms.contact.phone,
+          phone: contact.phone,
           contentPreview: scheduledSms.message.slice(0, 100),
           msg: scheduledSms.message,
           status: 'SENT',

@@ -291,21 +291,35 @@ export class DataDeletionManager {
     try {
       const contact = await prisma.contact.findUnique({
         where: { id: contactId },
-        include: {
-          smsLogs: true,
-          callLogs: true,
-          memos: true,
-          lensClassifications: true,
-          lensSequences: true,
-          groupMembers: {
-            include: { group: true },
-          },
-        },
       });
 
       if (!contact) {
         throw new Error('Contact not found');
       }
+
+      // Get all related data
+      const [smsLogs, callLogs, memos, lensClassifications, groupMembers] = await Promise.all([
+        prisma.smsLog.findMany({
+          where: { contactId },
+          select: { id: true, msg: true, sentAt: true, status: true },
+        }),
+        prisma.callLog.findMany({
+          where: { contactId },
+          select: { id: true, result: true, duration: true, createdAt: true, content: true },
+        }),
+        prisma.contactMemo.findMany({
+          where: { contactId },
+          select: { id: true, content: true, createdAt: true },
+        }),
+        prisma.contactLensClassification.findMany({
+          where: { contactId },
+          select: { id: true, lensType: true, confidenceScore: true, identifiedAt: true },
+        }),
+        prisma.contactGroupMember.findMany({
+          where: { contactId },
+          include: { group: true },
+        }),
+      ]);
 
       // Contact 데이터 구조화
       const exportData = {
@@ -316,38 +330,38 @@ export class DataDeletionManager {
           phone: contact.phone,
           createdAt: contact.createdAt,
           updatedAt: contact.updatedAt,
-          status: contact.status,
+          type: contact.type,
         },
         communications: {
-          smsLogs: contact.smsLogs.map(log => ({
+          smsLogs: smsLogs.map(log => ({
             id: log.id,
-            message: log.message,
+            message: log.msg,
             sentAt: log.sentAt,
             status: log.status,
           })),
-          callLogs: contact.callLogs.map(log => ({
+          callLogs: callLogs.map(log => ({
             id: log.id,
-            callType: log.callType,
+            result: log.result,
             duration: log.duration,
-            date: log.date,
-            notes: log.notes,
+            date: log.createdAt,
+            content: log.content,
           })),
         },
         metadata: {
-          memos: contact.memos.map(m => ({
+          memos: memos.map(m => ({
             id: m.id,
             content: m.content,
             createdAt: m.createdAt,
           })),
-          lensClassifications: contact.lensClassifications.map(l => ({
-            lens: l.lens,
-            score: l.score,
-            detectedAt: l.detectedAt,
+          lensClassifications: lensClassifications.map(l => ({
+            lensType: l.lensType,
+            confidenceScore: l.confidenceScore,
+            identifiedAt: l.identifiedAt,
           })),
-          groups: contact.groupMembers.map(gm => ({
+          groups: groupMembers.map(gm => ({
             groupId: gm.group.id,
             groupName: gm.group.name,
-            joinedAt: gm.createdAt,
+            joinedAt: gm.addedAt,
           })),
         },
         exportedAt: new Date().toISOString(),
