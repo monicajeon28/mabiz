@@ -144,8 +144,8 @@ export class ProphetForecaster {
 
       // 3. Fit seasonality components
       await this.fitSeasonality(detrended);
-    } catch (error) {
-      logger.error('Prophet fit error:', error);
+    } catch (error: unknown) {
+      logger.error('Prophet fit error:', error as object);
       throw error;
     }
   }
@@ -195,7 +195,7 @@ export class ProphetForecaster {
   /**
    * Detect changepoints using PELT-like algorithm (simplified)
    */
-  private detectChangepoints(y: number[], maxChangepoints: number = 3): Date[] {
+  private detectChangepoints(y: number[], maxChangepoints: number = 3): number[] {
     const n = y.length;
     if (n < 30) return [];
 
@@ -218,7 +218,7 @@ export class ProphetForecaster {
       .sort((a, b) => a.idx - b.idx)
       .map((c) => c.idx);
 
-    return indices.map((idx) => new Date(this.trainingData[idx].t * 86400000));
+    return indices;
   }
 
   /**

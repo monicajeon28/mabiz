@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     webhookType: 'settlement-updated',
     secret,
     requireAuth: true,
-    handler: async (payload: SettlementUpdatedPayload) => {
+    handler: async (payload: SettlementUpdatedPayload, organizationId: string) => {
       const {
         eventId,
         settlementId,
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
       });
 
       // 3. PartnerTier 자동 재평가
-      const monthlyUSD = netAmount / 100;
+      const monthlyUSD = Number(netAmount) / 100;
       const newTier = calculateTier(netAmount);
 
       await updatePartnerTier(partnerId, newTier);
@@ -156,15 +156,15 @@ export async function POST(req: NextRequest) {
         });
 
         const decreasePercent = previousMonthLedger
-          ? (previousMonthLedger.netAmount - netAmount) /
-            previousMonthLedger.netAmount
+          ? (Number(previousMonthLedger.netAmount) - netAmount) /
+            Number(previousMonthLedger.netAmount)
           : 0;
 
         logger.log('[settlement-updated] Churn 신호 감지', {
           partnerId,
           currentMonth: monthlyUSD,
           previousMonth: previousMonthLedger?.netAmount
-            ? previousMonthLedger.netAmount / 100
+            ? Number(previousMonthLedger.netAmount) / 100
             : 'N/A',
           decreasePercent: `${(decreasePercent * 100).toFixed(1)}%`
         });

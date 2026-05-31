@@ -152,7 +152,7 @@ function detectL7(data: ContactData): boolean {
   const hasFamily =
     (data.maritalStatus && data.maritalStatus !== "SINGLE") || (data.childrenCount && data.childrenCount > 0);
 
-  return companionKeywords.some((kw) => contentToAnalyze.includes(kw)) || hasFamily;
+  return companionKeywords.some((kw) => contentToAnalyze.includes(kw)) || Boolean(hasFamily);
 }
 
 /**

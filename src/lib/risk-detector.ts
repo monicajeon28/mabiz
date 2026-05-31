@@ -186,7 +186,7 @@ function checkPriceObjection(data: ContactRiskData): boolean {
     return diff <= 7; // 지난 7일
   });
 
-  return hasPriceKeyword && recentCallLog;
+  return hasPriceKeyword && Boolean(recentCallLog);
 }
 
 /**

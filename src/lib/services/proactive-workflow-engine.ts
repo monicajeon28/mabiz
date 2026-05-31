@@ -54,8 +54,8 @@ export class ProactiveWorkflowEngine {
 
     if (!contact) throw new Error(`Contact not found: ${config.contactId}`);
 
-    // Respect opt-outs
-    if (contact.emailOptOut && contact.smsOptOut) {
+    // Respect opt-outs (contact.optOutAt = opted out of all)
+    if (contact.optOutAt) {
       console.log(`Contact ${config.contactId} opted out - skipping workflow`);
       return;
     }
@@ -77,19 +77,13 @@ export class ProactiveWorkflowEngine {
     });
 
     // Schedule Day 0 message: Personal call attempt
-    if (!contact.smsOptOut) {
-      await this.scheduleVipSaveDay0(workflow, contact, prediction);
-    }
+    await this.scheduleVipSaveDay0(workflow, contact, prediction);
 
     // Schedule Day 1 message: Exclusive offer email
-    if (!contact.emailOptOut) {
-      await this.scheduleVipSaveDay1(workflow, contact, prediction);
-    }
+    await this.scheduleVipSaveDay1(workflow, contact, prediction);
 
     // Schedule Day 2 message: Last chance SMS
-    if (!contact.smsOptOut) {
-      await this.scheduleVipSaveDay2(workflow, contact, prediction);
-    }
+    await this.scheduleVipSaveDay2(workflow, contact, prediction);
   }
 
   /**
@@ -115,23 +109,10 @@ export class ProactiveWorkflowEngine {
       data: {
         organizationId: workflow.organizationId,
         contactId: contact.id,
-        messageContent: message,
-        scheduledTime: scheduleTime,
-        status: 'SCHEDULED',
-        channel: 'SMS',
-        proactiveWorkflowId: workflow.id,
-        workflowStage: 0,
-        abTestVariant: variant
-      }
-    });
-
-    // Log call attempt notification for agent
-    await prisma.executionLog.create({
-      data: {
-        organizationId: workflow.organizationId,
-        action: 'PROACTIVE_WORKFLOW_VIP_SAVE_DAY0',
-        details: { contactId: contact.id, workflowId: workflow.id },
-        status: 'SCHEDULED'
+        message: message,
+        scheduledAt: scheduleTime,
+        status: 'PENDING',
+        channel: 'SMS'
       }
     });
   }
@@ -160,13 +141,10 @@ export class ProactiveWorkflowEngine {
       data: {
         organizationId: workflow.organizationId,
         contactId: contact.id,
-        messageContent: offer,
-        scheduledTime: scheduleTime,
-        status: 'SCHEDULED',
-        channel: 'SMS',
-        proactiveWorkflowId: workflow.id,
-        workflowStage: 1,
-        abTestVariant: variant
+        message: offer,
+        scheduledAt: scheduleTime,
+        status: 'PENDING',
+        channel: 'SMS'
       }
     });
   }
@@ -195,13 +173,10 @@ export class ProactiveWorkflowEngine {
       data: {
         organizationId: workflow.organizationId,
         contactId: contact.id,
-        messageContent: message,
-        scheduledTime: scheduleTime,
-        status: 'SCHEDULED',
-        channel: 'SMS',
-        proactiveWorkflowId: workflow.id,
-        workflowStage: 2,
-        abTestVariant: variant
+        message: message,
+        scheduledAt: scheduleTime,
+        status: 'PENDING',
+        channel: 'SMS'
       }
     });
   }
@@ -219,7 +194,7 @@ export class ProactiveWorkflowEngine {
 
     if (!contact) throw new Error(`Contact not found: ${config.contactId}`);
 
-    if (contact.emailOptOut && contact.smsOptOut) return;
+    if (contact.optOutAt) return;
 
     const workflow = await prisma.proactiveWorkflow.create({
       data: {
@@ -238,19 +213,13 @@ export class ProactiveWorkflowEngine {
     });
 
     // Day 0: Product recommendation
-    if (!contact.emailOptOut) {
-      await this.scheduleUpgradeDay0(workflow, contact, opportunity);
-    }
+    await this.scheduleUpgradeDay0(workflow, contact, opportunity);
 
     // Day 2: Case study/social proof email
-    if (!contact.emailOptOut) {
-      await this.scheduleUpgradeDay2(workflow, contact, opportunity);
-    }
+    await this.scheduleUpgradeDay2(workflow, contact, opportunity);
 
     // Day 3: Limited-time offer SMS
-    if (!contact.smsOptOut) {
-      await this.scheduleUpgradeDay3(workflow, contact, opportunity);
-    }
+    await this.scheduleUpgradeDay3(workflow, contact, opportunity);
   }
 
   /**
@@ -275,13 +244,10 @@ export class ProactiveWorkflowEngine {
       data: {
         organizationId: workflow.organizationId,
         contactId: contact.id,
-        messageContent: messages[variant],
-        scheduledTime: scheduleTime,
-        status: 'SCHEDULED',
-        channel: 'EMAIL',
-        proactiveWorkflowId: workflow.id,
-        workflowStage: 0,
-        abTestVariant: variant
+        message: messages[variant],
+        scheduledAt: scheduleTime,
+        status: 'PENDING',
+        channel: 'EMAIL'
       }
     });
   }
@@ -309,13 +275,10 @@ export class ProactiveWorkflowEngine {
       data: {
         organizationId: workflow.organizationId,
         contactId: contact.id,
-        messageContent: messages[variant],
-        scheduledTime: scheduleTime,
-        status: 'SCHEDULED',
-        channel: 'EMAIL',
-        proactiveWorkflowId: workflow.id,
-        workflowStage: 1,
-        abTestVariant: variant
+        message: messages[variant],
+        scheduledAt: scheduleTime,
+        status: 'PENDING',
+        channel: 'EMAIL'
       }
     });
   }
@@ -343,13 +306,10 @@ export class ProactiveWorkflowEngine {
       data: {
         organizationId: workflow.organizationId,
         contactId: contact.id,
-        messageContent: offers[variant],
-        scheduledTime: scheduleTime,
-        status: 'SCHEDULED',
-        channel: 'SMS',
-        proactiveWorkflowId: workflow.id,
-        workflowStage: 2,
-        abTestVariant: variant
+        message: offers[variant],
+        scheduledAt: scheduleTime,
+        status: 'PENDING',
+        channel: 'SMS'
       }
     });
   }
@@ -367,7 +327,7 @@ export class ProactiveWorkflowEngine {
 
     if (!contact) throw new Error(`Contact not found: ${config.contactId}`);
 
-    if (contact.emailOptOut && contact.smsOptOut) return;
+    if (contact.optOutAt) return;
 
     const workflow = await prisma.proactiveWorkflow.create({
       data: {
@@ -386,19 +346,13 @@ export class ProactiveWorkflowEngine {
     });
 
     // Day 0: "We miss you" message
-    if (!contact.smsOptOut) {
-      await this.scheduleComeBackDay0(workflow, contact, opportunity);
-    }
+    await this.scheduleComeBackDay0(workflow, contact, opportunity);
 
     // Day 2: Special reactivation offer
-    if (!contact.emailOptOut) {
-      await this.scheduleComeBackDay2(workflow, contact, opportunity);
-    }
+    await this.scheduleComeBackDay2(workflow, contact, opportunity);
 
     // Day 5: "Last chance" SMS
-    if (!contact.smsOptOut) {
-      await this.scheduleComeBackDay5(workflow, contact, opportunity);
-    }
+    await this.scheduleComeBackDay5(workflow, contact, opportunity);
   }
 
   /**
@@ -420,13 +374,10 @@ export class ProactiveWorkflowEngine {
       data: {
         organizationId: workflow.organizationId,
         contactId: contact.id,
-        messageContent: messages[variant],
-        scheduledTime: opportunity.optimalContactTime,
-        status: 'SCHEDULED',
-        channel: 'SMS',
-        proactiveWorkflowId: workflow.id,
-        workflowStage: 0,
-        abTestVariant: variant
+        message: messages[variant],
+        scheduledAt: opportunity.optimalContactTime,
+        status: 'PENDING',
+        channel: 'SMS'
       }
     });
   }
@@ -460,13 +411,10 @@ export class ProactiveWorkflowEngine {
       data: {
         organizationId: workflow.organizationId,
         contactId: contact.id,
-        messageContent: messages[variant],
-        scheduledTime: scheduleTime,
-        status: 'SCHEDULED',
-        channel: 'EMAIL',
-        proactiveWorkflowId: workflow.id,
-        workflowStage: 1,
-        abTestVariant: variant
+        message: messages[variant],
+        scheduledAt: scheduleTime,
+        status: 'PENDING',
+        channel: 'EMAIL'
       }
     });
   }
@@ -494,8 +442,8 @@ export class ProactiveWorkflowEngine {
       data: {
         organizationId: workflow.organizationId,
         contactId: contact.id,
-        messageContent: messages[variant],
-        scheduledTime: scheduleTime,
+        message: messages[variant],
+        scheduledAt: scheduleTime,
         status: 'SCHEDULED',
         channel: 'SMS',
         proactiveWorkflowId: workflow.id,

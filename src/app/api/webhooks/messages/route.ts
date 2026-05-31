@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     const eventId = payload.eventId || uuidv4();
     const organizationId = session.organizationId;
 
-    const result = await messagesHandler.processEvent(
+    const result = await messagesHandler.process(
       eventId,
       organizationId,
       payload

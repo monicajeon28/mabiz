@@ -64,7 +64,7 @@ export class UpsellPredictor {
     const recentPayments = await prisma.contact.count({
       where: {
         id: contact.id,
-        lastPaymentDate: {
+        lastPaymentAt: {
           gte: last90DaysStart
         }
       }
@@ -76,11 +76,11 @@ export class UpsellPredictor {
     const purchaseTrend = contact.cruiseCount > 2 ? 20 : -10; // Growing customer vs occasional
 
     // Engagement score
-    const engagementScore = Math.min(100, Math.max(0, contact.lensMetadata?.['engagementScore'] || 50));
+    const engagementScore = Math.min(100, Math.max(0, (typeof contact.lensMetadata === 'object' && contact.lensMetadata && 'engagementScore' in contact.lensMetadata) ? Number((contact.lensMetadata as Record<string, any>)['engagementScore']) : 50));
 
     // Recency
-    const lastPurchaseRecency = contact.lastPaymentDate
-      ? Math.floor((Date.now() - new Date(contact.lastPaymentDate).getTime()) / (1000 * 60 * 60 * 24))
+    const lastPurchaseRecency = contact.lastPaymentAt
+      ? Math.floor((Date.now() - new Date(contact.lastPaymentAt).getTime()) / (1000 * 60 * 60 * 24))
       : 999;
 
     // Total spend

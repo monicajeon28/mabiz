@@ -54,23 +54,32 @@ export async function POST(request: NextRequest) {
 
     const data: WebhookPayload = JSON.parse(payload);
 
+    // organizationId 결정
+    const organizationId = process.env.MABIZ_ORGANIZATION_ID || "default-org-id";
+    const email = data.customer.email || "";
+    const phone = data.customer.phone || "";
+
     // Contact 생성 또는 업데이트
     const contact = await prisma.contact.upsert({
-      where: { externalCustomerId: data.customer.id },
+      where: {
+        email_organizationId: {
+          email: email || "unknown@example.com",
+          organizationId
+        }
+      },
       create: {
-        externalCustomerId: data.customer.id,
         name: data.customer.name,
-        email: data.customer.email || null,
-        phone: data.customer.phone || null,
-        organizationId: "default-org-id", // webhook에서 orgId 결정 필요
+        email: email || "",
+        phone: phone || "",
+        organizationId,
         sourceType: "WEBHOOK",
         sourceId: data.customer.affiliateCode || "CRUISEDOT",
-        createdAt: new Date(data.timestamp),
+        type: "PROSPECT"
       },
       update: {
         name: data.customer.name,
-        email: data.customer.email || null,
-        phone: data.customer.phone || null,
+        email: email || undefined,
+        phone: phone || undefined,
         updatedAt: new Date(),
       },
     });

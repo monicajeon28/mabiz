@@ -239,14 +239,9 @@ async function updateCampaignMetrics(
   campaignId: string,
   data: { totalSent: number; totalFailed: number }
 ): Promise<void> {
-  await prisma.multiChannelCampaign.update({
-    where: { id: campaignId },
-    data: {
-      totalSent: data.totalSent,
-      totalFailed: data.totalFailed,
-      updatedAt: new Date(),
-    },
-  });
+  // TODO: multiChannelCampaign model not yet implemented in schema
+  // This is a placeholder until the model is added
+  logger.log('[multiChannelCampaign] Metrics update (placeholder)', { campaignId, data });
 }
 
 /**

@@ -57,9 +57,7 @@ export class DeliveryOptimizer {
     const now = new Date();
 
     // Check opt-outs
-    const optedOut =
-      (proposedChannel === 'SMS' && contact.smsOptOut) ||
-      (proposedChannel === 'EMAIL' && contact.emailOptOut);
+    const optedOut = contact.optOutAt !== null;
 
     if (optedOut && constraints.respectOptOut) {
       return {
@@ -126,7 +124,7 @@ export class DeliveryOptimizer {
       weekExceeded,
       inQuietHours,
       gapExceeded,
-      lastMessage?.createdAt
+      lastMessage?.createdAt ?? null
     );
 
     const reasonsForWait: string[] = [];
@@ -232,8 +230,10 @@ export class DeliveryOptimizer {
   private getAvailableChannels(contact: Contact): ('SMS' | 'EMAIL' | 'CALL')[] {
     const channels: ('SMS' | 'EMAIL' | 'CALL')[] = ['CALL']; // Always available
 
-    if (!contact.smsOptOut) channels.push('SMS');
-    if (!contact.emailOptOut) channels.push('EMAIL');
+    if (!contact.optOutAt) {
+      channels.push('SMS');
+      channels.push('EMAIL');
+    }
 
     return channels;
   }

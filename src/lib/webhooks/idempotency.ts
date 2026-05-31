@@ -20,18 +20,8 @@ export const idempotency = {
     return !!event;
   },
 
-  markProcessed: async (organizationId: string, eventId: string, payload: any): Promise<void> => {
-    await prisma.webhookEvent.create({
-      data: {
-        eventId,
-        organizationId,
-        webhookType: 'IDEMPOTENCY_MARKER',
-        payload,
-        status: 'COMPLETED',
-        processingStartAt: new Date(),
-        processingEndAt: new Date(),
-        executionTimeMs: 0,
-      },
-    });
+  markProcessed: async (eventId: string): Promise<void> => {
+    // Already marked during webhook event creation
+    // This is a no-op to maintain API compatibility
   },
 };

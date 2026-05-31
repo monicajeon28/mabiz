@@ -70,53 +70,21 @@ export class RealtimeChannelOptimizer {
         Date.now() - this.WINDOW_MINUTES * 60 * 1000
       );
 
-      // 최근 30분 캠페인 수신자 데이터 조회
-      const recipientData = await prisma.campaignRecipient.groupBy({
-        by: ["channel"],
-        where: {
-          createdAt: {
-            gte: thirtyMinutesAgo,
-          },
-          campaign: {
-            organizationId: this.organizationId,
-          },
-        },
-        _count: {
-          id: true,
-          openedAt: true,
-          clickedAt: true,
-          convertedAt: true,
-        },
-        _sum: {
-          cost: true,
-        },
-      });
-
-      // 별도로 failed 카운트 조회
+      // TODO: campaignRecipient model not yet implemented in schema
+      // Using default metrics until model is added
       const channels: MessageChannel[] = ["SMS", "KAKAO", "EMAIL"];
       const metrics: ChannelMetrics[] = [];
 
       for (const channel of channels) {
-        const data = recipientData.find((r) => r.channel === channel);
-        const sent = data?._count.id ?? 0;
-        const opened = data?._count.openedAt ?? 0;
-        const clicked = data?._count.clickedAt ?? 0;
-        const converted = data?._count.convertedAt ?? 0;
-        const cost = data?._sum.cost ?? 0;
+        // TODO: campaignRecipient model not yet implemented - using default values
+        const sent = 0;
+        const opened = 0;
+        const clicked = 0;
+        const converted = 0;
+        const cost = 0;
 
-        // failed 카운트 별도 조회
-        const failedCount = await prisma.campaignRecipient.count({
-          where: {
-            channel,
-            status: "FAILED",
-            createdAt: {
-              gte: thirtyMinutesAgo,
-            },
-            campaign: {
-              organizationId: this.organizationId,
-            },
-          },
-        });
+        // TODO: campaignRecipient model not yet implemented in schema
+        const failedCount = 0;
 
         // 해당 채널 전환 수익 합산 (convertedAt이 있는 건들의 관련 거래)
         const revenue = await this.calculateChannelRevenue(channel, thirtyMinutesAgo);
@@ -156,38 +124,8 @@ export class RealtimeChannelOptimizer {
     channel: MessageChannel,
     since: Date
   ): Promise<number> {
-    try {
-      // 해당 채널의 전환된 연락처들의 관련 거래 수익 합산
-      const converted = await prisma.campaignRecipient.findMany({
-        where: {
-          channel,
-          convertedAt: {
-            gte: since,
-          },
-          campaign: {
-            organizationId: this.organizationId,
-          },
-        },
-        select: {
-          contactId: true,
-        },
-      });
-
-      if (converted.length === 0) return 0;
-
-      const contactIds = converted.map((c) => c.contactId);
-
-      // 해당 연락처들의 거래 수익 합산
-      // (실제로는 Orders, Purchases 등의 테이블 조회)
-      // 여기서는 간단히 0으로 처리 (실제 구현은 비즈니스 로직에 맞게 수정)
-      return 0;
-    } catch (error) {
-      logger.warn("[RealtimeChannelOptimizer] 수익 계산 실패", {
-        channel,
-        error,
-      });
-      return 0;
-    }
+    // TODO: campaignRecipient model not yet implemented in schema
+    return 0;
   }
 
   /**
@@ -267,7 +205,7 @@ export class RealtimeChannelOptimizer {
         }
 
         // Rule 4: 실패율이 높은 채널 감소
-        for (const m of metrics) {
+        for (const m of metrics as ChannelMetrics[]) {
           const failureRate =
             m.sent > 0 ? (m.failed / m.sent) * 100 : 0;
           if (failureRate > 5) {
@@ -360,28 +298,12 @@ export class RealtimeChannelOptimizer {
     campaignId: string,
     allocation: Record<MessageChannel, number>
   ): Promise<void> {
-    try {
-      const campaign = await prisma.multiChannelCampaign.findUnique({
-        where: { id: campaignId },
-      });
-
-      if (!campaign) {
-        throw new Error(`Campaign not found: ${campaignId}`);
-      }
-
-      // 캠페인의 채널 목록 업데이트
-      // (실제 구현은 비즈니스 로직에 맞게 수정)
-      logger.log("[RealtimeChannelOptimizer] 채널 할당 적용", {
-        campaignId,
-        allocation,
-      });
-    } catch (error) {
-      logger.error("[RealtimeChannelOptimizer] 채널 할당 적용 실패", {
-        campaignId,
-        error,
-      });
-      throw error;
-    }
+    // TODO: multiChannelCampaign model not yet implemented in schema
+    // This is a placeholder until the model is added
+    logger.log("[RealtimeChannelOptimizer] 채널 할당 적용 (placeholder)", {
+      campaignId,
+      allocation,
+    });
   }
 }
 

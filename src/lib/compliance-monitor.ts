@@ -51,17 +51,20 @@ export async function logAuditEvent(event: AuditEvent): Promise<void> {
     const auditLog = await prisma.executionLog.create({
       data: {
         organizationId: event.organizationId,
-        action: event.action,
-        resourceType: event.resource,
-        resourceId: event.resourceId,
-        userId: event.userId,
-        status: "SUCCESS",
-        details: JSON.stringify({
+        sourceType: event.action,
+        sourceId: event.userId,
+        sourceName: event.resource,
+        contactId: event.resourceId,
+        channel: "audit",
+        status: "SENT",
+        executeMonth: new Date().toISOString().substring(0, 7),
+        scheduledAt: new Date(),
+        sentAt: new Date(),
+        lensMetadata: {
           ipAddress: event.ipAddress,
           changes: maskedChanges,
           metadata: event.metadata,
-        }),
-        executedAt: new Date(),
+        },
       },
     });
 
@@ -107,7 +110,7 @@ export async function checkGDPRCompliance(
     const auditCount = await prisma.executionLog.count({
       where: {
         organizationId,
-        executedAt: {
+        sentAt: {
           gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30일
         },
       },
@@ -178,7 +181,7 @@ export async function generateComplianceReport(
   const compliance = await checkGDPRCompliance(organizationId);
 
   const auditCount = await prisma.executionLog.count({
-    where: { organizationId },
+    where: { organizationId, sentAt: { not: null } },
   });
 
   const report = `
@@ -222,7 +225,7 @@ export async function cleanupOldAuditLogs(
   const result = await prisma.executionLog.deleteMany({
     where: {
       ...(organizationId ? { organizationId } : {}),
-      executedAt: { lt: cutoffDate },
+      sentAt: { lt: cutoffDate },
     },
   });
 

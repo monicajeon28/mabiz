@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     const eventId = payload.eventId || uuidv4();
     const organizationId = session.organizationId;
 
-    const result = await adminHandler.processEvent(
+    const result = await adminHandler.process(
       eventId,
       organizationId,
       payload

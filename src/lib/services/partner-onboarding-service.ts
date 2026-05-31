@@ -32,9 +32,11 @@ interface OnboardingTemplate {
   subject?: string;
   body: string;
   variables: string[];
+  smsSectionKey?: string;
 }
 
 let ONBOARDING_TEMPLATES: Record<number, OnboardingTemplate> | null = null;
+let SMS_TEMPLATES: Record<string, OnboardingTemplate> | null = null;
 
 function initTemplates(): Record<number, OnboardingTemplate> {
   if (ONBOARDING_TEMPLATES) return ONBOARDING_TEMPLATES;
@@ -65,8 +67,8 @@ You're now set up to start earning commission! Here's how to make your first sal
 4. When they buy, you earn {{commissionRate}}% commission!
 
 💰 **Commission Example**
-If you bring in a $1,000 sale, you earn ${{commissionAmount}}.
-If you bring in 10 customers a month at $1,000 each, that's ${{monthlyEstimate}}/month.
+If you bring in a $1,000 sale, you earn $200.
+If you bring in 10 customers a month at $1,000 each, that's $2000/month.
 
 ❓ **Questions?**
 - Check FAQ: [Link]
@@ -85,17 +87,7 @@ Let's get you to your first win!
       'productName',
       'partnerLink',
       'commissionRate',
-      'commissionAmount',
-      'monthlyEstimate',
     ],
-  },
-
-  // Day 1: Welcome SMS
-  '1-SMS': {
-    day: 1,
-    type: 'SMS',
-    body: `{{partnerName}}, welcome! 🎉 You're set to earn {{commissionRate}}% commission. Start here: [Link]`,
-    variables: ['partnerName', 'commissionRate'],
   },
 
   // Day 3: Success Tips
@@ -167,14 +159,14 @@ You're one week in! Let's celebrate your progress:
 📊 Stats:
 - Total contacts: {{weeklyContacts}}
 - Sales completed: {{weeklySales}}
-- Commission earned so far: ${{weeklyCommission}}
+- Commission earned so far: ${{weeklyCommissionEarned}}
 - Ranking: {{rankPercentile}}th percentile
 
 {{celebrationMessage}}
 
 **Next Week Challenge**
 Our top performers sell about {{topPerformerSales}} per week.
-If you match that, you'll earn ~${{projectedWeeklyCommission}}/week.
+If you match that, you'll earn ~$600/week.
 
 Can you do it? We believe you can!
 
@@ -200,11 +192,10 @@ P.S. - Your next milestone is 30 days in. We have a special surprise for you the
       'partnerName',
       'weeklyContacts',
       'weeklySales',
-      'weeklyCommission',
+      'weeklyCommissionEarned',
       'rankPercentile',
       'celebrationMessage',
       'topPerformerSales',
-      'projectedWeeklyCommission',
       'organizationName',
     ],
   },
@@ -221,7 +212,7 @@ You made it to day 14! Here's your progress report:
 **Two Weeks Complete**
 📊 Your Performance:
 - Total sales: {{totalSales}}
-- Total commission: ${{totalCommission}}
+- Total commission: ${{totalCommissionEarned}}
 - Your rank among all partners: {{overallRank}}/{{totalPartners}}
 - Success rate (contacts→sales): {{successRate}}%
 
@@ -258,7 +249,7 @@ You've graduated from the onboarding program.
 - Invites to exclusive partner events
 
 **Your Next 30 Days**
-Goal: Reach ${{thirtyDayTarget}} in commission
+Goal: Reach $1500 in commission
 That would put you in the {{thirtyDayTier}} tier with extra perks!
 
 **Support**
@@ -272,14 +263,13 @@ You're going to crush it!
     variables: [
       'partnerName',
       'totalSales',
-      'totalCommission',
+      'totalCommissionEarned',
       'overallRank',
       'totalPartners',
       'successRate',
       'insightMessage',
       'topChannel',
       'topChannelName',
-      'thirtyDayTarget',
       'thirtyDayTier',
       'managerName',
       'managerEmail',
@@ -290,6 +280,21 @@ You're going to crush it!
   };
 
   return ONBOARDING_TEMPLATES;
+}
+
+function initSMSTemplates(): Record<string, OnboardingTemplate> {
+  if (SMS_TEMPLATES) return SMS_TEMPLATES;
+
+  SMS_TEMPLATES = {
+    '1-SMS': {
+      day: 1,
+      type: 'SMS',
+      body: `{{partnerName}}, welcome! 🎉 You're set to earn {{commissionRate}}% commission. Start here: [Link]`,
+      variables: ['partnerName', 'commissionRate'],
+    },
+  };
+
+  return SMS_TEMPLATES;
 }
 
 /**
@@ -325,6 +330,35 @@ export function getOnboardingTemplate(
 }
 
 /**
+ * Get SMS template and fill variables
+ */
+export function getSMSTemplate(
+  day: number,
+  variables: Record<string, any>
+): Partial<OnboardingTemplate> {
+  const smsTemplates = initSMSTemplates();
+  const smsKey = `${day}-SMS`;
+  const template = smsTemplates[smsKey];
+
+  if (!template) {
+    throw new Error(`SMS template not found for day ${day}`);
+  }
+
+  let body = template.body;
+
+  // Replace variables
+  for (const [key, value] of Object.entries(variables)) {
+    const placeholder = `{{${key}}}`;
+    body = body.replace(new RegExp(placeholder, 'g'), String(value));
+  }
+
+  return {
+    ...template,
+    body,
+  };
+}
+
+/**
  * Send onboarding email for a partner
  */
 export async function sendOnboardingEmail(
@@ -351,6 +385,12 @@ export async function sendOnboardingEmail(
     return false;
   }
 
+  // Calculate commission variables
+  const weeklySales = partner.contacts.filter((c) => c.purchasedAt).length;
+  const weeklyCommissionEarned = weeklySales * 200;
+  const totalSales = partner.contacts.filter((c) => c.purchasedAt).length;
+  const totalCommissionEarned = totalSales * 200;
+
   // Calculate variables for the template
   const variables: Record<string, any> = {
     organizationName: partner.organization.name,
@@ -358,8 +398,6 @@ export async function sendOnboardingEmail(
     productName: 'Cruise Package',
     partnerLink: `https://partner.example.com/${partner.id}`,
     commissionRate: '20',
-    commissionAmount: '200',
-    monthlyEstimate: '2000',
     painPoint: 'work stress and need a vacation',
     exampleName: 'John',
     productType: 'cruise',
@@ -367,22 +405,20 @@ export async function sendOnboardingEmail(
     conversationCount: Math.floor(Math.random() * 5) + 1,
     firstSaleProgress: Math.floor(Math.random() * 50) + 20,
     weeklyContacts: partner.contacts.length,
-    weeklySales: partner.contacts.filter((c) => c.purchasedAt).length,
-    weeklyCommission: partner.contacts.filter((c) => c.purchasedAt).length * 200,
+    weeklySales: weeklySales,
+    weeklyCommissionEarned: String(weeklyCommissionEarned),
     rankPercentile: Math.floor(Math.random() * 80) + 10,
     celebrationMessage:
       "You're off to a great start! Keep the momentum going.",
     topPerformerSales: 3,
-    projectedWeeklyCommission: 600,
-    totalSales: partner.contacts.filter((c) => c.purchasedAt).length,
-    totalCommission: partner.contacts.filter((c) => c.purchasedAt).length * 200,
+    totalSales: totalSales,
+    totalCommissionEarned: String(totalCommissionEarned),
     overallRank: Math.floor(Math.random() * 45) + 5,
     totalPartners: 50,
     successRate: 25,
     insightMessage: 'You have good closing skills - keep using that approach!',
     topChannel: 'Email',
     topChannelName: 'Email',
-    thirtyDayTarget: 1500,
     thirtyDayTier: 'Silver',
     managerName: 'Alex Johnson',
     managerEmail: 'alex@partner.com',
@@ -392,10 +428,13 @@ export async function sendOnboardingEmail(
   try {
     const template = getOnboardingTemplate(day, variables);
 
+    const emailSubject = template.subject || `Day ${day} Onboarding`;
+    const emailBody = template.body || '';
+
     await sendEmail(
       partner.email,
-      template.subject || `Day ${day} Onboarding`,
-      template.body || ''
+      emailSubject,
+      emailBody
     );
 
     // Log the send

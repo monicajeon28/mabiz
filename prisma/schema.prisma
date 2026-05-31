@@ -263,6 +263,8 @@ model Contact {
   smsDay2SentAt                    DateTime?
   smsDay3Sent                      Boolean   @default(false)
   smsDay3SentAt                    DateTime?
+  smsDay7Sent                      Boolean   @default(false)
+  smsDay7SentAt                    DateTime?
   // L3 Lens: 차별성 미인지형 고객 (Menu #49)
   competitorMentioned              Boolean   @default(false)
   competitorNames                  String[]  @default([]) // ["Royal", "MSC", "Disney", ...]
@@ -418,6 +420,7 @@ model Contact {
 
   @@unique([phone, organizationId])
   @@unique([bookingRef, organizationId], map: "uq_contact_booking_org") // P0-ISS-02: UPSERT 멱등성
+  @@unique([email, organizationId], map: "uq_contact_email_org") // Webhook: Customer email upsert
   @@index([organizationId])
   @@index([type])
   @@index([assignedUserId])

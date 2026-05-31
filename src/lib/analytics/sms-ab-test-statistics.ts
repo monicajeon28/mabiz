@@ -12,8 +12,6 @@
  * - Relative risk (RR)
  */
 
-import { erf } from "math";
-
 /**
  * 2x2 Contingency table for statistical tests
  * [A converted, A not converted]

@@ -151,7 +151,7 @@ export class ForecastAnomalyDetector {
         saleAmount: true,
         createdAt: true,
         affiliateCode: true,
-        customerId: true,
+        customerPhone: true,
       },
     });
 
@@ -170,14 +170,14 @@ export class ForecastAnomalyDetector {
     const smsMessages = await prisma.crmMarketingMessage.findMany({
       where: {
         organizationId: this.organizationId,
-        channel: 'SMS',
-        createdAt: { gte: startDate },
+        scheduledTime: { gte: startDate },
       },
       select: {
         id: true,
-        isOpened: true,
-        isConverted: true,
-        createdAt: true,
+        status: true,
+        scheduledTime: true,
+        sentTime: true,
+        conversionTime: true,
       },
     });
 
@@ -214,15 +214,15 @@ export class ForecastAnomalyDetector {
 
     // Process SMS metrics
     smsMessages.forEach((msg) => {
-      const dateKey = this.getDateKey(msg.createdAt);
+      const dateKey = this.getDateKey(msg.scheduledTime);
       if (!smsMetricsByDate.has(dateKey)) {
         smsMetricsByDate.set(dateKey, { sent: 0, opened: 0, converted: 0 });
       }
 
       const metrics = smsMetricsByDate.get(dateKey)!;
-      metrics.sent++;
-      if (msg.isOpened) metrics.opened++;
-      if (msg.isConverted) metrics.converted++;
+      if (msg.sentTime) metrics.sent++;
+      if (msg.status === 'opened') metrics.opened++;
+      if (msg.conversionTime) metrics.converted++;
     });
 
     // Build result
@@ -394,12 +394,11 @@ export class ForecastAnomalyDetector {
     const smsMessages = await prisma.crmMarketingMessage.findMany({
       where: {
         organizationId: this.organizationId,
-        channel: 'SMS',
-        createdAt: { gte: dayStart, lte: dayEnd },
+        scheduledTime: { gte: dayStart, lte: dayEnd },
       },
       select: {
         id: true,
-        isOpened: true,
+        status: true,
       },
     });
 
@@ -407,7 +406,7 @@ export class ForecastAnomalyDetector {
       return { factor: 'SMS Activity', impact: 0, confidence: 0, evidence: 'No SMS sent' };
     }
 
-    const openRate = (smsMessages.filter((m) => m.isOpened).length / smsMessages.length) * 100;
+    const openRate = (smsMessages.filter((m) => m.status === 'opened').length / smsMessages.length) * 100;
     const historicalRate = 25; // Historical average
 
     const impact = openRate - historicalRate;
@@ -435,7 +434,7 @@ export class ForecastAnomalyDetector {
         createdAt: { gte: dayStart, lte: dayEnd },
       },
       select: {
-        cost: true,
+        actualCostTotal: true,
       },
     });
 
@@ -448,7 +447,7 @@ export class ForecastAnomalyDetector {
       };
     }
 
-    const totalSpend = campaigns.reduce((sum, c) => sum + c.cost, 0);
+    const totalSpend = campaigns.reduce((sum, c) => sum + Number(c.actualCostTotal || 0), 0);
     const expectedROAS = 3.0; // Expected return on ad spend
     const expectedRevenue = totalSpend * expectedROAS;
 

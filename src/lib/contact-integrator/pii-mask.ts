@@ -134,7 +134,7 @@ export function maskPII(data: Contact360Response, options: MaskOptions): Contact
           ...data.partner,
           phone: maskPhone(data.partner.phone, policy),
           email: maskEmail(data.partner.email, policy),
-          name: maskName(data.partner.name, policy)
+          name: maskName(data.partner.name, policy) || ''
         }
       : null,
     communications: {

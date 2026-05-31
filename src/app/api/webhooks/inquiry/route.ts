@@ -375,21 +375,30 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Task 자동 생성 (24시간 이내 대응 필수)
+      // NextBestAction 자동 생성 (24시간 이내 대응 필수)
       const suggestedResponse = generateSuggestedResponse(lensDetection.detectedLens, inquiryType);
-      const dueAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24시간 후
 
-      await tx.task.create({
+      await tx.nextBestAction.create({
         data: {
           contactId,
           organizationId,
-          type: 'INQUIRY_RESPONSE',
-          title: `[${lensDetection.detectedLens}] ${name}님 문의 대응: ${inquiryType ?? '상담신청'}`,
-          description: `렌즈: ${lensDetection.detectedLens} (${suggestedResponse.lensLabel})\n신뢰도: ${lensDetection.confidence}%\n\n제안 대응:\n${suggestedResponse.suggestedScript}\n\nFollow-up: ${suggestedResponse.followUpTemplate}`,
-          priority: suggestedResponse.urgencyLevel === 'CRITICAL' ? 'HIGH' : 'NORMAL',
-          status: 'OPEN',
-          dueAt,
+          recommendedAction: 'CALL', // 문의는 콜로 대응
+          actionType: 'NURTURE',
+          priority: suggestedResponse.urgencyLevel === 'CRITICAL' ? 100 : 50,
+          message: {
+            type: 'INQUIRY_RESPONSE',
+            title: `[${lensDetection.detectedLens}] ${name}님 문의 대응: ${inquiryType ?? '상담신청'}`,
+            script: suggestedResponse.suggestedScript,
+            followUpTemplate: suggestedResponse.followUpTemplate,
+          },
+          reasoning: [
+            `렌즈: ${lensDetection.detectedLens} (${suggestedResponse.lensLabel})`,
+            `신뢰도: ${lensDetection.confidence}%`,
+          ],
+          status: 'PENDING',
         },
+      }).catch(() => {
+        // NextBestAction 생성 실패는 무시
       });
 
       // processedWebhookEvent 기록
@@ -423,7 +432,7 @@ export async function POST(req: NextRequest) {
       contactId: result.contactId,
       created: result.created,
       lens: result.lensType,
-      lensLabel: result.suggestedResponse.lensLabel,
+      lensLabel: result.suggestedResponse?.lensLabel,
     });
 
     return NextResponse.json({
@@ -433,7 +442,7 @@ export async function POST(req: NextRequest) {
       inquiryId: eventId || result.contactId,
       lens: {
         type: result.lensType,
-        label: result.suggestedResponse.lensLabel,
+        label: result.suggestedResponse?.lensLabel || '알 수 없음',
         confidence: lensDetection.confidence,
       },
       suggestedResponse: result.suggestedResponse,

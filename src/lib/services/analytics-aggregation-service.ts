@@ -212,8 +212,8 @@ export async function aggregateLensMetrics(
 
     cache.set(cacheKey, metrics);
     return metrics;
-  } catch (error) {
-    logger.error('aggregateLensMetrics failed:', error);
+  } catch (error: unknown) {
+    logger.error('aggregateLensMetrics failed:', error as object);
     throw error;
   }
 }
@@ -298,8 +298,8 @@ export async function aggregateDay0_3Metrics(
 
     cache.set(cacheKey, metrics);
     return metrics;
-  } catch (error) {
-    logger.error('aggregateDay0_3Metrics failed:', error);
+  } catch (error: unknown) {
+    logger.error('aggregateDay0_3Metrics failed:', error as object);
     throw error;
   }
 }
@@ -392,8 +392,8 @@ export async function aggregateChannelMetrics(
 
     cache.set(cacheKey, metrics);
     return metrics;
-  } catch (error) {
-    logger.error('aggregateChannelMetrics failed:', error);
+  } catch (error: unknown) {
+    logger.error('aggregateChannelMetrics failed:', error as object);
     throw error;
   }
 }
@@ -499,8 +499,8 @@ export async function generatePerformanceReport(
       recommendations,
       timestamp: new Date().toISOString(),
     };
-  } catch (error) {
-    logger.error('generatePerformanceReport failed:', error);
+  } catch (error: unknown) {
+    logger.error('generatePerformanceReport failed:', error as object);
     throw error;
   }
 }
