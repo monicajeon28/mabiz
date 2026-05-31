@@ -86,11 +86,11 @@ export const createCampaignLoader = () => {
 export const createSegmentLoader = () => {
   return new DataLoader(async (segmentIds: readonly string[]) => {
     try {
-      const segments = await prisma.customerSegment.findMany({
+      const segments = await prisma.contactGroup.findMany({
         where: { id: { in: segmentIds as string[] } },
         include: {
-          contacts: {
-            select: { id: true },
+          members: {
+            select: { contactId: true },
             take: 1000, // limit for performance
           },
         },
@@ -175,13 +175,13 @@ export const createCampaignMetricsLoader = () => {
 
           const totalSent = messages.length;
           const totalDelivered = messages.filter(
-            (m) => m.status === "DELIVERED"
+            (m) => m.status === "sent" || m.status === "opened" || m.status === "clicked" || m.status === "converted"
           ).length;
           const totalOpened = messages.filter(
-            (m) => m.openedAt !== null
+            (m) => m.status === "opened" || m.status === "clicked" || m.status === "converted"
           ).length;
           const totalClicked = messages.filter(
-            (m) => m.clickedAt !== null
+            (m) => m.status === "clicked" || m.status === "converted" || m.lastClickTime !== null
           ).length;
 
           return {

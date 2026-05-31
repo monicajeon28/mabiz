@@ -22,15 +22,16 @@ export async function detectPartnerChurnRisk(
   try {
     const partner = await prisma.partner.findUnique({
       where: { id: partnerId },
-      include: {
-        affiliateSales: {
-          orderBy: { createdAt: "desc" },
-          take: 180, // 6개월
-        },
-      },
     });
 
     if (!partner) return null;
+
+    // Fetch affiliate sales separately (Partner doesn't have direct relation)
+    const affiliateSales = await prisma.affiliateSale.findMany({
+      where: { affiliateCode: partnerId },
+      orderBy: { createdAt: "desc" },
+      take: 180, // 6개월
+    });
 
     let riskScore = 0;
     const signals = {
@@ -43,7 +44,7 @@ export async function detectPartnerChurnRisk(
     };
 
     // 1. No Sales in X Days
-    const lastSale = partner.affiliateSales?.[0];
+    const lastSale = affiliateSales?.[0];
     if (lastSale) {
       const daysSinceLastSale = Math.floor(
         (Date.now() - new Date(lastSale.createdAt).getTime()) /
@@ -63,15 +64,15 @@ export async function detectPartnerChurnRisk(
     }
 
     // 2. Revenue Decline (month-over-month)
-    if (partner.affiliateSales && partner.affiliateSales.length > 30) {
+    if (affiliateSales && affiliateSales.length > 30) {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
 
-      const recentRevenue = partner.affiliateSales
+      const recentRevenue = affiliateSales
         .filter((s) => new Date(s.createdAt) > thirtyDaysAgo)
-        .reduce((sum, s) => sum + (s.confirmedAmount || 0), 0);
+        .reduce((sum, s) => sum + (s.saleAmount - (s.refundedAmount || 0)), 0);
 
-      const previousRevenue = partner.affiliateSales
+      const previousRevenue = affiliateSales
         .filter(
           (s) =>
             new Date(s.createdAt) > sixtyDaysAgo &&
