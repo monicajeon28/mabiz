@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     }
 
     const organizationId = session.organizationId;
-    const period = req.nextUrl.searchParams.get('period') || getCurrentPeriod();
+    const period: string = req.nextUrl.searchParams.get('period') || getCurrentPeriod();
     const page = parseInt(req.nextUrl.searchParams.get('page') || '1', 10);
     const limit = parseInt(req.nextUrl.searchParams.get('limit') || '50', 10);
 

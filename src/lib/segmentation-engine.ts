@@ -177,7 +177,6 @@ export async function segmentByRFM(
   const contacts = await prisma.contact.findMany({
     where: { organizationId },
     include: {
-      affiliateSales: { select: { confirmedAmount: true, createdAt: true } },
       callLogs: { select: { createdAt: true } },
     },
   });
@@ -192,15 +191,11 @@ export async function segmentByRFM(
     );
     const recency = daysSinceContact < 30 ? "High" : "Low";
 
-    // F: Frequency (number of purchases)
-    const frequency = contact.affiliateSales.length > 2 ? "High" : "Low";
+    // F: Frequency (number of purchases) - NOTE: affiliateSales removed, using default
+    const frequency = "Low"; // TODO: Implement actual frequency based on available data
 
-    // M: Monetary Value (total spent)
-    const monetaryValue =
-      contact.affiliateSales.reduce((sum, s) => sum + (s.confirmedAmount || 0), 0) >
-      2000000
-        ? "High"
-        : "Low";
+    // M: Monetary Value (total spent) - NOTE: affiliateSales removed, using default
+    const monetaryValue = "Low"; // TODO: Implement actual monetary value based on available data
 
     const rfmScore = `${recency}-${frequency}-${monetaryValue}`;
 

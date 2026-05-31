@@ -33,7 +33,7 @@ export const createContactLoader = () => {
         where: { id: { in: contactIds as string[] } },
         include: {
           contactLensClassifications: true,
-          contactSegmentAssignments: true,
+          lensSequences: true,
         },
       });
 
@@ -61,7 +61,6 @@ export const createCampaignLoader = () => {
       const campaigns = await prisma.crmMarketingCampaign.findMany({
         where: { id: { in: campaignIds as string[] } },
         include: {
-          messages: true,
           abTestVariants: true,
         },
       });

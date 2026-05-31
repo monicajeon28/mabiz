@@ -42,7 +42,6 @@ const createDataLoaders = () => ({
     const campaigns = await prisma.crmMarketingCampaign.findMany({
       where: { id: { in: campaignIds as string[] } },
       include: {
-        messages: true,
         abTestVariants: true,
       },
     });
@@ -592,7 +591,7 @@ const mutationResolvers = {
         data: {
           name: name || campaign.name,
           status: status || campaign.status,
-          messageTemplate: messageTemplate || campaign.messageTemplate,
+          // messageTemplate removed - not a CrmMarketingCampaign field
         },
         include: {
           messages: true,

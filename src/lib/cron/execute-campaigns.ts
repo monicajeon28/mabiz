@@ -552,7 +552,7 @@ function calculateNextRetry(retryCount: number): Date | null {
  * - 실패: updateSendingStatus() 호출 (다음 재시도 예약)
  * - Phase 3-β: P1-2 Contact snapshot 캐시 사용 (Redis)
  */
-export async function retrySendingMessage(sendingId: string): Promise<void> {
+export async function retrySendingMessage(sendingId: string, redis: Redis): Promise<void> {
   try {
     logger.info("[Cron] 재시도 메시지 발송", { sendingId });
 
@@ -649,6 +649,10 @@ export async function retrySendingMessage(sendingId: string): Promise<void> {
  */
 export async function executePendingCampaigns() {
   const startTime = Date.now();
+  const redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+  });
 
   try {
     logger.info("[Cron] 캠페인 자동 발송 시작", {
@@ -789,7 +793,7 @@ export async function executePendingCampaigns() {
 
     for (const target of retryTargets) {
       try {
-        await retrySendingMessage(target.id);
+        await retrySendingMessage(target.id, redis);
       } catch (err) {
         logger.error("[Cron] 재시도 처리 실패", { sendingId: target.id, err });
       }
