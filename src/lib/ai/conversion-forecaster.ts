@@ -367,13 +367,12 @@ export class ConversionRateForecaster {
     const messages = await prisma.crmMarketingMessage.findMany({
       where: {
         organizationId: this.organizationId,
-        channel,
-        createdAt: {
+        scheduledTime: {
           gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
         },
       },
       select: {
-        isConverted: true,
+        status: true,
       },
     });
 
@@ -381,7 +380,7 @@ export class ConversionRateForecaster {
       return { rate: 0, count: 0 };
     }
 
-    const converted = messages.filter((m) => m.isConverted).length;
+    const converted = messages.filter((m) => m.status === 'converted').length;
     const rate = (converted / messages.length) * 100;
 
     return { rate, count: messages.length };
@@ -417,20 +416,19 @@ export class ConversionRateForecaster {
     factors: ConversionFactors,
     forecastDays: number
   ): Promise<SegmentConversionForecast[]> {
-    const contacts = await prisma.contact.findMany({
+    const classifications = await prisma.contactLensClassification.findMany({
       where: {
         organizationId: this.organizationId,
       },
       select: {
-        id: true,
-        lens: true,
+        lensType: true,
       },
     });
 
     // Group by lens (simplified segmentation)
     const byLens = new Map<string, number[]>();
-    contacts.forEach((contact) => {
-      const lens = contact.lens || 'UNKNOWN';
+    classifications.forEach((c) => {
+      const lens = c.lensType || 'UNKNOWN';
       if (!byLens.has(lens)) {
         byLens.set(lens, []);
       }
@@ -470,7 +468,7 @@ export class ConversionRateForecaster {
       const classifiedContacts = await prisma.contactLensClassification.findMany({
         where: {
           organizationId: this.organizationId,
-          classifiedAs: lens,
+          lensType: lens,
         },
         take: 1000,
       });
