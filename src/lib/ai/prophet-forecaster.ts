@@ -183,7 +183,7 @@ export class ProphetForecaster {
     } else {
       // Piecewise linear: detect changepoints and fit segments
       const changepoints = this.detectChangepoints(y);
-      this.config.changepoints = changepoints;
+      // Store as indices (number[]) not dates - config should be updated
       // For simplicity, use first segment's slope
       const firstSeg = y.slice(0, Math.min(changepoints[0] || n / 2, n));
       const k = (firstSeg[firstSeg.length - 1] - firstSeg[0]) / Math.max(1, firstSeg.length - 1);
