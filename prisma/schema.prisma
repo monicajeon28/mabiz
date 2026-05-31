@@ -2739,13 +2739,13 @@ model GmPassportSubmission {
   id             Int       @id @default(autoincrement())
   userId         Int
   tripId         Int?
-  token          String    @unique
+  token          String    @unique /// 필수: 여권 제출 고유 토큰
   tokenExpiresAt DateTime
   isSubmitted    Boolean   @default(false)
   submittedAt    DateTime?
   driveFolderUrl String?
   extraData      Json?
-  createdAt      DateTime  @default(now())
+  createdAt      DateTime  @default(now()) /// 필수: 제출 요청 생성 시간
   updatedAt      DateTime  @default(now()) @updatedAt
   trip           GmTrip?   @relation(fields: [tripId], references: [id])
   user           GmUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
