@@ -166,7 +166,7 @@ function createDataLoaders() {
     // Contact 로더
     contactLoader: new DataLoader(async (contactIds: readonly string[]) => {
       const contacts = await prisma.contact.findMany({
-        where: { id: { in: contactIds } },
+        where: { id: { in: [...contactIds] } },
         include: {
           organization: true
         }
@@ -213,21 +213,32 @@ function createDataLoaders() {
     groupsLoader: new DataLoader(async (contactIds: readonly string[]) => {
       const members = await prisma.contactGroupMember.findMany({
         where: { contactId: { in: contactIds } },
-        include: { group: { select: { id: true, name: true, color: true, ownerId: true } } }
+        select: { id: true, contactId: true, groupId: true, addedAt: true }
       });
+
+      // Get unique groupIds and fetch groups in bulk
+      const groupIds = [...new Set(members.map(m => m.groupId))];
+      const groups = await prisma.contactGroup.findMany({
+        where: { id: { in: groupIds } },
+        select: { id: true, name: true, color: true, ownerId: true }
+      });
+      const groupMap = new Map(groups.map(g => [g.id, g]));
 
       const grouped = new Map<string, Contact360Group[]>();
       members.forEach(member => {
-        const list = grouped.get(member.contactId) || [];
-        list.push({
-          id: member.group.id,
-          name: member.group.name,
-          color: member.group.color || '#6B7280',
-          ownerId: member.group.ownerId,
-          memberCount: 0, // TODO: 조회
-          addedAt: member.addedAt
-        });
-        grouped.set(member.contactId, list);
+        const group = groupMap.get(member.groupId);
+        if (group) {
+          const list = grouped.get(member.contactId) || [];
+          list.push({
+            id: group.id,
+            name: group.name,
+            color: group.color || '#6B7280',
+            ownerId: group.ownerId,
+            memberCount: 0, // TODO: 조회
+            addedAt: member.addedAt
+          });
+          grouped.set(member.contactId, list);
+        }
       });
 
       return contactIds.map(id => grouped.get(id) || []);
