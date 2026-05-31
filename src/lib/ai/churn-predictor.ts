@@ -52,8 +52,8 @@ export class ChurnPredictor {
     }
   ): Promise<ChurnSignal> {
     // Days since last purchase
-    const daysSinceLastPurchase = contact.lastPaymentDate
-      ? Math.floor((Date.now() - new Date(contact.lastPaymentDate).getTime()) / (1000 * 60 * 60 * 24))
+    const daysSinceLastPurchase = contact.lastPaymentAt
+      ? Math.floor((Date.now() - new Date(contact.lastPaymentAt).getTime()) / (1000 * 60 * 60 * 24))
       : 999; // If no purchase, very high
 
     // Purchase frequency trend (simplified: compare recent vs historical)
@@ -227,7 +227,7 @@ export class ChurnPredictor {
         }
       },
       take: limit,
-      orderBy: { lastPaymentDate: 'desc' }
+      orderBy: { lastPaymentAt: 'desc' }
     });
 
     const predictions = await Promise.all(

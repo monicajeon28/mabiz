@@ -397,9 +397,10 @@ export class EnsembleForecastManager {
     const avgConfidence = forecast.reduce((sum, f) => sum + f.confidence, 0) / forecast.length;
 
     // Recommend best model
+    const confidenceStr = avgConfidence > 0.85 ? 'high' : avgConfidence > 0.7 ? 'medium' : 'low';
     const recommendations = {
       bestModel: 'ensemble',
-      confidenceLevel: avgConfidence > 0.85 ? 'high' : avgConfidence > 0.7 ? 'medium' : 'low',
+      confidenceLevel: confidenceStr as 'high' | 'medium' | 'low',
       shouldUseEnsemble: true, // ensemble usually best
     };
 
