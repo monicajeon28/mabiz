@@ -590,13 +590,13 @@ const mutationResolvers = {
       const updated = await prisma.crmMarketingCampaign.update({
         where: { id },
         data: {
-          name: name || campaign.name,
+          title: name || campaign.title,
           status: status || campaign.status,
-          messageTemplate: messageTemplate || campaign.messageTemplate,
+          smsBody: messageTemplate || campaign.smsBody,
         },
         include: {
-          messages: true,
-          abTestVariants: true,
+          variants: true,
+          executionLogs: true,
         },
       });
 

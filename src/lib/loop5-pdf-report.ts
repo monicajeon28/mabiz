@@ -17,6 +17,7 @@ interface ReportData {
       formCompletionChange: number;
       revenueChange: number;
     };
+    byDay?: Array<{ day: number; rate: number }>;
   };
   segments: Array<{
     name: string;
