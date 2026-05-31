@@ -1,4 +1,4 @@
-type LogLevel = "log" | "warn" | "error";
+type LogLevel = "log" | "warn" | "error" | "debug";
 
 function formatMessage(level: LogLevel, message: string, data?: object): string {
   const ts = new Date().toISOString();
@@ -21,6 +21,15 @@ export const logger = {
       process.stdout.write(formatMessage("log", message, data) + "\n");
     } else if (!isServer) {
       console.log(formatMessage("log", message, data));
+    }
+  },
+  debug: (message: string, data?: object) => {
+    if (process.env.NODE_ENV !== "production") {
+      if (isServer) {
+        process.stdout.write(formatMessage("debug", message, data) + "\n");
+      } else {
+        console.debug(formatMessage("debug", message, data));
+      }
     }
   },
   warn: (message: string, data?: object) => {
