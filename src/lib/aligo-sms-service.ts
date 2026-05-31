@@ -268,7 +268,7 @@ export async function retryFailedPartnerSms(
       smsLog.partnerId,
       smsLog.day as 'day0' | 'day1' | 'day2' | 'day3',
       smsLog.riskLevel as 'RED' | 'YELLOW' | 'GREEN',
-      smsLog.messageType,
+      smsLog.messageType || 'PARTNER_ALERT',
       smsLog.messageContent,
       smsLog.phoneNumber || ''
     );
