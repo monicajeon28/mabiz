@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
     const renderContext: MessageContext = {
       contactId,
       contactName: contact.name || 'Guest',
-      contactPhone: contact.phone || undefined,
+      contactPhone: contact.phone ?? undefined,
       contactEmail: contact.email ?? undefined,
       segment: lens,
       lens: lens,
@@ -233,7 +233,7 @@ export async function POST(req: NextRequest) {
         scheduledSmsId = await sendScheduledSms({
           organizationId: session.organizationId,
           contactId,
-          phoneNumber: contact.phone,
+          phoneNumber: contact.phone || '',
           body: renderedMessage,
           sendAt: sendTime,
           campaignType: `PASONA_${lens || 'DEFAULT'}`,
