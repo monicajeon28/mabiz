@@ -237,11 +237,18 @@ export async function sendGreenIntervention(
   // Send email
   if (partner.organization.emailConfig) {
     try {
-      await sendEmail(
-        partner.email,
-        template.subject || 'Weekly Partner Update',
-        template.body || ''
-      );
+      const config = partner.organization.emailConfig;
+      await sendEmail({
+        smtpHost: config.smtpHost,
+        smtpPort: config.smtpPort,
+        smtpUser: config.smtpUser,
+        smtpPassEncrypted: config.smtpPassEncrypted,
+        senderName: config.senderName,
+        senderEmail: config.senderEmail,
+        to: partner.email,
+        subject: template.subject || 'Weekly Partner Update',
+        html: template.body || '',
+      });
     } catch (err) {
       logger.error('Failed to send GREEN intervention email', {
         partnerId,
@@ -311,12 +318,18 @@ export async function sendYellowIntervention(
 
   if (partner.email && partner.organization.emailConfig) {
     try {
-      await sendEmail(
-        partner.email,
-        emailTemplate.subject || 'Special Offer',
-        emailTemplate.body || '',
-        followUpDate
-      );
+      const config = partner.organization.emailConfig;
+      await sendEmail({
+        smtpHost: config.smtpHost,
+        smtpPort: config.smtpPort,
+        smtpUser: config.smtpUser,
+        smtpPassEncrypted: config.smtpPassEncrypted,
+        senderName: config.senderName,
+        senderEmail: config.senderEmail,
+        to: partner.email,
+        subject: emailTemplate.subject || 'Special Offer',
+        html: emailTemplate.body || '',
+      });
 
       actions.push({
         type: 'EMAIL',
@@ -386,11 +399,18 @@ export async function sendRedIntervention(
 
   if (partner.email && partner.organization.emailConfig) {
     try {
-      await sendEmail(
-        partner.email,
-        emailTemplate.subject || 'Let\'s Talk!',
-        emailTemplate.body || ''
-      );
+      const config = partner.organization.emailConfig;
+      await sendEmail({
+        smtpHost: config.smtpHost,
+        smtpPort: config.smtpPort,
+        smtpUser: config.smtpUser,
+        smtpPassEncrypted: config.smtpPassEncrypted,
+        senderName: config.senderName,
+        senderEmail: config.senderEmail,
+        to: partner.email,
+        subject: emailTemplate.subject || 'Let\'s Talk!',
+        html: emailTemplate.body || '',
+      });
 
       actions.push({
         type: 'EMAIL',
