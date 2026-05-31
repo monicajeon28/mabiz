@@ -12,7 +12,6 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { AligoClient, createAligoClient } from './client';
 import { getAligoMessageType } from './batch-sender';
-import type { ScheduledSms, Contact } from '@prisma/client';
 
 export interface DeliveryTrackerResult {
   checked: number;
@@ -20,10 +19,6 @@ export interface DeliveryTrackerResult {
   retried: number;
   errors: number;
 }
-
-type ScheduledSmsWithContact = ScheduledSms & {
-  contact: Contact | null;
-};
 
 /**
  * 배송 상태 추적 워커
@@ -65,6 +60,12 @@ export async function trackSmsDelivery(organizationId: string): Promise<Delivery
         status: 'SENT',
         sentAt: { gte: sevenDaysAgo, lte: oneHourAgo },
       },
+      select: {
+        id: true,
+        contactId: true,
+        message: true,
+        sentAt: true,
+      },
       take: 100, // 배치 처리
     });
 
@@ -85,10 +86,10 @@ export async function trackSmsDelivery(organizationId: string): Promise<Delivery
           where: {
             organizationId,
             contactId: sms.contactId,
-            sentAt: { gte: from, lte: to },
+            createdAt: { gte: from, lte: to },
             msgId: { not: null },
           },
-          orderBy: { sentAt: 'desc' },
+          orderBy: { createdAt: 'desc' },
           select: { msgId: true, phone: true },
         });
 
@@ -167,23 +168,13 @@ async function retryFailedSms(smsId: string, organizationId: string): Promise<bo
   try {
     const scheduledSms = await prisma.scheduledSms.findUnique({
       where: { id: smsId },
+      include: {
+        contact: { select: { phone: true } },
+      },
     });
 
-    if (!scheduledSms) {
-      logger.warn('[RetryFailedSms] SMS 정보 없음', { smsId });
-      return false;
-    }
-
-    // Contact 정보 별도 로드
-    const contact = scheduledSms.contactId
-      ? await prisma.contact.findUnique({
-          where: { id: scheduledSms.contactId },
-          select: { phone: true },
-        })
-      : null;
-
-    if (!contact?.phone) {
-      logger.warn('[RetryFailedSms] 연락처 정보 없음', { smsId });
+    if (!scheduledSms || !scheduledSms.contact?.phone) {
+      logger.warn('[RetryFailedSms] SMS 또는 연락처 정보 없음', { smsId });
       return false;
     }
 

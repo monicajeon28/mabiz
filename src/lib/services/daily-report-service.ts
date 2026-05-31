@@ -447,7 +447,7 @@ export class DailyReportGenerator {
           select: {
             id: true,
             purchasedAt: true,
-            segmentOverride: true,
+            status: true,
           },
         },
       },
@@ -542,17 +542,24 @@ export class DailyReportGenerator {
       where: {
         organizationId: this.orgId,
       },
+      include: {
+        _count: {
+          select: { contacts: true },
+        },
+      },
       take: 3,
       orderBy: {
-        createdAt: 'desc',
+        contacts: {
+          _count: 'desc',
+        },
       },
     });
 
     const sequences = topSequences.map((seq) => ({
       id: seq.id,
-      name: seq.sequenceType,
-      conversionRate: 0,
-      completionCount: 1,
+      name: seq.sequenceName,
+      conversionRate: seq.estimatedConversionRate || 0,
+      completionCount: seq.contacts?.length || 0,
       trend: 0,
     }));
 

@@ -255,7 +255,6 @@ export async function retryFailedPartnerSms(
       };
     }
 
-    const phoneNumber = smsLog.phoneNumber; // Type guard
     const result = await sendPartnerAlertSms(
       smsLog.organizationId,
       smsLog.partnerId,
@@ -263,7 +262,7 @@ export async function retryFailedPartnerSms(
       smsLog.riskLevel as 'RED' | 'YELLOW' | 'GREEN',
       smsLog.messageType,
       smsLog.messageContent,
-      phoneNumber
+      smsLog.phoneNumber
     );
 
     // 재시도 횟수 업데이트

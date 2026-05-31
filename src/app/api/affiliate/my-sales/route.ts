@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
     }> = [];
 
     if (pageIdParam) {
-      // 해당 페이지의 지난 3개월 트렌드 (Prisma parameterized query 사용)
+      // 해당 페이지의 지난 3개월 트렌드
       const prevMonth2 = new Date(year, month - 3, 1);
 
       monthlyTrend = await prisma.$queryRaw<
@@ -117,30 +117,34 @@ export async function GET(req: NextRequest) {
         ORDER BY month DESC
       `;
 
-      // 해당 페이지를 통한 고객들 (Prisma parameterized query 사용)
-      customers = await prisma.payAppPayment.findMany({
-        where: {
-          landingPageId: pageIdParam,
-          organizationId: orgId,
-          createdByUserId: userId,
-          createdAt: {
-            gte: startDate,
-            lt: endDate,
-          },
-        },
-        select: {
-          id: true,
-          customerName: true,
-          customerPhone: true,
-          customerEmail: true,
-          amount: true,
-          status: true,
-          paidAt: true,
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      });
+      // 해당 페이지를 통한 고객들
+      customers = await prisma.$queryRaw<
+        Array<{
+          id: string;
+          customerName: string;
+          customerPhone: string;
+          customerEmail: string | null;
+          amount: number;
+          status: string;
+          paidAt: Date | null;
+        }>
+      >`
+        SELECT
+          pap.id,
+          pap."customerName",
+          pap."customerPhone",
+          pap."customerEmail",
+          pap.amount,
+          pap.status,
+          pap."paidAt"
+        FROM "CrmPayAppPayment" pap
+        WHERE pap."landingPageId" = ${pageIdParam}
+          AND pap."organizationId" = ${orgId}
+          AND pap."createdByUserId" = ${userId}
+          AND pap."createdAt" >= ${startDate}
+          AND pap."createdAt" < ${endDate}
+        ORDER BY pap."createdAt" DESC
+      `;
     }
 
     // ── 통계 계산

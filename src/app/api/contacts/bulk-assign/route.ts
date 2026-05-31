@@ -41,28 +41,19 @@ export async function POST(req: Request) {
 
     // 트랜잭션: 일괄 업데이트 + 이력 기록
     const result = await prisma.$transaction(async (tx) => {
-      // 조건에 일치하는 Contact ID들 먼저 조회 (업데이트 전)
-      const toUpdate = await tx.contact.findMany({
+      // 소유권 확인 + 업데이트
+      const updated = await tx.contact.updateMany({
         where: {
           id: { in: contactIds },
           organizationId: orgId,
           deletedAt: null,
         },
-        select: { id: true },
-      });
-
-      const actualUpdatedIds = toUpdate.map(c => c.id);
-
-      // 소유권 확인 + 업데이트
-      const updated = await tx.contact.updateMany({
-        where: {
-          id: { in: actualUpdatedIds },
-        },
         data: { assignedUserId: assignToUserId },
       });
 
       // 이력 기록 (일괄) - 실제 업데이트된 ID들로 이력 생성
-      if (actualUpdatedIds.length > 0) {
+      if (updated.count > 0) {
+        const actualUpdatedIds = contactIds.filter((id, i) => i < (updated.count || 0));
         await tx.contactTransferLog.createMany({
           data: actualUpdatedIds.map((contactId) => ({
             contactId,

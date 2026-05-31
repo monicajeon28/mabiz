@@ -191,7 +191,7 @@ export async function GET(req: Request) {
 
     // 사용자의 최근 생성 내역 조회 (선택사항)
     // 실제 구현에서는 DB에서 로그 조회
-    const recentGenerations: { id: string; productId: string; createdAt: string; copy?: { headline: string; body: string; cta: string } }[] = [
+    const recentGenerations = [
       // { id: "...", productId: "...", createdAt: "...", copy: {...} }
     ];
 
