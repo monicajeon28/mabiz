@@ -78,7 +78,7 @@ export async function detectPartnerChurnRisk(
             new Date(s.createdAt) > sixtyDaysAgo &&
             new Date(s.createdAt) <= thirtyDaysAgo
         )
-        .reduce((sum, s) => sum + (s.confirmedAmount || 0), 0);
+        .reduce((sum, s) => sum + (s.saleAmount - (s.refundedAmount || 0)), 0);
 
       if (previousRevenue > 0) {
         const declinePercent =
@@ -123,9 +123,9 @@ export async function detectPartnerChurnRisk(
     }
 
     // 5. Lead Quality Decline (low confirmation rate)
-    const totalLeads = partner.affiliateSales?.length || 0;
+    const totalLeads = affiliateSales?.length || 0;
     const confirmedLeads =
-      partner.affiliateSales?.filter((s) => s.status === "CONFIRMED").length ||
+      affiliateSales?.filter((s) => s.status === "CONFIRMED").length ||
       0;
 
     if (totalLeads > 10) {

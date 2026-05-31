@@ -88,30 +88,31 @@ export async function calculatePartnerTier(
 
     const partner = await prisma.partner.findUnique({
       where: { id: partnerId },
-      include: {
-        affiliateSales: {
-          where: {
-            createdAt: {
-              gte: new Date(
-                targetDate.getFullYear(),
-                targetDate.getMonth(),
-                1
-              ),
-              lt: new Date(
-                targetDate.getFullYear(),
-                targetDate.getMonth() + 1,
-                1
-              ),
-            },
-          },
-        },
-      },
     });
 
     if (!partner) return "BRONZE";
 
-    const monthlyRevenue = partner.affiliateSales.reduce(
-      (sum, s) => sum + (s.confirmedAmount || 0),
+    // Fetch affiliate sales separately
+    const affiliateSales = await prisma.affiliateSale.findMany({
+      where: {
+        affiliateCode: partnerId,
+        createdAt: {
+          gte: new Date(
+            targetDate.getFullYear(),
+            targetDate.getMonth(),
+            1
+          ),
+          lt: new Date(
+            targetDate.getFullYear(),
+            targetDate.getMonth() + 1,
+            1
+          ),
+        },
+      },
+    });
+
+    const monthlyRevenue = affiliateSales.reduce(
+      (sum, s) => sum + (s.saleAmount - (s.refundedAmount || 0)),
       0
     );
 
@@ -203,27 +204,29 @@ export async function getTierUpgradeOpportunities(
 
     const partner = await prisma.partner.findUnique({
       where: { id: partnerId },
-      include: {
-        affiliateSales: {
-          where: {
-            createdAt: {
-              gte: new Date(
-                new Date().getFullYear(),
-                new Date().getMonth(),
-                1
-              ),
-            },
-          },
-        },
-      },
     });
 
     if (!partner) {
       return { currentTier, currentRevenue: 0 };
     }
 
-    const currentRevenue = partner.affiliateSales.reduce(
-      (sum, s) => sum + (s.confirmedAmount || 0),
+    // Fetch current month affiliate sales
+    const currentMonth = new Date();
+    const currentAffiliates = await prisma.affiliateSale.findMany({
+      where: {
+        affiliateCode: partnerId,
+        createdAt: {
+          gte: new Date(
+            currentMonth.getFullYear(),
+            currentMonth.getMonth(),
+            1
+          ),
+        },
+      },
+    });
+
+    const currentRevenue = currentAffiliates.reduce(
+      (sum, s) => sum + (s.saleAmount - (s.refundedAmount || 0)),
       0
     );
 
