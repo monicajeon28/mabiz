@@ -232,35 +232,41 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const template = await prisma.lensTemplate.upsert({
+    // 기존 템플릿 조회
+    const existing = await prisma.lensTemplate.findFirst({
       where: {
-        organizationId_lensType_templateType_day: {
-          organizationId,
-          lensType,
-          templateType,
-          day,
-        },
-      },
-      create: {
         organizationId,
         lensType,
         templateType,
         day,
-        title,
-        body: templateBody,
-        psychologyPrinciple,
-        expectedClickRate: estimatedClickRate || 0.5,
-        sendDelayMinutes: sendDelayMinutes || 5,
-        version: 1,
-      },
-      update: {
-        title,
-        body: templateBody,
-        psychologyPrinciple,
-        expectedClickRate: estimatedClickRate || 0.5,
-        sendDelayMinutes: sendDelayMinutes || 5,
       },
     });
+
+    const template = existing
+      ? await prisma.lensTemplate.update({
+          where: { id: existing.id },
+          data: {
+            title,
+            body: templateBody,
+            psychologyPrinciple,
+            expectedClickRate: estimatedClickRate || 0.5,
+            sendDelayMinutes: sendDelayMinutes || 5,
+          },
+        })
+      : await prisma.lensTemplate.create({
+          data: {
+            organizationId,
+            lensType,
+            templateType,
+            day,
+            title,
+            body: templateBody,
+            psychologyPrinciple,
+            expectedClickRate: estimatedClickRate || 0.5,
+            sendDelayMinutes: sendDelayMinutes || 5,
+            version: 1,
+          },
+        });
 
     return NextResponse.json({
       success: true,

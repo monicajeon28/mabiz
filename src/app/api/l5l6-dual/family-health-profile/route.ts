@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { validateAuth } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 
@@ -192,7 +193,7 @@ export async function POST(req: NextRequest) {
     await prisma.contact.update({
       where: { id: contactId },
       data: {
-        familyHealthProfile: familyProfile as unknown as Record<string, unknown>,
+        familyHealthProfile: familyProfile as Prisma.InputJsonValue,
         selfProjectionScore: totalFamilyRiskScore,
         compoundHealthRisk: criticalMemberCount >= 1,
         selfProjectionSequenceStartedAt: new Date(),

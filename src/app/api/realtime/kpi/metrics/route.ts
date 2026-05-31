@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    logger.error('Error fetching real-time metrics', error);
+    logger.error('Error fetching real-time metrics', { error: error instanceof Error ? error.message : String(error) });
 
     // Return partial data even on error
     return NextResponse.json(

@@ -169,7 +169,8 @@ export async function GET(req: NextRequest) {
       lastUpdated: new Date().toISOString(),
     });
   } catch (error: unknown) {
-    logger.error('Loop5 A/B test results error:', error instanceof Error ? error.message : String(error));
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    logger.error('Loop5 A/B test results error:', { message: errorMsg });
     return NextResponse.json(
       { error: 'Failed to fetch A/B test results' },
       { status: 500 }

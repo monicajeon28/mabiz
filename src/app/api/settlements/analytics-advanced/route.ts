@@ -288,7 +288,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<AnalyticsR
     if (includeRisk) {
       const riskData = results[queryIndex++];
       riskAnalysis = riskData.reduce(
-        (acc, row) => {
+        (acc: any, row: any) => {
           const level = row.riskLevel.toLowerCase();
           acc[`${level}Risk`] = {
             count: row.count,
@@ -304,7 +304,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<AnalyticsR
     if (includePartners) {
       const tierData = results[queryIndex++];
       partnersByTier = tierData.reduce(
-        (acc, row) => {
+        (acc: Record<string, { count: number; totalPayout: string }>, row: any) => {
           acc[row.tier] = {
             count: row.count,
             totalPayout: row.totalPayout,
@@ -323,7 +323,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<AnalyticsR
       paymentDistribution: {
         timeSeries: paymentDistribution,
         byDayOfWeek: byDayOfWeek.reduce(
-          (acc, row) => {
+          (acc: Record<string, string>, row: any) => {
             acc[row.dayOfWeek] = row.total;
             return acc;
           },

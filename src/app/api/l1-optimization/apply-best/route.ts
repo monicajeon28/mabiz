@@ -198,19 +198,21 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1ApplyBe
       autoSendSMS,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        selectedVariantId: selectedVariant.id,
-        selectedVariantType: selectedVariant.variantType,
-        copyAngle: selectedVariant.copyAngle,
-        psychologyLens: selectedVariant.psychologyLens,
-        messageTemplate: selectedVariant.messageTemplate,
-        expectedConversionRate: selectedVariant.conversionRate || 0,
-        reasonForSelection,
-        smsSentAt,
-      },
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          selectedVariantId: selectedVariant.id,
+          selectedVariantType: selectedVariant.variantType,
+          copyAngle: selectedVariant.copyAngle,
+          psychologyLens: selectedVariant.psychologyLens,
+          messageTemplate: selectedVariant.messageTemplate,
+          expectedConversionRate: selectedVariant.conversionRate || 0,
+          reasonForSelection,
+          smsSentAt,
+        },
+      } as L1ApplyBestResponse
+    );
   } catch (error) {
     logger.error('[L1] apply-best route error', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(

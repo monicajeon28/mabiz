@@ -64,6 +64,7 @@ export async function GET(
         lensLabel: true,
         confidenceScore: true,
         identificationMethod: true,
+        questionnaireResponses: true,
         decisionLevel: true,
         readinessScore: true,
         priorityLevel: true,

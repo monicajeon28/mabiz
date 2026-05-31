@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     // Fall back to polling endpoint for metrics
     return handleHttpMetricsRequest(organizationId);
   } catch (error) {
-    logger.error('KPI route error', error);
+    logger.error('KPI route error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -98,7 +98,7 @@ async function handleHttpMetricsRequest(organizationId: string) {
       }
     );
   } catch (error) {
-    logger.error('Error fetching metrics', error);
+    logger.error('Error fetching metrics', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       {
         ok: false,
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
           // ws.send(JSON.stringify(event));
           logger.debug('Event broadcasted', { type, organizationId });
         } catch (err) {
-          logger.error('Failed to send to client', err);
+          logger.error('Failed to send to client', { error: err instanceof Error ? err.message : String(err) });
         }
       }
     }
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    logger.error('Error processing event', error);
+    logger.error('Error processing event', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       {
         ok: false,
