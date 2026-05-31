@@ -250,14 +250,16 @@ function SmsTab() {
 
   const insertAtCursor = (token: string) => {
     const el = textareaRef.current;
-    if (!el) { setMessage(prev => prev + token); return; }
-    const start = el.selectionStart ?? message.length;
-    const end   = el.selectionEnd   ?? message.length;
-    const next  = message.substring(0, start) + token + message.substring(end);
-    setMessage(next);
-    requestAnimationFrame(() => {
-      el.selectionStart = el.selectionEnd = start + token.length;
-      el.focus();
+    setMessage(prev => {
+      if (!el) return prev + token;
+      const start = el.selectionStart ?? prev.length;
+      const end   = el.selectionEnd   ?? prev.length;
+      const next  = prev.substring(0, start) + token + prev.substring(end);
+      requestAnimationFrame(() => {
+        el.selectionStart = el.selectionEnd = start + token.length;
+        el.focus();
+      });
+      return next;
     });
   };
 

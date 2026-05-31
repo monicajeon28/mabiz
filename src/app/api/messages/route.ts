@@ -132,14 +132,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // PASONA 템플릿 로드
+    // PASONA 템플릿 로드 - messageKey 형식 검증
+    if (!messageKey || typeof messageKey !== 'string' || messageKey.trim().length === 0) {
+      logger.warn('[messages] Missing or invalid messageKey', { messageKey, messageType });
+      return NextResponse.json(
+        { ok: false, message: 'messageKey is required and must be a non-empty string' },
+        { status: 400 }
+      );
+    }
+
     const dayMatch = messageKey.match(/day(\d)/i);
     const dayNumber = dayMatch ? dayMatch[1] : '0';
     const parsedDay = parseInt(dayNumber, 10);
-    if (isNaN(parsedDay)) {
+    if (isNaN(parsedDay) || parsedDay < 0 || parsedDay > 30) {
       logger.warn('[messages] Invalid day number', { messageKey, dayNumber });
       return NextResponse.json(
-        { ok: false, message: 'Invalid messageKey format' },
+        { ok: false, message: 'Invalid messageKey format - day number must be 0-30' },
         { status: 400 }
       );
     }
