@@ -225,11 +225,11 @@ export class DailyReportGenerator {
         },
       },
       _sum: {
-        amount: true,
+        saleAmount: true,
       },
     });
 
-    return Number(sales._sum.amount || 0) / 100; // Convert cents to dollars
+    return Number(sales._sum.saleAmount || 0) / 100; // Convert cents to dollars
   }
 
   private async getConversionMetrics() {
@@ -456,15 +456,16 @@ export class DailyReportGenerator {
     const lensMap: Record<string, { count: number; converted: number; revenue: number }> = {};
 
     for (const c of classifications) {
-      const lens = c.lensName || 'UNKNOWN';
+      const lens = c.lensType || 'UNKNOWN';
       if (!lensMap[lens]) {
         lensMap[lens] = { count: 0, converted: 0, revenue: 0 };
       }
       lensMap[lens].count++;
 
-      if (c.contact.purchasedAt && c.contact.purchasedAt >= today) {
-        lensMap[lens].converted++;
-      }
+      // TODO: Need to fetch contact data separately
+      // if (c.contact.purchasedAt && c.contact.purchasedAt >= today) {
+      //   lensMap[lens].converted++;
+      // }
     }
 
     const byLens: Record<string, any> = {};
