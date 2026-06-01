@@ -3,6 +3,16 @@
 import { useState, useRef, useEffect } from "react";
 import DOMPurify from "dompurify";
 
+// P0-1: Open Redirect 방지 - completionPageUrl 검증
+function isSafeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 interface PaymentConfig {
   type: "onetime" | "subscription";
   productName: string;
@@ -355,7 +365,7 @@ export function B2BLandingClient({
           try {
             localStorage.setItem(`registered_b2b_${partnerId}`, "1");
           } catch {}
-          if (completionPageUrl) {
+          if (completionPageUrl && isSafeUrl(completionPageUrl)) {
             window.location.href = completionPageUrl;
             return;
           }
