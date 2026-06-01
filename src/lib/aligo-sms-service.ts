@@ -265,7 +265,7 @@ export async function retryFailedPartnerSms(
 
     const result = await sendPartnerAlertSms(
       smsLog.organizationId,
-      smsLog.partnerId,
+      smsLog.partnerId ?? '',
       (smsLog.day ?? 'day0') as 'day0' | 'day1' | 'day2' | 'day3',
       (smsLog.riskLevel ?? 'YELLOW') as 'RED' | 'YELLOW' | 'GREEN',
       smsLog.messageType ?? 'PARTNER_ALERT',

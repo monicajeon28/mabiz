@@ -10,6 +10,7 @@ import {
 import {
   sendDay0Sms,
   generateDayNMessage,
+  SmsSendResult,
 } from '@/lib/loop5-sms-service';
 
 /**
@@ -88,9 +89,10 @@ export async function integrateContactWithLoop5Sms(
     // 2. Day 0 SMS 즉시 발송 (선택)
     // ============================================
 
-    let day0SmsResult = {
+    let day0SmsResult: SmsSendResult = {
       success: false,
       error: 'Skipped',
+      retryable: false,
     };
 
     if (sendDay0Immediately) {

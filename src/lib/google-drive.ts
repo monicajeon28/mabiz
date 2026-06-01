@@ -5,7 +5,7 @@
 import { google } from 'googleapis';
 import { logger } from '@/lib/logger';
 
-const CALL_LOG_FOLDER_ID = process.env.GOOGLE_DRIVE_CALL_LOG_FOLDER_ID;
+const CALL_LOG_FOLDER_ID = process.env.GOOGLE_DRIVE_CALL_LOG_FOLDER_ID ?? '';
 
 function getDriveClient() {
   if (!CALL_LOG_FOLDER_ID) {

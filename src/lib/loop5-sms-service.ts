@@ -25,7 +25,7 @@ interface SMSTemplateInput {
   };
 }
 
-interface SmsSendResult {
+export interface SmsSendResult {
   success: boolean;
   smsId?: string;
   error?: string;
