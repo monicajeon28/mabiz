@@ -122,7 +122,7 @@ export class OfferOptimizer {
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
       // 구매 이력 조회 (실제 테이블명 조정 필요)
-      const purchases = []; // await contact.purchases;
+      const purchases: any[] = []; // await contact.purchases;
       const ltv = purchases.length > 0 ? purchases.length * 100 : 0;
       const avgOrderValue =
         purchases.length > 0

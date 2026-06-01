@@ -214,12 +214,12 @@ export class OptimalSendTimeOptimizer {
     channel: MessageChannel
   ): Promise<OptimalSendTime> {
     try {
-      // 세그먼트의 모든 연락처의 최적 시간을 집계
-      const segment = await prisma.segment.findUnique({
+      // 세그먼트(ContactGroup)의 모든 연락처의 최적 시간을 집계
+      const segment = await prisma.contactGroup.findUnique({
         where: { id: segmentId },
         include: {
           members: {
-            select: { id: true },
+            select: { contactId: true },
             take: 100, // 최대 100명의 평균
           },
         },
@@ -233,7 +233,7 @@ export class OptimalSendTimeOptimizer {
       // 각 연락처의 최적 시간을 구하고 평균
       const times: OptimalSendTime[] = [];
       for (const member of segment.members) {
-        const optimizer = new OptimalSendTimeOptimizer(member.id);
+        const optimizer = new OptimalSendTimeOptimizer(member.contactId);
         const time = await optimizer.findBestSendTime(channel);
         times.push(time);
       }

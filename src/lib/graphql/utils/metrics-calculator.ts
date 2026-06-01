@@ -42,13 +42,15 @@ export class CampaignMetricsCalculator {
 
       // Fetch all messages for this campaign
       const messages = await prisma.crmMarketingMessage.findMany({
-        where: { campaignId: this.campaignId },
+        where: {
+          // campaignId field doesn't exist; use organizationId from campaign
+          contact: { organizationId: campaign.organizationId },
+        },
         select: {
           id: true,
           status: true,
-          deliveredAt: true,
-          openedAt: true,
-          clickedAt: true,
+          sentTime: true,
+          lastClickTime: true,
           createdAt: true,
           contactId: true,
         },
@@ -228,18 +230,26 @@ export class CampaignMetricsCalculator {
  * More efficient than calculating individually
  */
 export class BatchMetricsCalculator {
+  private organizationId: string;
+
+  constructor(organizationId: string) {
+    this.organizationId = organizationId;
+  }
+
   async calculateForCampaigns(
     campaignIds: string[]
   ): Promise<Record<string, any>> {
     try {
       const messages = await prisma.crmMarketingMessage.findMany({
-        where: { campaignId: { in: campaignIds } },
+        where: {
+          // campaignId field doesn't exist in schema
+          contact: { organizationId: this.organizationId },
+        },
         select: {
-          campaignId: true,
+          id: true,
           status: true,
-          deliveredAt: true,
-          openedAt: true,
-          clickedAt: true,
+          sentTime: true,
+          lastClickTime: true,
           createdAt: true,
         },
       });

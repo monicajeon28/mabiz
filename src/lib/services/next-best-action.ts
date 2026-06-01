@@ -269,7 +269,7 @@ export class NextBestActionEngine {
         deletedAt: null
       },
       take: limit,
-      orderBy: { lastPaymentDate: 'desc' }
+      orderBy: { lastPaymentAt: 'desc' }
     });
 
     const nbas = await Promise.all(

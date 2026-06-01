@@ -214,6 +214,7 @@ model Contact {
   utmSource                        String?
   deletedAt                        DateTime?
   partnerId                        String?
+  status                           String?   @db.VarChar(20) // "ACTIVE", "INACTIVE", "PENDING_DELETION" 등
   phoneEncrypted                   String?
   phoneHash                        String?
   emailEncrypted                   String?
@@ -554,6 +555,7 @@ model ContactLensSequence {
   retryCount        Int                       @default(0)
   startedAt         DateTime                  @default(now())
   completedAt       DateTime?
+  createdAt         DateTime                  @default(now()) // 시퀀스 생성 시간
   classification    ContactLensClassification @relation(fields: [classificationId], references: [id], onDelete: Cascade)
   contact           Contact                   @relation(fields: [contactId], references: [id], onDelete: Cascade)
   organization      Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -946,6 +948,8 @@ model SmsLog {
   psychologyLens String? // e.g., "LOSS_AVERSION", "SCARCITY", "URGENCY"
   trackingId     String?  @unique // SMS 추적 ID (메시지 수신/오픈/클릭 추적용)
   trackingUrl    String?  // SMS 내 클릭 추적 URL
+  createdAt      DateTime @default(now()) // SMS 생성 시간
+  cost           Int? // SMS 비용 (센트 단위)
 
   @@index([organizationId, sentAt])
   @@index([contactId, sentAt])
@@ -1564,6 +1568,7 @@ model AiCallLog {
   analysisStatus String          @default("PENDING")
   productCode    String          @default("ALL")
   uploadedAt     DateTime        @default(now())
+  createdAt      DateTime        @default(now()) // 콜로그 생성 시간
   analysis       AiCallAnalysis?
   organization   Organization    @relation(fields: [organizationId], references: [id])
 
@@ -5878,6 +5883,8 @@ model CrmMarketingMessage {
   clickCount     Int       @default(0)
   lastClickTime  DateTime?
   conversionTime DateTime?
+  clickedAt      DateTime? // 클릭 시간 (추적용)
+  deliveredAt    DateTime? // 발송 완료 시간
 
   // A/B 테스트
   abTestGroup          String? // null or "default" or "variantb"
@@ -5889,6 +5896,7 @@ model CrmMarketingMessage {
 
   // 예약 연결
   bookingId String?
+  campaignId String? // 캠페인 ID (참조)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

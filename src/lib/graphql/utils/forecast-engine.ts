@@ -340,7 +340,8 @@ export class ForecastEngine {
       },
       select: {
         createdAt: true,
-        clickedAt: true,
+        lastClickTime: true,
+        status: true,
       },
     });
 
@@ -385,7 +386,8 @@ export class ForecastEngine {
       },
       select: {
         createdAt: true,
-        clickedAt: true,
+        lastClickTime: true,
+        status: true,
       },
     });
 
