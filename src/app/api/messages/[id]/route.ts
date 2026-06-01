@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getMabizSession } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -12,10 +14,10 @@ export const runtime = 'nodejs';
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { id } = params;
-    const organizationId = req.headers.get('x-organization-id') || '';
+    const session = await getMabizSession();
 
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Missing organizationId' }, { status: 400 });
+    if (!session?.organizationId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const message = await prisma.crmMarketingMessage.findUnique({
@@ -37,7 +39,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     // 테넌트 격리 확인
-    if (message.organizationId !== organizationId) {
+    if (message.organizationId !== session.organizationId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -54,6 +56,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
+// PUT body 검증 스키마
+const UpdateMessageSchema = z.object({
+  status: z.enum(['SENT', 'PENDING', 'DELETED']).optional(),
+  content: z.string().optional(),
+  segment: z.string().optional(),
+  variant: z.string().optional()
+});
+
 /**
  * PUT /api/messages/[id]
  * Message 수정
@@ -64,12 +74,15 @@ export async function PUT(
 ) {
   try {
     const { id } = params;
-    const organizationId = req.headers.get('x-organization-id') || '';
+    const session = await getMabizSession();
     const body = await req.json();
 
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Missing organizationId' }, { status: 400 });
+    if (!session?.organizationId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    // Body 검증
+    const updateData = UpdateMessageSchema.parse(body);
 
     // 기존 Message 확인
     const existing = await prisma.crmMarketingMessage.findUnique({
@@ -82,27 +95,39 @@ export async function PUT(
     }
 
     // 테넌트 격리 확인
-    if (existing.organizationId !== organizationId) {
+    if (existing.organizationId !== session.organizationId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const updatedMessage = await prisma.crmMarketingMessage.update({
       where: { id },
       data: {
-        content: body.content || body.contentPreview,
-        status: body.status,
+        ...(updateData.content && { content: updateData.content }),
+        ...(updateData.status && { status: updateData.status }),
+        ...(updateData.segment && { segment: updateData.segment }),
+        ...(updateData.variant && { variant: updateData.variant }),
         updatedAt: new Date()
       }
     });
 
     logger.log('[Message] PUT [id] 완료', {
       id,
-      organizationId,
-      status: body.status
+      organizationId: session.organizationId,
+      updatedFields: Object.keys(updateData)
     });
 
     return NextResponse.json(updatedMessage);
   } catch (err) {
+    if (err instanceof z.ZodError) {
+      logger.warn('[Message] PUT [id] 검증 오류', {
+        id: params.id,
+        errors: err.issues
+      });
+      return NextResponse.json(
+        { error: 'Invalid request body', details: err.issues },
+        { status: 400 }
+      );
+    }
     logger.error('[Message] PUT [id] 실패', {
       id: params.id,
       error: err instanceof Error ? err.message : String(err)
@@ -124,10 +149,10 @@ export async function DELETE(
 ) {
   try {
     const { id } = params;
-    const organizationId = req.headers.get('x-organization-id') || '';
+    const session = await getMabizSession();
 
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Missing organizationId' }, { status: 400 });
+    if (!session?.organizationId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // 기존 Message 확인
@@ -141,7 +166,7 @@ export async function DELETE(
     }
 
     // 테넌트 격리 확인
-    if (existing.organizationId !== organizationId) {
+    if (existing.organizationId !== session.organizationId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -156,7 +181,7 @@ export async function DELETE(
 
     logger.log('[Message] DELETE [id] 완료', {
       id,
-      organizationId
+      organizationId: session.organizationId
     });
 
     return NextResponse.json({ ok: true, deletedAt: new Date() });
