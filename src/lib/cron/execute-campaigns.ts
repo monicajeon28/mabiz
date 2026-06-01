@@ -934,10 +934,11 @@ async function createSendingHistory(params: {
     // Phase 3-γ: P0-1 + P1-1 트랜잭션으로 원자성 보장 + 1초 타임아웃
     const result = await db.$transaction(
       async (transaction) => {
+        if (!transaction) throw new Error('Transaction initialization failed'); // P0-12: null safety for tx
         tx = transaction; // 명시적 추적용 (finally에서 정리)
 
         // Step 1: SendingHistory 생성 (필수)
-        const sendingHistory = await tx!.sendingHistory.create({
+        const sendingHistory = await tx.sendingHistory.create({
           data: {
             campaignId: params.campaignId,
             contactId: params.contactId,
@@ -970,7 +971,7 @@ async function createSendingHistory(params: {
         // Step 2: ExecutionLog 생성 시도 (선택, Feature Flag 체크)
         if (getFeatureFlag("ENABLE_EXECUTION_LOG_WRAPPER")) {
           try {
-            await tx!.executionLog.create({
+            await tx.executionLog.create({
               data: {
                 id: params.executionLogId || sendingHistory.id, // 동일 ID로 추적
                 organizationId: params.organizationId,

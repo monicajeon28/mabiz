@@ -101,6 +101,12 @@ export async function POST(req: Request) {
       const token = authHeader.slice(7);
       const payappToken = process.env.PAYAPP_WEBHOOK_TOKEN;
 
+      // [P0-4] Bearer Token 길이 검증: 최소 32자 이상 (강력한 토큰 필수)
+      if (token.length < 32) {
+        logger.warn("[PayApp Webhook] Bearer token 길이 부족 (최소 32자 필요) — 요청 차단", { requestIP, tokenLength: token.length });
+        return new Response("FAIL", { status: 403 });
+      }
+
       if (payappToken && (token.length !== payappToken.length || !timingSafeEqual(Buffer.from(token), Buffer.from(payappToken)))) {
         logger.warn("[PayApp Webhook] Bearer token 불일치 — 인증 실패", { requestIP });
         return new Response("FAIL", { status: 401 });
@@ -174,6 +180,17 @@ export async function POST(req: Request) {
     const customerName = params.get("pay_memo")
       ? params.get("pay_memo")!
       : (params.get("recvphone") ? "" : "");
+
+    // [P0-8] orderId/mulNo 형식 검증: 안전한 문자만 허용
+    const SAFE_ID_REGEX = /^[a-zA-Z0-9_\-]{1,50}$/;
+    if (orderId && !SAFE_ID_REGEX.test(orderId)) {
+      logger.warn("[PayApp Webhook] orderId 형식 위반 — 요청 차단", { requestIP, orderId: orderId.substring(0, 10) + "***" });
+      return new Response("FAIL", { status: 400 });
+    }
+    if (mulNo && !SAFE_ID_REGEX.test(mulNo)) {
+      logger.warn("[PayApp Webhook] mulNo 형식 위반 — 요청 차단", { requestIP, mulNo: mulNo.substring(0, 10) + "***" });
+      return new Response("FAIL", { status: 400 });
+    }
 
     // pay_state별 상태 변환
     const status = parsePayState(payState);

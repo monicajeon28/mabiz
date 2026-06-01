@@ -190,8 +190,12 @@ export async function POST(req: Request, { params }: Params) {
 
       // autoFunnelId 직접 퍼널 시작 (그룹 경유 없이)
       if (!funnelStarted && landingPage.autoFunnelId) {
-        try {
-          const enrollRes = await fetch(new URL(`/api/funnels/${landingPage.autoFunnelId}/enroll`, req.url).toString(), {
+        // P0-10: UUID 형식 검증 (path traversal 방지)
+        if (!/^[a-f0-9\-]{36}$/.test(landingPage.autoFunnelId)) {
+          logger.error('[LandingRegister] 잘못된 autoFunnelId 형식', { autoFunnelId: landingPage.autoFunnelId });
+        } else {
+          try {
+            const enrollRes = await fetch(new URL(`/api/funnels/${landingPage.autoFunnelId}/enroll`, req.url).toString(), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ contactId: contact.id, sendNow: false }),
@@ -204,7 +208,8 @@ export async function POST(req: Request, { params }: Params) {
               data: { funnelStarted: true },
             }).catch(() => {});
           }
-        } catch { /* 퍼널 시작 실패해도 등록은 유지 */ }
+          } catch { /* 퍼널 시작 실패해도 등록은 유지 */ }
+        }
       }
 
       // 그룹 배정 + 퍼널 시작
