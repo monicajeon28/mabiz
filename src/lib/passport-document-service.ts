@@ -41,6 +41,20 @@ export async function autoCreateDocumentsOnPassportCreated(
   organizationId: string
 ): Promise<any[]> {
   try {
+    // 이미 문서가 존재하는지 확인 (멱등성 보장)
+    const existingDocs = await prisma.document.findMany({
+      where: { passportId },
+      select: { id: true }
+    });
+
+    if (existingDocs.length > 0) {
+      logger.warn('[Passport] Document already exists for this passport', {
+        passportId,
+        existingCount: existingDocs.length
+      });
+      return existingDocs.map(d => ({ id: d.id }));
+    }
+
     // 트랜잭션 실행: 모든 Document 생성 또는 모두 롤백
     const createdDocuments = await prisma.$transaction(async (tx) => {
       const documents = [];

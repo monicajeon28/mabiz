@@ -9,6 +9,7 @@ import { requireCrmManager } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { hashPassword } from '@/lib/password';
+import { autoCreateDocumentsOnPassportCreated } from '@/lib/passport-document-service';
 
 // ── Zod 스키마 ──────────────────────────────────────────────
 
@@ -369,6 +370,29 @@ export async function POST(req: NextRequest) {
         tripId: latestTrip?.id,
       };
     });
+
+    // Document 자동 생성 (PassportSubmission 생성 후 별도로 실행)
+    // Note: organizationId는 manager 세션에서 가져옴 (RequireCrmManager에서 반환)
+    if (manager.organizationId) {
+      try {
+        await autoCreateDocumentsOnPassportCreated(result.submissionId, manager.organizationId);
+        logger.log('[ManualRegister] Documents auto-created', {
+          submissionId: result.submissionId,
+          organizationId: manager.organizationId
+        });
+      } catch (docError) {
+        logger.error('[ManualRegister] Document auto-creation failed (non-blocking)', {
+          submissionId: result.submissionId,
+          error: docError instanceof Error ? docError.message : String(docError)
+        });
+        // Document 생성 실패는 메인 플로우를 중단하지 않음 (non-blocking)
+      }
+    } else {
+      logger.warn('[ManualRegister] Cannot auto-create documents: no organizationId in manager context', {
+        submissionId: result.submissionId,
+        managerId: manager.id
+      });
+    }
 
     const successResult: ManualRegisterResult = {
       submissionId: result.submissionId,
