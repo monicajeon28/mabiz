@@ -37,6 +37,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const organizationId = ctx.organizationId;
+    if (!organizationId) {
+      return NextResponse.json({ ok: false, error: '조직이 설정되지 않았습니다.' }, { status: 403 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const profileId = searchParams.get('profileId');
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
@@ -71,6 +76,7 @@ export async function GET(request: NextRequest) {
           ON cl."settlementId" = ms.id
         WHERE cl."profileId" = ${profileIdNum}
           AND cl."isSettled" = true
+          AND cl."organizationId" = ${organizationId}
         GROUP BY ms.id, ms."periodStart", ms.status, ms."approvedAt", ms."paymentDate"
         ORDER BY ms."periodStart" DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -82,6 +88,7 @@ export async function GET(request: NextRequest) {
           ON cl."settlementId" = ms.id
         WHERE cl."profileId" = ${profileIdNum}
           AND cl."isSettled" = true
+          AND cl."organizationId" = ${organizationId}
       `),
     ]);
 

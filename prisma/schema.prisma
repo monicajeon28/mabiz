@@ -76,6 +76,8 @@ model Organization {
   partnerRiskScoreChanges    PartnerRiskScoreChange[]
   // Webhook Infrastructure
   webhookEvents              WebhookEvent[]
+  // Commission Ledger
+  commissionLedgers          CommissionLedger[]
 }
 
 model OrgSmsConfig {
@@ -1547,6 +1549,7 @@ model AffiliateSale {
   updatedAt         DateTime        @updatedAt
   organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   salesDocuments    SalesDocument[]
+  commissionLedgers CommissionLedger[]
 
   @@index([organizationId])
   @@index([affiliateCode])
@@ -2253,6 +2256,7 @@ model Document {
   id             String             @id @default(dbgenerated("gen_random_uuid()"))
   organizationId String
   contactId      String?
+  passportId     Int?
   title          String
   description    String?
   category       String?
@@ -2266,6 +2270,7 @@ model Document {
   updatedAt      DateTime           @updatedAt @db.Timestamptz(6)
   contact        Contact?           @relation(fields: [contactId], references: [id], onDelete: Cascade)
   organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  passport       GmPassportSubmission? @relation("PassportDocuments", fields: [passportId], references: [id], onDelete: Cascade)
   approvals      DocumentApproval[]
   versions       DocumentVersion[]
 
@@ -2757,6 +2762,7 @@ model GmPassportSubmission {
   updatedAt      DateTime  @default(now()) @updatedAt
   trip           GmTrip?   @relation(fields: [tripId], references: [id])
   user           GmUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents      Document[] @relation("PassportDocuments")
 
   @@unique([userId, tripId])
   @@index([userId])
@@ -3476,25 +3482,34 @@ model CmsNotificationTemplate {
 }
 
 model CommissionLedger {
-  id                Int       @id @default(autoincrement())
-  saleId            Int
+  id                Int             @id @default(autoincrement())
+  saleId            String?         // FK to AffiliateSale.id (String, nullable for settlement-based entries)
+  organizationId    String
   profileId         Int?
   entryType         String
   amount            Int
-  currency          String    @default("KRW")
+  currency          String          @default("KRW")
   withholdingAmount Int?
   settlementId      Int?
-  isSettled         Boolean   @default(false)
+  isSettled         Boolean         @default(false)
   settleableAfter   DateTime?
   notes             String?
   metadata          Json?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @default(now())
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @default(now())
   agentId           Int?
 
+  // Relations
+  sale              AffiliateSale?  @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Indexes for Race Condition Prevention
+  // Note: We use a partial unique index in the migration (saleId, organizationId) WHERE saleId IS NOT NULL
+  // This is enforced via SQL, not Prisma schema (Prisma v7 limitation with nullable fields)
   @@index([isSettled, createdAt])
   @@index([profileId, isSettled])
   @@index([saleId])
+  @@index([organizationId, isSettled, createdAt], map: "idx_commission_org_settled_date")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.

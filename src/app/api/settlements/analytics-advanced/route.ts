@@ -117,6 +117,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<AnalyticsR
         LEFT JOIN "MonthlySettlement" ms ON cl."settlementId" = ms.id
         WHERE cl."isSettled" = true
           AND cl."createdAt" >= ${periodStart}
+          AND cl."organizationId" = ${orgId}
         GROUP BY TO_CHAR(ms."paymentDate", 'YYYY-MM-DD')
         ORDER BY ms."paymentDate" DESC
         LIMIT 90
@@ -139,6 +140,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<AnalyticsR
         WHERE cl."isSettled" = true
           AND cl."createdAt" >= ${periodStart}
           AND ms."paymentDate" IS NOT NULL
+          AND cl."organizationId" = ${orgId}
         GROUP BY TO_CHAR(ms."paymentDate", 'Day')
       `
     );
@@ -167,6 +169,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<AnalyticsR
           LEFT JOIN "Partner" p ON cl."profileId" = p.id
           WHERE cl."isSettled" = true
             AND cl."createdAt" >= ${periodStart}
+            AND cl."organizationId" = ${orgId}
           GROUP BY "riskLevel"
         `
       );
@@ -203,6 +206,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<AnalyticsR
         LEFT JOIN "MonthlySettlement" ms ON cl."settlementId" = ms.id
         WHERE cl."isSettled" = true
           AND cl."createdAt" >= ${periodStart}
+          AND cl."organizationId" = ${orgId}
       `
     );
 
@@ -225,6 +229,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<AnalyticsR
           LEFT JOIN "Partner" p ON cl."profileId" = p.id
           WHERE cl."isSettled" = true
             AND cl."createdAt" >= ${periodStart}
+            AND cl."organizationId" = ${orgId}
           GROUP BY "tier"
         `
       );
@@ -252,6 +257,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<AnalyticsR
           LEFT JOIN "MonthlySettlement" ms ON cl."settlementId" = ms.id
           WHERE cl."isSettled" = true
             AND cl."createdAt" >= ${periodStart}
+            AND cl."organizationId" = ${orgId}
           GROUP BY cl."profileId", p.name
           ORDER BY COALESCE(SUM(cl.amount - cl."withholdingAmount"), 0) DESC
           LIMIT 10

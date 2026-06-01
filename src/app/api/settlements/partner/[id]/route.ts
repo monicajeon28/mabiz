@@ -133,6 +133,7 @@ export async function GET(
         LEFT JOIN "MonthlySettlement" ms ON cl."settlementId" = ms.id
         WHERE cl."profileId" = ${partnerId}
           AND cl."isSettled" = true
+          AND cl."organizationId" = ${orgId}
         GROUP BY cl."profileId", p.id, p.name, p.tier
       `
     );
@@ -156,6 +157,7 @@ export async function GET(
       LEFT JOIN "MonthlySettlement" ms ON cl."settlementId" = ms.id
       WHERE cl."profileId" = ${partnerId}
         AND cl."isSettled" = true
+        AND cl."organizationId" = ${orgId}
     `;
 
     // 필터 추가
@@ -206,6 +208,7 @@ export async function GET(
         LEFT JOIN "MonthlySettlement" ms ON cl."settlementId" = ms.id
         WHERE cl."profileId" = ${partnerId}
           AND cl."isSettled" = true
+          AND cl."organizationId" = ${orgId}
           ${Prisma.join(filters, " ")}
       `
     );

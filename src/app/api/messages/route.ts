@@ -403,3 +403,91 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+/**
+ * GET /api/messages
+ * Message 목록 조회 (페이지네이션, 필터)
+ */
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const organizationId = searchParams.get('organizationId') || '';
+    const contactId = searchParams.get('contactId');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
+
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: 'Missing organizationId' },
+        { status: 400 }
+      );
+    }
+
+    const skip = (page - 1) * limit;
+
+    // 메시지 목록 조회
+    const messages = await prisma.crmMarketingMessage.findMany({
+      where: {
+        organizationId,
+        ...(contactId && { contactId }),
+        status: { not: 'DELETED' }
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+      select: {
+        id: true,
+        contactId: true,
+        content: true,
+        status: true,
+        scheduledTime: true,
+        sentTime: true,
+        lastClickTime: true,
+        contact: {
+          select: {
+            id: true,
+            email: true,
+            phone: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    // 전체 개수 조회
+    const total = await prisma.crmMarketingMessage.count({
+      where: {
+        organizationId,
+        ...(contactId && { contactId }),
+        status: { not: 'DELETED' }
+      }
+    });
+
+    logger.log('[Message] GET 목록 조회 완료', {
+      organizationId,
+      contactId,
+      page,
+      limit,
+      total,
+      returned: messages.length
+    });
+
+    return NextResponse.json({
+      messages,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  } catch (err) {
+    logger.error('[Message] GET 목록 조회 실패', {
+      error: err instanceof Error ? err.message : String(err)
+    });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

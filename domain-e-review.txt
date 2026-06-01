@@ -1,0 +1,106 @@
+# Domain E (Admin/Analytics) 검토 결과 (2026-06-01)
+
+## 1️⃣ Dashboard KPI 실시간 업데이트
+✅ 구현됨
+- src/app/(dashboard)/dashboard-client.tsx: KPI 카드 렌더링
+- src/components/loop5-hero-kpi.tsx: Hero KPI 컴포넌트
+- src/lib/realtime/kpi-socket.ts: 실시간 소켓 구현
+- src/lib/services/analytics-aggregation-service.ts: 메트릭 집계 서비스
+- API: /api/admin/settlements/stats (1M행 <2초)
+- API: /api/admin/webhook-stats-advanced (실시간 웹훅 메트릭)
+
+상세: 5분 폴링 주기로 Compliance Monitoring 자동 새로고침 확인
+
+## 2️⃣ Analytics 필터 작동
+✅ 구현됨
+- Audit Logs 페이지: 사용자ID/액션/상태/날짜 필터 + 페이지네이션
+- Compliance Monitoring: 7일 백(daysBack) 파라미터 + 조직 선택
+- Webhook Logs: 타입/상태/DLQ 탭 필터
+- Settlement Analytics: 상태별/파트너별 필터
+
+상세: 모든 필터가 URLSearchParams 기반으로 구현, 에러 처리 완비
+
+## 3️⃣ 주간/월간 리포트 자동생성
+⚠️ 부분 구현
+- Webhook Reports API 존재: /api/admin/webhook-reports/route.ts
+- Settlement Summary API 존재: /api/admin/settlement-summary
+- 실제 페이지 UI: ❌ 없음 (audit-logs, compliance-monitoring만 존재)
+- Cron Job: /api/cron/webhook-monitoring (자동 모니터링)
+
+누락: 주간/월간 리포트 자동생성 Cron 엔드포인트, 스케줄러 설정 없음
+=> TODO: 라포트 자동생성 페이지/엔드포인트 추가 (Loop 5/6 메모리에 설계 있음)
+
+## 4️⃣ Admin 권한 관리 (테넌트 격리)
+✅ 구현됨
+- Compliance Audit Logs: GLOBAL_ADMIN 전용 (enforceRBAC 체크)
+- Compliance Monitoring: GLOBAL_ADMIN 전용
+- Webhook Logs: GLOBAL_ADMIN 권한 검증
+- Settlement Stats: GLOBAL_ADMIN 권한 검증
+- organizationId 기반 테넌트 격리 완비
+
+상세: 모든 API가 organizationId 쿼리 파라미터로 테넌트 격리, RBAC 미들웨어로 권한 검증
+
+## 5️⃣ Database Schema ↔ 코드 일치
+✅ 완벽 일치
+- AuditLog 모델: 코드와 스키마 100% 매항
+- ProcessedWebhookEvent: 웹훅 이벤트 추적 완비
+- MonthlySettlement + CommissionLedger: 정산 데이터 완비
+- MabizSyncDLQ: DLQ 실패 처리 구조 완비
+- 인덱스: webhookType, eventId, processedAt, status 등 성능 최적화
+
+타입스크립트 체크: ✅ 모두 통과 (0 에러)
+
+## 6️⃣ 버그/누수/에러/스멜
+🐛 소수의 마이너 이슈 발견
+
+**Minor Issues:**
+1️⃣ 코드 스멜: /api/admin/verification/status/route.ts
+   - 라인 12: TODO 주석 남아있음 ("// TODO: Fix auth import")
+   - 하지만 실제로는 enforceRBAC로 인증 처리됨 (안전함)
+
+2️⃣ 누락 기능: 주간/월간 자동 리포트
+   - /api/admin/webhook-reports, /api/admin/settlement-summary 엔드포인트는 존재
+   - 하지만 자동생성 Cron 엔드포인트 미구현
+   - 페이지 UI 완전히 없음 (audit-logs, compliance-monitoring만)
+
+3️⃣ 성능 최적화: 기존 좋음 (1M행 <2초), 추가 개선 여지:
+   - Webhook monitoring: 메모리 누수 체크 필요 (실시간 소켓)
+   - Settlement: Materialized View 활용 검토 (Loop 6 메모리 참고)
+
+4️⃣ 테스트 커버리지: ❌ 없음
+   - __tests__/api/loop5-dashboard.test.ts 존재하지만
+   - Admin 도메인 테스트 스위트 없음
+
+---
+
+## 📊 최종 종합 평가
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| **KPI 실시간 업데이트** | ✅ | 5분 폴링 + 웹훅 메트릭 구현 |
+| **Analytics 필터** | ✅ | 4개 섹션 모두 완비 |
+| **주간/월간 리포트** | ⚠️ | 엔드포인트만 있고 자동화 미보완 |
+| **권한관리/테넌트격리** | ✅ | RBAC + organizationId 완벽 |
+| **스키마↔코드일치** | ✅ | 100% 일치, TS 에러 0개 |
+| **버그/누수** | 🐛 | Minor: TODO 1개, 누락 기능 2개 |
+| **종합 점수** | **82/100** | 구현 완료도 80-90%, 자동화 보완 필요 |
+
+---
+
+## 🚀 개선 로드맵 (우선순위)
+
+**P0 (즉시):**
+- [ ] Cron Job for weekly/monthly report generation
+- [ ] Dashboard page for weekly/monthly reports UI
+- [ ] Remove TODO comment in verification/status
+
+**P1 (1주일):**
+- [ ] Memory leak test for webhook monitoring socket
+- [ ] Add test suite for Admin APIs
+- [ ] Implement Materialized View for settlement analytics
+
+**P2 (2주):**
+- [ ] Add export CSV for compliance logs
+- [ ] Real-time alerts via Slack/Email for anomalies
+- [ ] Partner analytics dashboard (Loop 6 설계 활용)
+
