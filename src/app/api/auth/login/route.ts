@@ -190,7 +190,8 @@ export async function POST(req: Request) {
         );
         // 매핑된 org 없으면 단일 org 기본값 사용
         const firstOrg = orgRows[0] ?? await prisma.organization.findFirst({ select: { id: true } });
-        orgId = firstOrg?.id ?? null;
+        // P1-26: null safety for firstOrg
+        orgId = firstOrg?.id || null;
       }
     }
 

@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
 import { normalizePhone } from '@/lib/phone-normalize';
+import { sanitizeHtml } from '@/lib/html-sanitizer';
 import { LensDetectionEngine } from '@/lib/services/lens-detection-engine';
 
 /**
@@ -317,7 +318,9 @@ export async function POST(req: NextRequest) {
       }
 
       // ContactMemo: 문의 내용 + 렌즈 정보
-      const memoContent = `[문의] ${inquiryType ?? '상담신청'} [렌즈: ${lensDetection.detectedLens} (신뢰도: ${lensDetection.confidence}%)]\n메시지: ${message ?? '내용 없음'}`;
+      // [P1-5] 사용자 입력 message를 sanitizeHtml로 정제 — XSS 방지
+      const sanitizedMessage = sanitizeHtml(message || '');
+      const memoContent = `[문의] ${inquiryType ?? '상담신청'} [렌즈: ${lensDetection.detectedLens} (신뢰도: ${lensDetection.confidence}%)]\n메시지: ${sanitizedMessage || '내용 없음'}`;
       await tx.contactMemo.create({
         data: { contactId, userId: 'webhook-inquiry', content: memoContent },
       });

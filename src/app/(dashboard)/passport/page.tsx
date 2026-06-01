@@ -1028,7 +1028,7 @@ function CustomerRow({
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-semibold text-gray-600">
-                        탑승자 정보 ({guests!.length}명)
+                        탑승자 정보 ({guests?.length ?? 0}명)
                       </p>
                     </div>
                     <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">

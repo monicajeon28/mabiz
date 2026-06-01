@@ -36,8 +36,8 @@ const PatchSchema = z.object({
   expireDate:     z.string().nullable().optional(),
   // 신청 완료 이메일 설정
   regEmailEnabled: z.boolean().optional(),
-  regEmailSubject: z.string().nullable().optional(),
-  regEmailContent: z.string().nullable().optional(),
+  regEmailSubject: z.string().max(200).nullable().optional(), // P0-6: DoS 방지
+  regEmailContent: z.string().max(10000).nullable().optional(), // P0-6: DoS 방지
   // 프론트엔드 전용 (DB 저장 안 함, strict 우회용)
   commentConfig:  z.any().optional(),
 }).strict();
