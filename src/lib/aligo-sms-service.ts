@@ -266,11 +266,11 @@ export async function retryFailedPartnerSms(
     const result = await sendPartnerAlertSms(
       smsLog.organizationId,
       smsLog.partnerId,
-      smsLog.day as 'day0' | 'day1' | 'day2' | 'day3',
-      smsLog.riskLevel as 'RED' | 'YELLOW' | 'GREEN',
-      smsLog.messageType || 'PARTNER_ALERT',
+      (smsLog.day ?? 'day0') as 'day0' | 'day1' | 'day2' | 'day3',
+      (smsLog.riskLevel ?? 'YELLOW') as 'RED' | 'YELLOW' | 'GREEN',
+      smsLog.messageType ?? 'PARTNER_ALERT',
       smsLog.messageContent,
-      smsLog.phoneNumber || ''
+      smsLog.phoneNumber ?? ''
     );
 
     // 재시도 횟수 업데이트

@@ -303,14 +303,29 @@ export async function sendDayNSmsBatch(
     // 6-2: Contact 일괄 업데이트 (Raw SQL)
     if (successfulSms.length > 0) {
       const contactIds = successfulSms.map((sms) => sms.contactId);
-      const fieldName = `smsDay${dayNumber}Sent`;
-      const fieldNameAt = `smsDay${dayNumber}SentAt`;
 
-      await prisma.$executeRaw`
-        UPDATE "Contact"
-        SET ${prisma.$raw(`"${fieldName}" = true, "${fieldNameAt}" = NOW()`)}
-        WHERE id = ANY(${contactIds}::text[])
-      `;
+      // Update contacts with day-specific SMS sent flags
+      if (dayNumber === 0) {
+        await prisma.contact.updateMany({
+          where: { id: { in: contactIds } },
+          data: { smsDay0Sent: true, smsDay0SentAt: new Date() }
+        });
+      } else if (dayNumber === 1) {
+        await prisma.contact.updateMany({
+          where: { id: { in: contactIds } },
+          data: { smsDay1Sent: true, smsDay1SentAt: new Date() }
+        });
+      } else if (dayNumber === 2) {
+        await prisma.contact.updateMany({
+          where: { id: { in: contactIds } },
+          data: { smsDay2Sent: true, smsDay2SentAt: new Date() }
+        });
+      } else if (dayNumber === 3) {
+        await prisma.contact.updateMany({
+          where: { id: { in: contactIds } },
+          data: { smsDay3Sent: true, smsDay3SentAt: new Date() }
+        });
+      }
 
       logger.log(`[SMS_BATCH_DAY${dayNumber}] ${contactIds.length}개 Contact 업데이트`);
     }

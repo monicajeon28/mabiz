@@ -4,17 +4,17 @@
  */
 
 import { PrismaClient } from "@prisma/client";
-import { Redis } from "ioredis";
+import { Redis } from "@upstash/redis";
 import { logger } from "@/lib/logger";
 import { LensType, LensDetectionResult, LensScore, ContactLensData } from "@/lib/types/lens";
 
 export class LensDetectionEngine {
   private readonly prisma: PrismaClient;
-  private readonly redis?: Redis;
+  private readonly redis?: Redis | null;
   private readonly CACHE_TTL = 86400;
   private readonly CACHE_KEY_PREFIX = "lens:";
 
-  constructor(prisma: PrismaClient, redis?: Redis) {
+  constructor(prisma: PrismaClient, redis?: Redis | null) {
     this.prisma = prisma;
     this.redis = redis;
   }

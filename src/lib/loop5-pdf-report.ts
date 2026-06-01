@@ -245,12 +245,12 @@ export function generatePDFReport(data: ReportData): string {
             : ''
           }
 
-          ${data.stats.byDay[0]?.rate < 10
+          ${data.stats.byDay && data.stats.byDay[0] && data.stats.byDay[0].rate < 10
             ? `
             <div class="recommendation">
               <div class="recommendation-title">🕐 Day 0 응답율 개선</div>
               <div class="recommendation-text">
-                초기 응답율(${data.stats.byDay[0]?.rate.toFixed(1)}%)이 낮습니다.
+                초기 응답율(${data.stats.byDay[0].rate.toFixed(1)}%)이 낮습니다.
                 발송 시간 최적화, 긴급성 강조, 또는 CTA 포지션 변경을 고려하세요.
               </div>
             </div>

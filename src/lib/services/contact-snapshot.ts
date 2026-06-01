@@ -70,6 +70,7 @@ export class ContactSnapshotCache {
  * Redis 기반 Contact 스냅샷 캐시 (장시간 재시도용)
  * - TTL: 72시간 (3일, 최대 재시도 기간)
  * - 키 형식: `contact:snapshot:{contactId}`
+ * - Upstash Redis 호환 (SET + EX 옵션)
  */
 export async function cacheContactSnapshotToRedis(
   contactId: string,
@@ -80,7 +81,8 @@ export async function cacheContactSnapshotToRedis(
   const ttlSeconds = 72 * 60 * 60; // 72시간
 
   try {
-    await redis.setex(key, ttlSeconds, JSON.stringify(snapshot));
+    // Upstash Redis: use set() with ex option instead of setex()
+    await redis.set(key, JSON.stringify(snapshot), { ex: ttlSeconds });
   } catch (err) {
     // Redis 실패는 무시 (메모리 캐시 사용)
     console.warn(`[ContactSnapshot] Redis 저장 실패: ${contactId}`, err);
@@ -100,7 +102,7 @@ export async function getContactSnapshotFromRedis(
     const json = await redis.get(key);
     if (!json) return null;
 
-    return JSON.parse(json) as ContactSnapshot;
+    return JSON.parse(json as string) as ContactSnapshot;
   } catch (err) {
     // Redis 실패는 무시
     console.warn(`[ContactSnapshot] Redis 조회 실패: ${contactId}`, err);

@@ -14,14 +14,18 @@ import { auditLogger } from './audit-logger';
 export type DeletionStatus = 'PENDING_DELETION' | 'SCHEDULED_FOR_DELETE' | 'HARD_DELETED' | 'RESTORED';
 
 export interface DataDeletionRequest {
+  id: string;
   contactId: string;
   organizationId: string;
   requestedBy: string;
   requestedAt: Date;
   reason: string;
   scheduledDeleteAt: Date;
-  status: DeletionStatus;
-  gracePeriodDays?: number;
+  status: string; // Prisma returns this as string
+  gracePeriodDays: number;
+  completedAt: Date | null;
+  cancelledAt: Date | null;
+  cancelledBy: string | null;
 }
 
 /**
@@ -59,11 +63,11 @@ export class DataDeletionManager {
         },
       });
 
-      // 2. Contact를 PENDING_DELETION으로 표시
+      // 2. Contact를 PENDING_DELETION으로 표시 (Contact.deletedAt으로 추적)
+      // Note: Contact 모델에 status 필드가 없으므로 DataDeletionRequest로만 추적
       await prisma.contact.update({
         where: { id: payload.contactId },
         data: {
-          status: 'PENDING_DELETION',
           updatedAt: now,
         },
       });
@@ -128,7 +132,6 @@ export class DataDeletionManager {
       await prisma.contact.update({
         where: { id: contactId },
         data: {
-          status: 'ACTIVE',
           updatedAt: new Date(),
         },
       });
@@ -137,7 +140,7 @@ export class DataDeletionManager {
       await auditLogger.record({
         organizationId: request.organizationId,
         userId: cancelledBy,
-        action: 'UPDATE',
+        action: 'WRITE', // UPDATE is not a valid AuditAction, use WRITE instead
         resourceType: 'Contact',
         resourceId: contactId,
         status: 'SUCCESS',
@@ -386,14 +389,14 @@ export class DataDeletionManager {
   }
 
   /**
-   * ⏸️ 예약된 SMS/이메일 캐ン슬
+   * ⏸️ 예약된 SMS/이메일 취소
    */
   private async cancelScheduledCommunications(contactId: string): Promise<void> {
     try {
-      // SMS 취소
+      // SMS 취소 (status를 CANCELLED로 업데이트)
       await prisma.scheduledSms.updateMany({
         where: { contactId },
-        data: { cancelled: true },
+        data: { status: 'CANCELLED' },
       });
 
       logger.info('✅ Scheduled Communications Cancelled', { contactId });

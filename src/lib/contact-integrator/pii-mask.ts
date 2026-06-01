@@ -125,16 +125,16 @@ export function maskPII(data: Contact360Response, options: MaskOptions): Contact
     ...data,
     contact: {
       ...data.contact,
-      phone: maskPhone(data.contact.phone, policy),
-      email: maskEmail(data.contact.email, policy),
-      name: maskName(data.contact.name, policy) || data.contact.name || ''
+      phone: maskPhone(data.contact.phone, policy) ?? data.contact.phone,
+      email: maskEmail(data.contact.email, policy) ?? data.contact.email,
+      name: maskName(data.contact.name, policy) ?? data.contact.name
     },
     partner: data.partner
       ? {
           ...data.partner,
-          phone: maskPhone(data.partner.phone, policy),
-          email: maskEmail(data.partner.email, policy),
-          name: maskName(data.partner.name, policy) || ''
+          phone: maskPhone(data.partner.phone, policy) ?? data.partner.phone,
+          email: maskEmail(data.partner.email, policy) ?? data.partner.email,
+          name: maskName(data.partner.name, policy) ?? data.partner.name
         }
       : null,
     communications: {

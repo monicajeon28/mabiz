@@ -58,8 +58,8 @@ export async function detectCustomerLenses(
       take: 20,
     }),
     prisma.crmMarketingMessage.findMany({
-      where: { contact_id: contact.id },
-      orderBy: { created_at: "desc" },
+      where: { contactId: contact.id },
+      orderBy: { createdAt: "desc" },
       take: 20,
     }),
   ]);

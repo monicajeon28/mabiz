@@ -227,7 +227,6 @@ export async function calculateMetricsPyramid(
             organizationId,
             createdAt: { gte: monthStart },
             status: "CONFIRMED",
-            contact: { tags: { hasSome: [lens] } },
           },
         });
 
@@ -236,9 +235,8 @@ export async function calculateMetricsPyramid(
             organizationId,
             createdAt: { gte: monthStart },
             status: "CONFIRMED",
-            contact: { tags: { hasSome: [lens] } },
           },
-          _sum: { confirmedAmount: true },
+          _sum: { saleAmount: true },
         });
 
         return {

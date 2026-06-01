@@ -376,7 +376,6 @@ export async function logEmailMessage(
         contentPreview: subject.substring(0, 100),
         status,
         channel: 'EMAIL',
-        messageType: 'EMAIL',
         msgId: messageId,
         sentAt: new Date(),
       },
