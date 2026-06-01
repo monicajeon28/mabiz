@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { AlertCircle, Zap, Gift } from 'lucide-react';
 import { useEffect, useState } from 'react';

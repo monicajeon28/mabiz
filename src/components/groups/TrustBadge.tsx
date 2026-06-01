@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Shield, Heart, Users, Award, Clock } from 'lucide-react';
 

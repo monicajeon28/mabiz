@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Report History Page (TASK 6-2)
  *
  * Display table of daily reports with:

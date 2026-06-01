@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 /**
  * /affiliate/apply — 공개 계약 신청 페이지 (인증 불필요)

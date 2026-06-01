@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { Download, Mail, FileText, RefreshCw } from 'lucide-react';

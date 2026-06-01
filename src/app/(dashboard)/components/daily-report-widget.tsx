@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Daily Report Widget (TASK 6-2)
  *
  * Displays today's report on analytics home page

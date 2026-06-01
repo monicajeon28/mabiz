@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useRef } from "react";
 import { Copy, Check, Link2, Plus, MousePointer, User, X } from "lucide-react";
 import { showError } from "@/components/ui/Toast";
