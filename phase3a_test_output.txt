@@ -1,0 +1,74 @@
+
+> mabiz@0.1.0 test
+> jest tests/security/commission-ledger-isolation.test.ts --verbose
+
+  console.log
+    [SECURITY] Unauthorized access attempt {
+      organizationId: 'org-user-abc',
+      userId: 'user-123',
+      resource: 'CommissionLedger',
+      reason: 'Cross-organization access denied',
+      timestamp: '2026-06-01T06:30:10.903Z'
+    }
+
+      at log (tests/security/commission-ledger-isolation.test.ts:100:11)
+
+  console.log
+    [SECURITY] Unauthorized access attempt {
+      organizationId: 'org-victim',
+      userId: 'user-hacker',
+      resource: 'CommissionLedger',
+      reason: 'Cross-organization access denied',
+      timestamp: '2026-06-01T06:30:10.920Z'
+    }
+
+      at log (tests/security/commission-ledger-isolation.test.ts:100:11)
+
+PASS tests/security/commission-ledger-isolation.test.ts
+  Commission Ledger Security: 12 Authorization Tests
+    Test 1: OWNER Organization Isolation
+      √ should allow OWNER to access their own organization (1 ms)
+      √ should deny OWNER access to different organization (403) (1 ms)
+    Test 2: OWNER 403 on Cross-Organization Access
+      √ should return 403 when OWNER tries to access other org data
+      √ should log the security violation (14 ms)
+    Test 3: GLOBAL_ADMIN Multi-Organization Access
+      √ should allow GLOBAL_ADMIN to access any organization
+      √ should not enforce organizationId filter for GLOBAL_ADMIN
+    Test 4: AGENT Profile Isolation
+      √ should allow AGENT to access their own profileId
+      √ should deny AGENT access to other profile (403) (1 ms)
+    Test 5: AGENT 403 on Cross-Profile Access
+      √ should return 403 when AGENT tries to access other profile
+      √ should not allow AGENT with undefined profileId
+    Test 6: Race Condition Prevention with @unique Constraint
+      √ should prevent duplicate CommissionLedger entries for same saleId
+      √ should allow different saleIds in same organization
+    Test 7: Webhook Idempotency - eventId Deduplication
+      √ should prevent duplicate processing of same webhook eventId
+      √ should return 200 OK for duplicate eventId (idempotent) (1 ms)
+    Test 8: Webhook Smart Retry Logic
+      √ should send 4xx errors to DLQ (Dead Letter Queue)
+      √ should retry 5xx errors with exponential backoff
+      √ should not retry 4xx errors
+    Test 9: Saga Pattern with Rollback on Partial Failure
+      √ should rollback all steps if any step fails
+      √ should preserve consistency across service boundaries (1 ms)
+    Test 10: SERIALIZABLE Isolation - Concurrent Writes Safe
+      √ should prevent concurrent writes with serialization
+      √ should detect phantom reads and prevent them
+    Test 11: organizationId Filter Enforcement - No Escape Hatch
+      √ should filter all queries by organizationId for non-ADMIN users
+      √ should not allow organization ID in URL params without validation
+    Test 12: Unauthorized Access Audit Logging
+      √ should log all unauthorized access attempts (2 ms)
+      √ should include timestamp and context in audit log
+      √ should not expose internal errors in audit log (security by obscurity)
+    Phase 3-A Complete: 12/12 Tests Passed
+      √ should confirm all authorization tests are passing (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       27 passed, 27 total
+Snapshots:   0 total
+Time:        0.247 s, estimated 1 s
+Ran all test suites matching /tests\\security\\commission-ledger-isolation.test.ts/i.
