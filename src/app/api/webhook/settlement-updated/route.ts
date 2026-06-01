@@ -60,9 +60,13 @@ export async function POST(request: NextRequest) {
     const periodStart = new Date(`${year}-${month}-01`);
     const periodEnd = new Date(parseInt(year), parseInt(month), 0);
 
-    // Try to find existing settlement by period
+    // 크루즈닷 조직 ID 조회 (환경변수에서 또는 기본값)
+    const cruisedotOrgId = process.env.CRUISEDOT_ORGANIZATION_ID || "cruisedot-org";
+
+    // Try to find existing settlement by period + organizationId
     let settlement = await prisma.monthlySettlement.findFirst({
       where: {
+        organizationId: cruisedotOrgId,
         periodStart: {
           gte: new Date(`${year}-${month}-01`),
           lt: new Date(`${year}-${parseInt(month) + 1}-01`),
@@ -87,6 +91,7 @@ export async function POST(request: NextRequest) {
     } else {
       settlement = await prisma.monthlySettlement.create({
         data: {
+          organizationId: cruisedotOrgId,
           periodStart,
           periodEnd,
           status: data.settlement.status,
