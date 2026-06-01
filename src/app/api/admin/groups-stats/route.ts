@@ -35,11 +35,10 @@ export async function GET(req: NextRequest) {
     const orgIdFilter = searchParams.get('orgId') ?? null;
     const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') ?? '50') || 50));
 
-    // 그룹 목록 + 멤버 수 + 조직명 조회
+    // P2-13: 그룹 목록 + 캐시된 memberCount + 조직명 조회 (O(n) table scan 제거)
     const groups = await prisma.contactGroup.findMany({
       where: orgIdFilter ? { organizationId: orgIdFilter } : {},
       include: {
-        _count:       { select: { members: true } },
         organization: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -83,7 +82,7 @@ export async function GET(req: NextRequest) {
       name:         g.name,
       description:  g.description,
       color:        g.color,
-      memberCount:  g._count.members,
+      memberCount:  g.memberCount,  // P2-13: 캐시된 필드 사용 (O(n) _count 제거)
       orgId:        g.organization.id,
       orgName:      g.organization.name,
       ownerName:    g.ownerId ? (nameMap.get(g.ownerId) ?? g.ownerId) : '조직 공유',

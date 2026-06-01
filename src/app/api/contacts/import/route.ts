@@ -67,6 +67,8 @@ export async function POST(req: Request) {
     let skipCount    = 0;
     const errors: string[] = [];
 
+    // P1-23: 배열 기반 전처리 (유효성 검증 + 정규화)
+    const validRows: Array<{ index: number; data: Record<string, string> }> = [];
     for (let i = 0; i < rows.length; i++) {
       const row  = rows[i];
       const data: Record<string, string> = {};
@@ -90,31 +92,43 @@ export async function POST(req: Request) {
         data.type = normalized ?? "LEAD";
       }
 
-      try {
-        await prisma.contact.upsert({
-          where: { phone_organizationId: { phone: data.phone, organizationId: orgId } },
+      validRows.push({ index: i, data });
+    }
+
+    // P1-23: Promise.all + 배치 트랜잭션으로 N+1 해결 (순차 1000개 → 병렬 배치)
+    const results = await Promise.allSettled(
+      validRows.map((row) =>
+        prisma.contact.upsert({
+          where: { phone_organizationId: { phone: row.data.phone, organizationId: orgId } },
           create: {
             organizationId: orgId,
-            name:           data.name,
-            phone:          data.phone,
-            email:          data.email          ?? null,
-            type:           data.type           ?? "LEAD",
-            cruiseInterest: data.cruiseInterest ?? null,
-            adminMemo:      data.adminMemo      ?? null,
+            name:           row.data.name,
+            phone:          row.data.phone,
+            email:          row.data.email          ?? null,
+            type:           row.data.type           ?? "LEAD",
+            cruiseInterest: row.data.cruiseInterest ?? null,
+            adminMemo:      row.data.adminMemo      ?? null,
           },
           update: {
-            name:           data.name,
-            email:          data.email          ?? undefined,
-            cruiseInterest: data.cruiseInterest ?? undefined,
-            adminMemo:      data.adminMemo      ?? undefined,
+            name:           row.data.name,
+            email:          row.data.email          ?? undefined,
+            cruiseInterest: row.data.cruiseInterest ?? undefined,
+            adminMemo:      row.data.adminMemo      ?? undefined,
           },
-        });
+        })
+      )
+    );
+
+    // 결과 집계
+    results.forEach((result, idx) => {
+      if (result.status === "fulfilled") {
         successCount++;
-      } catch {
-        errors.push(`${i + 2}행: 저장 실패 (${data.name})`);
+      } else {
+        const row = validRows[idx];
+        errors.push(`${row.index + 2}행: 저장 실패 (${row.data.name})`);
         skipCount++;
       }
-    }
+    });
 
     logger.log("[POST /api/contacts/import] 완료", { successCount, skipCount, orgId });
     return NextResponse.json({ ok: true, successCount, skipCount, errors: errors.slice(0, 10) });

@@ -120,7 +120,8 @@ export async function GET(req: Request) {
     const rawLogs = contactIds.length > 0
       ? await prisma.contactTransferLog.findMany({
           where:   { contactId: { in: contactIds } },
-          orderBy: { createdAt: "desc" },
+          orderBy: [{ contactId: 'asc' }, { createdAt: "desc" }],
+          take: contactIds.length,
           select:  { id: true, contactId: true, toUserId: true, transferType: true, newContactId: true, transferredBy: true },
         })
       : [];
@@ -155,7 +156,7 @@ export async function GET(req: Request) {
 
     const affiliateMembers = allAffiliateUserIds.length > 0
       ? await prisma.organizationMember.findMany({
-          where: { id: { in: allAffiliateUserIds } },
+          where: { id: { in: allAffiliateUserIds }, isActive: true },
           select: { id: true, displayName: true },
         })
       : [];
@@ -271,89 +272,96 @@ export async function POST(req: Request) {
       logger.log("[POST /api/contacts] 렌즈 감지 완료", { id: contact.id, lenses: sortedLenses });
     }
 
-    // C-1: 세그먼트별 SMS 템플릿 조회 및 발송 (fire-and-forget)
-    (async () => {
-      try {
-        const template = await prisma.smsTemplate.findFirst({
-          where: {
-            segmentCode: segment,
-            category: 'AUTO_RECOMMEND',
-            isSystem: true,
-          },
-          orderBy: { createdAt: 'desc' as const },
-        });
+    // C-1: 세그먼트별 SMS 템플릿 조회 및 발송 + 퍼널 상태 + 그룹 퍼널 (Promise.allSettled로 안전하게 처리)
+    Promise.allSettled([
+      // SMS 자동 발송
+      (async () => {
+        try {
+          const template = await prisma.smsTemplate.findFirst({
+            where: {
+              segmentCode: segment,
+              category: 'AUTO_RECOMMEND',
+              isSystem: true,
+            },
+            orderBy: { createdAt: 'desc' as const },
+          });
 
-        if (template && contact.phone) {
-          try {
-            const message = template.content
-              .replace('[이름]', contact.name || '고객')
-              .replace('[링크]', process.env.NEXT_PUBLIC_BASE_URL || 'https://crm.mabiz.dev');
+          if (template && contact.phone) {
+            try {
+              const message = template.content
+                .replace('[이름]', contact.name || '고객')
+                .replace('[링크]', process.env.NEXT_PUBLIC_BASE_URL || 'https://crm.mabiz.dev');
 
-            const smsConfig = await resolveUserSmsConfig(orgId, ctx.userId);
-            if (!smsConfig) {
-              logger.warn('[POST /api/contacts] SMS 설정 미완료 — 자동 발송 불가', { contactId: contact.id });
-              return;
+              const smsConfig = await resolveUserSmsConfig(orgId, ctx.userId);
+              if (!smsConfig) {
+                logger.warn('[POST /api/contacts] SMS 설정 미완료 — 자동 발송 불가', { contactId: contact.id });
+                return;
+              }
+
+              const result = await sendSms({
+                config: smsConfig,
+                receiver: contact.phone,
+                msg: message,
+                msgType: message.length > 90 ? 'LMS' : 'SMS',
+                organizationId: orgId,
+                contactId: contact.id,
+                channel: 'GROUP',
+              });
+
+              logger.log('[POST /api/contacts] 세그먼트별 자동 SMS 발송', {
+                contactId: contact.id,
+                segment,
+                status: Number(result.result_code) === 1 ? 'success' : 'failed',
+                resultCode: result.result_code,
+              });
+            } catch (smsErr) {
+              logger.error('[POST /api/contacts] SMS 발송 실패', {
+                contactId: contact.id,
+                segment,
+                error: smsErr instanceof Error ? smsErr.message : String(smsErr),
+              });
             }
-
-            const result = await sendSms({
-              config: smsConfig,
-              receiver: contact.phone,
-              msg: message,
-              msgType: message.length > 90 ? 'LMS' : 'SMS',
-              organizationId: orgId,
-              contactId: contact.id,
-              channel: 'GROUP',
-            });
-
-            logger.log('[POST /api/contacts] 세그먼트별 자동 SMS 발송', {
-              contactId: contact.id,
-              segment,
-              status: Number(result.result_code) === 1 ? 'success' : 'failed',
-              resultCode: result.result_code,
-            });
-          } catch (smsErr) {
-            logger.error('[POST /api/contacts] SMS 발송 실패', {
-              contactId: contact.id,
-              segment,
-              error: smsErr instanceof Error ? smsErr.message : String(smsErr),
-            });
+          } else if (!template) {
+            logger.log('[POST /api/contacts] 세그먼트 SMS 템플릿 없음 — 발송 스킵', { segment });
           }
-        } else if (!template) {
-          logger.log('[POST /api/contacts] 세그먼트 SMS 템플릿 없음 — 발송 스킵', { segment });
+        } catch (err) {
+          logger.error('[POST /api/contacts] 자동 SMS 처리 중 오류', {
+            contactId: contact.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
-      } catch (err) {
-        logger.error('[POST /api/contacts] 자동 SMS 처리 중 오류', {
+      })(),
+
+      // 퍼널 상태 자동 생성
+      prisma.contactFunnelState.upsert({
+        where: {
           contactId: contact.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    })();
-
-    // 퍼널 상태 자동 생성 (fire-and-forget)
-    prisma.contactFunnelState.upsert({
-      where: {
-        contactId: contact.id,
-      },
-      update: {},
-      create: {
-        organizationId: orgId,
-        contactId: contact.id,
-        status: 'PENDING',
-      },
-    }).catch((err) => {
-      logger.error('[POST /api/contacts] 퍼널 상태 생성 실패', { err, contactId: contact.id });
-    });
-
-    // 그룹 배정 시 퍼널 자동 시작 (fire-and-forget)
-    if (groupIds?.length && contact.id) {
-      for (const gid of groupIds as string[]) {
-        triggerGroupFunnel({
-          contactId:      contact.id,
-          groupId:        gid,
+        },
+        update: {},
+        create: {
           organizationId: orgId,
-        }).catch(err => logger.error('[triggerGroupFunnel failed]', { err, contactId: contact.id, groupId: gid }));
-      }
-    }
+          contactId: contact.id,
+          status: 'PENDING',
+        },
+      }).catch((err) => {
+        logger.error('[POST /api/contacts] 퍼널 상태 생성 실패', { err, contactId: contact.id });
+      }),
+
+      // 그룹 배정 시 퍼널 자동 시작
+      ...(groupIds?.length && contact.id
+        ? (groupIds as string[]).map((gid) =>
+            triggerGroupFunnel({
+              contactId: contact.id,
+              groupId: gid,
+              organizationId: orgId,
+            }).catch((err) =>
+              logger.error('[triggerGroupFunnel failed]', { err, contactId: contact.id, groupId: gid })
+            )
+          )
+        : []),
+    ]).catch((err) => {
+      logger.error('[POST /api/contacts] Promise.allSettled 오류', { err });
+    });
 
     return NextResponse.json({ ok: true, contact }, { status: 201 });
   } catch (err: unknown) {

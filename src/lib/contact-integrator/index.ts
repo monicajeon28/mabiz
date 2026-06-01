@@ -108,14 +108,9 @@ async function fetchContact360FromDb(
     : null;
 
   // 7. Risk Score 계산
-  const contactForRisk = {
-    ...contact,
-    reactivationSegment: contact.reactivationSegment ?? undefined,
-    lastCruiseDate: contact.lastCruiseDate ?? undefined,
-    lastCompetitorMentionAt: contact.lastCompetitorMentionAt ?? undefined,
-    lastContactedAt: contact.lastContactedAt ?? undefined,
-  };
-  const riskProfile = await calculateRiskScore(contactForRisk as any);
+  // P1-7: Explicit type assertion instead of untyped 'as any'
+  // Safely cast to ContactData type expected by calculateRiskScore
+  const riskProfile = await calculateRiskScore(contact as Parameters<typeof calculateRiskScore>[0]);
 
   // 8. 응답 구성
   const response: Contact360Response = {
