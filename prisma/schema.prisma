@@ -78,6 +78,8 @@ model Organization {
   webhookEvents              WebhookEvent[]
   // Commission Ledger
   commissionLedgers          CommissionLedger[]
+  // Monthly Settlement
+  monthlySettlements         MonthlySettlement[]
 }
 
 model OrgSmsConfig {
@@ -4428,21 +4430,27 @@ model MeetingRoom {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model MonthlySettlement {
-  id           Int       @id @default(autoincrement())
-  periodStart  DateTime  @db.Timestamp(6)
-  periodEnd    DateTime  @db.Timestamp(6)
-  targetRole   String?
-  status       String    @default("DRAFT")
-  approvedById Int?
-  approvedAt   DateTime? @db.Timestamp(6)
-  lockedAt     DateTime? @db.Timestamp(6)
-  paymentDate  DateTime? @db.Timestamp(6)
-  exportUrl    String?
-  summary      Json?
-  notes        String?
-  createdAt    DateTime  @default(now()) @db.Timestamp(6)
-  updatedAt    DateTime  @db.Timestamp(6)
+  id             Int          @id @default(autoincrement())
+  organizationId String
+  periodStart    DateTime     @db.Timestamp(6)
+  periodEnd      DateTime     @db.Timestamp(6)
+  targetRole     String?
+  status         String       @default("DRAFT")
+  approvedById   Int?
+  approvedAt     DateTime?    @db.Timestamp(6)
+  lockedAt       DateTime?    @db.Timestamp(6)
+  paymentDate    DateTime?    @db.Timestamp(6)
+  exportUrl      String?
+  summary        Json?
+  notes          String?
+  createdAt      DateTime     @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime     @default(now()) @db.Timestamp(6)
 
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([periodStart, periodEnd, organizationId])
+  @@index([organizationId, status])
   @@index([periodStart, periodEnd])
   @@index([status])
 }
