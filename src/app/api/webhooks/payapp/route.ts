@@ -62,15 +62,12 @@ export async function POST(req: Request) {
       // Nginx: 마지막 프록시 IP만 신뢰 (내부 프록시만 거쳐야 함)
       requestIP = req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() || 'unknown';
     } else {
-      // 프록시 미설정: 로그에만 기록하고 요청 진행 (경고 레벨)
-      logger.warn('[PayApp Webhook] PAYAPP_TRUSTED_PROXY 미설정. IP 검증 불완전.', {
-        xForwardedFor: req.headers.get("x-forwarded-for"),
-        xRealIp: req.headers.get("x-real-ip"),
-        cfConnectingIp: req.headers.get("cf-connecting-ip"),
+      // P0-3: 프록시 미설정 — 필수 설정이므로 즉시 반환 (보안 강화)
+      logger.error('[PayApp Webhook] CRITICAL: PAYAPP_TRUSTED_PROXY 미설정. IP 검증 불가능.', {
+        allowedValues: 'vercel|cloudflare|nginx',
+        contactDevOps: true,
       });
-      requestIP = req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ||
-                  req.headers.get("x-real-ip") ||
-                  'unknown';
+      return new Response("FAIL", { status: 403 });
     }
 
     // IP 화이트리스트 미설정 — 중대 오류 (즉시 조치 필요)
