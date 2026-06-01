@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 /**
  * /affiliate/pre-sales/complete?token=XXXXX

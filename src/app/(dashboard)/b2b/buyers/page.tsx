@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Phone, X, Trash2, ChevronRight, Search, GraduationCap } from "lucide-react";

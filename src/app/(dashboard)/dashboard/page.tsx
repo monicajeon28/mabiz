@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+﻿import { Suspense } from "react";
 import { ErrorBoundary } from '@/components/error-boundary';
 import { RecommendationWidget } from "../components/RecommendationWidget";
 import { DashboardClient } from "../dashboard-client";

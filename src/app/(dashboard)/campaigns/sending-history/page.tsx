@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState, useCallback } from 'react';
 // import { useAuthContext } from '@/lib/auth-context';  // TODO: Fix auth import

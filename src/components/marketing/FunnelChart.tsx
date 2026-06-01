@@ -1,4 +1,4 @@
-import type { Summary } from '@/types/marketing';
+﻿import type { Summary } from '@/types/marketing';
 
 interface FunnelChartProps {
   summary: Summary;

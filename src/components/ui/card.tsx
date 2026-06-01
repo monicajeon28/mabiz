@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+﻿import { ReactNode } from 'react';
 
 export function Card({ children, className, onClick }: { children: ReactNode; className?: string; onClick?: () => void }) {
   return (

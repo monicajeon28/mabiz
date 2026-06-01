@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { Plus, GitBranch, Play, Pause, ChevronRight, BarChart2, Edit2, AlertCircle } from "lucide-react";

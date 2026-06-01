@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { Copy, Check, RefreshCw, Newspaper } from "lucide-react";
 import { showError } from "@/components/ui/Toast";

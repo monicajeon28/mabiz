@@ -1,4 +1,4 @@
-import type { TrendDay } from '@/types/marketing';
+﻿import type { TrendDay } from '@/types/marketing';
 
 interface TrendChartProps {
   trend: TrendDay[];

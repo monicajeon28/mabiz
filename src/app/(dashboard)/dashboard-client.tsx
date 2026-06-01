@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Users, TrendingUp, RotateCcw, Clock, Star, Phone, Settings, Send, AlertCircle, Copy, Check, Calendar } from "lucide-react";

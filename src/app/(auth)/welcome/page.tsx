@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 /**
  * /welcome — 초대 링크 가입 완료 후 랜딩 페이지

@@ -1,4 +1,4 @@
-import { formatAmount, formatMonth } from '@/lib/marketing-utils';
+﻿import { formatAmount, formatMonth } from '@/lib/marketing-utils';
 import type { MonthlyRow } from '@/types/marketing';
 
 interface SalesBarChartProps {

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";

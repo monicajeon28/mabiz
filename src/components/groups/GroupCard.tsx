@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { GitBranch, Zap, ArrowRight } from 'lucide-react';
 import Link from 'next/link';

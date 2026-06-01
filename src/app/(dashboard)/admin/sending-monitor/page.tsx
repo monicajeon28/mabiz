@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { AlertCircle, TrendingDown, BarChart3, PieChart, Activity } from 'lucide-react';

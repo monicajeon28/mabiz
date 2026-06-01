@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, X, Copy, Check, Link2, Play, Trash2, FolderPlus, Loader2, RefreshCw } from "lucide-react";
