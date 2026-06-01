@@ -35,80 +35,91 @@ export async function POST(req: NextRequest) {
       periodEnd: periodEnd.toISOString()
     });
 
-    // CommissionLedger 집계 (이전 월)
-    // 📌 P0-SEC-001: 테넌트 격리 주석 - 스키마에 organizationId가 없어 임시조치
-    // TODO: MonthlySettlement 및 CommissionLedger 스키마에 organizationId 추가 필요
-    const commissions = await prisma.commissionLedger.findMany({
-      where: {
-        createdAt: {
-          gte: periodStart,
-          lt: periodEnd
-        }
-      },
-      select: { amount: true, isSettled: true }
-    });
+    // 모든 Organization에 대해 월간 정산 생성 (테넌트 격리 P0-SEC-001)
+    const organizations = await prisma.organization.findMany();
 
-    const totalAmount = commissions.reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
-    const settledAmount = commissions
-      .filter((c: any) => c.isSettled)
-      .reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
+    const results = [];
 
-    // MonthlySettlement 생성/업데이트
-    // 기존 settlement 찾기
-    const existing = await prisma.monthlySettlement.findFirst({
-      where: {
-        periodStart,
-        periodEnd
-      }
-    });
-
-    const summary = {
-      totalCommission: totalAmount,
-      settledCommission: settledAmount,
-      unsettledCommission: totalAmount - settledAmount,
-      commissionCount: commissions.length,
-      generatedAt: now.toISOString()
-    };
-
-    let settlement;
-    if (existing) {
-      settlement = await prisma.monthlySettlement.update({
-        where: { id: existing.id },
-        data: {
-          summary,
-          updatedAt: now
-        }
+    for (const org of organizations) {
+      // CommissionLedger 집계 (이전 월, 테넌트별)
+      const commissions = await prisma.commissionLedger.findMany({
+        where: {
+          organizationId: org.id,
+          createdAt: {
+            gte: periodStart,
+            lt: periodEnd
+          }
+        },
+        select: { amount: true, isSettled: true }
       });
-    } else {
-      settlement = await prisma.monthlySettlement.create({
-        data: {
+
+      const totalAmount = commissions.reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
+      const settledAmount = commissions
+        .filter((c: any) => c.isSettled)
+        .reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
+
+      // MonthlySettlement 생성/업데이트 (테넌트별)
+      const existing = await prisma.monthlySettlement.findFirst({
+        where: {
+          organizationId: org.id,
           periodStart,
-          periodEnd,
-          status: 'DRAFT',
-          summary,
-          notes: `Auto-generated monthly settlement: ${commissions.length} ledger entries`,
-          updatedAt: now
+          periodEnd
         }
       });
-    }
 
-    logger.log('[Cron] 월간리포트 생성 완료', {
-      periodStart: periodStart.toISOString(),
-      periodEnd: periodEnd.toISOString(),
-      totalAmount,
-      settlementId: settlement.id
-    });
+      const summary = {
+        totalCommission: totalAmount,
+        settledCommission: settledAmount,
+        unsettledCommission: totalAmount - settledAmount,
+        commissionCount: commissions.length,
+        generatedAt: now.toISOString()
+      };
 
-    return NextResponse.json({
-      ok: true,
-      settlement: {
-        id: settlement.id,
-        periodStart,
-        periodEnd,
+      let settlement;
+      if (existing) {
+        settlement = await prisma.monthlySettlement.update({
+          where: { id: existing.id },
+          data: {
+            summary,
+            updatedAt: now
+          }
+        });
+      } else {
+        settlement = await prisma.monthlySettlement.create({
+          data: {
+            organizationId: org.id,
+            periodStart,
+            periodEnd,
+            status: 'DRAFT',
+            summary,
+            notes: `Auto-generated monthly settlement: ${commissions.length} ledger entries`,
+            updatedAt: now
+          }
+        });
+      }
+
+      results.push({
+        organizationId: org.id,
+        organizationName: org.name,
+        settlementId: settlement.id,
         totalAmount,
         settledAmount,
         status: settlement.status
-      }
+      });
+
+      logger.log('[Cron] 월간리포트 생성 완료 (조직별)', {
+        organizationId: org.id,
+        periodStart: periodStart.toISOString(),
+        periodEnd: periodEnd.toISOString(),
+        totalAmount,
+        settlementId: settlement.id
+      });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      processingTime: `${organizations.length} organizations`,
+      settlements: results
     });
   } catch (err) {
     logger.error('[Cron] 월간리포트 예상 밖의 에러', {
