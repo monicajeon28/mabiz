@@ -165,7 +165,7 @@ export default function VerifyPage() {
                     <tbody>
                       {data.stats.orgDistribution.map((org, idx) => (
                         <tr key={idx} className="border-b border-slate-700/50 hover:bg-slate-700/30">
-                          <td className="py-2 text-white font-mono text-xs">
+                          <td className="py-2 text-white font-mono text-sm">
                             {org.organizationId === "NULL" ? (
                               <span className="text-red-400">NULL</span>
                             ) : (
@@ -222,7 +222,7 @@ export default function VerifyPage() {
                   {data.recentContacts.map((contact, idx) => (
                     <tr key={idx} className="border-b border-slate-700/50 hover:bg-slate-700/30">
                       <td className="py-2 px-2 text-white truncate">{contact.name}</td>
-                      <td className="py-2 px-2 text-slate-300 font-mono text-xs">{contact.phone}</td>
+                      <td className="py-2 px-2 text-slate-300 font-mono text-sm">{contact.phone}</td>
                       <td className="py-2 px-2 text-slate-400 truncate">
                         {contact.email === "NULL" ? (
                           <span className="text-red-400">NULL</span>
@@ -230,7 +230,7 @@ export default function VerifyPage() {
                           contact.email
                         )}
                       </td>
-                      <td className="py-2 px-2 text-slate-400 font-mono text-xs truncate">
+                      <td className="py-2 px-2 text-slate-400 font-mono text-sm truncate">
                         {contact.organizationId === "NULL" ? (
                           <span className="text-red-400">NULL</span>
                         ) : (
@@ -238,7 +238,7 @@ export default function VerifyPage() {
                         )}
                       </td>
                       <td className="py-2 px-2 text-slate-300">{contact.type}</td>
-                      <td className="py-2 px-2 text-slate-400 text-xs whitespace-nowrap">
+                      <td className="py-2 px-2 text-slate-400 text-sm whitespace-nowrap">
                         {new Date(contact.createdAt).toLocaleString('ko-KR')}
                       </td>
                     </tr>

@@ -191,11 +191,11 @@ export default function SegmentAnalyticsDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="flex justify-between text-xs">
+                <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Size</span>
                   <span className="font-bold">{segment.size} contacts</span>
                 </div>
-                <div className="flex justify-between text-xs">
+                <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Churn Risk</span>
                   <span
                     className={`font-bold ${
@@ -209,16 +209,16 @@ export default function SegmentAnalyticsDashboard() {
                     {segment.churnRisk}%
                   </span>
                 </div>
-                <div className="flex justify-between text-xs">
+                <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Avg LTV</span>
                   <span className="font-bold">${Math.round(segment.avgLtv)}</span>
                 </div>
-                <div className="flex justify-between text-xs">
+                <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Engagement</span>
                   <span className="font-bold">{Math.round(segment.avgEngagement)}%</span>
                 </div>
                 <div className="pt-2 mt-2 border-t">
-                  <span className="text-xs font-semibold text-blue-600">
+                  <span className="text-sm font-semibold text-blue-600">
                     {segment.profile?.recommendedAction || 'Support'}
                   </span>
                 </div>
@@ -348,7 +348,7 @@ export default function SegmentAnalyticsDashboard() {
                     <td className="py-3 px-4 text-center">{segment.size}</td>
                     <td className="py-3 px-4 text-center">
                       <span
-                        className={`px-2 py-1 rounded text-xs font-bold ${
+                        className={`px-2 py-1 rounded text-sm font-bold ${
                           segment.churnRisk > 60
                             ? 'bg-red-100 text-red-700'
                             : segment.churnRisk > 30
@@ -368,7 +368,7 @@ export default function SegmentAnalyticsDashboard() {
                     </td>
                     <td className="py-3 px-4 text-center">
                       <span
-                        className="px-2 py-1 rounded text-xs font-bold text-white"
+                        className="px-2 py-1 rounded text-sm font-bold text-white"
                         style={{
                           backgroundColor:
                             ACTION_COLORS[segment.profile?.recommendedAction || 'Support'],

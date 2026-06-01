@@ -138,23 +138,23 @@ export default function PayslipsPage() {
         return (
           <div className="mb-6 grid grid-cols-2 md:grid-cols-5 gap-3">
             <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-              <p className="text-xs text-gray-600 font-medium uppercase mb-1">기본 커미션</p>
+              <p className="text-sm text-gray-600 font-medium uppercase mb-1">기본 커미션</p>
               <p className="text-lg font-bold text-blue-600">{totalBase.toLocaleString()}원</p>
             </div>
             <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-              <p className="text-xs text-gray-600 font-medium uppercase mb-1">보너스</p>
+              <p className="text-sm text-gray-600 font-medium uppercase mb-1">보너스</p>
               <p className="text-lg font-bold text-green-600">{totalBonus.toLocaleString()}원</p>
             </div>
             <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-              <p className="text-xs text-gray-600 font-medium uppercase mb-1">수당합계</p>
+              <p className="text-sm text-gray-600 font-medium uppercase mb-1">수당합계</p>
               <p className="text-lg font-bold text-purple-600">{totalGross.toLocaleString()}원</p>
             </div>
             <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
-              <p className="text-xs text-gray-600 font-medium uppercase mb-1">원천징수 (3.3%)</p>
+              <p className="text-sm text-gray-600 font-medium uppercase mb-1">원천징수 (3.3%)</p>
               <p className="text-lg font-bold text-orange-600">-{totalWithholding.toLocaleString()}원</p>
             </div>
             <div className="bg-navy-50 rounded-lg p-4 border border-navy-200">
-              <p className="text-xs text-gray-600 font-medium uppercase mb-1">실지급액</p>
+              <p className="text-sm text-gray-600 font-medium uppercase mb-1">실지급액</p>
               <p className="text-lg font-bold text-navy-900">{totalNet.toLocaleString()}원</p>
             </div>
           </div>
@@ -166,7 +166,7 @@ export default function PayslipsPage() {
           {[...Array(5)].map((_, i) => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}
         </div>
       ) : payslips.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-gray-600">
           <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p>급여명세가 없습니다.</p>
         </div>
@@ -176,14 +176,14 @@ export default function PayslipsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">판매원</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">기간</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-500 text-xs">기본커미션</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-500 text-xs">보너스</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-500 text-xs">공제</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-500 text-xs">실지급액</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">상태</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">지급일</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">판매원</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">기간</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-500 text-sm">기본커미션</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-500 text-sm">보너스</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-500 text-sm">공제</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-500 text-sm">실지급액</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">상태</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">지급일</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -194,10 +194,10 @@ export default function PayslipsPage() {
                       <td className="px-4 py-3">
                         <p className="font-medium text-gray-900">{p.agentDisplayName ?? "-"}</p>
                         {p.agentMallUserId && (
-                          <p className="text-xs text-gray-400">{p.agentMallUserId}</p>
+                          <p className="text-sm text-gray-600">{p.agentMallUserId}</p>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-gray-600 text-xs font-mono">{p.yearMonth}</td>
+                      <td className="px-4 py-3 text-gray-600 text-sm font-mono">{p.yearMonth}</td>
                       <td className="px-4 py-3 text-right text-gray-700">{p.baseCommission.toLocaleString()}원</td>
                       <td className="px-4 py-3 text-right text-green-600 text-sm">
                         {p.bonus !== null && p.bonus !== undefined ? `+${p.bonus.toLocaleString()}원` : "-"}
@@ -207,9 +207,9 @@ export default function PayslipsPage() {
                       </td>
                       <td className="px-4 py-3 text-right font-bold text-navy-900">{p.netAmount.toLocaleString()}원</td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${st.color}`}>{st.label}</span>
                       </td>
-                      <td className="px-4 py-3 text-gray-400 text-xs">
+                      <td className="px-4 py-3 text-gray-600 text-sm">
                         {p.paidAt ? p.paidAt.slice(0, 10) : "-"}
                       </td>
                     </tr>
@@ -221,15 +221,15 @@ export default function PayslipsPage() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-              <p className="text-xs text-gray-400">총 {total.toLocaleString()}건</p>
+              <p className="text-sm text-gray-600">총 {total.toLocaleString()}건</p>
               <div className="flex gap-1">
                 <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                  className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30">
+                  className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30">
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="px-3 py-1.5 text-xs text-gray-600">{page} / {totalPages}</span>
+                <span className="px-3 py-1.5 text-sm text-gray-600">{page} / {totalPages}</span>
                 <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                  className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30">
+                  className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30">
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>

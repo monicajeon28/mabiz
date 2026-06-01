@@ -144,7 +144,7 @@ export default function ContractsPage() {
                 <div key={s.stage} className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-lg">{s.icon}</span>
-                    <span className="text-xs font-medium text-gray-600">{s.label}</span>
+                    <span className="text-sm font-medium text-gray-600">{s.label}</span>
                   </div>
                   <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                     <div
@@ -152,7 +152,7 @@ export default function ContractsPage() {
                       style={{ width: `${(count / Math.max(contracts.length, 1)) * 100}%` }}
                     />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">{count}/{contracts.length}</p>
+                  <p className="text-sm text-gray-500 mt-1">{count}/{contracts.length}</p>
                 </div>
               );
             })}
@@ -171,7 +171,7 @@ export default function ContractsPage() {
       )}
 
       {!loading && !error && contracts.length === 0 && (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-gray-600">
           초대한 계약서가 없습니다 (대리점장 전용)
         </div>
       )}
@@ -195,7 +195,7 @@ export default function ContractsPage() {
                   <td className="px-4 py-3 font-medium text-gray-900">{c.contractorName}</td>
                   <td className="px-4 py-3 text-center">
                     <span
-                      className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                      className={`inline-block px-2 py-1 rounded-full text-sm font-medium ${
                         STATUS_CLASS[c.status] ?? "bg-gray-100 text-gray-600"
                       }`}
                       aria-label={`상태: ${STATUS_LABEL[c.status] ?? c.status}`}
@@ -219,20 +219,20 @@ export default function ContractsPage() {
                   <td className="px-4 py-3 text-center">
                     {/* L10 렌즈: 긴박감 생성 - 남은 시간 표시 */}
                     {c.status === "invited" ? (
-                      <span className="text-xs font-semibold text-red-600">
+                      <span className="text-sm font-semibold text-red-600">
                         ⏰ {getTimeRemaining(c.invitedAt)}
                       </span>
                     ) : (
-                      <span className="text-xs text-gray-500">-</span>
+                      <span className="text-sm text-gray-500">-</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-center text-xs text-gray-600">
+                  <td className="px-4 py-3 text-center text-sm text-gray-600">
                     {/* L10 렌즈 + SMS Day 0-2 자동화 메타데이터 */}
                     <span className="inline-block px-2 py-1 bg-purple-100 text-purple-700 rounded-full">
                       {getNextSmsDay(c.status, c.smsDay0Sent, c.smsDay1Sent, c.smsDay2Sent)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center text-gray-700 font-mono text-xs">
+                  <td className="px-4 py-3 text-center text-gray-700 font-mono text-sm">
                     {c.mentorCode ?? "-"}
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -243,7 +243,7 @@ export default function ContractsPage() {
                           setSelectedContract(c);
                           setShowOptionsModal(true);
                         }}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors"
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
                       >
                         옵션 선택
                       </button>
@@ -290,7 +290,7 @@ export default function ContractsPage() {
                   <div>
                     <p className="font-semibold text-blue-700">옵션 A: 지금 즉시 서명</p>
                     <p className="text-sm text-blue-600 mt-1">가장 빠름 • 15분 내 완료 가능</p>
-                    <p className="text-xs text-blue-500 mt-1">✅ 권장</p>
+                    <p className="text-sm text-blue-500 mt-1">✅ 권장</p>
                   </div>
                 </div>
               </button>
@@ -342,10 +342,10 @@ export default function ContractsPage() {
 
             {/* 성과 메트릭 표시 */}
             <div className="bg-gray-50 p-3 rounded-lg mb-4 text-center">
-              <p className="text-xs text-gray-600 font-semibold">
+              <p className="text-sm text-gray-600 font-semibold">
                 ✨ 옵션 A 선택 고객 평균 소요시간: <span className="text-blue-600">8분</span>
               </p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-sm text-gray-500 mt-1">
                 전환율: <span className="text-green-600 font-semibold">75-85%</span> (L10 렌즈 적용)
               </p>
             </div>

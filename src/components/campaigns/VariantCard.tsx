@@ -117,7 +117,7 @@ export function VariantCard({
           <div>
             <Label htmlFor={`sms-${variant}`} className="mb-2 block">
               📱 SMS 본문
-              <span className="text-xs text-gray-500 ml-2">
+              <span className="text-sm text-gray-500 ml-2">
                 {charCount}/{charLimit}자
               </span>
             </Label>
@@ -168,7 +168,7 @@ export function VariantCard({
               className="h-32 resize-none"
               maxLength={5000}
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 mt-1">
               {emailBody.length}/5000자
             </p>
           </div>
@@ -190,7 +190,7 @@ export function VariantCard({
                 {variant}: {Math.round(trafficSplit * 100)}%
               </span>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-sm text-gray-500 mt-2">
               반대편: {Math.round((1 - trafficSplit) * 100)}%
             </p>
           </div>
@@ -211,7 +211,7 @@ export function VariantCard({
           {/* SMS 미리보기 */}
           {smsBody && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 mb-2">
+              <p className="text-sm font-semibold text-gray-500 mb-2">
                 📱 SMS 미리보기
               </p>
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
@@ -234,7 +234,7 @@ export function VariantCard({
           {/* Email 미리보기 */}
           {emailSubject && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 mb-2">
+              <p className="text-sm font-semibold text-gray-500 mb-2">
                 📧 Email 미리보기
               </p>
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-2">
@@ -253,7 +253,7 @@ export function VariantCard({
             <p className="text-sm font-semibold text-blue-900">
               📊 트래픽 분할: {Math.round(trafficSplit * 100)}%
             </p>
-            <p className="text-xs text-blue-700 mt-1">
+            <p className="text-sm text-blue-700 mt-1">
               이 Variant로 {Math.round(trafficSplit * 100)}% 고객 발송
             </p>
           </div>

@@ -381,7 +381,7 @@ export default function SalesConfirmationPage() {
                       <td className="px-4 py-3 font-medium text-gray-900 truncate">
                         {sale.productName}
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">
+                      <td className="px-4 py-3 text-gray-500 text-sm">
                         {sale.customerPhone || "-"}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-gray-900">
@@ -392,12 +392,12 @@ export default function SalesConfirmationPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${cfg.bgColor} ${cfg.color}`}
+                          className={`px-2 py-1 rounded-full text-sm font-medium ${cfg.bgColor} ${cfg.color}`}
                         >
                           {cfg.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">
+                      <td className="px-4 py-3 text-gray-500 text-sm">
                         {new Date(sale.createdAt).toLocaleDateString("ko-KR")}
                       </td>
                       <td className="px-4 py-3 text-center">
@@ -423,22 +423,22 @@ export default function SalesConfirmationPage() {
           {/* 페이지네이션 */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-              <p className="text-xs text-gray-500">총 {total.toLocaleString()}건</p>
+              <p className="text-sm text-gray-500">총 {total.toLocaleString()}건</p>
               <div className="flex gap-2">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30"
+                  className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="px-3 py-2 text-xs text-gray-600">
+                <span className="px-3 py-2 text-sm text-gray-600">
                   {page} / {totalPages}
                 </span>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30"
+                  className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -459,7 +459,7 @@ export default function SalesConfirmationPage() {
               </h2>
               <button
                 onClick={() => setDetailSale(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-600 hover:text-gray-600"
               >
                 ✕
               </button>
@@ -474,7 +474,7 @@ export default function SalesConfirmationPage() {
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">
+                    <label className="text-sm text-gray-500 block mb-1">
                       제휴 코드
                     </label>
                     <p className="text-sm font-medium text-gray-900">
@@ -482,7 +482,7 @@ export default function SalesConfirmationPage() {
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">
+                    <label className="text-sm text-gray-500 block mb-1">
                       고객 연락처
                     </label>
                     <p className="text-sm font-medium text-gray-900">
@@ -499,7 +499,7 @@ export default function SalesConfirmationPage() {
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">
+                    <label className="text-sm text-gray-500 block mb-1">
                       상품명
                     </label>
                     <p className="text-sm font-medium text-gray-900">
@@ -507,7 +507,7 @@ export default function SalesConfirmationPage() {
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">
+                    <label className="text-sm text-gray-500 block mb-1">
                       판매액
                     </label>
                     <p className="text-sm font-bold text-gray-900">
@@ -515,7 +515,7 @@ export default function SalesConfirmationPage() {
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">
+                    <label className="text-sm text-gray-500 block mb-1">
                       수수료
                     </label>
                     <p className="text-sm font-medium text-gray-900">
@@ -523,12 +523,12 @@ export default function SalesConfirmationPage() {
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">
+                    <label className="text-sm text-gray-500 block mb-1">
                       현재 상태
                     </label>
                     <p className="text-sm">
                       <span
-                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[detailSale.status]?.bgColor} ${STATUS_CONFIG[detailSale.status]?.color}`}
+                        className={`px-2 py-0.5 rounded-full text-sm font-medium ${STATUS_CONFIG[detailSale.status]?.bgColor} ${STATUS_CONFIG[detailSale.status]?.color}`}
                       >
                         {STATUS_CONFIG[detailSale.status]?.label || detailSale.status}
                       </span>
@@ -538,7 +538,7 @@ export default function SalesConfirmationPage() {
               </div>
 
               {/* 타임스탬프 */}
-              <div className="text-xs text-gray-500">
+              <div className="text-sm text-gray-500">
                 <p>작성: {new Date(detailSale.createdAt).toLocaleString("ko-KR")}</p>
                 <p>수정: {new Date(detailSale.updatedAt).toLocaleString("ko-KR")}</p>
               </div>
@@ -552,7 +552,7 @@ export default function SalesConfirmationPage() {
                   </h3>
 
                   <div>
-                    <label className="text-xs text-gray-600 font-medium block mb-2">
+                    <label className="text-sm text-gray-600 font-medium block mb-2">
                       승인 코멘트 (선택)
                     </label>
                     <textarea
@@ -565,7 +565,7 @@ export default function SalesConfirmationPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs text-gray-600 font-medium block mb-2">
+                    <label className="text-sm text-gray-600 font-medium block mb-2">
                       거절 사유 (거절 시 필수)
                     </label>
                     <textarea

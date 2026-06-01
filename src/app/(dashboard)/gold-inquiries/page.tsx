@@ -196,7 +196,7 @@ export default function GoldInquiriesPage() {
         </div>
         <form onSubmit={handleSearch} className="flex gap-2 ml-auto">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -215,7 +215,7 @@ export default function GoldInquiriesPage() {
           {[...Array(5)].map((_, i) => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}
         </div>
       ) : inquiries.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-gray-600">
           <MessageSquare className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p>골드문의 내역이 없습니다.</p>
         </div>
@@ -225,15 +225,15 @@ export default function GoldInquiriesPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">이름</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">전화번호</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">희망등급</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">메시지</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">담당</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">상태</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">액션</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">회원전환</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">접수일</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">이름</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">전화번호</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">희망등급</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">메시지</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">담당</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">상태</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">액션</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">회원전환</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">접수일</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -243,27 +243,27 @@ export default function GoldInquiriesPage() {
                   return (
                     <tr key={inq.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 font-medium text-gray-900">{inq.name}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs font-mono">{inq.phone}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">
+                      <td className="px-4 py-3 text-gray-500 text-sm font-mono">{inq.phone}</td>
+                      <td className="px-4 py-3 text-gray-500 text-sm">
                         {inq.tier != null ? (TIER_LABELS[inq.tier] ?? `Tier${inq.tier}`) : "-"}
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs max-w-[180px] truncate" title={inq.message ?? ""}>
+                      <td className="px-4 py-3 text-gray-500 text-sm max-w-[180px] truncate" title={inq.message ?? ""}>
                         {inq.message ?? "-"}
                       </td>
-                      <td className="px-4 py-3 text-gray-600 text-xs">{inq.agentName ?? "-"}</td>
+                      <td className="px-4 py-3 text-gray-600 text-sm">{inq.agentName ?? "-"}</td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${st.color}`}>{st.label}</span>
                       </td>
                       <td className="px-4 py-3">
                         {acting === inq.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                          <Loader2 className="w-4 h-4 animate-spin text-gray-600" />
                         ) : (
                           <div className="flex gap-1 flex-wrap">
                             {nextStatuses.map((ns) => (
                               <button
                                 key={ns}
                                 onClick={() => changeStatus(inq.id, ns)}
-                                className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                                className={`px-2 py-0.5 rounded text-sm font-medium transition-colors ${
                                   ns === "confirmed"
                                     ? "bg-green-100 text-green-700 hover:bg-green-200"
                                     : ns === "unavailable" || ns === "refund"
@@ -281,19 +281,19 @@ export default function GoldInquiriesPage() {
                         {convertedIds[inq.id] ? (
                           <a
                             href={`/gold-members/${convertedIds[inq.id]}`}
-                            className="text-xs text-emerald-600 font-medium hover:underline flex items-center gap-1"
+                            className="text-sm text-emerald-600 font-medium hover:underline flex items-center gap-1"
                           >
                             <UserPlus className="w-3 h-3" />회원보기
                           </a>
                         ) : converting === inq.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                          <Loader2 className="w-4 h-4 animate-spin text-gray-600" />
                         ) : !['unavailable', 'refund'].includes(inq.status) ? (
                           <div className="flex gap-1 flex-wrap">
                             {(['A', 'B', 'C', 'HEALTH'] as const).map((course) => (
                               <button
                                 key={course}
                                 onClick={() => convertToMember(inq, course)}
-                                className={`px-1.5 py-0.5 rounded text-xs font-medium transition-colors ${
+                                className={`px-1.5 py-0.5 rounded text-sm font-medium transition-colors ${
                                   course === 'HEALTH'
                                     ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                                     : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
@@ -305,10 +305,10 @@ export default function GoldInquiriesPage() {
                             ))}
                           </div>
                         ) : (
-                          <span className="text-xs text-gray-300">-</span>
+                          <span className="text-sm text-gray-300">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-gray-400 text-xs">
+                      <td className="px-4 py-3 text-gray-600 text-sm">
                         {(inq.submittedAt ?? inq.createdAt).slice(0, 10)}
                       </td>
                     </tr>
@@ -320,15 +320,15 @@ export default function GoldInquiriesPage() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-              <p className="text-xs text-gray-400">총 {total.toLocaleString()}건</p>
+              <p className="text-sm text-gray-600">총 {total.toLocaleString()}건</p>
               <div className="flex gap-1">
                 <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                  className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30">
+                  className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30">
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="px-3 py-1.5 text-xs text-gray-600">{page} / {totalPages}</span>
+                <span className="px-3 py-1.5 text-sm text-gray-600">{page} / {totalPages}</span>
                 <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                  className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30">
+                  className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30">
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>

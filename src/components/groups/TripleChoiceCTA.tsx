@@ -103,7 +103,7 @@ export function TripleChoiceCTA({
           >
             <div className="text-2xl mb-2">❌</div>
             <div className="font-semibold text-sm">관심없음</div>
-            <div className="text-xs text-gray-400 mt-1">(여기서 떠나기)</div>
+            <div className="text-sm text-gray-600 mt-1">(여기서 떠나기)</div>
           </button>
 
           {/* 버튼 2: 중간 선택 (주의 톤) - Action Bias 원리 */}
@@ -115,7 +115,7 @@ export function TripleChoiceCTA({
           >
             <div className="text-2xl mb-2">⚪</div>
             <div className="font-semibold text-sm">상담받기</div>
-            <div className="text-xs text-blue-600 mt-1">(전문가 도움)</div>
+            <div className="text-sm text-blue-600 mt-1">(전문가 도움)</div>
           </button>
 
           {/* 버튼 3: 최고 선택 (강조 톤 - PRIMARY) - Commitment & Consistency */}
@@ -127,12 +127,12 @@ export function TripleChoiceCTA({
           >
             <div className="text-2xl mb-2">✅</div>
             <div className="font-semibold text-sm">지금 신청</div>
-            <div className="text-xs text-green-100 mt-1">(즉시 시작)</div>
+            <div className="text-sm text-green-100 mt-1">(즉시 시작)</div>
           </button>
         </div>
 
         {/* 신뢰 브리지: 보장 메시지 */}
-        <div className="text-center text-xs text-gray-500">
+        <div className="text-center text-sm text-gray-500">
           <p>언제든 플랜 변경 가능 • 30일 환불 보장</p>
         </div>
       </div>

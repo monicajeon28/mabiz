@@ -141,7 +141,7 @@ export function Menu48AnxietyDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalContacts}</div>
-            <p className="text-xs text-gray-500 mt-1">L2 평가 완료</p>
+            <p className="text-sm text-gray-500 mt-1">L2 평가 완료</p>
           </CardContent>
         </Card>
 
@@ -153,7 +153,7 @@ export function Menu48AnxietyDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{stats.highAnxiety}</div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 mt-1">
               {((stats.highAnxiety / stats.totalContacts) * 100).toFixed(1)}%
             </p>
           </CardContent>
@@ -167,7 +167,7 @@ export function Menu48AnxietyDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.smsClickRate.toFixed(1)}%</div>
-            <p className="text-xs text-gray-500 mt-1">Day 0-3 평균</p>
+            <p className="text-sm text-gray-500 mt-1">Day 0-3 평균</p>
           </CardContent>
         </Card>
 
@@ -179,7 +179,7 @@ export function Menu48AnxietyDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.consultationBookingRate.toFixed(1)}%</div>
-            <p className="text-xs text-gray-500 mt-1">고불안도 고객</p>
+            <p className="text-sm text-gray-500 mt-1">고불안도 고객</p>
           </CardContent>
         </Card>
 
@@ -193,7 +193,7 @@ export function Menu48AnxietyDashboard() {
             <div className="text-2xl font-bold text-green-600">
               {stats.conversionRate.toFixed(1)}%
             </div>
-            <p className="text-xs text-gray-500 mt-1">목표: 75%</p>
+            <p className="text-sm text-gray-500 mt-1">목표: 75%</p>
           </CardContent>
         </Card>
       </div>
@@ -246,7 +246,7 @@ export function Menu48AnxietyDashboard() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold">{item.count}명</span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-sm text-gray-500">
                       ({item.percentage.toFixed(1)}%)
                     </span>
                   </div>
@@ -286,7 +286,7 @@ export function Menu48AnxietyDashboard() {
 
             <div className="mt-4">
               <h4 className="text-sm font-semibold mb-2">준비 단계 설명</h4>
-              <ul className="space-y-1 text-xs text-gray-600">
+              <ul className="space-y-1 text-sm text-gray-600">
                 <li>• inquiry: 초기 문의 (결정 전)</li>
                 <li>• visa_concern: 비자 준비 불안</li>
                 <li>• health_concern: 건강 관련 우려</li>
@@ -343,20 +343,20 @@ export function Menu48AnxietyDashboard() {
 
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-3 bg-blue-50 rounded-lg">
-              <h5 className="text-xs font-semibold text-blue-900">Day 0: SPIN 질문</h5>
-              <p className="text-xs text-blue-700 mt-1">
+              <h5 className="text-sm font-semibold text-blue-900">Day 0: SPIN 질문</h5>
+              <p className="text-sm text-blue-700 mt-1">
                 초기 인식 & 문제 발견
               </p>
             </div>
             <div className="p-3 bg-green-50 rounded-lg">
-              <h5 className="text-xs font-semibold text-green-900">Day 1: 해결책 제시</h5>
-              <p className="text-xs text-green-700 mt-1">
+              <h5 className="text-sm font-semibold text-green-900">Day 1: 해결책 제시</h5>
+              <p className="text-sm text-green-700 mt-1">
                 세그먼트별 가이드 PDF
               </p>
             </div>
             <div className="p-3 bg-amber-50 rounded-lg">
-              <h5 className="text-xs font-semibold text-amber-900">Day 2-3: 행동 유도</h5>
-              <p className="text-xs text-amber-700 mt-1">
+              <h5 className="text-sm font-semibold text-amber-900">Day 2-3: 행동 유도</h5>
+              <p className="text-sm text-amber-700 mt-1">
                 증거 + 긴박감 + 클로징
               </p>
             </div>

@@ -109,7 +109,7 @@ export default function EmailSettingsPage() {
           <button
             key={p.label}
             onClick={() => applyPreset(p)}
-            className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
+            className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
               form.smtpHost === p.host
                 ? "bg-navy-900 text-white border-navy-900"
                 : "bg-white text-gray-600 border-gray-200 hover:border-navy-900"
@@ -180,7 +180,7 @@ export default function EmailSettingsPage() {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             비밀번호 <span className="text-red-500">*</span>
             {form.smtpHost.includes("gmail") && (
-              <span className="ml-1 text-xs text-blue-600 font-normal">Gmail은 앱 비밀번호 사용</span>
+              <span className="ml-1 text-sm text-blue-600 font-normal">Gmail은 앱 비밀번호 사용</span>
             )}
           </label>
           <input
@@ -192,7 +192,7 @@ export default function EmailSettingsPage() {
             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gold-500"
           />
           {form.smtpHost.includes("gmail") && (
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-sm text-gray-600 mt-1">
               Google 계정 → 보안 → 2단계 인증 ON → 앱 비밀번호 생성
             </p>
           )}

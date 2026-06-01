@@ -213,7 +213,7 @@ export function UnifiedComposer({
                     : "bg-gray-50 border-gray-200 hover:border-gray-300"
                 }`}
               >
-                <span className={isSelected ? config.color : "text-gray-400"}>
+                <span className={isSelected ? config.color : "text-gray-600"}>
                   {config.icon}
                 </span>
                 <span
@@ -223,7 +223,7 @@ export function UnifiedComposer({
                 >
                   {config.label}
                 </span>
-                <span className="ml-1 text-xs text-gray-500">
+                <span className="ml-1 text-sm text-gray-500">
                   ₩{config.cost}
                 </span>
               </button>
@@ -233,7 +233,7 @@ export function UnifiedComposer({
 
         <button
           onClick={handleSelectAllChannels}
-          className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
         >
           모든 채널 선택
         </button>
@@ -249,7 +249,7 @@ export function UnifiedComposer({
         {/* 제목 (이메일용) */}
         {channels.includes("EMAIL") && (
           <div className="mb-4">
-            <label className="block text-xs font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               이메일 제목
             </label>
             <input
@@ -264,7 +264,7 @@ export function UnifiedComposer({
 
         {/* 메시지 본문 */}
         <div className="mb-4">
-          <label className="block text-xs font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             메시지 본문
           </label>
           <textarea
@@ -287,7 +287,7 @@ export function UnifiedComposer({
             return (
               <div
                 key={channel}
-                className={`p-3 rounded-lg border text-xs ${
+                className={`p-3 rounded-lg border text-sm ${
                   exceeded
                     ? "bg-red-50 border-red-200"
                     : "bg-gray-50 border-gray-200"
@@ -308,7 +308,7 @@ export function UnifiedComposer({
 
         {/* 제안사항 */}
         {showSuggestions && message.length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex gap-3 text-xs">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex gap-3 text-sm">
             <Lightbulb className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
             <div className="space-y-1">
               {channels.flatMap(
@@ -328,7 +328,7 @@ export function UnifiedComposer({
           </h3>
           <button
             onClick={() => setShowPreview(!showPreview)}
-            className="text-xs text-blue-600 hover:text-blue-700"
+            className="text-sm text-blue-600 hover:text-blue-700"
           >
             {showPreview ? "접기" : "펼치기"}
           </button>
@@ -351,7 +351,7 @@ export function UnifiedComposer({
                       {config.label} 미리보기
                     </span>
                   </div>
-                  <div className="bg-white p-3 rounded border text-xs text-gray-700 whitespace-pre-wrap">
+                  <div className="bg-white p-3 rounded border text-sm text-gray-700 whitespace-pre-wrap">
                     {converted?.message || message}
                   </div>
                 </div>
@@ -377,7 +377,7 @@ export function UnifiedComposer({
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
               <span className="text-sm text-gray-900">{group.name}</span>
-              <span className="text-xs text-gray-500">
+              <span className="text-sm text-gray-500">
                 ({group._count.members}명)
               </span>
             </label>
@@ -418,25 +418,25 @@ export function UnifiedComposer({
       <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200 p-5">
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
-            <div className="text-xs text-gray-600">채널</div>
+            <div className="text-sm text-gray-600">채널</div>
             <div className="text-lg font-bold text-gray-900">
               {channels.length}개
             </div>
           </div>
           <div>
-            <div className="text-xs text-gray-600">수신자</div>
+            <div className="text-sm text-gray-600">수신자</div>
             <div className="text-lg font-bold text-gray-900">
               {totalRecipients}명
             </div>
           </div>
           <div>
-            <div className="text-xs text-gray-600">예상 비용</div>
+            <div className="text-sm text-gray-600">예상 비용</div>
             <div className="text-lg font-bold text-gray-900">
               ₩{estimatedCost.toLocaleString()}
             </div>
           </div>
           <div>
-            <div className="text-xs text-gray-600">평균 비용/명</div>
+            <div className="text-sm text-gray-600">평균 비용/명</div>
             <div className="text-lg font-bold text-gray-900">
               ₩{totalRecipients > 0 ? (estimatedCost / totalRecipients).toFixed(0) : 0}
             </div>

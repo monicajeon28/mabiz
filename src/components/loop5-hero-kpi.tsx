@@ -51,7 +51,7 @@ function KpiCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
-          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+          <p className="text-sm font-medium text-gray-600 dark:text-gray-600">
             {title}
           </p>
           <div className="mt-3 flex items-baseline gap-2">
@@ -60,7 +60,7 @@ function KpiCard({
             </p>
             {unit && <span className="text-sm text-gray-500">{unit}</span>}
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">{sub}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">{sub}</p>
           {trend !== undefined && (
             <div className={`text-sm font-semibold mt-2 ${trendColor} flex items-center gap-1`}>
               <TrendingUp className="w-3 h-3" />
@@ -69,7 +69,7 @@ function KpiCard({
           )}
         </div>
         <div className="p-3 bg-white/50 dark:bg-gray-800 rounded-lg group-hover:bg-white dark:group-hover:bg-gray-700 transition-colors">
-          <Icon className="w-6 h-6 text-gray-400 dark:text-gray-500" />
+          <Icon className="w-6 h-6 text-gray-600 dark:text-gray-500" />
         </div>
       </div>
     </div>

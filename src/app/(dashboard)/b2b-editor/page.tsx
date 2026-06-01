@@ -171,12 +171,12 @@ function PageCard({
           </h3>
           <HoverPreview partnerId={page.partnerId} visible={hoverVisible} anchorRef={titleRef} />
           {page.partnerId ? (
-            <p className="text-xs text-gray-400 mt-0.5">/b2b/p/{page.partnerId}</p>
+            <p className="text-sm text-gray-600 mt-0.5">/b2b/p/{page.partnerId}</p>
           ) : (
-            <p className="text-xs text-gray-400 mt-0.5">기본 페이지 - 미리보기 불가</p>
+            <p className="text-sm text-gray-600 mt-0.5">기본 페이지 - 미리보기 불가</p>
           )}
 
-          <div className="flex items-center gap-3 mt-2 text-xs text-gray-500 flex-wrap">
+          <div className="flex items-center gap-3 mt-2 text-sm text-gray-500 flex-wrap">
             <span className="flex items-center gap-1">
               <Eye className="w-3 h-3" /> {page.viewCount.toLocaleString()}명 방문
             </span>
@@ -216,7 +216,7 @@ function PageCard({
             return (
               <div className="mt-3 bg-gray-50 rounded-xl p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-semibold text-gray-600">퍼널 전환 그래프</p>
+                  <p className="text-sm font-semibold text-gray-600">퍼널 전환 그래프</p>
                   {s.viewCount > 0 && s.purchased > 0 && (
                     <span className="text-[11px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
                       전체 전환 {s.rates.visitToPurchase}%
@@ -237,7 +237,7 @@ function PageCard({
                         {b.value.toLocaleString()}
                       </span>
                       {b.rate !== null && (
-                        <span className="text-[10px] text-gray-400 w-8 shrink-0">{b.rate}%</span>
+                        <span className="text-[10px] text-gray-600 w-8 shrink-0">{b.rate}%</span>
                       )}
                     </div>
                   ))}
@@ -251,7 +251,7 @@ function PageCard({
         <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
           <button
             onClick={() => onCreateShortLink(page)}
-            className="flex items-center gap-1 px-2 py-1.5 hover:bg-gray-100 rounded-lg text-gray-500 text-xs"
+            className="flex items-center gap-1 px-2 py-1.5 hover:bg-gray-100 rounded-lg text-gray-500 text-sm"
             title="숏링크 만들기"
             aria-label="숏링크 만들기"
           >
@@ -280,7 +280,7 @@ function PageCard({
             aria-label="페이지 링크 복사"
           >
             {copied === previewKey
-              ? <span className="text-xs text-green-500 font-medium">복사됨</span>
+              ? <span className="text-sm text-green-500 font-medium">복사됨</span>
               : <Copy className="w-4 h-4" />}
           </button>
           <button
@@ -290,7 +290,7 @@ function PageCard({
             title="복제 (사본 만들기)"
             aria-label="페이지 복제"
           >
-            {cloningId === page.id ? <span className="text-xs text-blue-500">복제중...</span> : <Files className="w-4 h-4" />}
+            {cloningId === page.id ? <span className="text-sm text-blue-500">복제중...</span> : <Files className="w-4 h-4" />}
           </button>
           <button
             onClick={() => onLoadStats(page.id)}
@@ -313,11 +313,11 @@ function PageCard({
           <button
             onClick={() => onDelete(page.id, page.title)}
             disabled={deletingId === page.id}
-            className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 disabled:opacity-50"
+            className="p-2 hover:bg-red-50 rounded-lg text-gray-600 hover:text-red-500 disabled:opacity-50"
             title="삭제"
             aria-label="페이지 삭제"
           >
-            {deletingId === page.id ? <span className="text-xs text-red-400">삭제중...</span> : <Trash2 className="w-4 h-4" />}
+            {deletingId === page.id ? <span className="text-sm text-red-400">삭제중...</span> : <Trash2 className="w-4 h-4" />}
           </button>
         </div>
       </div>
@@ -495,13 +495,13 @@ export default function B2BEditorPage() {
               onChange={toggleSelectAll}
               className="w-4 h-4 accent-navy-900"
             />
-            <span className="text-xs text-gray-500">전체 선택</span>
+            <span className="text-sm text-gray-500">전체 선택</span>
           </label>
           {selectedIds.size > 0 && (
             <button
               onClick={bulkDelete}
               disabled={bulkDeleting}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5" />
               {bulkDeleting ? "삭제 중..." : `${selectedIds.size}개 삭제`}
@@ -520,7 +520,7 @@ export default function B2BEditorPage() {
             <div className="text-center py-16">
               <p className="text-4xl mb-3">📄</p>
               <p className="font-medium text-gray-700">B2B 랜딩페이지가 없습니다</p>
-              <p className="text-sm text-gray-400 mt-1">+ 새 페이지 버튼으로 만들어보세요</p>
+              <p className="text-sm text-gray-600 mt-1">+ 새 페이지 버튼으로 만들어보세요</p>
             </div>
           ) : (
             pages.map((page) => (

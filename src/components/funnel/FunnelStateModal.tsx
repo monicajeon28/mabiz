@@ -115,16 +115,16 @@ export default function FunnelStateModal({
             {/* 고객 정보 */}
             <div className="bg-gray-50 rounded-lg p-4 space-y-3">
               <div>
-                <p className="text-xs text-gray-500 mb-1">고객명</p>
+                <p className="text-sm text-gray-500 mb-1">고객명</p>
                 <p className="text-sm font-semibold">{state.contact.name}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1">전화번호</p>
+                <p className="text-sm text-gray-500 mb-1">전화번호</p>
                 <p className="text-sm font-semibold">{state.contact.phone}</p>
               </div>
               {state.contact.email && (
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">이메일</p>
+                  <p className="text-sm text-gray-500 mb-1">이메일</p>
                   <p className="text-sm font-semibold">{state.contact.email}</p>
                 </div>
               )}
@@ -135,7 +135,7 @@ export default function FunnelStateModal({
               <p className="text-sm font-semibold mb-3">현재 상태</p>
               <div className="space-y-2">
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">상태</p>
+                  <p className="text-sm text-gray-500 mb-1">상태</p>
                   <span
                     className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getStatusBadgeClass(
                       currentState
@@ -145,14 +145,14 @@ export default function FunnelStateModal({
                   </span>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">마지막 변경</p>
+                  <p className="text-sm text-gray-500">마지막 변경</p>
                   <p className="text-sm">
                     {new Date(state.updatedAt).toLocaleString('ko-KR')}
                   </p>
                 </div>
                 {state.metadata?.failureReason && (
                   <div>
-                    <p className="text-xs text-gray-500">실패 사유</p>
+                    <p className="text-sm text-gray-500">실패 사유</p>
                     <p className="text-sm text-red-600">
                       {state.metadata.failureReason}
                     </p>
@@ -208,7 +208,7 @@ export default function FunnelStateModal({
             {state.metadata && (
               <div>
                 <p className="text-sm font-semibold mb-2">추가 정보</p>
-                <pre className="text-xs bg-gray-50 p-2 rounded border max-h-40 overflow-auto whitespace-pre-wrap break-words">
+                <pre className="text-sm bg-gray-50 p-2 rounded border max-h-40 overflow-auto whitespace-pre-wrap break-words">
                   {JSON.stringify(state.metadata, null, 2)}
                 </pre>
               </div>

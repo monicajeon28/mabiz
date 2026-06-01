@@ -50,7 +50,7 @@ export function QaSearchBar({
         {isLoading ? (
           <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-400 animate-spin" />
         ) : (
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600" />
         )}
         <input
           type="text"
@@ -61,7 +61,7 @@ export function QaSearchBar({
             handleSearch(e.target.value, category, tone);
           }}
           disabled={isLoading}
-          className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-lg text-base focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 disabled:bg-gray-50 disabled:text-gray-400"
+          className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-lg text-base focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 disabled:bg-gray-50 disabled:text-gray-600"
         />
         {query && !isLoading && (
           <button
@@ -71,7 +71,7 @@ export function QaSearchBar({
             }}
             className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
           >
-            <X className="w-4 h-4 text-gray-400" />
+            <X className="w-4 h-4 text-gray-600" />
           </button>
         )}
       </div>
@@ -89,7 +89,7 @@ export function QaSearchBar({
         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Filter className="w-4 h-4" />}
         필터
         {activeFilterCount > 0 && (
-          <span className="ml-auto flex items-center justify-center w-5 h-5 text-xs font-bold bg-blue-600 text-white rounded-full">
+          <span className="ml-auto flex items-center justify-center w-5 h-5 text-sm font-bold bg-blue-600 text-white rounded-full">
             {activeFilterCount}
           </span>
         )}

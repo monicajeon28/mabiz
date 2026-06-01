@@ -98,7 +98,7 @@ function SearchSection({
       {/* 검색 */}
       <div className="flex gap-2 mb-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
           <input
             type="text"
             placeholder="이름, 전화번호, 이메일 검색"
@@ -113,7 +113,7 @@ function SearchSection({
       <div className="flex flex-wrap gap-2 mb-4">
         <button
           onClick={() => onFilterChange("")}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${!filter ? "bg-navy-900 text-white border-navy-900" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+          className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${!filter ? "bg-navy-900 text-white border-navy-900" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
         >
           전체
         </button>
@@ -121,7 +121,7 @@ function SearchSection({
           <button
             key={s.key}
             onClick={() => onFilterChange(s.key === filter ? "" : s.key)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${filter === s.key ? s.color + " border-current" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${filter === s.key ? s.color + " border-current" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
           >
             {s.key}
           </button>
@@ -156,7 +156,7 @@ function CreateProspectModal({
       <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4 shadow-2xl">
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-gray-900">교육 구매자 등록</h3>
-          <button onClick={onClose} aria-label="닫기"><X className="w-5 h-5 text-gray-400" /></button>
+          <button onClick={onClose} aria-label="닫기"><X className="w-5 h-5 text-gray-600" /></button>
         </div>
         <div className="grid grid-cols-2 gap-3">
           {[
@@ -166,7 +166,7 @@ function CreateProspectModal({
             { key: "productName", label: "상품명", placeholder: "상품명" },
           ].map(f => (
             <div key={f.key} className={f.key === "productName" ? "col-span-2" : ""}>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">{f.label}</label>
+              <label className="text-sm font-medium text-gray-600 mb-1 block">{f.label}</label>
               <input
                 value={form[f.key as keyof FormData]}
                 onChange={e => onFormChange(f.key as keyof FormData, e.target.value)}
@@ -176,7 +176,7 @@ function CreateProspectModal({
             </div>
           ))}
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">결제일</label>
+            <label className="text-sm font-medium text-gray-600 mb-1 block">결제일</label>
             <input
               type="date"
               value={form.paymentDate}
@@ -185,7 +185,7 @@ function CreateProspectModal({
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">결제금액 (원)</label>
+            <label className="text-sm font-medium text-gray-600 mb-1 block">결제금액 (원)</label>
             <input
               type="number"
               value={form.paymentAmount}
@@ -196,7 +196,7 @@ function CreateProspectModal({
           </div>
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600 mb-1 block">상태</label>
+          <label className="text-sm font-medium text-gray-600 mb-1 block">상태</label>
           <select
             value={form.status}
             onChange={e => onFormChange("status", e.target.value)}
@@ -206,7 +206,7 @@ function CreateProspectModal({
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600 mb-1 block">메모</label>
+          <label className="text-sm font-medium text-gray-600 mb-1 block">메모</label>
           <textarea
             value={form.notes}
             onChange={e => onFormChange("notes", e.target.value)}
@@ -250,12 +250,12 @@ function ProspectListItem({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-semibold text-gray-900">{prospect.name}</p>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${si.color}`}>{prospect.status}</span>
+            <span className={`text-sm px-2 py-0.5 rounded-full font-medium ${si.color}`}>{prospect.status}</span>
             {prospect.productName && (
-              <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">{prospect.productName}</span>
+              <span className="text-sm bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">{prospect.productName}</span>
             )}
           </div>
-          <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 flex-wrap">
+          <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
             <a href={`tel:${prospect.phone}`} className="text-blue-600 hover:underline flex items-center gap-1">
               <Phone className="w-3 h-3" /> {prospect.phone}
             </a>
@@ -271,11 +271,11 @@ function ProspectListItem({
           <select
             value={prospect.status}
             onChange={e => onStatusChange(prospect.id, e.target.value)}
-            className={`text-xs px-2 py-1 rounded-lg border font-medium cursor-pointer bg-white ${si.color}`}
+            className={`text-sm px-2 py-1 rounded-lg border font-medium cursor-pointer bg-white ${si.color}`}
           >
             {STATUSES.map(s => <option key={s.key} value={s.key}>{s.key}</option>)}
           </select>
-          <button onClick={() => onDetail(prospect)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400">
+          <button onClick={() => onDetail(prospect)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-600">
             <ChevronRight className="w-4 h-4" />
           </button>
           <button onClick={() => onDelete(prospect.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-gray-300 hover:text-red-500">
@@ -283,7 +283,7 @@ function ProspectListItem({
           </button>
         </div>
       </div>
-      {prospect.notes && <p className="text-xs text-gray-400 mt-2 ml-5 line-clamp-1 italic">&quot;{prospect.notes}&quot;</p>}
+      {prospect.notes && <p className="text-sm text-gray-600 mt-2 ml-5 line-clamp-1 italic">&quot;{prospect.notes}&quot;</p>}
     </div>
   );
 }
@@ -304,7 +304,7 @@ function ProspectListSkeleton() {
  */
 function EmptyState() {
   return (
-    <div className="text-center py-16 text-gray-400">
+    <div className="text-center py-16 text-gray-600">
       <GraduationCap className="w-12 h-12 mx-auto mb-3 opacity-20" />
       <p className="text-sm">구매자가 없습니다. 추가해보세요!</p>
     </div>
@@ -370,7 +370,7 @@ function DetailPanel({
       <div className="bg-white w-full max-w-sm h-full overflow-y-auto p-6 space-y-4 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-gray-900">{detail.name}</h3>
-          <button onClick={onClose} aria-label="닫기" className="text-gray-400"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} aria-label="닫기" className="text-gray-600"><X className="w-5 h-5" /></button>
         </div>
         <div className="space-y-2 text-sm">
           {[
@@ -381,13 +381,13 @@ function DetailPanel({
             { label: "결제일", value: detail.paymentDate },
           ].filter(f => f.value).map(f => (
             <div key={f.label} className="flex gap-2">
-              <span className="text-gray-400 w-20 shrink-0">{f.label}</span>
+              <span className="text-gray-600 w-20 shrink-0">{f.label}</span>
               <span className="text-gray-900 font-medium">{f.value}</span>
             </div>
           ))}
         </div>
         <div>
-          <p className="text-xs font-medium text-gray-500 mb-1">메모</p>
+          <p className="text-sm font-medium text-gray-500 mb-1">메모</p>
           <textarea
             value={notesDraft}
             onChange={e => onNotesChange(e.target.value)}
@@ -398,7 +398,7 @@ function DetailPanel({
           />
         </div>
         <div>
-          <p className="text-xs font-medium text-gray-500 mb-2">상태 변경</p>
+          <p className="text-sm font-medium text-gray-500 mb-2">상태 변경</p>
           <div className="grid grid-cols-1 gap-1.5">
             {STATUSES.map(s => (
               <button key={s.key} onClick={() => onStatusChange(detail.id, s.key)}
@@ -407,7 +407,7 @@ function DetailPanel({
                 }`}>
                 <span className={`w-2 h-2 rounded-full ${s.dot}`} />
                 {s.key}
-                {detail.status === s.key && <span className="ml-auto text-xs">✓ 현재</span>}
+                {detail.status === s.key && <span className="ml-auto text-sm">✓ 현재</span>}
               </button>
             ))}
           </div>

@@ -38,7 +38,7 @@ export function CampaignRow({
       </td>
       <td className="px-6 py-4 text-sm">{campaign.group.name}</td>
       <td className="px-6 py-4">
-        <span className={`px-2 py-1 rounded text-xs font-medium ${statusBadgeClassName}`}>
+        <span className={`px-2 py-1 rounded text-sm font-medium ${statusBadgeClassName}`}>
           {statusLabel}
         </span>
       </td>

@@ -417,8 +417,8 @@ function SmsTab() {
                 <CheckCircle className="w-4 h-4 text-green-500" />
                 <span className="text-sm font-medium text-green-700">문자 서비스 연결됨</span>
               </div>
-              <p className="text-xs text-green-600">발신번호: {smsConfig.senderPhone}</p>
-              <p className="text-xs text-green-600">계정 ID: {smsConfig.aligoUserId} · 인증키 ****{smsConfig.aligoKeyTail}</p>
+              <p className="text-sm text-green-600">발신번호: {smsConfig.senderPhone}</p>
+              <p className="text-sm text-green-600">계정 ID: {smsConfig.aligoUserId} · 인증키 ****{smsConfig.aligoKeyTail}</p>
               {!smsConfig.senderVerified && (
                 <p className="text-sm text-amber-600 mt-1">⚠ 발신번호 미인증 — 설정 메뉴에서 전화 인증이 필요합니다</p>
               )}
@@ -440,10 +440,10 @@ function SmsTab() {
         {/* 그룹 선택 */}
         <div className="rounded-xl border bg-white p-4">
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-semibold text-gray-500 flex items-center gap-1">
+            <label className="text-sm font-semibold text-gray-500 flex items-center gap-1">
               <Users className="w-3.5 h-3.5" /> 수신 그룹
             </label>
-            <a href="/groups" className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+            <a href="/groups" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
               그룹 관리 →
             </a>
           </div>
@@ -456,13 +456,13 @@ function SmsTab() {
             ))}
           </select>
           {groups.length === 0 && !showNewGroup && (
-            <p className="text-sm text-gray-400 mt-1.5">
+            <p className="text-sm text-gray-600 mt-1.5">
               그룹이 없습니다.{" "}
               <a href="/groups" className="text-blue-500 underline">그룹 관리</a>에서 먼저 만들어 주세요.
             </p>
           )}
           {currentGroup && (
-            <p className="text-xs text-gray-400 mt-1">최대 {currentGroup._count.members}명에게 발송됩니다.</p>
+            <p className="text-sm text-gray-600 mt-1">최대 {currentGroup._count.members}명에게 발송됩니다.</p>
           )}
 
           {/* 인라인 그룹 생성 */}
@@ -480,7 +480,7 @@ function SmsTab() {
                 onChange={e => setNewGroupName(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") createGroup(); if (e.key === "Escape") { setShowNewGroup(false); setNewGroupName(""); } }}
                 placeholder="그룹 이름 입력..."
-                className="flex-1 border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-300"
+                className="flex-1 border rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
               />
               <button
                 onClick={createGroup}
@@ -490,7 +490,7 @@ function SmsTab() {
               </button>
               <button
                 onClick={() => { setShowNewGroup(false); setNewGroupName(""); }}
-                className="px-3 py-2.5 text-sm text-gray-400 hover:text-gray-600">
+                className="px-3 py-2.5 text-sm text-gray-600 hover:text-gray-600">
                 취소
               </button>
             </div>
@@ -520,14 +520,14 @@ function SmsTab() {
                     {[1,2,3].map(i => <div key={i} className="h-12 bg-gray-100 rounded-lg animate-pulse" />)}
                   </div>
                 ) : templates.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-3">
+                  <p className="text-sm text-gray-600 text-center py-3">
                     {templateCat ? "해당 카테고리에 템플릿이 없습니다" : "템플릿이 없습니다"}
                   </p>
                 ) : templates.map(t => (
                   <button key={t.id} onClick={() => { setMessage(t.content); setShowTemplates(false); }}
                     className="w-full text-left p-2.5 rounded-lg border hover:border-blue-300 hover:bg-blue-50 transition-colors">
                     <p className="text-sm font-medium text-gray-700">{t.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{t.content}</p>
+                    <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">{t.content}</p>
                   </button>
                 ))}
               </div>
@@ -542,7 +542,7 @@ function SmsTab() {
         {/* 메시지 작성 */}
         <div className="rounded-xl border bg-white p-4">
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-semibold text-gray-500">메시지 내용</label>
+            <label className="text-sm font-semibold text-gray-500">메시지 내용</label>
             {(() => {
               const byteLen = new TextEncoder().encode(message).length;
               let byteColor = "text-green-600";
@@ -550,7 +550,7 @@ function SmsTab() {
               if (byteLen > 2000) { byteColor = "text-red-500 font-bold"; byteLabel = "발송불가"; }
               else if (byteLen > 90) { byteColor = "text-orange-500 font-medium"; byteLabel = "장문 메시지 (+추가요금)"; }
               return (
-                <span className={`text-xs ${byteColor}`}>
+                <span className={`text-sm ${byteColor}`}>
                   {byteLen}바이트 · {byteLabel}
                 </span>
               );
@@ -592,12 +592,12 @@ function SmsTab() {
           {/* 스케줄링 옵션 */}
           <div className="mt-3 p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center gap-4 mb-3">
-              <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
                 <input type="radio" name="sms-schedule" value="now" checked={scheduleMode === "now"}
                   onChange={() => setScheduleMode("now")} className="rounded" />
                 즉시 발송
               </label>
-              <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
                 <input type="radio" name="sms-schedule" value="scheduled" checked={scheduleMode === "scheduled"}
                   onChange={() => setScheduleMode("scheduled")} className="rounded" />
                 예약 발송
@@ -609,7 +609,7 @@ function SmsTab() {
                 value={scheduledTime}
                 onChange={(e) => setScheduledTime(e.target.value)}
                 placeholder="2026-05-28 14:00"
-                className="w-full px-2 py-1.5 border rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className="w-full px-2 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
               />
             )}
           </div>
@@ -617,26 +617,26 @@ function SmsTab() {
           {/* 치환변수 패널 */}
           <div className="mt-2">
             <button onClick={() => setShowReplace(v => !v)}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700">
+              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700">
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showReplace ? "rotate-180" : ""}`} />
               자동채우기 & 개인링크
             </button>
             {showReplace && (
               <div className="mt-2 p-3 bg-gray-50 rounded-lg space-y-3">
                 <div>
-                  <p className="text-xs font-medium text-gray-600 mb-1.5">자동채우기 항목 (클릭하면 메시지에 추가됩니다)</p>
+                  <p className="text-sm font-medium text-gray-600 mb-1.5">자동채우기 항목 (클릭하면 메시지에 추가됩니다)</p>
                   <div className="flex flex-wrap gap-1.5">
                     {REPLACEMENTS.map(r => (
                       <button key={r.label} onClick={() => insertAtCursor(r.label)}
                         className="px-2.5 py-2 bg-white border rounded text-sm text-gray-700 hover:border-blue-400 hover:text-blue-600">
-                        {r.label} <span className="text-gray-400">({r.desc})</span>
+                        {r.label} <span className="text-gray-600">({r.desc})</span>
                       </button>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <p className="text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1">
+                  <p className="text-sm font-medium text-gray-600 mb-1.5 flex items-center gap-1">
                     <Link2 className="w-3 h-3 text-blue-500" />
                     내 개인 홍보링크
                   </p>
@@ -651,12 +651,12 @@ function SmsTab() {
                           </button>
                         ))}
                       </div>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-sm text-gray-600 mt-1">
                         그룹 내 해당 고객의 링크가 삽입됩니다. 링크 없는 고객은 자동 제외됩니다.
                       </p>
                     </>
                   ) : (
-                    <p className="text-sm text-gray-400">
+                    <p className="text-sm text-gray-600">
                       개인 홍보링크가 없습니다.{" "}
                       <a href="/links" className="text-blue-500 underline">상담 링크</a>에서
                       고객에게 연결된 링크를 만들어주세요.
@@ -667,11 +667,11 @@ function SmsTab() {
                 {/* 상품 드롭다운 — 메시지에 상품 치환변수가 있을 때만 표시 */}
                 {hasProductVars && products.length > 0 && (
                   <div className="pt-2 border-t border-gray-200">
-                    <p className="text-xs font-medium text-gray-600 mb-1.5">상품 선택 (자동으로 내용을 채웁니다)</p>
+                    <p className="text-sm font-medium text-gray-600 mb-1.5">상품 선택 (자동으로 내용을 채웁니다)</p>
                     <select
                       value={selectedProduct}
                       onChange={e => applyProductReplacement(e.target.value)}
-                      className="w-full border rounded-lg px-3 py-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      className="w-full border rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
                     >
                       <option value="">상품을 선택하면 [상품명]/[출발일]/[가격]/[일정]이 자동으로 입력됩니다</option>
                       {products.map(p => {
@@ -687,7 +687,7 @@ function SmsTab() {
                       })}
                     </select>
                     {selectedProduct && (
-                      <p className="text-xs text-green-600 mt-1">내용이 입력되었습니다. 메시지를 확인해주세요.</p>
+                      <p className="text-sm text-green-600 mt-1">내용이 입력되었습니다. 메시지를 확인해주세요.</p>
                     )}
                   </div>
                 )}
@@ -728,16 +728,16 @@ function SmsTab() {
                 </div>
               )}
               <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-xs font-medium text-gray-600 mb-2">
+                <p className="text-sm font-medium text-gray-600 mb-2">
                   발송 예정:{" "}
                   <span className="text-blue-600 font-bold text-base">{dryRunResult.count}명</span>
                   {linkNoCount > 0 && (
-                    <span className="text-amber-500 ml-2 text-xs">
+                    <span className="text-amber-500 ml-2 text-sm">
                       (홍보링크 없는 고객 {linkNoCount}명 자동 제외)
                     </span>
                   )}
                 </p>
-                <p className="text-xs text-gray-500 font-medium mb-1">첫 번째 고객 미리보기:</p>
+                <p className="text-sm text-gray-500 font-medium mb-1">첫 번째 고객 미리보기:</p>
                 <div className="text-sm bg-white border rounded p-2.5 whitespace-pre-wrap break-words">
                   {sanitize(dryRunResult.sample)}
                 </div>
@@ -961,7 +961,7 @@ function EmailTab() {
 
         {/* 발신자 이름 설정 */}
         <div className="rounded-xl border bg-white p-4">
-          <p className="text-xs font-semibold text-gray-500 mb-3 flex items-center gap-1">
+          <p className="text-sm font-semibold text-gray-500 mb-3 flex items-center gap-1">
             <User className="w-3.5 h-3.5" /> 발신자 이름 설정
           </p>
           {configLoading ? (
@@ -973,11 +973,11 @@ function EmailTab() {
                   placeholder="크루즈닷 모니카"
                   className="flex-1 border rounded-lg px-3 py-2 text-sm" />
                 <button onClick={saveSenderName} disabled={savingName}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-medium disabled:opacity-50">
+                  className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">
                   {savingName ? "저장중" : "저장"}
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mt-2">
+              <p className="text-sm text-gray-600 mt-2">
                 보내는 사람:<br />
                 <strong>{senderName || "크루즈닷"}</strong>{" "}
                 &lt;{emailConfig.senderEmail}&gt;
@@ -995,7 +995,7 @@ function EmailTab() {
 
         {/* 그룹 선택 */}
         <div className="rounded-xl border bg-white p-4">
-          <label className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1 block">
+          <label className="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-1 block">
             <Users className="w-3.5 h-3.5" /> 수신 그룹
           </label>
           <select value={selectedGroup} onChange={e => setSelectedGroup(e.target.value)}
@@ -1006,20 +1006,20 @@ function EmailTab() {
             ))}
           </select>
           {currentGroup && (
-            <p className="text-xs text-gray-400 mt-1">{currentGroup._count.members}명에게 발송됩니다.</p>
+            <p className="text-sm text-gray-600 mt-1">{currentGroup._count.members}명에게 발송됩니다.</p>
           )}
         </div>
 
         {/* 발송 시간 */}
         <div className="rounded-xl border bg-white p-4">
-          <p className="text-xs font-semibold text-gray-500 mb-3">발송 시간</p>
+          <p className="text-sm font-semibold text-gray-500 mb-3">발송 시간</p>
           <div className="flex gap-2 mb-3">
             <button onClick={() => setSendMode("now")}
-              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-medium border transition-all ${sendMode === "now" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600"}`}>
+              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-sm font-medium border transition-all ${sendMode === "now" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600"}`}>
               <Zap className="w-3.5 h-3.5" /> 즉시 발송
             </button>
             <button onClick={() => setSendMode("schedule")}
-              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-medium border transition-all ${sendMode === "schedule" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600"}`}>
+              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-sm font-medium border transition-all ${sendMode === "schedule" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600"}`}>
               <Clock className="w-3.5 h-3.5" /> 예약 발송
             </button>
           </div>
@@ -1056,7 +1056,7 @@ function EmailTab() {
 
         {/* 제목 */}
         <div className="rounded-xl border bg-white p-4">
-          <label className="text-xs font-semibold text-gray-500 mb-2 block">이메일 제목</label>
+          <label className="text-sm font-semibold text-gray-500 mb-2 block">이메일 제목</label>
           <input value={subject} onChange={e => setSubject(e.target.value)}
             placeholder="예: 5월 지중해 크루즈 특가 안내"
             className="w-full border rounded-lg px-3 py-2 text-sm" />
@@ -1065,7 +1065,7 @@ function EmailTab() {
         {/* 본문 */}
         <div className="rounded-xl border bg-white p-4">
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-semibold text-gray-500">본문 내용</label>
+            <label className="text-sm font-semibold text-gray-500">본문 내용</label>
             <button onClick={loadImages}
               className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 border border-blue-200 px-3 py-2 rounded-lg">
               <ImageIcon className="w-3.5 h-3.5" /> 이미지 라이브러리
@@ -1091,9 +1091,9 @@ function EmailTab() {
           {showImages && (
             <div className="mt-3 border rounded-xl p-3 bg-gray-50">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-medium text-gray-600">이미지 선택</p>
+                <p className="text-sm font-medium text-gray-600">이미지 선택</p>
                 <button onClick={() => setShowImages(false)}>
-                  <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                  <X className="w-4 h-4 text-gray-600 hover:text-gray-600" />
                 </button>
               </div>
               {!imagesLoaded ? (
@@ -1109,7 +1109,7 @@ function EmailTab() {
                   </button>
                 </div>
               ) : images.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-4">이미지 라이브러리가 비어있습니다.</p>
+                <p className="text-sm text-gray-600 text-center py-4">이미지 라이브러리가 비어있습니다.</p>
               ) : (
                 <div className="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto">
                   {images.map(img => (
@@ -1121,7 +1121,7 @@ function EmailTab() {
                         <img src={img.thumbnailUrl} alt={img.title} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <ImageIcon className="w-6 h-6 text-gray-400" />
+                          <ImageIcon className="w-6 h-6 text-gray-600" />
                         </div>
                       )}
                     </button>

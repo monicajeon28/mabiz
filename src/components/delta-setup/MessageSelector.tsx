@@ -71,12 +71,12 @@ const MessageInput = React.memo(({
             {label}
             {required && <span className="text-red-500 ml-1">*</span>}
           </span>
-          <span className="text-xs text-gray-600">
+          <span className="text-sm text-gray-600">
             {length}/{maxLength}자
           </span>
         </div>
       </label>
-      <p id={descriptionId} className="text-xs text-gray-600 mb-2">
+      <p id={descriptionId} className="text-sm text-gray-600 mb-2">
         {description}
       </p>
       <textarea
@@ -224,7 +224,7 @@ export default function MessageSelector({
       {/* 안내 메시지 */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <h3 className="text-sm font-medium text-blue-900 mb-2">💡 메시지 선택 팁</h3>
-        <ul className="text-xs text-blue-800 space-y-1">
+        <ul className="text-sm text-blue-800 space-y-1">
           <li>✓ <strong>Day 0-2</strong>: 심리학 기반 표준 메시지 (클릭율 45-60%)</li>
           <li>✓ <strong>Day 3</strong>: 마지막 기회 강조로 전환율 33% 향상</li>
           <li>⚠ <strong>90자 초과</strong>: LMS 요금이 추가될 수 있습니다</li>

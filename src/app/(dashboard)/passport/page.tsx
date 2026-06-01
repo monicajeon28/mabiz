@@ -107,7 +107,7 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
           })
           .catch(() => showError('클립보드에 복사하지 못했습니다.'))
       }
-      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs text-gray-600 transition-colors shrink-0"
+      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm text-gray-600 transition-colors shrink-0"
     >
       {copied ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
       {label ?? (copied ? '복사됨' : '복사')}
@@ -168,7 +168,7 @@ function ConfirmSendModal({
         </div>
 
         {withoutPhoneCount > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
             📌 전화번호 없는 {withoutPhoneCount}명은 문자를 보내지 못합니다.<br />
             발송 후 결과 화면에서 링크를 복사해 카카오톡으로 직접 전달하세요.
           </div>
@@ -500,7 +500,7 @@ export default function PassportPage() {
         </div>
         <div className="flex items-center gap-2">
           {aligoBalance !== null && (
-            <span className={`text-xs px-3 py-1.5 rounded-full font-medium ${
+            <span className={`text-sm px-3 py-1.5 rounded-full font-medium ${
               aligoBalance <= 5000 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
             }`}>
               문자 잔액: {aligoBalance.toLocaleString()}원{aligoBalance <= 5000 ? ' ⚠ 충전 필요' : ''}
@@ -522,11 +522,11 @@ export default function PassportPage() {
           <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
           <div className="flex-1">
             <p className="text-sm font-bold text-red-800">🚨 출발 7일 이내 미제출 {urgentCount}명</p>
-            <p className="text-xs text-red-600">지금 바로 연락해야 합니다 — 여권 미제출 시 탑승 불가</p>
+            <p className="text-sm text-red-600">지금 바로 연락해야 합니다 — 여권 미제출 시 탑승 불가</p>
           </div>
           <button
             onClick={() => setStatusFilter('pending')}
-            className="px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg shrink-0 hover:bg-red-700"
+            className="px-3 py-1.5 bg-red-600 text-white text-sm font-semibold rounded-lg shrink-0 hover:bg-red-700"
           >
             바로 보기
           </button>
@@ -535,22 +535,22 @@ export default function PassportPage() {
 
       {/* 3단계 안내 (50대 기준) */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
-        <div className="flex items-center gap-1 text-xs text-blue-600 font-medium mb-2">
+        <div className="flex items-center gap-1 text-sm text-blue-600 font-medium mb-2">
           <Info className="w-3.5 h-3.5" /> 사용 방법
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
-            <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">1</span>
+            <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center shrink-0">1</span>
             <span className="text-sm text-blue-800">왼쪽 목록에서 고객 체크박스 선택</span>
           </div>
           <ArrowRight className="w-4 h-4 text-blue-300 shrink-0 hidden sm:block" />
           <div className="flex items-center gap-2">
-            <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">2</span>
+            <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center shrink-0">2</span>
             <span className="text-sm text-blue-800">오른쪽에서 발송 방식 선택</span>
           </div>
           <ArrowRight className="w-4 h-4 text-blue-300 shrink-0 hidden sm:block" />
           <div className="flex items-center gap-2">
-            <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">3</span>
+            <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center shrink-0">3</span>
             <span className="text-sm text-blue-800">발송 버튼 클릭</span>
           </div>
         </div>
@@ -566,7 +566,7 @@ export default function PassportPage() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-green-600">제출 완료</p>
+              <p className="text-sm font-medium text-green-600">제출 완료</p>
               <p className="text-2xl font-bold text-green-900 mt-0.5">{stats.submitted}</p>
             </div>
             <CheckCircle className="w-7 h-7 text-green-400" />
@@ -580,7 +580,7 @@ export default function PassportPage() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-amber-600">요청 전송됨 (미제출)</p>
+              <p className="text-sm font-medium text-amber-600">요청 전송됨 (미제출)</p>
               <p className="text-2xl font-bold text-amber-900 mt-0.5">{stats.pending}</p>
             </div>
             <AlertCircle className="w-7 h-7 text-amber-400" />
@@ -594,16 +594,16 @@ export default function PassportPage() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-gray-600">아직 요청 안 함</p>
+              <p className="text-sm font-medium text-gray-600">아직 요청 안 함</p>
               <p className="text-2xl font-bold text-gray-900 mt-0.5">{stats.notRequested}</p>
             </div>
-            <FileText className="w-7 h-7 text-gray-400" />
+            <FileText className="w-7 h-7 text-gray-600" />
           </div>
         </button>
         <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-blue-600">전체 고객</p>
+              <p className="text-sm font-medium text-blue-600">전체 고객</p>
               <p className="text-2xl font-bold text-blue-900 mt-0.5">{stats.total}</p>
             </div>
             <UserCheck className="w-7 h-7 text-blue-400" />
@@ -611,7 +611,7 @@ export default function PassportPage() {
         </div>
       </div>
       {statusFilter !== 'all' && (
-        <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+        <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
           <span>필터 적용 중: <strong>{{submitted:'제출 완료',pending:'요청 전송됨',not_requested:'아직 요청 안 함'}[statusFilter]}</strong></span>
           <button onClick={() => setStatusFilter('all')} className="ml-auto flex items-center gap-1 hover:text-blue-900">
             <X className="w-3.5 h-3.5" /> 필터 해제
@@ -627,7 +627,7 @@ export default function PassportPage() {
           {/* 검색/필터 */}
           <div className="bg-white border border-gray-200 rounded-xl p-3 flex flex-wrap gap-2">
             <div className="flex-1 min-w-[140px] flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-              <Search className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+              <Search className="w-3.5 h-3.5 text-gray-600 shrink-0" />
               <input
                 value={search}
                 onChange={e => { searchRef.current = e.target.value; setSearch(e.target.value); }}
@@ -635,7 +635,7 @@ export default function PassportPage() {
                 className="bg-transparent text-sm flex-1 focus:outline-none"
               />
               {search && (
-                <button onClick={() => { searchRef.current = ''; setSearch(''); setRefreshTick(t => t + 1); }} className="text-gray-400 hover:text-gray-600">
+                <button onClick={() => { searchRef.current = ''; setSearch(''); setRefreshTick(t => t + 1); }} className="text-gray-600 hover:text-gray-600">
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -665,7 +665,7 @@ export default function PassportPage() {
           {/* 테이블 */}
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-2.5 border-b bg-gray-50">
-              <label className="flex items-center gap-2 text-xs font-medium text-gray-600 cursor-pointer">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-600 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={selectableCustomers.length > 0 && selectableCustomers.every(c => selectedIds.has(c.id))}
@@ -677,7 +677,7 @@ export default function PassportPage() {
                   <span className="text-green-600 font-normal">· 제출완료 {stats.submitted}명 제외</span>
                 )}
               </label>
-              <span className="text-xs text-gray-400">
+              <span className="text-sm text-gray-600">
                 {selectedIds.size > 0 ? `✓ ${selectedIds.size}명 선택됨` : '체크박스로 선택하세요'}
               </span>
             </div>
@@ -687,11 +687,11 @@ export default function PassportPage() {
                 <RefreshCw className="w-6 h-6 text-blue-400 animate-spin" />
               </div>
             ) : customers.length === 0 ? (
-              <div className="py-12 text-center text-gray-400">
+              <div className="py-12 text-center text-gray-600">
                 <UserCheck className="w-10 h-10 mx-auto mb-2 text-gray-300" />
                 <p className="text-sm">표시할 고객이 없습니다</p>
                 {statusFilter !== 'all' && (
-                  <button onClick={() => setStatusFilter('all')} className="mt-2 text-xs text-blue-600 hover:underline">
+                  <button onClick={() => setStatusFilter('all')} className="mt-2 text-sm text-blue-600 hover:underline">
                     필터 해제하기
                   </button>
                 )}
@@ -714,7 +714,7 @@ export default function PassportPage() {
                     <button
                       onClick={() => loadCustomers(currentPage + 1, true)}
                       disabled={loadingMore}
-                      className="w-full py-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5"
+                      className="w-full py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5"
                     >
                       {loadingMore
                         ? <><RefreshCw className="w-3 h-3 animate-spin" /> 불러오는 중...</>
@@ -737,7 +737,7 @@ export default function PassportPage() {
               <p className="text-sm font-medium text-blue-700 text-center px-4">
                 왼쪽 목록에서<br />고객을 먼저 선택하세요
               </p>
-              <p className="text-xs text-gray-400 text-center px-4">체크박스를 클릭하면<br />발송 설정이 나타납니다</p>
+              <p className="text-sm text-gray-600 text-center px-4">체크박스를 클릭하면<br />발송 설정이 나타납니다</p>
             </div>
           )}
 
@@ -747,19 +747,19 @@ export default function PassportPage() {
             <div className="grid grid-cols-3 gap-2">
               <div className="bg-blue-50 rounded-lg p-2.5 text-center">
                 <p className="text-xl font-bold text-blue-700">{selectedIds.size}</p>
-                <p className="text-xs text-blue-500 mt-0.5">선택</p>
+                <p className="text-sm text-blue-500 mt-0.5">선택</p>
               </div>
               <div className="bg-green-50 rounded-lg p-2.5 text-center">
                 <p className="text-xl font-bold text-green-700">{withPhone.length}</p>
-                <p className="text-xs text-green-500 mt-0.5">📱 문자 가능</p>
+                <p className="text-sm text-green-500 mt-0.5">📱 문자 가능</p>
               </div>
               <div className="bg-amber-50 rounded-lg p-2.5 text-center">
                 <p className="text-xl font-bold text-amber-700">{withoutPhone.length}</p>
-                <p className="text-xs text-amber-500 mt-0.5">🔗 링크만</p>
+                <p className="text-sm text-amber-500 mt-0.5">🔗 링크만</p>
               </div>
             </div>
             {withoutPhone.length > 0 && (
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                 전화번호 없는 {withoutPhone.length}명은 문자를 보내지 못합니다.<br />
                 발송 후 링크를 복사해 카카오톡으로 직접 보내세요.
               </p>
@@ -815,8 +815,8 @@ export default function PassportPage() {
               )}
               {selectedTemplate && selectedCustomers.length > 0 && (
                 <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-400 mb-1.5">📱 미리보기 (첫 번째 선택 고객 기준)</p>
-                  <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed bg-white border border-gray-100 rounded p-2">
+                  <p className="text-sm text-gray-600 mb-1.5">📱 미리보기 (첫 번째 선택 고객 기준)</p>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed bg-white border border-gray-100 rounded p-2">
                     {fillTemplate(selectedTemplate.body, {
                       고객명: selectedCustomers[0]?.name ? `${selectedCustomers[0].name}님` : '고객님',
                       링크: 'https://크루즈닷.com/p/xxxxx',
@@ -842,7 +842,7 @@ export default function PassportPage() {
               disabled={sending}
               className="w-full accent-blue-600 disabled:opacity-50"
             />
-            <div className="flex justify-between text-xs text-gray-400">
+            <div className="flex justify-between text-sm text-gray-600">
               <span>1일</span><span>3일 (권장)</span><span>1주일</span>
             </div>
           </div>
@@ -854,7 +854,7 @@ export default function PassportPage() {
               setShowConfirm(true);
             }}
             disabled={sending || selectedIds.size === 0}
-            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 transition-colors shadow-sm"
+            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 transition-colors shadow-sm"
           >
             <Send className="w-4 h-4" />
             {sendBtnLabel}
@@ -954,11 +954,11 @@ function CustomerRow({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-semibold text-gray-900">{c.name ?? '이름 없음'}</span>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge.cls}`}>
+            <span className={`text-sm px-2 py-0.5 rounded-full font-medium ${statusBadge.cls}`}>
               {statusBadge.label}
             </span>
             {dday && !isSubmitted && (
-              <span className={`text-xs px-1.5 py-0.5 rounded font-bold ${
+              <span className={`text-sm px-1.5 py-0.5 rounded font-bold ${
                 dday.urgent ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-gray-100 text-gray-500'
               }`}>
                 {dday.label}
@@ -967,31 +967,31 @@ function CustomerRow({
           </div>
           <div className="flex items-center gap-3 mt-0.5 flex-wrap">
             {hasPhone ? (
-              <span className="flex items-center gap-1 text-xs text-gray-500">
+              <span className="flex items-center gap-1 text-sm text-gray-500">
                 <Phone className="w-3 h-3 text-green-500" />
                 {c.phone}
               </span>
             ) : (
-              <span className="flex items-center gap-1 text-xs text-red-400 font-medium">
+              <span className="flex items-center gap-1 text-sm text-red-400 font-medium">
                 <PhoneOff className="w-3 h-3" />
                 전화번호 없음 (링크만 생성됩니다)
               </span>
             )}
             {c.latestTrip?.cruiseName && (
-              <span className="text-xs text-gray-400 truncate">
+              <span className="text-sm text-gray-600 truncate">
                 {c.latestTrip.cruiseName}
                 {c.latestTrip.departureDate && ` · ${c.latestTrip.departureDate.split('T')[0]}`}
               </span>
             )}
             {lastSentDate && c.submissionStatus === 'pending' && (
-              <span className="text-xs text-amber-600">{lastSentDate} 발송됨</span>
+              <span className="text-sm text-amber-600">{lastSentDate} 발송됨</span>
             )}
           </div>
         </div>
         <button
           onClick={() => setOpen(v => !v)}
           title="상세 정보 보기"
-          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 shrink-0"
+          className="p-1.5 rounded-lg text-gray-600 hover:text-gray-600 hover:bg-gray-100 shrink-0"
         >
           {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </button>
@@ -999,10 +999,10 @@ function CustomerRow({
 
       {open && (
         <div className="px-4 pb-3 pl-11 space-y-2 bg-gray-50 border-t border-gray-100">
-          {c.email && <p className="text-xs text-gray-500">이메일: {c.email}</p>}
+          {c.email && <p className="text-sm text-gray-500">이메일: {c.email}</p>}
 
           {c.submission?.isSubmitted && c.submission.submittedAt && (
-            <p className="text-xs text-green-600">
+            <p className="text-sm text-green-600">
               ✓ 여권 제출 완료: {new Date(c.submission.submittedAt).toLocaleDateString('ko-KR')}
             </p>
           )}
@@ -1011,29 +1011,29 @@ function CustomerRow({
           {isSubmitted && (
             <div className="pt-1">
               {guestsLoading && (
-                <div className="flex items-center gap-1.5 text-xs text-gray-400 py-1">
+                <div className="flex items-center gap-1.5 text-sm text-gray-600 py-1">
                   <RefreshCw className="w-3 h-3 animate-spin" />
                   탑승자 정보 불러오는 중...
                 </div>
               )}
 
               {guestsError && (
-                <p className="text-xs text-red-400 py-1">상세 정보를 불러오지 못했습니다.</p>
+                <p className="text-sm text-red-400 py-1">상세 정보를 불러오지 못했습니다.</p>
               )}
 
               {!guestsLoading && !guestsError && guestsByGroup && (
                 Object.keys(guestsByGroup).length === 0 ? (
-                  <p className="text-xs text-gray-400 py-1">등록된 탑승자 정보가 없습니다.</p>
+                  <p className="text-sm text-gray-600 py-1">등록된 탑승자 정보가 없습니다.</p>
                 ) : (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <p className="text-xs font-semibold text-gray-600">
+                      <p className="text-sm font-semibold text-gray-600">
                         탑승자 정보 ({guests!.length}명)
                       </p>
                     </div>
                     <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
                       {/* 헤더 */}
-                      <div className="grid grid-cols-4 gap-2 px-3 py-1.5 bg-gray-100 text-xs font-medium text-gray-500">
+                      <div className="grid grid-cols-4 gap-2 px-3 py-1.5 bg-gray-100 text-sm font-medium text-gray-500">
                         <span>이름</span>
                         <span>국적</span>
                         <span>여권번호</span>
@@ -1044,7 +1044,7 @@ function CustomerRow({
                         <div key={groupNum}>
                           {Object.keys(guestsByGroup).length > 1 && (
                             <div className="px-3 py-1 bg-blue-50 border-t border-gray-100">
-                              <span className="text-xs font-semibold text-blue-600">
+                              <span className="text-sm font-semibold text-blue-600">
                                 그룹 {groupNum}
                               </span>
                             </div>
@@ -1052,17 +1052,17 @@ function CustomerRow({
                           {members.map((g, idx) => (
                             <div
                               key={g.id}
-                              className="grid grid-cols-4 gap-2 px-3 py-1.5 border-t border-gray-100 text-xs text-gray-700 hover:bg-gray-50"
+                              className="grid grid-cols-4 gap-2 px-3 py-1.5 border-t border-gray-100 text-sm text-gray-700 hover:bg-gray-50"
                             >
                               <span className="font-medium truncate">
-                                <span className="text-gray-400 mr-1">{(['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'][idx] ?? `${idx + 1}.`)}</span>
+                                <span className="text-gray-600 mr-1">{(['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'][idx] ?? `${idx + 1}.`)}</span>
                                 {g.name}
                               </span>
                               <span className="text-gray-500">{g.nationality ?? '—'}</span>
                               <span className="font-mono tracking-wide">
                                 {g.passportNumber ?? '—'}
                               </span>
-                              <span className={g.passportExpiryDate ? '' : 'text-gray-400'}>
+                              <span className={g.passportExpiryDate ? '' : 'text-gray-600'}>
                                 {g.passportExpiryDate ? `${g.passportExpiryDate} 까지` : '—'}
                               </span>
                             </div>
@@ -1081,7 +1081,7 @@ function CustomerRow({
             <HistorySection userId={c.id} open={open} lastRequest={c.lastRequest} lastSentDate={lastSentDate} />
           )}
           {!c.latestTrip && (
-            <p className="text-xs text-gray-400">여행 정보 없음</p>
+            <p className="text-sm text-gray-600">여행 정보 없음</p>
           )}
         </div>
       )}
@@ -1143,7 +1143,7 @@ function HistorySection({
     <div>
       {/* 최근 1건은 기존 방식 그대로 (이미 가져온 데이터 재활용) */}
       {lastRequest && (
-        <p className="text-xs text-gray-400">
+        <p className="text-sm text-gray-600">
           마지막 발송: {lastSentDate} ({lastRequest.messageChannel})
           {lastRequest.status === 'FAILED' && <span className="text-red-400 ml-1">— 발송 실패</span>}
         </p>
@@ -1152,21 +1152,21 @@ function HistorySection({
       {/* 전체 이력 (lazy) */}
       <div className="mt-1">
         {loading && (
-          <div className="flex items-center gap-1 text-xs text-gray-400">
+          <div className="flex items-center gap-1 text-sm text-gray-600">
             <RefreshCw className="w-3 h-3 animate-spin" /> 이력 불러오는 중...
           </div>
         )}
         {!loading && history !== null && history.length === 0 && !lastRequest && (
-          <p className="text-xs text-gray-400">발송 이력 없음</p>
+          <p className="text-sm text-gray-600">발송 이력 없음</p>
         )}
         {!loading && history !== null && history.length > 1 && (
           <details className="mt-1">
-            <summary className="text-xs text-blue-600 cursor-pointer hover:underline select-none">
+            <summary className="text-sm text-blue-600 cursor-pointer hover:underline select-none">
               발송 이력 전체 보기 ({history.length}건)
             </summary>
             <ul className="mt-1 space-y-0.5 pl-1">
               {history.map(log => (
-                <li key={log.id} className="flex items-center gap-2 text-xs">
+                <li key={log.id} className="flex items-center gap-2 text-sm">
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                     log.status === 'SUCCESS' ? 'bg-green-500' :
                     log.status === 'FAILED' ? 'bg-red-400' : 'bg-gray-400'
@@ -1175,7 +1175,7 @@ function HistorySection({
                     {new Date(log.sentAt).toLocaleDateString('ko-KR')}{' '}
                     {new Date(log.sentAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
                   </span>
-                  <span className="text-gray-400 shrink-0">
+                  <span className="text-gray-600 shrink-0">
                     {channelLabel[log.messageChannel] ?? log.messageChannel}
                   </span>
                   {log.status === 'FAILED' && log.errorReason && (
@@ -1216,12 +1216,12 @@ function ResultPanel({
       <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
         <div>
           <p className="text-sm font-bold text-gray-900">📋 발송 결과</p>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-sm text-gray-500 mt-0.5">
             문자 발송 {smsSent}명 · 링크만 생성 {result.noPhone.length + smsFailed}명 · 실패 {result.failed.length}명 ·
             링크 유효기간 {result.expiresInHours}시간
           </p>
         </div>
-        <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+        <button onClick={onClose} className="p-1.5 text-gray-600 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -1233,16 +1233,16 @@ function ResultPanel({
           <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 space-y-1">
             <p className="text-sm font-bold text-blue-800">📌 지금 해야 할 일</p>
             {result.noPhone.length > 0 && (
-              <p className="text-xs text-blue-700">
+              <p className="text-sm text-blue-700">
                 ① 아래 "{result.noPhone.length}명" 항목에서 링크를 복사해 카카오톡으로 직접 보내세요
               </p>
             )}
             {smsFailed > 0 && (
-              <p className="text-xs text-blue-700">
+              <p className="text-sm text-blue-700">
                 ② 문자 발송에 실패한 {smsFailed}명도 링크를 복사해 직접 전달하세요
               </p>
             )}
-            <p className="text-xs text-blue-600 mt-1">
+            <p className="text-sm text-blue-600 mt-1">
               ✓ 고객이 링크를 클릭해 여권을 제출하면 상태가 자동으로 "제출 완료"로 바뀝니다
             </p>
           </div>
@@ -1250,7 +1250,7 @@ function ResultPanel({
         {totalIssues === 0 && (
           <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3">
             <p className="text-sm font-bold text-green-800">✅ 모두 정상 발송됐습니다</p>
-            <p className="text-xs text-green-700 mt-1">
+            <p className="text-sm text-green-700 mt-1">
               고객이 링크를 클릭해 여권을 제출하면 상태가 자동으로 "제출 완료"로 바뀝니다
             </p>
           </div>
@@ -1294,7 +1294,7 @@ function ResultPanel({
               {result.failed.map(f => (
                 <div key={f.userId} className="flex items-center justify-between bg-red-50 border border-red-100 rounded-lg px-3 py-2">
                   <span className="text-sm text-gray-900 font-medium">{f.name ?? `고객 ID:${f.userId}`}</span>
-                  <span className="text-xs text-red-600 ml-2">{f.error}</span>
+                  <span className="text-sm text-red-600 ml-2">{f.error}</span>
                 </div>
               ))}
             </div>
@@ -1325,7 +1325,7 @@ function ResultSection({
             </div>
             {item.message && (
               <div className="flex items-start gap-2">
-                <p className="text-xs text-gray-700 bg-white border border-gray-100 rounded-lg px-3 py-2 flex-1 whitespace-pre-wrap leading-relaxed">
+                <p className="text-sm text-gray-700 bg-white border border-gray-100 rounded-lg px-3 py-2 flex-1 whitespace-pre-wrap leading-relaxed">
                   {item.message}
                 </p>
                 <CopyButton text={item.message} label="메시지 복사" />

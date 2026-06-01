@@ -208,7 +208,7 @@ export default function PartnerPassportRequestsPage() {
             </div>
             <div className="flex gap-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600" />
                 <input
                   type="text"
                   value={searchQuery}
@@ -272,15 +272,15 @@ export default function PartnerPassportRequestsPage() {
                       <td className="px-4 py-4 text-sm text-gray-600">{request.customerPhone ?? '-'}</td>
                       <td className="px-4 py-4 text-sm">
                         {request.passportCompletedAt ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-sm font-semibold text-green-700">
                             <CheckCircle className="h-3 w-3" /> 완료
                           </span>
                         ) : request.passportRequestedAt ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-3 py-1 text-xs font-semibold text-yellow-700">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-3 py-1 text-sm font-semibold text-yellow-700">
                             <Clock className="h-3 w-3" /> 확인 중
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-600">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-3 py-1 text-sm font-semibold text-gray-600">
                             대기중
                           </span>
                         )}
@@ -299,7 +299,7 @@ export default function PartnerPassportRequestsPage() {
                         {!request.passportRequestedAt && (
                           <button
                             onClick={() => handleOpenModal(request)}
-                            className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
+                            className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
                           >
                             <LinkIcon className="h-3 w-3" />
                             링크 생성
@@ -329,7 +329,7 @@ export default function PartnerPassportRequestsPage() {
                     setSelectedRequest(null);
                     setGenerateResult(null);
                   }}
-                  className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  className="rounded-lg p-1 text-gray-600 hover:bg-gray-100 hover:text-gray-600"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -403,7 +403,7 @@ export default function PartnerPassportRequestsPage() {
                     className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm leading-relaxed focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
                     placeholder="템플릿 내용을 입력하거나 수정하세요."
                   />
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm text-gray-500">
                     사용 가능한 변수: <code>{'{고객명}'}</code>, <code>{'{링크}'}</code>, <code>{'{상품명}'}</code>,{' '}
                     <code>{'{출발일}'}</code>
                   </p>
@@ -439,7 +439,7 @@ export default function PartnerPassportRequestsPage() {
                       />
                       <button
                         onClick={() => handleCopy(generateResult.message, '메시지')}
-                        className="mt-2 inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 transition-colors"
+                        className="mt-2 inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-700 transition-colors"
                       >
                         <Copy className="h-3 w-3" />
                         메시지 복사
@@ -462,7 +462,7 @@ export default function PartnerPassportRequestsPage() {
                           링크 복사
                         </button>
                       </div>
-                      <p className="mt-1 text-xs text-green-700">
+                      <p className="mt-1 text-sm text-green-700">
                         만료 예정: {new Date(generateResult.expiresAt).toLocaleString('ko-KR')}
                       </p>
                     </div>

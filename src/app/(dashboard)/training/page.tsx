@@ -129,7 +129,7 @@ export default function TrainingPage() {
               <p className="text-sm md:text-base text-gray-500 font-medium">
                 가격: 문의 필요
               </p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-sm text-gray-500 mt-1">
                 {product.type === "subscription" ? "구독형" : "1회 구매"}
               </p>
             </div>
@@ -175,7 +175,7 @@ export default function TrainingPage() {
                   </p>
                   {isRecommended && (
                     <div className="text-center mt-2">
-                      <span className="inline-block px-2 py-1 bg-white rounded text-xs font-semibold text-green-700">
+                      <span className="inline-block px-2 py-1 bg-white rounded text-sm font-semibold text-green-700">
                         추천
                       </span>
                     </div>
@@ -202,7 +202,7 @@ export default function TrainingPage() {
                   key={key}
                   className={`${colors.bg} ${colors.accent} p-4 md:p-6 rounded-lg`}
                 >
-                  <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">
+                  <p className="text-sm font-bold text-gray-600 uppercase tracking-wide mb-2">
                     {colors.emoji} {colors.label}
                   </p>
                   <p className="text-gray-900 font-medium text-sm md:text-base leading-relaxed">
@@ -264,7 +264,7 @@ export default function TrainingPage() {
                       <div className="flex items-start gap-3">
                         <span className="text-xl flex-shrink-0">✅</span>
                         <div className="flex-1">
-                          <p className="text-xs font-bold text-green-700 uppercase tracking-wide mb-2">
+                          <p className="text-sm font-bold text-green-700 uppercase tracking-wide mb-2">
                             추천 대응
                           </p>
                           <p className="text-gray-900 text-sm md:text-base leading-relaxed">

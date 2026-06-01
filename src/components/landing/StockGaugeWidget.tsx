@@ -32,7 +32,7 @@ export function StockGaugeWidget({
             suppressHydrationWarning
           />
         </div>
-        <div className="flex justify-between text-xs text-gray-600">
+        <div className="flex justify-between text-sm text-gray-600">
           <span>지금 ({currentStock}개)</span>
           <span>{weeksToZero}주뒤 (3개)</span>
           <span>매진</span>

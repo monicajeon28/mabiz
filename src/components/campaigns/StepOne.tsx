@@ -46,7 +46,7 @@ export default function StepOne({
             maxLength={100}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
-          <p className="text-xs text-gray-500 mt-1">{formData.title.length}/100자</p>
+          <p className="text-sm text-gray-500 mt-1">{formData.title.length}/100자</p>
         </div>
 
         {/* 그룹 선택 */}
@@ -77,7 +77,7 @@ export default function StepOne({
                   />
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">{group.name}</p>
-                    <p className="text-xs text-gray-500">멤버 {group._count.members}명</p>
+                    <p className="text-sm text-gray-500">멤버 {group._count.members}명</p>
                   </div>
                 </label>
               ))}

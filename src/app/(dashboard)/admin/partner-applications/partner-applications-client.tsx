@@ -93,17 +93,17 @@ function ApplicationCard({
           </div>
           <div className="min-w-0">
             <p className="font-semibold text-gray-900 text-sm truncate">{app.name}</p>
-            <p className="text-xs text-gray-500">{app.phone}</p>
+            <p className="text-sm text-gray-500">{app.phone}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full border ${statusCfg.color}`}>
+          <span className={`inline-flex items-center gap-1 text-sm font-medium px-2 py-1 rounded-full border ${statusCfg.color}`}>
             {statusCfg.icon}
             {statusCfg.label}
           </span>
           <button
             onClick={() => setExpanded(!expanded)}
-            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
+            className="p-1.5 text-gray-600 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
           >
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
@@ -113,7 +113,7 @@ function ApplicationCard({
       {/* 담당 대리점장 표시 */}
       {meta?.supervisorName && (
         <div className="px-5 pb-3">
-          <span className="inline-flex items-center gap-1.5 text-xs bg-teal-50 text-teal-700 border border-teal-200 rounded-full px-2.5 py-1">
+          <span className="inline-flex items-center gap-1.5 text-sm bg-teal-50 text-teal-700 border border-teal-200 rounded-full px-2.5 py-1">
             담당: {meta.supervisorName} ({meta.supervisorAgency || '-'})
           </span>
         </div>
@@ -121,9 +121,9 @@ function ApplicationCard({
 
       {/* 신청 시각 */}
       <div className="px-5 pb-3">
-        <p className="text-xs text-gray-400">신청: {formatDate(app.createdAt)}</p>
-        {meta?.approvedAt && <p className="text-xs text-green-600">승인: {formatDate(meta.approvedAt)}</p>}
-        {meta?.rejectedAt && <p className="text-xs text-red-500">반려: {formatDate(meta.rejectedAt)}{meta.rejectReason ? ` · ${meta.rejectReason}` : ''}</p>}
+        <p className="text-sm text-gray-600">신청: {formatDate(app.createdAt)}</p>
+        {meta?.approvedAt && <p className="text-sm text-green-600">승인: {formatDate(meta.approvedAt)}</p>}
+        {meta?.rejectedAt && <p className="text-sm text-red-500">반려: {formatDate(meta.rejectedAt)}{meta.rejectReason ? ` · ${meta.rejectReason}` : ''}</p>}
       </div>
 
       {/* 확장 상세 */}
@@ -133,14 +133,14 @@ function ApplicationCard({
           <div className="grid grid-cols-2 gap-3 text-sm">
             {app.email && (
               <div>
-                <p className="text-xs text-gray-500 mb-0.5">이메일</p>
-                <p className="text-gray-800 text-xs">{app.email}</p>
+                <p className="text-sm text-gray-500 mb-0.5">이메일</p>
+                <p className="text-gray-800 text-sm">{app.email}</p>
               </div>
             )}
             {app.address && (
               <div>
-                <p className="text-xs text-gray-500 mb-0.5">주소</p>
-                <p className="text-gray-800 text-xs">{app.address}</p>
+                <p className="text-sm text-gray-500 mb-0.5">주소</p>
+                <p className="text-gray-800 text-sm">{app.address}</p>
               </div>
             )}
           </div>
@@ -148,7 +148,7 @@ function ApplicationCard({
           {/* SNS 채널 */}
           {hasSns && (
             <div>
-              <p className="text-xs font-semibold text-gray-600 mb-2">SNS 채널</p>
+              <p className="text-sm font-semibold text-gray-600 mb-2">SNS 채널</p>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(meta!.snsChannels!).map(([key, url]) => (
                   <a
@@ -156,7 +156,7 @@ function ApplicationCard({
                     href={url.startsWith('http') ? url : `https://${url}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs bg-white border border-gray-200 text-blue-600 hover:text-blue-800 rounded-full px-2.5 py-1 transition"
+                    className="inline-flex items-center gap-1 text-sm bg-white border border-gray-200 text-blue-600 hover:text-blue-800 rounded-full px-2.5 py-1 transition"
                   >
                     <Eye className="w-3 h-3" />
                     {SNS_LABELS[key] ?? key}
@@ -169,62 +169,62 @@ function ApplicationCard({
           {/* 지원동기 */}
           {meta?.applyNote && (
             <div>
-              <p className="text-xs font-semibold text-gray-600 mb-1">지원 동기</p>
-              <p className="text-xs text-gray-700 bg-white border border-gray-200 rounded-xl p-3 leading-relaxed">{meta.applyNote}</p>
+              <p className="text-sm font-semibold text-gray-600 mb-1">지원 동기</p>
+              <p className="text-sm text-gray-700 bg-white border border-gray-200 rounded-xl p-3 leading-relaxed">{meta.applyNote}</p>
             </div>
           )}
 
           {/* 첨부 서류 */}
           <div className="space-y-2">
-            <p className="text-xs font-semibold text-gray-600">첨부 서류</p>
+            <p className="text-sm font-semibold text-gray-600">첨부 서류</p>
             <div className="grid grid-cols-2 gap-2">
               {meta?.idPhotoUrl ? (
                 <div className="space-y-1">
-                  <p className="text-xs text-gray-500">신분증</p>
+                  <p className="text-sm text-gray-500">신분증</p>
                   {showIdPhoto ? (
                     <div className="relative">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={meta.idPhotoUrl} alt="신분증" className="w-full rounded-xl border border-gray-200" />
                       <button
                         onClick={() => setShowIdPhoto(false)}
-                        className="absolute top-1 right-1 bg-white/80 text-gray-600 rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                        className="absolute top-1 right-1 bg-white/80 text-gray-600 rounded-full w-6 h-6 flex items-center justify-center text-sm"
                       >✕</button>
                     </div>
                   ) : (
                     <button
                       onClick={() => setShowIdPhoto(true)}
-                      className="w-full text-xs bg-white border border-gray-200 rounded-xl py-2 text-blue-600 hover:bg-blue-50 transition flex items-center justify-center gap-1"
+                      className="w-full text-sm bg-white border border-gray-200 rounded-xl py-2 text-blue-600 hover:bg-blue-50 transition flex items-center justify-center gap-1"
                     >
                       <Eye className="w-3.5 h-3.5" /> 확인
                     </button>
                   )}
                 </div>
               ) : (
-                <div className="text-xs text-gray-400 bg-white border border-gray-200 rounded-xl py-3 text-center">신분증 없음</div>
+                <div className="text-sm text-gray-600 bg-white border border-gray-200 rounded-xl py-3 text-center">신분증 없음</div>
               )}
               {meta?.bankBookUrl ? (
                 <div className="space-y-1">
-                  <p className="text-xs text-gray-500">통장사본</p>
+                  <p className="text-sm text-gray-500">통장사본</p>
                   {showBankBook ? (
                     <div className="relative">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={meta.bankBookUrl} alt="통장사본" className="w-full rounded-xl border border-gray-200" />
                       <button
                         onClick={() => setShowBankBook(false)}
-                        className="absolute top-1 right-1 bg-white/80 text-gray-600 rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                        className="absolute top-1 right-1 bg-white/80 text-gray-600 rounded-full w-6 h-6 flex items-center justify-center text-sm"
                       >✕</button>
                     </div>
                   ) : (
                     <button
                       onClick={() => setShowBankBook(true)}
-                      className="w-full text-xs bg-white border border-gray-200 rounded-xl py-2 text-blue-600 hover:bg-blue-50 transition flex items-center justify-center gap-1"
+                      className="w-full text-sm bg-white border border-gray-200 rounded-xl py-2 text-blue-600 hover:bg-blue-50 transition flex items-center justify-center gap-1"
                     >
                       <Eye className="w-3.5 h-3.5" /> 확인
                     </button>
                   )}
                 </div>
               ) : (
-                <div className="text-xs text-gray-400 bg-white border border-gray-200 rounded-xl py-3 text-center">통장사본 없음</div>
+                <div className="text-sm text-gray-600 bg-white border border-gray-200 rounded-xl py-3 text-center">통장사본 없음</div>
               )}
             </div>
           </div>
@@ -430,11 +430,11 @@ export default function PartnerApplicationsClient({ initialRole }: PartnerApplic
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-lg font-bold text-gray-900">파트너스 신청 관리</h1>
-              <p className="text-xs text-gray-500 mt-0.5">크루즈닷 파트너스 가입 신청 검토</p>
+              <p className="text-sm text-gray-500 mt-0.5">크루즈닷 파트너스 가입 신청 검토</p>
             </div>
             <button
               onClick={refreshApplications}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition"
+              className="p-2 text-gray-600 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
@@ -485,7 +485,7 @@ export default function PartnerApplicationsClient({ initialRole }: PartnerApplic
         ) : applications.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
             <CheckCircle className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-400 text-sm">
+            <p className="text-gray-600 text-sm">
               {statusFilter === 'submitted' ? '검토 대기 중인 신청이 없습니다.' : '해당하는 신청이 없습니다.'}
             </p>
           </div>

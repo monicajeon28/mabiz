@@ -33,7 +33,7 @@ export function ScriptPhaseNav({ selected, onSelect }: ScriptPhaseNavProps) {
             <span className="text-lg">{phase.icon}</span>
             <div className="flex-1">
               <div className="font-medium">{phase.name}</div>
-              <div className="text-xs opacity-75">{phase.time}</div>
+              <div className="text-sm opacity-75">{phase.time}</div>
             </div>
           </div>
         </button>

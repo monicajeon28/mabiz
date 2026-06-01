@@ -137,7 +137,7 @@ export default function ScheduledSmsPage() {
           <button
             key={key}
             onClick={() => setFilter(key)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition-colors ${
+            className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-1.5 transition-colors ${
               filter === key
                 ? "bg-navy-900 text-white"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -148,7 +148,7 @@ export default function ScheduledSmsPage() {
         ))}
         <button
           onClick={() => setFilter("")}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
             filter === "" ? "bg-navy-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
         >
@@ -171,7 +171,7 @@ export default function ScheduledSmsPage() {
           ))}
         </div>
       ) : list.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-gray-600">
           <AlarmClock className="w-12 h-12 mx-auto mb-3 opacity-20" />
           <p className="text-sm">예약된 발송이 없습니다.</p>
         </div>
@@ -185,21 +185,21 @@ export default function ScheduledSmsPage() {
                   <div className="flex-1 min-w-0">
                     {/* 상태 + 예약 시각 */}
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${info.color}`}>
+                      <span className={`flex items-center gap-1 text-sm font-medium px-2 py-0.5 rounded-full ${info.color}`}>
                         {info.icon} {info.label}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-sm text-gray-500">
                         🕐 {new Date(item.scheduledAt).toLocaleString("ko-KR")}
                       </span>
                       {item.sentAt && (
-                        <span className="text-xs text-gray-400">
+                        <span className="text-sm text-gray-600">
                           · 발송: {new Date(item.sentAt).toLocaleString("ko-KR")}
                         </span>
                       )}
                     </div>
 
                     {/* 수신 대상 */}
-                    <p className="text-xs text-gray-500 mb-1">
+                    <p className="text-sm text-gray-500 mb-1">
                       {item.contactId  ? "👤 개별 고객" : ""}
                       {item.groupId    ? "👥 그룹 전체" : ""}
                     </p>
@@ -209,7 +209,7 @@ export default function ScheduledSmsPage() {
 
                     {/* 발송 결과 */}
                     {(item.sentCount > 0 || item.failedCount > 0) && (
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-sm text-gray-600 mt-1">
                         ✅ {item.sentCount}건 성공
                         {item.failedCount > 0 && ` · ❌ ${item.failedCount}건 실패`}
                       </p>
@@ -221,28 +221,28 @@ export default function ScheduledSmsPage() {
                     {/* 일시정지 (PENDING/NIGHT_BLOCKED) */}
                     {(item.status === "PENDING" || item.status === "NIGHT_BLOCKED") && (
                       <button onClick={() => doAction(item.id, "pause")} disabled={acting === item.id || cancelling === item.id}
-                        className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors" title="일시정지">
+                        className="p-1.5 text-gray-600 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors" title="일시정지">
                         <Pause className="w-4 h-4" />
                       </button>
                     )}
                     {/* 재개 (PAUSED) */}
                     {item.status === "PAUSED" && (
                       <button onClick={() => doAction(item.id, "resume")} disabled={acting === item.id || cancelling === item.id}
-                        className="p-1.5 text-gray-400 hover:text-green-500 hover:bg-green-50 rounded-lg transition-colors" title="재개">
+                        className="p-1.5 text-gray-600 hover:text-green-500 hover:bg-green-50 rounded-lg transition-colors" title="재개">
                         <Play className="w-4 h-4" />
                       </button>
                     )}
                     {/* 재발송 (FAILED) */}
                     {item.status === "FAILED" && (
                       <button onClick={() => doAction(item.id, "retry")} disabled={acting === item.id || cancelling === item.id}
-                        className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="재발송">
+                        className="p-1.5 text-gray-600 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="재발송">
                         <RotateCcw className="w-4 h-4" />
                       </button>
                     )}
                     {/* 취소 (PENDING/PAUSED/NIGHT_BLOCKED) */}
                     {(item.status === "PENDING" || item.status === "PAUSED" || item.status === "NIGHT_BLOCKED") && (
                       <button onClick={() => cancel(item.id)} disabled={cancelling === item.id || acting === item.id}
-                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40" title="취소">
+                        className="p-1.5 text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40" title="취소">
                         <X className="w-4 h-4" />
                       </button>
                     )}

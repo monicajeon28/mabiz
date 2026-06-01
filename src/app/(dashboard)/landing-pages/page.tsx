@@ -183,10 +183,10 @@ function ShareModal({ pageId, pageTitle, onClose }: {
         <div className="flex items-center justify-between p-5 border-b">
           <div>
             <h2 className="font-bold text-gray-900 text-base">랜딩페이지 공유</h2>
-            <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[280px]">{pageTitle}</p>
+            <p className="text-sm text-gray-600 mt-0.5 truncate max-w-[280px]">{pageTitle}</p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
-            <X className="w-5 h-5 text-gray-400" />
+            <X className="w-5 h-5 text-gray-600" />
           </button>
         </div>
 
@@ -194,7 +194,7 @@ function ShareModal({ pageId, pageTitle, onClose }: {
           {/* 이미 공유된 목록 */}
           {existing.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 mb-2">현재 공유 중</p>
+              <p className="text-sm font-semibold text-gray-500 mb-2">현재 공유 중</p>
               <div className="space-y-1.5">
                 {existing.map((s) => (
                   <div key={s.id} className="flex items-center justify-between bg-blue-50 rounded-lg px-3 py-2">
@@ -206,7 +206,7 @@ function ShareModal({ pageId, pageTitle, onClose }: {
                     <button
                       onClick={() => handleRemove(s.sharedToOrgId)}
                       disabled={removing === s.sharedToOrgId}
-                      className="text-xs text-red-500 hover:text-red-700 disabled:opacity-40"
+                      className="text-sm text-red-500 hover:text-red-700 disabled:opacity-40"
                     >
                       {removing === s.sharedToOrgId ? "취소중..." : "공유취소"}
                     </button>
@@ -228,7 +228,7 @@ function ShareModal({ pageId, pageTitle, onClose }: {
               />
               <div>
                 <p className="font-semibold text-sm text-gray-800">전체 공유</p>
-                <p className="text-xs text-gray-400">모든 대리점장이 받은 함에서 확인할 수 있습니다</p>
+                <p className="text-sm text-gray-600">모든 대리점장이 받은 함에서 확인할 수 있습니다</p>
               </div>
             </label>
           </div>
@@ -236,13 +236,13 @@ function ShareModal({ pageId, pageTitle, onClose }: {
           {/* 조직별 선택 */}
           {!isGlobal && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 mb-2">특정 대리점장에게 공유</p>
+              <p className="text-sm font-semibold text-gray-500 mb-2">특정 대리점장에게 공유</p>
               {loading ? (
                 <div className="space-y-2">
                   {[...Array(3)].map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded-lg animate-pulse" />)}
                 </div>
               ) : orgs.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-4">공유 가능한 조직이 없습니다</p>
+                <p className="text-sm text-gray-600 text-center py-4">공유 가능한 조직이 없습니다</p>
               ) : (
                 <div className="space-y-1.5 max-h-52 overflow-y-auto">
                   {orgs.map((org) => {
@@ -416,9 +416,9 @@ function PageCard({
             {page.title}
           </h3>
           <HoverPreview slug={page.slug} visible={hoverVisible} anchorRef={titleRef} />
-          <p className="text-xs text-gray-400 mt-0.5">/p/{page.slug}</p>
+          <p className="text-sm text-gray-600 mt-0.5">/p/{page.slug}</p>
 
-          <div className="flex items-center gap-3 mt-2 text-xs text-gray-500 flex-wrap">
+          <div className="flex items-center gap-3 mt-2 text-sm text-gray-500 flex-wrap">
             {/* L6: Loss aversion — 미사용 경고 */}
             {page.viewCount === 0 && (
               <span className="inline-flex items-center gap-1 text-red-600 font-medium bg-red-50 px-2 py-0.5 rounded-full">
@@ -463,7 +463,7 @@ function PageCard({
             return (
               <div className="mt-3 bg-gray-50 rounded-xl p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-semibold text-gray-600">퍼널 전환 그래프</p>
+                  <p className="text-sm font-semibold text-gray-600">퍼널 전환 그래프</p>
                   {s.viewCount > 0 && s.purchased > 0 && (
                     <span className="text-[11px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
                       전체 전환 {s.rates.visitToPurchase}%
@@ -484,7 +484,7 @@ function PageCard({
                         {b.value.toLocaleString()}
                       </span>
                       {b.rate !== null && (
-                        <span className="text-[10px] text-gray-400 w-8 shrink-0">{b.rate}%</span>
+                        <span className="text-[10px] text-gray-600 w-8 shrink-0">{b.rate}%</span>
                       )}
                     </div>
                   ))}
@@ -501,7 +501,7 @@ function PageCard({
             <button
               onClick={() => onCloneShared(page.id)}
               disabled={cloningId === page.id}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-xs font-semibold disabled:opacity-50"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm font-semibold disabled:opacity-50"
               title="내 페이지로 복사"
             >
               {cloningId === page.id ? "복사중..." : <><Files className="w-3.5 h-3.5" /> 내 페이지로 복사</>}
@@ -510,7 +510,7 @@ function PageCard({
             <>
               <button
                 onClick={() => onCreateShortLink(page)}
-                className="flex items-center gap-1 px-2 py-1.5 hover:bg-gray-100 rounded-lg text-gray-500 text-xs"
+                className="flex items-center gap-1 px-2 py-1.5 hover:bg-gray-100 rounded-lg text-gray-500 text-sm"
                 title="숏링크 만들기"
               >
                 {copiedLinkId === page.id ? (
@@ -534,7 +534,7 @@ function PageCard({
                 title="링크 복사"
               >
                 {copied === page.slug
-                  ? <span className="text-xs text-green-500 font-medium">복사됨</span>
+                  ? <span className="text-sm text-green-500 font-medium">복사됨</span>
                   : <Copy className="w-4 h-4" />}
               </button>
               <button
@@ -543,7 +543,7 @@ function PageCard({
                 className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 disabled:opacity-50"
                 title="복제 (사본 만들기)"
               >
-                {cloningId === page.id ? <span className="text-xs text-blue-500">복제중...</span> : <Files className="w-4 h-4" />}
+                {cloningId === page.id ? <span className="text-sm text-blue-500">복제중...</span> : <Files className="w-4 h-4" />}
               </button>
               <button
                 onClick={() => onShare(page.id, page.title)}
@@ -583,10 +583,10 @@ function PageCard({
               <button
                 onClick={() => onDelete(page.id, page.title)}
                 disabled={deletingId === page.id}
-                className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 disabled:opacity-50"
+                className="p-2 hover:bg-red-50 rounded-lg text-gray-600 hover:text-red-500 disabled:opacity-50"
                 title="삭제"
               >
-                {deletingId === page.id ? <span className="text-xs text-red-400">삭제중...</span> : <Trash2 className="w-4 h-4" />}
+                {deletingId === page.id ? <span className="text-sm text-red-400">삭제중...</span> : <Trash2 className="w-4 h-4" />}
               </button>
             </>
           )}
@@ -801,13 +801,13 @@ export default function LandingPagesPage() {
               onChange={toggleSelectAll}
               className="w-4 h-4 accent-navy-900"
             />
-            <span className="text-xs text-gray-500">전체 선택</span>
+            <span className="text-sm text-gray-500">전체 선택</span>
           </label>
           {selectedIds.size > 0 && (
             <button
               onClick={bulkDelete}
               disabled={bulkDeleting}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5" />
               {bulkDeleting ? "삭제 중..." : `${selectedIds.size}개 삭제`}
@@ -828,7 +828,7 @@ export default function LandingPagesPage() {
               <div className="text-center py-16">
                 <p className="text-4xl mb-3">📄</p>
                 <p className="font-medium text-gray-700">랜딩페이지가 없습니다</p>
-                <p className="text-sm text-gray-400 mt-1">+ 새 페이지 버튼으로 만들어보세요</p>
+                <p className="text-sm text-gray-600 mt-1">+ 새 페이지 버튼으로 만들어보세요</p>
               </div>
             ) : (
               pages.map((page) => (

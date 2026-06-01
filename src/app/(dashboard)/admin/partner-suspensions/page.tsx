@@ -191,7 +191,7 @@ export default function PartnerSuspensionsPage() {
                     <span className="font-semibold text-gray-900">{s.partnerName}</span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
                       {s.partnerRole === 'MANAGER'
                         ? '매니저'
                         : s.partnerRole === 'SALESPERSON'
@@ -245,19 +245,19 @@ export default function PartnerSuspensionsPage() {
                       <h4 className="font-semibold text-gray-900 mb-3">정지 정보</h4>
                       <div className="grid grid-cols-2 gap-4 bg-white p-4 rounded-lg border border-gray-200">
                         <div>
-                          <p className="text-xs text-gray-500 font-medium">정지 상태</p>
+                          <p className="text-sm text-gray-500 font-medium">정지 상태</p>
                           <p className="text-sm font-semibold text-gray-900 mt-1">
                             {getStatusLabel(s.suspensionStatus)}
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500 font-medium">정지 사유</p>
+                          <p className="text-sm text-gray-500 font-medium">정지 사유</p>
                           <p className="text-sm font-semibold text-gray-900 mt-1">
                             {getReasonLabel(s.suspensionReason)}
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500 font-medium">정지일</p>
+                          <p className="text-sm text-gray-500 font-medium">정지일</p>
                           <p className="text-sm font-semibold text-gray-900 mt-1">
                             {format(new Date(s.suspendedAt), 'yyyy-MM-dd HH:mm', {
                               locale: ko,
@@ -266,7 +266,7 @@ export default function PartnerSuspensionsPage() {
                         </div>
                         {s.resolvedAt && (
                           <div>
-                            <p className="text-xs text-gray-500 font-medium">해제일</p>
+                            <p className="text-sm text-gray-500 font-medium">해제일</p>
                             <p className="text-sm font-semibold text-green-600 mt-1">
                               {format(new Date(s.resolvedAt), 'yyyy-MM-dd HH:mm', {
                                 locale: ko,
@@ -282,7 +282,7 @@ export default function PartnerSuspensionsPage() {
                       <div className="bg-white p-4 rounded-lg border border-yellow-200 bg-yellow-50">
                         <h4 className="font-semibold text-gray-900 mb-2">이의 제기</h4>
                         <div className="text-sm text-gray-700">
-                          <p className="text-xs text-gray-500 font-medium mb-1">이의 제기일</p>
+                          <p className="text-sm text-gray-500 font-medium mb-1">이의 제기일</p>
                           <p className="mb-3">
                             {s.appealedAt
                               ? format(new Date(s.appealedAt), 'yyyy-MM-dd HH:mm', {
@@ -290,7 +290,7 @@ export default function PartnerSuspensionsPage() {
                                 })
                               : '-'}
                           </p>
-                          <p className="text-xs text-gray-500 font-medium mb-1">내용</p>
+                          <p className="text-sm text-gray-500 font-medium mb-1">내용</p>
                           <p className="whitespace-pre-wrap">{s.appealMessage || '-'}</p>
                         </div>
                       </div>

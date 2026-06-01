@@ -139,12 +139,12 @@ export default function FreeMatketerRegisterPage() {
         </form>
 
         <div className="text-center mt-6">
-          <Link href="/sign-in" className="text-sm text-gray-400 hover:text-gray-600">
+          <Link href="/sign-in" className="text-sm text-gray-600 hover:text-gray-600">
             이미 계정이 있으신가요? 로그인
           </Link>
         </div>
 
-        <p className="mt-6 text-center text-xs text-slate-400 leading-relaxed">
+        <p className="mt-6 text-center text-sm text-slate-400 leading-relaxed">
           등록 시 크루즈닷 어필리에이트 약관에 동의합니다.<br />
           문의: jmonica@cruisedot.co.kr
         </p>

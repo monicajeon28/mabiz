@@ -282,7 +282,7 @@ export default function DbPage() {
                 <button
                   key={target}
                   onClick={() => { setImportTarget(target); setShowImport(false); setResult(null); if (fileRef.current) fileRef.current.value = ""; }}
-                  className={`pb-2 text-sm font-medium transition-colors ${isActive ? "text-navy-900 border-b-2 border-navy-900" : "text-gray-400 hover:text-gray-600"}`}
+                  className={`pb-2 text-sm font-medium transition-colors ${isActive ? "text-navy-900 border-b-2 border-navy-900" : "text-gray-600 hover:text-gray-600"}`}
                 >
                   {config.label}
                 </button>
@@ -290,7 +290,7 @@ export default function DbPage() {
             })}
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setShowImport(!showImport)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${showImport ? "bg-navy-900 text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+            <button onClick={() => setShowImport(!showImport)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${showImport ? "bg-navy-900 text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
               <Upload className="w-3.5 h-3.5" /> {showImport ? "목록 보기" : "엑셀 가져오기"}
             </button>
           </div>
@@ -304,34 +304,34 @@ export default function DbPage() {
               <button onClick={() => loadContacts(1)} className="bg-navy-900 text-white px-3 py-2 rounded-lg text-sm"><Search className="w-4 h-4" /></button>
             </div>
             {contactsLoading ? (
-              <div className="text-center py-8 text-gray-400">불러오는 중...</div>
+              <div className="text-center py-8 text-gray-600">불러오는 중...</div>
             ) : contacts.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
+              <div className="text-center py-8 text-gray-600">
                 <Database className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">데이터가 없습니다</p>
               </div>
             ) : (
               <>
-                <p className="text-xs text-gray-500 mb-2">총 {contactsTotal.toLocaleString()}건</p>
+                <p className="text-sm text-gray-500 mb-2">총 {contactsTotal.toLocaleString()}건</p>
                 <div className="space-y-1">
                   {contacts.map((c) => (
                     <Link key={c.id} href={`/contacts/${c.id}`} className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 border border-gray-100">
                       <div>
                         <span className="text-sm font-medium text-gray-900">{c.name}</span>
-                        <span className="text-xs text-gray-400 ml-2">{c.phone}</span>
+                        <span className="text-sm text-gray-600 ml-2">{c.phone}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${c.type === "CUSTOMER" ? "bg-green-50 text-green-700" : "bg-blue-50 text-blue-600"}`}>{c.type === "CUSTOMER" ? "구매" : c.type}</span>
-                        <span className="text-xs text-gray-400">{new Date(c.createdAt).toLocaleDateString("ko-KR")}</span>
+                        <span className="text-sm text-gray-600">{new Date(c.createdAt).toLocaleDateString("ko-KR")}</span>
                       </div>
                     </Link>
                   ))}
                 </div>
                 {contactsTotal > 20 && (
                   <div className="flex justify-center gap-2 mt-3">
-                    <button disabled={contactsPage <= 1} onClick={() => loadContacts(contactsPage - 1)} className="px-3 py-1 text-xs border rounded disabled:opacity-30">이전</button>
-                    <span className="text-xs text-gray-500 py-1">{contactsPage} / {Math.ceil(contactsTotal / 20)}</span>
-                    <button disabled={contactsPage >= Math.ceil(contactsTotal / 20)} onClick={() => loadContacts(contactsPage + 1)} className="px-3 py-1 text-xs border rounded disabled:opacity-30">다음</button>
+                    <button disabled={contactsPage <= 1} onClick={() => loadContacts(contactsPage - 1)} className="px-3 py-1 text-sm border rounded disabled:opacity-30">이전</button>
+                    <span className="text-sm text-gray-500 py-1">{contactsPage} / {Math.ceil(contactsTotal / 20)}</span>
+                    <button disabled={contactsPage >= Math.ceil(contactsTotal / 20)} onClick={() => loadContacts(contactsPage + 1)} className="px-3 py-1 text-sm border rounded disabled:opacity-30">다음</button>
                   </div>
                 )}
               </>
@@ -364,7 +364,7 @@ export default function DbPage() {
             <a
               href={`/api/import/sample?target=${importTarget}`}
               download="cruisedot_import_sample.xlsx"
-              className="flex items-center gap-1 text-xs bg-white border border-blue-300 text-blue-700 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors font-medium"
+              className="flex items-center gap-1 text-sm bg-white border border-blue-300 text-blue-700 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors font-medium"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
               샘플 다운로드
@@ -373,7 +373,7 @@ export default function DbPage() {
           <p>첫 행이 헤더여야 합니다. 지원 컬럼명:</p>
           <div className="flex flex-wrap gap-1.5 mt-1.5">
             {IMPORT_CONFIGS[importTarget].columns.map((col) => (
-              <span key={col.name} className="bg-blue-100 px-2 py-0.5 rounded text-xs">
+              <span key={col.name} className="bg-blue-100 px-2 py-0.5 rounded text-sm">
                 {col.label}
               </span>
             ))}
@@ -411,11 +411,11 @@ export default function DbPage() {
             </div>
           ) : (
             <div className="text-center">
-              <FileSpreadsheet className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <FileSpreadsheet className="w-8 h-8 text-gray-600 mx-auto mb-2" />
               <p className="text-sm text-gray-600 font-medium">xlsx 파일 클릭하거나 드래그</p>
-              <p className="text-xs text-gray-400 mt-1">.xlsx, .xls 지원</p>
+              <p className="text-sm text-gray-600 mt-1">.xlsx, .xls 지원</p>
               {rowEstimate && rowEstimate > 1000 && (
-                <p className="text-xs text-red-500 mt-2 font-medium">⚠️ 약 {rowEstimate.toLocaleString()}행 (1000행 초과)</p>
+                <p className="text-sm text-red-500 mt-2 font-medium">⚠️ 약 {rowEstimate.toLocaleString()}행 (1000행 초과)</p>
               )}
             </div>
           )}
@@ -480,7 +480,7 @@ export default function DbPage() {
             <div className="ml-7">
               <button
                 onClick={() => setErrorsOpen(!errorsOpen)}
-                className="flex items-center gap-1.5 text-xs text-red-600 font-medium hover:text-red-700 transition-colors"
+                className="flex items-center gap-1.5 text-sm text-red-600 font-medium hover:text-red-700 transition-colors"
               >
                 <ChevronDown
                   className={`w-4 h-4 transition-transform ${errorsOpen ? "rotate-180" : ""}`}
@@ -490,7 +490,7 @@ export default function DbPage() {
               {errorsOpen && (
                 <div className="mt-2 space-y-1">
                   {result.errors.map((e, i) => (
-                    <p key={i} className="text-xs text-red-500">• {e}</p>
+                    <p key={i} className="text-sm text-red-500">• {e}</p>
                   ))}
                 </div>
               )}

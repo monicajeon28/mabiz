@@ -125,7 +125,7 @@ function KpiCard({
         {typeof value === "number" ? value.toLocaleString() : value}
       </p>
       {sub && (
-        <p className={`text-xs ${accent ? "text-gray-400" : "text-gray-400"}`}>{sub}</p>
+        <p className={`text-sm ${accent ? "text-gray-600" : "text-gray-600"}`}>{sub}</p>
       )}
     </div>
   );
@@ -149,7 +149,7 @@ function DateFilterBar({
   setCustomTo: (v: string) => void;
 }) {
   const btnClass = (active: boolean) =>
-    `px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+    `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
       active
         ? "bg-navy-900 text-white"
         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -157,7 +157,7 @@ function DateFilterBar({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+      <Calendar className="w-4 h-4 text-gray-600 shrink-0" />
       <button className={btnClass(period === "this_month")} onClick={() => setPeriod("this_month")}>
         이번 달
       </button>
@@ -173,14 +173,14 @@ function DateFilterBar({
             type="date"
             value={customFrom}
             onChange={(e) => setCustomFrom(e.target.value)}
-            className="border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-navy-300"
+            className="border border-gray-200 rounded-lg px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-navy-300"
           />
-          <span className="text-xs text-gray-400">~</span>
+          <span className="text-sm text-gray-600">~</span>
           <input
             type="date"
             value={customTo}
             onChange={(e) => setCustomTo(e.target.value)}
-            className="border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-navy-300"
+            className="border border-gray-200 rounded-lg px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-navy-300"
           />
         </div>
       )}
@@ -241,7 +241,7 @@ function LeaderboardSection({
 
   if (agents.length === 0) {
     return (
-      <div className="text-center py-16 text-gray-400">
+      <div className="text-center py-16 text-gray-600">
         <p>판매원 데이터가 없습니다</p>
       </div>
     );
@@ -273,7 +273,7 @@ function LeaderboardSection({
                 <p className="font-semibold text-navy-900 truncate">
                   {item.agent.displayName ?? item.agent.affiliateCode}
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-sm text-gray-500 mt-0.5">
                   리드 {item.leads.total}건 · 판매 {item.sales.count}건
                 </p>
               </div>
@@ -281,9 +281,9 @@ function LeaderboardSection({
                 <p className="font-bold text-navy-900">
                   {(item.sales.salesCommission ?? 0).toLocaleString()}원
                 </p>
-                <p className="text-xs text-gray-400">커미션</p>
+                <p className="text-sm text-gray-600">커미션</p>
               </div>
-              <span className="text-gray-400 shrink-0">
+              <span className="text-gray-600 shrink-0">
                 {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </span>
             </button>
@@ -338,7 +338,7 @@ function FreeSalesSection({
 
   if (freeSales.length === 0) {
     return (
-      <div className="text-center py-16 text-gray-400">
+      <div className="text-center py-16 text-gray-600">
         <p>소속 프리세일즈가 없습니다</p>
       </div>
     );
@@ -353,7 +353,7 @@ function FreeSalesSection({
             <p className="font-semibold text-navy-900 truncate">
               {fs.member.displayName ?? fs.member.affiliateCode}
             </p>
-            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-medium shrink-0">
+            <span className="text-sm bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-medium shrink-0">
               프리세일즈
             </span>
           </div>
@@ -361,15 +361,15 @@ function FreeSalesSection({
           {/* 지표 3개 */}
           <div className="grid grid-cols-3 gap-2 text-center">
             <div>
-              <p className="text-xs text-gray-400 mb-1">유입 수</p>
+              <p className="text-sm text-gray-600 mb-1">유입 수</p>
               <p className="text-xl font-bold text-navy-900">{fs.leads.total}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400 mb-1">전환 수</p>
+              <p className="text-sm text-gray-600 mb-1">전환 수</p>
               <p className="text-xl font-bold text-navy-900">{fs.leads.converted}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400 mb-1">전환율</p>
+              <p className="text-sm text-gray-600 mb-1">전환율</p>
               <p
                 className={`text-xl font-bold ${
                   fs.conversionRate >= 30
@@ -588,7 +588,7 @@ export default function TeamPage() {
                     ))
                   ) : members.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="px-4 py-8 text-center text-gray-400">
+                      <td colSpan={3} className="px-4 py-8 text-center text-gray-600">
                         팀원이 없습니다.
                       </td>
                     </tr>
@@ -600,14 +600,14 @@ export default function TeamPage() {
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-sm font-medium ${
                               ROLE_COLORS[m.role] ?? "bg-gray-100 text-gray-600"
                             }`}
                           >
                             {ROLE_LABELS[m.role] ?? m.role}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-gray-400 text-xs hidden md:table-cell">
+                        <td className="px-4 py-3 text-gray-600 text-sm hidden md:table-cell">
                           향후 개인 실적 확장 예정
                         </td>
                       </tr>

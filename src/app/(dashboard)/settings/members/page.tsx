@@ -99,7 +99,7 @@ function QrModal({ url, onClose }: { url: string; onClose: () => void }) {
            onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <p className="font-semibold text-gray-900">QR 코드</p>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="text-gray-600 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -107,10 +107,10 @@ function QrModal({ url, onClose }: { url: string; onClose: () => void }) {
           <img src={dataUrl} alt="초대 QR 코드" className="w-full rounded-xl" />
         ) : (
           <div className="flex items-center justify-center h-40">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            <Loader2 className="w-6 h-6 animate-spin text-gray-600" />
           </div>
         )}
-        <p className="text-xs text-gray-400 text-center mt-3 break-all">{url}</p>
+        <p className="text-sm text-gray-600 text-center mt-3 break-all">{url}</p>
         {dataUrl && (
           <a
             href={dataUrl}
@@ -199,7 +199,7 @@ function MemberDocumentPanel({ userId }: { userId: string }) {
   return (
     <div className="space-y-4">
       <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-3">
-        <p className="text-xs font-semibold text-gray-600">서류 업로드</p>
+        <p className="text-sm font-semibold text-gray-600">서류 업로드</p>
         <select
           value={docType}
           onChange={(e) => setDocType(e.target.value)}
@@ -214,9 +214,9 @@ function MemberDocumentPanel({ userId }: { userId: string }) {
           type="file"
           accept=".pdf,.jpg,.jpeg,.png,.webp"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          className="w-full text-sm text-gray-600 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+          className="w-full text-sm text-gray-600 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
         />
-        {file && <p className="text-xs text-gray-500 truncate">{file.name} ({formatBytes(file.size)})</p>}
+        {file && <p className="text-sm text-gray-500 truncate">{file.name} ({formatBytes(file.size)})</p>}
         <button
           onClick={handleUpload}
           disabled={uploading || !file}
@@ -230,24 +230,24 @@ function MemberDocumentPanel({ userId }: { userId: string }) {
 
       {loading ? (
         <div className="flex justify-center py-6">
-          <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+          <Loader2 className="w-5 h-5 animate-spin text-gray-600" />
         </div>
       ) : docs.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-8 text-gray-400">
+        <div className="flex flex-col items-center gap-2 py-8 text-gray-600">
           <FileText className="w-7 h-7" />
-          <p className="text-xs">등록된 서류가 없습니다.</p>
+          <p className="text-sm">등록된 서류가 없습니다.</p>
         </div>
       ) : (
         <div className="space-y-2">
           {docs.map((doc) => (
             <div key={doc.id} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-gray-200">
-              <FileText className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
+              <FileText className="w-5 h-5 text-gray-600 shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-800 truncate">{doc.fileName}</p>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-sm font-medium text-gray-800 truncate">{doc.fileName}</p>
+                <p className="text-sm text-gray-500 mt-0.5">
                   {DOC_TYPE_LABELS[doc.docType] ?? doc.docType} · {formatBytes(doc.fileSize)}
                 </p>
-                <p className="text-xs text-gray-400">{new Date(doc.uploadedAt).toLocaleDateString('ko-KR')}</p>
+                <p className="text-sm text-gray-600">{new Date(doc.uploadedAt).toLocaleDateString('ko-KR')}</p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 <a
@@ -447,7 +447,7 @@ export default function MembersPage() {
     <div className="max-w-lg mx-auto p-4 md:p-6 space-y-6">
       {/* 헤더 */}
       <div className="flex items-center gap-3">
-        <Link href="/settings" className="text-gray-400 hover:text-gray-600 transition-colors">
+        <Link href="/settings" className="text-gray-600 hover:text-gray-600 transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <h1 className="text-xl font-bold text-gray-900">팀원 관리</h1>
@@ -460,7 +460,7 @@ export default function MembersPage() {
           {loadingMembers ? (
             <><ShimmerCard /><ShimmerCard /><ShimmerCard /></>
           ) : members.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-10 text-gray-400">
+            <div className="flex flex-col items-center gap-2 py-10 text-gray-600">
               <UserX className="w-8 h-8" />
               <p className="text-sm">등록된 팀원이 없습니다.</p>
             </div>
@@ -482,11 +482,11 @@ export default function MembersPage() {
                       <span className="font-medium text-gray-900 text-sm truncate">
                         {member.displayName ?? '이름 없음'}
                       </span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[member.role] ?? 'bg-gray-100 text-gray-600'}`}>
+                      <span className={`text-sm px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[member.role] ?? 'bg-gray-100 text-gray-600'}`}>
                         {ROLE_LABELS[member.role] ?? member.role}
                       </span>
                       {member.isGoldMember && (
-                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-yellow-100 text-yellow-700">
+                        <span className="text-sm px-2 py-0.5 rounded-full font-medium bg-yellow-100 text-yellow-700">
                           골드회원 ★
                         </span>
                       )}
@@ -498,14 +498,14 @@ export default function MembersPage() {
                     )}
                     <button
                       onClick={() => setSelectedMember(member)}
-                      className="text-xs text-blue-600 hover:underline mt-1"
+                      className="text-sm text-blue-600 hover:underline mt-1"
                     >
                       서류 관리
                     </button>
                   </div>
                   <button
                     onClick={() => handleToggleActive(member.userId, member.isActive)}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                    className="text-gray-600 hover:text-gray-600 transition-colors"
                     aria-label={member.isActive ? '비활성화' : '활성화'}
                   >
                     {member.isActive
@@ -531,7 +531,7 @@ export default function MembersPage() {
         <h2 className="text-sm font-semibold text-gray-700">초대 링크 생성</h2>
 
         <div className="space-y-2">
-          <label className="block text-xs text-gray-500 font-medium">역할</label>
+          <label className="block text-sm text-gray-500 font-medium">역할</label>
           <select
             value={newRole}
             onChange={(e) => setNewRole(e.target.value)}
@@ -544,7 +544,7 @@ export default function MembersPage() {
         </div>
 
         <div className="space-y-2">
-          <label className="block text-xs text-gray-500 font-medium">메모 (선택)</label>
+          <label className="block text-sm text-gray-500 font-medium">메모 (선택)</label>
           <input
             type="text"
             value={newNote}
@@ -567,19 +567,19 @@ export default function MembersPage() {
         {/* 방금 생성된 URL 표시 */}
         {createdUrl && (
           <div className="bg-white border border-blue-200 rounded-xl p-3 space-y-2">
-            <p className="text-xs font-medium text-blue-700">링크 생성 완료!</p>
-            <p className="text-xs text-gray-600 break-all">{createdUrl}</p>
+            <p className="text-sm font-medium text-blue-700">링크 생성 완료!</p>
+            <p className="text-sm text-gray-600 break-all">{createdUrl}</p>
             <div className="flex gap-2">
               <button
                 onClick={() => copyToClipboard(createdUrl, 'created')}
-                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
               >
                 {copied === 'created' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                 {copied === 'created' ? '복사됨!' : '링크 복사'}
               </button>
               <button
                 onClick={() => setQrUrl(createdUrl)}
-                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors"
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"
               >
                 <QrCode className="w-3 h-3" />
                 QR
@@ -594,10 +594,10 @@ export default function MembersPage() {
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">초대 링크 목록</h2>
         {loadingInvites ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+            <Loader2 className="w-5 h-5 animate-spin text-gray-600" />
           </div>
         ) : invites.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-6">생성된 초대 링크가 없습니다.</p>
+          <p className="text-sm text-gray-600 text-center py-6">생성된 초대 링크가 없습니다.</p>
         ) : (
           <div className="space-y-2">
             {invites.map((invite) => {
@@ -612,16 +612,16 @@ export default function MembersPage() {
               return (
                 <div key={invite.id} className="p-3 bg-white rounded-xl border border-gray-200 space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[invite.role] ?? 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`text-sm px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[invite.role] ?? 'bg-gray-100 text-gray-600'}`}>
                       {ROLE_LABELS[invite.role] ?? invite.role}
                     </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusClass}`}>
+                    <span className={`text-sm px-2 py-0.5 rounded-full font-medium ${statusClass}`}>
                       {statusLabel}
                     </span>
                     {invite.note && (
-                      <span className="text-xs text-gray-500 truncate max-w-[140px]">{invite.note}</span>
+                      <span className="text-sm text-gray-500 truncate max-w-[140px]">{invite.note}</span>
                     )}
-                    <span className="text-xs text-gray-400 ml-auto">
+                    <span className="text-sm text-gray-600 ml-auto">
                       {new Date(invite.expiresAt).toLocaleDateString('ko-KR')}까지
                     </span>
                   </div>
@@ -630,14 +630,14 @@ export default function MembersPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => copyToClipboard(invite.url, invite.id)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"
                     >
                       {copied === invite.id ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
                       {copied === invite.id ? '복사됨!' : '링크 복사'}
                     </button>
                     <button
                       onClick={() => setQrUrl(invite.url)}
-                      className="flex items-center justify-center gap-1 px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs rounded-lg transition-colors"
+                      className="flex items-center justify-center gap-1 px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm rounded-lg transition-colors"
                       aria-label="QR 코드"
                     >
                       <QrCode className="w-3.5 h-3.5" />
@@ -645,7 +645,7 @@ export default function MembersPage() {
                     {canCancel && (
                       <button
                         onClick={() => handleCancelInvite(invite.id)}
-                        className="flex items-center justify-center px-2.5 py-1 text-red-400 hover:text-red-600 text-xs font-medium transition-colors"
+                        className="flex items-center justify-center px-2.5 py-1 text-red-400 hover:text-red-600 text-sm font-medium transition-colors"
                       >
                         취소
                       </button>
@@ -681,7 +681,7 @@ export default function MembersPage() {
               </h2>
               <button
                 onClick={() => setSelectedMember(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-600 hover:text-gray-600"
                 aria-label="닫기"
               >
                 <X className="w-5 h-5" />

@@ -156,11 +156,11 @@ function StatCard({ label, value, sub, icon, colorClass }: StatCardProps) {
     <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3">
       <div className={`p-2 rounded-lg ${colorClass} shrink-0`}>{icon}</div>
       <div className="min-w-0">
-        <p className="text-xs text-gray-500 mb-0.5">{label}</p>
+        <p className="text-sm text-gray-500 mb-0.5">{label}</p>
         <p className="text-xl font-bold text-gray-900 tabular-nums">
           {typeof value === "number" ? value.toLocaleString() : value}
         </p>
-        {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+        {sub && <p className="text-sm text-gray-600 mt-0.5">{sub}</p>}
       </div>
     </div>
   );
@@ -393,11 +393,11 @@ export default function SmsLogsPage() {
           <div className="flex flex-wrap gap-2 mb-4">
             {/* 기간 */}
             <div className="flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-gray-400" />
+              <Calendar className="w-3.5 h-3.5 text-gray-600" />
               <select
                 value={days}
                 onChange={(e) => applyFilter("days", Number(e.target.value))}
-                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {DAYS_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -413,7 +413,7 @@ export default function SmsLogsPage() {
                 <button
                   key={opt.value}
                   onClick={() => applyFilter("status", opt.value)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                     statusFilter === opt.value
                       ? "bg-gray-900 text-white"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -426,11 +426,11 @@ export default function SmsLogsPage() {
 
             {/* 페이지 크기 */}
             <div className="ml-auto flex items-center gap-1.5">
-              <span className="text-xs text-gray-400">표시</span>
+              <span className="text-sm text-gray-600">표시</span>
               <select
                 value={pageSize}
                 onChange={(e) => applyFilter("pageSize", Number(e.target.value))}
-                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {PAGE_SIZE_OPTIONS.map((n) => (
                   <option key={n} value={n}>
@@ -451,7 +451,7 @@ export default function SmsLogsPage() {
 
           {/* 총 건수 */}
           {!logsLoading && (
-            <p className="text-xs text-gray-500 mb-3">
+            <p className="text-sm text-gray-500 mb-3">
               총{" "}
               <span className="font-semibold text-gray-700">
                 {totalCount.toLocaleString()}
@@ -472,10 +472,10 @@ export default function SmsLogsPage() {
               ))}
             </div>
           ) : logs.length === 0 ? (
-            <div className="text-center py-16 text-gray-400">
+            <div className="text-center py-16 text-gray-600">
               <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-20" />
               <p className="text-sm">발송 기록이 없습니다.</p>
-              <p className="text-xs mt-1">기간 또는 필터를 변경해 보세요.</p>
+              <p className="text-sm mt-1">기간 또는 필터를 변경해 보세요.</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -490,7 +490,7 @@ export default function SmsLogsPage() {
                       {/* 상태 아이콘 */}
                       <div className="mt-0.5 shrink-0">
                         <span
-                          className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${info.color}`}
+                          className={`flex items-center gap-1 text-sm font-medium px-2 py-0.5 rounded-full ${info.color}`}
                         >
                           {info.icon}
                           {info.label}
@@ -501,14 +501,14 @@ export default function SmsLogsPage() {
                       <div className="flex-1 min-w-0">
                         {/* 전화 + 채널 + 시간 */}
                         <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <span className="flex items-center gap-1 text-xs text-gray-500">
+                          <span className="flex items-center gap-1 text-sm text-gray-500">
                             <Phone className="w-3 h-3" />
                             {log.phone}
                           </span>
-                          <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                          <span className="text-sm bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
                             {channelLabel(log.channel)}
                           </span>
-                          <span className="text-xs text-gray-400">
+                          <span className="text-sm text-gray-600">
                             {formatDate(log.sentAt)}
                           </span>
                         </div>
@@ -520,7 +520,7 @@ export default function SmsLogsPage() {
 
                         {/* 차단 사유 / 오류 코드 */}
                         {(log.blockReason || log.resultCode) && (
-                          <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-400">
+                          <div className="mt-1 flex items-center gap-1.5 text-sm text-gray-600">
                             <AlertCircle className="w-3 h-3 shrink-0" />
                             {log.blockReason && (
                               <span>차단: {log.blockReason}</span>
@@ -589,7 +589,7 @@ export default function SmsLogsPage() {
         <div className="space-y-6">
           {/* 기간 선택 */}
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-gray-400" />
+            <Calendar className="w-4 h-4 text-gray-600" />
             <span className="text-sm text-gray-500">분석 기간:</span>
             <div className="flex gap-1.5">
               {DAYS_OPTIONS.map((o) => (
@@ -599,7 +599,7 @@ export default function SmsLogsPage() {
                     setDays(o.value);
                     setPage(1);
                   }}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                     days === o.value
                       ? "bg-gray-900 text-white"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -625,7 +625,7 @@ export default function SmsLogsPage() {
               ))}
             </div>
           ) : !stats ? (
-            <div className="text-center py-16 text-gray-400">
+            <div className="text-center py-16 text-gray-600">
               <BarChart2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
               <p className="text-sm">통계 데이터가 없습니다.</p>
             </div>
@@ -677,7 +677,7 @@ export default function SmsLogsPage() {
                             : 0;
                         return (
                           <div key={ch} className="flex items-center gap-3">
-                            <span className="w-16 text-xs text-gray-600 shrink-0">
+                            <span className="w-16 text-sm text-gray-600 shrink-0">
                               {channelLabel(ch)}
                             </span>
                             <div className="flex-1 bg-gray-100 rounded-full h-2">
@@ -686,7 +686,7 @@ export default function SmsLogsPage() {
                                 style={{ width: `${pct}%` }}
                               />
                             </div>
-                            <span className="w-20 text-xs text-gray-500 text-right tabular-nums">
+                            <span className="w-20 text-sm text-gray-500 text-right tabular-nums">
                               {count.toLocaleString()}건 ({pct}%)
                             </span>
                           </div>
@@ -711,7 +711,7 @@ export default function SmsLogsPage() {
                         <span className="text-sm text-gray-600">
                           {idx + 1}. {br.reason}
                         </span>
-                        <span className="text-xs font-medium tabular-nums text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
+                        <span className="text-sm font-medium tabular-nums text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
                           {br.count.toLocaleString()}건
                         </span>
                       </div>
@@ -727,7 +727,7 @@ export default function SmsLogsPage() {
                     일별 발송 추이
                   </h2>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
+                    <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-gray-100">
                           <th className="text-left py-2 pr-3 text-gray-500 font-medium">
@@ -784,7 +784,7 @@ export default function SmsLogsPage() {
           {orgId ? (
             <ABTestDashboard orgId={orgId} />
           ) : (
-            <div className="text-center py-16 text-gray-400">
+            <div className="text-center py-16 text-gray-600">
               <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-20" />
               <p className="text-sm">조직 정보를 불러오는 중입니다...</p>
             </div>

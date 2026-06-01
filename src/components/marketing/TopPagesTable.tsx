@@ -28,7 +28,7 @@ export function TopPagesTable({ topPages, loading }: TopPagesTableProps) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-gray-400 text-xs border-b border-gray-100">
+              <tr className="text-gray-600 text-sm border-b border-gray-100">
                 <th scope="col" className="text-left font-medium pb-2 pr-4">
                   페이지명
                 </th>
@@ -66,7 +66,7 @@ export function TopPagesTable({ topPages, loading }: TopPagesTableProps) {
                           ? "text-green-600"
                           : page.conversionRate >= 2
                           ? "text-yellow-600"
-                          : "text-gray-400"
+                          : "text-gray-600"
                       }`}
                     >
                       {page.conversionRate}%
@@ -75,7 +75,7 @@ export function TopPagesTable({ topPages, loading }: TopPagesTableProps) {
                   <td className="py-3 pl-3 text-right">
                     <Link
                       href={`/landing-pages/${page.id}`}
-                      className="text-xs text-navy-600 hover:underline whitespace-nowrap"
+                      className="text-sm text-navy-600 hover:underline whitespace-nowrap"
                     >
                       상세보기
                     </Link>
@@ -86,7 +86,7 @@ export function TopPagesTable({ topPages, loading }: TopPagesTableProps) {
           </table>
         </div>
       ) : (
-        <p className="text-sm text-gray-400">랜딩페이지 데이터가 없습니다.</p>
+        <p className="text-sm text-gray-600">랜딩페이지 데이터가 없습니다.</p>
       )}
     </div>
   );

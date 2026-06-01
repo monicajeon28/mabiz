@@ -89,7 +89,7 @@ function ToastItem({
             <div className="font-semibold">{toast.title}</div>
           )}
           {toast.description && (
-            <div className="text-xs opacity-90 mt-1">
+            <div className="text-sm opacity-90 mt-1">
               {toast.description}
             </div>
           )}

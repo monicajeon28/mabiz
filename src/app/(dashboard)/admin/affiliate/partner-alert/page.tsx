@@ -184,19 +184,19 @@ export default function PartnerAlertPage() {
       {/* KPI 카드 */}
       <div className="grid grid-cols-6 gap-4 mb-6">
         <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <p className="text-xs text-gray-500 font-medium">전체 파트너</p>
+          <p className="text-sm text-gray-500 font-medium">전체 파트너</p>
           <p className="text-2xl font-bold text-gray-900 mt-2">{total}</p>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-xs text-red-600 font-medium">긴급 (RED)</p>
+          <p className="text-sm text-red-600 font-medium">긴급 (RED)</p>
           <p className="text-2xl font-bold text-red-700 mt-2">{redCount}</p>
         </div>
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-xs text-yellow-600 font-medium">주의 (YELLOW)</p>
+          <p className="text-sm text-yellow-600 font-medium">주의 (YELLOW)</p>
           <p className="text-2xl font-bold text-yellow-700 mt-2">{yellowCount}</p>
         </div>
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <p className="text-xs text-green-600 font-medium">정상 (GREEN)</p>
+          <p className="text-sm text-green-600 font-medium">정상 (GREEN)</p>
           <p className="text-2xl font-bold text-green-700 mt-2">{greenCount}</p>
         </div>
 
@@ -209,20 +209,20 @@ export default function PartnerAlertPage() {
         ) : stats ? (
           <>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-xs text-blue-600 font-medium">SMS 성공율</p>
+              <p className="text-sm text-blue-600 font-medium">SMS 성공율</p>
               <p className="text-2xl font-bold text-blue-700 mt-2">
                 {stats.successRate}%
               </p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-sm text-gray-500 mt-1">
                 {stats.sent}/{stats.total}
               </p>
             </div>
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-              <p className="text-xs text-purple-600 font-medium">클릭율</p>
+              <p className="text-sm text-purple-600 font-medium">클릭율</p>
               <p className="text-2xl font-bold text-purple-700 mt-2">
                 {stats.clickRate}%
               </p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-sm text-gray-500 mt-1">
                 {stats.clicked}/{stats.sent} opened
               </p>
             </div>
@@ -247,14 +247,14 @@ export default function PartnerAlertPage() {
         </select>
 
         <div className="flex gap-2 ml-auto">
-          <label className="text-xs text-gray-600 font-medium flex items-center gap-2">
+          <label className="text-sm text-gray-600 font-medium flex items-center gap-2">
             SMS Day:
             <select
               value={selectedDay}
               onChange={(e) =>
                 setSelectedDay(e.target.value as "day0" | "day1" | "day2" | "day3")
               }
-              className="px-2 py-1 border border-gray-300 rounded text-xs"
+              className="px-2 py-1 border border-gray-300 rounded text-sm"
             >
               <option value="day0">Day 0</option>
               <option value="day1">Day 1</option>
@@ -318,7 +318,7 @@ export default function PartnerAlertPage() {
                       <td className="px-4 py-3 font-medium text-gray-900">
                         {partner.name}
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">
+                      <td className="px-4 py-3 text-gray-500 text-sm">
                         {partner.phone || partner.email || "-"}
                       </td>
                       <td className="px-4 py-3 text-right font-bold text-gray-900">
@@ -326,7 +326,7 @@ export default function PartnerAlertPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div
-                          className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium ${cfg.bgColor} ${cfg.color}`}
+                          className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-sm font-medium ${cfg.bgColor} ${cfg.color}`}
                         >
                           <Icon className="w-3 h-3" />
                           {cfg.label}
@@ -343,12 +343,12 @@ export default function PartnerAlertPage() {
                               suppressHydrationWarning
                             />
                           </div>
-                          <span className="text-xs text-gray-600 w-10">
+                          <span className="text-sm text-gray-600 w-10">
                             {partner.automationRate}%
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-right text-gray-600 text-xs">
+                      <td className="px-4 py-3 text-right text-gray-600 text-sm">
                         {partner.totalRevenue
                           ? `₩${(Number(partner.totalRevenue) / 1000000).toFixed(0)}M`
                           : "-"}
@@ -377,24 +377,24 @@ export default function PartnerAlertPage() {
           {/* 페이지네이션 */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-              <p className="text-xs text-gray-500">
+              <p className="text-sm text-gray-500">
                 총 {total.toLocaleString()}명
               </p>
               <div className="flex gap-2">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30"
+                  className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="px-3 py-2 text-xs text-gray-600">
+                <span className="px-3 py-2 text-sm text-gray-600">
                   {page} / {totalPages}
                 </span>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30"
+                  className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>

@@ -101,7 +101,7 @@ export function Loop5FilterPanel({
         </svg>
         필터
         {activeFilterCount > 0 && (
-          <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-500 text-white text-xs font-bold">
+          <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-500 text-white text-sm font-bold">
             {activeFilterCount}
           </span>
         )}

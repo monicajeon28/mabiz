@@ -70,7 +70,7 @@ export function QaCard({ item, onClick, highlight }: QaCardProps) {
             >
               {toneInfo.label}
             </span>
-            <span className="text-xs text-gray-500">{item.category}</span>
+            <span className="text-sm text-gray-500">{item.category}</span>
           </div>
 
           {/* 질문 - 50대 사용자 개선 */}
@@ -89,13 +89,13 @@ export function QaCard({ item, onClick, highlight }: QaCardProps) {
               {item.keywords.slice(0, 3).map((kw, i) => (
                 <span
                   key={i}
-                  className="inline-block text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded"
+                  className="inline-block text-sm px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded"
                 >
                   {kw}
                 </span>
               ))}
               {item.keywords.length > 3 && (
-                <span className="text-xs text-gray-500">
+                <span className="text-sm text-gray-500">
                   +{item.keywords.length - 3}
                 </span>
               )}

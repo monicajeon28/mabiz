@@ -23,10 +23,10 @@ export const KpiCard = React.memo(function KpiCard({
         <p className="text-2xl font-bold text-navy-900 mt-0.5">
           {typeof value === "number" ? value.toLocaleString() : value}
         </p>
-        {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+        {sub && <p className="text-sm text-gray-600 mt-0.5">{sub}</p>}
         {delta != null && (
           <p
-            className={`text-xs font-medium mt-1 ${
+            className={`text-sm font-medium mt-1 ${
               delta >= 0 ? "text-green-600" : "text-red-500"
             }`}
           >

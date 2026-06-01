@@ -37,7 +37,7 @@ export const TIER_UI = {
   HOT:  { label: "🔥 HOT",  color: "bg-red-100 text-red-700",    border: "border-red-200" },
   WARM: { label: "☀️ WARM", color: "bg-orange-100 text-orange-600", border: "border-orange-200" },
   COLD: { label: "❄️ COLD", color: "bg-blue-100 text-blue-600",   border: "border-blue-200" },
-  LOST: { label: "💤 LOST", color: "bg-gray-100 text-gray-400",   border: "border-gray-200" },
+  LOST: { label: "💤 LOST", color: "bg-gray-100 text-gray-600",   border: "border-gray-200" },
 } as const;
 
 // ─── 점수 업데이트 (fire-and-forget 안전) ────────────────────

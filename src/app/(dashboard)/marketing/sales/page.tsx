@@ -48,7 +48,7 @@ function KpiCard({
     <div className={`rounded-xl border p-5 ${color}`}>
       <p className="text-sm text-gray-500 mb-1">{label}</p>
       <p className="text-2xl font-bold text-gray-900">{value}</p>
-      {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+      {sub && <p className="text-sm text-gray-600 mt-1">{sub}</p>}
     </div>
   );
 }
@@ -80,7 +80,7 @@ function RecentPaymentTable({ recent, loading }: { recent: RecentRow[], loading:
           )}
           {!loading && recent.length === 0 && (
             <tr>
-              <td colSpan={5} className="text-center py-16 text-gray-400">
+              <td colSpan={5} className="text-center py-16 text-gray-600">
                 결제 내역이 없습니다
               </td>
             </tr>
@@ -88,10 +88,10 @@ function RecentPaymentTable({ recent, loading }: { recent: RecentRow[], loading:
           {!loading &&
             recent.map((row) => (
               <tr key={row.orderId} className="hover:bg-gray-50 transition-colors">
-                <td className="px-4 py-3 text-gray-500 font-mono text-xs">{row.orderId}</td>
+                <td className="px-4 py-3 text-gray-500 font-mono text-sm">{row.orderId}</td>
                 <td className="px-4 py-3 text-gray-700">
                   {row.buyerName}{" "}
-                  <span className="text-gray-400 text-xs">{maskPhone(row.buyerTel)}</span>
+                  <span className="text-gray-600 text-sm">{maskPhone(row.buyerTel)}</span>
                 </td>
                 <td className="px-4 py-3 text-right font-semibold text-gray-900">
                   {formatAmount(row.amount)}
@@ -123,7 +123,7 @@ function RecentPaymentCard({ recent, loading }: { recent: RecentRow[], loading: 
         </>
       )}
       {!loading && recent.length === 0 && (
-        <p className="text-center py-10 text-gray-400">결제 내역이 없습니다</p>
+        <p className="text-center py-10 text-gray-600">결제 내역이 없습니다</p>
       )}
       {!loading && recent.map((row) => (
         <div key={row.orderId} className="border rounded-xl p-3 bg-white">
@@ -132,7 +132,7 @@ function RecentPaymentCard({ recent, loading }: { recent: RecentRow[], loading: 
             <StatusBadge status={row.status} />
           </div>
           <p className="text-base font-bold text-gray-900">{formatAmount(row.amount)}</p>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-sm text-gray-600 mt-1">
             {maskPhone(row.buyerTel)} · {row.paidAt ? formatDate(row.paidAt) : '-'}
           </p>
         </div>
@@ -181,7 +181,7 @@ export default function MarketingSalesPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">랜딩페이지 매출관리</h1>
           {summary && (
-            <p className="text-sm text-gray-400 mt-0.5">{summary.month} 기준</p>
+            <p className="text-sm text-gray-600 mt-0.5">{summary.month} 기준</p>
           )}
         </div>
         <button
@@ -263,7 +263,7 @@ export default function MarketingSalesPage() {
               )}
               {!loading && byLanding.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="text-center py-10 text-gray-400">
+                  <td colSpan={3} className="text-center py-10 text-gray-600">
                     데이터가 없습니다
                   </td>
                 </tr>
@@ -346,7 +346,7 @@ export default function MarketingSalesPage() {
               >
                 다음
               </button>
-              <span className="text-xs text-gray-400 ml-2">
+              <span className="text-sm text-gray-600 ml-2">
                 페이지 {page} / {paging.totalPages}
               </span>
             </div>

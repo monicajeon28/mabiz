@@ -114,7 +114,7 @@ export default function L8ReturnOptimizationPage() {
             <div className="text-2xl font-bold">
               ${ltvStats?.totalLtv.toLocaleString() || 0}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 mt-1">
               전체 고객 생명주기 가치
             </p>
           </CardContent>
@@ -128,7 +128,7 @@ export default function L8ReturnOptimizationPage() {
             <div className="text-2xl font-bold">
               ${ltvStats?.avgLtvPerContact.toLocaleString() || 0}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 mt-1">
               목표: $7,500
             </p>
           </CardContent>
@@ -142,7 +142,7 @@ export default function L8ReturnOptimizationPage() {
             <div className="text-2xl font-bold">
               {ltvStats?.totalCruises || 0}회
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 mt-1">
               평균 {ltvStats?.avgCruisePerContact.toFixed(1) || 0}회/고객
             </p>
           </CardContent>
@@ -156,7 +156,7 @@ export default function L8ReturnOptimizationPage() {
             <div className="text-2xl font-bold">
               {Math.round(ltvStats?.avgReturnInterestLevel || 0)}%
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 mt-1">
               목표: 80%+
             </p>
           </CardContent>
@@ -185,15 +185,15 @@ export default function L8ReturnOptimizationPage() {
                 <h3 className="font-semibold mb-4">LTV 계산 공식</h3>
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center">
-                    <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center mr-3 text-xs font-bold">1</span>
+                    <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center mr-3 text-sm font-bold">1</span>
                     <span>크루즈 1회: <strong>$2,500</strong> (평균 예약가)</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="w-6 h-6 bg-green-100 text-green-700 rounded-full flex items-center justify-center mr-3 text-xs font-bold">2</span>
+                    <span className="w-6 h-6 bg-green-100 text-green-700 rounded-full flex items-center justify-center mr-3 text-sm font-bold">2</span>
                     <span>크루즈 2회: <strong>+$2,500</strong> = $5,000 (누적)</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="w-6 h-6 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center mr-3 text-xs font-bold">3+</span>
+                    <span className="w-6 h-6 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center mr-3 text-sm font-bold">3+</span>
                     <span>크루즈 3회+: <strong>+$2,334</strong>/회 (재구매율 94% 기준)</span>
                   </li>
                 </ul>
@@ -210,7 +210,7 @@ export default function L8ReturnOptimizationPage() {
                     <span>달성 기준</span>
                     <strong>3회 이상 재방문</strong>
                   </div>
-                  <div className="flex justify-between text-xs text-gray-600">
+                  <div className="flex justify-between text-sm text-gray-600">
                     <span>현재 진행률</span>
                     <strong>
                       {ltvStats
@@ -255,7 +255,7 @@ export default function L8ReturnOptimizationPage() {
                         1회 크루즈 완료
                       </p>
                     </div>
-                    <span className="text-2xl font-bold text-gray-400">
+                    <span className="text-2xl font-bold text-gray-600">
                       {ltvStats?.tierDistribution?.bronze || 0}명
                     </span>
                   </div>
@@ -277,7 +277,7 @@ export default function L8ReturnOptimizationPage() {
                         2회 크루즈 완료
                       </p>
                     </div>
-                    <span className="text-2xl font-bold text-gray-400">
+                    <span className="text-2xl font-bold text-gray-600">
                       {ltvStats?.tierDistribution?.silver || 0}명
                     </span>
                   </div>
@@ -300,7 +300,7 @@ export default function L8ReturnOptimizationPage() {
                         3회 크루즈 완료
                       </p>
                     </div>
-                    <span className="text-2xl font-bold text-gray-400">
+                    <span className="text-2xl font-bold text-gray-600">
                       {ltvStats?.tierDistribution?.gold || 0}명
                     </span>
                   </div>
@@ -323,7 +323,7 @@ export default function L8ReturnOptimizationPage() {
                         4회 이상 크루즈
                       </p>
                     </div>
-                    <span className="text-2xl font-bold text-gray-400">
+                    <span className="text-2xl font-bold text-gray-600">
                       {ltvStats?.tierDistribution?.platinum || 0}명
                     </span>
                   </div>

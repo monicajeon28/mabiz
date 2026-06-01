@@ -158,7 +158,7 @@ export function NotificationBell() {
       >
         <Bell className="w-5 h-5 text-gray-300" />
         {items.length > 0 && (
-          <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold leading-none">
+          <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-sm rounded-full flex items-center justify-center font-bold leading-none">
             {items.length > 9 ? "9+" : items.length}
           </span>
         )}
@@ -173,7 +173,7 @@ export function NotificationBell() {
             {items.length > 0 && (
               <button
                 onClick={markAllRead}
-                className="text-xs text-blue-600 hover:underline"
+                className="text-sm text-blue-600 hover:underline"
               >
                 모두 확인
               </button>
@@ -181,12 +181,12 @@ export function NotificationBell() {
           </div>
           <div className="max-h-72 overflow-y-auto">
             {loading && (
-              <div className="p-4 text-xs text-gray-400 text-center">
+              <div className="p-4 text-sm text-gray-600 text-center">
                 불러오는 중...
               </div>
             )}
             {!loading && items.length === 0 && (
-              <div className="p-4 text-xs text-gray-400 text-center">
+              <div className="p-4 text-sm text-gray-600 text-center">
                 새 알림이 없습니다
               </div>
             )}
@@ -200,24 +200,24 @@ export function NotificationBell() {
                   >
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full flex-shrink-0 ${cfg.dot}`} />
-                      <span className="text-xs font-semibold text-gray-600 flex-1">
+                      <span className="text-sm font-semibold text-gray-600 flex-1">
                         {cfg.emoji} {cfg.label}
                       </span>
-                      <span className="text-xs text-gray-400 whitespace-nowrap">
+                      <span className="text-sm text-gray-600 whitespace-nowrap">
                         {relativeTime(item.createdAt)}
                       </span>
                     </div>
                     <div className="mt-1 text-sm font-medium text-gray-800">
                       {item.name}
                       {item.phone && (
-                        <span className="ml-2 text-xs text-gray-500 font-normal">{item.phone}</span>
+                        <span className="ml-2 text-sm text-gray-500 font-normal">{item.phone}</span>
                       )}
                       {item.detail && (
-                        <span className="ml-2 text-xs text-gray-500 font-normal">{item.detail}</span>
+                        <span className="ml-2 text-sm text-gray-500 font-normal">{item.detail}</span>
                       )}
                     </div>
                     {item.amount != null && (
-                      <div className="text-xs text-gray-700 font-semibold mt-0.5">
+                      <div className="text-sm text-gray-700 font-semibold mt-0.5">
                         {(item.amount / 10000).toLocaleString()}만원
                       </div>
                     )}
@@ -226,7 +226,7 @@ export function NotificationBell() {
                         router.push(item.linkPath);
                         setOpen(false);
                       }}
-                      className="mt-1.5 text-xs text-blue-600 hover:underline"
+                      className="mt-1.5 text-sm text-blue-600 hover:underline"
                     >
                       → 바로가기
                     </button>

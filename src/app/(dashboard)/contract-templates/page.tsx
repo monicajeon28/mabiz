@@ -214,7 +214,7 @@ export default function ContractTemplatesPage() {
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className={`px-2 py-1 rounded text-xs font-semibold ${
+                      className={`px-2 py-1 rounded text-sm font-semibold ${
                         STATUS_CLASS[template.status] || "bg-gray-100 text-gray-700"
                       }`}
                     >
@@ -228,33 +228,33 @@ export default function ContractTemplatesPage() {
                         {template.psychologyLenses.slice(0, 2).map((lens) => (
                           <span
                             key={lens}
-                            className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded"
+                            className="px-2 py-0.5 bg-purple-100 text-purple-700 text-sm rounded"
                           >
                             {lens}
                           </span>
                         ))}
                         {template.psychologyLenses.length > 2 && (
-                          <span className="px-2 py-0.5 text-xs text-gray-600">
+                          <span className="px-2 py-0.5 text-sm text-gray-600">
                             +{template.psychologyLenses.length - 2}
                           </span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-gray-400 text-xs">없음</span>
+                      <span className="text-gray-600 text-sm">없음</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm">
                     <div className="flex gap-2">
                       <Link
                         href={`/contract-templates/${template.id}`}
-                        className="text-blue-600 hover:underline text-xs"
+                        className="text-blue-600 hover:underline text-sm"
                       >
                         편집
                       </Link>
                       {!template.isSystemTemplate && (
                         <button
                           onClick={() => setConfirmDeleteId(template.id)}
-                          className="text-red-600 hover:underline text-xs"
+                          className="text-red-600 hover:underline text-sm"
                         >
                           삭제
                         </button>

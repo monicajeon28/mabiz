@@ -351,7 +351,7 @@ export default function ContractTemplatesPage() {
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-700">계약서 목록 ({contractTypes.length}개)</h3>
               {customTypes.length > 0 && (
-                <span className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
+                <span className="text-sm text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
                   커스텀 {customTypes.length}개 포함
                 </span>
               )}
@@ -434,7 +434,7 @@ export default function ContractTemplatesPage() {
                     >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">
+                          <span className="bg-blue-100 text-blue-800 text-sm font-bold px-2 py-1 rounded">
                             섹션 {index + 1}
                           </span>
                           <div className="flex gap-1">
@@ -487,7 +487,7 @@ export default function ContractTemplatesPage() {
                             rows={10}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y font-mono text-sm"
                           />
-                          <p className="mt-1 text-xs text-gray-500">
+                          <p className="mt-1 text-sm text-gray-500">
                             글자 수: {section.content.length.toLocaleString()}자
                           </p>
                         </div>
@@ -534,7 +534,7 @@ export default function ContractTemplatesPage() {
             <div className="p-4 lg:p-6 border-t border-gray-200 bg-gray-50">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 📋 미리보기
-                <span className="text-xs text-gray-500 font-normal">(실제 계약서 페이지에 표시될 모습)</span>
+                <span className="text-sm text-gray-500 font-normal">(실제 계약서 페이지에 표시될 모습)</span>
               </h3>
               <div className="bg-white rounded-lg p-6 border border-gray-200 shadow-sm max-h-96 overflow-y-auto">
                 <h2 className="text-xl font-bold text-center mb-6 text-gray-900">{editingTemplate.title}</h2>
@@ -560,7 +560,7 @@ export default function ContractTemplatesPage() {
               <h2 className="text-xl font-bold text-gray-900">➕ 새 계약서 추가</h2>
               <button
                 onClick={() => setShowNewModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl"
+                className="text-gray-600 hover:text-gray-600 text-2xl"
               >
                 ×
               </button>
@@ -577,7 +577,7 @@ export default function ContractTemplatesPage() {
                   placeholder="예: VIP_PARTNER"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
-                <p className="mt-1 text-xs text-gray-500">영문 대문자와 언더스코어만 사용 (시스템 식별용)</p>
+                <p className="mt-1 text-sm text-gray-500">영문 대문자와 언더스코어만 사용 (시스템 식별용)</p>
               </div>
 
               <div>

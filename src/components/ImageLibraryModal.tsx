@@ -97,7 +97,7 @@ export function ImageLibraryModal({
         {/* 검색 */}
         <div className="p-4 border-b">
           <div className="relative">
-            <SearchIcon className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+            <SearchIcon className="absolute left-3 top-3 w-5 h-5 text-gray-600" />
             <input
               type="text"
               value={search}
@@ -147,11 +147,11 @@ export function ImageLibraryModal({
 
                   {/* 정보 */}
                   <div className="p-2">
-                    <p className="text-xs font-semibold text-gray-900 truncate">
+                    <p className="text-sm font-semibold text-gray-900 truncate">
                       {asset.fileName}
                     </p>
                     {asset.fileSize && (
-                      <p className="text-xs text-gray-600">
+                      <p className="text-sm text-gray-600">
                         {formatFileSize(Number(asset.fileSize))}
                       </p>
                     )}

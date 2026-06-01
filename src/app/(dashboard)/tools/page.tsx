@@ -129,7 +129,7 @@ export default function ToolsPage() {
         <span className="text-2xl">🗜️</span>
         <div>
           <p className="font-semibold text-sm text-gray-900">만능 압축기</p>
-          <p className="text-xs text-gray-500">이미지·PDF·WebP·음성 파일 압축</p>
+          <p className="text-sm text-gray-500">이미지·PDF·WebP·음성 파일 압축</p>
         </div>
       </button>
 
@@ -185,7 +185,7 @@ export default function ToolsPage() {
                     <div className="flex items-center gap-2 mb-2">
                       <h3 className="font-medium text-gray-900 text-sm">{tpl.title}</h3>
                       {tpl.triggerOffset !== null && (
-                        <span className="text-xs px-2 py-0.5 bg-navy-100 text-navy-900 rounded-full">
+                        <span className="text-sm px-2 py-0.5 bg-navy-100 text-navy-900 rounded-full">
                           {tpl.triggerOffset < 0 ? `D${tpl.triggerOffset}` : tpl.triggerOffset === 0 ? "D-day" : `D+${tpl.triggerOffset}`}
                         </span>
                       )}
@@ -202,14 +202,14 @@ export default function ToolsPage() {
                     {copied === tpl.id ? (
                       <Check className="w-4 h-4 text-green-500" />
                     ) : (
-                      <Copy className="w-4 h-4 text-gray-400" />
+                      <Copy className="w-4 h-4 text-gray-600" />
                     )}
                   </button>
                 </div>
               </div>
             ))}
             {filteredTemplates.length === 0 && (
-              <p className="text-center text-gray-400 py-8 text-sm">템플릿이 없습니다.</p>
+              <p className="text-center text-gray-600 py-8 text-sm">템플릿이 없습니다.</p>
             )}
           </div>
         </div>
@@ -224,7 +224,7 @@ export default function ToolsPage() {
                 <button
                   key={t.key}
                   onClick={() => setPbTab(t.key)}
-                  className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
+                  className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
                     pbTab === t.key
                       ? "bg-navy-900 text-white border-navy-900"
                       : "bg-white text-gray-600 border-gray-200 hover:border-navy-900"
@@ -264,7 +264,7 @@ export default function ToolsPage() {
                       {copied === pb.id ? (
                         <Check className="w-4 h-4 text-green-500" />
                       ) : (
-                        <Copy className="w-4 h-4 text-gray-400" />
+                        <Copy className="w-4 h-4 text-gray-600" />
                       )}
                     </button>
                   </div>
@@ -279,7 +279,7 @@ export default function ToolsPage() {
               </button>
             )}
             {filteredPlaybooks.length === 0 && (
-              <p className="text-center text-gray-400 py-8 text-sm">항목이 없습니다.</p>
+              <p className="text-center text-gray-600 py-8 text-sm">항목이 없습니다.</p>
             )}
           </div>
         </div>
@@ -329,7 +329,7 @@ export default function ToolsPage() {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-gold-500"
             />
             <div className="flex items-center justify-between mt-2">
-              <p className="text-xs text-gray-400">{callText.length.toLocaleString()} / 20,000자</p>
+              <p className="text-sm text-gray-600">{callText.length.toLocaleString()} / 20,000자</p>
               <button
                 onClick={analyze}
                 disabled={analyzing || !callText.trim()}
@@ -357,7 +357,7 @@ export default function ToolsPage() {
                   <p className={`text-5xl font-black ${
                     feedback.score >= 80 ? "text-green-400" : feedback.score >= 60 ? "text-yellow-400" : "text-red-400"
                   }`}>{feedback.score}</p>
-                  <p className="text-gray-400 text-xs mt-1">/ 100점</p>
+                  <p className="text-gray-600 text-sm mt-1">/ 100점</p>
                 </div>
                 <div className="flex-1">
                   <p className="font-bold text-lg">{feedback.grade}등급</p>
@@ -365,7 +365,7 @@ export default function ToolsPage() {
                   <p className="text-gold-300 text-sm mt-2">확신척도 {feedback.convictionScore}/10</p>
                   {feedback.personaType && (
                     <div className="mt-2 flex items-center gap-2 flex-wrap">
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                      <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
                         feedback.personaType === 'FILIAL_DUTY'       ? 'bg-purple-600 text-white' :
                         feedback.personaType === 'NEWLYWEDS'         ? 'bg-pink-500 text-white' :
                         feedback.personaType === 'SINGLE_ADVENTURE'  ? 'bg-sky-500 text-white' :
@@ -381,7 +381,7 @@ export default function ToolsPage() {
                          feedback.personaType}
                       </span>
                       {feedback.personaConfidence !== undefined && (
-                        <span className="text-gray-400 text-xs">신뢰도 {feedback.personaConfidence}%</span>
+                        <span className="text-gray-600 text-sm">신뢰도 {feedback.personaConfidence}%</span>
                       )}
                     </div>
                   )}
@@ -413,7 +413,7 @@ export default function ToolsPage() {
                             style={{ width: `${d.score}%` }}
                           />
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">{d.comment}</p>
+                        <p className="text-sm text-gray-600 mt-1">{d.comment}</p>
                       </div>
                     );
                   })}
@@ -448,7 +448,7 @@ export default function ToolsPage() {
                 <div className="flex items-start gap-2 bg-gray-50 p-3 rounded-lg">
                   <p className="text-sm text-gray-700 flex-1">{feedback.followUpSms}</p>
                   <button onClick={() => copy("followup", feedback.followUpSms)} className="p-1.5 hover:bg-gray-200 rounded-lg shrink-0">
-                    {copied === "followup" ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
+                    {copied === "followup" ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-600" />}
                   </button>
                 </div>
               </div>

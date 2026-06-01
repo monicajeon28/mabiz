@@ -94,7 +94,7 @@ export function OfferSection({
           <p className="text-2xl font-bold text-amber-600 mb-2">
             {discountPercent}% 할인
           </p>
-          <div className="text-xs text-gray-600 space-y-1">
+          <div className="text-sm text-gray-600 space-y-1">
             <p>
               정가: <span className="line-through">{originalPrice.toLocaleString()}원</span>
             </p>
@@ -111,7 +111,7 @@ export function OfferSection({
             <Gift className="w-5 h-5 text-pink-500" />
             <h4 className="font-semibold text-gray-900">추가 서비스</h4>
           </div>
-          <ul className="text-xs text-gray-700 space-y-2">
+          <ul className="text-sm text-gray-700 space-y-2">
             <li>✓ 입실 시 전문 촬영 (인생샷 3장)</li>
             <li>✓ 스파 에센셜 오일 마사지 (1회)</li>
             <li>✓ 배우자/동반인 40% 추가 할인</li>
@@ -124,7 +124,7 @@ export function OfferSection({
             <AlertCircle className="w-5 h-5 text-green-500" />
             <h4 className="font-semibold text-gray-900">환불보장</h4>
           </div>
-          <ul className="text-xs text-gray-700 space-y-2">
+          <ul className="text-sm text-gray-700 space-y-2">
             <li>✓ 30일 전 취소 시 100% 환불</li>
             <li>✓ 14일 이내 무료 플랜 변경</li>
             <li>✓ 업계 최장 환불보장 기간</li>
@@ -155,13 +155,13 @@ export function OfferSection({
             <p className="text-sm text-red-600 font-semibold">
               ⚠️ 남은 예약: {remainingSlots}개
             </p>
-            <p className="text-xs text-red-500 mt-1">자리가 빠르게 채워지고 있습니다.</p>
+            <p className="text-sm text-red-500 mt-1">자리가 빠르게 채워지고 있습니다.</p>
           </div>
         )}
       </div>
 
       {/* 신뢰 배지 */}
-      <div className="mt-6 pt-6 border-t border-amber-100 flex items-center gap-2 text-xs text-amber-700">
+      <div className="mt-6 pt-6 border-t border-amber-100 flex items-center gap-2 text-sm text-amber-700">
         <span>✓</span>
         <span>당신의 신뢰가 우리의 최우선입니다. 안심하고 선택하세요.</span>
       </div>

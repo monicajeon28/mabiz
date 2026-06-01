@@ -170,7 +170,7 @@ export default function ReportsPage() {
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <span
-                        className={`px-2 py-1 rounded text-xs font-medium ${
+                        className={`px-2 py-1 rounded text-sm font-medium ${
                           report.alertCount > 0
                             ? report.alertCount > 2
                               ? 'bg-red-100 text-red-800'
@@ -185,12 +185,12 @@ export default function ReportsPage() {
                       {report.topPartner || '—'}
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
+                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-sm font-medium">
                         {report.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <span className="text-gray-400">
+                      <span className="text-gray-600">
                         {expandedId === report.id ? '−' : '+'}
                       </span>
                     </td>
@@ -204,7 +204,7 @@ export default function ReportsPage() {
                           {/* Metrics Grid */}
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div className="bg-white p-4 rounded border-l-4 border-blue-500">
-                              <div className="text-xs text-gray-600 font-medium">
+                              <div className="text-sm text-gray-600 font-medium">
                                 Revenue
                               </div>
                               <div className="text-2xl font-bold text-gray-900 mt-1">
@@ -212,7 +212,7 @@ export default function ReportsPage() {
                               </div>
                             </div>
                             <div className="bg-white p-4 rounded border-l-4 border-green-500">
-                              <div className="text-xs text-gray-600 font-medium">
+                              <div className="text-sm text-gray-600 font-medium">
                                 Conversion Rate
                               </div>
                               <div className="text-2xl font-bold text-gray-900 mt-1">
@@ -220,7 +220,7 @@ export default function ReportsPage() {
                               </div>
                             </div>
                             <div className="bg-white p-4 rounded border-l-4 border-purple-500">
-                              <div className="text-xs text-gray-600 font-medium">
+                              <div className="text-sm text-gray-600 font-medium">
                                 SMS Open Rate
                               </div>
                               <div className="text-2xl font-bold text-gray-900 mt-1">
@@ -228,7 +228,7 @@ export default function ReportsPage() {
                               </div>
                             </div>
                             <div className="bg-white p-4 rounded border-l-4 border-orange-500">
-                              <div className="text-xs text-gray-600 font-medium">
+                              <div className="text-sm text-gray-600 font-medium">
                                 Email Open Rate
                               </div>
                               <div className="text-2xl font-bold text-gray-900 mt-1">
@@ -277,7 +277,7 @@ export default function ReportsPage() {
                                         <div className="text-sm text-blue-800 mt-1">
                                           {rec.description}
                                         </div>
-                                        <div className="text-xs text-green-600 mt-1">
+                                        <div className="text-sm text-green-600 mt-1">
                                           Impact: {rec.impact}
                                         </div>
                                       </div>

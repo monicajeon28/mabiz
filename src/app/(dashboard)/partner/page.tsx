@@ -255,7 +255,7 @@ export default function PartnerPage() {
                           <div>{partner.phone}</div>
                         )}
                         {partner.email && (
-                          <div className="text-xs text-gray-500">{partner.email}</div>
+                          <div className="text-sm text-gray-500">{partner.email}</div>
                         )}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
@@ -270,7 +270,7 @@ export default function PartnerPage() {
                       <td className="px-6 py-4">
                         <button
                           onClick={() => toggleStatus(partner.id, partner.status)}
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${
                             partner.status === 'ACTIVE'
                               ? 'bg-green-100 text-green-700'
                               : 'bg-gray-100 text-gray-600'

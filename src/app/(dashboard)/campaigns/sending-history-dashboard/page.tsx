@@ -434,28 +434,28 @@ export default function SendingHistoryDashboardPage() {
             <div className="bg-white rounded-lg p-6 border border-gray-200 shadow-sm">
               <p className="text-gray-600 text-sm mb-2 font-medium">총 발송</p>
               <p className="text-4xl font-bold text-gray-900">{stats.total.toLocaleString()}</p>
-              <p className="text-gray-500 text-xs mt-2">건</p>
+              <p className="text-gray-500 text-sm mt-2">건</p>
             </div>
 
             {/* 성공 */}
             <div className="bg-white rounded-lg p-6 border border-green-200 bg-green-50 shadow-sm">
               <p className="text-green-700 text-sm mb-2 font-medium">성공</p>
               <p className="text-4xl font-bold text-green-600">{stats.sent.toLocaleString()}</p>
-              <p className="text-green-600 text-xs mt-2">건</p>
+              <p className="text-green-600 text-sm mt-2">건</p>
             </div>
 
             {/* 실패 */}
             <div className="bg-white rounded-lg p-6 border border-red-200 bg-red-50 shadow-sm">
               <p className="text-red-700 text-sm mb-2 font-medium">실패</p>
               <p className="text-4xl font-bold text-red-600">{stats.failed.toLocaleString()}</p>
-              <p className="text-red-600 text-xs mt-2">건</p>
+              <p className="text-red-600 text-sm mt-2">건</p>
             </div>
 
             {/* 성공률 */}
             <div className="bg-white rounded-lg p-6 border border-blue-200 bg-blue-50 shadow-sm">
               <p className="text-blue-700 text-sm mb-2 font-medium">성공률</p>
               <p className="text-4xl font-bold text-blue-600">{stats.successRate}</p>
-              <p className="text-blue-600 text-xs mt-2">/ 100%</p>
+              <p className="text-blue-600 text-sm mt-2">/ 100%</p>
             </div>
           </div>
         ) : (
@@ -794,7 +794,7 @@ export default function SendingHistoryDashboardPage() {
                 <button
                   onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
                   disabled={currentPage === 0}
-                  className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                  className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:text-gray-600 disabled:cursor-not-allowed"
                   aria-label="이전 페이지"
                 >
                   ← 이전
@@ -813,7 +813,7 @@ export default function SendingHistoryDashboardPage() {
                     )
                   }
                   disabled={currentPage === totalPages - 1}
-                  className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                  className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:text-gray-600 disabled:cursor-not-allowed"
                   aria-label="다음 페이지"
                 >
                   다음 →

@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getMabizSession } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
@@ -543,12 +544,25 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    // 유효한 필드만 업데이트
-    const updateData: any = {};
-    if (status) updateData.status = status;
-    if (content) updateData.content = content;
-    if (segment) updateData.segment = segment;
-    if (variant) updateData.variant = variant;
+    // Schema validation for message update
+    const MessageUpdateSchema = z.object({
+      status: z.enum(['SENT', 'PENDING', 'DELETED']).optional(),
+      content: z.string().optional(),
+      segment: z.string().optional(),
+      variant: z.string().optional()
+    }).strict(); // Reject any additional fields
+
+    let updateData: z.infer<typeof MessageUpdateSchema>;
+    try {
+      updateData = MessageUpdateSchema.parse({ status, content, segment, variant });
+    } catch (error) {
+      const errorMessage = error instanceof z.ZodError ? error.message : String(error);
+      logger.warn('[Message] PUT 유효하지 않은 필드', { error: errorMessage });
+      return NextResponse.json(
+        { ok: false, message: 'Invalid update fields' },
+        { status: 400 }
+      );
+    }
 
     const updatedMessage = await prisma.crmMarketingMessage.update({
       where: { id },

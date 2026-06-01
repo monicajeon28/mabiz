@@ -64,7 +64,7 @@ export default function ContactsAnalyticsPage() {
 
   if (!data) {
     return (
-      <div className="text-center py-16 text-gray-400">
+      <div className="text-center py-16 text-gray-600">
         <p>데이터를 불러올 수 없습니다</p>
       </div>
     );
@@ -182,7 +182,7 @@ export default function ContactsAnalyticsPage() {
                   <span className="font-bold text-yellow-600 text-lg">#{idx + 1}</span>
                   <div>
                     <p className="font-semibold text-gray-900">{manager.managerName}</p>
-                    <p className="text-xs text-gray-500">{manager.count}명의 고객</p>
+                    <p className="text-sm text-gray-500">{manager.count}명의 고객</p>
                   </div>
                 </div>
                 <span className="text-lg font-bold text-gray-900">{manager.count}</span>
@@ -200,7 +200,7 @@ export default function ContactsAnalyticsPage() {
                   <span className="font-bold text-green-600 text-lg">#{idx + 1}</span>
                   <div>
                     <p className="font-semibold text-gray-900">{agent.agentName}</p>
-                    <p className="text-xs text-gray-500">{agent.count}명의 고객</p>
+                    <p className="text-sm text-gray-500">{agent.count}명의 고객</p>
                   </div>
                 </div>
                 <span className="text-lg font-bold text-gray-900">{agent.count}</span>

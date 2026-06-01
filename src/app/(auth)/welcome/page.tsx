@@ -49,8 +49,8 @@ function WelcomeContent() {
           </div>
 
           <div className="bg-blue-50 rounded-xl p-4 text-left space-y-2">
-            <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide">시작 가이드</p>
-            <ul className="text-xs text-blue-700 space-y-1.5 list-none">
+            <p className="text-sm font-semibold text-blue-800 uppercase tracking-wide">시작 가이드</p>
+            <ul className="text-sm text-blue-700 space-y-1.5 list-none">
               {role === "OWNER" ? (
                 <>
                   <li>• 설정 → 팀원 관리에서 판매원 초대 링크를 생성하세요</li>

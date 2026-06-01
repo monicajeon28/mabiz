@@ -465,7 +465,7 @@ export default function MembersPage() {
       <div className="mb-5 flex items-center gap-3">
         <h1 className="text-xl font-bold text-gray-900">크루즈닷 회원관리</h1>
         {!loading && total > 0 && (
-          <span className="px-2.5 py-0.5 bg-gray-100 text-gray-500 text-xs font-medium rounded-full">
+          <span className="px-2.5 py-0.5 bg-gray-100 text-gray-500 text-sm font-medium rounded-full">
             총 {total.toLocaleString()}명
           </span>
         )}
@@ -474,7 +474,7 @@ export default function MembersPage() {
       {/* 필터 바 */}
       <div className="flex flex-wrap items-center gap-2 mb-5">
         <form onSubmit={handleSearch} className="relative flex-shrink-0">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
           <input
             value={inputQ}
             onChange={(e) => handleQChange(e.target.value)}
@@ -505,12 +505,12 @@ export default function MembersPage() {
 
       {/* 컨텐츠 */}
       {loading ? (
-        <div className="flex items-center justify-center py-20 gap-2 text-gray-400">
+        <div className="flex items-center justify-center py-20 gap-2 text-gray-600">
           <Loader2 className="w-5 h-5 animate-spin" />
           <span className="text-sm">불러오는 중...</span>
         </div>
       ) : !error && members.length === 0 ? (
-        <div className="text-center py-20 text-gray-400 text-sm">
+        <div className="text-center py-20 text-gray-600 text-sm">
           검색 결과가 없습니다.
         </div>
       ) : !error && (
@@ -519,16 +519,16 @@ export default function MembersPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">#</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">이름</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">전화번호</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">이메일</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">가입경로</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">상태</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">태그</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">파트너유형</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">카카오채널</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">가입일</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">#</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">이름</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">전화번호</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">이메일</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">가입경로</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">상태</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">태그</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">파트너유형</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">카카오채널</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">가입일</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -543,31 +543,31 @@ export default function MembersPage() {
                       onClick={() => openDetailModal(m)}
                       className="hover:bg-blue-50 transition-colors cursor-pointer"
                     >
-                      <td className="px-4 py-3 text-gray-400 text-xs">{rowNum}</td>
+                      <td className="px-4 py-3 text-gray-600 text-sm">{rowNum}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">
-                        {m.name ?? <span className="text-gray-400 font-normal">이름없음</span>}
+                        {m.name ?? <span className="text-gray-600 font-normal">이름없음</span>}
                         {m.isLocked && (
-                          <span className="ml-1.5 px-1.5 py-0.5 bg-red-100 text-red-600 text-xs rounded">잠금</span>
+                          <span className="ml-1.5 px-1.5 py-0.5 bg-red-100 text-red-600 text-sm rounded">잠금</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs font-mono">
+                      <td className="px-4 py-3 text-gray-500 text-sm font-mono">
                         {m.phone ?? "-"}
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">
+                      <td className="px-4 py-3 text-gray-500 text-sm">
                         {m.email ?? "-"}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${providerBadge.color}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${providerBadge.color}`}>
                           {providerBadge.label}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         {m.memberStatus && STATUS_BADGE[m.memberStatus] ? (
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[m.memberStatus].color}`}>
+                          <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${STATUS_BADGE[m.memberStatus].color}`}>
                             {STATUS_BADGE[m.memberStatus].label}
                           </span>
                         ) : (
-                          <span className="text-gray-300 text-xs">-</span>
+                          <span className="text-gray-300 text-sm">-</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -575,38 +575,38 @@ export default function MembersPage() {
                           {m.memberTags && m.memberTags.length > 0 ? (
                             <>
                               {m.memberTags.slice(0, 2).map((tag) => (
-                                <span key={tag} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-xs rounded">
+                                <span key={tag} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-sm rounded">
                                   #{tag}
                                 </span>
                               ))}
                               {m.memberTags.length > 2 && (
-                                <span className="px-1.5 py-0.5 text-gray-500 text-xs">
+                                <span className="px-1.5 py-0.5 text-gray-500 text-sm">
                                   +{m.memberTags.length - 2}
                                 </span>
                               )}
                             </>
                           ) : (
-                            <span className="text-gray-300 text-xs">-</span>
+                            <span className="text-gray-300 text-sm">-</span>
                           )}
                         </div>
                       </td>
                       <td className="px-4 py-3">
                         {affiliateBadge ? (
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${affiliateBadge.color}`}>
+                          <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${affiliateBadge.color}`}>
                             {affiliateBadge.label}
                           </span>
                         ) : (
-                          <span className="text-gray-300 text-xs">-</span>
+                          <span className="text-gray-300 text-sm">-</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
                         {m.kakaoChannelAdded ? (
                           <CheckCircle className="w-4 h-4 text-green-500" />
                         ) : (
-                          <span className="text-gray-300 text-xs">-</span>
+                          <span className="text-gray-300 text-sm">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-gray-400 text-xs">
+                      <td className="px-4 py-3 text-gray-600 text-sm">
                         {formatDate(m.createdAt)}
                       </td>
                     </tr>
@@ -618,24 +618,24 @@ export default function MembersPage() {
 
           {/* 페이지네이션 */}
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-xs text-gray-400">총 {total.toLocaleString()}명</p>
+            <p className="text-sm text-gray-600">총 {total.toLocaleString()}명</p>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
                 aria-label="이전 페이지"
-                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30"
+                className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="px-3 py-1.5 text-xs text-gray-600">
+              <span className="px-3 py-1.5 text-sm text-gray-600">
                 {page} / {totalPages}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
                 aria-label="다음 페이지"
-                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30"
+                className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -659,14 +659,14 @@ export default function MembersPage() {
               <button
                 onClick={() => setShowDetailModal(false)}
                 aria-label="닫기"
-                className="p-1 rounded-lg hover:bg-gray-100 text-gray-400"
+                className="p-1 rounded-lg hover:bg-gray-100 text-gray-600"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {detailLoading ? (
-              <div className="flex items-center justify-center py-20 gap-2 text-gray-400">
+              <div className="flex items-center justify-center py-20 gap-2 text-gray-600">
                 <Loader2 className="w-5 h-5 animate-spin" />
                 <span className="text-sm">불러오는 중...</span>
               </div>
@@ -715,7 +715,7 @@ export default function MembersPage() {
                     ))}
                   </select>
                   {statusUpdateMsg && (
-                    <p className="text-xs text-gray-600 mt-2">{statusUpdateMsg}</p>
+                    <p className="text-sm text-gray-600 mt-2">{statusUpdateMsg}</p>
                   )}
                 </div>
 
@@ -727,7 +727,7 @@ export default function MembersPage() {
                       {memberTags.map((tag) => (
                         <span
                           key={tag}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full"
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-sm rounded-full"
                         >
                           #{tag}
                           <button
@@ -768,7 +768,7 @@ export default function MembersPage() {
                           type="button"
                           disabled={memberTags.includes(tag) || memberTags.length >= 5}
                           onClick={() => addTagDirectly(tag)}
-                          className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
+                          className={`px-2 py-0.5 text-sm rounded-full border transition-colors ${
                             memberTags.includes(tag)
                               ? "border-gray-200 text-gray-300 cursor-not-allowed bg-gray-50"
                               : "border-blue-200 text-blue-600 hover:bg-blue-50 cursor-pointer"
@@ -793,7 +793,7 @@ export default function MembersPage() {
                           return group ? (
                             <span
                               key={groupId}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium text-white"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm font-medium text-white"
                               style={{ backgroundColor: group.color || "#6B7280" }}
                             >
                               {group.name}
@@ -810,7 +810,7 @@ export default function MembersPage() {
                       </div>
                     )}
                     <div>
-                      <label className="text-xs text-gray-600 mb-2 block">그룹 추가</label>
+                      <label className="text-sm text-gray-600 mb-2 block">그룹 추가</label>
                       <select
                         onChange={(e) => {
                           if (e.target.value) {
@@ -875,7 +875,7 @@ export default function MembersPage() {
                       <p className="text-sm text-gray-500">담당자 목록을 불러오는 중...</p>
                     ) : (
                       <div>
-                        <label className="text-xs text-gray-600 mb-2 block">담당자 선택</label>
+                        <label className="text-sm text-gray-600 mb-2 block">담당자 선택</label>
                         <select
                           value={selectedStaff}
                           onChange={(e) => setSelectedStaff(e.target.value)}
@@ -895,7 +895,7 @@ export default function MembersPage() {
                       </div>
                     )}
                     <div>
-                      <label className="text-xs text-gray-600 mb-2 block">변경 이유 (선택)</label>
+                      <label className="text-sm text-gray-600 mb-2 block">변경 이유 (선택)</label>
                       <textarea
                         value={assignReason}
                         onChange={(e) => setAssignReason(e.target.value)}
@@ -931,7 +931,7 @@ export default function MembersPage() {
                                 </>
                               )}
                             </p>
-                            <p className="text-xs text-gray-400 mt-1">
+                            <p className="text-sm text-gray-600 mt-1">
                               {new Date(log.changedAt).toLocaleString("ko-KR")}
                             </p>
                           </div>

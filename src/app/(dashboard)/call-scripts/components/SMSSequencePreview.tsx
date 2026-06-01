@@ -130,10 +130,10 @@ export function SMSSequencePreview({ category, segment }: SMSSequencePreviewProp
               <span className="text-lg">{day.icon}</span>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm">{day.title}</div>
-                <div className="text-xs text-gray-600">목표 오픈: {day.targetRate}%</div>
+                <div className="text-sm text-gray-600">목표 오픈: {day.targetRate}%</div>
               </div>
             </div>
-            <p className="text-xs text-gray-700 line-clamp-2">{day.preview}</p>
+            <p className="text-sm text-gray-700 line-clamp-2">{day.preview}</p>
           </div>
         ))}
       </div>

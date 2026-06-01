@@ -134,12 +134,12 @@ export default function PurchasedPage() {
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
                 <FileSpreadsheet className="w-5 h-5 text-green-600" /> 엑셀 고객 가져오기
               </h3>
-              <button onClick={() => setShowImport(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setShowImport(false)} className="text-gray-600 hover:text-gray-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-600 space-y-1">
+            <div className="bg-gray-50 rounded-xl p-3 text-sm text-gray-600 space-y-1">
               <p className="font-semibold">📋 엑셀 파일 형식</p>
               <p>• 필수: <strong>이름</strong>, <strong>전화번호</strong></p>
               <p>• 선택: 이메일, 관심크루즈, 예산, 메모, 유형</p>
@@ -157,10 +157,10 @@ export default function PurchasedPage() {
               <div className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
                 importFile ? "border-green-400 bg-green-50" : "border-gray-200 hover:border-navy-300"
               }`}>
-                <Upload className={`w-8 h-8 mx-auto mb-2 ${importFile ? "text-green-500" : "text-gray-400"}`} />
+                <Upload className={`w-8 h-8 mx-auto mb-2 ${importFile ? "text-green-500" : "text-gray-600"}`} />
                 {importFile
                   ? <p className="text-sm font-medium text-green-700">{importFile.name}</p>
-                  : <p className="text-sm text-gray-400">파일을 클릭하거나 드래그하세요<br />.xlsx, .xls 지원</p>
+                  : <p className="text-sm text-gray-600">파일을 클릭하거나 드래그하세요<br />.xlsx, .xls 지원</p>
                 }
               </div>
               <input
@@ -180,7 +180,7 @@ export default function PurchasedPage() {
                   {importResult.skipCount > 0 && ` / ⚠️ ${importResult.skipCount}건 건너뜀`}
                 </p>
                 {importResult.errors.slice(0, 3).map((e, i) => (
-                  <p key={i} className="text-xs opacity-80">{e}</p>
+                  <p key={i} className="text-sm opacity-80">{e}</p>
                 ))}
               </div>
             )}
@@ -206,7 +206,7 @@ export default function PurchasedPage() {
                 <button
                   key={val}
                   onClick={() => { setChannelFilter(val as "" | "b2c" | "b2b"); setPage(1); }}
-                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${channelFilter === val ? "bg-white text-navy-900 shadow-sm" : "text-gray-500"}`}
+                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${channelFilter === val ? "bg-white text-navy-900 shadow-sm" : "text-gray-500"}`}
                 >
                   {label}
                 </button>
@@ -239,7 +239,7 @@ export default function PurchasedPage() {
       {/* 검색 + 정렬 */}
       <div className="flex gap-2 mb-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
           <input
             type="text"
             placeholder="이름, 전화번호 검색"
@@ -291,7 +291,7 @@ export default function PurchasedPage() {
               onClick={() => setSelectedTags(prev =>
                 prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
               )}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+              className={`px-2.5 py-1 rounded-full text-sm font-medium transition-colors ${
                 selectedTags.includes(tag)
                   ? 'bg-green-600 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -303,7 +303,7 @@ export default function PurchasedPage() {
           {selectedTags.length > 0 && (
             <button
               onClick={() => setSelectedTags([])}
-              className="px-2.5 py-1 rounded-full text-xs text-gray-400 hover:text-gray-600"
+              className="px-2.5 py-1 rounded-full text-sm text-gray-600 hover:text-gray-600"
             >
               초기화
             </button>
@@ -329,7 +329,7 @@ export default function PurchasedPage() {
           ))}
         </div>
       ) : !fetchError && filteredContacts.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-gray-600">
           <p className="text-4xl mb-3">🛍️</p>
           <p className="font-medium">{selectedTags.length > 0 ? '해당 태그를 보유한 고객이 없습니다' : '구매 고객이 없습니다'}</p>
           <p className="text-sm mt-1">{selectedTags.length > 0 ? '다른 태그를 선택해보세요.' : '위 버튼으로 고객을 추가해보세요.'}</p>
@@ -349,13 +349,13 @@ export default function PurchasedPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-gray-900">{c.name}</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-700">
+                    <span className="text-sm px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-700">
                       구매확정
                     </span>
                     {c.groups.slice(0, 2).map((g) => (
                       <span
                         key={g.group.id}
-                        className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
+                        className="text-sm px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
                       >
                         {g.group.name}
                       </span>
@@ -370,7 +370,7 @@ export default function PurchasedPage() {
                       </span>
                     )}
                     {c.purchasedAt && (
-                      <span className="text-xs text-green-600 font-medium">
+                      <span className="text-sm text-green-600 font-medium">
                         구매일: {formatDate(c.purchasedAt)}
                       </span>
                     )}
@@ -378,7 +378,7 @@ export default function PurchasedPage() {
                   {groups.length > 0 && (
                     <div className="flex items-center gap-1 mt-2" onClick={(e) => e.preventDefault()}>
                       <select
-                        className="text-xs border border-gray-200 rounded px-1.5 py-1 flex-1 max-w-[180px] bg-white focus:outline-none"
+                        className="text-sm border border-gray-200 rounded px-1.5 py-1 flex-1 max-w-[180px] bg-white focus:outline-none"
                         defaultValue=""
                         onChange={(e) => {
                           e.stopPropagation();
@@ -391,7 +391,7 @@ export default function PurchasedPage() {
                           <option key={g.id} value={g.id}>{g.name} {g.funnelId ? "🔄" : ""}</option>
                         ))}
                       </select>
-                      {assigning === c.id && <span className="text-xs text-gray-400">배정 중...</span>}
+                      {assigning === c.id && <span className="text-sm text-gray-600">배정 중...</span>}
                     </div>
                   )}
                 </div>

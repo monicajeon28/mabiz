@@ -16,7 +16,7 @@ export function SalesBarChart({ monthly }: SalesBarChartProps) {
           const heightPct = Math.max((row.revenue / maxRevenue) * 100, 2);
           return (
             <div key={row.month} className="flex-1 flex flex-col items-center gap-1">
-              <span className="text-[10px] text-gray-400 truncate w-full text-center">
+              <span className="text-[10px] text-gray-600 truncate w-full text-center">
                 {row.revenue > 0 ? formatAmount(row.revenue) : ""}
               </span>
               <div
@@ -26,7 +26,7 @@ export function SalesBarChart({ monthly }: SalesBarChartProps) {
                 role="img"
                 aria-label={`${row.month}: ${formatAmount(row.revenue)}, ${row.count}건`}
               />
-              <span className="text-xs text-gray-500 mt-1">{formatMonth(row.month)}</span>
+              <span className="text-sm text-gray-500 mt-1">{formatMonth(row.month)}</span>
             </div>
           );
         })}

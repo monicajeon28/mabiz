@@ -53,7 +53,7 @@ const getLeadTier = (score: number) => {
   if (score >= 70) return { label: "🔥 뜨거움",  color: "bg-red-100 text-red-700" };
   if (score >= 30) return { label: "☀️ 따뜻함", color: "bg-orange-100 text-orange-600" };
   if (score >= 0)  return { label: "❄️ 차가움", color: "bg-blue-50 text-blue-500" };
-  return               { label: "💤 못찾음", color: "bg-gray-100 text-gray-400" };
+  return               { label: "💤 못찾음", color: "bg-gray-100 text-gray-600" };
 };
 
 type QuickCallResult = "INTERESTED" | "PENDING" | "REJECTED";
@@ -590,7 +590,7 @@ export default function ContactsPage() {
                 placeholder="그룹 이름 입력"
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-900/20"
               />
-              {groupAddError && <p className="text-xs text-red-500">{groupAddError}</p>}
+              {groupAddError && <p className="text-sm text-red-500">{groupAddError}</p>}
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => setGroupModalOpen(false)}
@@ -618,19 +618,19 @@ export default function ContactsPage() {
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
                 <FileSpreadsheet className="w-5 h-5 text-green-600" /> 엑셀에서 고객 추가
               </h3>
-              <button onClick={() => setShowImport(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setShowImport(false)} className="text-gray-600 hover:text-gray-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* 형식 안내 + 샘플 다운로드 */}
-            <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-600 space-y-1">
+            <div className="bg-gray-50 rounded-xl p-3 text-sm text-gray-600 space-y-1">
               <div className="flex items-center justify-between mb-1">
                 <p className="font-semibold">📋 엑셀 파일은 이렇게 만들어요</p>
                 <a
                   href="/api/contacts/sample"
                   download="cruisedot_import_sample.xlsx"
-                  className="flex items-center gap-1 text-green-700 font-semibold bg-green-100 hover:bg-green-200 px-2 py-1 rounded-lg text-xs transition-colors"
+                  className="flex items-center gap-1 text-green-700 font-semibold bg-green-100 hover:bg-green-200 px-2 py-1 rounded-lg text-sm transition-colors"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5" /> 샘플 다운로드
                 </a>
@@ -646,10 +646,10 @@ export default function ContactsPage() {
               <div className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
                 importFile ? "border-green-400 bg-green-50" : "border-gray-200 hover:border-navy-300"
               }`}>
-                <Upload className={`w-8 h-8 mx-auto mb-2 ${importFile ? "text-green-500" : "text-gray-400"}`} />
+                <Upload className={`w-8 h-8 mx-auto mb-2 ${importFile ? "text-green-500" : "text-gray-600"}`} />
                 {importFile
                   ? <p className="text-sm font-medium text-green-700">{importFile.name}</p>
-                  : <p className="text-sm text-gray-400">여기다 파일을 끌어오거나 클릭해요<br />.xlsx, .xls 가능</p>
+                  : <p className="text-sm text-gray-600">여기다 파일을 끌어오거나 클릭해요<br />.xlsx, .xls 가능</p>
                 }
               </div>
               <input
@@ -670,7 +670,7 @@ export default function ContactsPage() {
                   {importResult.skipCount > 0 && ` / ⚠️ ${importResult.skipCount}건 건너뛰었어요`}
                 </p>
                 {importResult.errors.slice(0, 3).map((e, i) => (
-                  <p key={i} className="text-xs opacity-80">{e}</p>
+                  <p key={i} className="text-sm opacity-80">{e}</p>
                 ))}
               </div>
             )}
@@ -771,7 +771,7 @@ export default function ContactsPage() {
       {/* 검색 + 필터 */}
       <div className="flex gap-2 mb-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
           <input
             type="text"
             placeholder="이름, 전화번호 검색"
@@ -781,7 +781,7 @@ export default function ContactsPage() {
           />
         </div>
         <div className="relative">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
           <select
             value={type}
             onChange={(e) => { setType(e.target.value); setPage(1); }}
@@ -858,7 +858,7 @@ export default function ContactsPage() {
           <button
             key={key}
             onClick={() => setFilterSourceType(filterSourceType === key ? "" : key)}
-            className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
+            className={`text-sm px-2.5 py-1 rounded-full transition-colors ${
               filterSourceType === key
                 ? `${color} font-bold`
                 : `${color} hover:opacity-80`
@@ -874,13 +874,13 @@ export default function ContactsPage() {
         <div className="flex gap-2 flex-wrap px-0 pb-2">
           {assignStats.filter(s => s.count > 0).map((s) => (
             <button key={s.userId} onClick={() => setFilterAssignedTo(s.userId === filterAssignedTo ? "" : s.userId)}
-              className={`text-xs px-2.5 py-1 rounded-full transition-colors ${filterAssignedTo === s.userId ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-purple-100"}`}>
+              className={`text-sm px-2.5 py-1 rounded-full transition-colors ${filterAssignedTo === s.userId ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-purple-100"}`}>
               {s.displayName} <span className="font-bold">{s.count}</span>
             </button>
           ))}
           {unassignedCount > 0 && (
             <button onClick={() => setFilterAssignedTo(filterAssignedTo === "unassigned" ? "" : "unassigned")}
-              className={`text-xs px-2.5 py-1 rounded-full transition-colors ${filterAssignedTo === "unassigned" ? "bg-red-600 text-white" : "bg-red-50 text-red-600 hover:bg-red-100"}`}>
+              className={`text-sm px-2.5 py-1 rounded-full transition-colors ${filterAssignedTo === "unassigned" ? "bg-red-600 text-white" : "bg-red-50 text-red-600 hover:bg-red-100"}`}>
               미배정 <span className="font-bold">{unassignedCount}</span>
             </button>
           )}
@@ -896,7 +896,7 @@ export default function ContactsPage() {
               onClick={() => setSelectedTags(prev =>
                 prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
               )}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+              className={`px-2.5 py-1 rounded-full text-sm font-medium transition-colors ${
                 selectedTags.includes(tag)
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -908,7 +908,7 @@ export default function ContactsPage() {
           {selectedTags.length > 0 && (
             <button
               onClick={() => setSelectedTags([])}
-              className="px-2.5 py-1 rounded-full text-xs text-gray-400 hover:text-gray-600"
+              className="px-2.5 py-1 rounded-full text-sm text-gray-600 hover:text-gray-600"
             >
               초기화
             </button>
@@ -924,19 +924,19 @@ export default function ContactsPage() {
               <p className="text-sm font-bold text-green-800 mb-1">
                 ✅ 성공한 고객들의 패턴
               </p>
-              <p className="text-xs text-green-700 mb-2.5">
+              <p className="text-sm text-green-700 mb-2.5">
                 {total}명의 고객 중 <span className="font-semibold">{Math.round(total * 0.35)}명</span>이 구매 완료한 프로세스
               </p>
               <div className="flex gap-3 flex-wrap">
-                <div className="text-xs bg-white rounded-lg px-2.5 py-1.5 border border-green-200">
+                <div className="text-sm bg-white rounded-lg px-2.5 py-1.5 border border-green-200">
                   <span className="text-green-700 font-bold">72시간</span>
                   <span className="text-green-600"> 내 접근</span>
                 </div>
-                <div className="text-xs bg-white rounded-lg px-2.5 py-1.5 border border-green-200">
+                <div className="text-sm bg-white rounded-lg px-2.5 py-1.5 border border-green-200">
                   <span className="text-green-700 font-bold">3회 이상</span>
                   <span className="text-green-600"> 콜</span>
                 </div>
-                <div className="text-xs bg-white rounded-lg px-2.5 py-1.5 border border-green-200">
+                <div className="text-sm bg-white rounded-lg px-2.5 py-1.5 border border-green-200">
                   <span className="text-green-700 font-bold">개인화</span>
                   <span className="text-green-600"> 메시지</span>
                 </div>
@@ -944,7 +944,7 @@ export default function ContactsPage() {
             </div>
             <div className="text-right">
               <p className="text-2xl font-bold text-green-600">+45%</p>
-              <p className="text-xs text-green-600">전환율 향상</p>
+              <p className="text-sm text-green-600">전환율 향상</p>
             </div>
           </div>
         </div>
@@ -967,7 +967,7 @@ export default function ContactsPage() {
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-gray-900">{c.name}</span>
                   {(c.leadScore ?? 0) >= 70 && (
-                    <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold">🔥 HOT</span>
+                    <span className="text-sm bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold">🔥 HOT</span>
                   )}
                 </div>
                 <span className="text-gray-500 flex items-center gap-3">
@@ -978,8 +978,8 @@ export default function ContactsPage() {
                   >
                     {c.phone}
                   </a>
-                  <span className="text-xs text-amber-600">{formatDaysSince(c.lastContactedAt ?? null)}</span>
-                  <span className="text-xs text-gray-400">{c.leadScore ?? 0}점</span>
+                  <span className="text-sm text-amber-600">{formatDaysSince(c.lastContactedAt ?? null)}</span>
+                  <span className="text-sm text-gray-600">{c.leadScore ?? 0}점</span>
                 </span>
               </button>
             ))}
@@ -1021,7 +1021,7 @@ export default function ContactsPage() {
           ))}
         </div>
       ) : filteredContacts.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-gray-600">
           <p className="text-4xl mb-3">👥</p>
           <p className="font-medium">{selectedTags.length > 0 ? '해당 태그를 보유한 고객이 없습니다' : '고객이 없습니다'}</p>
           <p className="text-sm mt-1">{selectedTags.length > 0 ? '다른 태그를 선택해보세요.' : '위 버튼으로 고객을 추가해보세요.'}</p>
@@ -1037,7 +1037,7 @@ export default function ContactsPage() {
                 onChange={toggleSelectAll}
                 className="w-4 h-4 rounded cursor-pointer accent-purple-600"
               />
-              <span className="text-xs text-gray-400">
+              <span className="text-sm text-gray-600">
                 {selectedIds.size > 0 ? `${selectedIds.size}명 선택됨` : "전체 선택"}
               </span>
             </div>
@@ -1073,17 +1073,17 @@ export default function ContactsPage() {
                       <span className="font-medium text-gray-900">{c.name}</span>
                       {/* 리드 스코어 뱃지 — HOT만 강조, WARM/COLD는 서브로 */}
                       {c.type === "LEAD" && (
-                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${tierInfo.color}`}>
+                        <span className={`text-sm px-1.5 py-0.5 rounded-full font-bold ${tierInfo.color}`}>
                           {tierInfo.label}
                         </span>
                       )}
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${typeInfo.color}`}>
+                      <span className={`text-sm px-2 py-0.5 rounded-full font-medium ${typeInfo.color}`}>
                         {typeInfo.label}
                       </span>
                       {(c.groups ?? []).slice(0, 2).map((g) => (
                         <span
                           key={g.group.id}
-                          className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
+                          className="text-sm px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
                         >
                           {g.group.name}
                         </span>
@@ -1102,7 +1102,7 @@ export default function ContactsPage() {
                         const dday = getDDay(c.departureDate ?? null);
                         if (!dday) return null;
                         return (
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${dday.urgent ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                          <span className={`text-sm font-bold px-2 py-0.5 rounded-full ${dday.urgent ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
                             ✈️ {dday.label}
                           </span>
                         );
@@ -1111,16 +1111,16 @@ export default function ContactsPage() {
 
                     {/* 출처 정보 */}
                     {(c.sourceType || c.createdAt) && (
-                      <div className="text-xs text-gray-600 mt-2 flex items-center gap-2 flex-wrap">
-                        {c.createdAt && <span className="text-gray-400">신청: {formatCreatedAt(c.createdAt)}</span>}
+                      <div className="text-sm text-gray-600 mt-2 flex items-center gap-2 flex-wrap">
+                        {c.createdAt && <span className="text-gray-600">신청: {formatCreatedAt(c.createdAt)}</span>}
                         {c.sourceType && (
                           <>
                             <span className={`px-2 py-0.5 rounded-full ${SOURCE_TYPE_LABELS[c.sourceType]?.color || "bg-gray-100 text-gray-600"}`}>
                               {SOURCE_TYPE_LABELS[c.sourceType]?.icon} {getSourceLabel(c)}
                             </span>
-                            {c.affiliateManagerName && <span className="text-gray-400">본사: {c.affiliateManagerName}</span>}
-                            {c.affiliateAgentName && <span className="text-gray-400">판매원: {c.affiliateAgentName}</span>}
-                            {c.sourceType === "inquiry" && c.inquiryProductCode && <span className="text-gray-400">상품: {c.inquiryProductCode}</span>}
+                            {c.affiliateManagerName && <span className="text-gray-600">본사: {c.affiliateManagerName}</span>}
+                            {c.affiliateAgentName && <span className="text-gray-600">판매원: {c.affiliateAgentName}</span>}
+                            {c.sourceType === "inquiry" && c.inquiryProductCode && <span className="text-gray-600">상품: {c.inquiryProductCode}</span>}
                           </>
                         )}
                       </div>
@@ -1129,16 +1129,16 @@ export default function ContactsPage() {
                     {(c.tags ?? []).length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1.5">
                         {(c.tags ?? []).slice(0, 5).map((tag) => (
-                          <span key={tag} className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full">#{tag}</span>
+                          <span key={tag} className="text-sm bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full">#{tag}</span>
                         ))}
                         {(c.tags ?? []).length > 5 && (
-                          <span className="text-xs text-gray-400">+{(c.tags ?? []).length - 5}</span>
+                          <span className="text-sm text-gray-600">+{(c.tags ?? []).length - 5}</span>
                         )}
                       </div>
                     )}
                     {/* L5: Self-projection — 유사 고객 지표 */}
                     {c.type === "CUSTOMER" && (
-                      <div className="flex items-center gap-1 mt-1.5 text-xs text-green-700 font-medium">
+                      <div className="flex items-center gap-1 mt-1.5 text-sm text-green-700 font-medium">
                         <span className="text-green-600">👥</span>
                         <span>성공 사례 보유</span>
                       </div>
@@ -1147,7 +1147,7 @@ export default function ContactsPage() {
                     <div className="flex items-center gap-2 mt-2" onClick={(e) => e.preventDefault()}>
                       {groups.length > 0 && (
                         <select
-                          className="text-xs border border-gray-200 rounded px-1.5 py-1 max-w-[180px] bg-white focus:outline-none"
+                          className="text-sm border border-gray-200 rounded px-1.5 py-1 max-w-[180px] bg-white focus:outline-none"
                           defaultValue=""
                           onChange={(e) => {
                             e.stopPropagation();
@@ -1163,11 +1163,11 @@ export default function ContactsPage() {
                       )}
                       <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setGroupAddError(""); setNewGroupName(""); setGroupAddForContact(c.id); setGroupModalOpen(true); }}
-                        className="flex items-center gap-0.5 text-xs text-navy-700 hover:text-navy-900 font-medium"
+                        className="flex items-center gap-0.5 text-sm text-navy-700 hover:text-navy-900 font-medium"
                       >
                         <Plus className="w-3 h-3" /> 그룹 추가
                       </button>
-                      {assigning === c.id && <span className="text-xs text-gray-400">배정 중...</span>}
+                      {assigning === c.id && <span className="text-sm text-gray-600">배정 중...</span>}
                     </div>
                   </div>
 
@@ -1175,9 +1175,9 @@ export default function ContactsPage() {
                   {c.lastTransferredTo && (
                     <div className="flex flex-col items-end gap-1 shrink-0 ml-1">
                       <div className="flex items-center gap-1 bg-purple-50 border border-purple-200 rounded-lg px-2 py-1">
-                        <span className="text-xs text-purple-500">→</span>
+                        <span className="text-sm text-purple-500">→</span>
                         <div className="text-right">
-                          <p className="text-xs font-medium text-purple-700 leading-tight">{c.lastTransferredTo.name}</p>
+                          <p className="text-sm font-medium text-purple-700 leading-tight">{c.lastTransferredTo.name}</p>
                           <p className="text-[10px] text-purple-400 leading-tight">{c.lastTransferredTo.orgName}</p>
                         </div>
                       </div>
@@ -1231,14 +1231,14 @@ export default function ContactsPage() {
                 {/* 퀵 콜 기록 인라인 폼 */}
                 {isQuickCallOpen && (
                   <div className="px-4 pb-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <span className="text-xs text-gray-500 shrink-0">콜 결과:</span>
+                    <span className="text-sm text-gray-500 shrink-0">콜 결과:</span>
                     {QUICK_CALL_OPTIONS.map((opt) => (
                       <button
                         key={opt.result}
                         type="button"
                         disabled={quickCallLoading}
                         onClick={() => handleQuickCall(c.id, opt.result)}
-                        className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${opt.color}`}
+                        className={`flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${opt.color}`}
                       >
                         {opt.icon}
                         {opt.label}
@@ -1247,12 +1247,12 @@ export default function ContactsPage() {
                     <button
                       type="button"
                       onClick={() => { setQuickCallId(null); setQuickCallError(null); }}
-                      className="text-xs text-gray-400 hover:text-gray-600 ml-1"
+                      className="text-sm text-gray-600 hover:text-gray-600 ml-1"
                     >
                       취소
                     </button>
-                    {quickCallLoading && <span className="text-xs text-gray-400">저장 중...</span>}
-                    {quickCallError && <span className="text-xs text-red-500">{quickCallError}</span>}
+                    {quickCallLoading && <span className="text-sm text-gray-600">저장 중...</span>}
+                    {quickCallError && <span className="text-sm text-red-500">{quickCallError}</span>}
                   </div>
                 )}
               </div>
@@ -1293,12 +1293,12 @@ export default function ContactsPage() {
                 <Share2 className="w-4 h-4 text-purple-500" />
                 DB 전달 ({selectedIds.size}명)
               </h3>
-              <button onClick={() => setShowShareModal(false)} className="text-gray-400 hover:text-gray-600">×</button>
+              <button onClick={() => setShowShareModal(false)} className="text-gray-600 hover:text-gray-600">×</button>
             </div>
 
             {/* 연관 검색 */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none" />
               <input
                 autoFocus
                 value={shareSearch}
@@ -1324,13 +1324,13 @@ export default function ContactsPage() {
                   {sel && (
                     <div className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-xl px-3 py-2">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-purple-200 text-purple-800 flex items-center justify-center text-xs font-bold shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-purple-200 text-purple-800 flex items-center justify-center text-sm font-bold shrink-0">
                           {(sel.displayName ?? sel.loginId)[0]}
                         </div>
                         <div>
                           <span className="text-sm font-semibold text-purple-800">{sel.displayName ?? sel.loginId}</span>
-                          <span className="text-xs text-purple-400 ml-1.5">{sel.loginId}</span>
-                          <span className="text-xs text-purple-400 ml-1.5">· {sel.orgName}</span>
+                          <span className="text-sm text-purple-400 ml-1.5">{sel.loginId}</span>
+                          <span className="text-sm text-purple-400 ml-1.5">· {sel.orgName}</span>
                         </div>
                       </div>
                       <button onClick={() => setShareTarget("")} className="text-purple-400 hover:text-purple-600 text-xl leading-none">×</button>
@@ -1339,10 +1339,10 @@ export default function ContactsPage() {
                   {(!shareTarget || shareSearch) && (
                     <div className="space-y-1 max-h-56 overflow-y-auto">
                       {filtered.length === 0 ? (
-                        <p className="text-xs text-gray-400 text-center py-6">검색 결과 없음</p>
+                        <p className="text-sm text-gray-600 text-center py-6">검색 결과 없음</p>
                       ) : filtered.map((section) => (
                         <details key={section.label} open>
-                          <summary className="flex items-center justify-between px-2 py-1.5 cursor-pointer text-xs font-semibold text-gray-500 hover:text-gray-700 select-none list-none">
+                          <summary className="flex items-center justify-between px-2 py-1.5 cursor-pointer text-sm font-semibold text-gray-500 hover:text-gray-700 select-none list-none">
                             <span>{section.label}</span>
                             <span className="text-gray-300">{section.members.length}명</span>
                           </summary>
@@ -1353,12 +1353,12 @@ export default function ContactsPage() {
                                 onClick={() => { setShareTarget(m.id); setShareSearch(""); }}
                                 className="w-full text-left px-3 py-2 rounded-xl text-sm bg-gray-50 hover:bg-purple-50 text-gray-700 transition-colors flex items-center gap-2.5"
                               >
-                                <div className="w-7 h-7 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold shrink-0">
+                                <div className="w-7 h-7 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-sm font-bold shrink-0">
                                   {(m.displayName ?? m.loginId)[0]}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium truncate">{m.displayName ?? m.loginId}</p>
-                                  <p className="text-xs text-gray-400 truncate">{m.loginId} · {m.orgName}</p>
+                                  <p className="text-sm text-gray-600 truncate">{m.loginId} · {m.orgName}</p>
                                 </div>
                               </button>
                             ))}
@@ -1519,11 +1519,11 @@ function GroupBlastModal({
         <div className="flex items-center justify-between px-5 py-4 border-b">
           <div>
             <h2 className="font-semibold text-gray-900">그룹 SMS 발송</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-sm text-gray-500 mt-0.5">
               &quot;{groupName}&quot; 그룹 고객 전체
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+          <button onClick={onClose} className="text-gray-600 hover:text-gray-600 text-lg leading-none">✕</button>
         </div>
 
         <div className="p-5">
@@ -1553,20 +1553,20 @@ function GroupBlastModal({
                     <button key={t.id} onClick={() => { setMessage(t.content); setTab('direct'); }}
                       className="w-full text-left px-3 py-2.5 border rounded-xl hover:border-green-300 hover:bg-green-50 transition-colors">
                       <p className="text-sm font-medium text-gray-800">{t.name}</p>
-                      <p className="text-xs text-gray-500 mt-0.5 truncate">{t.content}</p>
+                      <p className="text-sm text-gray-500 mt-0.5 truncate">{t.content}</p>
                     </button>
                   ))}
                   {templates.length === 0 && (
-                    <p className="text-sm text-gray-400 text-center py-4">등록된 템플릿이 없습니다</p>
+                    <p className="text-sm text-gray-600 text-center py-4">등록된 템플릿이 없습니다</p>
                   )}
                 </div>
               )}
 
-              <p className="text-xs text-gray-400 mt-2">
+              <p className="text-sm text-gray-600 mt-2">
                 * 수신거부·전화번호 미입력 고객은 자동 제외됩니다
               </p>
 
-              {sendError && <p className="text-xs text-red-500 mt-2">{sendError}</p>}
+              {sendError && <p className="text-sm text-red-500 mt-2">{sendError}</p>}
 
               <button
                 onClick={handlePreview}
@@ -1585,14 +1585,14 @@ function GroupBlastModal({
                   {preview.willSend}명에게 발송됩니다
                 </p>
                 {preview.isOverLimit && (
-                  <p className="text-xs text-red-600 text-center mt-1">{preview.overLimitMsg}</p>
+                  <p className="text-sm text-red-600 text-center mt-1">{preview.overLimitMsg}</p>
                 )}
               </div>
               <div className="bg-gray-50 rounded-xl p-3">
-                <p className="text-xs text-gray-500 mb-1">발송 메시지</p>
+                <p className="text-sm text-gray-500 mb-1">발송 메시지</p>
                 <p className="text-sm text-gray-800 whitespace-pre-wrap">{message}</p>
               </div>
-              {sendError && <p className="text-xs text-red-500">{sendError}</p>}
+              {sendError && <p className="text-sm text-red-500">{sendError}</p>}
               <div className="flex gap-2">
                 <button onClick={() => setStep('write')}
                   className="flex-1 py-3 border rounded-xl text-sm text-gray-600">
@@ -1686,11 +1686,11 @@ function TagBlastModal({
         <div className="flex items-center justify-between px-5 py-4 border-b">
           <div>
             <h2 className="font-semibold text-gray-900">태그 SMS 발송</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-sm text-gray-500 mt-0.5">
               {tags.map(t => `#${t}`).join(' · ')} 태그 보유 고객 (AND 조건)
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+          <button onClick={onClose} className="text-gray-600 hover:text-gray-600 text-lg leading-none">✕</button>
         </div>
 
         <div className="p-5">
@@ -1721,20 +1721,20 @@ function TagBlastModal({
                     <button key={t.id} onClick={() => { setMessage(t.content); setTab('direct'); }}
                       className="w-full text-left px-3 py-2.5 border rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors">
                       <p className="text-sm font-medium text-gray-800">{t.name}</p>
-                      <p className="text-xs text-gray-500 mt-0.5 truncate">{t.content}</p>
+                      <p className="text-sm text-gray-500 mt-0.5 truncate">{t.content}</p>
                     </button>
                   ))}
                   {templates.length === 0 && (
-                    <p className="text-sm text-gray-400 text-center py-4">등록된 템플릿이 없습니다</p>
+                    <p className="text-sm text-gray-600 text-center py-4">등록된 템플릿이 없습니다</p>
                   )}
                 </div>
               )}
 
-              <p className="text-xs text-gray-400 mt-2">
+              <p className="text-sm text-gray-600 mt-2">
                 * 선택한 태그를 모두 보유한 고객에게만 발송됩니다 (AND 조건)
               </p>
 
-              {sendError && <p className="text-xs text-red-500 mt-2">{sendError}</p>}
+              {sendError && <p className="text-sm text-red-500 mt-2">{sendError}</p>}
 
               <button
                 onClick={handlePreview}
@@ -1753,14 +1753,14 @@ function TagBlastModal({
                   {preview.willSend}명에게 발송됩니다
                 </p>
                 {preview.isOverLimit && (
-                  <p className="text-xs text-red-600 text-center mt-1">{preview.overLimitMsg}</p>
+                  <p className="text-sm text-red-600 text-center mt-1">{preview.overLimitMsg}</p>
                 )}
               </div>
               <div className="bg-gray-50 rounded-xl p-3">
-                <p className="text-xs text-gray-500 mb-1">발송 메시지</p>
+                <p className="text-sm text-gray-500 mb-1">발송 메시지</p>
                 <p className="text-sm text-gray-800 whitespace-pre-wrap">{message}</p>
               </div>
-              {sendError && <p className="text-xs text-red-500">{sendError}</p>}
+              {sendError && <p className="text-sm text-red-500">{sendError}</p>}
               <div className="flex gap-2">
                 <button onClick={() => setStep('write')}
                   className="flex-1 py-3 border rounded-xl text-sm text-gray-600">

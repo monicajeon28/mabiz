@@ -144,7 +144,7 @@ export class ErrorBoundary extends React.Component<
 
               {/* 개발 환경에서 상세 에러 표시 */}
               {process.env.NODE_ENV === 'development' && (
-                <details className="mt-4 p-3 bg-red-100 rounded text-xs text-red-800 font-mono">
+                <details className="mt-4 p-3 bg-red-100 rounded text-sm text-red-800 font-mono">
                   <summary className="cursor-pointer font-bold">
                     상세 정보
                   </summary>

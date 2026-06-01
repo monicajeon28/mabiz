@@ -46,14 +46,14 @@ export function GroupCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h3 className="font-semibold text-gray-900">{group.name}</h3>
-            <span className="text-xs text-gray-400" aria-label={`멤버 수: ${group._count.members}명`}>
+            <span className="text-sm text-gray-600" aria-label={`멤버 수: ${group._count.members}명`}>
               {group._count.members}명
             </span>
           </div>
           {group.description ? (
-            <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{group.description}</p>
+            <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">{group.description}</p>
           ) : (
-            <p className="text-xs text-orange-600 font-medium mt-0.5">
+            <p className="text-sm text-orange-600 font-medium mt-0.5">
               ⚠️ 아직 퍼널을 연결하지 않았나요? 고객이 신청 후 3일간 자동으로 메시지를 받지 못합니다.
             </p>
           )}
@@ -62,11 +62,11 @@ export function GroupCard({
           {group.funnelId ? (
             <div className="flex items-center gap-1 mt-1.5">
               <GitBranch className="w-3 h-3 text-green-500" aria-hidden="true" />
-              <span className="text-xs text-green-600 font-medium">퍼널 연결됨: {group.funnelName}</span>
+              <span className="text-sm text-green-600 font-medium">퍼널 연결됨: {group.funnelName}</span>
             </div>
           ) : (
             <div className="flex items-center gap-1 mt-1.5">
-              <span className="text-xs text-gray-400">퍼널 없음</span>
+              <span className="text-sm text-gray-600">퍼널 없음</span>
             </div>
           )}
         </div>
@@ -74,28 +74,28 @@ export function GroupCard({
         <div className="flex items-center gap-1 flex-wrap justify-end">
           <Link
             href={`/groups/${group.id}`}
-            className="flex items-center gap-1 px-3 py-1.5 bg-green-50 border border-green-300 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100"
+            className="flex items-center gap-1 px-3 py-1.5 bg-green-50 border border-green-300 text-green-700 rounded-lg text-sm font-medium hover:bg-green-100"
             title="그룹 상세 페이지 (가입)"
           >
             <ArrowRight className="w-3 h-3" aria-hidden="true" /> 보기
           </Link>
           <button
             onClick={() => onClone(group.id)}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-100"
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-100"
             title="그룹 복제"
           >
             📋 복제
           </button>
           <button
             onClick={() => onExport(group.id)}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-100"
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-100"
             title="그룹 내보내기 (JSON 클립보드 복사)"
           >
             {copiedExportId === group.id ? '✅ 복사됨' : '📤 내보내기'}
           </button>
           <button
             onClick={() => onBlast(group.id)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-gold-50 border border-gold-300 text-gold-700 rounded-lg text-xs font-medium hover:bg-gold-100"
+            className="flex items-center gap-1 px-3 py-1.5 bg-gold-50 border border-gold-300 text-gold-700 rounded-lg text-sm font-medium hover:bg-gold-100"
             title="그룹 전체에 즉시 문자 발송"
           >
             <Zap className="w-3 h-3" aria-hidden="true" /> 즉시발송

@@ -108,7 +108,7 @@ export function RecommendationWidget() {
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="text-center text-gray-500">
           <p className="text-sm">추천 분석 데이터를 불러올 수 없습니다</p>
-          {error && <p className="text-xs text-gray-400 mt-1">{error}</p>}
+          {error && <p className="text-sm text-gray-600 mt-1">{error}</p>}
         </div>
       </div>
     );
@@ -192,17 +192,17 @@ export function RecommendationWidget() {
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="font-semibold text-gray-900">{item.segment}</span>
-                <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
+                <span className="text-sm bg-gray-200 text-gray-700 px-2 py-1 rounded">
                   {SEGMENT_LABELS[item.segment] ?? 'Unknown'}
                 </span>
               </div>
               <div className="space-y-1">
                 <p className="text-2xl font-bold text-gray-900">{item.customers}</p>
-                <p className="text-xs text-gray-600">고객 수</p>
+                <p className="text-sm text-gray-600">고객 수</p>
               </div>
               <div className="mt-3 pt-3 border-t border-gray-200">
                 <p className="text-lg font-semibold text-blue-600">{item.conversionRatePercent}</p>
-                <p className="text-xs text-gray-600">전환율</p>
+                <p className="text-sm text-gray-600">전환율</p>
               </div>
             </div>
           ))}
@@ -217,7 +217,7 @@ export function RecommendationWidget() {
             {topProducts.map((product, idx) => (
               <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                 <div className="flex items-center gap-3">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-semibold">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-sm font-semibold">
                     {idx + 1}
                   </span>
                   <span className="font-medium text-gray-900">{product.name}</span>

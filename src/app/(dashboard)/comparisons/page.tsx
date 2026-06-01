@@ -68,7 +68,7 @@ export default function ComparisonsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{metrics.totalCompetitorMentions}</div>
-            <p className="text-xs text-gray-600 mt-1">명</p>
+            <p className="text-sm text-gray-600 mt-1">명</p>
           </CardContent>
         </Card>
 
@@ -78,7 +78,7 @@ export default function ComparisonsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{metrics.differentiationMessagesSent}</div>
-            <p className="text-xs text-gray-600 mt-1">명</p>
+            <p className="text-sm text-gray-600 mt-1">명</p>
           </CardContent>
         </Card>
 
@@ -94,7 +94,7 @@ export default function ComparisonsPage() {
             >
               {metrics.conversionRate.toFixed(1)}%
             </div>
-            <p className="text-xs text-gray-600 mt-1">목표: {conversionTarget}%</p>
+            <p className="text-sm text-gray-600 mt-1">목표: {conversionTarget}%</p>
           </CardContent>
         </Card>
 
@@ -104,7 +104,7 @@ export default function ComparisonsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{metrics.avgDifferentiationScore.toFixed(1)}</div>
-            <p className="text-xs text-gray-600 mt-1">/100</p>
+            <p className="text-sm text-gray-600 mt-1">/100</p>
           </CardContent>
         </Card>
       </div>
@@ -174,7 +174,7 @@ export default function ComparisonsPage() {
               </div>
 
               <div className="mt-4 p-3 bg-blue-50 rounded">
-                <p className="text-xs text-gray-600">
+                <p className="text-sm text-gray-600">
                   <strong>자동화 시퀀스:</strong> Day 0 경쟁사 언급 감지 → Day
                   1-3 구조화된 차별성 메시지 발송 → 전환율 40-50% 목표
                 </p>
@@ -233,25 +233,25 @@ export default function ComparisonsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-3 bg-gray-50 rounded">
                   <p className="font-semibold text-gray-700">호텔 경험 없음</p>
-                  <p className="text-xs text-gray-600 mt-1">
+                  <p className="text-sm text-gray-600 mt-1">
                     완전히 새로운 경험 프레이밍 → 리조트처럼 편한 생활 강조
                   </p>
                 </div>
                 <div className="p-3 bg-gray-50 rounded">
                   <p className="font-semibold text-gray-700">가끔 호텔 여행</p>
-                  <p className="text-xs text-gray-600 mt-1">
+                  <p className="text-sm text-gray-600 mt-1">
                     호텔의 좋은 점 유지 + 더 나은 경험 → 업그레이드 프레이밍
                   </p>
                 </div>
                 <div className="p-3 bg-gray-50 rounded">
                   <p className="font-semibold text-gray-700">자주 호텔 여행</p>
-                  <p className="text-xs text-gray-600 mt-1">
+                  <p className="text-sm text-gray-600 mt-1">
                     호텔 여행의 진화 → 다음 단계 경험 제시
                   </p>
                 </div>
                 <div className="p-3 bg-gray-50 rounded">
                   <p className="font-semibold text-gray-700">매년 호텔 여행</p>
-                  <p className="text-xs text-gray-600 mt-1">
+                  <p className="text-sm text-gray-600 mt-1">
                     여행 방식의 혁신 → 생활 방식의 변화 제시
                   </p>
                 </div>

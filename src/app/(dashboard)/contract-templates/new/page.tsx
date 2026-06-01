@@ -164,7 +164,7 @@ export default function NewContractTemplatePage() {
 </div>`}
             rows={8}
           />
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-sm text-gray-500 mt-2">
             매개변수 형식으로 필드를 지정할 수 있습니다 (예: customerName, contractDate)
           </p>
         </div>

@@ -144,25 +144,25 @@ export default function CommissionLedgerPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500 mb-1">판매커미션</p>
+          <p className="text-sm text-gray-500 mb-1">판매커미션</p>
           <p className="text-lg font-bold text-green-600">
             {summary ? `+${summary.totalSalesCommission.toLocaleString("ko-KR")}원` : "—"}
           </p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500 mb-1">오버라이드</p>
+          <p className="text-sm text-gray-500 mb-1">오버라이드</p>
           <p className="text-lg font-bold text-emerald-600">
             {summary ? `+${summary.totalOverride.toLocaleString("ko-KR")}원` : "—"}
           </p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500 mb-1">원천징수</p>
+          <p className="text-sm text-gray-500 mb-1">원천징수</p>
           <p className="text-lg font-bold text-red-500">
             {summary ? `-${summary.totalWithholding.toLocaleString("ko-KR")}원` : "—"}
           </p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500 mb-1">실수령액</p>
+          <p className="text-sm text-gray-500 mb-1">실수령액</p>
           <p className="text-lg font-bold text-navy-900">
             {summary ? `${summary.net.toLocaleString("ko-KR")}원` : "—"}
           </p>
@@ -216,7 +216,7 @@ export default function CommissionLedgerPage() {
           ))}
         </div>
       ) : ledger.length === 0 ? (
-        <div className="text-center py-20 text-gray-400">
+        <div className="text-center py-20 text-gray-600">
           <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="text-sm">커미션 내역이 없습니다.</p>
         </div>
@@ -226,12 +226,12 @@ export default function CommissionLedgerPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">날짜</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">기간</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">구분</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-500 text-xs">금액</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-500 text-xs">잔액</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">메모</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">날짜</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">기간</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">구분</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-500 text-sm">금액</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-500 text-sm">잔액</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">메모</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -239,14 +239,14 @@ export default function CommissionLedgerPage() {
                   const meta = TYPE_META[entry.type] ?? { label: entry.type, badge: "bg-gray-100 text-gray-500" };
                   return (
                     <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 text-gray-500 text-xs font-mono whitespace-nowrap">
+                      <td className="px-4 py-3 text-gray-500 text-sm font-mono whitespace-nowrap">
                         {formatDate(entry.createdAt)}
                       </td>
-                      <td className="px-4 py-3 text-gray-600 text-xs font-mono">
+                      <td className="px-4 py-3 text-gray-600 text-sm font-mono">
                         {entry.yearMonth}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${meta.badge}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${meta.badge}`}>
                           {meta.label}
                         </span>
                       </td>
@@ -256,7 +256,7 @@ export default function CommissionLedgerPage() {
                       <td className="px-4 py-3 text-right text-gray-700 font-medium">
                         {entry.balance.toLocaleString("ko-KR")}원
                       </td>
-                      <td className="px-4 py-3 text-gray-400 text-xs max-w-xs truncate">
+                      <td className="px-4 py-3 text-gray-600 text-sm max-w-xs truncate">
                         {entry.note ?? "—"}
                       </td>
                     </tr>
@@ -268,22 +268,22 @@ export default function CommissionLedgerPage() {
 
           {/* Pagination */}
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-xs text-gray-400">총 {total.toLocaleString("ko-KR")}건</p>
+            <p className="text-sm text-gray-600">총 {total.toLocaleString("ko-KR")}건</p>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30 transition-colors"
+                className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="px-3 py-1.5 text-xs text-gray-600">
+              <span className="px-3 py-1.5 text-sm text-gray-600">
                 {page} / {totalPages}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30 transition-colors"
+                className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition-colors"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

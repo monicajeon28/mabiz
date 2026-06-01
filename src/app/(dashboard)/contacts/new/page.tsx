@@ -218,11 +218,11 @@ export default function NewContactPage() {
                 </option>
               ))}
             </select>
-            {selectedGroupId && <p className="text-xs text-gray-400 mt-1">🔄 퍼널 연결 시 등록 즉시 자동 문자 발송</p>}
+            {selectedGroupId && <p className="text-sm text-gray-600 mt-1">🔄 퍼널 연결 시 등록 즉시 자동 문자 발송</p>}
             <button
               type="button"
               onClick={() => { setGroupModalOpen(true); setGroupAddError(""); setTimeout(() => groupInputRef.current?.focus(), 50); }}
-              className="mt-2 flex items-center gap-1 text-xs text-navy-700 hover:text-navy-900 font-medium"
+              className="mt-2 flex items-center gap-1 text-sm text-navy-700 hover:text-navy-900 font-medium"
             >
               <Plus className="w-3.5 h-3.5" />
               그룹 추가
@@ -249,7 +249,7 @@ export default function NewContactPage() {
                     placeholder="그룹 이름 입력"
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-900/20"
                   />
-                  {groupAddError && <p className="text-xs text-red-500">{groupAddError}</p>}
+                  {groupAddError && <p className="text-sm text-red-500">{groupAddError}</p>}
                   <div className="flex gap-2 pt-1">
                     <button
                       type="button"

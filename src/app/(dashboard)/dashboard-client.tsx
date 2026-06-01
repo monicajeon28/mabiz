@@ -84,7 +84,7 @@ function KpiCard({
       <p className={`text-3xl font-bold mt-1 ${color ? "text-white" : "text-navy-900"}`}>
         {typeof value === "number" ? value.toLocaleString() : value}
       </p>
-      {sub && <p className={`text-xs mt-1 ${color ? "text-white/60" : "text-gray-400"}`}>{sub}</p>}
+      {sub && <p className={`text-sm mt-1 ${color ? "text-white/60" : "text-gray-600"}`}>{sub}</p>}
     </div>
   );
 
@@ -115,19 +115,19 @@ function CampaignStatusCard({
 
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white rounded-lg p-3 border border-indigo-100">
-            <p className="text-xs text-gray-600 mb-1">예정</p>
+            <p className="text-sm text-gray-600 mb-1">예정</p>
             <p className="text-2xl font-bold text-indigo-600">{scheduledToday}</p>
-            <p className="text-xs text-gray-400 mt-1">개</p>
+            <p className="text-sm text-gray-600 mt-1">개</p>
           </div>
           <div className="bg-white rounded-lg p-3 border border-amber-100">
-            <p className="text-xs text-gray-600 mb-1">진행중</p>
+            <p className="text-sm text-gray-600 mb-1">진행중</p>
             <p className="text-2xl font-bold text-amber-600">{inProgress}</p>
-            <p className="text-xs text-gray-400 mt-1">개</p>
+            <p className="text-sm text-gray-600 mt-1">개</p>
           </div>
           <div className="bg-white rounded-lg p-3 border border-green-100">
-            <p className="text-xs text-gray-600 mb-1">완료</p>
+            <p className="text-sm text-gray-600 mb-1">완료</p>
             <p className="text-2xl font-bold text-green-600">{completedToday}</p>
-            <p className="text-xs text-gray-400 mt-1">개</p>
+            <p className="text-sm text-gray-600 mt-1">개</p>
           </div>
         </div>
 
@@ -252,7 +252,7 @@ function PushCallNotification({ callDueCount }: { callDueCount: number }) {
                 />
                 <span className="text-sm font-medium text-gray-700">자동 푸시 알림 활성화</span>
               </label>
-              <p className="text-xs text-gray-500 mt-2 ml-7">매일 지정한 시간에 자동으로 알림을 보냅니다</p>
+              <p className="text-sm text-gray-500 mt-2 ml-7">매일 지정한 시간에 자동으로 알림을 보냅니다</p>
             </div>
 
             {pushSettings.notifyEnabled && (
@@ -269,7 +269,7 @@ function PushCallNotification({ callDueCount }: { callDueCount: number }) {
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-gray-500 mt-2">아침 6시부터 밤 10시까지 선택 가능</p>
+                <p className="text-sm text-gray-500 mt-2">아침 6시부터 밤 10시까지 선택 가능</p>
               </div>
             )}
 
@@ -372,7 +372,7 @@ export function DashboardClient({ session }: DashboardClientProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gold-300 mb-1">내 B2B 홍보 랜딩 링크</p>
-              <p className="text-xs text-gray-400">이 링크로 유입된 고객이 CRM에 자동 등록됩니다</p>
+              <p className="text-sm text-gray-600">이 링크로 유입된 고객이 CRM에 자동 등록됩니다</p>
             </div>
             <button
               onClick={() => {
@@ -392,7 +392,7 @@ export function DashboardClient({ session }: DashboardClientProps) {
               {linkCopied ? <><Check className="w-4 h-4 text-green-400" /> 복사됨!</> : <><Copy className="w-4 h-4" /> 링크 복사</>}
             </button>
           </div>
-          <div className="mt-3 bg-white/5 rounded-lg px-3 py-2 text-xs font-mono text-gray-300 truncate">
+          <div className="mt-3 bg-white/5 rounded-lg px-3 py-2 text-sm font-mono text-gray-300 truncate">
             {typeof window !== "undefined" && (
               role === "GLOBAL_ADMIN"
                 ? `${window.location.origin}/landing`
@@ -409,7 +409,7 @@ export function DashboardClient({ session }: DashboardClientProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-navy-900 mb-1">프리마케터 간편 등록 링크</p>
-              <p className="text-xs text-gray-500">이 링크를 공유하면 프리마케터가 직접 가입할 수 있습니다</p>
+              <p className="text-sm text-gray-500">이 링크를 공유하면 프리마케터가 직접 가입할 수 있습니다</p>
             </div>
             <button
               onClick={() => {
@@ -427,7 +427,7 @@ export function DashboardClient({ session }: DashboardClientProps) {
               {regLinkCopied ? <><Check className="w-4 h-4 text-green-600" /> 복사됨!</> : <><Copy className="w-4 h-4" /> 링크 복사</>}
             </button>
           </div>
-          <div className="mt-3 bg-gray-50 rounded-lg px-3 py-2 text-xs font-mono text-gray-500 truncate">
+          <div className="mt-3 bg-gray-50 rounded-lg px-3 py-2 text-sm font-mono text-gray-500 truncate">
             {typeof window !== "undefined" && `${window.location.origin}/register/free-marketer`}
           </div>
         </div>
@@ -439,7 +439,7 @@ export function DashboardClient({ session }: DashboardClientProps) {
           {data?.affiliateCode ? (
             <p className="text-2xl font-bold text-navy-900 font-mono">{data.affiliateCode}</p>
           ) : (
-            <p className="text-gray-400 text-sm">코드가 등록되지 않았습니다.</p>
+            <p className="text-gray-600 text-sm">코드가 등록되지 않았습니다.</p>
           )}
           <Link href="/my-sales" className="inline-block mt-3 text-sm text-blue-600 hover:underline">내 판매 현황 →</Link>
         </div>
@@ -558,7 +558,7 @@ export function DashboardClient({ session }: DashboardClientProps) {
       <div className="bg-white rounded-2xl border border-gray-200 p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-navy-900">최근 알림</h2>
-          <Link href="/notifications" className="text-xs text-blue-600 hover:underline">전체 보기</Link>
+          <Link href="/notifications" className="text-sm text-blue-600 hover:underline">전체 보기</Link>
         </div>
 
         {feedLoading ? (
@@ -568,7 +568,7 @@ export function DashboardClient({ session }: DashboardClientProps) {
             ))}
           </div>
         ) : feed.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">새 알림이 없습니다</p>
+          <p className="text-sm text-gray-600 text-center py-4">새 알림이 없습니다</p>
         ) : (
           <div className="space-y-2">
             {feed.map(item => {
@@ -581,16 +581,16 @@ export function DashboardClient({ session }: DashboardClientProps) {
                   <span className="text-base shrink-0">{cfg?.emoji}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-gray-500">{cfg?.label}</span>
+                      <span className="text-sm font-medium text-gray-500">{cfg?.label}</span>
                       {item.amount && (
-                        <span className="text-xs font-bold text-amber-600">{item.amount.toLocaleString()}원</span>
+                        <span className="text-sm font-bold text-amber-600">{item.amount.toLocaleString()}원</span>
                       )}
                     </div>
                     <p className="text-sm font-medium text-gray-900 truncate">
                       {item.name}{item.phone ? ` · ${item.phone}` : ''}{item.detail ? ` · ${item.detail}` : ''}
                     </p>
                   </div>
-                  <span className="text-xs text-gray-400 shrink-0 whitespace-nowrap">
+                  <span className="text-sm text-gray-600 shrink-0 whitespace-nowrap">
                     {relativeTime(item.createdAt)}
                   </span>
                 </Link>

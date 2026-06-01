@@ -490,7 +490,7 @@ function SignatureCanvas({ onChange }: { onChange: (dataUrl: string | null) => v
         />
         {!hasSignature && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-gray-400 text-sm select-none">이곳에 사인해 주세요</span>
+            <span className="text-gray-600 text-sm select-none">이곳에 사인해 주세요</span>
           </div>
         )}
       </div>
@@ -498,7 +498,7 @@ function SignatureCanvas({ onChange }: { onChange: (dataUrl: string | null) => v
         <button
           type="button"
           onClick={clearSignature}
-          className="text-xs text-red-500 hover:text-red-700 underline"
+          className="text-sm text-red-500 hover:text-red-700 underline"
         >
           다시 쓰기
         </button>
@@ -646,7 +646,7 @@ export default function AffiliatApplyPage() {
               <p>• 신청번호: #{resultData?.contractId}</p>
             </div>
           </div>
-          <p className="text-xs text-gray-400">문의: {COMPANY.phone}</p>
+          <p className="text-sm text-gray-600">문의: {COMPANY.phone}</p>
         </div>
       </div>
     );
@@ -664,7 +664,7 @@ export default function AffiliatApplyPage() {
           </div>
           <div>
             <h1 className="text-base font-bold text-gray-900">{COMPANY.name}</h1>
-            <p className="text-xs text-gray-500">파트너 계약 신청서</p>
+            <p className="text-sm text-gray-500">파트너 계약 신청서</p>
           </div>
         </div>
       </header>
@@ -694,11 +694,11 @@ export default function AffiliatApplyPage() {
                     {t.label}
                   </div>
                   {key !== 'BRANCH_750' ? (
-                    <div className={`text-xs font-semibold ${isSelected ? 'text-blue-600' : 'text-gray-500'}`}>
+                    <div className={`text-sm font-semibold ${isSelected ? 'text-blue-600' : 'text-gray-500'}`}>
                       {(t.priceKRW / 10_000).toLocaleString()}만원
                     </div>
                   ) : (
-                    <div className={`text-xs ${isSelected ? 'text-blue-500' : 'text-gray-400'}`}>별도 협의</div>
+                    <div className={`text-sm ${isSelected ? 'text-blue-500' : 'text-gray-600'}`}>별도 협의</div>
                   )}
                 </button>
               );
@@ -888,13 +888,13 @@ export default function AffiliatApplyPage() {
                       onClick={() =>
                         setExpandedConsent(expandedConsent === item.key ? null : item.key)
                       }
-                      className="ml-2 text-xs text-blue-600 hover:text-blue-800 shrink-0 px-2 py-1 rounded border border-blue-200 hover:bg-blue-50"
+                      className="ml-2 text-sm text-blue-600 hover:text-blue-800 shrink-0 px-2 py-1 rounded border border-blue-200 hover:bg-blue-50"
                     >
                       {expandedConsent === item.key ? '접기' : '내용 보기'}
                     </button>
                   </div>
                   {expandedConsent === item.key && (
-                    <div className="border-t border-gray-100 p-4 bg-gray-50 text-xs text-gray-600 whitespace-pre-wrap leading-relaxed">
+                    <div className="border-t border-gray-100 p-4 bg-gray-50 text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">
                       {item.detail}
                     </div>
                   )}
@@ -917,7 +917,7 @@ export default function AffiliatApplyPage() {
                 <p className="text-sm font-semibold text-gray-700">계약자 사인</p>
                 <SignatureCanvas onChange={setSignatureDataUrl} />
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">성함 (정자로 기입)</label>
+                  <label className="block text-sm text-gray-500 mb-1">성함 (정자로 기입)</label>
                   <input
                     type="text"
                     value={signName}
@@ -946,22 +946,30 @@ export default function AffiliatApplyPage() {
                       } else {
                         const el = img.parentElement;
                         if (el) {
-                          el.innerHTML =
-                            '<div class="text-red-400 text-center text-xs px-4">도장<br/>(관리자 승인 후 날인)</div>';
+                          // Safe DOM creation instead of innerHTML to prevent XSS
+                          const fallbackDiv = document.createElement('div');
+                          fallbackDiv.className = 'text-red-400 text-center text-sm px-4';
+                          const text1 = document.createTextNode('도장');
+                          const br = document.createElement('br');
+                          const text2 = document.createTextNode('(관리자 승인 후 날인)');
+                          fallbackDiv.appendChild(text1);
+                          fallbackDiv.appendChild(br);
+                          fallbackDiv.appendChild(text2);
+                          el.replaceChildren(fallbackDiv);
                         }
                       }
                     }}
                   />
                 </div>
-                <p className="text-xs text-gray-500 text-center">{COMPANY.name}</p>
+                <p className="text-sm text-gray-500 text-center">{COMPANY.name}</p>
               </div>
             </div>
 
             {/* 계약 당사자 서명란 */}
             <div className="border border-gray-200 rounded-xl p-5 bg-gray-50">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">계약 당사자</p>
-                <span className="text-xs text-blue-500">③번에서 입력한 정보가 자동 표시됩니다</span>
+                <p className="text-sm font-bold text-gray-500 uppercase tracking-wide">계약 당사자</p>
+                <span className="text-sm text-blue-500">③번에서 입력한 정보가 자동 표시됩니다</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm text-gray-700">
                 <div className="space-y-2.5">
@@ -996,7 +1004,7 @@ export default function AffiliatApplyPage() {
                       className="flex-1 border-b border-gray-300 focus:border-blue-500 outline-none py-1 text-sm bg-transparent"
                     />
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">서명 : (위 사인란 참조)</p>
+                  <p className="text-sm text-gray-600 mt-1">서명 : (위 사인란 참조)</p>
                 </div>
                 <div className="space-y-1.5">
                   <p className="font-semibold text-gray-800 pb-1 border-b border-gray-300">(갑) 회사</p>
@@ -1037,7 +1045,7 @@ export default function AffiliatApplyPage() {
           )}
         </button>
 
-        <p className="text-center text-xs text-gray-400 pb-4">
+        <p className="text-center text-sm text-gray-600 pb-4">
           제출 후 담당자가 확인하여 연락드립니다 · {COMPANY.phone}
         </p>
       </form>

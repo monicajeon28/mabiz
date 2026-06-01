@@ -78,19 +78,19 @@ function formatPrice(price: number) {
 }
 
 function DdayBadge({ daysLeft }: { daysLeft: number | null }) {
-  if (daysLeft === null) return <span className="text-gray-400 text-xs">-</span>;
+  if (daysLeft === null) return <span className="text-gray-600 text-sm">-</span>;
 
   let badge: React.ReactNode;
   if (daysLeft === 0)
-    badge = <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white">D-day</span>;
+    badge = <span className="px-2 py-0.5 rounded-full text-sm font-bold bg-red-600 text-white">D-day</span>;
   else if (daysLeft < 0)
-    badge = <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-500">D+{Math.abs(daysLeft)}</span>;
+    badge = <span className="px-2 py-0.5 rounded-full text-sm font-medium bg-gray-200 text-gray-500">D+{Math.abs(daysLeft)}</span>;
   else if (daysLeft <= 7)
-    badge = <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">D-{daysLeft}</span>;
+    badge = <span className="px-2 py-0.5 rounded-full text-sm font-bold bg-red-100 text-red-700">D-{daysLeft}</span>;
   else if (daysLeft <= 30)
-    badge = <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">D-{daysLeft}</span>;
+    badge = <span className="px-2 py-0.5 rounded-full text-sm font-medium bg-orange-100 text-orange-700">D-{daysLeft}</span>;
   else
-    badge = <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">D-{daysLeft}</span>;
+    badge = <span className="px-2 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-700">D-{daysLeft}</span>;
 
   // 마일스톤 배지: 31일~365일 → N개월임박 (30일 이하는 기존 D-day 배지로 충분)
   let milestone: React.ReactNode = null;
@@ -117,7 +117,7 @@ function DdayBadge({ daysLeft }: { daysLeft: number | null }) {
 }
 
 function SaleStatusBadge({ status }: { status: string | null }) {
-  if (!status) return <span className="text-gray-400 text-xs">-</span>;
+  if (!status) return <span className="text-gray-600 text-sm">-</span>;
   const map: Record<string, string> = {
     "판매중":   "bg-green-100 text-green-700",
     "판매완료": "bg-gray-100 text-gray-500",
@@ -127,7 +127,7 @@ function SaleStatusBadge({ status }: { status: string | null }) {
     "3일체험":  "bg-purple-100 text-purple-700",
   };
   const cls = map[status] ?? "bg-gray-100 text-gray-600";
-  return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{status}</span>;
+  return <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${cls}`}>{status}</span>;
 }
 
 function CabinSummaryCell({ summary, productCode, onRegister }: {
@@ -139,7 +139,7 @@ function CabinSummaryCell({ summary, productCode, onRegister }: {
     return (
       <button
         onClick={() => onRegister(productCode)}
-        className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600 transition-colors"
+        className="flex items-center gap-1 text-sm text-gray-600 hover:text-blue-600 transition-colors"
       >
         <PlusCircle className="w-3.5 h-3.5" />
         객실 등록
@@ -160,7 +160,7 @@ function CabinSummaryCell({ summary, productCode, onRegister }: {
         // ★ status 필드 우선, 없으면 remaining 기반 판단 (하위호환)
         const isSoldOut = entry.status === 'SOLD_OUT' || entry.remaining <= 0;
         return (
-          <div key={key} className="flex items-center gap-1.5 text-xs">
+          <div key={key} className="flex items-center gap-1.5 text-sm">
             <span className="text-gray-500 w-[40px] shrink-0 font-medium">{label}</span>
             {isSoldOut ? (
               <span className="font-bold text-red-600">
@@ -169,7 +169,7 @@ function CabinSummaryCell({ summary, productCode, onRegister }: {
             ) : (
               <span className="tabular-nums">
                 <span className="font-bold text-red-500">{entry.booked}</span>
-                <span className="text-gray-400 mx-0.5">/</span>
+                <span className="text-gray-600 mx-0.5">/</span>
                 <span className="font-bold text-blue-500">{entry.total}</span>
                 {entry.remaining <= 3 && entry.remaining > 0 && (
                   <span className="text-orange-500 ml-1 font-medium">({entry.remaining}남)</span>
@@ -182,7 +182,7 @@ function CabinSummaryCell({ summary, productCode, onRegister }: {
       {/* 수정 버튼 */}
       <button
         onClick={() => onRegister(productCode)}
-        className="flex items-center gap-0.5 text-[10px] text-gray-400 hover:text-blue-600 transition-colors mt-0.5"
+        className="flex items-center gap-0.5 text-[10px] text-gray-600 hover:text-blue-600 transition-colors mt-0.5"
       >
         <PlusCircle className="w-3 h-3" />
         수정
@@ -307,14 +307,14 @@ function CabinRegisterModal({ productCode, productName, organizationId, cabinSum
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative">
         <button onClick={onClose} aria-label="닫기" className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100">
-          <X className="w-5 h-5 text-gray-400" />
+          <X className="w-5 h-5 text-gray-600" />
         </button>
         <div className="flex items-center gap-2 mb-1">
           <PlusCircle className="w-5 h-5 text-blue-600" />
           <h2 className="text-lg font-bold text-gray-900">{isEditing ? "객실 수량 수정" : "객실 수량 등록"}</h2>
         </div>
         <p className="text-sm text-gray-500 mb-1 font-medium">{productName}</p>
-        <p className="text-xs text-gray-400 mb-4">PNR(그룹) 기준 · 판매된 실수는 수정 불가</p>
+        <p className="text-sm text-gray-600 mb-4">PNR(그룹) 기준 · 판매된 실수는 수정 불가</p>
 
         <div className="space-y-3 mb-4">
           {CABIN_TYPE_CONFIG.map(({ key, longLabel }) => {
@@ -338,7 +338,7 @@ function CabinRegisterModal({ productCode, productName, organizationId, cabinSum
                           : "border-gray-200 focus:ring-blue-500/20 focus:border-blue-500"
                       }`}
                     />
-                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">실</span>
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-600 text-sm">실</span>
                   </div>
                 </div>
                 {sold > 0 && (
@@ -376,11 +376,11 @@ function CabinRegisterModal({ productCode, productName, organizationId, cabinSum
                     placeholder="0"
                     className="w-full pr-6 pl-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">실</span>
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-600 text-sm">실</span>
                 </div>
                 <button
                   onClick={() => setCustomTypes((p) => p.filter((_, i) => i !== idx))}
-                  className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                  className="p-1.5 text-gray-600 hover:text-red-500 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -503,17 +503,17 @@ function RefundModal({ product, onClose }: RefundModalProps) {
           aria-label="닫기"
           className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 transition-colors"
         >
-          <X className="w-5 h-5 text-gray-400" />
+          <X className="w-5 h-5 text-gray-600" />
         </button>
 
         <div className="flex items-center gap-2 mb-5">
           <Calculator className="w-5 h-5 text-blue-600" />
           <h2 className="text-lg font-bold text-gray-900">환불기준 계산기</h2>
           {!product.refundPolicy?.isStructured && (
-            <span className="ml-auto text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">법정기준</span>
+            <span className="ml-auto text-sm text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">법정기준</span>
           )}
           {product.refundPolicy?.isStructured && (
-            <span className="ml-auto text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">상품별 정책</span>
+            <span className="ml-auto text-sm text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">상품별 정책</span>
           )}
         </div>
 
@@ -547,7 +547,7 @@ function RefundModal({ product, onClose }: RefundModalProps) {
               placeholder="예: 1,290,000"
               className="w-full pr-8 pl-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">원</span>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">원</span>
           </div>
         </div>
 
@@ -555,7 +555,7 @@ function RefundModal({ product, onClose }: RefundModalProps) {
         {result && amount > 0 && (
           <div className="border border-gray-200 rounded-xl overflow-hidden mb-4">
             <div className="bg-blue-50 px-4 py-2 border-b border-gray-200">
-              <span className="text-xs font-medium text-blue-700">환불 계산 결과 — {result.basis}</span>
+              <span className="text-sm font-medium text-blue-700">환불 계산 결과 — {result.basis}</span>
             </div>
             <div className="divide-y divide-gray-100">
               <div className="flex justify-between items-center px-4 py-2.5 text-sm">
@@ -580,7 +580,7 @@ function RefundModal({ product, onClose }: RefundModalProps) {
 
         {/* 위약금 기준표 */}
         {daysLeft >= 0 && (
-          <div className="text-xs text-gray-500 space-y-0.5">
+          <div className="text-sm text-gray-500 space-y-0.5">
             <p className="font-medium text-gray-600 mb-1">위약금 기준표</p>
             {[...slots]
               .sort((a, b) => b.daysBeforeDep - a.daysBeforeDep)
@@ -730,7 +730,7 @@ function ApisModal({ product, onClose }: ApisModalProps) {
             <FileSpreadsheet className="w-5 h-5 text-green-600" />
             <div>
               <h2 className="text-base font-bold text-gray-900">APIS 탑승자 명단</h2>
-              {tripTitle && <p className="text-xs text-gray-500 mt-0.5">{tripTitle}</p>}
+              {tripTitle && <p className="text-sm text-gray-500 mt-0.5">{tripTitle}</p>}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -745,7 +745,7 @@ function ApisModal({ product, onClose }: ApisModalProps) {
               </button>
             )}
             <button onClick={onClose} className="p-1.5 rounded-full hover:bg-gray-100">
-              <X className="w-5 h-5 text-gray-400" />
+              <X className="w-5 h-5 text-gray-600" />
             </button>
           </div>
         </div>
@@ -762,7 +762,7 @@ function ApisModal({ product, onClose }: ApisModalProps) {
             <div className="text-center py-20 text-red-500 text-sm">{error}</div>
           )}
           {!loading && !error && (
-            <div className="text-xs">
+            <div className="text-sm">
               <p className="text-gray-500 mb-2 font-medium">
                 {rows.length > 0 ? `총 ${rows.length}명` : "등록된 탑승자 없음 — 아래 양식으로 엑셀 다운로드 가능합니다"}
               </p>
@@ -787,7 +787,7 @@ function ApisModal({ product, onClose }: ApisModalProps) {
                     ))}
                     {rows.length === 0 && (
                       <tr>
-                        <td colSpan={APIS_HEADERS.length} className="text-center py-8 text-gray-400">
+                        <td colSpan={APIS_HEADERS.length} className="text-center py-8 text-gray-600">
                           탑승자 정보가 아직 없습니다
                         </td>
                       </tr>
@@ -939,7 +939,7 @@ export default function ProductsPage() {
 
         <form onSubmit={handleSearch} className="flex-1 flex gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none" />
             <input
               type="text"
               value={searchInput}
@@ -976,7 +976,7 @@ export default function ProductsPage() {
       <div className="flex justify-end mb-2">
         <button
           onClick={() => fetchProducts(page, searchQuery, activeFilter)}
-          className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-600 hover:text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
         >
           <RefreshCw size={14} />
           새로고침
@@ -1012,7 +1012,7 @@ export default function ProductsPage() {
 
               {!loading && !error && products.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="text-center py-16 text-gray-400 text-sm">
+                  <td colSpan={8} className="text-center py-16 text-gray-600 text-sm">
                     <ShoppingBag className="w-10 h-10 mx-auto mb-2 text-gray-300" />
                     등록된 상품이 없습니다
                   </td>
@@ -1024,7 +1024,7 @@ export default function ProductsPage() {
                   <tr key={product.id} className="hover:bg-gray-50 transition-colors">
                     {/* 상품코드 */}
                     <td className="px-4 py-3">
-                      <span className="font-mono text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded">
+                      <span className="font-mono text-sm bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded">
                         {product.code}
                       </span>
                     </td>
@@ -1032,13 +1032,13 @@ export default function ProductsPage() {
                     {/* 상품명 + 크루즈라인 + 기항지 */}
                     <td className="px-4 py-3 max-w-[240px]">
                       <div className="font-medium text-gray-900 truncate">{product.name}</div>
-                      <div className="text-xs text-gray-400 mt-0.5">
+                      <div className="text-sm text-gray-600 mt-0.5">
                         {product.cruiseLine}
                         {product.shipName ? ` · ${product.shipName}` : ""}
                         {product.nights > 0 ? ` · ${product.nights}박${product.days}일` : ""}
                       </div>
                       {product.ports.length > 0 && (
-                        <div className="flex items-center gap-0.5 mt-0.5 text-xs text-blue-600">
+                        <div className="flex items-center gap-0.5 mt-0.5 text-sm text-blue-600">
                           <MapPin className="w-3 h-3 shrink-0" />
                           <span className="truncate">{product.ports.join(" → ")}</span>
                         </div>
@@ -1080,7 +1080,7 @@ export default function ProductsPage() {
                         {product.departureDate && (
                           <button
                             onClick={() => setRefundProduct(product)}
-                            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors whitespace-nowrap"
+                            className="flex items-center gap-1 px-2.5 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors whitespace-nowrap"
                           >
                             <Calculator className="w-3.5 h-3.5" />
                             환불기준
@@ -1089,7 +1089,7 @@ export default function ProductsPage() {
                         {canDownloadApis && (
                           <button
                             onClick={() => setApisProduct(product)}
-                            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors whitespace-nowrap"
+                            className="flex items-center gap-1 px-2.5 py-1.5 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors whitespace-nowrap"
                           >
                             <FileSpreadsheet className="w-3.5 h-3.5" />
                             APIS

@@ -338,7 +338,7 @@ export default function OptimizationDashboard() {
                       />
                     </div>
 
-                    <p className="text-xs text-gray-600 mt-2">
+                    <p className="text-sm text-gray-600 mt-2">
                       {channel === "SMS" && "전송 속도 빠름"}
                       {channel === "KAKAO" && "개방율 최고"}
                       {channel === "EMAIL" && "비용 효율"}
@@ -447,13 +447,13 @@ export default function OptimizationDashboard() {
                   {CHANNEL_CONFIG[test.channel].icon}
                   <div>
                     <p className="font-medium text-sm">{test.variant}</p>
-                    <p className="text-xs text-gray-600">
+                    <p className="text-sm text-gray-600">
                       전환율: {test.conversionRate.toFixed(2)}%
                     </p>
                   </div>
                 </div>
                 {test.winner && (
-                  <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full flex items-center gap-1">
+                  <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-bold rounded-full flex items-center gap-1">
                     <CheckCircle className="w-3 h-3" />
                     우승
                   </span>
@@ -478,7 +478,7 @@ export default function OptimizationDashboard() {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-4 bg-green-50 border border-green-200 rounded">
-              <p className="text-xs text-green-700 font-semibold mb-1">
+              <p className="text-sm text-green-700 font-semibold mb-1">
                 현재 월 수익
               </p>
               <p className="text-2xl font-bold text-green-600">
@@ -487,17 +487,17 @@ export default function OptimizationDashboard() {
             </div>
 
             <div className="p-4 bg-blue-50 border border-blue-200 rounded">
-              <p className="text-xs text-blue-700 font-semibold mb-1">
+              <p className="text-sm text-blue-700 font-semibold mb-1">
                 예상 증가분
               </p>
               <p className="text-2xl font-bold text-blue-600">
                 +${(data.projectedImpact.revenueIncrease / 1000).toFixed(0)}K
               </p>
-              <p className="text-xs text-blue-600 mt-1">+15%</p>
+              <p className="text-sm text-blue-600 mt-1">+15%</p>
             </div>
 
             <div className="p-4 bg-purple-50 border border-purple-200 rounded">
-              <p className="text-xs text-purple-700 font-semibold mb-1">
+              <p className="text-sm text-purple-700 font-semibold mb-1">
                 현재 CPA
               </p>
               <p className="text-2xl font-bold text-purple-600">
@@ -506,19 +506,19 @@ export default function OptimizationDashboard() {
             </div>
 
             <div className="p-4 bg-orange-50 border border-orange-200 rounded">
-              <p className="text-xs text-orange-700 font-semibold mb-1">
+              <p className="text-sm text-orange-700 font-semibold mb-1">
                 CPA 절감
               </p>
               <p className="text-2xl font-bold text-orange-600">
                 -${Math.round(data.projectedImpact.cpaSavings / 100) * 100}
               </p>
-              <p className="text-xs text-orange-600 mt-1">-15%</p>
+              <p className="text-sm text-orange-600 mt-1">-15%</p>
             </div>
           </div>
 
           <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded">
             <h4 className="font-semibold text-sm mb-2">계산 방식</h4>
-            <ul className="text-xs text-gray-700 space-y-1">
+            <ul className="text-sm text-gray-700 space-y-1">
               <li>
                 • 월 수익 = 기존 캠페인 ROI × 현재 예산 × (1 + 신뢰도 계수)
               </li>

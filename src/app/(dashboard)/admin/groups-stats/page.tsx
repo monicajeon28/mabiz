@@ -103,10 +103,10 @@ export default function GroupsStatsPage() {
       {/* TOP 그룹명 인사이트 */}
       {topNames.length > 0 && (
         <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mb-5">
-          <p className="text-xs font-semibold text-indigo-700 mb-2">많이 사용되는 그룹명 TOP 10</p>
+          <p className="text-sm font-semibold text-indigo-700 mb-2">많이 사용되는 그룹명 TOP 10</p>
           <div className="flex flex-wrap gap-2">
             {topNames.map(t => (
-              <span key={t.name} className="px-2.5 py-1 bg-white border border-indigo-200 text-indigo-700 rounded-full text-xs font-medium">
+              <span key={t.name} className="px-2.5 py-1 bg-white border border-indigo-200 text-indigo-700 rounded-full text-sm font-medium">
                 {t.name} <span className="text-indigo-400">·{t.count}곳</span>
               </span>
             ))}
@@ -122,17 +122,17 @@ export default function GroupsStatsPage() {
           ))}
         </div>
       ) : groups.length === 0 ? (
-        <p className="text-center text-sm text-gray-400 py-12">그룹이 없습니다.</p>
+        <p className="text-center text-sm text-gray-600 py-12">그룹이 없습니다.</p>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">그룹명</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">조직</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">생성자</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500">고객수</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500">생성일</th>
+                <th className="text-left px-4 py-3 text-sm font-semibold text-gray-500">그룹명</th>
+                <th className="text-left px-4 py-3 text-sm font-semibold text-gray-500">조직</th>
+                <th className="text-left px-4 py-3 text-sm font-semibold text-gray-500">생성자</th>
+                <th className="text-right px-4 py-3 text-sm font-semibold text-gray-500">고객수</th>
+                <th className="text-right px-4 py-3 text-sm font-semibold text-gray-500">생성일</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -153,18 +153,18 @@ export default function GroupsStatsPage() {
                       )}
                     </div>
                     {g.description && (
-                      <p className="text-xs text-gray-400 mt-0.5 ml-4">{g.description}</p>
+                      <p className="text-sm text-gray-600 mt-0.5 ml-4">{g.description}</p>
                     )}
                   </td>
                   <td className="px-4 py-3 text-gray-600">{g.orgName}</td>
                   <td className="px-4 py-3 text-gray-600">{g.ownerName}</td>
                   <td className="px-4 py-3 text-right">
                     <span className="flex items-center justify-end gap-1 text-gray-700">
-                      <Users className="w-3.5 h-3.5 text-gray-400" />
+                      <Users className="w-3.5 h-3.5 text-gray-600" />
                       {g.memberCount.toLocaleString()}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right text-gray-400 text-xs">
+                  <td className="px-4 py-3 text-right text-gray-600 text-sm">
                     {new Date(g.createdAt).toLocaleDateString("ko-KR")}
                   </td>
                 </tr>

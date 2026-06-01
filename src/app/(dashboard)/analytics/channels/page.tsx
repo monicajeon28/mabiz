@@ -198,43 +198,43 @@ export default function ChannelsPage() {
       {/* KPI 요약 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="text-xs font-medium text-gray-600 mb-2">총 발송</div>
+          <div className="text-sm font-medium text-gray-600 mb-2">총 발송</div>
           <div className="text-3xl font-bold text-gray-900 mb-2">
             {totalSent.toLocaleString()}
           </div>
-          <div className="text-xs text-gray-500">건</div>
+          <div className="text-sm text-gray-500">건</div>
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="text-xs font-medium text-gray-600 mb-2">
+          <div className="text-sm font-medium text-gray-600 mb-2">
             총 전환
           </div>
           <div className="text-3xl font-bold text-green-600 mb-2">
             {totalConverted}
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-sm text-gray-500">
             {avgConversionRate}% 전환율
           </div>
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="text-xs font-medium text-gray-600 mb-2">
+          <div className="text-sm font-medium text-gray-600 mb-2">
             총 비용
           </div>
           <div className="text-3xl font-bold text-gray-900 mb-2">
             ₩{(totalCost / 1000).toFixed(0)}K
           </div>
-          <div className="text-xs text-gray-500">3채널 합계</div>
+          <div className="text-sm text-gray-500">3채널 합계</div>
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="text-xs font-medium text-gray-600 mb-2">
+          <div className="text-sm font-medium text-gray-600 mb-2">
             최고 성과
           </div>
           <div className="text-3xl font-bold text-gray-900 mb-2">
             {CHANNEL_CONFIG[data.bestPerformer]?.label}
           </div>
-          <div className="text-xs text-gray-500 flex items-center gap-1">
+          <div className="text-sm text-gray-500 flex items-center gap-1">
             ROI {bestPerformerData?.roi.toFixed(2) || 0}
           </div>
         </div>
@@ -275,7 +275,7 @@ export default function ChannelsPage() {
                       {config.label}
                     </h3>
                     {isHighlight && (
-                      <span className="text-xs font-medium text-green-600">
+                      <span className="text-sm font-medium text-green-600">
                         ⭐ 최고 성과
                       </span>
                     )}
@@ -289,10 +289,10 @@ export default function ChannelsPage() {
                   ) : channel.trend === "DOWN" ? (
                     <TrendingDown className="w-4 h-4 text-red-600" />
                   ) : (
-                    <div className="w-4 h-4 text-gray-400">→</div>
+                    <div className="w-4 h-4 text-gray-600">→</div>
                   )}
                   <span
-                    className={`text-xs font-semibold ${
+                    className={`text-sm font-semibold ${
                       channel.trend === "UP"
                         ? "text-green-600"
                         : channel.trend === "DOWN"
@@ -309,38 +309,38 @@ export default function ChannelsPage() {
               {/* 주요 메트릭 그리드 */}
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className="bg-white/50 rounded p-3">
-                  <div className="text-xs text-gray-600 mb-1">발송</div>
+                  <div className="text-sm text-gray-600 mb-1">발송</div>
                   <div className="text-xl font-bold text-gray-900">
                     {channel.sent.toLocaleString()}
                   </div>
                 </div>
 
                 <div className="bg-white/50 rounded p-3">
-                  <div className="text-xs text-gray-600 mb-1">개방</div>
+                  <div className="text-sm text-gray-600 mb-1">개방</div>
                   <div className="text-xl font-bold text-gray-900">
                     {channel.opened}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-sm text-gray-500 mt-1">
                     {channel.openRate.toFixed(1)}%
                   </div>
                 </div>
 
                 <div className="bg-white/50 rounded p-3">
-                  <div className="text-xs text-gray-600 mb-1">클릭</div>
+                  <div className="text-sm text-gray-600 mb-1">클릭</div>
                   <div className="text-xl font-bold text-gray-900">
                     {channel.clicked}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-sm text-gray-500 mt-1">
                     {channel.clickRate.toFixed(1)}%
                   </div>
                 </div>
 
                 <div className="bg-white/50 rounded p-3">
-                  <div className="text-xs text-gray-600 mb-1">전환</div>
+                  <div className="text-sm text-gray-600 mb-1">전환</div>
                   <div className="text-xl font-bold text-green-600">
                     {channel.converted}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-sm text-gray-500 mt-1">
                     {channel.conversionRate.toFixed(2)}%
                   </div>
                 </div>
@@ -349,13 +349,13 @@ export default function ChannelsPage() {
               {/* 비용 및 ROI */}
               <div className="border-t border-gray-200 pt-3">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-gray-600">비용</span>
+                  <span className="text-sm text-gray-600">비용</span>
                   <span className="text-sm font-bold text-gray-900">
                     ₩{(channel.cost / 1000).toFixed(0)}K
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">ROI</span>
+                  <span className="text-sm text-gray-600">ROI</span>
                   <span
                     className={`text-sm font-bold ${
                       channel.roi > 0 ? "text-green-600" : "text-gray-600"
@@ -370,7 +370,7 @@ export default function ChannelsPage() {
               {channel.failed > 0 && (
                 <div className="mt-3 bg-red-50 rounded p-2 flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                  <div className="text-xs text-red-700">
+                  <div className="text-sm text-red-700">
                     {channel.failed}건 발송 실패 (
                     {((channel.failed / channel.sent) * 100).toFixed(1)}%)
                   </div>
@@ -478,7 +478,7 @@ export default function ChannelsPage() {
         <div className="space-y-3">
           {data.recommendations.map((rec, idx) => (
             <div key={idx} className="flex gap-3">
-              <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-blue-200 text-blue-700 text-xs font-bold">
+              <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-blue-200 text-blue-700 text-sm font-bold">
                 {idx + 1}
               </div>
               <p className="text-sm text-gray-700">{rec}</p>

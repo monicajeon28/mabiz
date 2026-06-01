@@ -158,7 +158,7 @@ export default function WebhookReportsPage() {
               <p className="text-sm text-gray-600">Total Events</p>
               <p className="text-2xl font-bold">{metrics.totalEvents.toLocaleString()}</p>
               {isWeekly && (
-                <p className={`text-xs mt-1 ${weeklyReport.comparisonWithPreviousWeek.volumeChange > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                <p className={`text-sm mt-1 ${weeklyReport.comparisonWithPreviousWeek.volumeChange > 0 ? 'text-red-600' : 'text-green-600'}`}>
                   {weeklyReport.comparisonWithPreviousWeek.volumeChange > 0 ? '+' : ''}
                   {weeklyReport.comparisonWithPreviousWeek.volumeChange} from previous week
                 </p>
@@ -170,7 +170,7 @@ export default function WebhookReportsPage() {
                 {metrics.successRate.toFixed(2)}%
               </p>
               {isWeekly && (
-                <p className={`text-xs mt-1 ${weeklyReport.comparisonWithPreviousWeek.successRateChange > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <p className={`text-sm mt-1 ${weeklyReport.comparisonWithPreviousWeek.successRateChange > 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {weeklyReport.comparisonWithPreviousWeek.successRateChange > 0 ? '+' : ''}
                   {weeklyReport.comparisonWithPreviousWeek.successRateChange.toFixed(2)}% change
                 </p>
@@ -180,7 +180,7 @@ export default function WebhookReportsPage() {
               <p className="text-sm text-gray-600">Avg Latency</p>
               <p className="text-2xl font-bold">{metrics.avgExecutionTimeMs.toFixed(0)}ms</p>
               {isWeekly && (
-                <p className={`text-xs mt-1 ${weeklyReport.comparisonWithPreviousWeek.latencyChange > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                <p className={`text-sm mt-1 ${weeklyReport.comparisonWithPreviousWeek.latencyChange > 0 ? 'text-red-600' : 'text-green-600'}`}>
                   {weeklyReport.comparisonWithPreviousWeek.latencyChange > 0 ? '+' : ''}
                   {weeklyReport.comparisonWithPreviousWeek.latencyChange.toFixed(0)}ms change
                 </p>
@@ -189,7 +189,7 @@ export default function WebhookReportsPage() {
             <div>
               <p className="text-sm text-gray-600">Est. Monthly Cost</p>
               <p className="text-2xl font-bold">${metrics.estimatedMonthlyCost.toFixed(2)}</p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-sm text-gray-500 mt-1">
                 ${(metrics.costPerEvent * 1000000).toFixed(2)}/million events
               </p>
             </div>
@@ -206,11 +206,11 @@ export default function WebhookReportsPage() {
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600">Successful</p>
+                <p className="text-sm text-gray-600">Successful</p>
                 <p className="text-2xl font-bold text-green-600">{metrics.successCount.toLocaleString()}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-600">Failed</p>
+                <p className="text-sm text-gray-600">Failed</p>
                 <p className="text-2xl font-bold text-red-600">{metrics.failureCount.toLocaleString()}</p>
               </div>
             </div>
@@ -256,7 +256,7 @@ export default function WebhookReportsPage() {
                 {metrics.autoRetrySuccessRate.toFixed(2)}%
               </span>
             </div>
-            <div className="text-xs text-gray-500 mt-2">
+            <div className="text-sm text-gray-500 mt-2">
               Retry mechanisms are {metrics.autoRetrySuccessRate >= 80 ? 'working well' : 'needs improvement'}
             </div>
           </CardContent>
@@ -283,14 +283,14 @@ export default function WebhookReportsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <p className="text-xs text-gray-600">Slowest Type</p>
+              <p className="text-sm text-gray-600">Slowest Type</p>
               <p className="font-semibold">{metrics.slowestType}</p>
-              <p className="text-xs text-gray-500">{metrics.slowestTypeAvgTime.toFixed(0)}ms avg</p>
+              <p className="text-sm text-gray-500">{metrics.slowestTypeAvgTime.toFixed(0)}ms avg</p>
             </div>
             <div>
-              <p className="text-xs text-gray-600">Most Reliable Type</p>
+              <p className="text-sm text-gray-600">Most Reliable Type</p>
               <p className="font-semibold">{metrics.mostReliableType}</p>
-              <p className="text-xs text-green-600">{metrics.mostReliableTypeSuccessRate.toFixed(2)}% success</p>
+              <p className="text-sm text-green-600">{metrics.mostReliableTypeSuccessRate.toFixed(2)}% success</p>
             </div>
           </CardContent>
         </Card>

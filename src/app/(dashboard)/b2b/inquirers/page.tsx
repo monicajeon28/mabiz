@@ -136,7 +136,7 @@ export default function InquirersPage() {
           <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-gray-900">교육 문의자 등록</h3>
-              <button onClick={() => setShowForm(false)} aria-label="닫기"><X className="w-5 h-5 text-gray-400" /></button>
+              <button onClick={() => setShowForm(false)} aria-label="닫기"><X className="w-5 h-5 text-gray-600" /></button>
             </div>
             <div className="grid grid-cols-2 gap-3">
               {[
@@ -145,7 +145,7 @@ export default function InquirersPage() {
                 { key: "email", label: "이메일",      placeholder: "abc@example.com" },
               ].map(f => (
                 <div key={f.key} className={f.key === "email" ? "" : ""}>
-                  <label className="text-xs font-medium text-gray-600 mb-1 block">{f.label}</label>
+                  <label className="text-sm font-medium text-gray-600 mb-1 block">{f.label}</label>
                   <input
                     value={form[f.key as keyof typeof form]}
                     onChange={e => setForm({ ...form, [f.key]: e.target.value })}
@@ -156,7 +156,7 @@ export default function InquirersPage() {
               ))}
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">상태</label>
+              <label className="text-sm font-medium text-gray-600 mb-1 block">상태</label>
               <select
                 value={form.status}
                 onChange={e => setForm({ ...form, status: e.target.value })}
@@ -166,7 +166,7 @@ export default function InquirersPage() {
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">메모</label>
+              <label className="text-sm font-medium text-gray-600 mb-1 block">메모</label>
               <textarea
                 value={form.notes}
                 onChange={e => setForm({ ...form, notes: e.target.value })}
@@ -205,7 +205,7 @@ export default function InquirersPage() {
       {/* 검색 */}
       <div className="flex gap-2 mb-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
           <input
             type="text"
             placeholder="이름, 전화번호, 이메일 검색"
@@ -220,7 +220,7 @@ export default function InquirersPage() {
       <div className="flex flex-wrap gap-2 mb-4">
         <button
           onClick={() => { setFilter(""); setPage(1); }}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${!filter ? "bg-navy-900 text-white border-navy-900" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+          className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${!filter ? "bg-navy-900 text-white border-navy-900" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
         >
           전체
         </button>
@@ -228,7 +228,7 @@ export default function InquirersPage() {
           <button
             key={s.key}
             onClick={() => { setFilter(s.key === filter ? "" : s.key); setPage(1); }}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${filter === s.key ? s.color + " border-current" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${filter === s.key ? s.color + " border-current" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
           >
             {s.key}
           </button>
@@ -241,7 +241,7 @@ export default function InquirersPage() {
           {[...Array(5)].map((_, i) => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}
         </div>
       ) : prospects.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-gray-600">
           <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-20" />
           <p className="text-sm">문의자가 없습니다. 추가해보세요!</p>
         </div>
@@ -256,9 +256,9 @@ export default function InquirersPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-gray-900">{p.name}</p>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${si.color}`}>{p.status}</span>
+                      <span className={`text-sm px-2 py-0.5 rounded-full font-medium ${si.color}`}>{p.status}</span>
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 flex-wrap">
+                    <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
                       <a href={`tel:${p.phone}`} className="text-blue-600 hover:underline flex items-center gap-1">
                         <Phone className="w-3 h-3" /> {p.phone}
                       </a>
@@ -270,11 +270,11 @@ export default function InquirersPage() {
                     <select
                       value={p.status}
                       onChange={e => updateStatus(p.id, e.target.value)}
-                      className={`text-xs px-2 py-1 rounded-lg border font-medium cursor-pointer bg-white ${si.color}`}
+                      className={`text-sm px-2 py-1 rounded-lg border font-medium cursor-pointer bg-white ${si.color}`}
                     >
                       {STATUSES.map(s => <option key={s.key} value={s.key}>{s.key}</option>)}
                     </select>
-                    <button onClick={() => setDetail(p)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400">
+                    <button onClick={() => setDetail(p)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-600">
                       <ChevronRight className="w-4 h-4" />
                     </button>
                     <button onClick={() => remove(p.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-gray-300 hover:text-red-500">
@@ -282,7 +282,7 @@ export default function InquirersPage() {
                     </button>
                   </div>
                 </div>
-                {p.notes && <p className="text-xs text-gray-400 mt-2 ml-5 line-clamp-1 italic">&quot;{p.notes}&quot;</p>}
+                {p.notes && <p className="text-sm text-gray-600 mt-2 ml-5 line-clamp-1 italic">&quot;{p.notes}&quot;</p>}
               </div>
             );
           })}
@@ -306,7 +306,7 @@ export default function InquirersPage() {
           <div className="bg-white w-full max-w-sm h-full overflow-y-auto p-6 space-y-4 shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-gray-900">{detail.name}</h3>
-              <button onClick={() => setDetail(null)} aria-label="닫기" className="text-gray-400"><X className="w-5 h-5" /></button>
+              <button onClick={() => setDetail(null)} aria-label="닫기" className="text-gray-600"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-2 text-sm">
               {[
@@ -314,13 +314,13 @@ export default function InquirersPage() {
                 { label: "이메일",   value: detail.email },
               ].filter(f => f.value).map(f => (
                 <div key={f.label} className="flex gap-2">
-                  <span className="text-gray-400 w-20 shrink-0">{f.label}</span>
+                  <span className="text-gray-600 w-20 shrink-0">{f.label}</span>
                   <span className="text-gray-900 font-medium">{f.value}</span>
                 </div>
               ))}
             </div>
             <div>
-              <p className="text-xs font-medium text-gray-500 mb-1">메모</p>
+              <p className="text-sm font-medium text-gray-500 mb-1">메모</p>
               <textarea
                 value={notesDraft}
                 onChange={e => setNotesDraft(e.target.value)}
@@ -331,7 +331,7 @@ export default function InquirersPage() {
               />
             </div>
             <div>
-              <p className="text-xs font-medium text-gray-500 mb-2">상태 변경</p>
+              <p className="text-sm font-medium text-gray-500 mb-2">상태 변경</p>
               <div className="grid grid-cols-1 gap-1.5">
                 {STATUSES.map(s => (
                   <button key={s.key} onClick={() => updateStatus(detail.id, s.key)}
@@ -340,7 +340,7 @@ export default function InquirersPage() {
                     }`}>
                     <span className={`w-2 h-2 rounded-full ${s.dot}`} />
                     {s.key}
-                    {detail.status === s.key && <span className="ml-auto text-xs">✓ 현재</span>}
+                    {detail.status === s.key && <span className="ml-auto text-sm">✓ 현재</span>}
                   </button>
                 ))}
               </div>
