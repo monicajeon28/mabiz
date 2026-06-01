@@ -199,7 +199,6 @@ export async function logKakaoMessage(
         contentPreview: content.substring(0, 100),
         status,
         channel: 'KAKAO',
-        messageType: 'KAKAO',
         msgId: messageId,
         sentAt: new Date(),
       },

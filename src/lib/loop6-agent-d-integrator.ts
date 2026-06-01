@@ -35,6 +35,7 @@ export interface Day0IntegrationResult {
     success: boolean;
     smsId?: string;
     error?: string;
+    retryable?: boolean;
   };
   scheduledDays?: {
     day1: boolean;
@@ -149,20 +150,9 @@ export async function integrateContactWithLoop5Sms(
         data: {
           organizationId,
           contactId,
-          phone: payload.phone,
           message: day1Message,
-          scheduleTime: day1ScheduleTime,
+          scheduledAt: day1ScheduleTime,
           status: 'PENDING',
-          retryCount: 0,
-          maxRetries: 3,
-          metadata: {
-            segment,
-            day: 1,
-            variant: 'a',
-            psych_lens: 'L6_TIMING_LOSS_AVERSION',
-            pasona_stage: 'S_SOLUTION',
-            source: 'loop6_agent_d',
-          },
         },
       });
 
@@ -170,7 +160,7 @@ export async function integrateContactWithLoop5Sms(
 
       logger.log('[Loop6-AgentD] Day 1 SMS 스케줄 등록', {
         contactId,
-        scheduleTime: day1ScheduleTime,
+        scheduledAt: day1ScheduleTime,
       });
 
       // Day 2 (48시간 후, 17:00 UTC)
@@ -184,20 +174,9 @@ export async function integrateContactWithLoop5Sms(
         data: {
           organizationId,
           contactId,
-          phone: payload.phone,
           message: day2Message,
-          scheduleTime: day2ScheduleTime,
+          scheduledAt: day2ScheduleTime,
           status: 'PENDING',
-          retryCount: 0,
-          maxRetries: 3,
-          metadata: {
-            segment,
-            day: 2,
-            variant: 'a',
-            psych_lens: 'L6_TIMING_LOSS_AVERSION',
-            pasona_stage: 'O_OFFER_N_NARROW',
-            source: 'loop6_agent_d',
-          },
         },
       });
 
@@ -205,7 +184,7 @@ export async function integrateContactWithLoop5Sms(
 
       logger.log('[Loop6-AgentD] Day 2 SMS 스케줄 등록', {
         contactId,
-        scheduleTime: day2ScheduleTime,
+        scheduledAt: day2ScheduleTime,
       });
 
       // Day 3 (72시간 후, 01:00 UTC)
@@ -219,20 +198,9 @@ export async function integrateContactWithLoop5Sms(
         data: {
           organizationId,
           contactId,
-          phone: payload.phone,
           message: day3Message,
-          scheduleTime: day3ScheduleTime,
+          scheduledAt: day3ScheduleTime,
           status: 'PENDING',
-          retryCount: 0,
-          maxRetries: 3,
-          metadata: {
-            segment,
-            day: 3,
-            variant: 'a',
-            psych_lens: 'L6_TIMING_LOSS_AVERSION',
-            pasona_stage: 'A_ACTION',
-            source: 'loop6_agent_d',
-          },
         },
       });
 

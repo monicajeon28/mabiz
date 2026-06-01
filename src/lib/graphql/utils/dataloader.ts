@@ -33,7 +33,7 @@ export const createContactLoader = () => {
         where: { id: { in: contactIds as string[] } },
         include: {
           contactLensClassifications: true,
-          contactSegmentAssignments: true,
+          groups: true,
         },
       });
 
@@ -61,8 +61,8 @@ export const createCampaignLoader = () => {
       const campaigns = await prisma.crmMarketingCampaign.findMany({
         where: { id: { in: campaignIds as string[] } },
         include: {
-          messages: true,
-          abTestVariants: true,
+          executionLogs: true,
+          variants: true,
         },
       });
 
@@ -144,7 +144,7 @@ export const createContactInteractionLoader = () => {
         where: {
           contactId: { in: contactIds as string[] },
         },
-        orderBy: { createdAt: "DESC" },
+        orderBy: { createdAt: "desc" },
         take: 10000, // limit for performance
       });
 
@@ -169,8 +169,19 @@ export const createCampaignMetricsLoader = () => {
     try {
       const metrics = await Promise.all(
         campaignIds.map(async (id) => {
+          // Get campaign's contact groups/segments, then get messages for those contacts
+          const campaign = await prisma.crmMarketingCampaign.findUnique({
+            where: { id },
+            include: { group: { include: { members: true } } }
+          });
+
+          if (!campaign) {
+            return { totalSent: 0, totalDelivered: 0, totalOpened: 0, totalClicked: 0, totalConverted: 0 };
+          }
+
+          const contactIds = campaign.group.members.map(m => m.contactId);
           const messages = await prisma.crmMarketingMessage.findMany({
-            where: { campaignId: id },
+            where: { contactId: { in: contactIds } },
           });
 
           const totalSent = messages.length;

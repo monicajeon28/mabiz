@@ -576,7 +576,8 @@ export async function retrySendingMessage(sendingId: string): Promise<void> {
     }
 
     // Phase 3-β: P1-2 Redis 캐시에서 Contact Snapshot 조회 (N+1 제거)
-    let contact = await getContactSnapshotFromRedis(sending.contactId, redis);
+    const redisClient = getRedis();
+    let contact = redisClient ? await getContactSnapshotFromRedis(sending.contactId, redisClient) : null;
 
     // 캐시 미스: DB에서 조회
     if (!contact) {
@@ -599,7 +600,9 @@ export async function retrySendingMessage(sendingId: string): Promise<void> {
       };
 
       // Redis 캐시에 저장 (다음 재시도를 위해)
-      await cacheContactSnapshotToRedis(sending.contactId, contact, redis);
+      if (redisClient) {
+        await cacheContactSnapshotToRedis(sending.contactId, contact, redisClient);
+      }
     }
 
     const result = await sendSingleMessage({

@@ -12,7 +12,9 @@
  * - Subscriptions: onSaleCreated, onCampaignStatusChanged (optional Phase 2)
  */
 
-import { gql } from "graphql-tag";
+// graphql-tag를 설치하지 않았으므로 문자열 사용
+// import { gql } from "graphql-tag";
+const gql = (strings: TemplateStringsArray) => strings[0];
 
 export const typeDefs = gql`
   # ═════════════════════════════════════════════════════════════

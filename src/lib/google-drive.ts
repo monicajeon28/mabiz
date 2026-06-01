@@ -156,6 +156,6 @@ export async function backupCallLogsToGoogleDrive(params: {
 
   return {
     fileId,
-    viewUrl: meta.data.webViewLink ?? `https://drive.google.com/file/d/${fileId}/view`,
+    viewUrl: meta.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`,
   };
 }

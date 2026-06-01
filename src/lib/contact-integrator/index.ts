@@ -6,7 +6,7 @@
 import prisma from '@/lib/prisma';
 import { getRedis } from '@/lib/redis';
 import DataLoader from 'dataloader';
-import { Contact360Response, Contact360Metrics, Contact360Group } from './types';
+import { Contact360Response, Contact360Metrics, Contact360Group, Contact360Partner } from './types';
 import { maskPII, MaskOptions } from './pii-mask';
 import { calculateRiskScore } from './risk-calculator';
 
@@ -196,14 +196,14 @@ function createDataLoaders() {
     // Partner 로더
     partnerLoader: new DataLoader(async (partnerIds: readonly string[]) => {
       const partners = await prisma.partner.findMany({
-        where: { id: { in: partnerIds } },
+        where: { id: { in: [...partnerIds] } },
         include: {
           metrics: { orderBy: { createdAt: 'desc' }, take: 2 },
           riskFlags: true
         }
       });
 
-      return partnerIds.map(id =>
+      return [...partnerIds].map(id =>
         partners.find(p => p.id === id) ||
         new Error(`Partner ${id} not found`)
       );
@@ -212,7 +212,7 @@ function createDataLoaders() {
     // Groups 로더
     groupsLoader: new DataLoader(async (contactIds: readonly string[]) => {
       const members = await prisma.contactGroupMember.findMany({
-        where: { contactId: { in: contactIds } },
+        where: { contactId: { in: [...contactIds] } },
         select: { id: true, contactId: true, groupId: true, addedAt: true }
       });
 
@@ -241,27 +241,27 @@ function createDataLoaders() {
         }
       });
 
-      return contactIds.map(id => grouped.get(id) || []);
+      return [...contactIds].map(id => grouped.get(id) || []);
     }),
 
     // Orders 로더
     ordersLoader: new DataLoader(async (contactIds: readonly string[]) => {
       const reservations = await prisma.gmReservation.findMany({
         where: {
-          contacts: { some: { id: { in: contactIds } } }
+          contacts: { some: { id: { in: [...contactIds] } } }
         },
-        include: { cruiseProduct: true },
+        include: { trip: true },
         take: 100
       });
 
       // TODO: Contact와 Reservation 관계 매핑
-      return contactIds.map(() => []);
+      return [...contactIds].map(() => []);
     }),
 
     // Communications 로더
     communicationsLoader: new DataLoader(async (contactIds: readonly string[]) => {
       // TODO: SMS, Email, Call 로그 조회
-      return contactIds.map(() => ({
+      return [...contactIds].map(() => ({
         smsLogs: [],
         emailLogs: [],
         callLogs: [],
@@ -273,7 +273,7 @@ function createDataLoaders() {
     // Psychology 로더
     psychologyLoader: new DataLoader(async (contactIds: readonly string[]) => {
       const classifications = await prisma.contactLensClassification.findMany({
-        where: { contactId: { in: contactIds }, status: 'ACTIVE' },
+        where: { contactId: { in: [...contactIds] }, status: 'ACTIVE' },
         include: { sequences: true }
       });
 
@@ -284,19 +284,19 @@ function createDataLoaders() {
         grouped.set(c.contactId, list);
       });
 
-      return contactIds.map(id => {
+      return [...contactIds].map(id => {
         const classifs = grouped.get(id) || [];
         return {
           lensClassifications: classifs.map(c => ({
             lensType: c.lensType,
-            lensLabel: c.lensLabel,
+            lensLabel: c.lensLabel ?? '',
             confidenceScore: c.confidenceScore,
-            status: c.status,
+            status: (c.status ?? 'ACTIVE') as 'ACTIVE' | 'INACTIVE' | 'CONVERTED',
             identifiedAt: c.identifiedAt,
             readinessScore: c.readinessScore,
-            priorityLevel: c.priorityLevel
+            priorityLevel: (c.priorityLevel ?? 'P2') as 'P0' | 'P1' | 'P2'
           })),
-          sequenceStatus: {} // TODO: 시퀀스 상태 매핑
+          sequenceStatus: {} as Record<string, any> // TODO: 시퀀스 상태 매핑
         };
       });
     }),
@@ -304,7 +304,7 @@ function createDataLoaders() {
     // Affiliate 로더
     affiliateLoader: new DataLoader(async (contactIds: readonly string[]) => {
       // TODO: Affiliate 추적 정보 조회
-      return contactIds.map(() => null);
+      return [...contactIds].map(() => null);
     })
   };
 }
@@ -335,7 +335,25 @@ function formatGoldMember(gm: any) {
 /**
  * Partner 포맷팅
  */
-function formatPartner(p: any) {
+function formatPartner(p: any): Contact360Partner {
+  const metrics = p.metrics && Array.isArray(p.metrics) && p.metrics.length > 0
+    ? {
+        thisMonth: {
+          customerCount: p.metrics[0]?.customerCount ?? 0,
+          leadCount: p.metrics[0]?.leadCount ?? 0,
+          revenue: p.metrics[0]?.revenue ?? 0,
+        },
+        lastMonth: {
+          customerCount: p.metrics[1]?.customerCount ?? 0,
+          leadCount: p.metrics[1]?.leadCount ?? 0,
+          revenue: p.metrics[1]?.revenue ?? 0,
+        },
+      }
+    : {
+        thisMonth: { customerCount: 0, leadCount: 0, revenue: 0 },
+        lastMonth: { customerCount: 0, leadCount: 0, revenue: 0 },
+      };
+
   return {
     id: p.id,
     name: p.name,
@@ -348,15 +366,16 @@ function formatPartner(p: any) {
     incomeLevel: p.incomeLevel,
     monthlyIncomeGoal: p.monthlyIncomeGoal,
     automationRate: p.automationRate,
-    metrics: {
-      thisMonth: {},
-      lastMonth: {}
-    },
+    metrics,
     riskFlags: p.riskFlags ? {
       suspensionRisk: 'GREEN' as const,
-      automationGap: 100 - p.automationRate,
+      automationGap: 100 - (p.automationRate ?? 0),
       churnRisk: false
-    } : null
+    } : {
+      suspensionRisk: 'GREEN' as const,
+      automationGap: 100,
+      churnRisk: false,
+    }
   };
 }
 

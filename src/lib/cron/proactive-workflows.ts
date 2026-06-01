@@ -61,9 +61,15 @@ export async function runChurnPredictionDaily(): Promise<void> {
       await prisma.executionLog.create({
         data: {
           organizationId: org.id,
-          action: 'PROACTIVE_CHURN_PREDICTION_DAILY',
-          details: { predictionsCount: predictions.length, highRiskCount: predictions.filter(p => p.riskLevel === 'CRITICAL' || p.riskLevel === 'HIGH').length },
-          status: 'COMPLETED'
+          sourceType: 'CRON',
+          sourceId: 'churn-prediction-daily',
+          sourceName: 'Churn Prediction Daily',
+          contactId: 'system',
+          channel: 'INTERNAL',
+          status: 'SENT',
+          executeMonth: new Date().toISOString().slice(0, 7),
+          scheduledAt: new Date(),
+          lensMetadata: { predictionsCount: predictions.length, highRiskCount: predictions.filter(p => p.riskLevel === 'CRITICAL' || p.riskLevel === 'HIGH').length }
         }
       });
     } catch (error) {
@@ -71,9 +77,15 @@ export async function runChurnPredictionDaily(): Promise<void> {
       await prisma.executionLog.create({
         data: {
           organizationId: org.id,
-          action: 'PROACTIVE_CHURN_PREDICTION_DAILY',
-          details: { error: String(error) },
-          status: 'FAILED'
+          sourceType: 'CRON',
+          sourceId: 'churn-prediction-daily',
+          sourceName: 'Churn Prediction Daily',
+          contactId: 'system',
+          channel: 'INTERNAL',
+          status: 'FAILED',
+          executeMonth: new Date().toISOString().slice(0, 7),
+          scheduledAt: new Date(),
+          lensMetadata: { error: String(error) }
         }
       });
     }
@@ -128,9 +140,15 @@ export async function runUpsellOpportunityDaily(): Promise<void> {
       await prisma.executionLog.create({
         data: {
           organizationId: org.id,
-          action: 'PROACTIVE_UPSELL_OPPORTUNITY_DAILY',
-          details: { opportunitiesCount: opportunities.length, highReadyCount: opportunities.filter(o => o.readinessLevel === 'HIGHLY_READY').length },
-          status: 'COMPLETED'
+          sourceType: 'CRON',
+          sourceId: 'upsell-opportunity-daily',
+          sourceName: 'Upsell Opportunity Daily',
+          contactId: 'system',
+          channel: 'INTERNAL',
+          status: 'SENT',
+          executeMonth: new Date().toISOString().slice(0, 7),
+          scheduledAt: new Date(),
+          lensMetadata: { opportunitiesCount: opportunities.length, highReadyCount: opportunities.filter(o => o.readinessLevel === 'HIGHLY_READY').length }
         }
       });
     } catch (error) {
@@ -138,9 +156,15 @@ export async function runUpsellOpportunityDaily(): Promise<void> {
       await prisma.executionLog.create({
         data: {
           organizationId: org.id,
-          action: 'PROACTIVE_UPSELL_OPPORTUNITY_DAILY',
-          details: { error: String(error) },
-          status: 'FAILED'
+          sourceType: 'CRON',
+          sourceId: 'upsell-opportunity-daily',
+          sourceName: 'Upsell Opportunity Daily',
+          contactId: 'system',
+          channel: 'INTERNAL',
+          status: 'FAILED',
+          executeMonth: new Date().toISOString().slice(0, 7),
+          scheduledAt: new Date(),
+          lensMetadata: { error: String(error) }
         }
       });
     }
@@ -199,9 +223,15 @@ export async function runWinBackPredictionWeekly(): Promise<void> {
       await prisma.executionLog.create({
         data: {
           organizationId: org.id,
-          action: 'PROACTIVE_WINBACK_PREDICTION_WEEKLY',
-          details: { opportunitiesCount: opportunities.length, highPriorityCount: opportunities.filter(o => o.reactivationProbability > 60).length },
-          status: 'COMPLETED'
+          sourceType: 'CRON',
+          sourceId: 'winback-prediction-weekly',
+          sourceName: 'Win Back Prediction Weekly',
+          contactId: 'system',
+          channel: 'INTERNAL',
+          status: 'SENT',
+          executeMonth: new Date().toISOString().slice(0, 7),
+          scheduledAt: new Date(),
+          lensMetadata: { opportunitiesCount: opportunities.length, highPriorityCount: opportunities.filter(o => o.reactivationProbability > 60).length }
         }
       });
     } catch (error) {
@@ -209,9 +239,15 @@ export async function runWinBackPredictionWeekly(): Promise<void> {
       await prisma.executionLog.create({
         data: {
           organizationId: org.id,
-          action: 'PROACTIVE_WINBACK_PREDICTION_WEEKLY',
-          details: { error: String(error) },
-          status: 'FAILED'
+          sourceType: 'CRON',
+          sourceId: 'winback-prediction-weekly',
+          sourceName: 'Win Back Prediction Weekly',
+          contactId: 'system',
+          channel: 'INTERNAL',
+          status: 'FAILED',
+          executeMonth: new Date().toISOString().slice(0, 7),
+          scheduledAt: new Date(),
+          lensMetadata: { error: String(error) }
         }
       });
     }
@@ -258,6 +294,7 @@ export async function runProactiveWorkflowTrigger(): Promise<void> {
             type: 'VIP_SAVE',
             contactId: prediction.contactId,
             organizationId: org.id,
+            maxMessages: 3, // VIP Save: Day 0 + Day 1 + Day 2
             triggerData: {
               contactId: prediction.contactId,
               churnProbability: prediction.churnProbability,
@@ -287,9 +324,15 @@ export async function runProactiveWorkflowTrigger(): Promise<void> {
       await prisma.executionLog.create({
         data: {
           organizationId: org.id,
-          action: 'PROACTIVE_WORKFLOW_TRIGGER',
-          details: { workflowsCreated, churnPredictionsProcessed: churnPredictions.length },
-          status: 'COMPLETED'
+          sourceType: 'CRON',
+          sourceId: 'workflow-trigger',
+          sourceName: 'Proactive Workflow Trigger',
+          contactId: 'system',
+          channel: 'INTERNAL',
+          status: 'SENT',
+          executeMonth: new Date().toISOString().slice(0, 7),
+          scheduledAt: new Date(),
+          lensMetadata: { workflowsCreated, churnPredictionsProcessed: churnPredictions.length }
         }
       });
     } catch (error) {
@@ -297,9 +340,15 @@ export async function runProactiveWorkflowTrigger(): Promise<void> {
       await prisma.executionLog.create({
         data: {
           organizationId: org.id,
-          action: 'PROACTIVE_WORKFLOW_TRIGGER',
-          details: { error: String(error) },
-          status: 'FAILED'
+          sourceType: 'CRON',
+          sourceId: 'workflow-trigger',
+          sourceName: 'Proactive Workflow Trigger',
+          contactId: 'system',
+          channel: 'INTERNAL',
+          status: 'FAILED',
+          executeMonth: new Date().toISOString().slice(0, 7),
+          scheduledAt: new Date(),
+          lensMetadata: { error: String(error) }
         }
       });
     }
@@ -359,9 +408,15 @@ export async function runNextBestActionUpdate(): Promise<void> {
       await prisma.executionLog.create({
         data: {
           organizationId: org.id,
-          action: 'PROACTIVE_NBA_UPDATE',
-          details: { actionsUpdated: actions.length },
-          status: 'COMPLETED'
+          sourceType: 'CRON',
+          sourceId: 'nba-update',
+          sourceName: 'Next Best Action Update',
+          contactId: 'system',
+          channel: 'INTERNAL',
+          status: 'SENT',
+          executeMonth: new Date().toISOString().slice(0, 7),
+          scheduledAt: new Date(),
+          lensMetadata: { actionsUpdated: actions.length }
         }
       });
     } catch (error) {
@@ -369,9 +424,15 @@ export async function runNextBestActionUpdate(): Promise<void> {
       await prisma.executionLog.create({
         data: {
           organizationId: org.id,
-          action: 'PROACTIVE_NBA_UPDATE',
-          details: { error: String(error) },
-          status: 'FAILED'
+          sourceType: 'CRON',
+          sourceId: 'nba-update',
+          sourceName: 'Next Best Action Update',
+          contactId: 'system',
+          channel: 'INTERNAL',
+          status: 'FAILED',
+          executeMonth: new Date().toISOString().slice(0, 7),
+          scheduledAt: new Date(),
+          lensMetadata: { error: String(error) }
         }
       });
     }
