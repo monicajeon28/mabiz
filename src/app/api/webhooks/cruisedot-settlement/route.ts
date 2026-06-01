@@ -117,23 +117,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, message: '유효하지 않은 partnerId' }, { status: 400 });
     }
 
-    // Find or infer organizationId
-    let organizationId = process.env.CRUISEDOT_WEBHOOK_ORG_ID;
+    // ✅ P0-13: organizationId 환경변수 필수화 (테넌트 격리)
+    const organizationId = process.env.CRUISEDOT_WEBHOOK_ORG_ID;
 
     if (!organizationId) {
-      const org = await prisma.organization.findFirst({
-        where: {
-          partners: {
-            some: {}
-          }
-        }
+      logger.error('[SettlementWebhook] CRUISEDOT_WEBHOOK_ORG_ID 미설정 - Cross-tenant 데이터 오염 위험', {
+        partnerId,
+        settlementId
       });
-      organizationId = org?.id;
-    }
-
-    if (!organizationId) {
-      logger.error('[SettlementWebhook] organizationId를 결정할 수 없음', { partnerId, settlementId });
-      return NextResponse.json({ ok: false, message: 'organizationId를 결정할 수 없음' }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, message: 'Service temporarily unavailable - organizationId not configured' },
+        { status: 503 } // Service Unavailable - client should retry after fix
+      );
     }
 
     // Calculate final commission rate
