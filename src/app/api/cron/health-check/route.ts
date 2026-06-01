@@ -23,6 +23,12 @@ export async function GET(req: Request) {
       throw new Error('CRON_SECRET environment variable is not set');
     }
 
+    // P0-7: CRON_SECRET 강도 검증 (brute force 방지)
+    if (secret.length < 32) {
+      logger.error('[CronHealthCheck] 보안 경고', { reason: 'CRON_SECRET이 32자 미만 (약함)' });
+      throw new Error('CRON_SECRET must be at least 32 characters (P0-7 security requirement)');
+    }
+
     const auth = req.headers.get('x-cron-secret') ?? req.headers.get('x-vercel-cron-secret') ?? '';
     let authValid = false;
     try {
