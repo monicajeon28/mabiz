@@ -121,7 +121,14 @@ export async function POST(req: NextRequest) {
     // GLOBAL_ADMIN은 organizationId 없이 호출 가능 → 자동으로 첫 번째 조직 사용
     if (!organizationId && ctx.role === 'GLOBAL_ADMIN') {
       const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
-      if (firstOrg) organizationId = firstOrg.id;
+      if (firstOrg) {
+        organizationId = firstOrg.id;
+      } else {
+        return NextResponse.json(
+          { ok: false, error: 'No organization configured' },
+          { status: 400 }
+        );
+      }
     }
 
     // OWNER는 자기 조직만

@@ -124,7 +124,18 @@ export async function GET(request: NextRequest) {
       `),
     ]);
 
-    const total = Number(countRows[0]?.total ?? 0);
+    const totalBigint = countRows[0]?.total ?? BigInt(0);
+    if (totalBigint > BigInt(Number.MAX_SAFE_INTEGER)) {
+      logger.error('[GET /api/admin/settlements/partner-details] Total count exceeds safe integer limit', {
+        profileId: profileIdNum,
+        total: totalBigint.toString(),
+      });
+      return NextResponse.json(
+        { ok: false, error: 'Data size too large for safe processing' },
+        { status: 400 }
+      );
+    }
+    const total = Number(totalBigint);
     const totalPages = Math.ceil(total / limit);
     const elapsed = Date.now() - startTime;
 
