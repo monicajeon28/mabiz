@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, canDelete } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
+import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
 import { handleB2BError } from "@/lib/b2b/response-handler";
 
 const PatchSchema = z.object({
@@ -86,7 +87,7 @@ export async function PATCH(req: Request, { params }: Params) {
       ...(commentEnabled    !== undefined ? { commentEnabled }                        : {}),
       ...(autoFunnelId      !== undefined ? { autoFunnelId: autoFunnelId ?? null }    : {}),
       ...(description       !== undefined ? { description: description ?? null }      : {}),
-      ...(headerScript      !== undefined ? { headerScript: headerScript ?? null }    : {}),
+      ...(headerScript      !== undefined ? { headerScript: sanitizeHeaderScript(headerScript) }    : {}),
       ...(exposureTitle     !== undefined ? { exposureTitle: exposureTitle ?? null }   : {}),
       ...(exposureImage     !== undefined ? { exposureImage: exposureImage ?? null }   : {}),
       ...(formConfig        !== undefined ? { formConfig: formConfig ?? null }        : {}),
