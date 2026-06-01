@@ -228,8 +228,9 @@ export class LensDetectionEngine {
   private detectL9HealthTrust(data: ContactLensData): LensScore {
     const signals: string[] = [];
     let score = 0;
+    // ✅ P1-9: optional chaining으로 unsafe assertion 제거
     if (data.healthConcerns) {
-      if (["배멀미", "당뇨", "고혈압"].some(kw => data.healthConcerns!.includes(kw))) { score += 10; signals.push("critical_health"); }
+      if (["배멀미", "당뇨", "고혈압"].some(kw => data.healthConcerns?.includes(kw))) { score += 10; signals.push("critical_health"); }
       else { score += 5; signals.push("health_concern"); }
     }
     if (data.selfProjectionType?.includes("health")) { score += 10; signals.push("health_projection"); }

@@ -154,13 +154,27 @@ export async function PUT(
           where: { affiliateCode: contractMeta.agentCode },
           select: { userId: true },
         });
+        // ✅ P1-8: CRM Member 관계로 organizationId 검증 (cross-tenant 방지)
         if (referrer) {
-          managerId = referrer.userId;
-          logger.info('[AFFILIATE-PROVISION] agentCode로 매니저 자동 할당', {
-            contractId,
-            agentCode: contractMeta.agentCode,
-            managerId,
+          const crmMember = await prisma.organizationMember.findFirst({
+            where: { userId: referrer.userId },
+            select: { organizationId: true },
           });
+          if (crmMember && crmMember.organizationId === organizationId) {
+            managerId = referrer.userId;
+            logger.info('[AFFILIATE-PROVISION] agentCode로 매니저 자동 할당', {
+              contractId,
+              agentCode: contractMeta.agentCode,
+              managerId,
+            });
+          } else if (crmMember) {
+            logger.warn('[AFFILIATE-PROVISION] agentCode 테넌트 불일치', {
+              contractId,
+              agentCode: contractMeta.agentCode,
+              contractOrg: organizationId,
+              referrerOrg: crmMember.organizationId,
+            });
+          }
         }
       } catch (err) {
         logger.warn('[AFFILIATE-PROVISION] agentCode 매니저 조회 실패', {
