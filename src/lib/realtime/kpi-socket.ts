@@ -25,7 +25,7 @@ export interface RealtimeMetrics {
     kakao: { sent: number; opened: number; clicked: number };
     email: { sent: number; opened: number; clicked: number };
   };
-  partnerLeaderboard: Array<{ partnerId: string; name: string; amount: number }>;
+  partnerLeaderboard: Array<{ affiliateCode: string; name: string; saleAmount: number }>;
   cronHealth: Record<string, { status: 'healthy' | 'degraded' | 'error'; lastRun: string }>;
   databaseHealth: { queryLatency: number; connectionCount: number };
 }
@@ -38,15 +38,15 @@ const MAX_RECONNECT_ATTEMPTS = 10;
 export function useKpiSocket() {
   const session = useSession();
   const socketRef = useRef<WebSocket | null>(null);
-  const reconnectAttemptsRef = useRef(0);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
-  const pollingTimeoutRef = useRef<NodeJS.Timeout>();
+  const reconnectAttemptsRef = useRef<number>(0);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const pollingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const [isConnected, setIsConnected] = useState(false);
   const [metrics, setMetrics] = useState<RealtimeMetrics | null>(null);
   const [lastEvent, setLastEvent] = useState<KpiEvent | null>(null);
 
   const initializeSocket = useCallback(() => {
-    const orgId = session?.user?.organizationId || (session as any)?.organizationId;
+    const orgId = session?.organizationId;
     if (!orgId) return;
     if (socketRef.current?.readyState === WebSocket.OPEN) return;
 
@@ -151,7 +151,7 @@ export function useKpiSocket() {
         clearTimeout(pollingTimeoutRef.current);
       }
     };
-  }, [session?.user?.organizationId, initializeSocket]);
+  }, [session?.organizationId, initializeSocket]);
 
   const sendEvent = useCallback((event: KpiEvent) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
@@ -170,7 +170,7 @@ export function useKpiSocket() {
 }
 
 export function useKpiMetrics() {
-  const { data: session } = useSession();
+  const session = useSession();
   const [metrics, setMetrics] = useState<RealtimeMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -182,7 +182,7 @@ export function useKpiMetrics() {
       try {
         setLoading(true);
         const response = await fetch(
-          `/api/realtime/kpi/metrics?org=${session.user.organizationId}`
+          `/api/realtime/kpi/metrics?org=${session.organizationId}`
         );
 
         if (!response.ok) throw new Error('Failed to fetch metrics');

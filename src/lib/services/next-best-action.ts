@@ -190,6 +190,7 @@ export class NextBestActionEngine {
     };
 
     const variant = Math.random() > 0.5 ? 'A' : 'B';
+    const contentTheme = (opportunity.contentTheme || 'NOSTALGIA') as keyof typeof themeMessages;
 
     return {
       contactId: contact.id,
@@ -206,7 +207,7 @@ export class NextBestActionEngine {
       },
       message: {
         channel: 'SMS',
-        preview: themeMessages[opportunity.contentTheme],
+        preview: themeMessages[contentTheme],
         psychologyLens: 'L0 (Reactivation) - Emotional reconnection + timely offer',
         personalizedElements: {
           name: contact.name || 'Valued Customer',

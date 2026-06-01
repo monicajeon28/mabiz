@@ -431,11 +431,11 @@ export async function sendOnboardingEmail(
     const emailSubject = template.subject || `Day ${day} Onboarding`;
     const emailBody = template.body || '';
 
-    await sendEmail(
-      partner.email,
-      emailSubject,
-      emailBody
-    );
+    await sendEmail({
+      to: partner.email,
+      subject: emailSubject,
+      html: emailBody
+    });
 
     // Log the send
     await prisma.partnerOnboardingLog?.create({

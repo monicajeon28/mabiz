@@ -185,14 +185,14 @@ class RealtimeMetricsService {
           organizationId,
           status: 'ACTIVE',
         },
-        _count: { select: { id: true } },
-        orderBy: { _count: { id: 'desc' } },
+        _count: true,
+        orderBy: [{ lensType: 'asc' }],
         take: limit,
       });
 
       const result = lenses.map((l) => ({
         lens: l.lensType || 'Unknown',
-        count: l._count?.id || 0,
+        count: typeof l._count === 'number' ? l._count : 0,
       }));
 
       // Cache for 5 minutes
@@ -325,13 +325,13 @@ class RealtimeMetricsService {
   async getPartnerLeaderboard(
     organizationId: string,
     limit = 5
-  ): Promise<Array<{ partnerId: string; name: string; amount: number }>> {
+  ): Promise<Array<{ affiliateCode: string; name: string; saleAmount: number }>> {
     const cacheKey = `realtime:partners:${organizationId}`;
 
     try {
       const cached = await redis.get(cacheKey);
       if (cached) {
-        return cached as Array<{ partnerId: string; name: string; amount: number }>;
+        return cached as Array<{ affiliateCode: string; name: string; saleAmount: number }>;
       }
     } catch (error) {
       logger.warn('Redis cache miss for partner leaderboard', { organizationId });
@@ -354,15 +354,14 @@ class RealtimeMetricsService {
 
       const affiliateCodes = sales.map((s) => s.affiliateCode).filter(Boolean) as string[];
 
-      let partners: Array<{ affiliateCode: string; name: string }> = [];
+      let partnerMap = new Map<string, string>();
       if (affiliateCodes.length > 0) {
-        partners = await prisma.partner.findMany({
-          where: { affiliateCode: { in: affiliateCodes } },
-          select: { affiliateCode: true, name: true },
+        const partners = await prisma.partner.findMany({
+          where: { status: { in: ['ACTIVE'] } },
+          select: { id: true, name: true },
         });
+        partnerMap = new Map(partners.map((p) => [p.id, p.name]));
       }
-
-      const partnerMap = new Map(partners.map((p) => [p.affiliateCode, p.name]));
 
       const result = sales
         .filter((s) => s.affiliateCode)
@@ -425,7 +424,7 @@ class RealtimeMetricsService {
         },
       };
     } catch (error) {
-      logger.error('Error fetching all metrics', error, { organizationId });
+      logger.error('Error fetching all metrics', { error, organizationId });
       throw error;
     }
   }
@@ -446,4 +445,7 @@ class RealtimeMetricsService {
     ];
 
     await Promise.allSettled(keys.map((key) => redis.del(key)));
-  }
+  }
+}
+
+export const realtimeMetricsService = new RealtimeMetricsService();
