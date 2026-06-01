@@ -199,27 +199,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // SmsLog 생성 (멱등성을 위해 messageId 생성)
+    // CrmMarketingMessage 생성 (SmsLog는 발송 후 로깅만)
     const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const trackingId = `track_${Math.random().toString(36).substr(2, 12)}`;
     const trackingUrl = `${process.env.NEXT_PUBLIC_APP_URL}/track/${trackingId}`;
 
-    const smsLog = await prisma.smsLog.create({
+    // Template ID 생성 (segment_variant 형식)
+    const templateId = `${lens || 'default'}_${abTestGroup || 'default'}`;
+
+    const marketingMessage = await prisma.crmMarketingMessage.create({
       data: {
-        id: messageId,
         organizationId: session.organizationId,
         contactId,
-        phone: contact.phone || '',
-        contentPreview: renderedMessage.substring(0, 100),
-        msg: renderedMessage,
-        status: 'PENDING',
-        channel: 'API',
-        sentAt: scheduleAt ? undefined : new Date(),
-        segmentCode: lens,
-        psychologyLens: lens,
+        templateId,
+        segment: lens || 'general',
+        variant: abTestGroup || 'default',
+        day: parsedDay,
+        content: renderedMessage,
+        psychologyLenses: lens ? [lens] : [],
+        status: scheduleAt ? 'PENDING' : 'SENT',
+        scheduledTime: scheduleAt ? new Date(scheduleAt) : new Date(),
+        sentTime: scheduleAt ? undefined : new Date(),
         abTestGroup: abTestGroup || undefined,
-        trackingId,
-        trackingUrl,
+        metadata: {
+          messageKey,
+          trackingId,
+          trackingUrl,
+          channel: 'API',
+        },
       },
     });
 
@@ -246,7 +253,7 @@ export async function POST(req: NextRequest) {
         });
 
         logger.log('[messages] SMS 스케줄 완료', {
-          messageId,
+          marketingMessageId: marketingMessage.id,
           contactId,
           scheduledSmsId,
           sendAt: sendTime.toISOString(),
@@ -254,7 +261,7 @@ export async function POST(req: NextRequest) {
         });
       } catch (err) {
         logger.error('[messages] SMS 스케줄 실패', {
-          messageId,
+          marketingMessageId: marketingMessage.id,
           error: err instanceof Error ? err.message : String(err),
         });
       }
@@ -287,7 +294,7 @@ export async function POST(req: NextRequest) {
           );
 
           logger.log('[messages] Kakao 메시지 발송 완료', {
-            messageId,
+            marketingMessageId: marketingMessage.id,
             contactId,
             kakaoMessageId,
             lens,
@@ -296,13 +303,13 @@ export async function POST(req: NextRequest) {
           // Kakao 실패 시 SMS로 자동 fallback
           usedFallback = true;
           logger.warn('[messages] Kakao 발송 실패, SMS로 Fallback', {
-            messageId,
+            marketingMessageId: marketingMessage.id,
             contactId,
           });
         }
       } catch (err) {
         logger.error('[messages] Kakao 발송 오류', {
-          messageId,
+          marketingMessageId: marketingMessage.id,
           error: err instanceof Error ? err.message : String(err),
         });
         usedFallback = true;
@@ -353,7 +360,7 @@ export async function POST(req: NextRequest) {
           );
 
           logger.log('[messages] Email 발송 완료', {
-            messageId,
+            marketingMessageId: marketingMessage.id,
             contactId,
             emailMessageId: emailResult.messageId,
             provider: emailResult.provider,
@@ -361,14 +368,14 @@ export async function POST(req: NextRequest) {
           });
         } else {
           logger.error('[messages] Email 발송 실패', {
-            messageId,
+            marketingMessageId: marketingMessage.id,
             contactId,
             provider: emailResult.provider,
           });
         }
       } catch (err) {
         logger.error('[messages] Email 발송 오류', {
-          messageId,
+          marketingMessageId: marketingMessage.id,
           error: err instanceof Error ? err.message : String(err),
         });
       }
@@ -379,7 +386,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      messageId: smsLog.id,
+      messageId: marketingMessage.id,
       trackingId: trackingId,
       trackingUrl,
       status: responseStatus,
@@ -410,25 +417,25 @@ export async function POST(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   try {
+    const session = await getMabizSession();
+    if (!session?.organizationId) {
+      return NextResponse.json(
+        { ok: false, message: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
-    const organizationId = searchParams.get('organizationId') || '';
     const contactId = searchParams.get('contactId');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
-
-    if (!organizationId) {
-      return NextResponse.json(
-        { error: 'Missing organizationId' },
-        { status: 400 }
-      );
-    }
 
     const skip = (page - 1) * limit;
 
     // 메시지 목록 조회
     const messages = await prisma.crmMarketingMessage.findMany({
       where: {
-        organizationId,
+        organizationId: session.organizationId,
         ...(contactId && { contactId }),
         status: { not: 'DELETED' }
       },
@@ -457,14 +464,14 @@ export async function GET(req: NextRequest) {
     // 전체 개수 조회
     const total = await prisma.crmMarketingMessage.count({
       where: {
-        organizationId,
+        organizationId: session.organizationId,
         ...(contactId && { contactId }),
         status: { not: 'DELETED' }
       }
     });
 
     logger.log('[Message] GET 목록 조회 완료', {
-      organizationId,
+      organizationId: session.organizationId,
       contactId,
       page,
       limit,
@@ -487,6 +494,153 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json(
       { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PUT /api/messages/:id
+ * Message 업데이트 (상태, 콘텐츠 등)
+ */
+export async function PUT(req: NextRequest) {
+  try {
+    const session = await getMabizSession();
+    if (!session?.organizationId) {
+      return NextResponse.json(
+        { ok: false, message: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const body = await req.json();
+    const { id, status, content, segment, variant } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { ok: false, message: 'Missing message ID' },
+        { status: 400 }
+      );
+    }
+
+    // 메시지 존재 및 권한 확인
+    const existingMessage = await prisma.crmMarketingMessage.findUnique({
+      where: { id },
+      select: { organizationId: true }
+    });
+
+    if (!existingMessage) {
+      return NextResponse.json(
+        { ok: false, message: 'Message not found' },
+        { status: 404 }
+      );
+    }
+
+    if (existingMessage.organizationId !== session.organizationId) {
+      return NextResponse.json(
+        { ok: false, message: 'Unauthorized' },
+        { status: 403 }
+      );
+    }
+
+    // 유효한 필드만 업데이트
+    const updateData: any = {};
+    if (status) updateData.status = status;
+    if (content) updateData.content = content;
+    if (segment) updateData.segment = segment;
+    if (variant) updateData.variant = variant;
+
+    const updatedMessage = await prisma.crmMarketingMessage.update({
+      where: { id },
+      data: updateData
+    });
+
+    logger.log('[Message] PUT 업데이트 완료', {
+      messageId: id,
+      organizationId: session.organizationId,
+      updatedFields: Object.keys(updateData)
+    });
+
+    return NextResponse.json({
+      ok: true,
+      message: updatedMessage
+    });
+  } catch (err) {
+    logger.error('[Message] PUT 업데이트 실패', {
+      error: err instanceof Error ? err.message : String(err)
+    });
+    return NextResponse.json(
+      { ok: false, message: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/messages/:id
+ * Message 삭제 (소프트 삭제)
+ */
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await getMabizSession();
+    if (!session?.organizationId) {
+      return NextResponse.json(
+        { ok: false, message: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const body = await req.json();
+    const { id } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { ok: false, message: 'Missing message ID' },
+        { status: 400 }
+      );
+    }
+
+    // 메시지 존재 및 권한 확인
+    const existingMessage = await prisma.crmMarketingMessage.findUnique({
+      where: { id },
+      select: { organizationId: true }
+    });
+
+    if (!existingMessage) {
+      return NextResponse.json(
+        { ok: false, message: 'Message not found' },
+        { status: 404 }
+      );
+    }
+
+    if (existingMessage.organizationId !== session.organizationId) {
+      return NextResponse.json(
+        { ok: false, message: 'Unauthorized' },
+        { status: 403 }
+      );
+    }
+
+    // 소프트 삭제 (status = 'DELETED')
+    const deletedMessage = await prisma.crmMarketingMessage.update({
+      where: { id },
+      data: { status: 'DELETED' }
+    });
+
+    logger.log('[Message] DELETE 소프트 삭제 완료', {
+      messageId: id,
+      organizationId: session.organizationId
+    });
+
+    return NextResponse.json({
+      ok: true,
+      message: 'Message deleted successfully'
+    });
+  } catch (err) {
+    logger.error('[Message] DELETE 삭제 실패', {
+      error: err instanceof Error ? err.message : String(err)
+    });
+    return NextResponse.json(
+      { ok: false, message: 'Internal server error' },
       { status: 500 }
     );
   }
