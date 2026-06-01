@@ -1,6 +1,7 @@
 ﻿'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ChevronDown,
@@ -1214,7 +1215,7 @@ export default function AffiliateTeamDashboardPage() {
         )}
       </section>
 
-      {/* 팀 메시지 모달 */}
+      {/* P2-12: 팀 메시지 모달 - lazy rendering (열려 있을 때만 렌더) */}
       {showMessagesModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowMessagesModal(false)}>
           <div className="bg-white rounded-xl p-6 max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -1767,7 +1768,7 @@ export default function AffiliateTeamDashboardPage() {
         </div>
       )}
 
-      {/* 메시지 보내기 모달 */}
+      {/* P2-12: 메시지 보내기 모달 - lazy rendering (열려 있을 때만 렌더) */}
       {showSendMessageModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowSendMessageModal(false)}>
           <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>

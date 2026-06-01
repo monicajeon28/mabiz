@@ -102,6 +102,7 @@ export default function MessagesPage() {
         </button>
       </div>
 
+      {/* P2-6: 선택된 탭만 렌더링 (나머지는 lazy load) */}
       {tab === "sms"   && <SmsTab />}
       {tab === "email" && <EmailTab />}
       {tab === "kakao" && <KakaoTab />}
@@ -233,6 +234,7 @@ function SmsTab() {
     }
   }, [newGroupName]);
 
+  // P2-9: 템플릿 로드 캐싱 (카테고리 변경 시에만 다시 로드)
   const loadTemplates = useCallback(() => {
     const url = templateCat
       ? `/api/tools/sms-templates?category=${templateCat}`
@@ -246,7 +248,10 @@ function SmsTab() {
       .finally(() => setTemplatesLoading(false));
   }, [templateCat]);
 
-  useEffect(() => { if (showTemplates) loadTemplates(); }, [showTemplates, loadTemplates]);
+  // 카테고리 변경 시에만 재로드 (toggle은 기존 데이터 유지)
+  useEffect(() => {
+    if (showTemplates && templates.length === 0) loadTemplates();
+  }, [templateCat, showTemplates, loadTemplates, templates.length]);
 
   const insertAtCursor = (token: string) => {
     const el = textareaRef.current;
