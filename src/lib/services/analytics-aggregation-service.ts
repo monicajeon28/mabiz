@@ -129,7 +129,7 @@ export async function aggregateLensMetrics(
 ): Promise<LensMetric[]> {
   const cacheKey = `lens-metrics-${organizationId}-${startDate.toISOString()}`;
   const cached = cache.get(cacheKey);
-  if (cached) return cached;
+  if (cached) return cached as LensMetric[];
 
   try {
     const lenses = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9', 'L10'];
@@ -145,7 +145,7 @@ export async function aggregateLensMetrics(
     const totalSequences = await prisma.contactLensSequence.count({
       where: {
         organizationId,
-        createdAt: { gte: startDate },
+        startedAt: { gte: startDate },
       },
     });
     const overallConversionRate = totalSequences > 0 ? totalConversions / totalSequences : 0;
@@ -155,8 +155,8 @@ export async function aggregateLensMetrics(
       const contacts = await prisma.contact.findMany({
         where: {
           organizationId,
-          classifications: {
-            some: { lensCode: lens },
+          contactLensClassifications: {
+            some: { lens },
           },
         },
         select: { id: true },
@@ -169,12 +169,12 @@ export async function aggregateLensMetrics(
         where: {
           organizationId,
           contactId: { in: contacts.map(c => c.id) },
-          createdAt: { gte: startDate },
+          startedAt: { gte: startDate },
         },
         select: {
           id: true,
           day0ConvertedAt: true,
-          createdAt: true,
+          startedAt: true,
         },
       });
 
@@ -236,7 +236,7 @@ export async function aggregateDay0_3Metrics(
 ): Promise<Day03Metric[]> {
   const cacheKey = `day0-3-metrics-${organizationId}-${startDate.toISOString()}`;
   const cached = cache.get(cacheKey);
-  if (cached) return cached;
+  if (cached) return cached as Day03Metric[];
 
   try {
     const metrics: Day03Metric[] = [];
@@ -320,7 +320,7 @@ export async function aggregateChannelMetrics(
 ): Promise<ChannelMetric[]> {
   const cacheKey = `channel-metrics-${organizationId}-${startDate.toISOString()}`;
   const cached = cache.get(cacheKey);
-  if (cached) return cached;
+  if (cached) return cached as ChannelMetric[];
 
   try {
     const channels = ['SMS', 'KAKAO', 'EMAIL'];

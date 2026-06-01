@@ -46,11 +46,12 @@ export function useKpiSocket() {
   const [lastEvent, setLastEvent] = useState<KpiEvent | null>(null);
 
   const initializeSocket = useCallback(() => {
-    if (!session?.organizationId) return;
+    const orgId = session?.user?.organizationId || (session as any)?.organizationId;
+    if (!orgId) return;
     if (socketRef.current?.readyState === WebSocket.OPEN) return;
 
     try {
-      const wsUrl = `${SOCKET_URL}/api/realtime/kpi?org=${session.organizationId}`;
+      const wsUrl = `${SOCKET_URL}/api/realtime/kpi?org=${orgId}`;
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {

@@ -222,8 +222,7 @@ export async function getActiveSequenceInstances(
         }
       },
       include: {
-        template: true,
-        contact: true // This relation doesn't exist - need to fetch separately
+        template: true
       },
       orderBy: {
         createdAt: 'asc'

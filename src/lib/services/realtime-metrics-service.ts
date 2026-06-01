@@ -44,7 +44,7 @@ class RealtimeMetricsService {
             createdAt: { gte: todayStart },
             status: { in: ['CONFIRMED', 'APPROVED'] },
           },
-          _sum: { amount: true },
+          _sum: { saleAmount: true },
         }),
         prisma.affiliateSale.aggregate({
           where: {
@@ -52,23 +52,23 @@ class RealtimeMetricsService {
             createdAt: { gte: yesterdayStart, lte: yesterdayEnd },
             status: { in: ['CONFIRMED', 'APPROVED'] },
           },
-          _sum: { amount: true },
+          _sum: { saleAmount: true },
         }),
       ]);
 
       const result = {
-        today: todaySales._sum?.amount || 0,
-        yesterday: yesterdaySales._sum?.amount || 0,
+        today: todaySales._sum?.saleAmount || 0,
+        yesterday: yesterdaySales._sum?.saleAmount || 0,
       };
 
       // Cache for 1 minute
-      await redis.setex(cacheKey, DEFAULT_CACHE_TTL, result).catch(() => {
+      await redis.setex(cacheKey, DEFAULT_CACHE_TTL, JSON.stringify(result)).catch(() => {
         logger.warn('Failed to cache revenue metrics');
       });
 
       return result;
     } catch (error) {
-      logger.error('Error fetching today revenue', error, { organizationId });
+      logger.error('Error fetching today revenue', { error, organizationId });
       return { today: 0, yesterday: 0 };
     }
   }
@@ -109,13 +109,13 @@ class RealtimeMetricsService {
       const conversionRate = sent > 0 ? (converted / sent) * 100 : 0;
 
       // Cache for 1 minute
-      await redis.setex(cacheKey, DEFAULT_CACHE_TTL, conversionRate).catch(() => {
+      await redis.setex(cacheKey, DEFAULT_CACHE_TTL, JSON.stringify(conversionRate)).catch(() => {
         logger.warn('Failed to cache conversion rate');
       });
 
       return Number(conversionRate.toFixed(2));
     } catch (error) {
-      logger.error('Error fetching conversion rate', error, { organizationId });
+      logger.error('Error fetching conversion rate', { error, organizationId });
       return 0;
     }
   }
@@ -149,13 +149,13 @@ class RealtimeMetricsService {
       });
 
       // Cache for 1 minute
-      await redis.setex(cacheKey, DEFAULT_CACHE_TTL, count).catch(() => {
+      await redis.setex(cacheKey, DEFAULT_CACHE_TTL, JSON.stringify(count)).catch(() => {
         logger.warn('Failed to cache active sequences');
       });
 
       return count;
     } catch (error) {
-      logger.error('Error fetching active sequences', error, { organizationId });
+      logger.error('Error fetching active sequences', { error, organizationId });
       return 0;
     }
   }
@@ -185,30 +185,30 @@ class RealtimeMetricsService {
           organizationId,
           status: 'ACTIVE',
         },
-        _count: true,
-        orderBy: { _count: 'desc' },
+        _count: { select: { id: true } },
+        orderBy: { _count: { id: 'desc' } },
         take: limit,
       });
 
       const result = lenses.map((l) => ({
         lens: l.lensType || 'Unknown',
-        count: l._count,
+        count: l._count?.id || 0,
       }));
 
       // Cache for 5 minutes
-      await redis.setex(cacheKey, 5 * DEFAULT_CACHE_TTL, result).catch(() => {
+      await redis.setex(cacheKey, 5 * DEFAULT_CACHE_TTL, JSON.stringify(result)).catch(() => {
         logger.warn('Failed to cache top lenses');
       });
 
       return result;
     } catch (error) {
-      logger.error('Error fetching top lenses', error, { organizationId });
+      logger.error('Error fetching top lenses', { error, organizationId });
       return [];
     }
   }
 
   /**
-   * Get channel metrics (SMS, Kakao, Email)
+   * Get segment metrics (newlywed, family, couple)
    */
   async getChannelMetrics(organizationId: string) {
     const cacheKey = `realtime:channels:${organizationId}`;
@@ -225,96 +225,96 @@ class RealtimeMetricsService {
     const today = startOfDay(new Date());
 
     try {
-      const [smsSent, smsOpened, smsClicked, kakaoSent, kakaoOpened, kakaoClicked, emailSent, emailOpened, emailClicked] = await Promise.all([
+      const [newlywedSent, newlywedDelivered, newlywedConverted, familySent, familyDelivered, familyConverted, coupleSent, coupleDelivered, coupleConverted] = await Promise.all([
         prisma.crmMarketingMessage.count({
           where: {
             organizationId,
-            channel: 'SMS',
+            segment: 'newlywed',
             createdAt: { gte: today },
           },
         }),
         prisma.crmMarketingMessage.count({
           where: {
             organizationId,
-            channel: 'SMS',
+            segment: 'newlywed',
             createdAt: { gte: today },
-            openedAt: { not: null },
+            deliveredAt: { not: null },
           },
         }),
         prisma.crmMarketingMessage.count({
           where: {
             organizationId,
-            channel: 'SMS',
+            segment: 'newlywed',
             createdAt: { gte: today },
-            clickedAt: { not: null },
+            status: 'converted',
           },
         }),
         prisma.crmMarketingMessage.count({
           where: {
             organizationId,
-            channel: 'KAKAO',
-            createdAt: { gte: today },
-          },
-        }),
-        prisma.crmMarketingMessage.count({
-          where: {
-            organizationId,
-            channel: 'KAKAO',
-            createdAt: { gte: today },
-            openedAt: { not: null },
-          },
-        }),
-        prisma.crmMarketingMessage.count({
-          where: {
-            organizationId,
-            channel: 'KAKAO',
-            createdAt: { gte: today },
-            clickedAt: { not: null },
-          },
-        }),
-        prisma.crmMarketingMessage.count({
-          where: {
-            organizationId,
-            channel: 'EMAIL',
+            segment: 'family',
             createdAt: { gte: today },
           },
         }),
         prisma.crmMarketingMessage.count({
           where: {
             organizationId,
-            channel: 'EMAIL',
+            segment: 'family',
             createdAt: { gte: today },
-            openedAt: { not: null },
+            deliveredAt: { not: null },
           },
         }),
         prisma.crmMarketingMessage.count({
           where: {
             organizationId,
-            channel: 'EMAIL',
+            segment: 'family',
             createdAt: { gte: today },
-            clickedAt: { not: null },
+            status: 'converted',
+          },
+        }),
+        prisma.crmMarketingMessage.count({
+          where: {
+            organizationId,
+            segment: 'couple',
+            createdAt: { gte: today },
+          },
+        }),
+        prisma.crmMarketingMessage.count({
+          where: {
+            organizationId,
+            segment: 'couple',
+            createdAt: { gte: today },
+            deliveredAt: { not: null },
+          },
+        }),
+        prisma.crmMarketingMessage.count({
+          where: {
+            organizationId,
+            segment: 'couple',
+            createdAt: { gte: today },
+            status: 'converted',
           },
         }),
       ]);
 
       const result = {
-        sms: { sent: smsSent, opened: smsOpened, clicked: smsClicked },
-        kakao: { sent: kakaoSent, opened: kakaoOpened, clicked: kakaoClicked },
-        email: { sent: emailSent, opened: emailOpened, clicked: emailClicked },
+        newlywed: { sent: newlywedSent, delivered: newlywedDelivered, converted: newlywedConverted },
+        family: { sent: familySent, delivered: familyDelivered, converted: familyConverted },
+        couple: { sent: coupleSent, delivered: coupleDelivered, converted: coupleConverted },
       };
 
       // Cache for 2 minutes
-      await redis.setex(cacheKey, 2 * DEFAULT_CACHE_TTL, result).catch(() => {
-        logger.warn('Failed to cache channel metrics');
+      await redis.setex(cacheKey, 2 * DEFAULT_CACHE_TTL, JSON.stringify(result)).catch(() => {
+        logger.warn('Failed to cache segment metrics');
       });
 
       return result;
     } catch (error) {
-      logger.error('Error fetching channel metrics', error, { organizationId });
+      logger.error('Error fetching segment metrics', { error, organizationId });
       return {
-        sms: { sent: 0, opened: 0, clicked: 0 },
-        kakao: { sent: 0, opened: 0, clicked: 0 },
-        email: { sent: 0, opened: 0, clicked: 0 },
+        newlywed: { sent: 0, delivered: 0, converted: 0 },
+        family: { sent: 0, delivered: 0, converted: 0 },
+        couple: { sent: 0, delivered: 0, converted: 0 },
       };
     }
   }
@@ -341,45 +341,45 @@ class RealtimeMetricsService {
 
     try {
       const sales = await prisma.affiliateSale.groupBy({
-        by: ['partnerId'],
+        by: ['affiliateCode'],
         where: {
           organizationId,
           createdAt: { gte: today },
           status: { in: ['CONFIRMED', 'APPROVED'] },
         },
-        _sum: { amount: true },
-        orderBy: { _sum: { amount: 'desc' } },
+        _sum: { saleAmount: true },
+        orderBy: { _sum: { saleAmount: 'desc' } },
         take: limit,
       });
 
-      const partnerIds = sales.map((s) => s.partnerId).filter(Boolean) as string[];
+      const affiliateCodes = sales.map((s) => s.affiliateCode).filter(Boolean) as string[];
 
-      let partners: Array<{ id: string; name: string }> = [];
-      if (partnerIds.length > 0) {
-        partners = await prisma.affiliateProfile.findMany({
-          where: { id: { in: partnerIds } },
-          select: { id: true, name: true },
+      let partners: Array<{ affiliateCode: string; name: string }> = [];
+      if (affiliateCodes.length > 0) {
+        partners = await prisma.partner.findMany({
+          where: { affiliateCode: { in: affiliateCodes } },
+          select: { affiliateCode: true, name: true },
         });
       }
 
-      const partnerMap = new Map(partners.map((p) => [p.id, p.name]));
+      const partnerMap = new Map(partners.map((p) => [p.affiliateCode, p.name]));
 
       const result = sales
-        .filter((s) => s.partnerId)
+        .filter((s) => s.affiliateCode)
         .map((s) => ({
-          partnerId: s.partnerId as string,
-          name: partnerMap.get(s.partnerId as string) || 'Unknown',
-          amount: s._sum?.amount || 0,
+          affiliateCode: s.affiliateCode as string,
+          name: partnerMap.get(s.affiliateCode as string) || 'Unknown',
+          saleAmount: s._sum?.saleAmount || 0,
         }));
 
       // Cache for 1 minute
-      await redis.setex(cacheKey, DEFAULT_CACHE_TTL, result).catch(() => {
+      await redis.setex(cacheKey, DEFAULT_CACHE_TTL, JSON.stringify(result)).catch(() => {
         logger.warn('Failed to cache partner leaderboard');
       });
 
       return result;
     } catch (error) {
-      logger.error('Error fetching partner leaderboard', error, { organizationId });
+      logger.error('Error fetching partner leaderboard', { error, organizationId });
       return [];
     }
   }
@@ -446,7 +446,4 @@ class RealtimeMetricsService {
     ];
 
     await Promise.allSettled(keys.map((key) => redis.del(key)));
-  }
-}
-
-export const realtimeMetricsService = new RealtimeMetricsService();
+  }

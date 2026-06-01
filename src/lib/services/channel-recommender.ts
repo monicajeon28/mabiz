@@ -65,8 +65,8 @@ export async function recommendChannels(
   }
 ): Promise<ChannelRecommendation[]> {
   try {
-    // 1. 세그먼트 정보 조회
-    const segment = await prisma.segment.findUnique({
+    // 1. 세그먼트 정보 조회 (ContactGroup 사용)
+    const segment = await prisma.contactGroup.findUnique({
       where: { id: segmentId },
       include: { _count: { select: { members: true } } },
     });
@@ -121,18 +121,28 @@ export async function recommendChannelsForContact(
   try {
     const contact = await prisma.contact.findUnique({
       where: { id: contactId },
-      include: {
-        smsLogs: { take: 20, orderBy: { createdAt: "desc" } },
-        emailLogs: { take: 20, orderBy: { createdAt: "desc" } },
-      },
     });
 
     if (!contact) {
       throw new Error(`Contact not found: ${contactId}`);
     }
 
-    // 고객 행동 분석
-    const behavior = analyzeContactBehavior(contact);
+    // SMS and Email logs are separate tables, fetch them separately
+    const smsLogs = await prisma.smsLog.findMany({
+      where: { contactId },
+      orderBy: { sentAt: "desc" },
+      take: 20,
+    });
+
+    const emailLogs = await prisma.emailLog.findMany({
+      where: { contactId },
+      orderBy: { sentAt: "desc" },
+      take: 20,
+    });
+
+    // 고객 행동 분석 (with logs attached)
+    const contactWithLogs = { ...contact, smsLogs, emailLogs };
+    const behavior = analyzeContactBehavior(contactWithLogs);
 
     // 채널별 점수 계산
     const scores = calculateContactChannelScores(behavior);
@@ -202,7 +212,7 @@ export async function getChannelPerformance(
       by: ["status"],
       where: {
         organizationId,
-        createdAt: { gte: timeRange.from, lte: timeRange.to },
+        sentAt: { gte: timeRange.from, lte: timeRange.to },
       },
       _count: true,
     });
@@ -211,7 +221,7 @@ export async function getChannelPerformance(
       by: ["status"],
       where: {
         organizationId,
-        createdAt: { gte: timeRange.from, lte: timeRange.to },
+        sentAt: { gte: timeRange.from, lte: timeRange.to },
       },
       _count: true,
     });

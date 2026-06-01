@@ -93,7 +93,7 @@ export async function updatePartnerRiskScore(
   try {
     // 최근 성과 데이터 조회 (최근 4주)
     const performances = await prisma.partnerPerformance.findMany({
-      where: { partnerId, organizationId: organizationId },
+      where: { partnerId },
       orderBy: { createdAt: 'desc' },
       take: 4,
     });

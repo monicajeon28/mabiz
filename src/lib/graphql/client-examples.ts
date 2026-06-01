@@ -196,13 +196,13 @@ const GET_ANALYTICS = gql\`
 \`;
 
 function AnalyticsDashboard() {
-  const { data, loading } = useQuery(GET_ANALYTICS, {
+  const { data: analyticsData, loading } = useQuery(GET_ANALYTICS, {
     variables: { period: 'MONTH' }
   });
 
   if (loading) return <p>Loading analytics...</p>;
 
-  const analytics = data.analytics;
+  const analyticsValues = analyticsData?.analytics;
 
   return (
     <div>
@@ -210,19 +210,19 @@ function AnalyticsDashboard() {
       <div className="kpi-grid">
         <div className="kpi">
           <label>Total Revenue</label>
-          <value>\\$${(analytics.totalRevenue / 1000).toFixed(1)}K</value>
+          <value>\\$\${(analyticsValues?.totalRevenue / 1000).toFixed(1)}K</value>
         </div>
         <div className="kpi">
           <label>Active Contacts</label>
-          <value>{analytics.activeContacts}</value>
+          <value>{analyticsValues?.activeContacts}</value>
         </div>
         <div className="kpi">
           <label>Conversion Rate</label>
-          <value>{analytics.averageConversionRate.toFixed(1)}%</value>
+          <value>{analyticsValues?.averageConversionRate.toFixed(1)}%</value>
         </div>
         <div className="kpi">
           <label>CPA</label>
-          <value>\\${analytics.averageCPA.toFixed(0)}</value>
+          <value>\\$\${analyticsValues?.averageCPA.toFixed(0)}</value>
         </div>
       </div>
 
@@ -237,12 +237,12 @@ function AnalyticsDashboard() {
           </tr>
         </thead>
         <tbody>
-          {analytics.segmentDistribution.map(segment => (
-            <tr key={segment.segment}>
-              <td>{segment.segment}</td>
-              <td>{segment.count}</td>
-              <td>{(segment.conversionRate * 100).toFixed(1)}%</td>
-              <td>\\${segment.averageLifetimeValue}</td>
+          {analyticsValues?.segmentDistribution.map((seg: any) => (
+            <tr key={seg.segment}>
+              <td>{seg.segment}</td>
+              <td>{seg.count}</td>
+              <td>{(seg.conversionRate * 100).toFixed(1)}%</td>
+              <td>\\$\${seg.averageLifetimeValue}</td>
             </tr>
           ))}
         </tbody>
@@ -277,30 +277,32 @@ const GET_FORECASTS = gql\`
 \`;
 
 function ForecastChart() {
-  const { data, loading } = useQuery(GET_FORECASTS, {
+  const { data: forecastData, loading } = useQuery(GET_FORECASTS, {
     variables: { days: 30 }
   });
 
   if (loading) return <p>Loading forecast...</p>;
+
+  const forecasts = forecastData?.revenueForecasts || [];
 
   return (
     <div>
       <h2>30-Day Revenue Forecast</h2>
       <div style={{ height: 400 }}>
         {/* Use Recharts or Chart.js to visualize */}
-        {data.revenueForecasts.map(forecast => (
-          <div key={forecast.days}>
-            Day {forecast.days}: \\${forecast.predictedValue.toLocaleString()}
-            (\\${forecast.lowerBound} - \\${forecast.upperBound})
+        {forecasts.map((forecastItem: any) => (
+          <div key={forecastItem.days}>
+            Day {forecastItem.days}: \\$\${forecastItem.predictedValue.toLocaleString()}
+            (\\$\${forecastItem.lowerBound} - \\$\${forecastItem.upperBound})
           </div>
         ))}
       </div>
 
-      {data.revenueForecasts[0] && (
+      {forecasts[0] && (
         <div>
           <h3>Key Drivers</h3>
           <ul>
-            {data.revenueForecasts[0].drivers.map(driver => (
+            {forecasts[0].drivers.map((driver: any) => (
               <li key={driver.name}>
                 {driver.name}: {driver.impact > 0 ? '+' : ''}{driver.impact.toFixed(1)}%
               </li>

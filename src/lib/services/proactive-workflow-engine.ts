@@ -445,10 +445,7 @@ export class ProactiveWorkflowEngine {
         message: messages[variant],
         scheduledAt: scheduleTime,
         status: 'SCHEDULED',
-        channel: 'SMS',
-        proactiveWorkflowId: workflow.id,
-        workflowStage: 2,
-        abTestVariant: variant
+        channel: 'SMS'
       }
     });
   }

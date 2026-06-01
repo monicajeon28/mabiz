@@ -296,7 +296,7 @@ export class LensDetectionEngine {
     if (!this.redis) return null;
     try {
       const cached = await this.redis.get(key);
-      return cached ? JSON.parse(cached) : null;
+      return cached ? JSON.parse(cached as string) : null;
     } catch (error) {
       logger.warn(`[LensDetection] Cache read error: ${error}`);
       return null;
@@ -306,7 +306,7 @@ export class LensDetectionEngine {
   private async cacheResult(key: string, result: LensDetectionResult): Promise<void> {
     if (!this.redis) return;
     try {
-      await this.redis.set(key, JSON.stringify(result), "EX", this.CACHE_TTL);
+      await this.redis.setex(key, this.CACHE_TTL, JSON.stringify(result));
     } catch (error) {
       logger.warn(`[LensDetection] Cache write error: ${error}`);
     }

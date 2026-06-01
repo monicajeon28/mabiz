@@ -192,7 +192,7 @@ export async function segmentByRFM(
   // Get call logs data
   const callLogsData = await prisma.aiCallLog.findMany({
     where: { organizationId },
-    select: { personaType: true, createdAt: true },
+    select: { personaType: true, uploadedAt: true },
   });
 
   const rfmSegments = new Map<string, string[]>();
