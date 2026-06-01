@@ -510,7 +510,9 @@ export class DailyReportGenerator {
     const partners = await Promise.all(
       partnerSales.map(async (ps) => {
         const partner = await prisma.partner.findFirst({
-          where: { affiliateCode: ps.affiliateCode },
+          where: {
+            organizationId: this.orgId,
+          },
         });
 
         const revenue = Number(ps._sum?.saleAmount || 0) / 100;
@@ -717,7 +719,7 @@ export class DailyReportGenerator {
         title: 'Investigate Revenue Decline',
         description: `Revenue down ${Math.abs(summary.revenue.percentChange).toFixed(1)}% vs yesterday`,
         impact: 'Could recover $5-10K if addressed',
-        priority: 'HIGH',
+        priority: 'HIGH' as const,
         action: 'Check for system issues or campaign changes',
       });
     }

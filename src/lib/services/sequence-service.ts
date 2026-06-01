@@ -5,6 +5,7 @@
 import { prisma } from '@/lib/prisma';
 import {
   SmsSequenceTemplateDTO,
+  SmsSequenceVariantDTO,
   ContactSequenceInstanceDTO,
   CreateSequenceRequest,
   UpdateSequenceRequest,
@@ -118,12 +119,28 @@ export async function getSequence(
       day,
       delay: dayConfig?.delay || 0,
       message: dayVariants[0]?.messageContent || '',
-      psychology: dayVariants[0]?.psychology,
-      lens: template.psychologyLens,
+      psychology: dayVariants[0]?.psychology || undefined,
+      lens: template.psychologyLens || undefined,
       framework: PASONA_STAGES[day]?.name || 'Unknown',
       expectedOpenRate: getExpectedRate(day, 'open'),
       expectedClickRate: getExpectedRate(day, 'click'),
-      variants: dayVariants as any
+      variants: dayVariants.map(v => ({
+        id: v.id,
+        sequenceId: v.sequenceId,
+        variantCode: v.variantCode as any,
+        day: v.day,
+        messageContent: v.messageContent,
+        psychology: v.psychology,
+        lensName: v.lensName,
+        pasonaStage: v.pasonaStage,
+        sentCount: 0,
+        openCount: 0,
+        clickCount: 0,
+        convertCount: 0,
+        isWinner: false,
+        createdAt: v.createdAt,
+        updatedAt: v.updatedAt
+      })) as SmsSequenceVariantDTO[]
     };
   });
 

@@ -209,7 +209,7 @@ function OverviewTab({
             </thead>
             <tbody>
               {metrics?.partnerLeaderboard?.map((partner, idx) => (
-                <tr key={partner.partnerId} className="border-b border-slate-100 hover:bg-slate-50">
+                <tr key={partner.affiliateCode} className="border-b border-slate-100 hover:bg-slate-50">
                   <td className="py-3 px-4">
                     <span className="inline-flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 rounded-full text-xs font-bold">
                       {idx + 1}
@@ -217,7 +217,7 @@ function OverviewTab({
                   </td>
                   <td className="py-3 px-4 font-medium text-slate-900">{partner.name}</td>
                   <td className="py-3 px-4 text-right font-semibold text-slate-900">
-                    ${partner.amount.toLocaleString('en-US')}
+                    ${partner.saleAmount.toLocaleString('en-US')}
                   </td>
                 </tr>
               ))}

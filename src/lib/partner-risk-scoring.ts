@@ -109,8 +109,8 @@ export async function updatePartnerRiskScore(
     const lowPerformanceScore = avgConversionRate < 15 ? 25 : 0;
 
     // 이탈 신호 (최근 주 매출이 이전 주의 50% 미만)
-    const recentRevenue = performances[0]?.revenue || 0;
-    const previousRevenue = performances[1]?.revenue || 0;
+    const recentRevenue = Number(performances[0]?.revenue || 0);
+    const previousRevenue = Number(performances[1]?.revenue || 0);
     const churnScore =
       previousRevenue > 0 && recentRevenue < previousRevenue * 0.5 ? 25 : 0;
 
