@@ -877,7 +877,7 @@ export default function AffiliateTeamDashboardPage() {
             >
               <Bell className="w-4 h-4" />
               계약 승인 대기
-              <span className="ml-0.5 px-1.5 py-0.5 bg-amber-500 text-white text-xs font-bold rounded-full">{pendingCount}</span>
+              <span className="ml-0.5 px-1.5 py-0.5 bg-amber-500 text-white text-sm font-bold rounded-full">{pendingCount}</span>
               <ExternalLink className="w-3 h-3 ml-0.5 opacity-60" />
             </a>
           )}
@@ -889,7 +889,7 @@ export default function AffiliateTeamDashboardPage() {
           >
             <MessageSquare className="w-4 h-4" />
             팀 메시지
-            <span className="ml-1 text-xs font-normal text-teal-500">(준비 중)</span>
+            <span className="ml-1 text-sm font-normal text-teal-500">(준비 중)</span>
           </button>
           <button
             type="button"
@@ -907,7 +907,7 @@ export default function AffiliateTeamDashboardPage() {
       <form onSubmit={handleSubmit} className="rounded-3xl bg-white/90 p-6 shadow-sm backdrop-blur">
         <div className="grid gap-4 md:grid-cols-[2fr_1fr_1fr_auto]">
           <label className="flex flex-col gap-2">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">검색</span>
+            <span className="text-sm font-semibold text-slate-500 uppercase tracking-wide">검색</span>
             <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 focus-within:border-blue-500">
               <Search className="w-4 h-4 text-slate-400" />
               <input
@@ -921,7 +921,7 @@ export default function AffiliateTeamDashboardPage() {
           </label>
 
           <label className="flex flex-col gap-2">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">시작일</span>
+            <span className="text-sm font-semibold text-slate-500 uppercase tracking-wide">시작일</span>
             <input
               type="date"
               value={filters.from}
@@ -931,7 +931,7 @@ export default function AffiliateTeamDashboardPage() {
           </label>
 
           <label className="flex flex-col gap-2">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">종료일</span>
+            <span className="text-sm font-semibold text-slate-500 uppercase tracking-wide">종료일</span>
             <input
               type="date"
               value={filters.to}
@@ -974,7 +974,7 @@ export default function AffiliateTeamDashboardPage() {
                 </div>
                 <div className="rounded-2xl bg-white/15 p-3 text-white">{card.icon}</div>
               </div>
-              <p className="mt-4 text-xs text-white/70">{card.description}</p>
+              <p className="mt-4 text-sm text-white/70">{card.description}</p>
             </article>
           ))}
         </section>
@@ -999,7 +999,7 @@ export default function AffiliateTeamDashboardPage() {
                     <h2 className="text-xl font-semibold text-slate-900">
                       {managerName} {branchLabel && <span className="text-sm text-slate-500">{branchLabel}</span>}
                     </h2>
-                    <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                    <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-slate-500">
                       <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600">코드 {item.manager.affiliateCode}</span>
                       <span className="rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-600">{managerStatus}</span>
                       <span className="rounded-full bg-red-50 px-3 py-1 font-semibold text-red-600">본사 직속</span>
@@ -1022,7 +1022,7 @@ export default function AffiliateTeamDashboardPage() {
                           title={crm.isActive ? '비활성화' : '활성화'}
                           disabled={isActing}
                           onClick={() => handleToggleManager(crm.userId, crm.orgId, crm.isActive, mgrName)}
-                          className={`p-2 rounded-lg transition-colors disabled:opacity-40 ${crm.isActive ? 'text-emerald-500 hover:bg-emerald-50' : 'text-gray-400 hover:bg-gray-100'}`}
+                          className={`p-2 rounded-lg transition-colors disabled:opacity-40 ${crm.isActive ? 'text-emerald-500 hover:bg-emerald-50' : 'text-gray-600 hover:bg-gray-100'}`}
                         >
                           {crm.isActive
                             ? <ToggleRight className="w-5 h-5" />
@@ -1051,9 +1051,9 @@ export default function AffiliateTeamDashboardPage() {
 
                 <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                   <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
-                    <p className="text-xs font-semibold text-slate-500 uppercase">리드 현황</p>
+                    <p className="text-sm font-semibold text-slate-500 uppercase">리드 현황</p>
                     <p className="mt-2 text-xl font-bold text-slate-900">{item.leads.total.toLocaleString('ko-KR')}건</p>
-                    <div className="mt-4 space-y-2 text-xs text-slate-600">
+                    <div className="mt-4 space-y-2 text-sm text-slate-600">
                       {Object.entries(item.leads.byStatus).map(([status, count]) => (
                         <div key={status} className="flex justify-between">
                           <span>{LEAD_STATUS_LABELS[status] || status}</span>
@@ -1065,17 +1065,17 @@ export default function AffiliateTeamDashboardPage() {
                   </div>
 
                   <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
-                    <p className="text-xs font-semibold text-slate-500 uppercase">판매 요약</p>
+                    <p className="text-sm font-semibold text-slate-500 uppercase">판매 요약</p>
                     <p className="mt-2 text-xl font-bold text-slate-900">{item.sales.count.toLocaleString('ko-KR')}건</p>
-                    <div className="mt-4 space-y-2 text-xs text-slate-600">
+                    <div className="mt-4 space-y-2 text-sm text-slate-600">
                       <div className="flex justify-between"><span>판매 금액</span><span className="font-semibold">{formatCurrency(item.sales.saleAmount)}</span></div>
                       <div className="flex justify-between"><span>순이익</span><span className="font-semibold">{formatCurrency(item.sales.netRevenue)}</span></div>
                     </div>
                   </div>
 
                   <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
-                    <p className="text-xs font-semibold text-slate-500 uppercase">커미션 예정</p>
-                    <div className="mt-4 space-y-2 text-xs text-slate-600">
+                    <p className="text-sm font-semibold text-slate-500 uppercase">커미션 예정</p>
+                    <div className="mt-4 space-y-2 text-sm text-slate-600">
                       <div className="flex justify-between"><span>브랜치</span><span className="font-semibold">{formatCurrency(item.sales.branchCommission)}</span></div>
                       <div className="flex justify-between"><span>오버라이드</span><span className="font-semibold">{formatCurrency(item.sales.overrideCommission)}</span></div>
                       <div className="flex justify-between"><span>판매원 수당</span><span className="font-semibold">{formatCurrency(item.sales.salesCommission)}</span></div>
@@ -1090,8 +1090,8 @@ export default function AffiliateTeamDashboardPage() {
                   </div>
 
                   <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
-                    <p className="text-xs font-semibold text-slate-500 uppercase">정산 현황</p>
-                    <div className="mt-4 space-y-2 text-xs text-slate-600">
+                    <p className="text-sm font-semibold text-slate-500 uppercase">정산 현황</p>
+                    <div className="mt-4 space-y-2 text-sm text-slate-600">
                       <div className="flex justify-between"><span>브랜치 (지급완료)</span><span className="font-semibold">{formatCurrency(item.ledger.branchSettled)}</span></div>
                       <div className="flex justify-between"><span>브랜치 (지급대기)</span><span className="font-semibold">{formatCurrency(item.ledger.branchPending)}</span></div>
                       <div className="flex justify-between"><span>오버라이드 (지급완료)</span><span className="font-semibold">{formatCurrency(item.ledger.overrideSettled)}</span></div>
@@ -1137,17 +1137,17 @@ export default function AffiliateTeamDashboardPage() {
                                   <tr key={`${agentItem.agent?.id ?? 'none'}-${agentItem.relation.connectedAt ?? 'rel'}`} className="hover:bg-slate-50">
                                     <td className="px-4 py-3">
                                       <div className="font-semibold text-slate-900">{agentName}</div>
-                                      <div className="text-xs text-slate-500">코드 {agentItem.agent?.affiliateCode ?? '-'}</div>
-                                      {agentItem.agent?.contactPhone && <div className="text-xs text-slate-500">{agentItem.agent.contactPhone}</div>}
+                                      <div className="text-sm text-slate-500">코드 {agentItem.agent?.affiliateCode ?? '-'}</div>
+                                      {agentItem.agent?.contactPhone && <div className="text-sm text-slate-500">{agentItem.agent.contactPhone}</div>}
                                       <div className="text-[11px] text-slate-400">소속 대리점장: {managerLabel}</div>
                                     </td>
-                                    <td className="px-4 py-3 text-xs text-slate-600">
+                                    <td className="px-4 py-3 text-sm text-slate-600">
                                       <div className="font-semibold text-slate-700">{relationLabel}</div>
                                       <div>{fromNow(agentItem.relation.connectedAt)}</div>
                                     </td>
                                     <td className="px-4 py-3 text-sm text-slate-700">
                                       <div className="font-semibold">{agentItem.leads.total.toLocaleString('ko-KR')}건</div>
-                                      <div className="mt-1 flex flex-wrap gap-1 text-xs text-slate-500">
+                                      <div className="mt-1 flex flex-wrap gap-1 text-sm text-slate-500">
                                         {Object.entries(agentItem.leads.byStatus).map(([status, count]) => (
                                           <span key={status} className="rounded-full bg-slate-100 px-2 py-0.5">
                                             {LEAD_STATUS_LABELS[status] || status} {count}
@@ -1159,7 +1159,7 @@ export default function AffiliateTeamDashboardPage() {
                                     <td className="px-4 py-3 font-semibold text-slate-700">{formatCurrency(agentItem.sales.saleAmount)}</td>
                                     <td className="px-4 py-3 text-slate-700">{formatCurrency(agentItem.sales.salesCommission)}</td>
                                     <td className="px-4 py-3 text-slate-700">{formatCurrency(agentItem.sales.overrideCommission)}</td>
-                                    <td className="px-4 py-3 text-xs text-slate-600">
+                                    <td className="px-4 py-3 text-sm text-slate-600">
                                       <div>완료 {formatCurrency(agentItem.ledger.settled)}</div>
                                       <div>대기 {formatCurrency(agentItem.ledger.pending)}</div>
                                       <div className="pt-1 text-[11px] text-slate-500">원천징수 {formatCurrency(agentItem.ledger.totalWithholding)}</div>
@@ -1222,7 +1222,7 @@ export default function AffiliateTeamDashboardPage() {
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-bold">팀 커뮤니케이션</h2>
                 {messageModalTab === 'messages' && messageTab === 'received' && unreadMessageCount > 0 && (
-                  <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full">
+                  <span className="px-2 py-1 bg-red-500 text-white text-sm font-bold rounded-full">
                     {unreadMessageCount}개 미읽음
                   </span>
                 )}
@@ -1263,7 +1263,7 @@ export default function AffiliateTeamDashboardPage() {
                 <MessageSquare className="w-4 h-4" />
                 메시지
                 {unreadMessageCount > 0 && (
-                  <span className="px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">{unreadMessageCount}</span>
+                  <span className="px-1.5 py-0.5 bg-red-500 text-white text-sm rounded-full">{unreadMessageCount}</span>
                 )}
               </button>
               <button
@@ -1308,7 +1308,7 @@ export default function AffiliateTeamDashboardPage() {
                 {/* 검색 및 필터 바 */}
                 <div className="mb-4 space-y-2">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
                     <input
                       type="text"
                       value={messageSearchQuery}
@@ -1319,7 +1319,7 @@ export default function AffiliateTeamDashboardPage() {
                     {messageSearchQuery && (
                       <button
                         onClick={() => setMessageSearchQuery('')}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-600"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -1369,7 +1369,7 @@ export default function AffiliateTeamDashboardPage() {
                           </button>
                           {showMessageFilterMenu && (
                             <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-2 min-w-[160px]">
-                              <p className="text-xs font-medium text-gray-500 mb-1 px-2">필터</p>
+                              <p className="text-sm font-medium text-gray-500 mb-1 px-2">필터</p>
                               {[
                                 { value: 'all', label: '전체 보기' },
                                 { value: 'unread', label: '안읽음만' },
@@ -1384,7 +1384,7 @@ export default function AffiliateTeamDashboardPage() {
                                 </button>
                               ))}
                               <hr className="my-2" />
-                              <p className="text-xs font-medium text-gray-500 mb-1 px-2">정렬</p>
+                              <p className="text-sm font-medium text-gray-500 mb-1 px-2">정렬</p>
                               {[
                                 { value: 'newest', label: '최신순' },
                                 { value: 'oldest', label: '오래된순' },
@@ -1474,7 +1474,7 @@ export default function AffiliateTeamDashboardPage() {
                                     {message.title}
                                   </h3>
                                   {message.messageType && message.messageType !== 'team-dashboard' && (
-                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs">
+                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-sm">
                                       {message.messageType === 'agent-manager' ? '판매원→대리점장' :
                                        message.messageType === 'manager-agent' ? '대리점장→판매원' :
                                        message.messageType === 'manager-manager' ? '대리점장→대리점장' :
@@ -1484,7 +1484,7 @@ export default function AffiliateTeamDashboardPage() {
                                   )}
                                 </div>
                                 <p className="text-sm text-gray-700 whitespace-pre-wrap mb-2 line-clamp-2">{message.content}</p>
-                                <div className="flex items-center gap-4 text-xs text-gray-500">
+                                <div className="flex items-center gap-4 text-sm text-gray-500">
                                   <span>발신: {(message.sender || message.admin)?.name || '알 수 없음'}</span>
                                   <span>
                                     {new Date(message.createdAt).toLocaleString('ko-KR', {
@@ -1561,7 +1561,7 @@ export default function AffiliateTeamDashboardPage() {
                               <div className="flex-1 min-w-0">
                                 <h3 className="font-semibold text-gray-900 mb-1">{message.title}</h3>
                                 <p className="text-sm text-gray-700 whitespace-pre-wrap mb-2 line-clamp-2">{message.content}</p>
-                                <div className="flex items-center gap-4 text-xs text-gray-500">
+                                <div className="flex items-center gap-4 text-sm text-gray-500">
                                   <span>수신: {message.recipient?.name || '알 수 없음'}</span>
                                   <span>
                                     {new Date(message.createdAt).toLocaleString('ko-KR', {
@@ -1689,7 +1689,7 @@ export default function AffiliateTeamDashboardPage() {
 
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                <span className={`px-2 py-1 rounded text-sm font-medium ${
                                   activity.interactionType === 'call' ? 'bg-blue-100 text-blue-700' :
                                   activity.interactionType === 'sms' ? 'bg-green-100 text-green-700' :
                                   activity.interactionType === 'email' ? 'bg-purple-100 text-purple-700' :
@@ -1713,12 +1713,12 @@ export default function AffiliateTeamDashboardPage() {
                                 <p className="text-sm text-gray-700 mb-2 line-clamp-2">{activity.note}</p>
                               )}
 
-                              <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
+                              <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
                                 {activity.profile && (
                                   <span className="flex items-center gap-1">
                                     <Users className="w-3 h-3" />
                                     {activity.profile.displayName}
-                                    <span className={`px-1.5 py-0.5 rounded text-xs ${
+                                    <span className={`px-1.5 py-0.5 rounded text-sm ${
                                       activity.profile.type === 'BRANCH_MANAGER' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'
                                     }`}>
                                       {activity.profile.type === 'BRANCH_MANAGER' ? '대리점장' : '판매원'}
@@ -1794,7 +1794,7 @@ export default function AffiliateTeamDashboardPage() {
                 </label>
 
                 <div className="relative mb-3">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
                   <input
                     type="text"
                     value={recipientSearchQuery}
@@ -1805,7 +1805,7 @@ export default function AffiliateTeamDashboardPage() {
                   {recipientSearchQuery && (
                     <button
                       onClick={() => setRecipientSearchQuery('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-600"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1839,7 +1839,7 @@ export default function AffiliateTeamDashboardPage() {
                             <span className="font-medium text-gray-900">{r.name || '이름 없음'}</span>
                             {r.phone && <span className="text-gray-500 text-sm ml-2">({r.phone})</span>}
                           </div>
-                          <span className={`text-xs px-2 py-1 rounded-full ${
+                          <span className={`text-sm px-2 py-1 rounded-full ${
                             r.role === 'manager' ? 'bg-blue-100 text-blue-700' :
                             r.role === 'admin' ? 'bg-purple-100 text-purple-700' :
                             'bg-green-100 text-green-700'

@@ -12,7 +12,7 @@ export function RegionalSetup({ loading, setupMsg, onSetup }: RegionalSetupProps
   return (
     <div className="mb-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
       <p className="text-sm font-semibold text-blue-800 mb-1">📍 지역별 관심 그룹 자동 설정</p>
-      <p className="text-xs text-blue-600 mb-3">8개 지역 그룹 + 12주 SMS 퍼널을 한 번에 생성합니다</p>
+      <p className="text-sm text-blue-600 mb-3">8개 지역 그룹 + 12주 SMS 퍼널을 한 번에 생성합니다</p>
       <button
         onClick={onSetup}
         disabled={loading}
@@ -23,7 +23,7 @@ export function RegionalSetup({ loading, setupMsg, onSetup }: RegionalSetupProps
       </button>
       {setupMsg && (
         <p
-          className={`text-xs mt-2 ${
+          className={`text-sm mt-2 ${
             setupMsg.includes('이미')
               ? 'text-gray-500'
               : setupMsg.includes('실패') || setupMsg.includes('오류')

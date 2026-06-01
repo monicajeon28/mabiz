@@ -52,7 +52,7 @@ export function BlastPanel({
             성공 {blastResult.sentCount}명 · 차단 {blastResult.blockedCount}명
             {blastResult.failedCount > 0 && ` · 실패 ${blastResult.failedCount}명`}
           </p>
-          <button onClick={onClose} className="text-xs text-gray-500 mt-2 underline">
+          <button onClick={onClose} className="text-sm text-gray-500 mt-2 underline">
             닫기
           </button>
         </div>
@@ -70,7 +70,7 @@ export function BlastPanel({
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500 resize-none"
             aria-label="발송 메시지"
           />
-          <p className="text-xs text-gray-600">[고객명] 자동 치환됩니다</p>
+          <p className="text-sm text-gray-600">[고객명] 자동 치환됩니다</p>
 
           {blastError && (
             <p className="text-base text-red-700 font-medium bg-red-50 p-3 rounded" role="alert">⚠️ {blastError}</p>
@@ -88,18 +88,18 @@ export function BlastPanel({
                     <p className="font-medium">✓ 메시지:</p>
                     {/* W3-5: 전체 메시지 표시 (스크롤 가능) */}
                     <div className="bg-white border border-yellow-200 rounded-lg p-2 max-h-20 overflow-y-auto mt-1">
-                      <p className="text-xs text-gray-700 whitespace-pre-wrap break-words">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
                         {blastMsg}
                       </p>
                     </div>
                     {/* W3-5: 문자 수 표시 */}
-                    <p className="text-xs text-gray-600 mt-1">
+                    <p className="text-sm text-gray-600 mt-1">
                       {blastMsg.length}자 {blastMsg.length > 80 && '(LMS 2건)'}
                     </p>
                   </div>
                 </div>
                 {blastPreview.isOverLimit && (
-                  <p className="text-xs text-orange-600 mt-2">⚠️ 200명 초과 — 첫 200명만 발송됩니다</p>
+                  <p className="text-sm text-orange-600 mt-2">⚠️ 200명 초과 — 첫 200명만 발송됩니다</p>
                 )}
               </div>
 

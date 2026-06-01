@@ -130,7 +130,7 @@ export function L6TimingBanner({
           <h3 className={`text-sm font-bold ${getTextColor()}`}>
             {urgencyLevel === 'critical' ? '⚠️ 긴급 알림' : '⏰ 시간 제한 오퍼'}
           </h3>
-          <p className={`text-xs ${getTextColor()} mt-1`}>
+          <p className={`text-sm ${getTextColor()} mt-1`}>
             24시간 내 신청 시 {earlyBookingDiscount}% 조기예약 할인
           </p>
         </div>
@@ -140,17 +140,17 @@ export function L6TimingBanner({
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-2">
           <Clock className="w-4 h-4 text-gray-500" />
-          <span className="text-xs font-medium text-gray-600">마감까지 남은 시간</span>
+          <span className="text-sm font-medium text-gray-600">마감까지 남은 시간</span>
         </div>
         <div className="flex gap-2">
           <div className={`${getTimerColor()} px-3 py-2 rounded-lg font-mono font-bold text-center min-w-12`}>
             {String(timeLeft.hours).padStart(2, '0')}
           </div>
-          <span className="text-gray-400 self-center">:</span>
+          <span className="text-gray-600 self-center">:</span>
           <div className={`${getTimerColor()} px-3 py-2 rounded-lg font-mono font-bold text-center min-w-12`}>
             {String(timeLeft.minutes).padStart(2, '0')}
           </div>
-          <span className="text-gray-400 self-center">:</span>
+          <span className="text-gray-600 self-center">:</span>
           <div className={`${getTimerColor()} px-3 py-2 rounded-lg font-mono font-bold text-center min-w-12`}>
             {String(timeLeft.seconds).padStart(2, '0')}
           </div>
@@ -163,7 +163,7 @@ export function L6TimingBanner({
         <div className="bg-white rounded-lg p-3 border border-gray-200">
           <div className="flex items-center gap-1.5 mb-1">
             <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            <span className="text-xs text-gray-600">남은 객실</span>
+            <span className="text-sm text-gray-600">남은 객실</span>
           </div>
           <p className={`text-lg font-bold ${
             seatsAvailable <= 3 ? 'text-red-600' : seatsAvailable <= 5 ? 'text-orange-600' : 'text-gray-700'
@@ -171,7 +171,7 @@ export function L6TimingBanner({
             {seatsAvailable}개 남음
           </p>
           {seatsAvailable <= 5 && (
-            <p className="text-xs text-red-600 mt-1 font-medium">
+            <p className="text-sm text-red-600 mt-1 font-medium">
               ⚠️ 거의 없어요
             </p>
           )}
@@ -181,12 +181,12 @@ export function L6TimingBanner({
         <div className="bg-white rounded-lg p-3 border border-gray-200">
           <div className="flex items-center gap-1.5 mb-1">
             <TrendingUp className="w-4 h-4 text-red-500" />
-            <span className="text-xs text-gray-600">가격 인상</span>
+            <span className="text-sm text-gray-600">가격 인상</span>
           </div>
           <p className="text-sm font-bold text-red-600">
             내일 +{priceDifference.toLocaleString()}원
           </p>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-sm text-gray-500 mt-1">
             {((priceDifference / currentPrice) * 100).toFixed(1)}% 인상 예정
           </p>
         </div>
@@ -194,32 +194,32 @@ export function L6TimingBanner({
 
       {/* 심리학 요소 #2: 손실회피 (금액 강조) */}
       <div className="bg-white rounded-lg p-3 border-2 border-green-200 mb-4">
-        <p className="text-xs text-gray-600 mb-1">지금 신청하면</p>
+        <p className="text-sm text-gray-600 mb-1">지금 신청하면</p>
         <div className="flex items-baseline gap-2">
-          <span className="text-xs text-gray-500 line-through">
+          <span className="text-sm text-gray-500 line-through">
             ₩{currentPrice.toLocaleString()}
           </span>
           <span className="text-xl font-bold text-green-600">
             ₩{discountPrice.toLocaleString()}
           </span>
         </div>
-        <p className="text-xs text-green-600 font-medium mt-1">
+        <p className="text-sm text-green-600 font-medium mt-1">
           {earlyBookingDiscount}% 할인 적용 ({((currentPrice - discountPrice).toLocaleString())}원 절약)
         </p>
       </div>
 
       {/* 심리학 요소 #3: 사회증명 + 긴박감 */}
       <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-3 border border-blue-200">
-        <p className="text-xs text-gray-700 font-medium">
+        <p className="text-sm text-gray-700 font-medium">
           <span className="text-blue-600 font-bold">243명</span>이 이미 예약했습니다
         </p>
-        <p className="text-xs text-gray-600 mt-1">
+        <p className="text-sm text-gray-600 mt-1">
           지금 신청하면 <span className="font-bold text-green-600">내일 오전 확정</span>
         </p>
       </div>
 
       {/* 행동 유도 메시지 */}
-      <p className={`text-xs font-semibold mt-4 ${getTextColor()} text-center`}>
+      <p className={`text-sm font-semibold mt-4 ${getTextColor()} text-center`}>
         {urgencyLevel === 'critical'
           ? '🚨 마지막 24시간! 지금 바로 예약하세요'
           : urgencyLevel === 'high'

@@ -21,7 +21,7 @@ export function TrendChart({ trend, loading }: TrendChartProps) {
         <div className="space-y-2">
           {trend.map((day) => (
             <div key={day.date} className="flex items-center gap-2">
-              <span className="text-xs text-gray-400 w-16 shrink-0">
+              <span className="text-sm text-gray-600 w-16 shrink-0">
                 {day.date.slice(5)}
               </span>
               <div
@@ -37,14 +37,14 @@ export function TrendChart({ trend, loading }: TrendChartProps) {
                   aria-hidden="true"
                 />
               </div>
-              <span className="text-xs font-medium w-6 text-right shrink-0">
+              <span className="text-sm font-medium w-6 text-right shrink-0">
                 {day.count}
               </span>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-sm text-gray-400">최근 7일 등록 데이터가 없습니다.</p>
+        <p className="text-sm text-gray-600">최근 7일 등록 데이터가 없습니다.</p>
       )}
     </div>
   );

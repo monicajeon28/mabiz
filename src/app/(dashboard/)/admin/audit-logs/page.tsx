@@ -246,14 +246,14 @@ export default function AuditLogsPage() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">시간</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">사용자</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">액션</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">리소스</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">PII 필드</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">상태</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">IP</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700"></th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">시간</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">사용자</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">액션</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">리소스</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">PII 필드</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">상태</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">IP</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -277,34 +277,34 @@ export default function AuditLogsPage() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900 font-medium">{log.userId || '-'}</td>
                     <td className="px-4 py-3 text-sm">
-                      <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${ACTION_COLOR[log.action] || 'bg-gray-100'}`}>
+                      <span className={`inline-block px-2 py-1 rounded text-sm font-semibold ${ACTION_COLOR[log.action] || 'bg-gray-100'}`}>
                         {log.action}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       <div>{log.resourceType}</div>
-                      {log.resourceId && <div className="text-xs text-gray-400">{log.resourceId}</div>}
+                      {log.resourceId && <div className="text-sm text-gray-600">{log.resourceId}</div>}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {log.piiFieldsAccessed.length > 0 ? (
                         <div className="flex gap-1 flex-wrap">
                           {log.piiFieldsAccessed.slice(0, 3).map((field) => (
-                            <span key={field} className="bg-orange-100 text-orange-800 px-2 py-0.5 rounded text-xs">
+                            <span key={field} className="bg-orange-100 text-orange-800 px-2 py-0.5 rounded text-sm">
                               {field}
                             </span>
                           ))}
                           {log.piiFieldsAccessed.length > 3 && (
-                            <span className="text-xs text-gray-500">+{log.piiFieldsAccessed.length - 3}</span>
+                            <span className="text-sm text-gray-500">+{log.piiFieldsAccessed.length - 3}</span>
                           )}
                         </div>
                       ) : (
-                        <span className="text-gray-400 text-xs">-</span>
+                        <span className="text-gray-600 text-sm">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <span className="text-lg">{STATUS_ICON[log.status] || '❓'}</span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 font-mono text-xs">{log.ipAddress || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 font-mono text-sm">{log.ipAddress || '-'}</td>
                     <td className="px-4 py-3 text-sm">
                       <button
                         onClick={() => setSelectedLog(log)}
@@ -361,47 +361,47 @@ export default function AuditLogsPage() {
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">시간</p>
+                  <p className="text-sm text-gray-500 uppercase tracking-wide">시간</p>
                   <p className="text-sm font-medium text-gray-900 mt-1">
                     {format(new Date(selectedLog.createdAt), 'PPP p', { locale: ko })}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">사용자</p>
+                  <p className="text-sm text-gray-500 uppercase tracking-wide">사용자</p>
                   <p className="text-sm font-medium text-gray-900 mt-1">{selectedLog.userId || '-'}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">액션</p>
+                  <p className="text-sm text-gray-500 uppercase tracking-wide">액션</p>
                   <p className="text-sm font-medium text-gray-900 mt-1">
-                    <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${ACTION_COLOR[selectedLog.action]}`}>
+                    <span className={`inline-block px-2 py-1 rounded text-sm font-semibold ${ACTION_COLOR[selectedLog.action]}`}>
                       {selectedLog.action}
                     </span>
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">상태</p>
+                  <p className="text-sm text-gray-500 uppercase tracking-wide">상태</p>
                   <p className="text-sm font-medium text-gray-900 mt-1">
                     {selectedLog.status} {STATUS_ICON[selectedLog.status]}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">리소스</p>
+                  <p className="text-sm text-gray-500 uppercase tracking-wide">리소스</p>
                   <p className="text-sm font-medium text-gray-900 mt-1">
                     {selectedLog.resourceType} {selectedLog.resourceId && `(${selectedLog.resourceId})`}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">IP</p>
+                  <p className="text-sm text-gray-500 uppercase tracking-wide">IP</p>
                   <p className="text-sm font-mono text-gray-900 mt-1">{selectedLog.ipAddress || '-'}</p>
                 </div>
               </div>
 
               {selectedLog.piiFieldsAccessed.length > 0 && (
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">PII 필드</p>
+                  <p className="text-sm text-gray-500 uppercase tracking-wide">PII 필드</p>
                   <div className="flex gap-2 flex-wrap mt-2">
                     {selectedLog.piiFieldsAccessed.map((field) => (
-                      <span key={field} className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-xs font-medium">
+                      <span key={field} className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium">
                         {field}
                       </span>
                     ))}
@@ -411,21 +411,21 @@ export default function AuditLogsPage() {
 
               {selectedLog.durationMs && (
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">소요시간</p>
+                  <p className="text-sm text-gray-500 uppercase tracking-wide">소요시간</p>
                   <p className="text-sm font-medium text-gray-900 mt-1">{selectedLog.durationMs}ms</p>
                 </div>
               )}
 
               {selectedLog.errorMessage && (
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">에러 메시지</p>
+                  <p className="text-sm text-gray-500 uppercase tracking-wide">에러 메시지</p>
                   <p className="text-sm text-red-600 mt-1 font-mono">{selectedLog.errorMessage}</p>
                 </div>
               )}
 
               {selectedLog.purpose && (
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">목적</p>
+                  <p className="text-sm text-gray-500 uppercase tracking-wide">목적</p>
                   <p className="text-sm text-gray-900 mt-1">{selectedLog.purpose}</p>
                 </div>
               )}

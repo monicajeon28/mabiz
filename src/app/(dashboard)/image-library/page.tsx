@@ -266,7 +266,7 @@ export default function ImageLibraryPage() {
             className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-blue-400 transition"
             onClick={() => fileInputRef.current?.click()}
           >
-            <CloudUploadIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <CloudUploadIcon className="w-16 h-16 text-gray-600 mx-auto mb-4" />
             <p className="text-xl font-semibold text-gray-900 mb-2">
               이미지를 여기에 드래그하거나 클릭하여 선택
             </p>
@@ -370,7 +370,7 @@ export default function ImageLibraryPage() {
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <div className="flex items-center gap-4">
             <div className="flex-1 relative">
-              <SearchIcon className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+              <SearchIcon className="absolute left-3 top-3 w-5 h-5 text-gray-600" />
               <input
                 type="text"
                 value={search}
@@ -477,22 +477,22 @@ export default function ImageLibraryPage() {
 
                       <div className="flex items-center gap-2 mb-2">
                         {asset.category && (
-                          <span className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-1 rounded">
+                          <span className="inline-block bg-blue-100 text-blue-800 text-sm font-semibold px-2 py-1 rounded">
                             {asset.category}
                           </span>
                         )}
                         {asset.processingStatus === 'PENDING' && (
-                          <span className="inline-block bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-1 rounded">
+                          <span className="inline-block bg-yellow-100 text-yellow-800 text-sm font-semibold px-2 py-1 rounded">
                             처리중
                           </span>
                         )}
                         {asset.processingStatus === 'DONE' && asset.webpDriveFileId && (
-                          <span className="inline-block bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded">
+                          <span className="inline-block bg-green-100 text-green-800 text-sm font-semibold px-2 py-1 rounded">
                             WM완료
                           </span>
                         )}
                         {asset.processingStatus === 'FAILED' && (
-                          <span className="inline-block bg-red-100 text-red-800 text-xs font-semibold px-2 py-1 rounded">
+                          <span className="inline-block bg-red-100 text-red-800 text-sm font-semibold px-2 py-1 rounded">
                             처리실패
                           </span>
                         )}
@@ -503,20 +503,20 @@ export default function ImageLibraryPage() {
                           {asset.tags.slice(0, 2).map((tag) => (
                             <span
                               key={tag}
-                              className="bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded"
+                              className="bg-gray-200 text-gray-700 text-sm px-2 py-1 rounded"
                             >
                               {tag}
                             </span>
                           ))}
                           {asset.tags.length > 2 && (
-                            <span className="text-xs text-gray-600">
+                            <span className="text-sm text-gray-600">
                               +{asset.tags.length - 2}
                             </span>
                           )}
                         </div>
                       )}
 
-                      <p className="text-xs text-gray-600 mb-3">
+                      <p className="text-sm text-gray-600 mb-3">
                         {asset.fileSize && formatFileSize(Number(asset.fileSize))}
                         {asset.width && ` • ${asset.width}x${asset.height}`}
                       </p>

@@ -129,11 +129,11 @@ const MessageCard = React.memo(({
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-medium text-gray-900 text-sm">{label}</h3>
-            <p className="text-xs text-gray-600 mt-0.5">{description}</p>
+            <p className="text-sm text-gray-600 mt-0.5">{description}</p>
           </div>
           {/* Day 3 Badge Pulse Animation (P1 5) */}
           <motion.span
-            className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusInfo.badgeColor}`}
+            className={`px-2.5 py-1 rounded-full text-sm font-medium ${statusInfo.badgeColor}`}
             animate={day === 3 ? { opacity: [1, 0.7, 1] } : {}}
             transition={day === 3 ? { duration: 1.5, repeat: Infinity } : {}}
           >
@@ -156,7 +156,7 @@ const MessageCard = React.memo(({
             disabled
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.95 }}
-            className="text-xs px-3 py-1.5 rounded bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 disabled:opacity-50 transition-all duration-200"
+            className="text-sm px-3 py-1.5 rounded bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 disabled:opacity-50 transition-all duration-200"
             aria-description="이 버튼은 미리보기 용도로 비활성화되어 있습니다"
           >
             자세히
@@ -165,7 +165,7 @@ const MessageCard = React.memo(({
             disabled
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.95 }}
-            className="text-xs px-3 py-1.5 rounded bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200 disabled:opacity-50 transition-all duration-200"
+            className="text-sm px-3 py-1.5 rounded bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200 disabled:opacity-50 transition-all duration-200"
             aria-description="이 버튼은 미리보기 용도로 비활성화되어 있습니다"
           >
             닫기
@@ -173,7 +173,7 @@ const MessageCard = React.memo(({
         </div>
 
         {/* 메시지 길이 정보 */}
-        <div className="text-xs text-gray-600">
+        <div className="text-sm text-gray-600">
           <div className="flex justify-between mb-1">
             <span>글자 수: {message.length}/{maxChars}</span>
             <span className={statusInfo.color}>{statusInfo.label}</span>
@@ -278,7 +278,7 @@ export default function MessagePreview({ messages }: MessagePreviewProps) {
         transition={{ duration: 0.3, delay: 0.1 }}
       >
         <h3 className="text-sm font-medium text-blue-900 mb-2">💡 메시지 형식 안내</h3>
-        <ul className="text-xs text-blue-800 space-y-1">
+        <ul className="text-sm text-blue-800 space-y-1">
           <li>
             ✓ <strong>SMS (0-90자)</strong>: 초록 표시 - 요금 저렴, 빠른 전송
           </li>

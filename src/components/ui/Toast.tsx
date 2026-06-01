@@ -50,7 +50,7 @@ function Toast({ toast, onClose }: ToastProps) {
             setIsLeaving(true);
             setTimeout(() => onClose(toast.id), 300);
           }}
-          className="text-gray-400 hover:text-gray-600 flex-shrink-0 text-lg leading-none"
+          className="text-gray-600 hover:text-gray-600 flex-shrink-0 text-lg leading-none"
           aria-label="닫기"
         >
           ×

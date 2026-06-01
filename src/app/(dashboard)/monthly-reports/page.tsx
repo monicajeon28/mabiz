@@ -133,7 +133,7 @@ export default async function MonthlyReportsPage() {
                       </td>
                       <td className="px-6 py-4 text-center text-sm">
                         <span
-                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${statusBadge.color}`}
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusBadge.color}`}
                         >
                           {statusBadge.label}
                         </span>

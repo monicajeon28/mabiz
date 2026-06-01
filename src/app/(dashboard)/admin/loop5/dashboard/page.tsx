@@ -206,7 +206,7 @@ export default function Loop5DashboardPage() {
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                 Loop 5 성과 대시보드
               </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-sm text-gray-500 dark:text-gray-600 mt-1">
                 {lastRefresh ? `마지막 업데이트: ${lastRefresh}` : '데이터 로딩 중...'}
               </p>
             </div>
@@ -314,7 +314,7 @@ export default function Loop5DashboardPage() {
                 <p className="text-sm font-medium text-green-900 dark:text-green-200">
                   ✅ CTA 변형 우승자 결정됨
                 </p>
-                <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                <p className="text-sm text-green-700 dark:text-green-300 mt-1">
                   CTA Variant {abTests.ctaTests[0].variant}를 Default로 변경 권장
                 </p>
               </div>
@@ -327,7 +327,7 @@ export default function Loop5DashboardPage() {
                 <p className="text-sm font-medium text-yellow-900 dark:text-yellow-200">
                   ⚠️ 응답율 저조 Segment 발견
                 </p>
-                <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
                   {segments.segments
                     .filter(s => s.responseRate < 30 && s.key !== 'TOTAL')
                     .map(s => s.name)
@@ -341,7 +341,7 @@ export default function Loop5DashboardPage() {
                 <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
                   🕐 Day 0 응답율 개선
                 </p>
-                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
                   발송 시간 최적화 또는 초기 메시지 톤 재검토 권장
                 </p>
               </div>

@@ -46,7 +46,7 @@ export default function Error({
 
         {process.env.NODE_ENV === 'development' && error.message && (
           <div className="mt-8 p-4 bg-gray-100 rounded-lg text-left">
-            <p className="text-xs font-mono text-gray-700 break-words">{error.message}</p>
+            <p className="text-sm font-mono text-gray-700 break-words">{error.message}</p>
           </div>
         )}
       </div>

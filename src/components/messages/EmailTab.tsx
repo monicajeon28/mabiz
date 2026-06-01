@@ -93,7 +93,7 @@ export function EmailTab({
 
         {/* 발신자 이름 설정 */}
         <div className="rounded-xl border bg-white p-4">
-          <p className="text-xs font-semibold text-gray-600 mb-3 flex items-center gap-1">
+          <p className="text-sm font-semibold text-gray-600 mb-3 flex items-center gap-1">
             🧑 발신자 이름 설정
           </p>
           {configLoading ? (
@@ -112,13 +112,13 @@ export function EmailTab({
                 <button
                   onClick={onSaveSenderName}
                   disabled={savingName}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-medium disabled:opacity-50 hover:bg-blue-700 transition-colors"
+                  className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 hover:bg-blue-700 transition-colors"
                   aria-label="발신자 이름 저장"
                 >
                   {savingName ? "저장중" : "저장"}
                 </button>
               </div>
-              <p className="text-xs text-gray-600 mt-2">
+              <p className="text-sm text-gray-600 mt-2">
                 보내는 사람:<br />
                 <strong>{senderName || "크루즈닷"}</strong>{" "}
                 &lt;{emailConfig.senderEmail}&gt;
@@ -126,8 +126,8 @@ export function EmailTab({
             </div>
           ) : (
             <div>
-              <p className="text-xs text-amber-700 mb-2">이메일 설정이 필요합니다.</p>
-              <a href="/settings/email" className="text-xs text-blue-600 underline flex items-center gap-1 hover:text-blue-700">
+              <p className="text-sm text-amber-700 mb-2">이메일 설정이 필요합니다.</p>
+              <a href="/settings/email" className="text-sm text-blue-600 underline flex items-center gap-1 hover:text-blue-700">
                 <Settings className="w-3 h-3" /> 이메일 설정하기
               </a>
             </div>
@@ -136,7 +136,7 @@ export function EmailTab({
 
         {/* 그룹 선택 */}
         <div className="rounded-xl border bg-white p-4">
-          <label htmlFor="email-group-select" className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1 block">
+          <label htmlFor="email-group-select" className="text-sm font-semibold text-gray-600 mb-2 flex items-center gap-1 block">
             <Users className="w-3.5 h-3.5" aria-hidden="true" /> 수신 그룹
           </label>
           <select
@@ -152,17 +152,17 @@ export function EmailTab({
             ))}
           </select>
           {currentGroup && (
-            <p className="text-xs text-gray-600 mt-1">{currentGroup._count.members}명에게 발송됩니다.</p>
+            <p className="text-sm text-gray-600 mt-1">{currentGroup._count.members}명에게 발송됩니다.</p>
           )}
         </div>
 
         {/* 발송 시간 */}
         <div className="rounded-xl border bg-white p-4">
-          <p className="text-xs font-semibold text-gray-500 mb-3">발송 시간</p>
+          <p className="text-sm font-semibold text-gray-500 mb-3">발송 시간</p>
           <div className="flex gap-2 mb-3">
             <button
               onClick={() => onSendModeChange("now")}
-              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-medium border transition-all ${sendMode === "now" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-sm font-medium border transition-all ${sendMode === "now" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 hover:bg-gray-50"}`}
               aria-pressed={sendMode === "now"}
               aria-label="즉시 발송"
             >
@@ -170,7 +170,7 @@ export function EmailTab({
             </button>
             <button
               onClick={() => onSendModeChange("schedule")}
-              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-medium border transition-all ${sendMode === "schedule" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-sm font-medium border transition-all ${sendMode === "schedule" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 hover:bg-gray-50"}`}
               aria-pressed={sendMode === "schedule"}
               aria-label="예약 발송"
             >
@@ -194,7 +194,7 @@ export function EmailTab({
 
         {/* 제목 */}
         <div className="rounded-xl border bg-white p-4">
-          <label htmlFor="email-subject-input" className="text-xs font-semibold text-gray-500 mb-2 block">이메일 제목</label>
+          <label htmlFor="email-subject-input" className="text-sm font-semibold text-gray-500 mb-2 block">이메일 제목</label>
           <input
             id="email-subject-input"
             type="text"
@@ -209,10 +209,10 @@ export function EmailTab({
         {/* 본문 */}
         <div className="rounded-xl border bg-white p-4">
           <div className="flex items-center justify-between mb-2">
-            <label htmlFor="email-body-input" className="text-xs font-semibold text-gray-500">본문 내용</label>
+            <label htmlFor="email-body-input" className="text-sm font-semibold text-gray-500">본문 내용</label>
             <button
               onClick={onLoadImages}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 border border-blue-200 px-2 py-1 rounded-lg transition-colors"
+              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 border border-blue-200 px-2 py-1 rounded-lg transition-colors"
               aria-label="이미지 라이브러리 열기"
             >
               <ImageIcon className="w-3.5 h-3.5" /> 이미지 라이브러리
@@ -225,7 +225,7 @@ export function EmailTab({
               <button
                 key={r.label}
                 onClick={() => insertReplacement(r.label)}
-                className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-700 hover:bg-blue-100 hover:text-blue-600 transition-colors"
+                className="px-2 py-0.5 bg-gray-100 rounded text-sm text-gray-700 hover:bg-blue-100 hover:text-blue-600 transition-colors"
                 aria-label={`${r.label} 삽입 - ${r.desc}`}
               >
                 {r.label}
@@ -247,7 +247,7 @@ export function EmailTab({
           {showImages && (
             <div className="mt-3 border rounded-xl p-3 bg-gray-50">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-medium text-gray-700">이미지 선택</p>
+                <p className="text-sm font-medium text-gray-700">이미지 선택</p>
                 <button
                   onClick={() => onShowImagesChange(false)}
                   className="p-1 hover:bg-gray-200 rounded transition-colors"
@@ -261,7 +261,7 @@ export function EmailTab({
                   {[1, 2, 3, 4].map(i => <div key={i} className="aspect-square bg-gray-300 rounded-lg animate-pulse" />)}
                 </div>
               ) : images.length === 0 ? (
-                <p className="text-xs text-gray-600 text-center py-4">이미지 라이브러리가 비어있습니다.</p>
+                <p className="text-sm text-gray-600 text-center py-4">이미지 라이브러리가 비어있습니다.</p>
               ) : (
                 <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
                   {images.map(img => (

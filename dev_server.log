@@ -1,0 +1,19 @@
+
+> mabiz@0.1.0 dev
+> next dev
+
+ ⚠ Invalid next.config.js options detected: 
+ ⚠     Unrecognized key(s) in object: 'nodeMiddleware' at "experimental"
+ ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+ ⚠ Port 3000 is in use by process 45676, using available port 3004 instead.
+   ▲ Next.js 15.5.18
+   - Local:        http://localhost:3004
+   - Network:      http://192.168.0.10:3004
+   - Environments: .env.local, .env
+   - Experiments (use with caution):
+     ✓ nodeMiddleware
+
+ ✓ Starting...
+ ○ Compiling /instrumentation ...
+ ✓ Compiled /instrumentation in 28.2s (688 modules)
+ ✓ Ready in 72.4s

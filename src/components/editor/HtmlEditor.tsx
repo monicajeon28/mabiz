@@ -55,18 +55,18 @@ export function HtmlEditor({ value, onChange, height = "400px" }: HtmlEditorProp
     <div className="border border-gray-200 rounded-xl overflow-hidden">
       {/* 툴바 */}
       <div className="flex items-center gap-2 px-3 py-2 bg-gray-900 border-b border-gray-700">
-        <span className="text-xs text-gray-400 font-mono">HTML 에디터</span>
+        <span className="text-sm text-gray-600 font-mono">HTML 에디터</span>
         <div className="flex-1" />
         <button
           onClick={() => setShowImageLibrary(true)}
-          className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-700 text-gray-200 rounded text-xs hover:bg-gray-600 transition-colors"
+          className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-700 text-gray-200 rounded text-sm hover:bg-gray-600 transition-colors"
         >
           <Image className="w-3.5 h-3.5" />
           이미지 / 영상
         </button>
         <button
           onClick={() => setShowAiInput(!showAiInput)}
-          className="flex items-center gap-1.5 px-2.5 py-1 bg-gold-500/20 text-gold-300 rounded text-xs hover:bg-gold-500/30 transition-colors"
+          className="flex items-center gap-1.5 px-2.5 py-1 bg-gold-500/20 text-gold-300 rounded text-sm hover:bg-gold-500/30 transition-colors"
         >
           <Sparkles className="w-3.5 h-3.5" />
           AI 초안

@@ -135,7 +135,7 @@ export function GroupForm({
 
         <div>
           <label htmlFor="group-funnel" className="block text-sm font-medium text-gray-700 mb-1">
-            연결할 퍼널 <span className="text-xs text-gray-400 ml-1">(그룹 배정 시 자동 시작)</span>
+            연결할 퍼널 <span className="text-sm text-gray-600 ml-1">(그룹 배정 시 자동 시작)</span>
           </label>
           <select
             id="group-funnel"
@@ -165,7 +165,7 @@ export function GroupForm({
             </p>
           )}
           {form.funnelId && !fieldErrors.funnelId && (
-            <p className="text-xs text-green-600 mt-1">✅ 이 그룹에 고객 배정 시 즉시 퍼널 시작</p>
+            <p className="text-sm text-green-600 mt-1">✅ 이 그룹에 고객 배정 시 즉시 퍼널 시작</p>
           )}
         </div>
       </div>

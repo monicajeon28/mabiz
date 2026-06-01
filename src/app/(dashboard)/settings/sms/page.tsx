@@ -266,9 +266,9 @@ export default function SmsSettingsPage() {
         <div className="flex items-center gap-2 mb-3">
           <User className="w-4 h-4 text-blue-500" />
           <h2 className="text-base font-semibold text-gray-800">내 개인 알리고 연결</h2>
-          <span className="px-2 py-0.5 bg-blue-100 text-blue-600 text-xs rounded-full">개인</span>
+          <span className="px-2 py-0.5 bg-blue-100 text-blue-600 text-sm rounded-full">개인</span>
         </div>
-        <p className="text-xs text-gray-500 mb-3">
+        <p className="text-sm text-gray-500 mb-3">
           내 알리고 계정을 연결하면 문자 발송 시 내 발신번호가 사용됩니다.
           연결하지 않으면 조직 공용 계정으로 발송됩니다.
         </p>
@@ -281,24 +281,24 @@ export default function SmsSettingsPage() {
             <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
             <div className="flex-1 text-sm">
               <p className="font-medium text-green-800">✅ 내 알리고 계정 연결됨</p>
-              <p className="text-green-600 text-xs mt-0.5">
+              <p className="text-green-600 text-sm mt-0.5">
                 ID: {userConfig.aligoUserId} · 발신번호: {userConfig.senderPhone} · API Key: ****{userConfig.aligoKeyTail}
                 {userConfig.senderVerified && " · 인증완료"}
               </p>
             </div>
             {confirmDelete ? (
               <div className="flex items-center gap-1 shrink-0">
-                <span className="text-xs text-red-600">정말요?</span>
+                <span className="text-sm text-red-600">정말요?</span>
                 <button onClick={deleteUserConfig} disabled={userDeleting}
-                  className="px-2 py-1 text-xs bg-red-600 text-white rounded disabled:opacity-50 flex items-center gap-1">
+                  className="px-2 py-1 text-sm bg-red-600 text-white rounded disabled:opacity-50 flex items-center gap-1">
                   {userDeleting && <Loader2 className="w-3 h-3 animate-spin" />}예
                 </button>
                 <button onClick={() => setConfirmDelete(false)}
-                  className="px-2 py-1 text-xs border border-gray-300 rounded">아니오</button>
+                  className="px-2 py-1 text-sm border border-gray-300 rounded">아니오</button>
               </div>
             ) : (
               <button onClick={() => setConfirmDelete(true)} disabled={userDeleting}
-                className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50">
+                className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50">
                 <Unlink className="w-3 h-3" /> 해제
               </button>
             )}
@@ -313,7 +313,7 @@ export default function SmsSettingsPage() {
         {/* 개인 연결 폼 */}
         <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Aligo API Key {!userConfig && <span className="text-red-500">*</span>}
             </label>
             <input
@@ -326,7 +326,7 @@ export default function SmsSettingsPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Aligo User ID <span className="text-red-500">*</span>
             </label>
             <input
@@ -338,7 +338,7 @@ export default function SmsSettingsPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               발신번호 <span className="text-red-500">*</span>
             </label>
             <input
@@ -348,7 +348,7 @@ export default function SmsSettingsPage() {
               placeholder="010-1234-5678"
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400"
             />
-            <p className="text-xs text-gray-400 mt-1">내 Aligo 계정에 등록된 발신번호와 동일해야 합니다.</p>
+            <p className="text-sm text-gray-600 mt-1">내 Aligo 계정에 등록된 발신번호와 동일해야 합니다.</p>
           </div>
           <button
             onClick={saveUserConfig}
@@ -363,15 +363,15 @@ export default function SmsSettingsPage() {
         {/* 개인 발신번호 인증 */}
         {userConfig && !userConfig.senderVerified && (
           <div className="bg-white rounded-xl border border-yellow-200 p-4 mt-3 space-y-2">
-            <h3 className="text-xs font-semibold text-gray-700">📞 발신번호 인증 (필수)</h3>
-            <p className="text-xs text-gray-500">
+            <h3 className="text-sm font-semibold text-gray-700">📞 발신번호 인증 (필수)</h3>
+            <p className="text-sm text-gray-500">
               Aligo 콘솔에서 발신번호 등록 후 ARS 인증을 완료하세요.
             </p>
             {userVerifyStep === "idle" && (
               <button
                 onClick={requestUserVerify}
                 disabled={userVerifying}
-                className="w-full border border-yellow-400 text-yellow-800 py-2 rounded-lg text-xs font-medium hover:bg-yellow-50 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full border border-yellow-400 text-yellow-800 py-2 rounded-lg text-sm font-medium hover:bg-yellow-50 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {userVerifying && <Loader2 className="w-3 h-3 animate-spin" />}
                 Aligo 콘솔에서 인증 완료 안내 보기
@@ -383,14 +383,14 @@ export default function SmsSettingsPage() {
                   href="https://smartsms.aligo.in"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full border border-blue-400 text-blue-700 py-2 rounded-lg text-xs font-medium hover:bg-blue-50 flex items-center justify-center gap-2"
+                  className="w-full border border-blue-400 text-blue-700 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 flex items-center justify-center gap-2"
                 >
                   Aligo 콘솔 열기
                 </a>
                 <button
                   onClick={confirmUserVerify}
                   disabled={userVerifying}
-                  className="w-full bg-green-600 text-white py-2 rounded-lg text-xs font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {userVerifying && <Loader2 className="w-3 h-3 animate-spin" />}
                   인증 완료 확인
@@ -402,7 +402,7 @@ export default function SmsSettingsPage() {
 
         {/* 개인 설정 결과 메시지 */}
         {userMsg && (
-          <div className={`flex items-center gap-2 p-3 rounded-xl mt-2 text-xs ${
+          <div className={`flex items-center gap-2 p-3 rounded-xl mt-2 text-sm ${
             userMsg.type === "ok"
               ? "bg-green-50 text-green-700 border border-green-200"
               : "bg-red-50 text-red-700 border border-red-200"
@@ -418,7 +418,7 @@ export default function SmsSettingsPage() {
       {/* 구분선 */}
       <div className="flex items-center gap-3 mb-5">
         <div className="flex-1 border-t border-gray-200" />
-        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+        <div className="flex items-center gap-1.5 text-sm text-gray-600">
           <Building2 className="w-3.5 h-3.5" /> 조직 공용 설정
         </div>
         <div className="flex-1 border-t border-gray-200" />
@@ -497,7 +497,7 @@ export default function SmsSettingsPage() {
             placeholder="010-1234-5678 (등록된 번호)"
             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gold-500"
           />
-          <p className="text-xs text-gray-400 mt-1">Aligo에 등록된 발신번호와 동일해야 합니다.</p>
+          <p className="text-sm text-gray-600 mt-1">Aligo에 등록된 발신번호와 동일해야 합니다.</p>
         </div>
 
         <button
@@ -514,7 +514,7 @@ export default function SmsSettingsPage() {
       {config.id && !config.senderVerified && (
         <div className="bg-white rounded-xl border border-yellow-200 p-5 mt-4 space-y-3">
           <h2 className="text-sm font-semibold text-gray-700">📞 발신번호 인증 (필수)</h2>
-          <p className="text-xs text-gray-500">
+          <p className="text-sm text-gray-500">
             미인증 번호로 발송하면 통신사에서 차단됩니다. Aligo 콘솔에서 ARS 인증을 완료하세요.
           </p>
           {verifyStep === "idle" && (
@@ -529,7 +529,7 @@ export default function SmsSettingsPage() {
           )}
           {verifyStep === "requested" && (
             <div className="space-y-2">
-              <p className="text-xs text-blue-700 font-medium">
+              <p className="text-sm text-blue-700 font-medium">
                 Aligo 콘솔에서 발신번호 등록 → ARS 인증 완료 후 아래 버튼을 클릭하세요.
               </p>
               <a
@@ -576,7 +576,7 @@ export default function SmsSettingsPage() {
               발송
             </button>
           </div>
-          <p className="text-xs text-gray-400">야간(21시~8시)에는 자동으로 발송이 차단됩니다.</p>
+          <p className="text-sm text-gray-600">야간(21시~8시)에는 자동으로 발송이 차단됩니다.</p>
         </div>
       )}
 
@@ -585,12 +585,12 @@ export default function SmsSettingsPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-5 mt-4 space-y-4">
           <div>
             <h2 className="text-sm font-semibold text-gray-700 mb-1">🔄 이탈 고객 재진입 메시지</h2>
-            <p className="text-xs text-gray-400">
+            <p className="text-sm text-gray-600">
               14일 이상 무응답 LEAD에게 매일 오전 10시 자동 발송. 비워두면 시스템 기본 메시지 사용.
             </p>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1.5 block">1차 메시지 (첫 재진입)</label>
+            <label className="text-sm font-medium text-gray-600 mb-1.5 block">1차 메시지 (첫 재진입)</label>
             <textarea
               value={reEngageMsg1}
               onChange={(e) => setReEngageMsg1(e.target.value)}
@@ -598,10 +598,10 @@ export default function SmsSettingsPage() {
               rows={3}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-gold-500"
             />
-            <p className="text-xs text-gray-400 text-right mt-0.5">{reEngageMsg1.length}자</p>
+            <p className="text-sm text-gray-600 text-right mt-0.5">{reEngageMsg1.length}자</p>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1.5 block">2차 메시지 (7일 후)</label>
+            <label className="text-sm font-medium text-gray-600 mb-1.5 block">2차 메시지 (7일 후)</label>
             <textarea
               value={reEngageMsg2}
               onChange={(e) => setReEngageMsg2(e.target.value)}
@@ -609,7 +609,7 @@ export default function SmsSettingsPage() {
               rows={3}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-gold-500"
             />
-            <p className="text-xs text-gray-400 text-right mt-0.5">{reEngageMsg2.length}자</p>
+            <p className="text-sm text-gray-600 text-right mt-0.5">{reEngageMsg2.length}자</p>
           </div>
           <button
             onClick={saveReEngageMsg}
@@ -619,7 +619,7 @@ export default function SmsSettingsPage() {
             {savingReEngage && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             재진입 메시지 저장
           </button>
-          <p className="text-xs text-gray-400">치환변수: [고객명] [이름]</p>
+          <p className="text-sm text-gray-600">치환변수: [고객명] [이름]</p>
         </div>
       )}
 

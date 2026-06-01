@@ -29,11 +29,11 @@ const getStatSigColor = (isSig: boolean) => {
 const getWinnerBadge = (winner: string | undefined) => {
   if (!winner) return null;
   return winner === "A" ? (
-    <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full font-medium">
+    <span className="bg-blue-100 text-blue-700 text-sm px-2 py-1 rounded-full font-medium">
       A Winner
     </span>
   ) : (
-    <span className="bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded-full font-medium">
+    <span className="bg-purple-100 text-purple-700 text-sm px-2 py-1 rounded-full font-medium">
       B Winner
     </span>
   );
@@ -195,22 +195,22 @@ export default function ABTestDashboard({ orgId }: ABTestDashboardProps) {
           <div className="bg-white border rounded-lg p-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
-                <p className="text-xs text-gray-500 mb-1">테스트명</p>
+                <p className="text-sm text-gray-500 mb-1">테스트명</p>
                 <p className="font-semibold text-gray-900">{selectedTest.name}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1">목표</p>
+                <p className="text-sm text-gray-500 mb-1">목표</p>
                 <p className="font-semibold text-gray-900">{selectedTest.objectiveType}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1">심리학 렌즈</p>
+                <p className="text-sm text-gray-500 mb-1">심리학 렌즈</p>
                 <p className="font-semibold text-gray-900">{selectedTest.psychologyLens || "N/A"}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1">상태</p>
+                <p className="text-sm text-gray-500 mb-1">상태</p>
                 <div className="flex items-center gap-2">
                   <span
-                    className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    className={`text-sm px-2 py-1 rounded-full font-medium ${
                       selectedTest.status === "ACTIVE"
                         ? "bg-green-100 text-green-700"
                         : "bg-gray-100 text-gray-700"
@@ -223,7 +223,7 @@ export default function ABTestDashboard({ orgId }: ABTestDashboardProps) {
               </div>
             </div>
 
-            <div className="mt-3 pt-3 border-t text-xs text-gray-500">
+            <div className="mt-3 pt-3 border-t text-sm text-gray-500">
               <span>시작: {formatDate(selectedTest.startedAt)}</span>
               {selectedTest.endedAt && (
                 <span className="ml-4">종료: {formatDate(selectedTest.endedAt)}</span>
@@ -235,12 +235,12 @@ export default function ABTestDashboard({ orgId }: ABTestDashboardProps) {
           <div className={`border rounded-lg p-4 ${getStatSigColor(selectedTest.statistics.isStatisticallySignificant)}`}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-gray-900">A vs B 비교</h3>
-              <div className="flex items-center gap-2 text-xs">
+              <div className="flex items-center gap-2 text-sm">
                 <span className={`font-semibold ${selectedTest.statistics.isStatisticallySignificant ? "text-green-700" : "text-gray-700"}`}>
                   p-value: {selectedTest.statistics.pValue.toFixed(4)}
                 </span>
                 {selectedTest.statistics.isStatisticallySignificant && (
-                  <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">
+                  <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-sm font-medium">
                     ✓ 유의미 (p &lt; 0.05)
                   </span>
                 )}
@@ -298,7 +298,7 @@ export default function ABTestDashboard({ orgId }: ABTestDashboardProps) {
                         )}
                       </span>
                     </td>
-                    <td className="text-center px-4 py-3 text-gray-600 text-xs">
+                    <td className="text-center px-4 py-3 text-gray-600 text-sm">
                       {selectedTest.currentMetrics.groupA.openRate > 0
                         ? (((selectedTest.currentMetrics.groupB.openRate - selectedTest.currentMetrics.groupA.openRate) / selectedTest.currentMetrics.groupA.openRate) * 100).toFixed(1)
                         : "0"}%
@@ -325,7 +325,7 @@ export default function ABTestDashboard({ orgId }: ABTestDashboardProps) {
                         )}
                       </span>
                     </td>
-                    <td className="text-center px-4 py-3 text-gray-600 text-xs">
+                    <td className="text-center px-4 py-3 text-gray-600 text-sm">
                       {selectedTest.currentMetrics.groupA.clickRate > 0
                         ? (((selectedTest.currentMetrics.groupB.clickRate - selectedTest.currentMetrics.groupA.clickRate) / selectedTest.currentMetrics.groupA.clickRate) * 100).toFixed(1)
                         : "0"}%
@@ -352,7 +352,7 @@ export default function ABTestDashboard({ orgId }: ABTestDashboardProps) {
                         )}
                       </span>
                     </td>
-                    <td className="text-center px-4 py-3 text-gray-600 text-xs font-semibold">
+                    <td className="text-center px-4 py-3 text-gray-600 text-sm font-semibold">
                       {selectedTest.currentMetrics.groupA.conversionRate > 0
                         ? (((selectedTest.currentMetrics.groupB.conversionRate - selectedTest.currentMetrics.groupA.conversionRate) / selectedTest.currentMetrics.groupA.conversionRate) * 100).toFixed(1)
                         : "0"}%
@@ -379,7 +379,7 @@ export default function ABTestDashboard({ orgId }: ABTestDashboardProps) {
                         )}
                       </span>
                     </td>
-                    <td className="text-center px-4 py-3 text-gray-600 text-xs">
+                    <td className="text-center px-4 py-3 text-gray-600 text-sm">
                       {selectedTest.currentMetrics.groupA.responseRate > 0
                         ? (((selectedTest.currentMetrics.groupB.responseRate - selectedTest.currentMetrics.groupA.responseRate) / selectedTest.currentMetrics.groupA.responseRate) * 100).toFixed(1)
                         : "0"}%
@@ -394,7 +394,7 @@ export default function ABTestDashboard({ orgId }: ABTestDashboardProps) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Chi-square & Z-score */}
             <div className="bg-white border rounded-lg p-4">
-              <p className="text-xs text-gray-500 mb-2">통계 검정</p>
+              <p className="text-sm text-gray-500 mb-2">통계 검정</p>
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">χ² (Chi-square)</span>
@@ -413,7 +413,7 @@ export default function ABTestDashboard({ orgId }: ABTestDashboardProps) {
 
             {/* Effect Size */}
             <div className="bg-white border rounded-lg p-4">
-              <p className="text-xs text-gray-500 mb-2">효과 크기</p>
+              <p className="text-sm text-gray-500 mb-2">효과 크기</p>
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Relative Risk</span>
@@ -432,15 +432,15 @@ export default function ABTestDashboard({ orgId }: ABTestDashboardProps) {
 
             {/* Confidence Intervals */}
             <div className="bg-white border rounded-lg p-4">
-              <p className="text-xs text-gray-500 mb-2">95% 신뢰 구간</p>
+              <p className="text-sm text-gray-500 mb-2">95% 신뢰 구간</p>
               <div className="space-y-2">
-                <div className="text-xs">
+                <div className="text-sm">
                   <p className="text-gray-600">A: [{(selectedTest.statistics.confidenceIntervals.A.lower * 100).toFixed(1)}% - {(selectedTest.statistics.confidenceIntervals.A.upper * 100).toFixed(1)}%]</p>
                 </div>
-                <div className="text-xs">
+                <div className="text-sm">
                   <p className="text-gray-600">B: [{(selectedTest.statistics.confidenceIntervals.B.lower * 100).toFixed(1)}% - {(selectedTest.statistics.confidenceIntervals.B.upper * 100).toFixed(1)}%]</p>
                 </div>
-                <div className="text-xs">
+                <div className="text-sm">
                   <p className="text-gray-600">Diff: [{(selectedTest.statistics.confidenceIntervals.difference.lower * 100).toFixed(1)}% - {(selectedTest.statistics.confidenceIntervals.difference.upper * 100).toFixed(1)}%]</p>
                 </div>
               </div>
@@ -467,7 +467,7 @@ export default function ABTestDashboard({ orgId }: ABTestDashboardProps) {
                 <p className="text-center text-gray-500 py-6">불러오는 중...</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-gray-200 bg-gray-50">
                         <th className="text-left px-3 py-2 font-medium text-gray-600">날짜</th>
@@ -486,9 +486,9 @@ export default function ABTestDashboard({ orgId }: ABTestDashboardProps) {
                           <td className="text-center px-3 py-2 text-gray-600">{entry.statistics.pValue.toFixed(4)}</td>
                           <td className="text-center px-3 py-2">
                             {entry.statistics.isSignificant ? (
-                              <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-medium">Yes</span>
+                              <span className="text-sm bg-green-100 text-green-700 px-2 py-0.5 rounded font-medium">Yes</span>
                             ) : (
-                              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-medium">No</span>
+                              <span className="text-sm bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-medium">No</span>
                             )}
                           </td>
                         </tr>

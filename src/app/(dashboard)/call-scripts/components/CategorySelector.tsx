@@ -56,7 +56,7 @@ export function CategorySelector({ selected, onSelect }: CategorySelectorProps) 
           >
             <div className="text-lg">{cat.icon}</div>
             <div className="font-medium text-sm mt-1">{cat.name}</div>
-            <div className="text-xs text-gray-600">{cat.description}</div>
+            <div className="text-sm text-gray-600">{cat.description}</div>
           </button>
         ))}
       </div>

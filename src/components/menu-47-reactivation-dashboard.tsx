@@ -121,7 +121,7 @@ export default function Menu47ReactivationDashboard({ organizationId }: Reactiva
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{stats?.totalContacts || 0}</div>
-            <p className="text-xs text-gray-500">명</p>
+            <p className="text-sm text-gray-500">명</p>
           </CardContent>
         </Card>
 
@@ -131,7 +131,7 @@ export default function Menu47ReactivationDashboard({ organizationId }: Reactiva
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{stats?.expectedConversion || 0}%</div>
-            <p className="text-xs text-gray-500">목표 62-97%</p>
+            <p className="text-sm text-gray-500">목표 62-97%</p>
           </CardContent>
         </Card>
 
@@ -141,7 +141,7 @@ export default function Menu47ReactivationDashboard({ organizationId }: Reactiva
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">${stats?.expectedRevenue || 0}</div>
-            <p className="text-xs text-gray-500">예상 재예약</p>
+            <p className="text-sm text-gray-500">예상 재예약</p>
           </CardContent>
         </Card>
 
@@ -151,7 +151,7 @@ export default function Menu47ReactivationDashboard({ organizationId }: Reactiva
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{stats?.segmentBreakdown?.length || 0}</div>
-            <p className="text-xs text-gray-500">부재 기간별</p>
+            <p className="text-sm text-gray-500">부재 기간별</p>
           </CardContent>
         </Card>
       </div>
@@ -199,13 +199,13 @@ export default function Menu47ReactivationDashboard({ organizationId }: Reactiva
                   <h3 className="font-medium text-sm mb-2">Day {idx}</h3>
                   <div className="mb-2">
                     <div className="text-lg font-bold">{dayMetric.sent}</div>
-                    <div className="text-xs text-gray-500">발송완료 ({dayMetric.sendRate}%)</div>
+                    <div className="text-sm text-gray-500">발송완료 ({dayMetric.sendRate}%)</div>
                   </div>
                   <Button
                     size="sm"
                     variant={dayMetric.sent > 0 ? 'outline' : 'default'}
                     onClick={() => handleSendCampaign(idx, idx % 2 === 0 ? 'A' : 'B')}
-                    className="w-full text-xs"
+                    className="w-full text-sm"
                   >
                     {dayMetric.sent > 0 ? '재발송' : '발송'}
                   </Button>
@@ -232,7 +232,7 @@ export default function Menu47ReactivationDashboard({ organizationId }: Reactiva
                     <div className="text-sm font-bold">{stage.count}</div>
                     <div className="flex-1 bg-gray-200 rounded-full h-6">
                       <div
-                        className="bg-green-500 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                        className="bg-green-500 h-6 rounded-full flex items-center justify-center text-white text-sm font-medium"
                         style={{ width: `${typeof stage.rate === 'number' ? stage.rate : parseFloat(stage.rate as string)}%` }}
                       >
                         {typeof stage.rate === 'number' ? stage.rate : stage.rate}%

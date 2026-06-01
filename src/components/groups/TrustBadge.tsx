@@ -35,7 +35,7 @@ export function TrustBadge({ groupName = '크루즈닷' }: TrustBadgeProps) {
               <br />
               <span className="font-semibold">혼자가 아닙니다. 우리가 함께합니다.</span>
             </p>
-            <ul className="space-y-2 text-xs text-purple-700">
+            <ul className="space-y-2 text-sm text-purple-700">
               <li>✓ 다양한 연령대 그룹 시너지</li>
               <li>✓ 동료 지지 커뮤니티</li>
               <li>✓ 객실에서 함께하는 특별한 순간들</li>
@@ -62,8 +62,8 @@ export function TrustBadge({ groupName = '크루즈닷' }: TrustBadgeProps) {
 
             {/* 의료진 자격 증명 */}
             <div className="bg-white rounded-lg p-3 mb-3 border border-blue-100">
-              <p className="text-xs font-semibold text-blue-900 mb-2">🎓 의료진 자격 증명</p>
-              <ul className="space-y-1 text-xs text-blue-700">
+              <p className="text-sm font-semibold text-blue-900 mb-2">🎓 의료진 자격 증명</p>
+              <ul className="space-y-1 text-sm text-blue-700">
                 <li>
                   • <span className="font-semibold">대학병원 응급의학 전문의</span> (5년
                   이상 경력)
@@ -73,7 +73,7 @@ export function TrustBadge({ groupName = '크루즈닷' }: TrustBadgeProps) {
               </ul>
             </div>
 
-            <ul className="space-y-2 text-xs text-blue-700">
+            <ul className="space-y-2 text-sm text-blue-700">
               <li>✓ 의료진 감시 시스템 (24시간 응급 대응)</li>
               <li>✓ 응급 의료 장비 완비</li>
               <li>✓ 해상 응급 의료 프로토콜 준비</li>
@@ -87,7 +87,7 @@ export function TrustBadge({ groupName = '크루즈닷' }: TrustBadgeProps) {
         {/* 통계 1: 멤버 수 */}
         <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
           <div className="text-3xl font-bold text-navy-900">2,000+</div>
-          <p className="text-xs text-gray-600 mt-2">활성 멤버들이 함께하고 있습니다</p>
+          <p className="text-sm text-gray-600 mt-2">활성 멤버들이 함께하고 있습니다</p>
         </div>
 
         {/* 통계 2: 만족도 */}
@@ -96,13 +96,13 @@ export function TrustBadge({ groupName = '크루즈닷' }: TrustBadgeProps) {
             <span className="text-2xl">⭐</span>
             <span className="text-3xl font-bold text-amber-600">4.8</span>
           </div>
-          <p className="text-xs text-gray-600">5.0 만점</p>
+          <p className="text-sm text-gray-600">5.0 만점</p>
         </div>
 
         {/* 통계 3: 만족도 비율 */}
         <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
           <div className="text-3xl font-bold text-green-600">98%</div>
-          <p className="text-xs text-gray-600 mt-2">고객 만족도</p>
+          <p className="text-sm text-gray-600 mt-2">고객 만족도</p>
         </div>
       </div>
 
@@ -112,7 +112,7 @@ export function TrustBadge({ groupName = '크루즈닷' }: TrustBadgeProps) {
         <p className="text-sm font-semibold text-green-900">
           당신의 신뢰와 건강이 우리의 책임입니다.
         </p>
-        <p className="text-xs text-green-700 mt-2">
+        <p className="text-sm text-green-700 mt-2">
           {groupName} 프리미엄 멤버십으로 안심하고 시작하세요.
         </p>
       </div>

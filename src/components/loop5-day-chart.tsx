@@ -54,7 +54,7 @@ export function Loop5DayChart({ data, loading }: Loop5DayChartProps) {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Day별 성과 추이
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-600 mt-1">
             Day 0부터 Day 7까지의 누적 {metricLabel} 추이
           </p>
         </div>
@@ -124,20 +124,20 @@ export function Loop5DayChart({ data, loading }: Loop5DayChartProps) {
 
       <div className="mt-6 grid grid-cols-2 gap-4">
         <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">최고 응답율</p>
+          <p className="text-sm text-gray-600 dark:text-gray-600">최고 응답율</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
             {Math.max(...chartData.map(d => d.rate)).toFixed(1)}%
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
             {chartData.find(d => d.rate === Math.max(...chartData.map(d => d.rate)))?.day}
           </p>
         </div>
         <div className="rounded-lg bg-green-50 dark:bg-green-900/20 p-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">평균 응답율</p>
+          <p className="text-sm text-gray-600 dark:text-gray-600">평균 응답율</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
             {(chartData.reduce((sum, d) => sum + d.rate, 0) / chartData.length).toFixed(1)}%
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
             Day 0-7 평균
           </p>
         </div>

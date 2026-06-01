@@ -96,7 +96,7 @@ export function CallFeedback({ category, phase, segment }: CallFeedbackProps) {
       <form onSubmit={handleSubmit} className="space-y-3">
         {/* 효과 평가 */}
         <div>
-          <label className="block text-xs font-medium text-gray-900 mb-2">
+          <label className="block text-sm font-medium text-gray-900 mb-2">
             효과 평가 ⭐
           </label>
           <div className="flex gap-1">
@@ -114,19 +114,19 @@ export function CallFeedback({ category, phase, segment }: CallFeedbackProps) {
             ))}
           </div>
           {effectiveness > 0 && (
-            <p className="text-xs text-gray-600 mt-1">{effectiveness}점 선택됨</p>
+            <p className="text-sm text-gray-600 mt-1">{effectiveness}점 선택됨</p>
           )}
         </div>
 
         {/* 통화 결과 */}
         <div>
-          <label className="block text-xs font-medium text-gray-900 mb-2">
+          <label className="block text-sm font-medium text-gray-900 mb-2">
             통화 결과
           </label>
           <select
             value={callOutcome}
             onChange={(e) => setCallOutcome(e.target.value)}
-            className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="interested">관심 표시</option>
             <option value="not_interested">관심 없음</option>
@@ -136,7 +136,7 @@ export function CallFeedback({ category, phase, segment }: CallFeedbackProps) {
 
         {/* 통화 시간 */}
         <div>
-          <label className="block text-xs font-medium text-gray-900 mb-2">
+          <label className="block text-sm font-medium text-gray-900 mb-2">
             통화 시간 (초)
           </label>
           <input
@@ -144,18 +144,18 @@ export function CallFeedback({ category, phase, segment }: CallFeedbackProps) {
             value={callDuration}
             onChange={(e) => setCallDuration(e.target.value)}
             placeholder="예: 720"
-            className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         {/* 어려웠던 부분 */}
         <div>
-          <label className="block text-xs font-medium text-gray-900 mb-2">
+          <label className="block text-sm font-medium text-gray-900 mb-2">
             어려웠던 부분 (선택)
           </label>
           <div className="space-y-1">
             {DIFFICULTIES.map((option) => (
-              <label key={option} className="flex items-center gap-2 text-xs cursor-pointer">
+              <label key={option} className="flex items-center gap-2 text-sm cursor-pointer">
                 <input
                   type="checkbox"
                   checked={difficulties.includes(option)}
@@ -170,13 +170,13 @@ export function CallFeedback({ category, phase, segment }: CallFeedbackProps) {
 
         {/* 개선 의견 */}
         <div>
-          <label className="block text-xs font-medium text-gray-900 mb-2">
+          <label className="block text-sm font-medium text-gray-900 mb-2">
             개선 의견 (선택)
           </label>
           <textarea
             value={improvements}
             onChange={(e) => setImprovements(e.target.value)}
-            className="w-full px-2.5 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-2.5 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="자유롭게 의견을 작성해주세요..."
             rows={2}
           />

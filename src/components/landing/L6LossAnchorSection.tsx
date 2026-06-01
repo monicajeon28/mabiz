@@ -29,7 +29,7 @@ export function L6LossAnchorSection({
                 index === 0 ? "ring-2 ring-green-500 ring-offset-2" : ""
               }`}
             >
-              <span className="text-xs text-gray-500 font-medium">{anchor.label}</span>
+              <span className="text-sm text-gray-500 font-medium">{anchor.label}</span>
               <span className="text-xl md:text-2xl font-bold text-gray-900 mt-1">
                 {anchor.price.toLocaleString('ko-KR')}원
                 <span className="text-sm font-normal text-gray-500 ml-1">/인</span>
@@ -44,7 +44,7 @@ export function L6LossAnchorSection({
             </div>
             {index < priceAnchors.length - 1 && (
               <svg
-                className="text-gray-400 shrink-0 hidden md:block"
+                className="text-gray-600 shrink-0 hidden md:block"
                 width="24"
                 height="24"
                 viewBox="0 0 24 24"

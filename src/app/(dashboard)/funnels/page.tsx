@@ -195,18 +195,18 @@ export default function FunnelsPage() {
 
           {/* SMS 채널별 통계 */}
           <div>
-            <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide">SMS 채널별 발송 ({stats.smsTotal.toLocaleString()}건)</p>
+            <p className="text-sm text-gray-600 mb-2 uppercase tracking-wide">SMS 채널별 발송 ({stats.smsTotal.toLocaleString()}건)</p>
             <div className="grid grid-cols-3 gap-2">
               {(["FUNNEL", "GROUP", "MANUAL"] as const).map((ch) => {
                 const s = stats.channelStats[ch];
                 if (!s) return null;
                 return (
                   <div key={ch} className="bg-gray-50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-gray-400 mb-1">
+                    <p className="text-sm text-gray-600 mb-1">
                       {ch === "FUNNEL" ? "퍼널 자동" : ch === "GROUP" ? "그룹 일괄" : "수동 발송"}
                     </p>
                     <p className="text-lg font-bold text-gray-900">{s.total.toLocaleString()}</p>
-                    <p className={`text-xs font-medium mt-0.5 ${s.successRate >= 90 ? "text-green-600" : s.successRate >= 70 ? "text-yellow-600" : "text-red-500"}`}>
+                    <p className={`text-sm font-medium mt-0.5 ${s.successRate >= 90 ? "text-green-600" : s.successRate >= 70 ? "text-yellow-600" : "text-red-500"}`}>
                       성공률 {s.successRate}%
                     </p>
                   </div>
@@ -218,7 +218,7 @@ export default function FunnelsPage() {
           {/* 퍼널별 등록 현황 */}
           {stats.funnelStats.length > 0 && (
             <div>
-              <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide">퍼널별 등록 고객</p>
+              <p className="text-sm text-gray-600 mb-2 uppercase tracking-wide">퍼널별 등록 고객</p>
               <div className="space-y-2">
                 {stats.funnelStats
                   .sort((a, b) => b.enrolledCount - a.enrolledCount)
@@ -226,7 +226,7 @@ export default function FunnelsPage() {
                     <div key={f.id} className="flex items-center gap-3">
                       <div className={`w-2 h-2 rounded-full shrink-0 ${f.isActive ? "bg-green-400" : "bg-gray-300"}`} />
                       <p className="text-sm text-gray-700 flex-1 truncate">{f.name}</p>
-                      <p className="text-xs text-gray-400">{f.stageCount}단계</p>
+                      <p className="text-sm text-gray-600">{f.stageCount}단계</p>
                       <p className="text-sm font-semibold text-navy-900 w-16 text-right">
                         {f.enrolledCount.toLocaleString()}명
                       </p>
@@ -244,7 +244,7 @@ export default function FunnelsPage() {
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
           <p className="text-sm font-medium text-green-800">Vercel Cron 활성 — 매시간 자동 발송</p>
         </div>
-        <p className="text-xs text-green-600 mt-1 ml-4">야간 발송 차단 (21시~08시) · 수신거부 자동 제외</p>
+        <p className="text-sm text-green-600 mt-1 ml-4">야간 발송 차단 (21시~08시) · 수신거부 자동 제외</p>
       </div>
 
       {loading ? (
@@ -255,7 +255,7 @@ export default function FunnelsPage() {
         <div className="text-center py-16">
           <GitBranch className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="font-medium text-gray-700">퍼널이 없습니다</p>
-          <p className="text-sm text-gray-400 mt-1">VIP 케어 기본 퍼널을 먼저 만들어보세요</p>
+          <p className="text-sm text-gray-600 mt-1">VIP 케어 기본 퍼널을 먼저 만들어보세요</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -268,16 +268,16 @@ export default function FunnelsPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-semibold text-gray-900">{funnel.name}</h3>
                     {funnel.organizationName && (
-                      <span className="text-xs px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded font-medium shrink-0">
+                      <span className="text-sm px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded font-medium shrink-0">
                         {funnel.organizationName}
                       </span>
                     )}
                   </div>
-                  {funnel.description && <p className="text-xs text-gray-400 mt-0.5">{funnel.description}</p>}
+                  {funnel.description && <p className="text-sm text-gray-600 mt-0.5">{funnel.description}</p>}
                 </div>
                 {/* 메시지 미작성 경고 */}
                 {funnel.stages.some((s) => !s.messageContent) && (
-                  <span className="flex items-center gap-1 text-xs text-orange-500 font-medium shrink-0">
+                  <span className="flex items-center gap-1 text-sm text-orange-500 font-medium shrink-0">
                     <AlertCircle className="w-3.5 h-3.5" />
                     미작성
                   </span>
@@ -285,7 +285,7 @@ export default function FunnelsPage() {
                 <span className="text-sm text-gray-500 shrink-0">{funnel.stages.length}단계</span>
                 <Link
                   href={`/funnels/${funnel.id}`}
-                  className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-navy-900 shrink-0"
+                  className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 hover:text-navy-900 shrink-0"
                   title="퍼널 편집"
                 >
                   <Edit2 className="w-4 h-4" />
@@ -301,8 +301,8 @@ export default function FunnelsPage() {
                         ? "bg-gray-50 border-gray-200"
                         : "bg-orange-50 border-orange-200"
                     }`}>
-                      <p className="text-xs text-gold-500 font-bold">{triggerLabel(stage)}</p>
-                      <p className="text-xs text-gray-700 mt-0.5 truncate max-w-[72px]">{stage.name}</p>
+                      <p className="text-sm text-gold-500 font-bold">{triggerLabel(stage)}</p>
+                      <p className="text-sm text-gray-700 mt-0.5 truncate max-w-[72px]">{stage.name}</p>
                       {!stage.messageContent && <p className="text-[9px] text-orange-400 mt-0.5">미작성</p>}
                     </div>
                     {i < Math.min(funnel.stages.length - 1, 7) && (
@@ -311,7 +311,7 @@ export default function FunnelsPage() {
                   </div>
                 ))}
                 {funnel.stages.length > 8 && (
-                  <div className="flex items-center text-xs text-gray-400 shrink-0">
+                  <div className="flex items-center text-sm text-gray-600 shrink-0">
                     +{funnel.stages.length - 8}개
                   </div>
                 )}

@@ -74,14 +74,14 @@ export default function RealtimeDashboard() {
             <span className="text-sm font-medium">
               {isConnected ? '실시간 연결됨' : '폴링 모드'}
             </span>
-            <span className="text-xs text-white px-2 py-1 bg-current rounded-full">
+            <span className="text-sm text-white px-2 py-1 bg-current rounded-full">
               {isConnected ? '5초' : '60초'} 갱신
             </span>
           </div>
         </div>
 
         {/* Update Info */}
-        <div className="mt-4 text-xs text-slate-500">
+        <div className="mt-4 text-sm text-slate-500">
           마지막 업데이트: {lastUpdated.toLocaleTimeString('ko-KR')}
           {!isConnected && ' (폴링 중...)'}
         </div>
@@ -211,7 +211,7 @@ function OverviewTab({
               {metrics?.partnerLeaderboard?.map((partner, idx) => (
                 <tr key={partner.affiliateCode} className="border-b border-slate-100 hover:bg-slate-50">
                   <td className="py-3 px-4">
-                    <span className="inline-flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 rounded-full text-xs font-bold">
+                    <span className="inline-flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 rounded-full text-sm font-bold">
                       {idx + 1}
                     </span>
                   </td>
@@ -381,12 +381,12 @@ function HealthTab({ metrics }: { metrics: RealtimeMetrics | null }) {
               >
                 <div>
                   <p className="text-sm font-medium text-slate-900">{name}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-sm text-slate-500">
                     {health.lastRun && new Date(health.lastRun).toLocaleTimeString('ko-KR')}
                   </p>
                 </div>
                 <div
-                  className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${
+                  className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${
                     health.status === 'healthy'
                       ? 'bg-green-100 text-green-800'
                       : health.status === 'degraded'
@@ -462,10 +462,10 @@ function MetricCard({
       <p className="text-3xl font-bold mb-2">{value}</p>
 
       <div className="flex items-center justify-between">
-        <p className="text-xs text-white/60">{sub}</p>
+        <p className="text-sm text-white/60">{sub}</p>
         {change !== undefined && (
           <span
-            className={`text-xs font-semibold px-2 py-1 rounded-full ${
+            className={`text-sm font-semibold px-2 py-1 rounded-full ${
               change >= 0
                 ? 'bg-white/20 text-white'
                 : 'bg-red-500/30 text-red-200'
@@ -498,7 +498,7 @@ function ChannelMetric({
   return (
     <div className="space-y-3">
       <h4 className={`text-sm font-bold ${color}`}>{name}</h4>
-      <div className="space-y-2 text-xs">
+      <div className="space-y-2 text-sm">
         <div className="flex justify-between">
           <span className="text-slate-600">발송</span>
           <span className="font-semibold text-slate-900">{sent.toLocaleString()}</span>

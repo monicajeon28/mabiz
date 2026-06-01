@@ -108,7 +108,7 @@ export default function ContactsAllPage() {
         <div>
           <h1 className="text-xl font-bold text-navy-900 flex items-center gap-2">
             <Building2 className="w-5 h-5 text-gold-500" />
-            전체 고객 관리 <span className="text-sm font-normal text-gray-400">(관리자)</span>
+            전체 고객 관리 <span className="text-sm font-normal text-gray-600">(관리자)</span>
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">총 {total.toLocaleString()}명 · 전 조직 통합 뷰</p>
         </div>
@@ -118,7 +118,7 @@ export default function ContactsAllPage() {
       <div className="flex gap-2 mb-3 flex-wrap">
         {/* 조직 필터 */}
         <div className="relative">
-          <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
           <select
             value={selectedOrg}
             onChange={e => { setSelectedOrg(e.target.value); setPage(1); }}
@@ -133,7 +133,7 @@ export default function ContactsAllPage() {
 
         {/* 검색 */}
         <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
           <input
             type="text"
             placeholder="이름, 전화번호 검색"
@@ -145,7 +145,7 @@ export default function ContactsAllPage() {
 
         {/* 유형 필터 */}
         <div className="relative">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
           <select
             value={typeFilter}
             onChange={e => { setTypeFilter(e.target.value); setPage(1); }}
@@ -159,7 +159,7 @@ export default function ContactsAllPage() {
 
         {/* 정렬 */}
         <div className="relative">
-          <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
           <select
             value={sortBy}
             onChange={e => { setSortBy(e.target.value); setPage(1); }}
@@ -175,7 +175,7 @@ export default function ContactsAllPage() {
       {/* 태그 필터 입력 */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <div className="relative flex items-center gap-1">
-          <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
           <input
             type="text"
             placeholder="태그 입력 후 추가"
@@ -194,7 +194,7 @@ export default function ContactsAllPage() {
         {selectedTags.map(tag => (
           <span
             key={tag}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gold-100 text-gold-700 border border-gold-200"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-sm font-medium bg-gold-100 text-gold-700 border border-gold-200"
           >
             #{tag}
             <button
@@ -226,7 +226,7 @@ export default function ContactsAllPage() {
           ))}
         </div>
       ) : !error && contacts.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-gray-600">
           <p className="text-4xl mb-3">👥</p>
           <p className="font-medium">고객이 없습니다</p>
           <p className="text-sm mt-1">검색 조건이나 조직 필터를 변경해보세요.</p>
@@ -249,18 +249,18 @@ export default function ContactsAllPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-gray-900">{c.name}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${typeInfo.color}`}>
+                    <span className={`text-sm px-2 py-0.5 rounded-full font-medium ${typeInfo.color}`}>
                       {typeInfo.label}
                     </span>
                     {(c.tags ?? []).slice(0, 2).map(tag => (
-                      <span key={tag} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                      <span key={tag} className="text-sm px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
                         #{tag}
                       </span>
                     ))}
                   </div>
                   <div className="text-sm text-gray-500 mt-0.5 flex items-center gap-3 flex-wrap">
                     <span>{c.phone}</span>
-                    <span className="text-xs text-gray-400">
+                    <span className="text-sm text-gray-600">
                       업데이트 {new Date(c.updatedAt).toLocaleDateString('ko-KR')}
                     </span>
                   </div>
@@ -268,7 +268,7 @@ export default function ContactsAllPage() {
 
                 {/* 조직명 */}
                 <div className="shrink-0 text-right">
-                  <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-navy-50 text-navy-700 border border-navy-100 font-medium">
+                  <span className="inline-flex items-center gap-1 text-sm px-2.5 py-1 rounded-full bg-navy-50 text-navy-700 border border-navy-100 font-medium">
                     <Building2 className="w-3 h-3" />
                     {c.organization?.name ?? '미지정'}
                   </span>

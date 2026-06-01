@@ -195,7 +195,7 @@ export default function GoldMembersPage() {
             <button
               key={val}
               onClick={() => { setStatusFilter(val); setPage(1); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 statusFilter === val ? "bg-navy-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
@@ -216,7 +216,7 @@ export default function GoldMembersPage() {
             <button
               key={val}
               onClick={() => { setCourseFilter(val); setPage(1); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 courseFilter === val ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
@@ -228,7 +228,7 @@ export default function GoldMembersPage() {
         {/* 검색 */}
         <form onSubmit={handleSearch} className="flex gap-2 ml-auto">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -250,7 +250,7 @@ export default function GoldMembersPage() {
           ))}
         </div>
       ) : members.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-gray-600">
           <Star className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p>골드회원이 없습니다.</p>
           <button
@@ -266,15 +266,15 @@ export default function GoldMembersPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">이름</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">전화번호</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">코스</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">회원코드</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">납부현황</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">상태</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">가입일</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">상담</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs">액션</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">이름</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">전화번호</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">코스</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">회원코드</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">납부현황</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">상태</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">가입일</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">상담</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">액션</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -285,14 +285,14 @@ export default function GoldMembersPage() {
                     onClick={() => router.push(`/gold-members/${m.id}`)}
                   >
                     <td className="px-4 py-3 font-medium text-gray-900">{m.name}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs font-mono">{m.phone}</td>
+                    <td className="px-4 py-3 text-gray-500 text-sm font-mono">{m.phone}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${COURSE_BADGE[m.courseType] ?? "bg-gray-100 text-gray-500"}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${COURSE_BADGE[m.courseType] ?? "bg-gray-100 text-gray-500"}`}>
                         {COURSE_LABEL[m.courseType] ?? m.courseType}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-600 text-xs font-mono tracking-widest">{m.memberCode}</td>
-                    <td className="px-4 py-3 text-xs">
+                    <td className="px-4 py-3 text-gray-600 text-sm font-mono tracking-widest">{m.memberCode}</td>
+                    <td className="px-4 py-3 text-sm">
                       {m.courseType === "HEALTH" ? (
                         <span className="text-emerald-600 font-medium">{m.paidCount}회 납부</span>
                       ) : m.totalPayments > 0 ? (
@@ -305,22 +305,22 @@ export default function GoldMembersPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[m.status] ?? "bg-gray-100 text-gray-500"}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${STATUS_COLOR[m.status] ?? "bg-gray-100 text-gray-500"}`}>
                         {STATUS_LABEL[m.status] ?? m.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-400 text-xs">
+                    <td className="px-4 py-3 text-gray-600 text-sm">
                       {m.joinDate.slice(0, 10)}
                     </td>
-                    <td className="px-4 py-3 text-gray-400 text-xs">
+                    <td className="px-4 py-3 text-gray-600 text-sm">
                       {m.consultationCount > 0 ? (
-                        <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-xs">{m.consultationCount}건</span>
+                        <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-sm">{m.consultationCount}건</span>
                       ) : "-"}
                     </td>
                     <td className="px-4 py-3">
                       <button
                         onClick={(e) => { e.stopPropagation(); router.push(`/gold-members/${m.id}`); }}
-                        className="text-xs text-blue-600 hover:underline"
+                        className="text-sm text-blue-600 hover:underline"
                       >
                         상세보기
                       </button>
@@ -333,20 +333,20 @@ export default function GoldMembersPage() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-              <p className="text-xs text-gray-400">총 {total.toLocaleString()}명</p>
+              <p className="text-sm text-gray-600">총 {total.toLocaleString()}명</p>
               <div className="flex gap-1">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30"
+                  className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="px-3 py-1.5 text-xs text-gray-600">{page} / {totalPages}</span>
+                <span className="px-3 py-1.5 text-sm text-gray-600">{page} / {totalPages}</span>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30"
+                  className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -379,7 +379,7 @@ export default function GoldMembersPage() {
 
               {/* 이름 */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   이름 <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -392,7 +392,7 @@ export default function GoldMembersPage() {
 
               {/* 전화번호 */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   전화번호 <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -405,7 +405,7 @@ export default function GoldMembersPage() {
 
               {/* 이메일 */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">이메일</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
                 <input
                   type="email"
                   value={form.email}
@@ -417,7 +417,7 @@ export default function GoldMembersPage() {
 
               {/* 코스 선택 */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   코스 <span className="text-red-500">*</span>
                 </label>
                 <div className="flex flex-wrap gap-4">
@@ -443,15 +443,15 @@ export default function GoldMembersPage() {
                   ))}
                 </div>
                 {form.courseType === "HEALTH" ? (
-                  <p className="mt-2 text-xs text-emerald-600">월 27,000원 · 의무납입 없음</p>
+                  <p className="mt-2 text-sm text-emerald-600">월 27,000원 · 의무납입 없음</p>
                 ) : (
-                  <p className="mt-2 text-xs text-blue-600">의무납입 60회</p>
+                  <p className="mt-2 text-sm text-blue-600">의무납입 60회</p>
                 )}
               </div>
 
               {/* 가입날짜 */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   가입날짜 <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -464,7 +464,7 @@ export default function GoldMembersPage() {
 
               {/* 매월 납부 예정일 */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">매월 납부 예정일</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">매월 납부 예정일</label>
                 <input
                   type="number"
                   min={1}
@@ -479,7 +479,7 @@ export default function GoldMembersPage() {
               {/* 총 납부 예정 횟수 (ABC코스만) */}
               {form.courseType !== "HEALTH" && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">의무납입 횟수</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">의무납입 횟수</label>
                   <input
                     type="number"
                     min={0}
@@ -488,13 +488,13 @@ export default function GoldMembersPage() {
                     placeholder="기본: 60회"
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-900/20"
                   />
-                  <p className="mt-1 text-xs text-gray-400">비워두면 기본 60회로 설정됩니다.</p>
+                  <p className="mt-1 text-sm text-gray-600">비워두면 기본 60회로 설정됩니다.</p>
                 </div>
               )}
 
               {/* 메모 */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">메모</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">메모</label>
                 <textarea
                   value={form.memo}
                   onChange={(e) => setForm(f => ({ ...f, memo: e.target.value }))}

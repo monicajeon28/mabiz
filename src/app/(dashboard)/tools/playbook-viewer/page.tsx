@@ -360,13 +360,13 @@ export default function PlaybookViewerPage() {
               <p className="text-sm font-semibold text-gray-900">
                 {SEGMENT_PROFILES[detectedSegment].emoji} {SEGMENT_PROFILES[detectedSegment].name}
               </p>
-              <p className="text-xs text-gray-600 mt-1">{SEGMENT_PROFILES[detectedSegment].desc}</p>
+              <p className="text-sm text-gray-600 mt-1">{SEGMENT_PROFILES[detectedSegment].desc}</p>
             </div>
             <div className="text-3xl font-bold text-indigo-600">{detectedSegment}</div>
           </div>
           <div className="mt-3 flex gap-2 flex-wrap">
             {SEGMENT_RECOMMENDED_TECHNIQUES[detectedSegment].map((tech) => (
-              <span key={tech} className="inline-block px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded font-medium">
+              <span key={tech} className="inline-block px-2 py-1 bg-indigo-100 text-indigo-700 text-sm rounded font-medium">
                 {tech}
               </span>
             ))}
@@ -397,7 +397,7 @@ export default function PlaybookViewerPage() {
                   </option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none" />
             </div>
           </div>
         </div>
@@ -507,7 +507,7 @@ export default function PlaybookViewerPage() {
               <div className="text-center p-8">
                 <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-2" />
                 <p className="text-gray-500">검색 결과가 없습니다.</p>
-                <p className="text-xs text-gray-400 mt-1">다른 필터를 시도해주세요.</p>
+                <p className="text-sm text-gray-600 mt-1">다른 필터를 시도해주세요.</p>
               </div>
             )}
 
@@ -525,24 +525,24 @@ export default function PlaybookViewerPage() {
                   <div className="flex items-start gap-3 justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-2">
-                        <span className="inline-block px-2 py-1 bg-navy-900 text-white text-xs font-semibold rounded">
+                        <span className="inline-block px-2 py-1 bg-navy-900 text-white text-sm font-semibold rounded">
                           Phase {item.sectionOrder}
                         </span>
-                        <span className="inline-block px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded">
+                        <span className="inline-block px-2 py-1 bg-gray-200 text-gray-700 text-sm rounded">
                           {item.type}
                         </span>
                         {item.productCode !== "ALL" && (
-                          <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
+                          <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-sm rounded">
                             {item.productCode}
                           </span>
                         )}
                         {item.pasonaStage && PASONA_STAGE_BADGES[item.pasonaStage] && (
-                          <span className={`inline-block px-2 py-1 text-xs rounded font-medium ${PASONA_STAGE_BADGES[item.pasonaStage].color}`}>
+                          <span className={`inline-block px-2 py-1 text-sm rounded font-medium ${PASONA_STAGE_BADGES[item.pasonaStage].color}`}>
                             {PASONA_STAGE_BADGES[item.pasonaStage].icon} {PASONA_STAGE_BADGES[item.pasonaStage].label}
                           </span>
                         )}
                         {item.effectivenessScore && (
-                          <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                          <span className="inline-block px-2 py-1 rounded text-sm font-medium bg-purple-100 text-purple-800">
                             효과도 {item.effectivenessScore}%
                           </span>
                         )}
@@ -565,7 +565,7 @@ export default function PlaybookViewerPage() {
 
                 {/* Script */}
                 <div className="mb-5">
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">상담사 멘트</h4>
+                  <h4 className="text-sm font-semibold text-gray-500 uppercase mb-2">상담사 멘트</h4>
                   <div className="bg-gray-50 rounded-lg p-3 mb-2">
                     <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
                       {selectedItem.content}
@@ -590,7 +590,7 @@ export default function PlaybookViewerPage() {
                 {/* PASONA 단계 배지 */}
                 {selectedItem?.pasonaStage && PASONA_STAGE_BADGES[selectedItem.pasonaStage] && (
                   <div className="mb-5">
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">PASONA 단계</h4>
+                    <h4 className="text-sm font-semibold text-gray-500 uppercase mb-2">PASONA 단계</h4>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`inline-block px-3 py-1.5 rounded-lg text-sm font-semibold ${PASONA_STAGE_BADGES[selectedItem.pasonaStage].color}`}>
                         {PASONA_STAGE_BADGES[selectedItem.pasonaStage].icon} {PASONA_STAGE_BADGES[selectedItem.pasonaStage].label}
@@ -607,7 +607,7 @@ export default function PlaybookViewerPage() {
                 {/* 신민형 5단계 배지 */}
                 {selectedItem?.shinminStep && SHINMIN_STEPS[selectedItem.shinminStep] && (
                   <div className="mb-5">
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">신민형 5단계</h4>
+                    <h4 className="text-sm font-semibold text-gray-500 uppercase mb-2">신민형 5단계</h4>
                     <span className={`inline-block px-3 py-1.5 rounded-lg text-sm font-semibold ${SHINMIN_STEPS[selectedItem.shinminStep].color}`}>
                       {SHINMIN_STEPS[selectedItem.shinminStep].emoji} {SHINMIN_STEPS[selectedItem.shinminStep].label}
                     </span>
@@ -617,11 +617,11 @@ export default function PlaybookViewerPage() {
                 {/* 모니카 욕망 증폭 레벨 */}
                 {selectedItem?.type === "AMPLIFY" && selectedItem?.monikaAmplifyLevel && MONIKA_AMPLIFY_LEVELS[selectedItem.monikaAmplifyLevel] && (
                   <div className="mb-5 bg-purple-50 border-l-4 border-purple-500 rounded p-3">
-                    <p className="text-xs font-semibold text-purple-900 uppercase mb-1">모니카 욕망 증폭</p>
+                    <p className="text-sm font-semibold text-purple-900 uppercase mb-1">모니카 욕망 증폭</p>
                     <p className="text-sm font-bold text-purple-900">
                       레벨 {selectedItem.monikaAmplifyLevel}: {MONIKA_AMPLIFY_LEVELS[selectedItem.monikaAmplifyLevel]}
                     </p>
-                    <ul className="text-xs text-purple-700 mt-2 list-disc list-inside">
+                    <ul className="text-sm text-purple-700 mt-2 list-disc list-inside">
                       {selectedItem.monikaAmplifyLevel === "1" && (
                         <>
                           <li>호기심 유발로 고객의 관심 끌기</li>
@@ -653,21 +653,21 @@ export default function PlaybookViewerPage() {
                 {/* 심리학 배지 */}
                 {selectedItem?.psychology && PSYCHOLOGY_BADGES[selectedItem.psychology] && (
                   <div className="mb-5">
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">심리학 이론</h4>
+                    <h4 className="text-sm font-semibold text-gray-500 uppercase mb-2">심리학 이론</h4>
                     <div className={`inline-block px-3 py-1.5 rounded-lg text-sm font-medium ${PSYCHOLOGY_BADGES[selectedItem.psychology].bg} ${PSYCHOLOGY_BADGES[selectedItem.psychology].text}`}>
                       {PSYCHOLOGY_BADGES[selectedItem.psychology].label}
                     </div>
-                    <p className="text-xs text-gray-600 mt-1">{PSYCHOLOGY_BADGES[selectedItem.psychology].desc}</p>
+                    <p className="text-sm text-gray-600 mt-1">{PSYCHOLOGY_BADGES[selectedItem.psychology].desc}</p>
                   </div>
                 )}
 
                 {/* Loop 3: Psychology Lens 선택 */}
                 <div className="mb-5">
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">🎯 심리학 렌즈 적용</h4>
+                  <h4 className="text-sm font-semibold text-gray-500 uppercase mb-2">🎯 심리학 렌즈 적용</h4>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setSelectedPsychologyLens(selectedPsychologyLens === "L6" ? null : "L6")}
-                      className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         selectedPsychologyLens === "L6"
                           ? "bg-orange-500 text-white"
                           : "bg-orange-100 text-orange-800 hover:bg-orange-200"
@@ -677,7 +677,7 @@ export default function PlaybookViewerPage() {
                     </button>
                     <button
                       onClick={() => setSelectedPsychologyLens(selectedPsychologyLens === "L10" ? null : "L10")}
-                      className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         selectedPsychologyLens === "L10"
                           ? "bg-red-500 text-white"
                           : "bg-red-100 text-red-800 hover:bg-red-200"
@@ -691,9 +691,9 @@ export default function PlaybookViewerPage() {
                 {/* L6 손실회피/타이밍 기법 */}
                 {selectedPsychologyLens === "L6" && (
                   <div className="mb-5 p-3 bg-orange-50 border-l-4 border-orange-500 rounded">
-                    <h4 className="text-xs font-semibold text-orange-900 uppercase mb-2">⏰ L6: 손실회피 + 타이밍 (Loss Aversion)</h4>
-                    <p className="text-xs text-orange-700 mb-2">고객이 지금 바로 결정해야 하는 심리적 이유를 강조합니다.</p>
-                    <ul className="text-xs text-orange-700 space-y-1">
+                    <h4 className="text-sm font-semibold text-orange-900 uppercase mb-2">⏰ L6: 손실회피 + 타이밍 (Loss Aversion)</h4>
+                    <p className="text-sm text-orange-700 mb-2">고객이 지금 바로 결정해야 하는 심리적 이유를 강조합니다.</p>
+                    <ul className="text-sm text-orange-700 space-y-1">
                       {L6_LOSS_AVERSION_TECHNIQUES.map((tech, idx) => (
                         <li key={idx} className="list-none">{tech}</li>
                       ))}
@@ -704,9 +704,9 @@ export default function PlaybookViewerPage() {
                 {/* L10 즉시구매 클로징 기법 */}
                 {selectedPsychologyLens === "L10" && (
                   <div className="mb-5 p-3 bg-red-50 border-l-4 border-red-500 rounded">
-                    <h4 className="text-xs font-semibold text-red-900 uppercase mb-2">⚡ L10: 즉시구매 클로징 (Immediate Closing)</h4>
-                    <p className="text-xs text-red-700 mb-2">구매 결정을 최대한 간편하게 만드는 강력한 클로징 기법입니다.</p>
-                    <ul className="text-xs text-red-700 space-y-1">
+                    <h4 className="text-sm font-semibold text-red-900 uppercase mb-2">⚡ L10: 즉시구매 클로징 (Immediate Closing)</h4>
+                    <p className="text-sm text-red-700 mb-2">구매 결정을 최대한 간편하게 만드는 강력한 클로징 기법입니다.</p>
+                    <ul className="text-sm text-red-700 space-y-1">
                       {L10_IMMEDIATE_CLOSING_TECHNIQUES.map((tech, idx) => (
                         <li key={idx} className="list-none">{tech}</li>
                       ))}
@@ -716,8 +716,8 @@ export default function PlaybookViewerPage() {
 
                 {/* PASONA 프레임워크 설명 */}
                 <div className="mb-5 p-3 bg-indigo-50 border-l-4 border-indigo-500 rounded">
-                  <h4 className="text-xs font-semibold text-indigo-900 uppercase mb-2">📊 PASONA 심리학 프레임워크</h4>
-                  <div className="space-y-1 text-xs text-indigo-700">
+                  <h4 className="text-sm font-semibold text-indigo-900 uppercase mb-2">📊 PASONA 심리학 프레임워크</h4>
+                  <div className="space-y-1 text-sm text-indigo-700">
                     <p><span className="font-semibold">P</span>roblem: 고객의 문제 인식 → <span className="font-semibold">A</span>gitate: 문제의 심각성 강조</p>
                     <p><span className="font-semibold">S</span>olution: 해결책 제시 → <span className="font-semibold">O</span>ffer: 구체적 조건 제시</p>
                     <p><span className="font-semibold">N</span>arrow: 범위 좁혀서 결정 단순화 → <span className="font-semibold">A</span>ction: 지금 바로 행동</p>
@@ -726,7 +726,7 @@ export default function PlaybookViewerPage() {
 
                 {/* Day 0-3 PASONA 일정 */}
                 <div className="mb-5">
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">📅 Day 0-3 PASONA 일정</h4>
+                  <h4 className="text-sm font-semibold text-gray-500 uppercase mb-3">📅 Day 0-3 PASONA 일정</h4>
                   <div className="space-y-2">
                     {DAY_0_3_SCHEDULE.map((day) => (
                       <div key={day.day} className={`p-2 rounded-lg border border-gray-200 ${day.color}`}>
@@ -734,8 +734,8 @@ export default function PlaybookViewerPage() {
                           <div className="flex items-center gap-2">
                             <span className="text-lg">{day.icon}</span>
                             <div>
-                              <p className="text-xs font-semibold text-gray-900">{day.label}: {day.stage}</p>
-                              <p className="text-xs text-gray-600">{day.time}</p>
+                              <p className="text-sm font-semibold text-gray-900">{day.label}: {day.stage}</p>
+                              <p className="text-sm text-gray-600">{day.time}</p>
                             </div>
                           </div>
                         </div>
@@ -744,7 +744,7 @@ export default function PlaybookViewerPage() {
                   </div>
                   <button
                     onClick={() => setShowDay03Preview(!showDay03Preview)}
-                    className="w-full mt-3 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium rounded-lg transition-colors"
+                    className="w-full mt-3 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-medium rounded-lg transition-colors"
                   >
                     {showDay03Preview ? "미리보기 닫기" : "🔍 동적 내용 미리보기"}
                   </button>
@@ -753,46 +753,46 @@ export default function PlaybookViewerPage() {
                 {/* Day 0-3 동적 미리보기 */}
                 {showDay03Preview && selectedItem && (
                   <div className="mb-5 p-4 bg-blue-50 rounded-lg border border-blue-200 space-y-3">
-                    <h4 className="text-xs font-semibold text-blue-900 uppercase">📝 개인화된 메시지 미리보기</h4>
+                    <h4 className="text-sm font-semibold text-blue-900 uppercase">📝 개인화된 메시지 미리보기</h4>
 
                     {/* 샘플 고객 정보 편집 */}
                     <div className="space-y-2">
-                      <p className="text-xs font-medium text-gray-600 mb-2">샘플 고객 정보 (미리보기용)</p>
+                      <p className="text-sm font-medium text-gray-600 mb-2">샘플 고객 정보 (미리보기용)</p>
                       <div className="grid grid-cols-2 gap-2">
                         <input
                           type="text"
                           value={sampleCustomer.name}
                           onChange={(e) => setSampleCustomer({ ...sampleCustomer, name: e.target.value })}
                           placeholder="고객 이름"
-                          className="col-span-2 px-2 py-1 text-xs border rounded bg-white"
+                          className="col-span-2 px-2 py-1 text-sm border rounded bg-white"
                         />
                         <input
                           type="text"
                           value={sampleCustomer.productName}
                           onChange={(e) => setSampleCustomer({ ...sampleCustomer, productName: e.target.value })}
                           placeholder="상품명"
-                          className="col-span-2 px-2 py-1 text-xs border rounded bg-white"
+                          className="col-span-2 px-2 py-1 text-sm border rounded bg-white"
                         />
                         <input
                           type="text"
                           value={sampleCustomer.price}
                           onChange={(e) => setSampleCustomer({ ...sampleCustomer, price: e.target.value })}
                           placeholder="가격"
-                          className="px-2 py-1 text-xs border rounded bg-white"
+                          className="px-2 py-1 text-sm border rounded bg-white"
                         />
                         <input
                           type="text"
                           value={sampleCustomer.departDate}
                           onChange={(e) => setSampleCustomer({ ...sampleCustomer, departDate: e.target.value })}
                           placeholder="출발일"
-                          className="px-2 py-1 text-xs border rounded bg-white"
+                          className="px-2 py-1 text-sm border rounded bg-white"
                         />
                       </div>
                     </div>
 
                     {/* 개인화된 메시지 */}
                     <div className="bg-white rounded p-2 border border-blue-200">
-                      <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
                         {personalizeContent(selectedItem.content)}
                       </p>
                     </div>
@@ -818,19 +818,19 @@ export default function PlaybookViewerPage() {
                             });
                           });
                       }}
-                      className="w-full px-2 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors"
+                      className="w-full px-2 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded transition-colors"
                     >
                       복사 (개인화됨)
                     </button>
 
                     {/* 사용된 변수 목록 */}
                     <div>
-                      <p className="text-xs font-medium text-gray-600 mb-1">사용 가능한 변수:</p>
+                      <p className="text-sm font-medium text-gray-600 mb-1">사용 가능한 변수:</p>
                       <div className="flex flex-wrap gap-1">
                         {PERSONALIZATION_VARS.map((var_) => (
                           <span
                             key={var_.key}
-                            className="px-2 py-0.5 bg-gray-200 text-gray-700 text-xs rounded font-mono"
+                            className="px-2 py-0.5 bg-gray-200 text-gray-700 text-sm rounded font-mono"
                             title={var_.label}
                           >
                             {var_.key}
@@ -843,7 +843,7 @@ export default function PlaybookViewerPage() {
 
                 {/* Type Badge */}
                 <div className="mb-5">
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">스크립트 유형</h4>
+                  <h4 className="text-sm font-semibold text-gray-500 uppercase mb-2">스크립트 유형</h4>
                   <span className="inline-block px-3 py-1.5 bg-blue-100 text-blue-800 text-sm rounded-full font-medium">
                     {selectedItem.type}
                   </span>
@@ -851,7 +851,7 @@ export default function PlaybookViewerPage() {
 
                 {/* Customer Segment Badge */}
                 <div className="mb-5">
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">고객 세그먼트</h4>
+                  <h4 className="text-sm font-semibold text-gray-500 uppercase mb-2">고객 세그먼트</h4>
                   <span className="inline-block px-3 py-1.5 bg-purple-100 text-purple-800 text-sm rounded-full font-medium">
                     {selectedItem.productCode === "ALL" ? "모든 고객" : selectedItem.productCode}
                   </span>
@@ -859,7 +859,7 @@ export default function PlaybookViewerPage() {
 
                 {/* Phase */}
                 <div className="mb-5">
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Phase</h4>
+                  <h4 className="text-sm font-semibold text-gray-500 uppercase mb-2">Phase</h4>
                   <span className="inline-block px-3 py-1.5 bg-navy-900 text-white text-sm rounded-full font-medium">
                     Phase {selectedItem.sectionOrder}
                   </span>
@@ -867,14 +867,14 @@ export default function PlaybookViewerPage() {
 
                 {/* 데이터 소스 */}
                 {selectedItem?.source && (
-                  <div className="text-xs text-gray-500 bg-gray-50 rounded p-2 border border-gray-200">
+                  <div className="text-sm text-gray-500 bg-gray-50 rounded p-2 border border-gray-200">
                     출처: <span className="font-medium text-gray-700">{selectedItem.source}</span>
                   </div>
                 )}
               </div>
             ) : (
               <div className="bg-white rounded-xl shadow-sm p-5 sticky top-6">
-                <p className="text-center text-gray-400 py-8">스크립트를 선택해주세요</p>
+                <p className="text-center text-gray-600 py-8">스크립트를 선택해주세요</p>
               </div>
             )}
 
@@ -882,7 +882,7 @@ export default function PlaybookViewerPage() {
             <div className="bg-white rounded-xl shadow-sm p-5 sticky top-0">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-gray-900 text-sm">클로징 신호 7종</h3>
-                <span className="inline-block px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded">
+                <span className="inline-block px-2 py-1 bg-green-100 text-green-800 text-sm font-bold rounded">
                   {closingCount}/7
                 </span>
               </div>

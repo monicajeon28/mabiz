@@ -268,7 +268,7 @@ export default function AuditLogsPage() {
                         {log.userId}
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${getActionColor(log.action)}`}>
+                        <span className={`inline-block px-2 py-1 rounded text-sm font-semibold ${getActionColor(log.action)}`}>
                           {log.action}
                         </span>
                       </td>
@@ -276,7 +276,7 @@ export default function AuditLogsPage() {
                         {log.table}
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${getStatusColor(log.status)}`}>
+                        <span className={`inline-block px-2 py-1 rounded text-sm font-semibold ${getStatusColor(log.status)}`}>
                           {log.status}
                         </span>
                       </td>
@@ -339,7 +339,7 @@ export default function AuditLogsPage() {
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={`inline-block px-2 py-1 rounded text-xs font-semibold ${getSeverityColor(event.severity)}`}
+                          className={`inline-block px-2 py-1 rounded text-sm font-semibold ${getSeverityColor(event.severity)}`}
                         >
                           {event.severity}
                         </span>

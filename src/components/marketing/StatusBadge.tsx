@@ -19,7 +19,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
   const label = STATUS_LABELS[status as keyof typeof STATUS_LABELS] || STATUS_LABELS.default;
 
   return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${style}`}>
+    <span className={`inline-block px-2 py-0.5 rounded-full text-sm font-medium ${style}`}>
       {label}
     </span>
   );

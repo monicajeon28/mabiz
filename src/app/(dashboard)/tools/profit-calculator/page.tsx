@@ -154,18 +154,18 @@ function CalculatorContent() {
 
         {/* L1 렌즈: 손실회피 (Loss Aversion) */}
         <div className="mt-4 bg-white/80 rounded-lg border border-blue-100 px-4 py-3">
-          <p className="text-xs font-semibold text-blue-700 uppercase">💰 손실회피 분석 (L1 렌즈)</p>
+          <p className="text-sm font-semibold text-blue-700 uppercase">💰 손실회피 분석 (L1 렌즈)</p>
           <p className="text-sm text-slate-700 mt-2">
             이 계산기를 사용하면 <span className="font-semibold text-green-600">월 {fmt(Math.max(0, calc.netProfitBeforeTax * 0.08))}원</span>을 절약할 수 있습니다.
             <br />
-            <span className="text-xs text-slate-500">※ 8%의 대리점장 수당으로 설정할 경우 연 {fmt(Math.max(0, calc.netProfitBeforeTax * 0.08 * 12))}원 절약</span>
+            <span className="text-sm text-slate-500">※ 8%의 대리점장 수당으로 설정할 경우 연 {fmt(Math.max(0, calc.netProfitBeforeTax * 0.08 * 12))}원 절약</span>
           </p>
         </div>
       </div>
 
       {/* L6 렌즈: 타이밍 결정 (희소성/FOMO) */}
       <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-amber-200 p-4">
-        <p className="text-xs font-semibold text-amber-700 uppercase">⏰ 희소성 + 긴박감 (L6 렌즈)</p>
+        <p className="text-sm font-semibold text-amber-700 uppercase">⏰ 희소성 + 긴박감 (L6 렌즈)</p>
         <p className="text-sm text-amber-800 mt-2">
           <span className="font-semibold">지금 결정하면</span> 추가 혜택:
           <br />
@@ -221,7 +221,7 @@ function CalculatorContent() {
 
           {/* 입력 오류 */}
           {inputError && (
-            <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{inputError}</p>
+            <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{inputError}</p>
           )}
         </div>
 
@@ -229,20 +229,20 @@ function CalculatorContent() {
         {!inputError && (
           <div className="border-t border-slate-100 px-6 py-4 bg-slate-50 space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-slate-600">영업이익 <span className="text-xs text-slate-400">(판매가 - 입금가)</span></span>
+              <span className="text-slate-600">영업이익 <span className="text-sm text-slate-400">(판매가 - 입금가)</span></span>
               <span className={cls(calc.operatingProfit)}>
                 {fmt(calc.operatingProfit)} 원
-                <span className="ml-2 text-slate-500 font-normal text-xs">{pct(calc.operatingMargin)}%</span>
+                <span className="ml-2 text-slate-500 font-normal text-sm">{pct(calc.operatingMargin)}%</span>
               </span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-600">세전순이익 <span className="text-xs text-slate-400">(영업이익 - 카드수수료)</span></span>
+              <span className="text-slate-600">세전순이익 <span className="text-sm text-slate-400">(영업이익 - 카드수수료)</span></span>
               <span className={cls(calc.netProfitBeforeTax)}>
                 {fmt(calc.netProfitBeforeTax)} 원
-                <span className="ml-2 text-slate-500 font-normal text-xs">{pct(calc.netMargin)}%</span>
+                <span className="ml-2 text-slate-500 font-normal text-sm">{pct(calc.netMargin)}%</span>
               </span>
             </div>
-            <p className="text-xs text-slate-400 pt-1">* 세금은 영업이익 기준으로 납부합니다.</p>
+            <p className="text-sm text-slate-400 pt-1">* 세금은 영업이익 기준으로 납부합니다.</p>
           </div>
         )}
       </section>
@@ -251,7 +251,7 @@ function CalculatorContent() {
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
           <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">2단계 — 수당 분배 계산기</h2>
-          <p className="text-xs text-slate-400 mt-0.5">% 또는 금액 중 하나를 입력하면 나머지가 자동 계산됩니다. 기준: 세전순이익</p>
+          <p className="text-sm text-slate-400 mt-0.5">% 또는 금액 중 하나를 입력하면 나머지가 자동 계산됩니다. 기준: 세전순이익</p>
         </div>
         <div className="px-6 py-5 space-y-5">
 
@@ -335,7 +335,7 @@ function CalculatorContent() {
                 <span className="w-24 text-sm text-slate-500 shrink-0">자유판매원</span>
                 <div className="flex flex-1 gap-2">
                   <div className="flex-1 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-right text-slate-500">
-                    3.0% <span className="text-xs">(고정)</span>
+                    3.0% <span className="text-sm">(고정)</span>
                   </div>
                   <div className="flex-1 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-right text-slate-600">
                     {fmt(calc.freeAmt)} 원
@@ -347,7 +347,7 @@ function CalculatorContent() {
               <div className="flex items-center gap-3">
                 <span className="w-24 text-sm text-slate-500 shrink-0">
                   오버라이딩
-                  <span className="block text-xs text-slate-400">대리점장-3%</span>
+                  <span className="block text-sm text-slate-400">대리점장-3%</span>
                 </span>
                 <div className="flex flex-1 gap-2">
                   <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-right text-slate-600">
@@ -371,7 +371,7 @@ function CalculatorContent() {
               <span className="ml-2 text-slate-500 font-normal text-sm">{pct(calc.hqMargin)}%</span>
             </span>
           </div>
-          <p className="text-xs text-slate-400">= 세전순이익 - 대리점장 수당 - 소속판매원 수당</p>
+          <p className="text-sm text-slate-400">= 세전순이익 - 대리점장 수당 - 소속판매원 수당</p>
         </div>
       </section>
 
@@ -379,7 +379,7 @@ function CalculatorContent() {
       <section className="bg-amber-50 rounded-2xl border border-amber-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-amber-200">
           <h2 className="text-sm font-semibold text-amber-800 uppercase tracking-wide">참고 — 법인세 22% 예시 계산</h2>
-          <p className="text-xs text-amber-600 mt-0.5">실제 세율은 과세표준과 세무 처리에 따라 다를 수 있습니다.</p>
+          <p className="text-sm text-amber-600 mt-0.5">실제 세율은 과세표준과 세무 처리에 따라 다를 수 있습니다.</p>
         </div>
         <div className="px-6 py-4 space-y-2">
           <div className="flex justify-between text-sm">
@@ -392,7 +392,7 @@ function CalculatorContent() {
               {fmt(calc.afterTaxProfit)} 원
             </span>
           </div>
-          <p className="text-xs text-amber-600 pt-1">* 세금은 영업이익 기준으로 납부하며, 본 계산기는 참고용입니다.</p>
+          <p className="text-sm text-amber-600 pt-1">* 세금은 영업이익 기준으로 납부하며, 본 계산기는 참고용입니다.</p>
         </div>
       </section>
 
@@ -401,32 +401,32 @@ function CalculatorContent() {
         <section className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-emerald-200 bg-emerald-50">
             <h2 className="text-sm font-semibold text-emerald-800 uppercase tracking-wide">🎯 지금 바로 선택하기 (L10 렌즈)</h2>
-            <p className="text-xs text-emerald-600 mt-0.5">어떤 옵션이 가장 유리할까요? 셋 중 하나를 선택하면 계약서를 즉시 작성해드립니다.</p>
+            <p className="text-sm text-emerald-600 mt-0.5">어떤 옵션이 가장 유리할까요? 셋 중 하나를 선택하면 계약서를 즉시 작성해드립니다.</p>
           </div>
           <div className="px-6 py-5">
             <div className="grid grid-cols-3 gap-3">
               {/* 옵션 A: 최저가 (지금) */}
               <div className="border-2 border-emerald-300 rounded-lg p-4 bg-white cursor-pointer hover:bg-emerald-50 transition">
                 <p className="font-semibold text-emerald-900">옵션 A</p>
-                <p className="text-xs text-slate-500 mt-1">지금 예약</p>
+                <p className="text-sm text-slate-500 mt-1">지금 예약</p>
                 <p className="text-lg font-bold text-emerald-600 mt-2">{fmt(calc.netProfitBeforeTax)} 원</p>
-                <p className="text-xs text-emerald-600 mt-1">✓ 최저가</p>
+                <p className="text-sm text-emerald-600 mt-1">✓ 최저가</p>
               </div>
 
               {/* 옵션 B: 중간가 (주말까지) */}
               <div className="border-2 border-slate-300 rounded-lg p-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition">
                 <p className="font-semibold text-slate-800">옵션 B</p>
-                <p className="text-xs text-slate-600 mt-1">주말까지</p>
+                <p className="text-sm text-slate-600 mt-1">주말까지</p>
                 <p className="text-lg font-bold text-slate-700 mt-2">{fmt(calc.netProfitBeforeTax * 1.02)} 원</p>
-                <p className="text-xs text-slate-600 mt-1">2% 상승</p>
+                <p className="text-sm text-slate-600 mt-1">2% 상승</p>
               </div>
 
               {/* 옵션 C: 정가 (다음주 이후) */}
               <div className="border-2 border-red-300 rounded-lg p-4 bg-red-50 cursor-pointer hover:bg-red-100 transition">
                 <p className="font-semibold text-red-900">옵션 C</p>
-                <p className="text-xs text-red-600 mt-1">다음주 이후</p>
+                <p className="text-sm text-red-600 mt-1">다음주 이후</p>
                 <p className="text-lg font-bold text-red-600 mt-2">{fmt(calc.netProfitBeforeTax * 1.05)} 원</p>
-                <p className="text-xs text-red-600 mt-1">5% 상승</p>
+                <p className="text-sm text-red-600 mt-1">5% 상승</p>
               </div>
             </div>
 
@@ -444,7 +444,7 @@ function CalculatorContent() {
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
             <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">❓ 자주 묻는 이의 대응 (Grant Cardone)</h2>
-            <p className="text-xs text-slate-400 mt-0.5">계산 결과를 의심하시나요? 여기서 답을 찾아보세요.</p>
+            <p className="text-sm text-slate-400 mt-0.5">계산 결과를 의심하시나요? 여기서 답을 찾아보세요.</p>
           </div>
           <div className="px-6 py-5 space-y-4">
             {[
@@ -483,7 +483,7 @@ function CalculatorContent() {
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
             <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">📱 Day 0-3 SMS 자동화 (PASONA + SPIN)</h2>
-            <p className="text-xs text-slate-400 mt-0.5">계산 완료 후 자동으로 발송되는 4개 메시지 (예상 클릭율: 15% → 전환율: 28%)</p>
+            <p className="text-sm text-slate-400 mt-0.5">계산 완료 후 자동으로 발송되는 4개 메시지 (예상 클릭율: 15% → 전환율: 28%)</p>
           </div>
           <div className="px-6 py-5 space-y-3">
             {[
@@ -496,8 +496,8 @@ function CalculatorContent() {
                 <div className="flex justify-between items-start mb-2">
                   <span className="font-semibold text-sm text-slate-800">{sms.day}</span>
                   <div className="flex gap-2">
-                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">{sms.psy}</span>
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">{sms.ctr} 클릭</span>
+                    <span className="text-sm bg-blue-100 text-blue-700 px-2 py-1 rounded">{sms.psy}</span>
+                    <span className="text-sm bg-green-100 text-green-700 px-2 py-1 rounded">{sms.ctr} 클릭</span>
                   </div>
                 </div>
                 <p className="text-sm text-slate-700">{sms.msg}</p>
@@ -506,7 +506,7 @@ function CalculatorContent() {
           </div>
 
           <div className="border-t border-slate-100 px-6 py-4 bg-slate-50">
-            <p className="text-xs text-slate-600">
+            <p className="text-sm text-slate-600">
               📊 <span className="font-semibold">예상 효과:</span> Day 0-3 누적 클릭 62%, 최종 전환율 <span className="text-green-600 font-bold">28% (현재 12%에서 +133%)</span>
             </p>
           </div>
@@ -536,7 +536,7 @@ function CalculatorContent() {
                 <span className={`${row.highlight ? 'font-semibold text-slate-800' : 'text-slate-600'}`}>{row.label}</span>
                 <span className={`font-medium ${row.red ? 'text-red-600' : 'text-slate-900'}`}>
                   {row.value}
-                  {row.sub && <span className="ml-2 text-xs text-slate-400">{row.sub}</span>}
+                  {row.sub && <span className="ml-2 text-sm text-slate-400">{row.sub}</span>}
                 </span>
               </div>
             ))}
@@ -549,7 +549,7 @@ function CalculatorContent() {
         <section className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl border border-purple-200 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-purple-200 bg-purple-50">
             <h2 className="text-sm font-semibold text-purple-800 uppercase tracking-wide">📊 성과메트릭 추적 (심리학 기반)</h2>
-            <p className="text-xs text-purple-600 mt-0.5">이 계산기를 사용했을 때의 기대 효과 (6개월 후)</p>
+            <p className="text-sm text-purple-600 mt-0.5">이 계산기를 사용했을 때의 기대 효과 (6개월 후)</p>
           </div>
           <div className="px-6 py-5">
             <div className="grid grid-cols-2 gap-4">
@@ -560,18 +560,18 @@ function CalculatorContent() {
                 { label: '월 매출', current: '12M', target: '49M', unit: '', lift: '+316%' },
               ].map((metric, i) => (
                 <div key={i} className="bg-white rounded-lg border border-purple-200 p-4">
-                  <p className="text-xs font-semibold text-purple-700">{metric.label}</p>
+                  <p className="text-sm font-semibold text-purple-700">{metric.label}</p>
                   <div className="flex justify-between items-baseline mt-2">
                     <div>
-                      <p className="text-xs text-slate-500">현재</p>
+                      <p className="text-sm text-slate-500">현재</p>
                       <p className="text-sm font-bold text-slate-900">{metric.current}{metric.unit}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-slate-500">목표 (6개월)</p>
+                      <p className="text-sm text-slate-500">목표 (6개월)</p>
                       <p className="text-sm font-bold text-green-600">{metric.target}{metric.unit}</p>
                     </div>
                   </div>
-                  <div className="mt-2 bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded inline-block">
+                  <div className="mt-2 bg-green-100 text-green-700 text-sm font-semibold px-2 py-1 rounded inline-block">
                     {metric.lift}
                   </div>
                 </div>
@@ -613,7 +613,7 @@ export default function ProfitCalculatorPage() {
   if (blocked) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-gray-400 text-sm">접근 권한이 없습니다</p>
+        <p className="text-gray-600 text-sm">접근 권한이 없습니다</p>
       </div>
     );
   }

@@ -99,14 +99,14 @@ function SignatureCanvas({ onSigned }: SignatureCanvasProps) {
           className="w-full touch-none cursor-crosshair"
           style={{ display: 'block' }}
         />
-        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs text-gray-300 pointer-events-none select-none">
+        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-sm text-gray-300 pointer-events-none select-none">
           서명란
         </div>
       </div>
       <button
         type="button"
         onClick={handleClear}
-        className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+        className="text-sm text-gray-600 hover:text-red-500 transition-colors"
       >
         지우기
       </button>
@@ -153,7 +153,7 @@ function FileUpload({ label, required, hint, securityNote, onChange, preview }: 
       <label className="block text-sm font-medium text-gray-700 mb-1">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
-      {hint && <p className="text-xs text-gray-500 mb-1.5">{hint}</p>}
+      {hint && <p className="text-sm text-gray-500 mb-1.5">{hint}</p>}
       {preview ? (
         <div className="relative border border-gray-200 rounded-xl overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -161,7 +161,7 @@ function FileUpload({ label, required, hint, securityNote, onChange, preview }: 
           <button
             type="button"
             onClick={() => onChange(null)}
-            className="absolute top-2 right-2 bg-white border border-gray-200 rounded-full w-7 h-7 flex items-center justify-center text-gray-500 hover:text-red-500 hover:border-red-300 text-xs shadow-sm transition"
+            className="absolute top-2 right-2 bg-white border border-gray-200 rounded-full w-7 h-7 flex items-center justify-center text-gray-500 hover:text-red-500 hover:border-red-300 text-sm shadow-sm transition"
           >
             ✕
           </button>
@@ -173,12 +173,12 @@ function FileUpload({ label, required, hint, securityNote, onChange, preview }: 
           className="w-full border-2 border-dashed border-gray-300 rounded-xl p-5 text-center hover:border-blue-400 hover:bg-blue-50 transition-all group"
         >
           <div className="w-10 h-10 bg-gray-100 group-hover:bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2 transition">
-            <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5 text-gray-600 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </div>
           <p className="text-sm text-gray-500 group-hover:text-blue-600">사진을 선택하거나 촬영하세요</p>
-          <p className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP, HEIC · 최대 10MB</p>
+          <p className="text-sm text-gray-600 mt-1">JPG, PNG, WEBP, HEIC · 최대 10MB</p>
         </button>
       )}
       <input
@@ -194,7 +194,7 @@ function FileUpload({ label, required, hint, securityNote, onChange, preview }: 
           <svg className="w-3.5 h-3.5 text-slate-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
           </svg>
-          <p className="text-xs text-slate-500 leading-relaxed">{securityNote}</p>
+          <p className="text-sm text-slate-500 leading-relaxed">{securityNote}</p>
         </div>
       )}
     </div>
@@ -343,7 +343,7 @@ function CompleteForm() {
             <h1 className="text-xl font-bold text-gray-900">링크 오류</h1>
             <p className="text-gray-500 mt-2 text-sm">{errorMsg}</p>
           </div>
-          <p className="text-xs text-gray-400">문의: 010-3289-3800</p>
+          <p className="text-sm text-gray-600">문의: 010-3289-3800</p>
         </div>
       </div>
     );
@@ -365,7 +365,7 @@ function CompleteForm() {
               담당자가 확인 후 최종 아이디·비밀번호를 이메일로 발송해 드립니다.
             </p>
           </div>
-          <p className="text-xs text-gray-400">문의: 010-3289-3800</p>
+          <p className="text-sm text-gray-600">문의: 010-3289-3800</p>
         </div>
       </div>
     );
@@ -396,7 +396,7 @@ function CompleteForm() {
             <h2 className="text-white font-bold text-sm">① 정산 계좌</h2>
           </div>
           <div className="p-5 space-y-4">
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700 leading-relaxed">
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-sm text-blue-700 leading-relaxed">
               수수료 정산 및 소득세 신고 목적으로만 사용됩니다. 인가된 담당자만 열람 가능합니다.
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -461,7 +461,7 @@ function CompleteForm() {
                 </svg>
                 <p className="text-sm font-semibold text-amber-800">법적 본인인증 필수 서류</p>
               </div>
-              <p className="text-xs text-amber-700 leading-relaxed">
+              <p className="text-sm text-amber-700 leading-relaxed">
                 반려 또는 계약 미체결 시 즉시 파기합니다.
               </p>
             </div>
@@ -481,7 +481,7 @@ function CompleteForm() {
                 <svg className="w-3.5 h-3.5 text-blue-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className="text-xs text-blue-700 leading-relaxed">
+                <p className="text-sm text-blue-700 leading-relaxed">
                   프리랜서 용역 소득세 신고(원천징수) 목적으로만 수집됩니다. (소득세법 제145조)
                 </p>
               </div>
@@ -520,7 +520,7 @@ function CompleteForm() {
             {signatureDataUrl && (
               <div className="flex justify-end">
                 <div className="text-center">
-                  <p className="text-xs text-gray-500 mb-1.5">을 ({contractName})</p>
+                  <p className="text-sm text-gray-500 mb-1.5">을 ({contractName})</p>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={signatureDataUrl} alt="서명" className="w-20 h-14 object-contain border border-dashed border-gray-300 rounded mx-auto" />
                 </div>
@@ -549,7 +549,7 @@ function CompleteForm() {
           ) : '계약 서류 제출'}
         </button>
 
-        <p className="text-center text-xs text-gray-400 pb-4">
+        <p className="text-center text-sm text-gray-600 pb-4">
           문의: 010-3289-3800
         </p>
       </form>

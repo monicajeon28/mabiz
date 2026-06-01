@@ -80,10 +80,10 @@ export function BottomTabBar({ className }: BottomTabBarProps) {
                 <Link
                   href={tab.href}
                   className={cn(
-                    "flex flex-col items-center justify-center h-full gap-0.5 text-xs transition-colors",
+                    "flex flex-col items-center justify-center h-full gap-0.5 text-sm transition-colors",
                     isActive
                       ? "text-navy-900 border-t-2 border-gold-500"
-                      : "text-gray-400 hover:text-gray-600"
+                      : "text-gray-600 hover:text-gray-600"
                   )}
                 >
                   <tab.icon
@@ -100,10 +100,10 @@ export function BottomTabBar({ className }: BottomTabBarProps) {
             <button
               onClick={() => setDrawerOpen((prev) => !prev)}
               className={cn(
-                "flex flex-col items-center justify-center w-full h-full gap-0.5 text-xs transition-colors",
+                "flex flex-col items-center justify-center w-full h-full gap-0.5 text-sm transition-colors",
                 drawerOpen
                   ? "text-navy-900 border-t-2 border-gold-500"
-                  : "text-gray-400 hover:text-gray-600"
+                  : "text-gray-600 hover:text-gray-600"
               )}
             >
               <MoreHorizontal className="w-5 h-5" />
@@ -140,7 +140,7 @@ export function BottomTabBar({ className }: BottomTabBarProps) {
                   className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
                 >
                   <menu.icon className="w-5 h-5 text-navy-700" />
-                  <span className="text-xs text-gray-700 font-medium leading-tight text-center">
+                  <span className="text-sm text-gray-700 font-medium leading-tight text-center">
                     {menu.label}
                   </span>
                 </button>
@@ -155,7 +155,7 @@ export function BottomTabBar({ className }: BottomTabBarProps) {
                 className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-red-50 hover:bg-red-100 transition-colors"
               >
                 <LogOut className="w-5 h-5 text-red-500" />
-                <span className="text-xs text-red-500 font-medium leading-tight text-center">
+                <span className="text-sm text-red-500 font-medium leading-tight text-center">
                   로그아웃
                 </span>
               </button>

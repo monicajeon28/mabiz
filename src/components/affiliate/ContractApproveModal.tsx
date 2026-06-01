@@ -103,7 +103,7 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
           <h2 className="text-lg font-semibold text-gray-900">
             {result ? '계약 승인 완료' : '대리점 계약 승인'}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <button onClick={onClose} className="text-gray-600 hover:text-gray-600 transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -153,7 +153,7 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
                     onCopy={() => copyToClipboard(result.manager.linkUrl, 'mgr-link')}
                     copied={copied === 'mgr-link'}
                   />
-                  <div className="text-xs text-gray-500">
+                  <div className="text-sm text-gray-500">
                     CRM 멤버 ID: {result.manager.crmMemberId}
                   </div>
                 </div>
@@ -178,7 +178,7 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
                 </div>
               </div>
 
-              <p className="text-xs text-gray-400">
+              <p className="text-sm text-gray-600">
                 비밀번호는 보안상 여기에 표시되지 않습니다. SMS로만 전달됩니다.
               </p>
 
@@ -196,7 +196,7 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
             <div className="space-y-5">
               {/* 계약자 정보 */}
               <div className="p-4 bg-gray-50 rounded-lg space-y-1.5">
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">
                   계약자 정보
                 </h3>
                 <InfoRow label="이름" value={contractInfo.name} />
@@ -232,7 +232,7 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
                                 : 'border-gray-200 hover:border-gray-300'
                             }`}
                           >
-                            <div className={`text-xs font-semibold mb-1 ${isSelected ? 'text-blue-700' : 'text-gray-700'}`}>
+                            <div className={`text-sm font-semibold mb-1 ${isSelected ? 'text-blue-700' : 'text-gray-700'}`}>
                               {tier.label}
                             </div>
                             <div className={`text-sm font-bold mt-1 ${isSelected ? 'text-blue-600' : 'text-gray-900'}`}>
@@ -247,7 +247,7 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
                   {/* 선택 요약 */}
                   <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
                     <span className="font-medium">{tierInfo.label}</span> 승인 시 자동 생성됩니다:
-                    <ul className="mt-1.5 space-y-0.5 text-blue-700 text-xs">
+                    <ul className="mt-1.5 space-y-0.5 text-blue-700 text-sm">
                       <li>• 대리점장 GMcruise 포털 계정 + CRM 관리 계정</li>
                       <li>• 판매원 GMcruise 포털 계정</li>
                       <li>• 어필리에이트 링크 (대리점장/판매원 각 1개)</li>
@@ -298,12 +298,12 @@ function ResultRow({
   return (
     <div className="flex items-center gap-2 text-sm">
       <span className="w-28 text-gray-500 shrink-0">{label}</span>
-      <span className="flex-1 font-mono text-xs bg-gray-100 px-2 py-1 rounded truncate">
+      <span className="flex-1 font-mono text-sm bg-gray-100 px-2 py-1 rounded truncate">
         {value}
       </span>
       <button
         onClick={onCopy}
-        className="shrink-0 text-xs px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
+        className="shrink-0 text-sm px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
       >
         {copied ? '✓' : '복사'}
       </button>

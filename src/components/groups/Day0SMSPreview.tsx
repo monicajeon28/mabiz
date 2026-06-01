@@ -96,7 +96,7 @@ export function Day0SMSPreview({
             <button
               key={key}
               onClick={() => setSelectedVariant(key)}
-              className={`flex-1 px-3 py-3 rounded-lg text-xs font-semibold transition-all border-2 ${
+              className={`flex-1 px-3 py-3 rounded-lg text-sm font-semibold transition-all border-2 ${
                 selectedVariant === key
                   ? 'bg-white border-blue-500 text-blue-900 shadow-md'
                   : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
@@ -113,7 +113,7 @@ export function Day0SMSPreview({
       <div className="bg-white rounded-lg p-5 mb-6 border border-gray-300 shadow-sm">
         <div className="flex items-start gap-2 mb-4">
           <div className="text-xl">{variant.icon}</div>
-          <div className="text-xs font-semibold text-gray-500">자동 발송</div>
+          <div className="text-sm font-semibold text-gray-500">자동 발송</div>
         </div>
 
         {/* 메시지 본문 */}
@@ -123,14 +123,14 @@ export function Day0SMSPreview({
 
         {/* 심리학 주석 */}
         <div className="mt-4 pt-4 border-t border-gray-200">
-          <p className="text-xs text-gray-500">
+          <p className="text-sm text-gray-500">
             <span className="font-semibold">심리학 포커스:</span> {variant.focus}
           </p>
         </div>
       </div>
 
       {/* 추가 정보 */}
-      <div className="bg-blue-100 rounded-lg p-4 text-xs text-blue-800">
+      <div className="bg-blue-100 rounded-lg p-4 text-sm text-blue-800">
         <p className="font-semibold mb-2">📝 Day 0 SMS 발송 일정</p>
         <ul className="space-y-1 text-blue-700">
           <li>✓ Day 0 (신청 직후): 감정적 마무리 SMS (위 3가지 중 1개)</li>

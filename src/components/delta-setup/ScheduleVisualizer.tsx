@@ -113,7 +113,7 @@ const ScheduleCard = React.memo(function ScheduleCard({
         <div className="flex-1">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
             <span className="text-blue-600">🕐</span> {formatTimeKST(schedule.hour)}
-            <span className="text-xs text-gray-500">(한국 기준, UTC+9)</span>
+            <span className="text-sm text-gray-500">(한국 기준, UTC+9)</span>
           </h3>
           <p className="text-sm text-gray-700 mt-1">{schedule.description}</p>
         </div>
@@ -133,7 +133,7 @@ const ScheduleCard = React.memo(function ScheduleCard({
             ) : (
               <>
                 <span>{estimateSendingCount(schedule.hour).estimate}</span>
-                <span className="text-xs text-gray-500">{estimateSendingCount(schedule.hour).variance}</span>
+                <span className="text-sm text-gray-500">{estimateSendingCount(schedule.hour).variance}</span>
               </>
             )}
           </div>
@@ -152,7 +152,7 @@ const ScheduleCard = React.memo(function ScheduleCard({
           <span className="text-lg text-green-600 flex-shrink-0 mt-0.5">✓</span>
           <div className="flex-1">
             <strong className="text-sm text-green-900 block">SMS 발송 자동 활성화</strong>
-            <p className="text-xs text-green-700 mt-0.5">
+            <p className="text-sm text-green-700 mt-0.5">
               저장 후 정해진 시간에 고객들에게 메시지가 자동으로 발송됩니다.
             </p>
           </div>
@@ -162,7 +162,7 @@ const ScheduleCard = React.memo(function ScheduleCard({
           <span className="text-lg text-green-600 flex-shrink-0 mt-0.5">✓</span>
           <div className="flex-1">
             <strong className="text-sm text-green-900 block">Cron 자동 실행 (Vercel)</strong>
-            <p className="text-xs text-green-700 mt-0.5">
+            <p className="text-sm text-green-700 mt-0.5">
               매일 정확한 시간에 자동으로 실행되어 고객에게 메시지가 전달됩니다.
             </p>
           </div>
@@ -172,7 +172,7 @@ const ScheduleCard = React.memo(function ScheduleCard({
           <span className="text-lg text-green-600 flex-shrink-0 mt-0.5">✓</span>
           <div className="flex-1">
             <strong className="text-sm text-green-900 block">발송 이력 자동 기록</strong>
-            <p className="text-xs text-green-700 mt-0.5">
+            <p className="text-sm text-green-700 mt-0.5">
               모든 발송 기록이 자동으로 저장되어 나중에 결과를 분석할 수 있습니다.
             </p>
           </div>

@@ -377,8 +377,8 @@ export default function GroupsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
         {/* Loss Aversion #2: 시간 손실 */}
         <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded-lg">
-          <p className="text-xs font-bold text-red-800 mb-1">시간 손실</p>
-          <p className="text-xs text-red-700">
+          <p className="text-sm font-bold text-red-800 mb-1">시간 손실</p>
+          <p className="text-sm text-red-700">
             "아이 초등학교는 최대 6년.
             매해 2주씩 사라져요"
           </p>
@@ -386,8 +386,8 @@ export default function GroupsPage() {
 
         {/* Loss Aversion #3: 건강 악화 */}
         <div className="bg-orange-50 border-l-4 border-orange-500 p-3 rounded-lg">
-          <p className="text-xs font-bold text-orange-800 mb-1">건강 악화</p>
-          <p className="text-xs text-orange-700">
+          <p className="text-sm font-bold text-orange-800 mb-1">건강 악화</p>
+          <p className="text-sm text-orange-700">
             "체력은 매년 5% 감소합니다.
             2026년이 가장 건강한 해예요"
           </p>
@@ -395,8 +395,8 @@ export default function GroupsPage() {
 
         {/* Loss Aversion #4: 부모님 마지막 기회 */}
         <div className="bg-purple-50 border-l-4 border-purple-500 p-3 rounded-lg">
-          <p className="text-xs font-bold text-purple-800 mb-1">마지막 기회</p>
-          <p className="text-xs text-purple-700">
+          <p className="text-sm font-bold text-purple-800 mb-1">마지막 기회</p>
+          <p className="text-sm text-purple-700">
             "부모님과 함께할 시간은
             생각보다 많지 않습니다"
           </p>
@@ -406,14 +406,14 @@ export default function GroupsPage() {
       {/* 흐름 설명 */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5">
         <p className="text-sm font-medium text-blue-800 mb-2">📌 그룹 + 퍼널 자동화 흐름</p>
-        <div className="flex items-center gap-2 text-xs text-blue-700 flex-wrap">
+        <div className="flex items-center gap-2 text-sm text-blue-700 flex-wrap">
           <span className="bg-blue-100 px-2 py-1 rounded">고객 그룹 배정</span>
           <ArrowRight className="w-3 h-3 shrink-0" />
           <span className="bg-blue-100 px-2 py-1 rounded">연결된 퍼널 자동 시작</span>
           <ArrowRight className="w-3 h-3 shrink-0" />
           <span className="bg-blue-100 px-2 py-1 rounded">자동 문자 발송</span>
         </div>
-        <p className="text-xs text-blue-600 mt-2">
+        <p className="text-sm text-blue-600 mt-2">
           Day 0-3 SPIN 기반 자동화: 신청 직후 → 가치강조 → 긴급성 → 최종결정
         </p>
       </div>
@@ -458,7 +458,7 @@ export default function GroupsPage() {
         <div className="text-center py-16">
           <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="font-medium text-gray-700">그룹이 없습니다</p>
-          <p className="text-sm text-gray-400 mt-1">+ 새 그룹 버튼으로 만들어보세요</p>
+          <p className="text-sm text-gray-600 mt-1">+ 새 그룹 버튼으로 만들어보세요</p>
         </div>
       ) : (
         <>

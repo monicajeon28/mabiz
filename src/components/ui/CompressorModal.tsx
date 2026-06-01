@@ -562,25 +562,25 @@ export function CompressorModal({ isOpen, onClose }: CompressorModalProps) {
                 <div className="flex border-b">
                     <button
                         onClick={() => handleTabChange('image')}
-                        className={`flex-1 py-3 font-medium text-xs transition-all flex items-center justify-center gap-1 ${activeTab === 'image' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:bg-gray-50'}`}
+                        className={`flex-1 py-3 font-medium text-sm transition-all flex items-center justify-center gap-1 ${activeTab === 'image' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:bg-gray-50'}`}
                     >
                         <ImageIcon className="w-4 h-4" /> 이미지
                     </button>
                     <button
                         onClick={() => handleTabChange('audio')}
-                        className={`flex-1 py-3 font-medium text-xs transition-all flex items-center justify-center gap-1 ${activeTab === 'audio' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:bg-gray-50'}`}
+                        className={`flex-1 py-3 font-medium text-sm transition-all flex items-center justify-center gap-1 ${activeTab === 'audio' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:bg-gray-50'}`}
                     >
                         <Mic className="w-4 h-4" /> 오디오
                     </button>
                     <button
                         onClick={() => handleTabChange('pdf')}
-                        className={`flex-1 py-3 font-medium text-xs transition-all flex items-center justify-center gap-1 ${activeTab === 'pdf' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:bg-gray-50'}`}
+                        className={`flex-1 py-3 font-medium text-sm transition-all flex items-center justify-center gap-1 ${activeTab === 'pdf' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:bg-gray-50'}`}
                     >
                         <FileText className="w-4 h-4" /> PDF
                     </button>
                     <button
                         onClick={() => handleTabChange('webp')}
-                        className={`flex-1 py-3 font-medium text-xs transition-all flex items-center justify-center gap-1 ${activeTab === 'webp' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:bg-gray-50'}`}
+                        className={`flex-1 py-3 font-medium text-sm transition-all flex items-center justify-center gap-1 ${activeTab === 'webp' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:bg-gray-50'}`}
                     >
                         <Layers className="w-4 h-4" /> WebP
                     </button>
@@ -609,7 +609,7 @@ export function CompressorModal({ isOpen, onClose }: CompressorModalProps) {
                                         }`}
                                     >
                                         <div className="font-bold text-sm text-gray-800">{config.label}</div>
-                                        <div className="text-xs text-gray-500 mt-1">{config.description}</div>
+                                        <div className="text-sm text-gray-500 mt-1">{config.description}</div>
                                     </button>
                                 );
                             })}
@@ -656,15 +656,15 @@ export function CompressorModal({ isOpen, onClose }: CompressorModalProps) {
                                 <div className="grid grid-cols-3 gap-4 text-center">
                                     <div>
                                         <div className="text-2xl font-bold">{filePreviews.length}개</div>
-                                        <div className="text-xs opacity-80">선택된 파일</div>
+                                        <div className="text-sm opacity-80">선택된 파일</div>
                                     </div>
                                     <div>
                                         <div className="text-2xl font-bold">{formatFileSize(totalOriginalSize)}</div>
-                                        <div className="text-xs opacity-80">원본 크기</div>
+                                        <div className="text-sm opacity-80">원본 크기</div>
                                     </div>
                                     <div>
                                         <div className="text-2xl font-bold text-green-300">~{avgReduction}%</div>
-                                        <div className="text-xs opacity-80">예상 감소율</div>
+                                        <div className="text-sm opacity-80">예상 감소율</div>
                                     </div>
                                 </div>
                                 <div className="mt-3 pt-3 border-t border-white/20 text-center">
@@ -679,12 +679,12 @@ export function CompressorModal({ isOpen, onClose }: CompressorModalProps) {
                                 {filePreviews.map((preview, idx) => (
                                     <div key={idx} className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-gray-50">
                                         <div className="flex items-center gap-2">
-                                            {activeTab === 'audio' ? <Mic className="text-gray-400 w-4 h-4" /> : <ImageIcon className="text-gray-400 w-4 h-4" />}
+                                            {activeTab === 'audio' ? <Mic className="text-gray-600 w-4 h-4" /> : <ImageIcon className="text-gray-600 w-4 h-4" />}
                                             <span className="text-sm text-gray-700 truncate max-w-[200px]">{preview.file.name}</span>
                                         </div>
                                         <div className="flex items-center gap-4 text-sm">
                                             <span className="text-gray-500">{formatFileSize(preview.originalSize)}</span>
-                                            <span className="text-gray-400">→</span>
+                                            <span className="text-gray-600">→</span>
                                             <span className="text-green-600 font-medium">~{formatFileSize(preview.estimatedSize)}</span>
                                             <span className="text-green-600 font-bold">(-{Math.round(preview.estimatedReduction)}%)</span>
                                         </div>
@@ -741,7 +741,7 @@ export function CompressorModal({ isOpen, onClose }: CompressorModalProps) {
                                         <div className="text-gray-500">원본</div>
                                         <div className="font-bold text-gray-700">{formatFileSize(resultFile.originalSize)}</div>
                                     </div>
-                                    <div className="text-2xl text-gray-400">→</div>
+                                    <div className="text-2xl text-gray-600">→</div>
                                     <div className="text-center">
                                         <div className="text-gray-500">결과</div>
                                         <div className="font-bold text-green-600">{formatFileSize(resultFile.newSize)}</div>
@@ -783,7 +783,7 @@ export function CompressorModal({ isOpen, onClose }: CompressorModalProps) {
                     />
                 </div>
 
-                <div className="p-4 bg-gray-50 text-xs text-gray-400 text-center border-t">
+                <div className="p-4 bg-gray-50 text-sm text-gray-600 text-center border-t">
                     * 모든 작업은 브라우저에서 처리됩니다. 서버에 저장되지 않습니다.
                 </div>
             </div>

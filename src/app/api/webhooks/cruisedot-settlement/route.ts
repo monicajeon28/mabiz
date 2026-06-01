@@ -27,7 +27,10 @@ export async function POST(req: NextRequest) {
 
   if (!secret) {
     logger.error('[SettlementWebhook] CRUISEDOT_WEBHOOK_SECRET 미설정');
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, message: 'Service temporarily unavailable' },
+      { status: 503 } // Service Unavailable - client should retry
+    );
   }
 
   // Bearer Token 검증
@@ -73,6 +76,15 @@ export async function POST(req: NextRequest) {
       status,
     });
     return NextResponse.json({ ok: false, message: '필수 필드 누락' }, { status: 400 });
+  }
+
+  // period 형식 검증 (YYYY-MM format)
+  if (typeof period !== 'string' || !period.match(/^\d{4}-\d{2}$/)) {
+    logger.warn('[SettlementWebhook] 유효하지 않은 period 형식', { period });
+    return NextResponse.json(
+      { ok: false, message: 'Period must be YYYY-MM format' },
+      { status: 400 }
+    );
   }
 
   logger.log('[SettlementWebhook] 수신', {

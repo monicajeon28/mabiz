@@ -54,19 +54,19 @@ export function ScriptViewer({
 
         {/* 배지 */}
         <div className="flex flex-wrap gap-2">
-          <span className="px-2.5 py-1 bg-purple-100 text-purple-800 text-xs rounded-full font-medium">
+          <span className="px-2.5 py-1 bg-purple-100 text-purple-800 text-sm rounded-full font-medium">
             PASONA: {pasonaPhase}
           </span>
           {psychologyPrinciples.slice(0, 2).map((principle) => (
             <span
               key={principle}
-              className="px-2.5 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+              className="px-2.5 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"
             >
               {principle}
             </span>
           ))}
           {psychologyPrinciples.length > 2 && (
-            <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+            <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-sm rounded-full">
               +{psychologyPrinciples.length - 2}개
             </span>
           )}
@@ -90,7 +90,7 @@ export function ScriptViewer({
           <ul className="space-y-1">
             {tips.map((tip, idx) => (
               <li key={idx} className="text-sm text-gray-700 flex gap-2">
-                <span className="text-gray-400">•</span>
+                <span className="text-gray-600">•</span>
                 <span>{tip}</span>
               </li>
             ))}

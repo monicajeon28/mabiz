@@ -69,7 +69,7 @@ export function QaDetailModal({ item, isOpen, onClose }: QaDetailModalProps) {
         <div className="sticky top-0 bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex items-center justify-between">
           <div className="flex-1">
             <span
-              className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${toneInfo.bg} ${toneInfo.text} mb-2`}
+              className={`inline-block px-2 py-1 rounded-full text-sm font-semibold ${toneInfo.bg} ${toneInfo.text} mb-2`}
             >
               {toneInfo.label}
             </span>
@@ -90,14 +90,14 @@ export function QaDetailModal({ item, isOpen, onClose }: QaDetailModalProps) {
         <div className="p-4 md:p-6 space-y-4">
           {/* 판매톤 정보 */}
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-xs text-gray-600 mb-2">판매톤</p>
+            <p className="text-sm text-gray-600 mb-2">판매톤</p>
             <div className="flex flex-wrap gap-2">
               <span
                 className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold ${toneInfo.bg} ${toneInfo.text}`}
               >
                 {toneInfo.label}
                 {item.salesTone.confidence > 0 && (
-                  <span className="text-xs">({Math.round(item.salesTone.confidence * 100)}%)</span>
+                  <span className="text-sm">({Math.round(item.salesTone.confidence * 100)}%)</span>
                 )}
               </span>
               {item.salesTone.secondary.map((s) => {
@@ -169,34 +169,34 @@ export function QaDetailModal({ item, isOpen, onClose }: QaDetailModalProps) {
           {/* 메타 정보 */}
           <div className="border-t border-gray-200 pt-4 grid grid-cols-2 gap-4">
             <div>
-              <p className="text-xs text-gray-500 mb-1">카테고리</p>
+              <p className="text-sm text-gray-500 mb-1">카테고리</p>
               <p className="text-sm font-medium text-gray-900">{item.category}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500 mb-1">유형</p>
+              <p className="text-sm text-gray-500 mb-1">유형</p>
               <p className="text-sm font-medium text-gray-900">{item.type}</p>
             </div>
             <div className="col-span-2">
-              <p className="text-xs text-gray-500 mb-1">출처</p>
+              <p className="text-sm text-gray-500 mb-1">출처</p>
               <div className="flex items-center gap-2">
                 <p className="text-sm font-medium text-gray-900">{item.source}</p>
-                <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
+                <ExternalLink className="w-3.5 h-3.5 text-gray-600" />
               </div>
             </div>
             {item.keywords.length > 0 && (
               <div className="col-span-2">
-                <p className="text-xs text-gray-500 mb-2">키워드</p>
+                <p className="text-sm text-gray-500 mb-2">키워드</p>
                 <div className="flex flex-wrap gap-1">
                   {item.keywords.slice(0, 5).map((kw, i) => (
                     <span
                       key={i}
-                      className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs"
+                      className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-sm"
                     >
                       {kw}
                     </span>
                   ))}
                   {item.keywords.length > 5 && (
-                    <span className="px-2 py-1 text-gray-500 text-xs">
+                    <span className="px-2 py-1 text-gray-500 text-sm">
                       +{item.keywords.length - 5}
                     </span>
                   )}

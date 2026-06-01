@@ -184,8 +184,8 @@ export function QaLibrary() {
       {/* 빈 상태 */}
       {!loading && items.length === 0 && !error && (
         <div className="py-12 text-center">
-          <p className="text-gray-400 text-sm">검색 결과가 없습니다.</p>
-          <p className="text-gray-400 text-xs mt-1">다른 검색어를 시도해보세요.</p>
+          <p className="text-gray-600 text-sm">검색 결과가 없습니다.</p>
+          <p className="text-gray-600 text-sm mt-1">다른 검색어를 시도해보세요.</p>
         </div>
       )}
 

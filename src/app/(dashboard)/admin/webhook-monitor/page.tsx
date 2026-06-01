@@ -235,7 +235,7 @@ export default function WebhookMonitorPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{monitoring.overall.totalEvents.toLocaleString()}</div>
-            <p className="text-xs text-gray-500 mt-1">in {monitoring.period.days} days</p>
+            <p className="text-sm text-gray-500 mt-1">in {monitoring.period.days} days</p>
           </CardContent>
         </Card>
 
@@ -247,7 +247,7 @@ export default function WebhookMonitorPage() {
             <div className={`text-2xl font-bold ${monitoring.overall.successRate >= 95 ? 'text-green-600' : 'text-orange-600'}`}>
               {monitoring.overall.successRate.toFixed(2)}%
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 mt-1">
               {monitoring.overall.successCount} successful
             </p>
           </CardContent>
@@ -259,7 +259,7 @@ export default function WebhookMonitorPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{monitoring.overall.avgExecutionTimeMs.toFixed(0)}ms</div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 mt-1">
               P95: {monitoring.overall.p95ExecutionTimeMs.toFixed(0)}ms
             </p>
           </CardContent>
@@ -273,7 +273,7 @@ export default function WebhookMonitorPage() {
             <div className={`text-2xl font-bold ${monitoring.overall.autoRetrySuccessRate >= 80 ? 'text-green-600' : 'text-orange-600'}`}>
               {monitoring.overall.autoRetrySuccessRate.toFixed(2)}%
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 mt-1">
               {monitoring.overall.retryRate.toFixed(2)}% retry rate
             </p>
           </CardContent>
@@ -296,7 +296,7 @@ export default function WebhookMonitorPage() {
                 <AlertDescription>
                   <div className="flex justify-between">
                     <span>{alert.message}</span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-sm text-gray-500">
                       Current: {alert.current.toFixed(2)} | Threshold: {alert.threshold.toFixed(2)}
                     </span>
                   </div>
@@ -410,7 +410,7 @@ export default function WebhookMonitorPage() {
       )}
 
       {/* Last Updated */}
-      <div className="text-xs text-gray-500 text-right">
+      <div className="text-sm text-gray-500 text-right">
         Last updated: {new Date(data.timestamp).toLocaleString()}
       </div>
     </div>

@@ -239,7 +239,7 @@ export default function PaymentsPage() {
               <span className="text-sm font-medium">결제 완료</span>
             </div>
             <p className="text-2xl font-bold text-emerald-900">{stats.totalPaid.toLocaleString()}원</p>
-            <p className="text-xs text-emerald-600 mt-1">{stats.totalPaidCount}건</p>
+            <p className="text-sm text-emerald-600 mt-1">{stats.totalPaidCount}건</p>
           </div>
           <div className="bg-red-50 rounded-xl p-4">
             <div className="flex items-center gap-2 text-red-700 mb-1">
@@ -247,7 +247,7 @@ export default function PaymentsPage() {
               <span className="text-sm font-medium">환불</span>
             </div>
             <p className="text-2xl font-bold text-red-900">{stats.totalRefunded.toLocaleString()}원</p>
-            <p className="text-xs text-red-600 mt-1">{stats.totalRefundedCount}건</p>
+            <p className="text-sm text-red-600 mt-1">{stats.totalRefundedCount}건</p>
           </div>
           <div className="bg-amber-50 rounded-xl p-4">
             <div className="flex items-center gap-2 text-amber-700 mb-1">
@@ -255,7 +255,7 @@ export default function PaymentsPage() {
               <span className="text-sm font-medium">대기</span>
             </div>
             <p className="text-2xl font-bold text-amber-900">{stats.totalPending.toLocaleString()}원</p>
-            <p className="text-xs text-amber-600 mt-1">{stats.totalPendingCount}건</p>
+            <p className="text-sm text-amber-600 mt-1">{stats.totalPendingCount}건</p>
           </div>
         </div>
       )}
@@ -299,9 +299,9 @@ export default function PaymentsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="text-center py-12 text-gray-400">불러오는 중...</td></tr>
+              <tr><td colSpan={7} className="text-center py-12 text-gray-600">불러오는 중...</td></tr>
             ) : payments.length === 0 ? (
-              <tr><td colSpan={7} className="text-center py-12 text-gray-400">결제 내역이 없습니다</td></tr>
+              <tr><td colSpan={7} className="text-center py-12 text-gray-600">결제 내역이 없습니다</td></tr>
             ) : payments.map((p) => {
               const st = STATUS_LABELS[p.status] ?? { label: p.status, color: "text-gray-500 bg-gray-100" };
               return (
@@ -309,14 +309,14 @@ export default function PaymentsPage() {
                   <td className="px-4 py-3 font-medium text-gray-900">{p.productName ?? "-"}</td>
                   <td className="px-4 py-3">
                     <p className="text-gray-900">{p.customerName}</p>
-                    <p className="text-xs text-gray-400">{p.customerPhone}</p>
+                    <p className="text-sm text-gray-600">{p.customerPhone}</p>
                   </td>
                   <td className="px-4 py-3 text-right font-semibold">{p.amount.toLocaleString()}원</td>
                   <td className="px-4 py-3 text-center">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${st.color}`}>{st.label}</span>
                   </td>
-                  <td className="px-4 py-3 text-center text-xs text-gray-500">{p.cardName ?? p.payType ?? "-"}</td>
-                  <td className="px-4 py-3 text-center text-xs text-gray-400">
+                  <td className="px-4 py-3 text-center text-sm text-gray-500">{p.cardName ?? p.payType ?? "-"}</td>
+                  <td className="px-4 py-3 text-center text-sm text-gray-600">
                     {p.paidAt ? new Date(p.paidAt).toLocaleDateString("ko-KR") : "-"}
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -328,13 +328,13 @@ export default function PaymentsPage() {
                             value={refundReason}
                             onChange={(e) => setRefundReason(e.target.value)}
                             placeholder="환불 사유"
-                            className="border border-gray-200 rounded px-2 py-1 text-xs w-24"
+                            className="border border-gray-200 rounded px-2 py-1 text-sm w-24"
                           />
-                          <button onClick={() => handleRefund(p.id)} className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-500">확인</button>
-                          <button onClick={() => { setRefunding(null); setRefundReason(""); }} className="text-xs text-gray-400 hover:text-gray-600">취소</button>
+                          <button onClick={() => handleRefund(p.id)} className="text-sm bg-red-600 text-white px-2 py-1 rounded hover:bg-red-500">확인</button>
+                          <button onClick={() => { setRefunding(null); setRefundReason(""); }} className="text-sm text-gray-600 hover:text-gray-600">취소</button>
                         </div>
                       ) : (
-                        <button onClick={() => setRefunding(p.id)} className="text-xs text-red-600 hover:text-red-800 font-medium">환불</button>
+                        <button onClick={() => setRefunding(p.id)} className="text-sm text-red-600 hover:text-red-800 font-medium">환불</button>
                       )
                     )}
                   </td>
@@ -383,25 +383,25 @@ export default function PaymentsPage() {
               </thead>
               <tbody>
                 {mallLoading ? (
-                  <tr><td colSpan={6} className="text-center py-12 text-gray-400">불러오는 중...</td></tr>
+                  <tr><td colSpan={6} className="text-center py-12 text-gray-600">불러오는 중...</td></tr>
                 ) : mallPayments.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-12 text-gray-400">결제 내역이 없습니다</td></tr>
+                  <tr><td colSpan={6} className="text-center py-12 text-gray-600">결제 내역이 없습니다</td></tr>
                 ) : mallPayments.map((p) => (
                   <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">{p.productName ?? "-"}</td>
                     <td className="px-4 py-3">
                       <p className="text-gray-900">{p.buyerName}</p>
-                      <p className="text-xs text-gray-400">{p.buyerTel}</p>
+                      <p className="text-sm text-gray-600">{p.buyerTel}</p>
                     </td>
                     <td className="px-4 py-3 text-right font-semibold">{p.amount.toLocaleString()}원</td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${
                         p.status === "paid" ? "text-emerald-700 bg-emerald-50" :
                         p.status === "cancelled" ? "text-red-700 bg-red-50" : "text-gray-600 bg-gray-100"
                       }`}>{p.status === "paid" ? "결제완료" : p.status === "cancelled" ? "취소" : p.status}</span>
                     </td>
-                    <td className="px-4 py-3 text-center text-xs text-gray-500">{p.pgProvider ?? "-"}</td>
-                    <td className="px-4 py-3 text-center text-xs text-gray-400">
+                    <td className="px-4 py-3 text-center text-sm text-gray-500">{p.pgProvider ?? "-"}</td>
+                    <td className="px-4 py-3 text-center text-sm text-gray-600">
                       {p.paidAt ? new Date(p.paidAt).toLocaleDateString("ko-KR") : "-"}
                     </td>
                   </tr>
@@ -416,7 +416,7 @@ export default function PaymentsPage() {
               <button disabled={mallPage >= mallTotalPages} onClick={() => loadMallPayments(mallPage + 1)} className="px-3 py-1 text-sm border rounded disabled:opacity-30">다음</button>
             </div>
           )}
-          <p className="text-xs text-gray-400 mt-3 text-center">크루즈닷몰(웰컴페이먼츠) 결제 내역 — 읽기 전용</p>
+          <p className="text-sm text-gray-600 mt-3 text-center">크루즈닷몰(웰컴페이먼츠) 결제 내역 — 읽기 전용</p>
         </>
       )}
 
@@ -437,9 +437,9 @@ export default function PaymentsPage() {
             </thead>
             <tbody>
               {subLoading ? (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-400">불러오는 중...</td></tr>
+                <tr><td colSpan={7} className="text-center py-12 text-gray-600">불러오는 중...</td></tr>
               ) : subscriptions.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-400">정기결제 내역이 없습니다</td></tr>
+                <tr><td colSpan={7} className="text-center py-12 text-gray-600">정기결제 내역이 없습니다</td></tr>
               ) : subscriptions.map((s) => {
                 const st = SUB_STATUS[s.status] ?? { label: s.status, color: "text-gray-500 bg-gray-100" };
                 return (
@@ -447,33 +447,33 @@ export default function PaymentsPage() {
                     <td className="px-4 py-3 font-medium text-gray-900">{s.goodname}</td>
                     <td className="px-4 py-3">
                       <p className="text-gray-900">{s.customerName}</p>
-                      <p className="text-xs text-gray-400">{s.customerPhone}</p>
+                      <p className="text-sm text-gray-600">{s.customerPhone}</p>
                     </td>
                     <td className="px-4 py-3 text-right font-semibold">{s.goodprice.toLocaleString()}원</td>
                     <td className="px-4 py-3 text-center text-sm">매월 {s.cycleDay === 90 ? "말일" : `${s.cycleDay}일`}</td>
-                    <td className="px-4 py-3 text-center text-xs text-gray-400">
+                    <td className="px-4 py-3 text-center text-sm text-gray-600">
                       {new Date(s.expireDate).toLocaleDateString("ko-KR")}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${st.color}`}>{st.label}</span>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
                         {s.status === "active" && (
-                          <button onClick={() => handleSubAction(s.id, "pause")} className="text-xs text-amber-600 hover:text-amber-800 font-medium">일시정지</button>
+                          <button onClick={() => handleSubAction(s.id, "pause")} className="text-sm text-amber-600 hover:text-amber-800 font-medium">일시정지</button>
                         )}
                         {s.status === "paused" && (
-                          <button onClick={() => handleSubAction(s.id, "resume")} className="text-xs text-emerald-600 hover:text-emerald-800 font-medium">재시작</button>
+                          <button onClick={() => handleSubAction(s.id, "resume")} className="text-sm text-emerald-600 hover:text-emerald-800 font-medium">재시작</button>
                         )}
                         {s.status !== "cancelled" && (
                           cancelling === s.id ? (
                             <div className="flex items-center gap-1">
-                              <input type="text" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="해지 사유" className="border border-gray-200 rounded px-2 py-1 text-xs w-24" />
-                              <button onClick={() => { handleSubAction(s.id, "cancel"); setCancelling(null); setCancelReason(""); }} className="text-xs bg-red-600 text-white px-2 py-1 rounded">확인</button>
-                              <button onClick={() => { setCancelling(null); setCancelReason(""); }} className="text-xs text-gray-400">취소</button>
+                              <input type="text" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="해지 사유" className="border border-gray-200 rounded px-2 py-1 text-sm w-24" />
+                              <button onClick={() => { handleSubAction(s.id, "cancel"); setCancelling(null); setCancelReason(""); }} className="text-sm bg-red-600 text-white px-2 py-1 rounded">확인</button>
+                              <button onClick={() => { setCancelling(null); setCancelReason(""); }} className="text-sm text-gray-600">취소</button>
                             </div>
                           ) : (
-                            <button onClick={() => setCancelling(s.id)} className="text-xs text-red-600 hover:text-red-800 font-medium">해지</button>
+                            <button onClick={() => setCancelling(s.id)} className="text-sm text-red-600 hover:text-red-800 font-medium">해지</button>
                           )
                         )}
                       </div>

@@ -58,7 +58,7 @@ export default function NewsLinksPage() {
       {loading ? (
         <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}</div>
       ) : links.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-gray-600">
           <Newspaper className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p>아직 동기화된 뉴스가 없습니다</p>
           <button onClick={sync} className="mt-3 text-sm text-blue-600 underline">지금 동기화</button>
@@ -69,20 +69,20 @@ export default function NewsLinksPage() {
             <div key={link.id} className="border rounded-xl p-4 bg-white shadow-sm flex items-center gap-3">
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate">{link.title}</p>
-                <p className="text-xs text-blue-600 mt-0.5">{link.url}</p>
+                <p className="text-sm text-blue-600 mt-0.5">{link.url}</p>
               </div>
               <button onClick={() => copy(link.url, link.id)}
                 className="shrink-0 p-2 hover:bg-gray-100 rounded-lg">
                 {copied === link.id
                   ? <Check className="w-4 h-4 text-green-500" />
-                  : <Copy className="w-4 h-4 text-gray-400" />}
+                  : <Copy className="w-4 h-4 text-gray-600" />}
               </button>
             </div>
           ))}
         </div>
       )}
 
-      <p className="text-xs text-gray-400 mt-6 text-center">
+      <p className="text-sm text-gray-600 mt-6 text-center">
         크루즈닷에서 뉴스 발행 시 자동 동기화됩니다
       </p>
     </div>

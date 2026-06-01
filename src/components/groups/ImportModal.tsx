@@ -115,11 +115,11 @@ export function ImportModal({ csrfToken, onClose, onDone }: ImportModalProps) {
         <div className="flex items-center justify-between px-5 py-4 border-b">
           <div>
             <h2 className="font-semibold">그룹/퍼널 가져오기</h2>
-            <p className="text-xs text-gray-500 mt-0.5">JSON 파일 업로드 또는 직접 입력</p>
+            <p className="text-sm text-gray-500 mt-0.5">JSON 파일 업로드 또는 직접 입력</p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-600 hover:text-gray-600"
             aria-label="가져오기 모달 닫기"
           >
             ✕
@@ -146,7 +146,7 @@ export function ImportModal({ csrfToken, onClose, onDone }: ImportModalProps) {
             <label className="block w-full border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-blue-300 transition-colors">
               <Upload className="w-8 h-8 text-gray-300 mx-auto mb-2" aria-hidden="true" />
               <p className="text-sm text-gray-500">JSON 파일을 여기에 끌어놓거나 클릭</p>
-              <p className="text-xs text-gray-400 mt-1">.json 파일만 지원</p>
+              <p className="text-sm text-gray-600 mt-1">.json 파일만 지원</p>
               <input type="file" accept=".json" onChange={handleFile} className="hidden" />
             </label>
           ) : (
@@ -163,7 +163,7 @@ export function ImportModal({ csrfToken, onClose, onDone }: ImportModalProps) {
           {preview && (
             <div className="bg-blue-50 rounded-xl p-3 text-sm">
               <p className="font-medium text-blue-800">✅ 검증됨</p>
-              <div className="mt-1.5 space-y-0.5 text-blue-700 text-xs">
+              <div className="mt-1.5 space-y-0.5 text-blue-700 text-sm">
                 {preview.groupName && <p>그룹명: {preview.groupName}</p>}
                 {preview.funnelName && <p>퍼널명: {preview.funnelName}</p>}
                 {preview.stageCount !== undefined && (
@@ -173,7 +173,7 @@ export function ImportModal({ csrfToken, onClose, onDone }: ImportModalProps) {
             </div>
           )}
 
-          {error && <p className="text-xs text-red-500">{error}</p>}
+          {error && <p className="text-sm text-red-500">{error}</p>}
 
           <button
             onClick={handleImport}
@@ -184,9 +184,9 @@ export function ImportModal({ csrfToken, onClose, onDone }: ImportModalProps) {
           </button>
 
           {/* JSON 형식 안내 */}
-          <details className="text-xs text-gray-400">
+          <details className="text-sm text-gray-600">
             <summary className="cursor-pointer hover:text-gray-600">JSON 형식 예시 보기</summary>
-            <pre className="mt-2 bg-gray-50 rounded-lg p-3 text-xs overflow-x-auto">
+            <pre className="mt-2 bg-gray-50 rounded-lg p-3 text-sm overflow-x-auto">
 {`{
   "groupName": "VIP 고객",
   "funnelName": "VIP 케어",

@@ -166,7 +166,7 @@ function Badge({ status }: { status: string }) {
   const cls = STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-600';
   const label = STATUS_LABEL[status] ?? status;
   return (
-    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>
+    <span className={`inline-block rounded-full px-2.5 py-0.5 text-sm font-semibold ${cls}`}>
       {label}
     </span>
   );
@@ -193,10 +193,10 @@ function StatCard({
       <div className="mt-1 flex items-end gap-2">
         <p className="text-3xl font-bold text-gray-900">
           {typeof value === 'number' ? value.toLocaleString() : value}
-          {suffix && <span className="ml-1 text-lg font-medium text-gray-400">{suffix}</span>}
+          {suffix && <span className="ml-1 text-lg font-medium text-gray-600">{suffix}</span>}
         </p>
         {trend !== undefined && trend !== 0 && (
-          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full mb-1 ${
+          <span className={`text-sm font-semibold px-1.5 py-0.5 rounded-full mb-1 ${
             trend > 0
               ? 'bg-green-50 text-green-600'
               : 'bg-red-50 text-red-600'
@@ -207,9 +207,9 @@ function StatCard({
       </div>
       <div className="flex items-center justify-between mt-1">
         {trend !== undefined && trend !== 0 ? (
-          <p className="text-xs text-gray-400">전월 대비</p>
+          <p className="text-sm text-gray-600">전월 대비</p>
         ) : <span />}
-        {onClick && <p className="text-xs text-blue-500">상세보기 →</p>}
+        {onClick && <p className="text-sm text-blue-500">상세보기 →</p>}
       </div>
     </div>
   );
@@ -238,7 +238,7 @@ function SkeletonRow({ cols }: { cols: number }) {
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+    <div className="flex flex-col items-center justify-center py-12 text-gray-600">
       <FileText className="h-10 w-10 mb-2" />
       <p className="text-sm">{message}</p>
     </div>
@@ -322,7 +322,7 @@ function DrilldownDrawer({
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
           <div>
             <h2 className="text-base font-bold text-gray-900">{config.title}</h2>
-            <p className="text-xs text-gray-400 mt-0.5">총 {total.toLocaleString()}건</p>
+            <p className="text-sm text-gray-600 mt-0.5">총 {total.toLocaleString()}건</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100">
             <X className="w-5 h-5 text-gray-500" />
@@ -340,13 +340,13 @@ function DrilldownDrawer({
         <div className="flex-1 overflow-x-auto">
           {loading ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+              <Loader2 className="w-6 h-6 animate-spin text-gray-600" />
             </div>
           ) : items.length === 0 ? (
             <EmptyState message="데이터가 없습니다." />
           ) : (
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500 text-xs uppercase sticky top-0">
+              <thead className="bg-gray-50 text-gray-500 text-sm uppercase sticky top-0">
                 <tr>
                   {config.columns.map((col) => (
                     <th key={col.key} className={`px-4 py-3 text-${col.align ?? 'left'} font-medium`}>
@@ -375,19 +375,19 @@ function DrilldownDrawer({
         {/* 페이징 */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-5 py-3 border-t border-gray-200 bg-white sticky bottom-0">
-            <p className="text-xs text-gray-400">{page} / {totalPages}</p>
+            <p className="text-sm text-gray-600">{page} / {totalPages}</p>
             <div className="flex gap-1">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30"
+                className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30"
+                className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -454,7 +454,7 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
         <div className="flex items-start justify-between mb-4">
           <div>
             <h3 className="text-base font-semibold text-gray-900">이달의 매출 현황</h3>
-            <p className="text-xs text-gray-500 mt-1">{month} 기준</p>
+            <p className="text-sm text-gray-500 mt-1">{month} 기준</p>
           </div>
           <DollarSign className="h-5 w-5 text-gray-300" />
         </div>
@@ -462,16 +462,16 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
         {/* 핵심 지표 (3개 열) */}
         <div className="grid grid-cols-3 gap-4 mb-6 pb-6 border-b border-gray-100">
           <div>
-            <p className="text-xs font-medium text-gray-500 mb-1">전체 수익</p>
+            <p className="text-sm font-medium text-gray-500 mb-1">전체 수익</p>
             <p className="text-2xl font-bold text-gray-900">₩{formatWon(data.totalSalesAmount)}</p>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-500 mb-1">판매 건수</p>
+            <p className="text-sm font-medium text-gray-500 mb-1">판매 건수</p>
             <p className="text-2xl font-bold text-gray-900">{data.salesCount}</p>
-            <p className="text-xs text-gray-400 mt-1">건</p>
+            <p className="text-sm text-gray-600 mt-1">건</p>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-500 mb-1">평균 금액</p>
+            <p className="text-sm font-medium text-gray-500 mb-1">평균 금액</p>
             <p className="text-2xl font-bold text-gray-900">
               ₩{data.salesCount > 0 ? formatWon(Math.floor(data.totalSalesAmount / data.salesCount)) : '0'}
             </p>
@@ -480,9 +480,9 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
 
         {/* TOP 3 인기상품 */}
         <div className="mb-6">
-          <p className="text-xs font-semibold text-gray-700 mb-3">인기 상품 TOP 3</p>
+          <p className="text-sm font-semibold text-gray-700 mb-3">인기 상품 TOP 3</p>
           {data.recentSales.length === 0 ? (
-            <p className="text-xs text-gray-400">상품 판매 데이터가 없습니다.</p>
+            <p className="text-sm text-gray-600">상품 판매 데이터가 없습니다.</p>
           ) : (
             <div className="space-y-2">
               {(() => {
@@ -494,9 +494,9 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
                   .sort(([, a], [, b]) => b - a)
                   .slice(0, 3)
                   .map(([name, count], i) => (
-                    <div key={name} className="flex items-center justify-between text-xs">
+                    <div key={name} className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
+                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-sm font-semibold">
                           {i + 1}
                         </span>
                         <span className="text-gray-700 truncate">{name}</span>
@@ -534,7 +534,7 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
           <EmptyState message="판매 내역이 없습니다." />
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+            <thead className="bg-gray-50 text-gray-500 text-sm uppercase">
               <tr>
                 <th className="px-4 py-3 text-left">상품명</th>
                 <th className="px-4 py-3 text-right">금액</th>
@@ -550,12 +550,12 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
                   <td className="px-4 py-3 text-right text-gray-700">₩{s.amount.toLocaleString()}</td>
                   <td className="px-4 py-3 text-right">
                     {s.commissionRate == null ? (
-                      <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full">확인 중</span>
+                      <span className="text-sm text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full">확인 중</span>
                     ) : (
                       <div className="flex items-center justify-end gap-1.5">
-                        <span className="text-gray-700">₩{s.commission.toLocaleString()} <span className="text-gray-400 text-xs">({s.commissionRate}%)</span></span>
+                        <span className="text-gray-700">₩{s.commission.toLocaleString()} <span className="text-gray-600 text-sm">({s.commissionRate}%)</span></span>
                         {s.status === 'COMPLETED' && (
-                          <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full whitespace-nowrap">완료</span>
+                          <span className="text-sm bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full whitespace-nowrap">완료</span>
                         )}
                       </div>
                     )}
@@ -577,7 +577,7 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
             <div className="flex gap-2">
               <button
                 onClick={() => setPassportSubTab('pending')}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   passportSubTab === 'pending'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-100'
@@ -587,7 +587,7 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
               </button>
               <button
                 onClick={() => setPassportSubTab('complete')}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   passportSubTab === 'complete'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-100'
@@ -612,7 +612,7 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
                   { key: 'date', label: '날짜', align: 'right' },
                 ],
               })}
-              className="text-xs text-blue-600 hover:underline"
+              className="text-sm text-blue-600 hover:underline"
             >
               전체보기 →
             </button>
@@ -631,7 +631,7 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
                   { key: 'date', label: '완료일', align: 'right' },
                 ],
               })}
-              className="text-xs text-blue-600 hover:underline"
+              className="text-sm text-blue-600 hover:underline"
             >
               전체보기 →
             </button>
@@ -643,7 +643,7 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
           <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xs font-medium text-gray-500 mb-2">여권 상태</p>
+                <p className="text-sm font-medium text-gray-500 mb-2">여권 상태</p>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(data.passportSummary ?? {}).map(([status, count]) => (
                     <div key={status} className="flex items-center gap-1.5">
@@ -652,12 +652,12 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
                     </div>
                   ))}
                   {Object.keys(data.passportSummary ?? {}).length === 0 && (
-                    <span className="text-xs text-gray-400">데이터 없음</span>
+                    <span className="text-sm text-gray-600">데이터 없음</span>
                   )}
                 </div>
               </div>
               <div>
-                <p className="text-xs font-medium text-gray-500 mb-2">PNR 상태</p>
+                <p className="text-sm font-medium text-gray-500 mb-2">PNR 상태</p>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(data.pnrSummary ?? {}).map(([status, count]) => (
                     <div key={status} className="flex items-center gap-1.5">
@@ -666,7 +666,7 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
                     </div>
                   ))}
                   {Object.keys(data.pnrSummary ?? {}).length === 0 && (
-                    <span className="text-xs text-gray-400">데이터 없음</span>
+                    <span className="text-sm text-gray-600">데이터 없음</span>
                   )}
                 </div>
               </div>
@@ -682,7 +682,7 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                  <thead className="bg-gray-50 text-gray-500 text-sm uppercase">
                     <tr>
                       <th className="px-4 py-3 text-left">고객명</th>
                       <th className="px-4 py-3 text-center">여권</th>
@@ -702,7 +702,7 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-1.5">
                             <Badge status={p.passportStatus} />
-                            <a href={`/passport?customerId=${p.id}`} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-600 text-xs">
+                            <a href={`/passport?customerId=${p.id}`} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-600 text-sm">
                               📎
                             </a>
                           </div>
@@ -710,13 +710,13 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-1.5">
                             <Badge status={p.pnrStatus} />
-                            <a href={`/passport?customerId=${p.id}&tab=pnr`} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-600 text-xs">
+                            <a href={`/passport?customerId=${p.id}&tab=pnr`} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-600 text-sm">
                               📎
                             </a>
                           </div>
                         </td>
                         <td className="px-4 py-3 text-center">{p.confirmedAt ? <Badge status={p.confirmedAt} /> : '-'}</td>
-                        <td className="px-4 py-3 text-gray-600 text-xs">{p.assignedName || '-'}</td>
+                        <td className="px-4 py-3 text-gray-600 text-sm">{p.assignedName || '-'}</td>
                         <td className="px-4 py-3 text-right text-gray-700">{p.commissionAmount ? `₩${(p.commissionAmount).toLocaleString()}` : '-'}</td>
                         <td className="px-4 py-3 text-center">
                           {p.saleId && (
@@ -740,7 +740,7 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
                                   })
                                   .catch(() => toast({ title: '요청 실패', variant: 'destructive' }));
                               }}
-                              className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors whitespace-nowrap"
+                              className="px-2 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors whitespace-nowrap"
                             >
                               검토완료
                             </button>
@@ -849,7 +849,7 @@ function B2BTab({ data, loading, month, onDrilldown }: { data: B2BData | null; l
           <EmptyState message="리드 내역이 없습니다." />
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+            <thead className="bg-gray-50 text-gray-500 text-sm uppercase">
               <tr>
                 <th className="px-4 py-3 text-left">이름</th>
                 <th className="px-4 py-3 text-left">전화</th>
@@ -882,7 +882,7 @@ function B2BTab({ data, loading, month, onDrilldown }: { data: B2BData | null; l
           <EmptyState message="결제 내역이 없습니다." />
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+            <thead className="bg-gray-50 text-gray-500 text-sm uppercase">
               <tr>
                 <th className="px-4 py-3 text-left">고객명</th>
                 <th className="px-4 py-3 text-right">금액</th>
@@ -938,7 +938,7 @@ function GoldTab({ data, loading, month, onDrilldown }: { data: GoldData | null;
               const labels: Record<string, string> = { A: 'A코스', B: 'B코스', C: 'C코스', HEALTH: '건강' };
               const colors: Record<string, string> = { A: 'bg-blue-100 text-blue-700', B: 'bg-purple-100 text-purple-700', C: 'bg-indigo-100 text-indigo-700', HEALTH: 'bg-emerald-100 text-emerald-700' };
               const key = v as string;
-              return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[key] ?? 'bg-gray-100'}`}>{labels[key] ?? key}</span>;
+              return <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${colors[key] ?? 'bg-gray-100'}`}>{labels[key] ?? key}</span>;
             }},
             { key: 'paidCount', label: '납부', align: 'center', render: (_v, row) => {
               const paid = row.paidCount as number;
@@ -982,7 +982,7 @@ function GoldTab({ data, loading, month, onDrilldown }: { data: GoldData | null;
                 health: { label: '건강', cls: 'bg-emerald-100 text-emerald-700' },
               };
               const m = map[v as string];
-              return m ? <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${m.cls}`}>{m.label}</span> : '-';
+              return m ? <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${m.cls}`}>{m.label}</span> : '-';
             }},
           ],
           summaryRender: (summary) => (
@@ -1013,7 +1013,7 @@ function GoldTab({ data, loading, month, onDrilldown }: { data: GoldData | null;
           <EmptyState message="골드 회원이 없습니다." />
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+            <thead className="bg-gray-50 text-gray-500 text-sm uppercase">
               <tr>
                 <th className="px-4 py-3 text-left">이름</th>
                 <th className="px-4 py-3 text-center">코스</th>
@@ -1026,7 +1026,7 @@ function GoldTab({ data, loading, month, onDrilldown }: { data: GoldData | null;
                 <tr key={m.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-gray-900">{m.name}</td>
                   <td className="px-4 py-3 text-center">
-                    <span className="inline-block rounded bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">
+                    <span className="inline-block rounded bg-gray-100 px-2 py-0.5 text-sm font-semibold text-gray-700">
                       {m.course}
                     </span>
                   </td>
@@ -1050,7 +1050,7 @@ function GoldTab({ data, loading, month, onDrilldown }: { data: GoldData | null;
           <EmptyState message="상담 내역이 없습니다." />
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+            <thead className="bg-gray-50 text-gray-500 text-sm uppercase">
               <tr>
                 <th className="px-4 py-3 text-left">회원명</th>
                 <th className="px-4 py-3 text-left">내용</th>
@@ -1362,7 +1362,7 @@ export default function PartnerDashboardPage() {
 
         {/* 월 선택 */}
         <div className="relative">
-          <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
           <select
             value={month}
             onChange={(e) => setMonth(e.target.value)}
@@ -1372,7 +1372,7 @@ export default function PartnerDashboardPage() {
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
         </div>
       </div>
 
@@ -1397,7 +1397,7 @@ export default function PartnerDashboardPage() {
           ))}
 
           {loading && (
-            <div className="ml-auto flex items-center text-gray-400 text-xs gap-1">
+            <div className="ml-auto flex items-center text-gray-600 text-sm gap-1">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               로딩 중...
             </div>

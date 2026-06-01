@@ -75,21 +75,21 @@ export function CountdownTimer({ targetDate, onExpire }: CountdownTimerProps) {
         <span className="text-3xl md:text-4xl font-bold text-red-600 font-mono">
           {String(days).padStart(2, "0")}
         </span>
-        <span className="text-xs text-gray-600 font-medium mt-1">일</span>
+        <span className="text-sm text-gray-600 font-medium mt-1">일</span>
       </div>
       <span className="text-2xl text-red-600 font-bold mx-1 animate-pulse">:</span>
       <div className="flex flex-col items-center">
         <span className="text-3xl md:text-4xl font-bold text-red-600 font-mono">
           {String(hours).padStart(2, "0")}
         </span>
-        <span className="text-xs text-gray-600 font-medium mt-1">시간</span>
+        <span className="text-sm text-gray-600 font-medium mt-1">시간</span>
       </div>
       <span className="text-2xl text-red-600 font-bold mx-1 animate-pulse">:</span>
       <div className="flex flex-col items-center">
         <span className="text-3xl md:text-4xl font-bold text-red-600 font-mono">
           {String(minutes).padStart(2, "0")}
         </span>
-        <span className="text-xs text-gray-600 font-medium mt-1">분</span>
+        <span className="text-sm text-gray-600 font-medium mt-1">분</span>
       </div>
     </div>
   );

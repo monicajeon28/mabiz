@@ -108,7 +108,7 @@ export default function OrganizationPage() {
     return (
       <div className="max-w-lg mx-auto p-4 md:p-6">
         <div className="flex items-center gap-3 mb-6">
-          <Link href="/settings" className="text-gray-400 hover:text-gray-600 transition-colors">
+          <Link href="/settings" className="text-gray-600 hover:text-gray-600 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <h1 className="text-xl font-bold text-gray-900">조직 설정</h1>
@@ -129,7 +129,7 @@ export default function OrganizationPage() {
     return (
       <div className="max-w-lg mx-auto p-4 md:p-6">
         <div className="flex items-center gap-3 mb-6">
-          <Link href="/settings" className="text-gray-400 hover:text-gray-600 transition-colors">
+          <Link href="/settings" className="text-gray-600 hover:text-gray-600 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <h1 className="text-xl font-bold text-gray-900">조직 설정</h1>
@@ -143,7 +143,7 @@ export default function OrganizationPage() {
     <div className="max-w-lg mx-auto p-4 md:p-6">
       {/* 헤더 */}
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/settings" className="text-gray-400 hover:text-gray-600 transition-colors">
+        <Link href="/settings" className="text-gray-600 hover:text-gray-600 transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <h1 className="text-xl font-bold text-gray-900">조직 설정</h1>
@@ -179,7 +179,7 @@ export default function OrganizationPage() {
                 </button>
                 <button
                   onClick={cancelEdit}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-gray-600 hover:text-gray-600 transition-colors"
                   aria-label="취소"
                 >
                   <X className="w-4 h-4" />
@@ -190,7 +190,7 @@ export default function OrganizationPage() {
                 <span className="text-sm font-semibold text-gray-900 truncate">{org.name}</span>
                 <button
                   onClick={startEdit}
-                  className="text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                  className="text-gray-600 hover:text-gray-600 transition-colors shrink-0"
                   aria-label="조직명 수정"
                   title="수정"
                 >
@@ -205,7 +205,7 @@ export default function OrganizationPage() {
         <div className="flex items-center gap-3 p-4">
           <span className="text-sm text-gray-500 w-24 shrink-0">플랜</span>
           <div className="flex-1">
-            <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${PLAN_BADGE[org.plan] ?? 'bg-gray-100 text-gray-600'}`}>
+            <span className={`text-sm px-2.5 py-1 rounded-full font-semibold ${PLAN_BADGE[org.plan] ?? 'bg-gray-100 text-gray-600'}`}>
               {org.plan}
             </span>
           </div>
@@ -222,16 +222,16 @@ export default function OrganizationPage() {
                 </span>
                 <button
                   onClick={handleCopyCode}
-                  className="text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                  className="text-gray-600 hover:text-gray-600 transition-colors shrink-0"
                   aria-label="코드 복사"
                   title="복사"
                 >
                   {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                 </button>
-                {copied && <span className="text-xs text-green-600">복사됨!</span>}
+                {copied && <span className="text-sm text-green-600">복사됨!</span>}
               </>
             ) : (
-              <span className="text-sm text-gray-400">미설정</span>
+              <span className="text-sm text-gray-600">미설정</span>
             )}
           </div>
         </div>

@@ -165,7 +165,7 @@ export default function CampaignWizard() {
 
       {/* 진행 바 */}
       <div className="space-y-2">
-        <div className="flex justify-between text-xs font-medium text-gray-600 mb-2">
+        <div className="flex justify-between text-sm font-medium text-gray-600 mb-2">
           <span>1단계: 캠페인 설정</span>
           <span>2단계: 채널 선택</span>
           <span>3단계: 메시지</span>
@@ -182,7 +182,7 @@ export default function CampaignWizard() {
             />
           ))}
         </div>
-        <div className="text-right text-xs text-gray-500">
+        <div className="text-right text-sm text-gray-500">
           {step}/5 단계
         </div>
       </div>

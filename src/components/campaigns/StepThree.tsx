@@ -86,11 +86,11 @@ export default function StepThree({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition font-mono text-sm"
             />
             <div className="flex justify-between mt-1">
-              <p className="text-xs text-gray-500">
+              <p className="text-sm text-gray-500">
                 {formData.smsBody.length}/90자
               </p>
               {formData.smsBody.length > 80 && (
-                <p className="text-xs text-orange-600">
+                <p className="text-sm text-orange-600">
                   {Math.ceil((formData.smsBody.length * 2) / 45)}건 발송 예정
                 </p>
               )}
@@ -118,7 +118,7 @@ export default function StepThree({
               maxLength={100}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 mt-1">
               {formData.emailSubject.length}/100자
             </p>
           </div>
@@ -132,7 +132,7 @@ export default function StepThree({
               rows={6}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 mt-1">
               {formData.emailBody.length}자
             </p>
           </div>

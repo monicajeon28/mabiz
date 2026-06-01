@@ -146,31 +146,31 @@ export default function MySalesPage() {
             </button>
           </div>
         ) : (
-          <p className="text-sm text-gray-400">어필리에이트 코드가 등록되지 않았습니다.<br />관리자에게 문의하세요.</p>
+          <p className="text-sm text-gray-600">어필리에이트 코드가 등록되지 않았습니다.<br />관리자에게 문의하세요.</p>
         )}
         {affiliateCode && (
-          <p className="text-xs text-gray-400 mt-2">코드: <strong>{affiliateCode}</strong></p>
+          <p className="text-sm text-gray-600 mt-2">코드: <strong>{affiliateCode}</strong></p>
         )}
       </div>
 
       {/* 수당 요약 카드 */}
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-white border border-gray-200 rounded-xl p-4 text-center">
-          <p className="text-xs text-gray-400 mb-1">총 판매액</p>
+          <p className="text-sm text-gray-600 mb-1">총 판매액</p>
           <p className="text-lg font-bold text-gray-900">{totalSale.toLocaleString()}원</p>
         </div>
         <div className="bg-white border border-green-200 rounded-xl p-4 text-center">
-          <p className="text-xs text-gray-400 mb-1">확정 수당</p>
+          <p className="text-sm text-gray-600 mb-1">확정 수당</p>
           <p className="text-lg font-bold text-green-700">{earned.toLocaleString()}원</p>
         </div>
         <div className="bg-white border border-blue-200 rounded-xl p-4 text-center">
-          <p className="text-xs text-gray-400 mb-1">예상 수당 합계</p>
+          <p className="text-sm text-gray-600 mb-1">예상 수당 합계</p>
           <p className="text-lg font-bold text-blue-700">{totalCommission.toLocaleString()}원</p>
         </div>
       </div>
 
       {/* 수당 주의사항 */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 space-y-0.5">
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800 space-y-0.5">
         <p className="font-semibold">📋 수당 지급 조건</p>
         <p>• 수당은 여행 출발 완료 후 확정됩니다 (PENDING → 확정)</p>
         <p>• 3.3% 원천징수 후 지급됩니다</p>
@@ -187,12 +187,12 @@ export default function MySalesPage() {
             ))}
           </div>
         ) : payslips.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-6">아직 확정된 명세서가 없습니다</p>
+          <p className="text-sm text-gray-600 text-center py-6">아직 확정된 명세서가 없습니다</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-xs text-gray-400 border-b border-gray-100">
+                <tr className="text-sm text-gray-600 border-b border-gray-100">
                   <th className="text-left pb-2 font-medium">기간</th>
                   <th className="text-right pb-2 font-medium">총판매액</th>
                   <th className="text-right pb-2 font-medium">확정수당</th>
@@ -211,11 +211,11 @@ export default function MySalesPage() {
                     </td>
                     <td className="py-2.5 text-center">
                       {ps.status === "APPROVED" ? (
-                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">확정</span>
+                        <span className="inline-block px-2 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-700">확정</span>
                       ) : ps.status === "SENT" ? (
-                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">지급완료</span>
+                        <span className="inline-block px-2 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-700">지급완료</span>
                       ) : (
-                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">{ps.status}</span>
+                        <span className="inline-block px-2 py-0.5 rounded-full text-sm font-medium bg-gray-100 text-gray-500">{ps.status}</span>
                       )}
                     </td>
                   </tr>
@@ -233,10 +233,10 @@ export default function MySalesPage() {
           판매 내역 ({sales.length}건)
         </p>
         {sales.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
+          <div className="text-center py-12 text-gray-600">
             <TrendingUp className="w-10 h-10 mx-auto mb-3 opacity-20" />
             <p className="text-sm">판매 내역이 없습니다.</p>
-            <p className="text-xs mt-1">어필리에이트 링크를 공유해보세요!</p>
+            <p className="text-sm mt-1">어필리에이트 링크를 공유해보세요!</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -247,7 +247,7 @@ export default function MySalesPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-900 truncate">{sale.productName}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-sm text-gray-600 mt-0.5">
                         {new Date(sale.createdAt).toLocaleDateString("ko-KR")}
                         {sale.customerPhone && ` · ${sale.customerPhone}`}
                       </p>
@@ -256,22 +256,22 @@ export default function MySalesPage() {
                       <p className="text-sm font-bold text-gray-900">
                         {sale.saleAmount.toLocaleString()}원
                       </p>
-                      <p className="text-xs text-green-600 font-medium">
+                      <p className="text-sm text-green-600 font-medium">
                         수당 {(sale.commissionAmount ?? 0).toLocaleString()}원
                       </p>
                     </div>
                   </div>
                   <div className="mt-2 flex items-center gap-2">
-                    <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${info.color}`}>
+                    <span className={`flex items-center gap-1 text-sm px-2 py-0.5 rounded-full font-medium ${info.color}`}>
                       {info.icon} {info.label}
                     </span>
                     {sale.travelCompletedAt && (
-                      <span className="text-xs text-gray-400">
+                      <span className="text-sm text-gray-600">
                         여행완료: {new Date(sale.travelCompletedAt).toLocaleDateString("ko-KR")}
                       </span>
                     )}
                     {sale.paidAt && (
-                      <span className="text-xs text-blue-500">
+                      <span className="text-sm text-blue-500">
                         지급: {new Date(sale.paidAt).toLocaleDateString("ko-KR")}
                       </span>
                     )}

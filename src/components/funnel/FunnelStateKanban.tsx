@@ -67,7 +67,7 @@ export default function FunnelStateKanban({
             <h3 className="font-semibold text-sm mb-1">
               {getStateLabel(status)}
             </h3>
-            <div className="text-xs text-gray-500">
+            <div className="text-sm text-gray-500">
               {groupedByStatus[status].length}명
             </div>
           </div>
@@ -85,18 +85,18 @@ export default function FunnelStateKanban({
                   <h4 className="font-medium text-sm truncate">
                     {state.contact.name}
                   </h4>
-                  <p className="text-xs text-gray-500 truncate">
+                  <p className="text-sm text-gray-500 truncate">
                     {state.contact.phone}
                   </p>
                   <div className="mt-2 flex items-center justify-between">
                     <span
-                      className={`text-xs font-medium px-2 py-1 rounded ${getStateColor(
+                      className={`text-sm font-medium px-2 py-1 rounded ${getStateColor(
                         status
                       )}`}
                     >
                       {getStateLabel(status)}
                     </span>
-                    <span className="text-xs text-gray-400">
+                    <span className="text-sm text-gray-600">
                       {new Date(state.updatedAt).toLocaleDateString('ko-KR')}
                     </span>
                   </div>
@@ -106,8 +106,8 @@ export default function FunnelStateKanban({
             ))}
 
             {groupedByStatus[status].length === 0 && (
-              <div className="flex items-center justify-center h-20 text-gray-400">
-                <p className="text-xs">데이터 없음</p>
+              <div className="flex items-center justify-center h-20 text-gray-600">
+                <p className="text-sm">데이터 없음</p>
               </div>
             )}
           </div>

@@ -274,7 +274,7 @@ export default function SendingMonitorPage() {
                     aria-valuemax={100}
                   ></div>
                 </div>
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <div className="flex justify-between text-sm text-gray-500 mt-1">
                   <span>{data.sent.toLocaleString()} 발송</span>
                   <span>{data.failed.toLocaleString()} 실패</span>
                 </div>
@@ -522,8 +522,8 @@ function KPICard({
       </p>
       {sub && (
         <p
-          className={`text-xs mt-2 ${
-            color ? 'text-white/60' : 'text-gray-400'
+          className={`text-sm mt-2 ${
+            color ? 'text-white/60' : 'text-gray-600'
           }`}
         >
           {sub}

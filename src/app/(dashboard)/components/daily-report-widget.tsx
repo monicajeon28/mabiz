@@ -141,7 +141,7 @@ export function DailyReportWidget() {
           <div className="text-3xl font-bold text-gray-900 mt-2">
             ${(report.revenue / 100).toFixed(0)}
           </div>
-          <div className="text-xs text-gray-500 mt-2">Today's total</div>
+          <div className="text-sm text-gray-500 mt-2">Today's total</div>
         </div>
 
         {/* Conversion Card */}
@@ -150,7 +150,7 @@ export function DailyReportWidget() {
           <div className="text-3xl font-bold text-gray-900 mt-2">
             {report.conversionRate.toFixed(2)}%
           </div>
-          <div className="text-xs text-gray-500 mt-2">Overall rate</div>
+          <div className="text-sm text-gray-500 mt-2">Overall rate</div>
         </div>
 
         {/* SMS Open Card */}
@@ -159,7 +159,7 @@ export function DailyReportWidget() {
           <div className="text-3xl font-bold text-gray-900 mt-2">
             {report.smsOpenRate.toFixed(1)}%
           </div>
-          <div className="text-xs text-gray-500 mt-2">Day 0 rate</div>
+          <div className="text-sm text-gray-500 mt-2">Day 0 rate</div>
         </div>
 
         {/* Email Open Card */}
@@ -168,7 +168,7 @@ export function DailyReportWidget() {
           <div className="text-3xl font-bold text-gray-900 mt-2">
             {report.emailOpenRate.toFixed(1)}%
           </div>
-          <div className="text-xs text-gray-500 mt-2">Today's rate</div>
+          <div className="text-sm text-gray-500 mt-2">Today's rate</div>
         </div>
       </div>
 
@@ -265,8 +265,8 @@ export function DailyReportWidget() {
               {recommendations.slice(0, 3).map((rec, i) => (
                 <div key={i} className="text-sm bg-white p-2 rounded">
                   <div className="font-medium text-blue-900">{rec.title}</div>
-                  <div className="text-blue-700 text-xs mt-1">{rec.description}</div>
-                  <div className="text-green-600 text-xs mt-1">Impact: {rec.impact}</div>
+                  <div className="text-blue-700 text-sm mt-1">{rec.description}</div>
+                  <div className="text-green-600 text-sm mt-1">Impact: {rec.impact}</div>
                 </div>
               ))}
             </div>
@@ -293,7 +293,7 @@ export function DailyReportWidget() {
                   <div className="text-2xl font-bold text-gray-900 mt-1">
                     {metrics.openRate?.toFixed(1) || metrics.clickRate?.toFixed(1) || '—'}%
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-sm text-gray-500">
                     {metrics.sent || 0} sent
                   </div>
                 </div>

@@ -157,7 +157,7 @@ export function SidebarNav({ className, session }: SidebarNavProps) {
       {/* 사용자 정보 */}
       {(role || displayName) && (
         <div className="px-4 py-3 border-b border-[#2A4080]">
-          <div className="text-xs text-gray-400">
+          <div className="text-sm text-gray-600">
             {role === 'GLOBAL_ADMIN' && '관리자'}
             {role === 'OWNER' && '대리점장'}
             {role === 'AGENT' && '판매원'}
@@ -204,7 +204,7 @@ export function SidebarNav({ className, session }: SidebarNavProps) {
               <li key={section.label}>
                 <ul>
                   <li className="px-3 pt-4 pb-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">
+                    <span className="text-sm font-semibold uppercase tracking-wider text-[#6B7280]">
                       {section.label}
                     </span>
                   </li>

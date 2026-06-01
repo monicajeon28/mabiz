@@ -68,7 +68,7 @@ function getMonthOptions(): { label: string; value: string }[] {
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+    <div className="flex flex-col items-center justify-center py-12 text-gray-600">
       <FileText className="h-10 w-10 mb-2" />
       <p className="text-sm">{message}</p>
     </div>
@@ -94,7 +94,7 @@ function MonthSelector({
 
         <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
           <div className="flex items-center gap-2 mb-6">
-            <Calendar className="h-5 w-5 text-gray-400" />
+            <Calendar className="h-5 w-5 text-gray-600" />
             <h2 className="text-base font-semibold text-gray-900">월 선택</h2>
           </div>
 
@@ -174,14 +174,14 @@ function PageListSelector({
 
           {loading ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              <Loader2 className="h-6 w-6 animate-spin text-gray-600" />
             </div>
           ) : !data || data.pages.length === 0 ? (
             <EmptyState message="조회 가능한 페이지가 없습니다." />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                <thead className="bg-gray-50 text-gray-500 text-sm uppercase">
                   <tr>
                     <th className="px-6 py-3 text-left font-medium">페이지명</th>
                     <th className="px-6 py-3 text-right font-medium">수익</th>
@@ -240,7 +240,7 @@ function DetailView({
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8 px-4 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-gray-600" />
       </div>
     );
   }
@@ -304,23 +304,23 @@ function DetailView({
           <h2 className="text-base font-semibold text-gray-900 mb-4">수익 추이</h2>
           <div className="space-y-2">
             {data.monthlyTrend.length === 0 ? (
-              <p className="text-sm text-gray-400">추이 데이터가 없습니다.</p>
+              <p className="text-sm text-gray-600">추이 데이터가 없습니다.</p>
             ) : (
               data.monthlyTrend.map((item) => {
                 const maxRevenue = Math.max(...data.monthlyTrend.map((m) => m.revenue));
                 const percentage = maxRevenue > 0 ? (item.revenue / maxRevenue) * 100 : 0;
                 return (
                   <div key={item.month} className="flex items-center gap-3">
-                    <div className="w-20 text-xs font-medium text-gray-600">{item.month}</div>
+                    <div className="w-20 text-sm font-medium text-gray-600">{item.month}</div>
                     <div className="flex-1 bg-gray-100 rounded-full h-6 overflow-hidden">
                       <div
-                        className="bg-blue-500 h-full flex items-center justify-end pr-2 text-xs font-semibold text-white"
+                        className="bg-blue-500 h-full flex items-center justify-end pr-2 text-sm font-semibold text-white"
                         style={{ width: `${percentage}%` }}
                       >
                         {percentage > 10 && `₩${formatWon(item.revenue)}`}
                       </div>
                     </div>
-                    <div className="w-24 text-right text-xs text-gray-600">₩{formatWon(item.revenue)}</div>
+                    <div className="w-24 text-right text-sm text-gray-600">₩{formatWon(item.revenue)}</div>
                   </div>
                 );
               })
@@ -336,7 +336,7 @@ function DetailView({
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                <thead className="bg-gray-50 text-gray-500 text-sm uppercase">
                   <tr>
                     <th className="px-4 py-3 text-left font-medium">상품명</th>
                     <th className="px-4 py-3 text-right font-medium">판매 건수</th>
@@ -366,7 +366,7 @@ function DetailView({
             <>
               <div className="overflow-x-auto mb-4">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                  <thead className="bg-gray-50 text-gray-500 text-sm uppercase">
                     <tr>
                       <th className="px-4 py-3 text-left font-medium">고객명</th>
                       <th className="px-4 py-3 text-left font-medium">상품명</th>
@@ -390,21 +390,21 @@ function DetailView({
               {/* 페이징 */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                  <p className="text-xs text-gray-400">
+                  <p className="text-sm text-gray-600">
                     {startIdx + 1}-{Math.min(startIdx + customersPerPage, data.customers.length)} / {data.customers.length}건
                   </p>
                   <div className="flex gap-1">
                     <button
                       onClick={() => setCustomerPage((p) => Math.max(1, p - 1))}
                       disabled={customerPage === 1}
-                      className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30 transition-colors"
+                      className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition-colors"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => setCustomerPage((p) => Math.min(totalPages, p + 1))}
                       disabled={customerPage === totalPages}
-                      className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30 transition-colors"
+                      className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition-colors"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>

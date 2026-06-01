@@ -123,10 +123,10 @@ export function SmsTab({
                 <CheckCircle className="w-4 h-4 text-green-500" />
                 <span className="text-sm font-medium text-green-700">알리고 연결됨</span>
               </div>
-              <p className="text-xs text-green-600">발신번호: {smsConfig.senderPhone}</p>
-              <p className="text-xs text-green-600">ID: {smsConfig.aligoUserId} · 키 ****{smsConfig.aligoKeyTail}</p>
+              <p className="text-sm text-green-600">발신번호: {smsConfig.senderPhone}</p>
+              <p className="text-sm text-green-600">ID: {smsConfig.aligoUserId} · 키 ****{smsConfig.aligoKeyTail}</p>
               {!smsConfig.senderVerified && (
-                <p className="text-xs text-amber-600 mt-1">⚠ 발신번호 미인증 — Aligo 콘솔에서 ARS 인증 필요</p>
+                <p className="text-sm text-amber-600 mt-1">⚠ 발신번호 미인증 — Aligo 콘솔에서 ARS 인증 필요</p>
               )}
             </div>
           ) : (
@@ -135,8 +135,8 @@ export function SmsTab({
                 <AlertCircle className="w-4 h-4 text-amber-500" />
                 <span className="text-sm font-medium text-amber-700">알리고 미연결</span>
               </div>
-              <p className="text-xs text-amber-600 mb-2">내 알리고 계정을 연결해야 SMS를 보낼 수 있습니다.</p>
-              <a href="/settings/sms" className="text-xs text-blue-600 underline flex items-center gap-1">
+              <p className="text-sm text-amber-600 mb-2">내 알리고 계정을 연결해야 SMS를 보낼 수 있습니다.</p>
+              <a href="/settings/sms" className="text-sm text-blue-600 underline flex items-center gap-1">
                 <Settings className="w-3 h-3" /> 알리고 계정 연결하기
               </a>
             </div>
@@ -145,7 +145,7 @@ export function SmsTab({
 
         {/* 그룹 선택 */}
         <div className="rounded-xl border bg-white p-4">
-          <label htmlFor="sms-group-select" className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1 block">
+          <label htmlFor="sms-group-select" className="text-sm font-semibold text-gray-600 mb-2 flex items-center gap-1 block">
             <Users className="w-3.5 h-3.5" aria-hidden="true" /> 수신 그룹
           </label>
           <select
@@ -161,7 +161,7 @@ export function SmsTab({
             ))}
           </select>
           {currentGroup && (
-            <p className="text-xs text-gray-600 mt-1">최대 {currentGroup._count.members}명에게 발송됩니다.</p>
+            <p className="text-sm text-gray-600 mt-1">최대 {currentGroup._count.members}명에게 발송됩니다.</p>
           )}
         </div>
 
@@ -186,7 +186,7 @@ export function SmsTab({
                       onTemplateCatChange(c.value);
                       onLoadTemplates();
                     }}
-                    className={`px-2 py-0.5 rounded-full text-xs border transition-colors ${templateCat === c.value ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 hover:border-blue-300"}`}
+                    className={`px-2 py-0.5 rounded-full text-sm border transition-colors ${templateCat === c.value ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 hover:border-blue-300"}`}
                     aria-pressed={templateCat === c.value}
                   >
                     {c.label}
@@ -195,7 +195,7 @@ export function SmsTab({
               </div>
               <div className="space-y-2 max-h-56 overflow-y-auto">
                 {templates.length === 0
-                  ? <p className="text-xs text-gray-600 text-center py-3">템플릿 없음</p>
+                  ? <p className="text-sm text-gray-600 text-center py-3">템플릿 없음</p>
                   : templates.map(t => (
                     <button
                       key={t.id}
@@ -206,8 +206,8 @@ export function SmsTab({
                       className="w-full text-left p-2.5 rounded-lg border hover:border-blue-300 hover:bg-blue-50 transition-colors"
                       aria-label={`템플릿: ${t.title}`}
                     >
-                      <p className="text-xs font-medium text-gray-700">{t.title}</p>
-                      <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{t.content}</p>
+                      <p className="text-sm font-medium text-gray-700">{t.title}</p>
+                      <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">{t.content}</p>
                     </button>
                   ))
                 }
@@ -223,8 +223,8 @@ export function SmsTab({
         {/* 메시지 작성 */}
         <div className="rounded-xl border bg-white p-4">
           <div className="flex items-center justify-between mb-2">
-            <label htmlFor="sms-message-input" className="text-xs font-semibold text-gray-600">메시지 내용</label>
-            <span className={`text-xs ${message.length > 80 ? "text-red-700 font-medium" : "text-gray-600"}`}>
+            <label htmlFor="sms-message-input" className="text-sm font-semibold text-gray-600">메시지 내용</label>
+            <span className={`text-sm ${message.length > 80 ? "text-red-700 font-medium" : "text-gray-600"}`}>
               {message.length}/90자
             </span>
           </div>
@@ -243,7 +243,7 @@ export function SmsTab({
           <div className="mt-2">
             <button
               onClick={() => setShowReplace(v => !v)}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
               aria-expanded={showReplace}
               aria-label="치환변수 및 어필리에이트 링크 패널"
             >
@@ -253,13 +253,13 @@ export function SmsTab({
             {showReplace && (
               <div className="mt-2 p-3 bg-gray-50 rounded-lg space-y-3">
                 <div>
-                  <p className="text-xs font-medium text-gray-700 mb-1.5">기본 치환변수 (클릭 시 삽입)</p>
+                  <p className="text-sm font-medium text-gray-700 mb-1.5">기본 치환변수 (클릭 시 삽입)</p>
                   <div className="flex flex-wrap gap-1.5">
                     {REPLACEMENTS.map(r => (
                       <button
                         key={r.label}
                         onClick={() => insertAtCursor(r.label)}
-                        className="px-2 py-1 bg-white border rounded text-xs text-gray-700 hover:border-blue-400 hover:text-blue-600 transition-colors"
+                        className="px-2 py-1 bg-white border rounded text-sm text-gray-700 hover:border-blue-400 hover:text-blue-600 transition-colors"
                         aria-label={`${r.label} 삽입 - ${r.desc}`}
                       >
                         {r.label} <span className="text-gray-600">({r.desc})</span>
@@ -269,7 +269,7 @@ export function SmsTab({
                 </div>
 
                 <div>
-                  <p className="text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1">
+                  <p className="text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-1">
                     <Link2 className="w-3 h-3 text-blue-500" />
                     내 어필리에이트 추적링크
                   </p>
@@ -280,19 +280,19 @@ export function SmsTab({
                           <button
                             key={l.id}
                             onClick={() => insertAtCursor(`${APP_URL}/l/${l.code}`)}
-                            className="px-2 py-1 bg-white border rounded text-xs text-blue-600 hover:border-blue-400 transition-colors"
+                            className="px-2 py-1 bg-white border rounded text-sm text-blue-600 hover:border-blue-400 transition-colors"
                             aria-label={`추적링크 삽입: ${l.title ?? l.code}`}
                           >
                             🔗 {l.title ?? l.code}
                           </button>
                         ))}
                       </div>
-                      <p className="text-xs text-gray-600 mt-1">
+                      <p className="text-sm text-gray-600 mt-1">
                         그룹 내 해당 고객의 링크가 삽입됩니다. 링크 없는 고객은 자동 제외됩니다.
                       </p>
                     </>
                   ) : (
-                    <p className="text-xs text-gray-600">
+                    <p className="text-sm text-gray-600">
                       개인 추적링크가 없습니다.{" "}
                       <a href="/links" className="text-blue-500 underline">상담 링크</a>에서
                       고객에게 연결된 링크를 만들어주세요.
@@ -320,7 +320,7 @@ export function SmsTab({
               <p className="text-sm text-blue-700">
                 📊 발송 횟수: {rateLimitStatus.used}/5회
                 {rateLimitStatus.remaining === 0 && (
-                  <span className="block text-xs text-red-700 font-semibold mt-1">
+                  <span className="block text-sm text-red-700 font-semibold mt-1">
                     ⏰ 내일 {rateLimitStatus.resetAt}부터 가능
                   </span>
                 )}
@@ -331,16 +331,16 @@ export function SmsTab({
           {dryRunResult && (
             <div className="space-y-3">
               <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-xs font-medium text-gray-700 mb-2">
+                <p className="text-sm font-medium text-gray-700 mb-2">
                   발송 예정:{" "}
                   <span className="text-blue-600 font-bold text-base">{dryRunResult.count}명</span>
                   {linkNoCount > 0 && (
-                    <span className="text-amber-600 ml-2 text-xs">
+                    <span className="text-amber-600 ml-2 text-sm">
                       (추적링크 없는 고객 {linkNoCount}명 자동 제외)
                     </span>
                   )}
                 </p>
-                <p className="text-xs text-gray-600 font-medium mb-1">첫 번째 고객 미리보기:</p>
+                <p className="text-sm text-gray-600 font-medium mb-1">첫 번째 고객 미리보기:</p>
                 <div className="text-sm bg-white border rounded p-2.5 whitespace-pre-wrap break-words">
                   {DOMPurify.sanitize(dryRunResult.sample, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] })}
                 </div>

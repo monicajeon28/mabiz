@@ -152,7 +152,7 @@ export function Loop5ABTestResults({
                         <span className="text-sm font-medium">우승자</span>
                       </div>
                     ) : (
-                      <span className="text-xs text-gray-500">-</span>
+                      <span className="text-sm text-gray-500">-</span>
                     )}
                   </td>
                 </tr>
@@ -212,7 +212,7 @@ export function Loop5ABTestResults({
                         <span className="text-sm font-medium">⭐</span>
                       </div>
                     ) : (
-                      <span className="text-xs text-gray-500">-</span>
+                      <span className="text-sm text-gray-500">-</span>
                     )}
                   </td>
                 </tr>
@@ -229,7 +229,7 @@ export function Loop5ABTestResults({
           <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
             통계 신뢰도 95% 이상일 때 우승자 결정
           </p>
-          <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+          <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
             표본이 충분할 때까지 지속적으로 A/B 테스트 실행 권장
           </p>
         </div>

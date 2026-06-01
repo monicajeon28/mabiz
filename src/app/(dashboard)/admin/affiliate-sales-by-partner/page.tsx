@@ -56,7 +56,7 @@ function StatCard({
       <div className="mt-3 flex items-end gap-2">
         <p className="text-3xl font-bold text-gray-900">
           {typeof value === 'number' ? value.toLocaleString() : value}
-          {suffix && <span className="ml-1 text-lg font-medium text-gray-400">{suffix}</span>}
+          {suffix && <span className="ml-1 text-lg font-medium text-gray-600">{suffix}</span>}
         </p>
       </div>
     </div>
@@ -186,7 +186,7 @@ export default function AdminAffiliateSalesPage() {
   if (!authChecked) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-gray-600" />
       </div>
     );
   }
@@ -361,8 +361,8 @@ export default function AdminAffiliateSalesPage() {
                   </td>
                   <td className="px-6 py-4 text-center">
                     <span className={affiliate.status === 'active'
-                      ? 'inline-block px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700'
-                      : 'inline-block px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700'}>
+                      ? 'inline-block px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700'
+                      : 'inline-block px-3 py-1 rounded-full text-sm font-semibold bg-gray-100 text-gray-700'}>
                       {affiliate.status === 'active' ? '활성' : '휴면'}
                     </span>
                   </td>

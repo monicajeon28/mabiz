@@ -1470,8 +1470,8 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
           {passportWarningMessage && (
             <div className="mt-4 rounded-lg bg-yellow-50 border-2 border-yellow-300 p-4 text-left">
               <p className="text-sm font-semibold text-yellow-800">⚠️ 여권 수 부족 안내</p>
-              <p className="mt-1 text-xs text-yellow-700">{passportWarningMessage}</p>
-              <p className="mt-2 text-xs text-yellow-600">💡 나중에 여권이 도착하면 추가로 입력할 수 있습니다.</p>
+              <p className="mt-1 text-sm text-yellow-700">{passportWarningMessage}</p>
+              <p className="mt-2 text-sm text-yellow-600">💡 나중에 여권이 도착하면 추가로 입력할 수 있습니다.</p>
             </div>
           )}
         </div>
@@ -1744,7 +1744,7 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
               ))}
             </select>
             {payments.length === 0 && !loadingPayments && (
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-sm text-gray-500">
                 결제 내역이 없습니다. 아래 버튼을 클릭하여 최신 결제 내역을 불러오세요.
               </p>
             )}
@@ -1761,7 +1761,7 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
         {selectedPaymentId && (
           <div className="mt-3 rounded-lg bg-blue-100 p-3 text-sm text-blue-800">
             <p className="font-semibold">✅ 결제 정보가 자동으로 채워졌습니다.</p>
-            <p className="mt-1 text-xs">결제 정보는 수정할 수 없습니다.</p>
+            <p className="mt-1 text-sm">결제 정보는 수정할 수 없습니다.</p>
           </div>
         )}
       </div>
@@ -1799,7 +1799,7 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
           {availableCabinTypes.length === 0 ? (
             <div className="rounded-lg bg-yellow-50 p-4 text-yellow-800">
               <p className="text-sm font-semibold">⚠️ 요금 정보 없음</p>
-              <p className="mt-1 text-xs">
+              <p className="mt-1 text-sm">
                 이 상품의 요금표 데이터가 등록되지 않았습니다. 관리자에게 문의하세요.
               </p>
             </div>
@@ -1829,7 +1829,7 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
                       {allPricingForCabin.length > 0 ? (
                         <div className="mb-3 space-y-1">
                           {allPricingForCabin.map((pricing: PricingRow, index: number) => (
-                            <div key={index} className="text-xs text-gray-600">
+                            <div key={index} className="text-sm text-gray-600">
                               <span className="font-medium">{pricing.fareCategory || ''}</span>
                               {pricing.fareLabel && (
                                 <span className="ml-1 text-gray-500">({pricing.fareLabel})</span>
@@ -1849,7 +1849,7 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
                         </div>
                       ) : null}
                       <div className="flex items-center gap-4">
-                        <label className="text-xs text-gray-600">구매 수량:</label>
+                        <label className="text-sm text-gray-600">구매 수량:</label>
                         <input
                           type="number"
                           min="0"
@@ -1881,7 +1881,7 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
               <button
                 type="button"
                 onClick={() => setShowBulkSendModal(false)}
-                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-600"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1936,7 +1936,7 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
                             <div className="flex items-center gap-2 mb-2">
                               <h4 className="font-semibold text-gray-900">{status.customerName}</h4>
                               <span
-                                className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                className={`px-2 py-1 rounded-full text-sm font-semibold ${
                                   status.status === 'completed'
                                     ? 'bg-green-200 text-green-800'
                                     : 'bg-orange-200 text-orange-800'
@@ -1947,12 +1947,12 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
                             </div>
                             <p className="text-sm text-gray-600 mb-2">{status.phone}</p>
                             {status.reservationId && (
-                              <p className="text-xs text-gray-500 mb-2">예약번호: {status.reservationId}</p>
+                              <p className="text-sm text-gray-500 mb-2">예약번호: {status.reservationId}</p>
                             )}
                             {/* 여행자 목록 */}
                             <div className="mt-2 space-y-1">
                               {status.travelers.map((traveler, tIndex) => (
-                                <div key={tIndex} className="text-xs">
+                                <div key={tIndex} className="text-sm">
                                   <span className="font-medium">{traveler.name}</span>
                                   {traveler.passportNo ? (
                                     <span className="text-green-600 ml-2">✅ {traveler.passportNo}</span>
@@ -2097,10 +2097,10 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
                     <span className="text-xl">⚠️</span>
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-yellow-800">여권 수 부족</p>
-                      <p className="mt-1 text-xs text-yellow-700">
+                      <p className="mt-1 text-sm text-yellow-700">
                         예상 인원: <strong>{expectedTotalGuests}명</strong>, 입력된 여권: <strong>{travelersWithPassport}명</strong>, 부족: <strong>{missingCount}명</strong>
                       </p>
-                      <p className="mt-2 text-xs text-yellow-600">
+                      <p className="mt-2 text-sm text-yellow-600">
                         💡 여권이 도착하면 추가로 입력할 수 있습니다. 일단 저장하고 나중에 추가하세요.
                       </p>
                     </div>
@@ -2193,7 +2193,7 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
                     />
                   ))}
                   {roomGroup.travelers.length < roomGroup.maxCapacity && (
-                    <div className="rounded-lg border-2 border-dashed border-gray-300 bg-white p-3 text-center text-sm text-gray-400">
+                    <div className="rounded-lg border-2 border-dashed border-gray-300 bg-white p-3 text-center text-sm text-gray-600">
                       여행자를 여기로 드래그하세요
                     </div>
                   )}
@@ -2314,7 +2314,7 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
                   setShowPassportSendModal(false);
                   setPreviewDevice(null);
                 }}
-                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-600"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -2419,7 +2419,7 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
                         {/* 화면 */}
                         <div className={`bg-white ${previewDevice === 'iphone' ? 'rounded-[2.5rem]' : 'rounded-[2rem]'} overflow-hidden`}>
                           {/* 상태바 */}
-                          <div className={`${previewDevice === 'iphone' ? 'h-11 pt-2' : 'h-8 pt-1'} bg-white flex items-center justify-between px-4 text-xs font-semibold`}>
+                          <div className={`${previewDevice === 'iphone' ? 'h-11 pt-2' : 'h-8 pt-1'} bg-white flex items-center justify-between px-4 text-sm font-semibold`}>
                             <span>9:41</span>
                             <div className="flex items-center gap-1">
                               <span>📶</span>
@@ -2582,7 +2582,7 @@ function TravelerCard({
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             영문 성 (Surname)
           </label>
           <input
@@ -2594,7 +2594,7 @@ function TravelerCard({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             영문 이름 (Given Name)
           </label>
           <input
@@ -2606,7 +2606,7 @@ function TravelerCard({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             한글 성명
           </label>
           <input
@@ -2618,7 +2618,7 @@ function TravelerCard({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             주민번호 <span className="text-red-500">*</span>
           </label>
           <input
@@ -2634,13 +2634,13 @@ function TravelerCard({
             required
           />
           {traveler.birthDate && (
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-sm text-gray-500">
               💡 생년월일로부터 앞자리가 자동 입력되었습니다. 뒷자리만 입력하세요.
             </p>
           )}
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             연락처 <span className="text-red-500">*</span>
           </label>
           <input
@@ -2656,7 +2656,7 @@ function TravelerCard({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             성별
           </label>
           <input
@@ -2667,7 +2667,7 @@ function TravelerCard({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             생년월일
           </label>
           <input
@@ -2678,7 +2678,7 @@ function TravelerCard({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             여권번호
           </label>
           <input
@@ -2690,7 +2690,7 @@ function TravelerCard({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             국적
           </label>
           <input
@@ -2702,7 +2702,7 @@ function TravelerCard({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             발급일
           </label>
           <input
@@ -2714,7 +2714,7 @@ function TravelerCard({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             만료일
           </label>
           <input
@@ -2730,7 +2730,7 @@ function TravelerCard({
           />
           {/* ⚠️ 여권 만료일 6개월 미만 경고 (빨간색 에러 표시, 하지만 저장은 가능) */}
           {isExpiryDateInvalid && (
-            <p className="mt-1 text-xs font-semibold text-red-600">
+            <p className="mt-1 text-sm font-semibold text-red-600">
               ⚠️ 여권 만료일이 출발일 기준 6개월 미만입니다. (저장은 가능하지만 여행 전 여권 갱신이 필요할 수 있습니다)
             </p>
           )}

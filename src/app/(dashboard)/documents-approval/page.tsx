@@ -288,7 +288,7 @@ export default function DocumentsApprovalPage() {
                   onClick={() => toggleExpand(doc.id)}
                 >
                   <div className="flex items-center gap-3 flex-1">
-                    <FileText className="w-5 h-5 text-gray-400" />
+                    <FileText className="w-5 h-5 text-gray-600" />
                     <div className="flex-1">
                       <h3 className="font-semibold text-gray-900">{doc.title}</h3>
                       <p className="text-sm text-gray-500">
@@ -298,12 +298,12 @@ export default function DocumentsApprovalPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span
-                      className={`px-2 py-1 rounded text-xs font-semibold ${statusConfig.bgColor} ${statusConfig.color}`}
+                      className={`px-2 py-1 rounded text-sm font-semibold ${statusConfig.bgColor} ${statusConfig.color}`}
                     >
                       {statusConfig.label}
                     </span>
                     <ChevronDown
-                      className={`w-5 h-5 text-gray-400 transition-transform ${
+                      className={`w-5 h-5 text-gray-600 transition-transform ${
                         isExpanded ? 'rotate-180' : ''
                       }`}
                     />

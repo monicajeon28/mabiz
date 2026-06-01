@@ -318,7 +318,7 @@ function CruiseDotPartnersForm() {
               {resultId && <p>• 신청번호: #{resultId}</p>}
             </div>
           </div>
-          <p className="text-xs text-gray-400">문의: {COMPANY.phone}</p>
+          <p className="text-sm text-gray-600">문의: {COMPANY.phone}</p>
         </div>
       </div>
     );
@@ -341,11 +341,11 @@ function CruiseDotPartnersForm() {
           </div>
           <div className="min-w-0">
             <h1 className="text-sm font-bold text-gray-900 leading-tight">크루즈닷 파트너스</h1>
-            <p className="text-xs text-gray-500">프리랜서 용역 계약 신청서</p>
+            <p className="text-sm text-gray-500">프리랜서 용역 계약 신청서</p>
           </div>
           {useSupervisor && (
             <div className="ml-auto flex-shrink-0 bg-blue-50 border border-blue-200 rounded-lg px-2 py-1">
-              <p className="text-xs text-blue-700 font-medium">{supervisorName} 대리점</p>
+              <p className="text-sm text-blue-700 font-medium">{supervisorName} 대리점</p>
             </div>
           )}
         </div>
@@ -378,21 +378,21 @@ function CruiseDotPartnersForm() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p className="text-blue-700 font-extrabold text-lg leading-none">1~5%</p>
-              <p className="text-gray-700 text-xs font-semibold mt-1">판매 수수료</p>
+              <p className="text-gray-700 text-sm font-semibold mt-1">판매 수수료</p>
             </div>
             <div className="py-4 px-2 text-center">
               <svg className="w-6 h-6 text-blue-600 mx-auto mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p className="text-blue-700 font-extrabold text-lg leading-none">무료</p>
-              <p className="text-gray-700 text-xs font-semibold mt-1">가입·보증금 없음</p>
+              <p className="text-gray-700 text-sm font-semibold mt-1">가입·보증금 없음</p>
             </div>
             <div className="py-4 px-2 text-center">
               <svg className="w-6 h-6 text-blue-600 mx-auto mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
               <p className="text-blue-700 font-extrabold text-lg leading-none">타사 겸업</p>
-              <p className="text-gray-700 text-xs font-semibold mt-1">허용</p>
+              <p className="text-gray-700 text-sm font-semibold mt-1">허용</p>
             </div>
           </div>
         </div>
@@ -458,10 +458,10 @@ function CruiseDotPartnersForm() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-bold text-gray-400">STEP {item.step}</span>
+                    <span className="text-sm font-bold text-gray-600">STEP {item.step}</span>
                     <p className="text-sm font-bold text-gray-900">{item.title}</p>
                   </div>
-                  <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">{item.desc}</p>
+                  <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -475,7 +475,7 @@ function CruiseDotPartnersForm() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-bold text-gray-400">STEP 5</span>
+                  <span className="text-sm font-bold text-gray-600">STEP 5</span>
                   <p className="text-sm font-bold text-gray-900">크루즈닷 신뢰 & 안전</p>
                 </div>
                 <div className="flex items-start gap-2 mb-1.5">
@@ -503,11 +503,11 @@ function CruiseDotPartnersForm() {
                     <line x1="22" y1="17" x2="24.5" y2="17" stroke="#000" strokeWidth="1"/>
                     <line x1="25.5" y1="17" x2="28" y2="17" stroke="#000" strokeWidth="1"/>
                   </svg>
-                  <p className="text-xs text-gray-700 font-semibold leading-relaxed">
+                  <p className="text-sm text-gray-700 font-semibold leading-relaxed">
                     대한민국 공식 등록 여행사
                   </p>
                 </div>
-                <p className="text-xs text-gray-600 leading-relaxed">
+                <p className="text-sm text-gray-600 leading-relaxed">
                   크루즈닷은 법적으로 등록된 대한민국 여행사로, 대기업·중소기업 여행사와 공식 제휴하고 있습니다.<br />
                   소비자에게 안전하고 신뢰 있는 여행을 지원해 드립니다.
                 </p>
@@ -524,10 +524,10 @@ function CruiseDotPartnersForm() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-xs font-bold text-amber-500">STEP 6</span>
+                    <span className="text-sm font-bold text-amber-500">STEP 6</span>
                     <p className="text-sm font-bold text-gray-900">파트너스 전용 특별 혜택</p>
                   </div>
-                  <p className="text-xs text-amber-700 font-semibold mb-3">
+                  <p className="text-sm text-amber-700 font-semibold mb-3">
                     크루즈닷 파트너스에게만 드리는 특별 지원 프로그램입니다.
                   </p>
                   <div className="grid grid-cols-1 gap-2">
@@ -583,12 +583,12 @@ function CruiseDotPartnersForm() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                            <p className="text-xs font-bold text-gray-900">{item.label}</p>
+                            <p className="text-sm font-bold text-gray-900">{item.label}</p>
                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${item.badgeColor}`}>
                               {item.badge}
                             </span>
                           </div>
-                          <p className="text-xs text-gray-500 leading-relaxed">{item.desc}</p>
+                          <p className="text-sm text-gray-500 leading-relaxed">{item.desc}</p>
                         </div>
                       </div>
                     ))}
@@ -599,7 +599,7 @@ function CruiseDotPartnersForm() {
                 <svg className="w-4 h-4 text-white flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
-                <p className="text-white text-xs font-bold">지금 신청하고 파트너스 전용 혜택을 모두 누리세요!</p>
+                <p className="text-white text-sm font-bold">지금 신청하고 파트너스 전용 혜택을 모두 누리세요!</p>
               </div>
             </div>
           </div>
@@ -621,7 +621,7 @@ function CruiseDotPartnersForm() {
               {supervisorPhone && <p className="text-teal-600">{supervisorPhone}</p>}
             </div>
           ) : (
-            <p className="mt-1 text-xs text-gray-500">문의: {COMPANY.phone}</p>
+            <p className="mt-1 text-sm text-gray-500">문의: {COMPANY.phone}</p>
           )}
         </div>
 
@@ -668,7 +668,7 @@ function CruiseDotPartnersForm() {
                 placeholder="example@email.com"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               />
-              <p className="text-xs text-blue-600 mt-1 font-medium">
+              <p className="text-sm text-blue-600 mt-1 font-medium">
                 ✉ 승인 완료 시 이메일로 아이디·임시 비밀번호가 발송됩니다.
               </p>
             </div>
@@ -689,7 +689,7 @@ function CruiseDotPartnersForm() {
         <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="bg-violet-700 px-5 py-3.5">
             <h2 className="text-white font-bold text-sm">② SNS 채널 & 지원동기</h2>
-            <p className="text-violet-200 text-xs mt-0.5">포트폴리오 및 활동 채널을 알려주세요 (선택)</p>
+            <p className="text-violet-200 text-sm mt-0.5">포트폴리오 및 활동 채널을 알려주세요 (선택)</p>
           </div>
           <div className="p-5 space-y-3">
             {[
@@ -707,7 +707,7 @@ function CruiseDotPartnersForm() {
               )},
             ].map((item) => (
               <div key={item.key}>
-                <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1.5">
+                <label className="block text-sm font-medium text-gray-600 mb-1 flex items-center gap-1.5">
                   <span className={item.color}>{item.icon}</span>
                   {item.label}
                 </label>
@@ -723,7 +723,7 @@ function CruiseDotPartnersForm() {
 
             {/* 기타 */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">기타 채널 / 링크</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">기타 채널 / 링크</label>
               <input
                 type="text"
                 value={snsEtc}
@@ -753,7 +753,7 @@ function CruiseDotPartnersForm() {
           <div className="bg-gray-800 px-5 py-3.5 flex items-center justify-between">
             <h2 className="text-white font-bold text-sm">③ 계약서 확인</h2>
             {contractRead && (
-              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-medium">확인 완료</span>
+              <span className="bg-green-500 text-white text-sm px-2 py-1 rounded-full font-medium">확인 완료</span>
             )}
           </div>
 
@@ -761,7 +761,7 @@ function CruiseDotPartnersForm() {
             <div className="p-5">
               <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm text-gray-600 space-y-2">
                 <p className="font-semibold text-gray-800">크루즈닷 파트너스 프리랜서 용역계약서</p>
-                <ul className="text-xs space-y-1.5 text-gray-500">
+                <ul className="text-sm space-y-1.5 text-gray-500">
                   <li className="flex items-start gap-1.5"><span className="text-blue-400 mt-0.5">•</span> 제3조 보수 및 정산 · 수수료 1~5%, 출발일 지급</li>
                   <li className="flex items-start gap-1.5"><span className="text-blue-400 mt-0.5">•</span> 제4조 타사 영업 허용</li>
                   <li className="flex items-start gap-1.5"><span className="text-red-400 mt-0.5">•</span> 제5조 콘텐츠 무단도용 금지 · 위약벌 건당 3,000만원</li>
@@ -793,21 +793,21 @@ function CruiseDotPartnersForm() {
                     </div>
                   </div>
                 </div>
-                <pre className="whitespace-pre-wrap text-xs text-gray-700 font-mono leading-relaxed">{contractBody}</pre>
+                <pre className="whitespace-pre-wrap text-sm text-gray-700 font-mono leading-relaxed">{contractBody}</pre>
                 <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-end">
-                  <div className="text-xs text-gray-500">
+                  <div className="text-sm text-gray-500">
                     <p>갑: 크루즈닷 대표 배연성</p>
                     <div className="relative w-14 h-14 mt-1 opacity-80">
                       <Image src={COMPANY.stamp} alt="배연성 도장" fill className="object-contain" onError={() => {}} />
                     </div>
                   </div>
-                  <div className="text-xs text-gray-500 text-right">
+                  <div className="text-sm text-gray-500 text-right">
                     <p>을: {name || '___________'}</p>
                   </div>
                 </div>
               </div>
               {!contractRead && (
-                <p className="text-xs text-gray-400 text-center mt-2">스크롤하여 계약서 전체를 읽어주세요</p>
+                <p className="text-sm text-gray-600 text-center mt-2">스크롤하여 계약서 전체를 읽어주세요</p>
               )}
               {contractRead && (
                 <div className="mt-3">
@@ -874,7 +874,7 @@ function CruiseDotPartnersForm() {
                   />
                   <div>
                     <p className="text-sm font-medium text-gray-700">{item.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{item.desc}</p>
+                    <p className="text-sm text-gray-600 mt-0.5 leading-relaxed">{item.desc}</p>
                   </div>
                 </label>
               ))}
@@ -882,10 +882,10 @@ function CruiseDotPartnersForm() {
 
             {/* 반려 시 파기 안내 */}
             <div className="flex items-start gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-3">
-              <svg className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-4 h-4 text-gray-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="text-xs text-gray-500 leading-relaxed">
+              <p className="text-sm text-gray-500 leading-relaxed">
                 반려 시 계약서 및 제출 서류는 <span className="font-semibold text-gray-700">즉시 자동 파기</span>됩니다.
               </p>
             </div>
@@ -920,7 +920,7 @@ function CruiseDotPartnersForm() {
           ) : '크루즈닷 파트너스 가입 신청'}
         </button>
 
-        <p className="text-center text-xs text-gray-400 pb-4">
+        <p className="text-center text-sm text-gray-600 pb-4">
           제출 후 담당자가 확인하여 연락드립니다 · {COMPANY.phone}
         </p>
       </form>

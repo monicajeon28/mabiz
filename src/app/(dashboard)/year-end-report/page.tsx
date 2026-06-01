@@ -155,7 +155,7 @@ export default function YearEndReportPage() {
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
                 <TrendingUp className="w-4 h-4 text-navy-900" />
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">총매출액</span>
+                <span className="text-sm font-semibold text-gray-500 uppercase tracking-wide">총매출액</span>
               </div>
               <p className="text-2xl font-bold text-navy-900" title={formatFull(gt.totalSaleAmount)}>
                 {formatKRW(gt.totalSaleAmount)}
@@ -165,7 +165,7 @@ export default function YearEndReportPage() {
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
                 <DollarSign className="w-4 h-4 text-gold-500" />
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">총커미션</span>
+                <span className="text-sm font-semibold text-gray-500 uppercase tracking-wide">총커미션</span>
               </div>
               <p className="text-2xl font-bold text-gold-500" title={formatFull(gt.totalCommission)}>
                 {formatKRW(gt.totalCommission)}
@@ -175,7 +175,7 @@ export default function YearEndReportPage() {
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
                 <RotateCcw className="w-4 h-4 text-red-500" />
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">총환불</span>
+                <span className="text-sm font-semibold text-gray-500 uppercase tracking-wide">총환불</span>
               </div>
               <p className="text-2xl font-bold text-red-500" title={formatFull(gt.totalRefund)}>
                 {formatKRW(gt.totalRefund)}
@@ -185,7 +185,7 @@ export default function YearEndReportPage() {
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle className="w-4 h-4 text-green-500" />
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">확정건수</span>
+                <span className="text-sm font-semibold text-gray-500 uppercase tracking-wide">확정건수</span>
               </div>
               <p className="text-2xl font-bold text-gray-800">
                 {gt.confirmedCount.toLocaleString("ko-KR")}건
@@ -207,7 +207,7 @@ export default function YearEndReportPage() {
         <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
           <span className="text-sm font-semibold text-gray-700">{year}년 판매원별 실적</span>
           {data && (
-            <span className="text-xs text-gray-400">총 {data.agents.length}명</span>
+            <span className="text-sm text-gray-600">총 {data.agents.length}명</span>
           )}
         </div>
 
@@ -235,7 +235,7 @@ export default function YearEndReportPage() {
                 </>
               ) : data && data.agents.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-16 text-center text-gray-400">
+                  <td colSpan={7} className="px-4 py-16 text-center text-gray-600">
                     <div className="flex flex-col items-center gap-2">
                       <BarChart2 className="w-10 h-10 text-gray-300" />
                       <span>{year}년 데이터가 없습니다.</span>
@@ -260,7 +260,7 @@ export default function YearEndReportPage() {
                       <td className="px-4 py-3">
                         <p className="font-medium text-gray-800">{agent.agentName}</p>
                         {agent.mallUserId && (
-                          <p className="text-xs text-gray-400 mt-0.5">{agent.mallUserId}</p>
+                          <p className="text-sm text-gray-600 mt-0.5">{agent.mallUserId}</p>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-gray-700">
@@ -284,7 +284,7 @@ export default function YearEndReportPage() {
                       <td className={`px-4 py-3 text-right tabular-nums font-semibold ${isHighRefund ? "text-red-600" : "text-gray-600"}`}>
                         {agent.refundRate}%
                         {isHighRefund && (
-                          <span className="ml-1 text-xs text-red-500" title="환불율 30% 초과">!</span>
+                          <span className="ml-1 text-sm text-red-500" title="환불율 30% 초과">!</span>
                         )}
                       </td>
                     </tr>

@@ -476,7 +476,7 @@ ${footerBlock}
             onChange={(e) => handleTitleChange(e.target.value)}
             className="flex-1 text-base font-semibold border-0 focus:outline-none bg-transparent min-w-0"
           />
-          <div className="flex items-center gap-1 text-xs text-gray-400 bg-gray-100 px-2.5 py-1.5 rounded-lg shrink-0">
+          <div className="flex items-center gap-1 text-sm text-gray-600 bg-gray-100 px-2.5 py-1.5 rounded-lg shrink-0">
             <span>/p/</span>
             <input type="text" value={slug} onChange={(e) => setSlug(e.target.value)}
               className="bg-transparent border-0 focus:outline-none w-24 text-gray-600" placeholder="my-page" />
@@ -487,7 +487,7 @@ ${footerBlock}
           </button>
         </div>
 
-        {error && <p className="text-red-500 text-xs px-4 py-2 bg-red-50 border-b border-red-100 shrink-0">{error}</p>}
+        {error && <p className="text-red-500 text-sm px-4 py-2 bg-red-50 border-b border-red-100 shrink-0">{error}</p>}
 
         {/* 스크롤 본문 */}
         <div className="flex-1 overflow-y-auto">
@@ -520,15 +520,15 @@ ${footerBlock}
                   placeholder="새 그룹명" autoFocus
                   className="flex-1 border border-blue-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-500" />
                 <button onClick={createGroup} disabled={addingGroup || !newGroupName.trim()}
-                  className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-medium disabled:opacity-50">
+                  className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm font-medium disabled:opacity-50">
                   {addingGroup ? "..." : "추가"}
                 </button>
                 <button onClick={() => { setShowAddGroup(false); setNewGroupName(""); }}
-                  className="p-1.5 text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>
+                  className="p-1.5 text-gray-600 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>
               </div>
             )}
             {groups.find((g) => g.id === selectedGroupId)?.funnelId && (
-              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">🔄 등록 즉시 자동 문자</span>
+              <span className="text-sm text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">🔄 등록 즉시 자동 문자</span>
             )}
           </div>
 
@@ -554,9 +554,9 @@ ${footerBlock}
                   onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                   onDrop={(e) => { e.preventDefault(); e.stopPropagation(); const f = Array.from(e.dataTransfer.files); if (f.length) uploadFiles(f); }}
                 >
-                  <Upload className="w-9 h-9 text-gray-400 mx-auto mb-3" />
+                  <Upload className="w-9 h-9 text-gray-600 mx-auto mb-3" />
                   <p className="text-sm font-medium text-gray-600">{uploading ? "업로드 중..." : "이미지 드래그 또는 클릭"}</p>
-                  <p className="text-xs text-gray-400 mt-1">JPG · PNG · WebP · GIF / 최대 20MB</p>
+                  <p className="text-sm text-gray-600 mt-1">JPG · PNG · WebP · GIF / 최대 20MB</p>
                   <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
                     onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; if (f.length) uploadFiles(f); }} />
                 </div>
@@ -571,7 +571,7 @@ ${footerBlock}
                 </button>
                 {images.length > 0 && (
                   <div className="mt-4 space-y-2">
-                    <p className="text-xs font-medium text-gray-500">이미지 {images.length}장 · 드래그로 순서 변경</p>
+                    <p className="text-sm font-medium text-gray-500">이미지 {images.length}장 · 드래그로 순서 변경</p>
                     {images.map((img, idx) => (
                       <div key={img.id} draggable
                         onDragStart={() => setDragIdx(idx)}
@@ -584,9 +584,9 @@ ${footerBlock}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate text-gray-700">{img.fileName}</p>
-                          <p className="text-xs text-gray-400">{img.width}×{img.height} · {img.mimeType}</p>
+                          <p className="text-sm text-gray-600">{img.width}×{img.height} · {img.mimeType}</p>
                         </div>
-                        <span className="text-xs text-gray-400 shrink-0">#{idx + 1}</span>
+                        <span className="text-sm text-gray-600 shrink-0">#{idx + 1}</span>
                         <button onClick={() => removeImage(img.id)} className="p-1 text-gray-300 hover:text-red-500 rounded shrink-0">
                           <X className="w-4 h-4" />
                         </button>
@@ -595,9 +595,9 @@ ${footerBlock}
                   </div>
                 )}
                 {images.length === 0 && !uploading && (
-                  <div className="mt-6 text-center text-gray-400 text-sm">
+                  <div className="mt-6 text-center text-gray-600 text-sm">
                     <p>이미지를 업로드하면 랜딩페이지가 자동으로 만들어집니다</p>
-                    <p className="text-xs mt-1 text-gray-300">이미지가 세로로 쌓이고 맨 아래에 신청 폼이 붙습니다</p>
+                    <p className="text-sm mt-1 text-gray-300">이미지가 세로로 쌓이고 맨 아래에 신청 폼이 붙습니다</p>
                   </div>
                 )}
               </div>
@@ -608,7 +608,7 @@ ${footerBlock}
           <div className="mx-4 mb-4 bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
               <p className="text-sm font-semibold text-gray-800">신청 폼 필드</p>
-              <p className="text-xs text-gray-400 mt-0.5">파란색 = 폼에 표시됨 · 체크 = 필수 입력</p>
+              <p className="text-sm text-gray-600 mt-0.5">파란색 = 폼에 표시됨 · 체크 = 필수 입력</p>
             </div>
             <div className="p-4">
               <div className="space-y-2 mb-4">
@@ -616,12 +616,12 @@ ${footerBlock}
                   <div key={key} className="flex items-center gap-3 h-9">
                     <button
                       onClick={() => toggleField(key)}
-                      className={`w-32 shrink-0 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${val.enabled ? "bg-blue-500 text-white shadow-sm" : "bg-gray-100 text-gray-400 hover:bg-gray-200"}`}>
+                      className={`w-32 shrink-0 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${val.enabled ? "bg-blue-500 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${val.enabled ? "bg-white" : "bg-gray-400"}`} />
                       {FIELD_LABELS[key]}
                     </button>
                     {val.enabled && (
-                      <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+                      <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
                         <input type="checkbox" checked={val.required} onChange={() => toggleRequired(key)}
                           className="w-4 h-4 rounded border-gray-300 accent-blue-500" />
                         필수
@@ -633,13 +633,13 @@ ${footerBlock}
 
               {/* 추가 질문 */}
               <div className="pt-3 border-t border-gray-100 space-y-2">
-                <p className="text-xs font-medium text-gray-500 mb-2">추가 질문</p>
+                <p className="text-sm font-medium text-gray-500 mb-2">추가 질문</p>
                 {additionalFields.map((f, idx) => (
                   <div key={f.id} className="flex items-center gap-2">
                     <input type="text" value={f.name}
                       onChange={(e) => setAdditionalFields((p) => p.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
                       placeholder="질문 내용 입력" className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
-                    <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer shrink-0">
+                    <label className="flex items-center gap-1 text-sm text-gray-500 cursor-pointer shrink-0">
                       <input type="checkbox" checked={f.required}
                         onChange={() => setAdditionalFields((p) => p.map((x, i) => i === idx ? { ...x, required: !x.required } : x))}
                         className="w-3.5 h-3.5 accent-blue-500" /> 필수
@@ -649,7 +649,7 @@ ${footerBlock}
                   </div>
                 ))}
                 <button onClick={() => setAdditionalFields((p) => [...p, { id: crypto.randomUUID(), name: "", required: false }])}
-                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-1">
+                  className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 mt-1">
                   <Plus className="w-3.5 h-3.5" /> 질문 추가
                 </button>
               </div>
@@ -658,13 +658,13 @@ ${footerBlock}
               <div className="pt-3 border-t border-gray-100">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-medium text-gray-700">B2B 문의자 자동 등록</p>
-                    <p className="text-xs text-gray-400 mt-0.5">신청 시 교육 문의자/구매자로 자동 저장</p>
+                    <p className="text-sm font-medium text-gray-700">B2B 문의자 자동 등록</p>
+                    <p className="text-sm text-gray-600 mt-0.5">신청 시 교육 문의자/구매자로 자동 저장</p>
                   </div>
                   <select
                     value={b2bEduType}
                     onChange={(e) => setB2bEduType(e.target.value as "" | "INQUIRER" | "BUYER")}
-                    className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-blue-400"
+                    className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-blue-400"
                   >
                     <option value="">사용 안 함</option>
                     <option value="INQUIRER">교육 문의자로 등록</option>
@@ -675,7 +675,7 @@ ${footerBlock}
 
               {/* 버튼 텍스트 */}
               <div className="pt-3 border-t border-gray-100 flex items-center gap-2 mt-3">
-                <label className="text-xs text-gray-500 shrink-0 w-20">버튼 텍스트</label>
+                <label className="text-sm text-gray-500 shrink-0 w-20">버튼 텍스트</label>
                 <input type="text" value={buttonTitle} onChange={(e) => setButtonTitle(e.target.value)}
                   placeholder="신청하기 (기본값)" className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
               </div>
@@ -687,17 +687,17 @@ ${footerBlock}
             <div className="px-4 py-3 flex items-center justify-between bg-gray-50 border-b border-gray-100">
               <div>
                 <p className="text-sm font-semibold text-gray-800">결제 설정</p>
-                <p className="text-xs text-gray-400 mt-0.5">신청 폼에 결제 금액 섹션 표시</p>
+                <p className="text-sm text-gray-600 mt-0.5">신청 폼에 결제 금액 섹션 표시</p>
               </div>
               <button onClick={() => setPaymentEnabled(!paymentEnabled)}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${paymentEnabled ? "bg-blue-500 text-white shadow-sm" : "bg-gray-100 text-gray-400 hover:bg-gray-200"}`}>
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${paymentEnabled ? "bg-blue-500 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
                 {paymentEnabled ? "ON" : "OFF"}
               </button>
             </div>
             {paymentEnabled && (
               <div className="p-4 space-y-3">
                 <div className="flex items-center gap-3">
-                  <label className="text-xs text-gray-500 w-16 shrink-0">결제 유형</label>
+                  <label className="text-sm text-gray-500 w-16 shrink-0">결제 유형</label>
                   <select value={paymentType} onChange={(e) => setPaymentType(e.target.value as "onetime" | "subscription")}
                     className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-blue-400">
                     <option value="onetime">일반 결제 (1회)</option>
@@ -705,25 +705,25 @@ ${footerBlock}
                   </select>
                 </div>
                 <div className="flex items-center gap-3">
-                  <label className="text-xs text-gray-500 w-16 shrink-0">상품명</label>
+                  <label className="text-sm text-gray-500 w-16 shrink-0">상품명</label>
                   <input type="text" value={productName} onChange={(e) => setProductName(e.target.value)}
                     placeholder="크루즈 여행 상품" className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
                 </div>
                 <div className="flex items-center gap-3">
-                  <label className="text-xs text-gray-500 w-16 shrink-0">금액</label>
+                  <label className="text-sm text-gray-500 w-16 shrink-0">금액</label>
                   <input type="number" value={productPrice} onChange={(e) => setProductPrice(e.target.value)}
                     placeholder="100000" className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
-                  <span className="text-xs text-gray-400 shrink-0">원{paymentType === "subscription" ? "/월" : ""}</span>
+                  <span className="text-sm text-gray-600 shrink-0">원{paymentType === "subscription" ? "/월" : ""}</span>
                 </div>
                 {paymentType === "subscription" && (
                   <div className="flex items-center gap-3">
-                    <label className="text-xs text-gray-500 w-16 shrink-0">매월</label>
+                    <label className="text-sm text-gray-500 w-16 shrink-0">매월</label>
                     <select value={cycleDay} onChange={(e) => setCycleDay(e.target.value)}
                       className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none">
                       {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}일</option>)}
                       <option value="90">말일</option>
                     </select>
-                    <label className="text-xs text-gray-500 shrink-0">만료일</label>
+                    <label className="text-sm text-gray-500 shrink-0">만료일</label>
                     <input type="date" value={expireDate} onChange={(e) => setExpireDate(e.target.value)}
                       className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
                   </div>
@@ -737,31 +737,31 @@ ${footerBlock}
             <div className="px-4 py-3 flex items-center justify-between bg-gray-50 border-b border-gray-100">
               <div>
                 <p className="text-sm font-semibold text-gray-800">고객 후기 댓글</p>
-                <p className="text-xs text-gray-400 mt-0.5">랜딩페이지 하단에 후기 섹션 표시 · 저장 후 AI 댓글 자동 생성</p>
+                <p className="text-sm text-gray-600 mt-0.5">랜딩페이지 하단에 후기 섹션 표시 · 저장 후 AI 댓글 자동 생성</p>
               </div>
               <button onClick={() => setCommentEnabled(!commentEnabled)}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${commentEnabled ? "bg-blue-500 text-white shadow-sm" : "bg-gray-100 text-gray-400 hover:bg-gray-200"}`}>
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${commentEnabled ? "bg-blue-500 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
                 {commentEnabled ? "ON" : "OFF"}
               </button>
             </div>
             {commentEnabled && (
               <div className="p-4 space-y-3">
                 <div className="flex items-center gap-3">
-                  <label className="text-xs text-gray-500 w-20 shrink-0">후기 개수</label>
+                  <label className="text-sm text-gray-500 w-20 shrink-0">후기 개수</label>
                   <input type="number" min={1} max={15} value={commentCount}
                     onChange={(e) => setCommentCount(Math.min(15, Math.max(1, parseInt(e.target.value) || 1)))}
                     className="w-20 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
-                  <span className="text-xs text-gray-400">개 (최대 15)</span>
+                  <span className="text-sm text-gray-600">개 (최대 15)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className="text-xs text-gray-500 w-20 shrink-0">날짜 범위</label>
+                  <label className="text-sm text-gray-500 w-20 shrink-0">날짜 범위</label>
                   <input type="date" value={commentDateFrom} onChange={(e) => setCommentDateFrom(e.target.value)}
                     className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
-                  <span className="text-xs text-gray-400 shrink-0">~</span>
+                  <span className="text-sm text-gray-600 shrink-0">~</span>
                   <input type="date" value={commentDateTo} onChange={(e) => setCommentDateTo(e.target.value)}
                     className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
                 </div>
-                <p className="text-xs text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">💡 저장 완료 후 랜딩페이지 관리에서 AI 후기 자동 생성 버튼을 사용하세요.</p>
+                <p className="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">💡 저장 완료 후 랜딩페이지 관리에서 AI 후기 자동 생성 버튼을 사용하세요.</p>
               </div>
             )}
           </div>
@@ -770,25 +770,25 @@ ${footerBlock}
           <div className="mx-4 mb-4 bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
               <p className="text-sm font-semibold text-gray-800">링크 공유 썸네일 (OG)</p>
-              <p className="text-xs text-gray-400 mt-0.5">카카오·SNS 공유 시 미리보기 제목·이미지</p>
+              <p className="text-sm text-gray-600 mt-0.5">카카오·SNS 공유 시 미리보기 제목·이미지</p>
             </div>
             <div className="p-4 space-y-3">
               <div className="flex items-center gap-3">
-                <label className="text-xs text-gray-500 w-16 shrink-0">공유 제목</label>
+                <label className="text-sm text-gray-500 w-16 shrink-0">공유 제목</label>
                 <input type="text" value={exposureTitle} onChange={(e) => setExposureTitle(e.target.value)}
                   placeholder="비워두면 랜딩페이지 제목 사용"
                   className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
               </div>
               <div>
-                <label className="text-xs text-gray-500 block mb-1.5">썸네일 이미지</label>
+                <label className="text-sm text-gray-500 block mb-1.5">썸네일 이미지</label>
                 {exposureImage ? (
                   <div className="flex items-center gap-2">
                     <img src={`/api/landing-pages/images/proxy?id=${exposureImage.match(/id=([^&]+)/)?.[1] ?? ""}`}
                       alt="OG 이미지" className="w-20 h-14 object-cover rounded-lg border border-gray-200"
                       onError={(e) => { (e.target as HTMLImageElement).src = ""; }} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-600 truncate">{exposureImage}</p>
-                      <button onClick={() => setExposureImage("")} className="text-xs text-red-400 hover:text-red-600 mt-1">제거</button>
+                      <p className="text-sm text-gray-600 truncate">{exposureImage}</p>
+                      <button onClick={() => setExposureImage("")} className="text-sm text-red-400 hover:text-red-600 mt-1">제거</button>
                     </div>
                   </div>
                 ) : (
@@ -810,24 +810,24 @@ ${footerBlock}
             </div>
             <div className="p-4 space-y-3">
               <div className="flex items-center gap-3">
-                <label className="text-xs text-gray-500 w-24 shrink-0">완료 후 이동 URL</label>
+                <label className="text-sm text-gray-500 w-24 shrink-0">완료 후 이동 URL</label>
                 <input type="url" value={completionPageUrl} onChange={(e) => setCompletionPageUrl(e.target.value)}
                   placeholder="https://..." className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
               </div>
               <div className="flex items-center gap-3">
-                <label className="text-xs text-gray-500 w-24 shrink-0">페이지 설명</label>
+                <label className="text-sm text-gray-500 w-24 shrink-0">페이지 설명</label>
                 <input type="text" value={description} onChange={(e) => setDescription(e.target.value)}
                   placeholder="관리용 내부 메모" className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
               </div>
               <div>
-                <label className="text-xs text-gray-500 block mb-1.5">푸터 텍스트</label>
+                <label className="text-sm text-gray-500 block mb-1.5">푸터 텍스트</label>
                 <textarea value={footer} onChange={(e) => setFooter(e.target.value)}
                   placeholder={"예) 사업자등록번호: 851-67-00338 | 대표: 전혜선\n주소: 서울시 강남구 테헤란로 123\n고객센터: 02-0000-0000 | 이메일: info@example.com"}
                   rows={3} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 resize-none" />
-                <p className="text-xs text-gray-400 mt-1">사업자 정보, 주소, 고객센터 등 랜딩페이지 하단에 표시됩니다</p>
+                <p className="text-sm text-gray-600 mt-1">사업자 정보, 주소, 고객센터 등 랜딩페이지 하단에 표시됩니다</p>
               </div>
               <div>
-                <label className="text-xs text-gray-500 block mb-1.5">헤더 스크립트 (픽셀 · GA 코드)</label>
+                <label className="text-sm text-gray-500 block mb-1.5">헤더 스크립트 (픽셀 · GA 코드)</label>
                 <textarea value={headerScript} onChange={(e) => setHeaderScript(e.target.value)}
                   placeholder="<!-- Facebook Pixel, Google Analytics 등 -->"
                   rows={3} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-blue-400 resize-none" />
@@ -842,9 +842,9 @@ ${footerBlock}
       <div className="w-[380px] shrink-0 bg-[#1a1a2e] border-l border-gray-700 flex flex-col">
         {/* 상단 바 */}
         <div className="px-4 py-3 flex items-center gap-2 border-b border-white/10">
-          <Smartphone className="w-4 h-4 text-gray-400" />
+          <Smartphone className="w-4 h-4 text-gray-600" />
           <span className="text-sm font-medium text-gray-300">실시간 미리보기</span>
-          <span className="ml-auto flex items-center gap-1 text-xs text-green-400 font-medium">
+          <span className="ml-auto flex items-center gap-1 text-sm text-green-400 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
             LIVE
           </span>
@@ -876,7 +876,7 @@ ${footerBlock}
           {/* OG 공유 카드 미리보기 */}
           {exposureImage && (
             <div className="w-[280px] shrink-0">
-              <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+              <p className="text-sm text-gray-500 mb-2 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
                 카카오·SNS 공유 미리보기
               </p>
@@ -891,10 +891,10 @@ ${footerBlock}
                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />
                 <div className="px-3 py-2.5">
-                  <p className="text-xs font-semibold text-gray-900 truncate">
+                  <p className="text-sm font-semibold text-gray-900 truncate">
                     {exposureTitle || title || "랜딩페이지 제목"}
                   </p>
-                  <p className="text-xs text-gray-400 mt-0.5">mabizcruisedot.com</p>
+                  <p className="text-sm text-gray-600 mt-0.5">mabizcruisedot.com</p>
                 </div>
               </div>
             </div>
@@ -916,14 +916,14 @@ ${footerBlock}
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
             <div>
               <p className="font-semibold text-gray-800 text-sm">이미지 HTML 코드</p>
-              <p className="text-xs text-gray-400 mt-0.5">에디터에 자동 삽입됨 · 코드를 직접 복사할 수도 있어요</p>
+              <p className="text-sm text-gray-600 mt-0.5">에디터에 자동 삽입됨 · 코드를 직접 복사할 수도 있어요</p>
             </div>
-            <button onClick={() => { setCopyPopup(null); setCopied(false); }} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400">
+            <button onClick={() => { setCopyPopup(null); setCopied(false); }} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-600">
               <X className="w-4 h-4" />
             </button>
           </div>
           <div className="p-5 space-y-3">
-            <pre className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-xs font-mono text-gray-700 overflow-x-auto whitespace-pre-wrap break-all max-h-52 leading-relaxed">{copyPopup}</pre>
+            <pre className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-sm font-mono text-gray-700 overflow-x-auto whitespace-pre-wrap break-all max-h-52 leading-relaxed">{copyPopup}</pre>
             <button
               onClick={() => { navigator.clipboard.writeText(copyPopup); setCopied(true); }}
               className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${copied ? "bg-green-500 text-white" : "bg-[#1E2D4E] text-white hover:opacity-90"}`}

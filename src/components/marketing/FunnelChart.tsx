@@ -23,7 +23,7 @@ export function FunnelChart({ summary }: FunnelChartProps) {
           const rate = prev > 0 ? Math.round((step.value / prev) * 100) : 0;
           return (
             <div key={step.label} className="flex-1 flex flex-col items-center gap-1">
-              <span className="text-xs font-bold text-gray-700">
+              <span className="text-sm font-bold text-gray-700">
                 {step.value.toLocaleString()}
               </span>
               <div className="w-full flex items-end justify-center">
@@ -33,9 +33,9 @@ export function FunnelChart({ summary }: FunnelChartProps) {
                   suppressHydrationWarning
                 />
               </div>
-              <span className="text-xs text-gray-500">{step.label}</span>
+              <span className="text-sm text-gray-500">{step.label}</span>
               {i > 0 && (
-                <span className="text-xs text-gray-400">{rate}%</span>
+                <span className="text-sm text-gray-600">{rate}%</span>
               )}
             </div>
           );

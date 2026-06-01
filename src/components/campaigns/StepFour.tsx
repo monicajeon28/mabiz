@@ -78,7 +78,7 @@ export default function StepFour({
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
           {formData.sendAt && (
-            <p className="text-xs text-gray-600 mt-2">
+            <p className="text-sm text-gray-600 mt-2">
               📅 {formatSendAt(formData.sendAt)}에 발송됩니다
             </p>
           )}
@@ -110,7 +110,7 @@ export default function StepFour({
                 />
                 <div className="flex-1">
                   <p className="font-medium text-gray-900">{rule.label}</p>
-                  <p className="text-xs text-gray-600">{rule.description}</p>
+                  <p className="text-sm text-gray-600">{rule.description}</p>
                 </div>
               </label>
             ))}

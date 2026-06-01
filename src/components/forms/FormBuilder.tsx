@@ -130,7 +130,7 @@ export default function FormBuilder({ onChange, initialFields }: FormBuilderProp
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <p className="font-medium text-sm">{field.label}</p>
-                            <p className="text-xs text-gray-500">{field.type}</p>
+                            <p className="text-sm text-gray-500">{field.type}</p>
                           </div>
                           <div className="flex gap-2 items-center">
                             {field.id !== 'name' && field.id !== 'phone' && (
@@ -141,11 +141,11 @@ export default function FormBuilder({ onChange, initialFields }: FormBuilderProp
                                   onChange={() => toggleRequired(field.id)}
                                   className="w-4 h-4"
                                 />
-                                <span className="text-xs text-gray-600">필수</span>
+                                <span className="text-sm text-gray-600">필수</span>
                               </label>
                             )}
                             {field.required && (field.id === 'name' || field.id === 'phone') && (
-                              <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">필수</span>
+                              <span className="text-sm bg-red-100 text-red-700 px-2 py-1 rounded">필수</span>
                             )}
                             {field.id !== 'name' && field.id !== 'phone' && (
                               <button
@@ -211,7 +211,7 @@ export default function FormBuilder({ onChange, initialFields }: FormBuilderProp
       {/* 미리보기 */}
       <div>
         <h3 className="text-sm font-bold mb-3">👁️ HTML 미리보기</h3>
-        <pre className="bg-gray-900 text-green-400 p-3 rounded text-xs overflow-x-auto">
+        <pre className="bg-gray-900 text-green-400 p-3 rounded text-sm overflow-x-auto">
           {`<form method="POST">\n${fields
             .map(f => `  <input type="${f.type}" name="${f.name}" placeholder="${f.placeholder || f.label}" ${f.required ? 'required' : ''} />`)
             .join('\n')}\n  <button type="submit">제출</button>\n</form>`}

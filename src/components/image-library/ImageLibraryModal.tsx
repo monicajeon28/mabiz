@@ -282,7 +282,7 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
               className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                 tab === t.key
                   ? "border-gold-500 text-navy-900"
-                  : "border-transparent text-gray-400 hover:text-gray-600"
+                  : "border-transparent text-gray-600 hover:text-gray-600"
               }`}
             >
               {t.label}
@@ -297,7 +297,7 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
             <div>
               <div className="flex gap-2 mb-4">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
                   <input
                     type="text"
                     placeholder="이미지 검색..."
@@ -311,7 +311,7 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                     <button
                       key={f}
                       onClick={() => setFolder(f)}
-                      className={`px-2.5 py-1.5 text-xs rounded-full border transition-colors ${
+                      className={`px-2.5 py-1.5 text-sm rounded-full border transition-colors ${
                         folder === f
                           ? "bg-navy-900 text-white border-navy-900"
                           : "bg-white text-gray-600 border-gray-200 hover:border-navy-900"
@@ -333,17 +333,17 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                         }}
                         placeholder="폴더명"
                         autoFocus
-                        className="w-20 px-2 py-1 text-xs border border-gray-300 rounded-full focus:outline-none focus:border-gold-500"
+                        className="w-20 px-2 py-1 text-sm border border-gray-300 rounded-full focus:outline-none focus:border-gold-500"
                       />
                       <button
                         onClick={handleAddFolder}
-                        className="text-xs text-green-600 hover:text-green-800 font-medium"
+                        className="text-sm text-green-600 hover:text-green-800 font-medium"
                       >
                         확인
                       </button>
                       <button
                         onClick={() => setAddingFolder(false)}
-                        className="text-xs text-gray-400 hover:text-gray-600"
+                        className="text-sm text-gray-600 hover:text-gray-600"
                       >
                         취소
                       </button>
@@ -351,7 +351,7 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                   ) : (
                     <button
                       onClick={() => setAddingFolder(true)}
-                      className="p-1.5 text-gray-400 hover:text-navy-900 rounded-full border border-dashed border-gray-300 hover:border-navy-900 transition-colors"
+                      className="p-1.5 text-gray-600 hover:text-navy-900 rounded-full border border-dashed border-gray-300 hover:border-navy-900 transition-colors"
                       title="폴더 추가"
                     >
                       <FolderPlus className="w-3.5 h-3.5" />
@@ -363,10 +363,10 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
               {error ? (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
                   <p className="text-red-700 text-sm font-medium">오류 발생</p>
-                  <p className="text-red-600 text-xs mt-1">{error}</p>
+                  <p className="text-red-600 text-sm mt-1">{error}</p>
                   <button
                     onClick={() => fetchImages()}
-                    className="mt-3 px-3 py-1.5 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors"
+                    className="mt-3 px-3 py-1.5 bg-red-100 text-red-700 rounded text-sm font-medium hover:bg-red-200 transition-colors"
                   >
                     다시 시도
                   </button>
@@ -384,10 +384,10 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                   </div>
                 </div>
               ) : items.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">
+                <div className="text-center py-12 text-gray-600">
                   <p className="text-3xl mb-2">🖼️</p>
                   <p className="text-sm">이미지가 없습니다</p>
-                  <p className="text-xs mt-1">이미지를 업로드하거나 Google Drive와 동기화가 필요할 수 있습니다</p>
+                  <p className="text-sm mt-1">이미지를 업로드하거나 Google Drive와 동기화가 필요할 수 있습니다</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
@@ -421,12 +421,12 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                             />
                           )}
                           {item.isGif && (
-                            <span className="absolute top-1 right-1 bg-purple-500 text-white text-xs px-1.5 py-0.5 rounded font-bold">
+                            <span className="absolute top-1 right-1 bg-purple-500 text-white text-sm px-1.5 py-0.5 rounded font-bold">
                               GIF
                             </span>
                           )}
                           {item.source === "asset" && (
-                            <span className="absolute top-1 left-1 bg-blue-500/80 text-white text-xs px-1.5 py-0.5 rounded font-bold">
+                            <span className="absolute top-1 left-1 bg-blue-500/80 text-white text-sm px-1.5 py-0.5 rounded font-bold">
                               내
                             </span>
                           )}
@@ -445,11 +445,11 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                             }}
                             onClick={(e) => e.stopPropagation()}
                             autoFocus
-                            className="w-full text-xs px-1 py-1 border border-gold-500 rounded focus:outline-none"
+                            className="w-full text-sm px-1 py-1 border border-gold-500 rounded focus:outline-none"
                           />
                         ) : (
                           <p
-                            className={`text-xs text-gray-600 px-1 py-1 truncate ${
+                            className={`text-sm text-gray-600 px-1 py-1 truncate ${
                               item.source === "asset" ? "cursor-text hover:text-navy-900" : ""
                             }`}
                             onDoubleClick={(e) => startEditing(e, item)}
@@ -505,7 +505,7 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                   placeholder="https://example.com/image.webp"
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gold-500"
                 />
-                <p className="text-xs text-gray-400 mt-1">webp, jpg, png, gif 모두 지원</p>
+                <p className="text-sm text-gray-600 mt-1">webp, jpg, png, gif 모두 지원</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">대체 텍스트 (alt)</label>
@@ -520,7 +520,7 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
 
               {urlInput && (
                 <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-xs text-gray-500 mb-2 font-medium">미리보기</p>
+                  <p className="text-sm text-gray-500 mb-2 font-medium">미리보기</p>
                   <img
                     src={urlInput}
                     alt={altInput || "미리보기"}
@@ -532,8 +532,8 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
 
               {urlInput && (
                 <div className="bg-gray-900 rounded-xl p-3">
-                  <p className="text-xs text-gray-400 mb-2">HTML 코드</p>
-                  <code className="text-xs text-green-400 break-all">{buildUrlHtml()}</code>
+                  <p className="text-sm text-gray-600 mb-2">HTML 코드</p>
+                  <code className="text-sm text-green-400 break-all">{buildUrlHtml()}</code>
                 </div>
               )}
 
@@ -586,7 +586,7 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
               {ytInput && extractYtId(ytInput) && (
                 <>
                   <div className="bg-gray-50 rounded-xl p-3">
-                    <p className="text-xs text-gray-500 mb-2">미리보기</p>
+                    <p className="text-sm text-gray-500 mb-2">미리보기</p>
                     <div className="relative aspect-video">
                       <iframe
                         src={`https://www.youtube.com/embed/${extractYtId(ytInput)}`}
@@ -598,8 +598,8 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                   </div>
 
                   <div className="bg-gray-900 rounded-xl p-3">
-                    <p className="text-xs text-gray-400 mb-2">HTML 코드</p>
-                    <code className="text-xs text-green-400 break-all whitespace-pre-wrap">{buildYtHtml()}</code>
+                    <p className="text-sm text-gray-600 mb-2">HTML 코드</p>
+                    <code className="text-sm text-green-400 break-all whitespace-pre-wrap">{buildYtHtml()}</code>
                   </div>
                 </>
               )}

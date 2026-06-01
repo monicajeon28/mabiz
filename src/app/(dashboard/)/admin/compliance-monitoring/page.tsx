@@ -223,15 +223,15 @@ export default function ComplianceMonitoringPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <p className="font-medium">{anomaly.anomalyType}</p>
-                    <p className="text-xs mt-1 opacity-75">
+                    <p className="text-sm mt-1 opacity-75">
                       {format(new Date(anomaly.createdAt), 'PPP p', { locale: ko })}
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${SEVERITY_BADGE[anomaly.severity]}`}>
+                    <span className={`inline-block px-2 py-1 rounded text-sm font-medium ${SEVERITY_BADGE[anomaly.severity]}`}>
                       {anomaly.status}
                     </span>
-                    <p className="text-xs mt-1 font-semibold">위험도: {anomaly.riskScore}</p>
+                    <p className="text-sm mt-1 font-semibold">위험도: {anomaly.riskScore}</p>
                   </div>
                 </div>
               </div>
@@ -262,7 +262,7 @@ export default function ComplianceMonitoringPage() {
                 style={{ width: `${status.completionRate}%` }}
               />
             </div>
-            <ul className="space-y-2 text-xs">
+            <ul className="space-y-2 text-sm">
               {(status.items || []).slice(0, 5).map((item: any) => (
                 <li key={item.id} className="flex items-center gap-2">
                   {item.completed ? (
@@ -288,7 +288,7 @@ export default function ComplianceMonitoringPage() {
             {data.topPiiAccessors.map((accessor, index) => (
               <div key={accessor.userId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">
+                  <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold">
                     {index + 1}
                   </div>
                   <span className="font-medium text-gray-900">{accessor.userId}</span>

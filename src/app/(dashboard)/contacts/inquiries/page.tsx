@@ -22,7 +22,7 @@ const getLeadTier = (score: number) => {
   if (score >= 70) return { label: "🔥 HOT",  color: "bg-red-100 text-red-700" };
   if (score >= 30) return { label: "☀️ WARM", color: "bg-orange-100 text-orange-600" };
   if (score >= 0)  return { label: "❄️ COLD", color: "bg-blue-50 text-blue-500" };
-  return               { label: "💤 LOST", color: "bg-gray-100 text-gray-400" };
+  return               { label: "💤 LOST", color: "bg-gray-100 text-gray-600" };
 };
 
 type QuickCallResult = "INTERESTED" | "PENDING" | "REJECTED";
@@ -193,12 +193,12 @@ export default function InquiriesPage() {
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
                 <FileSpreadsheet className="w-5 h-5 text-green-600" /> 엑셀 고객 가져오기
               </h3>
-              <button onClick={() => setShowImport(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setShowImport(false)} className="text-gray-600 hover:text-gray-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-600 space-y-1">
+            <div className="bg-gray-50 rounded-xl p-3 text-sm text-gray-600 space-y-1">
               <p className="font-semibold">📋 엑셀 파일 형식</p>
               <p>• 필수: <strong>이름</strong>, <strong>전화번호</strong></p>
               <p>• 선택: 이메일, 관심크루즈, 예산, 메모, 유형</p>
@@ -216,10 +216,10 @@ export default function InquiriesPage() {
               <div className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
                 importFile ? "border-green-400 bg-green-50" : "border-gray-200 hover:border-navy-300"
               }`}>
-                <Upload className={`w-8 h-8 mx-auto mb-2 ${importFile ? "text-green-500" : "text-gray-400"}`} />
+                <Upload className={`w-8 h-8 mx-auto mb-2 ${importFile ? "text-green-500" : "text-gray-600"}`} />
                 {importFile
                   ? <p className="text-sm font-medium text-green-700">{importFile.name}</p>
-                  : <p className="text-sm text-gray-400">파일을 클릭하거나 드래그하세요<br />.xlsx, .xls 지원</p>
+                  : <p className="text-sm text-gray-600">파일을 클릭하거나 드래그하세요<br />.xlsx, .xls 지원</p>
                 }
               </div>
               <input
@@ -239,7 +239,7 @@ export default function InquiriesPage() {
                   {importResult.skipCount > 0 && ` / ⚠️ ${importResult.skipCount}건 건너뜀`}
                 </p>
                 {importResult.errors.slice(0, 3).map((e, i) => (
-                  <p key={i} className="text-xs opacity-80">{e}</p>
+                  <p key={i} className="text-sm opacity-80">{e}</p>
                 ))}
               </div>
             )}
@@ -285,7 +285,7 @@ export default function InquiriesPage() {
       {/* 검색 */}
       <div className="flex gap-2 mb-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
           <input
             type="text"
             placeholder="이름, 전화번호 검색"
@@ -305,7 +305,7 @@ export default function InquiriesPage() {
               onClick={() => setSelectedTags(prev =>
                 prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
               )}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+              className={`px-2.5 py-1 rounded-full text-sm font-medium transition-colors ${
                 selectedTags.includes(tag)
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -317,7 +317,7 @@ export default function InquiriesPage() {
           {selectedTags.length > 0 && (
             <button
               onClick={() => setSelectedTags([])}
-              className="px-2.5 py-1 rounded-full text-xs text-gray-400 hover:text-gray-600"
+              className="px-2.5 py-1 rounded-full text-sm text-gray-600 hover:text-gray-600"
             >
               초기화
             </button>
@@ -342,7 +342,7 @@ export default function InquiriesPage() {
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-gray-900">{c.name}</span>
                   {(c.leadScore ?? 0) >= 70 && (
-                    <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold">🔥 HOT</span>
+                    <span className="text-sm bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold">🔥 HOT</span>
                   )}
                 </div>
                 <span className="text-gray-500 flex items-center gap-3">
@@ -353,8 +353,8 @@ export default function InquiriesPage() {
                   >
                     {c.phone}
                   </a>
-                  <span className="text-xs text-amber-600">{formatDaysSince(c.lastContactedAt)}</span>
-                  <span className="text-xs text-gray-400">{c.leadScore ?? 0}점</span>
+                  <span className="text-sm text-amber-600">{formatDaysSince(c.lastContactedAt)}</span>
+                  <span className="text-sm text-gray-600">{c.leadScore ?? 0}점</span>
                 </span>
               </button>
             ))}
@@ -404,7 +404,7 @@ export default function InquiriesPage() {
           ))}
         </div>
       ) : !fetchError && filteredContacts.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-gray-600">
           <p className="text-4xl mb-3">📞</p>
           <p className="font-medium">{selectedTags.length > 0 ? '해당 태그를 보유한 고객이 없습니다' : '문의 고객이 없습니다'}</p>
           <p className="text-sm mt-1">{selectedTags.length > 0 ? '다른 태그를 선택해보세요.' : '위 버튼으로 고객을 추가해보세요.'}</p>
@@ -427,13 +427,13 @@ export default function InquiriesPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-gray-900">{c.name}</span>
-                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${tierInfo.color}`}>
+                      <span className={`text-sm px-1.5 py-0.5 rounded-full font-bold ${tierInfo.color}`}>
                         {tierInfo.label}
                       </span>
                       {c.groups.slice(0, 2).map((g) => (
                         <span
                           key={g.group.id}
-                          className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
+                          className="text-sm px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
                         >
                           {g.group.name}
                         </span>
@@ -447,12 +447,12 @@ export default function InquiriesPage() {
                           <Phone className="w-3 h-3" /> {c._count.callLogs}회
                         </span>
                       )}
-                      <span className="text-xs text-amber-600">{formatDaysSince(c.lastContactedAt)}</span>
+                      <span className="text-sm text-amber-600">{formatDaysSince(c.lastContactedAt)}</span>
                     </div>
                     {groups.length > 0 && (
                       <div className="flex items-center gap-1 mt-2" onClick={(e) => e.preventDefault()}>
                         <select
-                          className="text-xs border border-gray-200 rounded px-1.5 py-1 flex-1 max-w-[180px] bg-white focus:outline-none"
+                          className="text-sm border border-gray-200 rounded px-1.5 py-1 flex-1 max-w-[180px] bg-white focus:outline-none"
                           defaultValue=""
                           onChange={(e) => {
                             e.stopPropagation();
@@ -465,7 +465,7 @@ export default function InquiriesPage() {
                             <option key={g.id} value={g.id}>{g.name} {g.funnelId ? "🔄" : ""}</option>
                           ))}
                         </select>
-                        {assigning === c.id && <span className="text-xs text-gray-400">배정 중...</span>}
+                        {assigning === c.id && <span className="text-sm text-gray-600">배정 중...</span>}
                       </div>
                     )}
                   </div>
@@ -495,14 +495,14 @@ export default function InquiriesPage() {
 
                 {isQuickCallOpen && (
                   <div className="px-4 pb-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <span className="text-xs text-gray-500 shrink-0">콜 결과:</span>
+                    <span className="text-sm text-gray-500 shrink-0">콜 결과:</span>
                     {QUICK_CALL_OPTIONS.map((opt) => (
                       <button
                         key={opt.result}
                         type="button"
                         disabled={quickCallLoading}
                         onClick={() => handleQuickCall(c.id, opt.result)}
-                        className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${opt.color}`}
+                        className={`flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${opt.color}`}
                       >
                         {opt.icon}
                         {opt.label}
@@ -511,12 +511,12 @@ export default function InquiriesPage() {
                     <button
                       type="button"
                       onClick={() => { setQuickCallId(null); setQuickCallError(null); }}
-                      className="text-xs text-gray-400 hover:text-gray-600 ml-1"
+                      className="text-sm text-gray-600 hover:text-gray-600 ml-1"
                     >
                       취소
                     </button>
-                    {quickCallLoading && <span className="text-xs text-gray-400">저장 중...</span>}
-                    {quickCallError && <span className="text-xs text-red-500">{quickCallError}</span>}
+                    {quickCallLoading && <span className="text-sm text-gray-600">저장 중...</span>}
+                    {quickCallError && <span className="text-sm text-red-500">{quickCallError}</span>}
                   </div>
                 )}
               </div>
