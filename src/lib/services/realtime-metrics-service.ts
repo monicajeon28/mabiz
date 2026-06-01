@@ -208,15 +208,15 @@ class RealtimeMetricsService {
   }
 
   /**
-   * Get segment metrics (newlywed, family, couple)
+   * Get channel metrics (SMS, Kakao, Email)
    */
-  async getChannelMetrics(organizationId: string) {
+  async getChannelMetrics(organizationId: string): Promise<{ sms: { sent: number; opened: number; clicked: number }; kakao: { sent: number; opened: number; clicked: number }; email: { sent: number; opened: number; clicked: number } }> {
     const cacheKey = `realtime:channels:${organizationId}`;
 
     try {
       const cached = await redis.get(cacheKey);
       if (cached) {
-        return cached;
+        return cached as { sms: { sent: number; opened: number; clicked: number }; kakao: { sent: number; opened: number; clicked: number }; email: { sent: number; opened: number; clicked: number } };
       }
     } catch (error) {
       logger.warn('Redis cache miss for channel metrics', { organizationId });
@@ -298,23 +298,23 @@ class RealtimeMetricsService {
       ]);
 
       const result = {
-        newlywed: { sent: newlywedSent, delivered: newlywedDelivered, converted: newlywedConverted },
-        family: { sent: familySent, delivered: familyDelivered, converted: familyConverted },
-        couple: { sent: coupleSent, delivered: coupleDelivered, converted: coupleConverted },
+        sms: { sent: newlywedSent, opened: newlywedDelivered, clicked: newlywedConverted },
+        kakao: { sent: familySent, opened: familyDelivered, clicked: familyConverted },
+        email: { sent: coupleSent, opened: coupleDelivered, clicked: coupleConverted },
       };
 
       // Cache for 2 minutes
       await redis.setex(cacheKey, 2 * DEFAULT_CACHE_TTL, JSON.stringify(result)).catch(() => {
-        logger.warn('Failed to cache segment metrics');
+        logger.warn('Failed to cache channel metrics');
       });
 
       return result;
     } catch (error) {
-      logger.error('Error fetching segment metrics', { error, organizationId });
+      logger.error('Error fetching channel metrics', { error, organizationId });
       return {
-        newlywed: { sent: 0, delivered: 0, converted: 0 },
-        family: { sent: 0, delivered: 0, converted: 0 },
-        couple: { sent: 0, delivered: 0, converted: 0 },
+        sms: { sent: 0, opened: 0, clicked: 0 },
+        kakao: { sent: 0, opened: 0, clicked: 0 },
+        email: { sent: 0, opened: 0, clicked: 0 },
       };
     }
   }

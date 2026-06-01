@@ -96,6 +96,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SummaryRes
         INNER JOIN "MonthlySettlement" ms ON cl."settlementId" = ms.id
         WHERE cl."isSettled" = true
           AND cl."createdAt" >= ${periodStart}
+          AND cl."organizationId" = ${orgId}
       `
     );
 
@@ -112,6 +113,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SummaryRes
         INNER JOIN "MonthlySettlement" ms ON cl."settlementId" = ms.id
         WHERE cl."isSettled" = true
           AND cl."createdAt" >= ${periodStart}
+          AND cl."organizationId" = ${orgId}
         GROUP BY ms.status
       `
     );
@@ -139,6 +141,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SummaryRes
         INNER JOIN "MonthlySettlement" ms ON cl."settlementId" = ms.id
         WHERE cl."isSettled" = true
           AND cl."createdAt" >= ${periodStart}
+          AND cl."organizationId" = ${orgId}
         GROUP BY TO_CHAR(ms."periodStart", 'YYYY-MM')
         ORDER BY ms."periodStart" DESC
         LIMIT 12

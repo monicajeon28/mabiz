@@ -156,7 +156,7 @@ export async function aggregateLensMetrics(
         where: {
           organizationId,
           contactLensClassifications: {
-            some: { lens },
+            some: { lensType: lens },
           },
         },
         select: { id: true },

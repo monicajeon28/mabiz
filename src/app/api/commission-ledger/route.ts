@@ -55,6 +55,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
     }
 
+    const organizationId = ctx.organizationId;
+    if (!organizationId) {
+      return NextResponse.json({ ok: false, error: '조직이 설정되지 않았습니다.' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const page   = Math.max(1, parseInt(searchParams.get('page')  ?? '1')  || 1);
     const limit  = Math.min(100, parseInt(searchParams.get('limit') ?? '20') || 20);
@@ -69,6 +74,8 @@ export async function GET(req: NextRequest) {
     const profileIdFilter  = canFilterByAgent && rawProfileId ? parseInt(rawProfileId) || null : null;
     const yearMonth        = YEAR_MONTH_RE.test(rawYearMonth) ? rawYearMonth : null;
     const typeFilter       = rawType && ALLOWED_TYPES.has(rawType) ? rawType : null;
+
+    const orgCondition: Prisma.Sql = Prisma.sql`AND cl."organizationId" = ${organizationId}`;
 
     // 역할별 스코프
     let roleCondition: Prisma.Sql = Prisma.empty;
@@ -117,7 +124,7 @@ export async function GET(req: NextRequest) {
                  ) AS balance
           FROM "CommissionLedger" cl
           WHERE 1=1
-            ${roleCondition} ${profileCondition} ${yearMonthCondition} ${typeCondition}
+            ${orgCondition} ${roleCondition} ${profileCondition} ${yearMonthCondition} ${typeCondition}
         )
         SELECT * FROM base
         ORDER BY "createdAt" DESC
@@ -126,7 +133,7 @@ export async function GET(req: NextRequest) {
       prisma.$queryRaw<[{ total: bigint }]>(Prisma.sql`
         SELECT COUNT(*)::bigint AS total
         FROM "CommissionLedger" cl
-        WHERE 1=1 ${roleCondition} ${profileCondition} ${yearMonthCondition} ${typeCondition}
+        WHERE 1=1 ${orgCondition} ${roleCondition} ${profileCondition} ${yearMonthCondition} ${typeCondition}
       `),
       prisma.$queryRaw<RawSummary[]>(Prisma.sql`
         SELECT
@@ -134,7 +141,7 @@ export async function GET(req: NextRequest) {
           COALESCE(SUM(CASE WHEN cl."entryType" = 'OVERRIDE_COMMISSION' THEN cl.amount ELSE 0 END), 0)::bigint AS "totalOverride",
           COALESCE(SUM(CASE WHEN cl."entryType" = 'WITHHOLDING'         THEN cl.amount ELSE 0 END), 0)::bigint AS "totalWithholding"
         FROM "CommissionLedger" cl
-        WHERE 1=1 ${roleCondition} ${profileCondition} ${yearMonthCondition} ${typeCondition}
+        WHERE 1=1 ${orgCondition} ${roleCondition} ${profileCondition} ${yearMonthCondition} ${typeCondition}
       `),
     ]);
 

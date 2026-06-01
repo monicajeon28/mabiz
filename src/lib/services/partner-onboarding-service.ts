@@ -38,6 +38,10 @@ interface OnboardingTemplate {
 let ONBOARDING_TEMPLATES: Record<number, OnboardingTemplate> | null = null;
 let SMS_TEMPLATES: Record<string, OnboardingTemplate> | null = null;
 
+// Placeholder variables for template initialization
+const weeklyCommissionEarned = 0;
+const totalCommissionEarned = 0;
+
 function initTemplates(): Record<number, OnboardingTemplate> {
   if (ONBOARDING_TEMPLATES) return ONBOARDING_TEMPLATES;
 
@@ -430,8 +434,15 @@ export async function sendOnboardingEmail(
 
     const emailSubject = template.subject || `Day ${day} Onboarding`;
     const emailBody = template.body || '';
+    const emailConfig = partner.organization.emailConfig as any;
 
     await sendEmail({
+      smtpHost: emailConfig?.smtpHost || 'smtp.gmail.com',
+      smtpPort: emailConfig?.smtpPort || 587,
+      smtpUser: emailConfig?.smtpUser || '',
+      smtpPassEncrypted: emailConfig?.smtpPassEncrypted || '',
+      senderName: emailConfig?.senderName || partner.organization.name,
+      senderEmail: emailConfig?.senderEmail || 'noreply@partner.com',
       to: partner.email,
       subject: emailSubject,
       html: emailBody

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { SettlementSaga, SettlementSagaContext } from '@/lib/webhooks/settlement-saga';
+import { retryStrategy } from '@/lib/webhooks/retry-strategy';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -94,8 +96,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, duplicate: true });
     }
 
-    let commissionLedgerEntry: any = null;
-    let settlementEventEntry: any = null;
     const profileIdInt = parseInt(partnerId, 10);
     const settlementIdInt = parseInt(settlementId, 10);
 
@@ -105,93 +105,70 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, message: '유효하지 않은 partnerId' }, { status: 400 });
     }
 
-    // 트랜잭션 처리
-    await prisma.$transaction(async (tx) => {
-      // 1. CommissionLedger 기록 (CommissionRate 결정)
-      // CommissionRate가 없으면 기본값 사용
-      let finalCommissionRate = commissionRate ?? 18; // 기본값: SILVER 18%
+    // Find or infer organizationId
+    let organizationId = process.env.CRUISEDOT_WEBHOOK_ORG_ID;
 
-      // TODO: Partner Tier 기반 자동 계산 (추후 Partner 모델 개선 시)
-      // 현재는 commissionRate 파라미터 또는 기본값 사용
+    if (!organizationId) {
+      const org = await prisma.organization.findFirst({
+        where: {
+          partners: {
+            some: {}
+          }
+        }
+      });
+      organizationId = org?.id;
+    }
 
-      const calculatedNetAmount = netAmount ?? Math.floor(amount * (1 - finalCommissionRate / 100));
-      const commissionAmount = Math.floor(amount - calculatedNetAmount);
+    if (!organizationId) {
+      logger.error('[SettlementWebhook] organizationId를 결정할 수 없음', { partnerId, settlementId });
+      return NextResponse.json({ ok: false, message: 'organizationId를 결정할 수 없음' }, { status: 400 });
+    }
 
-      commissionLedgerEntry = await tx.commissionLedger.create({
-        data: {
-          saleId: settlementIdInt,
-          profileId: profileIdInt, // GMCruise affiliate profileId (Int)
-          entryType: 'SETTLEMENT_COMMISSION',
-          amount: commissionAmount,
-          currency: 'KRW',
-          withholdingAmount: 0,
-          settlementId: settlementIdInt,
-          isSettled: status === 'PAID',
-          notes: `정산 ${period}: ${amount.toLocaleString()}원 → ${calculatedNetAmount.toLocaleString()}원`,
-          metadata: {
-            eventId,
-            eventType,
-            period,
-            settlementStatus: status,
-            paymentDate,
-            commissionRate: finalCommissionRate,
-          } as any,
-        },
-        select: {
-          id: true,
-          amount: true,
-          isSettled: true,
-        },
+    // Calculate final commission rate
+    const finalCommissionRate = commissionRate ?? 18; // 기본값: SILVER 18%
+    const calculatedNetAmount = netAmount ?? Math.floor(amount * (1 - finalCommissionRate / 100));
+
+    // Create Saga context
+    const sagaContext: SettlementSagaContext = {
+      eventId,
+      organizationId,
+      settlementId: settlementIdInt,
+      partnerId: profileIdInt,
+      period,
+      status: status as 'DRAFT' | 'APPROVED' | 'LOCKED' | 'PAID',
+      amount,
+      netAmount: calculatedNetAmount,
+      commissionRate: finalCommissionRate,
+      paymentDate,
+      executedSteps: new Map(),
+    };
+
+    // Execute saga with SERIALIZABLE isolation
+    const saga = new SettlementSaga(sagaContext);
+    const sagaResult = await saga.execute();
+
+    if (!sagaResult.success) {
+      logger.error('[SettlementWebhook] Saga execution failed', {
+        failedStep: sagaResult.failedStep,
+        error: sagaResult.error,
+        eventId,
       });
 
-      logger.log('[SettlementWebhook] CommissionLedger 기록', {
-        ledgerId: commissionLedgerEntry.id,
-        profileId: profileIdInt,
-        amount: commissionAmount,
-        settlementAmount: calculatedNetAmount,
-        commissionRate: finalCommissionRate,
-      });
-
-      // 2. SettlementEvent 로깅
-      settlementEventEntry = await tx.settlementEvent.create({
-        data: {
-          settlementId: settlementIdInt,
-          userId: undefined,
-          eventType: `SETTLEMENT_${status}`,
-          description: `정산 ${status}: ${period} ${amount.toLocaleString()}원`,
-          metadata: {
-            eventId,
-            eventType,
-            partnerId: profileIdInt,
-            amount,
-            netAmount: calculatedNetAmount,
-            commissionRate: finalCommissionRate,
-            paymentDate,
-          } as any,
+      return NextResponse.json(
+        {
+          ok: false,
+          message: 'Saga execution failed',
+          error: sagaResult.error,
+          failedStep: sagaResult.failedStep,
         },
-        select: {
-          id: true,
-        },
-      });
-
-      logger.log('[SettlementWebhook] SettlementEvent 기록', {
-        eventId: settlementEventEntry.id,
-        settlementId: settlementIdInt,
-        status,
-      });
-
-      // 3. ProcessedWebhookEvent 기록 (중복 방지)
-      await tx.processedWebhookEvent.create({
-        data: {
-          eventId,
-          webhookType: 'cruisedot-settlement',
-          status: 'SUCCESS',
-        },
-      });
-    });
+        { status: 500 }
+      );
+    }
 
     // 6. 알림 발송 (트랜잭션 후)
-    if (status === 'PAID' && commissionLedgerEntry) {
+    if (status === 'PAID') {
+      const commissionAmount = Math.floor(amount - calculatedNetAmount);
+
       // TODO: Slack 알림 (Commission 지급 완료)
       // TODO: Email 알림 (Partner에게 정산 안내)
       // TODO: SMS 알림 (선택적)
@@ -199,7 +176,7 @@ export async function POST(req: NextRequest) {
       logger.log('[SettlementWebhook] 알림 발송 대기', {
         partnerId: profileIdInt,
         settlementId: settlementIdInt,
-        commissionAmount: commissionLedgerEntry.amount,
+        commissionAmount,
       });
     }
 
@@ -214,12 +191,15 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    logger.log('[SettlementWebhook] 처리 완료', {
+    const commissionAmount = Math.floor(amount - calculatedNetAmount);
+
+    logger.log('[SettlementWebhook] 처리 완료 (Saga)', {
       settlementId: settlementIdInt,
       partnerId: profileIdInt,
       period,
       status,
-      commissionAmount: commissionLedgerEntry?.amount,
+      commissionAmount,
+      sagaSteps: sagaResult.completedSteps,
     });
 
     return NextResponse.json({
@@ -227,21 +207,34 @@ export async function POST(req: NextRequest) {
       success: true,
       settlementId: settlementIdInt,
       partnerId: profileIdInt,
-      commissionAmount: commissionLedgerEntry?.amount ?? 0,
+      commissionAmount,
       status: 'processed',
+      sagaSteps: sagaResult.completedSteps,
     });
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
+    const classification = retryStrategy.classifyError(error);
+
     logger.error('[SettlementWebhook] 처리 실패', {
       eventId,
       settlementId,
       error: error.message,
       stack: error.stack,
+      classification,
     });
 
+    // Determine HTTP status code based on error classification
+    const statusCode = classification.dlq ? 400 : 500;
+
     return NextResponse.json(
-      { ok: false, message: '처리 중 오류 발생', error: error.message },
-      { status: 500 }
+      {
+        ok: false,
+        message: '처리 중 오류 발생',
+        error: error.message,
+        retryable: classification.retryable,
+        dlq: classification.dlq,
+      },
+      { status: statusCode }
     );
   }
 }
