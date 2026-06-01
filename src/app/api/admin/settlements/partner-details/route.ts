@@ -3,6 +3,10 @@ import { getMabizSession } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
+import {
+  logAuditEntry,
+  checkCommissionLedgerSelectPermission,
+} from '@/lib/audit-logger';
 
 interface PartnerSettlementDetail {
   settlementId: number;
@@ -30,17 +34,45 @@ export async function GET(request: NextRequest) {
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
 
-    if (ctx.role !== 'GLOBAL_ADMIN') {
+    const organizationId = ctx.organizationId;
+    if (!organizationId) {
+      return NextResponse.json({ ok: false, error: '조직이 설정되지 않았습니다.' }, { status: 403 });
+    }
+
+    // RLS 권한 검증
+    const permissionCheck = await checkCommissionLedgerSelectPermission(
+      ctx,
+      organizationId
+    );
+
+    if (!permissionCheck.allowed) {
+      await logAuditEntry({
+        action: 'SELECT',
+        table: 'CommissionLedger',
+        userId: ctx.userId,
+        organizationId: ctx.organizationId,
+        status: 'DENIED',
+        reason: permissionCheck.reason,
+        details: { endpoint: 'settlements/partner-details' },
+        timestamp: new Date(),
+      });
+
       return NextResponse.json(
         { ok: false, error: 'FORBIDDEN' },
         { status: 403 }
       );
     }
 
-    const organizationId = ctx.organizationId;
-    if (!organizationId) {
-      return NextResponse.json({ ok: false, error: '조직이 설정되지 않았습니다.' }, { status: 403 });
-    }
+    // 성공적인 접근 로깅
+    await logAuditEntry({
+      action: 'SELECT',
+      table: 'CommissionLedger',
+      userId: ctx.userId,
+      organizationId: ctx.organizationId,
+      status: 'ALLOWED',
+      details: { endpoint: 'settlements/partner-details' },
+      timestamp: new Date(),
+    });
 
     const searchParams = request.nextUrl.searchParams;
     const profileId = searchParams.get('profileId');

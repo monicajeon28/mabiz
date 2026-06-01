@@ -3,6 +3,10 @@ import { getMabizSession } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
+import {
+  logAuditEntry,
+  checkCommissionLedgerSelectPermission,
+} from '@/lib/audit-logger';
 
 interface SettlementSummaryRow {
   settlement_id: number;
@@ -54,11 +58,41 @@ export async function GET(request: NextRequest) {
 
     // GLOBAL_ADMIN만 접근 가능
     if (ctx.role !== 'GLOBAL_ADMIN') {
-      return NextResponse.json(
-        { ok: false, error: 'FORBIDDEN', message: '어드민 권한이 필요합니다.' },
-        { status: 403 }
+      // RLS 권한 검증 (감사 로그 생성)
+      const permissionCheck = await checkCommissionLedgerSelectPermission(
+        ctx,
+        ctx.organizationId || ''
       );
+
+      if (!permissionCheck.allowed) {
+        await logAuditEntry({
+          action: 'SELECT',
+          table: 'CommissionLedger',
+          userId: ctx.userId,
+          organizationId: ctx.organizationId,
+          status: 'DENIED',
+          reason: permissionCheck.reason,
+          details: { endpoint: 'settlement-summary' },
+          timestamp: new Date(),
+        });
+
+        return NextResponse.json(
+          { ok: false, error: 'FORBIDDEN', message: '어드민 권한이 필요합니다.' },
+          { status: 403 }
+        );
+      }
     }
+
+    // 성공적인 접근 로깅
+    await logAuditEntry({
+      action: 'SELECT',
+      table: 'CommissionLedger',
+      userId: ctx.userId,
+      organizationId: ctx.organizationId,
+      status: 'ALLOWED',
+      details: { endpoint: 'settlement-summary' },
+      timestamp: new Date(),
+    });
 
     const searchParams = request.nextUrl.searchParams;
     const period = searchParams.get('period'); // YYYY-MM
