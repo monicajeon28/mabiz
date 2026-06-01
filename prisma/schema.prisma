@@ -492,6 +492,9 @@ model Contact {
   @@index([affiliateManagerId], map: "idx_contact_affiliate_manager_id")
   @@index([affiliateAgentId], map: "idx_contact_affiliate_agent_id")
   @@index([signupMethod], map: "idx_contact_signup_method")
+
+  // P1-22: 태그 배열 필터링 인덱스 추가 (hasEvery 성능 최적화)
+  @@index([organizationId, tags], map: "idx_contact_org_tags")
 }
 
 model ContactLensClassification {
@@ -608,6 +611,8 @@ model ContactGroup {
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
   ownerId            String?
+  // P2-13: memberCount 캐시 (실시간 _count 대신 UPDATE 트리거로 유지)
+  memberCount        Int                    @default(0)
   organization       Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   members            ContactGroupMember[]
   b2bLandingPages    B2BLandingPage[]
@@ -617,6 +622,8 @@ model ContactGroup {
 
   @@index([organizationId])
   @@index([ownerId])
+  // P2-13: memberCount 인덱스 (GROUP BY / 정렬 성능 최적화)
+  @@index([organizationId, memberCount], map: "idx_group_org_membercount")
 }
 
 model GroupToken {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'crypto';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { createRefundNotifications } from '@/lib/notification-service';
@@ -113,10 +114,25 @@ export async function POST(req: NextRequest) {
     }
 
     // P0-ISS-02: UPSERT 패턴으로 동시 결제 중복 생성 방지 (Race condition 해결)
-    let contact: any = null;
-    let shouldSendDay0Sms = false;
+    type ContactSelect = {
+      id: string;
+      organizationId: string;
+      phone: string;
+      userId: number | null;
+      name: string;
+      smsDay0Sent: boolean;
+    };
+
+    let transactionResult: { contact: ContactSelect | null; shouldSendDay0Sms: boolean } = {
+      contact: null,
+      shouldSendDay0Sms: false,
+    };
+
     // 트랜잭션 처리
-    await prisma.$transaction(async (tx) => {
+    transactionResult = await prisma.$transaction(async (tx) => {
+      let contact: ContactSelect | null = null;
+      let shouldSendDay0Sms = false;
+
       // UPSERT: bookingRef + organizationId 기준 (unique constraint 필수)
       contact = await tx.contact.upsert({
         where: {
@@ -137,7 +153,7 @@ export async function POST(req: NextRequest) {
         update: {
           // 업데이트할 필드 (아래에서 별도 처리)
         },
-        select: { id: true, organizationId: true, phone: true, userId: true, name: true },
+        select: { id: true, organizationId: true, phone: true, userId: true, name: true, smsDay0Sent: true },
       });
 
       const isNewContact = !contact.id || (contact.phone === '' && !contact.userId);
@@ -280,18 +296,22 @@ export async function POST(req: NextRequest) {
           status: 'SUCCESS',
         },
       });
+
+      return { contact, shouldSendDay0Sms };
     });
+
+    const { contact, shouldSendDay0Sms: shouldSendSms } = transactionResult;
 
     logger.log('[CruisedotWebhook] 처리 완료', {
       contactFound: !!contact,
       affiliateSaleFound: !!affiliateSale,
       bookingRef,
       status,
-      day0SmsSent: shouldSendDay0Sms,
+      day0SmsSent: shouldSendSms,
     });
 
     // Loop 6 Agent A: Day 0 SMS 발송 (트랜잭션 후 비동기 처리)
-    if (shouldSendDay0Sms && contact?.phone && contact?.organizationId) {
+    if (shouldSendSms && contact && contact.phone && contact.organizationId) {
       try {
         // 세그먼트 자동 결정 (기본값: A, 나중에 Contact 정보로 개선)
         const segment: Segment = 'A';
@@ -327,7 +347,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       contactId: contact?.id,
       orderId: bookingRef,
-      day0SmsSent: shouldSendDay0Sms,
+      day0SmsSent: shouldSendSms,
     });
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);

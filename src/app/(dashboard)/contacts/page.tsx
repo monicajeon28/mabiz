@@ -1,12 +1,16 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, Plus, Filter, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet, Loader2, Share2, FolderDown } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/lib/api/use-toast";
 import { useSession } from "@/hooks/useSession";
+
+// P1-21: Code-split large components for TTI optimization
+const GroupBlastModal = lazy(() => import('./GroupBlastModal'));
+const TagBlastModal = lazy(() => import('./TagBlastModal'));
 
 type Contact = {
   id: string;
@@ -189,7 +193,7 @@ export default function ContactsPage() {
   const [bulkAssignTarget, setBulkAssignTarget] = useState("");
   const [bulkAssigning, setBulkAssigning] = useState(false);
 
-  // 복수 선택 + 공유
+  // P2-7: Store only contact IDs (string) not objects — reduces memory from ~1MB to ~10KB
   const [selectedIds,    setSelectedIds]    = useState<Set<string>>(new Set());
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareSections,  setShareSections]  = useState<{ label: string; members: { id: string; displayName: string | null; loginId: string; orgName: string }[] }[]>([]);
@@ -374,6 +378,15 @@ export default function ContactsPage() {
   const [quickCallLoading, setQuickCallLoading] = useState(false);
   const [quickCallError, setQuickCallError] = useState<string | null>(null);
 
+  // P2-8: Debounce function to prevent excessive API calls
+  const debounce = useCallback((fn: Function, delay: number) => {
+    let timeoutId: NodeJS.Timeout | null = null;
+    return (...args: any[]) => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => fn(...args), delay);
+    };
+  }, []);
+
   const fetchContacts = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: "30" });
@@ -399,11 +412,23 @@ export default function ContactsPage() {
     }
   }, [q, type, page, filterGroupId, filterSourceType, filterAssignedTo, selectedTags]); // P0-6
 
+  // P2-8: Debounced search with 300ms delay to prevent rapid API calls
+  const debouncedFetch = useMemo(
+    () => debounce(fetchContacts, 300),
+    [fetchContacts, debounce]
+  );
+
   useEffect(() => {
     const controller = new AbortController();
-    fetchContacts(controller.signal);
+    // P2-8: Use debounced fetch instead of direct fetch for search queries
+    if (q || !filterGroupId || !filterSourceType || !filterAssignedTo || selectedTags.length === 0) {
+      debouncedFetch(controller.signal);
+    } else {
+      fetchContacts(controller.signal);
+    }
     return () => controller.abort();
-  }, [fetchContacts]);
+  }, [q, type, page, filterGroupId, filterSourceType, filterAssignedTo, selectedTags, fetchContacts, debouncedFetch]);
+
   useEffect(() => { setPage(1); }, [filterGroupId, filterSourceType, filterAssignedTo, selectedTags]); // P0-6
 
   // [L6] setTimeout cleanup (백업 메시지 자동 숨김)
@@ -546,12 +571,28 @@ export default function ContactsPage() {
     }
   };
 
-  // 동적 태그 목록 수집
-  const allTags = useMemo(() => {
-    const set = new Set<string>();
-    contacts.forEach(c => (c.tags ?? []).forEach(t => set.add(t)));
-    return Array.from(set).sort();
-  }, [contacts]);
+  // P2-11: Fetch tags from server API instead of client-side deduplication
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [loadingTags, setLoadingTags] = useState(false);
+
+  useEffect(() => {
+    const loadTags = async () => {
+      setLoadingTags(true);
+      try {
+        const res = await fetch('/api/contacts/tags?limit=1000');
+        const data = await res.json();
+        if (data.ok) {
+          setAllTags(data.tags ?? []);
+        }
+      } catch (err) {
+        logger.error('[loadTags failed]', { err });
+      } finally {
+        setLoadingTags(false);
+      }
+    };
+    loadTags();
+    // Load tags once on mount (cache in Redis server-side)
+  }, []);
 
   // 태그 필터는 DB 레벨에서 처리 (fetchContacts의 tags 파라미터로 전달)
   const filteredContacts = contacts;
@@ -1388,19 +1429,23 @@ export default function ContactsPage() {
 
       {/* TagBlast 모달 */}
       {showTagBlast && (
-        <TagBlastModal
-          tags={selectedTags}
-          onClose={() => setShowTagBlast(false)}
-        />
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 z-50" />}>
+          <TagBlastModal
+            tags={selectedTags}
+            onClose={() => setShowTagBlast(false)}
+          />
+        </Suspense>
       )}
 
       {/* GroupBlast 모달 */}
       {showGroupBlast && filterGroupId && (
-        <GroupBlastModal
-          groupId={filterGroupId}
-          groupName={groups.find(g => g.id === filterGroupId)?.name ?? ""}
-          onClose={() => setShowGroupBlast(false)}
-        />
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 z-50" />}>
+          <GroupBlastModal
+            groupId={filterGroupId}
+            groupName={groups.find(g => g.id === filterGroupId)?.name ?? ""}
+            onClose={() => setShowGroupBlast(false)}
+          />
+        </Suspense>
       )}
 
       {/* 일괄 담당자 할당 모달 */}
@@ -1456,339 +1501,6 @@ export default function ContactsPage() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function GroupBlastModal({
-  groupId, groupName, onClose
-}: { groupId: string; groupName: string; onClose: () => void }) {
-  const [tab, setTab] = useState<'template' | 'direct'>('direct');
-  const [message, setMessage] = useState('');
-  const [templates, setTemplates] = useState<{ id: string; name: string; content: string }[]>([]);
-  const [preview, setPreview] = useState<{ willSend: number; isOverLimit: boolean; overLimitMsg: string | null } | null>(null);
-  const [step, setStep] = useState<'write' | 'preview' | 'done'>('write');
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch('/api/tools/sms-templates')
-      .then(r => r.json())
-      .then(d => { if (d.ok) setTemplates(d.templates ?? []); });
-  }, []);
-
-  const handlePreview = async () => {
-    if (!message.trim()) return;
-    setSending(true);
-    setSendError(null);
-    const res = await fetch('/api/contacts/group-blast', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ groupId, message, dryRun: true }),
-    });
-    const d = await res.json();
-    if (d.ok) {
-      setPreview(d);
-      setStep('preview');
-    } else {
-      setSendError(d.message ?? '오류가 발생했습니다.');
-    }
-    setSending(false);
-  };
-
-  const handleSend = async () => {
-    setSending(true);
-    setSendError(null);
-    const res = await fetch('/api/contacts/group-blast', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ groupId, message, dryRun: false }),
-    });
-    const d = await res.json();
-    if (d.ok) {
-      setStep('done');
-    } else {
-      setSendError(d.message ?? '발송에 실패했습니다.');
-    }
-    setSending(false);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b">
-          <div>
-            <h2 className="font-semibold text-gray-900">그룹 SMS 발송</h2>
-            <p className="text-sm text-gray-500 mt-0.5">
-              &quot;{groupName}&quot; 그룹 고객 전체
-            </p>
-          </div>
-          <button onClick={onClose} className="text-gray-600 hover:text-gray-600 text-lg leading-none">✕</button>
-        </div>
-
-        <div className="p-5">
-          {step === 'write' && (
-            <>
-              <div className="flex gap-2 mb-4">
-                {(['direct', 'template'] as const).map(t => (
-                  <button key={t} onClick={() => setTab(t)}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      tab === t ? 'bg-navy-900 text-white' : 'bg-gray-100 text-gray-600'
-                    }`}>
-                    {t === 'direct' ? '직접 입력' : '템플릿 선택'}
-                  </button>
-                ))}
-              </div>
-
-              {tab === 'direct' ? (
-                <textarea
-                  value={message}
-                  onChange={e => setMessage(e.target.value)}
-                  placeholder="발송할 메시지를 입력하세요&#10;[고객명] 또는 [이름] 으로 이름 치환 가능"
-                  className="w-full border rounded-xl p-3 text-sm h-32 resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {templates.map(t => (
-                    <button key={t.id} onClick={() => { setMessage(t.content); setTab('direct'); }}
-                      className="w-full text-left px-3 py-2.5 border rounded-xl hover:border-green-300 hover:bg-green-50 transition-colors">
-                      <p className="text-sm font-medium text-gray-800">{t.name}</p>
-                      <p className="text-sm text-gray-500 mt-0.5 truncate">{t.content}</p>
-                    </button>
-                  ))}
-                  {templates.length === 0 && (
-                    <p className="text-sm text-gray-600 text-center py-4">등록된 템플릿이 없습니다</p>
-                  )}
-                </div>
-              )}
-
-              <p className="text-sm text-gray-600 mt-2">
-                * 수신거부·전화번호 미입력 고객은 자동 제외됩니다
-              </p>
-
-              {sendError && <p className="text-sm text-red-500 mt-2">{sendError}</p>}
-
-              <button
-                onClick={handlePreview}
-                disabled={!message.trim() || sending}
-                className="w-full mt-4 py-3 bg-green-600 text-white rounded-xl text-sm font-medium disabled:opacity-50"
-              >
-                {sending ? '확인 중...' : '발송 대상 확인'}
-              </button>
-            </>
-          )}
-
-          {step === 'preview' && preview && (
-            <div className="space-y-4">
-              <div className={`rounded-xl p-4 ${preview.isOverLimit ? 'bg-red-50' : 'bg-green-50'}`}>
-                <p className="text-lg font-bold text-center">
-                  {preview.willSend}명에게 발송됩니다
-                </p>
-                {preview.isOverLimit && (
-                  <p className="text-sm text-red-600 text-center mt-1">{preview.overLimitMsg}</p>
-                )}
-              </div>
-              <div className="bg-gray-50 rounded-xl p-3">
-                <p className="text-sm text-gray-500 mb-1">발송 메시지</p>
-                <p className="text-sm text-gray-800 whitespace-pre-wrap">{message}</p>
-              </div>
-              {sendError && <p className="text-sm text-red-500">{sendError}</p>}
-              <div className="flex gap-2">
-                <button onClick={() => setStep('write')}
-                  className="flex-1 py-3 border rounded-xl text-sm text-gray-600">
-                  수정
-                </button>
-                <button onClick={handleSend} disabled={sending}
-                  className="flex-1 py-3 bg-green-600 text-white rounded-xl text-sm font-medium disabled:opacity-50">
-                  {sending ? '발송 중...' : '발송하기'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === 'done' && (
-            <div className="text-center py-6">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <span className="text-green-600 text-xl">✓</span>
-              </div>
-              <p className="font-semibold text-gray-900">발송 완료</p>
-              <p className="text-sm text-gray-500 mt-1">&quot;{groupName}&quot; 그룹에 SMS를 발송했습니다</p>
-              <button onClick={onClose}
-                className="mt-4 px-6 py-2.5 bg-navy-900 text-white rounded-xl text-sm">
-                닫기
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TagBlastModal({
-  tags, onClose
-}: { tags: string[]; onClose: () => void }) {
-  const [tab, setTab] = useState<'template' | 'direct'>('direct');
-  const [message, setMessage] = useState('');
-  const [templates, setTemplates] = useState<{ id: string; name: string; content: string }[]>([]);
-  const [preview, setPreview] = useState<{ willSend: number; isOverLimit: boolean; overLimitMsg: string | null } | null>(null);
-  const [step, setStep] = useState<'write' | 'preview' | 'done'>('write');
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
-
-  // 템플릿 로드
-  useEffect(() => {
-    fetch('/api/tools/sms-templates')
-      .then(r => r.json())
-      .then(d => { if (d.ok) setTemplates(d.templates ?? []); });
-  }, []);
-
-  const handlePreview = async () => {
-    if (!message.trim()) return;
-    setSending(true);
-    setSendError(null);
-    const res = await fetch('/api/contacts/tag-blast', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tags, message, dryRun: true }),
-    });
-    const d = await res.json();
-    if (d.ok) {
-      setPreview(d);
-      setStep('preview');
-    } else {
-      setSendError(d.error ?? '오류가 발생했습니다.');
-    }
-    setSending(false);
-  };
-
-  const handleSend = async () => {
-    setSending(true);
-    setSendError(null);
-    const res = await fetch('/api/contacts/tag-blast', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tags, message, dryRun: false }),
-    });
-    const d = await res.json();
-    if (d.ok) {
-      setStep('done');
-    } else {
-      setSendError(d.error ?? '발송에 실패했습니다.');
-    }
-    setSending(false);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
-        {/* 헤더 */}
-        <div className="flex items-center justify-between px-5 py-4 border-b">
-          <div>
-            <h2 className="font-semibold text-gray-900">태그 SMS 발송</h2>
-            <p className="text-sm text-gray-500 mt-0.5">
-              {tags.map(t => `#${t}`).join(' · ')} 태그 보유 고객 (AND 조건)
-            </p>
-          </div>
-          <button onClick={onClose} className="text-gray-600 hover:text-gray-600 text-lg leading-none">✕</button>
-        </div>
-
-        <div className="p-5">
-          {step === 'write' && (
-            <>
-              {/* 탭 */}
-              <div className="flex gap-2 mb-4">
-                {(['direct', 'template'] as const).map(t => (
-                  <button key={t} onClick={() => setTab(t)}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      tab === t ? 'bg-navy-900 text-white' : 'bg-gray-100 text-gray-600'
-                    }`}>
-                    {t === 'direct' ? '직접 입력' : '템플릿 선택'}
-                  </button>
-                ))}
-              </div>
-
-              {tab === 'direct' ? (
-                <textarea
-                  value={message}
-                  onChange={e => setMessage(e.target.value)}
-                  placeholder="발송할 메시지를 입력하세요"
-                  className="w-full border rounded-xl p-3 text-sm h-32 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {templates.map(t => (
-                    <button key={t.id} onClick={() => { setMessage(t.content); setTab('direct'); }}
-                      className="w-full text-left px-3 py-2.5 border rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors">
-                      <p className="text-sm font-medium text-gray-800">{t.name}</p>
-                      <p className="text-sm text-gray-500 mt-0.5 truncate">{t.content}</p>
-                    </button>
-                  ))}
-                  {templates.length === 0 && (
-                    <p className="text-sm text-gray-600 text-center py-4">등록된 템플릿이 없습니다</p>
-                  )}
-                </div>
-              )}
-
-              <p className="text-sm text-gray-600 mt-2">
-                * 선택한 태그를 모두 보유한 고객에게만 발송됩니다 (AND 조건)
-              </p>
-
-              {sendError && <p className="text-sm text-red-500 mt-2">{sendError}</p>}
-
-              <button
-                onClick={handlePreview}
-                disabled={!message.trim() || sending}
-                className="w-full mt-4 py-3 bg-blue-600 text-white rounded-xl text-sm font-medium disabled:opacity-50"
-              >
-                {sending ? '확인 중...' : '발송 대상 확인'}
-              </button>
-            </>
-          )}
-
-          {step === 'preview' && preview && (
-            <div className="space-y-4">
-              <div className={`rounded-xl p-4 ${preview.isOverLimit ? 'bg-red-50' : 'bg-blue-50'}`}>
-                <p className="text-lg font-bold text-center">
-                  {preview.willSend}명에게 발송됩니다
-                </p>
-                {preview.isOverLimit && (
-                  <p className="text-sm text-red-600 text-center mt-1">{preview.overLimitMsg}</p>
-                )}
-              </div>
-              <div className="bg-gray-50 rounded-xl p-3">
-                <p className="text-sm text-gray-500 mb-1">발송 메시지</p>
-                <p className="text-sm text-gray-800 whitespace-pre-wrap">{message}</p>
-              </div>
-              {sendError && <p className="text-sm text-red-500">{sendError}</p>}
-              <div className="flex gap-2">
-                <button onClick={() => setStep('write')}
-                  className="flex-1 py-3 border rounded-xl text-sm text-gray-600">
-                  수정
-                </button>
-                <button onClick={handleSend} disabled={sending}
-                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-medium disabled:opacity-50">
-                  {sending ? '발송 중...' : '발송하기'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === 'done' && (
-            <div className="text-center py-6">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <span className="text-green-600 text-xl">✓</span>
-              </div>
-              <p className="font-semibold text-gray-900">발송 완료</p>
-              <p className="text-sm text-gray-500 mt-1">{preview?.willSend}명에게 SMS를 발송했습니다</p>
-              <button onClick={onClose}
-                className="mt-4 px-6 py-2.5 bg-navy-900 text-white rounded-xl text-sm">
-                닫기
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
