@@ -284,7 +284,9 @@ export class SettlementSaga {
 
   /**
    * Execute saga with SERIALIZABLE isolation level
-   * Automatically rolls back on failure
+   * ✅ P0-14: Compensation logic moved outside transaction to prevent deadlock
+   * - Transaction only handles CREATE operations
+   * - Compensation (DELETE) executed outside to avoid Serializable conflicts
    */
   async execute(): Promise<{
     success: boolean;
@@ -295,39 +297,46 @@ export class SettlementSaga {
     this.initializeSteps();
 
     try {
-      // Use SERIALIZABLE isolation level for strong consistency
-      await prisma.$transaction(async (tx) => {
-        for (const step of this.steps) {
-          logger.log(`[SettlementSaga] Executing ${step.name}`);
+      // Step 1: Execute saga steps inside transaction (CREATE only)
+      try {
+        await prisma.$transaction(async (tx) => {
+          for (const step of this.steps) {
+            logger.log(`[SettlementSaga] Executing ${step.name}`);
 
-          const result = await step.execute();
+            const result = await step.execute();
 
-          if (!result.success) {
-            logger.error(`[SettlementSaga] ${step.name} failed`, {
-              error: result.error,
-              requiresCompensation: result.compensationRequired,
-            });
+            if (!result.success) {
+              logger.error(`[SettlementSaga] ${step.name} failed`, {
+                error: result.error,
+                requiresCompensation: result.compensationRequired,
+              });
 
-            // Start compensation chain
-            if (result.compensationRequired) {
-              await this.compensate(step.name);
+              throw new Error(`Saga failed at step: ${step.name}. ${result.error}`);
             }
 
-            throw new Error(`Saga failed at step: ${step.name}. ${result.error}`);
+            // Store result for potential compensation
+            this.context.executedSteps.set(step.name, result.data);
+            this.completedSteps.push(step.name);
+
+            logger.log(`[SettlementSaga] ${step.name} completed successfully`, {
+              data: result.data,
+            });
           }
+        }, {
+          isolationLevel: 'Serializable',
+          timeout: 30000, // 30 seconds
+        });
+      } catch (txError) {
+        // Step 2: On transaction failure, run compensation OUTSIDE transaction
+        // This prevents Serializable isolation conflicts that would cause deadlock
+        logger.error('[SettlementSaga] Transaction failed, starting compensation', {
+          failedAtStep: this.steps[this.completedSteps.length]?.name,
+          error: txError instanceof Error ? txError.message : String(txError),
+        });
 
-          // Store result for potential compensation
-          this.context.executedSteps.set(step.name, result.data);
-          this.completedSteps.push(step.name);
-
-          logger.log(`[SettlementSaga] ${step.name} completed successfully`, {
-            data: result.data,
-          });
-        }
-      }, {
-        isolationLevel: 'Serializable',
-        timeout: 30000, // 30 seconds
-      });
+        await this.compensate(this.steps[this.completedSteps.length]?.name || 'UNKNOWN');
+        throw txError;
+      }
 
       logger.log('[SettlementSaga] All steps completed successfully', {
         steps: this.completedSteps,

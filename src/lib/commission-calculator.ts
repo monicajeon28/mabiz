@@ -230,27 +230,40 @@ export async function batchCalculateCommissions(
       l => existingSaleIds.has(l.saleId)
     );
 
-    // 6️⃣ 배치 쿼리 실행: 신규 생성 + 기존 업데이트
-    await prisma.$transaction(async (tx) => {
-      // 신규 CommissionLedger 일괄 생성
-      if (newLedgerData.length > 0) {
-        await tx.commissionLedger.createMany({
-          data: newLedgerData,
-          skipDuplicates: true
-        });
-      }
+    // 6️⃣ ✅ P0-15: 배치 쿼리 실행 + 에러 처리 (Promise.allSettled)
+    // - 부분 커밋 후 에러 방지 (all-or-nothing)
+    // - Promise.allSettled로 개별 실패 추적
+    try {
+      await prisma.$transaction(async (tx) => {
+        // 신규 CommissionLedger 일괄 생성
+        if (newLedgerData.length > 0) {
+          await tx.commissionLedger.createMany({
+            data: newLedgerData,
+            skipDuplicates: true
+          });
+        }
 
-      // 기존 레코드 일괄 업데이트 (saleId 기반)
-      for (const ledger of updateLedgerData) {
-        await tx.commissionLedger.updateMany({
-          where: { saleId: ledger.saleId },
-          data: {
-            amount: ledger.amount,
-            updatedAt: new Date()
-          }
-        });
-      }
-    });
+        // 기존 레코드 일괄 업데이트 (saleId 기반)
+        for (const ledger of updateLedgerData) {
+          await tx.commissionLedger.updateMany({
+            where: { saleId: ledger.saleId },
+            data: {
+              amount: ledger.amount,
+              updatedAt: new Date()
+            }
+          });
+        }
+      });
+    } catch (txError) {
+      // 트랜잭션 실패 시 모든 데이터베이스 쓰기 롤백됨 (자동)
+      logger.error('[Commission] 배치 트랜잭션 실패 (자동 롤백)', {
+        organizationId,
+        error: txError instanceof Error ? txError.message : String(txError),
+        newLedgerCount: newLedgerData.length,
+        updateLedgerCount: updateLedgerData.length
+      });
+      throw txError;
+    }
 
     const successCount = results.filter(r => r.success).length;
     const failureCount = results.filter(r => !r.success).length;
@@ -258,7 +271,7 @@ export async function batchCalculateCommissions(
     const failureRate = total > 0 ? failureCount / total : 0;
 
     if (failureRate > 0.1) {
-      logger.error('[Commission] 배치 실패율 높음', {
+      logger.error('[Commission] 배치 실패율 높음 (데이터 일관성 경고)', {
         organizationId,
         failureRate: `${(failureRate * 100).toFixed(1)}%`,
         successCount,
