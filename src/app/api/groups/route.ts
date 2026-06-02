@@ -358,6 +358,20 @@ export async function POST(req: Request) {
       }
     }
 
+    // ── autoMoveTargetGroupId 검증 (IDOR 방지) ──
+    if (data.autoMoveTargetGroupId) {
+      const targetGroup = await prisma.contactGroup.findUnique({
+        where: { id: data.autoMoveTargetGroupId },
+        select: { id: true, organizationId: true },
+      });
+      if (!targetGroup || targetGroup.organizationId !== orgId) {
+        return NextResponse.json(
+          { ok: false, error: "FORBIDDEN", message: "자동 이동 대상 그룹이 이 조직에 속하지 않습니다." },
+          { status: 403 }
+        );
+      }
+    }
+
     // ── seq 생성 (16자 hex, 최대 5회 재시도) ───
     const seq = await generateUniqueSeq();
 
