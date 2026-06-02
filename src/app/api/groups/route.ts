@@ -155,6 +155,6 @@ export async function POST(req: Request) {
     }
   } catch (err) {
     logger.error("[POST /api/groups]", { err });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return NextResponse.json({ ok: false, error: 'INTERNAL_SERVER_ERROR', message: '그룹 생성 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
