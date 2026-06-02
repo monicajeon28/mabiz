@@ -127,9 +127,12 @@ export default function DbPage() {
     });
   };
 
+  // B2B는 B2BProspect 테이블이라 contacts/bulk-delete 사용 불가
+  const isB2BTab = importTarget === "b2b_buyer" || importTarget === "b2b_inquiry";
+
   // ── 소프트 삭제 ───────────────────────────────────────────
   const handleDelete = async () => {
-    if (selected.size === 0) return;
+    if (selected.size === 0 || isB2BTab) return;
     if (!confirm(`선택한 ${selected.size}명의 고객을 삭제하시겠습니까?\n\n※ 실제 데이터 삭제가 아닌 화면에서 숨김 처리됩니다.`)) return;
     setDeleting(true);
     setDeleteMsg(null);
@@ -166,10 +169,12 @@ export default function DbPage() {
     return () => ctrl.abort();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 탭 변경 시 고객 목록 새로고침 (AbortController) ─────────
+  // ── 탭 변경 시 고객 목록 새로고침 + 선택 초기화 ─────────────
   useEffect(() => {
     const ctrl = new AbortController();
     setSearchQ("");
+    setSelected(new Set());   // 탭 전환 시 선택 초기화 (B2C↔B2B 혼용 방지)
+    setDeleteMsg(null);
     loadContacts(1, ctrl.signal);
     return () => ctrl.abort();
   }, [importTarget]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -375,24 +380,26 @@ export default function DbPage() {
               </div>
             ) : (
               <>
-                {/* 전체선택 + 삭제 버튼 */}
+                {/* 전체선택 + 삭제 버튼 (B2B 탭은 삭제 미지원) */}
                 <div className="flex items-center justify-between mb-2">
                   <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600">
-                    <input
-                      type="checkbox"
-                      className="w-4 h-4 rounded border-gray-300 accent-red-500"
-                      checked={allSelected}
-                      ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
-                      onChange={toggleAll}
-                    />
-                    {allSelected ? '전체해제' : '전체선택'}
+                    {!isB2BTab && (
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-gray-300 accent-red-500"
+                        checked={allSelected}
+                        ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                        onChange={toggleAll}
+                      />
+                    )}
+                    {!isB2BTab && (allSelected ? '전체해제' : '전체선택')}
                     {selected.size > 0 && (
                       <span className="text-red-600 font-medium">({selected.size}명 선택)</span>
                     )}
                   </label>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-gray-500">총 {contactsTotal.toLocaleString()}건</span>
-                    {selected.size > 0 && (
+                    {!isB2BTab && selected.size > 0 && (
                       <button
                         onClick={handleDelete}
                         disabled={deleting}
@@ -410,15 +417,17 @@ export default function DbPage() {
                     <div
                       key={c.id}
                       className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-colors ${
-                        selected.has(c.id) ? 'bg-red-50 border-red-200' : 'hover:bg-gray-50 border-gray-100'
+                        !isB2BTab && selected.has(c.id) ? 'bg-red-50 border-red-200' : 'hover:bg-gray-50 border-gray-100'
                       }`}
                     >
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 rounded border-gray-300 accent-red-500 flex-shrink-0"
-                        checked={selected.has(c.id)}
-                        onChange={() => toggleOne(c.id)}
-                      />
+                      {!isB2BTab && (
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-gray-300 accent-red-500 flex-shrink-0"
+                          checked={selected.has(c.id)}
+                          onChange={() => toggleOne(c.id)}
+                        />
+                      )}
                       <Link href={`/contacts/${c.id}`} className="flex items-center justify-between flex-1 min-w-0">
                         <div className="min-w-0">
                           <span className="text-sm font-medium text-gray-900">{c.name}</span>

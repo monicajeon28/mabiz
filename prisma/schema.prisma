@@ -3041,14 +3041,14 @@ model SendingHistory {
 
 model ProcessedWebhookEvent {
   id           String   @id @default(cuid())
-  eventId      String   @unique
+  eventId      String
   webhookType  String   @db.VarChar(50)
   status       String   @default("SUCCESS") @db.VarChar(20)
   errorMessage String?
   processedAt  DateTime @default(now())
 
+  @@unique([eventId, webhookType])
   @@index([webhookType])
-  @@index([eventId])
   @@index([processedAt])
   @@map("ProcessedWebhookEvent")
 }

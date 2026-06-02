@@ -146,24 +146,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 7. 스크립트별 성공률 조회 (간단한 계산: 우선도 + 최신성)
-    // 실제 환경에서는 별도 테이블(ScriptMetrics)에서 조회
+    // 7. 스크립트별 실제 성공률 조회 (ToolClickTracker / AuditLog 기반)
+    //    클릭(사용) vs 성공 비율 → 실제 사용 데이터가 없으면 휴리스틱 폴백
+    const usageStats = await getScriptUsageStats(organizationId, scriptIds(allScripts));
+
     const getSuccessRate = (script: typeof allScripts[0]): number => {
-      // 기본값: 65%
+      const stat = usageStats.get(script.id);
+
+      // 실측 데이터가 충분(클릭 3회+)하면 실제 성공률 사용
+      if (stat && stat.clicks >= 3) {
+        return Math.min(95, Math.max(5, stat.successRate));
+      }
+
+      // 데이터 부족 시 휴리스틱 폴백 (기본값 65%)
       let rate = 65;
-
-      // 우선도가 높으면 +5%
-      if (script.priority && script.priority > 5) {
-        rate += 5;
-      }
-
-      // 최근 업데이트되면 +3%
-      const daysSinceUpdate = (Date.now() - script.updatedAt.getTime()) / (1000 * 60 * 60 * 24);
-      if (daysSinceUpdate < 30) {
-        rate += 3;
-      }
-
-      // 타입별 기본 성공률
+      if (script.priority && script.priority > 5) rate += 5;
+      const daysSinceUpdate =
+        (Date.now() - script.updatedAt.getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSinceUpdate < 30) rate += 3;
       if (script.type === "cold_call") rate += 2;
       if (script.type === "objection") rate += 5;
       if (script.type === "closing") rate += 8;
@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
         type: script.type || "script",
         psychology: script.psychology,
         successRate,
-        usageCount: 0, // 실제 데이터는 별도 테이블에서 조회
+        usageCount: usageStats.get(script.id)?.clicks ?? 0,
         score,
         matchPercentage,
         matchReason,
@@ -249,8 +249,77 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/** Contact 조회 select 결과에서 script id 배열 추출 */
+function scriptIds(scripts: Array<{ id: string }>): string[] {
+  return scripts.map((s) => s.id);
+}
+
+/**
+ * 스크립트별 실측 사용 통계 (ToolClickTracker / AuditLog 기반)
+ * action=TOOL_CLICK, resourceType=PlaybookScript, reasonDescription=click|success
+ */
+async function getScriptUsageStats(
+  organizationId: string,
+  ids: string[]
+): Promise<Map<string, { clicks: number; success: number; successRate: number }>> {
+  const result = new Map<
+    string,
+    { clicks: number; success: number; successRate: number }
+  >();
+
+  if (ids.length === 0) return result;
+
+  try {
+    const [clickGroups, successGroups] = await Promise.all([
+      prisma.auditLog.groupBy({
+        by: ["resourceId"],
+        where: {
+          organizationId,
+          action: "TOOL_CLICK",
+          resourceType: "PlaybookScript",
+          reasonDescription: "click",
+          resourceId: { in: ids },
+        },
+        _count: { resourceId: true },
+      }),
+      prisma.auditLog.groupBy({
+        by: ["resourceId"],
+        where: {
+          organizationId,
+          action: "TOOL_CLICK",
+          resourceType: "PlaybookScript",
+          reasonDescription: "success",
+          resourceId: { in: ids },
+        },
+        _count: { resourceId: true },
+      }),
+    ]);
+
+    const successMap = new Map<string, number>();
+    for (const g of successGroups) {
+      if (g.resourceId) successMap.set(g.resourceId, g._count.resourceId);
+    }
+
+    for (const g of clickGroups) {
+      if (!g.resourceId) continue;
+      const clicks = g._count.resourceId;
+      const success = successMap.get(g.resourceId) || 0;
+      result.set(g.resourceId, {
+        clicks,
+        success,
+        successRate: clicks > 0 ? Math.round((success / clicks) * 100) : 0,
+      });
+    }
+  } catch (error) {
+    logger.warn(`[PlaybookRecommender] Usage stats error: ${error}`);
+  }
+
+  return result;
+}
+
 /**
  * 추천 로그 기록 (비동기, 실패해도 영향 없음)
+ * 미니멀 로깅: AuditLog에 추천 이벤트만 기록(PII 없음)
  */
 async function logRecommendation(
   contactId: string,
@@ -259,18 +328,19 @@ async function logRecommendation(
   recommendations: ScriptRecommendation[]
 ): Promise<void> {
   try {
-    // 실제 환경에서는 별도 테이블에 저장
-    // await db.recommendationLog.create({
-    //   data: {
-    //     organizationId,
-    //     contactId,
-    //     lens,
-    //     recommendedScriptIds: recommendations.map(r => r.id),
-    //     topScriptId: recommendations[0]?.id,
-    //     confidence: calculateConfidence(recommendations),
-    //     createdAt: new Date(),
-    //   },
-    // });
+    const topScriptId = recommendations[0]?.id;
+    await prisma.auditLog.create({
+      data: {
+        organizationId,
+        action: "PLAYBOOK_RECOMMEND",
+        resourceType: "PlaybookScript",
+        resourceId: topScriptId ?? null,
+        status: "SUCCESS",
+        purpose: lens, // 감지된 렌즈(L0-L10) — PII 아님
+        reasonDescription: `top:${topScriptId ?? "none"} count:${recommendations.length}`,
+        piiFieldsAccessed: [],
+      },
+    });
 
     logger.debug(
       `[PlaybookRecommender] Logged recommendation: ${contactId} → ${lens}`
