@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Upload, Download, Database, Users, CheckCircle,
-  AlertCircle, Loader2, FileSpreadsheet, Info, ChevronDown, Search
+  AlertCircle, Loader2, FileSpreadsheet, Info, ChevronDown, Search, Trash2
 } from "lucide-react";
 import Link from "next/link";
 import { IMPORT_CONFIGS, type ImportTarget } from "@/lib/import-config";
@@ -25,6 +25,10 @@ export default function DbPage() {
   const [contactsPage, setContactsPage] = useState(1);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [searchQ, setSearchQ] = useState("");
+  // ── 선택 & 삭제 ────────────────────────────────────────────
+  const [selected,  setSelected]  = useState<Set<string>>(new Set());
+  const [deleting,  setDeleting]  = useState(false);
+  const [deleteMsg, setDeleteMsg] = useState<string | null>(null);
   const [errorsOpen,   setErrorsOpen]   = useState(false);
   const [importHint,   setImportHint]   = useState("처리 중...");
   const [rowEstimate,  setRowEstimate]  = useState<number | null>(null);
@@ -101,6 +105,56 @@ export default function DbPage() {
       .catch(() => {})
       .finally(() => setContactsLoading(false));
   }
+
+  // ── 선택 헬퍼 ─────────────────────────────────────────────
+  const allIds = contacts.map(c => c.id);
+  const allSelected = allIds.length > 0 && allIds.every(id => selected.has(id));
+  const someSelected = allIds.some(id => selected.has(id));
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(allIds));
+    }
+  };
+
+  const toggleOne = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  // ── 소프트 삭제 ───────────────────────────────────────────
+  const handleDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`선택한 ${selected.size}명의 고객을 삭제하시겠습니까?\n\n※ 실제 데이터 삭제가 아닌 화면에서 숨김 처리됩니다.`)) return;
+    setDeleting(true);
+    setDeleteMsg(null);
+    try {
+      const res = await fetch('/api/contacts/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contactIds: Array.from(selected) }),
+      });
+      const data = await res.json() as { ok: boolean; count?: number; message?: string };
+      if (data.ok) {
+        const now = new Date().toLocaleString('ko-KR');
+        setDeleteMsg(`✅ ${data.count}명 숨김 처리 완료 (${now})`);
+        setSelected(new Set());
+        loadContacts(contactsPage);
+        loadStats();
+      } else {
+        setDeleteMsg(`❌ ${data.message ?? '삭제 실패'}`);
+      }
+    } catch {
+      setDeleteMsg('❌ 네트워크 오류가 발생했습니다.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // ── 마운트 시 최초 1회 로드 (AbortController로 cleanup) ───
   useEffect(() => {
@@ -299,10 +353,19 @@ export default function DbPage() {
         {/* 고객 목록 (기본 뷰) */}
         {!showImport && (
           <div>
+            {/* 검색 + 삭제 버튼 바 */}
             <div className="flex gap-2 mb-3">
               <input type="text" value={searchQ} onChange={(e) => setSearchQ(e.target.value)} placeholder="이름, 전화번호 검색" className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" onKeyDown={(e) => e.key === "Enter" && loadContacts(1)} />
               <button onClick={() => loadContacts(1)} className="bg-navy-900 text-white px-3 py-2 rounded-lg text-sm"><Search className="w-4 h-4" /></button>
             </div>
+
+            {/* 삭제 결과 메시지 */}
+            {deleteMsg && (
+              <div className={`text-sm px-3 py-2 rounded-lg mb-3 ${deleteMsg.startsWith('✅') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                {deleteMsg}
+              </div>
+            )}
+
             {contactsLoading ? (
               <div className="text-center py-8 text-gray-600">불러오는 중...</div>
             ) : contacts.length === 0 ? (
@@ -312,21 +375,66 @@ export default function DbPage() {
               </div>
             ) : (
               <>
-                <p className="text-sm text-gray-500 mb-2">총 {contactsTotal.toLocaleString()}건</p>
+                {/* 전체선택 + 삭제 버튼 */}
+                <div className="flex items-center justify-between mb-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-gray-300 accent-red-500"
+                      checked={allSelected}
+                      ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                      onChange={toggleAll}
+                    />
+                    {allSelected ? '전체해제' : '전체선택'}
+                    {selected.size > 0 && (
+                      <span className="text-red-600 font-medium">({selected.size}명 선택)</span>
+                    )}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">총 {contactsTotal.toLocaleString()}건</span>
+                    {selected.size > 0 && (
+                      <button
+                        onClick={handleDelete}
+                        disabled={deleting}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 disabled:opacity-50"
+                      >
+                        {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                        {deleting ? '처리 중...' : `${selected.size}명 삭제`}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 <div className="space-y-1">
                   {contacts.map((c) => (
-                    <Link key={c.id} href={`/contacts/${c.id}`} className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 border border-gray-100">
-                      <div>
-                        <span className="text-sm font-medium text-gray-900">{c.name}</span>
-                        <span className="text-sm text-gray-600 ml-2">{c.phone}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${c.type === "CUSTOMER" ? "bg-green-50 text-green-700" : "bg-blue-50 text-blue-600"}`}>{c.type === "CUSTOMER" ? "구매" : c.type}</span>
-                        <span className="text-sm text-gray-600">{new Date(c.createdAt).toLocaleDateString("ko-KR")}</span>
-                      </div>
-                    </Link>
+                    <div
+                      key={c.id}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-colors ${
+                        selected.has(c.id) ? 'bg-red-50 border-red-200' : 'hover:bg-gray-50 border-gray-100'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-gray-300 accent-red-500 flex-shrink-0"
+                        checked={selected.has(c.id)}
+                        onChange={() => toggleOne(c.id)}
+                      />
+                      <Link href={`/contacts/${c.id}`} className="flex items-center justify-between flex-1 min-w-0">
+                        <div className="min-w-0">
+                          <span className="text-sm font-medium text-gray-900">{c.name}</span>
+                          <span className="text-sm text-gray-600 ml-2">{c.phone}</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${c.type === "CUSTOMER" ? "bg-green-50 text-green-700" : "bg-blue-50 text-blue-600"}`}>
+                            {c.type === "CUSTOMER" ? "구매" : c.type}
+                          </span>
+                          <span className="text-sm text-gray-600">{new Date(c.createdAt).toLocaleDateString("ko-KR")}</span>
+                        </div>
+                      </Link>
+                    </div>
                   ))}
                 </div>
+
                 {contactsTotal > 20 && (
                   <div className="flex justify-center gap-2 mt-3">
                     <button disabled={contactsPage <= 1} onClick={() => loadContacts(contactsPage - 1)} className="px-3 py-1 text-sm border rounded disabled:opacity-30">이전</button>
