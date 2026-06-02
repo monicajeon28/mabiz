@@ -32,7 +32,7 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
   const [folder, setFolder]     = useState("전체");
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
-  const [selected, setSelected] = useState<ImageItem | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [copiedItemId, setCopiedItemId] = useState<string | null>(null);
 
   // 직접 URL 입력
@@ -157,7 +157,21 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
       formData.append("file", file);
       formData.append("folder", folder !== "전체" ? folder : "기타");
 
-      const res  = await fetch("/api/image-library", { method: "POST", body: formData });
+      // ✅ FormData 사용 시 Content-Type을 명시하지 않아야 함
+      // ← 브라우저가 자동으로 multipart/form-data와 boundary를 설정
+      const res = await fetch("/api/image-library", {
+        method: "POST",
+        body: formData
+        // ← headers 안 함
+      });
+
+      // ✅ HTTP 상태 코드 먼저 확인
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`HTTP ${res.status}: ${res.statusText || errorText}`);
+      }
+
+      // ✅ 정상 응답만 JSON 파싱
       const data = await res.json();
 
       if (data.ok) {
@@ -165,8 +179,10 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
       } else {
         alert(data.error ?? "업로드 실패");
       }
-    } catch {
-      alert("업로드 중 오류가 발생했습니다");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "알 수 없는 오류";
+      console.error("[Upload error]", message);
+      alert(`업로드 중 오류: ${message}`);
     } finally {
       setUploading(false);
       // 파일 input 초기화 (같은 파일 재업로드 허용)
@@ -184,7 +200,11 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
 
     if (data.ok) {
       setItems((prev) => prev.filter((i) => i.id !== item.id));
-      if (selected?.id === item.id) setSelected(null);
+      setSelected((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(item.id);
+        return newSet;
+      });
     } else {
       alert(data.error ?? "삭제 실패");
     }
@@ -648,10 +668,4 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
               className="flex items-center gap-1.5 px-4 py-1.5 bg-navy-900 text-white rounded-lg text-sm font-medium hover:bg-navy-700"
             >
               <Play className="w-3.5 h-3.5" /> 삽입
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+      

@@ -4860,6 +4860,28 @@ model PayslipBonus {
   @@index([deletedAt])
 }
 
+model AffiliatePayslip {
+  id                 Int       @id @default(autoincrement())
+  agentId            Int // GMcruise User.id (파트너)
+  yearMonth          String // YYYY-MM 형식
+  baseCommission     BigInt // 기본 커미션 (단위: 원)
+  bonus              BigInt? // 추가 보너스
+  deduction          BigInt? // 공제 (세금, 페널티 등)
+  netAmount          BigInt // 실지급액
+  status             String    @default("PENDING") // PENDING, APPROVED, SENT
+  paidAt             DateTime? // 지급일
+  note               String? // 메모
+  agentDisplayName   String? // 파트너 이름 (스냅샷)
+  agentMallUserId    String? // 파트너 mallUserId (스냅샷)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([agentId, yearMonth])
+  @@index([status])
+  @@index([agentId, yearMonth])
+  @@index([createdAt])
+}
+
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model ScheduledMessage {
   id             Int       @id @default(autoincrement())

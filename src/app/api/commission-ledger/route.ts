@@ -82,13 +82,40 @@ export async function GET(req: NextRequest) {
     if (ctx.role === 'AGENT') {
       const agentProfileId = ctx.mallUser?.affiliateProfileId;
       if (!agentProfileId) {
-        return NextResponse.json({ ok: false, error: '파트너 프로필이 없습니다.' }, { status: 403 });
+        // P0: AGENT가 GMcruise 링크가 없으면 빈 결과 반환 (403 아닌 정상 응답)
+        // 향후: CRM-only Agent가 수익을 별도로 추적하는 경우 처리 필요
+        logger.warn('[GET /api/commission-ledger] AGENT without GMcruise link', {
+          userId: ctx.userId,
+          memberDisplayName: ctx.member?.displayName,
+        });
+        return NextResponse.json({
+          ok: true,
+          ledger: [],
+          summary: null,
+          total: 0,
+          page: 1,
+          totalPages: 1,
+          requestedYearMonth: yearMonth,
+        });
       }
       roleCondition = Prisma.sql`AND cl."profileId" = ${agentProfileId}`;
     } else if (ctx.role === 'OWNER') {
       const ownerProfileId = ctx.mallUser?.affiliateProfileId;
       if (!ownerProfileId) {
-        return NextResponse.json({ ok: false, error: '파트너 프로필이 없습니다.' }, { status: 403 });
+        // P0: OWNER가 GMcruise 링크가 없으면 빈 결과 반환 (403 아닌 정상 응답)
+        logger.warn('[GET /api/commission-ledger] OWNER without GMcruise link', {
+          userId: ctx.userId,
+          memberDisplayName: ctx.member?.displayName,
+        });
+        return NextResponse.json({
+          ok: true,
+          ledger: [],
+          summary: null,
+          total: 0,
+          page: 1,
+          totalPages: 1,
+          requestedYearMonth: yearMonth,
+        });
       }
       roleCondition = Prisma.sql`
         AND cl."profileId" IN (

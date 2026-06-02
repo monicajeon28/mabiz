@@ -38,7 +38,12 @@ export async function GET(req: Request) {
             type: { in: ["CUSTOMER", "구매완료"] },
             purchasedAt: { not: null } // P0-BUG1: 구매 확정 고객만 필터링
           }
-        : type ? { type } : {}),
+        : type === "구매완료" || type === "CUSTOMER"
+          ? {
+              type,
+              purchasedAt: { not: null } // P0-FIX: 구매 확정 고객만 필터링 (type 필터 사용 시에도)
+            }
+          : type ? { type } : {}),
       ...(channel ? { channel } : {}),
       ...(sourceType ? { sourceType } : {}), // P0-6: 출처 필터링
       ...(q

@@ -6,6 +6,15 @@ import { uploadImageToDrive } from "@/lib/image-sync";
 import { getDriveClient } from "@/lib/drive-client";
 import sharp from "sharp";
 
+// ✅ Next.js 기본 제한(1MB) 무시 → 20MB 이미지 업로드 허용
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "25mb", // 20MB 이미지 + overhead
+    },
+  },
+};
+
 // GET /api/image-library?q=검색어&folder=폴더
 export async function GET(req: Request) {
   try {
@@ -178,30 +187,43 @@ export async function POST(req: Request) {
 
     if (isGif) {
       // GIF: EXIF 회전 후 최대 1200px 리사이즈, 포맷 유지
-      const sharpMeta = await sharp(inputBuffer, { animated: true }).metadata();
-      const origWidth = sharpMeta.width ?? 0;
+      try {
+        const sharpMeta = await sharp(inputBuffer, { animated: true }).metadata();
+        const origWidth = sharpMeta.width ?? 0;
 
-      if (origWidth > 1200) {
-        outputBuffer = await sharp(inputBuffer, { animated: true })
-          .rotate()
-          .resize({ width: 1200, withoutEnlargement: true })
-          .gif()
-          .toBuffer();
-      } else {
-        outputBuffer = await sharp(inputBuffer, { animated: true })
-          .rotate()
-          .gif()
-          .toBuffer();
+        if (origWidth > 1200) {
+          outputBuffer = await sharp(inputBuffer, { animated: true })
+            .rotate()
+            .resize({ width: 1200, withoutEnlargement: true })
+            .gif()
+            .toBuffer();
+        } else {
+          outputBuffer = await sharp(inputBuffer, { animated: true })
+            .rotate()
+            .gif()
+            .toBuffer();
+        }
+
+        outputMimeType = "image/gif";
+        outputFileName = titleParam
+          ? `${titleParam}.gif`
+          : originalName.endsWith(".gif") ? originalName : `${originalName}.gif`;
+
+        const meta = await sharp(outputBuffer, { animated: true }).metadata();
+        width  = meta.width;
+        height = meta.height;
+      } catch (gifErr) {
+        // GIF 처리 실패 시 원본 버퍼 사용
+        logger.warn("[GIF processing failed, using original]", {
+          error: gifErr instanceof Error ? gifErr.message : String(gifErr),
+          fileName: originalName,
+        });
+        outputBuffer = inputBuffer;
+        outputMimeType = "image/gif";
+        outputFileName = titleParam ? `${titleParam}.gif` : originalName;
+        width = undefined;
+        height = undefined;
       }
-
-      outputMimeType = "image/gif";
-      outputFileName = titleParam
-        ? `${titleParam}.gif`
-        : originalName.endsWith(".gif") ? originalName : `${originalName}.gif`;
-
-      const meta = await sharp(outputBuffer, { animated: true }).metadata();
-      width  = meta.width;
-      height = meta.height;
     } else {
       // 나머지: EXIF 회전 후 WebP 변환 (quality 85, 최대 1600px)
       const pipeline = sharp(inputBuffer)
@@ -258,7 +280,24 @@ export async function POST(req: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : undefined;
-    logger.error("[POST /api/image-library]", { message, stack, userId: ctx.userId });
-    return NextResponse.json({ ok: false, error: "업로드 실패" }, { status: 500 });
+
+    // ✅ FormData 파싱 오류인 경우 명확한 에러 메시지
+    const isFormDataError = message.includes("FormData") || message.includes("multipart");
+    const userMessage = isFormDataError
+      ? "파일 형식이 잘못되었거나 크기가 너무 큽니다"
+      : "업로드 실패";
+
+    logger.error("[POST /api/image-library]", {
+      message,
+      stack,
+      userId: ctx?.userId,
+      isFormDataError,
+      fileSize: ctx?.file?.size,
+    });
+
+    return NextResponse.json(
+      { ok: false, error: userMessage },
+      { status: isFormDataError ? 400 : 500 }
+    );
   }
 }

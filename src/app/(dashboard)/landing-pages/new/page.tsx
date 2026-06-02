@@ -316,6 +316,21 @@ ${footerBlock}
       fd.append("file", file); fd.append("landingPageId", pageId); fd.append("sortOrder", String(images.length + uploaded));
       try {
         const res  = await fetch("/api/landing-pages/images", { method: "POST", body: fd });
+        if (!res.ok) {
+          const contentType = res.headers.get('content-type');
+          let errorMsg = `${file.name} 업로드 실패`;
+          try {
+            if (contentType?.includes('application/json')) {
+              const errData = await res.json();
+              errorMsg = errData.message || errorMsg;
+            } else {
+              const text = await res.text();
+              if (text.length < 200) errorMsg = text;
+            }
+          } catch {}
+          setError(errorMsg);
+          continue;
+        }
         const data = await res.json();
         if (data.ok) { setImages((prev) => [...prev, data.image]); uploaded++; }
         else setError(data.message ?? `${file.name} 업로드 실패`);
