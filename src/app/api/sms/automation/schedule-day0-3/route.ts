@@ -71,8 +71,9 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // 스케줄 시간 계산
+        // 스케줄 시간 계산 (null이면 해당 day가 스케줄에 없음 — skip)
         const scheduledTime = calculateScheduledTime(callTimeDate, schedule.day);
+        if (!scheduledTime) continue;
 
         // 메시지 콘텐츠 변수 치환
         const firstName_display = firstName || contact.name.split(' ')[0] || 'Guest';

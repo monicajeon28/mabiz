@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-import { timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
@@ -220,7 +220,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Authentication failed' }, { status: 401 });
   }
 
-  const body = await req.json() as InquiryRequest;
+  // raw body를 먼저 읽은 뒤 HMAC-SHA256 서명 검증
+  const rawBody = await req.text();
+  const signature = req.headers.get('x-signature') ?? '';
+  if (!signature) {
+    logger.warn('[InquiryWebhook] x-signature 헤더 누락 — 요청 차단');
+    return NextResponse.json({ ok: false, error: 'Missing x-signature' }, { status: 401 });
+  }
+  const expectedSignature = createHmac('sha256', secret).update(rawBody).digest('hex');
+  if (
+    signature.length !== expectedSignature.length ||
+    !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+  ) {
+    logger.warn('[InquiryWebhook] HMAC 서명 검증 실패 — 요청 차단');
+    return NextResponse.json({ ok: false, error: 'Invalid signature' }, { status: 403 });
+  }
+
+  let body: InquiryRequest;
+  try {
+    body = JSON.parse(rawBody) as InquiryRequest;
+  } catch {
+    return NextResponse.json({ ok: false, message: 'JSON 파싱 실패' }, { status: 400 });
+  }
   const { phone, name, email, inquiryType, message, affiliateCode, organizationId: bodyOrgId, eventId } = body;
 
   if (!phone || !name) {

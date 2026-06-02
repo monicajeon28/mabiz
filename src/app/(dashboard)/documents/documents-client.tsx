@@ -500,8 +500,8 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
             {/* 공통 푸터 */}
             <div style={{ marginTop: '48px', borderTop: '1px solid #ddd', paddingTop: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: '12px', color: '#888' }}>
               <div>
-                <p style={{ margin: 0 }}>크루즈닷 | 대표: 배연성</p>
-                <p style={{ margin: '4px 0 0' }}>국민은행 531301-04-167150</p>
+                <p style={{ margin: 0 }}>크루즈닷 | 대표: {process.env.NEXT_PUBLIC_COMPANY_REP || '대표'}</p>
+                <p style={{ margin: '4px 0 0' }}>{process.env.NEXT_PUBLIC_BANK_ACCOUNT || ''}</p>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <p style={{ margin: 0 }}>문서번호: {doc.id.slice(-12).toUpperCase()}</p>

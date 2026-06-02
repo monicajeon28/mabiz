@@ -55,7 +55,7 @@ jobs:
               const startTime = Date.now();
               const req = https.get(baseUrl + endpoint.path, {
                 headers: {
-                  'Authorization': `Bearer ${{ secrets.API_TEST_TOKEN }}`,
+                  'Authorization': `Bearer ${process.env.API_TEST_TOKEN || ''}`,
                   'User-Agent': 'GitHub-Actions-Health-Check'
                 },
                 timeout: endpoint.timeout
@@ -126,6 +126,8 @@ jobs:
           });
           EOF
           node check-api-perf.js
+        env:
+          API_TEST_TOKEN: ${{ secrets.API_TEST_TOKEN }}
 
       - name: Notify Slack - API Check Failed
         if: failure()
@@ -140,7 +142,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*🔴 API Health Check FAILED*\n*Severity:* CRITICAL\n*Time:* $(date -u +'%Y-%m-%d %H:%M:%S UTC')\n*Details:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Log>"
+                    "text": "*🔴 API Health Check FAILED*\n*Severity:* CRITICAL\n*Run:* #${{ github.run_number }}\n*Details:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Log>"
                   }
                 }
               ]
@@ -177,7 +179,7 @@ jobs:
           const TABLES = [
             'Contact',
             'ContactGroup',
-            'AffiliateSale',
+            'CrmAffiliateSale',
             'Organization',
             'CallLog',
             'CommissionLedger',
@@ -346,13 +348,13 @@ jobs:
                 const events = JSON.parse(data);
                 console.log('=== Sentry Error Summary (Last 24h) ===');
 
-                const criticalErrors = events.filter((e: any) => e.level === 'fatal' || e.level === 'error');
-                const warnings = events.filter((e: any) => e.level === 'warning');
+                const criticalErrors = events.filter(e => e.level === 'fatal' || e.level === 'error');
+                const warnings = events.filter(e => e.level === 'warning');
 
                 console.log(`Critical/Error: ${criticalErrors.length}`);
                 console.log(`Warnings: ${warnings.length}`);
 
-                criticalErrors.slice(0, 5).forEach((e: any) => {
+                criticalErrors.slice(0, 5).forEach(e => {
                   console.log(`  ❌ ${e.title} (${e.platform}) - ${new Date(e.dateCreated).toISOString()}`);
                 });
 
@@ -447,7 +449,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*${{ env.EMOJI }} Daily Monitoring - ${{ env.STATUS }}*\n\n*API Security:* ${{ needs.api-security-check.result }}\n*DB Integrity:* ${{ needs.database-integrity-check.result }}\n*Error Tracking:* ${{ needs.error-tracking-sync.result }}\n*Performance:* ${{ needs.performance-check.result }}\n\n*Time:* $(date -u +'%Y-%m-%d %H:%M:%S UTC')\n*Details:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Logs>"
+                    "text": "*${{ env.EMOJI }} Daily Monitoring - ${{ env.STATUS }}*\n\n*API Security:* ${{ needs.api-security-check.result }}\n*DB Integrity:* ${{ needs.database-integrity-check.result }}\n*Error Tracking:* ${{ needs.error-tracking-sync.result }}\n*Performance:* ${{ needs.performance-check.result }}\n\n*Run:* #${{ github.run_number }}\n*Details:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Logs>"
                   }
                 }
               ]

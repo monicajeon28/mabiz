@@ -29,6 +29,7 @@ import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
 import { sendFunnelEmail } from '@/lib/email';
 import { renderPartnerWelcomeEmail } from '@/lib/email-templates';
 import { checkSmsRateLimit, checkEmailRateLimit } from '@/lib/affiliate-rate-limit';
+import { notifyCruisedotAffiliateCreated } from '@/lib/affiliate/notify-cruisedot';
 
 // ── PUT: 계약 승인 ────────────────────────────────────────────────
 export async function PUT(
@@ -300,6 +301,39 @@ export async function PUT(
       approvedBy: ctx.userId,
     });
 
+    // 11. 크루즈닷몰 웹훅 발송 (비차단 — 실패 시 계약 승인 유지)
+    const contractMeta2 = contract.metadata as Record<string, any> | null;
+    notifyCruisedotAffiliateCreated({
+      event: 'contract.approved',
+      contractId,
+      contractRef: contractMeta2?.contractRef ?? undefined,
+      contractorName: contract.name || '계약자',
+      approvedAt: new Date().toISOString(),
+      manager: {
+        partnerId: provisionResult.managerPartnerId,
+        role: 'affiliate_manager',
+        affiliateCode: provisionResult.manager.affiliateCode,
+        linkCode: provisionResult.manager.linkCode,
+        linkUrl: provisionResult.manager.linkUrl,
+      },
+      agent: {
+        partnerId: provisionResult.agentPartnerId,
+        role: 'affiliate_agent',
+        affiliateCode: provisionResult.agent.affiliateCode,
+        linkCode: provisionResult.agent.linkCode,
+        linkUrl: provisionResult.agent.linkUrl,
+      },
+      presales: {
+        partnerId: provisionResult.presalesPartnerId,
+        role: 'affiliate_presales',
+        affiliateCode: provisionResult.presales.affiliateCode,
+        linkCode: provisionResult.presales.linkCode,
+        linkUrl: provisionResult.presales.linkUrl,
+      },
+    }).catch((e) =>
+      logger.error('[AFFILIATE-PROVISION] 크루즈닷몰 웹훅 발송 실패', { contractId, error: e })
+    );
+
     // 응답 — 비밀번호 절대 포함 금지
     return NextResponse.json({
       ok: true,
@@ -323,6 +357,12 @@ export async function PUT(
           affiliateCode: provisionResult.agent.affiliateCode,
           linkCode: provisionResult.agent.linkCode,
           linkUrl: provisionResult.agent.linkUrl,
+        },
+        presales: {
+          gmUserId: provisionResult.presales.gmUserId,
+          affiliateCode: provisionResult.presales.affiliateCode,
+          linkCode: provisionResult.presales.linkCode,
+          linkUrl: provisionResult.presales.linkUrl,
         },
         smsSent,
         emailSent,
