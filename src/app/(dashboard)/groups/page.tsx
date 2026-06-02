@@ -1,522 +1,789 @@
-﻿"use client";
+"use client";
 
-import { useState, useEffect } from "react";
-import { Plus, Users, ArrowRight, Upload } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  Copy,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Network,
+  Plus,
+  X,
+} from "lucide-react";
 import { showError } from "@/components/ui/Toast";
-import { GroupForm } from "@/components/groups/GroupForm";
-import { GroupCard } from "@/components/groups/GroupCard";
-import { BlastPanel } from "@/components/groups/BlastPanel";
-import { RegionalSetup } from "@/components/groups/RegionalSetup";
-import { ImportModal } from "@/components/groups/ImportModal";
 import { logger } from "@/lib/logger";
+import { GroupForm } from "@/components/groups/GroupForm";
 
-type Group = {
+// ─── 타입 정의 ────────────────────────────────────────────────────────────────
+type GroupRow = {
   id: string;
+  seq: string;
   name: string;
-  description: string | null;
-  color: string | null;
-  funnelId: string | null;
-  funnelName: string | null;
-  _count: { members: number };
+  category: string | null;
+  parentGroupId: string | null;
+  memberCount: number;
+  funnelSmsIds: string[];
+  createdAt: string;
+  children?: GroupRow[];
+  _funnelSmsName?: string;
 };
-type Funnel = { id: string; name: string };
 
-export default function GroupsPage() {
-  const [groups,  setGroups]  = useState<Group[]>([]);
-  const [funnels, setFunnels] = useState<Funnel[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [csrfToken, setCsrfToken] = useState('');
-  const [showNew, setShowNew] = useState(false);
-  const [form, setForm]       = useState({ name: "", description: "", color: "#6B7280", funnelId: "" });
-  const [saving, setSaving]   = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+type PageSize = 10 | 50 | 100;
 
-  // 지역 그룹 초기화 상태
-  const [setupMsg,     setSetupMsg]     = useState<string | null>(null);
-  const [setupLoading, setSetupLoading] = useState(false);
+// ─── 유틸 ─────────────────────────────────────────────────────────────────────
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate()
+  ).padStart(2, "0")}`;
+}
 
-  // W3-1: 페이지네이션
-  const [currentPage, setCurrentPage] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
-  const ITEMS_PER_PAGE = 10;
+function buildEmbedScript(seq: string): string {
+  const origin =
+    typeof window !== "undefined" ? window.location.origin : "https://app.mabiz.kr";
+  return `<!-- include form -->
+<form action="${origin}/api/public/group-join" onsubmit="return step_submit(this);">
+  <input type="hidden" name="seq" value="${seq}"/>
+  <input type="hidden" name="result_url" value=""/><!--신청후 이동할 url-->
+  <input type="text" name="nm" placeholder="이름 입력"/>
+  <input type="text" name="hp" placeholder="휴대폰번호 입력"/>
+  <input type="text" name="em" placeholder="이메일 입력"/>
+  <input type="submit" value="신청하기"/>
+</form>
+<script>function step_submit(frm){if(frm.nm.value==""){alert("이름이 없습니다");return false;}var regExp=/^01([0|1|6|7|8|9]?)-?([0-9]{3,4})-?([0-9]{4})$/;if(!regExp.test(frm.hp.value)){alert('잘못된 휴대폰 번호입니다. 숫자, -를 포함한 숫자만 입력하세요.');return false;}return true;}<\/script>
+<!-- //include form -->`;
+}
 
-  // W3-2: 에러 메시지 차별화
-  const getErrorMessage = (err: unknown, context: string): string => {
-    if (err instanceof Error) {
-      if (err.message.includes('Network')) return `${context}: 네트워크 연결 불안정`;
-      if (err.message.includes('timeout')) return `${context}: 요청 타임아웃 (다시 시도해주세요)`;
+// ─── 스크립트 모달 ─────────────────────────────────────────────────────────────
+function ScriptModal({ seq, onClose }: { seq: string; onClose: () => void }) {
+  const script = buildEmbedScript(seq);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(script).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4">
+        <div className="flex items-center justify-between px-5 py-4 border-b">
+          <h2 className="text-base font-semibold text-gray-900">스크립트</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-5 space-y-3">
+          <textarea
+            readOnly
+            value={script}
+            rows={4}
+            className="w-full font-mono text-xs border border-gray-200 rounded-lg p-3 bg-gray-50 resize-none focus:outline-none"
+          />
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50"
+            >
+              닫기
+            </button>
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <Copy className="w-4 h-4" />
+              {copied ? "복사됨!" : "복사"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 그룹 만들기 모달 ──────────────────────────────────────────────────────────
+function CreateGroupModal({
+  csrfToken,
+  onClose,
+  onCreated,
+}: {
+  csrfToken: string;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      setErr("그룹명을 입력하세요.");
+      return;
     }
-    return `${context}: 알 수 없는 오류가 발생했습니다`;
-  };
-
-  const initRegionalGroups = async () => {
-    if (setupLoading) return;
-    setSetupLoading(true);
-    setSetupMsg(null);
-    try {
-      const res  = await fetch('/api/setup/regional-groups', {
-        method: 'POST',
-        headers: { 'X-CSRF-Token': csrfToken || '' },
-      });
-      const data = await res.json() as { ok: boolean; created?: string[]; skipped?: string[]; message?: string };
-      if (data.ok) {
-        const createdCount = data.created?.length ?? 0;
-        const skippedCount = data.skipped?.length ?? 0;
-        if (createdCount === 0) {
-          setSetupMsg('이미 설정되어 있습니다');
-        } else {
-          setSetupMsg(`${createdCount}개 그룹 생성 완료${skippedCount > 0 ? ` (${skippedCount}개 스킵)` : ''}`);
-          await loadGroups();
-        }
-      } else {
-        const msg = data.message ?? '초기화에 실패했습니다.';
-        setSetupMsg(msg);
-        showError(msg);
-      }
-    } catch (err) {
-      const msg = getErrorMessage(err, '[지역 그룹 초기화]');
-      logger.error('[GroupsPage] initRegionalGroups', { err });
-      setSetupMsg(msg);
-      showError(msg);
-    } finally {
-      setSetupLoading(false);
-    }
-  };
-
-  // 복제·내보내기·가져오기 상태
-  const [copiedExportId, setCopiedExportId] = useState<string | null>(null);
-  const [showImport,     setShowImport]     = useState(false);
-
-  const loadGroups = async (limit = ITEMS_PER_PAGE, offset = 0) => {
-    setError(null);
-    try {
-      const [gResult, fResult] = await Promise.allSettled([
-        fetch(`/api/groups?limit=${limit}&offset=${offset}`).then((r) => r.json()),
-        fetch('/api/funnels').then((r) => r.json()),
-      ]);
-
-      if (gResult.status === 'fulfilled' && gResult.value.ok) {
-        setGroups(gResult.value.groups);
-        setTotalCount(gResult.value.totalCount ?? 0);
-      } else if (gResult.status === 'rejected') {
-        logger.error('[loadGroups] groups fetch', { err: gResult.reason });
-        setError('그룹을 불러올 수 없습니다.');
-      }
-
-      if (fResult.status === 'fulfilled' && fResult.value.ok) {
-        setFunnels(fResult.value.funnels);
-      } else if (fResult.status === 'rejected') {
-        logger.error('[loadGroups] funnels fetch', { err: fResult.reason });
-      }
-    } catch (err) {
-      // P1: 예상치 못한 에러 처리
-      logger.error('[loadGroups] unexpected error', { err });
-      setError('데이터를 불러올 수 없습니다.');
-    }
-  };
-
-  const cloneGroup = async (id: string) => {
-    // W3-7: 복제 확인 대화
-    if (!confirm('이 그룹을 복제하시겠습니까?')) return;
-
-    try {
-      const res = await fetch(`/api/groups/${id}/clone`, {
-        method: 'POST',
-        headers: { 'X-CSRF-Token': csrfToken || '' },
-      });
-      const d = await res.json() as { ok: boolean; group?: { name: string }; message?: string };
-      if (d.ok) { await loadGroups(); }
-      else showError(d.message || '복제 실패');
-    } catch (err) {
-      const msg = getErrorMessage(err, '[그룹 복제]');
-      logger.error('[GroupsPage] cloneGroup', { err });
-      showError(msg);
-    }
-  };
-
-  const exportGroup = async (id: string) => {
-    try {
-      // P1: CSRF 토큰 추가 (내보내기 이력 기록)
-      const res = await fetch(`/api/groups/${id}/export`, {
-        method: 'POST',
-        headers: { 'X-CSRF-Token': csrfToken || '' },
-      });
-      const d = await res.json() as { ok: boolean; data?: unknown; message?: string };
-      if (d.ok) {
-        await navigator.clipboard.writeText(JSON.stringify(d.data, null, 2));
-        setCopiedExportId(id);
-        setTimeout(() => setCopiedExportId(null), 2000);
-      } else showError(d.message || '내보내기 실패');
-    } catch (err) {
-      const msg = getErrorMessage(err, '[그룹 내보내기]');
-      logger.error('[GroupsPage] exportGroup', { err });
-      showError(msg);
-    }
-  };
-
-  // 일괄 발송 상태
-  const [blastGroupId,  setBlastGroupId]  = useState<string | null>(null);
-  const [blastMsg,      setBlastMsg]      = useState("");
-  const [blastPreview,  setBlastPreview]  = useState<{ willSend: number; isOverLimit: boolean; overLimitMsg: string | null } | null>(null);
-  const [blastConfirm,  setBlastConfirm]  = useState(false); // UX-004: 최종 확인 체크박스
-  const [blasting,      setBlasting]      = useState(false);
-  const [blastResult,   setBlastResult]   = useState<{ sentCount: number; blockedCount: number; failedCount: number } | null>(null);
-  const [checkingBlast, setCheckingBlast] = useState(false);
-  const [blastError,    setBlastError]    = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch('/api/csrf-token')
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.ok) {
-          setCsrfToken(d.token);
-        } else {
-          logger.warn('[GroupsPage] CSRF token', { message: d.message });
-        }
-      })
-      .catch((err) => {
-        logger.error('[GroupsPage] CSRF token fetch', { err });
-      });
-  }, []);
-
-  const openBlast = (groupId: string) => {
-    setBlastGroupId(groupId);
-    setBlastMsg("");
-    setBlastPreview(null);
-    setBlastResult(null);
-    setBlastError(null);
-  };
-
-  const checkBlast = async () => {
-    if (!blastGroupId || !blastMsg.trim() || checkingBlast) return;
-    setCheckingBlast(true);
-    setBlastError(null);
-    try {
-      const res  = await fetch(`/api/groups/${blastGroupId}/blast`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": csrfToken || '',
-        },
-        body: JSON.stringify({ message: blastMsg, dryRun: true }),
-      });
-      const data = await res.json() as { ok: boolean; error?: string; message?: string; willSend?: number; isOverLimit?: boolean; overLimitMsg?: string | null };
-      if (data.ok) setBlastPreview({ willSend: data.willSend ?? 0, isOverLimit: data.isOverLimit ?? false, overLimitMsg: data.overLimitMsg ?? null });
-      else {
-        const msg = data.message ?? data.error ?? "대상 확인에 실패했습니다.";
-        setBlastError(msg);
-        showError(msg);
-      }
-    } catch (err) {
-      const msg = getErrorMessage(err, '[대상 확인]');
-      logger.error('[GroupsPage] checkBlast', { err });
-      setBlastError(msg);
-      showError(msg);
-    } finally {
-      setCheckingBlast(false);
-    }
-  };
-
-  const sendBlast = async () => {
-    // UX-004: 최종 확인 체크박스 검증
-    if (!blastGroupId || !blastMsg.trim() || blasting || !blastConfirm) return;
-    setBlasting(true);
-    try {
-      const res  = await fetch(`/api/groups/${blastGroupId}/blast`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": csrfToken || '',
-        },
-        body: JSON.stringify({ message: blastMsg, dryRun: false }),
-      });
-      const data = await res.json() as { ok: boolean; error?: string; message?: string; sentCount?: number; blockedCount?: number; failedCount?: number };
-      if (data.ok) {
-        setBlastResult({ sentCount: data.sentCount ?? 0, blockedCount: data.blockedCount ?? 0, failedCount: data.failedCount ?? 0 });
-        setBlastPreview(null);
-        setBlastConfirm(false); // 발송 후 상태 초기화
-      } else {
-        const msg = data.message ?? data.error ?? "발송에 실패했습니다.";
-        setBlastError(msg);
-        showError(msg);
-      }
-    } catch (err) {
-      const msg = getErrorMessage(err, '[메시지 발송]');
-      logger.error('[GroupsPage] sendBlast', { err });
-      setBlastError(msg);
-      showError(msg);
-    } finally {
-      setBlasting(false); // 에러 시에도 반드시 해제
-    }
-  };
-
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    const offset = currentPage * ITEMS_PER_PAGE;
-    Promise.allSettled([
-      fetch(`/api/groups?limit=${ITEMS_PER_PAGE}&offset=${offset}`).then((r) => r.json()),
-      fetch("/api/funnels").then((r) => r.json()),
-    ]).then(([gResult, fResult]) => {
-      if (gResult.status === 'fulfilled' && gResult.value.ok) {
-        setGroups(gResult.value.groups);
-        setTotalCount(gResult.value.totalCount ?? 0);
-      } else {
-        logger.error('[GroupsPage init] groups fetch failed', { result: gResult });
-      }
-
-      if (fResult.status === 'fulfilled' && fResult.value.ok) {
-        setFunnels(fResult.value.funnels);
-      } else {
-        logger.error('[GroupsPage init] funnels fetch failed', { result: fResult });
-      }
-    }).catch((err) => {
-      logger.error('[GroupsPage init] Promise.allSettled', { err });
-      setError('데이터를 불러올 수 없습니다.');
-    }).finally(() => setLoading(false));
-  }, [currentPage]);
-
-  const createGroup = async () => {
-    if (!form.name.trim()) return;
     setSaving(true);
-    setFormError(null);
-    setFieldErrors({});
+    setErr(null);
     try {
-      const res  = await fetch("/api/groups", {
+      const res = await fetch("/api/groups", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-CSRF-Token": csrfToken || '',
+          "X-CSRF-Token": csrfToken,
         },
-        body:    JSON.stringify({
-          name:        form.name,
-          description: form.description || null,
-          color:       form.color,
-          funnelId:    form.funnelId || null,
-        }),
+        body: JSON.stringify({ name: name.trim(), category: category.trim() || null }),
       });
-      const data = await res.json() as {
-        ok: boolean;
-        error?: string;
-        message?: string;
-        errors?: Record<string, string>;
-        group?: Group;
-      };
-      if (data.ok && data.group) {
-        setGroups((prev) => [...prev, data.group!]);
-        setShowNew(false);
-        setForm({ name: "", description: "", color: "#6B7280", funnelId: "" });
+      const data = (await res.json()) as { ok: boolean; message?: string };
+      if (data.ok) {
+        onCreated();
+        onClose();
       } else {
-        if (data.errors) {
-          setFieldErrors(data.errors);
-          showError("입력값을 확인해주세요.");
-        } else {
-          setFormError(data.message || data.error || "그룹 생성에 실패했습니다.");
-          showError(data.message || data.error || "그룹 생성에 실패했습니다.");
-        }
+        setErr(data.message ?? "그룹 생성에 실패했습니다.");
       }
-    } catch (err) {
-      const msg = getErrorMessage(err, '[그룹 생성]');
-      logger.error('[GroupsPage] createGroup', { err });
-      setFormError(msg);
-      showError(msg);
+    } catch {
+      setErr("네트워크 오류가 발생했습니다.");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <>
-    <div className="p-4 md:p-6 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-navy-900">가족과의 시간이 정말 충분한가요?</h1>
-          <p className="text-sm text-gray-700 mt-2">아이들이 자라는 속도는 생각보다 훨씬 빠릅니다.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowImport(true)}
-            className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
-          >
-            <Upload className="w-4 h-4" />
-            가져오기
-          </button>
-          <button
-            onClick={() => setShowNew(true)}
-            className="flex items-center gap-1.5 bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700"
-          >
-            <Plus className="w-4 h-4" /> 새 그룹
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+        <div className="flex items-center justify-between px-5 py-4 border-b">
+          <h2 className="text-base font-semibold text-gray-900">그룹 만들기</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
           </button>
         </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              그룹명 <span className="text-red-500">*</span>
+            </label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="예: 2026년 봄 신규 문의"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              대분류 (선택)
+            </label>
+            <input
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="예: 크루즈, 여행, VIP"
+            />
+          </div>
+          {err && <p className="text-sm text-red-600">{err}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50"
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {saving ? "저장 중..." : "만들기"}
+            </button>
+          </div>
+        </form>
       </div>
+    </div>
+  );
+}
 
-      {/* 에러 상태 */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-semibold text-red-900">데이터를 불러올 수 없습니다</p>
-              <p className="text-sm text-red-700 mt-1">{error}</p>
-            </div>
+// ─── 메인 페이지 ───────────────────────────────────────────────────────────────
+export default function GroupsPage() {
+  // 데이터
+  const [groups, setGroups] = useState<GroupRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [csrfToken, setCsrfToken] = useState("");
+
+  // 검색/필터
+  const [searchEmail, setSearchEmail] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [categories, setCategories] = useState<string[]>([]);
+
+  // 페이지네이션
+  const [pageSize, setPageSize] = useState<PageSize>(100);
+  const [currentPage, setCurrentPage] = useState(0);
+
+  // 선택
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // 모달
+  const [scriptSeq, setScriptSeq] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+
+  // 삭제 진행
+  const [deleting, setDeleting] = useState(false);
+
+  // 스크립트 로딩
+  const [scriptLoading, setScriptLoading] = useState<string | null>(null);
+
+  // 그룹폼 데이터
+  const [funnels, setFunnels] = useState<{ id: string; name: string }[]>([]);
+  const [funnelSmsList, setFunnelSmsList] = useState<{ id: string; title: string }[]>([]);
+
+  // ── CSRF 토큰 ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    fetch("/api/csrf-token")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) setCsrfToken(d.token);
+      })
+      .catch((err) => logger.error("[GroupsPage] csrf", { err }));
+  }, []);
+
+  // ── 데이터 로드 ────────────────────────────────────────────────────────────
+  const loadGroups = useCallback(async () => {
+    setLoading(true);
+    try {
+      const offset = currentPage * pageSize;
+      const params = new URLSearchParams({
+        limit: String(pageSize),
+        offset: String(offset),
+      });
+      if (searchQ) params.set("q", searchQ);
+      if (categoryFilter) params.set("category", categoryFilter);
+      if (searchEmail) params.set("emailOnly", "1");
+
+      const res = await fetch(`/api/groups?${params.toString()}`);
+      const data = (await res.json()) as {
+        ok: boolean;
+        groups: GroupRow[];
+        totalCount: number;
+        categories?: string[];
+      };
+      if (data.ok) {
+        setGroups(data.groups ?? []);
+        setTotalCount(data.totalCount ?? 0);
+        if (data.categories) setCategories(data.categories);
+      }
+    } catch (err) {
+      logger.error("[GroupsPage] loadGroups", { err });
+      showError("그룹을 불러올 수 없습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, pageSize, searchQ, categoryFilter, searchEmail]);
+
+  useEffect(() => {
+    void loadGroups();
+  }, [loadGroups]);
+
+  // funnels + funnel-sms 한 번만 패칭 (모달 열릴 때 필요)
+  useEffect(() => {
+    Promise.allSettled([
+      fetch("/api/funnels").then((r) => r.json()),
+      fetch("/api/funnel-sms").then((r) => r.json()),
+    ]).then(([fRes, fsRes]) => {
+      if (fRes.status === "fulfilled" && fRes.value.ok) {
+        setFunnels((fRes.value as { ok: boolean; funnels?: { id: string; name: string }[] }).funnels ?? []);
+      }
+      if (fsRes.status === "fulfilled" && fsRes.value.ok) {
+        setFunnelSmsList((fsRes.value as { ok: boolean; funnelSmsList?: { id: string; title: string }[] }).funnelSmsList ?? []);
+      }
+    }).catch(() => {/* funnels 패칭 실패는 조용히 무시 */});
+  }, []);
+
+  // ── 트리 빌드 ──────────────────────────────────────────────────────────────
+  const buildTree = (flat: GroupRow[]): GroupRow[] => {
+    const map = new Map<string, GroupRow>();
+    flat.forEach((g) => map.set(g.id, { ...g, children: [] }));
+    const roots: GroupRow[] = [];
+    map.forEach((g) => {
+      if (g.parentGroupId && map.has(g.parentGroupId)) {
+        map.get(g.parentGroupId)!.children!.push(g);
+      } else {
+        roots.push(g);
+      }
+    });
+    return roots;
+  };
+
+  const tree = buildTree(groups);
+
+  // ── 선택 헬퍼 ──────────────────────────────────────────────────────────────
+  const allLeafIds: string[] = tree.flatMap((g) =>
+    g.children && g.children.length > 0 ? g.children.map((c) => c.id) : [g.id]
+  );
+
+  const allSelected = allLeafIds.length > 0 && allLeafIds.every((id) => selected.has(id));
+  const someSelected = allLeafIds.some((id) => selected.has(id));
+
+  const toggleAll = () => {
+    if (allSelected) setSelected(new Set());
+    else setSelected(new Set(allLeafIds));
+  };
+
+  const toggleRow = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // ── 스크립트 클릭: seq 있으면 바로, 없으면 API 호출해서 생성 ──────────────────
+  const handleScriptClick = async (groupId: string, existingSeq: string | null) => {
+    if (existingSeq) {
+      setScriptSeq(existingSeq);
+      return;
+    }
+    setScriptLoading(groupId);
+    try {
+      const res = await fetch(`/api/groups/${groupId}/script`);
+      const d = (await res.json()) as { ok: boolean; seq?: string };
+      if (d.ok && d.seq) {
+        setScriptSeq(d.seq);
+        // 로컬 목록도 업데이트
+        setGroups((prev) =>
+          prev.map((g) =>
+            g.id === groupId ? { ...g, seq: d.seq! } : g
+          )
+        );
+      } else {
+        showError("스크립트 생성에 실패했습니다.");
+      }
+    } catch {
+      showError("스크립트를 불러올 수 없습니다.");
+    } finally {
+      setScriptLoading(null);
+    }
+  };
+
+  // ── 삭제 ──────────────────────────────────────────────────────────────────
+  const deleteSelected = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`선택한 ${selected.size}개 그룹을 삭제하시겠습니까?`)) return;
+    setDeleting(true);
+    try {
+      await Promise.all(
+        [...selected].map((id) =>
+          fetch(`/api/groups/${id}`, {
+            method: "DELETE",
+            headers: { "X-CSRF-Token": csrfToken },
+          })
+        )
+      );
+      setSelected(new Set());
+      await loadGroups();
+    } catch (err) {
+      logger.error("[GroupsPage] deleteSelected", { err });
+      showError("삭제 중 오류가 발생했습니다.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // ── 페이지네이션 ───────────────────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+  const goFirst = () => setCurrentPage(0);
+  const goPrev = () => setCurrentPage((p) => Math.max(0, p - 1));
+  const goNext = () => setCurrentPage((p) => Math.min(totalPages - 1, p + 1));
+  const goLast = () => setCurrentPage(totalPages - 1);
+
+  // ── UI ────────────────────────────────────────────────────────────────────
+  let rowNo = currentPage * pageSize + 1;
+
+  return (
+    <>
+      {scriptSeq && <ScriptModal seq={scriptSeq} onClose={() => setScriptSeq(null)} />}
+
+      {showCreate && (
+        <GroupForm
+          groups={groups.map((g) => ({ id: g.id, name: g.name }))}
+          funnels={funnels}
+          funnelSmsList={funnelSmsList}
+          funnelEmailList={[]}
+          csrfToken={csrfToken}
+          onClose={() => setShowCreate(false)}
+          onCreated={() => {
+            void loadGroups();
+          }}
+        />
+      )}
+
+      <div className="flex flex-col h-full p-4 md:p-6 space-y-3">
+        {/* ═══ 상단 버튼바 1행 ════════════════════════════════════════════ */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <button className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
+              <Network className="w-4 h-4" />
+              퍼널설계
+            </button>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4" />
+              그룹 만들기
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={searchEmail}
+                onChange={(e) => {
+                  setSearchEmail(e.target.checked);
+                  setCurrentPage(0);
+                }}
+                className="w-4 h-4 rounded border-gray-300"
+              />
+              이메일 필드
+            </label>
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setSearchQ(searchInput);
+                  setCurrentPage(0);
+                }
+              }}
+              placeholder="그룹명 검색"
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value) as PageSize);
+                setCurrentPage(0);
+              }}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+            >
+              <option value={10}>10개</option>
+              <option value={50}>50개</option>
+              <option value={100}>100개</option>
+            </select>
             <button
               onClick={() => {
-                setLoading(true);
-                loadGroups();
+                setSearchQ(searchInput);
+                setCurrentPage(0);
               }}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700"
+              className="px-3 py-2 bg-gray-800 text-white rounded-lg text-sm hover:bg-gray-700"
             >
-              재시도
+              검색Q
             </button>
           </div>
         </div>
-      )}
 
-      {/* Loss Aversion Implication 박스 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-        {/* Loss Aversion #2: 시간 손실 */}
-        <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded-lg">
-          <p className="text-sm font-bold text-red-800 mb-1">시간 손실</p>
-          <p className="text-sm text-red-700">
-            "아이 초등학교는 최대 6년.
-            매해 2주씩 사라져요"
-          </p>
-        </div>
-
-        {/* Loss Aversion #3: 건강 악화 */}
-        <div className="bg-orange-50 border-l-4 border-orange-500 p-3 rounded-lg">
-          <p className="text-sm font-bold text-orange-800 mb-1">건강 악화</p>
-          <p className="text-sm text-orange-700">
-            "체력은 매년 5% 감소합니다.
-            2026년이 가장 건강한 해예요"
-          </p>
-        </div>
-
-        {/* Loss Aversion #4: 부모님 마지막 기회 */}
-        <div className="bg-purple-50 border-l-4 border-purple-500 p-3 rounded-lg">
-          <p className="text-sm font-bold text-purple-800 mb-1">마지막 기회</p>
-          <p className="text-sm text-purple-700">
-            "부모님과 함께할 시간은
-            생각보다 많지 않습니다"
-          </p>
-        </div>
-      </div>
-
-      {/* 흐름 설명 */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5">
-        <p className="text-sm font-medium text-blue-800 mb-2">📌 그룹 + 퍼널 자동화 흐름</p>
-        <div className="flex items-center gap-2 text-sm text-blue-700 flex-wrap">
-          <span className="bg-blue-100 px-2 py-1 rounded">고객 그룹 배정</span>
-          <ArrowRight className="w-3 h-3 shrink-0" />
-          <span className="bg-blue-100 px-2 py-1 rounded">연결된 퍼널 자동 시작</span>
-          <ArrowRight className="w-3 h-3 shrink-0" />
-          <span className="bg-blue-100 px-2 py-1 rounded">자동 문자 발송</span>
-        </div>
-        <p className="text-sm text-blue-600 mt-2">
-          Day 0-3 SPIN 기반 자동화: 신청 직후 → 가치강조 → 긴급성 → 최종결정
-        </p>
-      </div>
-
-      <RegionalSetup
-        loading={setupLoading}
-        setupMsg={setupMsg}
-        onSetup={initRegionalGroups}
-      />
-
-      {/* 가져오기 모달 */}
-      {showImport && (
-        <ImportModal
-          csrfToken={csrfToken}
-          onClose={() => setShowImport(false)}
-          onDone={async () => { await loadGroups(); }}
-        />
-      )}
-
-      {/* 새 그룹 폼 */}
-      {showNew && (
-        <GroupForm
-          form={form}
-          setForm={setForm}
-          fieldErrors={fieldErrors}
-          setFieldErrors={setFieldErrors}
-          formError={formError}
-          setFormError={setFormError}
-          saving={saving}
-          funnels={funnels}
-          onSubmit={createGroup}
-          onCancel={() => setShowNew(false)}
-        />
-      )}
-
-      {/* 그룹 목록 */}
-      {loading ? (
-        <div className="space-y-3">
-          {[...Array(3)].map((_, i) => <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />)}
-        </div>
-      ) : groups.length === 0 ? (
-        <div className="text-center py-16">
-          <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="font-medium text-gray-700">그룹이 없습니다</p>
-          <p className="text-sm text-gray-600 mt-1">+ 새 그룹 버튼으로 만들어보세요</p>
-        </div>
-      ) : (
-        <>
-          <div className="space-y-3">
-            {groups.map((group) => (
-              <GroupCard
-                key={group.id}
-                group={group}
-                copiedExportId={copiedExportId}
-                onClone={cloneGroup}
-                onExport={exportGroup}
-                onBlast={openBlast}
-              >
-                {blastGroupId === group.id && (
-                  <BlastPanel
-                    blastMsg={blastMsg}
-                    onMsgChange={setBlastMsg}
-                    blastPreview={blastPreview}
-                    blastError={blastError}
-                    blastConfirm={blastConfirm}
-                    onConfirmChange={setBlastConfirm}
-                    onCheckBlast={checkBlast}
-                    checkingBlast={checkingBlast}
-                    onSendBlast={sendBlast}
-                    blasting={blasting}
-                    blastResult={blastResult}
-                    onClose={() => setBlastGroupId(null)}
-                  />
-                )}
-              </GroupCard>
+        {/* ═══ 상단 버튼바 2행: 대분류 필터 ═════════════════════════════ */}
+        <div className="flex items-center gap-2">
+          <select
+            value={categoryFilter}
+            onChange={(e) => {
+              setCategoryFilter(e.target.value);
+              setCurrentPage(0);
+            }}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none min-w-[140px]"
+          >
+            <option value="">전체</option>
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
+          </select>
+          {categoryFilter && (
+            <button
+              onClick={() => {
+                setCategoryFilter("");
+                setCurrentPage(0);
+              }}
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+          <span className="text-sm text-gray-500 ml-auto">
+            총 {totalCount.toLocaleString()}개
+          </span>
+        </div>
+
+        {/* ═══ 테이블 ════════════════════════════════════════════════════ */}
+        <div className="border border-gray-200 rounded-xl overflow-hidden bg-white flex-1 overflow-x-auto">
+          <table className="w-full text-sm min-w-[900px]">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="w-10 px-3 py-3 text-center">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someSelected && !allSelected;
+                    }}
+                    onChange={toggleAll}
+                    className="w-4 h-4 rounded border-gray-300"
+                  />
+                </th>
+                <th className="w-12 px-3 py-3 text-center text-gray-500 font-medium">NO</th>
+                <th className="px-3 py-3 text-left text-gray-500 font-medium">그룹명</th>
+                <th className="px-3 py-3 text-left text-gray-500 font-medium">상위그룹</th>
+                <th className="px-3 py-3 text-center text-gray-500 font-medium">연결된 고객</th>
+                <th className="px-3 py-3 text-left text-gray-500 font-medium">
+                  연결한 퍼널톡 / 연결한 퍼널문자
+                </th>
+                <th className="px-3 py-3 text-center text-gray-500 font-medium">생성일</th>
+                <th className="px-3 py-3 text-center text-gray-500 font-medium">스크립트</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="px-3 py-12 text-center text-gray-400">
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin inline-block" />
+                      불러오는 중...
+                    </div>
+                  </td>
+                </tr>
+              ) : tree.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-3 py-16 text-center text-gray-400">
+                    그룹이 없습니다.
+                  </td>
+                </tr>
+              ) : (
+                tree.flatMap((parent) => {
+                  const rows: React.ReactNode[] = [];
+                  const hasChildren = parent.children && parent.children.length > 0;
+
+                  rows.push(
+                    <tr key={`parent-${parent.id}`} className="bg-gray-50">
+                      <td className="px-3 py-2 text-center">
+                        {!hasChildren && (
+                          <input
+                            type="checkbox"
+                            checked={selected.has(parent.id)}
+                            onChange={() => toggleRow(parent.id)}
+                            className="w-4 h-4 rounded border-gray-300"
+                          />
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-center text-gray-400">
+                        {!hasChildren ? rowNo++ : ""}
+                      </td>
+                      <td className="px-3 py-2 font-semibold text-gray-800">
+                        {hasChildren ? (
+                          <span className="text-gray-700">
+                            {parent.name}
+                            <span className="ml-2 text-xs text-gray-400 font-normal">
+                              {parent.children!.length}개의 그룹이 있습니다.
+                            </span>
+                          </span>
+                        ) : (
+                          parent.name
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-gray-500 text-xs">
+                        {parent.category ?? "—"}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        {!hasChildren && (
+                          <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                            {parent.memberCount.toLocaleString()}명
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-gray-600 text-xs">
+                        {!hasChildren &&
+                          (parent._funnelSmsName ??
+                            (parent.funnelSmsIds.length > 0
+                              ? `${parent.funnelSmsIds.length}개`
+                              : "—"))}
+                      </td>
+                      <td className="px-3 py-2 text-center text-gray-500 text-xs">
+                        {!hasChildren ? formatDate(parent.createdAt) : ""}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        {!hasChildren && (
+                          <button
+                            onClick={() => handleScriptClick(parent.id, parent.seq)}
+                            disabled={scriptLoading === parent.id}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50 text-gray-600 disabled:opacity-50"
+                          >
+                            {scriptLoading === parent.id ? (
+                              <span className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                            스크립트 복사
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+
+                  if (hasChildren) {
+                    parent.children!.forEach((child) => {
+                      rows.push(
+                        <tr key={`child-${child.id}`} className="hover:bg-gray-50/50">
+                          <td className="px-3 py-2 text-center">
+                            <input
+                              type="checkbox"
+                              checked={selected.has(child.id)}
+                              onChange={() => toggleRow(child.id)}
+                              className="w-4 h-4 rounded border-gray-300"
+                            />
+                          </td>
+                          <td className="px-3 py-2 text-center text-gray-400">{rowNo++}</td>
+                          <td className="px-3 py-2">
+                            <span className="inline-flex items-center gap-1.5">
+                              <span className="text-gray-300 select-none">└</span>
+                              <span className="text-gray-800">{child.name}</span>
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-gray-500 text-xs">{parent.name}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                              {child.memberCount.toLocaleString()}명
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-gray-600 text-xs">
+                            {child._funnelSmsName ??
+                              (child.funnelSmsIds.length > 0
+                                ? `${child.funnelSmsIds.length}개`
+                                : "—")}
+                          </td>
+                          <td className="px-3 py-2 text-center text-gray-500 text-xs">
+                            {formatDate(child.createdAt)}
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <button
+                              onClick={() => handleScriptClick(child.id, child.seq)}
+                              disabled={scriptLoading === child.id}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50 text-gray-600 disabled:opacity-50"
+                            >
+                              {scriptLoading === child.id ? (
+                                <span className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                              스크립트 복사
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    });
+                  }
+
+                  return rows;
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ═══ 하단 버튼바 ══════════════════════════════════════════════ */}
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              disabled={selected.size === 0}
+              className="px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40"
+              onClick={() => showError("선택항목 프로필변경 기능 준비 중입니다.")}
+            >
+              선택항목 프로필변경
+            </button>
+            <button
+              disabled={selected.size === 0}
+              className="px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40"
+              onClick={() => showError("선택항목 유입그래프 기능 준비 중입니다.")}
+            >
+              선택항목 유입그래프
+            </button>
           </div>
 
-          {/* W3-1: 페이지네이션 */}
-          {totalCount > ITEMS_PER_PAGE && (
-            <div className="flex items-center justify-center gap-2 mt-6">
-              <button
-                onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-                disabled={currentPage === 0}
-                className="px-3 py-2 border rounded-lg disabled:opacity-50"
-              >
-                이전
-              </button>
-              <span className="text-sm text-gray-600">
-                {currentPage + 1} / {Math.ceil(totalCount / ITEMS_PER_PAGE)}
-              </span>
-              <button
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={(currentPage + 1) * ITEMS_PER_PAGE >= totalCount}
-                className="px-3 py-2 border rounded-lg disabled:opacity-50"
-              >
-                다음
-              </button>
-            </div>
-          )}
-        </>
-      )}
-    </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={goFirst}
+              disabled={currentPage === 0}
+              className="p-1.5 border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-40"
+            >
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={goPrev}
+              disabled={currentPage === 0}
+              className="p-1.5 border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-40"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              const start = Math.max(0, Math.min(currentPage - 2, totalPages - 5));
+              const page = start + i;
+              return (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`w-8 h-8 text-sm rounded border ${
+                    page === currentPage
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  {page + 1}
+                </button>
+              );
+            })}
+            <button
+              onClick={goNext}
+              disabled={currentPage >= totalPages - 1}
+              className="p-1.5 border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-40"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={goLast}
+              disabled={currentPage >= totalPages - 1}
+              className="p-1.5 border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-40"
+            >
+              <ChevronsRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              disabled={selected.size === 0}
+              className="px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40"
+              onClick={() => showError("선택항목 묶음변경 기능 준비 중입니다.")}
+            >
+              선택항목 묶음변경
+            </button>
+            <button
+              disabled={selected.size === 0 || deleting}
+              onClick={deleteSelected}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-40"
+            >
+              <Trash2 className="w-4 h-4" />
+              {deleting ? "삭제 중..." : "그룹정보삭제"}
+            </button>
+          </div>
+        </div>
+      </div>
     </>
   );
 }

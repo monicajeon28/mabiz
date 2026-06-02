@@ -604,28 +604,49 @@ model LensTemplate {
 }
 
 model ContactGroup {
-  id                 String                 @id @default(cuid())
-  organizationId     String
-  name               String
-  description        String?
-  color              String?                @default("#6B7280")
-  funnelId           String?
-  funnelSmsId        String?
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
-  ownerId            String?
+  id                    String                 @id @default(cuid())
+  organizationId        String
+  name                  String
+  description           String?
+  color                 String?                @default("#6B7280")
+  // 16자 hex 고유 시퀀스 (embed 스크립트용)
+  seq                   String?                @unique
+  // 계층 구조 (상위 그룹 ID)
+  parentGroupId         String?
+  // 대분류 카테고리
+  category              String?
+  // 재유입 처리 정책
+  reEntryPolicy         String                 @default("KEEP_TIME_KEEP_DATA")
+  // 그룹 자동 이동 설정
+  autoMoveEnabled       Boolean                @default(false)
+  autoMoveDays          Int?
+  autoMoveTargetGroupId String?
+  // 다중 퍼널 연결 (JSON 배열)
+  funnelIds             String[]
+  funnelSmsIds          String[]
+  funnelEmailIds        String[]
+  // 하위 호환성
+  funnelId              String?
+  funnelSmsId           String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  ownerId               String?
   // P2-13: memberCount 캐시 (실시간 _count 대신 UPDATE 트리거로 유지)
-  memberCount        Int                    @default(0)
-  organization       Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  funnelSms          FunnelSms?             @relation("GroupFunnelSms", fields: [funnelSmsId], references: [id], onDelete: SetNull)
-  members            ContactGroupMember[]
-  b2bLandingPages    B2BLandingPage[]
-  landingPages       CrmLandingPage[]
-  marketingCampaigns CrmMarketingCampaign[] @relation("CrmMarketing")
-  tokens             GroupToken[]
+  memberCount           Int                    @default(0)
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  funnelSms             FunnelSms?             @relation("GroupFunnelSms", fields: [funnelSmsId], references: [id], onDelete: SetNull)
+  parent                ContactGroup?          @relation("GroupHierarchy", fields: [parentGroupId], references: [id])
+  children              ContactGroup[]         @relation("GroupHierarchy")
+  members               ContactGroupMember[]
+  b2bLandingPages       B2BLandingPage[]
+  landingPages          CrmLandingPage[]
+  marketingCampaigns    CrmMarketingCampaign[] @relation("CrmMarketing")
+  tokens                GroupToken[]
 
   @@index([organizationId])
   @@index([ownerId])
+  @@index([parentGroupId])
+  @@index([seq])
   // P2-13: memberCount 인덱스 (GROUP BY / 정렬 성능 최적화)
   @@index([organizationId, memberCount], map: "idx_group_org_membercount")
 }
@@ -1346,6 +1367,7 @@ model ScheduledSms {
   pausedBy        String?
   failureReason   String?
   channel         String       @default("GENERAL") @db.VarChar(100)
+  senderPhone     String?      @db.VarChar(20) // 퍼널문자용 발신번호 (없으면 org 기본값 사용)
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, status, scheduledAt])

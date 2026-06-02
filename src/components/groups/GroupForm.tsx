@@ -1,194 +1,396 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
-
-type Funnel = { id: string; name: string };
+import { Loader2, X } from 'lucide-react';
 
 interface GroupFormProps {
-  form: { name: string; description: string; color: string; funnelId: string };
-  setForm: (form: { name: string; description: string; color: string; funnelId: string }) => void;
-  fieldErrors: Record<string, string>;
-  setFieldErrors: (errors: Record<string, string>) => void;
-  formError: string | null;
-  setFormError: (error: string | null) => void;
-  saving: boolean;
-  funnels: Funnel[];
-  onSubmit: () => void;
-  onCancel: () => void;
+  groups: { id: string; name: string }[];
+  funnels: { id: string; name: string }[];
+  funnelSmsList: { id: string; title: string }[];
+  funnelEmailList: { id: string; name: string }[];
+  csrfToken: string;
+  onClose: () => void;
+  onCreated: () => void;
 }
 
-const COLOR_OPTIONS = [
-  "#1E2D4E", "#C9A84C", "#10B981", "#3B82F6",
-  "#8B5CF6", "#EF4444", "#F59E0B", "#6B7280",
-];
-
-const COLOR_NAMES: Record<string, string> = {
-  "#1E2D4E": "네이비",
-  "#C9A84C": "골드",
-  "#10B981": "초록",
-  "#3B82F6": "파랑",
-  "#8B5CF6": "보라",
-  "#EF4444": "빨강",
-  "#F59E0B": "주황",
-  "#6B7280": "회색",
-};
+type ReEntryPolicy =
+  | 'KEEP_TIME_KEEP_DATA'
+  | 'RESET_TIME_KEEP_DATA'
+  | 'RESET_ALL_RESTART';
 
 export function GroupForm({
-  form,
-  setForm,
-  fieldErrors,
-  setFieldErrors,
-  formError,
-  setFormError,
-  saving,
+  groups,
   funnels,
-  onSubmit,
-  onCancel,
+  funnelSmsList,
+  funnelEmailList,
+  csrfToken,
+  onClose,
+  onCreated,
 }: GroupFormProps) {
+  const [name, setName] = useState('');
+  const [category, setCategory] = useState('');
+  const [parentGroupId, setParentGroupId] = useState('');
+  const [description, setDescription] = useState('');
+
+  // 퍼널톡 3개
+  const [funnelIds, setFunnelIds] = useState<[string, string, string]>(['', '', '']);
+  // 퍼널문자 3개
+  const [funnelSmsIds, setFunnelSmsIds] = useState<[string, string, string]>(['', '', '']);
+  // 퍼널메일 3개
+  const [funnelEmailIds, setFunnelEmailIds] = useState<[string, string, string]>(['', '', '']);
+
+  const [reEntryPolicy, setReEntryPolicy] = useState<ReEntryPolicy>('KEEP_TIME_KEEP_DATA');
+
+  const [autoMoveEnabled, setAutoMoveEnabled] = useState(false);
+  const [autoMoveDays, setAutoMoveDays] = useState('');
+  const [autoMoveTargetGroupId, setAutoMoveTargetGroupId] = useState('');
+
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const handleFunnelChange = (idx: number, val: string) => {
+    setFunnelIds((prev) => {
+      const next = [...prev] as [string, string, string];
+      next[idx] = val;
+      return next;
+    });
+  };
+
+  const handleSmsChange = (idx: number, val: string) => {
+    setFunnelSmsIds((prev) => {
+      const next = [...prev] as [string, string, string];
+      next[idx] = val;
+      return next;
+    });
+  };
+
+  const handleEmailChange = (idx: number, val: string) => {
+    setFunnelEmailIds((prev) => {
+      const next = [...prev] as [string, string, string];
+      next[idx] = val;
+      return next;
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (!name.trim()) {
+      setFormError('그룹 이름은 필수입니다.');
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      const body: Record<string, unknown> = {
+        name: name.trim(),
+        category: category.trim() || null,
+        parentGroupId: parentGroupId || null,
+        description: description.trim() || null,
+        funnelIds: funnelIds.filter(Boolean),
+        funnelSmsIds: funnelSmsIds.filter(Boolean),
+        funnelEmailIds: funnelEmailIds.filter(Boolean),
+        reEntryPolicy,
+        autoMoveEnabled,
+      };
+      if (autoMoveEnabled) {
+        body.autoMoveDays = autoMoveDays ? parseInt(autoMoveDays, 10) : undefined;
+        body.autoMoveTargetGroupId = autoMoveTargetGroupId || undefined;
+      }
+
+      const res = await fetch('/api/groups', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json() as { ok: boolean; message?: string; error?: string };
+      if (data.ok) {
+        onCreated();
+        onClose();
+      } else {
+        setFormError(data.message || data.error || '그룹 생성에 실패했습니다.');
+      }
+    } catch {
+      setFormError('서버와 통신 중 오류가 발생했습니다.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <div className="bg-white border border-gold-300 rounded-xl p-5 mb-4 shadow-sm">
-      <h3 className="font-semibold text-gray-900 mb-4">새 그룹 만들기</h3>
-      <div className="space-y-3">
-        <div>
-          <label htmlFor="group-name" className="block text-sm font-medium text-gray-700 mb-1">
-            그룹 이름 *
-          </label>
-          <input
-            id="group-name"
-            type="text"
-            value={form.name}
-            onChange={(e) => {
-              setForm({ ...form, name: e.target.value });
-              setFieldErrors({ ...fieldErrors, name: '' });
-            }}
-            placeholder="예: 지중해 관심 고객"
-            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
-              fieldErrors.name
-                ? 'border-red-500 focus:border-red-500'
-                : 'border-gray-200 focus:border-gold-500'
-            }`}
-            aria-invalid={!!fieldErrors.name}
-            aria-describedby={fieldErrors.name ? 'error-name' : undefined}
-          />
-          {fieldErrors.name && (
-            <p id="error-name" className="text-base text-red-600 mt-2 font-medium bg-red-50 p-2 rounded">
-              ⚠️ {fieldErrors.name}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+          <h2 className="text-base font-semibold text-gray-900">그룹 만들기</h2>
+          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 text-gray-500">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* 폼 바디 */}
+        <div className="px-5 py-4">
+          <table className="w-full text-sm">
+            <tbody>
+              {/* 이름 */}
+              <tr className="border-b border-gray-100">
+                <td className="py-3 pr-4 w-28 text-gray-700 font-medium whitespace-nowrap align-top pt-3.5">
+                  이름 <span className="text-red-500">*</span>
+                </td>
+                <td className="py-3">
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="그룹 이름을 입력하세요"
+                    className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                  />
+                </td>
+              </tr>
+
+              {/* 대분류 */}
+              <tr className="border-b border-gray-100">
+                <td className="py-3 pr-4 text-gray-700 font-medium whitespace-nowrap align-top pt-3.5">
+                  대분류
+                </td>
+                <td className="py-3">
+                  <input
+                    type="text"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    placeholder="※ 카테고리 분류"
+                    className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                  />
+                </td>
+              </tr>
+
+              {/* 그룹묶음 */}
+              <tr className="border-b border-gray-100">
+                <td className="py-3 pr-4 text-gray-700 font-medium whitespace-nowrap align-top pt-3.5">
+                  그룹묶음
+                </td>
+                <td className="py-3">
+                  <select
+                    value={parentGroupId}
+                    onChange={(e) => setParentGroupId(e.target.value)}
+                    className="w-full border border-gray-200 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400"
+                  >
+                    <option value="">그룹들을 묶을수 있습니다</option>
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                </td>
+              </tr>
+
+              {/* 그룹설명 */}
+              <tr className="border-b border-gray-100">
+                <td className="py-3 pr-4 text-gray-700 font-medium whitespace-nowrap align-top pt-3.5">
+                  그룹설명
+                </td>
+                <td className="py-3">
+                  <input
+                    type="text"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="그룹에 대한 간단한 설명"
+                    className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                  />
+                </td>
+              </tr>
+
+              {/* 퍼널톡 */}
+              <tr className="border-b border-gray-100">
+                <td className="py-3 pr-4 text-gray-700 font-medium whitespace-nowrap align-top pt-3.5">
+                  퍼널톡
+                </td>
+                <td className="py-3 space-y-2">
+                  {([0, 1, 2] as const).map((i) => (
+                    <select
+                      key={i}
+                      value={funnelIds[i]}
+                      onChange={(e) => handleFunnelChange(i, e.target.value)}
+                      className="w-full border border-gray-200 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400"
+                    >
+                      <option value="">연결할 퍼널톡 선택</option>
+                      {funnels.map((f) => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                  ))}
+                </td>
+              </tr>
+
+              {/* 퍼널문자 */}
+              <tr className="border-b border-gray-100">
+                <td className="py-3 pr-4 text-gray-700 font-medium whitespace-nowrap align-top pt-3.5">
+                  퍼널문자
+                </td>
+                <td className="py-3 space-y-2">
+                  {([0, 1, 2] as const).map((i) => (
+                    <select
+                      key={i}
+                      value={funnelSmsIds[i]}
+                      onChange={(e) => handleSmsChange(i, e.target.value)}
+                      className="w-full border border-gray-200 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400"
+                    >
+                      <option value="">연결할 퍼널문자 선택</option>
+                      {funnelSmsList.map((f) => (
+                        <option key={f.id} value={f.id}>{f.title}</option>
+                      ))}
+                    </select>
+                  ))}
+                </td>
+              </tr>
+
+              {/* 퍼널메일 */}
+              <tr className="border-b border-gray-100">
+                <td className="py-3 pr-4 text-gray-700 font-medium whitespace-nowrap align-top pt-3.5">
+                  퍼널메일
+                </td>
+                <td className="py-3 space-y-2">
+                  {([0, 1, 2] as const).map((i) => (
+                    <select
+                      key={i}
+                      value={funnelEmailIds[i]}
+                      onChange={(e) => handleEmailChange(i, e.target.value)}
+                      className="w-full border border-gray-200 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400"
+                    >
+                      <option value="">연결할 퍼널메일 선택</option>
+                      {funnelEmailList.map((f) => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                  ))}
+                </td>
+              </tr>
+
+              {/* 재유입 처리 설정 */}
+              <tr className="border-b border-gray-100">
+                <td className="py-3 pr-4 text-gray-700 font-medium whitespace-nowrap align-top pt-3.5">
+                  재유입 처리 설정
+                </td>
+                <td className="py-3 space-y-2">
+                  {(
+                    [
+                      {
+                        value: 'KEEP_TIME_KEEP_DATA' as ReEntryPolicy,
+                        label: '유입시간변경 X, 고객정보변경 O',
+                      },
+                      {
+                        value: 'RESET_TIME_KEEP_DATA' as ReEntryPolicy,
+                        label: '유입시간변경 O, 고객정보변경 O',
+                      },
+                      {
+                        value: 'RESET_ALL_RESTART' as ReEntryPolicy,
+                        label: '유입시간변경 O, 고객정보변경 O (*0일차 퍼널 부터 다시 시작)',
+                      },
+                    ] as const
+                  ).map((opt) => (
+                    <label key={opt.value} className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="reEntryPolicy"
+                        value={opt.value}
+                        checked={reEntryPolicy === opt.value}
+                        onChange={() => setReEntryPolicy(opt.value)}
+                        className="mt-0.5 shrink-0"
+                      />
+                      <span className="text-sm text-gray-700">{opt.label}</span>
+                    </label>
+                  ))}
+                </td>
+              </tr>
+
+              {/* 그룹 자동 이동 설정 */}
+              <tr>
+                <td className="py-3 pr-4 text-gray-700 font-medium whitespace-nowrap align-top pt-3.5">
+                  그룹 자동 이동 설정
+                </td>
+                <td className="py-3 space-y-3">
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="autoMove"
+                        checked={!autoMoveEnabled}
+                        onChange={() => setAutoMoveEnabled(false)}
+                        className="shrink-0"
+                      />
+                      <span className="text-sm text-gray-700">미사용</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="autoMove"
+                        checked={autoMoveEnabled}
+                        onChange={() => setAutoMoveEnabled(true)}
+                        className="shrink-0"
+                      />
+                      <span className="text-sm text-gray-700">사용</span>
+                    </label>
+                  </div>
+
+                  {autoMoveEnabled && (
+                    <div className="space-y-2 pl-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600 w-20 shrink-0">대상 일자</span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={autoMoveDays}
+                          onChange={(e) => setAutoMoveDays(e.target.value)}
+                          placeholder="일 수 입력"
+                          className="w-32 border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                        />
+                        <span className="text-sm text-gray-500">일</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600 w-20 shrink-0">대상 그룹</span>
+                        <select
+                          value={autoMoveTargetGroupId}
+                          onChange={(e) => setAutoMoveTargetGroupId(e.target.value)}
+                          className="flex-1 border border-gray-200 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400"
+                        >
+                          <option value="">그룹명 선택</option>
+                          {groups.map((g) => (
+                            <option key={g.id} value={g.id}>{g.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* 에러 */}
+          {formError && (
+            <p className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+              {formError}
             </p>
           )}
         </div>
 
-        <div>
-          <label htmlFor="group-description" className="block text-sm font-medium text-gray-700 mb-1">
-            설명
-          </label>
-          <input
-            id="group-description"
-            type="text"
-            value={form.description}
-            onChange={(e) => {
-              setForm({ ...form, description: e.target.value });
-              setFieldErrors({ ...fieldErrors, description: '' });
-            }}
-            placeholder="이 그룹에 대한 간단한 설명"
-            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
-              fieldErrors.description
-                ? 'border-red-500 focus:border-red-500'
-                : 'border-gray-200 focus:border-gold-500'
-            }`}
-            aria-invalid={!!fieldErrors.description}
-            aria-describedby={fieldErrors.description ? 'error-description' : undefined}
-          />
-          {fieldErrors.description && (
-            <p id="error-description" className="text-base text-red-600 mt-2 font-medium bg-red-50 p-2 rounded">
-              ⚠️ {fieldErrors.description}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">색상</label>
-          <div className="flex gap-2">
-            {COLOR_OPTIONS.map((c) => (
-              <button
-                key={c}
-                onClick={() => {
-                  setForm({ ...form, color: c });
-                  setFieldErrors({ ...fieldErrors, color: '' });
-                }}
-                className={`w-7 h-7 rounded-full transition-transform ${
-                  form.color === c ? 'scale-125 ring-2 ring-offset-1 ring-gray-400' : ''
-                }`}
-                style={{ backgroundColor: c }}
-                aria-label={`${COLOR_NAMES[c]} 색상 선택`}
-                title={`${COLOR_NAMES[c]} (${c})`}
-                suppressHydrationWarning
-              />
-            ))}
-          </div>
-          {fieldErrors.color && (
-            <p className="text-base text-red-600 mt-2 font-medium bg-red-50 p-2 rounded">
-              ⚠️ {fieldErrors.color}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="group-funnel" className="block text-sm font-medium text-gray-700 mb-1">
-            연결할 퍼널 <span className="text-sm text-gray-600 ml-1">(그룹 배정 시 자동 시작)</span>
-          </label>
-          <select
-            id="group-funnel"
-            value={form.funnelId}
-            onChange={(e) => {
-              setForm({ ...form, funnelId: e.target.value });
-              setFieldErrors({ ...fieldErrors, funnelId: '' });
-            }}
-            className={`w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none ${
-              fieldErrors.funnelId
-                ? 'border-red-500 focus:border-red-500'
-                : 'border-gray-200 focus:border-gold-500'
-            }`}
-            aria-invalid={!!fieldErrors.funnelId}
-            aria-describedby={fieldErrors.funnelId ? 'error-funnelId' : undefined}
+        {/* 버튼 */}
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-200">
+          <button
+            onClick={onClose}
+            className="px-5 py-2 rounded border border-gray-200 text-sm text-gray-600 hover:bg-gray-50"
           >
-            <option value="">퍼널 없음 (수동 발송만)</option>
-            {funnels.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
-          {fieldErrors.funnelId && (
-            <p id="error-funnelId" className="text-base text-red-600 mt-2 font-medium bg-red-50 p-2 rounded">
-              ⚠️ {fieldErrors.funnelId}
-            </p>
-          )}
-          {form.funnelId && !fieldErrors.funnelId && (
-            <p className="text-sm text-green-600 mt-1">✅ 이 그룹에 고객 배정 시 즉시 퍼널 시작</p>
-          )}
+            취소
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={saving || !name.trim()}
+            className="px-5 py-2 rounded bg-navy-900 text-white text-sm font-medium hover:bg-navy-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+            저장
+          </button>
         </div>
-      </div>
-
-      {formError && (
-        <p className="text-base text-red-600 mt-3 font-medium bg-red-50 p-3 rounded">⚠️ {formError}</p>
-      )}
-
-      <div className="flex gap-2 mt-4">
-        <button
-          onClick={onSubmit}
-          disabled={saving || !form.name.trim()}
-          className="flex-1 bg-navy-900 text-white py-2 rounded-lg text-base font-medium hover:bg-navy-700 disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-          {saving ? '저장 중...' : '그룹 만들기'}
-        </button>
-        <button
-          onClick={onCancel}
-          className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg text-sm hover:bg-gray-200"
-        >
-          취소
-        </button>
       </div>
     </div>
   );

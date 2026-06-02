@@ -5,8 +5,7 @@ import prisma from '@/lib/prisma';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
-// GET /api/groups/[id]/script - 기존 토큰으로 등록 스크립트 조회 (토큰 없으면 404)
-// PERF-003 + SCALE-003: 토큰 생성은 POST로 분리 (캐싱 가능하게 함)
+// GET /api/groups/[id]/script — seq 기반 embed HTML 반환
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: groupId } = await params;
@@ -15,7 +14,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     const group = await prisma.contactGroup.findFirst({
       where: { id: groupId, organizationId: ctx.organizationId ?? undefined },
-      select: { name: true, organizationId: true, ownerId: true },
+      select: { name: true, seq: true, ownerId: true },
     });
 
     if (!group) {
@@ -26,61 +25,42 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ ok: false, error: 'FORBIDDEN' }, { status: 403 });
     }
 
-    // 기존 유효한 토큰 조회만 (생성하지 않음)
-    const token = await prisma.groupToken.findFirst({
-      where: {
-        groupId,
-        active: true,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (!token) {
-      return NextResponse.json(
-        { ok: false, error: 'NO_TOKEN', message: '유효한 토큰이 없습니다. POST /api/groups/[id]/script로 토큰을 생성하세요.' },
-        { status: 404 }
-      );
+    // seq가 없으면 자동 생성 후 저장
+    let seq = group.seq;
+    if (!seq) {
+      for (let i = 0; i < 5; i++) {
+        const candidate = crypto.randomBytes(8).toString('hex');
+        const exists = await prisma.contactGroup.findFirst({ where: { seq: candidate }, select: { id: true } });
+        if (!exists) {
+          await prisma.contactGroup.update({ where: { id: groupId }, data: { seq: candidate } });
+          seq = candidate;
+          break;
+        }
+      }
+      if (!seq) return NextResponse.json({ ok: false, error: 'SEQ_GEN_FAILED' }, { status: 500 });
     }
 
-    const formFields = [
-      { name: 'name', label: '이름', required: true, placeholder: '이름을 입력하세요' },
-      { name: 'phone', label: '전화번호', required: true, placeholder: '010-0000-0000' },
-      { name: 'email', label: '이메일', required: false, placeholder: 'example@email.com' },
-    ];
+    const appOrigin = process.env.NEXT_PUBLIC_APP_URL ?? origin;
+    const script = `<!-- include form -->
+<form action="${appOrigin}/api/public/group-join" onsubmit="return step_submit(this);">
+  <input type="hidden" name="seq" value="${seq}"/>
+  <input type="hidden" name="result_url" value=""/><!--신청후 이동할 url-->
+  <input type="text" name="nm" placeholder="이름 입력"/>
+  <input type="text" name="hp" placeholder="휴대폰번호 입력"/>
+  <input type="text" name="em" placeholder="이메일 입력"/>
+  <input type="submit" value="신청하기"/>
+</form>
+<script>function step_submit(frm){if(frm.nm.value==""){alert("이름이 없습니다");return false;}var regExp=/^01([0|1|6|7|8|9]?)-?([0-9]{3,4})-?([0-9]{4})$/;if(!regExp.test(frm.hp.value)){alert('잘못된 휴대폰 번호입니다. 숫자, -를 포함한 숫자만 입력하세요.');return false;}return true;}<\/script>
+<!-- //include form -->`;
 
-    const formHtml = formFields
-      .map(
-        field =>
-          `<input type="${field.name === 'email' ? 'email' : 'tel'}" name="${field.name}" placeholder="${field.placeholder}" ${
-            field.required ? 'required' : ''
-          } style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;font-size:14px;box-sizing:border-box;" />`
-      )
-      .join('\n');
-
-    const script = `<!-- mabiz 그룹 등록 폼 -->
-<form action="${origin}/api/groups/${groupId}/register" method="POST" style="max-width:400px;margin:20px auto;">
-  <input type="hidden" name="seq" value="${token.id}" />
-  ${formHtml}
-  <button type="submit" style="width:100%;padding:14px;background-color:#007bff;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;font-weight:bold;">신청하기</button>
-</form>`;
-
-    return NextResponse.json({
-      ok: true,
-      token: token.id,
-      groupId,
-      groupName: group.name,
-      script,
-      expiresAt: token.expiresAt,
-    });
+    return NextResponse.json({ ok: true, seq, groupId, groupName: group.name, script });
   } catch (err) {
     logger.error('[GET /api/groups/[id]/script]', { err });
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
 
-// POST /api/groups/[id]/script - 새 토큰 생성
-// PERF-003 + SCALE-003: 토큰 생성을 POST로 분리
+// POST /api/groups/[id]/script — seq 재생성 (분실/교체 시)
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: groupId } = await params;
@@ -88,41 +68,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const group = await prisma.contactGroup.findFirst({
       where: { id: groupId, organizationId: ctx.organizationId ?? undefined },
-      select: { name: true, organizationId: true, ownerId: true },
+      select: { name: true, ownerId: true },
     });
 
-    if (!group) {
-      return NextResponse.json({ ok: false, error: 'NOT_FOUND' }, { status: 404 });
-    }
-
+    if (!group) return NextResponse.json({ ok: false, error: 'NOT_FOUND' }, { status: 404 });
     if (ctx.role === 'AGENT' && group.ownerId !== ctx.userId) {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN' }, { status: 403 });
     }
 
-    // 기존 활성 토큰이 있으면 비활성화
-    await prisma.groupToken.updateMany({
-      where: { groupId, active: true },
-      data: { active: false },
-    });
+    let newSeq: string | null = null;
+    for (let i = 0; i < 5; i++) {
+      const candidate = crypto.randomBytes(8).toString('hex');
+      const exists = await prisma.contactGroup.findFirst({ where: { seq: candidate }, select: { id: true } });
+      if (!exists) { newSeq = candidate; break; }
+    }
+    if (!newSeq) return NextResponse.json({ ok: false, error: 'SEQ_GEN_FAILED' }, { status: 500 });
 
-    // 새 토큰 생성 (자동 생성 ID 사용, C2 타입 일관성 수정)
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await prisma.contactGroup.update({ where: { id: groupId }, data: { seq: newSeq } });
 
-    const token = await prisma.groupToken.create({
-      data: { groupId, expiresAt, active: true },
-      select: { id: true, expiresAt: true, createdAt: true },
-    });
-
-    logger.log('[CreateGroupToken]', { groupId, action: 'POST' });
-
-    return NextResponse.json({
-      ok: true,
-      token: token.id,
-      groupId,
-      groupName: group.name,
-      expiresAt: token.expiresAt,
-      message: '새 토큰이 생성되었습니다.',
-    });
+    return NextResponse.json({ ok: true, seq: newSeq, groupId, groupName: group.name });
   } catch (err) {
     logger.error('[POST /api/groups/[id]/script]', { err });
     return NextResponse.json({ ok: false }, { status: 500 });
