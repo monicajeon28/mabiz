@@ -135,44 +135,51 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const category = searchParams.get('category'); // 폴더 필터 (선택)
+    const category = searchParams.get('category'); // 폴더 필터 (필수)
+    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') ?? '12', 10)));
 
     // 캐시 확인
     const now = Date.now();
-    if (cachedFolders && (now - cacheTime) < CACHE_DURATION) {
-      const cachedArray = Array.from(cachedFolders.entries()).map(([name, images]) => ({
-        category: name,
-        images,
-      }));
-
-      if (category) {
-        const filtered = cachedArray.filter((f) => f.category === category);
-        return NextResponse.json({ ok: true, folders: filtered });
-      }
-
-      return NextResponse.json({ ok: true, folders: cachedArray });
+    if (!cachedFolders || (now - cacheTime) >= CACHE_DURATION) {
+      // 구글 드라이브 폴더 조회
+      cachedFolders = await fetchGoogleDriveFolders();
+      cacheTime = now;
     }
 
-    // 구글 드라이브 폴더 조회
-    const folders = await fetchGoogleDriveFolders();
+    if (!category || !cachedFolders.has(category)) {
+      // 전체 폴더 목록 반환
+      const foldersArray = Array.from(cachedFolders.entries())
+        .map(([name, images]) => ({
+          category: name,
+          total: images.length,
+        }))
+        .sort((a, b) => a.category.localeCompare(b.category, 'ko'));
 
-    // 캐시 업데이트
-    cachedFolders = folders;
-    cacheTime = now;
-
-    const foldersArray = Array.from(folders.entries()).map(([name, images]) => ({
-      category: name,
-      images,
-    }));
-
-    if (category) {
-      const filtered = foldersArray.filter((f) => f.category === category);
-      return NextResponse.json({ ok: true, folders: filtered });
+      return NextResponse.json({
+        ok: true,
+        folders: foldersArray,
+      });
     }
+
+    // 특정 카테고리의 이미지 페이지네이션
+    const images = cachedFolders.get(category) || [];
+    const total = images.length;
+    const skip = (page - 1) * limit;
+    const paginatedImages = images.slice(skip, skip + limit);
+    const totalPages = Math.ceil(total / limit);
 
     return NextResponse.json({
       ok: true,
-      folders: foldersArray,
+      category,
+      images: paginatedImages,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasMore: page < totalPages,
+      },
       cacheExpiry: new Date(cacheTime + CACHE_DURATION).toISOString(),
     });
   } catch (err) {

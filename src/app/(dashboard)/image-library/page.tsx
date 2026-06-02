@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import {
@@ -9,7 +9,9 @@ import {
   CopyIcon,
   CheckIcon,
   DownloadIcon,
-  Check,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  FolderIcon,
 } from 'lucide-react';
 import { formatFileSize } from '@/lib/image-metadata';
 
@@ -28,61 +30,80 @@ interface ImageAsset {
   thumbnailUrl: string;
   driveUrl: string;
   webpDriveFileId?: string;
-  processingStatus: string; // PENDING | DONE | FAILED
-  processedAt?: string;
+  processingStatus: string;
+}
+
+interface GoogleDriveImage {
+  id: string;
+  name: string;
+  mimeType: string;
+  webViewLink: string;
+  thumbnailUrl: string;
+  downloadUrl: string;
+  category: string;
+}
+
+interface GoogleDriveFolder {
+  category: string;
+  total: number;
 }
 
 const CATEGORIES = ['배너', '상품', '로고', '기타'];
+const GOOGLE_DRIVE_LIMIT = 12;
 
 export default function ImageLibraryPage() {
+  const [activeTab, setActiveTab] = useState<'local' | 'drive'>('local');
+
+  // 로컬 이미지 상태
   const [assets, setAssets] = useState<ImageAsset[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-
-  // 필터 & 검색
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [offset, setOffset] = useState(0);
   const limit = 20;
 
+  // Google Drive 상태
+  const [gdFolders, setGdFolders] = useState<GoogleDriveFolder[]>([]);
+  const [selectedGdFolder, setSelectedGdFolder] = useState<string>('');
+  const [gdImages, setGdImages] = useState<GoogleDriveImage[]>([]);
+  const [gdPage, setGdPage] = useState(1);
+  const [gdPagination, setGdPagination] = useState({ totalPages: 0, total: 0 });
+  const [gdLoading, setGdLoading] = useState(false);
+
   // UI 상태
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string>('');
   const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
+  const [selectedGdAssets, setSelectedGdAssets] = useState<Set<string>>(new Set());
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 권한 체크는 layout에서 처리 (GLOBAL_ADMIN만 접근 가능)
   const isAdmin = true;
 
-  /**
-   * 이미지 목록 조회
-   */
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 로컬 이미지 함수들
+  // ═══════════════════════════════════════════════════════════════════════════════
+
   const fetchAssets = useCallback(async () => {
     try {
       setIsLoading(true);
       const params = new URLSearchParams();
-
       if (search) params.append('search', search);
       if (selectedCategory) params.append('category', selectedCategory);
       selectedTags.forEach((tag) => params.append('tags', tag));
       params.append('offset', offset.toString());
       params.append('limit', limit.toString());
 
-      const res = await fetch(`/api/image-library?${params}`, {
-        method: 'GET',
-      });
-
+      const res = await fetch(`/api/image-library?${params}`, { method: 'GET' });
       const json = await res.json();
       if (json.ok && json.data) {
         setAssets(json.data.assets ?? []);
         setTotal(json.data.total ?? 0);
-      } else if (!res.ok) {
-        console.error('Failed to fetch assets: HTTP', res.status, json.message ?? '');
       }
     } catch (err) {
       console.error('Failed to fetch assets:', err);
@@ -92,98 +113,68 @@ export default function ImageLibraryPage() {
   }, [search, selectedCategory, selectedTags, offset, limit]);
 
   useEffect(() => {
-    fetchAssets();
-  }, [fetchAssets]);
+    if (activeTab === 'local') {
+      fetchAssets();
+    }
+  }, [fetchAssets, activeTab]);
 
-  /**
-   * 파일 업로드 처리
-   */
-  const handleUpload = useCallback(
-    async (files: FileList | null) => {
-      if (!files || files.length === 0) return;
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // Google Drive 함수들
+  // ═══════════════════════════════════════════════════════════════════════════════
 
-      const file = files[0];
-
-      // 파일 검증
-      if (!file.type.startsWith('image/')) {
-        alert('이미지 파일만 업로드 가능합니다');
-        return;
-      }
-
-      if (file.size > 100 * 1024 * 1024) {
-        alert('파일 크기는 100MB 이하여야 합니다');
-        return;
-      }
-
-      try {
-        setIsUploading(true);
-        setUploadProgress(0);
-
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('category', selectedCategory || 'Other');
-        formData.append('tags', selectedTags.join(','));
-
-        const xhr = new XMLHttpRequest();
-
-        xhr.upload.addEventListener('progress', (e) => {
-          if (e.lengthComputable) {
-            setUploadProgress(Math.round((e.loaded / e.total) * 100));
-          }
-        });
-
-        await new Promise((resolve, reject) => {
-          xhr.addEventListener('load', () => {
-            if (xhr.status === 200) {
-              resolve(xhr.response);
-            } else {
-              reject(new Error(`Upload failed: ${xhr.status}`));
-            }
-          });
-
-          xhr.addEventListener('error', () => reject(new Error('Upload error')));
-
-          xhr.open('POST', '/api/image-library');
-          xhr.send(formData);
-        });
-
-        // 업로드 성공 후 목록 새로고침
-        await fetchAssets();
-        setUploadProgress(0);
-      } catch (err) {
-        console.error('Upload failed:', err);
-        alert('업로드 중 오류가 발생했습니다');
-      } finally {
-        setIsUploading(false);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
+  const fetchGdFolders = useCallback(async () => {
+    try {
+      const res = await fetch('/api/image-library/google-drive', { method: 'GET' });
+      const json = await res.json();
+      if (json.ok && json.folders) {
+        setGdFolders(json.folders);
+        if (json.folders.length > 0 && !selectedGdFolder) {
+          setSelectedGdFolder(json.folders[0].category);
         }
       }
-    },
-    [selectedCategory, selectedTags, fetchAssets]
-  );
+    } catch (err) {
+      console.error('Failed to fetch Google Drive folders:', err);
+    }
+  }, [selectedGdFolder]);
 
-  /**
-   * 드래그앤드롭
-   */
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    dropZoneRef.current?.classList.add('border-blue-500', 'bg-blue-50');
-  };
+  const fetchGdImages = useCallback(async () => {
+    if (!selectedGdFolder) return;
 
-  const handleDragLeave = () => {
-    dropZoneRef.current?.classList.remove('border-blue-500', 'bg-blue-50');
-  };
+    try {
+      setGdLoading(true);
+      const params = new URLSearchParams({
+        category: selectedGdFolder,
+        page: gdPage.toString(),
+        limit: GOOGLE_DRIVE_LIMIT.toString(),
+      });
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    dropZoneRef.current?.classList.remove('border-blue-500', 'bg-blue-50');
-    handleUpload(e.dataTransfer.files);
-  };
+      const res = await fetch(`/api/image-library/google-drive?${params}`, { method: 'GET' });
+      const json = await res.json();
+      if (json.ok && json.images) {
+        setGdImages(json.images);
+        setGdPagination(json.pagination || { totalPages: 1, total: json.images.length });
+      }
+    } catch (err) {
+      console.error('Failed to fetch Google Drive images:', err);
+    } finally {
+      setGdLoading(false);
+    }
+  }, [selectedGdFolder, gdPage]);
 
-  /**
-   * 이미지 선택/해제 토글
-   */
+  useEffect(() => {
+    if (activeTab === 'drive') {
+      if (gdFolders.length === 0) {
+        fetchGdFolders();
+      } else {
+        fetchGdImages();
+      }
+    }
+  }, [activeTab, selectedGdFolder, gdPage, gdFolders.length, fetchGdFolders, fetchGdImages]);
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 선택 관련
+  // ═══════════════════════════════════════════════════════════════════════════════
+
   const toggleAssetSelection = (assetId: string) => {
     const newSelected = new Set(selectedAssets);
     if (newSelected.has(assetId)) {
@@ -194,414 +185,471 @@ export default function ImageLibraryPage() {
     setSelectedAssets(newSelected);
   };
 
-  /**
-   * 전체 선택/해제
-   */
-  const toggleSelectAll = () => {
-    if (selectedAssets.size === assets.length) {
+  const toggleGdAssetSelection = (assetId: string) => {
+    const newSelected = new Set(selectedGdAssets);
+    if (newSelected.has(assetId)) {
+      newSelected.delete(assetId);
+    } else {
+      newSelected.add(assetId);
+    }
+    setSelectedGdAssets(newSelected);
+  };
+
+  const toggleSelectAllLocal = () => {
+    if (selectedAssets.size === assets.length && selectedAssets.size > 0) {
       setSelectedAssets(new Set());
     } else {
       setSelectedAssets(new Set(assets.map((a) => a.id)));
     }
   };
 
-  /**
-   * Drive 링크 복사
-   */
-  const copyLink = (url: string, assetId: string) => {
-    navigator.clipboard.writeText(url);
-    setCopiedId(assetId);
-    setTimeout(() => setCopiedId(null), 2000);
+  const toggleSelectAllGd = () => {
+    if (selectedGdAssets.size === gdImages.length && selectedGdAssets.size > 0) {
+      setSelectedGdAssets(new Set());
+    } else {
+      setSelectedGdAssets(new Set(gdImages.map((a) => a.id)));
+    }
   };
 
-  /**
-   * Drive 폴더 동기화
-   */
-  const handleSync = async () => {
-    if (!selectedCategory) {
-      alert('카테고리를 선택해주세요');
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 다운로드/복사
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  const downloadLocalAsset = (asset: ImageAsset) => {
+    const link = document.createElement('a');
+    link.href = asset.driveUrl;
+    link.download = asset.fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const downloadGdAsset = (image: GoogleDriveImage) => {
+    const link = document.createElement('a');
+    link.href = image.downloadUrl;
+    link.download = image.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const downloadSelected = (type: 'local' | 'drive') => {
+    const selected = type === 'local' ? selectedAssets : selectedGdAssets;
+    if (selected.size === 0) return;
+
+    if (type === 'local') {
+      Array.from(selected).forEach((id) => {
+        const asset = assets.find((a) => a.id === id);
+        if (asset) downloadLocalAsset(asset);
+      });
+    } else {
+      Array.from(selected).forEach((id) => {
+        const image = gdImages.find((i) => i.id === id);
+        if (image) downloadGdAsset(image);
+      });
+    }
+  };
+
+  const copyLocalImgSrc = (asset: ImageAsset) => {
+    const imgSrc = `<img src="${asset.driveUrl}" alt="${asset.fileName}" />`;
+    navigator.clipboard.writeText(imgSrc).then(() => {
+      setCopiedId(asset.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  };
+
+  const copyGdImgSrc = (image: GoogleDriveImage) => {
+    const imgSrc = `<img src="${image.thumbnailUrl}" alt="${image.name}" />`;
+    navigator.clipboard.writeText(imgSrc).then(() => {
+      setCopiedId(image.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  };
+
+  const copyAllImgSrc = (type: 'local' | 'drive') => {
+    const selected = type === 'local' ? selectedAssets : selectedGdAssets;
+    if (selected.size === 0) return;
+
+    let html = '';
+    if (type === 'local') {
+      Array.from(selected).forEach((id) => {
+        const asset = assets.find((a) => a.id === id);
+        if (asset) {
+          html += `<img src="${asset.driveUrl}" alt="${asset.fileName}" />\n`;
+        }
+      });
+    } else {
+      Array.from(selected).forEach((id) => {
+        const image = gdImages.find((i) => i.id === id);
+        if (image) {
+          html += `<img src="${image.thumbnailUrl}" alt="${image.name}" />\n`;
+        }
+      });
+    }
+
+    navigator.clipboard.writeText(html.trim()).then(() => {
+      alert(`${selected.size}개 이미지 HTML이 복사되었습니다`);
+    });
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 렌더링
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  const renderLocalTab = () => (
+    <div className="space-y-4">
+      {/* 드래그앤드롭 영역 */}
+      <div
+        ref={dropZoneRef}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:bg-gray-50 cursor-pointer transition"
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <CloudUploadIcon className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+        <p className="text-sm font-medium text-gray-700">이미지를 드래그하거나 클릭하여 업로드</p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => handleUpload(e.target.files)}
+        />
+      </p>
+
+      {/* 필터 */}
+      <div className="flex gap-2 flex-wrap">
+        <select
+          value={selectedCategory}
+          onChange={(e) => {
+            setSelectedCategory(e.target.value);
+            setOffset(0);
+          }}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+        >
+          <option value="">모든 카테고리</option>
+          {CATEGORIES.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
+        {selectedAssets.size > 0 && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => downloadSelected('local')}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
+            >
+              <DownloadIcon className="w-4 h-4 inline mr-1" />
+              ({selectedAssets.size}개) 다운로드
+            </button>
+            <button
+              onClick={() => copyAllImgSrc('local')}
+              className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600"
+            >
+              <CopyIcon className="w-4 h-4 inline mr-1" />
+              HTML 복사
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 이미지 그리드 */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {assets.map((asset) => (
+          <div key={asset.id} className="relative group">
+            <img
+              src={asset.thumbnailUrl}
+              alt={asset.fileName}
+              className="w-full h-32 object-cover rounded-lg border border-gray-200"
+            />
+            <input
+              type="checkbox"
+              checked={selectedAssets.has(asset.id)}
+              onChange={() => toggleAssetSelection(asset.id)}
+              className="absolute top-2 left-2 w-4 h-4 cursor-pointer"
+            />
+            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+              <button
+                onClick={() => copyLocalImgSrc(asset)}
+                className="p-1 bg-white rounded hover:bg-gray-100"
+                title="IMG 태그 복사"
+              >
+                {copiedId === asset.id ? (
+                  <CheckIcon className="w-4 h-4 text-green-500" />
+                ) : (
+                  <CopyIcon className="w-4 h-4 text-gray-600" />
+                )}
+              </button>
+              <button
+                onClick={() => downloadLocalAsset(asset)}
+                className="p-1 bg-white rounded hover:bg-gray-100"
+                title="다운로드"
+              >
+                <DownloadIcon className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-gray-600 truncate">{asset.fileName}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* 페이지네이션 */}
+      {total > limit && (
+        <div className="flex justify-between items-center">
+          <p className="text-sm text-gray-600">
+            {offset + 1} ~ {Math.min(offset + limit, total)} / {total}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setOffset(Math.max(0, offset - limit))}
+              disabled={offset === 0}
+              className="px-3 py-1 border rounded disabled:opacity-50"
+            >
+              <ChevronLeftIcon className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setOffset(offset + limit)}
+              disabled={offset + limit >= total}
+              className="px-3 py-1 border rounded disabled:opacity-50"
+            >
+              <ChevronRightIcon className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderGdTab = () => (
+    <div className="space-y-4">
+      {/* 폴더 선택 */}
+      <div className="flex gap-2 flex-wrap">
+        {gdFolders.map((folder) => (
+          <button
+            key={folder.category}
+            onClick={() => {
+              setSelectedGdFolder(folder.category);
+              setGdPage(1);
+              setSelectedGdAssets(new Set());
+            }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+              selectedGdFolder === folder.category
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            <FolderIcon className="w-4 h-4 inline mr-1" />
+            {folder.category} ({folder.total})
+          </button>
+        ))}
+      </div>
+
+      {/* 선택 도구 */}
+      {gdImages.length > 0 && (
+        <div className="flex gap-2">
+          <button
+            onClick={toggleSelectAllGd}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+          >
+            {selectedGdAssets.size === gdImages.length && selectedGdAssets.size > 0
+              ? '전체 해제'
+              : '전체 선택'}
+          </button>
+          {selectedGdAssets.size > 0 && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => downloadSelected('drive')}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
+              >
+                <DownloadIcon className="w-4 h-4 inline mr-1" />
+                ({selectedGdAssets.size}개) 다운로드
+              </button>
+              <button
+                onClick={() => copyAllImgSrc('drive')}
+                className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600"
+              >
+                <CopyIcon className="w-4 h-4 inline mr-1" />
+                HTML 복사
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 이미지 그리드 */}
+      {gdLoading ? (
+        <div className="text-center py-8 text-gray-500">로딩 중...</div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {gdImages.map((image) => (
+              <div key={image.id} className="relative group">
+                <img
+                  src={image.thumbnailUrl}
+                  alt={image.name}
+                  className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                  loading="lazy"
+                />
+                <input
+                  type="checkbox"
+                  checked={selectedGdAssets.has(image.id)}
+                  onChange={() => toggleGdAssetSelection(image.id)}
+                  className="absolute top-2 left-2 w-4 h-4 cursor-pointer"
+                />
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                  <button
+                    onClick={() => copyGdImgSrc(image)}
+                    className="p-1 bg-white rounded hover:bg-gray-100"
+                    title="IMG 태그 복사"
+                  >
+                    {copiedId === image.id ? (
+                      <CheckIcon className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <CopyIcon className="w-4 h-4 text-gray-600" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => downloadGdAsset(image)}
+                    className="p-1 bg-white rounded hover:bg-gray-100"
+                    title="다운로드"
+                  >
+                    <DownloadIcon className="w-4 h-4 text-gray-600" />
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-gray-600 truncate">{image.name}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* 페이지네이션 */}
+          {gdPagination.totalPages > 1 && (
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-gray-600">
+                페이지 {gdPage} / {gdPagination.totalPages} (총 {gdPagination.total}개)
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setGdPage(Math.max(1, gdPage - 1))}
+                  disabled={gdPage === 1}
+                  className="px-3 py-1 border rounded disabled:opacity-50"
+                >
+                  <ChevronLeftIcon className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setGdPage(gdPage + 1)}
+                  disabled={gdPage >= gdPagination.totalPages}
+                  className="px-3 py-1 border rounded disabled:opacity-50"
+                >
+                  <ChevronRightIcon className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="space-y-6 p-6">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">이미지 라이브러리</h1>
+        <p className="text-gray-600 mt-2">로컬 또는 구글 드라이브 이미지 관리</p>
+      </div>
+
+      {/* 탭 */}
+      <div className="flex gap-4 border-b">
+        <button
+          onClick={() => setActiveTab('local')}
+          className={`px-4 py-2 font-medium border-b-2 transition ${
+            activeTab === 'local'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          로컬 이미지
+        </button>
+        <button
+          onClick={() => setActiveTab('drive')}
+          className={`px-4 py-2 font-medium border-b-2 transition ${
+            activeTab === 'drive'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          구글 드라이브
+        </button>
+      </div>
+
+      {/* 콘텐츠 */}
+      {activeTab === 'local' ? renderLocalTab() : renderGdTab()}
+    </div>
+  );
+
+  // handleUpload, handleDragOver, handleDragLeave, handleDrop 함수는 로컬 이미지 탭에만 필요
+  function handleUpload(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일만 업로드 가능합니다');
+      return;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      alert('파일 크기는 100MB 이하여야 합니다');
       return;
     }
 
-    try {
-      setIsSyncing(true);
-      const res = await fetch('/api/images/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category: selectedCategory }),
-      });
+    setIsUploading(true);
+    setUploadProgress(0);
 
-      const json = await res.json();
-      if (json.ok) {
-        setLastSyncTime(new Date().toLocaleString('ko-KR'));
-        await fetchAssets();
-        alert(`${json.data.syncedCount}개의 이미지가 동기화되었습니다`);
-      } else {
-        alert('동기화 실패: ' + (json.message || '알 수 없는 오류'));
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('category', selectedCategory || 'Other');
+    formData.append('tags', selectedTags.join(','));
+
+    const xhr = new XMLHttpRequest();
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        setUploadProgress(Math.round((e.loaded / e.total) * 100));
       }
-    } catch (err) {
-      console.error('Sync failed:', err);
-      alert('동기화 중 오류가 발생했습니다');
-    } finally {
-      setIsSyncing(false);
-    }
-  };
+    });
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* 헤더 */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">이미지 라이브러리</h1>
-          <p className="text-gray-600 mt-2">Google Drive와 통합된 이미지 자산 관리</p>
-        </div>
+    xhr.addEventListener('load', () => {
+      if (xhr.status === 200) {
+        fetchAssets();
+        setUploadProgress(0);
+      } else {
+        alert('업로드 실패');
+      }
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    });
 
-        {/* 업로드 영역 */}
-        <div className="bg-white rounded-lg shadow-md p-8 mb-8">
-          <div
-            ref={dropZoneRef}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-blue-400 transition"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <CloudUploadIcon className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <p className="text-xl font-semibold text-gray-900 mb-2">
-              이미지를 여기에 드래그하거나 클릭하여 선택
-            </p>
-            <p className="text-gray-600">
-              JPEG, PNG, GIF, WebP, SVG (최대 100MB)
-            </p>
+    xhr.addEventListener('error', () => {
+      alert('업로드 중 오류가 발생했습니다');
+      setIsUploading(false);
+    });
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => handleUpload(e.target.files)}
-              disabled={isUploading}
-            />
-          </div>
+    xhr.open('POST', '/api/image-library');
+    xhr.send(formData);
+  }
 
-          {isUploading && (
-            <div className="mt-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold text-gray-700">업로드 중...</span>
-                <span className="text-sm font-semibold text-gray-700">{uploadProgress}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-blue-500 h-2 rounded-full transition-all"
-                  style={{ width: `${uploadProgress}%` }}
-                ></div>
-              </div>
-            </div>
-          )}
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    dropZoneRef.current?.classList.add('border-blue-500', 'bg-blue-50');
+  }
 
-          {/* 카테고리 & 태그 선택 */}
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                카테고리
-              </label>
-              <select
-                value={selectedCategory}
-                onChange={(e) => {
-                  setSelectedCategory(e.target.value);
-                  setOffset(0);
-                }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">전체</option>
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
+  function handleDragLeave() {
+    dropZoneRef.current?.classList.remove('border-blue-500', 'bg-blue-50');
+  }
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                태그 (쉼표로 구분)
-              </label>
-              <input
-                type="text"
-                value={selectedTags.join(', ')}
-                onChange={(e) =>
-                  setSelectedTags(
-                    e.target.value
-                      .split(',')
-                      .map((t) => t.trim())
-                      .filter(Boolean)
-                  )
-                }
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    setOffset(0);
-                  }
-                }}
-                placeholder="태그1, 태그2, ..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          {isAdmin && (
-            <button
-              onClick={handleSync}
-              disabled={isSyncing || !selectedCategory}
-              className="mt-4 px-4 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 disabled:bg-gray-400 flex items-center gap-2"
-            >
-              <RefreshCwIcon className="w-4 h-4" />
-              {isSyncing ? '동기화 중...' : 'Drive 폴더 동기화'}
-            </button>
-          )}
-
-          {lastSyncTime && (
-            <p className="text-sm text-gray-600 mt-2">
-              마지막 동기화: {lastSyncTime}
-            </p>
-          )}
-        </div>
-
-        {/* 검색 & 필터 */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <div className="flex items-center gap-4">
-            <div className="flex-1 relative">
-              <SearchIcon className="absolute left-3 top-3 w-5 h-5 text-gray-600" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setOffset(0);
-                }}
-                placeholder="파일명으로 검색..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <FilterIcon className="w-5 h-5 text-gray-600" />
-          </div>
-        </div>
-
-        {/* 이미지 갤러리 */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          {isLoading ? (
-            <div className="text-center py-12">
-              <div className="inline-block animate-spin">
-                <RefreshCwIcon className="w-8 h-8 text-blue-500" />
-              </div>
-              <p className="mt-4 text-gray-600">이미지를 로드 중입니다...</p>
-            </div>
-          ) : assets.length > 0 ? (
-            <>
-              {/* 선택 UI */}
-              {assets.length > 0 && (
-                <div className="mb-6 flex items-center justify-between border-b pb-4">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      ref={(el) => {
-                        if (el) el.indeterminate = selectedAssets.size > 0 && selectedAssets.size < assets.length;
-                      }}
-                      checked={selectedAssets.size === assets.length && assets.length > 0}
-                      onChange={toggleSelectAll}
-                      className="w-5 h-5 cursor-pointer"
-                    />
-                    <span className="text-sm font-medium text-gray-700">
-                      {selectedAssets.size > 0 ? (
-                        <>
-                          <span className="text-blue-600 font-semibold">{selectedAssets.size}개</span> 선택됨
-                        </>
-                      ) : (
-                        '선택 없음'
-                      )}
-                    </span>
-                  </div>
-                  {selectedAssets.size > 0 && (
-                    <button
-                      onClick={() => setSelectedAssets(new Set())}
-                      className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded hover:bg-gray-50"
-                    >
-                      선택 해제
-                    </button>
-                  )}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
-                {assets.map((asset) => {
-                  const isSelected = selectedAssets.has(asset.id);
-                  return (
-                  <div
-                    key={asset.id}
-                    className={`border rounded-lg overflow-hidden hover:shadow-lg transition cursor-pointer ${
-                      isSelected
-                        ? 'border-blue-500 bg-blue-50 shadow-md'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                    onClick={() => toggleAssetSelection(asset.id)}
-                  >
-                    {/* 썸네일 + 체크박스 */}
-                    <div className="bg-gray-100 h-48 flex items-center justify-center overflow-hidden relative">
-                      <img
-                        src={asset.thumbnailUrl}
-                        alt={asset.fileName}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23f0f0f0" width="200" height="200"/%3E%3Ctext x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="14" fill="%23999"%3EImage%3C/text%3E%3C/svg%3E';
-                        }}
-                      />
-                      {/* 체크박스 오버레이 */}
-                      <div className="absolute top-3 right-3">
-                        <div
-                          className={`w-6 h-6 rounded border-2 flex items-center justify-center transition ${
-                            isSelected
-                              ? 'bg-blue-500 border-blue-500'
-                              : 'bg-white border-gray-400 hover:border-blue-400'
-                          }`}
-                        >
-                          {isSelected && <Check className="w-4 h-4 text-white" />}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 정보 */}
-                    <div className="p-4">
-                      <h3 className="font-semibold text-sm text-gray-900 truncate mb-2">
-                        {asset.fileName}
-                      </h3>
-
-                      <div className="flex items-center gap-2 mb-2">
-                        {asset.category && (
-                          <span className="inline-block bg-blue-100 text-blue-800 text-sm font-semibold px-2 py-1 rounded">
-                            {asset.category}
-                          </span>
-                        )}
-                        {asset.processingStatus === 'PENDING' && (
-                          <span className="inline-block bg-yellow-100 text-yellow-800 text-sm font-semibold px-2 py-1 rounded">
-                            처리중
-                          </span>
-                        )}
-                        {asset.processingStatus === 'DONE' && asset.webpDriveFileId && (
-                          <span className="inline-block bg-green-100 text-green-800 text-sm font-semibold px-2 py-1 rounded">
-                            WM완료
-                          </span>
-                        )}
-                        {asset.processingStatus === 'FAILED' && (
-                          <span className="inline-block bg-red-100 text-red-800 text-sm font-semibold px-2 py-1 rounded">
-                            처리실패
-                          </span>
-                        )}
-                      </div>
-
-                      {asset.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-3">
-                          {asset.tags.slice(0, 2).map((tag) => (
-                            <span
-                              key={tag}
-                              className="bg-gray-200 text-gray-700 text-sm px-2 py-1 rounded"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                          {asset.tags.length > 2 && (
-                            <span className="text-sm text-gray-600">
-                              +{asset.tags.length - 2}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      <p className="text-sm text-gray-600 mb-3">
-                        {asset.fileSize && formatFileSize(Number(asset.fileSize))}
-                        {asset.width && ` • ${asset.width}x${asset.height}`}
-                      </p>
-
-                      {/* 버튼 */}
-                      <div className="flex gap-2 flex-wrap">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            copyLink(asset.driveUrl, asset.id);
-                          }}
-                          className="flex-1 px-3 py-2 bg-blue-500 text-white text-sm rounded font-medium hover:bg-blue-600 flex items-center justify-center gap-1"
-                        >
-                          {copiedId === asset.id ? (
-                            <>
-                              <CheckIcon className="w-4 h-4" />
-                              복사됨
-                            </>
-                          ) : (
-                            <>
-                              <CopyIcon className="w-4 h-4" />
-                              복사
-                            </>
-                          )}
-                        </button>
-                        <a
-                          href={`/api/images/${asset.id}/download`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="px-3 py-2 bg-gray-500 text-white text-sm rounded font-medium hover:bg-gray-600 flex items-center gap-1"
-                          title="원본 다운로드"
-                        >
-                          <DownloadIcon className="w-4 h-4" />
-                        </a>
-                        {asset.webpDriveFileId && (
-                          <a
-                            href={`https://drive.google.com/file/d/${asset.webpDriveFileId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="px-3 py-2 bg-green-500 text-white text-sm rounded font-medium hover:bg-green-600 flex items-center gap-1"
-                            title="워터마크 WebP 보기"
-                          >
-                            WM
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  );
-                })}
-              </div>
-
-              {/* 페이지네이션 */}
-              <div className="flex items-center justify-between border-t pt-6">
-                <p className="text-sm text-gray-600">
-                  전체 {total}개 중 {offset + 1}-{Math.min(offset + limit, total)}개 표시
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setOffset(Math.max(0, offset - limit))}
-                    disabled={offset === 0}
-                    className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    이전
-                  </button>
-                  <button
-                    onClick={() => setOffset(offset + limit)}
-                    disabled={offset + limit >= total}
-                    className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    다음
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-gray-600">이미지가 없습니다</p>
-              <p className="text-sm text-gray-500 mt-2">
-                위의 업로드 영역에서 이미지를 추가해보세요
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    dropZoneRef.current?.classList.remove('border-blue-500', 'bg-blue-50');
+    handleUpload(e.dataTransfer.files);
+  }
 }
