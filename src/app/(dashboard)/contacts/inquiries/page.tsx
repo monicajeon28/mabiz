@@ -1,9 +1,13 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Search, Plus, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet } from "lucide-react";
+import { logger } from "@/lib/logger";
+import type { Contact as FullContact } from "@/types/contact";
+
+// 고객 상세 슬라이드 패널 (행 클릭 시 표시) — 코드 스플릿
+const ContactSlidePanel = lazy(() => import("../ContactSlidePanel"));
 
 type Contact = {
   id: string;
@@ -47,7 +51,6 @@ function formatDaysSince(dateStr: string | null): string {
 }
 
 export default function InquiriesPage() {
-  const router = useRouter();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
@@ -67,6 +70,12 @@ export default function InquiriesPage() {
   const [quickCallLoading, setQuickCallLoading] = useState(false);
   const [quickCallError, setQuickCallError] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState('');
+
+  // 슬라이드 패널 상태 (행 클릭 → router.push 대신 패널 표시)
+  const [slidePanelContact, setSlidePanelContact] = useState<FullContact | null>(null);
+  const [slidePanelOpen, setSlidePanelOpen] = useState(false);
+  const [slidePanelLoadingId, setSlidePanelLoadingId] = useState<string | null>(null);
+  const [slidePanelError, setSlidePanelError] = useState<string | null>(null);
 
   const fetchContacts = useCallback(async () => {
     setLoading(true);
@@ -90,6 +99,27 @@ export default function InquiriesPage() {
   }, [q, page, selectedTags]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
+
+  // 행 클릭 시 전체 고객 정보를 받아와 패널 열기
+  const openSlidePanel = useCallback(async (contactId: string) => {
+    setSlidePanelLoadingId(contactId);
+    setSlidePanelError(null);
+    try {
+      const res = await fetch(`/api/contacts/${contactId}`);
+      const data = await res.json();
+      if (data.ok && data.contact) {
+        setSlidePanelContact(data.contact as FullContact);
+        setSlidePanelOpen(true);
+      } else {
+        setSlidePanelError('고객 정보를 불러오지 못했습니다');
+      }
+    } catch (err) {
+      logger.error('[openSlidePanel failed]', { err });
+      setSlidePanelError('네트워크 오류가 발생했습니다');
+    } finally {
+      setSlidePanelLoadingId(null);
+    }
+  }, []);
 
   // 의존성: q와 selectedTags가 변경될 때 페이지 초기화
   useEffect(() => { setPage(1); }, [q, selectedTags]);
@@ -336,7 +366,7 @@ export default function InquiriesPage() {
               <button
                 key={c.id}
                 type="button"
-                onClick={() => router.push(`/contacts/${c.id}`)}
+                onClick={() => openSlidePanel(c.id)}
                 className="w-full text-left flex items-center justify-between px-3 py-2 bg-white rounded-lg border border-amber-100 hover:border-amber-300 hover:shadow-sm transition-all text-sm"
               >
                 <div className="flex items-center gap-2">
@@ -416,9 +446,13 @@ export default function InquiriesPage() {
             const isQuickCallOpen = quickCallId === c.id;
             return (
               <div key={c.id} className="bg-white rounded-xl border border-gray-200 hover:border-gold-300 hover:shadow-sm transition-all">
-                <Link
-                  href={`/contacts/${c.id}`}
-                  className="flex items-center gap-3 px-4 py-3 group"
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openSlidePanel(c.id)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSlidePanel(c.id); } }}
+                  className="flex items-center gap-3 px-4 py-3 group cursor-pointer"
+                  aria-label={`${c.name} 고객 상세 보기`}
                 >
                   <div className="w-10 h-10 rounded-full bg-navy-900 text-white flex items-center justify-center text-sm font-bold shrink-0">
                     {c.name[0]}
@@ -427,6 +461,9 @@ export default function InquiriesPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-gray-900">{c.name}</span>
+                      {slidePanelLoadingId === c.id && (
+                        <span className="text-sm text-gray-500">불러오는 중...</span>
+                      )}
                       <span className={`text-sm px-1.5 py-0.5 rounded-full font-bold ${tierInfo.color}`}>
                         {tierInfo.label}
                       </span>
@@ -450,7 +487,7 @@ export default function InquiriesPage() {
                       <span className="text-sm text-amber-600">{formatDaysSince(c.lastContactedAt)}</span>
                     </div>
                     {groups.length > 0 && (
-                      <div className="flex items-center gap-1 mt-2" onClick={(e) => e.preventDefault()}>
+                      <div className="flex items-center gap-1 mt-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
                         <select
                           className="text-sm border border-gray-200 rounded px-1.5 py-1 flex-1 max-w-[180px] bg-white focus:outline-none"
                           defaultValue=""
@@ -473,7 +510,7 @@ export default function InquiriesPage() {
                   <div className="hidden md:flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       type="button"
-                      onClick={(e) => { e.preventDefault(); window.location.href = `tel:${c.phone}`; }}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `tel:${c.phone}`; }}
                       className="p-2 rounded-lg hover:bg-blue-50 text-blue-600"
                     >
                       <Phone className="w-4 h-4" />
@@ -482,6 +519,7 @@ export default function InquiriesPage() {
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
+                        e.stopPropagation();
                         setQuickCallId(isQuickCallOpen ? null : c.id);
                         setQuickCallError(null);
                       }}
@@ -491,7 +529,7 @@ export default function InquiriesPage() {
                       <MessageSquare className="w-4 h-4" />
                     </button>
                   </div>
-                </Link>
+                </div>
 
                 {isQuickCallOpen && (
                   <div className="px-4 pb-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -546,6 +584,28 @@ export default function InquiriesPage() {
             다음
           </button>
         </div>
+      )}
+
+      {/* 슬라이드 패널 로드 오류 토스트 */}
+      {slidePanelError && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] bg-red-600 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-3">
+          <span>{slidePanelError}</span>
+          <button onClick={() => setSlidePanelError(null)} className="text-white/80 hover:text-white">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* 고객 상세 슬라이드 패널 (행 클릭 시) */}
+      {slidePanelOpen && (
+        <Suspense fallback={null}>
+          <ContactSlidePanel
+            contact={slidePanelContact}
+            open={slidePanelOpen}
+            onClose={() => setSlidePanelOpen(false)}
+            onRefresh={() => { fetchContacts(); /* 패널 쓰기 작업 후 목록 전체 새로고침 */ }}
+          />
+        </Suspense>
       )}
     </div>
   );
