@@ -1,10 +1,12 @@
 /**
  * GET /api/statements/team
  * 팀 정산 관리 (GLOBAL_ADMIN / OWNER 전용)
+ * CommissionLedger 기반 재설계 — organizationId로 테넌트 격리
  *
  * 쿼리 파라미터:
  * - period: YYYY-MM (필수)
  * - role: AGENT | OWNER | FREE_SALES | all (기본: all)
+ * - organizationId: GLOBAL_ADMIN 전용 조직 필터 (선택)
  * - page: 페이지 번호 (기본: 1)
  * - limit: 페이지당 항목 수 (기본: 20)
  */
@@ -14,15 +16,14 @@ import { getMabizSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { Prisma } from '@prisma/client';
-import type { AffiliatePayslip } from '@prisma/client';
 
-// ─── 응답 타입 정의 ─────────────────────────────────────────────────────────
+// ─── 타입 정의 ────────────────────────────────────────────────────────────────
 
 interface MemberStatement {
   agentId: number;
   name: string;
   role: string;
-  payslipId: number | null;
+  payslipId: null;
   yearMonth: string;
   baseCommission: number;
   deduction: number;
@@ -52,7 +53,16 @@ interface PaginationData {
   totalPages: number;
 }
 
-/** YYYY-MM 문자열에서 다음 달 15일 반환 (ISO 형식) */
+// CommissionLedger entryType 분류
+const COMMISSION_ENTRY_TYPES: string[] = [
+  'SALES_COMMISSION',
+  'OVERRIDE_COMMISSION',
+  'BRANCH_COMMISSION',
+];
+
+const DEDUCTION_ENTRY_TYPES: string[] = ['WITHHOLDING', 'DEDUCTION', 'REFUND'];
+
+/** YYYY-MM 문자열에서 다음 달 15일 반환 (UTC ISO 형식) */
 function calcExpectedPaymentDate(yearMonth: string): string {
   const [year, month] = yearMonth.split('-').map(Number);
   const nextMonth = month === 12 ? 1 : month + 1;
@@ -60,8 +70,25 @@ function calcExpectedPaymentDate(yearMonth: string): string {
   return new Date(Date.UTC(nextYear, nextMonth - 1, 15)).toISOString();
 }
 
+// ─── DocRow 타입 ──────────────────────────────────────────────────────────────
+
+type DocRow = {
+  userId: number;
+  withholdingRate: number;
+  bankName: string | null;
+  bankAccount: string | null;
+  bankAccountHolder: string | null;
+  idCardPath: string | null;
+  bankbookPath: string | null;
+};
+
+type UserNameRow = { id: number; name: string | null };
+
+// ─── GET 핸들러 ───────────────────────────────────────────────────────────────
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
   try {
+    // ── 0. 세션 / 권한 체크 ────────────────────────────────────────────────────
     const session = await getMabizSession();
     if (!session) {
       return NextResponse.json(
@@ -70,9 +97,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { role, organizationId } = session;
+    const { role, organizationId: sessionOrgId } = session;
 
-    // GLOBAL_ADMIN 또는 OWNER만 접근 가능
     if (role !== 'GLOBAL_ADMIN' && role !== 'OWNER') {
       return NextResponse.json(
         { ok: false, error: 'FORBIDDEN', message: '관리자 또는 대리점장 권한이 필요합니다.' },
@@ -80,6 +106,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // OWNER인데 organizationId가 없으면 접근 불가
+    if (role === 'OWNER' && !sessionOrgId) {
+      return NextResponse.json(
+        { ok: false, error: 'FORBIDDEN', message: '조직에 속해 있지 않습니다.' },
+        { status: 403 }
+      );
+    }
+
+    // ── 1. 쿼리 파라미터 파싱 ─────────────────────────────────────────────────
     const { searchParams } = new URL(req.url);
     const period = searchParams.get('period');
     const VALID_ROLE_FILTERS = ['all', 'AGENT', 'OWNER', 'FREE_SALES'];
@@ -89,6 +124,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10)));
     const skip = (page - 1) * limit;
 
+    // GLOBAL_ADMIN 전용 조직 필터
+    const queryOrgId = searchParams.get('organizationId') ?? null;
+
     if (!period || !/^\d{4}-\d{2}$/.test(period)) {
       return NextResponse.json(
         { ok: false, error: 'BAD_REQUEST', message: 'period는 YYYY-MM 형식이어야 합니다.' },
@@ -96,68 +134,94 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // ── 1. AffiliatePayslip 팀 목록 조회 (AGENT / OWNER 역할) ───────────────
-
-    // roleFilter가 FREE_SALES 전용이 아닌 경우 payslip 조회
-    type PayslipWhere = {
-      yearMonth: string;
-    };
-    const payslipWhere: PayslipWhere = { yearMonth: period };
-
-    const [payslips, payslipTotal] = await Promise.all([
-      prisma.affiliatePayslip.findMany({
-        where: payslipWhere,
-        orderBy: { agentId: 'asc' },
-        // skip/take 제거: 메모리에서 단일 페이지네이션 적용 (이중 페이지네이션 방지)
-      }),
-      prisma.affiliatePayslip.count({ where: payslipWhere }),
-    ]);
-
-    // agentId 목록 추출 (문서 조회용)
-    const agentIds = payslips.map((p: AffiliatePayslip) => p.agentId);
-
-    // ── 2. FREE_SALES: AffiliateSale 집계 ────────────────────────────────────
-    type FreeSalesRow = {
-      affiliateUserId: string;
-      name: string | null;
-      totalCommission: bigint;
-      totalRefunded: bigint;
-      saleCount: bigint;
-    };
-
+    // ── 2. 기간 경계 계산 (UTC 기반) ─────────────────────────────────────────
     const [periodYear, periodMonth] = period.split('-').map(Number);
-    const periodStart = new Date(periodYear, periodMonth - 1, 1);
-    const periodEnd = new Date(periodYear, periodMonth, 1);
+    const periodStart = new Date(Date.UTC(periodYear, periodMonth - 1, 1));
+    const periodEnd = new Date(Date.UTC(periodYear, periodMonth, 1));
 
-    const freeSalesRows: FreeSalesRow[] = await prisma.$queryRaw<FreeSalesRow[]>(
-      Prisma.sql`
-        SELECT
-          s."affiliateUserId",
-          u."name",
-          COALESCE(SUM(s."commissionAmount"), 0) AS "totalCommission",
-          COALESCE(SUM(s."refundedAmount"), 0) AS "totalRefunded",
-          COUNT(s.id) AS "saleCount"
-        FROM "CrmAffiliateSale" s
-        LEFT JOIN "User" u ON u.id::text = s."affiliateUserId"
-        WHERE s."travelCompletedAt" >= ${periodStart}
-          AND s."travelCompletedAt" < ${periodEnd}
-          AND s."affiliateUserId" IS NOT NULL
-        GROUP BY s."affiliateUserId", u."name"
-      `
-    );
+    // ── 3. organizationId 결정 (테넌트 격리) ──────────────────────────────────
+    // OWNER: 자신의 조직으로 강제 고정
+    // GLOBAL_ADMIN: 쿼리 파라미터 값 사용 (없으면 전체 조직 대상)
+    const effectiveOrgId: string | undefined =
+      role === 'OWNER' ? sessionOrgId! : (queryOrgId ?? undefined);
 
-    // ── 3. 문서 상태 조회 (GmAffiliateProfile + GmAffiliateContract) ─────────
-
-    // Payslip agentIds 기반 문서 조회
-    type DocRow = {
-      userId: number;
-      withholdingRate: number;
-      bankName: string | null;
-      bankAccount: string | null;
-      bankAccountHolder: string | null;
-      idCardPath: string | null;
-      bankbookPath: string | null;
+    // ── 4. CommissionLedger WHERE 조건 ────────────────────────────────────────
+    const baseLedgerWhere: Prisma.CommissionLedgerWhereInput = {
+      ...(effectiveOrgId ? { organizationId: effectiveOrgId } : {}),
+      createdAt: { gte: periodStart, lt: periodEnd },
+      agentId: { not: null },
     };
+
+    // ── 5. CommissionLedger 전체 조회 ─────────────────────────────────────────
+    const ledgerEntries = await prisma.commissionLedger.findMany({
+      where: baseLedgerWhere,
+      orderBy: [{ agentId: 'asc' }, { createdAt: 'desc' }],
+      select: {
+        agentId: true,
+        entryType: true,
+        amount: true,
+        withholdingAmount: true,
+        isSettled: true,
+      },
+    });
+
+    // ── 6. agentId별 집계 ─────────────────────────────────────────────────────
+    type AgentAccum = {
+      baseCommission: number;
+      deduction: number;
+      withholdingAmountSum: number;
+      allSettled: boolean;
+      entryCount: number;
+    };
+
+    const agentMap = new Map<number, AgentAccum>();
+
+    for (const entry of ledgerEntries) {
+      if (entry.agentId === null) continue;
+      const agentId = entry.agentId;
+
+      if (!agentMap.has(agentId)) {
+        agentMap.set(agentId, {
+          baseCommission: 0,
+          deduction: 0,
+          withholdingAmountSum: 0,
+          allSettled: true,
+          entryCount: 0,
+        });
+      }
+
+      const accum = agentMap.get(agentId)!;
+      accum.entryCount += 1;
+
+      if (COMMISSION_ENTRY_TYPES.includes(entry.entryType)) {
+        accum.baseCommission += entry.amount;
+        if (entry.withholdingAmount != null) {
+          accum.withholdingAmountSum += entry.withholdingAmount;
+        }
+      } else if (DEDUCTION_ENTRY_TYPES.includes(entry.entryType)) {
+        accum.deduction += entry.amount;
+      }
+
+      if (!entry.isSettled) {
+        accum.allSettled = false;
+      }
+    }
+
+    // 집계 결과가 없으면 빈 응답
+    if (agentMap.size === 0) {
+      return NextResponse.json({
+        ok: true,
+        period,
+        data: {
+          members: [],
+          summary: { totalPayout: 0, missingDocCount: 0, pendingCount: 0, paidCount: 0 },
+          pagination: { page, limit, total: 0, totalPages: 0 },
+        },
+      });
+    }
+
+    // ── 7. 문서 상태 조회 (AffiliateProfile + AffiliateContract) ─────────────
+    const agentIds = Array.from(agentMap.keys());
 
     let docRows: DocRow[] = [];
     if (agentIds.length > 0) {
@@ -180,34 +244,55 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const docMap = new Map<number, DocRow>(docRows.map(d => [d.userId, d]));
 
-    // ── 4. MemberStatement 조립 ───────────────────────────────────────────────
+    // ── 8. GmUser 이름 조회 ───────────────────────────────────────────────────
+    let userNameRows: UserNameRow[] = [];
+    if (agentIds.length > 0) {
+      userNameRows = await prisma.$queryRaw<UserNameRow[]>(
+        Prisma.sql`
+          SELECT id, name
+          FROM "GmUser"
+          WHERE id = ANY(${agentIds})
+        `
+      );
+    }
+    const userNameMap = new Map<number, string | null>(
+      userNameRows.map(u => [u.id, u.name])
+    );
 
+    // ── 9. MemberStatement 조립 ───────────────────────────────────────────────
+    // FREE_SALES 필터 시 CommissionLedger 기반 데이터는 제외 (별도 집계 없음)
     const members: MemberStatement[] = [];
 
-    // Payslip 기반 멤버 (AGENT / OWNER)
     if (roleFilter !== 'FREE_SALES') {
-      for (const p of payslips) {
-        const doc = docMap.get(p.agentId);
+      for (const [agentId, accum] of agentMap.entries()) {
+        const doc = docMap.get(agentId);
         const withholdingRate = doc?.withholdingRate ?? 3.3;
-        const base = Number(p.baseCommission);
-        const deduction = p.deduction ? Number(p.deduction) : 0;
-        const withholdingAmount = Math.floor(base * (withholdingRate / 100));
-        const net = Number(p.netAmount);
+
+        // withholdingAmount: 필드 합산값이 있으면 사용, 없으면 baseCommission * rate 계산
+        const withholdingAmount =
+          accum.withholdingAmountSum > 0
+            ? accum.withholdingAmountSum
+            : Math.floor(accum.baseCommission * (withholdingRate / 100));
+
+        const netAmount = accum.baseCommission - withholdingAmount - accum.deduction;
+        const status = accum.allSettled && accum.entryCount > 0 ? 'SENT' : 'PENDING';
+
         const hasIdCard = !!doc?.idCardPath;
         const hasBankBook = !!doc?.bankbookPath;
+        const userName = userNameMap.get(agentId) ?? null;
 
         members.push({
-          agentId: p.agentId,
-          name: p.agentDisplayName ?? String(p.agentId),
+          agentId,
+          name: userName ?? String(agentId),
           role: 'AGENT',
-          payslipId: p.id,
-          yearMonth: p.yearMonth,
-          baseCommission: base,
-          deduction,
+          payslipId: null,
+          yearMonth: period,
+          baseCommission: accum.baseCommission,
+          deduction: accum.deduction,
           withholdingAmount,
-          netAmount: net,
-          expectedPaymentDate: calcExpectedPaymentDate(p.yearMonth),
-          status: p.status,
+          netAmount,
+          expectedPaymentDate: calcExpectedPaymentDate(period),
+          status,
           bankName: doc?.bankName ?? null,
           bankAccount: doc?.bankAccount ?? null,
           bankAccountHolder: doc?.bankAccountHolder ?? null,
@@ -218,57 +303,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // FREE_SALES 집계 멤버
-    if (roleFilter === 'FREE_SALES' || roleFilter === 'all') {
-      for (const fs of freeSalesRows) {
-        const totalCommission = Number(fs.totalCommission);
-        const totalRefunded = Number(fs.totalRefunded);
-        const withholdingAmount = Math.floor(totalCommission * 0.033);
-        const net = totalCommission - withholdingAmount - totalRefunded;
-        const parsedId = parseInt(fs.affiliateUserId ?? '', 10);
-
-        members.push({
-          agentId: isNaN(parsedId) ? -1 : parsedId,
-          name: fs.name ?? fs.affiliateUserId,
-          role: 'FREE_SALES',
-          payslipId: null,
-          yearMonth: period,
-          baseCommission: totalCommission,
-          deduction: totalRefunded,
-          withholdingAmount,
-          netAmount: net,
-          expectedPaymentDate: calcExpectedPaymentDate(period),
-          status: 'PENDING',
-          bankName: null,
-          bankAccount: null,
-          bankAccountHolder: null,
-          hasIdCard: false,
-          hasBankBook: false,
-          canApprove: false,
-        });
-      }
-    }
-
-    // OWNER는 자신의 조직 내 멤버만 보여야 하지만,
-    // AffiliatePayslip에 organizationId가 없으므로 organizationId 세션 기록
-    // (추후 organizationId 필드 추가 시 필터 적용)
-    // 현재는 전체 조회 후 로그만 남김
-    if (role === 'OWNER' && organizationId) {
-      logger.info('[GET /api/statements/team] OWNER 접근', { organizationId, period });
-    }
-
-    // 페이지네이션 (전체 members 기준)
-    const totalMembers = members.length;
-
-    // ── 5. 요약 계산 (슬라이싱 전 전체 members 기준) ─────────────────────────
+    // ── 10. 요약 계산 (슬라이싱 전 전체 기준) ────────────────────────────────
     const summary: TeamSummary = {
       totalPayout: members.reduce((acc, m) => acc + m.netAmount, 0),
-      missingDocCount: members.filter(m => !m.canApprove && m.role !== 'FREE_SALES').length,
+      missingDocCount: members.filter(m => !m.canApprove).length,
       pendingCount: members.filter(m => m.status === 'PENDING').length,
       paidCount: members.filter(m => m.status === 'SENT').length,
     };
 
-    // 페이지네이션 슬라이싱 (summary 계산 후 적용)
+    // ── 11. 페이지네이션 슬라이싱 ────────────────────────────────────────────
+    const totalMembers = members.length;
     const pagedMembers = members.slice(skip, skip + limit);
 
     const pagination: PaginationData = {
@@ -277,6 +321,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       total: totalMembers,
       totalPages: Math.ceil(totalMembers / limit),
     };
+
+    logger.info('[GET /api/statements/team] 조회 완료', {
+      role,
+      organizationId: effectiveOrgId ?? 'ALL',
+      period,
+      memberCount: totalMembers,
+    });
 
     return NextResponse.json({
       ok: true,

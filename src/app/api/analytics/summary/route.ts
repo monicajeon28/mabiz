@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
         riskScore: {
           current: riskScore,
           status: riskScore < 30 ? 'GREEN' : riskScore < 60 ? 'YELLOW' : 'RED',
-          previousScore: riskScore + Math.random() * 10 - 5, // 시뮬레이션
+          previousScore: null, // 이전 기간 Risk Score 미구현 (시뮬레이션 제거)
         },
       },
       lens: lensPerformance,
@@ -190,7 +190,7 @@ async function calculateRiskScore(orgId: string): Promise<number> {
     prisma.contractInstance.count({
       where: {
         organizationId: orgId,
-        status: 'PENDING',
+        status: 'DRAFT',
         createdAt: { lt: subDays(new Date(), 7) },
       },
     }),
