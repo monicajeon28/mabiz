@@ -88,7 +88,7 @@ export class AnalyticsMetrics {
         previous: prevNewContacts,
         growth:
           prevNewContacts > 0
-            ? parseFloat(((newContacts - prevNewContacts) / prevNewContacts) * 100).toFixed(2))
+            ? parseFloat((((newContacts - prevNewContacts) / prevNewContacts) * 100).toFixed(2))
             : 0,
         target: Math.ceil(newContacts * 1.2),
       },
@@ -101,7 +101,7 @@ export class AnalyticsMetrics {
       ltv: {
         current: Math.round(ltv),
         previous: Math.round(prevLtv),
-        growth: prevLtv > 0 ? parseFloat(((ltv - prevLtv) / prevLtv) * 100).toFixed(2)) : 0,
+        growth: prevLtv > 0 ? parseFloat((((ltv - prevLtv) / prevLtv) * 100).toFixed(2)) : 0,
         target: Math.round(ltv * 1.25),
       },
     };
