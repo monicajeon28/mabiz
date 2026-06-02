@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-import { timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
@@ -24,7 +24,12 @@ export async function POST(req: NextRequest) {
     logger.error('[RefundWebhook] MABIZ_REFUND_WEBHOOK_SECRET 미설정');
     return NextResponse.json({ ok: false }, { status: 500 });
   }
-  const token = (req.headers.get('authorization') ?? '').replace('Bearer ', '');
+  const authHeader = req.headers.get('authorization') ?? '';
+  if (!authHeader.startsWith('Bearer ')) {
+    logger.error('[RefundWebhook] Bearer token 미제공');
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
+  const token = authHeader.slice(7);
   if (
     token.length !== secret.length ||
     !timingSafeEqual(Buffer.from(token), Buffer.from(secret))
@@ -33,9 +38,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
+  // raw body를 먼저 읽은 뒤 HMAC-SHA256 서명 검증
+  const rawBody = await req.text();
+  const signature = req.headers.get('x-signature') ?? '';
+  if (!signature) {
+    logger.warn('[RefundWebhook] x-signature 헤더 누락');
+    return NextResponse.json({ ok: false, error: 'Missing x-signature' }, { status: 401 });
+  }
+  const expectedSignature = createHmac('sha256', secret).update(rawBody).digest('hex');
+  if (
+    signature.length !== expectedSignature.length ||
+    !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+  ) {
+    logger.warn('[RefundWebhook] HMAC 서명 검증 실패');
+    return NextResponse.json({ ok: false }, { status: 403 });
+  }
+
   let body: Record<string, unknown>;
   try {
-    body = await req.json();
+    body = JSON.parse(rawBody);
   } catch {
     return NextResponse.json({ ok: false, message: 'JSON 파싱 실패' }, { status: 400 });
   }
