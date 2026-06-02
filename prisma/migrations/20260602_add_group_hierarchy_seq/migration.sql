@@ -32,10 +32,18 @@ ALTER TABLE "ContactGroup" ADD COLUMN IF NOT EXISTS "funnelSmsIds" TEXT[] NOT NU
 -- 10. funnelEmailIds 배열 컬럼 추가 (복수 퍼널메일 연결)
 ALTER TABLE "ContactGroup" ADD COLUMN IF NOT EXISTS "funnelEmailIds" TEXT[] NOT NULL DEFAULT '{}';
 
--- 11. self-relation FK 추가 (계층 구조)
-ALTER TABLE "ContactGroup" ADD CONSTRAINT "ContactGroup_parentGroupId_fkey"
-  FOREIGN KEY ("parentGroupId") REFERENCES "ContactGroup"("id")
-  ON DELETE SET NULL ON UPDATE CASCADE;
+-- 11. self-relation FK 추가 (계층 구조, 이미 존재하면 skip)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'ContactGroup_parentGroupId_fkey'
+  ) THEN
+    ALTER TABLE "ContactGroup" ADD CONSTRAINT "ContactGroup_parentGroupId_fkey"
+      FOREIGN KEY ("parentGroupId") REFERENCES "ContactGroup"("id")
+      ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 -- 12. seq 인덱스
 CREATE INDEX IF NOT EXISTS "ContactGroup_seq_idx"
