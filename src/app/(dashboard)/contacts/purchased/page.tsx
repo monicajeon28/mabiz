@@ -1,8 +1,14 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
 import Link from "next/link";
 import { Search, Plus, Phone, Upload, X, FileSpreadsheet } from "lucide-react";
+import { logger } from "@/lib/logger";
+import { useToast } from "@/lib/api/use-toast";
+import type { Contact as FullContact } from "@/types/contact";
+
+// 고객 상세 슬라이드 패널 (행 클릭 시 표시) — 코드 스플릿
+const ContactSlidePanel = lazy(() => import("../ContactSlidePanel"));
 
 type Contact = {
   id: string;
@@ -25,6 +31,7 @@ function formatDate(dateStr: string | null): string {
 }
 
 export default function PurchasedPage() {
+  const { toast } = useToast();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
@@ -43,6 +50,31 @@ export default function PurchasedPage() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ successCount: number; skipCount: number; errors: string[] } | null>(null);
+
+  // 슬라이드 패널 상태 (행 클릭 → 패널 표시)
+  const [slidePanelContact, setSlidePanelContact] = useState<FullContact | null>(null);
+  const [slidePanelOpen, setSlidePanelOpen] = useState(false);
+  const [slidePanelLoadingId, setSlidePanelLoadingId] = useState<string | null>(null);
+
+  // 행 클릭 시 전체 고객 정보를 받아와 패널 열기
+  const openSlidePanel = useCallback(async (contactId: string) => {
+    setSlidePanelLoadingId(contactId);
+    try {
+      const res = await fetch(`/api/contacts/${contactId}`);
+      const data = await res.json();
+      if (data.ok && data.contact) {
+        setSlidePanelContact(data.contact as FullContact);
+        setSlidePanelOpen(true);
+      } else {
+        toast({ title: '불러오기 실패', description: '고객 정보를 불러오지 못했습니다.', variant: 'destructive' });
+      }
+    } catch (err) {
+      logger.error('[openSlidePanel failed]', { err });
+      toast({ title: '네트워크 오류', description: '잠시 후 다시 시도해주세요.', variant: 'destructive' });
+    } finally {
+      setSlidePanelLoadingId(null);
+    }
+  }, [toast]);
 
   const fetchContacts = useCallback(async () => {
     setLoading(true);
@@ -338,12 +370,16 @@ export default function PurchasedPage() {
         <div className="space-y-2">
           {filteredContacts.map((c) => (
             <div key={c.id} className="bg-white rounded-xl border border-gray-200 hover:border-green-300 hover:shadow-sm transition-all">
-              <Link
-                href={`/contacts/${c.id}`}
-                className="flex items-center gap-3 px-4 py-3 group"
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => openSlidePanel(c.id)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSlidePanel(c.id); } }}
+                className="flex items-center gap-3 px-4 py-3 group cursor-pointer"
+                aria-label={`${c.name} 고객 상세 보기`}
               >
                 <div className="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
-                  {c.name[0]}
+                  {slidePanelLoadingId === c.id ? "…" : c.name[0]}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -376,7 +412,7 @@ export default function PurchasedPage() {
                     )}
                   </div>
                   {groups.length > 0 && (
-                    <div className="flex items-center gap-1 mt-2" onClick={(e) => e.preventDefault()}>
+                    <div className="flex items-center gap-1 mt-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
                       <select
                         className="text-sm border border-gray-200 rounded px-1.5 py-1 flex-1 max-w-[180px] bg-white focus:outline-none"
                         defaultValue=""
@@ -399,13 +435,13 @@ export default function PurchasedPage() {
                 <div className="hidden md:flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     type="button"
-                    onClick={(e) => { e.preventDefault(); window.location.href = `tel:${c.phone}`; }}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `tel:${c.phone}`; }}
                     className="p-2 rounded-lg hover:bg-blue-50 text-blue-600"
                   >
                     <Phone className="w-4 h-4" />
                   </button>
                 </div>
-              </Link>
+              </div>
             </div>
           ))}
         </div>
@@ -432,6 +468,22 @@ export default function PurchasedPage() {
             다음
           </button>
         </div>
+      )}
+
+      {/* 고객 상세 슬라이드 패널 (행 클릭 시) */}
+      {slidePanelOpen && (
+        <Suspense fallback={null}>
+          <ContactSlidePanel
+            contact={slidePanelContact}
+            open={slidePanelOpen}
+            onClose={() => setSlidePanelOpen(false)}
+            onRefresh={() => {
+              // 패널 내 변경(콜/메모/그룹 등) 후 목록 전체 새로고침
+              // (purchased 목록의 Contact 타입은 FullContact와 필드가 달라 부분 병합 대신 refetch)
+              fetchContacts();
+            }}
+          />
+        </Suspense>
       )}
     </div>
   );

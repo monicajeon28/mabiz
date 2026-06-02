@@ -2,15 +2,17 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Search, Plus, Filter, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet, Loader2, Share2, FolderDown } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/lib/api/use-toast";
 import { useSession } from "@/hooks/useSession";
+import type { Contact as FullContact } from "@/types/contact";
 
 // P1-21: Code-split large components for TTI optimization
 const GroupBlastModal = lazy(() => import('./GroupBlastModal'));
 const TagBlastModal = lazy(() => import('./TagBlastModal'));
+// 고객 상세 슬라이드 패널 (행 클릭 시 표시) — 코드 스플릿
+const ContactSlidePanel = lazy(() => import('./ContactSlidePanel'));
 
 type Contact = {
   id: string;
@@ -128,7 +130,6 @@ export default function ContactsPage() {
   const { toast } = useToast();
   const { role } = useSession();
   const canDelete = role === 'OWNER' || role === 'GLOBAL_ADMIN';
-  const router = useRouter();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
@@ -364,6 +365,31 @@ export default function ContactsPage() {
       setRecalling(null);
     }
   };
+
+  // 슬라이드 패널 상태 (행 클릭 → router.push 대신 패널 표시)
+  const [slidePanelContact, setSlidePanelContact] = useState<FullContact | null>(null);
+  const [slidePanelOpen,    setSlidePanelOpen]    = useState(false);
+  const [slidePanelLoadingId, setSlidePanelLoadingId] = useState<string | null>(null);
+
+  // 행 클릭 시 전체 고객 정보를 받아와 패널 열기
+  const openSlidePanel = useCallback(async (contactId: string) => {
+    setSlidePanelLoadingId(contactId);
+    try {
+      const res = await fetch(`/api/contacts/${contactId}`);
+      const data = await res.json();
+      if (data.ok && data.contact) {
+        setSlidePanelContact(data.contact as FullContact);
+        setSlidePanelOpen(true);
+      } else {
+        toast({ title: '불러오기 실패', description: '고객 정보를 불러오지 못했습니다.', variant: 'destructive' });
+      }
+    } catch (err) {
+      logger.error('[openSlidePanel failed]', { err });
+      toast({ title: '네트워크 오류', description: '잠시 후 다시 시도해주세요.', variant: 'destructive' });
+    } finally {
+      setSlidePanelLoadingId(null);
+    }
+  }, [toast]);
 
   // 퀵 콜 상태
   const [quickCallId,    setQuickCallId]    = useState<string | null>(null);
@@ -1024,8 +1050,9 @@ export default function ContactsPage() {
               <button
                 key={c.id}
                 type="button"
-                onClick={() => router.push(`/contacts/${c.id}`)}
-                className="w-full text-left flex items-center justify-between px-3 py-2 bg-white rounded-lg border border-amber-100 hover:border-amber-300 hover:shadow-sm transition-all text-sm"
+                onClick={() => openSlidePanel(c.id)}
+                disabled={slidePanelLoadingId === c.id}
+                className="w-full text-left flex items-center justify-between px-3 py-2 bg-white rounded-lg border border-amber-100 hover:border-amber-300 hover:shadow-sm transition-all text-sm disabled:opacity-60"
               >
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-gray-900">{c.name}</span>
@@ -1121,9 +1148,13 @@ export default function ContactsPage() {
                     onClick={(e) => e.stopPropagation()}
                     className="w-4 h-4 rounded cursor-pointer accent-purple-600 shrink-0"
                   />
-                <Link
-                  href={`/contacts/${c.id}`}
-                  className="flex items-center gap-3 flex-1 min-w-0"
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openSlidePanel(c.id)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSlidePanel(c.id); } }}
+                  className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                  aria-label={`${c.name} 고객 상세 보기`}
                 >
                   {/* 아바타 */}
                   <div className="w-10 h-10 rounded-full bg-navy-900 text-white flex items-center justify-center text-sm font-bold shrink-0">
@@ -1207,7 +1238,7 @@ export default function ContactsPage() {
                       </div>
                     )}
                     {/* 빠른 그룹 배정 */}
-                    <div className="flex items-center gap-2 mt-2" onClick={(e) => e.preventDefault()}>
+                    <div className="flex items-center gap-2 mt-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
                       {groups.length > 0 && (
                         <select
                           className="text-sm border border-gray-200 rounded px-1.5 py-1 max-w-[180px] bg-white focus:outline-none"
@@ -1278,6 +1309,7 @@ export default function ContactsPage() {
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
+                        e.stopPropagation();
                         setQuickCallId(isQuickCallOpen ? null : c.id);
                         setQuickCallError(null);
                       }}
@@ -1288,7 +1320,7 @@ export default function ContactsPage() {
                       <MessageSquare className="w-4 h-4" />
                     </button>
                   </div>
-                </Link>
+                </div>{/* end role=button (행 클릭 → 슬라이드 패널) */}
                 </div>{/* end flex items-center gap-3 */}
 
                 {/* 퀵 콜 기록 인라인 폼 */}
@@ -1522,6 +1554,41 @@ export default function ContactsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 고객 상세 슬라이드 패널 (행 클릭 시) */}
+      {slidePanelOpen && (
+        <Suspense fallback={null}>
+          <ContactSlidePanel
+            contact={slidePanelContact}
+            open={slidePanelOpen}
+            onClose={() => setSlidePanelOpen(false)}
+            onRefresh={(updated) => {
+              if (updated) {
+                // 패널의 FullContact 일부 → 목록 행(Contact)에 맞는 필드만 병합
+                setContacts(prev => prev.map(c => {
+                  if (c.id !== updated.id) return c;
+                  const patch: Partial<Contact> = {};
+                  if (updated.type !== undefined) patch.type = updated.type;
+                  if (updated.tags !== undefined) patch.tags = updated.tags;
+                  if (updated.leadScore !== undefined) patch.leadScore = updated.leadScore;
+                  if (updated.lastContactedAt !== undefined) patch.lastContactedAt = updated.lastContactedAt;
+                  if (updated.cruiseInterest !== undefined) patch.cruiseInterest = updated.cruiseInterest;
+                  if (updated.departureDate !== undefined) patch.departureDate = updated.departureDate;
+                  if (updated.groups !== undefined) {
+                    patch.groups = updated.groups.map(g => ({ group: { id: g.group.id, name: g.group.name, color: null } }));
+                  }
+                  if (updated.callLogs !== undefined) {
+                    patch._count = { ...c._count, callLogs: updated.callLogs.length };
+                  }
+                  return { ...c, ...patch };
+                }));
+              } else {
+                fetchContacts(); // 목록 전체 새로고침
+              }
+            }}
+          />
+        </Suspense>
       )}
     </div>
   );
