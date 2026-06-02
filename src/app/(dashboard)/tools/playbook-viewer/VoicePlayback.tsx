@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Volume2, VolumeX, Play, Pause } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 interface VoicePlaybackProps {
   text: string;
@@ -54,7 +55,7 @@ export function VoicePlayback({ text, scriptId, title }: VoicePlaybackProps) {
       speechSynthesis.speak(utterance);
       setIsPlaying(true);
     } catch (error) {
-      console.error("음성 재생 오류:", error);
+      logger.error("voice-playback:synthesis", error);
       setIsPlaying(false);
     }
   };

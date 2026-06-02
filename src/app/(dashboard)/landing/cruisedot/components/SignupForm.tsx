@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { logger } from '@/lib/logger';
 
 export default function SignupForm() {
   const router = useRouter();
@@ -80,7 +81,7 @@ export default function SignupForm() {
     } catch (error) {
       setStatus('error');
       setErrorMessage('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
-      console.error('[SignupForm] 에러:', error);
+      logger.error('signup-form:submit', error);
     } finally {
       setLoading(false);
     }

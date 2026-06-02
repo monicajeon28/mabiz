@@ -39,11 +39,11 @@ export const logger = {
       console.warn(formatMessage("warn", message, data));
     }
   },
-  error: (message: string, data?: object) => {
+  error: (message: string, data?: object | unknown) => {
     if (isServer) {
-      process.stderr.write(formatMessage("error", message, data) + "\n");
+      process.stderr.write(formatMessage("error", message, data as object | undefined) + "\n");
     } else {
-      console.error(formatMessage("error", message, data));
+      console.error(formatMessage("error", message, data as object | undefined));
     }
   },
 };

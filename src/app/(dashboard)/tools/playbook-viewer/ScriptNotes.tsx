@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Save, Trash2, Edit2, FileText } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 interface ScriptNote {
   scriptId: string;
@@ -39,7 +40,7 @@ export function ScriptNotes({ scriptId, onNoteSaved }: ScriptNotesProps) {
           }
         }
       } catch (error) {
-        console.error("노트 로드 오류:", error);
+        logger.error("script-notes:load", error);
       }
     };
 
@@ -65,7 +66,7 @@ export function ScriptNotes({ scriptId, onNoteSaved }: ScriptNotesProps) {
       setIsEditing(false);
       onNoteSaved?.(updatedNote);
     } catch (error) {
-      console.error("노트 저장 오류:", error);
+      logger.error("script-notes:save", error);
     }
   };
 
@@ -81,7 +82,7 @@ export function ScriptNotes({ scriptId, onNoteSaved }: ScriptNotesProps) {
       setLastUpdated(null);
       setIsEditing(false);
     } catch (error) {
-      console.error("노트 삭제 오류:", error);
+      logger.error("script-notes:delete", error);
     }
   };
 
