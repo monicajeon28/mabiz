@@ -1,11 +1,14 @@
 'use client';
 
+import { loadCruisedotConfig } from '@/lib/constants/cruisedot-config';
+
 /**
  * 가격 및 서비스 비교표
  * 크루즈닷 vs 경쟁사 vs 개인 판매자
  */
 
 export default function PriceComparison() {
+  const config = loadCruisedotConfig();
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse">
@@ -23,9 +26,9 @@ export default function PriceComparison() {
         <tbody>
           {/* 가격 */}
           <tr className="hover:bg-gray-50">
-            <td className="border p-4 font-semibold text-gray-700">가격 (3박 일본)</td>
+            <td className="border p-4 font-semibold text-gray-700">가격 ({config.pricing.japan.nights}박 일본)</td>
             <td className="border p-4 text-center bg-green-50">
-              <span className="font-bold text-green-600">159만원</span>
+              <span className="font-bold text-green-600">{(config.pricing.japan.totalPrice / 1000000).toFixed(1)}만원</span>
             </td>
             <td className="border p-4 text-center">145만원</td>
             <td className="border p-4 text-center text-red-600">99만원</td>
@@ -75,7 +78,7 @@ export default function PriceComparison() {
           <tr className="hover:bg-gray-50">
             <td className="border p-4 font-semibold text-gray-700">월 할부</td>
             <td className="border p-4 text-center bg-green-50">
-              <span className="text-green-600 font-bold">월 53,000원</span>
+              <span className="text-green-600 font-bold">월 {config.pricing.japan.monthly.toLocaleString()}원</span>
             </td>
             <td className="border p-4 text-center">월 48,000원</td>
             <td className="border p-4 text-center text-red-600">❌ 불가능</td>
@@ -105,7 +108,7 @@ export default function PriceComparison() {
           <tr className="hover:bg-gray-50">
             <td className="border p-4 font-semibold text-gray-700">건강검진 (골드)</td>
             <td className="border p-4 text-center bg-green-50">
-              <span className="text-green-600 font-bold">✅ 연 2회</span>
+              <span className="text-green-600 font-bold">✅ 연 {config.goldMember.benefits.healthCheckup.frequency}회</span>
             </td>
             <td className="border p-4 text-center">❌ 없음</td>
             <td className="border p-4 text-center text-red-600">❌ 없음</td>
