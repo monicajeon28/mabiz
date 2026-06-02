@@ -77,7 +77,10 @@ export async function GET(req: NextRequest) {
     const yearMonth        = YEAR_MONTH_RE.test(rawYearMonth) ? rawYearMonth : null;
     const typeFilter       = rawType && ALLOWED_TYPES.has(rawType) ? rawType : null;
 
-    const orgCondition: Prisma.Sql = Prisma.sql`AND cl."organizationId" = ${organizationId}`;
+    // GLOBAL_ADMIN은 organizationId 필터 없이 모든 조직의 데이터 조회 가능
+    const orgCondition: Prisma.Sql = organizationId
+      ? Prisma.sql`AND cl."organizationId" = ${organizationId}`
+      : Prisma.empty;
 
     // 역할별 스코프
     let roleCondition: Prisma.Sql = Prisma.empty;
