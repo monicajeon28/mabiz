@@ -32,6 +32,13 @@ interface FunnelSmsMessage {
   msgType: "SMS" | "LMS";
 }
 
+interface SmsStats {
+  pending: number;
+  sent: number;
+  failed: number;
+  blocked: number;
+}
+
 interface HeaderState {
   title: string;
   senderPhone?: string;
@@ -63,16 +70,44 @@ export default function FunnelSmsEditPage({
     arsNum: "",
   });
   const [messages, setMessages] = useState<FunnelSmsMessage[]>([]);
+  const [smsStats, setSmsStats] = useState<SmsStats>({
+    pending: 0,
+    sent: 0,
+    failed: 0,
+    blocked: 0,
+  });
   const [activeTab, setActiveTab] = useState(0);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
   // ──────────────────────────────
+  // 발송 상태 통계 로드
+  // ──────────────────────────────
+  const loadStats = async () => {
+    try {
+      const res = await fetch(`/api/funnel-sms/${id}/stats`);
+      const data = (await res.json()) as Partial<SmsStats> & { ok?: boolean };
+      if (data.ok) {
+        setSmsStats({
+          pending: data.pending ?? 0,
+          sent: data.sent ?? 0,
+          failed: data.failed ?? 0,
+          blocked: data.blocked ?? 0,
+        });
+      }
+    } catch (err) {
+      logger.error("[FunnelSmsEditPage] loadStats", { err });
+    }
+  };
+
+  // ──────────────────────────────
   // 초기 데이터 로드
   // ──────────────────────────────
   useEffect(() => {
     if (!id) return;
+
+    loadStats();
 
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), 10_000);
@@ -222,7 +257,13 @@ export default function FunnelSmsEditPage({
 
       const [patchData, putData] = await Promise.all([
         patchRes.json() as Promise<{ ok: boolean; message?: string }>,
-        putRes.json() as Promise<{ ok: boolean; data?: FunnelSmsMessage[]; message?: string }>,
+        putRes.json() as Promise<{
+          ok: boolean;
+          data?: FunnelSmsMessage[];
+          message?: string;
+          pendingSmsCount?: number;
+          warningMessage?: string | null;
+        }>,
       ]);
 
       if (patchData.ok && putData.ok) {
@@ -231,6 +272,24 @@ export default function FunnelSmsEditPage({
           setMessages(putData.data);
         }
         showSuccess("저장되었습니다.");
+
+        // 이미 예약된(미발송) 문자가 있으면 경고 + 예약분 교체 여부 확인
+        const pendingCount = putData.pendingSmsCount ?? 0;
+        if (pendingCount > 0) {
+          showError(
+            `${pendingCount}건의 이미 예약된 문자는 기존 내용으로 발송됩니다.`
+          );
+          const replace = confirm(
+            `이미 예약된 미발송 문자 ${pendingCount}건이 있습니다.\n\n` +
+              `이 문자들은 기존 내용으로 발송됩니다.\n` +
+              `미발송 예약분을 삭제하고, 앞으로 추가되는 고객부터 새 내용으로 발송하시겠습니까?`
+          );
+          if (replace) {
+            await handleSyncPending();
+          }
+        }
+        // 발송 상태 카드 갱신
+        await loadStats();
       } else {
         const errMsg =
           (!patchData.ok ? patchData.message : null) ??
@@ -243,6 +302,31 @@ export default function FunnelSmsEditPage({
       showError("저장 중 오류가 발생했습니다.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // 예약분(미발송 PENDING) 동기화 — 옛 content로 발송될 예약 문자 삭제
+  const handleSyncPending = async () => {
+    try {
+      const res = await fetch(`/api/funnel-sms/${id}/messages/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const d = (await res.json()) as {
+        ok: boolean;
+        deletedCount?: number;
+        message?: string;
+      };
+      if (d.ok) {
+        showSuccess(d.message ?? "예약분이 동기화되었습니다.");
+      } else {
+        showError(d.message ?? "예약분 동기화에 실패했습니다.");
+      }
+    } catch (err) {
+      logger.error("[FunnelSmsEditPage] handleSyncPending", { err });
+      showError("예약분 동기화 중 오류가 발생했습니다.");
+    } finally {
+      await loadStats();
     }
   };
 
@@ -326,6 +410,51 @@ export default function FunnelSmsEditPage({
           삭제
         </button>
       </div>
+
+      {/* 발송 상태 대시보드 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <p className="text-sm text-gray-600">예약 중</p>
+          <p className="text-2xl font-bold text-blue-600">{smsStats.pending}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <p className="text-sm text-gray-600">발송 완료</p>
+          <p className="text-2xl font-bold text-green-600">{smsStats.sent}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <p className="text-sm text-gray-600">발송 실패</p>
+          <p className="text-2xl font-bold text-red-600">{smsStats.failed}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <p className="text-sm text-gray-600">수신거부 차단</p>
+          <p className="text-2xl font-bold text-yellow-600">{smsStats.blocked}</p>
+        </div>
+      </div>
+
+      {/* 예약분 경고 배너 — 미발송 예약이 있으면 표시 */}
+      {smsStats.pending > 0 && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl flex items-start justify-between gap-3">
+          <p className="text-sm text-yellow-800">
+            현재 <strong>{smsStats.pending}건</strong>의 미발송 예약 문자가 있습니다.
+            메시지를 편집해도 이미 예약된 문자는 <strong>기존 내용</strong>으로 발송됩니다.
+            새 내용으로 교체하려면 예약분을 동기화하세요.
+          </p>
+          <button
+            onClick={() => {
+              if (
+                confirm(
+                  `미발송 예약 문자 ${smsStats.pending}건을 삭제하고, 앞으로 추가되는 고객부터 새 내용으로 발송하시겠습니까?`
+                )
+              ) {
+                handleSyncPending();
+              }
+            }}
+            className="shrink-0 px-3 py-1.5 text-sm font-medium text-yellow-800 bg-yellow-100 hover:bg-yellow-200 border border-yellow-300 rounded-lg transition-colors"
+          >
+            예약분 동기화
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 왼쪽: 폼 영역 */}

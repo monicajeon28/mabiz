@@ -281,3 +281,373 @@ export function renderPartnerWelcomeEmail(p: PartnerWelcomeEmailParams): { subje
 
   return { subject, html: wrapEmail(body) };
 }
+
+// ── renderFunnelDay0Email (상담 후 즉시 감사 + 건강검진 안내) ──────────────────
+/**
+ * Day 0: 상담 직후 (감정 단계)
+ * PASONA: P(Problem) + A(Agitate) - 건강 문제의 심각성 깨우기
+ * L6 손실회피: "지금 받지 않으면 평생 후회할 수 있습니다"
+ * L10 즉시구매: 긴박한 톤 (10석 남음)
+ */
+export interface FunnelDay0EmailParams {
+  name: string;
+  consultantName: string;
+  consultationType: string; // "건강검진" | "영양상담" | "운동처방"
+  nextSteps?: string;      // 추가 안내사항
+  crmUrl?: string;
+}
+
+export function renderFunnelDay0Email(p: FunnelDay0EmailParams): { subject: string; html: string } {
+  const subject = `[크루즈닷] ${p.name}님 상담 감사합니다 - 즉시 실천 방법 3가지`;
+
+  const body = `
+    <h2 style="margin:0 0 8px;color:#111827;font-size:22px;font-weight:700;">
+      상담이 완료되었습니다 ✓
+    </h2>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">
+      ${p.name}님 안녕하세요.<br />
+      ${p.consultantName} 상담사의 ${p.consultationType}를 완료해주셔서 감사합니다.
+    </p>
+
+    <!-- P단계: 문제 재확인 -->
+    <div style="background:#fff3cd;border-left:4px solid #ffc107;padding:16px;border-radius:6px;margin:20px 0;">
+      <p style="margin:0;color:#856404;font-size:13px;font-weight:600;">
+        🔔 상담에서 언급하신 건강 이슈의 심각성
+      </p>
+      <p style="margin:8px 0 0;color:#664d03;font-size:13px;line-height:1.6;">
+        오늘 상담에서 확인된 사항들이 방치될 경우, 향후 합병증으로 발전할 가능성이 높습니다.<br />
+        <strong>지금 이 순간이 생활습관을 바꿀 수 있는 마지막 기회입니다.</strong>
+      </p>
+    </div>
+
+    <!-- A단계: 감정 자극 + 행동 유도 -->
+    <div style="background:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;">
+      <p style="margin:0 0 12px;color:#111827;font-size:14px;font-weight:600;">
+        지금 바로 실천할 수 있는 3가지 방법
+      </p>
+      <ol style="margin:0;padding-left:20px;color:#495057;font-size:13px;line-height:1.8;">
+        <li style="margin:6px 0;"><strong>오늘 저녁</strong>: 상담 자료 읽기 (10분)</li>
+        <li style="margin:6px 0;"><strong>내일 아침</strong>: 첫 번째 식단 변경 적용</li>
+        <li style="margin:6px 0;"><strong>3일 이내</strong>: 운동 프로그램 시작</li>
+      </ol>
+    </div>
+
+    <!-- N단계: 최종 행동 촉구 (시간 제한) -->
+    <div style="margin:24px 0;">
+      <p style="margin:0 0 12px;color:#6b7280;font-size:13px;">
+        <strong>⏰ 주의</strong>: 상담 이후 처음 72시간 동안 실행하는 사람이 성공률이 89% 높습니다.
+      </p>
+      <a href="${p.crmUrl}/consultation/followup"
+         style="display:inline-block;background:#28a745;color:#ffffff;text-decoration:none;
+                padding:14px 28px;border-radius:8px;font-size:14px;font-weight:600;margin-top:8px;">
+        맞춤형 실천 계획서 받기 (72시간 한정)
+      </a>
+    </div>
+
+    ${p.nextSteps ? `
+    <div style="margin-top:20px;padding:12px;background:#e8f5e9;border-radius:6px;color:#2e7d32;font-size:13px;">
+      ${p.nextSteps}
+    </div>` : ''}
+  `;
+
+  return { subject, html: wrapEmail(body) };
+}
+
+// ── renderFunnelDay1Email (상품 3가지 소개 + 추천 로직) ──────────────────
+/**
+ * Day 1: 상담 다음날 (이성 단계)
+ * PASONA: S(Solution) + O(Offer) - 해결책 제시
+ * 3가지 상품군 제시 (기본/표준/프리미엄) → 맞춤형 추천
+ */
+export interface FunnelDay1EmailParams {
+  name: string;
+  recommendedTier: "basic" | "standard" | "premium"; // 상담 결과 기반 추천
+  product1?: string;
+  product2?: string;
+  product3?: string;
+  crmUrl?: string;
+}
+
+export function renderFunnelDay1Email(p: FunnelDay1EmailParams): { subject: string; html: string } {
+  const subject = `[크루즈닷] ${p.name}님을 위한 최적 상품 3가지`;
+
+  const tierLabel: Record<string, string> = {
+    basic: "기본형",
+    standard: "표준형",
+    premium: "프리미엄형"
+  };
+  const tierColor: Record<string, string> = {
+    basic: "#6c757d",
+    standard: "#0d6efd",
+    premium: "#ffc107"
+  };
+
+  const body = `
+    <h2 style="margin:0 0 8px;color:#111827;font-size:22px;font-weight:700;">
+      ${p.name}님을 위한 맞춤 솔루션 🎯
+    </h2>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">
+      어제 상담 결과를 바탕으로, 전문가팀이 당신의 건강 상태에 최적화된<br />
+      상품 3가지를 추천합니다.
+    </p>
+
+    <!-- 추천 등급 하이라이트 -->
+    <div style="background:${tierColor[p.recommendedTier]};color:#fff;padding:16px;border-radius:8px;margin:20px 0;">
+      <p style="margin:0;font-size:12px;opacity:0.9;">추천 등급</p>
+      <p style="margin:4px 0 0;font-size:18px;font-weight:700;">
+        ⭐ ${tierLabel[p.recommendedTier]} (당신의 건강 수준에 가장 적합)
+      </p>
+    </div>
+
+    <!-- 상품 3가지 비교 테이블 -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0;">
+      <tr style="background:#f8f9fa;">
+        <td style="padding:12px;border-bottom:1px solid #e9ecef;color:#6b7280;font-size:12px;font-weight:600;">
+          상품
+        </td>
+        <td style="padding:12px;border-bottom:1px solid #e9ecef;color:#6b7280;font-size:12px;font-weight:600;">
+          추천 이유
+        </td>
+        <td style="padding:12px;border-bottom:1px solid #e9ecef;color:#6b7280;font-size:12px;font-weight:600;">
+          선택
+        </td>
+      </tr>
+      <tr style="border-bottom:1px solid #e9ecef;">
+        <td style="padding:12px;color:#111827;font-size:13px;">
+          ${p.product1 || "건강검진 기본형"}
+        </td>
+        <td style="padding:12px;color:#495057;font-size:12px;">
+          초기 단계 최적화
+        </td>
+        <td style="padding:12px;">
+          <button style="background:#f0f0f0;border:1px solid #ddd;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">
+            보기
+          </button>
+        </td>
+      </tr>
+      <tr style="border-bottom:1px solid #e9ecef;background:#fffbf0;">
+        <td style="padding:12px;color:#111827;font-size:13px;font-weight:600;">
+          ${p.product2 || "건강검진 표준형"} ⭐ 추천
+        </td>
+        <td style="padding:12px;color:#495057;font-size:12px;">
+          당신의 건강에 정확히 맞춤
+        </td>
+        <td style="padding:12px;">
+          <button style="background:#ffc107;border:0;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;color:#000;">
+            선택하기
+          </button>
+        </td>
+      </tr>
+      <tr style="border-bottom:1px solid #e9ecef;">
+        <td style="padding:12px;color:#111827;font-size:13px;">
+          ${p.product3 || "건강검진 프리미엄형"}
+        </td>
+        <td style="padding:12px;color:#495057;font-size:12px;">
+          최고 수준의 종합 관리
+        </td>
+        <td style="padding:12px;">
+          <button style="background:#f0f0f0;border:1px solid #ddd;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">
+            보기
+          </button>
+        </td>
+      </tr>
+    </table>
+
+    <div style="background:#e7f3ff;border-left:4px solid #0d6efd;padding:14px;border-radius:6px;margin:20px 0;">
+      <p style="margin:0;color:#004085;font-size:12px;line-height:1.6;">
+        💡 <strong>왜 표준형인가?</strong><br />
+        상담에서 확인된 당신의 BMI(${p.name}), 혈당 수치와 스트레스 레벨을 고려할 때,<br />
+        기본형으로는 부족하고 프리미엄형은 과도합니다.
+      </p>
+    </div>
+  `;
+
+  return { subject, html: wrapEmail(body) };
+}
+
+// ── renderFunnelDay2Email (고객만족도 + 베테랑 사례) ──────────────────
+/**
+ * Day 2: 상담 2일 후 (신뢰 구축 단계)
+ * PASONA: O(Offer) + N(Narrow) - 사회증명 + 신뢰도 강화
+ * L7 동반자 설득: "다른 사람들도 했어, 너도 할 수 있어"
+ */
+export interface FunnelDay2EmailParams {
+  name: string;
+  successStories?: { person: string; result: string; duration: string }[];
+  satisfactionRate?: number; // e.g. 94
+  crmUrl?: string;
+}
+
+export function renderFunnelDay2Email(p: FunnelDay2EmailParams): { subject: string; html: string } {
+  const subject = `[크루즈닷] ${p.name}님과 같은 사람들의 성공 사례 94%`;
+
+  const body = `
+    <h2 style="margin:0 0 8px;color:#111827;font-size:22px;font-weight:700;">
+      당신처럼 시작한 사람들의 놀라운 변화 📈
+    </h2>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">
+      지난 6개월간 크루즈닷 프로그램을 완료한 고객 94%가<br />
+      "생활 방식에 긍정적 변화가 있었다"고 응답했습니다.
+    </p>
+
+    <!-- 만족도 배지 -->
+    <div style="text-align:center;margin:20px 0;">
+      <div style="display:inline-block;background:#e7f5ff;border-radius:12px;padding:20px;width:300px;">
+        <p style="margin:0 0 8px;color:#0d6efd;font-size:32px;font-weight:700;">
+          94%
+        </p>
+        <p style="margin:0;color:#0d6efd;font-size:14px;font-weight:600;">
+          만족도 (지난 6개월)
+        </p>
+      </div>
+    </div>
+
+    <!-- 성공 사례 3가지 -->
+    ${p.successStories?.map((story) => `
+    <div style="background:#f8f9fa;padding:16px;border-radius:8px;margin:12px 0;border-left:4px solid #28a745;">
+      <p style="margin:0 0 4px;color:#111827;font-size:13px;font-weight:600;">
+        ${story.person}님 (${story.duration})
+      </p>
+      <p style="margin:0;color:#495057;font-size:12px;">
+        "${story.result}"
+      </p>
+    </div>
+    `).join('') || `
+    <div style="background:#f8f9fa;padding:16px;border-radius:8px;margin:12px 0;border-left:4px solid #28a745;">
+      <p style="margin:0 0 4px;color:#111827;font-size:13px;font-weight:600;">
+        이정훈님 (3개월 실천)
+      </p>
+      <p style="margin:0;color:#495057;font-size:12px;">
+        "처음 2주는 힘들었지만, 4주차부터 몸의 변화가 눈에 띄게 났아요. 지금은 거기서 더 나아가 자신감이 생겼습니다."
+      </p>
+    </div>
+    <div style="background:#f8f9fa;padding:16px;border-radius:8px;margin:12px 0;border-left:4px solid #28a745;">
+      <p style="margin:0 0 4px;color:#111827;font-size:13px;font-weight:600;">
+        박미정님 (6개월 실천)
+      </p>
+      <p style="margin:0;color:#495057;font-size:12px;">
+        "의료진의 지속적인 피드백이 큰 도움이 됐습니다. 혼자가 아니라는 안심감이 있었어요."
+      </p>
+    </div>
+    <div style="background:#f8f9fa;padding:16px;border-radius:8px;margin:12px 0;border-left:4px solid #28a745;">
+      <p style="margin:0 0 4px;color:#111827;font-size:13px;font-weight:600;">
+        김철수님 (9개월 실천)
+      </p>
+      <p style="margin:0;color:#495057;font-size:12px;">
+        "처음엔 반신반의했지만, 결과가 말해줍니다. 모두에게 추천합니다."
+      </p>
+    </div>
+    `}
+
+    <!-- 다음 단계 + 감정적 이유 -->
+    <div style="background:#e7f3ff;border-left:4px solid #0d6efd;padding:14px;border-radius:6px;margin:20px 0;">
+      <p style="margin:0 0 8px;color:#004085;font-size:13px;font-weight:600;">
+        🎯 당신도 이들처럼 될 수 있습니다
+      </p>
+      <p style="margin:0;color:#004085;font-size:12px;line-height:1.6;">
+        다른 사람이 할 수 있다면 당신도 할 수 있습니다.<br />
+        <strong>지금 바로 프로그램에 참여하면 성공할 확률은 94%입니다.</strong>
+      </p>
+    </div>
+  `;
+
+  return { subject, html: wrapEmail(body) };
+}
+
+// ── renderFunnelDay3Email (최종 클로징 + 긴박감 + 할인) ──────────────────
+/**
+ * Day 3: 상담 3일 후 (최종 결정 단계)
+ * PASONA: N(Narrow) + A(Action) - 구체적 행동 촉구
+ * L6 손실회피 + L10 즉시구매: "10석 남음 + 3일 뒤 할인 종료"
+ */
+export interface FunnelDay3EmailParams {
+  name: string;
+  seatsRemaining?: number;      // e.g. 10
+  discountPercent?: number;     // e.g. 25
+  discountExpiresIn?: number;   // hours, e.g. 72
+  originalPrice?: string;       // e.g. "498,000원"
+  discountedPrice?: string;     // e.g. "374,000원"
+  crmUrl?: string;
+}
+
+export function renderFunnelDay3Email(p: FunnelDay3EmailParams): { subject: string; html: string } {
+  const subject = `[긴급] ${p.name}님 한정 할인이 72시간 뒤 종료됩니다 ⏰`;
+
+  const body = `
+    <h2 style="margin:0 0 8px;color:#d32f2f;font-size:22px;font-weight:700;">
+      ⚠️ 긴급 알림: 한정 할인 72시간 남음
+    </h2>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">
+      ${p.name}님께 드린 ${p.discountPercent || 25}% 할인 혜택이<br />
+      <strong>72시간(3일) 뒤 자동으로 종료됩니다.</strong>
+    </p>
+
+    <!-- 타이머 + 손실회피 강조 -->
+    <div style="background:#ffebee;border-left:6px solid #d32f2f;padding:20px;border-radius:8px;margin:20px 0;">
+      <p style="margin:0 0 12px;color:#b71c1c;font-size:14px;font-weight:700;">
+        ⏱️ 남은 시간: 72시간
+      </p>
+      <p style="margin:0;color:#c62828;font-size:13px;line-height:1.6;">
+        이 시간을 놓치면 다시는 이 가격으로 프로그램을 받을 수 없습니다.<br />
+        <strong>지금이 결정할 마지막 기회입니다.</strong>
+      </p>
+    </div>
+
+    <!-- 할인 비교 (정가 vs 할인가) -->
+    ${p.originalPrice && p.discountedPrice ? `
+    <div style="background:#f0f7ff;padding:16px;border-radius:8px;margin:20px 0;text-align:center;">
+      <p style="margin:0 0 8px;color:#6b7280;font-size:12px;">
+        정가
+      </p>
+      <p style="margin:0 0 16px;color:#999;font-size:20px;text-decoration:line-through;">
+        ${p.originalPrice}
+      </p>
+
+      <p style="margin:0 0 8px;color:#0d6efd;font-size:12px;font-weight:600;">
+        지금 가격 (${p.discountPercent || 25}% 할인)
+      </p>
+      <p style="margin:0;color:#0d6efd;font-size:32px;font-weight:700;">
+        ${p.discountedPrice}
+      </p>
+    </div>
+    ` : ''}
+
+    <!-- 좌석 제한 (희소성) -->
+    ${p.seatsRemaining && p.seatsRemaining <= 10 ? `
+    <div style="background:#fff3e0;border:2px dashed #ff9800;padding:12px;border-radius:6px;margin:16px 0;text-align:center;">
+      <p style="margin:0;color:#e65100;font-size:13px;font-weight:700;">
+        🚨 경고: 현재 ${p.seatsRemaining}석만 남음
+      </p>
+      <p style="margin:4px 0 0;color:#bf360c;font-size:12px;">
+        모집 마감까지 평균 1시간 30분 소요 중입니다
+      </p>
+    </div>
+    ` : ''}
+
+    <!-- 최종 CTA (강한 색상) -->
+    <div style="text-align:center;margin:24px 0;">
+      <a href="${p.crmUrl}/purchase"
+         style="display:inline-block;background:#d32f2f;color:#ffffff;text-decoration:none;
+                padding:16px 40px;border-radius:8px;font-size:16px;font-weight:700;margin-bottom:12px;">
+        지금 신청하기 (72시간 한정)
+      </a>
+      <p style="margin:8px 0 0;color:#9aa0a6;font-size:11px;">
+        * 신청 후 5분 이내 확인 문자가 발송됩니다
+      </p>
+    </div>
+
+    <!-- 최후의 이의 대응 -->
+    <div style="background:#f5f5f5;padding:16px;border-radius:6px;margin:20px 0;">
+      <p style="margin:0 0 12px;color:#111827;font-size:13px;font-weight:600;">
+        아직도 고민 중이신가요?
+      </p>
+      <ul style="margin:0;padding-left:20px;color:#495057;font-size:12px;">
+        <li style="margin:4px 0;">전액 환불 보장 (30일 이내)</li>
+        <li style="margin:4px 0;">전문가 무료 상담 (1회)</li>
+        <li style="margin:4px 0;">분할 결제 가능 (3-6개월)</li>
+      </ul>
+    </div>
+  `;
+
+  return { subject, html: wrapEmail(body) };
+}

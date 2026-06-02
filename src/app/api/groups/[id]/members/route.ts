@@ -79,15 +79,20 @@ export async function POST(req: Request, { params }: Params) {
           });
         }
 
-        // ★ 퍼널문자(FunnelSms) 트리거 — 그룹에 funnelSmsId가 연결된 경우
+        // ★ 퍼널문자(FunnelSms) 트리거 — 그룹에 funnelSmsIds[] 또는 레거시 funnelSmsId가 연결된 경우
         // fire-and-forget: 실패해도 그룹 배정은 성공으로 응답
-        if (group.funnelSmsId) {
+        const memberFunnelSmsIds =
+          (group.funnelSmsIds && group.funnelSmsIds.length > 0)
+            ? group.funnelSmsIds
+            : (group.funnelSmsId ? [group.funnelSmsId] : []);
+        for (const funnelSmsId of memberFunnelSmsIds) {
           triggerGroupFunnelSms({
             contactId,
             groupId,
             organizationId: orgId,
+            funnelSmsId,
           }).catch((err) => {
-            logger.error('[GroupMember] 퍼널문자 트리거 실패', { err });
+            logger.error('[GroupMember] 퍼널문자 트리거 실패', { err, funnelSmsId });
           });
         }
 
