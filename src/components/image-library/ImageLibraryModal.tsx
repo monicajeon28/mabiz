@@ -142,6 +142,25 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
     onClose();
   };
 
+  // 복수선택 토글
+  const toggleSelect = (itemId: string) => {
+    setSelected((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) newSet.delete(itemId);
+      else newSet.add(itemId);
+      return newSet;
+    });
+  };
+
+  // 선택된 이미지들 한 번에 추가
+  const handleInsertMultiple = () => {
+    if (selected.size === 0) return;
+    const selectedItems = items.filter((i) => selected.has(i.id));
+    const htmls = selectedItems.map((item) => buildImageHtml(item)).join("\n");
+    onInsert(htmls);
+    onClose();
+  };
+
   // ── 업로드 핸들러 ────────────────────────────────────────
   const handleUploadClick = () => {
     fileInputRef.current?.click();
@@ -414,13 +433,14 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                   {items.map((item) => {
                     const html = buildImageHtml(item);
                     const isEditing = editingId === item.id;
+                    const isSelected = selected.has(item.id);
                     return (
                       <div
                         key={item.id}
-                        onClick={() => setSelected(selected?.id === item.id ? null : item)}
+                        onClick={() => toggleSelect(item.id)}
                         className={`relative cursor-pointer rounded-xl overflow-hidden border-2 transition-all group ${
-                          selected?.id === item.id
-                            ? "border-gold-500 shadow-md"
+                          isSelected
+                            ? "border-gold-500 shadow-md ring-2 ring-gold-200"
                             : "border-transparent hover:border-gray-300"
                         }`}
                       >
@@ -648,24 +668,7 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
             </div>
           )}
         </div>
-
-        {/* 선택된 항목 하단 바 */}
-        {selected && tab === "library" && (
-          <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0">
-              <img src={selected.thumbnailUrl || selected.fullUrl} alt={selected.title} className="w-full h-full object-cover" />
-            </div>
-            <p className="text-sm font-medium text-gray-700 flex-1 truncate">{selected.title}</p>
-            <button
-              onClick={() => handleCopy(selected.id, buildImageHtml(selected))}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-sm hover:bg-white"
-            >
-              {copiedItemId === selected.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-              코드 복사
-            </button>
-            <button
-              onClick={() => handleInsert(buildImageHtml(selected))}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-navy-900 text-white rounded-lg text-sm font-medium hover:bg-navy-700"
-            >
-              <Play className="w-3.5 h-3.5" /> 삽입
-      
+      </div>
+    </div>
+  );
+}
