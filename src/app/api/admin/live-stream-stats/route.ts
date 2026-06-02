@@ -6,13 +6,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getMabizSession } from '@/lib/auth/session';
+import { getMabizSession } from '@/lib/auth';
 import { getLiveStreamStats, generateLiveStreamWeeklyReport } from '@/lib/live-stream/tracking';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getMabizSession();
-    if (!session || session.role !== 'ADMIN') {
+    if (!session || session.role !== 'GLOBAL_ADMIN') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 403 }

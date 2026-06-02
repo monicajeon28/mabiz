@@ -14,7 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { sendSMS } from '@/lib/sms/sender';
+import { sendSmsViaAligo } from '@/lib/sms-service';
 import { logLiveStreamEvent } from '@/lib/live-stream/tracking';
 
 // Cron 인증 토큰
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
         name: true,
         phone: true,
         email: true,
-        metadata: true,
+        tags: true,
       },
     });
 
@@ -94,16 +94,11 @@ async function handleDay1(
 
   for (const contact of registrations) {
     try {
-      const segment = (contact.metadata as any)?.segment || 'HONEYMOON';
+      const segment = ((contact.tags as string[]).find((t) => t.startsWith('SEGMENT_'))?.replace('SEGMENT_', '') || 'HONEYMOON') as 'LOW_PRICE' | 'FILIAL' | 'HONEYMOON';
 
       // SMS 발송 (PASONA S: Solution)
       const smsMessage = getDay1SMS(segment, contact.name);
-      await sendSMS({
-        phone: contact.phone,
-        message: smsMessage,
-        contactId: contact.id,
-        messageType: 'LIVE_STREAM_DAY1',
-      });
+      await sendSmsViaAligo(contact.phone, smsMessage);
 
       // 이벤트 로깅
       await logLiveStreamEvent({
@@ -136,16 +131,11 @@ async function handleDay2(
 
   for (const contact of registrations) {
     try {
-      const segment = (contact.metadata as any)?.segment || 'HONEYMOON';
+      const segment = ((contact.tags as string[]).find((t) => t.startsWith('SEGMENT_'))?.replace('SEGMENT_', '') || 'HONEYMOON') as 'LOW_PRICE' | 'FILIAL' | 'HONEYMOON';
 
       // SMS 발송 (PASONA O: Offer)
       const smsMessage = getDay2SMS(segment, contact.name);
-      await sendSMS({
-        phone: contact.phone,
-        message: smsMessage,
-        contactId: contact.id,
-        messageType: 'LIVE_STREAM_DAY2',
-      });
+      await sendSmsViaAligo(contact.phone, smsMessage);
 
       // 이벤트 로깅
       await logLiveStreamEvent({
@@ -178,16 +168,11 @@ async function handleDay3(
 
   for (const contact of registrations) {
     try {
-      const segment = (contact.metadata as any)?.segment || 'HONEYMOON';
+      const segment = ((contact.tags as string[]).find((t) => t.startsWith('SEGMENT_'))?.replace('SEGMENT_', '') || 'HONEYMOON') as 'LOW_PRICE' | 'FILIAL' | 'HONEYMOON';
 
       // SMS 발송 (PASONA A: Action)
       const smsMessage = getDay3SMS(segment, contact.name);
-      await sendSMS({
-        phone: contact.phone,
-        message: smsMessage,
-        contactId: contact.id,
-        messageType: 'LIVE_STREAM_DAY3',
-      });
+      await sendSmsViaAligo(contact.phone, smsMessage);
 
       // 이벤트 로깅
       await logLiveStreamEvent({
