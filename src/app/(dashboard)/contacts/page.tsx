@@ -403,11 +403,11 @@ export default function ContactsPage() {
   const [quickCallError, setQuickCallError] = useState<string | null>(null);
 
   // P2-8: Debounce function to prevent excessive API calls
-  const debounce = useCallback((fn: Function, delay: number) => {
+  const debounce = useCallback((fn: (signal?: AbortSignal) => Promise<void>, delay: number) => {
     let timeoutId: NodeJS.Timeout | null = null;
-    return (...args: any[]) => {
+    return (signal?: AbortSignal) => {
       if (timeoutId) clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => fn(...args), delay);
+      timeoutId = setTimeout(() => fn(signal), delay);
     };
   }, []);
 
@@ -445,7 +445,8 @@ export default function ContactsPage() {
   useEffect(() => {
     const controller = new AbortController();
     // P2-8: Use debounced fetch instead of direct fetch for search queries
-    if (q || !filterGroupId || !filterSourceType || !filterAssignedTo || selectedTags.length === 0) {
+    // 조건 수정: 검색어(q)가 있거나, 필터가 설정된 경우 → debounced 사용 (즉시 아님)
+    if (q || filterGroupId || filterSourceType || filterAssignedTo || selectedTags.length > 0) {
       debouncedFetch(controller.signal);
     } else {
       fetchContacts(controller.signal);
