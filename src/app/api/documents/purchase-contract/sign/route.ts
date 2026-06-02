@@ -76,10 +76,10 @@ export async function GET(req: Request) {
       );
     }
 
-    // 만료 검증
+    // 만료 검증 (typeof 가드로 Invalid Date 방지)
     if (
-      data.signTokenExpiresAt &&
-      new Date(data.signTokenExpiresAt as string) < new Date()
+      typeof data.signTokenExpiresAt === 'string' &&
+      new Date(data.signTokenExpiresAt) < new Date()
     ) {
       return NextResponse.json(
         { ok: false, message: '링크가 만료되었습니다 (7일 경과)' },

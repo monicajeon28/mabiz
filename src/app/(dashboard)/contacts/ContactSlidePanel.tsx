@@ -119,6 +119,8 @@ export default function ContactSlidePanel({
   // Panel 내부 독립 Contact state (Optimistic Update용)
   const [contact, setContact] = useState<Contact | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("call");
+  const [isMobile, setIsMobile] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // ESC 키로 닫기
   useEffect(() => {
@@ -127,6 +129,51 @@ export default function ContactSlidePanel({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [open, onClose]);
+
+  // 창 크기 변경 시 모바일/데스크톱 판단 (SSR 불일치 방지)
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    handleResize(); // 초기값 설정
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // 포커스 자동 이동 + 포커스 트랩
+  useEffect(() => {
+    if (!open || !panelRef.current) return;
+
+    // 포커스 자동 이동: 첫 포커스 가능 요소
+    const firstFocusable = panelRef.current.querySelector(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    ) as HTMLElement | null;
+    firstFocusable?.focus();
+
+    // 포커스 트랩: Tab 키 inside panelRef만
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const focusables = Array.from(
+        panelRef.current!.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      ) as HTMLElement[];
+      if (focusables.length === 0) return;
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const activeEl = document.activeElement as HTMLElement;
+
+      if (e.shiftKey && activeEl === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && activeEl === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    };
+
+    panelRef.current.addEventListener("keydown", handleKeyDown);
+    return () => panelRef.current?.removeEventListener("keydown", handleKeyDown);
+  }, [open]);
 
   // propContact 변경 시 내부 상태 동기화
   useEffect(() => {
@@ -301,14 +348,22 @@ export default function ContactSlidePanel({
   const deleteAllMemos = useCallback(async () => {
     if (!contact) return;
     if (!confirm(`메모 ${contact.memos.length}건을 전체 삭제할까요?`)) return;
-    const res = await fetch(`/api/contacts/${contact.id}/memos`, { method: "DELETE" });
-    const data = await res.json();
-    if (data.ok) {
-      const updated = { ...contact, memos: [] };
-      setContact(updated);
-      onRefresh?.({ id: contact.id, memos: [] });
+    try {
+      const res = await fetch(`/api/contacts/${contact.id}/memos`, { method: "DELETE" });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (data.ok) {
+        const updated = { ...contact, memos: [] };
+        setContact(updated);
+        onRefresh?.({ id: contact.id, memos: [] });
+      } else {
+        toast({ title: "삭제 실패", description: data.message, variant: "destructive" });
+      }
+    } catch (err) {
+      logger.error("[deleteAllMemos failed]", { err });
+      toast({ title: "네트워크 오류", description: err instanceof Error ? err.message : "요청 실패", variant: "destructive" });
     }
-  }, [contact, onRefresh]);
+  }, [contact, onRefresh, toast]);
 
   // ── 그룹 상태 ─────────────────────────────────────────────────────────────
   const [allGroups, setAllGroups] = useState<Group[]>([]);
@@ -362,6 +417,7 @@ export default function ContactSlidePanel({
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contactIds: [contact.id] }),
       });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       if (data.ok) {
         const g = allGroups.find(g => g.id === selectedGroup);
@@ -389,13 +445,18 @@ export default function ContactSlidePanel({
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contactId: contact.id, startDate: enrollStartDate || undefined, sendNow: enrollSendNow }),
       });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
       const d = await res.json();
       if (d.ok) {
         setSelectedFunnelId(""); setEnrollStartDate(""); setEnrollSendNow(false);
         // 갱신된 contact 재조회
-        fetch(`/api/contacts/${contact.id}`).then(r => r.json()).then(cd => {
+        try {
+          const refreshRes = await fetch(`/api/contacts/${contact.id}`);
+          const cd = await refreshRes.json();
           if (cd.ok) { setContact(cd.contact); onRefresh?.({ id: contact.id }); }
-        }).catch(err => logger.error("[SlidePanel funnelEnroll refresh]", { err }));
+        } catch (err) {
+          logger.error("[SlidePanel funnelEnroll refresh]", { err });
+        }
       } else {
         setEnrollError(d.message ?? "등록 실패");
       }
@@ -443,35 +504,42 @@ export default function ContactSlidePanel({
   }, [toast]);
 
   // ── 탭 전환 핸들러 (lazy load) ─────────────────────────────────────────────
+  const tabFetchAbortRef = useRef<AbortController | null>(null);
+
   const handleTabChange = useCallback((key: TabKey) => {
     setActiveTab(key);
     if (!contact) return;
 
+    // 이전 탭 fetch 취소
+    tabFetchAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    tabFetchAbortRef.current = ctrl;
+
     if (key === "sms" && smsLogs.length === 0 && smsHasMore) {
       setSmsLoading(true);
-      fetch(`/api/contacts/${contact.id}/sms-logs?limit=20&page=1`)
+      fetch(`/api/contacts/${contact.id}/sms-logs?limit=20&page=1`, { signal: ctrl.signal })
         .then(r => r.json())
         .then(d => {
           if (d.ok) { setSmsLogs(d.logs ?? []); setSmsHasMore(d.hasMore ?? false); setSmsPage(1); }
           setSmsLoading(false);
         })
-        .catch(err => { logger.error("[SlidePanel sms-logs]", { err }); setSmsLoading(false); });
+        .catch(err => { if (err?.name === 'AbortError') return; logger.error("[SlidePanel sms-logs]", { err }); setSmsLoading(false); });
     }
 
     if (key === "campaigns" && campaignHistories.length === 0) {
       setCampaignLoading(true);
-      fetch(`/api/contacts/${contact.id}/campaigns?limit=20&page=1`)
+      fetch(`/api/contacts/${contact.id}/campaigns?limit=20&page=1`, { signal: ctrl.signal })
         .then(r => r.json())
         .then(d => { if (d.ok) setCampaignHistories(d.histories ?? []); setCampaignLoading(false); })
-        .catch(err => { logger.error("[SlidePanel campaigns]", { err }); setCampaignLoading(false); });
+        .catch(err => { if (err?.name === 'AbortError') return; logger.error("[SlidePanel campaigns]", { err }); setCampaignLoading(false); });
     }
 
     if (key === "reservations" && !reservationLoaded) {
       setReservationLoading(true);
-      fetch(`/api/contacts/${contact.id}/reservations`)
+      fetch(`/api/contacts/${contact.id}/reservations`, { signal: ctrl.signal })
         .then(r => r.json())
         .then(d => { if (d.ok) setReservations(d.reservations ?? []); setReservationLoaded(true); setReservationLoading(false); })
-        .catch(err => { logger.error("[SlidePanel reservations]", { err }); setReservationLoading(false); });
+        .catch(err => { if (err?.name === 'AbortError') return; logger.error("[SlidePanel reservations]", { err }); setReservationLoading(false); });
     }
   }, [contact, smsLogs.length, smsHasMore, campaignHistories.length, reservationLoaded]);
 
@@ -503,6 +571,7 @@ export default function ContactSlidePanel({
           {/* Panel — 데스크톱: 우측 슬라이드 / 모바일: 하단 Sheet */}
           <motion.aside
             key="panel"
+            ref={panelRef}
             role="dialog"
             aria-modal="true"
             aria-label={`${contact.name} 고객 상세`}
@@ -516,11 +585,7 @@ export default function ContactSlidePanel({
               "sm:w-[40%] sm:min-w-[480px] sm:max-w-[600px]",
               "sm:h-full sm:rounded-none sm:rounded-l-2xl",
             ].join(" ")}
-            variants={
-              typeof window !== "undefined" && typeof window.innerWidth !== "undefined" && window.innerWidth < 640
-                ? panelMobileVariants
-                : panelDesktopVariants
-            }
+            variants={isMobile ? panelMobileVariants : panelDesktopVariants}
             initial="hidden"
             animate="visible"
             exit="exit"
