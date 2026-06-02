@@ -11,8 +11,15 @@ import { logger } from "@/lib/logger";
 import { useToast } from "@/lib/api/use-toast";
 import { VoicePlayback } from "./VoicePlayback";
 import { ScriptNotes } from "./ScriptNotes";
+import {
+  CALL_SITUATIONS,
+  suggestCallSituations,
+  getSituationLabel,
+} from "@/lib/playbook/call-situations";
+import type { CallSituation } from "@/lib/playbook/call-situations";
 import type { Segment } from "@/lib/segment-detector";
 import type { ProductCode } from "@/constants/products";
+import type { LensType } from "@/lib/types/lens";
 
 type PlaybookItem = {
   id: string;
@@ -152,6 +159,8 @@ export default function PlaybookViewerPage() {
   const [detectedSegment, setDetectedSegment] = useState<Segment>("A");
   const [selectedPsychologyLens, setSelectedPsychologyLens] = useState<"L6" | "L10" | null>(null);
   const [showDay03Preview, setShowDay03Preview] = useState(false);
+  const [contactLens, setContactLens] = useState<LensType | null>(null);
+  const [selectedSituation, setSelectedSituation] = useState<CallSituation | null>(null);
   const [sampleCustomer, setSampleCustomer] = useState({
     name: "",
     phone: "",
@@ -180,6 +189,13 @@ export default function PlaybookViewerPage() {
       setDetectedSegment(detected);
       setSelectedSegment(detected);
       logger.log("[PlaybookViewer] URL 파라미터로 세그먼트 자동 감지", { detected, age, maritalStatus, childrenCount });
+    }
+
+    // lens URL 파라미터 감지 (예: ?lens=L6)
+    const lensParam = searchParams.get("lens") as LensType | null;
+    const validLenses: LensType[] = ["L0","L1","L2","L3","L4","L5","L6","L7","L8","L9","L10"];
+    if (lensParam && validLenses.includes(lensParam)) {
+      setContactLens(lensParam);
     }
   }, [searchParams]);
 
@@ -231,7 +247,21 @@ export default function PlaybookViewerPage() {
     }
   };
 
+  // ToolClickTracker: 스크립트 사용(복사) 시 클릭 기록 (fire-and-forget, PII 없음)
+  const trackScriptClick = useCallback((scriptId: string) => {
+    if (!scriptId) return;
+    fetch("/api/tools/click-tracker", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scriptId, event: "click" }),
+      keepalive: true,
+    }).catch(() => {
+      // 추적 실패는 사용자 경험에 영향 없음 (무시)
+    });
+  }, []);
+
   const copy = useCallback((text: string) => {
+    if (selectedItem?.id) trackScriptClick(selectedItem.id);
     navigator.clipboard.writeText(text)
       .then(() => {
         setCopied(text);
@@ -259,7 +289,7 @@ export default function PlaybookViewerPage() {
           variant: "destructive",
         });
       });
-  }, [toast]);
+  }, [toast, selectedItem, trackScriptClick]);
 
   const toggleClosingSignal = useCallback((id: string) => {
     setClosingSignals((prev) =>
@@ -277,6 +307,14 @@ export default function PlaybookViewerPage() {
     () => closingSignals.filter((s) => s.checked).length,
     [closingSignals]
   );
+
+  /** 렌즈 기반 상황 추천 목록 (contactLens 있을 때 순위 재정렬) */
+  const recommendedSituations = useMemo<CallSituation[]>(() => {
+    if (contactLens) return suggestCallSituations(contactLens);
+    // 렌즈 없으면 Core 4가지 먼저
+    return ["PRICE_OBJECTION", "HEALTH_CONCERN", "REFUND_REQUEST", "COMPLAINT",
+            "FOOD_CONSULTATION", "UPSELL", "REBOOKING", "CONTRACT_RENEWAL"] as CallSituation[];
+  }, [contactLens]);
 
   const handleSegmentChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedSegment(e.target.value);
@@ -373,6 +411,94 @@ export default function PlaybookViewerPage() {
               </span>
             ))}
           </div>
+        </div>
+
+        {/* 8가지 상황별 추천 패널 */}
+        <div className="mb-6 bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-bold text-gray-900">
+              📌 상황별 오프닝 라인
+              {contactLens && (
+                <span className="ml-2 px-2 py-0.5 text-sm bg-indigo-100 text-indigo-700 rounded font-semibold">
+                  {contactLens} 추천순
+                </span>
+              )}
+            </h2>
+            {/* 렌즈 빠른 선택 */}
+            <select
+              value={contactLens ?? ""}
+              onChange={(e) => setContactLens((e.target.value as LensType) || null)}
+              aria-label="렌즈 선택"
+              className="text-sm border border-gray-300 rounded px-2 py-1 bg-white text-gray-700 focus:outline-none focus:border-indigo-500"
+            >
+              <option value="">렌즈 선택 안 함</option>
+              {(["L0","L1","L2","L3","L4","L5","L6","L7","L8","L9","L10"] as LensType[]).map((l) => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {recommendedSituations.map((situation) => {
+              const script = CALL_SITUATIONS[situation];
+              const isSelected = selectedSituation === situation;
+              return (
+                <button
+                  key={situation}
+                  onClick={() => setSelectedSituation(isSelected ? null : situation)}
+                  className={`text-left p-3 rounded-lg border-2 transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-400 ${
+                    isSelected
+                      ? "border-indigo-500 bg-indigo-50"
+                      : "border-gray-200 hover:border-indigo-300 hover:bg-gray-50"
+                  }`}
+                >
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="text-lg">{script.emoji}</span>
+                    <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
+                      script.tier === "CORE"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-green-100 text-green-700"
+                    }`}>
+                      {script.tier === "CORE" ? "필수" : "성장"}
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-800 mb-1">{getSituationLabel(situation)}</p>
+                  <p className="text-xs text-gray-500 line-clamp-2">{script.openingLines[0].text}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 선택된 상황 상세 오프닝 라인 */}
+          {selectedSituation && (
+            <div className="mt-4 p-4 bg-indigo-50 rounded-lg border border-indigo-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-indigo-900">
+                  {CALL_SITUATIONS[selectedSituation].emoji} {getSituationLabel(selectedSituation)} — 오프닝 3가지
+                </h3>
+                <span className="text-xs text-indigo-600 font-medium">
+                  주요 렌즈: {CALL_SITUATIONS[selectedSituation].primaryLens}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {CALL_SITUATIONS[selectedSituation].openingLines.map((line, idx) => (
+                  <div key={idx} className="bg-white rounded-lg p-3 border border-indigo-100">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <span className="text-sm font-bold text-gray-800">{idx + 1}. {line.text}</span>
+                      <span className="flex-shrink-0 text-xs px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded font-medium">
+                        {line.lensLabel}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 italic">{line.rationale}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                <p className="text-sm font-semibold text-yellow-800">이의 대응</p>
+                <p className="text-sm text-yellow-700 mt-1">{CALL_SITUATIONS[selectedSituation].rebuttal}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 헤더 */}
