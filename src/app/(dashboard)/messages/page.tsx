@@ -803,6 +803,7 @@ function EmailTab() {
   const [showImages,     setShowImages]     = useState(false);
   const [imagesLoaded,   setImagesLoaded]   = useState(false);
   const [imageLoadError, setImageLoadError] = useState(false);
+  const [selectedImageIds, setSelectedImageIds] = useState<Set<string | number>>(new Set());
   const [sendMode,       setSendMode]       = useState<"now" | "schedule">("now");
   const [scheduledAt,    setScheduledAt]    = useState("");
   const [sending,        setSending]        = useState(false);
@@ -859,6 +860,51 @@ function EmailTab() {
       return prev.substring(0, pos) + '\n\n' + imgTag + prev.substring(pos);
     });
     setShowImages(false);
+  };
+
+  // 복수 이미지 일괄 삽입
+  const insertMultipleImages = useCallback(() => {
+    if (selectedImageIds.size === 0) {
+      showError("이미지를 선택해주세요");
+      return;
+    }
+    const selectedImages = images.filter(img => selectedImageIds.has(img.id));
+    const cursorPos = emailBodyRef.current?.selectionStart ?? undefined;
+    const insertPos = (typeof cursorPos === 'number') ? cursorPos : undefined;
+
+    setBody(prev => {
+      const pos = insertPos ?? prev.length;
+      const imgTags = selectedImages
+        .map(img => {
+          const url = img.fullUrl ?? img.thumbnailUrl ?? "";
+          return `<img src="${url}" alt="${img.title}" style="max-width:100%;height:auto;display:block;margin:8px 0;" />`;
+        })
+        .join('\n\n');
+
+      return prev.substring(0, pos) + '\n\n' + imgTags + prev.substring(pos);
+    });
+
+    setSelectedImageIds(new Set());
+    setShowImages(false);
+    showSuccess(`${selectedImages.length}개 이미지가 삽입되었습니다`);
+  }, [selectedImageIds, images]);
+
+  const toggleImageSelection = (id: string | number) => {
+    const newSelected = new Set(selectedImageIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedImageIds(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedImageIds.size === images.length) {
+      setSelectedImageIds(new Set());
+    } else {
+      setSelectedImageIds(new Set(images.map(img => img.id)));
+    }
   };
 
   const insertBodyAtCursor = (token: string) => {
@@ -1094,13 +1140,22 @@ function EmailTab() {
 
           {/* 이미지 라이브러리 패널 */}
           {showImages && (
-            <div className="mt-3 border rounded-xl p-3 bg-gray-50">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-gray-600">이미지 선택</p>
-                <button onClick={() => setShowImages(false)}>
-                  <X className="w-4 h-4 text-gray-600 hover:text-gray-600" />
+            <div className="mt-3 border rounded-xl p-4 bg-gray-50">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-gray-700">📷 이미지 라이브러리</p>
+                  {images.length > 0 && (
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
+                      {selectedImageIds.size}/{images.length} 선택됨
+                    </span>
+                  )}
+                </div>
+                <button onClick={() => { setShowImages(false); setSelectedImageIds(new Set()); }}
+                  className="p-1 hover:bg-gray-200 rounded transition-colors">
+                  <X className="w-4 h-4 text-gray-600" />
                 </button>
               </div>
+
               {!imagesLoaded ? (
                 <div className="grid grid-cols-4 gap-2">
                   {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="aspect-square bg-gray-200 rounded-lg animate-pulse" />)}
@@ -1109,29 +1164,74 @@ function EmailTab() {
                 <div className="text-center py-4">
                   <p className="text-sm text-red-500 mb-2">이미지를 불러오지 못했습니다.</p>
                   <button onClick={loadImages}
-                    className="px-3 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    className="px-3 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
                     다시 시도
                   </button>
                 </div>
               ) : images.length === 0 ? (
                 <p className="text-sm text-gray-600 text-center py-4">이미지 라이브러리가 비어있습니다.</p>
               ) : (
-                <div className="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto">
-                  {images.map(img => (
-                    <button key={img.id}
-                      onClick={() => insertImage((img.fullUrl ?? img.thumbnailUrl) ?? "")}
-                      title={img.title}
-                      className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-400 bg-gray-200 transition-colors">
-                      {img.thumbnailUrl ? (
-                        <img src={img.thumbnailUrl} alt={img.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <ImageIcon className="w-6 h-6 text-gray-600" />
-                        </div>
-                      )}
+                <>
+                  {/* 선택 도구 */}
+                  <div className="flex gap-2 mb-3">
+                    <button onClick={toggleSelectAll}
+                      className="px-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-100 font-medium transition-colors">
+                      {selectedImageIds.size === images.length ? "전체 해제" : "전체 선택"}
                     </button>
-                  ))}
-                </div>
+                    {selectedImageIds.size > 0 && (
+                      <button onClick={() => setSelectedImageIds(new Set())}
+                        className="px-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-100 font-medium transition-colors">
+                        선택 해제
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 이미지 그리드 */}
+                  <div className="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto mb-3 p-1">
+                    {images.map(img => (
+                      <div key={img.id} className="relative group">
+                        <button
+                          onClick={() => toggleImageSelection(img.id)}
+                          title={img.title}
+                          className={`w-full aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                            selectedImageIds.has(img.id)
+                              ? "border-blue-500 ring-2 ring-blue-300 ring-offset-1"
+                              : "border-gray-300 hover:border-blue-400"
+                          } bg-gray-200`}>
+                          {img.thumbnailUrl ? (
+                            <img src={img.thumbnailUrl} alt={img.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <ImageIcon className="w-6 h-6 text-gray-400" />
+                            </div>
+                          )}
+                        </button>
+                        {/* 체크박스 표시 */}
+                        {selectedImageIds.has(img.id) && (
+                          <div className="absolute top-1 right-1 bg-blue-500 rounded-full p-0.5">
+                            <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 액션 버튼 */}
+                  {selectedImageIds.size > 0 && (
+                    <div className="flex gap-2">
+                      <button onClick={insertMultipleImages}
+                        className="flex-1 px-3 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors">
+                        ✓ 선택한 이미지 {selectedImageIds.size}개 삽입
+                      </button>
+                      <button onClick={() => setSelectedImageIds(new Set())}
+                        className="px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+                        취소
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
