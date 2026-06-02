@@ -33,12 +33,13 @@ export async function POST(req: NextRequest) {
       { status: 503 } // Service Unavailable - client should retry
     );
   }
+  const secretStr: string = secret;
 
   // Bearer Token 검증
   const authHeader = req.headers.get('authorization') ?? '';
   const token = authHeader.replace('Bearer ', '');
 
-  if (token.length !== secret.length || !timingSafeEqual(Buffer.from(token), Buffer.from(secret))) {
+  if (token.length !== secretStr.length || !timingSafeEqual(Buffer.from(token), Buffer.from(secretStr))) {
     logger.warn('[SettlementWebhook] 인증 실패');
     return NextResponse.json({ ok: false }, { status: 401 });
   }
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
 
   // HMAC-SHA256 서명 검증
   const signature = req.headers.get('x-signature') ?? '';
-  const expectedSignature = createHmac('sha256', secret)
+  const expectedSignature = createHmac('sha256', secretStr)
     .update(body)
     .digest('hex');
 
@@ -123,6 +124,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, message: '유효하지 않은 partnerId' }, { status: 400 });
     }
 
+    // Validate that settlementId is a valid number
+    if (isNaN(settlementIdInt)) {
+      logger.warn('[SettlementWebhook] 유효하지 않은 settlementId', { settlementId });
+      return NextResponse.json({ ok: false, message: '유효하지 않은 settlementId' }, { status: 400 });
+    }
+
     // ✅ P0-13: organizationId 환경변수 필수화 (테넌트 격리)
     const organizationId = process.env.CRUISEDOT_WEBHOOK_ORG_ID;
 
@@ -136,11 +143,12 @@ export async function POST(req: NextRequest) {
         { status: 503 } // Service Unavailable - client should retry after fix
       );
     }
+    const orgId: string = organizationId;
 
     // Partner.tier 기반 동적 수당율 조회 (하드코딩 18% 제거)
     const finalCommissionRate = await getCommissionRateForProfileId(
       profileIdInt,
-      organizationId,
+      orgId,
       commissionRate // payload 값은 Partner 미매핑 시 폴백으로만 사용
     );
     const calculatedNetAmount = netAmount ?? Math.floor(amount * (1 - finalCommissionRate / 100));
@@ -148,7 +156,7 @@ export async function POST(req: NextRequest) {
     // Create Saga context
     const sagaContext: SettlementSagaContext = {
       eventId,
-      organizationId,
+      organizationId: orgId,
       settlementId: settlementIdInt,
       partnerId: profileIdInt,
       period,

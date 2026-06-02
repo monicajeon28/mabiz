@@ -2,7 +2,8 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
 // Tier별 기본 수당율 (%)
-const TIER_COMMISSION_RATES: Record<string, number> = {
+// 크루즈닷몰은 링크 기반 구매 100% → affiliateCode 항상 존재 → 이 요율로 계산
+export const TIER_COMMISSION_RATES: Record<string, number> = {
   Bronze:   15,
   Silver:   18,
   Gold:     20,
@@ -10,9 +11,58 @@ const TIER_COMMISSION_RATES: Record<string, number> = {
 };
 
 /**
- * GMcruise AffiliateProfile ID(Int)로 CRM Partner.tier를 조회해 수당율 반환.
- * Partner 레코드가 없거나 tier 매핑 실패 시 payloadRate → 18%(SILVER) 순으로 폴백.
+ * affiliateCode로 CRM Partner를 조회해 등급별 수당율 반환.
+ *
+ * 크루즈닷몰 아키텍처 확정 규칙 (2026-06-03):
+ * - 크루즈닷몰 구매는 100% 링크 기반 → affiliateCode 항상 존재
+ * - affiliateCode=null 케이스 없음 (직접 구매는 CRM에 미전송)
+ * - CRM이 수당 계산 SSoT: commissionRate는 Partner.tier 기반으로 자체 결정
+ *
+ * 조회 우선순위:
+ * 1. Partner.commissionRate (개별 오버라이드)
+ * 2. Partner.tier → TIER_COMMISSION_RATES
+ * 3. SILVER 18% 최후 폴백 (Partner 미등록 신규 파트너)
  */
+export async function getCommissionRateByAffiliateCode(
+  affiliateCode: string,
+  organizationId: string
+): Promise<{ rate: number; tier: string; partnerId: string | null }> {
+  try {
+    const partner = await prisma.partner.findFirst({
+      where: { affiliateCode, organizationId },
+      select: { id: true, tier: true, commissionRate: true },
+    });
+
+    if (partner) {
+      // ① 파트너별 개별 요율 (운영팀 수동 설정)
+      if (partner.commissionRate !== null && partner.commissionRate !== undefined) {
+        const rate = Number(partner.commissionRate);
+        logger.log('[Commission] 개별 요율 적용', { affiliateCode, rate, tier: partner.tier });
+        return { rate, tier: partner.tier, partnerId: partner.id };
+      }
+      // ② Tier 기반 요율
+      const tierRate = TIER_COMMISSION_RATES[partner.tier] ?? 18;
+      logger.log('[Commission] Tier 요율 적용', { affiliateCode, tier: partner.tier, rate: tierRate });
+      return { rate: tierRate, tier: partner.tier, partnerId: partner.id };
+    }
+
+    // ③ Partner 미등록 → SILVER 18% 폴백 (신규 파트너 등록 전 임시)
+    logger.warn('[Commission] Partner 미등록 — SILVER 기본값(18%) 적용', {
+      affiliateCode,
+      organizationId,
+      action: 'Partner 등록 필요',
+    });
+    return { rate: 18, tier: 'Silver', partnerId: null };
+  } catch (err) {
+    logger.error('[Commission] 요율 조회 실패 — 기본값(18%) 적용', {
+      affiliateCode,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return { rate: 18, tier: 'Silver', partnerId: null };
+  }
+}
+
+/** @deprecated externalProfileId 기반 조회 — affiliateCode 방식으로 전환 권장 */
 export async function getCommissionRateForProfileId(
   profileId: number,
   organizationId: string,
@@ -23,37 +73,15 @@ export async function getCommissionRateForProfileId(
       where: { externalProfileId: profileId, organizationId },
       select: { tier: true, commissionRate: true },
     });
-
     if (partner) {
-      // 파트너별 개별 요율이 설정돼 있으면 최우선 적용
       if (partner.commissionRate !== null && partner.commissionRate !== undefined) {
-        const overrideRate = Number(partner.commissionRate);
-        logger.log('[Commission] Partner 개별 요율 적용', { profileId, overrideRate });
-        return overrideRate;
+        return Number(partner.commissionRate);
       }
-      // Tier 기반 동적 요율
-      const tierRate = TIER_COMMISSION_RATES[partner.tier];
-      if (tierRate !== undefined) {
-        logger.log('[Commission] Tier 기반 요율 적용', { profileId, tier: partner.tier, tierRate });
-        return tierRate;
-      }
+      return TIER_COMMISSION_RATES[partner.tier] ?? 18;
     }
-
-    // Partner 레코드 없음 → payload 값 사용
-    if (payloadRate !== undefined && payloadRate > 0 && payloadRate <= 100) {
-      logger.warn('[Commission] Partner 미매핑 — payload 요율 사용', { profileId, payloadRate });
-      return payloadRate;
-    }
-
-    // 최후 방어 폴백 (SILVER 18%)
-    logger.warn('[Commission] 요율 결정 불가 — SILVER 기본값(18%) 적용', { profileId, organizationId });
+    if (payloadRate !== undefined && payloadRate > 0 && payloadRate <= 100) return payloadRate;
     return 18;
-  } catch (err) {
-    logger.error('[Commission] 요율 조회 실패 — 기본값(18%) 적용', {
-      profileId,
-      organizationId,
-      error: err instanceof Error ? err.message : String(err),
-    });
+  } catch {
     return 18;
   }
 }

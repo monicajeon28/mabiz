@@ -29,9 +29,17 @@ import { getMabizSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { detectLandingLens, LENS_SMS_TEMPLATES, type LandingLensType } from '@/lib/landing-lens-detector';
 import { encryptLandingNotes } from '@/lib/sensitive-data-encryption';
+import { checkRateLimitAsync } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
+    // 0. IP 기반 Rate Limiting (60초 윈도우 내 최대 10건)
+    const ip = (request.headers.get('x-forwarded-for') ?? 'unknown').split(',')[0].trim();
+    const rl = await checkRateLimitAsync(`landing_signup:${ip}`, 10, 60_000);
+    if (!rl.allowed) {
+      return Response.json({ error: '잠시 후 다시 시도해 주세요.' }, { status: 429 });
+    }
+
     // 1. 조직 인증
     const session = await getMabizSession();
     if (!session?.organizationId) {
@@ -190,11 +198,11 @@ export async function POST(request: Request) {
       lens as LandingLensType
     );
 
-    // 11. 감사 로그
+    // 11. 감사 로그 (PII 마스킹)
     logLandingSignup({
       contactId: contact.id,
-      email: contact.email,
-      phone: contact.phone,
+      email: contact.email ? `***@${contact.email.split('@')[1]}` : undefined,
+      phone: contact.phone ? `****${contact.phone.slice(-4)}` : undefined,
       lens,
       travelType,
       budget,
@@ -223,7 +231,9 @@ export async function POST(request: Request) {
     // 데이터베이스 관련 에러 로깅
     if (error instanceof Error) {
       console.error('[landing-contact-signup] 에러 메시지:', error.message);
-      console.error('[landing-contact-signup] 스택:', error.stack);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[landing-contact-signup] 스택:', error.stack);
+      }
     }
 
     return Response.json(
@@ -254,7 +264,6 @@ async function assignManagerByWeightedRoundRobin(
       where: {
         organizationId,
         role: 'MANAGER',
-        deletedAt: null
       },
       select: {
         userId: true

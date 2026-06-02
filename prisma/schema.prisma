@@ -1972,10 +1972,11 @@ model Partner {
   automationRate      Int       @default(0) // 0-100 (자동화율)
 
   // Settlement Webhook: Partner Tier & Churn Detection (Phase 6)
+  affiliateCode       String?   @unique // 크루즈닷몰 링크 코드 ("AF123") — 수당 조회 기본키
   tier                String    @default("Bronze") // "Bronze" | "Silver" | "Gold" | "Platinum"
   churnRiskFlag       Boolean   @default(false) // Churn 신호 감지 (수입 20% 이상 감소)
   churnRiskDetectedAt DateTime? @db.Timestamptz(6) // Churn 신호 감지 시각
-  externalProfileId   Int?      @unique // GMcruise AffiliateProfile.id (Int) — CRM-GMcruise 연결 브릿지
+  externalProfileId   Int?      @unique // GMcruise AffiliateProfile.id (Int) — 브릿지 보조키
 
   contacts           Contact[]
   organization       Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)

@@ -6,15 +6,20 @@ import { logger } from '@/lib/logger';
 import { createRefundNotifications } from '@/lib/notification-service';
 import { handleCabinInventoryRefund } from '@/lib/cabin-inventory-refund';
 import { sendDay0Sms, type Segment, type ABVariant } from '@/lib/loop5-sms-service';
+import { getCommissionRateByAffiliateCode } from '@/lib/commission-calculator';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+// 크루즈닷몰 아키텍처: 링크 기반 구매 100% → affiliateCode 항상 존재
+// CRM은 affiliateCode → Partner 조회 → tier → 수당 계산 (commissionRate는 CRM이 결정)
 interface CruisedotPaymentPayload {
   eventId: string;
   eventType: 'payment.created' | 'payment.updated' | 'payment.refunded';
   timestamp: string;
   bookingRef: string;
+  affiliateCode: string;   // 항상 존재 (링크 기반 구매)
+  saleAmount?: number;     // 판매금액 (수당 계산용)
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'REFUNDED';
   refundAmount?: number;
   reason?: string;
@@ -74,19 +79,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: 'JSON 파싱 실패' }, { status: 400 });
   }
 
-  const { eventId, eventType, timestamp, bookingRef, status, refundAmount, reason } = payload;
+  const { eventId, eventType, timestamp, bookingRef, affiliateCode, saleAmount, status, refundAmount, reason } = payload;
 
-  // 필수 필드 검증
-  if (!eventId || !eventType || !bookingRef || !status) {
-    logger.warn('[CruisedotWebhook] 필수 필드 누락', { eventId, bookingRef });
-    return NextResponse.json({ ok: false, message: '필수 필드 누락' }, { status: 400 });
+  // 필수 필드 검증 (affiliateCode 항상 필수 — 링크 기반 구매)
+  if (!eventId || !eventType || !bookingRef || !status || !affiliateCode) {
+    logger.warn('[CruisedotWebhook] 필수 필드 누락', { eventId, bookingRef, affiliateCode });
+    return NextResponse.json({ ok: false, message: '필수 필드 누락 (affiliateCode 포함)' }, { status: 400 });
   }
 
   logger.log('[CruisedotWebhook] 수신', {
     eventId,
     eventType,
     bookingRef,
+    affiliateCode,
     status,
+    saleAmount: saleAmount ?? null,
     refundAmount: refundAmount ?? null,
   });
 
@@ -251,7 +258,7 @@ export async function POST(req: NextRequest) {
       }
 
       // AffiliateSale 처리 (환불 시)
-      // P0-4: commissionAmount=0 덮어쓰기 제거 → CommissionLedger REVERSAL 원자화
+      // affiliateCode → Partner 조회 → Tier 수당율 확인 후 REVERSAL 원자화
       if (status === 'REFUNDED' && affiliateSale) {
         // 1. AffiliateSale 상태 변경 (commissionAmount는 원본 유지 — 감사추적)
         await tx.affiliateSale.update({
