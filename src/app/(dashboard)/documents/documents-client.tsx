@@ -1,7 +1,7 @@
 ﻿"use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { FileText, CheckCircle, Clock, XCircle, Plus, Download, FolderOpen } from "lucide-react";
-import { showError } from "@/components/ui/Toast";
+import { showError, showSuccess } from "@/components/ui/Toast";
 import html2canvas from "html2canvas";
 
 type DocType = "COMPARISON_QUOTE" | "PURCHASE_CONFIRMATION" | "PURCHASE_CONTRACT" | "REFUND_CERTIFICATE";
@@ -55,10 +55,12 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
   // 구매계약서 전용 필드
   const [contractSpecialTerms, setContractSpecialTerms] = useState('');
   const [contractSignedAt,     setContractSignedAt]     = useState('');
+  // 구매계약서 발급 후 서명 링크
+  const [lastSignUrl, setLastSignUrl] = useState<string | null>(null);
 
   const current = DOC_TYPES.find(d => d.key === tab)!;
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     fetch(current.api)
       .then(r => r.json())
@@ -68,12 +70,11 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
       })
       .catch(() => showError('네트워크 오류'))
       .finally(() => setLoading(false));
-  };
+  }, [current.api]);
 
-  // ✅ 수정: tab과 initialRole을 의존성 배열에 포함 (exhaustive-deps 충족)
   useEffect(() => {
     load();
-  }, [tab]);
+  }, [load]);
 
   const requestDoc = async () => {
     if (tab === 'COMPARISON_QUOTE') {
@@ -115,8 +116,14 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const d = await res.json() as { ok: boolean; message?: string };
+      const d = await res.json() as { ok: boolean; message?: string; signUrl?: string; documentId?: string };
       if (!d.ok) { showError(d.message ?? '발급 실패'); return; }
+
+      // 구매계약서이고 signUrl이 있으면 저장
+      if (tab === 'PURCHASE_CONTRACT' && d.signUrl) {
+        setLastSignUrl(d.signUrl);
+      }
+
       setShowNew(false);
       setOrderId(''); setRefunderName('');
       setQuoteProductName(''); setQuotePrice(''); setQuoteCruiseLine(''); setQuoteNights(''); setQuoteDeparture('');
@@ -148,11 +155,13 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
     try {
       const renderEl = document.getElementById(`doc-render-${doc.id}`);
       if (!renderEl) { showError('렌더링 실패'); return; }
-      const canvas = await html2canvas(renderEl, { scale: 2, useCORS: true });
+      const canvas = await html2canvas(renderEl, { scale: 2, useCORS: true, allowTaint: true });
       const link = document.createElement('a');
       link.href = canvas.toDataURL('image/png');
-      link.download = `${current.label}-${doc.id}.png`;
+      link.download = `${current.key.toLowerCase()}-${doc.id.slice(-8)}.png`;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     } catch {
       showError('다운로드 실패');
     }
@@ -166,7 +175,7 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <FolderOpen className="w-6 h-6" /> 서류 관리
           </h1>
-          <p className="text-sm text-gray-500 mt-1">구매확인서 · 환불증서 · 비교견적서 발급</p>
+          <p className="text-sm text-gray-500 mt-1">구매확인증 · 구매계약서 · 비교견적서 · 환불증서 발급</p>
         </div>
         <button
           onClick={() => setShowNew(true)}
@@ -178,10 +187,22 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
 
       {/* 탭 */}
       <div className="flex gap-2 mb-6 border-b pb-3">
-        {DOC_TYPES.map(d => (
+        {DOC_TYPES.filter(d => {
+          if (d.key === 'REFUND_CERTIFICATE' && (initialRole === 'AGENT' || initialRole === 'FREE_SALES')) return false;
+          return true;
+        }).map(d => (
           <button
             key={d.key}
-            onClick={() => setTab(d.key)}
+            onClick={() => {
+              setTab(d.key);
+              setShowNew(false);
+              setOrderId(''); setSelectedLabel(''); setRefunderName('');
+              setQuoteProductName(''); setQuotePrice(''); setQuoteCruiseLine('');
+              setQuoteNights(''); setQuoteDeparture('');
+              setCompetitors([{ name: '', price: '' }]);
+              setContractSpecialTerms(''); setContractSignedAt('');
+              setLastSignUrl(null);
+            }}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
               ${tab === d.key ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
           >
@@ -289,7 +310,7 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
           ) : tab === 'PURCHASE_CONTRACT' ? (
             <div className="mb-3 space-y-2">
               <SaleSearchDropdown
-                docType="PURCHASE_CONFIRMATION"
+                docType="PURCHASE_CONTRACT"
                 onSelect={(id, label) => { setOrderId(id); setSelectedLabel(label); }}
               />
               {orderId && <p className="text-sm text-green-600">✓ 선택됨: {selectedLabel || orderId}</p>}
@@ -346,7 +367,7 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
               {submitting ? '요청 중...' : '요청하기'}
             </button>
             <button
-              onClick={() => { setShowNew(false); setOrderId(''); setSelectedLabel(''); setRefunderName(''); setQuoteProductName(''); setQuotePrice(''); setQuoteCruiseLine(''); setQuoteNights(''); setQuoteDeparture(''); setCompetitors([{ name: '', price: '' }]); setContractSpecialTerms(''); setContractSignedAt(''); }}
+              onClick={() => { setShowNew(false); setOrderId(''); setSelectedLabel(''); setRefunderName(''); setQuoteProductName(''); setQuotePrice(''); setQuoteCruiseLine(''); setQuoteNights(''); setQuoteDeparture(''); setCompetitors([{ name: '', price: '' }]); setContractSpecialTerms(''); setContractSignedAt(''); setLastSignUrl(null); }}
               className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-100 transition-colors"
             >
               취소
@@ -393,7 +414,7 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
                       <td style={{ padding: '12px 16px', border: '1px solid #ddd', textAlign: 'right', color: '#1a6fb5', fontWeight: 'bold' }}>{Number(d.price ?? 0).toLocaleString()}원</td>
                       <td style={{ padding: '12px 16px', border: '1px solid #ddd', textAlign: 'right', color: '#2e7d32' }}>최저가</td>
                     </tr>
-                    {(d.competitorPrices as { name: string; price: number }[] ?? []).map((c, i) => (
+                    {(Array.isArray(d.competitorPrices) ? d.competitorPrices as { name: string; price: number }[] : []).map((c, i) => (
                       <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f9f9f9' }}>
                         <td style={{ padding: '12px 16px', border: '1px solid #ddd', color: '#666' }}>{c.name}</td>
                         <td style={{ padding: '12px 16px', border: '1px solid #ddd', color: '#666' }}>동일 상품 기준</td>
@@ -434,8 +455,8 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
             {tab === 'PURCHASE_CONTRACT' && (
               <div style={{ marginTop: '24px', padding: '16px', background: '#fff8e1', border: '1px solid #fbc02d', borderRadius: '8px' }}>
                 <p style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '13px' }}>취소 및 환불 규정</p>
-                {(d.cancellationPolicy as string[] ?? []).map((line, i) => (
-                  <p key={i} style={{ margin: '4px 0', fontSize: '12px', color: '#555' }}>• {line}</p>
+                {(Array.isArray(d.cancellationPolicy) ? d.cancellationPolicy as string[] : []).map((line: string, i: number) => (
+                  <p key={i} style={{ margin: '4px 0', fontSize: '12px', color: '#555' }}>• {String(line)}</p>
                 ))}
               </div>
             )}
@@ -490,6 +511,30 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
           </div>
         );
       })}
+
+      {/* 구매계약서 서명 링크 배너 */}
+      {lastSignUrl && tab === 'PURCHASE_CONTRACT' && (
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-semibold text-blue-800">서명 링크 (고객에게 전달)</p>
+            <button onClick={() => setLastSignUrl(null)} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              readOnly
+              value={lastSignUrl}
+              className="flex-1 text-xs border border-blue-200 rounded-lg px-3 py-2 bg-white font-mono truncate"
+            />
+            <button
+              onClick={() => { navigator.clipboard.writeText(lastSignUrl); showSuccess('링크 복사됨'); }}
+              className="shrink-0 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition-colors"
+            >
+              복사
+            </button>
+          </div>
+          <p className="text-xs text-blue-600 mt-1.5">유효기간 7일 · 고객 이메일로도 자동 발송됩니다 (이메일 등록 시)</p>
+        </div>
+      )}
 
       {/* 목록 */}
       {loading ? (
@@ -606,7 +651,7 @@ function SaleSearchDropdown({
   docType,
 }: {
   onSelect: (orderId: string, label: string) => void;
-  docType: "PURCHASE_CONFIRMATION" | "REFUND_CERTIFICATE";
+  docType: "PURCHASE_CONFIRMATION" | "REFUND_CERTIFICATE" | "PURCHASE_CONTRACT";
 }) {
   const [q,       setQ]       = useState('');
   const [results, setResults] = useState<SaleResult[]>([]);
@@ -631,9 +676,9 @@ function SaleSearchDropdown({
   };
 
   const canIssue = (s: SaleResult) =>
-    docType === 'PURCHASE_CONFIRMATION'
-      ? s.canIssuePurchaseCert
-      : s.canIssuePurchaseCert || s.canIssueRefundCert;
+    docType === 'REFUND_CERTIFICATE'
+      ? s.canIssuePurchaseCert || s.canIssueRefundCert
+      : s.canIssuePurchaseCert;
 
   return (
     <div className="relative">
