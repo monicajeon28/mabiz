@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
-import { getMabizSession } from '@/lib/auth';
+import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 // GMcruise CommissionLedger 실제 entryType 값
@@ -49,8 +49,8 @@ type RawSummary = {
  */
 export async function GET(req: NextRequest) {
   try {
-    const ctx = await getMabizSession();
-    if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
+    const ctx = await getAuthContext();
+    if (!ctx) return NextResponse.json({ ok: false, error: 'UNAUTHORIZED', message: '로그인이 필요합니다.' }, { status: 401 });
     if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
     }
