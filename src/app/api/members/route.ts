@@ -112,7 +112,7 @@ export async function GET(req: Request) {
           END as provider
         FROM "User" u
         LEFT JOIN "AffiliateProfile" ap ON ap."userId" = u.id AND ap.status = 'ACTIVE'
-        WHERE u.role = 'community'
+        WHERE u.role = 'user'
           ${searchFilter}
           ${providerFilter}
         ORDER BY u."createdAt" DESC
@@ -125,7 +125,7 @@ export async function GET(req: Request) {
       Prisma.sql`
         SELECT COUNT(*) as total
         FROM "User" u
-        WHERE u.role = 'community'
+        WHERE u.role = 'user'
           ${searchFilter}
           ${providerFilter}
       `

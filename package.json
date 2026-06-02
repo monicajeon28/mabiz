@@ -59,6 +59,7 @@
     "html2canvas": "^1.4.1",
     "jszip": "^3.10.1",
     "lucide-react": "^1.8.0",
+    "nanoid": "^5.1.11",
     "next": "15.5.18",
     "next-auth": "^4.24.14",
     "nodemailer": "^8.0.5",

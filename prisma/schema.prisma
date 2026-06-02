@@ -721,6 +721,7 @@ model CrmLandingPage {
   organizationId    String
   title             String
   slug              String
+  shortlink         String?   @unique // 짧은 링크 코드 (조회 위해 유니크)
   htmlContent       String?
   isActive          Boolean   @default(true)
   isPublic          Boolean   @default(true)
@@ -774,6 +775,7 @@ model CrmLandingPage {
   @@unique([slug, organizationId])
   @@index([organizationId])
   @@index([organizationId, createdByUserId, createdAt])
+  @@index([shortlink]) // shortlink 조회 성능 최적화
   @@map("CrmLandingPage")
 }
 
