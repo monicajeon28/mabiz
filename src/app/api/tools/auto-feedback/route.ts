@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
         name: true,
         organizationId: true,
         lastContactedAt: true,
+        optOutAt: true,
       },
     });
 
@@ -90,13 +91,75 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // GDPR: SMS 거부 여부 확인
+    if (contact.optOutAt) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "해당 고객은 SMS 수신을 거부하셨습니다.",
+          code: "SMS_OPT_OUT",
+        },
+        { status: 400 }
+      );
+    }
+
+    // 이미 예약된 SMS 확인 (중복 방지)
+    const existingScheduled = await prisma.scheduledSms.findFirst({
+      where: {
+        contactId: contact.id,
+        status: { in: ["PENDING", "RETRY"] },
+        createdAt: {
+          gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // 최근 24시간
+        },
+      },
+      select: { id: true },
+    });
+
+    if (existingScheduled) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "이미 SMS가 예약되어 있습니다.",
+          code: "SMS_ALREADY_SCHEDULED",
+        },
+        { status: 400 }
+      );
+    }
+
     // 렌즈 감지 (ONE-TIME — 엔진 내부 캐싱 활용, force=false)
-    const lensEngine = new LensDetectionEngine(prisma);
-    const lensResult = await lensEngine.detectLens(
-      contact.id,
-      contact.organizationId
-    );
+    let lensResult;
+    try {
+      const lensEngine = new LensDetectionEngine(prisma);
+      lensResult = await lensEngine.detectLens(
+        contact.id,
+        contact.organizationId
+      );
+    } catch (lensErr) {
+      logger.error("[POST /api/tools/auto-feedback] 렌즈 감지 실패", {
+        contactId: contact.id,
+        error: lensErr,
+      });
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "고객 분석에 실패했습니다. 관리자에게 문의하세요.",
+          code: "LENS_DETECTION_FAILED",
+        },
+        { status: 500 }
+      );
+    }
+
     const lens: LensType = lensResult.primaryLens;
+    if (!lens) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "고객의 렌즈를 결정할 수 없습니다.",
+          code: "LENS_NOT_DETERMINED",
+        },
+        { status: 400 }
+      );
+    }
 
     const now = new Date();
     const customerName = contact.name || "고객";
@@ -111,30 +174,56 @@ export async function POST(req: NextRequest) {
       : undefined;
 
     // 렌즈별 PASONA Day 0-3 생성
-    const generated = PASONA_DAYS.map((day) => {
-      const seq = getPasonaTemplate(day, lens);
-      if (!seq) return null;
-      const scheduledAt = calculateScheduledTime(now, day);
-      const message = personalize(seq.template, {
-        name: customerName,
-        daysSince,
+    let generated;
+    try {
+      generated = PASONA_DAYS.map((day) => {
+        const seq = getPasonaTemplate(day, lens);
+        if (!seq) return null;
+        const scheduledAt = calculateScheduledTime(now, day);
+        if (!scheduledAt) return null;
+
+        const message = personalize(seq.template, {
+          name: customerName,
+          daysSince,
+        });
+
+        // 메시지 유효성 확인 (최소 길이)
+        if (!message || message.length === 0) {
+          return null;
+        }
+
+        return {
+          day,
+          phase: seq.phase,
+          tone: seq.tone ?? "neutral",
+          expectedMetric: seq.expectedMetric ?? "open_rate",
+          expectedRate: seq.expectedRate ?? 0.5,
+          scheduledAt,
+          message,
+        };
+      }).filter((x): x is NonNullable<typeof x> => x !== null);
+    } catch (seqErr) {
+      logger.error("[POST /api/tools/auto-feedback] PASONA 시퀀스 생성 실패", {
+        contactId: contact.id,
+        lens,
+        error: seqErr,
       });
-      return {
-        day,
-        phase: seq.phase,
-        tone: seq.tone,
-        expectedMetric: seq.expectedMetric,
-        expectedRate: seq.expectedRate,
-        scheduledAt,
-        message,
-      };
-    }).filter((x): x is NonNullable<typeof x> => x !== null);
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "메시지 생성에 실패했습니다.",
+          code: "SEQUENCE_GENERATION_FAILED",
+        },
+        { status: 500 }
+      );
+    }
 
     if (generated.length === 0) {
       return NextResponse.json(
         {
           ok: false,
           message: `렌즈 ${lens}에 대한 PASONA 템플릿이 없습니다.`,
+          code: "NO_TEMPLATE_FOR_LENS",
         },
         { status: 404 }
       );
@@ -153,37 +242,58 @@ export async function POST(req: NextRequest) {
     }
 
     // ScheduledSms 등록 (기존 Cron이 발송 처리)
-    const created = await prisma.$transaction(
-      generated.map((g) =>
-        prisma.scheduledSms.create({
-          data: {
-            organizationId: contact.organizationId,
-            contactId: contact.id,
-            message: g.message,
-            scheduledAt: g.scheduledAt,
-            status: "PENDING",
-            channel: "FUNNEL",
-            createdByUserId: ctx.userId,
-          },
-          select: { id: true, scheduledAt: true, status: true },
-        })
-      )
-    );
+    let created;
+    try {
+      created = await prisma.$transaction(
+        generated.map((g) =>
+          prisma.scheduledSms.create({
+            data: {
+              organizationId: contact.organizationId,
+              contactId: contact.id,
+              message: g.message,
+              scheduledAt: g.scheduledAt,
+              status: "PENDING",
+              channel: "FUNNEL",
+              createdByUserId: ctx.userId,
+            },
+            select: { id: true, scheduledAt: true, status: true },
+          })
+        )
+      );
+    } catch (dbErr) {
+      logger.error("[POST /api/tools/auto-feedback] DB 트랜잭션 실패", {
+        contactId: contact.id,
+        generatedCount: generated.length,
+        error: dbErr,
+      });
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "메시지 저장에 실패했습니다.",
+          code: "DATABASE_ERROR",
+        },
+        { status: 500 }
+      );
+    }
 
-    logger.log("[POST /api/tools/auto-feedback] PASONA Day 0-3 자동 생성", {
+    logger.log("[POST /api/tools/auto-feedback] PASONA Day 0-3 자동 생성 완료", {
       contactId: contact.id,
       lens,
+      confidenceScore: lensResult.confidenceScore,
       count: created.length,
+      days: generated.map((g) => g.day),
     });
 
     return NextResponse.json({
       ok: true,
       lens,
       confidenceScore: lensResult.confidenceScore,
+      smsCount: created.length,
       created: created.map((c, i) => ({
         id: c.id,
         day: generated[i].day,
         phase: generated[i].phase,
+        tone: generated[i].tone,
         scheduledAt: c.scheduledAt,
         status: c.status,
       })),
