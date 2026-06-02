@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
         createdAt: {
           gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
         },
-        status: 'LIVE_STREAM_REGISTRATION',
+        status: 'LIVE_STREAM',
       },
     });
 
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         name: body.name,
         phone: body.phone,
         email: body.email,
-        status: 'LIVE_STREAM_REGISTRATION', // 라이브방송 신청자
+        status: 'LIVE_STREAM', // 라이브방송 신청자
         sourceId: 'LIVE_STREAM',
         organizationId: session.organizationId!,
         lensMetadata: {

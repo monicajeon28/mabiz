@@ -1,5 +1,15 @@
 import type { Metadata } from "next";
+import { Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
+
+// 폰트 최적화: Noto Sans KR을 preload
+const notoSansKR = Noto_Sans_KR({
+  subsets: ["latin"],
+  weight: ["400", "500", "700", "900"],
+  variable: "--font-noto-sans-kr",
+  display: "swap",
+  fallback: ["system-ui", "-apple-system"],
+});
 
 export const metadata: Metadata = {
   title: "크루즈닷파트너스 — 파트너 CRM",
@@ -35,8 +45,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className="h-full" suppressHydrationWarning>
-      <body className="min-h-full" suppressHydrationWarning>{children}</body>
+    <html lang="ko" className={`h-full ${notoSansKR.variable}`} suppressHydrationWarning>
+      <head>
+        {/* 성능 최적화: DNS prefetch, preconnect */}
+        <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Lighthouse 최적화: Preload critical resources */}
+        <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" />
+      </head>
+      <body className={`min-h-full font-sans ${notoSansKR.className}`} suppressHydrationWarning>
+        {children}
+      </body>
     </html>
   );
 }
