@@ -13,7 +13,7 @@ import { LensDetectionEngine } from '@/lib/services/lens-detection-engine';
  *
  * POST /api/webhooks/inquiry
  * GMcruise(크루즈닷몰) 고객 문의/상담신청 시 호출
- * Authorization: Bearer MABIZ_INQUIRY_WEBHOOK_SECRET
+ * Authorization: Bearer MABIZ_LEAD_WEBHOOK_SECRET
  *
  * 추가 기능:
  * - 렌즈 감지 엔진 자동 분석
@@ -191,11 +191,11 @@ function generateSuggestedResponse(lensType: string, inquiryType: string | undef
 }
 
 export async function POST(req: NextRequest) {
-  const secret = process.env.MABIZ_INQUIRY_WEBHOOK_SECRET;
+  const secret = process.env.MABIZ_LEAD_WEBHOOK_SECRET;
 
-  // [P0-SEC-101] MABIZ_INQUIRY_WEBHOOK_SECRET 필수
+  // [P0-SEC-101] MABIZ_LEAD_WEBHOOK_SECRET 필수
   if (!secret) {
-    logger.error('[InquiryWebhook] CRITICAL: MABIZ_INQUIRY_WEBHOOK_SECRET 미설정. 웹훅 수신 불가능합니다. DevOps에 연락하세요.');
+    logger.error('[InquiryWebhook] CRITICAL: MABIZ_LEAD_WEBHOOK_SECRET 미설정. 웹훅 수신 불가능합니다. DevOps에 연락하세요.');
     return NextResponse.json({ ok: false, error: 'Webhook secret not configured' }, { status: 500 });
   }
 
@@ -389,7 +389,7 @@ export async function POST(req: NextRequest) {
           actionType: 'NURTURE',
           priority: suggestedResponse.urgencyLevel === 'CRITICAL' ? 100 : 50,
           message: {
-            type: 'INQUIRY_RESPONSE',
+            type: 'LEAD_RESPONSE',
             title: `[${lensDetection.detectedLens}] ${name}님 문의 대응: ${inquiryType ?? '상담신청'}`,
             script: suggestedResponse.suggestedScript,
             followUpTemplate: suggestedResponse.followUpTemplate,

@@ -16,6 +16,8 @@ type RawMember = {
   mallUserId: string | null;
   mallNickname: string | null;
   kakaoChannelAdded: boolean;
+  naverChannelAdded: boolean;
+  googleChannelAdded: boolean;
   createdAt: Date;
   isLocked: boolean;
   affiliateType: string | null;
@@ -99,6 +101,8 @@ export async function GET(req: Request) {
           u."mallUserId",
           u."mallNickname",
           u."kakaoChannelAdded",
+          u."naverChannelAdded",
+          u."googleChannelAdded",
           u."createdAt",
           u."isLocked",
           ap.type as "affiliateType",
