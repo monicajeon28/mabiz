@@ -37,6 +37,12 @@ export interface ProvisionResult {
     linkCode: string;
     linkUrl: string;
   };
+  presales: {
+    gmUserId: number;
+    affiliateCode: string;
+    linkCode: string;
+    linkUrl: string;
+  };
 }
 
 interface ProvisionInput {
@@ -49,13 +55,26 @@ interface ProvisionInput {
   managerId?: number; // 담당 매니저 ID (선택사항)
 }
 
+interface ProvisionInternalResult extends ProvisionResult {
+  managerPartnerId: string;
+  agentPartnerId: string;
+  presalesPartnerId: string;
+}
+
 /**
  * 계약 승인 전체 파이프라인 (단일 트랜잭션)
  * 실패 시 전체 롤백 — 부분 성공 상태 없음
  */
 export async function provisionAffiliateAccounts(
   input: ProvisionInput,
-): Promise<ProvisionResult & { managerTempPassword: string; agentTempPassword: string }> {
+): Promise<ProvisionResult & {
+  managerTempPassword: string;
+  agentTempPassword: string;
+  presalesTempPassword: string;
+  managerPartnerId: string;
+  agentPartnerId: string;
+  presalesPartnerId: string;
+}> {
   const {
     contractId,
     contractorName,
@@ -70,15 +89,22 @@ export async function provisionAffiliateAccounts(
     throw new Error('NEXT_PUBLIC_APP_URL 환경변수가 설정되지 않았습니다.');
   }
 
+  // 크루즈닷몰 linkUrl 생성용 베이스 URL (CRM URL과 분리)
+  const cruisedotBaseUrl = process.env.CRUISEDOT_BASE_URL;
+  if (!cruisedotBaseUrl) {
+    throw new Error('CRUISEDOT_BASE_URL 환경변수가 설정되지 않았습니다.');
+  }
+
   // Phase 4: 비밀번호 1101로 통일 (GMcruise 동기화)
   const sharedPassword = '1101';
   const passwordHash = await hashPassword(sharedPassword);
 
   // 단일 트랜잭션 — 전부 성공 or 전부 롤백
   const result = await prisma.$transaction(async (tx) => {
-    // Phase 4: partnerId 자동 생성 (boss1, boss2... / sales1, sales2...)
+    // Phase 4: partnerId 자동 생성 (boss1, boss2... / sales1, sales2... / pre1, pre2...)
     const managerPartnerId = await generateUniquePartnerId('boss', tx);
     const agentPartnerId = await generateUniquePartnerId('sales', tx);
+    const presalesPartnerId = await generateUniquePartnerId('pre', tx);
 
     // ── 1. GmUser (GMcruise 포털 계정) ──────────────────────────
     const managerGmUser = await tx.gmUser.create({
@@ -99,6 +125,17 @@ export async function provisionAffiliateAccounts(
         phone: agentPartnerId, // Phase 4: partnerId를 phone에 저장
         password: passwordHash,
         role: 'affiliate_agent',
+        isPasswordSet: true,
+      },
+    });
+
+    const presalesGmUser = await tx.gmUser.create({
+      data: {
+        name: `${contractorName} 프리세일즈`,
+        email: null,
+        phone: presalesPartnerId,
+        password: passwordHash,
+        role: 'affiliate_presales',
         isPasswordSet: true,
       },
     });
@@ -139,6 +176,23 @@ export async function provisionAffiliateAccounts(
       },
     });
 
+    const presalesCode = await generateUniqueAffiliateCode('PRE', tx);
+    const presalesProfile = await tx.gmAffiliateProfile.create({
+      data: {
+        userId: presalesGmUser.id,
+        type: 'PRESALES_AGENT',
+        status: 'ACTIVE',
+        contractStatus: 'SIGNED',
+        displayName: `${contractorName} 프리세일즈`,
+        contactPhone: contractorPhone,
+        contactEmail: contractorEmail,
+        affiliateCode: presalesCode,
+        guarantorId: managerProfile.id,
+        contractSignedAt: new Date(),
+        onboardedAt: new Date(),
+      },
+    });
+
     // ── 3. AffiliateRelation (Manager ↔ Agent 연결) ───────────────
     await tx.gmAffiliateRelation.create({
       data: {
@@ -171,6 +225,17 @@ export async function provisionAffiliateAccounts(
       },
     });
 
+    const presalesLinkCode = await generateUniqueLinkCode(tx);
+    const presalesLink = await tx.gmAffiliateLink.create({
+      data: {
+        agentId: presalesProfile.id, // presales 프로필 ID를 agentId 컬럼에 저장
+        code: presalesLinkCode,
+        status: 'ACTIVE',
+        issuedById: presalesGmUser.id,
+        metadata: { role: 'PRESALES_AGENT' }, // type 명시
+      },
+    });
+
     // ── 5. AffiliateContract 상태 업데이트 ────────────────────────
     await tx.gmAffiliateContract.update({
       where: { id: contractId },
@@ -181,10 +246,13 @@ export async function provisionAffiliateAccounts(
         metadata: {
           managerProfileId: managerProfile.id,
           agentProfileId: agentProfile.id,
+          presalesProfileId: presalesProfile.id,
           managerLinkCode,
           agentLinkCode,
+          presalesLinkCode,
           managerLinkId: managerLink.id,
           agentLinkId: agentLink.id,
+          presalesLinkId: presalesLink.id,
           approvedAt: new Date().toISOString(),
           approvedByMemberId,
         },
@@ -210,30 +278,40 @@ export async function provisionAffiliateAccounts(
       managerGmUserId: managerGmUser.id,
       managerProfileId: managerProfile.id,
       agentGmUserId: agentGmUser.id,
+      presalesGmUserId: presalesGmUser.id,
       crmMemberId: crmMember.id,
       managerCode,
       agentCode,
+      presalesCode,
       managerLinkCode,
       agentLinkCode,
+      presalesLinkCode,
     });
 
     return {
       managerPartnerId,
       agentPartnerId,
+      presalesPartnerId,
       manager: {
         gmUserId: managerGmUser.id,
         crmMemberId: crmMember.id,
         affiliateCode: managerCode,
         linkCode: managerLinkCode,
-        linkUrl: `${baseUrl}?ref=${managerLinkCode}`,
+        linkUrl: `${cruisedotBaseUrl}?ref=${managerLinkCode}`,
       },
       agent: {
         gmUserId: agentGmUser.id,
         affiliateCode: agentCode,
         linkCode: agentLinkCode,
-        linkUrl: `${baseUrl}?ref=${agentLinkCode}`,
+        linkUrl: `${cruisedotBaseUrl}?ref=${agentLinkCode}`,
       },
-    };
+      presales: {
+        gmUserId: presalesGmUser.id,
+        affiliateCode: presalesCode,
+        linkCode: presalesLinkCode,
+        linkUrl: `${cruisedotBaseUrl}?ref=${presalesLinkCode}`,
+      },
+    } satisfies ProvisionInternalResult;
   });
 
   // Phase 4: Supabase 자동 동기화 (백업) — DLQ 기반 재시도
@@ -341,12 +419,58 @@ export async function provisionAffiliateAccounts(
         });
       }
 
+      // Presales 동기화 시도
+      try {
+        await supabaseClient.query(`
+          INSERT INTO "User" (
+            id, phone, password, name, role, email, "mallUserId", "isLocked",
+            "createdAt", "updatedAt"
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+          ON CONFLICT (id) DO UPDATE SET
+            phone = $2, password = $3, name = $4, role = $5, email = $6,
+            "isLocked" = $8, "updatedAt" = NOW()
+        `, [
+          result.presales.gmUserId,
+          result.presalesPartnerId,
+          passwordHash,
+          `${contractorName} 프리세일즈`,
+          'affiliate_presales',
+          null,
+          null,
+          false,
+        ]);
+        logger.log('[AFFILIATE-PROVISION] ✅ Presales Supabase 동기화 성공', {
+          gmUserId: result.presales.gmUserId,
+          partnerId: result.presalesPartnerId,
+        });
+      } catch (presalesErr) {
+        const errMsg = presalesErr instanceof Error ? presalesErr.message : String(presalesErr);
+        const dlq = await prisma.syncDeadLetterQueue.create({
+          data: {
+            syncType: 'NEON_TO_SUPABASE',
+            operationType: 'INSERT',
+            tableName: 'User',
+            recordId: String(result.presales.gmUserId),
+            data: { gmUserId: result.presales.gmUserId, partnerId: result.presalesPartnerId, name: `${contractorName} 프리세일즈` },
+            error: errMsg,
+            nextRetryAt: new Date(Date.now() + 5 * 60 * 1000),
+            status: 'PENDING',
+          },
+        });
+        logger.warn('[AFFILIATE-PROVISION] ❌ Presales Supabase 동기화 실패 → DLQ 기록', {
+          gmUserId: result.presales.gmUserId,
+          dlqId: dlq.id,
+          error: errMsg,
+        });
+      }
+
       await supabaseClient.end();
     } catch (err) {
       logger.error('[AFFILIATE-PROVISION] ❌ Supabase 네트워크 오류 — 동기화 전체 실패', {
         error: err instanceof Error ? err.message : String(err),
         managerGmUserId: result.manager.gmUserId,
         agentGmUserId: result.agent.gmUserId,
+        presalesGmUserId: result.presales.gmUserId,
       });
     }
   }
@@ -355,14 +479,15 @@ export async function provisionAffiliateAccounts(
     ...result,
     managerTempPassword: sharedPassword,
     agentTempPassword: sharedPassword,
+    presalesTempPassword: sharedPassword,
   };
 }
 
 // ── 내부 유틸 ────────────────────────────────────────────────────
 
-// Phase 4: partnerId 자동 생성 (boss1, boss2... / sales1, sales2...)
+// Phase 4: partnerId 자동 생성 (boss1, boss2... / sales1, sales2... / pre1, pre2...)
 async function generateUniquePartnerId(
-  prefix: 'boss' | 'sales',
+  prefix: 'boss' | 'sales' | 'pre',
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
 ): Promise<string> {
   for (let i = 1; i <= 9999; i++) {

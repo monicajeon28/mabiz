@@ -58,18 +58,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: '이 조직의 판매건이 아닙니다' }, { status: 403 });
     }
 
-    // P1-1: 중복 계약서 방지
-    const existing = await prisma.salesDocument.findFirst({
-      where: { orderId: body.orderId, documentType: 'PURCHASE_CONTRACT' },
-      select: { id: true },
-    });
-    if (existing) {
-      return NextResponse.json(
-        { ok: false, message: '이미 발급된 계약서가 있습니다', documentId: existing.id },
-        { status: 409 },
-      );
-    }
-
     // 출발일 조회 시도
     let departureDate: string | null = null;
     let nights: number | null = null;
@@ -99,8 +87,17 @@ export async function POST(req: Request) {
     const signToken = randomUUID();
     const signTokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7일
 
-    // P1-4: SalesDocument + Approval 트랜잭션
-    const [doc] = await prisma.$transaction(async (tx) => {
+    // P1-4: SalesDocument + Approval 트랜잭션 (중복 체크 포함)
+    const txResult = await prisma.$transaction(async (tx) => {
+      // Race condition 방지: 트랜잭션 내부에서 중복 재확인
+      const alreadyExists = await tx.salesDocument.findFirst({
+        where: { orderId: body.orderId, documentType: 'PURCHASE_CONTRACT' },
+        select: { id: true },
+      });
+      if (alreadyExists) {
+        return { conflict: true as const, documentId: alreadyExists.id };
+      }
+
       const newDoc = await tx.salesDocument.create({
         data: {
           organizationId: orgId,
@@ -161,8 +158,18 @@ export async function POST(req: Request) {
         });
       }
 
-      return [newDoc];
+      return { conflict: false as const, doc: newDoc };
     });
+
+    // 트랜잭션 내부에서 중복 감지된 경우
+    if (txResult.conflict) {
+      return NextResponse.json(
+        { ok: false, message: '이미 발급된 계약서가 있습니다', documentId: txResult.documentId },
+        { status: 409 },
+      );
+    }
+
+    const doc = txResult.doc;
 
     // 서명 링크 이메일 발송 (fire-and-forget)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mabizcruisedot.com';
@@ -241,7 +248,7 @@ export async function GET(req: Request) {
     const docs = await prisma.salesDocument.findMany({
       where: { organizationId: orgId, documentType: 'PURCHASE_CONTRACT' },
       orderBy: { createdAt: 'desc' }, take: 50,
-      select: { id: true, status: true, orderId: true, createdAt: true, generatedData: true, approvedAt: true },
+      select: { id: true, status: true, orderId: true, createdAt: true, approvedAt: true },
     });
     return NextResponse.json({ ok: true, documents: docs });
   } catch (e) {

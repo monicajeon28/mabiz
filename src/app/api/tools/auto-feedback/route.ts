@@ -103,28 +103,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 이미 예약된 SMS 확인 (중복 방지)
-    const existingScheduled = await prisma.scheduledSms.findFirst({
-      where: {
-        contactId: contact.id,
-        status: { in: ["PENDING", "RETRY"] },
-        createdAt: {
-          gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // 최근 24시간
-        },
-      },
-      select: { id: true },
-    });
-
-    if (existingScheduled) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "이미 SMS가 예약되어 있습니다.",
-          code: "SMS_ALREADY_SCHEDULED",
-        },
-        { status: 400 }
-      );
-    }
+    // NOTE: 중복 방지 findFirst는 트랜잭션 내부로 이동 (race condition 방지)
+    // 아래 $transaction 인터랙티브 콜백 안에서 처리
 
     // 렌즈 감지 (ONE-TIME — 엔진 내부 캐싱 활용, force=false)
     let lensResult;
@@ -173,26 +153,40 @@ export async function POST(req: NextRequest) {
         )
       : undefined;
 
-    // 렌즈별 PASONA Day 0-3 생성
-    let generated;
-    try {
-      generated = PASONA_DAYS.map((day) => {
+    // 렌즈별 PASONA Day 0-3 생성 (개별 day 실패 시 해당 day만 skip)
+    const generated: Array<{
+      day: 0 | 1 | 2 | 3;
+      phase: string;
+      tone: string;
+      expectedMetric: string;
+      expectedRate: number;
+      scheduledAt: Date;
+      message: string;
+    }> = [];
+
+    for (const day of PASONA_DAYS) {
+      try {
         const seq = getPasonaTemplate(day, lens);
-        if (!seq) return null;
+        if (!seq) continue;
+
         const scheduledAt = calculateScheduledTime(now, day);
-        if (!scheduledAt) return null;
+        if (!scheduledAt) {
+          // 스케줄 테이블에 해당 day가 없음 — 건너뜀
+          logger.log(
+            `[POST /api/tools/auto-feedback] day=${day} 스케줄 없음, skip`,
+            { contactId: contact.id, lens }
+          );
+          continue;
+        }
 
         const message = personalize(seq.template, {
           name: customerName,
           daysSince,
         });
 
-        // 메시지 유효성 확인 (최소 길이)
-        if (!message || message.length === 0) {
-          return null;
-        }
+        if (!message || message.length === 0) continue;
 
-        return {
+        generated.push({
           day,
           phase: seq.phase,
           tone: seq.tone ?? "neutral",
@@ -200,22 +194,14 @@ export async function POST(req: NextRequest) {
           expectedRate: seq.expectedRate ?? 0.5,
           scheduledAt,
           message,
-        };
-      }).filter((x): x is NonNullable<typeof x> => x !== null);
-    } catch (seqErr) {
-      logger.error("[POST /api/tools/auto-feedback] PASONA 시퀀스 생성 실패", {
-        contactId: contact.id,
-        lens,
-        error: seqErr,
-      });
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "메시지 생성에 실패했습니다.",
-          code: "SEQUENCE_GENERATION_FAILED",
-        },
-        { status: 500 }
-      );
+        });
+      } catch (dayErr) {
+        // 개별 day 에러는 전체를 중단시키지 않음
+        logger.error(
+          `[POST /api/tools/auto-feedback] day=${day} 생성 실패, skip`,
+          { contactId: contact.id, lens, error: dayErr }
+        );
+      }
     }
 
     if (generated.length === 0) {
@@ -241,26 +227,64 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ScheduledSms 등록 (기존 Cron이 발송 처리)
-    let created;
+    // ScheduledSms 등록 — 중복 체크 + 생성을 단일 인터랙티브 트랜잭션으로 묶어
+    // findFirst→create 사이의 race condition 방지
+    let created: Array<{ id: string; scheduledAt: Date; status: string }>;
     try {
-      created = await prisma.$transaction(
-        generated.map((g) =>
-          prisma.scheduledSms.create({
-            data: {
-              organizationId: contact.organizationId,
-              contactId: contact.id,
-              message: g.message,
-              scheduledAt: g.scheduledAt,
-              status: "PENDING",
-              channel: "FUNNEL",
-              createdByUserId: ctx.userId,
+      const txResult = await prisma.$transaction(async (tx) => {
+        // 트랜잭션 내부에서 중복 확인 (race condition 방지)
+        const existingScheduled = await tx.scheduledSms.findFirst({
+          where: {
+            contactId: contact.id,
+            status: { in: ["PENDING", "RETRY"] },
+            createdAt: {
+              gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // 최근 24시간
             },
-            select: { id: true, scheduledAt: true, status: true },
-          })
-        )
-      );
+          },
+          select: { id: true },
+        });
+
+        if (existingScheduled) {
+          // 트랜잭션 내부에서 충돌을 알리는 특수 에러
+          const err = new Error("SMS_ALREADY_SCHEDULED");
+          (err as Error & { code?: string }).code = "SMS_ALREADY_SCHEDULED";
+          throw err;
+        }
+
+        return Promise.all(
+          generated.map((g) =>
+            tx.scheduledSms.create({
+              data: {
+                organizationId: contact.organizationId,
+                contactId: contact.id,
+                message: g.message,
+                scheduledAt: g.scheduledAt,
+                status: "PENDING",
+                channel: "FUNNEL",
+                createdByUserId: ctx.userId,
+              },
+              select: { id: true, scheduledAt: true, status: true },
+            })
+          )
+        );
+      });
+
+      created = txResult;
     } catch (dbErr) {
+      // 중복 예약 충돌 처리
+      if (
+        dbErr instanceof Error &&
+        dbErr.message === "SMS_ALREADY_SCHEDULED"
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "이미 SMS가 예약되어 있습니다.",
+            code: "SMS_ALREADY_SCHEDULED",
+          },
+          { status: 400 }
+        );
+      }
       logger.error("[POST /api/tools/auto-feedback] DB 트랜잭션 실패", {
         contactId: contact.id,
         generatedCount: generated.length,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type NetworkMode = 'WIFI' | 'CELLULAR' | 'OFFLINE';
 
@@ -121,27 +121,35 @@ export default function VoicePlayback({
   const audioRef = useRef<HTMLAudioElement>(null);
   const connectionListenerRef = useRef<(() => void) | null>(null);
 
-  // 네트워크 모드 초기 감지
+  // 네트워크 모드 초기 감지 + unmount cleanup
   useEffect(() => {
     const initialMode = detectNetworkMode();
     setNetworkMode(initialMode);
     setAudioEnabled(initialMode !== 'OFFLINE');
+
+    return () => {
+      // unmount 시 오디오 정지 — 메모리/리소스 누수 방지
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
   }, []);
+
+  // 네트워크 변경 핸들러: useCallback으로 안정화 → isPlaying 스테일 클로저 방지
+  const handleNetworkChange = useCallback(() => {
+    const newMode = detectNetworkMode();
+    setNetworkMode(newMode);
+    setAudioEnabled(newMode !== 'OFFLINE');
+
+    // 네트워크가 OFFLINE이 되었을 때 재생 중지
+    if (newMode === 'OFFLINE' && audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
+  }, []); // audioRef는 ref이므로 의존성 불필요
 
   // 네트워크 변경 이벤트 감시
   useEffect(() => {
-    const handleNetworkChange = () => {
-      const newMode = detectNetworkMode();
-      setNetworkMode(newMode);
-      setAudioEnabled(newMode !== 'OFFLINE');
-
-      // 네트워크가 OFFLINE이 되었을 때 재생 중지
-      if (newMode === 'OFFLINE' && audioRef.current && isPlaying) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      }
-    };
-
     // navigator.connection API 구독
     const connection =
       (navigator as any).connection ||
@@ -165,7 +173,7 @@ export default function VoicePlayback({
     const handleOffline = () => {
       setNetworkMode('OFFLINE');
       setAudioEnabled(false);
-      if (audioRef.current && isPlaying) {
+      if (audioRef.current) {
         audioRef.current.pause();
         setIsPlaying(false);
       }
@@ -178,11 +186,35 @@ export default function VoicePlayback({
     return () => {
       if (connectionListenerRef.current) {
         connectionListenerRef.current();
+        connectionListenerRef.current = null;
       }
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [isPlaying]);
+  }, [handleNetworkChange]);
+
+  // autoPlay prop 동작: 컴포넌트 mount 후 자동 재생
+  useEffect(() => {
+    if (!autoPlay || !audioRef.current) return;
+    const audio = audioRef.current;
+    // 약간 지연: audio 엘리먼트가 src를 로드한 후 재생
+    const tryPlay = () => {
+      audio.play().then(() => {
+        setIsPlaying(true);
+        onPlay?.();
+      }).catch(() => {
+        // 브라우저 autoplay 정책 차단 시 무시
+      });
+    };
+    if (audio.readyState >= 2) {
+      tryPlay();
+    } else {
+      audio.addEventListener('canplay', tryPlay, { once: true });
+    }
+    return () => {
+      audio.removeEventListener('canplay', tryPlay);
+    };
+  }, [autoPlay, audioUrl]); // audioUrl 변경 시 재평가
 
   // 오디오 재생 핸들러
   const handlePlay = async () => {
