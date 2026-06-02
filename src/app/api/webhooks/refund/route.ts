@@ -158,18 +158,49 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // ★ NEW: AffiliateSale 수당 100% 취소 (P0 요구사항)
+      // AffiliateSale 환불 처리 — REVERSAL 원자화 (commissionAmount 원본 유지, 감사추적)
       let refundNotificationData: Parameters<typeof createRefundNotifications>[0] | null = null;
 
       if (affiliateSale && affiliateSale.commissionAmount > 0) {
+        // 1. AffiliateSale 상태 변경 (commissionAmount 덮어쓰기 제거)
         await tx.affiliateSale.update({
           where: { id: affiliateSale.id },
           data: {
-            refundedAmount: affiliateSale.saleAmount,
+            refundedAmount: refundAmount ?? affiliateSale.saleAmount,
             refundedAt: new Date(refundedAt ?? new Date().toISOString()),
-            commissionAmount: 0, // ★ 100% 완전 취소
             status: 'REFUNDED',
             cancelReason: 'CUSTOMER_REFUND_REQUEST',
+          },
+        });
+
+        // 2. 기존 CommissionLedger 조회 → REVERSAL 역분개 생성
+        const existingLedger = await tx.commissionLedger.findFirst({
+          where: {
+            saleId: affiliateSale.id,
+            organizationId: affiliateSale.organizationId,
+            entryType: 'COMMISSION_AUTO',
+          },
+          select: { id: true, amount: true, profileId: true },
+        });
+
+        const reversalAmount = existingLedger
+          ? -existingLedger.amount
+          : -affiliateSale.commissionAmount;
+
+        await tx.commissionLedger.create({
+          data: {
+            saleId: affiliateSale.id,
+            organizationId: affiliateSale.organizationId,
+            profileId: existingLedger?.profileId ?? null,
+            entryType: 'REVERSAL',
+            amount: reversalAmount,
+            currency: 'KRW',
+            isSettled: false,
+            notes: [
+              `환불 역분개 | ${orderId}`,
+              reason ? `사유: ${reason}` : null,
+              eventId ? `eventId: ${eventId}` : null,
+            ].filter(Boolean).join(' | '),
           },
         });
 
@@ -178,17 +209,15 @@ export async function POST(req: NextRequest) {
           organizationId: affiliateSale.organizationId,
           orderId,
           customerName: contact?.name || '고객',
-          refundAmount: affiliateSale.saleAmount,
+          refundAmount: refundAmount ?? affiliateSale.saleAmount,
           refundReason: reason || '환불 요청',
           type: 'full_refund',
         };
 
-        logger.log('[RefundWebhook] AffiliateSale 수당 취소', {
+        logger.log('[RefundWebhook] 환불 역분개 CommissionLedger 생성', {
           affiliateSaleId: affiliateSale.id,
-          originalCommission: affiliateSale.commissionAmount,
-          newCommission: 0,
-          saleAmount: affiliateSale.saleAmount,
-          commissionRate: affiliateSale.commissionRate,
+          reversalAmount,
+          orderId,
         });
       }
 

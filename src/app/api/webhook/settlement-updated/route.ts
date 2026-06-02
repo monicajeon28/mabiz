@@ -19,9 +19,7 @@ export async function POST(request: NextRequest) {
       code: "ENDPOINT_DEPRECATED",
       message:
         "이 엔드포인트는 폐기되었습니다. /api/webhooks/cruisedot-settlement 를 사용하세요.",
-      migrateToUrl: "https://crm.mabiz.kr/api/webhooks/cruisedot-settlement",
-      docsUrl:
-        "https://crm.mabiz.kr/docs/webhooks#cruisedot-settlement",
+      migrateToUrl: "https://mabizcruisedot.com/api/webhooks/cruisedot-settlement",
     },
     { status: 410 }
   );

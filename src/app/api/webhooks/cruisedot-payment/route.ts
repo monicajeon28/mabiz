@@ -251,17 +251,57 @@ export async function POST(req: NextRequest) {
       }
 
       // AffiliateSale 처리 (환불 시)
-      if (status === 'REFUNDED' && affiliateSale && affiliateSale.commissionAmount > 0) {
+      // P0-4: commissionAmount=0 덮어쓰기 제거 → CommissionLedger REVERSAL 원자화
+      if (status === 'REFUNDED' && affiliateSale) {
+        // 1. AffiliateSale 상태 변경 (commissionAmount는 원본 유지 — 감사추적)
         await tx.affiliateSale.update({
           where: { id: affiliateSale.id },
           data: {
-            refundedAmount: affiliateSale.saleAmount,
+            refundedAmount: refundAmount ?? affiliateSale.saleAmount,
             refundedAt: new Date(timestamp),
-            commissionAmount: 0,
             status: 'REFUNDED',
             cancelReason: 'CUSTOMER_REFUND_CRUISEDOT',
           },
         });
+
+        // 2. 기존 CommissionLedger 조회 → REVERSAL 항목 추가 (감사추적 유지)
+        if (affiliateSale.commissionAmount > 0) {
+          const existingLedger = await tx.commissionLedger.findFirst({
+            where: {
+              saleId: affiliateSale.id,
+              organizationId: affiliateSale.organizationId,
+              entryType: 'COMMISSION_AUTO',
+            },
+            select: { id: true, amount: true, profileId: true },
+          });
+
+          const reversalAmount = existingLedger
+            ? -existingLedger.amount
+            : -affiliateSale.commissionAmount;
+
+          await tx.commissionLedger.create({
+            data: {
+              saleId: affiliateSale.id,
+              organizationId: affiliateSale.organizationId,
+              profileId: existingLedger?.profileId ?? null,
+              entryType: 'REVERSAL',
+              amount: reversalAmount,
+              currency: 'KRW',
+              isSettled: false,
+              notes: [
+                `환불 역분개 | ${bookingRef}`,
+                reason ? `사유: ${reason}` : null,
+                `원본 eventId: ${eventId}`,
+              ].filter(Boolean).join(' | '),
+            },
+          });
+
+          logger.log('[CruisedotWebhook] 환불 역분개 CommissionLedger 생성', {
+            affiliateSaleId: affiliateSale.id,
+            reversalAmount,
+            bookingRef,
+          });
+        }
 
         // ★ P2: 환불 알림 생성
         await createRefundNotifications({
@@ -276,12 +316,6 @@ export async function POST(req: NextRequest) {
             bookingRef,
             error: err instanceof Error ? err.message : String(err),
           });
-        });
-
-        logger.log('[CruisedotWebhook] AffiliateSale 수당 취소', {
-          affiliateSaleId: affiliateSale.id,
-          originalCommission: affiliateSale.commissionAmount,
-          refundAmount,
         });
       }
 
