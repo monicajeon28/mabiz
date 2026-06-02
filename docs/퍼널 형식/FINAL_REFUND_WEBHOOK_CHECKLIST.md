@@ -53,11 +53,11 @@ Refund Webhook이 Purchase Webhook과 스펙이 동일한가요?
 
 | 항목 | 내용 | 상태 |
 |------|------|------|
-| **페이로드 구조** | JSON 예제 (정상/거절/중복) | ⏳ |
-| **인증 방식** | Bearer Token 확인 | ⏳ |
-| **WEBHOOK_SECRET** | Purchase와 동일? 값 명시 | ⏳ |
-| **상태 종류** | PENDING/APPROVED/COMPLETED/REJECTED? | ⏳ |
-| **테스트 Secret** | 별도 제공 가능? | ⏳ |
+| **페이로드 구조** | JSON 예제 (정상/거절/중복) | ✅ REFUND_WEBHOOK_SPEC_CONFIRMED.md |
+| **인증 방식** | Bearer Token + HMAC-SHA256 | ✅ 구현 완료 |
+| **WEBHOOK_SECRET** | CRUISEDOT_WEBHOOK_SECRET 재사용 | ✅ 코드 반영 |
+| **상태 종류** | PENDING/APPROVED/COMPLETED/REJECTED | ✅ 상태 머신 구현 |
+| **테스트 Secret** | 별도 제공 가능? | ⏳ 크루즈닷 확인 필요 |
 
 ---
 
@@ -66,8 +66,8 @@ Refund Webhook이 Purchase Webhook과 스펙이 동일한가요?
 | 항목 | 기한 | 상태 |
 |------|------|------|
 | **메일 발송** | 2026-06-02 | ✅ 준비 완료 |
-| **크루즈닷 회신** | 2026-06-03 09:00 | ⏳ 대기 |
-| **Step 3~5 시작** | 2026-06-03 이후 | ⏳ 예정 |
+| **크루즈닷 회신** | 2026-06-03 09:00 | ✅ SPEC_CONFIRMED.md |
+| **Step 3~5 완료** | 2026-06-03 | ✅ 구현 + 테스트 완료 |
 
 ---
 
@@ -154,5 +154,9 @@ test('중복 요청 처리 (멱등성)', () => { ... })
 
 ---
 
-**상태**: 크루즈닷 회신 대기 중 ⏳  
-**마감**: 2026-06-03 09:00
+**상태**: ✅ Step 3~5 완료 (2026-06-03)
+- Step 3: 상태 전이 로직 (PENDING/APPROVED/COMPLETED/REJECTED) — `refund/route.ts`
+- Step 4: Contact 업데이트 (bookingRef 기반, 하위호환 orderId) — `refund/route.ts`
+- Step 5: 테스트 8개 시나리오 — `refund/__tests__/route.test.ts`
+
+**잔여**: 테스트 Secret 크루즈닷 확인 필요
