@@ -127,7 +127,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // GLOBAL_ADMIN 전용 조직 필터
     const queryOrgId = searchParams.get('organizationId') ?? null;
 
-    if (!period || !/^\d{4}-\d{2}$/.test(period)) {
+    const [, periodMonthStr] = (period ?? '').split('-');
+    const periodMonthNum = parseInt(periodMonthStr ?? '0', 10);
+    if (!period || !/^\d{4}-\d{2}$/.test(period) || periodMonthNum < 1 || periodMonthNum > 12) {
       return NextResponse.json(
         { ok: false, error: 'BAD_REQUEST', message: 'period는 YYYY-MM 형식이어야 합니다.' },
         { status: 400 }
