@@ -13,6 +13,7 @@ type LandingPage = {
   id: string;
   title: string;
   slug: string;
+  shortlink?: string | null;
   isActive: boolean;
   viewCount: number;
   createdAt: string;
@@ -324,6 +325,7 @@ function PageCard({
   onCloneShared,
   onCreateShortLink,
   onCopyLink,
+  onCopyShortlink,
   onDelete,
   onShare,
   onLoadStats,
@@ -345,6 +347,7 @@ function PageCard({
   onCloneShared: (id: string) => void;
   onCreateShortLink: (p: LandingPage) => void;
   onCopyLink: (slug: string) => void;
+  onCopyShortlink: (shortlink: string | null | undefined) => void;
   onDelete: (id: string, title: string) => void;
   onShare: (id: string, title: string) => void;
   onLoadStats: (id: string) => void;
@@ -417,6 +420,11 @@ function PageCard({
           </h3>
           <HoverPreview slug={page.slug} visible={hoverVisible} anchorRef={titleRef} />
           <p className="text-sm text-gray-600 mt-0.5">/p/{page.slug}</p>
+          {page.shortlink && (
+            <p className="text-sm text-blue-600 mt-1 font-mono">
+              짧은 링크: <span className="font-semibold">/p/{page.shortlink}</span>
+            </p>
+          )}
 
           <div className="flex items-center gap-3 mt-2 text-sm text-gray-500 flex-wrap">
             {/* L6: Loss aversion — 미사용 경고 */}
@@ -509,14 +517,15 @@ function PageCard({
           ) : (
             <>
               <button
-                onClick={() => onCreateShortLink(page)}
-                className="flex items-center gap-1 px-2 py-1.5 hover:bg-gray-100 rounded-lg text-gray-500 text-sm"
-                title="숏링크 만들기"
+                onClick={() => onCopyShortlink(page.shortlink)}
+                disabled={!page.shortlink}
+                className="flex items-center gap-1 px-2 py-1.5 hover:bg-gray-100 rounded-lg text-gray-500 text-sm disabled:opacity-40"
+                title={page.shortlink ? "짧은 링크 복사" : "짧은 링크 없음"}
               >
-                {copiedLinkId === page.id ? (
+                {copied === page.shortlink ? (
                   <><Check className="w-4 h-4 text-green-500" /><span className="text-green-500">복사됨</span></>
                 ) : (
-                  <><Link2 className="w-4 h-4" /><span>숏링크</span></>
+                  <><Link2 className="w-4 h-4" /><span>짧은 링크</span></>
                 )}
               </button>
               <a
@@ -671,6 +680,13 @@ export default function LandingPagesPage() {
   const copyLink = (slug: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/p/${slug}`);
     setCopied(slug);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const copyShortlink = (shortlink: string | null | undefined) => {
+    if (!shortlink) return;
+    navigator.clipboard.writeText(`${window.location.origin}/p/${shortlink}`);
+    setCopied(shortlink);
     setTimeout(() => setCopied(null), 2000);
   };
 
@@ -850,6 +866,7 @@ export default function LandingPagesPage() {
                   onCloneShared={cloneSharedPage}
                   onCreateShortLink={createShortLink}
                   onCopyLink={copyLink}
+                  onCopyShortlink={copyShortlink}
                   onDelete={deletePage}
                   onShare={openShareModal}
                   onLoadStats={loadStats}
@@ -891,6 +908,7 @@ export default function LandingPagesPage() {
                       onCloneShared={cloneSharedPage}
                       onCreateShortLink={createShortLink}
                       onCopyLink={copyLink}
+                      onCopyShortlink={copyShortlink}
                       onDelete={deletePage}
                       onShare={openShareModal}
                       onLoadStats={loadStats}

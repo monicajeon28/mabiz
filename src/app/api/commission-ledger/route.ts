@@ -55,8 +55,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
     }
 
+    // GLOBAL_ADMIN은 organizationId 없이도 접근 가능 (모든 조직의 데이터 조회)
+    // AGENT/OWNER는 organizationId가 필수
     const organizationId = ctx.organizationId;
-    if (!organizationId) {
+    if (ctx.role !== 'GLOBAL_ADMIN' && !organizationId) {
       return NextResponse.json({ ok: false, error: '조직이 설정되지 않았습니다.' }, { status: 403 });
     }
 
