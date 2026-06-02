@@ -91,14 +91,32 @@ export async function GET(req: Request) {
       }),
     ]);
 
-    // sentCount는 각 FunnelSms별 개별 카운트 (병렬 조회)
-    const sentCounts = await Promise.all(
-      items.map((item) => getSentCount(orgId, item.id))
-    );
+    // sentCount: groupBy 단일 쿼리로 N+1 방지 (100건 개별 count → 쿼리 1개)
+    const funnelSmsIds = items.map(item => item.id);
+    const sentCountRows = funnelSmsIds.length > 0
+      ? await prisma.scheduledSms.findMany({
+          where: {
+            organizationId: orgId,
+            channel: { startsWith: 'FUNNEL_SMS:' },
+            status: 'SENT',
+          },
+          select: { channel: true },
+        })
+      : [];
 
-    const data = items.map((item, i) => ({
+    const sentCountMap = new Map<string, number>();
+    for (const row of sentCountRows) {
+      // channel 형식: FUNNEL_SMS:{funnelSmsId}:{step}
+      const parts = row.channel.split(':');
+      const funnelSmsId = parts[1];
+      if (funnelSmsId && funnelSmsIds.includes(funnelSmsId)) {
+        sentCountMap.set(funnelSmsId, (sentCountMap.get(funnelSmsId) ?? 0) + 1);
+      }
+    }
+
+    const data = items.map((item) => ({
       ...item,
-      sentCount: sentCounts[i],
+      sentCount: sentCountMap.get(item.id) ?? 0,
     }));
 
     logger.info('[GET /api/funnel-sms]', { orgId, total, returned: data.length });

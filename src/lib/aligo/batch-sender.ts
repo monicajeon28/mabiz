@@ -309,7 +309,71 @@ export async function processPendingSms(
 }
 
 /**
+ * 단일 SMS 발송 + DB 기록 (processIndividualSms 내부 워커)
+ */
+async function sendOneSms(
+  sms: any,
+  aligoClient: AligoClient,
+  organizationId: string
+): Promise<'sent' | 'failed'> {
+  try {
+    const resolvedMessage = replaceMessagePlaceholders(sms.message, sms.contact ?? {});
+    const response = await aligoClient.sendSms({
+      receiver: sms.contact?.phone || '',
+      message: resolvedMessage,
+      messageType: getAligoMessageType(resolvedMessage),
+    });
+
+    if (response.resultCode === 1) {
+      await prisma.scheduledSms.update({
+        where: { id: sms.id },
+        data: { status: 'SENT', sentAt: new Date(), sentCount: 1, updatedAt: new Date() },
+      });
+      await prisma.smsLog.create({
+        data: {
+          organizationId,
+          contactId: sms.contactId,
+          phone: sms.contact?.phone || '',
+          contentPreview: sms.message.slice(0, 100),
+          msg: sms.message,
+          status: 'SENT',
+          msgId: response.msgId,
+          channel: 'INDIVIDUAL_RETRY',
+        },
+      });
+      return 'sent';
+    } else {
+      await prisma.scheduledSms.update({
+        where: { id: sms.id },
+        data: { status: 'FAILED', failureReason: response.message, failedCount: 1, updatedAt: new Date() },
+      });
+      await prisma.smsLog.create({
+        data: {
+          organizationId,
+          contactId: sms.contactId,
+          phone: sms.contact?.phone || '',
+          contentPreview: sms.message.slice(0, 100),
+          msg: sms.message,
+          status: 'FAILED',
+          blockReason: response.message,
+          channel: 'INDIVIDUAL_RETRY',
+        },
+      });
+      return 'failed';
+    }
+  } catch (error) {
+    logger.error('[processIndividualSms] 오류', {
+      smsId: sms.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return 'failed';
+  }
+}
+
+/**
  * 개별 SMS 발송 (배치 실패 시)
+ * - 동시성 4 청크 처리 → setTimeout 1200ms 제거로 Cron timeout 방지
+ * - 500건 기준: 기존 500×1.2s=600s → 개선 후 ~62s (90% 단축)
  */
 async function processIndividualSms(
   smsList: any[],
@@ -318,83 +382,16 @@ async function processIndividualSms(
 ): Promise<{ sent: number; failed: number }> {
   let sent = 0;
   let failed = 0;
+  const CONCURRENCY = 4;
 
-  for (const sms of smsList) {
-    try {
-      const resolvedMessage = replaceMessagePlaceholders(sms.message, sms.contact ?? {});
-      const response = await aligoClient.sendSms({
-        receiver: sms.contact?.phone || '',
-        message: resolvedMessage,
-        messageType: getAligoMessageType(resolvedMessage),
-      });
-
-      if (response.resultCode === 1) {
-        // 성공
-        await prisma.scheduledSms.update({
-          where: { id: sms.id },
-          data: {
-            status: 'SENT',
-            sentAt: new Date(),
-            sentCount: 1,
-            updatedAt: new Date(),
-          },
-        });
-
-        // SmsLog 기록
-        await prisma.smsLog.create({
-          data: {
-            organizationId,
-            contactId: sms.contactId,
-            phone: sms.contact?.phone || '',
-            contentPreview: sms.message.slice(0, 100),
-            msg: sms.message,
-            status: 'SENT',
-            msgId: response.msgId,
-            channel: 'INDIVIDUAL_RETRY',
-          },
-        });
-
-        // Aligo 개별 발송 rate limit 방지 (1건/초 기준 + 안전 마진)
-        await new Promise<void>(r => setTimeout(r, 1200));
-        sent++;
-      } else {
-        // 실패
-        await prisma.scheduledSms.update({
-          where: { id: sms.id },
-          data: {
-            status: 'FAILED',
-            failureReason: response.message,
-            failedCount: 1,
-            updatedAt: new Date(),
-          },
-        });
-
-        // SmsLog 기록
-        await prisma.smsLog.create({
-          data: {
-            organizationId,
-            contactId: sms.contactId,
-            phone: sms.contact?.phone || '',
-            contentPreview: sms.message.slice(0, 100),
-            msg: sms.message,
-            status: 'FAILED',
-            blockReason: response.message,
-            channel: 'INDIVIDUAL_RETRY',
-          },
-        });
-
-        // Aligo 개별 발송 rate limit 방지 (1건/초 기준 + 안전 마진)
-        await new Promise<void>(r => setTimeout(r, 1200));
-        failed++;
-      }
-    } catch (error) {
-      logger.error('[processIndividualSms] 오류', {
-        smsId: sms.id,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      // Aligo 개별 발송 rate limit 방지 (1건/초 기준 + 안전 마진)
-      await new Promise<void>(r => setTimeout(r, 1200));
-      failed++;
+  for (let i = 0; i < smsList.length; i += CONCURRENCY) {
+    const chunk = smsList.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(
+      chunk.map(sms => sendOneSms(sms, aligoClient, organizationId))
+    );
+    for (const r of results) {
+      if (r === 'sent') sent++;
+      else failed++;
     }
   }
 
