@@ -8,6 +8,19 @@ import { detectLenses, sortLensesByPriority } from "@/lib/lens-detector";
 import { recommendProducts } from "@/lib/product-recommender";
 import { sendSms, resolveUserSmsConfig } from "@/lib/aligo";
 
+// 고객 타입 정규화: PURCHASED (구매완료) | INQUIRY (문의) | GOLD (금회원)
+function normalizeCustomerType(type: string | undefined): 'PURCHASED' | 'INQUIRY' | 'GOLD' | undefined {
+  if (!type) return undefined;
+  const lower = type.toLowerCase();
+  // PURCHASED: "CUSTOMER", "구매완료", "PURCHASED" 모두 동일
+  if (lower === 'customer' || type === '구매완료' || lower === 'purchased') return 'PURCHASED';
+  // INQUIRY: "LEAD", "INQUIRY" 동일
+  if (lower === 'lead' || lower === 'inquiry') return 'INQUIRY';
+  // GOLD: 금회원
+  if (lower === 'gold') return 'GOLD';
+  return undefined;
+}
+
 // GET /api/contacts — 고객 목록 (역할 기반 + P0-6 출처 기반)
 export async function GET(req: Request) {
   try {
@@ -32,18 +45,36 @@ export async function GET(req: Request) {
     const safeLimit = Math.min(Number(searchParams.get("limit")) || 30, 200); // limit 상한 강제 (200건)
 
     const baseWhere = buildContactWhere(ctx, {
-      // customerOnly: CUSTOMER + 구매완료 두 가지 type 모두 포함 + purchasedAt NOT NULL 필수
+      // customerOnly: PURCHASED (구매완료) 고객만, purchasedAt NOT NULL 필수
       ...(customerOnly
         ? {
-            type: { in: ["CUSTOMER", "구매완료"] },
-            purchasedAt: { not: null } // P0-BUG1: 구매 확정 고객만 필터링
+            type: { in: ["CUSTOMER", "구매완료", "PURCHASED"] },
+            purchasedAt: { not: null }
           }
-        : type === "구매완료" || type === "CUSTOMER"
-          ? {
-              type,
-              purchasedAt: { not: null } // P0-FIX: 구매 확정 고객만 필터링 (type 필터 사용 시에도)
-            }
-          : type ? { type } : {}),
+        : type
+          ? (() => {
+              const normalized = normalizeCustomerType(type);
+              if (normalized === 'PURCHASED') {
+                // 구매완료: type이 CUSTOMER/구매완료/PURCHASED이고 purchasedAt NOT NULL
+                return {
+                  type: { in: ["CUSTOMER", "구매완료", "PURCHASED"] },
+                  purchasedAt: { not: null }
+                };
+              } else if (normalized === 'INQUIRY') {
+                // 문의: type이 LEAD/INQUIRY
+                return { type: { in: ["LEAD", "INQUIRY"] } };
+              } else if (normalized === 'GOLD') {
+                // 금회원: type이 GOLD 또는 vipStatus가 GOLD
+                return {
+                  OR: [
+                    { type: 'GOLD' },
+                    { vipStatus: 'GOLD' }
+                  ]
+                };
+              }
+              return { type };
+            })()
+          : {}),
       ...(channel ? { channel } : {}),
       ...(sourceType ? { sourceType } : {}), // P0-6: 출처 필터링
       ...(q
