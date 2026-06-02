@@ -18,6 +18,7 @@
 import { getMabizSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { detectLandingLens } from '@/lib/landing-lens-detector';
+import { encryptLandingNotes } from '@/lib/sensitive-data-encryption';
 
 export async function POST(request: Request) {
   try {
@@ -107,6 +108,13 @@ export async function POST(request: Request) {
     }
 
     // 7. Contact 생성
+    // adminMemo: 민감 정보 암호화 (AES-256-GCM)
+    const encryptedMemo = encryptLandingNotes({
+      travelType,
+      budget,
+      problem
+    });
+
     const contact = await prisma.contact.create({
       data: {
         organizationId: session.organizationId,
@@ -118,7 +126,7 @@ export async function POST(request: Request) {
         utmSource: 'LANDING_CRUISEDOT',
         cruiseInterest: travelType || undefined,
         budgetRange: budget || undefined,
-        adminMemo: `[크루즈닷 랜딩] 여행유형: ${travelType || 'N/A'} | 예산: ${budget || 'N/A'} | 신청 사유: ${problem || 'N/A'}`,
+        adminMemo: encryptedMemo,
         tags: tagsArray
       }
     });

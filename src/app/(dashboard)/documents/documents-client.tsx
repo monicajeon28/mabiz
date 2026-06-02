@@ -357,7 +357,8 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
 
       {/* PNG 다운로드용 렌더링 (화면 밖 절대 위치 — html2canvas 렌더링 가능) */}
       {docs.map(doc => {
-        const d = doc.generatedData;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const d = doc.generatedData as any;
         const docType = DOC_TYPES.find(t => t.key === tab)!;
         const issuedDate = new Date(doc.createdAt).toLocaleDateString('ko-KR');
         return (
@@ -402,29 +403,30 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
                     ))}
                   </tbody>
                 </table>
-                {d.departureDate && <p style={{ fontSize: '13px', color: '#555' }}>출발일: {String(d.departureDate)}</p>}
+                {!!d.departureDate && <p style={{ fontSize: '13px', color: '#555' }}>출발일: {String(d.departureDate)}</p>}
               </div>
             )}
 
-            {/* 구매확인증서 / 구매계약서 */}
             {(tab === 'PURCHASE_CONFIRMATION' || tab === 'PURCHASE_CONTRACT') && (
               <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '32px' }}>
+                <tbody>
                 {[
                   { label: '구매자명', value: String(d.buyerName ?? '-') },
                   { label: '연락처', value: String(d.buyerTel ?? '-') },
                   { label: '상품명', value: String(d.productName ?? '-') },
-                  ...(d.departureDate ? [{ label: '출발일', value: String(d.departureDate) }] : []),
-                  ...(d.nights ? [{ label: '여행기간', value: `${String(d.nights)}박` }] : []),
+                  ...(d.departureDate != null ? [{ label: '출발일', value: String(d.departureDate) }] : []),
+                  ...(d.nights != null ? [{ label: '여행기간', value: `${String(d.nights)}박` }] : []),
                   { label: '결제금액', value: `${Number(d.amount ?? 0).toLocaleString()}원` },
                   { label: '결제방법', value: String(d.paymentMethod ?? '-') },
-                  ...(d.paidAt ? [{ label: '결제일시', value: new Date(String(d.paidAt)).toLocaleDateString('ko-KR') }] : []),
-                  ...(tab === 'PURCHASE_CONTRACT' && d.signedAt ? [{ label: '계약일', value: String(d.signedAt) }] : []),
+                  ...(d.paidAt != null ? [{ label: '결제일시', value: new Date(String(d.paidAt)).toLocaleDateString('ko-KR') }] : []),
+                  ...(tab === 'PURCHASE_CONTRACT' && d.signedAt != null ? [{ label: '계약일', value: String(d.signedAt) }] : []),
                 ].map((row, i) => (
                   <tr key={i} style={{ background: i % 2 === 0 ? '#f8f9fa' : 'white' }}>
                     <td style={{ padding: '12px 16px', border: '1px solid #e0e0e0', fontWeight: 'bold', width: '30%', color: '#444' }}>{row.label}</td>
                     <td style={{ padding: '12px 16px', border: '1px solid #e0e0e0' }}>{row.value}</td>
                   </tr>
                 ))}
+                </tbody>
               </table>
             )}
 
