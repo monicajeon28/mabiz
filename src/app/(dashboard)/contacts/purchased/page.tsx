@@ -202,7 +202,7 @@ export default function PurchasedPage() {
           <h1 className="text-xl font-bold text-navy-900">구매 고객 관리</h1>
           <div className="flex items-center gap-2 mt-1">
             <div className="flex bg-gray-100 rounded-lg p-0.5">
-              {([["", "전체"], ["b2c", "B2C(몰)"], ["b2b", "B2B(페이앱)"]] as const).map(([val, label]) => (
+              {([["", "전체"], ["b2c", "개인고객(몰)"], ["b2b", "기업고객(페이앱)"]] as const).map(([val, label]) => (
                 <button
                   key={val}
                   onClick={() => { setChannelFilter(val as "" | "b2c" | "b2b"); setPage(1); }}

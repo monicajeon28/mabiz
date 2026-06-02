@@ -1324,7 +1324,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                     h.status === "PENDING" ? "bg-yellow-100 text-yellow-700" :
                                             "bg-gray-100 text-gray-500"
                   }`}>
-                    {h.status}
+                    {h.status === "SENT" ? "✅ 발송완료" : h.status === "FAILED" ? "❌ 발송실패" : h.status === "PENDING" ? "⏳ 대기중" : h.status}
                   </span>
                   <span className="text-xs text-gray-400">
                     {new Date(h.sentAt ?? h.createdAt).toLocaleString("ko-KR")}
@@ -1363,7 +1363,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                       r.status === "PENDING"    ? "bg-yellow-100 text-yellow-700" :
                                                   "bg-gray-100 text-gray-500"
                     }`}>
-                      {r.status}
+                      {r.status === "CONFIRMED" ? "✅ 예약확정" : r.status === "CANCELLED" ? "❌ 취소됨" : r.status === "PENDING" ? "⏳ 확인중" : r.status}
                     </span>
                     <span className="text-xs text-gray-400">예약 #{r.id}</span>
                   </div>

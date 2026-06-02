@@ -166,11 +166,13 @@ function ConfirmModal({
   onClose,
   onConfirm,
   submitting,
+  actionError,
 }: {
   modal: ModalState;
   onClose: () => void;
   onConfirm: () => void;
   submitting: boolean;
+  actionError: string | null;
 }) {
   if (!modal.open) return null;
 
@@ -223,6 +225,16 @@ function ConfirmModal({
           </div>
         </div>
 
+        {/* 액션 에러 (모달 내 인라인) */}
+        {actionError && (
+          <div className="px-6 pb-3">
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              {actionError}
+            </div>
+          </div>
+        )}
+
         {/* 버튼 */}
         <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end">
           <button
@@ -259,7 +271,9 @@ export default function TeamStatementsPage() {
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isNetworkError, setIsNetworkError] = useState<boolean>(false);
   const [forbidden, setForbidden] = useState<boolean>(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const [modal, setModal] = useState<ModalState>({
     open: false,
@@ -284,6 +298,7 @@ export default function TeamStatementsPage() {
     abortRef.current = controller;
     setLoading(true);
     setError(null);
+    setIsNetworkError(false);
 
     const params = new URLSearchParams({
       period,
@@ -301,7 +316,10 @@ export default function TeamStatementsPage() {
           setForbidden(true);
           throw new Error("forbidden");
         }
-        if (!r.ok) throw new Error(`서버 오류 (HTTP ${r.status})`);
+        if (!r.ok) {
+          setIsNetworkError(true);
+          throw new Error(`정산 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요. (HTTP ${r.status})`);
+        }
         return r.json() as Promise<ApiResponse>;
       })
       .then((d) => {
@@ -316,8 +334,9 @@ export default function TeamStatementsPage() {
       })
       .catch((e: unknown) => {
         if (e instanceof Error && (e.name === "AbortError" || e.message === "forbidden")) return;
+        setIsNetworkError(true);
         setError(
-          e instanceof Error ? e.message : "데이터를 불러올 수 없습니다."
+          e instanceof Error ? e.message : "정산 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요."
         );
       })
       .finally(() => {
@@ -359,11 +378,13 @@ export default function TeamStatementsPage() {
   function closeModal() {
     if (submitting) return;
     setModal((prev) => ({ ...prev, open: false }));
+    setActionError(null);
   }
 
   async function handleConfirm() {
     if (!modal.payslipId || !modal.action) return;
     setSubmitting(true);
+    setActionError(null);
     try {
       const res = await fetch(`/api/statements/${modal.payslipId}/confirm`, {
         method: "POST",
@@ -373,13 +394,13 @@ export default function TeamStatementsPage() {
       });
       const json = (await res.json()) as { ok: boolean; error?: string };
       if (!json.ok) {
-        setError(json.error ?? "처리에 실패했습니다.");
+        setActionError(json.error ?? "처리에 실패했습니다. 다시 시도해 주세요.");
       } else {
         closeModal();
         load(); // 목록 새로고침
       }
     } catch {
-      setError("네트워크 오류가 발생했습니다.");
+      setActionError("네트워크 오류가 발생했습니다. 연결 상태를 확인해 주세요.");
     } finally {
       setSubmitting(false);
     }
@@ -409,6 +430,7 @@ export default function TeamStatementsPage() {
         onClose={closeModal}
         onConfirm={handleConfirm}
         submitting={submitting}
+        actionError={actionError}
       />
 
       <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
@@ -455,9 +477,36 @@ export default function TeamStatementsPage() {
 
         {/* ── 에러 배너 ────────────────────────────────────────────────────── */}
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-center gap-2">
-            <XCircle className="w-4 h-4 shrink-0" />
-            {error}
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="flex items-start gap-2">
+              <XCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span className="flex-1">{error}</span>
+              {isNetworkError && (
+                <button
+                  type="button"
+                  onClick={load}
+                  className="inline-flex items-center gap-1 ml-2 px-3 py-1 rounded-lg text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors whitespace-nowrap flex-shrink-0"
+                >
+                  ↺ 다시 시도
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── 액션 에러 (승인/발송 실패 인라인 표시) ───────────────────────── */}
+        {actionError && (
+          <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg text-orange-700 text-sm flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span className="flex-1">{actionError}</span>
+            <button
+              type="button"
+              onClick={() => setActionError(null)}
+              className="ml-2 text-orange-400 hover:text-orange-600 transition-colors flex-shrink-0"
+              aria-label="닫기"
+            >
+              <XCircle className="w-4 h-4" />
+            </button>
           </div>
         )}
 

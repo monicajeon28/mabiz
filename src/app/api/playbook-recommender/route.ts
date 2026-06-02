@@ -15,8 +15,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { redis } from "@/lib/redis";
+import prisma from "@/lib/prisma";
+import { getCache, setCache } from "@/lib/redis";
 import { LensDetectionEngine } from "@/lib/services/lens-detection-engine";
 import {
   calculateScore,
@@ -37,14 +37,14 @@ export async function POST(request: NextRequest) {
   try {
     // 1. 인증 확인
     const session = await getMabizSession();
-    if (!session?.user?.organizationId) {
+    if (!session?.organizationId) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const organizationId = session.user.organizationId;
+    const organizationId = session.organizationId;
 
     // 2. 요청 파라미터 검증
     const body = await request.json();
@@ -59,26 +59,19 @@ export async function POST(request: NextRequest) {
 
     // 3. 캐시 확인 (Redis)
     const cacheKey = `playbook-rec:${organizationId}:${contactId}`;
-    if (redis) {
-      try {
-        const cached = await redis.get(cacheKey);
-        if (cached) {
-          const responseTime = Date.now() - startTime;
-          logger.info(`[PlaybookRecommender] Cache hit for ${contactId} (${responseTime}ms)`);
-          return NextResponse.json({
-            ...cached,
-            cached: true,
-            responseTime,
-          });
-        }
-      } catch (cacheError) {
-        logger.warn(`[PlaybookRecommender] Cache read error: ${cacheError}`);
-        // 캐시 오류는 무시하고 계속 진행
+    try {
+      const cached = await getCache<Record<string, unknown>>(cacheKey);
+      if (cached) {
+        const responseTime = Date.now() - startTime;
+        logger.info(`[PlaybookRecommender] Cache hit for ${contactId} (${responseTime}ms)`);
+        return NextResponse.json({ ...cached, cached: true, responseTime });
       }
+    } catch (cacheError) {
+      logger.warn(`[PlaybookRecommender] Cache read error: ${cacheError}`);
     }
 
     // 4. Contact 조회
-    const contact = await db.contact.findUnique({
+    const contact = await prisma.contact.findUnique({
       where: { id: contactId },
       select: {
         id: true,
@@ -124,11 +117,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. 렌즈 감지 (기존 엔진 활용)
-    const lensEngine = new LensDetectionEngine(db, redis);
+    const lensEngine = new LensDetectionEngine(prisma);
     const lensResult = await lensEngine.detectLens(contactId, organizationId);
 
     // 6. 모든 활성 스크립트 조회
-    const allScripts = await db.salesPlaybook.findMany({
+    const allScripts = await prisma.salesPlaybook.findMany({
       where: {
         isActive: true,
       },
@@ -137,7 +130,6 @@ export async function POST(request: NextRequest) {
         title: true,
         content: true,
         type: true,
-        category: true,
         psychology: true,
         scriptTab: true,
         priority: true,
@@ -180,10 +172,10 @@ export async function POST(request: NextRequest) {
     };
 
     // 8. 스크립트 점수 계산 및 정렬
-    const scored = allScripts.map((script) => {
+    const scored = allScripts.map((script: (typeof allScripts)[0]) => {
       const successRate = getSuccessRate(script);
       const score = calculateScore(script, lensResult.primaryLens, null, successRate);
-      const matchPercentage = calculateMatch(script.category || "", lensResult.primaryLens);
+      const matchPercentage = calculateMatch(script.type || "", lensResult.primaryLens);
       const matchReason = generateMatchReason(
         lensResult.primaryLens,
         matchPercentage,
@@ -193,7 +185,7 @@ export async function POST(request: NextRequest) {
       return {
         id: script.id,
         title: script.title,
-        category: script.category || "General",
+        category: script.type || "General",
         type: script.type || "script",
         psychology: script.psychology,
         successRate,
@@ -208,7 +200,7 @@ export async function POST(request: NextRequest) {
 
     // 점수 기준 내림차순 정렬
     const ranked = scored
-      .sort((a, b) => b.score - a.score)
+      .sort((a: ScriptRecommendation, b: ScriptRecommendation) => b.score - a.score)
       .slice(0, 5); // Top 5만 반환
 
     // 9. 신뢰도 계산
@@ -227,16 +219,10 @@ export async function POST(request: NextRequest) {
     };
 
     // 11. 캐시 저장 (Redis, 1시간 TTL)
-    if (redis) {
-      try {
-        await redis.setex(
-          cacheKey,
-          CACHE_TTL_SECONDS,
-          JSON.stringify(result)
-        );
-      } catch (cacheError) {
-        logger.warn(`[PlaybookRecommender] Cache write error: ${cacheError}`);
-      }
+    try {
+      await setCache(cacheKey, result, CACHE_TTL_SECONDS);
+    } catch (cacheError) {
+      logger.warn(`[PlaybookRecommender] Cache write error: ${cacheError}`);
     }
 
     // 12. 비동기 로깅 (클릭 분석용)
