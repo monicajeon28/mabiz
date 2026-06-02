@@ -11,7 +11,6 @@
 
 import { prisma as db } from '@/lib/prisma';
 import { selectSmsSequence } from './landing-sms-templates';
-import { SmsQueue } from '@prisma/client';
 
 /**
  * 랜딩 페이지 양식 데이터
@@ -118,11 +117,12 @@ function detectLens(contact: any): string {
     return 'L8';
   }
 
-  // L6: 재방문 (24h 미만)
+  // L6: 재방문 (24h 미만) — Date/string 양쪽 안전 처리
   if (contact.lastContactedAt) {
-    const hoursSinceLastContact =
-      (Date.now() - contact.lastContactedAt.getTime()) / (1000 * 60 * 60);
-    if (hoursSinceLastContact < 24) {
+    const ts = contact.lastContactedAt instanceof Date
+      ? contact.lastContactedAt.getTime()
+      : new Date(contact.lastContactedAt).getTime();
+    if (!isNaN(ts) && (Date.now() - ts) / (1000 * 60 * 60) < 24) {
       return 'L6';
     }
   }
