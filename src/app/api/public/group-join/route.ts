@@ -9,6 +9,8 @@ export async function POST(req: Request) {
   try {
     const contentType = req.headers.get('content-type') ?? '';
     let seq: string, nm: string, hp: string, em: string | null;
+    // FIX #4: result_url을 form body에서 읽어 상대경로만 허용 (open redirect 방지)
+    let resultUrl: string | null = null;
 
     if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
@@ -16,12 +18,17 @@ export async function POST(req: Request) {
       nm  = String(formData.get('nm')  ?? '').trim();
       hp  = String(formData.get('hp')  ?? '').trim();
       em  = String(formData.get('em')  ?? '').trim() || null;
+      // 상대경로만 허용 (절대 URL / 외부 도메인 차단)
+      const raw = String(formData.get('result_url') ?? '').trim();
+      if (raw.startsWith('/') && !raw.startsWith('//')) resultUrl = raw;
     } else {
       const body = await req.json() as Record<string, string>;
       seq = (body.seq ?? '').trim();
       nm  = (body.nm  ?? '').trim();
       hp  = (body.hp  ?? '').trim();
       em  = (body.em  ?? '').trim() || null;
+      const raw = (body.result_url ?? '').trim();
+      if (raw.startsWith('/') && !raw.startsWith('//')) resultUrl = raw;
     }
 
     if (!seq || !nm || !hp) {
@@ -56,21 +63,27 @@ export async function POST(req: Request) {
       select: { id: true },
     });
 
-    // 그룹 멤버 추가 (중복 무시)
+    // FIX #5: 신규 등록 여부 확인 후 memberCount 조건부 증가
+    const existingMember = await prisma.contactGroupMember.findUnique({
+      where: { groupId_contactId: { groupId: group.id, contactId: contact.id } },
+      select: { groupId: true },
+    });
+
     await prisma.contactGroupMember.upsert({
       where: { groupId_contactId: { groupId: group.id, contactId: contact.id } },
       create: { groupId: group.id, contactId: contact.id },
       update: {},
     });
 
-    // memberCount 동기
-    await prisma.contactGroup.update({
-      where: { id: group.id },
-      data: { memberCount: { increment: 1 } },
-    }).catch(() => {/* 실패해도 등록은 성공 */});
+    // 실제 신규 등록 시에만 memberCount 증가
+    if (!existingMember) {
+      await prisma.contactGroup.update({
+        where: { id: group.id },
+        data: { memberCount: { increment: 1 } },
+      }).catch(() => {/* 실패해도 등록은 성공 */});
+    }
 
-    // ★ 퍼널문자(FunnelSms) 트리거 — 그룹에 funnelSmsIds[]가 연결된 경우
-    // fire-and-forget: 실패해도 그룹 등록은 성공으로 응답
+    // 퍼널문자(FunnelSms) 트리거 — fire-and-forget
     if (group.funnelSmsIds && group.funnelSmsIds.length > 0) {
       for (const funnelSmsId of group.funnelSmsIds) {
         triggerGroupFunnelSms({
@@ -86,12 +99,11 @@ export async function POST(req: Request) {
       }
     }
 
-    const resultUrl = new URL(req.url).searchParams.get('result_url');
+    logger.log('[group-join]', { seq, contactId: contact.id, groupId: group.id });
+
     if (resultUrl) {
       return NextResponse.redirect(resultUrl, { status: 302 });
     }
-
-    logger.log('[group-join]', { seq, contactId: contact.id, groupId: group.id });
     return NextResponse.json({ ok: true, message: '신청이 완료되었습니다.' });
   } catch (err) {
     logger.error('[POST /api/public/group-join]', { err });
