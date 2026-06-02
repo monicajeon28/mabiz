@@ -139,6 +139,12 @@ export async function triggerGroupFunnelSms(opts: TriggerOptions): Promise<boole
       };
     });
 
+    // [방어] data 배열이 비면 createMany 무의미 호출 방지 (messages 길이는 위에서 검증되나 이중 안전장치)
+    if (data.length === 0) {
+      logger.log("[FunnelSmsTrigger] 생성할 ScheduledSms 없음", { contactId, funnelSmsId });
+      return false;
+    }
+
     await prisma.scheduledSms.createMany({ data });
 
     logger.log("[FunnelSmsTrigger] 퍼널문자 스케줄 생성 완료", {

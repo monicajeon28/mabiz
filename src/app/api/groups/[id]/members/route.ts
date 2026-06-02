@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext } from "@/lib/rbac";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
+import { triggerGroupFunnelSms } from "@/lib/funnel-sms-trigger";
 import { logger } from "@/lib/logger";
 import { addLeadScore } from "@/lib/lead-score";
 
@@ -75,6 +76,18 @@ export async function POST(req: Request, { params }: Params) {
             organizationId: orgId,
           }).catch((err) => {
             logger.error('[GroupMember] 퍼널 트리거 실패', { err });
+          });
+        }
+
+        // ★ 퍼널문자(FunnelSms) 트리거 — 그룹에 funnelSmsId가 연결된 경우
+        // fire-and-forget: 실패해도 그룹 배정은 성공으로 응답
+        if (group.funnelSmsId) {
+          triggerGroupFunnelSms({
+            contactId,
+            groupId,
+            organizationId: orgId,
+          }).catch((err) => {
+            logger.error('[GroupMember] 퍼널문자 트리거 실패', { err });
           });
         }
 
