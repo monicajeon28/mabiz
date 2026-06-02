@@ -31,17 +31,29 @@ export async function GET(_req: Request, { params }: Params) {
 export async function DELETE(req: Request, { params }: Params) {
   try {
     const orgId = await getOrgId();
+    const ctx = await getAuthContext();
     const { id } = await params;
     const { searchParams } = new URL(req.url);
     const memoId = searchParams.get("memoId");
 
+    // [S-001] memoId UUID 형식 검증
+    if (memoId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(memoId)) {
+      return NextResponse.json({ ok: false, message: "유효하지 않은 메모 ID 형식입니다" }, { status: 400 });
+    }
+
     const contact = await prisma.contact.findFirst({ where: { id, organizationId: orgId } });
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
 
+    // AGENT는 자신의 메모만 삭제 가능 (call-logs와 동일한 정책)
+    const deleteWhere: Record<string, unknown> = { contactId: id };
+    if (ctx.role === 'AGENT') {
+      deleteWhere.userId = ctx.userId;
+    }
+
     if (memoId) {
-      await prisma.contactMemo.deleteMany({ where: { id: memoId, contactId: id } });
+      await prisma.contactMemo.deleteMany({ where: { ...deleteWhere, id: memoId } });
     } else {
-      await prisma.contactMemo.deleteMany({ where: { contactId: id } });
+      await prisma.contactMemo.deleteMany({ where: deleteWhere });
     }
 
     return NextResponse.json({ ok: true });

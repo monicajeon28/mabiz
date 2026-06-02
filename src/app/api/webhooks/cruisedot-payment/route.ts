@@ -93,7 +93,12 @@ export async function POST(req: NextRequest) {
   try {
     // eventId 멱등성 체크
     const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
-      where: { eventId },
+      where: {
+        eventId_webhookType: {
+          eventId,
+          webhookType: 'cruisedot-payment',
+        },
+      },
     });
 
     if (alreadyProcessed) {

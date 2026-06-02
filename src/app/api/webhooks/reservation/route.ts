@@ -75,7 +75,12 @@ export async function POST(req: NextRequest) {
   try {
     // ── 멱등성 체크 (eventId 기반) ─────────────────────────────────
     const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
-      where: { eventId },
+      where: {
+        eventId_webhookType: {
+          eventId,
+          webhookType: 'reservation',
+        },
+      },
       select: { eventId: true },
     });
 

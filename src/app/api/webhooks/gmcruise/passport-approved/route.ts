@@ -57,7 +57,12 @@ export async function POST(req: NextRequest) {
   try {
     // 멱등성 체크
     const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
-      where: { eventId },
+      where: {
+        eventId_webhookType: {
+          eventId,
+          webhookType: 'gmcruise-passport-approved',
+        },
+      },
       select: { eventId: true },
     });
     if (alreadyProcessed) {

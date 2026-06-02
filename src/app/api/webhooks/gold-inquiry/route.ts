@@ -77,7 +77,12 @@ export async function POST(req: NextRequest) {
       // eventId 멱등성 체크 (Transaction 내부 — TOCTOU 방지)
       if (eventId) {
         const alreadyProcessed = await tx.processedWebhookEvent.findUnique({
-          where: { eventId },
+          where: {
+            eventId_webhookType: {
+              eventId,
+              webhookType: 'gold-inquiry',
+            },
+          },
           select: { eventId: true },
         });
         if (alreadyProcessed) {

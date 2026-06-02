@@ -203,12 +203,15 @@ export async function POST(req: Request) {
 
     // P0-1: Race condition 방지 — $transaction으로 select-then-update 원자적 처리
     const result = await prisma.$transaction(async (tx) => {
-      // 현재 문서 조회 (APPROVED가 아닌 것만)
-      const current = await tx.salesDocument.findFirst({
-        where: { id: docId, status: { not: 'APPROVED' } },
-        select: { id: true, generatedData: true, organizationId: true },
+      // 먼저 문서 존재 여부 확인 (미존재 vs 이미서명 구분)
+      const docExists = await tx.salesDocument.findFirst({
+        where: { id: docId },
+        select: { id: true, status: true, generatedData: true, organizationId: true },
       });
-      if (!current) return null; // 이미 서명됨
+      if (!docExists) return 'NOT_FOUND' as const; // 문서 없음 → 401
+      if (docExists.status === 'APPROVED') return null; // 이미 서명 → 409
+
+      const current = docExists;
 
       const existingData = current.generatedData as Record<string, unknown>;
 
@@ -250,6 +253,12 @@ export async function POST(req: Request) {
       return { signedAt, organizationId: current.organizationId };
     });
 
+    if (result === 'NOT_FOUND') {
+      return NextResponse.json(
+        { ok: false, message: '유효하지 않은 링크입니다' },
+        { status: 401 },
+      );
+    }
     if (result === null) {
       return NextResponse.json(
         { ok: false, message: '이미 서명된 계약서입니다' },

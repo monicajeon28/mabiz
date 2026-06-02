@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. 멱등성: 이미 처리된 이벤트 확인
-    if (await isProcessedWebhook(eventId)) {
+    if (await isProcessedWebhook(eventId, 'execution-status')) {
       logger.info("[ExecutionStatusWebhook] 중복 이벤트 (멱등성)", {
         eventId,
         sendingId,
