@@ -80,6 +80,8 @@ model Organization {
   commissionLedgers          CommissionLedger[]
   // Monthly Settlement
   monthlySettlements         MonthlySettlement[]
+  // FunnelSms (퍼널문자)
+  funnelSmsList              FunnelSms[]
 }
 
 model OrgSmsConfig {
@@ -608,12 +610,14 @@ model ContactGroup {
   description        String?
   color              String?                @default("#6B7280")
   funnelId           String?
+  funnelSmsId        String?
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
   ownerId            String?
   // P2-13: memberCount 캐시 (실시간 _count 대신 UPDATE 트리거로 유지)
   memberCount        Int                    @default(0)
   organization       Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  funnelSms          FunnelSms?             @relation("GroupFunnelSms", fields: [funnelSmsId], references: [id], onDelete: SetNull)
   members            ContactGroupMember[]
   b2bLandingPages    B2BLandingPage[]
   landingPages       CrmLandingPage[]
@@ -1341,7 +1345,7 @@ model ScheduledSms {
   pausedAt        DateTime?
   pausedBy        String?
   failureReason   String?
-  channel         String       @default("GENERAL") @db.VarChar(50)
+  channel         String       @default("GENERAL") @db.VarChar(100)
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, status, scheduledAt])
@@ -6501,4 +6505,45 @@ model SettlementLedger {
   @@index([partnerId, period])
   @@index([status])
   @@index([churnDetected])
+}
+
+// ============================================================
+// FunnelSms (퍼널문자) — 그룹 가입 → N회차 자동 SMS 시퀀스
+// ============================================================
+model FunnelSms {
+  id              String             @id @default(cuid())
+  organizationId  String
+  title           String
+  senderPhone     String?
+  category        String?
+  description     String?
+  sendHour        Int                @default(10)
+  sendMinute      Int                @default(0)
+  arsNum          String?
+  isActive        Boolean            @default(true)
+  createdByUserId String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  messages        FunnelSmsMessage[]
+  groups          ContactGroup[]     @relation("GroupFunnelSms")
+
+  @@index([organizationId])
+  @@map("FunnelSms")
+}
+
+model FunnelSmsMessage {
+  id          String    @id @default(cuid())
+  funnelSmsId String
+  order       Int
+  daysAfter   Int       @default(0)
+  content     String    @db.Text
+  msgType     String    @default("SMS") @db.VarChar(5)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  funnelSms   FunnelSms @relation(fields: [funnelSmsId], references: [id], onDelete: Cascade)
+
+  @@unique([funnelSmsId, order])
+  @@index([funnelSmsId])
+  @@map("FunnelSmsMessage")
 }
