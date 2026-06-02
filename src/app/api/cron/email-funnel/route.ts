@@ -37,8 +37,19 @@ export async function GET(req: Request) {
       },
       orderBy: { scheduledAt: "asc" },
       take: BATCH_SIZE,
-      include: { contact: { select: { email: true } } },
     });
+
+    // Contact 이메일 일괄 조회 (ScheduledEmail에 relation 없음)
+    const contactIds = pendingEmails
+      .map(e => e.contactId)
+      .filter((id): id is string => id !== null);
+    const contacts = contactIds.length > 0
+      ? await prisma.contact.findMany({
+          where: { id: { in: contactIds } },
+          select: { id: true, email: true },
+        })
+      : [];
+    const contactEmailMap = new Map(contacts.map(c => [c.id, c.email ?? null]));
 
     if (pendingEmails.length === 0) {
       logger.log("[Cron] 발송할 이메일 없음", { now });
@@ -51,7 +62,8 @@ export async function GET(req: Request) {
     // ── 2단계: 배치 발송 ────────────────────────────
     for (const email of pendingEmails) {
       try {
-        if (!email.contact?.email) {
+        const toEmail = email.contactId ? contactEmailMap.get(email.contactId) : null;
+        if (!toEmail) {
           logger.warn("[Email] 수신자 이메일 없음", { emailId: email.id });
           await updateEmailStatus(email.id, "FAILED", "NO_RECIPIENT");
           failedCount++;
@@ -62,7 +74,7 @@ export async function GET(req: Request) {
         const result = await sendFunnelEmail({
           organizationId: email.organizationId,
           contactId: email.contactId ?? undefined,
-          to: email.contact.email,
+          to: toEmail,
           subject: email.subject,
           html: email.content,
           channel: "FUNNEL",
@@ -75,11 +87,11 @@ export async function GET(req: Request) {
           logger.log("[Email] 퍼널 이메일 발송 성공", {
             emailId: email.id,
             contactId: email.contactId,
-            to: email.contact.email.slice(0, 5) + "***",
+            to: toEmail.slice(0, 5) + "***",
           });
         } else {
-          // 발송 실패
-          const retryCount = (email.retryCount ?? 0) + 1;
+          // 발송 실패 (failedCount 필드를 retryCount로 사용)
+          const retryCount = (email.failedCount ?? 0) + 1;
 
           if (retryCount < MAX_RETRIES) {
             // 5분 후 재시도
@@ -89,7 +101,7 @@ export async function GET(req: Request) {
               data: {
                 status: "PENDING",
                 scheduledAt: nextRetryAt,
-                retryCount,
+                failedCount: retryCount,
                 failureReason: result.message,
               },
             });
@@ -112,7 +124,7 @@ export async function GET(req: Request) {
       } catch (err) {
         logger.error("[Email] 퍼널 이메일 처리 중 오류", { emailId: email.id, err });
         failedCount++;
-        const retryCount = (email.retryCount ?? 0) + 1;
+        const retryCount = (email.failedCount ?? 0) + 1;
 
         if (retryCount < MAX_RETRIES) {
           const nextRetryAt = new Date(now.getTime() + 5 * 60 * 1000);
@@ -121,7 +133,7 @@ export async function GET(req: Request) {
             data: {
               status: "PENDING",
               scheduledAt: nextRetryAt,
-              retryCount,
+              failedCount: retryCount,
               failureReason: err instanceof Error ? err.message : "Unknown error",
             },
           });
