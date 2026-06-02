@@ -83,34 +83,29 @@ export async function POST(req: Request) {
       }).catch(() => {/* 실패해도 등록은 성공 */});
     }
 
-    // 퍼널문자(FunnelSms) 트리거 — fire-and-forget
-    // 신규: funnelSmsIds[] 배열 처리 (우선)
-    if (group.funnelSmsIds && group.funnelSmsIds.length > 0) {
-      for (const funnelSmsId of group.funnelSmsIds) {
-        triggerGroupFunnelSms({
-          contactId:      contact.id,
-          groupId:        group.id,
-          organizationId: group.organizationId,
-          funnelSmsId,
-        }).catch((err) => {
-          logger.error('[group-join] FunnelSms trigger 실패', {
-            seq, groupId: group.id, contactId: contact.id, funnelSmsId, err,
-          });
-        });
-      }
-    }
-    // 레거시 폴백: 단일 funnelSmsId (P1-1) — 마이그레이션 전까지 지원
-    else if (group.funnelSmsId) {
-      triggerGroupFunnelSms({
-        contactId:      contact.id,
-        groupId:        group.id,
-        organizationId: group.organizationId,
-        funnelSmsId:    group.funnelSmsId,
-      }).catch((err) => {
-        logger.error('[group-join] FunnelSms trigger 실패 (legacy)', {
-          seq, groupId: group.id, contactId: contact.id, funnelSmsId: group.funnelSmsId, err,
-        });
-      });
+    // 퍼널문자(FunnelSms) 트리거 — Vercel 서버리스: Response 반환 전에 await 완료 필수
+    const funnelSmsTargets: string[] =
+      group.funnelSmsIds && group.funnelSmsIds.length > 0
+        ? group.funnelSmsIds
+        : group.funnelSmsId
+        ? [group.funnelSmsId]
+        : [];
+
+    if (funnelSmsTargets.length > 0) {
+      await Promise.allSettled(
+        funnelSmsTargets.map((funnelSmsId) =>
+          triggerGroupFunnelSms({
+            contactId:      contact.id,
+            groupId:        group.id,
+            organizationId: group.organizationId,
+            funnelSmsId,
+          }).catch((err) => {
+            logger.error('[group-join] FunnelSms trigger 실패', {
+              seq, groupId: group.id, contactId: contact.id, funnelSmsId, err,
+            });
+          })
+        )
+      );
     }
 
     logger.log('[group-join]', { seq, contactId: contact.id, groupId: group.id });

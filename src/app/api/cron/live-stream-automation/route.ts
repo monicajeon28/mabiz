@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     // 각 Day별로 처리할 신청자 조회
     const registrations = await prisma.contact.findMany({
       where: {
-        status: 'LIVE_STREAM_REGISTRATION',
+        status: 'LIVE_STREAM',
         createdAt: {
           gte: yesterday,
           lt: today,

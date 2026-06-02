@@ -61,7 +61,7 @@ export async function getLiveStreamStats(eventDate: string): Promise<{
   const registrations = await prisma.contact.findMany({
     where: {
       createdAt: { gte: startOfDay, lte: endOfDay },
-      status: 'LIVE_STREAM_REGISTRATION',
+      status: 'LIVE_STREAM',
     },
     select: { id: true, tags: true, createdAt: true },
   });
