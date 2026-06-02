@@ -9,51 +9,68 @@ import { handleCabinInventoryRefund } from '@/lib/cabin-inventory-refund';
 
 /**
  * POST /api/webhooks/refund
- * GMcruise(크루즈닷몰/웰컴페이먼츠 B2C) 환불 완료 후 호출
- * Authorization: Bearer MABIZ_REFUND_WEBHOOK_SECRET
+ * GMcruise(크루즈닷몰) 환불 Webhook — 확정 스펙 2026-06-02
  *
- * ⚠️ CRM은 "환불 알림"만 받음 — Contact 상태 변경 + 메모 기록
- *    AffiliateSale 등 크루즈닷몰 공유 테이블은 절대 수정하지 않음
- *    (환불 처리 자체는 크루즈닷몰에서 수행)
+ * 인증: Authorization: Bearer {MABIZ_REFUND_WEBHOOK_SECRET}
+ *      x-signature: HMAC-SHA256(rawBody, secret)
  *
- * 페이앱(B2B) 환불은 /api/payapp/* 에서 별도 처리
+ * 페이로드 필드 (스펙 확정본 기준):
+ *   bookingRef  (= orderId 하위호환)
+ *   eventType   refund.requested | refund.approved | refund.completed | refund.rejected
+ *   status      PENDING | APPROVED | COMPLETED | REJECTED
+ *   refundAmount, refundReason, customerPhone, customerName, eventId, timestamp
+ *
+ * 상태 전이:
+ *   PENDING  → 수신 기록만, 커미션 역분개 없음
+ *   APPROVED → Contact 상태 REFUND_APPROVED 로 업데이트
+ *   COMPLETED → Contact REFUNDED + CommissionLedger REVERSAL + 알림
+ *   REJECTED → Contact 상태 원복(PURCHASED) + 메모만
+ *
+ * ⚠️ AffiliateSale 등 크루즈닷몰 공유 테이블은 COMPLETED 시에만 수정
  */
+
+type RefundStatus = 'PENDING' | 'APPROVED' | 'COMPLETED' | 'REJECTED';
+
 export async function POST(req: NextRequest) {
-  const secret = process.env.MABIZ_REFUND_WEBHOOK_SECRET;
+  // ── 1. Secret 확인 ────────────────────────────────────────────────────────
+  // 스펙 확정 2026-06-02: CRUISEDOT_WEBHOOK_SECRET 재사용 (Purchase와 동일 값)
+  const secret = process.env.CRUISEDOT_WEBHOOK_SECRET ?? process.env.MABIZ_REFUND_WEBHOOK_SECRET;
   if (!secret) {
-    logger.error('[RefundWebhook] MABIZ_REFUND_WEBHOOK_SECRET 미설정');
+    logger.error('[RefundWebhook] CRUISEDOT_WEBHOOK_SECRET 미설정');
     return NextResponse.json({ ok: false }, { status: 500 });
   }
+
+  // ── 2. Bearer 토큰 검증 ───────────────────────────────────────────────────
   const authHeader = req.headers.get('authorization') ?? '';
   if (!authHeader.startsWith('Bearer ')) {
-    logger.error('[RefundWebhook] Bearer token 미제공');
     return NextResponse.json({ ok: false }, { status: 401 });
   }
   const token = authHeader.slice(7);
+  const secretStr: string = secret;
   if (
-    token.length !== secret.length ||
-    !timingSafeEqual(Buffer.from(token), Buffer.from(secret))
+    token.length !== secretStr.length ||
+    !timingSafeEqual(Buffer.from(token), Buffer.from(secretStr))
   ) {
-    logger.error('[RefundWebhook] 인증 실패');
+    logger.warn('[RefundWebhook] Bearer 인증 실패');
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  // raw body를 먼저 읽은 뒤 HMAC-SHA256 서명 검증
+  // ── 3. raw body 읽기 + HMAC-SHA256 검증 ──────────────────────────────────
   const rawBody = await req.text();
   const signature = req.headers.get('x-signature') ?? '';
   if (!signature) {
-    logger.warn('[RefundWebhook] x-signature 헤더 누락');
     return NextResponse.json({ ok: false, error: 'Missing x-signature' }, { status: 401 });
   }
-  const expectedSignature = createHmac('sha256', secret).update(rawBody).digest('hex');
+  const expectedSig = createHmac('sha256', secretStr).update(rawBody).digest('hex');
   if (
-    signature.length !== expectedSignature.length ||
-    !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+    signature.length !== expectedSig.length ||
+    !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))
   ) {
     logger.warn('[RefundWebhook] HMAC 서명 검증 실패');
     return NextResponse.json({ ok: false }, { status: 403 });
   }
 
+  // ── 4. JSON 파싱 ──────────────────────────────────────────────────────────
   let body: Record<string, unknown>;
   try {
     body = JSON.parse(rawBody);
@@ -61,152 +78,216 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: 'JSON 파싱 실패' }, { status: 400 });
   }
 
-  const {
-    orderId,
-    buyerPhone,
-    buyerName,
-    amount,
-    refundAmount,
-    reason,
-    saleId,
-    refundedAt,
-    organizationId: bodyOrgId,
-    eventId,
-  } = body as {
-    orderId: string;
-    buyerPhone?: string | null;
-    buyerName?: string;
-    amount?: number;
-    refundAmount?: number;
-    reason?: string;
-    saleId?: number | null;
-    refundedAt: string;
-    organizationId?: string;
-    eventId?: string;
-  };
+  // ── 5. 필드 추출 (스펙 확정: bookingRef, 하위호환: orderId) ──────────────
+  const bookingRef   = (body.bookingRef ?? body.orderId) as string | undefined;
+  const eventId      = body.eventId as string | undefined;
+  const eventType    = body.eventType as string | undefined;
+  const status       = (body.status as RefundStatus | undefined) ?? 'COMPLETED'; // 구버전 호환
+  const refundAmount = body.refundAmount as number | undefined;
+  const refundReason = (body.refundReason ?? body.reason) as string | undefined;
+  const customerPhone= (body.customerPhone ?? body.buyerPhone) as string | undefined;
+  const customerName = (body.customerName  ?? body.buyerName)  as string | undefined;
+  const organizationId_body = body.organizationId as string | undefined;
+  const timestamp    = body.timestamp as string | undefined;
 
-  // orderId만 필수 (buyerPhone은 마스킹되어 올 수 있으므로 선택)
-  if (!orderId) {
-    return NextResponse.json({ ok: false, message: 'orderId 필수' }, { status: 400 });
+  if (!bookingRef) {
+    return NextResponse.json({ ok: false, message: 'bookingRef(또는 orderId) 필수' }, { status: 400 });
   }
 
-  // amount / refundAmount 둘 다 허용 (하위호환)
-  const finalAmount = amount ?? refundAmount ?? 0;
+  // 허용된 상태값 검증
+  const VALID_STATUSES: RefundStatus[] = ['PENDING', 'APPROVED', 'COMPLETED', 'REJECTED'];
+  if (!VALID_STATUSES.includes(status)) {
+    return NextResponse.json({ ok: false, message: `유효하지 않은 status: ${status}` }, { status: 400 });
+  }
 
-  // eventId 멱등성 체크 (중복 수신 방지)
+  // ── 6. 멱등성 체크 ───────────────────────────────────────────────────────
+  const webhookType = `refund_${status.toLowerCase()}`; // refund_pending / refund_completed ...
   if (eventId) {
     const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
-      where: {
-        eventId_webhookType: {
-          eventId,
-          webhookType: 'refund',
-        },
-      },
+      where: { eventId_webhookType: { eventId, webhookType } },
       select: { eventId: true },
     });
     if (alreadyProcessed) {
-      logger.log('[RefundWebhook] 중복 이벤트 무시', { eventId });
+      logger.log('[RefundWebhook] 중복 이벤트 무시', { eventId, status });
       return NextResponse.json({ ok: true, duplicate: true });
     }
   }
 
   logger.log('[RefundWebhook] 수신', {
-    orderId,
-    buyerPhone: buyerPhone ? String(buyerPhone).slice(0, 4) + '***' : '없음',
-    amount: finalAmount,
+    bookingRef,
+    status,
+    eventType,
+    phone: customerPhone ? String(customerPhone).slice(0, 4) + '***' : '없음',
+    amount: refundAmount,
   });
 
+  // ── 7. PENDING — 수신 기록만 (커미션 역분개 없음) ─────────────────────────
+  if (status === 'PENDING') {
+    if (eventId) {
+      await prisma.processedWebhookEvent.create({
+        data: { eventId, webhookType },
+      }).catch(() => {}); // 중복 create 무시
+    }
+    logger.log('[RefundWebhook] PENDING 수신 기록', { bookingRef, eventId });
+    return NextResponse.json({ ok: true, status: 'recorded' });
+  }
+
+  // ── 8. APPROVED — Contact 상태만 업데이트 ────────────────────────────────
+  if (status === 'APPROVED') {
+    try {
+      const sale = await prisma.affiliateSale.findUnique({
+        where: { orderId: bookingRef },
+        select: { organizationId: true },
+      });
+      const orgId = organizationId_body ?? sale?.organizationId ?? process.env.DEFAULT_ORGANIZATION_ID;
+
+      if (orgId) {
+        const contact = await prisma.contact.findFirst({
+          where: { bookingRef, organizationId: orgId },
+          select: { id: true },
+        });
+        if (contact) {
+          await prisma.$transaction(async (tx) => {
+            await tx.contact.update({
+              where: { id: contact.id },
+              data: { lastPaymentStatus: 'refund_approved', paymentStatusNote: '환불 승인됨 (처리 중)' },
+            });
+            await tx.contactMemo.create({
+              data: {
+                contactId: contact.id,
+                userId: 'system-webhook',
+                content: `[환불승인] ${refundAmount ? refundAmount.toLocaleString() + '원' : ''}\n사유: ${refundReason ?? '-'}`,
+              },
+            });
+            if (eventId) {
+              await tx.processedWebhookEvent.create({ data: { eventId, webhookType } });
+            }
+          });
+        }
+      }
+      logger.log('[RefundWebhook] APPROVED 처리 완료', { bookingRef });
+      return NextResponse.json({ ok: true, status: 'approved' });
+    } catch (err) {
+      logger.error('[RefundWebhook] APPROVED 처리 실패', { err, bookingRef });
+      return NextResponse.json({ ok: false }, { status: 500 });
+    }
+  }
+
+  // ── 9. REJECTED — Contact 상태 메모만 ────────────────────────────────────
+  if (status === 'REJECTED') {
+    try {
+      const sale = await prisma.affiliateSale.findUnique({
+        where: { orderId: bookingRef },
+        select: { organizationId: true },
+      });
+      const orgId = organizationId_body ?? sale?.organizationId ?? process.env.DEFAULT_ORGANIZATION_ID;
+
+      if (orgId) {
+        const contact = await prisma.contact.findFirst({
+          where: { bookingRef, organizationId: orgId },
+          select: { id: true },
+        });
+        if (contact) {
+          await prisma.$transaction(async (tx) => {
+            await tx.contact.update({
+              where: { id: contact.id },
+              data: { lastPaymentStatus: 'refund_rejected', paymentStatusNote: '환불 거절' },
+            });
+            const rejectionReason = (body.metadata as Record<string, unknown> | undefined)?.rejectionReason as string | undefined;
+            await tx.contactMemo.create({
+              data: {
+                contactId: contact.id,
+                userId: 'system-webhook',
+                content: `[환불거절] 사유: ${rejectionReason ?? refundReason ?? '정보 없음'}`,
+              },
+            });
+            if (eventId) {
+              await tx.processedWebhookEvent.create({ data: { eventId, webhookType } });
+            }
+          });
+        }
+      }
+      logger.log('[RefundWebhook] REJECTED 처리 완료', { bookingRef });
+      return NextResponse.json({ ok: true, status: 'rejected' });
+    } catch (err) {
+      logger.error('[RefundWebhook] REJECTED 처리 실패', { err, bookingRef });
+      return NextResponse.json({ ok: false }, { status: 500 });
+    }
+  }
+
+  // ── 10. COMPLETED — 전체 환불 처리 ───────────────────────────────────────
   try {
-    // orderId로 CRM AffiliateSale 찾기 → Contact 역추적
     const sale = await prisma.affiliateSale.findUnique({
-      where: { orderId },
+      where: { orderId: bookingRef },
       select: { organizationId: true, customerPhone: true },
     });
-
-    const organizationId = bodyOrgId ?? sale?.organizationId ?? process.env.DEFAULT_ORGANIZATION_ID;
+    const organizationId = organizationId_body ?? sale?.organizationId ?? process.env.DEFAULT_ORGANIZATION_ID;
 
     if (!organizationId) {
-      logger.error('[RefundWebhook] 조직 특정 불가', { orderId });
+      logger.error('[RefundWebhook] 조직 특정 불가', { bookingRef });
       return NextResponse.json({ ok: false, message: '조직 특정 불가' }, { status: 422 });
     }
 
-    // orderId(bookingRef)로 Contact 찾기
     const contact = await prisma.contact.findFirst({
-      where: { bookingRef: orderId, organizationId },
+      where: { bookingRef, organizationId },
       select: { id: true, phone: true, name: true, userId: true },
     });
 
-    // orderId로 AffiliateSale 찾기 (수당 취소용)
     const affiliateSale = await prisma.affiliateSale.findUnique({
-      where: { orderId },
-      select: {
-        id: true,
-        saleAmount: true,
-        commissionAmount: true,
-        commissionRate: true,
-        organizationId: true,
-      },
+      where: { orderId: bookingRef },
+      select: { id: true, saleAmount: true, commissionAmount: true, commissionRate: true, organizationId: true },
     });
 
+    const refundedAt = timestamp ?? new Date().toISOString();
+
     await prisma.$transaction(async (tx) => {
-      // Contact 상태 → REFUNDED + 결제상태 업데이트
+      // Contact → REFUNDED
       if (contact) {
         await tx.contact.update({
           where: { id: contact.id },
           data: {
             type: 'REFUNDED',
             lastPaymentStatus: 'refunded',
-            lastRefundedAt: new Date(refundedAt ?? new Date().toISOString()),
-            paymentStatusNote: `환불완료: ${finalAmount > 0 ? finalAmount.toLocaleString() + '원' : '금액미상'}`,
+            lastRefundedAt: new Date(refundedAt),
+            paymentStatusNote: `환불완료: ${refundAmount ? refundAmount.toLocaleString() + '원' : '금액미상'}`,
           },
         });
-
-        // 환불 내역 메모 기록
         const memoLines = [
-          `[환불완료] ${finalAmount > 0 ? finalAmount.toLocaleString() + '원' : '금액 미상'}`,
-          reason ? `사유: ${reason}` : null,
-          `주문번호: ${orderId}`,
-          buyerPhone ? `구매자: ${buyerPhone}` : null,
-          `처리일시: ${refundedAt ?? new Date().toISOString()}`,
+          `[환불완료] ${refundAmount ? refundAmount.toLocaleString() + '원' : '금액 미상'}`,
+          refundReason ? `사유: ${refundReason}` : null,
+          `주문번호: ${bookingRef}`,
+          customerPhone ? `연락처: ${customerPhone.slice(0, 4)}***` : null,
+          `처리일시: ${refundedAt}`,
         ].filter(Boolean).join('\n');
 
         await tx.contactMemo.create({
-          data: {
-            contactId: contact.id,
-            userId: 'system-webhook',
-            content: memoLines,
-          },
+          data: { contactId: contact.id, userId: 'system-webhook', content: memoLines },
         });
       }
 
-      // AffiliateSale 환불 처리 — REVERSAL 원자화 (commissionAmount 원본 유지, 감사추적)
+      // AffiliateSale + CommissionLedger REVERSAL
       let refundNotificationData: Parameters<typeof createRefundNotifications>[0] | null = null;
-
       if (affiliateSale && affiliateSale.commissionAmount > 0) {
-        // 1. AffiliateSale 상태 변경 (commissionAmount 덮어쓰기 제거)
         await tx.affiliateSale.update({
           where: { id: affiliateSale.id },
           data: {
             refundedAmount: refundAmount ?? affiliateSale.saleAmount,
-            refundedAt: new Date(refundedAt ?? new Date().toISOString()),
+            refundedAt: new Date(refundedAt),
             status: 'REFUNDED',
             cancelReason: 'CUSTOMER_REFUND_REQUEST',
           },
         });
 
-        // 2. 기존 CommissionLedger 조회 → REVERSAL 역분개 생성
         const existingLedger = await tx.commissionLedger.findFirst({
-          where: {
-            saleId: affiliateSale.id,
-            organizationId: affiliateSale.organizationId,
-            entryType: 'COMMISSION_AUTO',
-          },
+          where: { saleId: affiliateSale.id, organizationId: affiliateSale.organizationId, entryType: 'COMMISSION_AUTO' },
           select: { id: true, amount: true, profileId: true },
+          orderBy: { createdAt: 'desc' },
         });
 
+        // 음수 보장: existingLedger.amount가 양수인 경우만 반전
         const reversalAmount = existingLedger
-          ? -existingLedger.amount
-          : -affiliateSale.commissionAmount;
+          ? -(Math.abs(existingLedger.amount))
+          : -(Math.abs(affiliateSale.commissionAmount));
 
         await tx.commissionLedger.create({
           data: {
@@ -218,66 +299,57 @@ export async function POST(req: NextRequest) {
             currency: 'KRW',
             isSettled: false,
             notes: [
-              `환불 역분개 | ${orderId}`,
-              reason ? `사유: ${reason}` : null,
+              `환불 역분개 | ${bookingRef}`,
+              refundReason ? `사유: ${refundReason}` : null,
               eventId ? `eventId: ${eventId}` : null,
             ].filter(Boolean).join(' | '),
           },
         });
 
-        // ★ P2: 알림 데이터 준비 (트랜잭션 후에 생성)
         refundNotificationData = {
           organizationId: affiliateSale.organizationId,
-          orderId,
-          customerName: contact?.name || '고객',
+          orderId: bookingRef,
+          customerName: contact?.name ?? customerName ?? '고객',
           refundAmount: refundAmount ?? affiliateSale.saleAmount,
-          refundReason: reason || '환불 요청',
+          refundReason: refundReason ?? '환불 요청',
           type: 'full_refund',
         };
 
-        logger.log('[RefundWebhook] 환불 역분개 CommissionLedger 생성', {
+        logger.log('[RefundWebhook] CommissionLedger REVERSAL 생성', {
           affiliateSaleId: affiliateSale.id,
           reversalAmount,
-          orderId,
+          bookingRef,
         });
       }
 
-      // ★ 객실 재고 감소 처리 (환불 시)
+      // 객실 재고 감소
       if (contact?.userId && affiliateSale && affiliateSale.organizationId === organizationId) {
         const result = await handleCabinInventoryRefund(contact.userId, organizationId, tx);
         if (!result.success) {
-          logger.warn('[RefundWebhook] 객실 재고 감소 실패', { userId: contact.userId, organizationId, reason: result.reason });
+          logger.warn('[RefundWebhook] 객실 재고 감소 실패', { userId: contact.userId, reason: result.reason });
         }
       }
 
-      // ★ P2: 트랜잭션 후 알림 생성
+      // eventId 처리 완료 기록 (트랜잭션 내 — TOCTOU 방지)
+      if (eventId) {
+        await tx.processedWebhookEvent.create({ data: { eventId, webhookType } });
+      }
+
+      // 트랜잭션 후 알림 (fire-and-forget)
       if (refundNotificationData) {
         createRefundNotifications(refundNotificationData).catch((err) => {
-          logger.warn('[RefundWebhook] 환불 알림 생성 실패', {
-            orderId,
+          logger.warn('[RefundWebhook] 환불 알림 실패', {
+            bookingRef,
             error: err instanceof Error ? err.message : String(err),
           });
         });
       }
-
-      // eventId 처리 완료 기록 (트랜잭션 안에서 — TOCTOU 방지)
-      if (eventId) {
-        await tx.processedWebhookEvent.create({
-          data: { eventId, webhookType: 'refund' },
-        });
-      }
     });
 
-    logger.log('[RefundWebhook] 완료', {
-      contactFound: !!contact,
-      contactId: contact?.id ?? null,
-      orderId,
-      amount: finalAmount,
-    });
-
+    logger.log('[RefundWebhook] COMPLETED 완료', { contactFound: !!contact, bookingRef, amount: refundAmount });
     return NextResponse.json({ ok: true, contactFound: !!contact });
   } catch (err) {
-    logger.error('[RefundWebhook] 처리 실패', { err, orderId });
+    logger.error('[RefundWebhook] 처리 실패', { err, bookingRef });
     await enqueueDLQ('refund', body, err instanceof Error ? err.message : String(err)).catch(() => {});
     return NextResponse.json({ ok: false, message: '처리 실패' }, { status: 500 });
   }
