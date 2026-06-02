@@ -90,7 +90,7 @@ export default function CommissionLedgerPage() {
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     if (type)      params.set("type",      type);
     if (yearMonth) params.set("yearMonth", yearMonth);
-    fetch(`/api/commission-ledger?${params}`, { signal: controller.signal })
+    fetch(`/api/commission-ledger?${params}`, { signal: controller.signal, credentials: 'include' })
       .then((r) => {
         if (!r.ok) throw new Error(`서버 오류 (HTTP ${r.status})`);
         return r.json();
