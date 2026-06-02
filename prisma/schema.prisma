@@ -4615,6 +4615,8 @@ model PasswordReset {
 model PaymentRefund {
   id           Int      @id @default(autoincrement())
   paymentId    Int
+  eventId      String?  @unique
+  status       String   @default("PENDING")
   refundAmount Int
   reason       String
   refundedAt   DateTime @default(now())
@@ -4622,8 +4624,9 @@ model PaymentRefund {
   updatedAt    DateTime @default(now())
   metadata     Json?
 
-  @@index([paymentId, createdAt])
+  @@index([paymentId, status])
   @@index([refundedAt])
+  @@index([eventId])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
