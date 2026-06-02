@@ -219,6 +219,7 @@ export async function POST(req: NextRequest) {
     const allowedMetaKeys = [
       'type', 'signName', 'idPhotoUrl', 'bankBookUrl',
       'supervisorName', 'supervisorAgency', 'supervisorPhone', 'note',
+      'snsChannels', 'applyNote',
     ];
     for (const key of allowedMetaKeys) {
       if (bodyMeta[key] !== undefined && bodyMeta[key] !== null && bodyMeta[key] !== '') {
