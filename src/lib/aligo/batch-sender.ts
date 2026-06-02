@@ -11,6 +11,7 @@
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { AligoClient, createAligoClient } from './client';
+import { replaceMessagePlaceholders } from '@/lib/message-replacements';
 
 /**
  * SMS의 유효 발신번호 결정
@@ -152,28 +153,23 @@ export async function processPendingSms(
 
     result.processed = pendingSmsWithContact.length;
 
-    // 수신거부 SMS → BLOCKED
-    if (optOutBlocked.length > 0) {
-      await Promise.all(
-        optOutBlocked.map(sms =>
-          prisma.scheduledSms.update({
-            where: { id: sms.id },
-            data: { status: 'BLOCKED', updatedAt: new Date() },
-          })
-        )
-      );
-    }
-
-    // 야간 차단 SMS → NIGHT_BLOCKED
-    if (nightBlocked.length > 0) {
-      await Promise.all(
-        nightBlocked.map(sms =>
-          prisma.scheduledSms.update({
-            where: { id: sms.id },
-            data: { status: 'NIGHT_BLOCKED', updatedAt: new Date() },
-          })
-        )
-      );
+    // 수신거부(BLOCKED) + 야간 차단(NIGHT_BLOCKED) → 트랜잭션으로 일괄 처리
+    if (optOutBlocked.length > 0 || nightBlocked.length > 0) {
+      const blockedAt = new Date();
+      await prisma.$transaction([
+        ...(optOutBlocked.length > 0
+          ? [prisma.scheduledSms.updateMany({
+              where: { id: { in: optOutBlocked.map(s => s.id) } },
+              data: { status: 'BLOCKED', updatedAt: blockedAt },
+            })]
+          : []),
+        ...(nightBlocked.length > 0
+          ? [prisma.scheduledSms.updateMany({
+              where: { id: { in: nightBlocked.map(s => s.id) } },
+              data: { status: 'NIGHT_BLOCKED', updatedAt: blockedAt },
+            })]
+          : []),
+      ]);
     }
 
     if (validSms.length === 0) {
@@ -222,17 +218,14 @@ export async function processPendingSms(
       const aligoClient = getAligoClientFor(sender);
 
       // 배치 발송 준비
-      const batchRequests = groupSms.map(sms => ({
-        receiver: sms.contact?.phone || '',
-        message: sms.message
-          .replace(/\[고객명\]/g, sms.contact?.name || '고객님')
-          .replace(/\[이름\]/g, sms.contact?.name || '고객님'),
-        messageType: getAligoMessageType(
-          sms.message
-            .replace(/\[고객명\]/g, sms.contact?.name || '고객님')
-            .replace(/\[이름\]/g, sms.contact?.name || '고객님')
-        ),
-      }));
+      const batchRequests = groupSms.map(sms => {
+        const resolvedMessage = replaceMessagePlaceholders(sms.message, sms.contact ?? {});
+        return {
+          receiver: sms.contact?.phone || '',
+          message: resolvedMessage,
+          messageType: getAligoMessageType(resolvedMessage),
+        };
+      });
 
       // Aligo 배치 발송 (이 그룹의 발신번호로)
       const sendResponse = await aligoClient.sendSmsBatch(batchRequests);
@@ -328,9 +321,7 @@ async function processIndividualSms(
 
   for (const sms of smsList) {
     try {
-      const resolvedMessage = sms.message
-        .replace(/\[고객명\]/g, sms.contact?.name || '고객님')
-        .replace(/\[이름\]/g, sms.contact?.name || '고객님');
+      const resolvedMessage = replaceMessagePlaceholders(sms.message, sms.contact ?? {});
       const response = await aligoClient.sendSms({
         receiver: sms.contact?.phone || '',
         message: resolvedMessage,
