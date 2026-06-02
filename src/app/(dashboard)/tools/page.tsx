@@ -2,12 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { MessageSquare, Phone, BookOpen, User, Copy, Check, Loader2, Upload, FileText, BookMarked, ExternalLink } from "lucide-react";
+import {
+  MessageSquare, Phone, BookOpen, User, Copy, Check, Loader2, Upload, FileText, BookMarked, ExternalLink,
+  Zap, TrendingUp, Users, Search, Filter, Star, Clock, AlertCircle
+} from "lucide-react";
 import { CompressorModal } from "@/components/ui/CompressorModal";
 import { QaLibrary } from "@/components/tools/QaLibrary";
 
 type Template = { id: string; category: string; title: string; content: string; triggerOffset: number | null };
 type Playbook  = { id: string; type: string; title: string; content: string; priority: number };
+type ProductTraining = { id: string; category: string; title: string; description: string; icon: string; content: string; lastViewed?: string };
+type ToolRecommendation = { toolId: string; title: string; category: string; reason: string; relevance: number };
 
 type FeedbackResult = {
   score: number; grade: string; summary: string;
@@ -18,6 +23,23 @@ type FeedbackResult = {
   personaConfidence?: number;
   objectionTypes?: string[];
 };
+
+const PRODUCT_CATEGORIES = [
+  { key: "ALL",          label: "전체", icon: "🎯" },
+  { key: "BUSAN",        label: "부산출도착", icon: "🏴‍☠️" },
+  { key: "JAPAN",        label: "일본크루즈", icon: "🗾" },
+  { key: "SOUTHEAST_ASIA", label: "동남아크루즈", icon: "🌴" },
+  { key: "SHANGHAI",     label: "상하이크루즈", icon: "🏮" },
+  { key: "ALASKA",       label: "알래스카크루즈", icon: "❄️" },
+];
+
+const CALL_SCRIPT_PERSONAS = [
+  { key: "PRICE_SENSITIVE",      label: "저가민감", icon: "💰" },
+  { key: "FILIAL_DUTY",          label: "효도여행", icon: "👨‍👩‍👧" },
+  { key: "NEWLYWEDS",            label: "신혼부부", icon: "💑" },
+  { key: "SINGLE_ADVENTURE",     label: "혼자여행", icon: "🧳" },
+  { key: "REPURCHASE",           label: "재구매", icon: "🔄" },
+];
 
 const TEMPLATE_TABS = [
   { key: "CARE_VIP",      label: "VIP 케어" },
@@ -39,12 +61,19 @@ const PLAYBOOK_TABS = [
 export default function ToolsPage() {
   const searchParams = useSearchParams();
   const [showCompressor, setShowCompressor] = useState(false);
-  const [mainTab,  setMainTab]   = useState<"sms" | "playbook" | "call-feedback" | "call-playbook" | "qa-library">("playbook");
-  const [smsTab,   setSmsTab]    = useState("CARE_VIP");
-  const [pbTab,    setPbTab]     = useState("REJECTION");
+  const [mainTab,  setMainTab]   = useState<"dashboard" | "training" | "scripts" | "playbook" | "feedback" | "qa" | "call-feedback" | "call-playbook">("dashboard");
+
+  const [productCategory, setProductCategory] = useState("ALL");
+  const [scriptPersona,   setScriptPersona]   = useState("PRICE_SENSITIVE");
+  const [smsTab,         setSmsTab]          = useState("CARE_VIP");
+  const [pbTab,          setPbTab]           = useState("REJECTION");
+
+  const [searchQuery,    setSearchQuery]    = useState("");
+  const [recommendations, setRecommendations] = useState<ToolRecommendation[]>([]);
 
   const [templates,  setTemplates]  = useState<Template[]>([]);
   const [playbooks,  setPlaybooks]  = useState<Playbook[]>([]);
+  const [training,   setTraining]   = useState<ProductTraining[]>([]);
   const [copied,     setCopied]     = useState<string | null>(null);
 
   // 콜 피드백
@@ -58,20 +87,44 @@ export default function ToolsPage() {
   useEffect(() => {
     const tabParam = searchParams.get("tab");
     if (tabParam === "qa") {
-      setMainTab("qa-library");
+      setMainTab("qa");
     }
   }, [searchParams]);
 
   useEffect(() => {
-    fetch("/api/tools/sms-templates")
+    // 모든 도구 데이터 로드
+    Promise.all([
+      fetch("/api/tools/sms-templates")
+        .then((r) => r.json())
+        .then((d) => { if (d.ok) setTemplates(d.templates); })
+        .catch(() => {}),
+      fetch("/api/tools/playbook")
+        .then((r) => r.json())
+        .then((d) => { if (d.ok) setPlaybooks(d.items); })
+        .catch(() => {}),
+      fetch("/api/tools/product-training")
+        .then((r) => r.json())
+        .then((d) => { if (d.ok) setTraining(d.items); })
+        .catch(() => {}),
+    ]);
+
+    // 추천 도구 로드 (AI 기반)
+    fetch("/api/tools/recommended")
       .then((r) => r.json())
-      .then((d) => { if (d.ok) setTemplates(d.templates); })
-      .catch(() => { /* 템플릿 로드 실패 - 빈 목록 유지 */ });
-    fetch("/api/tools/playbook")
-      .then((r) => r.json())
-      .then((d) => { if (d.ok) setPlaybooks(d.items); })
-      .catch(() => { /* 플레이북 로드 실패 - 빈 목록 유지 */ });
+      .then((d) => { if (d.ok) setRecommendations(d.recommendations); })
+      .catch(() => {});
   }, []);
+
+  // 도구 조회 기록 (마지막 본 도구 추적)
+  const trackToolView = async (toolId: string) => {
+    try {
+      await fetch("/api/tools/viewed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toolId }),
+      });
+    } catch {}
+  };
 
   const copy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -113,53 +166,313 @@ export default function ToolsPage() {
 
   const filteredTemplates = templates.filter((t) => t.category === smsTab);
   const filteredPlaybooks  = playbooks.filter((p) => p.type === pbTab);
+  const filteredTraining   = training.filter((t) =>
+    productCategory === "ALL" || t.category === productCategory
+  ).filter((t) =>
+    searchQuery === "" || t.title.includes(searchQuery) || t.description.includes(searchQuery)
+  );
+  const filteredScripts    = playbooks.filter((p) => p.type === "OPENING").slice(0, 5); // 콜스크립트용 샘플
 
   const scoreColor = (s: number) =>
     s >= 80 ? "text-green-600" : s >= 60 ? "text-yellow-600" : "text-red-500";
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
-      <h1 className="text-xl font-bold text-navy-900 mb-5">영업 도구함</h1>
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+      {/* 헤더 + 추천 */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-navy-900 mb-2">영업 도구함</h1>
+        <p className="text-sm text-gray-600">고객 상태별 맞춤 콘텐츠 추천 + 심리학 렌즈 기반 자동화</p>
+      </div>
 
       {/* 만능 압축기 */}
       <button
         onClick={() => setShowCompressor(true)}
-        className="flex items-center gap-3 w-full bg-white border rounded-xl px-4 py-3.5 hover:border-blue-300 hover:bg-blue-50 transition-colors text-left mb-5"
+        className="flex items-center gap-3 w-full bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl px-4 py-3.5 hover:from-blue-100 hover:to-blue-200 transition-colors text-left mb-6"
       >
         <span className="text-2xl">🗜️</span>
-        <div>
+        <div className="flex-1">
           <p className="font-semibold text-sm text-gray-900">만능 압축기</p>
-          <p className="text-sm text-gray-500">이미지·PDF·WebP·음성 파일 압축</p>
+          <p className="text-sm text-gray-600">이미지·PDF·WebP·음성 파일 압축</p>
         </div>
+        <div className="text-sm font-medium text-blue-600">바로가기 →</div>
       </button>
 
       {showCompressor && (
         <CompressorModal isOpen={showCompressor} onClose={() => setShowCompressor(false)} />
       )}
 
-      {/* 메인 탭 */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 overflow-x-auto">
+      {/* 메인 탭 - 50대 친화형 대형 버튼 */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
         {[
-          { key: "sms",           label: "📱 SMS 템플릿" },
-          { key: "playbook",      label: "📋 플레이북 (DB)" },
-          { key: "call-feedback", label: "🎤 콜 피드백" },
-          { key: "call-playbook", label: "📚 플레이북 (전체)" },
-          { key: "qa-library",    label: "❓ Q&A 라이브러리" },
+          { key: "dashboard",      label: "대시보드", icon: "📊", desc: "추천 도구" },
+          { key: "training",       label: "상품교육", icon: "📚", desc: "5가지 상품" },
+          { key: "scripts",        label: "콜스크립트", icon: "🎤", desc: "페르소나별" },
+          { key: "playbook",       label: "플레이북", icon: "📖", desc: "8가지 상황" },
+          { key: "feedback",       label: "콜분석", icon: "🔊", desc: "AI 피드백" },
         ].map((t) => (
           <button
             key={t.key}
             onClick={() => setMainTab(t.key as typeof mainTab)}
-            className={`flex-1 min-w-max py-2 px-3 text-sm font-medium rounded-lg transition-colors ${
-              mainTab === t.key ? "bg-white text-navy-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            className={`p-3 rounded-xl border-2 transition-all text-center ${
+              mainTab === t.key
+                ? "bg-navy-900 border-navy-900 text-white shadow-lg"
+                : "bg-white border-gray-200 text-gray-900 hover:border-navy-900 hover:bg-navy-50"
             }`}
           >
-            {t.label}
+            <div className="text-2xl mb-1">{t.icon}</div>
+            <p className="font-bold text-sm">{t.label}</p>
+            <p className={`text-xs ${mainTab === t.key ? "text-navy-200" : "text-gray-500"}`}>{t.desc}</p>
           </button>
         ))}
       </div>
 
+      {/* 추천 도구 (대시보드 + 다른 탭) */}
+      {recommendations.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Zap className="w-5 h-5 text-amber-600" />
+            <h3 className="font-bold text-amber-900">🎯 AI 추천</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {recommendations.slice(0, 3).map((rec) => (
+              <button
+                key={rec.toolId}
+                onClick={() => {
+                  setMainTab(rec.category as any);
+                  trackToolView(rec.toolId);
+                }}
+                className="bg-white p-3 rounded-lg text-left border border-amber-100 hover:border-amber-300 hover:shadow transition-all"
+              >
+                <p className="text-sm font-semibold text-gray-900">{rec.title}</p>
+                <p className="text-xs text-gray-600 mt-1">{rec.reason}</p>
+                <div className="mt-2 flex items-center gap-1">
+                  <Star className="w-3 h-3 text-amber-500" />
+                  <span className="text-xs text-amber-600 font-medium">{rec.relevance}% 관련도</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 대시보드 - 최근 본 도구 + 인기 도구 */}
+      {mainTab === "dashboard" && (
+        <div className="space-y-6">
+          {/* 빠른 접근 */}
+          <div>
+            <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-navy-900" />
+              자주 쓰는 도구
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {recommendations.slice(0, 2).map((rec) => (
+                <button
+                  key={rec.toolId}
+                  onClick={() => {
+                    setMainTab(rec.category as any);
+                    trackToolView(rec.toolId);
+                  }}
+                  className="bg-white p-4 rounded-xl border-2 border-gray-200 hover:border-navy-900 hover:shadow-md transition-all text-left"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900">{rec.title}</p>
+                      <p className="text-sm text-gray-600 mt-1">{rec.reason}</p>
+                    </div>
+                    <div className="text-right text-xs font-medium text-navy-900 bg-navy-50 px-2 py-1 rounded">
+                      {rec.relevance}%
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 카테고리 탐색 */}
+          <div>
+            <h2 className="font-bold text-gray-900 mb-3">도구 탐색</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {[
+                { icon: "📚", label: "상품교육", key: "training", href: null },
+                { icon: "🎤", label: "콜스크립트", key: "scripts", href: null },
+                { icon: "📖", label: "플레이북", key: "playbook", href: null },
+                { icon: "📱", label: "SMS템플릿", key: "feedback", href: null },
+                { icon: "❓", label: "Q&A", key: "qa", href: null },
+                { icon: "🔊", label: "콜분석", key: "feedback", href: null },
+                { icon: "🔍", label: "키워드검색량", key: "keyword-volume", href: "/tools/keyword-volume" },
+              ].map((cat) =>
+                cat.href ? (
+                  <a
+                    key={cat.key}
+                    href={cat.href}
+                    className="bg-white p-4 rounded-lg border border-blue-200 hover:border-blue-500 hover:bg-blue-50 transition-colors text-center block"
+                  >
+                    <div className="text-2xl mb-1">{cat.icon}</div>
+                    <p className="text-sm font-medium text-gray-900">{cat.label}</p>
+                    <p className="text-xs text-blue-500 mt-0.5">네이버/구글</p>
+                  </a>
+                ) : (
+                  <button
+                    key={cat.key}
+                    onClick={() => setMainTab(cat.key as any)}
+                    className="bg-white p-4 rounded-lg border border-gray-200 hover:border-navy-900 hover:bg-navy-50 transition-colors text-center"
+                  >
+                    <div className="text-2xl mb-1">{cat.icon}</div>
+                    <p className="text-sm font-medium text-gray-900">{cat.label}</p>
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+
+          {/* 팁 */}
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <div className="flex gap-3">
+              <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-blue-900 text-sm">💡 팁: 위 탭에서 도구를 선택하면 AI가 다음에 필요할 만한 도구를 추천합니다.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 상품 교육 */}
+      {mainTab === "training" && (
+        <div className="space-y-4">
+          {/* 상품 필터 */}
+          <div className="flex gap-2 flex-wrap">
+            {PRODUCT_CATEGORIES.map((cat) => (
+              <button
+                key={cat.key}
+                onClick={() => setProductCategory(cat.key)}
+                className={`px-3 py-1.5 text-sm rounded-full border-2 transition-colors font-medium ${
+                  productCategory === cat.key
+                    ? "bg-navy-900 text-white border-navy-900"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-navy-900"
+                }`}
+              >
+                {cat.icon} {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 검색 */}
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+            <input
+              type="text"
+              placeholder="상품명, 기능 검색..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-navy-900"
+            />
+          </div>
+
+          {/* 상품 교육 카드 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredTraining.map((item) => (
+              <div
+                key={item.id}
+                onClick={() => trackToolView(item.id)}
+                className="bg-white border-2 border-gray-200 rounded-xl p-5 hover:border-navy-900 hover:shadow-lg transition-all cursor-pointer"
+              >
+                <div className="flex items-start gap-3 mb-3">
+                  <span className="text-3xl">{item.icon}</span>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900">{item.title}</h3>
+                    {item.lastViewed && (
+                      <p className="text-xs text-gray-500 mt-0.5">마지막 본 시간: {item.lastViewed}</p>
+                    )}
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 mb-3">{item.description}</p>
+                <button
+                  onClick={() => copy(item.id, item.content)}
+                  className="w-full py-2 bg-navy-900 text-white rounded-lg text-sm font-medium hover:bg-navy-800 transition-colors flex items-center justify-center gap-2"
+                >
+                  {copied === item.id ? (
+                    <>
+                      <Check className="w-4 h-4" /> 복사됨
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" /> 자료 복사
+                    </>
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {filteredTraining.length === 0 && (
+            <div className="text-center py-8 text-gray-600">
+              <BookOpen className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+              <p>상품교육 자료를 준비 중입니다.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 콜 스크립트 */}
+      {mainTab === "scripts" && (
+        <div className="space-y-4">
+          {/* 페르소나 필터 */}
+          <div className="flex gap-2 flex-wrap">
+            {CALL_SCRIPT_PERSONAS.map((persona) => (
+              <button
+                key={persona.key}
+                onClick={() => setScriptPersona(persona.key)}
+                className={`px-3 py-1.5 text-sm rounded-full border-2 transition-colors font-medium ${
+                  scriptPersona === persona.key
+                    ? "bg-navy-900 text-white border-navy-900"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-navy-900"
+                }`}
+              >
+                {persona.icon} {persona.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 스크립트 카드 */}
+          <div className="space-y-3">
+            {filteredScripts.map((script) => (
+              <div key={script.id} className="bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-navy-900 transition-colors">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-sm">{script.title}</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">기본 오프닝</p>
+                  </div>
+                  <button
+                    onClick={() => copy(script.id, script.content)}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    {copied === script.id ? (
+                      <Check className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <Copy className="w-4 h-4 text-gray-600" />
+                    )}
+                  </button>
+                </div>
+                <pre className="text-sm text-gray-600 whitespace-pre-wrap font-sans leading-relaxed bg-gray-50 p-3 rounded-lg max-h-24 overflow-hidden">
+                  {script.content}
+                </pre>
+              </div>
+            ))}
+          </div>
+
+          {/* 전체 플레이북으로 이동 */}
+          <button
+            onClick={() => setMainTab("playbook")}
+            className="w-full py-3 bg-navy-900 text-white rounded-lg font-medium hover:bg-navy-800 transition-colors"
+          >
+            전체 플레이북 보기 ({playbooks.length}개)
+          </button>
+        </div>
+      )}
+
       {/* SMS 템플릿 */}
-      {mainTab === "sms" && (
+      {mainTab === "feedback" && (
         <div>
           <div className="flex gap-2 mb-4 flex-wrap">
             {TEMPLATE_TABS.map((t) => (
@@ -497,7 +810,7 @@ export default function ToolsPage() {
       )}
 
       {/* Q&A 라이브러리 */}
-      {mainTab === "qa-library" && (
+      {mainTab === "qa" && (
         <div className="space-y-4">
           <QaLibrary />
         </div>

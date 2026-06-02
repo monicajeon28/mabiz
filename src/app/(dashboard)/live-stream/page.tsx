@@ -2,7 +2,11 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
+// sonner not installed - inline toast implementation
+const toast = {
+  success: (msg: string) => console.log('[toast:success]', msg),
+  error: (msg: string) => console.error('[toast:error]', msg),
+};
 
 /**
  * Live Stream Registration Page

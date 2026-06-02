@@ -8,11 +8,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getMabizSession } from '@/lib/auth/session';
-import { sendSMS } from '@/lib/sms/sender';
+import { getMabizSession } from '@/lib/auth';
+import { sendSmsViaAligo } from '@/lib/sms-service';
 import { validateLiveStreamForm } from '@/lib/live-stream/validation';
 import { logLiveStreamEvent } from '@/lib/live-stream/tracking';
-import { generateShortId } from '@/lib/utils';
+
+const generateShortId = (prefix: string) =>
+  `${prefix}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
 interface LiveStreamRegisterRequest {
   name: string;
@@ -52,10 +54,7 @@ export async function POST(request: NextRequest) {
         createdAt: {
           gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
         },
-        metadata: {
-          path: ['source'],
-          equals: 'LIVE_STREAM',
-        },
+        status: 'LIVE_STREAM_REGISTRATION',
       },
     });
 
@@ -78,14 +77,13 @@ export async function POST(request: NextRequest) {
         phone: body.phone,
         email: body.email,
         status: 'LIVE_STREAM_REGISTRATION', // 라이브방송 신청자
-        source: 'LIVE_STREAM',
-        organizationId: session.organizationId,
-        metadata: {
+        sourceId: 'LIVE_STREAM',
+        organizationId: session.organizationId!,
+        lensMetadata: {
           registrationId,
           segment: body.segment, // 세그먼트 저장 (저가/효도/신혼)
           eventDate: body.eventDate,
           liveStreamNote: body.note,
-          source: 'LIVE_STREAM',
           consentSMS: body.consent,
           registeredAt: new Date().toISOString(),
           appliedLenses: getLiveLenses(body.segment), // L5/L10 적용
@@ -108,12 +106,7 @@ export async function POST(request: NextRequest) {
     // 5️⃣ SMS 발송 (Day 0 PASONA)
     if (body.consent) {
       const smsMessage = getSegmentSMS(body.segment, body.name);
-      await sendSMS({
-        phone: body.phone,
-        message: smsMessage,
-        contactId: contact.id,
-        messageType: 'LIVE_STREAM_DAY0',
-      });
+      await sendSmsViaAligo(body.phone, smsMessage);
     }
 
     // 6️⃣ CRM 자동분류 (태그 생성)
