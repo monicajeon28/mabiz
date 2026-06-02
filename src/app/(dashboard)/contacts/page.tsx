@@ -370,12 +370,18 @@ export default function ContactsPage() {
   const [slidePanelContact, setSlidePanelContact] = useState<FullContact | null>(null);
   const [slidePanelOpen,    setSlidePanelOpen]    = useState(false);
   const [slidePanelLoadingId, setSlidePanelLoadingId] = useState<string | null>(null);
+  const slidePanelAbortRef = useRef<AbortController | null>(null);
 
   // 행 클릭 시 전체 고객 정보를 받아와 패널 열기
   const openSlidePanel = useCallback(async (contactId: string) => {
+    // 이전 요청 취소 (연속 클릭 race condition 방지)
+    slidePanelAbortRef.current?.abort();
+    const controller = new AbortController();
+    slidePanelAbortRef.current = controller;
+
     setSlidePanelLoadingId(contactId);
     try {
-      const res = await fetch(`/api/contacts/${contactId}`);
+      const res = await fetch(`/api/contacts/${contactId}`, { signal: controller.signal });
       const data = await res.json();
       if (data.ok && data.contact) {
         setSlidePanelContact(data.contact as FullContact);
@@ -384,6 +390,7 @@ export default function ContactsPage() {
         toast({ title: '불러오기 실패', description: '고객 정보를 불러오지 못했습니다.', variant: 'destructive' });
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       logger.error('[openSlidePanel failed]', { err });
       toast({ title: '네트워크 오류', description: '잠시 후 다시 시도해주세요.', variant: 'destructive' });
     } finally {
@@ -403,13 +410,19 @@ export default function ContactsPage() {
   const [quickCallError, setQuickCallError] = useState<string | null>(null);
 
   // P2-8: Debounce function to prevent excessive API calls
-  const debounce = useCallback((fn: (signal?: AbortSignal) => Promise<void>, delay: number) => {
-    let timeoutId: NodeJS.Timeout | null = null;
-    return (signal?: AbortSignal) => {
-      if (timeoutId) clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => fn(signal), delay);
-    };
-  }, []);
+  const debounce = useCallback(
+    <T extends unknown[]>(
+      fn: (...args: T) => Promise<void>,
+      delay: number
+    ) => {
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      return (...args: T) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => fn(...args), delay);
+      };
+    },
+    []
+  );
 
   const fetchContacts = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -445,8 +458,9 @@ export default function ContactsPage() {
   useEffect(() => {
     const controller = new AbortController();
     // P2-8: Use debounced fetch instead of direct fetch for search queries
-    // 조건 수정: 검색어(q)가 있거나, 필터가 설정된 경우 → debounced 사용 (즉시 아님)
-    if (q || filterGroupId || filterSourceType || filterAssignedTo || selectedTags.length > 0) {
+    // 검색어(q)만 입력 중 → debounce (사용자 타이핑 대기)
+    // 필터 변경 → 직접 호출 (필터는 드롭다운이라 안정적)
+    if (q) {
       debouncedFetch(controller.signal);
     } else {
       fetchContacts(controller.signal);
@@ -1563,7 +1577,7 @@ export default function ContactsPage() {
           <ContactSlidePanel
             contact={slidePanelContact}
             open={slidePanelOpen}
-            onClose={() => setSlidePanelOpen(false)}
+            onClose={() => { setSlidePanelOpen(false); setTimeout(() => setSlidePanelContact(null), 400); }}
             onRefresh={(updated) => {
               if (updated) {
                 // 패널의 FullContact 일부 → 목록 행(Contact)에 맞는 필드만 병합
