@@ -17,6 +17,8 @@ interface Contract {
   smsDay1Sent?: boolean;
   smsDay2Sent?: boolean;
   lastReminderAt?: string | null;
+  // P1 거장단 토론: 계약 타입별 명확한 상태 표시
+  contractType?: "cruisedot-partners" | "rental-partner" | "other"; // 크루즈닷 파트너스, 렌탈 파트너, 기타
 }
 
 interface ApiResponse {
@@ -46,6 +48,16 @@ const STATUS_CLASS: Record<string, string> = {
   completed: "bg-green-100 text-green-700",
   rejected: "bg-red-100 text-red-700",
 };
+
+// P1 거장단 토론: 계약 타입별 명확한 승인 상태 텍스트
+function getContractStatusLabel(status: string, contractType?: string): string {
+  if (status === "invited" && contractType === "cruisedot-partners") {
+    return "크루즈닷 파트너스 사입신청";
+  } else if (status === "invited" && contractType === "rental-partner") {
+    return "렌탈 파트너 승인 대기";
+  }
+  return STATUS_LABEL[status] ?? status;
+}
 
 // L10 렌즈: 계약 진행 단계 계산
 function getContractStage(status: string): number {
@@ -198,9 +210,10 @@ export default function ContractsPage() {
                       className={`inline-block px-2 py-1 rounded-full text-sm font-medium ${
                         STATUS_CLASS[c.status] ?? "bg-gray-100 text-gray-600"
                       }`}
-                      aria-label={`상태: ${STATUS_LABEL[c.status] ?? c.status}`}
+                      aria-label={`상태: ${getContractStatusLabel(c.status, c.contractType)}`}
+                      title={getContractStatusLabel(c.status, c.contractType)}
                     >
-                      {STATUS_LABEL[c.status] ?? c.status}
+                      {getContractStatusLabel(c.status, c.contractType)}
                     </span>
                     {/* L10 렌즈: 진행률 인디케이터 */}
                     <div className="mt-2 flex gap-1">
