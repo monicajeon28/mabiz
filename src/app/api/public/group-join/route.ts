@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { triggerGroupFunnelSms } from '@/lib/funnel-sms-trigger';
+import { checkRateLimitAsync } from '@/lib/rate-limit';
+
+// 전화번호 정규화 (010-1234-5678 → 01012345678)
+function normalizePhone(phone: string): string {
+  const digits = phone.replace(/[^0-9]/g, '');
+  return digits.length >= 10 ? digits : '';
+}
 
 // POST /api/public/group-join — 외부 랜딩페이지 폼 제출 → 그룹 등록
 // seq 기반 공개 엔드포인트 (인증 불필요)
@@ -35,6 +42,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: 'seq, nm, hp는 필수입니다.' }, { status: 400 });
     }
 
+    // 전화번호 정규화 (010-1234-5678 → 01012345678)
+    const normalizedHp = normalizePhone(hp);
+    if (!normalizedHp) {
+      return NextResponse.json({ ok: false, message: '유효한 전화번호가 아닙니다.' }, { status: 400 });
+    }
+
+    // C-1: 레이트 리밋 (DB 조회 전 차단)
+    //  - IP: 5회/60초 (분산 봇 1차 방어)
+    //  - seq: 30회/60초 (특정 그룹 코드 대량 등록 방어, IP 로테이션 우회 대비)
+    const ip =
+      (req.headers.get('x-forwarded-for')?.split(',')[0].trim()) ||
+      req.headers.get('x-real-ip') ||
+      'unknown';
+    const [ipLimit, seqLimit] = await Promise.all([
+      checkRateLimitAsync(`group-join:ip:${ip}`, 5, 60_000),
+      checkRateLimitAsync(`group-join:seq:${seq}`, 30, 60_000),
+    ]);
+    if (!ipLimit.allowed || !seqLimit.allowed) {
+      return NextResponse.json(
+        { ok: false, message: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' },
+        { status: 429 },
+      );
+    }
+
     // seq로 그룹 조회
     const group = await prisma.contactGroup.findFirst({
       where: { seq },
@@ -47,11 +78,11 @@ export async function POST(req: Request) {
 
     // Contact upsert (phone 기반)
     const contact = await prisma.contact.upsert({
-      where: { phone_organizationId: { organizationId: group.organizationId, phone: hp } },
+      where: { phone_organizationId: { organizationId: group.organizationId, phone: normalizedHp } },
       create: {
         organizationId: group.organizationId,
         name: nm,
-        phone: hp,
+        phone: normalizedHp,
         email: em,
         status: 'INQUIRY',
         sourceType: 'landing_page',
