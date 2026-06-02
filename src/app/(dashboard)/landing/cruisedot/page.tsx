@@ -37,7 +37,11 @@ export default function CruisedotLandingPage() {
         {/* 상품 3가지 */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto">
           <div className="bg-white rounded-lg p-4 shadow-lg hover:shadow-xl transition-shadow">
-            <div className="bg-gradient-to-b from-blue-200 to-blue-100 h-48 rounded mb-3 flex items-center justify-center">
+            <div
+              className="bg-gradient-to-b from-blue-200 to-blue-100 h-48 rounded mb-3 flex items-center justify-center"
+              role="img"
+              aria-label="부산 출도착 국내 크루즈 여행 상품 이미지"
+            >
               <span className="text-gray-600 text-lg font-semibold">⚓ 국내 크루즈</span>
             </div>
             <h3 className="text-lg font-bold">부산 출도착</h3>
@@ -46,7 +50,11 @@ export default function CruisedotLandingPage() {
           </div>
 
           <div className="bg-white rounded-lg p-4 shadow-lg hover:shadow-xl transition-shadow border-2 border-yellow-400">
-            <div className="bg-gradient-to-b from-yellow-200 to-yellow-100 h-48 rounded mb-3 flex items-center justify-center">
+            <div
+              className="bg-gradient-to-b from-yellow-200 to-yellow-100 h-48 rounded mb-3 flex items-center justify-center"
+              role="img"
+              aria-label="일본 크루즈 프리미엄 여행 상품 이미지 (가장 인기)"
+            >
               <span className="text-gray-600 text-lg font-semibold">✨ 프리미엄</span>
             </div>
             <h3 className="text-lg font-bold">일본 크루즈</h3>
@@ -56,7 +64,11 @@ export default function CruisedotLandingPage() {
           </div>
 
           <div className="bg-white rounded-lg p-4 shadow-lg hover:shadow-xl transition-shadow">
-            <div className="bg-gradient-to-b from-green-200 to-green-100 h-48 rounded mb-3 flex items-center justify-center">
+            <div
+              className="bg-gradient-to-b from-green-200 to-green-100 h-48 rounded mb-3 flex items-center justify-center"
+              role="img"
+              aria-label="동남아 크루즈 경제형 여행 상품 이미지"
+            >
               <span className="text-gray-600 text-lg font-semibold">🌍 경제형</span>
             </div>
             <h3 className="text-lg font-bold">동남아 크루즈</h3>
@@ -69,7 +81,7 @@ export default function CruisedotLandingPage() {
       {/* 2️⃣ PROBLEM SECTION (Grant Cardone: Agitate) */}
       <section className="py-12 px-4 bg-white">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold mb-8 text-center">
+          <h2 className="text-3xl font-bold mb-8 text-center" id="problem-section">
             💔 이런 경험, 하셨나요?
           </h2>
 
@@ -178,7 +190,10 @@ export default function CruisedotLandingPage() {
           <div className="space-y-4">
             {/* Q1: 가격 */}
             <details className="border rounded-lg p-6 bg-gray-50 cursor-pointer group hover:bg-blue-50 transition-colors">
-              <summary className="font-bold text-lg flex justify-between items-center">
+              <summary
+                className="font-bold text-lg flex justify-between items-center focus:ring-2 focus:ring-blue-600 focus:outline-none rounded px-2 py-1"
+                aria-expanded="false"
+              >
                 Q1: 왜 더 비싼가요?
                 <span className="text-2xl group-open:rotate-180 transition-transform">▼</span>
               </summary>
@@ -199,7 +214,10 @@ export default function CruisedotLandingPage() {
 
             {/* Q2: 할부 */}
             <details className="border rounded-lg p-6 bg-gray-50 cursor-pointer group hover:bg-blue-50 transition-colors">
-              <summary className="font-bold text-lg flex justify-between items-center">
+              <summary
+                className="font-bold text-lg flex justify-between items-center focus:ring-2 focus:ring-blue-600 focus:outline-none rounded px-2 py-1"
+                aria-expanded="false"
+              >
                 Q2: 진짜 월 할부 가능한가요?
                 <span className="text-2xl group-open:rotate-180 transition-transform">▼</span>
               </summary>
@@ -220,7 +238,10 @@ export default function CruisedotLandingPage() {
 
             {/* Q3: 혼자 가도 */}
             <details className="border rounded-lg p-6 bg-gray-50 cursor-pointer group hover:bg-blue-50 transition-colors">
-              <summary className="font-bold text-lg flex justify-between items-center">
+              <summary
+                className="font-bold text-lg flex justify-between items-center focus:ring-2 focus:ring-blue-600 focus:outline-none rounded px-2 py-1"
+                aria-expanded="false"
+              >
                 Q3: 혼자 가도 괜찮을까요?
                 <span className="text-2xl group-open:rotate-180 transition-transform">▼</span>
               </summary>
@@ -241,7 +262,10 @@ export default function CruisedotLandingPage() {
 
             {/* Q4: 환불 */}
             <details className="border rounded-lg p-6 bg-gray-50 cursor-pointer group hover:bg-blue-50 transition-colors">
-              <summary className="font-bold text-lg flex justify-between items-center">
+              <summary
+                className="font-bold text-lg flex justify-between items-center focus:ring-2 focus:ring-blue-600 focus:outline-none rounded px-2 py-1"
+                aria-expanded="false"
+              >
                 Q4: 취소하면 돈을 돌려받을 수 있나요?
                 <span className="text-2xl group-open:rotate-180 transition-transform">▼</span>
               </summary>
@@ -482,6 +506,7 @@ export default function CruisedotLandingPage() {
               target="_blank"
               rel="noopener noreferrer"
               className="inline-block bg-red-600 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-red-700 transition-colors shadow-lg"
+              aria-label="새 탭에서 크루즈닷 유튜브 라이브 채널 열기"
             >
               🎥 유튜브 라이브 보기
             </a>
