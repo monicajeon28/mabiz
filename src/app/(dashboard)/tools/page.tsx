@@ -1,13 +1,17 @@
 ﻿"use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, Suspense, lazy } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   MessageSquare, Phone, BookOpen, User, Copy, Check, Loader2, Upload, FileText, BookMarked, ExternalLink,
   Zap, TrendingUp, Users, Search, Filter, Star, Clock, AlertCircle
 } from "lucide-react";
-import { CompressorModal } from "@/components/ui/CompressorModal";
-import { QaLibrary } from "@/components/tools/QaLibrary";
+
+// 동적 import: 초기 로드에서 제외
+const CompressorModal = lazy(() => import("@/components/ui/CompressorModal").then(mod => ({ default: mod.CompressorModal })));
+const QaLibrary = lazy(() => import("@/components/tools/QaLibrary").then(mod => ({ default: mod.QaLibrary })));
+import { SkeletonCard, SkeletonTrainingCard, SkeletonRecommendationCard } from "./components/SkeletonLoader";
 
 type Template = { id: string; category: string; title: string; content: string; triggerOffset: number | null };
 type Playbook  = { id: string; type: string; title: string; content: string; priority: number };
@@ -76,6 +80,9 @@ export default function ToolsPage() {
   const [training,   setTraining]   = useState<ProductTraining[]>([]);
   const [copied,     setCopied]     = useState<string | null>(null);
 
+  // 로딩 상태
+  const [isLoading, setIsLoading]   = useState(true);
+
   // 콜 피드백
   const [callText,    setCallText]   = useState("");
   const [analyzing,   setAnalyzing]  = useState(false);
@@ -92,7 +99,8 @@ export default function ToolsPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    // 모든 도구 데이터 로드
+    setIsLoading(true);
+    // 모든 도구 데이터 로드 (병렬)
     Promise.all([
       fetch("/api/tools/sms-templates")
         .then((r) => r.json())
@@ -106,13 +114,11 @@ export default function ToolsPage() {
         .then((r) => r.json())
         .then((d) => { if (d.ok) setTraining(d.items); })
         .catch(() => {}),
-    ]);
-
-    // 추천 도구 로드 (AI 기반)
-    fetch("/api/tools/recommended")
-      .then((r) => r.json())
-      .then((d) => { if (d.ok) setRecommendations(d.recommendations); })
-      .catch(() => {});
+      fetch("/api/tools/recommended")
+        .then((r) => r.json())
+        .then((d) => { if (d.ok) setRecommendations(d.recommendations); })
+        .catch(() => {}),
+    ]).finally(() => setIsLoading(false));
   }, []);
 
   // 도구 조회 기록 (마지막 본 도구 추적)
@@ -126,11 +132,11 @@ export default function ToolsPage() {
     } catch {}
   };
 
-  const copy = (id: string, text: string) => {
+  const copy = useCallback((id: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(id);
     setTimeout(() => setCopied(null), 2000);
-  };
+  }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -164,17 +170,31 @@ export default function ToolsPage() {
     }
   };
 
-  const filteredTemplates = templates.filter((t) => t.category === smsTab);
-  const filteredPlaybooks  = playbooks.filter((p) => p.type === pbTab);
-  const filteredTraining   = training.filter((t) =>
-    productCategory === "ALL" || t.category === productCategory
-  ).filter((t) =>
-    searchQuery === "" || t.title.includes(searchQuery) || t.description.includes(searchQuery)
-  );
-  const filteredScripts    = playbooks.filter((p) => p.type === "OPENING").slice(0, 5); // 콜스크립트용 샘플
+  const filteredTemplates = useMemo(() => templates.filter((t) => t.category === smsTab), [templates, smsTab]);
 
-  const scoreColor = (s: number) =>
-    s >= 80 ? "text-green-600" : s >= 60 ? "text-yellow-600" : "text-red-500";
+  const filteredPlaybooks = useMemo(() => playbooks.filter((p) => p.type === pbTab), [playbooks, pbTab]);
+
+  const filteredTraining = useMemo(() => {
+    let result = training.filter((t) =>
+      productCategory === "ALL" || t.category === productCategory
+    );
+    if (searchQuery) {
+      result = result.filter((t) =>
+        t.title.includes(searchQuery) || t.description.includes(searchQuery)
+      );
+    }
+    return result;
+  }, [training, productCategory, searchQuery]);
+
+  const filteredScripts = useMemo(() =>
+    playbooks.filter((p) => p.type === "OPENING").slice(0, 5),
+    [playbooks]
+  );
+
+  const scoreColor = useCallback((s: number) =>
+    s >= 80 ? "text-green-600" : s >= 60 ? "text-yellow-600" : "text-red-500",
+    []
+  );
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -198,7 +218,9 @@ export default function ToolsPage() {
       </button>
 
       {showCompressor && (
-        <CompressorModal isOpen={showCompressor} onClose={() => setShowCompressor(false)} />
+        <Suspense fallback={<div className="text-center py-8">로딩 중...</div>}>
+          <CompressorModal isOpen={showCompressor} onClose={() => setShowCompressor(false)} />
+        </Suspense>
       )}
 
       {/* 메인 탭 - 50대 친화형 대형 버튼 */}
@@ -227,14 +249,20 @@ export default function ToolsPage() {
       </div>
 
       {/* 추천 도구 (대시보드 + 다른 탭) */}
-      {recommendations.length > 0 && (
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Zap className="w-5 h-5 text-amber-600" />
-            <h3 className="font-bold text-amber-900">🎯 AI 추천</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {recommendations.slice(0, 3).map((rec) => (
+      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Zap className="w-5 h-5 text-amber-600" />
+          <h3 className="font-bold text-amber-900">🎯 AI 추천</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {isLoading ? (
+            <>
+              <SkeletonRecommendationCard />
+              <SkeletonRecommendationCard />
+              <SkeletonRecommendationCard />
+            </>
+          ) : recommendations.length > 0 ? (
+            recommendations.slice(0, 3).map((rec) => (
               <button
                 key={rec.toolId}
                 onClick={() => {
@@ -250,10 +278,10 @@ export default function ToolsPage() {
                   <span className="text-xs text-amber-600 font-medium">{rec.relevance}% 관련도</span>
                 </div>
               </button>
-            ))}
-          </div>
+            ))
+          ) : null}
         </div>
-      )}
+      </div>
 
       {/* 대시보드 - 최근 본 도구 + 인기 도구 */}
       {mainTab === "dashboard" && (
@@ -293,28 +321,28 @@ export default function ToolsPage() {
             <h2 className="font-bold text-gray-900 mb-3">도구 탐색</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {[
-                { icon: "📚", label: "상품교육", key: "training", href: null },
-                { icon: "🎤", label: "콜스크립트", key: "scripts", href: null },
-                { icon: "📖", label: "플레이북", key: "playbook", href: null },
-                { icon: "📱", label: "SMS템플릿", key: "feedback", href: null },
-                { icon: "❓", label: "Q&A", key: "qa", href: null },
-                { icon: "🔊", label: "콜분석", key: "feedback", href: null },
-                { icon: "🔍", label: "키워드검색량", key: "keyword-volume", href: "/tools/keyword-volume" },
+                { icon: "📚", label: "상품교육", tab: "training" as const, href: null },
+                { icon: "🎤", label: "콜스크립트", tab: "scripts" as const, href: null },
+                { icon: "📖", label: "플레이북", tab: "playbook" as const, href: null },
+                { icon: "📱", label: "SMS템플릿", tab: "feedback" as const, href: null },
+                { icon: "❓", label: "Q&A", tab: "qa" as const, href: null },
+                { icon: "🔊", label: "콜분석", tab: "call-feedback" as const, href: null },
+                { icon: "🔍", label: "키워드검색량", tab: null, href: "/tools/keyword-volume" },
               ].map((cat) =>
                 cat.href ? (
-                  <a
-                    key={cat.key}
+                  <Link
+                    key={cat.label}
                     href={cat.href}
                     className="bg-white p-4 rounded-lg border border-blue-200 hover:border-blue-500 hover:bg-blue-50 transition-colors text-center block"
                   >
                     <div className="text-2xl mb-1">{cat.icon}</div>
                     <p className="text-sm font-medium text-gray-900">{cat.label}</p>
                     <p className="text-xs text-blue-500 mt-0.5">네이버/구글</p>
-                  </a>
+                  </Link>
                 ) : (
                   <button
-                    key={cat.key}
-                    onClick={() => setMainTab(cat.key as any)}
+                    key={cat.label}
+                    onClick={() => setMainTab(cat.tab!)}
                     className="bg-white p-4 rounded-lg border border-gray-200 hover:border-navy-900 hover:bg-navy-50 transition-colors text-center"
                   >
                     <div className="text-2xl mb-1">{cat.icon}</div>
@@ -371,38 +399,47 @@ export default function ToolsPage() {
 
           {/* 상품 교육 카드 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredTraining.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => trackToolView(item.id)}
-                className="bg-white border-2 border-gray-200 rounded-xl p-5 hover:border-navy-900 hover:shadow-lg transition-all cursor-pointer"
-              >
-                <div className="flex items-start gap-3 mb-3">
-                  <span className="text-3xl">{item.icon}</span>
-                  <div className="flex-1">
-                    <h3 className="font-bold text-gray-900">{item.title}</h3>
-                    {item.lastViewed && (
-                      <p className="text-xs text-gray-500 mt-0.5">마지막 본 시간: {item.lastViewed}</p>
-                    )}
-                  </div>
-                </div>
-                <p className="text-sm text-gray-600 mb-3">{item.description}</p>
-                <button
-                  onClick={() => copy(item.id, item.content)}
-                  className="w-full py-2 bg-navy-900 text-white rounded-lg text-sm font-medium hover:bg-navy-800 transition-colors flex items-center justify-center gap-2"
+            {isLoading ? (
+              <>
+                <SkeletonTrainingCard />
+                <SkeletonTrainingCard />
+                <SkeletonTrainingCard />
+                <SkeletonTrainingCard />
+              </>
+            ) : (
+              filteredTraining.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => trackToolView(item.id)}
+                  className="bg-white border-2 border-gray-200 rounded-xl p-5 hover:border-navy-900 hover:shadow-lg transition-all cursor-pointer"
                 >
-                  {copied === item.id ? (
-                    <>
-                      <Check className="w-4 h-4" /> 복사됨
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4" /> 자료 복사
-                    </>
-                  )}
-                </button>
-              </div>
-            ))}
+                  <div className="flex items-start gap-3 mb-3">
+                    <span className="text-3xl">{item.icon}</span>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-gray-900">{item.title}</h3>
+                      {item.lastViewed && (
+                        <p className="text-xs text-gray-500 mt-0.5">마지막 본 시간: {item.lastViewed}</p>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-3">{item.description}</p>
+                  <button
+                    onClick={() => copy(item.id, item.content)}
+                    className="w-full py-2 bg-navy-900 text-white rounded-lg text-sm font-medium hover:bg-navy-800 transition-colors flex items-center justify-center gap-2"
+                  >
+                    {copied === item.id ? (
+                      <>
+                        <Check className="w-4 h-4" /> 복사됨
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" /> 자료 복사
+                      </>
+                    )}
+                  </button>
+                </div>
+              ))
+            )}
           </div>
 
           {filteredTraining.length === 0 && (
@@ -811,9 +848,11 @@ export default function ToolsPage() {
 
       {/* Q&A 라이브러리 */}
       {mainTab === "qa" && (
-        <div className="space-y-4">
-          <QaLibrary />
-        </div>
+        <Suspense fallback={<div className="text-center py-8">Q&A 라이브러리 로딩 중...</div>}>
+          <div className="space-y-4">
+            <QaLibrary />
+          </div>
+        </Suspense>
       )}
     </div>
   );

@@ -286,7 +286,7 @@ function FreeSalesTable({ sales }: { sales: SaleItem[] }) {
                   {formatKRW(s.saleAmount)}
                 </td>
                 <td className="px-4 py-3 text-right text-gray-600">
-                  {(s.commissionRate * 100).toFixed(1)}%
+                  {s.commissionRate.toFixed(1)}%
                 </td>
                 <td className="px-4 py-3 text-right text-blue-600 font-medium">
                   {formatKRW(s.commissionAmount)}

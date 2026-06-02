@@ -3,6 +3,9 @@ import prisma from "@/lib/prisma";
 import { getAuthContext } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
+// 캐시 설정: 30분 (AI 추천은 자주 변함)
+const CACHE_DURATION = 1800;
+
 // GET /api/tools/recommended
 // AI 기반 추천: 고객 상태, 최근 활동, 심리학 렌즈 기반
 export async function GET(req: Request) {
@@ -54,11 +57,17 @@ export async function GET(req: Request) {
       },
     ];
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       recommendations,
       generatedAt: new Date().toISOString(),
     });
+
+    // HTTP 캐싱 헤더 추가 (30분)
+    response.headers.set('Cache-Control', `public, max-age=${CACHE_DURATION}, stale-while-revalidate=${CACHE_DURATION}`);
+    response.headers.set('CDN-Cache-Control', `max-age=${CACHE_DURATION}`);
+
+    return response;
   } catch (error) {
     logger.error("Error fetching recommendations:", error as object);
     return NextResponse.json(

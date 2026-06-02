@@ -80,13 +80,12 @@ interface PaginationData {
   totalPages: number;
 }
 
-/** YYYY-MM 문자열에서 다음 달 15일 반환 (ISO 형식) */
+/** YYYY-MM 문자열에서 다음 달 15일 반환 (ISO 형식, UTC 고정) */
 function calcExpectedPaymentDate(yearMonth: string): string {
   const [year, month] = yearMonth.split('-').map(Number);
   const nextMonth = month === 12 ? 1 : month + 1;
   const nextYear = month === 12 ? year + 1 : year;
-  const date = new Date(nextYear, nextMonth - 1, 15);
-  return date.toISOString();
+  return new Date(Date.UTC(nextYear, nextMonth - 1, 15)).toISOString();
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -111,6 +110,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const { searchParams } = new URL(req.url);
     const period = searchParams.get('period'); // YYYY-MM
+    const statusFilter = searchParams.get('status'); // 상태 필터
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10)));
     const skip = (page - 1) * limit;
@@ -136,6 +136,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       type SaleWhere = {
         OR: SaleOrCondition[];
         travelCompletedAt?: { gte: Date; lt: Date };
+        status?: string;
       };
 
       const orConditions: SaleOrCondition[] = [
@@ -154,6 +155,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         const periodStart = new Date(y, m - 1, 1);
         const periodEnd = new Date(y, m, 1);
         whereConditions.travelCompletedAt = { gte: periodStart, lt: periodEnd };
+      }
+
+      if (statusFilter) {
+        whereConditions.status = statusFilter;
       }
 
       const [sales, total] = await Promise.all([
@@ -263,11 +268,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     type PayslipWhere = {
       agentId: number;
       yearMonth?: string;
+      status?: string;
     };
 
     const where: PayslipWhere = { agentId };
     if (period) {
       where.yearMonth = period;
+    }
+    if (statusFilter) {
+      where.status = statusFilter;
     }
 
     const [payslips, total] = await Promise.all([

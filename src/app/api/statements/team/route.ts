@@ -57,8 +57,7 @@ function calcExpectedPaymentDate(yearMonth: string): string {
   const [year, month] = yearMonth.split('-').map(Number);
   const nextMonth = month === 12 ? 1 : month + 1;
   const nextYear = month === 12 ? year + 1 : year;
-  const date = new Date(nextYear, nextMonth - 1, 15);
-  return date.toISOString();
+  return new Date(Date.UTC(nextYear, nextMonth - 1, 15)).toISOString();
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -83,14 +82,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const { searchParams } = new URL(req.url);
     const period = searchParams.get('period');
-    const roleFilter = searchParams.get('role') ?? 'all';
+    const VALID_ROLE_FILTERS = ['all', 'AGENT', 'OWNER', 'FREE_SALES'];
+    const rawRole = searchParams.get('role') ?? 'all';
+    const roleFilter = VALID_ROLE_FILTERS.includes(rawRole) ? rawRole : 'all';
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10)));
     const skip = (page - 1) * limit;
 
-    if (!period) {
+    if (!period || !/^\d{4}-\d{2}$/.test(period)) {
       return NextResponse.json(
-        { ok: false, error: 'BAD_REQUEST', message: 'period 파라미터(YYYY-MM)가 필요합니다.' },
+        { ok: false, error: 'BAD_REQUEST', message: 'period는 YYYY-MM 형식이어야 합니다.' },
         { status: 400 }
       );
     }
@@ -107,8 +108,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       prisma.affiliatePayslip.findMany({
         where: payslipWhere,
         orderBy: { agentId: 'asc' },
-        skip: roleFilter === 'FREE_SALES' ? 0 : skip,
-        take: roleFilter === 'FREE_SALES' ? 1000 : limit,
+        // skip/take 제거: 메모리에서 단일 페이지네이션 적용 (이중 페이지네이션 방지)
       }),
       prisma.affiliatePayslip.count({ where: payslipWhere }),
     ]);
@@ -225,9 +225,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         const totalRefunded = Number(fs.totalRefunded);
         const withholdingAmount = Math.floor(totalCommission * 0.033);
         const net = totalCommission - withholdingAmount - totalRefunded;
+        const parsedId = parseInt(fs.affiliateUserId ?? '', 10);
 
         members.push({
-          agentId: parseInt(fs.affiliateUserId, 10),
+          agentId: isNaN(parsedId) ? -1 : parsedId,
           name: fs.name ?? fs.affiliateUserId,
           role: 'FREE_SALES',
           payslipId: null,
@@ -256,26 +257,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       logger.info('[GET /api/statements/team] OWNER 접근', { organizationId, period });
     }
 
-    // 페이지네이션 (FREE_SALES 혼합 시 전체 기준)
-    const totalMembers =
-      roleFilter === 'FREE_SALES'
-        ? freeSalesRows.length
-        : roleFilter === 'all'
-          ? payslipTotal + freeSalesRows.length
-          : payslipTotal;
+    // 페이지네이션 (전체 members 기준)
+    const totalMembers = members.length;
 
-    // role 필터에 따른 슬라이싱 (FREE_SALES 포함 all일 때)
-    const pagedMembers = roleFilter === 'all'
-      ? members.slice(skip, skip + limit)
-      : members;
-
-    // ── 5. 요약 계산 ─────────────────────────────────────────────────────────
+    // ── 5. 요약 계산 (슬라이싱 전 전체 members 기준) ─────────────────────────
     const summary: TeamSummary = {
-      totalPayout: pagedMembers.reduce((acc, m) => acc + m.netAmount, 0),
-      missingDocCount: pagedMembers.filter(m => !m.canApprove && m.role !== 'FREE_SALES').length,
-      pendingCount: pagedMembers.filter(m => m.status === 'PENDING').length,
-      paidCount: pagedMembers.filter(m => m.status === 'SENT').length,
+      totalPayout: members.reduce((acc, m) => acc + m.netAmount, 0),
+      missingDocCount: members.filter(m => !m.canApprove && m.role !== 'FREE_SALES').length,
+      pendingCount: members.filter(m => m.status === 'PENDING').length,
+      paidCount: members.filter(m => m.status === 'SENT').length,
     };
+
+    // 페이지네이션 슬라이싱 (summary 계산 후 적용)
+    const pagedMembers = members.slice(skip, skip + limit);
 
     const pagination: PaginationData = {
       page,
