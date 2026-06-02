@@ -257,10 +257,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // ── AGENT / OWNER: AffiliatePayslip 조회 ────────────────────────────────
     const mallUserId = session.mallUser?.id;
     if (!mallUserId) {
-      return NextResponse.json(
-        { ok: false, error: 'FORBIDDEN', message: '파트너 정보가 없습니다.' },
-        { status: 403 }
-      );
+      // GMcruise 계정 미연동 → 빈 정산 내역 반환 (403 대신 정상 응답)
+      return NextResponse.json({
+        ok: true,
+        role,
+        data: {
+          payslips: [],
+          summary: { totalCommission: 0, totalWithholding: 0, totalNet: 0, totalDeduction: 0, pendingCount: 0, paidCount: 0 },
+          document: { hasIdCard: false, hasBankBook: false, bankName: null, bankAccount: null, bankAccountHolder: null, withholdingRate: 3.3 },
+          pagination: { page, limit, total: 0, totalPages: 0 },
+        },
+      });
     }
 
     const agentId = mallUserId;
