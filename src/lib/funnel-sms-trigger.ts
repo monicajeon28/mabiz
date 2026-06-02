@@ -132,6 +132,14 @@ export async function triggerGroupFunnelSms(opts: TriggerOptions): Promise<boole
         });
       }
       const resolvedSenderPhone = phoneValidation.fallbackPhone ?? undefined;
+      if (!resolvedSenderPhone && funnelSms.senderPhone) {
+        logger.error("[FunnelSmsTrigger] 발신번호 검증 완전 실패 (폴백 불가)", {
+          funnelSmsId,
+          organizationId,
+          senderPhone: funnelSms.senderPhone,
+        });
+        continue; // 이 FunnelSms 스킵, 나머지는 계속
+      }
 
       // 5-3. 각 FunnelSmsMessage → ScheduledSms INSERT (단일 createMany)
       const data = funnelSms.messages.map((msg) => {
