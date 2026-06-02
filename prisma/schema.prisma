@@ -1374,6 +1374,10 @@ model ScheduledSms {
   @@index([scheduledAt, status])
   @@index([channel])
   @@index([organizationId, channel, status], map: "idx_scheduled_sms_org_channel_status")
+  // [P1-2] 퍼널문자 중복 발송 방지용 부분 UNIQUE 인덱스는 Prisma 스키마로 표현 불가
+  //  → prisma/migrations/manual_add_scheduled_sms_funnel_unique.sql 로 수동 관리.
+  //  (전역 @@unique([organizationId, contactId, channel])는 'SMS'/'EMAIL'/'GROUP' 등
+  //   상수 채널 반복발송 정상흐름을 차단하므로 절대 추가 금지)
   @@map("ScheduledSms")
 }
 
