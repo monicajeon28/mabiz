@@ -77,45 +77,45 @@ export default function CruisedotLandingPage() {
             {/* 문제 1: 정보 부족 */}
             <div className="border-l-4 border-orange-500 pl-6 py-4 bg-orange-50 rounded-r-lg">
               <h3 className="text-xl font-bold text-orange-700 mb-2">
-                싼 크루즈로 정보 없이 떠났을 때
+                🚨 싼 크루즈로 정보 없이 떠났을 때
               </h3>
-              <p className="text-gray-700 leading-relaxed">
-                "부모님까지 모시고 갔는데 최악이었어요. 시간 버리고 돈 버린... 가족끼리 시간 내기도 힘든데 너무 준비가 안 돼있어서 크루즈는 안 가고 싶네요."
+              <p className="text-gray-700 leading-relaxed text-base">
+                "부모님까지 모시고 갔는데 최악이었어요. 시간 버리고 돈 버린 경험. 가족끼리 시간 내기도 힘든데 너무 준비가 안 돼있어서 크루즈는 안 가고 싶네요."
               </p>
-              <p className="text-xs text-gray-500 mt-2 italic">- 김○○님, 서울</p>
+              <p className="text-xs text-gray-500 mt-2">— 크루즈닷 고객</p>
             </div>
 
             {/* 문제 2: 환불 실패 */}
             <div className="border-l-4 border-red-500 pl-6 py-4 bg-red-50 rounded-r-lg">
               <h3 className="text-xl font-bold text-red-700 mb-2">
-                해외 사이트 환불 실패 😭
+                🚨 외국 사이트 환불 실패
               </h3>
-              <p className="text-gray-700 leading-relaxed">
-                "MSC 외국 사이트 결제해서 취소했는데 위약금 하나도 못받더라고요. 진짜 힘들었어요. 한국 대리점을 통했으면..."
+              <p className="text-gray-700 leading-relaxed text-base">
+                "외국 사이트 결제해서 취소했는데 위약금을 못 받더라고요. 진짜 힘들었어요. 예약은 외국 플랫폼으로는 절대 안 해야겠다는 생각."
               </p>
-              <p className="text-xs text-gray-500 mt-2 italic">- 이○○님, 부산</p>
+              <p className="text-xs text-gray-500 mt-2">— 크루즈닷 고객</p>
             </div>
 
             {/* 문제 3: 개인 판매자 사기 */}
             <div className="border-l-4 border-red-500 pl-6 py-4 bg-red-50 rounded-r-lg">
               <h3 className="text-xl font-bold text-red-700 mb-2">
-                개인 판매자 사기 💢
+                🚨 개인 판매자 사기
               </h3>
-              <p className="text-gray-700 leading-relaxed">
-                "반값에 간다고 해서 지인들도 다 가입시켰는데 크루즈여행 가지도 못했어요. 환불은 안 되고... 정말 후회됩니다."
+              <p className="text-gray-700 leading-relaxed text-base">
+                "반값에 간다고 해서 지인들도 다 가입시켰는데 크루즈여행을 가지도 못했어요."
               </p>
-              <p className="text-xs text-gray-500 mt-2 italic">- 박○○님, 서울</p>
+              <p className="text-xs text-gray-500 mt-2">— 크루즈닷 고객</p>
             </div>
 
             {/* 문제 4: 현장 혼란 */}
             <div className="border-l-4 border-red-500 pl-6 py-4 bg-red-50 rounded-r-lg">
               <h3 className="text-xl font-bold text-red-700 mb-2">
-                크루즈항에서 혼란 😰
+                🚨 크루즈항 혼란
               </h3>
-              <p className="text-gray-700 leading-relaxed">
-                "짐을 다른 크루즈에 넣음 / 객실 문제 / 비행기 연착 / 방향을 못 찾음... 이 모든 것이 한 번에 일어났어요."
+              <p className="text-gray-700 leading-relaxed text-base">
+                "짐을 다른 크루즈에 넣음 / 객실 문제 / 비행기 연착 / 길 잃음 등의 문제 경험. 혼자 떠난다는 것은 정말 위험했습니다."
               </p>
-              <p className="text-xs text-gray-500 mt-2 italic">- 최○○님, 대구</p>
+              <p className="text-xs text-gray-500 mt-2">— 크루즈닷 고객</p>
             </div>
           </div>
         </div>
