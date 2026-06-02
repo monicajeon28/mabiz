@@ -49,7 +49,12 @@ export async function POST(req: NextRequest) {
 
   if (eventId) {
     const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
-      where: { eventId },
+      where: {
+        eventId_webhookType: {
+          eventId,
+          webhookType: 'partner-signup',
+        },
+      },
       select: { eventId: true },
     });
     if (alreadyProcessed) {

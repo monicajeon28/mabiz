@@ -122,7 +122,12 @@ export async function POST(req: NextRequest) {
       // eventId 멱등성 체크 (1단계와 2단계는 다른 eventId를 보내야 함, Transaction 내부 — TOCTOU 방지)
       if (eventId) {
         const alreadyProcessed = await tx.processedWebhookEvent.findUnique({
-          where: { eventId },
+          where: {
+            eventId_webhookType: {
+              eventId,
+              webhookType: 'purchase',
+            },
+          },
           select: { eventId: true },
         });
         if (alreadyProcessed) {

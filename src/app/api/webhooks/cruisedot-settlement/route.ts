@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { SettlementSaga, SettlementSagaContext } from '@/lib/webhooks/settlement-saga';
 import { retryStrategy } from '@/lib/webhooks/retry-strategy';
+import { getCommissionRateForProfileId } from '@/lib/commission-calculator';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -100,7 +101,12 @@ export async function POST(req: NextRequest) {
   try {
     // eventId 멱등성 체크
     const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
-      where: { eventId },
+      where: {
+        eventId_webhookType: {
+          eventId,
+          webhookType: 'cruisedot-settlement',
+        },
+      },
     });
 
     if (alreadyProcessed) {
@@ -131,8 +137,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Calculate final commission rate
-    const finalCommissionRate = commissionRate ?? 18; // 기본값: SILVER 18%
+    // Partner.tier 기반 동적 수당율 조회 (하드코딩 18% 제거)
+    const finalCommissionRate = await getCommissionRateForProfileId(
+      profileIdInt,
+      organizationId,
+      commissionRate // payload 값은 Partner 미매핑 시 폴백으로만 사용
+    );
     const calculatedNetAmount = netAmount ?? Math.floor(amount * (1 - finalCommissionRate / 100));
 
     // Create Saga context

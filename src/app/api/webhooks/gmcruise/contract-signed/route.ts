@@ -89,7 +89,12 @@ export async function POST(req: NextRequest) {
   // ── 5-0. eventId 멱등성 체크 ────────────────────────────────────────
   if (eventId) {
     const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
-      where: { eventId },
+      where: {
+        eventId_webhookType: {
+          eventId,
+          webhookType: 'gmcruise-contract-signed',
+        },
+      },
       select: { eventId: true },
     });
     if (alreadyProcessed) {

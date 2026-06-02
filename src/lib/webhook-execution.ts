@@ -33,10 +33,15 @@ export function verifyWebhookSignature(
 /**
  * 2. WebHook 이벤트 중복 여부 확인
  */
-export async function isProcessedWebhook(eventId: string): Promise<boolean> {
+export async function isProcessedWebhook(eventId: string, webhookType: string): Promise<boolean> {
   try {
     const existing = await prisma.processedWebhookEvent.findUnique({
-      where: { eventId },
+      where: {
+        eventId_webhookType: {
+          eventId,
+          webhookType,
+        },
+      },
     });
     return !!existing;
   } catch (error) {
@@ -178,7 +183,7 @@ export async function processSendingWebhook(
   failureUserMsg?: string,
 ): Promise<{ ok: boolean; duplicate: boolean }> {
   // 멱등성: 이미 처리된 이벤트는 성공으로 반환
-  if (await isProcessedWebhook(eventId)) {
+  if (await isProcessedWebhook(eventId, "sending_status")) {
     logger.info("[WebhookExecution] 중복 이벤트 (멱등성)", {
       eventId,
       sendingId,

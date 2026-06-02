@@ -75,7 +75,12 @@ export async function POST(req: NextRequest) {
   // eventId 멱등성 체크 (중복 수신 방지)
   if (eventId) {
     const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
-      where: { eventId },
+      where: {
+        eventId_webhookType: {
+          eventId,
+          webhookType: 'refund',
+        },
+      },
       select: { eventId: true },
     });
     if (alreadyProcessed) {

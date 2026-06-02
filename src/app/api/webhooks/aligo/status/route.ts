@@ -136,7 +136,7 @@ export async function GET(req: NextRequest) {
 
     // 4. 멱등성: msg_id를 eventId로 사용하여 중복 확인
     const eventId = `aligo-${params.msg_id}`;
-    if (await isProcessedWebhook(eventId)) {
+    if (await isProcessedWebhook(eventId, 'aligo-status')) {
       logger.info("[AligoStatusWebhook] 중복 콜백 (멱등성)", {
         msg_id: params.msg_id,
       });

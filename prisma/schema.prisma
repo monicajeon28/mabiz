@@ -1975,6 +1975,7 @@ model Partner {
   tier                String    @default("Bronze") // "Bronze" | "Silver" | "Gold" | "Platinum"
   churnRiskFlag       Boolean   @default(false) // Churn 신호 감지 (수입 20% 이상 감소)
   churnRiskDetectedAt DateTime? @db.Timestamptz(6) // Churn 신호 감지 시각
+  externalProfileId   Int?      @unique // GMcruise AffiliateProfile.id (Int) — CRM-GMcruise 연결 브릿지
 
   contacts           Contact[]
   organization       Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
