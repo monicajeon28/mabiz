@@ -90,6 +90,7 @@ type PendingContract = {
   phone: string | null;
   status: string;
   createdAt: string;
+  metadata?: Record<string, unknown> | null;
 };
 
 // ─── Constants ────────────────────────────────────────────────
@@ -965,11 +966,15 @@ export default function OrganizationsPage() {
         </a>
       </section>
 
-      {/* 계약 승인 대기 */}
+      {/* 계약 승인 대기 — 타입별 구분 */}
       <section>
         <div className="flex items-center gap-2 mb-2.5">
           <FileCheck className="w-4 h-4 text-amber-600" />
-          <h2 className="text-sm font-semibold text-gray-700">계약 승인 대기</h2>
+          <h2 className="text-sm font-semibold text-gray-700">
+            {pendingContracts.length > 0 && (pendingContracts[0].metadata as Record<string, unknown>)?.type === 'CRUISE_PARTNER'
+              ? '크루즈닷 파트너스 사입신청'
+              : '계약 승인 대기'}
+          </h2>
           {!contractsLoading && pendingContracts.length > 0 && (
             <span className="ml-1 px-2 py-0.5 bg-amber-500 text-white text-sm font-bold rounded-full">
               {pendingContracts.length}
