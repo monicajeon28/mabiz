@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
+import { triggerGroupFunnelSms } from "@/lib/funnel-sms-trigger";
 import { logger } from "@/lib/logger";
 import { addLeadScore } from "@/lib/lead-score";
 import { normalizePhone } from "@/lib/phone-normalize";
@@ -228,11 +229,22 @@ export async function POST(req: Request, { params }: Params) {
           organizationId: orgId,
         });
 
+        // ★ 퍼널문자(FunnelSms) 트리거 — 그룹에 funnelSmsId가 연결된 경우
+        // fire-and-forget: 실패해도 신청 등록은 유지
+        const smsTriggered = await triggerGroupFunnelSms({
+          contactId:      contact.id,
+          groupId:        landingPage.groupId,
+          organizationId: orgId,
+        }).catch((err) => {
+          logger.error('[LandingRegister] 퍼널문자 트리거 실패', { err });
+          return false;
+        });
+
         // [T8] OR 연산으로 true 상태 유지 (autoFunnelId + groupId 동시 사용 시 오염 방지)
-        funnelStarted = funnelStarted || triggered;
+        funnelStarted = funnelStarted || triggered || smsTriggered;
 
         // funnelStarted 업데이트 (fire-and-forget)
-        if (triggered) {
+        if (triggered || smsTriggered) {
           // id로 특정 행만 업데이트 (updateMany 다중 행 방지)
           prisma.crmLandingRegistration.update({
             where: { id: regId },
@@ -277,12 +289,16 @@ export async function POST(req: Request, { params }: Params) {
       const unsafeHtml = rawContent.includes("<")
         ? rawContent
         : `<div style="font-family:sans-serif;line-height:1.8;white-space:pre-wrap">${rawContent}</div>`;
+      // [P0-XSS] 인라인 style 전역 허용 제거 — CSS 기반 XSS(position/expression 등) 차단.
+      // class만 유지하고 style은 안전한 표현 wrapper(div)에만 우리가 직접 부여한다.
       const htmlContent = sanitizeHtml(unsafeHtml, {
         allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "h1", "h2", "br"]),
         allowedAttributes: {
           ...sanitizeHtml.defaults.allowedAttributes,
-          "*": ["style", "class"],
+          "*": ["class"],
         },
+        allowedSchemes: ["http", "https", "mailto"],
+        allowProtocolRelative: false,
       });
 
       sendFunnelEmail({
