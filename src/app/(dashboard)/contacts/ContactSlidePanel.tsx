@@ -161,49 +161,68 @@ export default function ContactSlidePanel({
 
   const addCallLog = useCallback(async () => {
     if (!contact) return;
-    const res = await fetch(`/api/contacts/${contact.id}/call-logs`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(callForm),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      const updated = { ...contact, callLogs: [data.log, ...contact.callLogs] };
-      setContact(updated);
-      setShowCallForm(false);
-      setCallForm({ content: "", result: "INTERESTED", convictionScore: "5", nextAction: "", scheduledAt: "", objectionId: "", customerReaction: "neutral", recovered: false, recoveryTime: "" });
-      setSelectedObjectionModal(null);
-      onRefresh?.({ id: contact.id, callLogs: updated.callLogs });
-      toast({ title: "콜 기록 저장", variant: "success" });
-    } else {
-      toast({ title: "저장 실패", description: data.message, variant: "destructive" });
+    try {
+      const res = await fetch(`/api/contacts/${contact.id}/call-logs`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(callForm),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        const updated = { ...contact, callLogs: [data.log, ...contact.callLogs] };
+        setContact(updated);
+        setShowCallForm(false);
+        setCallForm({ content: "", result: "INTERESTED", convictionScore: "5", nextAction: "", scheduledAt: "", objectionId: "", customerReaction: "neutral", recovered: false, recoveryTime: "" });
+        setSelectedObjectionModal(null);
+        onRefresh?.({ id: contact.id, callLogs: updated.callLogs });
+        toast({ title: "콜 기록 저장", variant: "success" });
+      } else {
+        toast({ title: "저장 실패", description: data.message, variant: "destructive" });
+      }
+    } catch (err) {
+      logger.error("[addCallLog failed]", { err });
+      toast({ title: "네트워크 오류", description: err instanceof Error ? err.message : "요청 실패", variant: "destructive" });
     }
   }, [contact, callForm, toast, onRefresh]);
 
   const deleteCallLog = useCallback(async (logId: string) => {
     if (!contact) return;
     if (!confirm("이 콜 기록을 삭제할까요?")) return;
-    const res = await fetch(`/api/contacts/${contact.id}/call-logs?logId=${logId}`, { method: "DELETE" });
-    const data = await res.json();
-    if (data.ok) {
-      const updated = { ...contact, callLogs: contact.callLogs.filter(l => l.id !== logId) };
-      setContact(updated);
-      if (expandedLogId === logId) setExpandedLogId(null);
-      onRefresh?.({ id: contact.id, callLogs: updated.callLogs });
+    try {
+      const res = await fetch(`/api/contacts/${contact.id}/call-logs?logId=${logId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.ok) {
+        const updated = { ...contact, callLogs: contact.callLogs.filter(l => l.id !== logId) };
+        setContact(updated);
+        if (expandedLogId === logId) setExpandedLogId(null);
+        onRefresh?.({ id: contact.id, callLogs: updated.callLogs });
+      } else {
+        toast({ title: "삭제 실패", description: data.message, variant: "destructive" });
+      }
+    } catch (err) {
+      logger.error("[deleteCallLog failed]", { err });
+      toast({ title: "네트워크 오류", description: err instanceof Error ? err.message : "요청 실패", variant: "destructive" });
     }
-  }, [contact, expandedLogId, onRefresh]);
+  }, [contact, expandedLogId, onRefresh, toast]);
 
   const deleteAllCallLogs = useCallback(async () => {
     if (!contact) return;
     if (!confirm(`콜 기록 ${contact.callLogs.length}건을 전체 삭제할까요?`)) return;
-    const res = await fetch(`/api/contacts/${contact.id}/call-logs`, { method: "DELETE" });
-    const data = await res.json();
-    if (data.ok) {
-      const updated = { ...contact, callLogs: [] };
-      setContact(updated);
-      setExpandedLogId(null);
-      onRefresh?.({ id: contact.id, callLogs: [] });
+    try {
+      const res = await fetch(`/api/contacts/${contact.id}/call-logs`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.ok) {
+        const updated = { ...contact, callLogs: [] };
+        setContact(updated);
+        setExpandedLogId(null);
+        onRefresh?.({ id: contact.id, callLogs: [] });
+      } else {
+        toast({ title: "삭제 실패", description: data.message, variant: "destructive" });
+      }
+    } catch (err) {
+      logger.error("[deleteAllCallLogs failed]", { err });
+      toast({ title: "네트워크 오류", description: err instanceof Error ? err.message : "요청 실패", variant: "destructive" });
     }
-  }, [contact, onRefresh]);
+  }, [contact, onRefresh, toast]);
 
   const backupCallLogs = useCallback(async () => {
     if (!contact) return;
@@ -263,14 +282,21 @@ export default function ContactSlidePanel({
   const deleteMemo = useCallback(async (memoId: string) => {
     if (!contact) return;
     if (!confirm("이 메모를 삭제할까요?")) return;
-    const res = await fetch(`/api/contacts/${contact.id}/memos?memoId=${memoId}`, { method: "DELETE" });
-    const data = await res.json();
-    if (data.ok) {
-      const updated = { ...contact, memos: contact.memos.filter(m => m.id !== memoId) };
-      setContact(updated);
-      onRefresh?.({ id: contact.id, memos: updated.memos });
+    try {
+      const res = await fetch(`/api/contacts/${contact.id}/memos?memoId=${memoId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.ok) {
+        const updated = { ...contact, memos: contact.memos.filter(m => m.id !== memoId) };
+        setContact(updated);
+        onRefresh?.({ id: contact.id, memos: updated.memos });
+      } else {
+        toast({ title: "삭제 실패", description: data.message, variant: "destructive" });
+      }
+    } catch (err) {
+      logger.error("[deleteMemo failed]", { err });
+      toast({ title: "네트워크 오류", description: err instanceof Error ? err.message : "요청 실패", variant: "destructive" });
     }
-  }, [contact, onRefresh]);
+  }, [contact, onRefresh, toast]);
 
   const deleteAllMemos = useCallback(async () => {
     if (!contact) return;
@@ -331,40 +357,54 @@ export default function ContactSlidePanel({
   const assignGroup = useCallback(async () => {
     if (!contact || !selectedGroup) return;
     setAssigning(true); setAssignMsg("");
-    const res = await fetch(`/api/groups/${selectedGroup}/members`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contactIds: [contact.id] }),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      const g = allGroups.find(g => g.id === selectedGroup);
-      setAssignMsg(g?.funnelId ? `✅ "${g.name}" 그룹 배정 + 퍼널 자동 시작!` : `✅ "${g?.name}" 그룹 배정 완료`);
-      const updated = { ...contact, groups: [...contact.groups, { group: { id: g!.id, name: g!.name } }] };
-      setContact(updated);
-      setSelectedGroup("");
-      onRefresh?.({ id: contact.id, groups: updated.groups });
+    try {
+      const res = await fetch(`/api/groups/${selectedGroup}/members`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactIds: [contact.id] }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        const g = allGroups.find(g => g.id === selectedGroup);
+        setAssignMsg(g?.funnelId ? `✅ "${g.name}" 그룹 배정 + 퍼널 자동 시작!` : `✅ "${g?.name}" 그룹 배정 완료`);
+        const updated = { ...contact, groups: [...contact.groups, { group: { id: g!.id, name: g!.name } }] };
+        setContact(updated);
+        setSelectedGroup("");
+        onRefresh?.({ id: contact.id, groups: updated.groups });
+      } else {
+        setAssignMsg(`❌ 그룹 배정 실패: ${data.message}`);
+      }
+    } catch (err) {
+      logger.error("[assignGroup failed]", { err });
+      setAssignMsg("❌ 네트워크 오류");
+    } finally {
+      setAssigning(false);
     }
-    setAssigning(false);
   }, [contact, selectedGroup, allGroups, onRefresh]);
 
   const handleFunnelEnroll = useCallback(async () => {
     if (!contact || !selectedFunnelId) return;
     setEnrolling(true); setEnrollError("");
-    const res = await fetch(`/api/funnels/${selectedFunnelId}/enroll`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contactId: contact.id, startDate: enrollStartDate || undefined, sendNow: enrollSendNow }),
-    });
-    const d = await res.json();
-    if (d.ok) {
-      setSelectedFunnelId(""); setEnrollStartDate(""); setEnrollSendNow(false);
-      // 갱신된 contact 재조회
-      fetch(`/api/contacts/${contact.id}`).then(r => r.json()).then(cd => {
-        if (cd.ok) { setContact(cd.contact); onRefresh?.({ id: contact.id }); }
-      }).catch(err => logger.error("[SlidePanel funnelEnroll refresh]", { err }));
-    } else {
-      setEnrollError(d.message ?? "등록 실패");
+    try {
+      const res = await fetch(`/api/funnels/${selectedFunnelId}/enroll`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: contact.id, startDate: enrollStartDate || undefined, sendNow: enrollSendNow }),
+      });
+      const d = await res.json();
+      if (d.ok) {
+        setSelectedFunnelId(""); setEnrollStartDate(""); setEnrollSendNow(false);
+        // 갱신된 contact 재조회
+        fetch(`/api/contacts/${contact.id}`).then(r => r.json()).then(cd => {
+          if (cd.ok) { setContact(cd.contact); onRefresh?.({ id: contact.id }); }
+        }).catch(err => logger.error("[SlidePanel funnelEnroll refresh]", { err }));
+      } else {
+        setEnrollError(d.message ?? "등록 실패");
+      }
+    } catch (err) {
+      logger.error("[handleFunnelEnroll failed]", { err });
+      setEnrollError(err instanceof Error ? err.message : "네트워크 오류");
+    } finally {
+      setEnrolling(false);
     }
-    setEnrolling(false);
   }, [contact, selectedFunnelId, enrollStartDate, enrollSendNow, onRefresh]);
 
   // ── SMS 상태 ──────────────────────────────────────────────────────────────
@@ -477,7 +517,7 @@ export default function ContactSlidePanel({
               "sm:h-full sm:rounded-none sm:rounded-l-2xl",
             ].join(" ")}
             variants={
-              typeof window !== "undefined" && window.innerWidth < 640
+              typeof window !== "undefined" && typeof window.innerWidth !== "undefined" && window.innerWidth < 640
                 ? panelMobileVariants
                 : panelDesktopVariants
             }
