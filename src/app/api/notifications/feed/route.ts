@@ -143,18 +143,20 @@ export async function GET(req: Request) {
           AND b."createdAt" >= ${sinceDate}
       `);
 
-      // ── NEW_CONTACT (전체) ──
+      // ── NEW_CONTACT (전체, 그룹명 포함) ──
       parts.push(Prisma.sql`
         SELECT
           'NEW_CONTACT'::text          AS type,
           c.id::text                   AS id,
           c.name                       AS name,
           c.phone                      AS phone,
-          NULL::text                   AS detail,
+          COALESCE(g.name, '지정 그룹') AS detail,
           NULL::bigint                 AS amount,
           '/contacts'::text            AS link_path,
           c."createdAt"                AS created_at
         FROM "Contact" c
+        LEFT JOIN "ContactGroupMember" cgm ON cgm."contactId" = c.id
+        LEFT JOIN "ContactGroup" g ON g.id = cgm."groupId"
         WHERE c."createdAt" >= ${sinceDate}
       `);
 
@@ -260,18 +262,20 @@ export async function GET(req: Request) {
           AND b."organizationId" = ${orgId}
       `);
 
-      // ── NEW_CONTACT (조직 필터) ──
+      // ── NEW_CONTACT (조직 필터, 그룹명 포함) ──
       parts.push(Prisma.sql`
         SELECT
           'NEW_CONTACT'::text          AS type,
           c.id::text                   AS id,
           c.name                       AS name,
           c.phone                      AS phone,
-          NULL::text                   AS detail,
+          COALESCE(g.name, '지정 그룹') AS detail,
           NULL::bigint                 AS amount,
           '/contacts'::text            AS link_path,
           c."createdAt"                AS created_at
         FROM "Contact" c
+        LEFT JOIN "ContactGroupMember" cgm ON cgm."contactId" = c.id
+        LEFT JOIN "ContactGroup" g ON g.id = cgm."groupId"
         WHERE c."organizationId" = ${orgId}
           AND c."createdAt" >= ${sinceDate}
       `);
@@ -349,18 +353,20 @@ export async function GET(req: Request) {
 
       // ── GOLD_INQUIRY: ProductInquiry 테이블은 이 DB에 없으므로 제외 ──
 
-      // ── NEW_CONTACT (담당자 배당 고객만) ──
+      // ── NEW_CONTACT (담당자 배당 고객만, 그룹명 포함) ──
       parts.push(Prisma.sql`
         SELECT
           'NEW_CONTACT'::text          AS type,
           c.id::text                   AS id,
           c.name                       AS name,
           c.phone                      AS phone,
-          NULL::text                   AS detail,
+          COALESCE(g.name, '지정 그룹') AS detail,
           NULL::bigint                 AS amount,
           '/contacts'::text            AS link_path,
           c."createdAt"                AS created_at
         FROM "Contact" c
+        LEFT JOIN "ContactGroupMember" cgm ON cgm."contactId" = c.id
+        LEFT JOIN "ContactGroup" g ON g.id = cgm."groupId"
         WHERE c."organizationId" = ${orgId}
           AND c."assignedUserId" = ${ctx.userId}
           AND c."createdAt" >= ${sinceDate}
