@@ -1,171 +1,93 @@
 /**
  * GET /api/payslips
- * 급여명세서 조회
- * 원천징수 자동 계산 (3.3%)
+ * 급여명세서 조회 - Partner 급여 조회 (Partner 로그인 시)
+ *
+ * 쿼리 파라미터:
+ * - page: 페이지 번호 (기본: 1)
+ * - limit: 페이지당 항목 수 (기본: 20)
+ * - status: 필터 (PENDING, APPROVED, SENT)
+ * - yearMonth: 기간 필터 (YYYY-MM 형식)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
-import { getCache, setCache } from '@/lib/redis';
 
 const WITHHOLDING_TAX_RATE = 0.033; // 3.3%
 
-interface PayslipItem {
-  id: string;
-  period: string;
-  profileId: string;
-  profileName: string;
-  commission: number;
-  bonus: number;
-  grossAmount: number;
-  withholdingTax: number;
-  netAmount: number;
-  createdAt: string;
-}
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getMabizSession();
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const organizationId = session.organizationId;
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+    // GMcruise 사용자만 접근 가능 (파트너/제휴사)
+    if (!session.mallUser || !session.mallUser.affiliateProfileId) {
+      return NextResponse.json(
+        { ok: false, error: 'Partner access required' },
+        { status: 403 }
+      );
     }
 
-    const period = req.nextUrl.searchParams.get('period') || getCurrentPeriod();
     const page = parseInt(req.nextUrl.searchParams.get('page') || '1', 10);
-    const limit = parseInt(req.nextUrl.searchParams.get('limit') || '50', 10);
+    const limit = parseInt(req.nextUrl.searchParams.get('limit') || '20', 10);
+    const status = req.nextUrl.searchParams.get('status') || '';
+    const yearMonth = req.nextUrl.searchParams.get('yearMonth') || '';
 
-    const cacheKey = `payslip:${organizationId}:${period}:${page}:${limit}`;
-    const cached = await getCache<any>(cacheKey);
-    if (cached !== null && cached !== undefined) {
-      return NextResponse.json(cached, { headers: { 'X-Cache': 'HIT' } });
-    }
+    const offset = (page - 1) * limit;
 
-    // 실제 데이터 조회
-    const result = await getPayslipData({
-      organizationId,
-      period,
-      page,
-      limit
-    });
-
-    const response = {
-      success: true,
-      data: result.data,
-      pagination: {
-        total: result.total,
-        page,
-        pageSize: limit,
-        totalPages: Math.ceil(result.total / limit)
-      }
+    // where 조건 구성
+    const where: any = {
+      agentId: session.mallUser.id, // 현재 로그인한 파트너의 급여만
     };
 
-    await setCache(cacheKey, response, 300);
-    return NextResponse.json(response, { headers: { 'X-Cache': 'MISS' } });
+    if (status) {
+      where.status = status;
+    }
+
+    if (yearMonth) {
+      where.yearMonth = yearMonth;
+    }
+
+    // 급여명세 조회
+    const [payslips, total] = await Promise.all([
+      prisma.affiliatePayslip.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.affiliatePayslip.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      ok: true,
+      payslips: payslips.map((p) => ({
+        id: p.id,
+        agentId: p.agentId,
+        yearMonth: p.yearMonth,
+        baseCommission: Number(p.baseCommission),
+        bonus: p.bonus !== null ? Number(p.bonus) : null,
+        deduction: p.deduction !== null ? Number(p.deduction) : null,
+        netAmount: Number(p.netAmount),
+        status: p.status,
+        paidAt: p.paidAt ? p.paidAt.toISOString() : null,
+        note: p.note,
+        createdAt: p.createdAt.toISOString(),
+        agentDisplayName: p.agentDisplayName,
+        agentMallUserId: p.agentMallUserId,
+      })),
+      total,
+    });
 
   } catch (error) {
     console.error('[GET /api/payslips] Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-  }
-}
-
-/**
- * 급여명세서 데이터 조회 및 원천징수 자동 계산
- */
-async function getPayslipData({
-  organizationId,
-  period,
-  page,
-  limit
-}: {
-  organizationId: string;
-  period: string;
-  page: number;
-  limit: number;
-}): Promise<{ data: PayslipItem[]; total: number }> {
-  try {
-    const offset = (page - 1) * limit;
-
-    // 기간 파싱
-    const [year, month] = period.split('-').map(Number);
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
-
-    // CommissionLedger에서 정산액 조회
-    const [ledgers, total] = await Promise.all([
-      prisma.commissionLedger.findMany({
-        where: {
-          createdAt: {
-            gte: startDate,
-            lte: endDate
-          }
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: offset,
-        take: limit
-      }),
-      prisma.commissionLedger.count({
-        where: {
-          createdAt: {
-            gte: startDate,
-            lte: endDate
-          }
-        }
-      })
-    ]);
-
-    // PayslipBonus 데이터 조회 (보너스)
-    const bonuses = await prisma.payslipBonus.findMany({
-      where: {
-        period: period // YYYY-MM 형식
-      }
-    });
-
-    // 보너스 맵 생성
-    const bonusMap = new Map(
-      bonuses.map(b => [b.profileId, b.bonusAmount])
+    return NextResponse.json(
+      { ok: false, error: 'Internal Server Error' },
+      { status: 500 }
     );
-
-    // 응답 데이터 변환
-    const data: PayslipItem[] = ledgers.map((ledger, index) => {
-      const commission = Number(ledger.amount) || 0;
-      const profileIdNum = ledger.profileId || 0;
-      const profileId: string = String(profileIdNum);
-      const bonus = bonusMap.get(Number(profileId)) || 0;
-      const grossAmount = commission + bonus;
-      const withholdingTax = Math.round(grossAmount * WITHHOLDING_TAX_RATE);
-      const netAmount = grossAmount - withholdingTax;
-
-      return {
-        id: ledger.id.toString(),
-        period,
-        profileId,
-        profileName: `Profile ${profileIdNum}`, // TODO: affiliates 테이블과 조인
-        commission,
-        bonus,
-        grossAmount,
-        withholdingTax,
-        netAmount,
-        createdAt: ledger.createdAt.toISOString()
-      };
-    });
-
-    return { data, total };
-
-  } catch (error) {
-    console.error('[getPayslipData] Error:', error);
-    return { data: [], total: 0 };
   }
 }
 
-function getCurrentPeriod(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  return `${year}-${month}`;
-}

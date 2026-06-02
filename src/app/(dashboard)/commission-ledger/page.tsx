@@ -219,6 +219,9 @@ export default function CommissionLedgerPage() {
         <div className="text-center py-20 text-gray-600">
           <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="text-sm">커미션 내역이 없습니다.</p>
+          <p className="text-xs text-gray-500 mt-2">
+            크루즈닷몰 연동 계정이 필요합니다. 관리자에 문의해주세요.
+          </p>
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
