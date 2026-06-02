@@ -1,0 +1,191 @@
+export const dynamic = 'force-dynamic';
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
+import {
+  CreateFunnelSmsSchema,
+  ListFunnelSmsQuerySchema,
+} from '@/lib/schemas/funnel-sms';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 헬퍼: sentCount 조회 (FUNNEL_SMS:* 채널 발송 완료 건수)
+// ─────────────────────────────────────────────────────────────────────────────
+async function getSentCount(organizationId: string, funnelSmsId?: string): Promise<number> {
+  const channelFilter = funnelSmsId
+    ? { startsWith: `FUNNEL_SMS:${funnelSmsId}:` }
+    : { startsWith: 'FUNNEL_SMS:' };
+
+  return prisma.scheduledSms.count({
+    where: {
+      organizationId,
+      channel: channelFilter,
+      status: 'SENT',
+    },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/funnel-sms?groupId=&q=&page=0&pageSize=100
+// ─────────────────────────────────────────────────────────────────────────────
+export async function GET(req: Request) {
+  try {
+    const ctx = await getAuthContext();
+    const orgId = resolveOrgId(ctx);
+
+    const { searchParams } = new URL(req.url);
+    const queryValidation = ListFunnelSmsQuerySchema.safeParse({
+      groupId: searchParams.get('groupId') ?? undefined,
+      q: searchParams.get('q') ?? undefined,
+      page: searchParams.get('page') ?? 0,
+      pageSize: searchParams.get('pageSize') ?? 100,
+    });
+
+    if (!queryValidation.success) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'INVALID_QUERY',
+          errors: queryValidation.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { groupId, q, page, pageSize } = queryValidation.data;
+
+    // groupId 필터: 해당 그룹에 연결된 FunnelSms만 조회
+    const where: Record<string, unknown> = { organizationId: orgId };
+
+    if (groupId) {
+      where.groups = { some: { id: groupId, organizationId: orgId } };
+    }
+
+    if (q) {
+      where.OR = [
+        { title: { contains: q } },
+        { category: { contains: q } },
+      ];
+    }
+
+    const [total, items] = await Promise.all([
+      prisma.funnelSms.count({ where }),
+      prisma.funnelSms.findMany({
+        where,
+        select: {
+          id: true,
+          title: true,
+          category: true,
+          senderPhone: true,
+          sendHour: true,
+          sendMinute: true,
+          arsNum: true,
+          isActive: true,
+          createdAt: true,
+          _count: { select: { messages: true } },
+          groups: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: page * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    // sentCount는 각 FunnelSms별 개별 카운트 (병렬 조회)
+    const sentCounts = await Promise.all(
+      items.map((item) => getSentCount(orgId, item.id))
+    );
+
+    const data = items.map((item, i) => ({
+      ...item,
+      sentCount: sentCounts[i],
+    }));
+
+    logger.info('[GET /api/funnel-sms]', { orgId, total, returned: data.length });
+
+    return NextResponse.json({ ok: true, data, total, page, pageSize });
+  } catch (err) {
+    logger.error('[GET /api/funnel-sms]', { err });
+    const message = err instanceof Error && err.message === 'UNAUTHORIZED'
+      ? '인증이 필요합니다.'
+      : '서버 오류가 발생했습니다.';
+    const status = err instanceof Error && err.message === 'UNAUTHORIZED' ? 401 : 500;
+    return NextResponse.json({ ok: false, error: 'SERVER_ERROR', message }, { status });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/funnel-sms — 새 퍼널문자 생성 (메시지 포함)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function POST(req: Request) {
+  try {
+    const ctx = await getAuthContext();
+    const orgId = resolveOrgId(ctx);
+
+    const body = await req.json();
+    const validation = CreateFunnelSmsSchema.safeParse(body);
+
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'INVALID_INPUT',
+          errors: validation.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { title, senderPhone, category, description, sendHour, sendMinute, arsNum, messages } =
+      validation.data;
+
+    const created = await prisma.funnelSms.create({
+      data: {
+        organizationId: orgId,
+        title,
+        senderPhone: senderPhone ?? null,
+        category: category ?? null,
+        description: description ?? null,
+        sendHour,
+        sendMinute,
+        arsNum: arsNum ?? null,
+        createdByUserId: ctx.userId,
+        messages: {
+          create: messages.map((m) => ({
+            order: m.order,
+            daysAfter: m.daysAfter,
+            content: m.content,
+            msgType: m.msgType,
+          })),
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        category: true,
+        senderPhone: true,
+        sendHour: true,
+        sendMinute: true,
+        arsNum: true,
+        isActive: true,
+        createdAt: true,
+        _count: { select: { messages: true } },
+        groups: { select: { id: true, name: true } },
+      },
+    });
+
+    logger.info('[POST /api/funnel-sms] created', { orgId, id: created.id });
+
+    return NextResponse.json(
+      { ok: true, data: { ...created, sentCount: 0 } },
+      { status: 201 }
+    );
+  } catch (err) {
+    logger.error('[POST /api/funnel-sms]', { err });
+    const message = err instanceof Error && err.message === 'UNAUTHORIZED'
+      ? '인증이 필요합니다.'
+      : '서버 오류가 발생했습니다.';
+    const status = err instanceof Error && err.message === 'UNAUTHORIZED' ? 401 : 500;
+    return NextResponse.json({ ok: false, error: 'SERVER_ERROR', message }, { status });
+  }
+}
