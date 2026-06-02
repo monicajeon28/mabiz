@@ -547,6 +547,21 @@ export default function ContactsPage() {
     setQuickCallError(null);
     const resultLabel = result === "INTERESTED" ? "관심" : result === "PENDING" ? "보류" : "거절";
     const convictionScore = result === "INTERESTED" ? "8" : result === "PENDING" ? "5" : "2";
+
+    // 낙관적 업데이트: 로컬 상태 즉시 변경
+    const originalContacts = contacts;
+    setContacts(prev =>
+      prev.map(c =>
+        c.id === contactId
+          ? {
+              ...c,
+              lastContactedAt: new Date().toISOString(),
+              _count: { ...c._count, callLogs: (c._count?.callLogs ?? 0) + 1 },
+            }
+          : c
+      )
+    );
+
     try {
       const res = await fetch(`/api/contacts/${contactId}/call-logs`, {
         method: "POST",
@@ -559,12 +574,21 @@ export default function ContactsPage() {
       });
       const data = await res.json();
       if (!data.ok) {
+        // 실패: 롤백
+        setContacts(originalContacts);
         setQuickCallError("콜 기록 저장에 실패했습니다.");
       } else {
         setQuickCallId(null);
-        fetchContacts();
+        // 폴백: 백그라운드에서 전체 리페치 (낙관적 업데이트된 상태 유지)
+        fetchContacts().catch(() => {
+          // 리페치 실패 시 롤백
+          setContacts(originalContacts);
+          setQuickCallError("데이터 동기화 실패");
+        });
       }
     } catch {
+      // 네트워크 오류: 롤백
+      setContacts(originalContacts);
       setQuickCallError("네트워크 오류가 발생했습니다.");
     } finally {
       setQuickCallLoading(false);
