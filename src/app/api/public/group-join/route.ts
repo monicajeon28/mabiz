@@ -102,7 +102,9 @@ export async function POST(req: Request) {
     logger.log('[group-join]', { seq, contactId: contact.id, groupId: group.id });
 
     if (resultUrl) {
-      return NextResponse.redirect(resultUrl, { status: 302 });
+      // Next.js 15: redirect는 절대 URL 필요
+      const absoluteUrl = new URL(resultUrl, req.url).toString();
+      return NextResponse.redirect(absoluteUrl, { status: 302 });
     }
     return NextResponse.json({ ok: true, message: '신청이 완료되었습니다.' });
   } catch (err) {

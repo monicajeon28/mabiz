@@ -86,15 +86,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 조직 구분 (기본값: GLOBAL_ADMIN 조직)
-    let organizationId = 'DEFAULT_ORG';
+    // 조직 구분 (공개 신청 → 환경변수, 로그인 시 세션 우선)
+    let organizationId = process.env.DEFAULT_ORGANIZATION_ID ?? '';
+    if (!organizationId) {
+      return NextResponse.json({ ok: false, message: '서비스 설정 오류입니다.' }, { status: 500 });
+    }
     try {
       const ctx = await getMabizSession();
-      if (ctx && ctx.organizationId) {
-        organizationId = ctx.organizationId;
-      }
+      if (ctx?.organizationId) organizationId = ctx.organizationId;
     } catch {
-      // 로그인하지 않은 고객용
+      // 로그인하지 않은 공개 신청 → 환경변수 값 사용
     }
 
     // 골드회원 생성

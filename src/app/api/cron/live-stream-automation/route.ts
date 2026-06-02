@@ -17,12 +17,15 @@ import { prisma } from '@/lib/prisma';
 import { sendSmsViaAligo } from '@/lib/sms-service';
 import { logLiveStreamEvent } from '@/lib/live-stream/tracking';
 
-// Cron 인증 토큰
-const CRON_SECRET = process.env.CRON_SECRET || 'test';
+// Cron 인증 토큰 (미설정 시 fail-closed)
+const CRON_SECRET = process.env.CRON_SECRET;
 
 export async function POST(request: NextRequest) {
   try {
-    // 인증
+    // 인증 (CRON_SECRET 미설정 시 fail-closed)
+    if (!CRON_SECRET) {
+      return NextResponse.json({ error: 'MISCONFIGURED' }, { status: 500 });
+    }
     const authHeader = request.headers.get('authorization');
     if (authHeader !== `Bearer ${CRON_SECRET}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
