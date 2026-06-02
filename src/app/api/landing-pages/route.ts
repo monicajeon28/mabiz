@@ -1,10 +1,13 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
+import { customAlphabet } from "nanoid";
 import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, BONSA_ORG_ID } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
+
+const nanoid = customAlphabet('0-9a-z', 8);
 
 // GET /api/landing-pages
 export async function GET() {
@@ -100,9 +103,22 @@ export async function POST(req: Request) {
 
     const mode = editorMode === 'image' ? 'image' : 'html';
 
+    // 무작위 8자 shortlink 생성 (충돌 시 자동 재시도)
+    let shortlink = nanoid();
+    let attempts = 0;
+    while (attempts < 10) {
+      const existing = await prisma.crmLandingPage.findFirst({
+        where: { shortlink },
+        select: { id: true },
+      });
+      if (!existing) break;
+      shortlink = nanoid();
+      attempts++;
+    }
+
     const page = await prisma.crmLandingPage.create({
       data: {
-        organizationId: orgId, title, slug,
+        organizationId: orgId, title, slug, shortlink,
         htmlContent: sanitizeHtml(htmlContent ?? ""),
         groupId: groupId ?? null,
         editorMode: mode,
