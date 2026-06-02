@@ -7,9 +7,16 @@ import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
 
 // [T17] React cache()로 같은 요청 내 중복 DB 쿼리 제거
-const getLandingPageBySlug = cache(async (slug: string) => {
+const getLandingPageBySlugOrShortlink = cache(async (identifier: string) => {
   return prisma.crmLandingPage.findFirst({
-    where:  { slug, isActive: true, isPublic: true },
+    where:  {
+      OR: [
+        { shortlink: identifier }, // 먼저 shortlink로 검색
+        { slug: identifier }        // 그 다음 slug로 검색
+      ],
+      isActive: true,
+      isPublic: true,
+    },
     select: {
       id: true, title: true, htmlContent: true, commentEnabled: true,
       paymentEnabled: true, paymentType: true, productName: true, productPrice: true,
@@ -28,7 +35,7 @@ const getLandingPageBySlug = cache(async (slug: string) => {
   });
 });
 
-// 공개 랜딩페이지 — 인증 불필요
+// 공개 랜딩페이지 — 인증 불필요 (shortlink 또는 slug로 접근 가능)
 export default async function PublicLandingPage({
   params,
 }: {
@@ -36,7 +43,7 @@ export default async function PublicLandingPage({
 }) {
   const { slug } = await params;
 
-  const page = await getLandingPageBySlug(slug);
+  const page = await getLandingPageBySlugOrShortlink(slug);
 
   if (!page) notFound();
 
@@ -101,8 +108,8 @@ export default async function PublicLandingPage({
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://mabizcruisedot.com';
-  // [T17] getLandingPageBySlug 재사용 — 같은 요청에서 캐시 히트 (DB 쿼리 1회)
-  const page = await getLandingPageBySlug(slug);
+  // [T17] getLandingPageBySlugOrShortlink 재사용 — 같은 요청에서 캐시 히트 (DB 쿼리 1회)
+  const page = await getLandingPageBySlugOrShortlink(slug);
   const title = page?.exposureTitle || page?.title || "크루즈닷 랜딩페이지";
   const description = page?.description || `${title} - 크루즈 전문 여행사 크루즈닷 상담 신청`;
   const url = `${baseUrl}/p/${slug}`;

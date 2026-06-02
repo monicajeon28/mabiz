@@ -23,7 +23,17 @@ export async function GET() {
     const pages = await prisma.crmLandingPage.findMany({
       where: { ...(orgId ? { organizationId: orgId } : {}) },
       orderBy: { createdAt: "desc" },
-      include: { _count: { select: { registrations: true } } },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        shortlink: true,
+        isActive: true,
+        viewCount: true,
+        createdAt: true,
+        groupId: true,
+        _count: { select: { registrations: true } },
+      },
     });
 
     // 공유받은 페이지 (sharedToOrgId = myOrgId OR isGlobal = true)
@@ -40,7 +50,17 @@ export async function GET() {
       },
       include: {
         landingPage: {
-          include: { _count: { select: { registrations: true } } },
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            shortlink: true,
+            isActive: true,
+            viewCount: true,
+            createdAt: true,
+            groupId: true,
+            _count: { select: { registrations: true } },
+          },
         },
       },
       orderBy: { createdAt: "desc" },
