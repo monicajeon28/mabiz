@@ -7,6 +7,7 @@ import { addLeadScore } from "@/lib/lead-score";
 import { normalizePhone } from "@/lib/phone-normalize";
 import { sendFunnelEmail } from "@/lib/email";
 import sanitizeHtml from "sanitize-html";
+import { replaceMessagePlaceholders } from "@/lib/message-replacements";
 
 type FormConfig = {
   b2bEduType?: "INQUIRER" | "BUYER";
@@ -280,10 +281,11 @@ export async function POST(req: Request, { params }: Params) {
 
     // 신청 완료 이메일 자동 발송 (설정 ON + 이메일 주소 있을 때만)
     if (landingPage.regEmailEnabled && email && landingPage.regEmailSubject) {
-      const subject = (landingPage.regEmailSubject)
-        .replace(/\[고객명\]/g, name).replace(/\[이름\]/g, name);
-      const rawContent = (landingPage.regEmailContent || `${name}님, 신청이 완료되었습니다.`)
-        .replace(/\[고객명\]/g, name).replace(/\[이름\]/g, name);
+      const subject = replaceMessagePlaceholders(landingPage.regEmailSubject, { name });
+      const rawContent = replaceMessagePlaceholders(
+        landingPage.regEmailContent || `${name}님, 신청이 완료되었습니다.`,
+        { name }
+      );
 
       // [T11] XSS 방지: sendFunnelEmail 호출 전 HTML sanitize
       const unsafeHtml = rawContent.includes("<")
