@@ -331,7 +331,6 @@ export function getErrorResponse(
       ...(details?.currentSize !== undefined && { currentSize: details.currentSize }),
       ...(details?.maxSize !== undefined && { maxSize: details.maxSize }),
       ...(details?.retryAfter !== undefined && { retryAfterMs: details.retryAfter }),
-      ...(errorDef.externalService && { externalService: errorDef.externalService }),
     },
   };
 }

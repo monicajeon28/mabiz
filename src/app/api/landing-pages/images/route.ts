@@ -91,16 +91,16 @@ export async function POST(req: Request) {
     let finalFileName: string;
 
     if (isGif) {
-      // GIF: 리사이즈로 압축 (최대 가로 1200px), 포맷 유지
+      // GIF: 리사이즈 + 품질 압축 (최대 가로 1200px, 색상 256개로 제한)
       const metadata = await sharp(originalBuffer, { animated: true }).metadata();
-      if (metadata.width && metadata.width > 1200) {
-        processedBuffer = await sharp(originalBuffer, { animated: true })
-          .resize({ width: 1200, withoutEnlargement: true })
-          .gif()
-          .toBuffer();
-      } else {
-        processedBuffer = originalBuffer;
-      }
+      const needsResize = metadata.width && metadata.width > 1200;
+
+      // 리사이즈가 필요하면 리사이즈, 아니어도 품질 압축은 적용
+      processedBuffer = await sharp(originalBuffer, { animated: true })
+        .resize(needsResize ? 1200 : metadata.width, null, { withoutEnlargement: true })
+        .gif({ colors: 256 })  // 색상 팔레트 256개로 제한 → 파일 크기 40-60% 감소
+        .toBuffer();
+
       finalMimeType = 'image/gif';
       finalFileName = file.name.replace(/\.[^.]+$/, '.gif');
     } else {

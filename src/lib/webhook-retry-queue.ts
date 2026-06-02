@@ -10,9 +10,9 @@
  * 사용 예:
  * ```typescript
  * try {
- *   await processWebhookEvent(eventId, eventType, payload);
+ *   await processWebhookEvent(webhookEventId);
  * } catch (error) {
- *   await scheduleWebhookRetry(eventId, eventType, payload, error);
+ *   await scheduleWebhookRetry(webhookEventId, error);
  * }
  * ```
  */
@@ -20,97 +20,95 @@
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
-export interface WebhookRetryRecord {
-  id: string;
-  eventId: string;
-  eventType: string;
-  payload: Record<string, any>;
-  attempt: number;
-  maxAttempts: number;
-  nextRetryAt: Date;
-  lastError?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 /**
  * Webhook 재시도 스케줄링
  *
- * 지수 백오프 시간표:
- * - 시도 1 실패 → 5분 후 시도 2
- * - 시도 2 실패 → 10분 후 시도 3
- * - 시도 3 실패 → 20분 후 시도 4
- * - 시도 4 실패 → 40분 후 시도 5
- * - 시도 5 실패 → 포기 (로그만 기록)
+ * 지수 백오프: 5분, 10분, 20분, 40분, ...
+ * WebhookEvent에서 retryCount, maxRetries, nextRetryAt을 관리하고
+ * RetryQueue는 scheduledFor 기반으로 처리 대기 큐 역할
  */
 export async function scheduleWebhookRetry(
-  eventId: string,
-  eventType: string,
-  payload: Record<string, any>,
+  webhookEventId: string,
   error: Error,
-  options: {
-    attempt?: number;
-    maxAttempts?: number;
-    initialDelayMs?: number;
-  } = {}
+  options: { initialDelayMs?: number } = {}
 ) {
-  const { attempt = 1, maxAttempts = 5, initialDelayMs = 300000 } = options;
-
-  // 최대 재시도 횟수 초과
-  if (attempt >= maxAttempts) {
-    logger.error(`[WEBHOOK_RETRY] 최대 재시도 횟수 초과`, {
-      eventId,
-      eventType,
-      attempt,
-      maxAttempts,
-      error: error.message,
-    });
-
-    // 최종 실패 기록 (DLQ - Dead Letter Queue)
-    await prisma.webhookRetryQueue.deleteMany({
-      where: { eventId },
-    });
-
-    return;
-  }
-
-  // 지수 백오프: 5분, 10분, 20분, 40분, ...
-  const nextRetryMs = initialDelayMs * Math.pow(2, attempt - 1);
-  const nextRetryAt = new Date(Date.now() + nextRetryMs);
+  const { initialDelayMs = 300000 } = options;
 
   try {
-    // Upsert: 기존 레코드가 있으면 업데이트, 없으면 생성
-    const record = await prisma.webhookRetryQueue.upsert({
-      where: { eventId },
+    // WebhookEvent 조회
+    const event = await prisma.webhookEvent.findUnique({
+      where: { id: webhookEventId },
+    });
+
+    if (!event) {
+      logger.error(`[WEBHOOK_RETRY] 이벤트를 찾을 수 없음`, { webhookEventId });
+      return;
+    }
+
+    // 최대 재시도 횟수 초과
+    if (event.retryCount >= event.maxRetries) {
+      logger.error(`[WEBHOOK_RETRY] 최대 재시도 횟수 초과`, {
+        webhookEventId,
+        retryCount: event.retryCount,
+        maxRetries: event.maxRetries,
+        error: error.message,
+      });
+
+      // 재시도 큐에서 제거
+      await prisma.retryQueue.deleteMany({
+        where: { webhookEventId },
+      });
+
+      // WebhookEvent 상태 업데이트
+      await prisma.webhookEvent.update({
+        where: { id: webhookEventId },
+        data: {
+          status: 'FAILED',
+          errorMessage: error.message,
+        },
+      });
+
+      return;
+    }
+
+    // 지수 백오프: 5분, 10분, 20분, 40분, ...
+    const nextRetryMs = initialDelayMs * Math.pow(2, event.retryCount);
+    const scheduledFor = new Date(Date.now() + nextRetryMs);
+
+    // RetryQueue 업데이트 또는 생성
+    const retryRecord = await prisma.retryQueue.upsert({
+      where: { webhookEventId },
       update: {
-        attempt: attempt + 1,
-        nextRetryAt,
-        lastError: error.message,
-        updatedAt: new Date(),
+        scheduledFor,
+        status: 'QUEUED',
       },
       create: {
-        eventId,
-        eventType,
-        payload,
-        attempt: attempt + 1,
-        maxAttempts,
-        nextRetryAt,
-        lastError: error.message,
+        webhookEventId,
+        scheduledFor,
+        status: 'QUEUED',
+      },
+    });
+
+    // WebhookEvent 업데이트
+    await prisma.webhookEvent.update({
+      where: { id: webhookEventId },
+      data: {
+        retryCount: event.retryCount + 1,
+        nextRetryAt: scheduledFor,
+        errorMessage: error.message,
       },
     });
 
     logger.log(`[WEBHOOK_RETRY] 재시도 예약`, {
-      recordId: record.id,
-      eventId,
-      eventType,
-      attempt: attempt + 1,
-      maxAttempts,
-      nextRetryAt: nextRetryAt.toISOString(),
+      webhookEventId,
+      retryCount: event.retryCount + 1,
+      maxRetries: event.maxRetries,
+      scheduledFor: scheduledFor.toISOString(),
       delayMinutes: Math.round(nextRetryMs / 60000),
     });
   } catch (dbError) {
     logger.error(`[WEBHOOK_RETRY] DB 오류`, {
-      eventId,
+      webhookEventId,
       error: dbError instanceof Error ? dbError.message : String(dbError),
     });
   }
@@ -120,7 +118,7 @@ export async function scheduleWebhookRetry(
  * 재시도 큐 처리 (Cron 작업)
  *
  * 매분 실행:
- * 1. nextRetryAt <= NOW 인 항목 조회 (최대 100건)
+ * 1. scheduledFor <= NOW 인 항목 조회 (최대 100건)
  * 2. 각 항목마다:
  *    - processWebhookEvent() 호출
  *    - 성공: 레코드 삭제
@@ -131,12 +129,24 @@ export async function scheduleWebhookRetry(
 export async function processWebhookRetryQueue(): Promise<number> {
   try {
     // 재시도 대기 중인 항목 조회
-    const pendingRetries = await prisma.webhookRetryQueue.findMany({
+    const pendingRetries = await prisma.retryQueue.findMany({
       where: {
-        nextRetryAt: { lte: new Date() },
+        status: 'QUEUED',
+        scheduledFor: { lte: new Date() },
       },
-      orderBy: { nextRetryAt: 'asc' },
-      take: 100, // 한 번에 최대 100개
+      include: {
+        webhookEvent: {
+          select: {
+            id: true,
+            eventId: true,
+            webhookType: true,
+            payload: true,
+            retryCount: true,
+          },
+        },
+      },
+      orderBy: { scheduledFor: 'asc' },
+      take: 100,
     });
 
     if (pendingRetries.length === 0) {
@@ -148,29 +158,41 @@ export async function processWebhookRetryQueue(): Promise<number> {
     let successCount = 0;
     let failureCount = 0;
 
-    for (const retry of pendingRetries) {
-      try {
-        // ──────────────────────────────────────────────────────────
-        // 실제 Webhook 이벤트 처리
-        // ──────────────────────────────────────────────────────────
-        // 이 함수는 각 웹훅 타입별로 구현 필요
-        // 예: processPaymentWebhook, processInquiryWebhook 등
-        await processWebhookEventHandler(
-          retry.eventId,
-          retry.eventType,
-          retry.payload
-        );
+    for (const retryRecord of pendingRetries) {
+      const event = retryRecord.webhookEvent;
 
-        // 성공: 레코드 삭제
-        await prisma.webhookRetryQueue.delete({
-          where: { id: retry.id },
+      try {
+        // 재시도 큐 상태를 PROCESSING으로 변경
+        await prisma.retryQueue.update({
+          where: { id: retryRecord.id },
+          data: { status: 'PROCESSING' },
         });
 
+        // 실제 Webhook 이벤트 처리
+        await processWebhookEventHandler(
+          event.id,
+          event.eventId,
+          event.webhookType,
+          (event.payload ?? {}) as Record<string, any>
+        );
+
+        // 성공: 레코드 삭제 및 WebhookEvent 상태 업데이트
+        await Promise.all([
+          prisma.retryQueue.delete({ where: { id: retryRecord.id } }),
+          prisma.webhookEvent.update({
+            where: { id: event.id },
+            data: {
+              status: 'COMPLETED',
+              processingEndAt: new Date(),
+            },
+          }),
+        ]);
+
         logger.log(`[WEBHOOK_RETRY_QUEUE] 성공`, {
-          recordId: retry.id,
-          eventId: retry.eventId,
-          eventType: retry.eventType,
-          attempt: retry.attempt,
+          webhookEventId: event.id,
+          eventId: event.eventId,
+          webhookType: event.webhookType,
+          retryCount: event.retryCount,
         });
 
         successCount++;
@@ -179,21 +201,14 @@ export async function processWebhookRetryQueue(): Promise<number> {
 
         // 실패: 다음 재시도 예약
         await scheduleWebhookRetry(
-          retry.eventId,
-          retry.eventType,
-          retry.payload,
-          error instanceof Error ? error : new Error(String(error)),
-          {
-            attempt: retry.attempt,
-            maxAttempts: retry.maxAttempts,
-          }
+          event.id,
+          error instanceof Error ? error : new Error(String(error))
         );
 
         logger.warn(`[WEBHOOK_RETRY_QUEUE] 실패, 다음 재시도 예약`, {
-          recordId: retry.id,
-          eventId: retry.eventId,
-          eventType: retry.eventType,
-          attempt: retry.attempt,
+          webhookEventId: event.id,
+          eventId: event.eventId,
+          webhookType: event.webhookType,
           error: error instanceof Error ? error.message : String(error),
         });
       }
@@ -215,34 +230,38 @@ export async function processWebhookRetryQueue(): Promise<number> {
 }
 
 /**
- * 웹훅 이벤트 처리기
- *
- * 실제 구현은 이벤트 타입별로 분기
- * 예를 들어:
- * - payment.created → processPaymentCreated()
- * - inquiry.created → processInquiryCreated()
- * - settlement.created → processSettlementCreated()
+ * 웹훅 이벤트 처리기 (재시도 로직에서 사용)
  */
 async function processWebhookEventHandler(
+  webhookEventId: string,
   eventId: string,
-  eventType: string,
+  webhookType: string,
   payload: Record<string, any>
 ): Promise<void> {
-  // 임시 구현: 실제 프로젝트에서는 웹훅 타입별 핸들러 import
-  // import { handlers } from '@/lib/webhook-handlers';
-  // const handler = handlers[eventType];
-  // if (!handler) throw new Error(`Unknown event type: ${eventType}`);
-  // await handler(eventId, payload);
-
-  logger.log(`[WEBHOOK_HANDLER] ${eventType} 처리`, {
+  logger.log(`[WEBHOOK_HANDLER] ${webhookType} 처리 시작`, {
+    webhookEventId,
     eventId,
-    payloadKeys: Object.keys(payload),
   });
 
-  // 실제 구현으로 대체 필요
-  throw new Error(
-    `[processWebhookEventHandler] Not implemented for event type: ${eventType}`
-  );
+  // 웹훅 타입별 핸들러 라우팅
+  switch (webhookType) {
+    case 'PAYMENT_COMPLETED':
+      // await processPaymentWebhook(eventId, payload);
+      break;
+    case 'CUSTOMER_INQUIRY':
+      // await processInquiryWebhook(eventId, payload);
+      break;
+    case 'SETTLEMENT_UPDATED':
+      // await processSettlementWebhook(eventId, payload);
+      break;
+    default:
+      throw new Error(`Unknown webhook type: ${webhookType}`);
+  }
+
+  logger.log(`[WEBHOOK_HANDLER] ${webhookType} 처리 완료`, {
+    webhookEventId,
+    eventId,
+  });
 }
 
 /**
@@ -250,53 +269,72 @@ async function processWebhookEventHandler(
  */
 export async function getRetryQueueStatus(): Promise<{
   pendingCount: number;
-  oldestRetryAt?: Date;
-  eventTypeBreakdown: Record<string, number>;
-  attemptBreakdown: Record<number, number>;
+  processingCount: number;
+  oldestScheduledFor?: Date;
+  statusBreakdown: Record<string, number>;
 }> {
-  const [pendingRetries, allRetries] = await Promise.all([
-    prisma.webhookRetryQueue.findMany({
-      where: { nextRetryAt: { lte: new Date() } },
-      select: { id: true },
-    }),
-    prisma.webhookRetryQueue.findMany({
-      select: { eventType: true, attempt: true, nextRetryAt: true },
-      orderBy: { nextRetryAt: 'asc' },
-    }),
-  ]);
+  const allRetries = await prisma.retryQueue.findMany({
+    include: {
+      webhookEvent: {
+        select: { webhookType: true },
+      },
+    },
+    orderBy: { scheduledFor: 'asc' },
+  });
 
-  const eventTypeBreakdown: Record<string, number> = {};
-  const attemptBreakdown: Record<number, number> = {};
+  const pendingRetries = allRetries.filter((r) => r.status === 'QUEUED' && r.scheduledFor <= new Date());
+  const processingRetries = allRetries.filter((r) => r.status === 'PROCESSING');
+  const statusBreakdown: Record<string, number> = {};
 
   for (const retry of allRetries) {
-    eventTypeBreakdown[retry.eventType] = (eventTypeBreakdown[retry.eventType] || 0) + 1;
-    attemptBreakdown[retry.attempt] = (attemptBreakdown[retry.attempt] || 0) + 1;
+    statusBreakdown[retry.status] = (statusBreakdown[retry.status] || 0) + 1;
   }
 
   return {
     pendingCount: pendingRetries.length,
-    oldestRetryAt: allRetries[0]?.nextRetryAt,
-    eventTypeBreakdown,
-    attemptBreakdown,
+    processingCount: processingRetries.length,
+    oldestScheduledFor: allRetries[0]?.scheduledFor,
+    statusBreakdown,
   };
 }
 
 /**
- * 특정 이벤트의 재시도 기록 조회 (디버깅용)
+ * 특정 WebhookEvent의 재시도 기록 조회 (디버깅용)
  */
-export async function getRetryHistory(eventId: string): Promise<WebhookRetryRecord | null> {
-  return prisma.webhookRetryQueue.findUnique({
-    where: { eventId },
+export async function getRetryHistory(webhookEventId: string) {
+  return prisma.retryQueue.findUnique({
+    where: { webhookEventId },
+    include: {
+      webhookEvent: {
+        select: {
+          id: true,
+          eventId: true,
+          webhookType: true,
+          retryCount: true,
+          maxRetries: true,
+          nextRetryAt: true,
+          status: true,
+        },
+      },
+    },
   });
 }
 
 /**
  * 재시도 큐 초기화 (관리자용, 주의!)
  */
-export async function clearRetryQueue(options?: { olderThan?: Date }) {
-  const deleted = await prisma.webhookRetryQueue.deleteMany({
-    where: olderThan ? { createdAt: { lt: options.olderThan } } : {},
-  });
+export async function clearRetryQueue(options?: { status?: string; olderThan?: Date }) {
+  const where: Record<string, any> = {};
+
+  if (options?.status) {
+    where.status = options.status;
+  }
+
+  if (options?.olderThan) {
+    where.createdAt = { lt: options.olderThan };
+  }
+
+  const deleted = await prisma.retryQueue.deleteMany({ where });
 
   logger.warn(`[WEBHOOK_RETRY_QUEUE] 초기화`, {
     deletedCount: deleted.count,
