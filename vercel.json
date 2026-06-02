@@ -115,6 +115,10 @@
     {
       "path": "/api/cron/cleanup-landing-views",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/group-auto-move",
+      "schedule": "0 16 * * *"
     }
   ]
 }
