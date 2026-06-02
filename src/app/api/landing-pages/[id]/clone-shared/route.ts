@@ -84,7 +84,7 @@ export async function POST(_req: Request, { params }: Params) {
         formConfig: original.formConfig ?? undefined,
         viewCount: 0,
       },
-      select: { id: true, title: true, slug: true, isActive: true },
+      select: { id: true, title: true, slug: true, shortlink: true, isActive: true },
     });
 
     // 이미지 복사 (별도 모델이므로 createMany 사용)

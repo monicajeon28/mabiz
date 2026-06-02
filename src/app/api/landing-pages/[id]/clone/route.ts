@@ -37,7 +37,7 @@ export async function POST(_req: Request, { params }: Params) {
         groupId:        original.groupId,
         viewCount:      0,
       },
-      select: { id: true, title: true, slug: true, isActive: true },
+      select: { id: true, title: true, slug: true, shortlink: true, isActive: true },
     });
 
     logger.log("[POST /api/landing-pages/[id]/clone]", {

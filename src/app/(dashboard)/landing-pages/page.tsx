@@ -529,11 +529,11 @@ function PageCard({
                 )}
               </button>
               <a
-                href={`/p/${page.slug}`}
+                href={page.shortlink ? `/p/${page.shortlink}` : `#`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
-                title="새 탭에서 열기"
+                className={`p-2 hover:bg-gray-100 rounded-lg ${page.shortlink ? 'text-gray-500 cursor-pointer' : 'text-gray-300 cursor-not-allowed'}`}
+                title={page.shortlink ? "새 탭에서 열기" : "숏링크 없음"}
               >
                 <Globe className="w-4 h-4" />
               </a>
