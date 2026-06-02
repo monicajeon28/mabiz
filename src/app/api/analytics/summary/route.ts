@@ -222,7 +222,7 @@ async function calculateRiskScore(orgId: string): Promise<number> {
   score += Math.min(inactiveRatio * 0.3, 30); // 최대 30점
   score += Math.min(pendingContracts * 2, 20); // 최대 20점
   score += Math.min(churnRatio * 0.2, 30); // 최대 30점
-  score += lowConversionRateGroups * 0.5; // 최대 20점
+  score += Math.min(lowConversionRateGroups * 0.5, 20); // 최대 20점
 
   return Math.min(Math.round(score), 100);
 }
@@ -232,19 +232,24 @@ async function getLensPerformance(orgId: string, startDate: Date) {
 
   const performance = await Promise.all(
     lenses.map(async (lens) => {
-      const classified = await prisma.contactLensClassification.count({
-        where: {
-          organizationId: orgId,
-          lensType: lens,
-        },
+      // 렌즈별 contactId 목록 조회 (count와 id 목록을 한 번에 처리)
+      const lensContacts = await prisma.contactLensClassification.findMany({
+        where: { organizationId: orgId, lensType: lens },
+        select: { contactId: true },
       });
+      const lensContactIds = lensContacts.map((c) => c.contactId);
+      const classified = lensContactIds.length;
 
-      const converted = await prisma.contractInstance.count({
-        where: {
-          organizationId: orgId,
-          createdAt: { gte: startDate },
-        },
-      });
+      const converted =
+        lensContactIds.length > 0
+          ? await prisma.contractInstance.count({
+              where: {
+                organizationId: orgId,
+                createdAt: { gte: startDate },
+                contactId: { in: lensContactIds },
+              },
+            })
+          : 0;
 
       const conversionRate = classified > 0 ? (converted / classified) * 100 : 0;
 

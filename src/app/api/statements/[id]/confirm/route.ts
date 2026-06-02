@@ -37,10 +37,10 @@ export async function POST(
 
     const { role, organizationId } = session;
 
-    // GLOBAL_ADMIN 또는 OWNER만 접근 가능
-    if (role !== 'GLOBAL_ADMIN' && role !== 'OWNER') {
+    // GLOBAL_ADMIN만 승인/지급 처리 가능
+    if (role !== 'GLOBAL_ADMIN') {
       return NextResponse.json(
-        { ok: false, error: 'FORBIDDEN', message: '관리자 또는 대리점장 권한이 필요합니다.' },
+        { ok: false, error: 'FORBIDDEN', message: '본사 관리자만 정산을 승인할 수 있습니다.' },
         { status: 403 }
       );
     }

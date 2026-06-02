@@ -119,19 +119,27 @@ export class AnalyticsMetrics {
 
     const performance = await Promise.all(
       lenses.map(async (lens) => {
+        // 렌즈별 contactId 목록을 먼저 조회한 후 해당 contact 기반으로 전환/수익 카운트
+        const lensContacts = await prisma.contactLensClassification.findMany({
+          where: { organizationId: orgId, lensType: lens },
+          select: { contactId: true },
+        });
+        const lensContactIds = lensContacts.map((c) => c.contactId);
+
         const [classified, converted, revenue] = await Promise.all([
           // 렌즈 분류 고객수
-          prisma.contactLensClassification.count({
-            where: { organizationId: orgId, lensType: lens },
-          }),
-          // 렌즈별 전환수 (계약) - contact 관계 없음으로 단순 카운트
-          prisma.contractInstance.count({
-            where: {
-              organizationId: orgId,
-              createdAt: { gte: startDate },
-            },
-          }),
-          // 렌즈별 수익 - AffiliateSale에 contact 관계 없음으로 단순 집계
+          Promise.resolve(lensContactIds.length),
+          // 렌즈별 전환수: 해당 렌즈 고객의 계약 수
+          lensContactIds.length > 0
+            ? prisma.contractInstance.count({
+                where: {
+                  organizationId: orgId,
+                  createdAt: { gte: startDate },
+                  contactId: { in: lensContactIds },
+                },
+              })
+            : Promise.resolve(0),
+          // 렌즈별 수익: AffiliateSale에 contactId 필드 없음 → 조직 전체 수익 사용 (TODO: AffiliateSale에 contactId 추가 후 렌즈 필터 적용)
           prisma.affiliateSale.aggregate({
             where: {
               organizationId: orgId,
