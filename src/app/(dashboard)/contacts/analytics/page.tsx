@@ -24,7 +24,7 @@ interface AnalyticsData {
 const SOURCE_TYPE_LABELS: Record<string, { label: string; icon: string; color: string }> = {
   user: { label: "구매고객", icon: "🟢", color: "bg-green-100 text-green-700" },
   inquiry: { label: "상품문의", icon: "📋", color: "bg-blue-100 text-blue-700" },
-  affiliate: { label: "어필리에이트", icon: "🟡", color: "bg-yellow-100 text-yellow-700" },
+  affiliate: { label: "파트너채널", icon: "🟡", color: "bg-yellow-100 text-yellow-700" },
   landing_page: { label: "랜딩페이지", icon: "🔵", color: "bg-cyan-100 text-cyan-700" },
   education: { label: "교육", icon: "🎓", color: "bg-purple-100 text-purple-700" },
   gold_member: { label: "골드회원", icon: "👑", color: "bg-amber-100 text-amber-700" },
@@ -100,7 +100,7 @@ export default function ContactsAnalyticsPage() {
         <div className="bg-white border border-gray-200 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 font-medium">어필리에이트</p>
+              <p className="text-sm text-gray-600 font-medium">파트너채널</p>
               <p className="text-3xl font-bold text-yellow-600 mt-2">{data.summary.affiliateContacts}</p>
             </div>
             <Target className="w-10 h-10 text-yellow-500 opacity-20" />

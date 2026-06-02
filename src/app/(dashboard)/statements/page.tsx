@@ -198,14 +198,21 @@ function DocumentBanner({ doc }: { doc: DocumentInfo }) {
         )}
       </div>
 
-      {/* 미제출 경고 */}
+      {/* 미제출 경고 + CTA */}
       {!allOk && (
-        <div className="mt-3 flex items-center gap-2 text-amber-700 text-sm">
-          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-          <span>
-            <strong>{missing.join(", ")}</strong> 미제출 상태입니다. 정산이 지연될 수 있으니
-            관리자에게 제출해 주세요.
-          </span>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-amber-700 text-sm">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            <span>
+              <strong>{missing.join(", ")}</strong>을 제출하면 정산 승인이 더 빠릅니다.
+            </span>
+          </div>
+          <a
+            href="/settings"
+            className="inline-flex items-center gap-1 text-sm font-medium text-amber-700 underline underline-offset-2 hover:text-amber-900 transition-colors"
+          >
+            서류 업로드하기 →
+          </a>
         </div>
       )}
     </div>
@@ -524,9 +531,18 @@ export default function StatementsPage() {
 
       {/* Error */}
       {error && (
-        <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-          {error}
+        <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span className="flex-1">{error}</span>
+            <button
+              type="button"
+              onClick={load}
+              className="inline-flex items-center gap-1 ml-2 px-3 py-1 rounded-lg text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors whitespace-nowrap flex-shrink-0"
+            >
+              ↺ 다시 시도
+            </button>
+          </div>
         </div>
       )}
 
@@ -536,9 +552,15 @@ export default function StatementsPage() {
       ) : !hasItems ? (
         <div className="text-center py-20 text-gray-500">
           <ReceiptText className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm font-medium">정산 내역이 없습니다.</p>
+          <p className="text-sm font-medium">
+            {period ? `${period} 기간에 해당하는 정산 내역이 없습니다.` : "정산 내역이 없습니다."}
+          </p>
           <p className="text-xs text-gray-400 mt-1">
-            {period ? `${period} 기간에 해당하는 내역이 없습니다.` : "등록된 정산 내역이 없습니다."}
+            {isFreeSales
+              ? "아직 완료된 여행 정산이 없습니다. 여행 출발일 이후 정산이 등록됩니다."
+              : period
+              ? "다른 기간을 선택해 보세요."
+              : "이번 달 정산 내역이 아직 등록되지 않았습니다. 다른 기간을 선택해 보세요."}
           </p>
         </div>
       ) : (

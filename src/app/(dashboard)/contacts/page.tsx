@@ -47,7 +47,7 @@ type Contact = {
 const SOURCE_TYPE_LABELS: Record<string, { label: string; icon: string; color: string }> = {
   user: { label: "구매고객", icon: "🟢", color: "bg-green-50 text-green-700" },
   inquiry: { label: "상품문의", icon: "📋", color: "bg-blue-50 text-blue-700" },
-  affiliate: { label: "어필리에이트", icon: "🟡", color: "bg-yellow-50 text-yellow-700" },
+  affiliate: { label: "파트너채널", icon: "🟡", color: "bg-yellow-50 text-yellow-700" },
   landing_page: { label: "랜딩페이지", icon: "🔵", color: "bg-cyan-50 text-cyan-700" },
   education: { label: "교육", icon: "🎓", color: "bg-purple-50 text-purple-700" },
   gold_member: { label: "골드회원", icon: "👑", color: "bg-amber-50 text-amber-700" },
@@ -72,10 +72,17 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   "구매완료":  { label: "구매완료",  color: "bg-green-100 text-green-700" },
   "VIP":       { label: "👑 특별한 고객",       color: "bg-gold-100 text-gold-700 font-bold" },
   "수신거부":  { label: "수신거부",  color: "bg-gray-100 text-gray-500" },
-  // 기존 영문 코드 (하위 호환)
+  // 기존 영문 코드 → 한국어 (하위 호환)
   LEAD:         { label: "잠재고객",  color: "bg-blue-100 text-blue-700" },
+  PROSPECT:     { label: "잠재고객",  color: "bg-blue-100 text-blue-700" },
+  INQUIRY:      { label: "문의고객",  color: "bg-sky-100 text-sky-700" },
   CUSTOMER:     { label: "구매완료",  color: "bg-green-100 text-green-700" },
+  PURCHASED:    { label: "구매완료",  color: "bg-green-100 text-green-700" },
+  GOLD:         { label: "👑 골드회원", color: "bg-amber-100 text-amber-700" },
+  ACTIVE:       { label: "활성",      color: "bg-green-100 text-green-700" },
+  INACTIVE:     { label: "비활성",    color: "bg-gray-100 text-gray-500" },
   UNSUBSCRIBED: { label: "수신거부",  color: "bg-gray-100 text-gray-500" },
+  BLOCKED:      { label: "차단됨",    color: "bg-red-100 text-red-600" },
 };
 
 const QUICK_CALL_OPTIONS: { result: QuickCallResult; label: string; icon: React.ReactNode; color: string }[] = [
@@ -114,16 +121,7 @@ function formatCreatedAt(dateStr: string | null): string {
 }
 
 function getSourceLabel(contact: Contact): string {
-  if (contact.sourceType === "affiliate") {
-    return "제휴";
-  }
-  if (contact.sourceType === "inquiry") {
-    return `문의`;
-  }
-  if (contact.sourceType === "user") {
-    return `가입`;
-  }
-  return SOURCE_TYPE_LABELS[contact.sourceType || ""] ? SOURCE_TYPE_LABELS[contact.sourceType!].label : "기타";
+  return SOURCE_TYPE_LABELS[contact.sourceType || ""]?.label ?? "기타";
 }
 
 export default function ContactsPage() {
