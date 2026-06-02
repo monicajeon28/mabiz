@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
@@ -76,6 +77,10 @@ export async function POST(req: Request) {
     // AGENT → PENDING_APPROVAL, OWNER/ADMIN → APPROVED
     const status = (ctx.role === 'GLOBAL_ADMIN' || ctx.role === 'OWNER') ? 'APPROVED' : 'PENDING_APPROVAL';
 
+    // 서명 토큰 생성
+    const signToken = randomUUID();
+    const signTokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7일
+
     const doc = await prisma.salesDocument.create({
       data: {
         organizationId: orgId,
@@ -113,10 +118,49 @@ export async function POST(req: Request) {
           companyName:   '크루즈닷',
           companyReg:    '대표: 배연성',
           issuedAt:      new Date().toISOString(),
+          // 서명 관련 필드
+          signToken,
+          signTokenExpiresAt: signTokenExpiresAt.toISOString(),
+          signStatus:    'PENDING', // PENDING | SIGNED
+          companions:    [],        // 서명 후 채워짐
+          signatureImage: null,
+          customerSignedAt: null,
+          signedByName:  null,
         },
       },
       select: { id: true, status: true },
     });
+
+    // 서명 링크 이메일 발송 (fire-and-forget)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mabizcruisedot.com';
+    const signUrl = `${appUrl}/contract/sign/${doc.id}?token=${signToken}`;
+
+    if (payment.buyerEmail) {
+      sendFunnelEmail({
+        organizationId: orgId,
+        to:      payment.buyerEmail,
+        subject: `[구매계약서] ${payment.productName ?? '크루즈 상품'} 계약서 서명 요청`,
+        html: `<div style="font-family:sans-serif;line-height:1.8;max-width:600px;margin:0 auto;padding:32px 24px">
+<h2 style="color:#1a1a2e;margin:0 0 16px">구매 계약서 서명 요청</h2>
+<p>${payment.buyerName}님, 안녕하세요.<br>아래 상품의 구매 계약서 서명을 요청드립니다.</p>
+<table style="width:100%;border-collapse:collapse;margin:20px 0">
+  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666;width:40%">상품명</td><td style="padding:10px 14px;font-weight:600">${payment.productName ?? '크루즈 상품'}</td></tr>
+  ${departureDate ? `<tr><td style="padding:10px 14px;color:#666">출발일</td><td style="padding:10px 14px">${departureDate}</td></tr>` : ''}
+  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">계약금액</td><td style="padding:10px 14px;font-weight:700;color:#2b6cb0">${payment.amount.toLocaleString()}원</td></tr>
+  <tr><td style="padding:10px 14px;color:#666">결제방법</td><td style="padding:10px 14px">${paymentMethod}</td></tr>
+</table>
+<div style="text-align:center;margin:32px 0">
+  <a href="${signUrl}" style="display:inline-block;background:#2b6cb0;color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:16px;font-weight:700">계약서 서명하기</a>
+</div>
+<p style="color:#888;font-size:13px;text-align:center">위 링크는 <strong>7일</strong>간 유효합니다. 기간 내 서명을 완료해 주세요.</p>
+<p style="color:#666;font-size:13px">버튼이 작동하지 않으면 아래 주소를 복사해 브라우저에 붙여넣기 해주세요:<br>
+<span style="word-break:break-all;color:#4a90e2">${signUrl}</span></p>
+<hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+<p style="color:#aaa;font-size:12px">문의사항은 담당 에이전트에게 연락해 주세요.</p>
+</div>`,
+        channel: 'MANUAL',
+      }).catch(() => {});
+    }
 
     // APPROVED면 승인 로그 + 이메일
     if (status === 'APPROVED') {
@@ -153,7 +197,7 @@ ${body.specialTerms ? `<p style="background:#fffbeb;border-left:4px solid #f59e0
     }
 
     logger.log('[PurchaseContract] 발급', { orgId, orderId: body.orderId, status, docId: doc.id });
-    return NextResponse.json({ ok: true, documentId: doc.id, status });
+    return NextResponse.json({ ok: true, documentId: doc.id, status, signUrl });
   } catch (e) {
     logger.log('[PurchaseContract] 오류', { error: e instanceof Error ? e.message : String(e) });
     return NextResponse.json({ ok: false }, { status: 500 });
