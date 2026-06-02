@@ -316,7 +316,7 @@ export default function ImageLibraryPage() {
           hidden
           onChange={(e) => handleUpload(e.target.files)}
         />
-      </p>
+      </div>
 
       {/* 필터 */}
       <div className="flex gap-2 flex-wrap">

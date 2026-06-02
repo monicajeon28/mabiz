@@ -13,6 +13,18 @@ import { logger } from '@/lib/logger';
 import { AligoClient, createAligoClient } from './client';
 
 /**
+ * SMS의 유효 발신번호 결정
+ * 우선순위: ScheduledSms.senderPhone > orgSmsConfig.senderPhone (폴백)
+ */
+function resolveSenderPhone(
+  smsSenderPhone: string | null | undefined,
+  fallbackPhone: string
+): string {
+  const trimmed = smsSenderPhone?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : fallbackPhone;
+}
+
+/**
  * Aligo EUC-KR 바이트 기준 LMS/SMS 분류
  * 한글 1자 = 2바이트, ASCII 1자 = 1바이트
  * 80바이트 초과 시 LMS
@@ -100,11 +112,21 @@ export async function processPendingSms(
       return result;
     }
 
-    const aligoClient = createAligoClient({
-      apiKey: smsConfig.aligoKey,
-      userId: smsConfig.aligoUserId,
-      senderPhone: smsConfig.senderPhone,
-    });
+    // 발신번호별 Aligo 클라이언트 캐시 — 대리점별 개별 발신번호 지원
+    // 우선순위: ScheduledSms.senderPhone > orgSmsConfig.senderPhone
+    const clientCache = new Map<string, AligoClient>();
+    const getAligoClientFor = (senderPhone: string): AligoClient => {
+      let client = clientCache.get(senderPhone);
+      if (!client) {
+        client = createAligoClient({
+          apiKey: smsConfig.aligoKey,
+          userId: smsConfig.aligoUserId,
+          senderPhone,
+        });
+        clientCache.set(senderPhone, client);
+      }
+      return client;
+    };
 
     // 배치 그룹 생성 (수신거부 및 야간 차단 분리)
     const validSms: typeof pendingSmsWithContact = [];
@@ -182,82 +204,104 @@ export async function processPendingSms(
       return result;
     }
 
-    // 배치 발송 준비
-    const batchRequests = smsToSend.map(sms => ({
-      receiver: sms.contact?.phone || '',
-      message: sms.message
-        .replace(/\[고객명\]/g, sms.contact?.name || '고객님')
-        .replace(/\[이름\]/g, sms.contact?.name || '고객님'),
-      messageType: getAligoMessageType(
-        sms.message
-          .replace(/\[고객명\]/g, sms.contact?.name || '고객님')
-          .replace(/\[이름\]/g, sms.contact?.name || '고객님')
-      ),
-    }));
-
-    // Aligo 배치 발송
-    const sendResponse = await aligoClient.sendSmsBatch(batchRequests);
-
-    if (sendResponse.resultCode === 1) {
-      // 배치 전체 성공
-      result.sent = smsToSend.length;
-
-      // P1-15 + P1-16: Promise.allSettled — 일부 DB 실패해도 전체 롤백하지 않고 개별 오류 집계
-      const sentAt = new Date();
-      const updateResults = await Promise.allSettled(
-        smsToSend.map(sms =>
-          prisma.scheduledSms.update({
-            where: { id: sms.id, status: 'PENDING' },
-            data: {
-              status: 'SENT',
-              sentAt,
-              sentCount: 1,
-              updatedAt: sentAt,
-            },
-          })
-        )
-      );
-
-      // 개별 업데이트 실패 집계 — SENT로 처리됐지만 DB 기록 실패한 건 errors로 카운트
-      const dbFailCount = updateResults.filter(r => r.status === 'rejected').length;
-      if (dbFailCount > 0) {
-        result.errors += dbFailCount;
-        result.sent -= dbFailCount;
-        logger.warn(`[BatchSender] DB 업데이트 실패: ${dbFailCount}건`);
-        updateResults.forEach((r, i) => {
-          if (r.status === 'rejected') {
-            logger.error('[BatchSender] SENT 상태 업데이트 실패', {
-              smsId: smsToSend[i].id,
-              error: r.reason instanceof Error ? r.reason.message : String(r.reason),
-            });
-          }
-        });
+    // 발신번호별 그룹핑 — 대리점별 개별 발신번호로 각각 배치 발송
+    // (Aligo 클라이언트는 인스턴스당 발신번호 1개 고정이므로 sender별로 분리 발송)
+    const smsBySender = new Map<string, typeof smsToSend>();
+    for (const sms of smsToSend) {
+      const sender = resolveSenderPhone(sms.senderPhone, smsConfig.senderPhone);
+      const bucket = smsBySender.get(sender);
+      if (bucket) {
+        bucket.push(sms);
+      } else {
+        smsBySender.set(sender, [sms]);
       }
+    }
 
-      logger.log('[BatchSender] 배치 발송 완료', {
-        organizationId,
-        count: smsToSend.length,
-        msgId: sendResponse.msgId,
-      });
-    } else {
-      // 부분 실패 또는 전체 실패
-      result.failed += (sendResponse.failCount || smsToSend.length);
-      result.sent = smsToSend.length - (sendResponse.failCount || smsToSend.length);
+    // 발신번호 그룹별 배치 발송
+    for (const [sender, groupSms] of smsBySender) {
+      const aligoClient = getAligoClientFor(sender);
 
-      // 개별 발송으로 재처리
-      logger.warn('[BatchSender] 배치 발송 실패 → 개별 발송 재시도', {
-        organizationId,
-        failCount: result.failed,
-      });
+      // 배치 발송 준비
+      const batchRequests = groupSms.map(sms => ({
+        receiver: sms.contact?.phone || '',
+        message: sms.message
+          .replace(/\[고객명\]/g, sms.contact?.name || '고객님')
+          .replace(/\[이름\]/g, sms.contact?.name || '고객님'),
+        messageType: getAligoMessageType(
+          sms.message
+            .replace(/\[고객명\]/g, sms.contact?.name || '고객님')
+            .replace(/\[이름\]/g, sms.contact?.name || '고객님')
+        ),
+      }));
 
-      const individualResults = await processIndividualSms(
-        smsToSend,
-        aligoClient,
-        organizationId
-      );
+      // Aligo 배치 발송 (이 그룹의 발신번호로)
+      const sendResponse = await aligoClient.sendSmsBatch(batchRequests);
 
-      result.sent = individualResults.sent;
-      result.failed = individualResults.failed;
+      if (sendResponse.resultCode === 1) {
+        // 배치 전체 성공
+        result.sent += groupSms.length;
+
+        // P1-15 + P1-16: Promise.allSettled — 일부 DB 실패해도 전체 롤백하지 않고 개별 오류 집계
+        const sentAt = new Date();
+        const updateResults = await Promise.allSettled(
+          groupSms.map(sms =>
+            prisma.scheduledSms.update({
+              where: { id: sms.id, status: 'PENDING' },
+              data: {
+                status: 'SENT',
+                sentAt,
+                sentCount: 1,
+                updatedAt: sentAt,
+              },
+            })
+          )
+        );
+
+        // 개별 업데이트 실패 집계 — SENT로 처리됐지만 DB 기록 실패한 건 errors로 카운트
+        const dbFailCount = updateResults.filter(r => r.status === 'rejected').length;
+        if (dbFailCount > 0) {
+          result.errors += dbFailCount;
+          result.sent -= dbFailCount;
+          logger.warn(`[BatchSender] DB 업데이트 실패: ${dbFailCount}건`);
+          updateResults.forEach((r, i) => {
+            if (r.status === 'rejected') {
+              logger.error('[BatchSender] SENT 상태 업데이트 실패', {
+                smsId: groupSms[i].id,
+                error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+              });
+            }
+          });
+        }
+
+        logger.log('[BatchSender] 배치 발송 완료', {
+          organizationId,
+          sender,
+          count: groupSms.length,
+          msgId: sendResponse.msgId,
+        });
+      } else {
+        // 부분 실패 또는 전체 실패
+        const groupFailCount = sendResponse.failCount || groupSms.length;
+        result.failed += groupFailCount;
+
+        // 개별 발송으로 재처리 (해당 그룹의 발신번호 클라이언트로)
+        logger.warn('[BatchSender] 배치 발송 실패 → 개별 발송 재시도', {
+          organizationId,
+          sender,
+          failCount: groupFailCount,
+        });
+
+        const individualResults = await processIndividualSms(
+          groupSms,
+          aligoClient,
+          organizationId
+        );
+
+        // 배치 실패로 가산했던 추정치를 개별 발송 실제 결과로 보정
+        result.failed -= groupFailCount;
+        result.sent += individualResults.sent;
+        result.failed += individualResults.failed;
+      }
     }
 
     return result;
