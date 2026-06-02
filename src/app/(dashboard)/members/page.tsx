@@ -11,6 +11,8 @@ type Member = {
   mallUserId: string | null;
   mallNickname: string | null;
   kakaoChannelAdded: boolean;
+  naverChannelAdded: boolean;
+  googleChannelAdded: boolean;
   createdAt: string | Date;
   isLocked: boolean;
   affiliateType: string | null;
@@ -600,11 +602,14 @@ export default function MembersPage() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        {m.kakaoChannelAdded ? (
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <span className="text-gray-300 text-sm">-</span>
-                        )}
+                        <div className="flex gap-1">
+                          {m.kakaoChannelAdded && <span className="text-yellow-600 text-xs font-medium">카카오✓</span>}
+                          {m.naverChannelAdded && <span className="text-green-600 text-xs font-medium">네이버✓</span>}
+                          {m.googleChannelAdded && <span className="text-blue-600 text-xs font-medium">구글✓</span>}
+                          {!m.kakaoChannelAdded && !m.naverChannelAdded && !m.googleChannelAdded && (
+                            <span className="text-gray-300 text-sm">-</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600 text-sm">
                         {formatDate(m.createdAt)}
@@ -691,10 +696,18 @@ export default function MembersPage() {
                       <p className="font-medium text-gray-900 font-mono">{selectedMember.phone || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-gray-500">카카오채널</p>
-                      <p className="font-medium text-gray-900">
-                        {selectedMember.kakaoChannelAdded ? "✅ 추가됨" : "-"}
-                      </p>
+                      <p className="text-gray-500">SNS 채널 연결</p>
+                      <div className="flex gap-3">
+                        <p className="text-sm">
+                          {selectedMember.kakaoChannelAdded ? "✅ 카카오" : "❌ 카카오"}
+                        </p>
+                        <p className="text-sm">
+                          {selectedMember.naverChannelAdded ? "✅ 네이버" : "❌ 네이버"}
+                        </p>
+                        <p className="text-sm">
+                          {selectedMember.googleChannelAdded ? "✅ 구글" : "❌ 구글"}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

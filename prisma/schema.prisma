@@ -214,7 +214,7 @@ model Contact {
   reEngagedAt                      DateTime?
   sourceOrgId                      String?
   tags                             String[]  @default([])
-  type                             String    @default("LEAD")
+  type                             String    @default("INQUIRY")
   utmSource                        String?
   deletedAt                        DateTime?
   partnerId                        String?
@@ -2351,6 +2351,10 @@ model GmUser {
   genieLinkedAt               DateTime?              @db.Timestamp(6)
   kakaoChannelAdded           Boolean                @default(false)
   kakaoChannelAddedAt         DateTime?              @db.Timestamp(6)
+  naverChannelAdded           Boolean                @default(false)
+  naverChannelAddedAt         DateTime?              @db.Timestamp(6)
+  googleChannelAdded          Boolean                @default(false)
+  googleChannelAddedAt        DateTime?              @db.Timestamp(6)
   createdAt                   DateTime               @default(now()) @db.Timestamp(6)
   updatedAt                   DateTime               @updatedAt @db.Timestamp(6)
   pwaGenieInstalledAt         DateTime?              @db.Timestamp(6)
