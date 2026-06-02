@@ -53,30 +53,42 @@ export async function POST(req: Request) {
       ? (body.cancellationRequestedAt ? new Date(body.cancellationRequestedAt) : new Date(payment.cancelledAt!))
       : new Date(); // 아직 미취소면 오늘 기준 예상 환불액
 
-    // Trip 데이터로 출발일 조회 시도 (같은 DB, raw query)
+    // 출발일 + 상품별 환불 정책 조회
     let departureDate: Date | null = null;
+    let productRefundPolicy: import('@/lib/refund-calculator').RefundPolicyJson | null = null;
     try {
       const productCode = (payment.metadata as { productCode?: string })?.productCode ?? '';
       if (productCode) {
+        // Trip에서 출발일 조회
         const trip = await prisma.$queryRaw<{ departureDate: Date }[]>`
           SELECT "departureDate" FROM "Trip" WHERE "productCode" = ${productCode} LIMIT 1`;
         if (trip[0]?.departureDate) departureDate = trip[0].departureDate;
-      }
-    } catch { /* Trip 없으면 패스 */ }
 
-    // 환불 계산
+        // CruiseProduct에서 상품별 환불 정책 조회
+        const product = await prisma.cruiseProduct.findUnique({
+          where: { productCode },
+          select: { refundPolicy: true },
+        });
+        if (product?.refundPolicy) {
+          productRefundPolicy = product.refundPolicy as import('@/lib/refund-calculator').RefundPolicyJson;
+        }
+      }
+    } catch { /* 조회 실패 시 법정 기준 fallback */ }
+
+    // 환불 계산 — 상품별 정책 우선, 없으면 법정기준(관광진흥법 시행령)
     let refundCalc = {
       refundAmount: payment.amount,
       penaltyRate: 0,
       penaltyAmount: 0,
       daysBeforeDep: -1,
-      basis: '법정기준(관광진흥법 시행령)',
+      basis: productRefundPolicy?.isStructured ? '상품별 환불정책' : '법정기준(관광진흥법 시행령)',
     };
 
     if (departureDate) {
       try {
         const { calcRefundAmount } = await import('@/lib/refund-calculator');
-        refundCalc = calcRefundAmount(payment.amount, departureDate, null, cancelDate);
+        // productRefundPolicy가 있으면 상품별 정책 적용, 없으면 법정 기준
+        refundCalc = calcRefundAmount(payment.amount, departureDate, productRefundPolicy, cancelDate);
       } catch { /* 계산 실패 시 전액 환불로 fallback */ }
     }
 

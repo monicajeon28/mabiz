@@ -11,10 +11,9 @@ const nextConfig = {
     unoptimized: process.env.NODE_ENV === 'development',
   },
 
-  // dev/prod 모두 webpack 파일시스템 캐시 비활성화
-  // Windows NTFS에서 rename race condition 방지 (dev 포함)
-  webpack: (config) => {
-    config.cache = false;
+  // Windows NTFS rename race condition → prod은 캐시 끔, dev는 메모리 캐시 사용
+  webpack: (config, { dev }) => {
+    config.cache = dev ? { type: 'memory' } : false;
     return config;
   },
 

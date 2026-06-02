@@ -4,13 +4,14 @@ import { FileText, CheckCircle, Clock, XCircle, Plus, Download, FolderOpen } fro
 import { showError } from "@/components/ui/Toast";
 import html2canvas from "html2canvas";
 
-type DocType = "COMPARISON_QUOTE" | "PURCHASE_CONFIRMATION" | "REFUND_CERTIFICATE";
+type DocType = "COMPARISON_QUOTE" | "PURCHASE_CONFIRMATION" | "PURCHASE_CONTRACT" | "REFUND_CERTIFICATE";
 type DocStatus = "APPROVED" | "PENDING_APPROVAL" | "REJECTED" | "DRAFT";
 
 const DOC_TYPES: { key: DocType; label: string; api: string; color: string }[] = [
-  { key: "COMPARISON_QUOTE",      label: "비교견적서",   api: "/api/documents/comparison-quote",  color: "blue"   },
-  { key: "PURCHASE_CONFIRMATION", label: "구매확인증서", api: "/api/documents/purchase-cert",      color: "green"  },
-  { key: "REFUND_CERTIFICATE",    label: "환불증서",     api: "/api/documents/refund-cert",        color: "red"    },
+  { key: "COMPARISON_QUOTE",      label: "비교견적서",   api: "/api/documents/comparison-quote",    color: "blue"   },
+  { key: "PURCHASE_CONFIRMATION", label: "구매확인증서", api: "/api/documents/purchase-cert",        color: "green"  },
+  { key: "PURCHASE_CONTRACT",     label: "구매계약서",   api: "/api/documents/purchase-contract",    color: "purple" },
+  { key: "REFUND_CERTIFICATE",    label: "환불증서",     api: "/api/documents/refund-cert",          color: "red"    },
 ];
 
 const STATUS_BADGE: Record<DocStatus, { label: string; icon: React.ReactNode; cls: string }> = {
@@ -39,9 +40,21 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
   const [loading,    setLoading]  = useState(false);
   const [showNew,       setShowNew]      = useState(false);
   const [orderId,       setOrderId]      = useState('');
-  const [refunderName,  setRefunderName] = useState(''); // 환불 요청자 (구매자와 다를 수 있음)
+  const [refunderName,  setRefunderName] = useState('');
   const [submitting,    setSub]          = useState(false);
   const [selectedLabel, setSelectedLabel] = useState('');
+  // 비교견적서 전용 필드
+  const [quoteProductName, setQuoteProductName] = useState('');
+  const [quotePrice,       setQuotePrice]       = useState('');
+  const [quoteCruiseLine,  setQuoteCruiseLine]  = useState('');
+  const [quoteNights,      setQuoteNights]      = useState('');
+  const [quoteDeparture,   setQuoteDeparture]   = useState('');
+  const [competitors, setCompetitors] = useState<{ name: string; price: string }[]>([
+    { name: '', price: '' },
+  ]);
+  // 구매계약서 전용 필드
+  const [contractSpecialTerms, setContractSpecialTerms] = useState('');
+  const [contractSignedAt,     setContractSignedAt]     = useState('');
 
   const current = DOC_TYPES.find(d => d.key === tab)!;
 
@@ -63,20 +76,40 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
   }, [tab]);
 
   const requestDoc = async () => {
-    if (tab !== 'COMPARISON_QUOTE' && !orderId.trim()) {
+    if (tab === 'COMPARISON_QUOTE') {
+      if (!quoteProductName.trim()) { showError('상품명을 입력하세요'); return; }
+      if (!quotePrice.trim() || isNaN(Number(quotePrice))) { showError('판매가를 입력하세요'); return; }
+    } else if (!orderId.trim()) {
       showError('주문번호를 입력하세요');
       return;
     }
     setSub(true);
     try {
-      const body = tab !== 'COMPARISON_QUOTE'
+      const validCompetitors = competitors
+        .filter(c => c.name.trim() && c.price.trim() && !isNaN(Number(c.price)))
+        .map(c => ({ name: c.name.trim(), price: Number(c.price) }));
+
+      const body = tab === 'COMPARISON_QUOTE'
         ? {
+            productName: quoteProductName.trim(),
+            price: Number(quotePrice),
+            ...(quoteCruiseLine.trim() ? { cruiseLine: quoteCruiseLine.trim() } : {}),
+            ...(quoteNights.trim() && !isNaN(Number(quoteNights)) ? { nights: Number(quoteNights) } : {}),
+            ...(quoteDeparture ? { departureDate: quoteDeparture } : {}),
+            ...(validCompetitors.length > 0 ? { competitorPrices: validCompetitors } : {}),
+          }
+        : tab === 'PURCHASE_CONTRACT'
+        ? {
+            orderId,
+            ...(contractSpecialTerms.trim() ? { specialTerms: contractSpecialTerms.trim() } : {}),
+            ...(contractSignedAt ? { signedAt: contractSignedAt } : {}),
+          }
+        : {
             orderId,
             ...(tab === 'REFUND_CERTIFICATE' && refunderName.trim()
               ? { refunderName: refunderName.trim() }
               : {}),
-          }
-        : {};
+          };
       const res = await fetch(current.api, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -85,8 +118,10 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
       const d = await res.json() as { ok: boolean; message?: string };
       if (!d.ok) { showError(d.message ?? '발급 실패'); return; }
       setShowNew(false);
-      setOrderId('');
-      setRefunderName('');
+      setOrderId(''); setRefunderName('');
+      setQuoteProductName(''); setQuotePrice(''); setQuoteCruiseLine(''); setQuoteNights(''); setQuoteDeparture('');
+      setCompetitors([{ name: '', price: '' }]);
+      setContractSpecialTerms(''); setContractSignedAt('');
       load();
     } catch {
       showError('요청 실패');
@@ -159,7 +194,126 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
       {showNew && (
         <div className="mb-6 border rounded-xl p-4 bg-gray-50">
           <p className="text-sm font-semibold mb-3">{current.label} 발급 요청</p>
-          {tab !== 'COMPARISON_QUOTE' && (
+          {tab === 'COMPARISON_QUOTE' ? (
+            <div className="mb-3 space-y-3">
+              {/* 크루즈닷 상품 정보 */}
+              <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">크루즈닷 상품</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="col-span-2">
+                  <label className="block text-xs text-gray-500 mb-1">상품명 <span className="text-red-500">*</span></label>
+                  <input
+                    value={quoteProductName}
+                    onChange={e => setQuoteProductName(e.target.value)}
+                    placeholder="예: MSC 벨리시마 부산→일본 4박5일"
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">판매가 (원) <span className="text-red-500">*</span></label>
+                  <input
+                    type="number"
+                    value={quotePrice}
+                    onChange={e => setQuotePrice(e.target.value)}
+                    placeholder="예: 890000"
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">선사명</label>
+                  <input
+                    value={quoteCruiseLine}
+                    onChange={e => setQuoteCruiseLine(e.target.value)}
+                    placeholder="예: MSC, 코스타"
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">박수</label>
+                  <input
+                    type="number"
+                    value={quoteNights}
+                    onChange={e => setQuoteNights(e.target.value)}
+                    placeholder="예: 4"
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">출발일</label>
+                  <input
+                    type="date"
+                    value={quoteDeparture}
+                    onChange={e => setQuoteDeparture(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* 타사 상품 비교 (수동 입력) */}
+              <div className="border-t pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">타사 비교 상품 (수동 입력)</p>
+                  <button
+                    type="button"
+                    onClick={() => setCompetitors(prev => [...prev, { name: '', price: '' }])}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    + 추가
+                  </button>
+                </div>
+                {competitors.map((c, i) => (
+                  <div key={i} className="flex gap-2 mb-2">
+                    <input
+                      value={c.name}
+                      onChange={e => setCompetitors(prev => prev.map((p, j) => j === i ? { ...p, name: e.target.value } : p))}
+                      placeholder="경쟁사명 (예: 하나투어, 모두투어)"
+                      className="flex-1 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="number"
+                      value={c.price}
+                      onChange={e => setCompetitors(prev => prev.map((p, j) => j === i ? { ...p, price: e.target.value } : p))}
+                      placeholder="가격 (원)"
+                      className="w-28 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {competitors.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setCompetitors(prev => prev.filter((_, j) => j !== i))}
+                        className="text-gray-400 hover:text-red-500 px-1 text-lg leading-none"
+                      >×</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : tab === 'PURCHASE_CONTRACT' ? (
+            <div className="mb-3 space-y-2">
+              <SaleSearchDropdown
+                docType="PURCHASE_CONFIRMATION"
+                onSelect={(id, label) => { setOrderId(id); setSelectedLabel(label); }}
+              />
+              {orderId && <p className="text-sm text-green-600">✓ 선택됨: {selectedLabel || orderId}</p>}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">계약 서명일 (비워두면 오늘)</label>
+                <input
+                  type="date"
+                  value={contractSignedAt}
+                  onChange={e => setContractSignedAt(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">특약사항 (선택)</label>
+                <textarea
+                  value={contractSpecialTerms}
+                  onChange={e => setContractSpecialTerms(e.target.value)}
+                  placeholder="예: 얼리버드 할인 적용, 2인 이상 예약 조건 등"
+                  rows={3}
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+            </div>
+          ) : (
             <div className="mb-3 space-y-2">
               <SaleSearchDropdown
                 docType={tab}
@@ -168,7 +322,6 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
               {orderId && (
                 <p className="text-sm text-green-600">✓ 선택됨: {selectedLabel || orderId}</p>
               )}
-              {/* 환불증서: 환불 요청자가 구매자와 다를 경우 입력 */}
               {tab === 'REFUND_CERTIFICATE' && (
                 <div>
                   <label className="block text-sm text-gray-500 mb-1">
@@ -193,7 +346,7 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
               {submitting ? '요청 중...' : '요청하기'}
             </button>
             <button
-              onClick={() => { setShowNew(false); setOrderId(''); setSelectedLabel(''); setRefunderName(''); }}
+              onClick={() => { setShowNew(false); setOrderId(''); setSelectedLabel(''); setRefunderName(''); setQuoteProductName(''); setQuotePrice(''); setQuoteCruiseLine(''); setQuoteNights(''); setQuoteDeparture(''); setCompetitors([{ name: '', price: '' }]); setContractSpecialTerms(''); setContractSignedAt(''); }}
               className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-100 transition-colors"
             >
               취소
@@ -202,38 +355,139 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
         </div>
       )}
 
-      {/* 숨겨진 렌더링 영역 — PNG 다운로드용 */}
-      {docs.map(doc => (
-        <div
-          key={`render-${doc.id}`}
-          id={`doc-render-${doc.id}`}
-          style={{ display: 'none', width: '800px', padding: '40px', background: 'white', fontFamily: 'sans-serif' }}
-        >
-          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-            <h2 style={{ fontSize: '24px', fontWeight: 'bold', margin: '0 0 8px 0' }}>
-              {current.label}
-            </h2>
-            <p style={{ fontSize: '12px', color: '#666', margin: 0 }}>
-              발급일: {new Date(doc.createdAt).toLocaleDateString('ko-KR')}
-            </p>
+      {/* PNG 다운로드용 렌더링 (화면 밖 절대 위치 — html2canvas 렌더링 가능) */}
+      {docs.map(doc => {
+        const d = doc.generatedData;
+        const docType = DOC_TYPES.find(t => t.key === tab)!;
+        const issuedDate = new Date(doc.createdAt).toLocaleDateString('ko-KR');
+        return (
+          <div
+            key={`render-${doc.id}`}
+            id={`doc-render-${doc.id}`}
+            style={{ position: 'absolute', left: '-9999px', top: '0', width: '794px', padding: '60px', background: 'white', fontFamily: '"Malgun Gothic", "맑은 고딕", sans-serif', fontSize: '14px', color: '#111' }}
+          >
+            {/* 공통 헤더 */}
+            <div style={{ textAlign: 'center', marginBottom: '48px', borderBottom: '3px solid #1a2e4a', paddingBottom: '24px' }}>
+              <p style={{ fontSize: '12px', color: '#666', margin: '0 0 8px', letterSpacing: '2px' }}>크루즈닷 CRUISEDOT</p>
+              <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: 0, letterSpacing: '4px' }}>{docType.label}</h1>
+              <p style={{ fontSize: '12px', color: '#999', margin: '12px 0 0' }}>발급일: {issuedDate} · 문서번호: {doc.id.slice(-8).toUpperCase()}</p>
+            </div>
+
+            {/* 비교견적서 */}
+            {tab === 'COMPARISON_QUOTE' && (
+              <div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '32px' }}>
+                  <thead>
+                    <tr style={{ background: '#1a2e4a', color: 'white' }}>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '13px' }}>구분</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '13px' }}>상품명</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '13px' }}>가격</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '13px' }}>절감액</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style={{ background: '#e8f4fd', fontWeight: 'bold' }}>
+                      <td style={{ padding: '12px 16px', border: '1px solid #ddd', color: '#1a6fb5' }}>크루즈닷</td>
+                      <td style={{ padding: '12px 16px', border: '1px solid #ddd' }}>{String(d.productName ?? '-')}{d.cruiseLine ? ` (${String(d.cruiseLine)})` : ''}{d.nights ? ` ${String(d.nights)}박` : ''}</td>
+                      <td style={{ padding: '12px 16px', border: '1px solid #ddd', textAlign: 'right', color: '#1a6fb5', fontWeight: 'bold' }}>{Number(d.price ?? 0).toLocaleString()}원</td>
+                      <td style={{ padding: '12px 16px', border: '1px solid #ddd', textAlign: 'right', color: '#2e7d32' }}>최저가</td>
+                    </tr>
+                    {(d.competitorPrices as { name: string; price: number }[] ?? []).map((c, i) => (
+                      <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f9f9f9' }}>
+                        <td style={{ padding: '12px 16px', border: '1px solid #ddd', color: '#666' }}>{c.name}</td>
+                        <td style={{ padding: '12px 16px', border: '1px solid #ddd', color: '#666' }}>동일 상품 기준</td>
+                        <td style={{ padding: '12px 16px', border: '1px solid #ddd', textAlign: 'right' }}>{c.price.toLocaleString()}원</td>
+                        <td style={{ padding: '12px 16px', border: '1px solid #ddd', textAlign: 'right', color: '#c62828' }}>+{(c.price - Number(d.price ?? 0)).toLocaleString()}원</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {d.departureDate && <p style={{ fontSize: '13px', color: '#555' }}>출발일: {String(d.departureDate)}</p>}
+              </div>
+            )}
+
+            {/* 구매확인증서 / 구매계약서 */}
+            {(tab === 'PURCHASE_CONFIRMATION' || tab === 'PURCHASE_CONTRACT') && (
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '32px' }}>
+                {[
+                  { label: '구매자명', value: String(d.buyerName ?? '-') },
+                  { label: '연락처', value: String(d.buyerTel ?? '-') },
+                  { label: '상품명', value: String(d.productName ?? '-') },
+                  ...(d.departureDate ? [{ label: '출발일', value: String(d.departureDate) }] : []),
+                  ...(d.nights ? [{ label: '여행기간', value: `${String(d.nights)}박` }] : []),
+                  { label: '결제금액', value: `${Number(d.amount ?? 0).toLocaleString()}원` },
+                  { label: '결제방법', value: String(d.paymentMethod ?? '-') },
+                  ...(d.paidAt ? [{ label: '결제일시', value: new Date(String(d.paidAt)).toLocaleDateString('ko-KR') }] : []),
+                  ...(tab === 'PURCHASE_CONTRACT' && d.signedAt ? [{ label: '계약일', value: String(d.signedAt) }] : []),
+                ].map((row, i) => (
+                  <tr key={i} style={{ background: i % 2 === 0 ? '#f8f9fa' : 'white' }}>
+                    <td style={{ padding: '12px 16px', border: '1px solid #e0e0e0', fontWeight: 'bold', width: '30%', color: '#444' }}>{row.label}</td>
+                    <td style={{ padding: '12px 16px', border: '1px solid #e0e0e0' }}>{row.value}</td>
+                  </tr>
+                ))}
+              </table>
+            )}
+
+            {/* 구매계약서 — 취소/환불 규정 */}
+            {tab === 'PURCHASE_CONTRACT' && (
+              <div style={{ marginTop: '24px', padding: '16px', background: '#fff8e1', border: '1px solid #fbc02d', borderRadius: '8px' }}>
+                <p style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '13px' }}>취소 및 환불 규정</p>
+                {(d.cancellationPolicy as string[] ?? []).map((line, i) => (
+                  <p key={i} style={{ margin: '4px 0', fontSize: '12px', color: '#555' }}>• {line}</p>
+                ))}
+              </div>
+            )}
+            {tab === 'PURCHASE_CONTRACT' && d.specialTerms && (
+              <div style={{ marginTop: '16px', padding: '16px', background: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '8px' }}>
+                <p style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>특약사항</p>
+                <p style={{ fontSize: '12px', color: '#555' }}>{String(d.specialTerms)}</p>
+              </div>
+            )}
+
+            {/* 환불증서 */}
+            {tab === 'REFUND_CERTIFICATE' && (
+              <div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px' }}>
+                  {[
+                    { label: '구매자명', value: String(d.buyerName ?? '-') },
+                    ...(d.refunderName && d.refunderName !== d.buyerName ? [{ label: '환불요청자', value: String(d.refunderName) }] : []),
+                    { label: '상품명', value: String(d.productName ?? '-') },
+                    { label: '결제금액', value: `${Number(d.amount ?? 0).toLocaleString()}원` },
+                    { label: '위약금율', value: `${Number(d.penaltyRate ?? 0)}%` },
+                    { label: '위약금', value: `${Number(d.penaltyAmount ?? 0).toLocaleString()}원` },
+                    { label: '환불금액', value: `${Number(d.refundAmount ?? 0).toLocaleString()}원`, bold: true, highlight: '#e8f5e9' },
+                    { label: '환불기준', value: String(d.refundBasis ?? '법정기준') },
+                    ...(d.daysBeforeDep != null && Number(d.daysBeforeDep) >= 0 ? [{ label: '출발 전 일수', value: `${String(d.daysBeforeDep)}일` }] : []),
+                    { label: '환불방법', value: String(d.paymentMethod ?? '-') },
+                  ].map((row, i) => (
+                    <tr key={i} style={{ background: (row as { highlight?: string }).highlight ?? (i % 2 === 0 ? '#f8f9fa' : 'white') }}>
+                      <td style={{ padding: '12px 16px', border: '1px solid #e0e0e0', fontWeight: 'bold', width: '30%', color: '#444' }}>{row.label}</td>
+                      <td style={{ padding: '12px 16px', border: '1px solid #e0e0e0', fontWeight: (row as { bold?: boolean }).bold ? 'bold' : 'normal', color: (row as { bold?: boolean }).bold ? '#c62828' : '#111', fontSize: (row as { bold?: boolean }).bold ? '16px' : '14px' }}>{row.value}</td>
+                    </tr>
+                  ))}
+                </table>
+                <div style={{ padding: '16px', background: '#fff3e0', border: '1px solid #ffb74d', borderRadius: '8px', fontSize: '12px', color: '#555' }}>
+                  <p style={{ fontWeight: 'bold', marginBottom: '4px' }}>환불 계좌 안내</p>
+                  <p>{String(d.companyAccount ?? '담당 에이전트에게 문의하세요')}</p>
+                  <p style={{ marginTop: '8px', color: '#888' }}>* 환불 처리는 3~5 영업일 소요됩니다.</p>
+                </div>
+              </div>
+            )}
+
+            {/* 공통 푸터 */}
+            <div style={{ marginTop: '48px', borderTop: '1px solid #ddd', paddingTop: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: '12px', color: '#888' }}>
+              <div>
+                <p style={{ margin: 0 }}>크루즈닷 | 대표: 배연성</p>
+                <p style={{ margin: '4px 0 0' }}>국민은행 531301-04-167150</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ margin: 0 }}>문서번호: {doc.id.slice(-12).toUpperCase()}</p>
+                <p style={{ margin: '4px 0 0' }}>발급일: {issuedDate}</p>
+              </div>
+            </div>
           </div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
-            {Object.entries(doc.generatedData as Record<string, unknown>)
-              .filter(([k]) => !['issuerOrgId', 'issuedAt', 'competitorPrices'].includes(k))
-              .map(([key, val]) => (
-                <tr key={key} style={{ borderBottom: '1px solid #ddd' }}>
-                  <td style={{ padding: '8px', fontWeight: 'bold', width: '30%' }}>{key}</td>
-                  <td style={{ padding: '8px' }}>
-                    {typeof val === 'number' ? val.toLocaleString() : String(val ?? '-')}
-                  </td>
-                </tr>
-              ))}
-          </table>
-          <p style={{ fontSize: '10px', color: '#999', marginTop: '20px' }}>
-            문서ID: {doc.id}
-          </p>
-        </div>
-      ))}
+        );
+      })}
 
       {/* 목록 */}
       {loading ? (
@@ -267,9 +521,13 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
                     <p className="text-sm font-medium truncate">
                       {String(data.productName ?? data.buyerName ?? '-')}
                     </p>
+                    {data.buyerName != null && tab !== 'COMPARISON_QUOTE' && (
+                      <p className="text-sm text-gray-500">{String(data.buyerName)}{data.buyerTel ? ` · ${String(data.buyerTel)}` : ''}</p>
+                    )}
                     {data.amount != null && (
                       <p className="text-sm text-gray-500">
                         {Number(data.amount).toLocaleString()}원
+                        {tab === 'PURCHASE_CONTRACT' && data.signedAt != null && ` · 계약일 ${String(data.signedAt as string)}`}
                       </p>
                     )}
                     {data.refundAmount != null && (
