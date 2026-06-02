@@ -58,7 +58,7 @@ export default function PayslipsPage() {
     const params = new URLSearchParams({ page: String(page), limit: "20" });
     if (status)    params.set("status",    status);
     if (yearMonth) params.set("yearMonth", yearMonth);
-    fetch(`/api/payslips?${params}`, { signal: controller.signal })
+    fetch(`/api/payslips?${params}`, { signal: controller.signal, credentials: 'include' })
       .then((r) => {
         if (!r.ok) throw new Error(`서버 오류 (HTTP ${r.status})`);
         return r.json();
