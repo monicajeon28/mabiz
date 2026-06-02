@@ -32,9 +32,12 @@ export async function GET(req: Request) {
     const safeLimit = Math.min(Number(searchParams.get("limit")) || 30, 200); // limit 상한 강제 (200건)
 
     const baseWhere = buildContactWhere(ctx, {
-      // customerOnly: CUSTOMER + 구매완료 두 가지 type 모두 포함
+      // customerOnly: CUSTOMER + 구매완료 두 가지 type 모두 포함 + purchasedAt NOT NULL 필수
       ...(customerOnly
-        ? { type: { in: ["CUSTOMER", "구매완료"] } }
+        ? {
+            type: { in: ["CUSTOMER", "구매완료"] },
+            purchasedAt: { not: null } // P0-BUG1: 구매 확정 고객만 필터링
+          }
         : type ? { type } : {}),
       ...(channel ? { channel } : {}),
       ...(sourceType ? { sourceType } : {}), // P0-6: 출처 필터링
@@ -83,6 +86,7 @@ export async function GET(req: Request) {
           leadScore: true,
           tags: true,
           lastContactedAt: true,
+          purchasedAt: true,
           departureDate: true,
           createdAt: true,
           sourceType: true,
