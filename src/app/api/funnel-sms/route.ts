@@ -7,6 +7,7 @@ import {
   CreateFunnelSmsSchema,
   ListFunnelSmsQuerySchema,
 } from '@/lib/schemas/funnel-sms';
+import { validateSenderPhone } from '@/lib/funnel-sms-helpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 헬퍼: sentCount 조회 (FUNNEL_SMS:* 채널 발송 완료 건수)
@@ -156,6 +157,21 @@ export async function POST(req: Request) {
 
     const { title, senderPhone, category, description, sendHour, sendMinute, arsNum, messages } =
       validation.data;
+
+    // [P0 보안] 발신번호 검증 — 조직이 등록·검증한 번호만 허용(발신번호 변작 방지)
+    if (senderPhone) {
+      const phoneValidation = await validateSenderPhone(orgId, senderPhone);
+      if (!phoneValidation.valid) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'INVALID_SENDER_PHONE',
+            message: '등록·검증된 발신번호가 아닙니다. 조직 설정에서 발신번호를 등록·인증한 뒤 다시 시도하세요.',
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     const created = await prisma.funnelSms.create({
       data: {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { triggerGroupFunnelSms } from '@/lib/funnel-sms-trigger';
 
 // POST /api/public/group-join — 외부 랜딩페이지 폼 제출 → 그룹 등록
 // seq 기반 공개 엔드포인트 (인증 불필요)
@@ -67,6 +68,23 @@ export async function POST(req: Request) {
       where: { id: group.id },
       data: { memberCount: { increment: 1 } },
     }).catch(() => {/* 실패해도 등록은 성공 */});
+
+    // ★ 퍼널문자(FunnelSms) 트리거 — 그룹에 funnelSmsIds[]가 연결된 경우
+    // fire-and-forget: 실패해도 그룹 등록은 성공으로 응답
+    if (group.funnelSmsIds && group.funnelSmsIds.length > 0) {
+      for (const funnelSmsId of group.funnelSmsIds) {
+        triggerGroupFunnelSms({
+          contactId:      contact.id,
+          groupId:        group.id,
+          organizationId: group.organizationId,
+          funnelSmsId,
+        }).catch((err) => {
+          logger.error('[group-join] FunnelSms trigger 실패', {
+            seq, groupId: group.id, contactId: contact.id, funnelSmsId, err,
+          });
+        });
+      }
+    }
 
     const resultUrl = new URL(req.url).searchParams.get('result_url');
     if (resultUrl) {

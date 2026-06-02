@@ -12,6 +12,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { AligoClient, createAligoClient } from './client';
 import { replaceMessagePlaceholders } from '@/lib/message-replacements';
+import { validateSenderPhone } from '@/lib/funnel-sms-helpers';
 
 /**
  * SMS의 유효 발신번호 결정
@@ -202,9 +203,33 @@ export async function processPendingSms(
 
     // 발신번호별 그룹핑 — 대리점별 개별 발신번호로 각각 배치 발송
     // (Aligo 클라이언트는 인스턴스당 발신번호 1개 고정이므로 sender별로 분리 발송)
+    //
+    // [P0 보안] 발송 직전 재검증: ScheduledSms.senderPhone이 조직의 등록·검증
+    // 번호와 일치하지 않으면(트리거 우회/구 데이터) org 기본번호로 강제 폴백.
+    // 발신번호 변작(타 조직/공공기관 번호 발송)을 발송 단계에서 차단.
     const smsBySender = new Map<string, typeof smsToSend>();
+    const senderValidationCache = new Map<string, string | undefined>();
     for (const sms of smsToSend) {
-      const sender = resolveSenderPhone(sms.senderPhone, smsConfig.senderPhone);
+      const candidate = sms.senderPhone?.trim();
+      let validatedSender: string | undefined;
+      if (!candidate) {
+        validatedSender = undefined;
+      } else if (senderValidationCache.has(candidate)) {
+        validatedSender = senderValidationCache.get(candidate);
+      } else {
+        const v = await validateSenderPhone(organizationId, candidate);
+        validatedSender = v.valid ? candidate : undefined;
+        if (!v.valid) {
+          logger.warn('[BatchSender] 미검증 발신번호 발송 차단 → org 기본번호 폴백', {
+            organizationId,
+            smsId: sms.id,
+            attempted: candidate,
+          });
+        }
+        senderValidationCache.set(candidate, validatedSender);
+      }
+
+      const sender = resolveSenderPhone(validatedSender, smsConfig.senderPhone);
       const bucket = smsBySender.get(sender);
       if (bucket) {
         bucket.push(sms);

@@ -106,13 +106,32 @@ export async function PUT(req: Request, { params }: Params) {
       });
     });
 
+    // 이미 예약된(PENDING) 미발송 문자 확인 — 메시지 교체 후에도 기존 내용으로 발송됨
+    // (재동기화는 /messages/sync 호출로 별도 처리). UI에서 대리점에게 경고하기 위해 카운트 반환.
+    const pendingSmsCount = await prisma.scheduledSms.count({
+      where: {
+        organizationId: orgId,
+        channel: { startsWith: `FUNNEL_SMS:${funnelSmsId}:` },
+        status: 'PENDING',
+      },
+    });
+
     logger.info('[PUT /api/funnel-sms/[id]/messages]', {
       orgId,
       funnelSmsId,
       count: updatedMessages.length,
+      pendingSmsCount,
     });
 
-    return NextResponse.json({ ok: true, data: updatedMessages });
+    return NextResponse.json({
+      ok: true,
+      data: updatedMessages,
+      pendingSmsCount,
+      warningMessage:
+        pendingSmsCount > 0
+          ? `${pendingSmsCount}건의 이미 예약된 문자는 기존 내용으로 발송됩니다. 새 내용으로 교체하려면 '예약분 동기화'를 진행하세요.`
+          : null,
+    });
   } catch (err) {
     logger.error('[PUT /api/funnel-sms/[id]/messages]', { err });
     if (err instanceof Error && err.message === 'UNAUTHORIZED') {

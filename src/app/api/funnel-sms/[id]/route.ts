@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { UpdateFunnelSmsSchema } from '@/lib/schemas/funnel-sms';
+import { validateSenderPhone } from '@/lib/funnel-sms-helpers';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -110,6 +111,21 @@ export async function PATCH(req: Request, { params }: Params) {
     }
 
     const updateData = validation.data;
+
+    // [P0 보안] 발신번호 변경 시 검증 — 등록·검증된 번호만 허용(발신번호 변작 방지)
+    if (updateData.senderPhone) {
+      const phoneValidation = await validateSenderPhone(orgId, updateData.senderPhone);
+      if (!phoneValidation.valid) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'INVALID_SENDER_PHONE',
+            message: '등록·검증된 발신번호가 아닙니다. 조직 설정에서 발신번호를 등록·인증한 뒤 다시 시도하세요.',
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     // nullish 값 처리: undefined는 그대로, null은 null 저장
     const updated = await prisma.funnelSms.update({
