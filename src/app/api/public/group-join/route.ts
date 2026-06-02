@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     // seq로 그룹 조회
     const group = await prisma.contactGroup.findFirst({
       where: { seq },
-      select: { id: true, organizationId: true, name: true, funnelSmsIds: true },
+      select: { id: true, organizationId: true, name: true, funnelSmsIds: true, funnelSmsId: true },
     });
 
     if (!group) {
@@ -84,6 +84,7 @@ export async function POST(req: Request) {
     }
 
     // 퍼널문자(FunnelSms) 트리거 — fire-and-forget
+    // 신규: funnelSmsIds[] 배열 처리 (우선)
     if (group.funnelSmsIds && group.funnelSmsIds.length > 0) {
       for (const funnelSmsId of group.funnelSmsIds) {
         triggerGroupFunnelSms({
@@ -97,6 +98,19 @@ export async function POST(req: Request) {
           });
         });
       }
+    }
+    // 레거시 폴백: 단일 funnelSmsId (P1-1) — 마이그레이션 전까지 지원
+    else if (group.funnelSmsId) {
+      triggerGroupFunnelSms({
+        contactId:      contact.id,
+        groupId:        group.id,
+        organizationId: group.organizationId,
+        funnelSmsId:    group.funnelSmsId,
+      }).catch((err) => {
+        logger.error('[group-join] FunnelSms trigger 실패 (legacy)', {
+          seq, groupId: group.id, contactId: contact.id, funnelSmsId: group.funnelSmsId, err,
+        });
+      });
     }
 
     logger.log('[group-join]', { seq, contactId: contact.id, groupId: group.id });

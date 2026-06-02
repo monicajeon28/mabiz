@@ -143,9 +143,16 @@ export async function triggerGroupFunnelSms(opts: TriggerOptions): Promise<boole
 
       // 5-3. 각 FunnelSmsMessage → ScheduledSms INSERT (단일 createMany)
       const data = funnelSms.messages.map((msg) => {
-        const scheduledAt = new Date(
+        let scheduledAt = new Date(
           Date.UTC(kstYear, kstMonth, kstDay + msg.daysAfter, utcSendHour, sendMinute, 0, 0)
         );
+        // P0-2: 과거시각 보정 — 신청 시각 이전(예: Day 0 + 설정시각이 신청시각보다 이른 경우)이면
+        // 다음 날 동일 설정시각으로 미뤄 과거 발송(Cron 즉시 발송)을 방지한다.
+        if (scheduledAt <= nowUtc) {
+          scheduledAt = new Date(
+            Date.UTC(kstYear, kstMonth, kstDay + msg.daysAfter + 1, utcSendHour, sendMinute, 0, 0)
+          );
+        }
         const channel = `FUNNEL_SMS:${funnelSmsId}:${msg.id}`;
         const message = msg.content.replace(/\[이름\]/g, contact.name ?? "");
 
@@ -163,7 +170,18 @@ export async function triggerGroupFunnelSms(opts: TriggerOptions): Promise<boole
       });
 
       if (data.length === 0) continue;
-      await prisma.scheduledSms.createMany({ data });
+      // [P1-2] 레이스 컨디션 방지: 부분 UNIQUE 인덱스(uniq_scheduled_sms_funnel_channel)와
+      // 함께 skipDuplicates로 동시 트리거 시 중복 INSERT(2중 발송)를 DB 레이어에서 차단.
+      // 위 5-1 findFirst 선체크는 빠른 경로용이며, 최종 방어선은 이 DB 제약이다.
+      const createResult = await prisma.scheduledSms.createMany({ data, skipDuplicates: true });
+      if (createResult.count < data.length) {
+        logger.warn("[FunnelSmsTrigger] 중복 스케줄 일부 무시됨(레이스 차단)", {
+          contactId,
+          funnelSmsId,
+          attempted: data.length,
+          inserted: createResult.count,
+        });
+      }
       successCount++;
 
       logger.log("[FunnelSmsTrigger] 퍼널문자 스케줄 생성 완료", {
