@@ -17,6 +17,8 @@ type Contract = {
   smsDay1Sent?: boolean;
   smsDay2Sent?: boolean;
   lastReminderAt?: string | null;
+  // P1 거장단 토론: 계약 타입별 명확한 상태 표시
+  contractType?: "cruisedot-partners" | "rental-partner" | "other";
 };
 
 export async function GET() {

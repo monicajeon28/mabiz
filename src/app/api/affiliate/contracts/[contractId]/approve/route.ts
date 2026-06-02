@@ -157,7 +157,7 @@ export async function PUT(
         // ✅ P1-8: CRM Member 관계로 organizationId 검증 (cross-tenant 방지)
         if (referrer) {
           const crmMember = await prisma.organizationMember.findFirst({
-            where: { userId: referrer.userId },
+            where: { userId: String(referrer.userId) },
             select: { organizationId: true },
           });
           if (crmMember && crmMember.organizationId === organizationId) {
