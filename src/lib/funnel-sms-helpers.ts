@@ -26,8 +26,11 @@ export interface SenderPhoneValidation {
 /**
  * 전화번호 정규화 — 비교 시 하이픈/공백 차이로 인한 오탐 방지
  */
-function normalizePhone(phone: string): string {
-  return phone.replace(/[^0-9]/g, '');
+function normalizePhone(phone: string | null | undefined): string {
+  if (!phone) return '';
+  const digits = phone.replace(/[^0-9]/g, '');
+  if (digits.length < 10) return ''; // 최소 10자리 (한국 번호)
+  return digits;
 }
 
 /**
