@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { handleApiError } from "@/lib/response";
 import prisma from "@/lib/prisma";
 import { getAuthContext, buildContactWhere, maskContactInfo } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
