@@ -117,7 +117,7 @@ export default function CruisedotLandingPage() {
                       </h3>
                       <p className="text-gray-600 mb-4">{config.pricing.japan.nights}박 일정</p>
                       <p className="text-3xl font-bold text-yellow-600 mb-2">
-                        {(config.pricing.japan.totalPrice / 1000000).toFixed(1)}만원
+                        {Math.round(config.pricing.japan.totalPrice / 10000)}만원
                       </p>
                       <p className="text-sm text-gray-500">
                         <span className="font-semibold">✅</span> 선실 업그레이드<br/>
@@ -142,7 +142,7 @@ export default function CruisedotLandingPage() {
                       </h3>
                       <p className="text-gray-600 mb-4">{config.pricing.southeastAsia.nights}박 일정</p>
                       <p className="text-3xl font-bold text-green-600 mb-2">
-                        {(config.pricing.southeastAsia.totalPrice / 1000000).toFixed(1)}만원
+                        {Math.round(config.pricing.southeastAsia.totalPrice / 10000)}만원
                       </p>
                       <p className="text-sm text-gray-500">
                         <span className="font-semibold">✅</span> 모든 물품 포함<br/>
@@ -725,7 +725,7 @@ export default function CruisedotLandingPage() {
 
           {/* 카운트다운 타이머 */}
           <div className="mb-8">
-            <CountdownTimer remainingSeats={config.sections.hero.countdownSeats} />
+            <CountdownTimer targetDate={config.sections.hero.deadlineDate} />
           </div>
 
           {/* 손실회피 메시지 */}

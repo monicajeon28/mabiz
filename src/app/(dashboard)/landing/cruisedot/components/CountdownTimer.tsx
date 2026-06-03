@@ -1,128 +1,93 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface CountdownTimerProps {
-  remainingSeats?: number;
-  deadlineMinutes?: number; // 몇 분 후 마감인지 (기본값: 10080분 = 7일)
+  targetDate: string; // "2026-06-30 23:59:59"
+  onComplete?: () => void;
+  onTimeChange?: (remaining: number) => void;
 }
 
-export default function CountdownTimer({
-  remainingSeats = 10,
-  deadlineMinutes = 10080 // 7일
-}: CountdownTimerProps) {
-  const [timeLeft, setTimeLeft] = useState<{
-    days: number;
-    hours: number;
-    minutes: number;
-    seconds: number;
-  } | null>(null);
+interface TimeRemaining {
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+  total: number;
+}
+
+type ColorType = 'green' | 'yellow' | 'red';
+
+function calculateTimeRemaining(targetDate: string): TimeRemaining {
+  const target = new Date(targetDate).getTime();
+  const now = new Date().getTime();
+  const total = Math.max(0, target - now);
+
+  const days = Math.floor(total / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((total % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((total % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((total % (1000 * 60)) / 1000);
+
+  return { days, hours, minutes, seconds, total };
+}
+
+function getColorByTime(total: number): ColorType {
+  const hours = total / (1000 * 60 * 60);
+  if (hours >= 24) return 'green';
+  if (hours >= 1) return 'yellow';
+  return 'red';
+}
+
+export default function CountdownTimer({ targetDate, onComplete, onTimeChange }: CountdownTimerProps) {
+  const [time, setTime] = useState<TimeRemaining>(() => calculateTimeRemaining(targetDate));
+  const [color, setColor] = useState<ColorType>(() => getColorByTime(calculateTimeRemaining(targetDate).total));
+  const [isComplete, setIsComplete] = useState(false);
+
+  const formatTime = useCallback((num: number) => String(num).padStart(2, '0'), []);
 
   useEffect(() => {
-    // 초기 계산
-    const deadline = new Date();
-    deadline.setMinutes(deadline.getMinutes() + deadlineMinutes);
+    const interval = setInterval(() => {
+      const remaining = calculateTimeRemaining(targetDate);
+      setTime(remaining);
+      setColor(getColorByTime(remaining.total));
 
-    const updateTimer = () => {
-      const now = new Date();
-      const diff = deadline.getTime() - now.getTime();
+      if (onTimeChange) onTimeChange(remaining.total);
 
-      if (diff <= 0) {
-        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-        return;
+      if (remaining.total <= 0 && !isComplete) {
+        setIsComplete(true);
+        if (onComplete) onComplete();
       }
-
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      setTimeLeft({ days, hours, minutes, seconds });
-    };
-
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
+    }, 1000);
 
     return () => clearInterval(interval);
-  }, [deadlineMinutes]);
+  }, [targetDate, onComplete, onTimeChange, isComplete]);
 
-  if (!timeLeft) {
-    return <div className="text-gray-400">계산 중...</div>;
+  if (isComplete) {
+    return (
+      <div className="text-center">
+        <div className="text-4xl font-bold text-red-600">신청 마감</div>
+        <p className="text-gray-500 text-sm mt-2">신청이 종료되었습니다.</p>
+      </div>
+    );
   }
 
-  // 남은 석수 감소 애니메이션 (실제로는 DB에서 조회해야 함)
-  const seatsPercentage = (remainingSeats / 100) * 100;
+  const colorConfig = {
+    green: { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700' },
+    yellow: { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700' },
+    red: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700' },
+  };
+
+  const c = colorConfig[color];
+  const animate = color === 'red' ? 'animate-pulse' : '';
 
   return (
-    <div className="space-y-6">
-      {/* 타이머 박스 */}
-      <div className="grid grid-cols-4 gap-3 max-w-md mx-auto">
-        {/* 일 */}
-        <div className="bg-white rounded-lg p-4 text-center shadow-lg hover:shadow-xl transition-shadow">
-          <div className="text-3xl font-bold text-red-600">
-            {String(timeLeft.days).padStart(2, '0')}
-          </div>
-          <div className="text-sm text-gray-600 font-semibold">일</div>
-        </div>
-
-        {/* 시간 */}
-        <div className="bg-white rounded-lg p-4 text-center shadow-lg hover:shadow-xl transition-shadow">
-          <div className="text-3xl font-bold text-orange-600">
-            {String(timeLeft.hours).padStart(2, '0')}
-          </div>
-          <div className="text-sm text-gray-600 font-semibold">시간</div>
-        </div>
-
-        {/* 분 */}
-        <div className="bg-white rounded-lg p-4 text-center shadow-lg hover:shadow-xl transition-shadow">
-          <div className="text-3xl font-bold text-yellow-600">
-            {String(timeLeft.minutes).padStart(2, '0')}
-          </div>
-          <div className="text-sm text-gray-600 font-semibold">분</div>
-        </div>
-
-        {/* 초 */}
-        <div className="bg-white rounded-lg p-4 text-center shadow-lg hover:shadow-xl transition-shadow">
-          <div className="text-3xl font-bold text-green-600">
-            {String(timeLeft.seconds).padStart(2, '0')}
-          </div>
-          <div className="text-sm text-gray-600 font-semibold">초</div>
-        </div>
+    <div className={`rounded-lg border-2 p-6 text-center ${c.bg} ${c.border} ${animate}`}>
+      <div className={`text-sm font-semibold ${c.text} mb-2`}>신청 마감까지</div>
+      <div className={`text-5xl font-mono font-bold ${c.text}`}>
+        {time.days > 0 && `${time.days}일 `}
+        {formatTime(time.hours)}:{formatTime(time.minutes)}:{formatTime(time.seconds)}
       </div>
-
-      {/* 남은 석수 */}
-      <div className="max-w-md mx-auto">
-        <div className="flex justify-between items-center mb-2">
-          <p className="text-gray-700 font-semibold">남은 석수</p>
-          <p className="text-2xl font-bold text-red-600">{remainingSeats}석</p>
-        </div>
-        <div className="w-full bg-gray-300 rounded-full h-4 overflow-hidden">
-          <div
-            className="bg-gradient-to-r from-red-500 to-red-600 h-full transition-all duration-300 animate-pulse"
-            style={{ width: `${Math.min(seatsPercentage, 100)}%` }}
-          />
-        </div>
-        <p className="text-xs text-gray-600 mt-2 text-center">
-          ⚠️ 석수가 줄어들고 있습니다. 지금 바로 신청하세요!
-        </p>
-      </div>
-
-      {/* 긴박감 텍스트 */}
-      <div className="text-center">
-        {timeLeft.days === 0 && timeLeft.hours <= 6 ? (
-          <p className="text-red-600 font-bold text-lg animate-pulse">
-            🔴 오늘 중 신청해야 합니다!
-          </p>
-        ) : timeLeft.days === 0 ? (
-          <p className="text-orange-600 font-bold">
-            ⏰ {timeLeft.hours}시간 {timeLeft.minutes}분 남았습니다
-          </p>
-        ) : (
-          <p className="text-gray-700">
-            ✅ {timeLeft.days}일 내 신청하면 평생 30% 할인
-          </p>
-        )}
-      </div>
+      <p className={`text-xs mt-3 ${c.text} opacity-75`}>지금 신청하세요!</p>
     </div>
   );
 }
