@@ -30,7 +30,7 @@ export default function PriceComparison() {
             <td className="border p-4 text-center bg-green-50">
               <span className="font-bold text-green-600">{Math.round(config.pricing.japan.totalPrice / 10000)}만원</span>
             </td>
-            <td className="border p-4 text-center">145만원</td>
+            <td className="border p-4 text-center">{Math.round(config.competitors.competitorA.japanTotalPrice / 10000)}만원</td>
             <td className="border p-4 text-center text-red-600">99만원</td>
           </tr>
 
@@ -80,7 +80,7 @@ export default function PriceComparison() {
             <td className="border p-4 text-center bg-green-50">
               <span className="text-green-600 font-bold">월 {config.pricing.japan.monthly.toLocaleString()}원</span>
             </td>
-            <td className="border p-4 text-center">월 48,000원</td>
+            <td className="border p-4 text-center">월 {config.competitors.competitorA.japanMonthly.toLocaleString()}원</td>
             <td className="border p-4 text-center text-red-600">❌ 불가능</td>
           </tr>
 

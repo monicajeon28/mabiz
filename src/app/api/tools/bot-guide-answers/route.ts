@@ -65,17 +65,12 @@ export async function GET(req: NextRequest) {
       where.category = category;
     }
 
-    // 판매톤 필터
+    // 판매톤 필터 (category와 AND 조건 - OR에 병합하지 않음)
     if (tone && tone !== "all") {
-      where.OR = [
-        ...(where.OR || []),
-        {
-          salesTone: {
-            path: ["primary"],
-            equals: tone,
-          },
-        },
-      ];
+      where.salesTone = {
+        path: ["primary"],
+        equals: tone,
+      };
     }
 
     // 페이지네이션

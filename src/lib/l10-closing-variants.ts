@@ -617,10 +617,22 @@ export function getVariantsByTimeFrame(timeFrame: TimeFrame): ClosingVariant[] {
   return allL10ClosingVariants.filter((v) => v.timeFrame === timeFrame);
 }
 
-export function getRandomVariant(): ClosingVariant {
-  return allL10ClosingVariants[
-    Math.floor(Math.random() * allL10ClosingVariants.length)
-  ];
+/**
+ * 주어진 감정톤과 시간프레임에 맞는 변형 중 전환율이 가장 높은 것을 반환.
+ * 조건이 없으면 전체에서 최고 전환율 변형을 반환.
+ * (프로덕션용 — 비결정적 Math.random() 사용하지 않음)
+ */
+export function getBestVariant(
+  tone?: EmotionalTone,
+  timeFrame?: TimeFrame
+): ClosingVariant {
+  let pool = allL10ClosingVariants;
+  if (tone) pool = pool.filter((v) => v.emotionalTone === tone);
+  if (timeFrame) pool = pool.filter((v) => v.timeFrame === timeFrame);
+  if (pool.length === 0) pool = allL10ClosingVariants;
+  return pool.reduce((best, v) =>
+    v.estimatedConversion > best.estimatedConversion ? v : best
+  );
 }
 
 export function getVariantsByConversionRate(

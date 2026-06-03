@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const requestStartTime = Date.now();
     const timestamp = new Date().toISOString();
     const checks = [];
 
@@ -115,9 +116,8 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 4) API 응답 시간 측정
-    const startTime = Date.now();
-    const responseTime = Date.now() - startTime;
+    // 4) API 응답 시간 측정 (요청 처리 시작 시점부터 이 지점까지 실제 경과 시간)
+    const responseTime = Date.now() - requestStartTime;
 
     checks.push({
       name: 'api_response_time',

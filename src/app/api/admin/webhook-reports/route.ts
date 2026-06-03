@@ -9,19 +9,23 @@ export const runtime = 'nodejs';
 export async function GET(req: NextRequest) {
   try {
     const session = await getMabizSession();
-    if (!session?.organizationId) {
+    if (!session) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json({ ok: false, error: 'Forbidden: GLOBAL_ADMIN 권한이 필요합니다.' }, { status: 403 });
     }
 
     const url = new URL(req.url);
     const reportType = url.searchParams.get('type') || 'weekly';
     const dateParam = url.searchParams.get('date');
+    const orgIdParam = url.searchParams.get('organizationId') ?? '';
 
     let report: any;
 
     if (reportType === 'weekly') {
       const weekEndDate = dateParam ? new Date(dateParam) : undefined;
-      report = await generateWeeklyReport(session.organizationId, weekEndDate);
+      report = await generateWeeklyReport(orgIdParam, weekEndDate);
     } else if (reportType === 'monthly') {
       let month: { year: number; month: number } | undefined;
 
@@ -30,7 +34,7 @@ export async function GET(req: NextRequest) {
         month = { year: date.getFullYear(), month: date.getMonth() };
       }
 
-      report = await generateMonthlyReport(session.organizationId, month);
+      report = await generateMonthlyReport(orgIdParam, month);
     } else {
       return NextResponse.json({ ok: false, error: 'Invalid report type' }, { status: 400 });
     }

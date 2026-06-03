@@ -6,7 +6,7 @@ import {
   getVariantById,
   getVariantsByTone,
   getVariantsByTimeFrame,
-  getRandomVariant,
+  getBestVariant,
   getVariantsByConversionRate,
   getTopPerformingVariants,
   getVariantSummary,
@@ -21,7 +21,7 @@ import {
  */
 
 interface VariantsQuery {
-  filter?: 'all' | 'by-tone' | 'by-timeframe' | 'random' | 'top-performing' | 'summary';
+  filter?: 'all' | 'by-tone' | 'by-timeframe' | 'best' | 'top-performing' | 'summary';
   tone?: EmotionalTone;
   timeFrame?: TimeFrame;
   minConversion?: number;
@@ -62,10 +62,11 @@ export async function GET(request: NextRequest) {
           variants = getVariantsByTimeFrame(timeFrame);
         }
         break;
-      case 'random':
+      case 'best':
+        // 프로덕션용: tone/timeFrame 조건에 맞는 최고 전환율 변형 반환 (비결정적 random 제거)
         return NextResponse.json({
           success: true,
-          variant: getRandomVariant(),
+          variant: getBestVariant(tone ?? undefined, timeFrame ?? undefined),
         });
       case 'top-performing':
         return NextResponse.json({

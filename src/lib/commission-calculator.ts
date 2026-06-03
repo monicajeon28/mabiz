@@ -37,12 +37,12 @@ export async function getCommissionRateByAffiliateCode(
       // ① 파트너별 개별 요율 (운영팀 수동 설정)
       if (partner.commissionRate !== null && partner.commissionRate !== undefined) {
         const rate = Number(partner.commissionRate);
-        logger.log('[Commission] 개별 요율 적용', { affiliateCode, rate, tier: partner.tier });
+        logger.info('[Commission] 개별 요율 적용', { affiliateCode, rate, tier: partner.tier });
         return { rate, tier: partner.tier, partnerId: partner.id };
       }
       // ② Tier 기반 요율
       const tierRate = TIER_COMMISSION_RATES[partner.tier] ?? 18;
-      logger.log('[Commission] Tier 요율 적용', { affiliateCode, tier: partner.tier, rate: tierRate });
+      logger.info('[Commission] Tier 요율 적용', { affiliateCode, tier: partner.tier, rate: tierRate });
       return { rate: tierRate, tier: partner.tier, partnerId: partner.id };
     }
 
@@ -115,7 +115,7 @@ export async function calculateCommission(
     const tax = Math.floor(commissionAmount * taxRate);
     const net = commissionAmount - tax;
 
-    logger.log('[Commission] 계산 완료', {
+    logger.info('[Commission] 계산 완료', {
       organizationId,
       saleAmount,
       commissionRate,
@@ -178,7 +178,7 @@ export async function createCommissionLedger(
       });
     });
 
-    logger.log('[Commission] Ledger 생성', {
+    logger.info('[Commission] Ledger 생성', {
       organizationId,
       saleId,
       commissionAmount,
@@ -363,7 +363,7 @@ export async function batchCalculateCommissions(
       throw new Error(`Critical batch failure: ${(failureRate * 100).toFixed(1)}% failure rate exceeds threshold`);
     }
 
-    logger.log('[Commission] 일괄 계산 완료 (배치 최적화)', {
+    logger.info('[Commission] 일괄 계산 완료 (배치 최적화)', {
       organizationId,
       totalCount: total,
       successCount,

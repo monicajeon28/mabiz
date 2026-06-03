@@ -54,19 +54,19 @@ export async function scheduleWebhookRetry(
         error: error.message,
       });
 
-      // 재시도 큐에서 제거
-      await prisma.retryQueue.deleteMany({
-        where: { webhookEventId },
-      });
-
-      // WebhookEvent 상태 업데이트
-      await prisma.webhookEvent.update({
-        where: { id: webhookEventId },
-        data: {
-          status: 'FAILED',
-          errorMessage: error.message,
-        },
-      });
+      // 재시도 큐 제거 + WebhookEvent 상태 업데이트를 원자적으로 처리
+      await prisma.$transaction([
+        prisma.retryQueue.deleteMany({
+          where: { webhookEventId },
+        }),
+        prisma.webhookEvent.update({
+          where: { id: webhookEventId },
+          data: {
+            status: 'FAILED',
+            errorMessage: error.message,
+          },
+        }),
+      ]);
 
       return;
     }
@@ -75,28 +75,30 @@ export async function scheduleWebhookRetry(
     const nextRetryMs = initialDelayMs * Math.pow(2, event.retryCount);
     const scheduledFor = new Date(Date.now() + nextRetryMs);
 
-    // RetryQueue 업데이트 또는 생성
-    const retryRecord = await prisma.retryQueue.upsert({
-      where: { webhookEventId },
-      update: {
-        scheduledFor,
-        status: 'QUEUED',
-      },
-      create: {
-        webhookEventId,
-        scheduledFor,
-        status: 'QUEUED',
-      },
-    });
+    // RetryQueue upsert + WebhookEvent 업데이트를 원자적으로 처리
+    // upsert는 sequential transaction 내에서 실행해야 Prisma가 지원함
+    await prisma.$transaction(async (tx) => {
+      await tx.retryQueue.upsert({
+        where: { webhookEventId },
+        update: {
+          scheduledFor,
+          status: 'QUEUED',
+        },
+        create: {
+          webhookEventId,
+          scheduledFor,
+          status: 'QUEUED',
+        },
+      });
 
-    // WebhookEvent 업데이트
-    await prisma.webhookEvent.update({
-      where: { id: webhookEventId },
-      data: {
-        retryCount: event.retryCount + 1,
-        nextRetryAt: scheduledFor,
-        errorMessage: error.message,
-      },
+      await tx.webhookEvent.update({
+        where: { id: webhookEventId },
+        data: {
+          retryCount: event.retryCount + 1,
+          nextRetryAt: scheduledFor,
+          errorMessage: error.message,
+        },
+      });
     });
 
     logger.log(`[WEBHOOK_RETRY] 재시도 예약`, {
@@ -173,7 +175,7 @@ export async function processWebhookRetryQueue(): Promise<number> {
           event.id,
           event.eventId,
           event.webhookType,
-          (event.payload ?? {}) as Record<string, any>
+          (event.payload ?? {}) as Record<string, unknown>
         );
 
         // 성공: 레코드 삭제 및 WebhookEvent 상태 업데이트
@@ -236,7 +238,7 @@ async function processWebhookEventHandler(
   webhookEventId: string,
   eventId: string,
   webhookType: string,
-  payload: Record<string, any>
+  payload: Record<string, unknown>
 ): Promise<void> {
   logger.log(`[WEBHOOK_HANDLER] ${webhookType} 처리 시작`, {
     webhookEventId,
@@ -324,7 +326,7 @@ export async function getRetryHistory(webhookEventId: string) {
  * 재시도 큐 초기화 (관리자용, 주의!)
  */
 export async function clearRetryQueue(options?: { status?: string; olderThan?: Date }) {
-  const where: Record<string, any> = {};
+  const where: { status?: string; createdAt?: { lt: Date } } = {};
 
   if (options?.status) {
     where.status = options.status;

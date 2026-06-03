@@ -3,7 +3,7 @@ import { logger } from "@/lib/logger";
 interface WebhookJob {
   id: string;
   url: string;
-  payload: any;
+  payload: unknown;
   retries: number;
   maxRetries: number;
   nextRetryAt: Date;
@@ -23,7 +23,7 @@ const RETRY_DELAYS = [
 
 export async function enqueueWebhookRetry(
   url: string,
-  payload: any,
+  payload: unknown,
   maxRetries: number = 5
 ): Promise<void> {
   const job: WebhookJob = {
@@ -75,8 +75,8 @@ export async function processWebhookRetry(job: WebhookJob): Promise<boolean> {
     job.updatedAt = new Date();
     job.error = err instanceof Error ? err.message : String(err);
 
-    if (job.retries < job.maxRetries) {
-      const delayMs = RETRY_DELAYS[job.retries - 1] || RETRY_DELAYS.at(-1)!;
+    if (job.retries <= job.maxRetries) {
+      const delayMs = RETRY_DELAYS[job.retries - 1] ?? RETRY_DELAYS.at(-1)!;
       job.nextRetryAt = new Date(Date.now() + delayMs);
       job.status = "PENDING";
 

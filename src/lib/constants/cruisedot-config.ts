@@ -163,6 +163,36 @@ export const CRUISEDOT_CONFIG = {
     }
   },
 
+  // ===== 경쟁사 비교 데이터 =====
+  competitors: {
+    competitorA: {
+      name: '경쟁사 A',
+      japanTotalPrice: 1450000,       // 원
+      japanMonthly: 48000,            // 원/월
+      depositRequired: 500000,        // 신청금 원
+      refundRate: 70,                 // %
+      support: '평일만',
+      dealerType: '중간대리점',
+      escortIncluded: false,
+      photoEditing: false,
+      healthCheckup: false,
+      rating: 3,
+    },
+    individual: {
+      name: '개인 판매자',
+      japanTotalPrice: 990000,        // 원
+      japanMonthly: null,             // 할부 불가
+      depositRequired: 300000,        // 신청금 원
+      refundRate: 0,                  // %
+      support: '❌ 불가능',
+      dealerType: '관계 없음',
+      escortIncluded: false,
+      photoEditing: false,
+      healthCheckup: false,
+      rating: 1,
+    },
+  },
+
   // ===== 고객 후기 =====
   testimonials: [
     {
