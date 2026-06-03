@@ -187,6 +187,47 @@ export async function POST(req: Request) {
             },
           });
 
+          // Day 1-3 자동 스케줄링 (SMS 발송 성공 시에만)
+          // Day 1: +24시간
+          const day1Time = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+          await prisma.scheduledSms.create({
+            data: {
+              organizationId: contact.organizationId,
+              contactId: contact.id,
+              message: `[Day 1] 크루즈에 관심이 있으신가요? 더 알아보기 → http://mabiz.kr`,
+              scheduledAt: day1Time,
+              status: 'PENDING',
+              channel: 'DAY1_OBJECTION',
+            },
+          });
+
+          // Day 2: +48시간
+          const day2Time = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+          await prisma.scheduledSms.create({
+            data: {
+              organizationId: contact.organizationId,
+              contactId: contact.id,
+              message: `[Day 2] 월 $2,334 절감 + 가족 건강! 지금 예약하기 → http://mabiz.kr`,
+              scheduledAt: day2Time,
+              status: 'PENDING',
+              channel: 'DAY2_VALUE',
+            },
+          });
+
+          // Day 3: +72시간
+          const day3Time = new Date(now.getTime() + 72 * 60 * 60 * 1000);
+          await prisma.scheduledSms.create({
+            data: {
+              organizationId: contact.organizationId,
+              contactId: contact.id,
+              message: `[Day 3] ⏰ 마지막 기회! 오늘 예약하면 10% 할인 적용 → http://mabiz.kr`,
+              scheduledAt: day3Time,
+              status: 'PENDING',
+              channel: 'DAY3_ACTION',
+            },
+          });
+
+          response.scheduledCount += 3;
           response.successCount++;
         } else {
           // 실패 로그
@@ -208,48 +249,6 @@ export async function POST(req: Request) {
             error: `Aligo Error: ${smsResult.errorCode}`,
           });
         }
-
-        // Day 1-3 자동 스케줄링
-        // Day 1: +24시간
-        const day1Time = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-        await prisma.scheduledSms.create({
-          data: {
-            organizationId: contact.organizationId,
-            contactId: contact.id,
-            message: `[Day 1] 크루즈에 관심이 있으신가요? 더 알아보기 → http://mabiz.kr`,
-            scheduledAt: day1Time,
-            status: 'PENDING',
-            channel: 'DAY1_OBJECTION',
-          },
-        });
-
-        // Day 2: +48시간
-        const day2Time = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-        await prisma.scheduledSms.create({
-          data: {
-            organizationId: contact.organizationId,
-            contactId: contact.id,
-            message: `[Day 2] 월 $2,334 절감 + 가족 건강! 지금 예약하기 → http://mabiz.kr`,
-            scheduledAt: day2Time,
-            status: 'PENDING',
-            channel: 'DAY2_VALUE',
-          },
-        });
-
-        // Day 3: +72시간
-        const day3Time = new Date(now.getTime() + 72 * 60 * 60 * 1000);
-        await prisma.scheduledSms.create({
-          data: {
-            organizationId: contact.organizationId,
-            contactId: contact.id,
-            message: `[Day 3] ⏰ 마지막 기회! 오늘 예약하면 10% 할인 적용 → http://mabiz.kr`,
-            scheduledAt: day3Time,
-            status: 'PENDING',
-            channel: 'DAY3_ACTION',
-          },
-        });
-
-        response.scheduledCount += 3;
       } catch (contactErr) {
         logger.error('[CRON/SMS-DAY0] 개별 고객 처리 에러', {
           contactId: contact.id,

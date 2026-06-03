@@ -46,6 +46,10 @@ export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
 
+    if (!ctx) {
+      return NextResponse.json({ ok: false, error: "인증이 필요합니다." }, { status: 401 });
+    }
+
     if (ctx.role === "AGENT" || ctx.role === "FREE_SALES") {
       return NextResponse.json({ ok: false, error: "권한이 없습니다." }, { status: 403 });
     }

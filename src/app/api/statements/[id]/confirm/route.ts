@@ -64,7 +64,7 @@ export async function POST(
       );
     }
 
-    // Payslip 조회
+    // GLOBAL_ADMIN 전용 — 역할 체크(line 41)가 IDOR 방어 역할
     const payslip = await prisma.affiliatePayslip.findFirst({
       where: { id: payslipId },
     });

@@ -31,7 +31,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+
+export const dynamic = 'force-dynamic';
 
 interface ProgressUpdateRequest {
   onboardingProgressId: string;
@@ -108,6 +111,9 @@ const WEEK_MATERIALS: Record<
 
 export async function POST(request: NextRequest) {
   try {
+    const ctx = await getAuthContext();
+    resolveOrgId(ctx);
+
     const body: ProgressUpdateRequest = await request.json();
     const {
       onboardingProgressId,

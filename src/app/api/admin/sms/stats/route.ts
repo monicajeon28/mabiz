@@ -27,7 +27,7 @@ export async function GET(req: Request) {
       select: { organizationId: true, role: true },
     });
 
-    if (!member?.organizationId || member.role !== 'ADMIN') {
+    if (!member?.organizationId || member.role !== 'GLOBAL_ADMIN') {
       return NextResponse.json({ error: '권한 없음' }, { status: 403 });
     }
 

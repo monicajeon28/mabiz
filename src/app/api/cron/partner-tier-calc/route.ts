@@ -39,6 +39,11 @@ interface TierCalcResponse {
 }
 
 export async function POST(req: Request) {
+  const cronSecret = req.headers.get('authorization')?.replace('Bearer ', '');
+  if (cronSecret !== process.env.CRON_SECRET) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const startTime = Date.now();
   const response: TierCalcResponse = {
     status: 'PROCESSING',

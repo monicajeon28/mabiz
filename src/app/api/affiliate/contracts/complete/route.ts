@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { encrypt } from '@/lib/crypto';
 
 // ── GET ──────────────────────────────────────────────────────────────
 
@@ -109,10 +110,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 주민등록번호 AES-256 암호화 후 저장
+    let encryptedResidentId: string | undefined;
+    if (typeof residentId === 'string' && residentId.trim().length > 0) {
+      try {
+        encryptedResidentId = encrypt(residentId.trim(), 'RESIDENT_ID_ENCRYPT_KEY');
+      } catch (encErr) {
+        logger.error('[COMPLETE-CONTRACT] 주민등록번호 암호화 실패', { error: encErr });
+        return NextResponse.json(
+          { ok: false, message: '서버 설정 오류가 발생했습니다. 관리자에게 문의해 주세요.' },
+          { status: 500 },
+        );
+      }
+    }
+
     await prisma.gmAffiliateContract.update({
       where: { id: contract.id },
       data: {
-        residentId: typeof residentId === 'string' ? residentId.trim() : undefined,
+        residentId: encryptedResidentId,
         bankName: typeof bankName === 'string' ? bankName.trim() : undefined,
         bankAccount: typeof bankAccount === 'string' ? bankAccount.trim() : undefined,
         bankAccountHolder: typeof bankAccountHolder === 'string' ? bankAccountHolder.trim() : undefined,

@@ -44,6 +44,19 @@ export async function POST(req: Request) {
       );
     }
 
+    // 수신 거부 여부 확인
+    const contactRecord = await prisma.contact.findFirst({
+      where: { phone: normalizedPhone, organizationId: orgId },
+      select: { optOutAt: true },
+    });
+    if (contactRecord?.optOutAt) {
+      logger.warn('[sms/send] 수신 거부 연락처', { phone: normalizedPhone, orgId });
+      return NextResponse.json(
+        { ok: false, message: '수신 거부 등록된 연락처입니다' },
+        { status: 400 }
+      );
+    }
+
     // Aligo API 호출
     const aligoKey = process.env.ALIGO_API_KEY;
     const aligoUserId = process.env.ALIGO_USER_ID;

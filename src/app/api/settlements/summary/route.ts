@@ -169,11 +169,23 @@ export async function GET(request: NextRequest): Promise<NextResponse<SummaryRes
       {} as Record<string, { count: number; netPayout: string }>
     );
 
+    // summary[0] undefined 방어: 데이터 없을 때 기본값 반환
+    const summaryData: SettlementSummary = summary[0] ?? {
+      totalSettlements: 0,
+      totalCommission: "0",
+      totalWithholding: "0",
+      netPayout: "0",
+      paidSettlements: 0,
+      pendingSettlements: 0,
+      averageCommissionPerSettlement: "0",
+      avgProcessingDays: "0",
+    };
+
     return NextResponse.json<SummaryResponse>(
       {
         ok: true,
         data: {
-          summary: summary[0],
+          summary: summaryData,
           byStatus: byStatusMap,
           trend: trend,
         },

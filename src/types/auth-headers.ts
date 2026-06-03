@@ -37,7 +37,7 @@ export interface AuthHeaders {
  */
 export interface SessionValidationResult {
   valid: boolean;
-  role?: 'GLOBAL_ADMIN' | 'MEMBER';
+  role?: AuthRole;
   organizationId?: string | null;
   adminId?: string | null;
 }

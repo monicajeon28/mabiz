@@ -58,7 +58,7 @@ export async function predictContactChurn(
 
     // Signal 2: No memo/activity
     const recentActivityCount =
-      contact.memos?.length || 0 + contact.callLogs?.length || 0;
+      (contact.memos?.length ?? 0) + (contact.callLogs?.length ?? 0);
     if (recentActivityCount === 0) {
       churnScore += 15;
       signals.push("활동 기록 없음");

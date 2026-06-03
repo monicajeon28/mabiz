@@ -106,6 +106,7 @@ export async function POST(req: NextRequest) {
         phone: true,
         email: true,
         organizationId: true,
+        optOutAt: true,
       },
     });
 
@@ -121,6 +122,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { ok: false, message: 'Unauthorized' },
         { status: 403 }
+      );
+    }
+
+    // 수신 거부 여부 확인
+    if (contact.optOutAt) {
+      logger.warn('[messages] 수신 거부 연락처 발송 차단', { contactId, messageType });
+      return NextResponse.json(
+        { ok: false, message: '수신 거부 등록된 연락처입니다' },
+        { status: 400 }
       );
     }
 

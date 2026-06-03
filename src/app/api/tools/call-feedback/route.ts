@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import prisma from "@/lib/prisma";
+import { checkRateLimitAsync } from "@/lib/rate-limit";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -66,6 +67,24 @@ export async function POST(req: Request) {
 
     if (text.length > 20000) {
       return NextResponse.json({ ok: false, message: "내용이 너무 깁니다. 20,000자 이내로 입력하세요." }, { status: 400 });
+    }
+
+    // Claude API 호출 전 Rate Limiting (사용자별 분당 10회, 시간당 30회)
+    const rlKey = `call-feedback:${ctx.userId}`;
+    const rl = await checkRateLimitAsync(rlKey, 10, 60_000);
+    if (!rl.allowed) {
+      const retryAfterSec = Math.ceil((rl.resetAt - Date.now()) / 1000);
+      return NextResponse.json(
+        { ok: false, message: `요청이 너무 많습니다. ${retryAfterSec}초 후 다시 시도하세요.` },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(retryAfterSec),
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": String(Math.ceil(rl.resetAt / 1000)),
+          },
+        }
+      );
     }
 
     const message = await anthropic.messages.create({

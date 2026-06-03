@@ -1,9 +1,9 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
 export function encrypt(plain: string, keyEnvVar: string): string {
-  const rawKey = process.env[keyEnvVar] ?? process.env.EMAIL_ENCRYPT_KEY;
+  const rawKey = process.env[keyEnvVar];
   if (!rawKey || rawKey.length < 32) {
-    throw new Error(`[crypto] ${keyEnvVar} 환경변수가 없거나 32자 미만입니다.`);
+    throw new Error('EMAIL_ENCRYPT_KEY required');
   }
   const key = Buffer.from(rawKey.substring(0, 32));
   const iv = randomBytes(16);
@@ -13,9 +13,9 @@ export function encrypt(plain: string, keyEnvVar: string): string {
 }
 
 export function decrypt(encryptedStr: string, keyEnvVar: string): string {
-  const rawKey = process.env[keyEnvVar] ?? process.env.EMAIL_ENCRYPT_KEY;
+  const rawKey = process.env[keyEnvVar];
   if (!rawKey || rawKey.length < 32) {
-    throw new Error(`[crypto] ${keyEnvVar} 환경변수가 없거나 32자 미만입니다.`);
+    throw new Error('EMAIL_ENCRYPT_KEY required');
   }
   const parts = encryptedStr.split(":");
   const ivHex = parts[0];

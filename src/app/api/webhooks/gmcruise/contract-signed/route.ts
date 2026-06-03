@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
 
   if (eventId) {
     await prisma.processedWebhookEvent.create({
-      data: { eventId, webhookType: 'contract-signed' },
+      data: { eventId, webhookType: 'gmcruise-contract-signed' },
     }).catch(() => {});
   }
 

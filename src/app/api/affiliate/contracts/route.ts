@@ -29,7 +29,23 @@ export async function GET(req: NextRequest) {
     const limit = 20;
     const skip = (page - 1) * limit;
 
-    const where = status === 'all' ? {} : { status };
+    // 테넌트 격리: OWNER는 자신이 초대한 계약만 조회
+    let tenantFilter: Record<string, unknown> = {};
+    if (ctx.role === 'OWNER') {
+      const ownerProfileId = ctx.mallUser?.affiliateProfileId;
+      if (!ownerProfileId) {
+        return NextResponse.json(
+          { ok: false, message: '파트너 프로필이 없습니다.' },
+          { status: 403 },
+        );
+      }
+      tenantFilter = { invitedByProfileId: ownerProfileId };
+    }
+
+    const where = {
+      ...tenantFilter,
+      ...(status === 'all' ? {} : { status }),
+    };
 
     const [contracts, total] = await Promise.all([
       prisma.gmAffiliateContract.findMany({

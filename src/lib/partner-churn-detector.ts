@@ -106,6 +106,7 @@ export async function detectPartnerChurnRisk(
     // 4. Commission Payment Delays (if applicable)
     const lastSettlement = await prisma.monthlySettlement.findFirst({
       where: {
+        organizationId: partner.organizationId,
         status: { in: ["DRAFT", "APPROVED"] },
       },
       orderBy: { periodEnd: "desc" },

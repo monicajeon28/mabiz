@@ -222,11 +222,19 @@ export async function calculateMetricsPyramid(
           },
         });
 
+        // 렌즈 태그가 있는 Contact의 phone 목록 조회
+        const lensContacts = await prisma.contact.findMany({
+          where: { organizationId, tags: { hasSome: [lens] } },
+          select: { phone: true },
+        });
+        const lensPhones = lensContacts.map((c) => c.phone);
+
         const conversions = await prisma.affiliateSale.count({
           where: {
             organizationId,
             createdAt: { gte: monthStart },
             status: "CONFIRMED",
+            customerPhone: { in: lensPhones },
           },
         });
 
@@ -235,6 +243,7 @@ export async function calculateMetricsPyramid(
             organizationId,
             createdAt: { gte: monthStart },
             status: "CONFIRMED",
+            customerPhone: { in: lensPhones },
           },
           _sum: { saleAmount: true },
         });

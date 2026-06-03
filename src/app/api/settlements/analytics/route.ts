@@ -24,6 +24,15 @@ interface SettlementAnalytics {
 export async function GET(request: NextRequest) {
   try {
     const ctx = await getAuthContext();
+
+    // GLOBAL_ADMIN만 접근 가능
+    if (ctx?.role !== "GLOBAL_ADMIN") {
+      return NextResponse.json(
+        { ok: false, message: "GLOBAL_ADMIN 권한이 필요합니다." },
+        { status: 403 }
+      );
+    }
+
     const orgId = resolveOrgId(ctx);
     const searchParams = request.nextUrl.searchParams;
 
@@ -81,7 +90,7 @@ export async function GET(request: NextRequest) {
 
     const totalAmount = settlements.reduce((sum, s) => {
       const amt = s.summary && typeof s.summary === "object"
-        ? (s.summary as any).totalAmount || 0
+        ? Number((s.summary as Record<string, unknown>).totalAmount) || 0
         : 0;
       return sum + amt;
     }, 0);
