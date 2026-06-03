@@ -182,7 +182,13 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    return NextResponse.next();
+    // 세션 없음 — 외부에서 주입된 신뢰 헤더 제거 후 통과
+    const stripped = new Headers(request.headers);
+    stripped.delete('x-user-role');
+    stripped.delete('x-org-id');
+    stripped.delete('x-session-id');
+    stripped.delete('x-is-admin');
+    return NextResponse.next({ request: { headers: stripped } });
 
   } catch (error) {
     logger.error('[Middleware] Unexpected error', {

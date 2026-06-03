@@ -99,6 +99,12 @@ async function sendSmsWithAligo(
       body: formData,
     });
 
+    if (!response.ok) {
+      const text = await response.text().catch(() => 'non-text response');
+      logger.error('[Aligo SMS] HTTP 오류', { status: response.status, body: text });
+      return { success: false, error: `HTTP ${response.status}`, retryable: response.status >= 500 };
+    }
+
     const data: AligoResponse = await response.json();
 
     if (data.result_code !== 1) {
