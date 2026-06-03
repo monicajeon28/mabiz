@@ -10,8 +10,7 @@ on:
 
 env:
   NODE_ENV: production
-  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-  SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+  NODE_VERSION: "20"
 
 jobs:
   # 1. API 엔드포인트 보안 감시
@@ -24,7 +23,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: ${{ env.NODE_VERSION }}    # 수정: 18 → 20 (Prisma 7 요구사항)
 
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
@@ -90,7 +89,7 @@ jobs:
                   severity: 'TIMEOUT'
                 });
                 failCount++;
-                req.abort();
+                req.destroy();
                 resolve();
               });
 
@@ -131,18 +130,19 @@ jobs:
 
       - name: Notify Slack - API Check Failed
         if: failure()
-        uses: slackapi/slack-github-action@v1.24.0
+        uses: slackapi/slack-github-action@v1.27.0
         with:
-          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
           payload: |
             {
-              "text": "🔴 CRITICAL: API Security/Performance Check Failed",
+              "text": "🔴 API Security/Performance Check Failed",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*🔴 API Health Check FAILED*\n*Severity:* CRITICAL\n*Run:* #${{ github.run_number }}\n*Details:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Log>"
+                    "text": "*🔴 API Health Check FAILED*\n*Run:* #${{ github.run_number }}\n*Details:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Log>"
                   }
                 }
               ]
@@ -159,7 +159,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: ${{ env.NODE_VERSION }}    # 수정: 18 → 20 (Prisma 7 요구사항)
           cache: 'npm'
 
       - name: Install dependencies
@@ -242,7 +242,6 @@ jobs:
               return;
             }
 
-            // Supabase query builder 기반 중복 체크 (RPC 불필요)
             const checks = [
               { table: 'Contact', field: 'phone', label: 'Contact.phone 중복' },
               { table: 'Partner', field: 'affiliateCode', label: 'Partner.affiliateCode 중복' },
@@ -251,12 +250,11 @@ jobs:
             let warnCount = 0;
             for (const c of checks) {
               try {
-                const { data, error } = await supabase
+                const { error } = await supabase
                   .from(c.table)
                   .select(c.field)
                   .not(c.field, 'is', null)
                   .limit(1);
-                // 단순 접근성 체크 (실제 중복 쿼리는 Neon/Prisma에서 처리)
                 if (error) { console.log(`⚠️ ${c.label}: ${error.message}`); warnCount++; }
                 else { console.log(`✅ ${c.label}: 접근 OK`); }
               } catch (e) {
@@ -276,18 +274,19 @@ jobs:
 
       - name: Notify Slack - DB Check Failed
         if: failure()
-        uses: slackapi/slack-github-action@v1.24.0
+        uses: slackapi/slack-github-action@v1.27.0
         with:
-          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
           payload: |
             {
-              "text": "🔴 CRITICAL: Database Integrity Check Failed",
+              "text": "🔴 Database Integrity Check Failed",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*🔴 Database Integrity FAILED*\n*Issue:* FK violations or duplicate records detected\n*Details:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Log>"
+                    "text": "*🔴 Database Integrity FAILED*\n*Details:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Log>"
                   }
                 }
               ]
@@ -304,31 +303,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Check Sentry for critical errors
         run: |
           cat > check-sentry.js << 'EOF'
           const https = require('https');
-
-          const query = `
-            events(
-              project: ["${{ secrets.SENTRY_PROJECT_ID }}"],
-              first: 100,
-              environment: "production"
-            ) {
-              nodes {
-                title
-                eventID
-                level
-                dateCreated
-                platform
-                message {
-                  formatted
-                }
-              }
-            }
-          `;
 
           const options = {
             hostname: 'sentry.io',
@@ -367,7 +347,7 @@ jobs:
             });
           });
 
-          req.on('error', (e) => {
+          req.on('error', () => {
             console.log('Sentry sync skipped (network)');
           });
 
@@ -383,30 +363,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
       - name: Run Lighthouse
-        uses: treosh/lighthouse-ci-action@v10
+        uses: treosh/lighthouse-ci-action@v12    # 수정: v10 → v12 (upload-artifact@v3 deprecated 해결)
         with:
           configPath: './lighthouserc.json'
-          uploadArtifacts: true
+          uploadArtifacts: false                  # 수정: true → false (upload-artifact@v3 사용 차단)
         continue-on-error: true
 
       - name: Check memory usage
         run: |
-          cat > check-memory.sh << 'EOF'
-          #!/bin/bash
-          echo "=== Node Process Memory Check ==="
-          ps aux | grep node | grep -v grep || echo "No Node processes running"
-          echo ""
-          echo "Memory available:"
+          echo "=== Memory Check ==="
           free -h || echo "Memory info unavailable"
-          EOF
-          chmod +x check-memory.sh
-          ./check-memory.sh
         shell: bash
 
       - name: Archive performance results
@@ -438,9 +405,10 @@ jobs:
           fi
 
       - name: Send Slack summary
-        uses: slackapi/slack-github-action@v1.24.0
+        uses: slackapi/slack-github-action@v1.27.0
         with:
-          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
           payload: |
             {
               "text": "${{ env.EMOJI }} Daily Monitoring Summary",
