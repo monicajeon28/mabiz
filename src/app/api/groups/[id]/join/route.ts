@@ -7,6 +7,7 @@ import { logger } from '@/lib/logger';
 type Params = { params: Promise<{ id: string }> };
 
 type JoinRequest = {
+  contactId: string;
   tier?: 'basic' | 'premium' | 'vip';
 };
 
@@ -18,7 +19,14 @@ export async function POST(req: Request, { params }: Params) {
     const { id: groupId } = await params;
 
     const body = (await req.json()) as JoinRequest;
-    const tier = body.tier || 'premium'; // 기본값: premium (L10 렌즈: 추천 옵션)
+    const { contactId, tier = 'premium' } = body; // 기본값: premium (L10 렌즈: 추천 옵션)
+
+    if (!contactId) {
+      return NextResponse.json(
+        { ok: false, message: 'contactId 필수' },
+        { status: 400 }
+      );
+    }
 
     // IDOR 보안: organizationId 체크
     const group = await prisma.contactGroup.findFirst({
@@ -33,12 +41,16 @@ export async function POST(req: Request, { params }: Params) {
       );
     }
 
-    // 현재 사용자 정보 확인
-    const currentUser = ctx.userId;
-    if (!currentUser) {
+    // Contact 별도 조회 (ctx.userId는 User ID이지 Contact ID가 아님)
+    const contact = await prisma.contact.findFirst({
+      where: { id: contactId, organizationId: orgId },
+      select: { id: true },
+    });
+
+    if (!contact) {
       return NextResponse.json(
-        { ok: false, message: '인증이 필요합니다.' },
-        { status: 401 }
+        { ok: false, message: '연락처를 찾을 수 없습니다.' },
+        { status: 404 }
       );
     }
 
@@ -46,7 +58,7 @@ export async function POST(req: Request, { params }: Params) {
     const existingMember = await prisma.contactGroupMember.findFirst({
       where: {
         groupId,
-        contactId: currentUser,
+        contactId: contact.id,
       },
     });
 
@@ -61,7 +73,7 @@ export async function POST(req: Request, { params }: Params) {
     const member = await prisma.contactGroupMember.create({
       data: {
         groupId,
-        contactId: currentUser,
+        contactId: contact.id,
         // addedAt는 자동으로 현재 시간 저장
       },
     });
@@ -73,7 +85,7 @@ export async function POST(req: Request, { params }: Params) {
         logger.log('[GroupJoin] Funnel auto-start', {
           groupId,
           funnelId: group.funnelId,
-          contactId: currentUser,
+          contactId: contact.id,
         });
       } catch (funnelErr) {
         logger.error('[GroupJoin] Funnel auto-start failed', { funnelErr });
@@ -84,7 +96,7 @@ export async function POST(req: Request, { params }: Params) {
     // 성공 로깅 (L10 렌즈: 즉시 구매 추적)
     logger.log('[GroupJoin] Success', {
       groupId,
-      contactId: currentUser,
+      contactId: contact.id,
       tier,
       groupName: group.name,
     });

@@ -1,34 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { timingSafeEqual } from "crypto";
 import prisma from "@/lib/prisma";
 import { getMabizSession } from "@/lib/auth";
 import { ApiResponse } from "@/lib/types/contract-templates";
 import { logger } from "@/lib/logger";
-
-// ─── 상태머신 전환 매트릭스 ────────────────────────────────────────────────────
-// 허용된 전환만 정의. 목록에 없는 조합은 모두 거부.
-const ALLOWED_TRANSITIONS: Record<string, string[]> = {
-  DRAFT:     ["SENT"],
-  SENT:      ["SIGNED", "DRAFT"],   // 재발송을 위한 SENT→DRAFT 허용
-  SIGNED:    ["COMPLETED"],
-  COMPLETED: [],                    // 완료 상태에서는 어떤 전환도 불허
-};
-
-function isTransitionAllowed(from: string, to: string): boolean {
-  return (ALLOWED_TRANSITIONS[from] ?? []).includes(to);
-}
-
-// ─── timingSafeEqual 기반 토큰 비교 ──────────────────────────────────────────
-function safeTokenCompare(a: string, b: string): boolean {
-  try {
-    const bufA = Buffer.from(a, "utf8");
-    const bufB = Buffer.from(b, "utf8");
-    if (bufA.length !== bufB.length) return false;
-    return timingSafeEqual(bufA, bufB);
-  } catch {
-    return false;
-  }
-}
 
 interface RouteParams {
   params: Promise<{
@@ -175,7 +149,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { status, signToken } = body as { status?: string; signToken?: string };
+    const { status, signToken } = body;
 
     // 상태 유효성 확인
     const validStatuses = ["DRAFT", "SENT", "SIGNED", "COMPLETED"];
@@ -186,49 +160,61 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // 상태머신 전환 검증 (역방향/임의 전환 방지)
-    if (status && status !== instance.status) {
-      if (!isTransitionAllowed(instance.status, status)) {
+    // 상태머신 전환 매트릭스: 허용된 전환만 통과
+    if (status) {
+      const allowedTransitions: Record<string, string[]> = {
+        DRAFT:     ["SENT", "COMPLETED"],
+        SENT:      ["SIGNED", "DRAFT", "COMPLETED"],
+        SIGNED:    ["COMPLETED"],
+        COMPLETED: [],
+      };
+      const currentStatus = instance.status as string;
+      const allowed = allowedTransitions[currentStatus] ?? [];
+      if (!allowed.includes(status)) {
         return NextResponse.json(
           {
             ok: false,
-            error: `${instance.status} → ${status} 전환은 허용되지 않습니다`,
+            error: `'${currentStatus}' 상태에서 '${status}'로 전환할 수 없습니다`,
           },
           { status: 422 }
         );
       }
+    }
 
-      // SIGNED 전환 시 signToken 필수 검증
-      if (status === "SIGNED") {
-        if (!signToken) {
+    // SIGNED 전환 시 추가 검증
+    if (status === "SIGNED") {
+      // 만료일 검사
+      if (instance.expiresAt && instance.expiresAt.getTime() < Date.now()) {
+        return NextResponse.json(
+          { ok: false, error: "계약서 유효기간이 만료되었습니다" },
+          { status: 410 }
+        );
+      }
+
+      // signToken 검증 (boundData 또는 요청 body에 token 포함 시)
+      const storedData =
+        instance.boundData && typeof instance.boundData === "object"
+          ? (instance.boundData as Record<string, unknown>)
+          : {};
+      const storedToken =
+        typeof storedData.signToken === "string" ? storedData.signToken : null;
+
+      if (storedToken) {
+        if (!signToken || typeof signToken !== "string") {
           return NextResponse.json(
-            { ok: false, error: "서명 전환 시 signToken이 필요합니다" },
-            { status: 400 }
+            { ok: false, error: "서명 토큰이 필요합니다" },
+            { status: 401 }
           );
         }
-
-        const boundData = instance.boundData as Record<string, unknown>;
-        const storedToken =
-          typeof boundData?.signToken === "string" ? boundData.signToken : "";
-
-        if (!storedToken || !safeTokenCompare(storedToken, signToken)) {
-          logger.error("[PATCH /api/contract-instances/[id]] signToken 불일치", {
-            id,
-          });
+        // timingSafeEqual 비교로 타이밍 공격 방지
+        const { timingSafeEqual } = await import("crypto");
+        const a = Buffer.from(storedToken);
+        const b = Buffer.from(signToken);
+        const tokenMatch =
+          a.length === b.length && timingSafeEqual(a, b);
+        if (!tokenMatch) {
           return NextResponse.json(
             { ok: false, error: "유효하지 않은 서명 토큰입니다" },
-            { status: 403 }
-          );
-        }
-
-        // 토큰 만료 확인
-        const tokenExpiresAt =
-          typeof boundData?.signTokenExpiresAt === "string"
-            ? new Date(boundData.signTokenExpiresAt)
-            : null;
-        if (tokenExpiresAt && tokenExpiresAt < new Date()) {
-          return NextResponse.json(
-            { ok: false, error: "서명 토큰이 만료되었습니다" },
             { status: 403 }
           );
         }
@@ -242,12 +228,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         ...(status && { status }),
         ...(status === "SIGNED" && {
           signedAt: new Date(),
-          // 서명 완료 후 토큰 무효화 (boundData에서 signToken 제거)
-          boundData: {
-            ...(instance.boundData as object),
-            signToken: null,
-            signTokenExpiresAt: null,
-          },
         }),
       },
       include: {

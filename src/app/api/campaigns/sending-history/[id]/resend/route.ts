@@ -59,6 +59,17 @@ export async function PATCH(req: Request, { params }: Params) {
       );
     }
 
+    if (!contact) {
+      logger.warn('[PATCH /api/campaigns/sending-history/[id]/resend] Contact not found', {
+        sendingId,
+        contactId: sending.contactId,
+      });
+      return NextResponse.json(
+        { ok: false, error: '연락처를 찾을 수 없습니다.', code: 'NOT_FOUND' },
+        { status: 404 }
+      );
+    }
+
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // 2. Campaign 존재 확인
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -124,7 +135,7 @@ export async function PATCH(req: Request, { params }: Params) {
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // 4. 연락처 유효성 검증
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    if (contact?.optOutAt) {
+    if (contact.optOutAt) {
       logger.warn('[PATCH /api/campaigns/sending-history/[id]/resend] Contact opted out', {
         sendingId,
         contactId: contact.id

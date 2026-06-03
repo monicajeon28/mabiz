@@ -3,12 +3,15 @@ import { logger } from '@/lib/logger';
 
 /**
  * Aligo SMS API 응답 타입
+ * Aligo REST API는 result_code(숫자 1=성공, 그 외=실패)와 message를 반환합니다.
+ * @see https://aligo.in/api/send/
  */
 interface AligoResponse {
-  success: boolean;
+  result_code: number;
+  message: string;
   msg_id?: string;
-  error?: string;
-  code?: string;
+  error_cnt?: number;
+  success_cnt?: number;
 }
 
 /**
@@ -27,6 +30,16 @@ export interface SmsSendResult {
  *
  * P0-1: 환경변수 검증 강화
  */
+export async function sendSmsWithAligoPublic(
+  aligoUserId: string,
+  aligoKey: string,
+  senderPhone: string,
+  recipientPhone: string,
+  message: string
+): Promise<SmsSendResult> {
+  return sendSmsWithAligo(aligoUserId, aligoKey, senderPhone, recipientPhone, message);
+}
+
 async function sendSmsWithAligo(
   aligoUserId: string,
   aligoKey: string,
@@ -82,38 +95,23 @@ async function sendSmsWithAligo(
       body: formData,
     });
 
-    if (!response.ok) {
-      const rawText = await response.text();
-      logger.error('[Aligo SMS] HTTP 오류 응답', {
-        recipientPhone,
-        status: response.status,
-        body: rawText,
-      });
-      return {
-        success: false,
-        error: `HTTP ${response.status}: ${rawText}`,
-        retryable: true,
-      };
-    }
-
     const data: AligoResponse = await response.json();
 
-    if (!data.success) {
+    if (data.result_code !== 1) {
       logger.warn('[Aligo SMS] 발송 실패', {
         recipientPhone,
-        error: data.error || 'Unknown error',
-        code: data.code,
+        result_code: data.result_code,
+        message: data.message,
       });
 
-      // 재시도 가능 여부 판단
-      const retryable =
-        !data.code || // 네트워크 오류
-        data.code === '10' || // 일시적 오류
-        data.code === '11'; // 서버 오류
+      // result_code 기준 재시도 가능 여부 판단
+      // -100 미만: 인증/설정 오류 → 재시도 불가
+      // 그 외 음수 코드: 일시적 오류 → 재시도 가능
+      const retryable = data.result_code > -100;
 
       return {
         success: false,
-        error: data.error || 'Unknown error',
+        error: data.message || `Aligo error code: ${data.result_code}`,
         retryable,
       };
     }
@@ -287,16 +285,8 @@ export async function retryFailedPartnerSms(
       smsLog.phoneNumber ?? ''
     );
 
-    // 재시도 횟수 업데이트 + 성공 시 status SENT로 변경
-    if (result.success) {
-      await prisma.partnerSmsLog.update({
-        where: { id: smsLogId },
-        data: {
-          retryCount: smsLog.retryCount + 1,
-          status: 'SENT',
-        },
-      });
-    } else {
+    // 재시도 횟수 업데이트
+    if (!result.success) {
       await prisma.partnerSmsLog.update({
         where: { id: smsLogId },
         data: { retryCount: smsLog.retryCount + 1 },

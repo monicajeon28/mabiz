@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
-import { cookies, headers } from 'next/headers';
+import { cookies } from 'next/headers';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { MABIZ_SESSION_COOKIE } from '@/lib/auth';
 import { createHash, timingSafeEqual } from 'crypto';
 import bcrypt from 'bcryptjs';
-import { checkRateLimitAsync } from '@/lib/rate-limit';
 
 function isBcryptHash(h: string) {
   return h.startsWith('$2b$') || h.startsWith('$2a$');
@@ -72,31 +71,13 @@ function resolveRoleFromMallUser(role: string, mallUserId: string | null, affili
   if (!affiliateType) return null; // community인데 AffiliateProfile 없으면 로그인 불가
   if (affiliateType === 'BRANCH_MANAGER' || affiliateType === 'HQ') return 'OWNER';
   if (affiliateType === 'PRESALES') return 'FREE_SALES';
-  if (affiliateType === 'SALES_AGENT') {
-    return 'AGENT';
-  }
+  if (affiliateType === 'SALES_AGENT') return 'AGENT';
+  // 알 수 없는 affiliateType은 null 반환 (로그인 불가)
   return null;
 }
 
 export async function POST(req: Request) {
   try {
-    // Rate limit: 10 attempts per minute per IP
-    const headerStore = await headers();
-    const ip =
-      headerStore.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-      headerStore.get('x-real-ip') ??
-      'unknown';
-    const rl = await checkRateLimitAsync(`login:${ip}`, 10, 60_000);
-    if (!rl.allowed) {
-      return NextResponse.json(
-        { ok: false, error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
-        {
-          status: 429,
-          headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) },
-        }
-      );
-    }
-
     const { phone, password } = await req.json() as { phone?: string; password?: string };
 
     if (!phone?.trim() || !password) {
@@ -196,7 +177,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'CRM 로그인 권한이 없는 계정입니다.' }, { status: 403 });
     }
 
-    // OWNER/AGENT는 org 연결 필요 — externalAffiliateProfileId 매핑 또는 기본 org 사용
+    // OWNER/AGENT는 org 연결 필요 — externalAffiliateProfileId 매핑 필수
     let orgId: string | null = null;
     if (role !== 'GLOBAL_ADMIN') {
       // 어필리에이트 프로필 ID로 조직 찾기
@@ -206,10 +187,12 @@ export async function POST(req: Request) {
           `SELECT id FROM "Organization" WHERE "externalAffiliateProfileId" = $1 LIMIT 1`,
           String(mallUser.id)
         );
-        // 매핑된 org 없으면 단일 org 기본값 사용
-        const firstOrg = orgRows[0] ?? await prisma.organization.findFirst({ select: { id: true } });
-        // P1-26: null safety for firstOrg
-        orgId = firstOrg?.id || null;
+        // 매핑된 org 없으면 로그인 불가 (임의 org 사용 금지)
+        if (!orgRows[0]) {
+          logger.error('[POST /api/auth/login] org 매핑 실패 — externalAffiliateProfileId 없음', { mallUserId: mallUser.id });
+          return NextResponse.json({ ok: false, error: '조직 연결이 되어 있지 않습니다. 관리자에게 문의해주세요.' }, { status: 401 });
+        }
+        orgId = orgRows[0].id;
       }
     }
 

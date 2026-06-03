@@ -286,7 +286,7 @@ export async function POST(req: NextRequest) {
         total: itemsToLoad.length,
         succeeded: upsertResults.length,
         failed: errors.length,
-        deletedCount: 0,
+        deletedCount: deleteCount,
         results: upsertResults.slice(0, 5), // 처음 5개만 반환
         errors: errors.slice(0, 5),
       };

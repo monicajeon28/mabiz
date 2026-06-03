@@ -113,6 +113,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // SSRF 방어: 허용된 도메인만 허용
+    const ALLOWED_IMAGE_HOSTS = [
+      'drive.google.com',
+      'storage.googleapis.com',
+      'lh3.googleusercontent.com',
+      'lh4.googleusercontent.com',
+      'lh5.googleusercontent.com',
+      'lh6.googleusercontent.com',
+    ];
+    let parsedImageUrl: URL;
+    try {
+      parsedImageUrl = new URL(body.imageUrl);
+    } catch {
+      return NextResponse.json(
+        { ok: false, message: '유효하지 않은 이미지 URL입니다.' },
+        { status: 400 },
+      );
+    }
+    if (!ALLOWED_IMAGE_HOSTS.includes(parsedImageUrl.hostname)) {
+      return NextResponse.json(
+        { ok: false, message: '허용되지 않은 이미지 도메인입니다.' },
+        { status: 400 },
+      );
+    }
+
     // 이미지 다운로드
     logger.log('[Partner OCR to APIS] 이미지 다운로드 시작');
     let imageBuffer: Buffer;

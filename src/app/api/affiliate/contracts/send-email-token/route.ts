@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { randomInt } from 'crypto';
+import { randomInt, randomBytes } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
@@ -54,7 +54,7 @@ function generatePIN(): string {
 }
 
 function generateToken(): string {
-  return `et_${Date.now()}_${randomInt(100000, 999999)}`;
+  return randomBytes(32).toString('hex');
 }
 
 export async function POST(req: NextRequest) {
@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
         await sendFunnelEmail({
           organizationId: bonusaOrgId,
           to: email,
-          subject: '[크루즈닷] 이메일 인증번호: ' + pin,
+          subject: '[크루즈닷] 이메일 인증번호 안내',
           html: htmlContent,
         });
       } else {

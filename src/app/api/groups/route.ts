@@ -336,6 +336,28 @@ export async function POST(req: Request) {
           { status: 403 }
         );
       }
+
+      // ── 순환참조 방지: 조상 체인에 자기자신(parentGroupId) 포함 여부 재귀 검사 ──
+      // POST(신규 생성) 시점에는 아직 id가 없으므로, parentGroupId 자체가
+      // 자기 자신을 가리키거나 그 조상 체인 안에 parentGroupId가 반복되는
+      // 경우(= 이미 닫힌 고리)를 차단한다.
+      async function hasCircularAncestor(checkId: string, visited = new Set<string>()): Promise<boolean> {
+        if (visited.has(checkId)) return true; // 이미 방문 → 순환 발생
+        visited.add(checkId);
+        const node = await prisma.contactGroup.findUnique({
+          where: { id: checkId },
+          select: { parentGroupId: true },
+        });
+        if (!node?.parentGroupId) return false;
+        return hasCircularAncestor(node.parentGroupId, visited);
+      }
+
+      if (await hasCircularAncestor(data.parentGroupId)) {
+        return NextResponse.json(
+          { ok: false, error: "CIRCULAR_PARENT_GROUP", message: "순환 참조가 발생하는 부모 그룹은 지정할 수 없습니다." },
+          { status: 400 }
+        );
+      }
     }
 
     // ── 기존 funnelId 검증 (하위 호환) ─────────

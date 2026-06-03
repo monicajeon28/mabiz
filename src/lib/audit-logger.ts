@@ -86,18 +86,21 @@ export async function logSecurityEvent(event: SecurityEvent): Promise<void> {
       timestamp: event.timestamp.toISOString(),
     });
 
-    // 데이터베이스 저장 (SecurityEvent 테이블 추가 예정)
-    // await prisma.securityEvent.create({
-    //   data: {
-    //     type: event.type,
-    //     severity: event.severity,
-    //     userId: event.userId,
-    //     organizationId: event.organizationId,
-    //     description: event.description,
-    //     details: event.details,
-    //     createdAt: event.timestamp,
-    //   },
-    // });
+    // CRITICAL 이벤트는 AuditLog DB에 저장 (감사 추적 필수)
+    if (event.severity === 'CRITICAL') {
+      await prisma.auditLog.create({
+        data: {
+          userId: event.userId,
+          organizationId: event.organizationId,
+          action: 'SECURITY_EVENT',
+          resourceType: event.type,
+          status: 'DENIED',
+          errorMessage: event.description,
+          reasonDescription: JSON.stringify(event.details),
+          createdAt: event.timestamp,
+        },
+      });
+    }
 
     // CRITICAL 또는 HIGH 심각도인 경우 실시간 알림
     if (['CRITICAL', 'HIGH'].includes(event.severity)) {

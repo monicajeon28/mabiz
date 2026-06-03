@@ -70,6 +70,7 @@ export async function PUT(
           approvedBy: ctx.userId,
           approveNote: note || null,
           completionToken,
+          completionTokenIssuedAt: new Date().toISOString(),
           completionLink,
         },
       },
