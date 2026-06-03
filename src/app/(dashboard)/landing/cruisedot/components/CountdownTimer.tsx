@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface CountdownTimerProps {
   targetDate: string; // "2026-06-30 23:59:59"
@@ -42,6 +42,7 @@ export default function CountdownTimer({ targetDate, onComplete, onTimeChange }:
   const [time, setTime] = useState<TimeRemaining>(() => calculateTimeRemaining(targetDate));
   const [color, setColor] = useState<ColorType>(() => getColorByTime(calculateTimeRemaining(targetDate).total));
   const [isComplete, setIsComplete] = useState(false);
+  const isCompleteRef = useRef(false);
 
   const formatTime = useCallback((num: number) => String(num).padStart(2, '0'), []);
 
@@ -53,14 +54,15 @@ export default function CountdownTimer({ targetDate, onComplete, onTimeChange }:
 
       if (onTimeChange) onTimeChange(remaining.total);
 
-      if (remaining.total <= 0 && !isComplete) {
+      if (remaining.total <= 0 && !isCompleteRef.current) {
+        isCompleteRef.current = true;
         setIsComplete(true);
         if (onComplete) onComplete();
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [targetDate, onComplete, onTimeChange, isComplete]);
+  }, [targetDate, onComplete, onTimeChange]); // isComplete ref으로 분리 → deps 재등록 방지
 
   if (isComplete) {
     return (

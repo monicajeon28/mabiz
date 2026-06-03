@@ -104,7 +104,7 @@ export default function CruisedotLandingPage() {
 
               {/* 상품 2: 일본 (프리미엄) */}
               {activeTab === 'japan' && (
-                <div className="md:col-span-3 bg-white rounded-xl p-8 shadow-2xl border-3 border-yellow-400">
+                <div className="md:col-span-3 bg-white rounded-xl p-8 shadow-2xl border-[3px] border-yellow-400">
                   <div className="bg-gradient-to-r from-yellow-100 to-orange-50 rounded-lg p-4 mb-6">
                     <p className="text-center text-sm font-bold text-yellow-700">
                       ⭐ 가장 인기 있는 상품 | {config.marketing.dailySignups}명이 선택 중
@@ -790,7 +790,7 @@ export default function CruisedotLandingPage() {
           </p>
 
           {/* 라이브 정보 카드 */}
-          <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl p-10 text-center border-3 border-red-400 mb-8">
+          <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl p-10 text-center border-[3px] border-red-400 mb-8">
             <p className="text-red-600 text-xl font-bold mb-2">
               🔴 LIVE
             </p>

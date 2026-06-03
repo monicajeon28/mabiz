@@ -101,11 +101,10 @@ export async function POST(request: Request) {
     });
 
     if (existingContact) {
-      // 이미 가입된 고객이지만 성공으로 처리 (멱등성)
+      // 이미 가입된 고객이지만 성공으로 처리 (멱등성) — contactId 제거로 열거 공격 방지
       return Response.json(
         {
           success: true,
-          contactId: existingContact.id,
           isDuplicate: true,
           message: '이미 가입된 이메일입니다. 매니저가 2시간 내 연락 드릴 예정입니다',
           nextAction: 'DUPLICATE_CHECK'
@@ -214,15 +213,11 @@ export async function POST(request: Request) {
     // 12. 성공 응답
     return Response.json({
       success: true,
-      contactId: contact.id,
       lens,
       message: '신청 완료! 매니저가 2시간 내 연락 드릴 예정입니다.',
       nextAction: 'AWAITING_MANAGER_CONTACT',
-      smsScheduledFor: `Day 0-3 자동화 예정 (${smsQueue.length}건)`,
-      smsQueue: smsQueue.map(sms => ({
-        day: sms.delayHours / 24,
-        scheduledAt: sms.scheduledAt.toISOString()
-      }))
+      smsScheduledFor: `Day 0-3 자동화 예정 (${smsQueue.length}건)`
+      // contactId, smsQueue 배열 제거 — 내부 ID 열거/스케줄 구조 노출 방지
     });
 
   } catch (error) {

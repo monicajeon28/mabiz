@@ -131,7 +131,7 @@ export default function TermPopover({
 
 /**
  * TermPopover 배치 컴포넌트
- * 여러 용어를 한 번에 적용할 때 사용
+ * 여러 용어를 한 번에 TermPopover로 치환
  */
 export function TermBatch({
   text,
@@ -139,30 +139,26 @@ export function TermBatch({
   className = ''
 }: {
   text: string;
-  terms: string[]; // 강조할 용어 목록
+  terms: string[];
   className?: string;
 }) {
-  // 텍스트를 용어별로 분해하고 강조
-  const sortedTerms = [...terms].sort((a, b) => b.length - a.length); // 긴 용어부터
+  if (terms.length === 0) return <span className={className}>{text}</span>;
 
-  const result = sortedTerms.reduce((acc: string | React.ReactNode[], term) => {
-    if (typeof acc !== 'string') return acc;
-
-    const pattern = new RegExp(`(${term})`, 'g');
-    const parts = acc.split(pattern);
-
-    return parts.map((part: string, idx: number) =>
-      part === term ? (
-        <TermPopover key={`${term}-${idx}`} term={term} />
-      ) : (
-        <span key={`text-${idx}`}>{part}</span>
-      )
-    );
-  }, text);
+  // 긴 용어 우선, 정규식 특수문자 이스케이프
+  const sorted = [...terms].sort((a, b) => b.length - a.length);
+  const escaped = sorted.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const pattern = new RegExp(`(${escaped.join('|')})`, 'g');
+  const parts = text.split(pattern);
 
   return (
     <span className={className}>
-      {result}
+      {parts.map((part, idx) =>
+        terms.includes(part) ? (
+          <TermPopover key={`term-${idx}`} term={part} />
+        ) : (
+          <span key={`text-${idx}`}>{part}</span>
+        )
+      )}
     </span>
   );
 }
