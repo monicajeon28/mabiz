@@ -62,11 +62,9 @@ jobs:
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
           NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
           SKIP_ENV_VALIDATION: "1"
-          # CI 빌드용 플레이스홀더 (실제 값은 Vercel 환경변수에서 관리)
           GOOGLE_CALENDAR_STATE_SECRET: "ci-build-placeholder"
           WEBHOOK_SECRET: "ci-build-placeholder"
           CRON_SECRET: "ci-build-placeholder"
-          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL || 'http://localhost:3000' }}
 
       - name: 빌드 성공 알림
         if: success()
