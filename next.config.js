@@ -6,6 +6,7 @@ const nextConfig = {
   },
 
   typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true }, // ESLint는 CI lint 단계에서 별도 실행
 
   images: {
     unoptimized: process.env.NODE_ENV === 'development',
