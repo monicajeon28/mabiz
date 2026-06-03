@@ -28,7 +28,7 @@ export default function PriceComparison() {
           <tr className="hover:bg-gray-50">
             <td className="border p-4 font-semibold text-gray-700">가격 ({config.pricing.japan.nights}박 일본)</td>
             <td className="border p-4 text-center bg-green-50">
-              <span className="font-bold text-green-600">{(config.pricing.japan.totalPrice / 1000000).toFixed(1)}만원</span>
+              <span className="font-bold text-green-600">{Math.round(config.pricing.japan.totalPrice / 10000)}만원</span>
             </td>
             <td className="border p-4 text-center">145만원</td>
             <td className="border p-4 text-center text-red-600">99만원</td>

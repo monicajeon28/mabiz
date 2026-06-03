@@ -102,6 +102,7 @@ export const CRUISEDOT_CONFIG = {
       title: '자유 여행, 인솔자와 함께',
       subtitle: '혼자가 아닌 안전한 크루즈 여행의 새로운 기준',
       countdownSeats: 10,
+      deadlineDate: '2026-06-30 23:59:59', // 마감일 (YYYY-MM-DD HH:mm:ss) — 배포 시 변경
       urgencyText: '지금 신청하면 평생 10-30% 할인'
     },
     cta: {
