@@ -3,7 +3,7 @@ import crypto from "crypto";
 import prisma from "@/lib/prisma";
 import { getAuthContext } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
-import { errorResponse } from "@/lib/response";
+import { errorResponse, handleApiError } from "@/lib/response";
 import { z } from "zod";
 
 // ─────────────────────────────────────────────
@@ -284,7 +284,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, groups: result, totalCount, categories });
   } catch (err) {
     logger.error("[GET /api/groups]", { err });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return handleApiError(err);
   }
 }
 
