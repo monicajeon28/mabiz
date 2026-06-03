@@ -191,11 +191,11 @@ function generateSuggestedResponse(lensType: string, inquiryType: string | undef
 }
 
 export async function POST(req: NextRequest) {
-  const secret = process.env.MABIZ_LEAD_WEBHOOK_SECRET;
+  const secret = process.env.MABIZ_INQUIRY_WEBHOOK_SECRET ?? process.env.MABIZ_LEAD_WEBHOOK_SECRET;
 
-  // [P0-SEC-101] MABIZ_LEAD_WEBHOOK_SECRET 필수
+  // [P0-SEC-101] MABIZ_INQUIRY_WEBHOOK_SECRET 필수
   if (!secret) {
-    logger.error('[InquiryWebhook] CRITICAL: MABIZ_LEAD_WEBHOOK_SECRET 미설정. 웹훅 수신 불가능합니다. DevOps에 연락하세요.');
+    logger.error('[InquiryWebhook] CRITICAL: MABIZ_INQUIRY_WEBHOOK_SECRET 미설정. 웹훅 수신 불가능합니다. DevOps에 연락하세요.');
     return NextResponse.json({ ok: false, error: 'Webhook secret not configured' }, { status: 500 });
   }
 
