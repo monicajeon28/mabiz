@@ -20,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
@@ -179,7 +179,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Archive metrics report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: weekly-metrics-${{ github.run_number }}
           path: metrics-report.log
@@ -194,7 +194,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
@@ -213,7 +213,7 @@ jobs:
         continue-on-error: true
 
       - name: Archive code quality reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: code-quality-${{ github.run_number }}
           path: |
@@ -232,7 +232,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
 
       - name: Check for outdated packages
@@ -248,7 +248,7 @@ jobs:
           cat audit.json | jq '.metadata.vulnerabilities' || echo "No vulnerabilities data"
 
       - name: Archive dependency reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dependency-check-${{ github.run_number }}
           path: |
@@ -266,7 +266,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
 
       - name: Build check
@@ -274,7 +274,7 @@ jobs:
         continue-on-error: true
 
       - name: Archive build report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-readiness-${{ github.run_number }}
           path: build-report.log
@@ -287,7 +287,7 @@ jobs:
     if: always()
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: reports/
 
@@ -326,9 +326,9 @@ jobs:
           cat weekly-report.md
 
       - name: Send Slack report
-        uses: slackapi/slack-github-action@v1.24.0
+        uses: slackapi/slack-github-action@v1.27.0
         with:
-          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           payload: |
             {
               "text": "📊 Weekly Monitoring Report",
@@ -345,8 +345,9 @@ jobs:
         continue-on-error: true
 
       - name: Archive final report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: weekly-report-consolidated
           path: weekly-report.md
         continue-on-error: true
+
