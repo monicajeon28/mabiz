@@ -31,15 +31,25 @@ for FILE in $STAGED; do
     SECRET_FOUND=1
   fi
 
-  # 일반 패스워드/시크릿 변수에 직접 값
-  if git show ":$FILE" | grep -qE '(password|secret|api_key|apikey)\s*=\s*["'"'"'][^$\{][^"'"'"']{8,}'; then
-    # .env 파일이나 예시 파일은 제외
-    case "$FILE" in
-      *.env*|*.example*|*.sample*|*.md|*.txt) ;;
-      *)
-        echo "⚠️  하드코딩 의심: $FILE (확인 필요)"
-        ;;
-    esac
+  # Neon/PostgreSQL 실제 연결 문자열 (npg_ 패스워드 패턴)
+  if git show ":$FILE" | grep -qE 'npg_[A-Za-z0-9]{10,}'; then
+    echo "❌ Neon DB 비밀번호 발견: $FILE"
+    SECRET_FOUND=1
+  fi
+
+  # PostgreSQL 연결 문자열에 실제 비밀번호
+  if git show ":$FILE" | grep -qE 'postgresql://[^:]+:[^@\[]{8,}@'; then
+    # [YOUR_*] 플레이스홀더는 제외
+    if ! git show ":$FILE" | grep -qE 'postgresql://\[YOUR_'; then
+      echo "❌ DB 연결 문자열에 실제 비밀번호 발견: $FILE"
+      SECRET_FOUND=1
+    fi
+  fi
+
+  # Supabase PAT (sbp_)
+  if git show ":$FILE" | grep -qE 'sbp_[a-f0-9]{40}'; then
+    echo "❌ Supabase PAT 발견: $FILE"
+    SECRET_FOUND=1
   fi
 done
 

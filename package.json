@@ -22,7 +22,7 @@
     "script:validate-backup": "npx ts-node scripts/validate-data-integrity.ts",
     "script:convert-excel": "npx ts-node scripts/restore-from-google-drive.ts",
     "script:insert-data": "npx ts-node scripts/insert-restored-data.ts",
-    "prepare": "husky"
+    "prepare": "node -e \"if(process.env.CI)process.exit(0)\" && husky || true"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.98.0",
