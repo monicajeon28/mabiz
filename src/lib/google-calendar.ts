@@ -74,7 +74,7 @@ function getStateSecret(): string {
   if (!secret) throw new Error('GOOGLE_CALENDAR_STATE_SECRET required');
   return secret;
 }
-const STATE_SECRET: string = getStateSecret();
+// STATE_SECRET는 요청 시점에 지연 평가 (모듈 로드 시 throw 방지)
 
 export interface GoogleOAuthState {
   userId: string;
@@ -82,12 +82,14 @@ export interface GoogleOAuthState {
 }
 
 export function signState(stateObj: GoogleOAuthState): string {
+  const STATE_SECRET = getStateSecret();
   const payload = JSON.stringify(stateObj);
   const sig = createHmac('sha256', STATE_SECRET).update(payload).digest('hex');
   return Buffer.from(JSON.stringify({ ...stateObj, sig })).toString('base64url');
 }
 
 export function verifyState(stateParam: string): GoogleOAuthState | null {
+  const STATE_SECRET = getStateSecret();
   try {
     const parsed = JSON.parse(Buffer.from(stateParam, 'base64url').toString()) as {
       userId?: string;
