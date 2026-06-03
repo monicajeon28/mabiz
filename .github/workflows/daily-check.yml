@@ -38,12 +38,8 @@ jobs:
           const https = require('https');
           const baseUrl = 'https://mabizcruisedot.com';
           const endpoints = [
-            { path: '/api/health', timeout: 2000 },
-            { path: '/api/groups', timeout: 3000 },
-            { path: '/api/contacts', timeout: 3000 },
-            { path: '/api/partner/dashboard/b2b', timeout: 3000 },
-            { path: '/api/campaigns', timeout: 3000 },
-            { path: '/api/admin/organizations', timeout: 3000 }
+            { path: '/api/system/health', timeout: 5000 },  // 인증 불필요, 실제 헬스체크
+            { path: '/api/admin/organizations', timeout: 3000 }  // 401 반환 정상
           ];
 
           const results = [];

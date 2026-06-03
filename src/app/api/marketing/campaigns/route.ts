@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     logger.error('[GET /api/marketing/campaigns]', { err });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return handleApiError(err);
   }
 }
 
@@ -179,6 +179,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, campaign }, { status: 201 });
   } catch (err) {
     logger.error('[POST /api/marketing/campaigns]', { err });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return handleApiError(err);
   }
 }

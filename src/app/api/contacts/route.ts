@@ -227,7 +227,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, contacts: contactsWithTransfer, total, page, limit: safeLimit });
   } catch (err) {
     logger.error("[GET /api/contacts]", { err });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return handleApiError(err);
   }
 }
 
@@ -412,6 +412,6 @@ export async function POST(req: Request) {
       );
     }
     logger.error("[POST /api/contacts]", { err });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return handleApiError(err);
   }
 }

@@ -58,6 +58,28 @@ export function serverError(message = '서버 오류가 발생했습니다') {
   return fail(message, 500, 'INTERNAL_ERROR');
 }
 
+/**
+ * API catch 블록 공통 에러 핸들러
+ * UNAUTHORIZED / FREE_SALES_NO_ACCESS → 401/403 반환 (500 방지)
+ */
+export function handleApiError(err: unknown, context?: string): NextResponse {
+  const msg = err instanceof Error ? err.message : String(err);
+
+  if (msg === 'UNAUTHORIZED' || msg === 'SESSION_REQUIRED') {
+    return unauthorized();
+  }
+  if (msg === 'FREE_SALES_NO_ACCESS' || msg === 'FORBIDDEN') {
+    return forbidden();
+  }
+  if (msg === 'ORGANIZATION_REQUIRED') {
+    return forbidden('조직 설정이 필요합니다');
+  }
+  if (context) {
+    console.error(`[${context}]`, err);
+  }
+  return NextResponse.json({ ok: false }, { status: 500 });
+}
+
 function httpErrorCode(status: number): string {
   switch (status) {
     case 400: return 'INVALID_INPUT';
