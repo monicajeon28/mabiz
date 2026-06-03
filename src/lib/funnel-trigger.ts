@@ -76,27 +76,27 @@ export async function triggerGroupFunnel(opts: TriggerOptions): Promise<boolean>
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
+  /** base 날짜에서 offset일 후 오전 10시(UTC)를 반환하는 공통 헬퍼 */
+  function scheduleStageAt(base: Date, offset: number): Date {
+    const d = new Date(base);
+    d.setUTCHours(0, 0, 0, 0);
+    d.setUTCDate(d.getUTCDate() + offset);
+    d.setUTCHours(10, 0, 0, 0); // 오전 10시
+    return d;
+  }
+
   // 스테이지별 발송 날짜 계산
   const logData = funnel.stages.map((stage) => {
-    let scheduledAt: Date;
+    const baseDate =
+      stage.triggerType === "DDAY"
+        ? // D-day 기준: contact.departureDate 사용 (없으면 오늘)
+          contact.departureDate
+          ? new Date(contact.departureDate)
+          : new Date()
+        : // DAYS_AFTER: 오늘부터 N일 후
+          today;
 
-    if (stage.triggerType === "DDAY") {
-      // D-day 기준: contact.departureDate 사용
-      // 출발일이 없으면 오늘 기준 계산 (임시)
-      const baseDate = contact.departureDate
-        ? new Date(contact.departureDate)
-        : new Date();
-      baseDate.setUTCHours(0, 0, 0, 0);
-
-      scheduledAt = new Date(baseDate);
-      scheduledAt.setUTCDate(scheduledAt.getUTCDate() + stage.triggerOffset);
-    } else {
-      // DAYS_AFTER: 오늘부터 N일 후
-      scheduledAt = new Date(today);
-      scheduledAt.setUTCDate(scheduledAt.getUTCDate() + stage.triggerOffset);
-    }
-
-    scheduledAt.setUTCHours(10, 0, 0, 0); // 오전 10시
+    const scheduledAt = scheduleStageAt(baseDate, stage.triggerOffset);
 
     // 과거 날짜면 스킵 표시
     const isPast = scheduledAt < today;

@@ -3,6 +3,31 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
 /**
+ * GLOBAL_ADMIN 작업 시 조직 ID 해결 순서:
+ *   1. 환경변수 BONSA_ORG_ID
+ *   2. DB에서 첫 번째 조직 조회 (환경변수 미설정 시 폴백)
+ *
+ * 하드코딩 없이 운영 환경별 값을 분리합니다.
+ */
+export async function resolveGlobalAdminOrgId(): Promise<string> {
+  const envOrgId = process.env.BONSA_ORG_ID;
+  if (envOrgId) return envOrgId;
+
+  // 환경변수 미설정 시 DB에서 첫 번째(본사) 조직 조회
+  const org = await prisma.organization.findFirst({
+    select: { id: true },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  if (!org) {
+    throw new Error('[resolveGlobalAdminOrgId] 조직을 찾을 수 없습니다. BONSA_ORG_ID 환경변수를 설정하세요.');
+  }
+
+  logger.warn('[resolveGlobalAdminOrgId] BONSA_ORG_ID 미설정 — DB 첫 번째 조직 사용', { orgId: org.id });
+  return org.id;
+}
+
+/**
  * 파트너 월별 통계 업데이트
  * 고객 수, 리드 수 집계
  */

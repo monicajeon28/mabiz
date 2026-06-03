@@ -13,24 +13,28 @@ export const runtime = 'nodejs';
 export async function GET(req: NextRequest) {
   try {
     const session = await getMabizSession();
-    if (!session?.organizationId) {
+    if (!session) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json({ ok: false, error: 'Forbidden: GLOBAL_ADMIN 권한이 필요합니다.' }, { status: 403 });
     }
 
     const url = new URL(req.url);
     const daysParam = parseInt(url.searchParams.get('days') || '7', 10);
     const webhookTypesParam = url.searchParams.get('webhookTypes');
     const webhookTypes = webhookTypesParam ? webhookTypesParam.split(',') : undefined;
+    const orgIdParam = url.searchParams.get('organizationId');
 
     const config: WebhookMonitoringConfig = {
-      organizationId: session.organizationId,
+      organizationId: orgIdParam ?? session.organizationId ?? '',
       dayCount: daysParam,
       webhookTypes,
     };
 
     const [monitoringData, health] = await Promise.all([
       collectWebhookMetrics(config),
-      checkWebhookHealth(session.organizationId),
+      checkWebhookHealth(orgIdParam ?? session.organizationId ?? ''),
     ]);
 
     return NextResponse.json({

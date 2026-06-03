@@ -177,8 +177,9 @@ export async function monitorWebhookHealth(
       });
     }
 
+    interface TypeCount { total: number; success: number; failed: number; }
     // Type-specific alerts
-    const typeMetrics: Record<string, any> = {};
+    const typeMetrics: Record<string, TypeCount> = {};
     for (const event of events) {
       if (!typeMetrics[event.webhookType]) {
         typeMetrics[event.webhookType] = {

@@ -833,7 +833,9 @@ export interface BatchCreatePayload {
   payloads: WebhookPayload[];
 }
 
-export async function createContactsBatch(batch: BatchCreatePayload) {
+export async function createContactsBatch(
+  batch: BatchCreatePayload
+): Promise<{ total: number; success: number; error: number; results: ContactAutoCreateResult[] }> {
   const results = [];
   let successCount = 0;
   let errorCount = 0;

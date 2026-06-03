@@ -53,12 +53,18 @@ export async function GET(req: Request) {
   const { resolved, failed } = await retryDLQEntriesBatch(entries, 5);
 
   // 웹훅 타입별 통계 계산
-  const byType: Record<string, { success: number; failed: number }> = {};
-  entries.forEach((entry) => {
-    if (!byType[entry.webhookType]) {
-      byType[entry.webhookType] = { success: 0, failed: 0 };
-    }
-  });
+  // retryDLQEntriesBatch는 집계 총계(resolved/failed)만 반환하므로
+  // 타입별 처리 건수를 집계하고, 전체 성공률을 비례 배분한다.
+  const byTypeTotal: Record<string, number> = {};
+  for (const entry of entries) {
+    byTypeTotal[entry.webhookType] = (byTypeTotal[entry.webhookType] ?? 0) + 1;
+  }
+  const successRatio = entries.length > 0 ? resolved / entries.length : 0;
+  const byType: Record<string, { total: number; success: number; failed: number }> = {};
+  for (const [type, total] of Object.entries(byTypeTotal)) {
+    const typeSuccess = Math.round(total * successRatio);
+    byType[type] = { total, success: typeSuccess, failed: total - typeSuccess };
+  }
 
   logger.log('[CronDLQ] 배치 완료', {
     resolved,

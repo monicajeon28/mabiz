@@ -55,6 +55,23 @@ export interface DailyTrendData {
   avgExecutionTimeMs: number;
 }
 
+/** Minimal shape of a WebhookEvent row as used by the local calc helpers */
+interface WebhookEventRow {
+  webhookType: string;
+  status: string;
+  executionTimeMs: number | null;
+  retryCount: number;
+  createdAt: Date;
+}
+
+interface DailyAccumulator {
+  date: string;
+  totalEvents: number;
+  successCount: number;
+  failureCount: number;
+  executionTimes: number[];
+}
+
 export async function collectWebhookMetrics(
   config: WebhookMonitoringConfig
 ): Promise<WebhookMonitoringData> {
@@ -279,7 +296,7 @@ export async function collectWebhookMetrics(
 }
 
 function calculateMetrics(
-  events: any[]
+  events: WebhookEventRow[]
 ): WebhookMetric {
   if (events.length === 0) {
     return {
@@ -301,7 +318,7 @@ function calculateMetrics(
   const pendingCount = events.filter(e => e.status === 'PENDING').length;
 
   const executionTimes = events
-    .filter(e => e.executionTimeMs !== null)
+    .filter((e): e is typeof e & { executionTimeMs: number } => e.executionTimeMs !== null)
     .map(e => e.executionTimeMs)
     .sort((a, b) => a - b);
 
@@ -312,12 +329,12 @@ function calculateMetrics(
 
   const p95ExecutionTimeMs =
     executionTimes.length > 0
-      ? executionTimes[Math.floor(executionTimes.length * 0.95)]
+      ? (executionTimes[Math.floor(executionTimes.length * 0.95)] ?? 0)
       : 0;
 
   const p99ExecutionTimeMs =
     executionTimes.length > 0
-      ? executionTimes[Math.floor(executionTimes.length * 0.99)]
+      ? (executionTimes[Math.floor(executionTimes.length * 0.99)] ?? 0)
       : 0;
 
   const successRate = (successCount / events.length) * 100;
@@ -345,7 +362,7 @@ function calculateMetrics(
   };
 }
 
-function calculateMetricsByType(events: any[]): WebhookTypeMetrics {
+function calculateMetricsByType(events: WebhookEventRow[]): WebhookTypeMetrics {
   const byType: WebhookTypeMetrics = {};
 
   for (const event of events) {
@@ -488,8 +505,8 @@ function generateRecommendations(
   return recommendations;
 }
 
-function calculateDailyTrend(events: any[]): DailyTrendData[] {
-  const dailyData: Record<string, any> = {};
+function calculateDailyTrend(events: WebhookEventRow[]): DailyTrendData[] {
+  const dailyData: Record<string, DailyAccumulator> = {};
 
   for (const event of events) {
     const date = new Date(event.createdAt).toISOString().split('T')[0];

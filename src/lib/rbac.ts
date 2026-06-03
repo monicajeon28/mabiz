@@ -140,8 +140,11 @@ export function requireOrgId(ctx: AuthContext): string {
   return ctx.organizationId;
 }
 
-/** 본사 조직 ID (GLOBAL_ADMIN 쓰기 작업 기본값) */
-export const BONSA_ORG_ID = 'org-cruisedot-main';
+/** 본사 조직 ID (GLOBAL_ADMIN 쓰기 작업 기본값)
+ * 환경변수 BONSA_ORG_ID로 오버라이드 가능.
+ * 예) .env.local: BONSA_ORG_ID=org-cruisedot-main
+ */
+export const BONSA_ORG_ID = process.env.BONSA_ORG_ID ?? 'org-cruisedot-main';
 
 /**
  * GLOBAL_ADMIN → null (전체 조직 조회, org 필터 없음)

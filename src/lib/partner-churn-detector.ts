@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 export interface PartnerChurnSignal {
   partnerId: string;
@@ -177,7 +178,7 @@ export async function detectPartnerChurnRisk(
       recommendedActions: actions,
     };
   } catch (err) {
-    console.error("[Partner Churn] Detection failed", err);
+    logger.error("[Partner Churn] Detection failed", { err });
     return null;
   }
 }
@@ -211,9 +212,10 @@ export async function alertChurnAtRiskPartners(
 
   // TODO: Send alerts to organization admins
   // TODO: Create tasks/reminders for account managers
-  console.log(
-    `[Partner Churn] ${atRiskPartners.length} at-risk partners, ${criticalPartners.length} critical`
-  );
+  logger.info("[Partner Churn] Alert summary", {
+    atRisk: atRiskPartners.length,
+    critical: criticalPartners.length,
+  });
 
   return {
     alerted: atRiskPartners.length,

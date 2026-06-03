@@ -416,10 +416,22 @@ function getLensLabel(lens: string): string {
   return labels[lens] || '미분류';
 }
 
+interface LandingSignupLogData {
+  contactId: string;
+  email?: string;
+  phone?: string;
+  lens: string;
+  travelType?: string;
+  budget?: string;
+  assignedManagerId?: string | null;
+  smsQueueSize: number;
+  timestamp: string;
+}
+
 /**
  * 감사 로그: 나중에 분석용 DB 저장 가능
  */
-function logLandingSignup(data: any) {
+function logLandingSignup(data: LandingSignupLogData) {
   const logData = {
     ...data,
     level: 'INFO',

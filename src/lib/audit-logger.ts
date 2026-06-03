@@ -14,7 +14,7 @@ export interface AuditLogEntry {
   organizationId: string | null;
   status: 'ALLOWED' | 'DENIED';
   reason?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   timestamp: Date;
 }
 
@@ -27,7 +27,7 @@ export interface SecurityEvent {
   userId: string;
   organizationId: string | null;
   description: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   timestamp: Date;
 }
 

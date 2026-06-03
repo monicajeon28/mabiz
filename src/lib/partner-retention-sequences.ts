@@ -133,13 +133,13 @@ export async function startRetentionSequence(
     const firstStep = template.steps[0];
     if (firstStep.channel === "SMS") {
       // TODO: Send SMS via Aligo
-      logger.log("[Partner Retention] SMS scheduled", {
+      logger.info("[Partner Retention] SMS scheduled", {
         partnerId,
         template: firstStep.template,
       });
     } else if (firstStep.channel === "EMAIL") {
       // TODO: Send email via SendGrid
-      logger.log("[Partner Retention] Email scheduled", {
+      logger.info("[Partner Retention] Email scheduled", {
         partnerId,
         subject: firstStep.subject,
       });

@@ -172,7 +172,7 @@ export async function updatePartnerTiers(
     }
 
     if (updated > 0) {
-      logger.log("[Partner Tier] Updated partners", {
+      logger.info("[Partner Tier] Updated partners", {
         organizationId,
         updated,
         changes: changes.slice(0, 5), // Log first 5

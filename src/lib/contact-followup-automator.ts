@@ -201,7 +201,7 @@ export async function startFollowupSequence(
 
     // TODO: Store followup sequence in a FollowupSequence model
     // For now, just log it
-    logger.log("[Auto-Followup] Sequence started", {
+    logger.info("[Auto-Followup] Sequence started", {
       contactId,
       sequenceType,
       totalTouches: touchSequence.length,
@@ -227,7 +227,7 @@ export async function processScheduledFollowups(): Promise<number> {
   //   - Log completion
   // TODO: Update contact metadata with touch count
 
-  logger.log("[Auto-Followup] Processing scheduled touches...");
+  logger.info("[Auto-Followup] Processing scheduled touches...");
   return 0;
 }
 

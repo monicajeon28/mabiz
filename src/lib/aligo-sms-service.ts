@@ -61,14 +61,18 @@ async function sendSmsWithAligo(
       };
     }
 
-    if (!senderPhone || !recipientPhone) {
-      logger.error('[Aligo SMS] 전화번호 누락', {
-        hasSenderPhone: !!senderPhone,
-        hasRecipientPhone: !!recipientPhone,
-      });
+    if (!senderPhone) {
+      // 발신번호 누락은 설정 오류 — silent 처리 금지, 명시적 에러로 조기 감지
+      const err = new Error('Aligo SMS 발송 실패: 발신번호(senderPhone)가 null/빈 값입니다. OrgSmsConfig.senderPhone을 확인하세요.');
+      logger.error('[Aligo SMS] 발신번호 누락 — 설정 오류', { senderPhone });
+      throw err;
+    }
+
+    if (!recipientPhone) {
+      logger.error('[Aligo SMS] 수신번호 누락', { hasRecipientPhone: false });
       return {
         success: false,
-        error: 'Aligo SMS 발송 실패: 송신자 또는 수신자 전화번호 없음',
+        error: 'Aligo SMS 발송 실패: 수신자 전화번호 없음',
         retryable: false,
       };
     }
