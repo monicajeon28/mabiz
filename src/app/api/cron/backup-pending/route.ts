@@ -14,9 +14,13 @@ import { logger } from '@/lib/logger';
  */
 export async function GET(req: Request) {
   try {
-    // Cron 보안: X-Vercel-Cron 헤더 확인 (옵션)
+    // Cron 보안 — CRON_SECRET 미설정 시 fail-closed (500)
+    const envSecret = process.env.CRON_SECRET;
+    if (!envSecret) {
+      return NextResponse.json({ ok: false, message: 'CRON_SECRET 환경변수 미설정' }, { status: 500 });
+    }
     const cronSecret = req.headers.get('x-vercel-cron-secret');
-    if (process.env.CRON_SECRET && cronSecret !== process.env.CRON_SECRET) {
+    if (cronSecret !== envSecret) {
       return NextResponse.json({ ok: false, message: '인증 실패' }, { status: 401 });
     }
 

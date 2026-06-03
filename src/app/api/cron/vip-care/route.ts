@@ -15,9 +15,13 @@ const BATCH_SIZE = 100;
 const MAX_DURATION_MS = 250_000; // 250s (Vercel 타임아웃 전 안전 종료)
 
 export async function GET(req: Request) {
-  // Cron 보안 검증
+  // Cron 보안 검증 — CRON_SECRET 미설정 시 fail-closed (500)
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json({ ok: false, error: "CRON_SECRET 환경변수 미설정" }, { status: 500 });
+  }
   const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 

@@ -152,8 +152,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
       if (period) {
         const [y, m] = period.split('-').map(Number);
-        const periodStart = new Date(y, m - 1, 1);
-        const periodEnd = new Date(y, m, 1);
+        const periodStart = new Date(Date.UTC(y, m - 1, 1));
+        const periodEnd = new Date(Date.UTC(y, m, 1));
         whereConditions.travelCompletedAt = { gte: periodStart, lt: periodEnd };
       }
 

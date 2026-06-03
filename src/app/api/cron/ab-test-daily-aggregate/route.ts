@@ -196,11 +196,13 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    // Verify cron authentication
-    const authHeader = request.headers.get("Authorization");
+    // Verify cron authentication — CRON_SECRET 미설정 시 fail-closed (500)
     const expectedToken = process.env.CRON_SECRET;
-
-    if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
+    if (!expectedToken) {
+      return NextResponse.json({ error: "CRON_SECRET 환경변수 미설정" }, { status: 500 });
+    }
+    const authHeader = request.headers.get("Authorization");
+    if (authHeader !== `Bearer ${expectedToken}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

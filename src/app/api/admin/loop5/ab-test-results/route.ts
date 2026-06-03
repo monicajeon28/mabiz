@@ -56,6 +56,8 @@ export async function GET(req: NextRequest) {
   const startTime = Date.now();
   try {
     const ctx = await getMabizSession();
+    // GLOBAL_ADMIN만 조직 필터 없이 전체 접근 가능
+    // OWNER는 자신의 조직 데이터만 접근 가능 (아래에서 필터 적용)
     if (!ctx || !['OWNER', 'GLOBAL_ADMIN'].includes(ctx.role)) {
       return NextResponse.json({ ok: false }, { status: 403 });
     }
@@ -63,6 +65,9 @@ export async function GET(req: NextRequest) {
     // 쿼리 파라미터
     const searchParams = new URL(req.url).searchParams;
     const days = parseInt(searchParams.get('days') || '14', 10);
+
+    // OWNER는 조직 필터 강제 적용
+    const organizationId = ctx.role === 'OWNER' ? ctx.organizationId : null;
 
     // DB 함수 사용: Supabase RPC가 가능하면 사용, 아니면 Prisma 사용
     if (supabase) {
@@ -118,10 +123,11 @@ export async function GET(req: NextRequest) {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    // FormSubmission 데이터 조회
+    // FormSubmission 데이터 조회 (OWNER는 자신의 조직 데이터만)
     const submissions = await prisma.formSubmission.findMany({
       where: {
         createdAt: { gte: startDate },
+        ...(organizationId ? { organizationId } : {}),
       },
       select: {
         id: true,

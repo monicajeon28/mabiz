@@ -4,7 +4,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { logger } from '@/lib/logger';
-import { requirePartnerContext } from '@/lib/passport-auth';
 
 /**
  * 예약 생성 API
@@ -18,15 +17,6 @@ import { requirePartnerContext } from '@/lib/passport-auth';
  * APIS 코드는 dateOfBirth/passportExpiryDate도 지원하므로 입력 데이터에서 양쪽 모두 처리
  */
 export async function POST(req: NextRequest) {
-  // ── 파트너 인증 ────────────────────────────────────────────────
-  const partnerCtx = await requirePartnerContext();
-  if (!partnerCtx) {
-    return NextResponse.json(
-      { ok: false, message: '인증이 필요합니다. 파트너 계정으로 로그인하세요.' },
-      { status: 403 }
-    );
-  }
-
   try {
     const body = await req.json();
     const { tripId, mainUser, travelers, cabinType, pnrStatus } = body;
@@ -81,10 +71,10 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // phone으로 찾지 못했고 name이 있으면 name으로 검색
-      if (!mainUserData && mainUser.name) {
+      // phone + name 조합으로만 재시도 (name 단독 검색 시 동명이인 오염 방지)
+      if (!mainUserData && mainUser.phone && mainUser.name) {
         mainUserData = await tx.gmUser.findFirst({
-          where: { name: mainUser.name },
+          where: { phone: mainUser.phone, name: mainUser.name },
         });
       }
 

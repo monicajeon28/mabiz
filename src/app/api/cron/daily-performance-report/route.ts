@@ -38,9 +38,13 @@ interface EmailPayload {
 
 export async function GET(req: Request) {
   try {
-    // Verify cron secret
+    // Verify cron secret — CRON_SECRET 미설정 시 fail-closed (500)
+    const envSecret = process.env.CRON_SECRET;
+    if (!envSecret) {
+      return NextResponse.json({ ok: false, message: 'CRON_SECRET 환경변수 미설정' }, { status: 500 });
+    }
     const cronSecret = req.headers.get('x-vercel-cron-secret');
-    if (process.env.CRON_SECRET && cronSecret !== process.env.CRON_SECRET) {
+    if (cronSecret !== envSecret) {
       return NextResponse.json({ ok: false, message: 'Unauthorized' }, { status: 401 });
     }
 

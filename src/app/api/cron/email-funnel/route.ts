@@ -18,11 +18,14 @@ const MAX_RETRIES = 3;
 
 export async function GET(req: Request) {
   try {
-    // Cron 보안: Authorization 헤더 검증 (선택사항)
-    const authHeader = req.headers.get("authorization");
+    // Cron 보안: Authorization 헤더 검증 — CRON_SECRET 미설정 시 fail-closed (500)
     const expectedToken = process.env.CRON_SECRET;
-
-    if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
+    if (!expectedToken) {
+      logger.error("[Cron] CRON_SECRET 환경변수 미설정");
+      return NextResponse.json({ error: "CRON_SECRET 환경변수 미설정" }, { status: 500 });
+    }
+    const authHeader = req.headers.get("authorization");
+    if (authHeader !== `Bearer ${expectedToken}`) {
       logger.warn("[Cron] 미인증 요청", { ip: req.headers.get("x-forwarded-for") });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

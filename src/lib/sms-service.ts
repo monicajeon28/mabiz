@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { sendSmsWithAligoPublic } from '@/lib/aligo-sms-service';
 
 /**
  * SMS 스케줄링 서비스
@@ -18,15 +19,34 @@ export interface ScheduledSmsInput {
 }
 
 export async function sendSmsViaAligo(phoneNumber: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const aligoUserId = process.env.ALIGO_USER_ID;
+  const aligoKey = process.env.ALIGO_API_KEY;
+  const senderPhone = process.env.ALIGO_SENDER_PHONE;
+
+  if (!aligoUserId || !aligoKey || !senderPhone) {
+    logger.error('[SendSmsViaAligo] Aligo 환경변수 누락', {
+      hasUserId: !!aligoUserId,
+      hasKey: !!aligoKey,
+      hasSenderPhone: !!senderPhone,
+    });
+    return {
+      success: false,
+      error: 'Aligo 환경변수 미설정: ALIGO_USER_ID, ALIGO_API_KEY, ALIGO_SENDER_PHONE 확인 필요',
+    };
+  }
+
   try {
     logger.log('[SendSmsViaAligo] Sending SMS via Aligo', {
       phoneNumber,
       messageLength: message.length,
     });
 
+    const result = await sendSmsWithAligoPublic(aligoUserId, aligoKey, senderPhone, phoneNumber, message);
+
     return {
-      success: true,
-      messageId: `aligo-${Date.now()}`,
+      success: result.success,
+      messageId: result.smsId,
+      error: result.error,
     };
   } catch (error) {
     logger.error('[SendSmsViaAligo] Error', {

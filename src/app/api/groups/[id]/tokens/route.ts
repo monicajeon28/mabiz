@@ -132,7 +132,7 @@ export async function PATCH(
     if (action === 'refresh') {
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const token = await prisma.groupToken.update({
-        where: { id: tokenId },
+        where: { id: tokenId, groupId },
         data: { expiresAt, active: true },
         select: { id: true, expiresAt: true, active: true, createdAt: true },
       });
@@ -145,7 +145,7 @@ export async function PATCH(
       });
     } else if (action === 'deactivate') {
       const token = await prisma.groupToken.update({
-        where: { id: tokenId },
+        where: { id: tokenId, groupId },
         data: { active: false },
         select: { id: true, expiresAt: true, active: true, createdAt: true },
       });

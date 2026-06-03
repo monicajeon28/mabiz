@@ -123,9 +123,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       health,
     });
 
-    // 응답 반환 (1시간 캐시)
+    // 응답 반환 (1시간 캐시, private: 관리자 전용 민감 데이터)
     const response = NextResponse.json(metrics);
-    response.headers.set("Cache-Control", "public, max-age=3600");
+    response.headers.set("Cache-Control", "private, max-age=3600");
     return response;
   } catch (err) {
     logger.error("[Verification Metrics] 메트릭 수집 실패", { err });

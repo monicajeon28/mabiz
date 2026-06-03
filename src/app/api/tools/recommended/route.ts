@@ -64,7 +64,7 @@ export async function GET(req: Request) {
     });
 
     // HTTP 캐싱 헤더 추가 (30분)
-    response.headers.set('Cache-Control', `public, max-age=${CACHE_DURATION}, stale-while-revalidate=${CACHE_DURATION}`);
+    response.headers.set('Cache-Control', `private, max-age=${CACHE_DURATION}, stale-while-revalidate=${CACHE_DURATION}`);
     response.headers.set('CDN-Cache-Control', `max-age=${CACHE_DURATION}`);
 
     return response;
