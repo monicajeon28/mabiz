@@ -51,18 +51,29 @@ export async function POST(req: Request) {
         data: { assignedUserId: assignToUserId },
       });
 
-      // 이력 기록 (일괄) - 실제 업데이트된 ID들로 이력 생성
+      // 이력 기록 (일괄) - 실제 업데이트된 ID를 DB에서 별도 조회하여 정확한 이력 생성
       if (updated.count > 0) {
-        const actualUpdatedIds = contactIds.filter((id, i) => i < (updated.count || 0));
-        await tx.contactTransferLog.createMany({
-          data: actualUpdatedIds.map((contactId) => ({
-            contactId,
-            fromOrgId: orgId,
-            toUserId: assignToUserId,
-            transferType: 'AGENT_ASSIGN',
-            transferredBy: ctx.userId,
-          })),
+        const actualUpdatedContacts = await tx.contact.findMany({
+          where: {
+            id: { in: contactIds },
+            organizationId: orgId,
+            deletedAt: null,
+            assignedUserId: assignToUserId,
+          },
+          select: { id: true },
         });
+        const actualUpdatedIds = actualUpdatedContacts.map((c) => c.id);
+        if (actualUpdatedIds.length > 0) {
+          await tx.contactTransferLog.createMany({
+            data: actualUpdatedIds.map((contactId) => ({
+              contactId,
+              fromOrgId: orgId,
+              toUserId: assignToUserId,
+              transferType: 'AGENT_ASSIGN',
+              transferredBy: ctx.userId,
+            })),
+          });
+        }
       }
 
       return updated.count;

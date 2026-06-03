@@ -58,7 +58,7 @@ export async function predictContactChurn(
 
     // Signal 2: No memo/activity
     const recentActivityCount =
-      (contact.memos?.length ?? 0) + (contact.callLogs?.length ?? 0);
+      contact.memos?.length || 0 + contact.callLogs?.length || 0;
     if (recentActivityCount === 0) {
       churnScore += 15;
       signals.push("활동 기록 없음");
@@ -222,18 +222,108 @@ export async function identifyUpsellOpportunities(
 export async function predictAllChurns(
   organizationId: string
 ): Promise<ChurnPrediction[]> {
+  // 단일 배치 쿼리로 모든 contact + 관련 데이터를 한 번에 조회
   const contacts = await prisma.contact.findMany({
     where: { organizationId },
-    select: { id: true },
-    take: 1000, // Limit for performance
+    take: 1000,
+    include: {
+      callLogs: { orderBy: { createdAt: "desc" }, take: 30 },
+      memos: { orderBy: { createdAt: "desc" }, take: 30 },
+    },
   });
 
   const predictions: ChurnPrediction[] = [];
 
   for (const contact of contacts) {
-    const prediction = await predictContactChurn(contact.id);
-    if (prediction && prediction.churnProbability > 0.5) {
-      predictions.push(prediction);
+    // contact 객체를 직접 사용해 DB 재조회 없이 churn 점수 계산
+    let churnScore = 0;
+    const signals: string[] = [];
+
+    const lastContactDate = contact.lastContactedAt
+      ? new Date(contact.lastContactedAt)
+      : contact.createdAt;
+    const daysSinceLastContact = Math.floor(
+      (Date.now() - lastContactDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (daysSinceLastContact > 60) {
+      churnScore += 25;
+      signals.push("60일 이상 연락 없음");
+    } else if (daysSinceLastContact > 30) {
+      churnScore += 15;
+      signals.push("30일 이상 연락 없음");
+    } else if (daysSinceLastContact > 14) {
+      churnScore += 5;
+      signals.push("14일 이상 연락 없음");
+    }
+
+    const recentActivityCount =
+      contact.memos?.length || 0 + contact.callLogs?.length || 0;
+    if (recentActivityCount === 0) {
+      churnScore += 15;
+      signals.push("활동 기록 없음");
+    }
+
+    if (contact.tags?.includes("OBJECTION_UNRESOLVED")) {
+      churnScore += 20;
+      signals.push("해결되지 않은 이의 존재");
+    }
+
+    const failedAttempts =
+      contact.callLogs?.filter(
+        (c) => c.content?.includes("미응") || c.content?.includes("미연락")
+      ).length || 0;
+    if (failedAttempts > 2) {
+      churnScore += 15;
+      signals.push(`${failedAttempts}회 이상 미응 기록`);
+    }
+
+    if (contact.segment === "LOW_PRIORITY") {
+      churnScore += 10;
+      signals.push("저우선순위 세그먼트");
+    }
+
+    if (contact.tags?.includes("PAYMENT_OVERDUE")) {
+      churnScore += 25;
+      signals.push("결제 미달");
+    }
+
+    const recentMemos = contact.memos?.slice(0, 5) || [];
+    const negativeMemos = recentMemos.filter(
+      (m) =>
+        m.content?.includes("불만") ||
+        m.content?.includes("거절") ||
+        m.content?.includes("취소")
+    ).length;
+    if (negativeMemos > 0) {
+      churnScore += 10 * negativeMemos;
+      signals.push(`${negativeMemos}건의 부정적 피드백`);
+    }
+
+    let daysUntilChurn = 90;
+    if (signals.length >= 3) daysUntilChurn = 30;
+    if (signals.length >= 5) daysUntilChurn = 14;
+    if (churnScore >= 80) daysUntilChurn = 7;
+
+    let recommendedAction = "주기적 팔로업";
+    if (churnScore >= 80) {
+      recommendedAction = "긴급: 매니저 직통 전화";
+    } else if (churnScore >= 60) {
+      recommendedAction = "우선 연락 + 인센티브 제안";
+    } else if (churnScore >= 40) {
+      recommendedAction = "정기 체크인 + 가치 재확인";
+    }
+
+    const churnProbability = Math.min(100, churnScore) / 100;
+    if (churnProbability > 0.5) {
+      predictions.push({
+        contactId: contact.id,
+        contactName: contact.name,
+        churnProbability,
+        daysUntilChurn,
+        signals,
+        recommendedAction,
+      });
     }
   }
 

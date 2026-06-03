@@ -13,7 +13,7 @@
 
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
-import { validateSenderPhone } from "@/lib/funnel-sms-helpers";
+import { validateSenderPhone, checkFunnelSmsIdempotency } from "@/lib/funnel-sms-helpers";
 
 interface TriggerOptions {
   contactId:      string;
@@ -79,18 +79,17 @@ export async function triggerGroupFunnelSms(opts: TriggerOptions): Promise<boole
   let successCount = 0;
   for (const funnelSmsId of funnelSmsIds) {
     try {
-      // 5-1. 중복 방지: 동일 funnelSmsId로 이미 PENDING/SENT 스케줄이 있으면 스킵
-      const existing = await prisma.scheduledSms.findFirst({
-        where: {
-          organizationId,
+      // 5-1. 멱등성 체크: PENDING/SENDING/SENT 상태 스케줄이 이미 있으면 스킵
+      // (FAILED는 재시도 허용 → 차단하지 않음)
+      // 중복 발송 경로: 랜딩 중복신청, 그룹이동 레이스, Webhook 재전송, 재트리거 API
+      const idempotency = await checkFunnelSmsIdempotency(organizationId, contactId, funnelSmsId);
+      if (idempotency.isDuplicate) {
+        logger.log("[FunnelSmsTrigger] 중복 퍼널문자 차단 (멱등성)", {
           contactId,
-          channel: { startsWith: `FUNNEL_SMS:${funnelSmsId}:` },
-          status: { in: ["PENDING", "SENT"] },
-        },
-        select: { id: true },
-      });
-      if (existing) {
-        logger.log("[FunnelSmsTrigger] 중복 퍼널문자 차단", { contactId, funnelSmsId });
+          funnelSmsId,
+          existingId: idempotency.existingId,
+          existingStatus: idempotency.existingStatus,
+        });
         continue;
       }
 

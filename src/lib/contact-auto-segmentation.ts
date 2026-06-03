@@ -61,18 +61,21 @@ export function determineDemographicSegment(contact: Contact): string {
  * GOLD, SILVER, BRONZE, LEAD
  */
 export function determineValueSegment(contact: Contact): string {
+  const ltv = contact.ltvTotal ?? 0;
+  const cruises = contact.cruiseCount ?? 0;
+
   // GOLD: VIP 회원 또는 LTV > $20,000
-  if (contact.vipStatus === 'GOLD' || contact.ltvTotal > 20000) {
+  if (contact.vipStatus === 'GOLD' || ltv > 20000) {
     return 'GOLD';
   }
 
   // SILVER: 재구매 경험 또는 LTV > $5,000
-  if (contact.cruiseCount > 1 || contact.ltvTotal > 5000) {
+  if (cruises > 1 || ltv > 5000) {
     return 'SILVER';
   }
 
   // BRONZE: 1회 구매 또는 LTV > $1,000
-  if (contact.purchasedAt || contact.ltvTotal > 1000) {
+  if (contact.purchasedAt || ltv > 1000) {
     return 'BRONZE';
   }
 

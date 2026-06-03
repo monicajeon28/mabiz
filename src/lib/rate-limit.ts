@@ -89,7 +89,7 @@ export async function checkRateLimitAsync(
 
   if (count !== null) {
     // Redis 성공
-    if (count > maxRequests) {
+    if (count >= maxRequests) {
       const ttl = await rlTtl(key);
       const resetAt = ttl && ttl > 0
         ? Date.now() + ttl * 1000

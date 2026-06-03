@@ -251,22 +251,25 @@ export async function POST(req: NextRequest) {
           throw err;
         }
 
-        return Promise.all(
-          generated.map((g) =>
-            tx.scheduledSms.create({
-              data: {
-                organizationId: contact.organizationId,
-                contactId: contact.id,
-                message: g.message,
-                scheduledAt: g.scheduledAt,
-                status: "PENDING",
-                channel: "FUNNEL",
-                createdByUserId: ctx.userId,
-              },
-              select: { id: true, scheduledAt: true, status: true },
-            })
-          )
-        );
+        // PgBouncer 교착상태 방지: 인터랙티브 트랜잭션 내 Promise.all 금지
+        // → 순차 for-of 루프로 교체 (각 쿼리가 완료된 뒤 다음 쿼리 실행)
+        const rows: Array<{ id: string; scheduledAt: Date; status: string }> = [];
+        for (const g of generated) {
+          const row = await tx.scheduledSms.create({
+            data: {
+              organizationId: contact.organizationId,
+              contactId: contact.id,
+              message: g.message,
+              scheduledAt: g.scheduledAt,
+              status: "PENDING",
+              channel: "FUNNEL",
+              createdByUserId: ctx.userId,
+            },
+            select: { id: true, scheduledAt: true, status: true },
+          });
+          rows.push(row);
+        }
+        return rows;
       });
 
       created = txResult;

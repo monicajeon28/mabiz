@@ -95,37 +95,50 @@ export async function POST(req: Request) {
       validRows.push({ index: i, data });
     }
 
-    // P1-23: Promise.all + 배치 트랜잭션으로 N+1 해결 (순차 1000개 → 병렬 배치)
-    const results = await Promise.allSettled(
-      validRows.map((row) =>
-        prisma.contact.upsert({
-          where: { phone_organizationId: { phone: row.data.phone, organizationId: orgId } },
-          create: {
-            organizationId: orgId,
-            name:           row.data.name,
-            phone:          row.data.phone,
-            email:          row.data.email          ?? null,
-            type:           row.data.type           ?? "LEAD",
-            cruiseInterest: row.data.cruiseInterest ?? null,
-            adminMemo:      row.data.adminMemo      ?? null,
-          },
-          update: {
-            name:           row.data.name,
-            email:          row.data.email          ?? undefined,
-            cruiseInterest: row.data.cruiseInterest ?? undefined,
-            adminMemo:      row.data.adminMemo      ?? undefined,
-          },
-        })
-      )
-    );
+    // 50건 단위 청크 처리 (수천건 동시 upsert → DB 과부하 방지)
+    const CHUNK_SIZE = 50;
+    const allResults: Array<{ status: "fulfilled" | "rejected"; rowIndex: number; name: string }> = [];
+
+    for (let chunkStart = 0; chunkStart < validRows.length; chunkStart += CHUNK_SIZE) {
+      const chunk = validRows.slice(chunkStart, chunkStart + CHUNK_SIZE);
+      const chunkResults = await Promise.allSettled(
+        chunk.map((row) =>
+          prisma.contact.upsert({
+            where: { phone_organizationId: { phone: row.data.phone, organizationId: orgId } },
+            create: {
+              organizationId: orgId,
+              name:           row.data.name,
+              phone:          row.data.phone,
+              email:          row.data.email          ?? null,
+              type:           row.data.type           ?? "LEAD",
+              cruiseInterest: row.data.cruiseInterest ?? null,
+              adminMemo:      row.data.adminMemo      ?? null,
+            },
+            update: {
+              name:           row.data.name,
+              email:          row.data.email          ?? undefined,
+              cruiseInterest: row.data.cruiseInterest ?? undefined,
+              adminMemo:      row.data.adminMemo      ?? undefined,
+            },
+          })
+        )
+      );
+      chunkResults.forEach((result, idx) => {
+        const row = chunk[idx];
+        allResults.push({
+          status: result.status,
+          rowIndex: row.index,
+          name: row.data.name,
+        });
+      });
+    }
 
     // 결과 집계
-    results.forEach((result, idx) => {
+    allResults.forEach((result) => {
       if (result.status === "fulfilled") {
         successCount++;
       } else {
-        const row = validRows[idx];
-        errors.push(`${row.index + 2}행: 저장 실패 (${row.data.name})`);
+        errors.push(`${result.rowIndex + 2}행: 저장 실패 (${result.name})`);
         skipCount++;
       }
     });

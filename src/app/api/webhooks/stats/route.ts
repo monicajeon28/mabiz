@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     }
 
     const url = new URL(req.url);
-    const daysParam = parseInt(url.searchParams.get('days') || '7', 10);
+    const daysParam = Math.min(90, Math.max(1, parseInt(url.searchParams.get('days') || '7', 10)));
     const sinceDate = new Date(Date.now() - daysParam * 86400000);
 
     const [events, logs, queue] = await Promise.all([

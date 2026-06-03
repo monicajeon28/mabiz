@@ -129,6 +129,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const manager = await requireCrmManager();
+    if (!manager) {
+      return NextResponse.json(
+        { ok: false, message: '인증이 필요합니다. 다시 로그인해 주세요.' },
+        { status: 401 }
+      );
+    }
 
     const body: SendPnrRequestBody = await req.json();
     const { reservationId, messageBody } = body;
@@ -315,6 +321,12 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const manager = await requireCrmManager();
+    if (!manager) {
+      return NextResponse.json(
+        { ok: false, message: '인증이 필요합니다. 다시 로그인해 주세요.' },
+        { status: 401 }
+      );
+    }
 
     const { searchParams } = new URL(req.url);
     const reservationId = parseInt(searchParams.get('reservationId') || '');

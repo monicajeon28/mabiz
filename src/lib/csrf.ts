@@ -91,13 +91,15 @@ export async function storeToken(sessionId: string, token: string): Promise<void
  */
 export async function validateToken(sessionId: string, token: string): Promise<boolean> {
   // 1순위: Redis
-  const stored = await csrfGet(sessionId);
+  const result = await csrfGet(sessionId);
 
-  if (stored !== null) {
-    return stored === token;
+  if (result !== null) {
+    // Redis 정상 응답: value가 null이면 키 없음(토큰 미발급/만료) → false
+    // value가 있으면 상수 시간 비교
+    return result.value !== null && result.value === token;
   }
 
-  // 2순위: 메모리 폴백
+  // result === null: Redis 비활성 또는 오류 → 메모리 폴백
   const fallback = tokenStoreFallback.get(sessionId);
   if (!fallback) return false;
   if (Date.now() > fallback.expires) {

@@ -257,33 +257,38 @@ export async function GET(req: NextRequest) {
       return rateA - rateB;
     });
 
-    // 7. Trends (일별 추이)
+    // 7. Trends (일별 추이) — 단일 $queryRaw + date_trunc 집계 (직렬 루프 제거)
+    type DailyRow = { date: string; status: string; cnt: bigint };
+    const rawRows = await prisma.$queryRaw<DailyRow[]>`
+      SELECT
+        TO_CHAR(DATE_TRUNC('day', "createdAt"), 'YYYY-MM-DD') AS date,
+        "status",
+        COUNT(*)::bigint AS cnt
+      FROM "SendingHistory"
+      WHERE "createdAt" >= ${since}
+        AND "createdAt" <= ${until}
+      GROUP BY DATE_TRUNC('day', "createdAt"), "status"
+      ORDER BY 1
+    `;
+
     const dailyTrends = new Map<string, { sent: number; failed: number }>();
 
+    // 미리 날짜 키 초기화 (데이터 없는 날도 0으로 표시)
     for (let i = 0; i < daysInPeriod; i++) {
-      const dayStart = startOfDay(addDays(since, i));
-      const dayEnd = addDays(dayStart, 1);
-      const dateStr = dayStart.toISOString().split('T')[0];
-
+      const dateStr = startOfDay(addDays(since, i)).toISOString().split('T')[0];
       dailyTrends.set(dateStr, { sent: 0, failed: 0 });
+    }
 
-      const dayStats = await prisma.sendingHistory.groupBy({
-        by: ['status'],
-        where: {
-          createdAt: { gte: dayStart, lt: dayEnd },
-        },
-        _count: true,
-      });
-
-      const data = dailyTrends.get(dateStr)!;
-      for (const stat of dayStats) {
-        const status = stat.status as string;
-        if (status === 'SENT') {
-          data.sent += stat._count;
-        } else if (['FAILED', 'ABANDONED'].includes(status)) {
-          data.failed += stat._count;
-        }
+    for (const row of rawRows) {
+      const data = dailyTrends.get(row.date) ?? { sent: 0, failed: 0 };
+      const status = row.status as string;
+      const count = Number(row.cnt);
+      if (status === 'SENT') {
+        data.sent += count;
+      } else if (['FAILED', 'ABANDONED'].includes(status)) {
+        data.failed += count;
       }
+      dailyTrends.set(row.date, data);
     }
 
     const dailySent = Array.from(dailyTrends.entries()).map(([date, data]) => ({

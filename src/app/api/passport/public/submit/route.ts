@@ -93,6 +93,19 @@ export async function POST(req: NextRequest) {
             continue; // 필수 정보가 없으면 건너뜀
           }
 
+          // UTC-safe date normalization: "YYYY-MM-DD" 문자열을 Date.UTC로 파싱해 로컬 타임존 오프셋에 의한
+          // 하루 앞당김 오류를 방지하고, 다시 "YYYY-MM-DD" 형식의 문자열로 저장한다.
+          function normalizeDateString(raw: unknown): string | null {
+            if (!raw || typeof raw !== 'string') return null;
+            const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (!match) return raw; // 포맷 불일치 시 원본 반환
+            const y = parseInt(match[1], 10);
+            const m = parseInt(match[2], 10);
+            const d = parseInt(match[3], 10);
+            const utcDate = new Date(Date.UTC(y, m - 1, d));
+            return utcDate.toISOString().slice(0, 10); // "YYYY-MM-DD"
+          }
+
           const updateData = {
             korName: travelerData.korName as string,
             engSurname: (travelerData.engSurname as string) || null,
@@ -100,8 +113,8 @@ export async function POST(req: NextRequest) {
             passportNo: (travelerData.passportNo as string) || null,
             residentNum: (travelerData.residentNum as string) || null,
             nationality: (travelerData.nationality as string) || null,
-            birthDate: (travelerData.dateOfBirth as string) || null,
-            expiryDate: (travelerData.passportExpiryDate as string) || null,
+            birthDate: normalizeDateString(travelerData.dateOfBirth),
+            expiryDate: normalizeDateString(travelerData.passportExpiryDate),
             roomNumber: (travelerData.roomNumber as number) || 0,
           };
 

@@ -83,9 +83,10 @@ export async function POST(req: Request, { params }: Params) {
 
     const baseDate = body.startDate ? new Date(body.startDate) : new Date();
 
-    // 일괄 등록 — N+1 방지: 루프 대신 $transaction createMany 패턴
-    await prisma.$transaction(
-      toEnroll.map(contact => {
+    // 일괄 등록 — interactive transaction: 부분 실패 시 전체 롤백 보장
+    // (배열 방식 $transaction은 각 쿼리가 독립 실행되어 중간 실패 시 롤백 불가)
+    await prisma.$transaction(async (tx) => {
+      for (const contact of toEnroll) {
         const logs = funnel.stages.map(stage => {
           const scheduledAt = new Date(baseDate);
           scheduledAt.setUTCDate(scheduledAt.getUTCDate() + (stage.triggerOffset ?? 0));
@@ -105,7 +106,7 @@ export async function POST(req: Request, { params }: Params) {
           };
         });
 
-        return prisma.vipCareSequence.create({
+        await tx.vipCareSequence.create({
           data: {
             contactId: contact.id,
             funnelId,
@@ -114,8 +115,8 @@ export async function POST(req: Request, { params }: Params) {
             logs:      { create: logs },
           },
         });
-      })
-    );
+      }
+    });
     const enrolled = toEnroll.length;
 
     logger.log("[POST /api/funnels/[id]/enroll-group]", {

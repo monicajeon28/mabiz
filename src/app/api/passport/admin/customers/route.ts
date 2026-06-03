@@ -106,12 +106,12 @@ export async function GET(req: NextRequest) {
     const whereConditions: Prisma.Sql[] = [
       Prisma.sql`u.role != 'admin'`,
       // 구매 고객만 필터링: 확정된 예약 + 결제 완료
-      // Reservation(tripId) → Trip(id), Reservation(mainUserId) → User(id)
+      // Reservation(@@map="Reservation") ← GmReservation Prisma 모델 확인 완료
       Prisma.sql`EXISTS(
-        SELECT 1 FROM "Reservation" r
-        WHERE r."mainUserId" = u.id
-        AND r.status = 'CONFIRMED'
-        AND r."paymentAmount" > 0
+        SELECT 1 FROM "Reservation" rc
+        WHERE rc."mainUserId" = u.id
+        AND rc.status = 'CONFIRMED'
+        AND rc."paymentAmount" > 0
       )`
     ];
 

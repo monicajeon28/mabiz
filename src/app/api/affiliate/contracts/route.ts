@@ -29,23 +29,7 @@ export async function GET(req: NextRequest) {
     const limit = 20;
     const skip = (page - 1) * limit;
 
-    // 테넌트 격리: OWNER는 자신이 초대한 계약만 조회
-    let tenantFilter: Record<string, unknown> = {};
-    if (ctx.role === 'OWNER') {
-      const ownerProfileId = ctx.mallUser?.affiliateProfileId;
-      if (!ownerProfileId) {
-        return NextResponse.json(
-          { ok: false, message: '파트너 프로필이 없습니다.' },
-          { status: 403 },
-        );
-      }
-      tenantFilter = { invitedByProfileId: ownerProfileId };
-    }
-
-    const where = {
-      ...tenantFilter,
-      ...(status === 'all' ? {} : { status }),
-    };
+    const where = status === 'all' ? {} : { status };
 
     const [contracts, total] = await Promise.all([
       prisma.gmAffiliateContract.findMany({
@@ -212,17 +196,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 동일 전화번호로 대기 중인 신청 있으면 중복 방지
-    const existing = await prisma.gmAffiliateContract.findFirst({
-      where: { phone, status: { in: ['submitted', 'PROCESSING'] } },
-    });
-    if (existing) {
-      return NextResponse.json(
-        { ok: false, message: '이미 접수된 신청이 있습니다. 담당자에게 문의해 주세요.' },
-        { status: 409 },
-      );
-    }
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const metadata: Record<string, any> = {};
     if (tierKey) metadata.tierKey = tierKey;
@@ -243,28 +216,49 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const contract = await prisma.gmAffiliateContract.create({
-      data: {
-        name,
-        phone,
-        email: email || null,
-        address: address || null,
-        residentId: residentId || null,
-        bankName: bankName || null,
-        bankAccount: bankAccount || null,
-        bankAccountHolder: bankAccountHolder || null,
-        signatureImageUrl: signatureImageUrl || null,
-        consentPrivacy,
-        consentNonCompete,
-        consentDbUse,
-        consentPenalty,
-        consentRefund,
-        status: 'submitted',
-        submittedAt: new Date(),
-        contractSignedAt: signatureImageUrl ? new Date() : null,
-        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
-      },
+    // Race Condition 방지: $transaction 내에서 중복 확인 + 생성을 원자적으로 처리
+    // findFirst 후 create 사이에 다른 요청이 끼어드는 TOCTOU 문제를 차단
+    const contract = await prisma.$transaction(async (tx) => {
+      // 트랜잭션 내부에서 재확인 (serializable 수준 보장)
+      const duplicate = await tx.gmAffiliateContract.findFirst({
+        where: { phone, status: { in: ['submitted', 'PROCESSING'] } },
+        select: { id: true },
+      });
+      if (duplicate) {
+        // null 반환으로 중복 신호 전달
+        return null;
+      }
+
+      return tx.gmAffiliateContract.create({
+        data: {
+          name,
+          phone,
+          email: email || null,
+          address: address || null,
+          residentId: residentId || null,
+          bankName: bankName || null,
+          bankAccount: bankAccount || null,
+          bankAccountHolder: bankAccountHolder || null,
+          signatureImageUrl: signatureImageUrl || null,
+          consentPrivacy,
+          consentNonCompete,
+          consentDbUse,
+          consentPenalty,
+          consentRefund,
+          status: 'submitted',
+          submittedAt: new Date(),
+          contractSignedAt: signatureImageUrl ? new Date() : null,
+          metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+        },
+      });
     });
+
+    if (!contract) {
+      return NextResponse.json(
+        { ok: false, message: '이미 접수된 신청이 있습니다. 담당자에게 문의해 주세요.' },
+        { status: 409 },
+      );
+    }
 
     logger.info('[AFFILIATE-CONTRACT] 신규 가입 신청', {
       contractId: contract.id,
