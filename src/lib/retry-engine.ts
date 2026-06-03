@@ -201,6 +201,9 @@ export async function retryWithExponentialBackoff<T>(
 /**
  * 조건부 재시도 래퍼
  *
+ * shouldRetry 콜백이 false를 반환하면 즉시 포기하고,
+ * true를 반환하면 지수 백오프로 재시도한다.
+ *
  * @example
  * ```typescript
  * const result = await retryIf(
@@ -212,12 +215,105 @@ export async function retryWithExponentialBackoff<T>(
 export async function retryIf<T>(
   operation: () => Promise<T>,
   shouldRetry: (error: Error) => boolean,
-  config?: RetryConfig
+  config: RetryConfig = {}
 ): Promise<RetryResult<T>> {
-  return retryWithExponentialBackoff(operation, {
-    ...config,
-    retryableStatusCodes: new Set([]), // 기본값 무시
-  });
+  const {
+    maxRetries = 3,
+    initialDelayMs = 500,
+    maxDelayMs = 30000,
+    backoffMultiplier = 2,
+    jitterFactor = 0.1,
+    onRetryAttempt,
+    onRetrySuccess,
+  } = config;
+
+  const operationId = `op_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  let lastError: Error | undefined;
+  let lastErrorCode: number | undefined;
+  let totalDelayMs = 0;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const data = await operation();
+
+      if (attempt > 0) {
+        logger.log(`[RETRY_IF_SUCCESS] 재시도 성공`, {
+          operationId,
+          attempt: attempt + 1,
+          totalDelayMs,
+        });
+      }
+
+      onRetrySuccess?.(attempt + 1);
+
+      return {
+        success: true,
+        data,
+        attempts: attempt + 1,
+        operationId,
+        totalDelayMs,
+      };
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+
+      if ('status' in lastError) {
+        lastErrorCode = (lastError as any).status;
+      }
+
+      const isRetryable = shouldRetry(lastError);
+      const isLastAttempt = attempt === maxRetries;
+
+      onRetryAttempt?.(attempt + 1, lastError);
+
+      if (!isRetryable || isLastAttempt) {
+        logger.error(`[RETRY_IF_FAILED] 재시도 포기`, {
+          operationId,
+          attempt: attempt + 1,
+          error: lastError.message,
+          errorCode: lastErrorCode,
+          isRetryable,
+          totalDelayMs,
+        });
+
+        return {
+          success: false,
+          error: lastError,
+          attempts: attempt + 1,
+          lastErrorCode,
+          operationId,
+          totalDelayMs,
+        };
+      }
+
+      const exponentialDelay = Math.min(
+        initialDelayMs * Math.pow(backoffMultiplier, attempt),
+        maxDelayMs
+      );
+      const jitter = exponentialDelay * jitterFactor * (Math.random() * 2 - 1);
+      const finalDelay = Math.max(0, Math.round(exponentialDelay + jitter));
+
+      totalDelayMs += finalDelay;
+
+      logger.warn(`[RETRY_IF] 재시도 예약`, {
+        operationId,
+        attempt: attempt + 1,
+        error: lastError.message,
+        delayMs: finalDelay,
+        totalDelayMs,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, finalDelay));
+    }
+  }
+
+  return {
+    success: false,
+    error: lastError,
+    attempts: maxRetries + 1,
+    lastErrorCode,
+    operationId,
+    totalDelayMs,
+  };
 }
 
 /**

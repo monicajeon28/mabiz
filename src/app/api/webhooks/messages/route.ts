@@ -18,13 +18,15 @@ export async function POST(req: NextRequest) {
     const body = await req.text();
 
     const signature = req.headers.get('x-webhook-signature');
-    if (signature) {
-      try {
-        signatureVerify.verify(body, signature);
-      } catch {
-        logger.warn('[Webhook/Messages] Invalid signature');
-        return NextResponse.json({ ok: false, error: 'Invalid signature' }, { status: 403 });
-      }
+    if (!signature) {
+      logger.warn('[Webhook/Messages] Missing signature header');
+      return NextResponse.json({ ok: false, error: 'Missing signature' }, { status: 401 });
+    }
+    try {
+      signatureVerify.verify(body, signature);
+    } catch {
+      logger.warn('[Webhook/Messages] Invalid signature');
+      return NextResponse.json({ ok: false, error: 'Invalid signature' }, { status: 403 });
     }
 
     let payload: any;

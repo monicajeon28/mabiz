@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 
     const [partners, total] = await Promise.all([
       prisma.partnerRiskFlags.findMany({
-        where: { partner: { organizationId: session.organizationId } },
+        where: { partner: { organizationId: session.organizationId }, ...where },
         select: {
           partnerId: true,
           totalRiskScore: true,
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
         take: limit,
       }),
       prisma.partnerRiskFlags.count({
-        where: { partner: { organizationId: session.organizationId } },
+        where: { partner: { organizationId: session.organizationId }, ...where },
       }),
     ]);
 

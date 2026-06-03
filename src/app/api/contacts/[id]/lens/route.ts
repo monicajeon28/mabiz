@@ -53,9 +53,9 @@ export async function GET(
 
     const organizationId = ctx.organizationId;
 
-    // 3. ContactLensClassification 조회 (organizationId 필터 포함 - IDOR 방지)
+    // 3. ContactLensClassification 조회 (contactId + organizationId 필터 - IDOR 방지)
     const lensClassification = await prisma.contactLensClassification.findFirst({
-      where: { id, organizationId },
+      where: { contactId: id, organizationId },
       select: {
         id: true,
         contactId: true,

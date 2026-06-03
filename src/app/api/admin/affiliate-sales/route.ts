@@ -98,25 +98,28 @@ export async function GET(req: NextRequest) {
       .filter((u) => u.affiliateCode)
       .map((u) => u.affiliateCode!);
 
-    // [Query 2] 모든 PayAppPayment 조회 (기간 + affiliateCode 필터)
-    const payments = await prisma.payAppPayment.findMany({
-      where: {
-        createdAt: {
-          gte: startDate,
-          lte: endDate,
-        },
-        // metadata.affiliateCode 필터링은 Prisma에서 직접 지원하지 않으므로
-        // 나중에 메모리에서 필터링
-      },
-      select: {
-        id: true,
-        orderId: true,
-        amount: true,
-        status: true,
-        createdAt: true,
-        metadata: true,
-      },
-    });
+    // [Query 2] affiliateCode가 있는 결제만 조회 (전체 테이블 로드 방지)
+    // metadata->>'affiliateCode' IN (affiliateCodes) 조건을 rawSQL로 실행
+    // Prisma의 Json path 필터는 string_in을 지원하지 않으므로 $queryRaw 사용
+    const payments =
+      affiliateCodes.length > 0
+        ? await prisma.$queryRaw<
+            {
+              id: string;
+              orderId: string;
+              amount: number;
+              status: string;
+              createdAt: Date;
+              metadata: unknown;
+            }[]
+          >`
+          SELECT id, "orderId", amount, status, "createdAt", metadata
+          FROM "CrmPayAppPayment"
+          WHERE "createdAt" >= ${startDate}
+            AND "createdAt" <= ${endDate}
+            AND metadata->>'affiliateCode' = ANY(${affiliateCodes}::text[])
+        `
+        : [];
 
     // [Query 3] 모든 CrmLandingPage 조회 (createdByUserId 기반 affiliateCode 매칭)
     // createdByUserId는 문자열이므로 gmUser.id(정수)를 문자열로 변환해서 매칭

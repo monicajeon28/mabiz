@@ -24,17 +24,19 @@ export async function GET(req: NextRequest) {
     fromDate.setDate(fromDate.getDate() - days);
     fromDate.setHours(0, 0, 0, 0);
 
-    // 일일 통계
-    const dailyStats = await prisma.partnerSmsLog.groupBy({
-      by: ['createdAt'],
-      where: {
-        organizationId: session.organizationId,
-        createdAt: { gte: fromDate },
-      },
-      _count: {
-        id: true,
-      },
-    });
+    // 일일 통계 — DATE_TRUNC 집계 (createdAt 타임스탬프 그대로 groupBy 방지)
+    type DailyStatRow = { date: string; cnt: bigint };
+    const dailyStatRows = await prisma.$queryRaw<DailyStatRow[]>`
+      SELECT
+        TO_CHAR(DATE_TRUNC('day', "createdAt"), 'YYYY-MM-DD') AS date,
+        COUNT(*)::bigint AS cnt
+      FROM "PartnerSmsLog"
+      WHERE "organizationId" = ${session.organizationId}
+        AND "createdAt" >= ${fromDate}
+      GROUP BY DATE_TRUNC('day', "createdAt")
+      ORDER BY 1
+    `;
+    const dailyStats = dailyStatRows.map((r) => ({ date: r.date, count: Number(r.cnt) }));
 
     // 상태별 통계
     const [sent, failed, pending, clicked, bounced] = await Promise.all([
@@ -115,6 +117,7 @@ export async function GET(req: NextRequest) {
         successRate: parseFloat(successRate),
         clickRate: parseFloat(clickRate),
       },
+      dailyStats,
       byRiskLevel: byRiskLevel.map((item) => ({
         riskLevel: item.riskLevel,
         count: item._count.id,

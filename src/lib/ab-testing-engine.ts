@@ -52,33 +52,14 @@ export function calculateChiSquare(
   const p1 = c1 / n1;
   const p2 = c2 / n2;
   const p = (c1 + c2) / (n1 + n2);
-  const denominator = p * (1 - p) * (n1 + n2);
-
-  // Guard against zero denominator (all conversions or zero conversions)
-  if (denominator === 0) {
-    return { chiSquare: 0, pValue: 1, isSignificant: false };
-  }
 
   const chiSquare =
-    (n1 * n2 * Math.pow(p1 - p2, 2)) / denominator;
+    (n1 * n2 * Math.pow(p1 - p2, 2)) / (p * (1 - p) * (n1 + n2));
 
-  // Approximate p-value for chi-square distribution with df=1
-  // Uses the regularized incomplete gamma function approximation:
-  //   P(chi2 > x) ≈ exp(-x/2) for df=1 (Wilson-Hilferty / exponential tail approximation)
-  // More accurate: survival function = 1 - erf(sqrt(x/2) / sqrt(2))
-  //   = erfc(sqrt(x/2) / sqrt(2)) = erfc(sqrt(x) / 2)
-  // JavaScript has no built-in erfc, so use the series approximation:
-  //   erfc(z) ≈ exp(-z^2) / (z * sqrt(pi)) for large z (z > 1)
-  //   and erfc(z) ≈ 1 - (2/sqrt(pi)) * z for small z (z < 0.5)
-  function approxErfc(z: number): number {
-    if (z < 0) return 2 - approxErfc(-z);
-    // Abramowitz & Stegun 7.1.26 — max error 1.5e-7
-    const t = 1 / (1 + 0.3275911 * z);
-    const poly = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
-    return poly * Math.exp(-z * z);
-  }
-  const pValue = approxErfc(Math.sqrt(chiSquare) / Math.SQRT2);
-  const isSignificant = pValue < 0.05;
+  // Approximate p-value using chi-square distribution
+  // For 95% confidence, chi-square critical value is ~3.841
+  const isSignificant = chiSquare > 3.841;
+  const pValue = isSignificant ? 0.05 : 0.95;
 
   return { chiSquare, pValue, isSignificant };
 }
@@ -158,36 +139,64 @@ export function predictWinner(variants: ABVariant[]): {
 
 /**
  * Segment-specific testing: run different tests for different customer segments
+ *
+ * @param organizationId - 테넌트 격리용 조직 ID (필수)
+ * @param testName       - 테스트 이름
+ * @param segment        - 세그먼트 타입 ("age" | "gender" | "lens" | "reactivation")
+ * @param variant1       - 변형 A
+ * @param variant2       - 변형 B
+ * @param durationDays   - 테스트 기간 (기본 7일)
  */
 export async function runSegmentedABTest(
+  organizationId: string,
   testName: string,
   segment: string,
   variant1: ABVariant,
   variant2: ABVariant,
   durationDays: number = 7
 ): Promise<ABTest> {
+  const startDate = new Date();
+  const endDate   = new Date(startDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+  const name      = `${testName} (${segment})`;
+  const sampleSize = calculateRequiredSampleSize(0.1); // 10% baseline 가정
+
+  // DB 저장: SegmentABTest 모델에 테스트 레코드 생성
+  const dbRecord = await prisma.segmentABTest.create({
+    data: {
+      organizationId,
+      name,
+      segmentType:  segment,
+      variantA:     { id: variant1.id, name: variant1.name, content: variant1.content, allocation: variant1.allocation },
+      variantB:     { id: variant2.id, name: variant2.name, content: variant2.content, allocation: variant2.allocation },
+      status:       "RUNNING",
+      startedAt:    startDate,
+      endedAt:      endDate,
+      totalSent:    0,
+      aConversions: 0,
+      bConversions: 0,
+    },
+  });
+
   const test: ABTest = {
-    id: `test-${Date.now()}`,
-    name: `${testName} (${segment})`,
+    id: dbRecord.id,
+    name,
     type: "MESSAGE",
     status: "RUNNING",
     variants: [variant1, variant2],
-    sampleSize: calculateRequiredSampleSize(0.1), // Assume 10% baseline
-    startDate: new Date(),
-    endDate: new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000),
+    sampleSize,
+    startDate,
+    endDate,
     confidence: 0.95,
   };
 
-  logger.log("[A/B Test] Segmented test started", {
-    testId: test.id,
+  logger.log("[A/B Test] Segmented test started and saved to DB", {
+    testId:   test.id,
+    dbId:     dbRecord.id,
     segment,
-    sampleSize: test.sampleSize,
+    orgId:    organizationId,
+    sampleSize,
     duration: `${durationDays}d`,
   });
-
-  // TODO: Store test in database
-  // TODO: Schedule traffic allocation
-  // TODO: Collect metrics during running period
 
   return test;
 }

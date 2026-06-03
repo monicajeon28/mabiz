@@ -162,7 +162,7 @@ export async function calculateHeroKPIs(
       changeType:
         revenueChange > 2 ? "UP" : revenueChange < -2 ? "DOWN" : "STABLE",
       target: targetRevenue,
-      achievementPercent: (totalRevenue / targetRevenue) * 100,
+      achievementPercent: targetRevenue > 0 ? (totalRevenue / targetRevenue) * 100 : 0,
     },
     newContacts: {
       label: "신규 고객",
@@ -172,7 +172,7 @@ export async function calculateHeroKPIs(
       changeType:
         newContactsChange > 2 ? "UP" : newContactsChange < -2 ? "DOWN" : "STABLE",
       target: targetContacts,
-      achievementPercent: (currentContacts / targetContacts) * 100,
+      achievementPercent: targetContacts > 0 ? (currentContacts / targetContacts) * 100 : 0,
     },
     conversionRate: {
       label: "전환율",
@@ -186,7 +186,7 @@ export async function calculateHeroKPIs(
             ? "DOWN"
             : "STABLE",
       target: targetConversionRate,
-      achievementPercent: (currentConversionRate / targetConversionRate) * 100,
+      achievementPercent: targetConversionRate > 0 ? (currentConversionRate / targetConversionRate) * 100 : 0,
     },
     averageOrderValue: {
       label: "평균 주문액",
@@ -195,7 +195,7 @@ export async function calculateHeroKPIs(
       change: aovChange,
       changeType: aovChange > 2 ? "UP" : aovChange < -2 ? "DOWN" : "STABLE",
       target: targetAOV,
-      achievementPercent: (currentAOV / targetAOV) * 100,
+      achievementPercent: targetAOV > 0 ? (currentAOV / targetAOV) * 100 : 0,
     },
   };
 }
@@ -222,19 +222,11 @@ export async function calculateMetricsPyramid(
           },
         });
 
-        // 렌즈 태그가 있는 Contact의 phone 목록 조회
-        const lensContacts = await prisma.contact.findMany({
-          where: { organizationId, tags: { hasSome: [lens] } },
-          select: { phone: true },
-        });
-        const lensPhones = lensContacts.map((c) => c.phone);
-
         const conversions = await prisma.affiliateSale.count({
           where: {
             organizationId,
             createdAt: { gte: monthStart },
             status: "CONFIRMED",
-            customerPhone: { in: lensPhones },
           },
         });
 
@@ -243,7 +235,6 @@ export async function calculateMetricsPyramid(
             organizationId,
             createdAt: { gte: monthStart },
             status: "CONFIRMED",
-            customerPhone: { in: lensPhones },
           },
           _sum: { saleAmount: true },
         });

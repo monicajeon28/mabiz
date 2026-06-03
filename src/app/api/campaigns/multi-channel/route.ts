@@ -29,8 +29,14 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const status = url.searchParams.get("status");
-    const limit = parseInt(url.searchParams.get("limit") || "20");
-    const offset = parseInt(url.searchParams.get("offset") || "0");
+
+    // parseInt("abc") = NaN → Prisma take/skip NaN 오류 방지
+    // 기본값 폴백 + 상한값 적용
+    const MAX_LIMIT = 100;
+    const rawLimit  = parseInt(url.searchParams.get("limit")  ?? "", 10);
+    const rawOffset = parseInt(url.searchParams.get("offset") ?? "", 10);
+    const limit  = Number.isFinite(rawLimit)  && rawLimit  > 0 ? Math.min(rawLimit,  MAX_LIMIT) : 20;
+    const offset = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
 
     const where: any = { organizationId };
     if (status) {

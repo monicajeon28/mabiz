@@ -121,13 +121,21 @@ export async function csrfSet(
 
 /**
  * CSRF 토큰 조회
- * @returns 토큰 문자열 또는 null (없거나 실패)
+ * @returns
+ *   - `{ value: string }` — Redis 정상 + 토큰 존재
+ *   - `{ value: null }`  — Redis 정상 + 키 없음 (토큰 미발급 또는 만료)
+ *   - `null`             — Redis 비활성 또는 네트워크/런타임 오류 → 메모리 폴백으로 진행
+ *
+ * 호출부에서 `null`(오류)과 `{ value: null }`(키 없음)을 반드시 구분해야 합니다.
  */
-export async function csrfGet(sessionId: string): Promise<string | null> {
+export async function csrfGet(
+  sessionId: string
+): Promise<{ value: string | null } | null> {
   const redis = getRedis();
   if (!redis) return null;
   try {
-    return await redis.get<string>(`csrf:${sessionId}`);
+    const value = await redis.get<string>(`csrf:${sessionId}`);
+    return { value };
   } catch (err) {
     logger.warn('[Redis csrfGet error]', { error: (err as Error).message });
     return null;
