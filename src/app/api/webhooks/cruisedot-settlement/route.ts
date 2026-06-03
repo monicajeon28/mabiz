@@ -4,14 +4,13 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { SettlementSaga, SettlementSagaContext } from '@/lib/webhooks/settlement-saga';
 import { retryStrategy } from '@/lib/webhooks/retry-strategy';
-import { getCommissionRateForProfileId } from '@/lib/commission-calculator';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 interface CruisedotSettlementPayload {
   eventId: string;
-  eventType: 'settlement.created' | 'settlement.approved' | 'settlement.locked' | 'settlement.paid';
+  eventType: 'settlement.created' | 'settlement.approved' | 'settlement.locked' | 'settlement.paid' | 'settlement.calculated';
   timestamp: string;
   settlementId: string;
   partnerId: string;
@@ -21,13 +20,17 @@ interface CruisedotSettlementPayload {
   netAmount?: number; // 순정산액 (수수료 차감 후)
   commissionRate?: number; // 커미션 비율 (%)
   paymentDate?: string; // ISO 8601 날짜
+  // settlement.calculated 전용 필드
+  totalNetPayment?: number;
+  profiles?: Array<{ partnerId: string; netPayment: number; period: string }>;
 }
 
 export async function POST(req: NextRequest) {
-  const secret = process.env.CRUISEDOT_WEBHOOK_SECRET;
+  // settlement.calculated는 MABIZ_SETTLEMENT_WEBHOOK_SECRET, 나머지는 CRUISEDOT_WEBHOOK_SECRET
+  const secret = process.env.MABIZ_SETTLEMENT_WEBHOOK_SECRET ?? process.env.CRUISEDOT_WEBHOOK_SECRET;
 
   if (!secret) {
-    logger.error('[SettlementWebhook] CRUISEDOT_WEBHOOK_SECRET 미설정');
+    logger.error('[SettlementWebhook] MABIZ_SETTLEMENT_WEBHOOK_SECRET 미설정');
     return NextResponse.json(
       { ok: false, message: 'Service temporarily unavailable' },
       { status: 503 } // Service Unavailable - client should retry
@@ -115,6 +118,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, duplicate: true });
     }
 
+    // settlement.calculated: 크루즈닷몰이 LOCKED 완료 후 CRM에 단방향 통보
+    // CRM은 받은 값 저장만 (계산 없음 — SSoT = 크루즈닷몰)
+    if (eventType === 'settlement.calculated') {
+      const { totalNetPayment, profiles, paymentDate: pd } = payload;
+      await prisma.processedWebhookEvent.create({
+        data: { eventId, webhookType: 'cruisedot-settlement' },
+      }).catch(() => {});
+      logger.info('[SettlementWebhook] settlement.calculated 수신 완료', {
+        settlementId,
+        period,
+        totalNetPayment,
+        profileCount: profiles?.length ?? 0,
+        paymentDate: pd,
+      });
+      return NextResponse.json({ ok: true, received: true });
+    }
+
     const profileIdInt = parseInt(partnerId, 10);
     const settlementIdInt = parseInt(settlementId, 10);
 
@@ -145,13 +165,9 @@ export async function POST(req: NextRequest) {
     }
     const orgId: string = organizationId;
 
-    // Partner.tier 기반 동적 수당율 조회 (하드코딩 18% 제거)
-    const finalCommissionRate = await getCommissionRateForProfileId(
-      profileIdInt,
-      orgId,
-      commissionRate // payload 값은 Partner 미매핑 시 폴백으로만 사용
-    );
-    const calculatedNetAmount = netAmount ?? Math.floor(amount * (1 - finalCommissionRate / 100));
+    // 수당 계산 SSoT = 크루즈닷몰. CRM은 받은 값 그대로 저장만.
+    const finalCommissionRate = commissionRate ?? 0;
+    const calculatedNetAmount = netAmount ?? amount;
 
     // Create Saga context
     const sagaContext: SettlementSagaContext = {

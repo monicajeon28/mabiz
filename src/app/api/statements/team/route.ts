@@ -1,11 +1,11 @@
 /**
  * GET /api/statements/team
  * 팀 정산 관리 (GLOBAL_ADMIN / OWNER 전용)
- * CommissionLedger 기반 재설계 — organizationId로 테넌트 격리
+ * CommissionLedger 기반 집계 + AffiliatePayslip 연결
  *
  * 쿼리 파라미터:
  * - period: YYYY-MM (필수)
- * - role: AGENT | OWNER | FREE_SALES | all (기본: all)
+ * - role: BRANCH_MANAGER | SALES_AGENT | PRESALES_AGENT | all (기본: all)
  * - organizationId: GLOBAL_ADMIN 전용 조직 필터 (선택)
  * - page: 페이지 번호 (기본: 1)
  * - limit: 페이지당 항목 수 (기본: 20)
@@ -22,8 +22,9 @@ import { Prisma } from '@prisma/client';
 interface MemberStatement {
   agentId: number;
   name: string;
-  role: string;
-  payslipId: null;
+  role: string;           // BRANCH_MANAGER | SALES_AGENT | PRESALES_AGENT
+  payslipId: number | null;
+  guarantorId: number | null; // 팀 그룹핑용 (대리점장 agentId)
   yearMonth: string;
   baseCommission: number;
   deduction: number;
@@ -82,7 +83,9 @@ type DocRow = {
   bankbookPath: string | null;
 };
 
-type UserNameRow = { id: number; name: string | null };
+type UserRow = { id: number; name: string | null; role: string | null };
+type ProfileRow = { userId: number; type: string | null; guarantorId: number | null };
+type PayslipRow = { id: number; agentId: number; status: string };
 
 // ─── GET 핸들러 ───────────────────────────────────────────────────────────────
 
@@ -117,7 +120,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // ── 1. 쿼리 파라미터 파싱 ─────────────────────────────────────────────────
     const { searchParams } = new URL(req.url);
     const period = searchParams.get('period');
-    const VALID_ROLE_FILTERS = ['all', 'AGENT', 'OWNER', 'FREE_SALES'];
+    const VALID_ROLE_FILTERS = ['all', 'BRANCH_MANAGER', 'SALES_AGENT', 'PRESALES_AGENT'];
     const rawRole = searchParams.get('role') ?? 'all';
     const roleFilter = VALID_ROLE_FILTERS.includes(rawRole) ? rawRole : 'all';
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
@@ -246,63 +249,85 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const docMap = new Map<number, DocRow>(docRows.map(d => [d.userId, d]));
 
-    // ── 8. GmUser 이름 조회 ───────────────────────────────────────────────────
-    let userNameRows: UserNameRow[] = [];
+    // ── 8. GmUser 이름 + 역할 bulk 조회 ─────────────────────────────────────
+    let userRows: UserRow[] = [];
     if (agentIds.length > 0) {
-      userNameRows = await prisma.$queryRaw<UserNameRow[]>(
-        Prisma.sql`
-          SELECT id, name
-          FROM "GmUser"
-          WHERE id = ANY(${agentIds})
-        `
+      userRows = await prisma.$queryRaw<UserRow[]>(
+        Prisma.sql`SELECT id, name, role FROM "GmUser" WHERE id = ANY(${agentIds})`
       );
     }
-    const userNameMap = new Map<number, string | null>(
-      userNameRows.map(u => [u.id, u.name])
+    const userNameMap = new Map<number, string | null>(userRows.map(u => [u.id, u.name]));
+    const userRoleMap = new Map<number, string | null>(userRows.map(u => [u.id, u.role]));
+
+    // ── 8b. AffiliateProfile type + guarantorId bulk 조회 ────────────────────
+    let profileRows: ProfileRow[] = [];
+    if (agentIds.length > 0) {
+      profileRows = await prisma.$queryRaw<ProfileRow[]>(
+        Prisma.sql`SELECT "userId", type, "guarantorId" FROM "AffiliateProfile" WHERE "userId" = ANY(${agentIds})`
+      );
+    }
+    const profileTypeMap = new Map<number, string | null>(profileRows.map(p => [p.userId, p.type]));
+    const guarantorMap = new Map<number, number | null>(profileRows.map(p => [p.userId, p.guarantorId]));
+
+    // ── 8c. AffiliatePayslip bulk 조회 (payslipId + status 반환용) ────────────
+    let payslipRows: PayslipRow[] = [];
+    if (agentIds.length > 0) {
+      const raw = await prisma.affiliatePayslip.findMany({
+        where: { agentId: { in: agentIds }, yearMonth: period },
+        select: { id: true, agentId: true, status: true },
+      });
+      payslipRows = raw as PayslipRow[];
+    }
+    const payslipMap = new Map<number, { id: number; status: string }>(
+      payslipRows.map(p => [p.agentId, { id: p.id, status: p.status }])
     );
 
     // ── 9. MemberStatement 조립 ───────────────────────────────────────────────
-    // FREE_SALES 필터 시 CommissionLedger 기반 데이터는 제외 (별도 집계 없음)
     const members: MemberStatement[] = [];
 
-    if (roleFilter !== 'FREE_SALES') {
-      for (const [agentId, accum] of agentMap.entries()) {
-        const doc = docMap.get(agentId);
-        const withholdingRate = doc?.withholdingRate ?? 3.3;
+    for (const [agentId, accum] of agentMap.entries()) {
+      // GmAffiliateProfile.type 기반 역할 필터 실제 적용
+      const profileType = profileTypeMap.get(agentId) ?? null;
+      if (roleFilter !== 'all' && profileType !== roleFilter) continue;
 
-        // withholdingAmount: 필드 합산값이 있으면 사용, 없으면 baseCommission * rate 계산
-        const withholdingAmount =
-          accum.withholdingAmountSum > 0
-            ? accum.withholdingAmountSum
-            : Math.floor(accum.baseCommission * (withholdingRate / 100));
+      const doc = docMap.get(agentId);
+      const withholdingRate = doc?.withholdingRate ?? 3.3;
 
-        const netAmount = accum.baseCommission - withholdingAmount - accum.deduction;
-        const status = accum.allSettled && accum.entryCount > 0 ? 'SENT' : 'PENDING';
+      // withholdingAmount: ledger 합산값 우선, 없으면 baseCommission * rate 계산
+      const withholdingAmount =
+        accum.withholdingAmountSum > 0
+          ? accum.withholdingAmountSum
+          : Math.floor(accum.baseCommission * (withholdingRate / 100));
 
-        const hasIdCard = !!doc?.idCardPath;
-        const hasBankBook = !!doc?.bankbookPath;
-        const userName = userNameMap.get(agentId) ?? null;
+      const netAmount = accum.baseCommission - withholdingAmount - accum.deduction;
 
-        members.push({
-          agentId,
-          name: userName ?? String(agentId),
-          role: 'AGENT',
-          payslipId: null,
-          yearMonth: period,
-          baseCommission: accum.baseCommission,
-          deduction: accum.deduction,
-          withholdingAmount,
-          netAmount,
-          expectedPaymentDate: calcExpectedPaymentDate(period),
-          status,
-          bankName: doc?.bankName ?? null,
-          bankAccount: doc?.bankAccount ?? null,
-          bankAccountHolder: doc?.bankAccountHolder ?? null,
-          hasIdCard,
-          hasBankBook,
-          canApprove: hasIdCard && hasBankBook,
-        });
-      }
+      const hasIdCard = !!doc?.idCardPath;
+      const hasBankBook = !!doc?.bankbookPath;
+
+      // payslip이 있으면 payslip.status 우선, 없으면 ledger 기반 판단
+      const payslip = payslipMap.get(agentId);
+      const status = payslip?.status ?? (accum.allSettled && accum.entryCount > 0 ? 'SENT' : 'PENDING');
+
+      members.push({
+        agentId,
+        name: userNameMap.get(agentId) ?? String(agentId),
+        role: profileType ?? userRoleMap.get(agentId) ?? 'SALES_AGENT',
+        payslipId: payslip?.id ?? null,
+        guarantorId: guarantorMap.get(agentId) ?? null,
+        yearMonth: period,
+        baseCommission: accum.baseCommission,
+        deduction: accum.deduction,
+        withholdingAmount,
+        netAmount,
+        expectedPaymentDate: calcExpectedPaymentDate(period),
+        status,
+        bankName: doc?.bankName ?? null,
+        bankAccount: doc?.bankAccount ?? null,
+        bankAccountHolder: doc?.bankAccountHolder ?? null,
+        hasIdCard,
+        hasBankBook,
+        canApprove: hasIdCard && hasBankBook,
+      });
     }
 
     // ── 10. 요약 계산 (슬라이싱 전 전체 기준) ────────────────────────────────
