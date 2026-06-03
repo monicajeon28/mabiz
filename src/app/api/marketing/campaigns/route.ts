@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { handleApiError } from '@/lib/response';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';

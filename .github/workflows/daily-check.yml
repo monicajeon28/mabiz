@@ -195,8 +195,10 @@ jobs:
           }
 
           async function run() {
-            if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-              console.log('⚠️ Supabase env vars not set — skipping DB integrity check');
+            const sbUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+            const sbKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+            if (!sbUrl || !sbUrl.startsWith('https://') || !sbKey) {
+              console.log('⚠️ Supabase env vars not set or invalid — skipping DB integrity check');
               process.exit(0);
             }
 
