@@ -31,6 +31,8 @@ import { detectLandingLens, LENS_SMS_TEMPLATES, type LandingLensType } from '@/l
 import { encryptLandingNotes } from '@/lib/sensitive-data-encryption';
 import { checkRateLimitAsync } from '@/lib/rate-limit';
 
+export const dynamic = 'force-dynamic'; // 쿠키·헤더 의존 → 정적 캐싱 방지
+
 export async function POST(request: Request) {
   try {
     // 0. IP 기반 Rate Limiting (60초 윈도우 내 최대 10건)

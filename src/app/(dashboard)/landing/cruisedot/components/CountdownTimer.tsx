@@ -41,7 +41,8 @@ function getColorByTime(total: number): ColorType {
 export default function CountdownTimer({ targetDate, onComplete, onTimeChange }: CountdownTimerProps) {
   const [time, setTime] = useState<TimeRemaining>(() => calculateTimeRemaining(targetDate));
   const [color, setColor] = useState<ColorType>(() => getColorByTime(calculateTimeRemaining(targetDate).total));
-  const [isComplete, setIsComplete] = useState(false);
+  // 마감일이 이미 지난 경우 첫 렌더부터 마감 UI 표시 (1초 깜빡임 방지)
+  const [isComplete, setIsComplete] = useState(() => calculateTimeRemaining(targetDate).total <= 0);
   const isCompleteRef = useRef(false);
 
   const formatTime = useCallback((num: number) => String(num).padStart(2, '0'), []);
