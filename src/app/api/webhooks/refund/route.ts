@@ -33,10 +33,9 @@ type RefundStatus = 'PENDING' | 'APPROVED' | 'COMPLETED' | 'REJECTED';
 
 export async function POST(req: NextRequest) {
   // ── 1. Secret 확인 ────────────────────────────────────────────────────────
-  // 스펙 확정 2026-06-02: CRUISEDOT_WEBHOOK_SECRET 재사용 (Purchase와 동일 값)
-  const secret = process.env.CRUISEDOT_WEBHOOK_SECRET ?? process.env.MABIZ_REFUND_WEBHOOK_SECRET;
+  const secret = process.env.MABIZ_REFUND_WEBHOOK_SECRET;
   if (!secret) {
-    logger.error('[RefundWebhook] CRUISEDOT_WEBHOOK_SECRET 미설정');
+    logger.error('[RefundWebhook] MABIZ_REFUND_WEBHOOK_SECRET 미설정');
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 
