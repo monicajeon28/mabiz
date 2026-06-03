@@ -97,7 +97,7 @@ export default function TermPopover({
         ref={triggerRef}
         onClick={() => setIsOpen(!isOpen)}
         onKeyDown={handleKeyDown}
-        className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors duration-200 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:outline-none rounded px-1 py-0.5 cursor-help"
+        className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors duration-200 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:outline-none rounded px-1 min-h-[44px] inline-flex items-center cursor-help"
         aria-label={`${term} 설명 보기`}
         aria-expanded={isOpen}
         aria-describedby={isOpen ? `popover-${term}` : undefined}
@@ -111,7 +111,7 @@ export default function TermPopover({
         <div
           ref={popoverRef}
           id={`popover-${term}`}
-          className="absolute z-20 w-64 p-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg bottom-full mb-2 left-1/2 transform -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-200"
+          className="absolute z-20 w-64 p-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg bottom-full mb-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-200 opacity-100"
           role="tooltip"
         >
           <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">
@@ -123,8 +123,7 @@ export default function TermPopover({
         </div>
       )}
 
-      {/* 모바일 전용: 클릭 가이드 (44px 터치 타깃) */}
-      <div className="absolute -inset-2 md:hidden pointer-events-none rounded"></div>
+      {/* 모바일 44px 터치 타깃은 버튼 자체에 min-h 적용 */}
     </div>
   );
 }

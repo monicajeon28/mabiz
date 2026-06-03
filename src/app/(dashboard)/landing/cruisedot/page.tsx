@@ -4,7 +4,7 @@ import { useState } from 'react';
 import SignupForm from './components/SignupForm';
 import PriceComparison from './components/PriceComparison';
 import CountdownTimer from './components/CountdownTimer';
-import TermPopover, { TermBatch } from './components/TermPopover';
+import TermPopover from './components/TermPopover';
 import { loadCruisedotConfig } from '@/lib/constants/cruisedot-config';
 
 /**
