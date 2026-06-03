@@ -118,21 +118,73 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, duplicate: true });
     }
 
-    // settlement.calculated: 크루즈닷몰이 LOCKED 완료 후 CRM에 단방향 통보
-    // CRM은 받은 값 저장만 (계산 없음 — SSoT = 크루즈닷몰)
+    // settlement.calculated: 크루즈닷몰 LOCKED 완료 → CRM AffiliatePayslip upsert
+    // SSoT = 크루즈닷몰. CRM은 받은 값 저장만, 계산 없음.
     if (eventType === 'settlement.calculated') {
       const { totalNetPayment, profiles, paymentDate: pd } = payload;
+
+      if (!profiles || profiles.length === 0) {
+        await prisma.processedWebhookEvent.create({
+          data: { eventId, webhookType: 'cruisedot-settlement' },
+        }).catch(() => {});
+        return NextResponse.json({ ok: true, received: true, upserted: 0 });
+      }
+
+      // 1. bulk GmUser 검증 — 외부 ID 그대로 쓰기 금지
+      const partnerIds = profiles
+        .map((p) => parseInt(String(p.partnerId), 10))
+        .filter((id) => !isNaN(id));
+
+      const gmUsers = await prisma.gmUser.findMany({
+        where: { id: { in: partnerIds } },
+        select: { id: true, name: true },
+      });
+      const gmUserMap = new Map<number, string | null>(gmUsers.map((u) => [u.id, u.name]));
+
+      // 2. AffiliatePayslip upsert (status=APPROVED — 크루즈닷 계산 완료)
+      let upserted = 0;
+      let skipped = 0;
+      for (const profile of profiles) {
+        const agentId = parseInt(String(profile.partnerId), 10);
+        if (isNaN(agentId) || !gmUserMap.has(agentId)) {
+          skipped++;
+          logger.warn('[SettlementWebhook] 유효하지 않은 partnerId skip', { partnerId: profile.partnerId });
+          continue;
+        }
+        const netPayment = typeof profile.netPayment === 'number' ? profile.netPayment : 0;
+        const yearMonth = (profile.period as string | undefined) || period;
+        const netBigInt = BigInt(Math.round(netPayment));
+
+        await prisma.affiliatePayslip.upsert({
+          where: { agentId_yearMonth: { agentId, yearMonth } },
+          create: {
+            agentId,
+            yearMonth,
+            baseCommission: netBigInt,
+            netAmount:      netBigInt,
+            status:         'APPROVED',
+            agentDisplayName: gmUserMap.get(agentId) ?? null,
+            note: pd ? `예정지급일: ${pd}` : null,
+          },
+          update: {
+            baseCommission:   netBigInt,
+            netAmount:        netBigInt,
+            status:           'APPROVED',
+            agentDisplayName: gmUserMap.get(agentId) ?? null,
+            note: pd ? `예정지급일: ${pd}` : null,
+          },
+        });
+        upserted++;
+      }
+
       await prisma.processedWebhookEvent.create({
         data: { eventId, webhookType: 'cruisedot-settlement' },
       }).catch(() => {});
-      logger.info('[SettlementWebhook] settlement.calculated 수신 완료', {
-        settlementId,
-        period,
-        totalNetPayment,
-        profileCount: profiles?.length ?? 0,
-        paymentDate: pd,
+
+      logger.info('[SettlementWebhook] settlement.calculated 처리 완료', {
+        settlementId, period, totalNetPayment, upserted, skipped,
       });
-      return NextResponse.json({ ok: true, received: true });
+      return NextResponse.json({ ok: true, received: true, upserted, skipped });
     }
 
     const profileIdInt = parseInt(partnerId, 10);

@@ -47,6 +47,13 @@ interface TeamSummary {
   paidCount: number;
 }
 
+interface TeamGroup {
+  managerId: number | null;   // null = 미배정 그룹
+  managerName: string;
+  teamTotal: number;          // 팀 실지급액 합계
+  members: MemberStatement[];
+}
+
 interface PaginationData {
   page: number;
   limit: number;
@@ -330,7 +337,47 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       });
     }
 
-    // ── 10. 요약 계산 (슬라이싱 전 전체 기준) ────────────────────────────────
+    // ── 10. 팀별 그룹핑 (accordion UI용) ────────────────────────────────────
+    // BRANCH_MANAGER → 팀장, guarantorId 있는 멤버 → 팀원, 나머지 → 미배정
+    const teamMap = new Map<number | null, TeamGroup>();
+
+    for (const m of members) {
+      if (m.role === 'BRANCH_MANAGER') {
+        // 팀장: 자기 자신의 그룹 생성 (없으면 신규)
+        if (!teamMap.has(m.agentId)) {
+          teamMap.set(m.agentId, {
+            managerId: m.agentId,
+            managerName: m.name,
+            teamTotal: 0,
+            members: [],
+          });
+        }
+        const g = teamMap.get(m.agentId)!;
+        g.members.unshift(m); // 팀장을 맨 앞에
+        g.teamTotal += m.netAmount;
+      } else {
+        // 팀원: guarantorId 있으면 해당 팀, 없으면 미배정(null)
+        const gid = m.guarantorId ?? null;
+        if (!teamMap.has(gid)) {
+          const managerName = gid ? (userNameMap.get(gid) ?? `ID:${gid}`) : '미배정';
+          teamMap.set(gid, { managerId: gid, managerName, teamTotal: 0, members: [] });
+        }
+        const g = teamMap.get(gid)!;
+        g.members.push(m);
+        g.teamTotal += m.netAmount;
+      }
+    }
+
+    // 미배정 그룹을 마지막으로 정렬
+    const teams: TeamGroup[] = [
+      ...Array.from(teamMap.entries())
+        .filter(([k]) => k !== null)
+        .map(([, v]) => v)
+        .sort((a, b) => b.teamTotal - a.teamTotal),
+      ...(teamMap.has(null) ? [teamMap.get(null)!] : []),
+    ];
+
+    // ── 11. 요약 계산 (슬라이싱 전 전체 기준) ────────────────────────────────
     const summary: TeamSummary = {
       totalPayout: members.reduce((acc, m) => acc + m.netAmount, 0),
       missingDocCount: members.filter(m => !m.canApprove).length,
@@ -360,7 +407,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       ok: true,
       period,
       data: {
-        members: pagedMembers,
+        members: pagedMembers, // 기존 flat list (호환 유지)
+        teams,                 // 팀별 accordion용 그룹핑
         summary,
         pagination,
       },

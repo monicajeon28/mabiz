@@ -219,6 +219,32 @@ function DocumentBanner({ doc }: { doc: DocumentInfo }) {
   );
 }
 
+// 이번달 지급 예정액 히어로 카드 (AGENT/OWNER 전용)
+function HeroPayoutCard({ summary, payslips }: { summary: Summary; payslips: PayslipItem[] }) {
+  // 가장 최근 APPROVED/PENDING payslip에서 예정 지급일 추출
+  const upcoming = payslips.find((p) => p.status === "APPROVED" || p.status === "PENDING");
+  const expectedDate = upcoming?.expectedPaymentDate
+    ? new Date(upcoming.expectedPaymentDate).toLocaleDateString("ko-KR", {
+        year: "numeric", month: "long", day: "numeric",
+      })
+    : "다음달 15일";
+
+  return (
+    <div className="mb-6 rounded-2xl bg-gradient-to-r from-teal-600 to-teal-700 p-6 text-white shadow-lg">
+      <p className="text-sm font-medium text-teal-100 mb-1">이번달 받을 금액</p>
+      <p className="text-4xl font-bold tracking-tight mb-3">
+        {formatKRW(summary.totalNet)}
+      </p>
+      <div className="flex flex-wrap gap-4 text-sm text-teal-100">
+        <span>지급 예정일 <span className="font-semibold text-white">{expectedDate}</span></span>
+        {summary.pendingCount > 0 && (
+          <span>승인 대기 <span className="font-semibold text-yellow-300">{summary.pendingCount}건</span></span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SummaryCards({ summary }: { summary: Summary }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -488,6 +514,11 @@ export default function StatementsPage() {
             : "월별 커미션 정산 내역 (다음달 15일 지급)"}
         </p>
       </div>
+
+      {/* 히어로 카드 — AGENT/OWNER: 이번달 받을 금액 크게 표시 */}
+      {!loading && !error && isAgentOrOwner && summary && (
+        <HeroPayoutCard summary={summary} payslips={payslips} />
+      )}
 
       {/* Document Banner — show only when data loaded */}
       {!loading && document && <DocumentBanner doc={document} />}

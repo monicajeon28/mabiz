@@ -2,16 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  FileText,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
-  DollarSign,
-  Clock,
-  Users,
-  Send,
+  FileText, CheckCircle, XCircle, AlertTriangle,
+  ChevronLeft, ChevronRight, DollarSign, Clock,
+  Users, Send, ChevronDown, ChevronUp, LayoutList, Building2,
 } from "lucide-react";
 
 // ─── 타입 정의 ───────────────────────────────────────────────────────────────
@@ -19,8 +12,9 @@ import {
 type MemberStatement = {
   agentId: number;
   name: string;
-  role: string; // AGENT | OWNER | FREE_SALES
+  role: string; // BRANCH_MANAGER | SALES_AGENT | PRESALES_AGENT
   payslipId: number | null;
+  guarantorId: number | null;
   yearMonth: string;
   baseCommission: number;
   deduction: number;
@@ -34,6 +28,13 @@ type MemberStatement = {
   hasIdCard: boolean;
   hasBankBook: boolean;
   canApprove: boolean;
+};
+
+type TeamGroup = {
+  managerId: number | null;
+  managerName: string;
+  teamTotal: number;
+  members: MemberStatement[];
 };
 
 type Summary = {
@@ -55,6 +56,7 @@ type ApiResponse = {
   period: string;
   data: {
     members: MemberStatement[];
+    teams?: TeamGroup[];
     summary: Summary;
     pagination: Pagination;
   };
@@ -77,27 +79,37 @@ type ModalState = {
 // ─── 상수 ─────────────────────────────────────────────────────────────────────
 
 const ROLE_LABELS: Record<string, string> = {
+  BRANCH_MANAGER: "대리점장",
+  SALES_AGENT:    "판매원",
+  PRESALES_AGENT: "프리세일즈",
+  // 구버전 fallback
   OWNER: "대리점장",
   AGENT: "판매원",
   FREE_SALES: "프리세일즈",
 };
 
 const ROLE_BADGE_COLORS: Record<string, string> = {
-  OWNER: "bg-purple-100 text-purple-700",
-  AGENT: "bg-blue-100 text-blue-700",
-  FREE_SALES: "bg-green-100 text-green-700",
+  BRANCH_MANAGER: "bg-purple-100 text-purple-700",
+  SALES_AGENT:    "bg-blue-100 text-blue-700",
+  PRESALES_AGENT: "bg-green-100 text-green-700",
+  OWNER:          "bg-purple-100 text-purple-700",
+  AGENT:          "bg-blue-100 text-blue-700",
+  FREE_SALES:     "bg-green-100 text-green-700",
 };
 
 const ROLE_ROW_COLORS: Record<string, string> = {
-  OWNER: "bg-purple-50/30",
-  AGENT: "bg-blue-50/30",
-  FREE_SALES: "bg-green-50/30",
+  BRANCH_MANAGER: "bg-purple-50/30",
+  SALES_AGENT:    "bg-blue-50/30",
+  PRESALES_AGENT: "bg-green-50/30",
+  OWNER:          "bg-purple-50/30",
+  AGENT:          "bg-blue-50/30",
+  FREE_SALES:     "bg-green-50/30",
 };
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  PENDING: { label: "승인 대기", color: "bg-yellow-100 text-yellow-700" },
+  PENDING:  { label: "승인 대기", color: "bg-yellow-100 text-yellow-700" },
   APPROVED: { label: "승인 완료", color: "bg-blue-100 text-blue-700" },
-  SENT: { label: "지급 완료", color: "bg-green-100 text-green-700" },
+  SENT:     { label: "지급 완료", color: "bg-green-100 text-green-700" },
 };
 
 // ─── 유틸 ─────────────────────────────────────────────────────────────────────
@@ -123,27 +135,15 @@ function formatKRW(amount: number): string {
 
 function formatDate(dateStr: string): string {
   if (!dateStr || dateStr === "여행별") return "여행별";
-  try {
-    return new Date(dateStr).toLocaleDateString("ko-KR");
-  } catch {
-    return dateStr;
-  }
+  try { return new Date(dateStr).toLocaleDateString("ko-KR"); }
+  catch { return dateStr; }
 }
 
-// ─── 요약 카드 ─────────────────────────────────────────────────────────────────
+// ─── 요약 카드 ────────────────────────────────────────────────────────────────
 
-function SummaryCard({
-  title,
-  value,
-  sub,
-  icon: Icon,
-  iconColor,
-}: {
-  title: string;
-  value: string;
-  sub?: string;
-  icon: React.ElementType;
-  iconColor: string;
+function SummaryCard({ title, value, sub, icon: Icon, iconColor }: {
+  title: string; value: string; sub?: string;
+  icon: React.ElementType; iconColor: string;
 }) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm flex items-start gap-4">
@@ -159,54 +159,29 @@ function SummaryCard({
   );
 }
 
-// ─── 확인 모달 ─────────────────────────────────────────────────────────────────
+// ─── 확인 모달 ────────────────────────────────────────────────────────────────
 
-function ConfirmModal({
-  modal,
-  onClose,
-  onConfirm,
-  submitting,
-  actionError,
-}: {
-  modal: ModalState;
-  onClose: () => void;
-  onConfirm: () => void;
-  submitting: boolean;
-  actionError: string | null;
+function ConfirmModal({ modal, onClose, onConfirm, submitting, actionError }: {
+  modal: ModalState; onClose: () => void; onConfirm: () => void;
+  submitting: boolean; actionError: string | null;
 }) {
   if (!modal.open) return null;
-
   const isApprove = modal.action === "approve";
-  const title = isApprove ? "정산 승인 확인" : "정산서 발송 확인";
-  const actionLabel = isApprove ? "승인 확인" : "발송 확인";
-  const actionBtnClass = isApprove
-    ? "bg-blue-600 hover:bg-blue-700 text-white"
-    : "bg-green-600 hover:bg-green-700 text-white";
-
   const [y, m] = modal.yearMonth.split("-");
-  const periodLabel = `${y}년 ${parseInt(m, 10)}월`;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
-        {/* 헤더 */}
         <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="text-lg font-bold text-navy-900">{title}</h3>
+          <h3 className="text-lg font-bold text-navy-900">
+            {isApprove ? "정산 승인 확인" : "정산서 발송 확인"}
+          </h3>
         </div>
-
-        {/* 본문 */}
         <div className="px-6 py-5 space-y-4">
           <p className="text-sm text-gray-600">
             <span className="font-semibold text-navy-900">{modal.memberName}</span> 님의{" "}
-            {periodLabel} 정산을{" "}
-            {isApprove ? "승인" : "발송"}하시겠습니까?
+            {y}년 {parseInt(m, 10)}월 정산을 {isApprove ? "승인" : "발송"}하시겠습니까?
           </p>
-
           <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-500">실지급액</span>
@@ -218,40 +193,25 @@ function ConfirmModal({
             </div>
             <div className="flex justify-between border-t border-gray-200 pt-2 mt-2">
               <span className="text-gray-500">예정 지급일</span>
-              <span className="font-semibold text-navy-900">
-                {formatDate(modal.expectedPaymentDate)}
-              </span>
+              <span className="font-semibold text-navy-900">{formatDate(modal.expectedPaymentDate)}</span>
             </div>
           </div>
         </div>
-
-        {/* 액션 에러 (모달 내 인라인) */}
         {actionError && (
           <div className="px-6 pb-3">
             <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              {actionError}
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />{actionError}
             </div>
           </div>
         )}
-
-        {/* 버튼 */}
         <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50"
-          >
+          <button type="button" onClick={onClose} disabled={submitting}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50">
             취소
           </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={submitting}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${actionBtnClass}`}
-          >
-            {submitting ? "처리 중..." : actionLabel}
+          <button type="button" onClick={onConfirm} disabled={submitting}
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${isApprove ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-green-600 hover:bg-green-700 text-white"}`}>
+            {submitting ? "처리 중..." : isApprove ? "승인 확인" : "발송 확인"}
           </button>
         </div>
       </div>
@@ -259,38 +219,233 @@ function ConfirmModal({
   );
 }
 
+// ─── 멤버 행 ──────────────────────────────────────────────────────────────────
+
+function MemberRow({ member, onAction }: {
+  member: MemberStatement;
+  onAction: (m: MemberStatement, a: ConfirmAction) => void;
+}) {
+  const rowBg = ROLE_ROW_COLORS[member.role] ?? "";
+  const st = STATUS_LABELS[member.status] ?? { label: member.status, color: "bg-gray-100 text-gray-500" };
+  return (
+    <tr className={`hover:bg-gray-50 transition-colors ${rowBg}`}>
+      <td className="px-4 py-3 font-medium text-navy-900 whitespace-nowrap">{member.name}</td>
+      <td className="px-4 py-3 whitespace-nowrap">
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ROLE_BADGE_COLORS[member.role] ?? "bg-gray-100 text-gray-600"}`}>
+          {ROLE_LABELS[member.role] ?? member.role}
+        </span>
+      </td>
+      <td className="px-3 py-3 text-center">
+        {member.hasIdCard ? <CheckCircle className="w-4 h-4 text-green-500 mx-auto" /> : <XCircle className="w-4 h-4 text-red-400 mx-auto" />}
+      </td>
+      <td className="px-3 py-3 text-center">
+        {member.hasBankBook ? <CheckCircle className="w-4 h-4 text-green-500 mx-auto" /> : <XCircle className="w-4 h-4 text-red-400 mx-auto" />}
+      </td>
+      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{member.bankName ?? "—"}</td>
+      <td className="px-4 py-3 text-gray-600 font-mono text-xs whitespace-nowrap">{member.bankAccount ?? "—"}</td>
+      <td className="px-4 py-3 text-right text-gray-700 whitespace-nowrap">{formatKRW(member.baseCommission)}</td>
+      <td className="px-4 py-3 text-right whitespace-nowrap">
+        {member.deduction > 0 ? <span className="text-red-500 font-medium">-{formatKRW(member.deduction)}</span> : <span className="text-gray-400">—</span>}
+      </td>
+      <td className="px-4 py-3 text-right text-gray-400 whitespace-nowrap text-xs">-{formatKRW(member.withholdingAmount)}</td>
+      <td className="px-4 py-3 text-right font-bold text-navy-900 whitespace-nowrap">{formatKRW(member.netAmount)}</td>
+      <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap text-xs">{formatDate(member.expectedPaymentDate)}</td>
+      <td className="px-4 py-3 text-center">
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
+      </td>
+      <td className="px-4 py-3 text-center whitespace-nowrap">
+        <ActionButton member={member} onAction={onAction} />
+      </td>
+    </tr>
+  );
+}
+
+// ─── 테이블 헤더 ──────────────────────────────────────────────────────────────
+
+function TableHeader() {
+  return (
+    <thead className="bg-gray-50 border-b border-gray-200">
+      <tr>
+        <th className="text-left px-4 py-3 font-medium text-gray-500">이름</th>
+        <th className="text-left px-4 py-3 font-medium text-gray-500">역할</th>
+        <th className="text-center px-3 py-3 font-medium text-gray-500">신분증</th>
+        <th className="text-center px-3 py-3 font-medium text-gray-500">통장사본</th>
+        <th className="text-left px-4 py-3 font-medium text-gray-500">은행</th>
+        <th className="text-left px-4 py-3 font-medium text-gray-500">계좌번호</th>
+        <th className="text-right px-4 py-3 font-medium text-gray-500">커미션</th>
+        <th className="text-right px-4 py-3 font-medium text-gray-500">환수금</th>
+        <th className="text-right px-4 py-3 font-medium text-gray-500">원천징수</th>
+        <th className="text-right px-4 py-3 font-medium text-gray-500">실지급액</th>
+        <th className="text-center px-4 py-3 font-medium text-gray-500">예정 지급일</th>
+        <th className="text-center px-4 py-3 font-medium text-gray-500">상태</th>
+        <th className="text-center px-4 py-3 font-medium text-gray-500">액션</th>
+      </tr>
+    </thead>
+  );
+}
+
+// ─── 팀별 accordion 뷰 ────────────────────────────────────────────────────────
+
+function TeamAccordionView({ teams, onAction }: {
+  teams: TeamGroup[];
+  onAction: (m: MemberStatement, a: ConfirmAction) => void;
+}) {
+  const [openIds, setOpenIds] = useState<Set<number | null>>(
+    new Set(teams.map((t) => t.managerId)) // 기본 전체 펼침
+  );
+
+  function toggle(id: number | null) {
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  if (teams.length === 0) return (
+    <div className="text-center py-20 text-gray-500">
+      <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
+      <p className="font-medium">정산 데이터가 없습니다.</p>
+      <p className="text-sm mt-1">기간 또는 역할 필터를 변경해 보세요.</p>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      {teams.map((team) => {
+        const isOpen = openIds.has(team.managerId);
+        const pendingCount = team.members.filter((m) => m.status === "PENDING").length;
+        return (
+          <div key={team.managerId ?? "unassigned"}
+            className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            {/* 팀 헤더 — 클릭으로 토글 */}
+            <button
+              type="button"
+              onClick={() => toggle(team.managerId)}
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Building2 className="w-5 h-5 text-purple-500 shrink-0" />
+                <div className="text-left">
+                  <p className="font-bold text-navy-900 text-base">
+                    {team.managerId ? `${team.managerName} 대리점` : "미배정"}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {team.members.length}명
+                    {pendingCount > 0 && (
+                      <span className="ml-2 text-yellow-600 font-medium">승인대기 {pendingCount}건</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                {/* 팀 총 정산액 — 50대도 한눈에 */}
+                <div className="text-right">
+                  <p className="text-xs text-gray-400">팀 총 실지급액</p>
+                  <p className="text-xl font-bold text-teal-700">{formatKRW(team.teamTotal)}</p>
+                </div>
+                {isOpen
+                  ? <ChevronUp className="w-5 h-5 text-gray-400 shrink-0" />
+                  : <ChevronDown className="w-5 h-5 text-gray-400 shrink-0" />}
+              </div>
+            </button>
+
+            {/* 멤버 테이블 */}
+            {isOpen && (
+              <div className="border-t border-gray-100 overflow-x-auto">
+                <table className="w-full text-sm min-w-[1100px]">
+                  <TableHeader />
+                  <tbody className="divide-y divide-gray-100">
+                    {team.members.map((m) => (
+                      <MemberRow key={m.agentId} member={m} onAction={onAction} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── 목록 뷰 (기존 플랫 테이블) ──────────────────────────────────────────────
+
+function ListView({ members, onAction, page, totalPages, pagination, onPageChange }: {
+  members: MemberStatement[];
+  onAction: (m: MemberStatement, a: ConfirmAction) => void;
+  page: number; totalPages: number;
+  pagination: Pagination | null;
+  onPageChange: (p: number) => void;
+}) {
+  if (members.length === 0) return (
+    <div className="text-center py-20 text-gray-500">
+      <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
+      <p className="font-medium">정산 데이터가 없습니다.</p>
+      <p className="text-sm mt-1">기간 또는 역할 필터를 변경해 보세요.</p>
+    </div>
+  );
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[1100px]">
+          <TableHeader />
+          <tbody className="divide-y divide-gray-100">
+            {members.map((m) => <MemberRow key={m.agentId} member={m} onAction={onAction} />)}
+          </tbody>
+        </table>
+      </div>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
+          <p className="text-sm text-gray-500">총 {pagination?.total.toLocaleString()}건</p>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => onPageChange(Math.max(1, page - 1))}
+              disabled={page === 1}
+              className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-200 disabled:opacity-30 transition-colors">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="px-3 py-1 text-sm text-gray-600">{page} / {totalPages}</span>
+            <button type="button" onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+              disabled={page === totalPages}
+              className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-200 disabled:opacity-30 transition-colors">
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── 메인 페이지 ──────────────────────────────────────────────────────────────
 
 export default function TeamStatementsPage() {
-  const [period, setPeriod] = useState<string>(getCurrentYearMonth());
+  const [period, setPeriod]       = useState<string>(getCurrentYearMonth());
   const [roleFilter, setRoleFilter] = useState<string>("all");
-  const [page, setPage] = useState<number>(1);
+  const [page, setPage]           = useState<number>(1);
+  const [viewMode, setViewMode]   = useState<"team" | "list">("team");
 
-  const [members, setMembers] = useState<MemberStatement[]>([]);
-  const [summary, setSummary] = useState<Summary | null>(null);
+  const [members, setMembers]     = useState<MemberStatement[]>([]);
+  const [teams, setTeams]         = useState<TeamGroup[]>([]);
+  const [summary, setSummary]     = useState<Summary | null>(null);
   const [pagination, setPagination] = useState<Pagination | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading]     = useState<boolean>(true);
+  const [error, setError]         = useState<string | null>(null);
   const [isNetworkError, setIsNetworkError] = useState<boolean>(false);
   const [forbidden, setForbidden] = useState<boolean>(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const [modal, setModal] = useState<ModalState>({
-    open: false,
-    payslipId: null,
-    action: null,
-    memberName: "",
-    yearMonth: "",
-    netAmount: 0,
-    withholdingAmount: 0,
-    expectedPaymentDate: "",
+    open: false, payslipId: null, action: null,
+    memberName: "", yearMonth: "", netAmount: 0,
+    withholdingAmount: 0, expectedPaymentDate: "",
   });
   const [submitting, setSubmitting] = useState<boolean>(false);
 
   const abortRef = useRef<AbortController | null>(null);
   const ymOptions = buildYearMonthOptions();
-
-  // ── 데이터 조회 ────────────────────────────────────────────────────────────
 
   const load = useCallback(() => {
     abortRef.current?.abort();
@@ -300,31 +455,18 @@ export default function TeamStatementsPage() {
     setError(null);
     setIsNetworkError(false);
 
-    const params = new URLSearchParams({
-      period,
-      role: roleFilter,
-      page: String(page),
-      limit: "20",
-    });
+    const params = new URLSearchParams({ period, role: roleFilter, page: String(page), limit: "50" });
 
-    fetch(`/api/statements/team?${params.toString()}`, {
-      signal: controller.signal,
-      credentials: "include",
-    })
+    fetch(`/api/statements/team?${params.toString()}`, { signal: controller.signal, credentials: "include" })
       .then((r) => {
-        if (r.status === 403 || r.status === 401) {
-          setForbidden(true);
-          throw new Error("forbidden");
-        }
-        if (!r.ok) {
-          setIsNetworkError(true);
-          throw new Error(`정산 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요. (HTTP ${r.status})`);
-        }
+        if (r.status === 403 || r.status === 401) { setForbidden(true); throw new Error("forbidden"); }
+        if (!r.ok) { setIsNetworkError(true); throw new Error(`HTTP ${r.status}`); }
         return r.json() as Promise<ApiResponse>;
       })
       .then((d) => {
         if (d.ok) {
           setMembers(d.data.members ?? []);
+          setTeams(d.data.teams ?? []);
           setSummary(d.data.summary ?? null);
           setPagination(d.data.pagination ?? null);
           setError(null);
@@ -335,44 +477,18 @@ export default function TeamStatementsPage() {
       .catch((e: unknown) => {
         if (e instanceof Error && (e.name === "AbortError" || e.message === "forbidden")) return;
         setIsNetworkError(true);
-        setError(
-          e instanceof Error ? e.message : "정산 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요."
-        );
+        setError(e instanceof Error ? e.message : "정산 정보를 불러올 수 없습니다.");
       })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
   }, [period, roleFilter, page]);
 
-  useEffect(() => {
-    load();
-    return () => abortRef.current?.abort();
-  }, [load]);
-
-  // 필터 변경 시 페이지 초기화
-  const handlePeriodChange = (val: string) => {
-    setPeriod(val);
-    setPage(1);
-  };
-  const handleRoleChange = (val: string) => {
-    setRoleFilter(val);
-    setPage(1);
-  };
-
-  // ── 승인/발송 처리 ──────────────────────────────────────────────────────────
+  useEffect(() => { load(); return () => abortRef.current?.abort(); }, [load]);
 
   function openModal(member: MemberStatement, action: ConfirmAction) {
     if (!member.payslipId) return;
-    setModal({
-      open: true,
-      payslipId: member.payslipId,
-      action,
-      memberName: member.name,
-      yearMonth: member.yearMonth,
-      netAmount: member.netAmount,
-      withholdingAmount: member.withholdingAmount,
-      expectedPaymentDate: member.expectedPaymentDate,
-    });
+    setModal({ open: true, payslipId: member.payslipId, action, memberName: member.name,
+      yearMonth: member.yearMonth, netAmount: member.netAmount,
+      withholdingAmount: member.withholdingAmount, expectedPaymentDate: member.expectedPaymentDate });
   }
 
   function closeModal() {
@@ -387,106 +503,82 @@ export default function TeamStatementsPage() {
     setActionError(null);
     try {
       const res = await fetch(`/api/statements/${modal.payslipId}/confirm`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ action: modal.action }),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "include", body: JSON.stringify({ action: modal.action }),
       });
       const json = (await res.json()) as { ok: boolean; error?: string };
-      if (!json.ok) {
-        setActionError(json.error ?? "처리에 실패했습니다. 다시 시도해 주세요.");
-      } else {
-        closeModal();
-        load(); // 목록 새로고침
-      }
-    } catch {
-      setActionError("네트워크 오류가 발생했습니다. 연결 상태를 확인해 주세요.");
-    } finally {
-      setSubmitting(false);
-    }
+      if (!json.ok) { setActionError(json.error ?? "처리에 실패했습니다."); }
+      else { closeModal(); load(); }
+    } catch { setActionError("네트워크 오류가 발생했습니다."); }
+    finally { setSubmitting(false); }
   }
 
-  // ── 렌더링 ──────────────────────────────────────────────────────────────────
-
-  // 권한 없음
-  if (forbidden) {
-    return (
-      <div className="p-6 max-w-2xl mx-auto text-center mt-20">
-        <XCircle className="w-14 h-14 text-red-400 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-navy-900 mb-2">접근 권한 없음</h2>
-        <p className="text-gray-500 text-sm">
-          팀 정산 관리 페이지는 본사(GLOBAL_ADMIN) 또는 대리점장(OWNER)만 접근할 수 있습니다.
-        </p>
-      </div>
-    );
-  }
+  if (forbidden) return (
+    <div className="p-6 max-w-2xl mx-auto text-center mt-20">
+      <XCircle className="w-14 h-14 text-red-400 mx-auto mb-4" />
+      <h2 className="text-xl font-bold text-navy-900 mb-2">접근 권한 없음</h2>
+      <p className="text-gray-500 text-sm">팀 정산 관리 페이지는 본사 또는 대리점장만 접근할 수 있습니다.</p>
+    </div>
+  );
 
   const totalPages = pagination?.totalPages ?? 1;
 
   return (
     <>
-      <ConfirmModal
-        modal={modal}
-        onClose={closeModal}
-        onConfirm={handleConfirm}
-        submitting={submitting}
-        actionError={actionError}
-      />
+      <ConfirmModal modal={modal} onClose={closeModal} onConfirm={handleConfirm}
+        submitting={submitting} actionError={actionError} />
 
       <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
-        {/* ── 헤더 ─────────────────────────────────────────────────────────── */}
+
+        {/* ── 헤더 ──────────────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <FileText className="w-5 h-5 text-teal-600" />
               <h1 className="text-xl font-bold text-navy-900">팀 정산 관리</h1>
             </div>
-            <p className="text-sm text-gray-500">
-              판매원·대리점장·프리세일즈 월별 커미션 정산 현황
-            </p>
+            <p className="text-sm text-gray-500">대리점장·판매원·프리세일즈 월별 커미션 정산 현황</p>
           </div>
 
-          {/* 필터 */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* 뷰 모드 토글 */}
+            <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+              <button type="button" onClick={() => setViewMode("team")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${viewMode === "team" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                <Building2 className="w-3.5 h-3.5" />팀별
+              </button>
+              <button type="button" onClick={() => setViewMode("list")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${viewMode === "list" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                <LayoutList className="w-3.5 h-3.5" />목록
+              </button>
+            </div>
+
             {/* 기간 선택 */}
-            <select
-              value={period}
-              onChange={(e) => handlePeriodChange(e.target.value)}
-              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-navy-900/20"
-            >
-              {ymOptions.map((ym) => (
-                <option key={ym} value={ym}>
-                  {ym}
-                </option>
-              ))}
+            <select value={period} onChange={(e) => { setPeriod(e.target.value); setPage(1); }}
+              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-navy-900/20">
+              {ymOptions.map((ym) => <option key={ym} value={ym}>{ym}</option>)}
             </select>
 
             {/* 역할 필터 */}
-            <select
-              value={roleFilter}
-              onChange={(e) => handleRoleChange(e.target.value)}
-              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-navy-900/20"
-            >
+            <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
+              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-navy-900/20">
               <option value="all">전체 역할</option>
-              <option value="AGENT">판매원</option>
-              <option value="OWNER">대리점장</option>
-              <option value="FREE_SALES">프리세일즈</option>
+              <option value="BRANCH_MANAGER">대리점장</option>
+              <option value="SALES_AGENT">판매원</option>
+              <option value="PRESALES_AGENT">프리세일즈</option>
             </select>
           </div>
         </div>
 
-        {/* ── 에러 배너 ────────────────────────────────────────────────────── */}
+        {/* ── 에러 배너 ─────────────────────────────────────────────────────── */}
         {error && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
             <div className="flex items-start gap-2">
               <XCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <span className="flex-1">{error}</span>
               {isNetworkError && (
-                <button
-                  type="button"
-                  onClick={load}
-                  className="inline-flex items-center gap-1 ml-2 px-3 py-1 rounded-lg text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors whitespace-nowrap flex-shrink-0"
-                >
+                <button type="button" onClick={load}
+                  className="ml-2 px-3 py-1 rounded-lg text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors whitespace-nowrap shrink-0">
                   ↺ 다시 시도
                 </button>
               )}
@@ -494,300 +586,74 @@ export default function TeamStatementsPage() {
           </div>
         )}
 
-        {/* ── 액션 에러 (승인/발송 실패 인라인 표시) ───────────────────────── */}
-        {actionError && (
-          <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg text-orange-700 text-sm flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span className="flex-1">{actionError}</span>
-            <button
-              type="button"
-              onClick={() => setActionError(null)}
-              className="ml-2 text-orange-400 hover:text-orange-600 transition-colors flex-shrink-0"
-              aria-label="닫기"
-            >
-              <XCircle className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-
-        {/* ── 요약 카드 4개 ────────────────────────────────────────────────── */}
+        {/* ── 요약 카드 ─────────────────────────────────────────────────────── */}
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />
-            ))}
+            {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />)}
           </div>
         ) : summary ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <SummaryCard
-              title="총 지급 예정액"
-              value={formatKRW(summary.totalPayout)}
-              icon={DollarSign}
-              iconColor="text-teal-600"
-            />
-            <SummaryCard
-              title="서류 미제출"
-              value={`${summary.missingDocCount}명`}
-              sub="신분증 또는 통장사본 누락"
-              icon={AlertTriangle}
-              iconColor="text-orange-500"
-            />
-            <SummaryCard
-              title="승인 대기"
-              value={`${summary.pendingCount}건`}
-              icon={Clock}
-              iconColor="text-yellow-500"
-            />
-            <SummaryCard
-              title="지급 완료"
-              value={`${summary.paidCount}건`}
-              icon={Users}
-              iconColor="text-green-600"
-            />
+            <SummaryCard title="총 지급 예정액" value={formatKRW(summary.totalPayout)} icon={DollarSign} iconColor="text-teal-600" />
+            <SummaryCard title="서류 미제출" value={`${summary.missingDocCount}명`} sub="신분증 또는 통장사본 누락" icon={AlertTriangle} iconColor="text-orange-500" />
+            <SummaryCard title="승인 대기" value={`${summary.pendingCount}건`} icon={Clock} iconColor="text-yellow-500" />
+            <SummaryCard title="지급 완료" value={`${summary.paidCount}건`} icon={Users} iconColor="text-green-600" />
           </div>
         ) : null}
 
-        {/* ── 서류 미제출 경고 배너 ──────────────────────────────────────── */}
+        {/* ── 서류 미제출 경고 ──────────────────────────────────────────────── */}
         {!loading && summary && summary.missingDocCount > 0 && (
           <div className="flex items-center gap-3 p-4 bg-orange-50 border border-orange-200 rounded-xl text-sm">
             <AlertTriangle className="w-5 h-5 text-orange-500 shrink-0" />
             <p className="text-orange-700">
-              <span className="font-semibold">{summary.missingDocCount}명</span>의 서류가 미제출되어
-              승인이 불가합니다. 신분증 및 통장사본을 확인해 주세요.
+              <span className="font-semibold">{summary.missingDocCount}명</span>의 서류가 미제출되어 승인이 불가합니다.
             </p>
           </div>
         )}
 
-        {/* ── 테이블 ───────────────────────────────────────────────────────── */}
+        {/* ── 콘텐츠 ────────────────────────────────────────────────────────── */}
         {loading ? (
           <div className="space-y-3">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />
-            ))}
+            {[...Array(3)].map((_, i) => <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />)}
           </div>
-        ) : members.length === 0 ? (
-          <div className="text-center py-20 text-gray-500">
-            <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">정산 데이터가 없습니다.</p>
-            <p className="text-sm mt-1">기간 또는 역할 필터를 변경해 보세요.</p>
-          </div>
+        ) : viewMode === "team" ? (
+          <TeamAccordionView teams={teams} onAction={openModal} />
         ) : (
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[1100px]">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500">이름</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500">역할</th>
-                    <th className="text-center px-3 py-3 font-medium text-gray-500">신분증</th>
-                    <th className="text-center px-3 py-3 font-medium text-gray-500">통장사본</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500">은행</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500">계좌번호</th>
-                    <th className="text-right px-4 py-3 font-medium text-gray-500">커미션</th>
-                    <th className="text-right px-4 py-3 font-medium text-gray-500">환수금</th>
-                    <th className="text-right px-4 py-3 font-medium text-gray-500">원천징수</th>
-                    <th className="text-right px-4 py-3 font-medium text-gray-500">실지급액</th>
-                    <th className="text-center px-4 py-3 font-medium text-gray-500">예정 지급일</th>
-                    <th className="text-center px-4 py-3 font-medium text-gray-500">상태</th>
-                    <th className="text-center px-4 py-3 font-medium text-gray-500">액션</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {members.map((member) => {
-                    const rowBg = ROLE_ROW_COLORS[member.role] ?? "";
-                    const st =
-                      STATUS_LABELS[member.status] ?? {
-                        label: member.status,
-                        color: "bg-gray-100 text-gray-500",
-                      };
-
-                    return (
-                      <tr key={member.agentId} className={`hover:bg-gray-50 transition-colors ${rowBg}`}>
-                        {/* 이름 */}
-                        <td className="px-4 py-3 font-medium text-navy-900 whitespace-nowrap">
-                          {member.name}
-                        </td>
-
-                        {/* 역할 뱃지 */}
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                              ROLE_BADGE_COLORS[member.role] ?? "bg-gray-100 text-gray-600"
-                            }`}
-                          >
-                            {ROLE_LABELS[member.role] ?? member.role}
-                          </span>
-                        </td>
-
-                        {/* 신분증 */}
-                        <td className="px-3 py-3 text-center">
-                          {member.hasIdCard ? (
-                            <CheckCircle className="w-4 h-4 text-green-500 mx-auto" />
-                          ) : (
-                            <XCircle className="w-4 h-4 text-red-400 mx-auto" />
-                          )}
-                        </td>
-
-                        {/* 통장사본 */}
-                        <td className="px-3 py-3 text-center">
-                          {member.hasBankBook ? (
-                            <CheckCircle className="w-4 h-4 text-green-500 mx-auto" />
-                          ) : (
-                            <XCircle className="w-4 h-4 text-red-400 mx-auto" />
-                          )}
-                        </td>
-
-                        {/* 은행 */}
-                        <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                          {member.bankName ?? "—"}
-                        </td>
-
-                        {/* 계좌번호 */}
-                        <td className="px-4 py-3 text-gray-600 font-mono text-xs whitespace-nowrap">
-                          {member.bankAccount ?? "—"}
-                        </td>
-
-                        {/* 커미션 */}
-                        <td className="px-4 py-3 text-right text-gray-700 whitespace-nowrap">
-                          {formatKRW(member.baseCommission)}
-                        </td>
-
-                        {/* 환수금액 */}
-                        <td className="px-4 py-3 text-right whitespace-nowrap">
-                          {member.deduction > 0 ? (
-                            <span className="text-red-500 font-medium">
-                              -{formatKRW(member.deduction)}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">—</span>
-                          )}
-                        </td>
-
-                        {/* 원천징수 */}
-                        <td className="px-4 py-3 text-right text-gray-400 whitespace-nowrap text-xs">
-                          -{formatKRW(member.withholdingAmount)}
-                        </td>
-
-                        {/* 실지급액 */}
-                        <td className="px-4 py-3 text-right font-bold text-navy-900 whitespace-nowrap">
-                          {formatKRW(member.netAmount)}
-                        </td>
-
-                        {/* 예정 지급일 */}
-                        <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap text-xs">
-                          {member.role === "FREE_SALES"
-                            ? "여행별"
-                            : formatDate(member.expectedPaymentDate)}
-                        </td>
-
-                        {/* 상태 뱃지 */}
-                        <td className="px-4 py-3 text-center">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}
-                          >
-                            {st.label}
-                          </span>
-                        </td>
-
-                        {/* 액션 버튼 */}
-                        <td className="px-4 py-3 text-center whitespace-nowrap">
-                          <ActionButton member={member} onAction={openModal} />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* ── 페이지네이션 ───────────────────────────────────────────── */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
-                <p className="text-sm text-gray-500">
-                  총 {pagination?.total.toLocaleString()}건
-                </p>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-200 disabled:opacity-30 transition-colors"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="px-3 py-1 text-sm text-gray-600">
-                    {page} / {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-200 disabled:opacity-30 transition-colors"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          <ListView members={members} onAction={openModal} page={page}
+            totalPages={totalPages} pagination={pagination}
+            onPageChange={setPage} />
         )}
       </div>
     </>
   );
 }
 
-// ─── 액션 버튼 (분리 컴포넌트) ────────────────────────────────────────────────
+// ─── 액션 버튼 ────────────────────────────────────────────────────────────────
 
-function ActionButton({
-  member,
-  onAction,
-}: {
+function ActionButton({ member, onAction }: {
   member: MemberStatement;
-  onAction: (member: MemberStatement, action: ConfirmAction) => void;
+  onAction: (m: MemberStatement, a: ConfirmAction) => void;
 }) {
-  if (member.status === "SENT") {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-green-600 bg-green-50">
-        <CheckCircle className="w-3.5 h-3.5" />
-        지급완료
-      </span>
-    );
-  }
-
-  if (member.status === "APPROVED") {
-    return (
-      <button
-        type="button"
-        onClick={() => onAction(member, "send")}
-        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
-      >
-        <Send className="w-3.5 h-3.5" />
-        정산서 발송
-      </button>
-    );
-  }
-
-  // PENDING
-  if (member.canApprove) {
-    return (
-      <button
-        type="button"
-        onClick={() => onAction(member, "approve")}
-        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-      >
-        <CheckCircle className="w-3.5 h-3.5" />
-        승인
-      </button>
-    );
-  }
-
+  if (member.status === "SENT") return (
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-green-600 bg-green-50">
+      <CheckCircle className="w-3.5 h-3.5" />지급완료
+    </span>
+  );
+  if (member.status === "APPROVED") return (
+    <button type="button" onClick={() => onAction(member, "send")}
+      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors">
+      <Send className="w-3.5 h-3.5" />정산서 발송
+    </button>
+  );
+  if (member.canApprove) return (
+    <button type="button" onClick={() => onAction(member, "approve")}
+      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+      <CheckCircle className="w-3.5 h-3.5" />승인
+    </button>
+  );
   return (
-    <span
-      title="신분증 및 통장사본이 필요합니다"
-      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-gray-400 bg-gray-100 cursor-not-allowed"
-    >
-      <XCircle className="w-3.5 h-3.5" />
-      서류확인 필요
+    <span title="신분증 및 통장사본이 필요합니다"
+      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-gray-400 bg-gray-100 cursor-not-allowed">
+      <XCircle className="w-3.5 h-3.5" />서류확인 필요
     </span>
   );
 }
