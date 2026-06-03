@@ -52,7 +52,8 @@ export async function POST(req: Request) {
   try {
     // Verify auth
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
+    const cronSecret = authHeader?.replace('Bearer ', '');
+    if (cronSecret !== process.env.CRON_SECRET) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }

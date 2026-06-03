@@ -7,7 +7,7 @@ const ALLOWED_TAGS = [
   'strong', 'em', 'b', 'i', 'u', 'blockquote',
   'figure', 'figcaption', 'section', 'article',
   'header', 'footer', 'nav', 'main', 'aside',
-  'form', 'input', 'textarea', 'select', 'button', 'label', 'option',
+  'textarea', 'select', 'label', 'option',
   'video', 'source', 'picture',
   'details', 'summary', 'mark', 'small', 'sub', 'sup',
   'pre', 'code', 'dl', 'dt', 'dd',

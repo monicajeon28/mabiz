@@ -101,8 +101,8 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(100, parseInt(searchParams.get('limit') || '20') || 20);
     const offset = (page - 1) * limit;
 
-    // 쿼리 조건
-    let whereCondition: Prisma.Sql = Prisma.empty;
+    // 쿼리 조건 — 개별 조건 조각을 모아 WHERE ... AND ... 로 조립
+    const conditionFragments: Prisma.Sql[] = [];
 
     if (period) {
       // YYYY-MM 형식 검증
@@ -110,21 +110,20 @@ export async function GET(request: NextRequest) {
       if (/^\d{4}$/.test(year) && /^\d{2}$/.test(month)) {
         const startDate = new Date(`${period}-01`);
         const endDate = new Date(parseInt(year), parseInt(month), 0);
-        whereCondition = Prisma.sql`
-          WHERE ss."periodStart" >= ${startDate}
-            AND ss."periodEnd" <= ${endDate}
-        `;
+        conditionFragments.push(
+          Prisma.sql`ss."periodStart" >= ${startDate} AND ss."periodEnd" <= ${endDate}`
+        );
       }
     }
 
     if (status) {
-      const conditions = whereCondition === Prisma.empty ? [] : [whereCondition];
-      conditions.push(Prisma.sql`ss.status = ${status}`);
-      whereCondition =
-        conditions.length === 1
-          ? conditions[0]
-          : Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`;
+      conditionFragments.push(Prisma.sql`ss.status = ${status}`);
     }
+
+    const whereCondition =
+      conditionFragments.length > 0
+        ? Prisma.sql`WHERE ${Prisma.join(conditionFragments, ' AND ')}`
+        : Prisma.empty;
 
     // settlement_summary view가 없는 경우를 대비해 원본 쿼리 사용
     // (migration이 실행되지 않았을 수 있으므로)

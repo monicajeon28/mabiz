@@ -138,7 +138,8 @@ export async function calculateCommission(
 
 /**
  * CommissionLedger 항목 생성 (정산 추적용)
- * Unique Constraint로 saleId 중복 방지 (Race Condition 해결)
+ * $transaction 내 findFirst+update/create 원자적 실행으로 이중정산 방지
+ * (saleId는 nullable이므로 Prisma upsert 직접 사용 불가 — SQL partial unique 인덱스 활용)
  */
 export async function createCommissionLedger(
   saleId: string,
@@ -147,27 +148,23 @@ export async function createCommissionLedger(
   profileId?: number | null
 ): Promise<any> {
   try {
-    // Find existing ledger by saleId + organizationId (Unique constraint)
-    const existingLedger = await prisma.commissionLedger.findFirst({
-      where: {
-        saleId,
-        organizationId
-      }
-    });
-
-    let ledger;
-    if (existingLedger) {
-      // Update existing ledger
-      ledger = await prisma.commissionLedger.update({
-        where: { id: existingLedger.id },
-        data: {
-          amount: commissionAmount,
-          updatedAt: new Date()
-        }
+    const ledger = await prisma.$transaction(async (tx) => {
+      // 트랜잭션 내에서 원자적으로 조회 후 생성/업데이트 (이중정산 방지)
+      const existingLedger = await tx.commissionLedger.findFirst({
+        where: { saleId, organizationId },
       });
-    } else {
-      // Create new ledger
-      ledger = await prisma.commissionLedger.create({
+
+      if (existingLedger) {
+        return tx.commissionLedger.update({
+          where: { id: existingLedger.id },
+          data: {
+            amount: commissionAmount,
+            updatedAt: new Date(),
+          },
+        });
+      }
+
+      return tx.commissionLedger.create({
         data: {
           saleId,
           organizationId,
@@ -176,16 +173,16 @@ export async function createCommissionLedger(
           entryType: 'COMMISSION_AUTO',
           isSettled: false,
           notes: `Auto-calculated on affiliate sale approval: ${new Date().toISOString()}`,
-          currency: 'KRW'
-        }
+          currency: 'KRW',
+        },
       });
-    }
+    });
 
     logger.log('[Commission] Ledger 생성', {
       organizationId,
       saleId,
       commissionAmount,
-      ledgerId: ledger.id
+      ledgerId: ledger.id,
     });
 
     return ledger;
@@ -194,7 +191,7 @@ export async function createCommissionLedger(
       saleId,
       commissionAmount,
       organizationId,
-      error: err instanceof Error ? err.message : String(err)
+      error: err instanceof Error ? err.message : String(err),
     });
     throw err;
   }

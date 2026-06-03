@@ -308,11 +308,18 @@ export async function getVariantContentBatch(
 
     // 2단계: Variant 메시지 배치 조회 (P1 #3 수정)
     if (campaignIdsForVariant.length > 0) {
+      // variantMap에서 선택된 (campaignId, variantKey) 쌍만 OR 조건으로 조회
+      const variantFilters = campaignIdsForVariant
+        .map((id) => {
+          const key = variantMap.get(id);
+          if (!key) return null;
+          return { campaignId: id, variantKey: key };
+        })
+        .filter((f): f is { campaignId: string; variantKey: string } => f !== null);
+
       const variantContents = await db.campaignVariant.findMany({
         where: {
-          campaignId: { in: campaignIdsForVariant },
-          // 다만, 여기서는 specific variantKey를 알고 있어야 함
-          // variantMap의 선택된 variant만 조회
+          OR: variantFilters,
         },
         select: {
           campaignId: true,

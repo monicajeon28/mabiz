@@ -549,8 +549,8 @@ export function normalizePhoneNumber(phone: string): string {
   let normalized = phone.replace(/\D/g, ''); // 숫자만 추출
 
   // 국제 코드 제거
-  if (normalized.startsWith('8882')) {
-    normalized = normalized.slice(2); // 882 제거
+  if (normalized.startsWith('82')) {
+    normalized = '0' + normalized.slice(2);
   }
 
   // 0으로 시작하지 않으면 0 추가

@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { MABIZ_SESSION_COOKIE } from '@/lib/auth';
 import { createHash, timingSafeEqual } from 'crypto';
 import bcrypt from 'bcryptjs';
+import { checkRateLimitAsync } from '@/lib/rate-limit';
 
 function isBcryptHash(h: string) {
   return h.startsWith('$2b$') || h.startsWith('$2a$');
@@ -79,6 +80,23 @@ function resolveRoleFromMallUser(role: string, mallUserId: string | null, affili
 
 export async function POST(req: Request) {
   try {
+    // Rate limit: 10 attempts per minute per IP
+    const headerStore = await headers();
+    const ip =
+      headerStore.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+      headerStore.get('x-real-ip') ??
+      'unknown';
+    const rl = await checkRateLimitAsync(`login:${ip}`, 10, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { ok: false, error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) },
+        }
+      );
+    }
+
     const { phone, password } = await req.json() as { phone?: string; password?: string };
 
     if (!phone?.trim() || !password) {

@@ -14,16 +14,16 @@
 
 import crypto from 'crypto';
 
-// 환경변수에서 암호화 키 읽기
-// 32바이트(256비트) AES 키 필수
-const ENCRYPTION_KEY = process.env.SENSITIVE_DATA_KEY || process.env.ENCRYPTION_KEY || 'dev-fallback-32-byte-key-unsafe';
-
 /**
  * 암호화 키 검증
  * @returns 32바이트 Buffer
  */
 function getEncryptionKey(): Buffer {
-  const key = ENCRYPTION_KEY.padEnd(32, '0').slice(0, 32);
+  const rawKey = process.env.SENSITIVE_DATA_KEY;
+  if (!rawKey) {
+    throw new Error('SENSITIVE_DATA_KEY environment variable is required');
+  }
+  const key = rawKey.padEnd(32, '0').slice(0, 32);
   return Buffer.from(key, 'utf8');
 }
 
@@ -66,8 +66,7 @@ export function encryptLandingNotes(data: {
     return `${iv.toString('hex')}:${encrypted}:${authTag}`;
   } catch (error) {
     console.error('[encrypt-landing-notes-error]', error);
-    // Fallback: 평문 저장 (암호화 실패 시 원본 유지)
-    return JSON.stringify(data);
+    throw error;
   }
 }
 
@@ -85,12 +84,7 @@ export function decryptLandingNotes(encrypted: string): {
     // IV:encryptedData:authTag 분리
     const parts = encrypted.split(':');
     if (parts.length !== 3) {
-      // 평문이거나 잘못된 형식
-      try {
-        return JSON.parse(encrypted);
-      } catch {
-        return {};
-      }
+      throw new Error('[decrypt-landing-notes] 잘못된 암호화 데이터 형식입니다.');
     }
 
     const [ivHex, encryptedHex, authTagHex] = parts;
@@ -153,7 +147,7 @@ export function encryptAuditLogDetails(
     return `${iv.toString('hex')}:${encrypted}:${authTag}`;
   } catch (error) {
     console.error('[encrypt-audit-log-error]', error);
-    return JSON.stringify({ action, details });
+    throw error;
   }
 }
 
@@ -170,11 +164,7 @@ export function decryptAuditLogDetails(encrypted: string): {
   try {
     const parts = encrypted.split(':');
     if (parts.length !== 3) {
-      try {
-        return JSON.parse(encrypted);
-      } catch {
-        return {};
-      }
+      throw new Error('[decrypt-audit-log] 잘못된 암호화 데이터 형식입니다.');
     }
 
     const [ivHex, encryptedHex, authTagHex] = parts;

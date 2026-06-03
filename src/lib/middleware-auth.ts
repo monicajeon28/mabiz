@@ -14,7 +14,7 @@
 
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import type { SessionValidationResult } from '@/types/auth-headers';
+import type { AuthRole, SessionValidationResult } from '@/types/auth-headers';
 
 /**
  * Validate session ID exists and is not expired
@@ -84,7 +84,7 @@ export async function validateSessionInMiddleware(
 
         return {
           valid: true,
-          role: (member?.role ?? 'MEMBER') as any,
+          role: (member?.role ?? 'MEMBER') as AuthRole,
           organizationId: session.organizationId,
         };
       } catch (err) {

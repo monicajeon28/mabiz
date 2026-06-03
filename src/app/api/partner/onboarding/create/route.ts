@@ -21,7 +21,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+
+export const dynamic = 'force-dynamic';
 
 interface CreateOnboardingRequest {
   partnerId: string;
@@ -30,6 +33,9 @@ interface CreateOnboardingRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    const ctx = await getAuthContext();
+    resolveOrgId(ctx);
+
     const body: CreateOnboardingRequest = await request.json();
     const { partnerId, action } = body;
 

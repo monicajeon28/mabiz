@@ -13,17 +13,21 @@ import type { SendingStatus, SendingFailureReason } from "@prisma/client";
  * 타이밍 공격 방지를 위해 timingSafeEqual 사용
  */
 export function verifyWebhookSignature(
-  payload: Record<string, any>,
+  rawBody: string,
   signatureHeader: string,
   secret: string,
 ): boolean {
   try {
     const hash = createHmac("sha256", secret)
-      .update(JSON.stringify(payload))
+      .update(rawBody)
       .digest("hex");
 
     const expected = `sha256=${hash}`;
-    return timingSafeEqual(Buffer.from(signatureHeader), Buffer.from(expected));
+    // timingSafeEqual requires same-length buffers
+    const sigBuf = Buffer.from(signatureHeader);
+    const expBuf = Buffer.from(expected);
+    if (sigBuf.length !== expBuf.length) return false;
+    return timingSafeEqual(sigBuf, expBuf);
   } catch (error) {
     logger.error("[WebhookSignature] 서명 검증 에러", { error });
     return false;

@@ -174,7 +174,7 @@ export async function GET(req: NextRequest) {
       // msg_id가 없으면 처리 기록만 하고 200 OK 반환
       // (Aligo는 콜백 응답 상태를 보지 않으므로 재시도하지 않음)
       try {
-        await markWebhookProcessed(eventId, "aligo_status");
+        await markWebhookProcessed(eventId, "aligo-status");
       } catch (error) {
         logger.error("[AligoStatusWebhook] 처리 기록 실패", { eventId });
       }
@@ -198,7 +198,7 @@ export async function GET(req: NextRequest) {
     );
 
     // 9. ProcessedWebhookEvent 기록 (멱등성)
-    await markWebhookProcessed(eventId, "aligo_status");
+    await markWebhookProcessed(eventId, "aligo-status");
 
     logger.info("[AligoStatusWebhook] 처리 완료", {
       msg_id: params.msg_id,

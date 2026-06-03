@@ -18,7 +18,7 @@ const TIER_DEFINITIONS: Record<PartnerTier, TierBenefit> = {
     tier: "BRONZE",
     minMonthlyRevenue: 0,
     maxMonthlyRevenue: 500000, // 50만원
-    commissionRate: 0.15, // 15%
+    commissionRate: 15, // 15% (정수 단위 — commission-calculator.ts TIER_COMMISSION_RATES와 동일)
     bonusPercentage: 0, // No bonus
     features: [
       "기본 판매 대시보드",
@@ -32,7 +32,7 @@ const TIER_DEFINITIONS: Record<PartnerTier, TierBenefit> = {
     tier: "SILVER",
     minMonthlyRevenue: 500000,
     maxMonthlyRevenue: 2000000,
-    commissionRate: 0.18, // 18%
+    commissionRate: 18, // 18% (정수 단위)
     bonusPercentage: 5, // +5% 월 성과 보너스
     features: [
       "고급 판매 대시보드",
@@ -47,7 +47,7 @@ const TIER_DEFINITIONS: Record<PartnerTier, TierBenefit> = {
     tier: "GOLD",
     minMonthlyRevenue: 2000000,
     maxMonthlyRevenue: 5000000,
-    commissionRate: 0.2, // 20%
+    commissionRate: 20, // 20% (정수 단위)
     bonusPercentage: 10, // +10% 월 성과 보너스
     features: [
       "전체 CRM 대시보드 + 분석",
@@ -63,7 +63,7 @@ const TIER_DEFINITIONS: Record<PartnerTier, TierBenefit> = {
     tier: "PLATINUM",
     minMonthlyRevenue: 5000000,
     maxMonthlyRevenue: null,
-    commissionRate: 0.22, // 22%
+    commissionRate: 22, // 22% (정수 단위)
     bonusPercentage: 15, // +15% 월 성과 보너스 + 성과금
     features: [
       "전체 CRM + 예측 분석",
@@ -92,10 +92,13 @@ export async function calculatePartnerTier(
 
     if (!partner) return "BRONZE";
 
-    // Fetch affiliate sales separately
+    // affiliateCode가 없으면 매출 0 → BRONZE
+    if (!partner.affiliateCode) return "BRONZE";
+
+    // Fetch affiliate sales separately (Partner.affiliateCode ↔ AffiliateSale.affiliateCode 연결)
     const affiliateSales = await prisma.affiliateSale.findMany({
       where: {
-        affiliateCode: partnerId,
+        affiliateCode: partner.affiliateCode,
         createdAt: {
           gte: new Date(
             targetDate.getFullYear(),
@@ -162,7 +165,7 @@ export async function updatePartnerTiers(
         });
 
         changes.push(
-          `Partner ${partner.id}: tier=${newTier}, commission=${(tierDef.commissionRate * 100).toFixed(0)}%`
+          `Partner ${partner.id}: tier=${newTier}, commission=${tierDef.commissionRate}%`
         );
         updated++;
       }
@@ -210,11 +213,16 @@ export async function getTierUpgradeOpportunities(
       return { currentTier, currentRevenue: 0 };
     }
 
-    // Fetch current month affiliate sales
+    // affiliateCode가 없으면 매출 0
+    if (!partner.affiliateCode) {
+      return { currentTier, currentRevenue: 0 };
+    }
+
+    // Fetch current month affiliate sales (Partner.affiliateCode ↔ AffiliateSale.affiliateCode 연결)
     const currentMonth = new Date();
     const currentAffiliates = await prisma.affiliateSale.findMany({
       where: {
-        affiliateCode: partnerId,
+        affiliateCode: partner.affiliateCode,
         createdAt: {
           gte: new Date(
             currentMonth.getFullYear(),

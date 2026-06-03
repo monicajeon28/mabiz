@@ -149,7 +149,7 @@ export function detectL3Differentiation(contact: Contact): LensDetectionResult |
     lensLabel: '차별성 미인지',
     confidenceScore,
     detectedAt: new Date(),
-    trigger: `경쟁사 언급: ${contact.competitorNames.join(', ')}`,
+    trigger: `경쟁사 언급: ${(contact.competitorNames ?? []).join(', ')}`,
   };
 }
 

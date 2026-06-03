@@ -31,45 +31,70 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 어제 신청한 라이브방송 신청자 조회
+    // 경과일 기준 날짜 범위 계산
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+    // Day 1: 신청 1일 경과 (어제 신청)
+    const day1Start = new Date(today);
+    day1Start.setDate(day1Start.getDate() - 1);
+    const day1End = new Date(today);
 
-    // 각 Day별로 처리할 신청자 조회
-    const registrations = await prisma.contact.findMany({
-      where: {
-        status: 'LIVE_STREAM',
-        createdAt: {
-          gte: yesterday,
-          lt: today,
-        },
-      },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        email: true,
-        tags: true,
-      },
+    // Day 2: 신청 2일 경과 (그제 신청)
+    const day2Start = new Date(today);
+    day2Start.setDate(day2Start.getDate() - 2);
+    const day2End = new Date(today);
+    day2End.setDate(day2End.getDate() - 1);
+
+    // Day 3: 신청 3일 경과 (3일 전 신청)
+    const day3Start = new Date(today);
+    day3Start.setDate(day3Start.getDate() - 3);
+    const day3End = new Date(today);
+    day3End.setDate(day3End.getDate() - 2);
+
+    const baseWhere = { status: 'LIVE_STREAM' as const };
+    const selectFields = {
+      id: true,
+      name: true,
+      phone: true,
+      email: true,
+      tags: true,
+    };
+
+    // Day 1 대상: 신청 1일 경과자
+    const day1Registrations = await prisma.contact.findMany({
+      where: { ...baseWhere, createdAt: { gte: day1Start, lt: day1End } },
+      select: selectFields,
     });
 
+    // Day 2 대상: 신청 2일 경과자
+    const day2Registrations = await prisma.contact.findMany({
+      where: { ...baseWhere, createdAt: { gte: day2Start, lt: day2End } },
+      select: selectFields,
+    });
+
+    // Day 3 대상: 신청 3일 경과자
+    const day3Registrations = await prisma.contact.findMany({
+      where: { ...baseWhere, createdAt: { gte: day3Start, lt: day3End } },
+      select: selectFields,
+    });
+
+    const totalRegistrations = day1Registrations.length + day2Registrations.length + day3Registrations.length;
+
     // Day 0 처리 (신청 당일) - 이미 register API에서 처리됨
-    // Day 1 처리 (신청 다음날) — 콜 스케줄링 + SMS
-    const day1Results = await handleDay1(registrations);
+    // Day 1 처리 (신청 1일 경과자) — 콜 스케줄링 + SMS
+    const day1Results = await handleDay1(day1Registrations);
 
-    // Day 2 처리 (신청 2일 후) - 추가 제안
-    const day2Results = await handleDay2(registrations);
+    // Day 2 처리 (신청 2일 경과자) - 추가 제안
+    const day2Results = await handleDay2(day2Registrations);
 
-    // Day 3 처리 (신청 3일 후) - 긴급성
-    const day3Results = await handleDay3(registrations);
+    // Day 3 처리 (신청 3일 경과자) - 긴급성
+    const day3Results = await handleDay3(day3Registrations);
 
     return NextResponse.json({
       success: true,
       summary: {
-        total: registrations.length,
+        total: totalRegistrations,
         day1: day1Results,
         day2: day2Results,
         day3: day3Results,

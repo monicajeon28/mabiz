@@ -182,7 +182,7 @@ export function flagCompetitorMention(contact: Contact): RiskFlagResult | null {
     flagCode: 'COMPETITOR_MENTION',
     severity: 'high',
     riskScore: 65,
-    description: `경쟁사 언급: ${contact.competitorNames.join(', ')} - 차별성 이해도 ${contact.differentiationScore}%`,
+    description: `경쟁사 언급: ${(contact.competitorNames ?? []).join(', ')} - 차별성 이해도 ${contact.differentiationScore}%`,
     suggestedAction: '경쟁사 비교 분석 + 우리 고유가치 강조 (L3 차별성 SMS)',
     triggeredAt: new Date(),
   };

@@ -23,7 +23,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+
+export const dynamic = 'force-dynamic';
 
 interface RiskFlagRequest {
   partnerId: string;
@@ -74,6 +77,9 @@ async function sendAlertNotification(
 
 export async function POST(request: NextRequest) {
   try {
+    const ctx = await getAuthContext();
+    resolveOrgId(ctx);
+
     const body: RiskFlagRequest = await request.json();
     const {
       partnerId,
@@ -256,6 +262,9 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
+    const ctx = await getAuthContext();
+    resolveOrgId(ctx);
+
     const { searchParams } = new URL(request.url);
     const partnerId = searchParams.get("partnerId");
 

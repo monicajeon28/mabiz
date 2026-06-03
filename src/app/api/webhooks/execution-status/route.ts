@@ -46,10 +46,12 @@ interface ExecutionStatusWebhookPayload {
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
   let body: ExecutionStatusWebhookPayload | null = null;
+  let rawBody = "";
 
   try {
-    // 1. 요청 본문 파싱
-    body = await req.json();
+    // 1. 요청 본문 파싱 (raw text 먼저 읽어 HMAC 검증에 사용)
+    rawBody = await req.text();
+    body = JSON.parse(rawBody) as ExecutionStatusWebhookPayload;
     const { eventId, sendingId, status, failureReason, failureUserMsg } = body!;
 
     logger.info("[ExecutionStatusWebhook] 수신", {
@@ -82,7 +84,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false }, { status: 500 });
     }
 
-    if (!signature || !verifyWebhookSignature(body!, signature, secret)) {
+    if (!signature || !verifyWebhookSignature(rawBody, signature, secret)) {
       logger.error("[ExecutionStatusWebhook] 서명 검증 실패", {
         eventId,
         signature: signature ? "존재" : "없음",

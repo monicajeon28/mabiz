@@ -82,6 +82,20 @@ async function sendSmsWithAligo(
       body: formData,
     });
 
+    if (!response.ok) {
+      const rawText = await response.text();
+      logger.error('[Aligo SMS] HTTP 오류 응답', {
+        recipientPhone,
+        status: response.status,
+        body: rawText,
+      });
+      return {
+        success: false,
+        error: `HTTP ${response.status}: ${rawText}`,
+        retryable: true,
+      };
+    }
+
     const data: AligoResponse = await response.json();
 
     if (!data.success) {
@@ -273,8 +287,16 @@ export async function retryFailedPartnerSms(
       smsLog.phoneNumber ?? ''
     );
 
-    // 재시도 횟수 업데이트
-    if (!result.success) {
+    // 재시도 횟수 업데이트 + 성공 시 status SENT로 변경
+    if (result.success) {
+      await prisma.partnerSmsLog.update({
+        where: { id: smsLogId },
+        data: {
+          retryCount: smsLog.retryCount + 1,
+          status: 'SENT',
+        },
+      });
+    } else {
       await prisma.partnerSmsLog.update({
         where: { id: smsLogId },
         data: { retryCount: smsLog.retryCount + 1 },

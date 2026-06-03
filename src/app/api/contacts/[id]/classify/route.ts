@@ -59,48 +59,52 @@ export async function POST(
     // 4. 자동 세그먼테이션
     const segmentationResult = await segmentizeContact(contact, contact.adminMemo || undefined);
 
-    // 5. ContactLensClassification 저장 (주요 렌즈만)
-    const savedClassifications = [];
-    for (const lens of lenses) {
-      const classification = await prisma.contactLensClassification.upsert({
-        where: { id: `${contact.id}-${lens.lensType}` },
-        update: {
-          lensLabel: lens.lensLabel,
-          confidenceScore: lens.confidenceScore,
-          identificationMethod: lens.trigger || 'AUTOMATIC',
-          decisionLevel: 1, // Decision Level 기본값
-          readinessScore: lens.confidenceScore, // Readiness Score = Confidence Score
-        },
-        create: {
-          id: `${contact.id}-${lens.lensType}`,
-          organizationId: ctx.organizationId,
-          contactId: contact.id,
-          lensType: lens.lensType,
-          lensLabel: lens.lensLabel,
-          confidenceScore: lens.confidenceScore,
-          identificationMethod: lens.trigger || 'AUTOMATIC',
-          decisionLevel: 1,
-          readinessScore: lens.confidenceScore,
+    // 5. ContactLensClassification 저장 + Contact 업데이트를 단일 트랜잭션으로 처리
+    const [savedClassifications, updatedContact] = await prisma.$transaction(async (tx) => {
+      const classifications = [];
+      for (const lens of lenses) {
+        const classification = await tx.contactLensClassification.upsert({
+          where: { id: `${contact.id}-${lens.lensType}` },
+          update: {
+            lensLabel: lens.lensLabel,
+            confidenceScore: lens.confidenceScore,
+            identificationMethod: lens.trigger || 'AUTOMATIC',
+            decisionLevel: 1, // Decision Level 기본값
+            readinessScore: lens.confidenceScore, // Readiness Score = Confidence Score
+          },
+          create: {
+            id: `${contact.id}-${lens.lensType}`,
+            organizationId: ctx.organizationId!,
+            contactId: contact.id,
+            lensType: lens.lensType,
+            lensLabel: lens.lensLabel,
+            confidenceScore: lens.confidenceScore,
+            identificationMethod: lens.trigger || 'AUTOMATIC',
+            decisionLevel: 1,
+            readinessScore: lens.confidenceScore,
+          },
+        });
+        classifications.push(classification);
+      }
+
+      // 6. Contact 업데이트: autoSegment + lensMetadata (트랜잭션 내)
+      const updated = await tx.contact.update({
+        where: { id: contact.id },
+        data: {
+          autoSegment: segmentationResult.autoSegment.primaryLens,
+          segmentOverride: segmentationResult.autoSegment.segmentId,
+          lensMetadata: {
+            detectedLenses: lenses.map(l => ({ type: l.lensType, confidence: l.confidenceScore })),
+            riskScore: riskSummary.totalRiskScore,
+            riskLevel: riskSummary.riskLevel,
+            segment: segmentationResult.autoSegment.segmentId,
+            calculatedAt: new Date().toISOString(),
+          },
+          segmentUpdatedAt: new Date(),
         },
       });
-      savedClassifications.push(classification);
-    }
 
-    // 6. Contact 업데이트: autoSegment + lensMetadata
-    const updatedContact = await prisma.contact.update({
-      where: { id: contact.id },
-      data: {
-        autoSegment: segmentationResult.autoSegment.primaryLens,
-        segmentOverride: segmentationResult.autoSegment.segmentId,
-        lensMetadata: {
-          detectedLenses: lenses.map(l => ({ type: l.lensType, confidence: l.confidenceScore })),
-          riskScore: riskSummary.totalRiskScore,
-          riskLevel: riskSummary.riskLevel,
-          segment: segmentationResult.autoSegment.segmentId,
-          calculatedAt: new Date().toISOString(),
-        },
-        segmentUpdatedAt: new Date(),
-      },
+      return [classifications, updated] as const;
     });
 
     logger.log('[POST /api/contacts/[id]/classify]', {

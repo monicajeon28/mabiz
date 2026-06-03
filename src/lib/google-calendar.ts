@@ -69,7 +69,12 @@ export function decryptToken(encrypted: string): string {
 }
 
 // ─── HMAC-SHA256 state 서명/검증 (CSRF 방지) ─────────────────
-const STATE_SECRET = process.env.GOOGLE_CALENDAR_STATE_SECRET ?? '';
+function getStateSecret(): string {
+  const secret = process.env.GOOGLE_CALENDAR_STATE_SECRET;
+  if (!secret) throw new Error('GOOGLE_CALENDAR_STATE_SECRET required');
+  return secret;
+}
+const STATE_SECRET: string = getStateSecret();
 
 export interface GoogleOAuthState {
   userId: string;

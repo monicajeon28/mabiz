@@ -91,7 +91,7 @@ export default function PlaybookPage() {
 
       // ToolClickTracker API 호출 (선택)
       if (contactId) {
-        fetch('/api/analytics/tool-click', {
+        fetch('/api/tools/click-tracker', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

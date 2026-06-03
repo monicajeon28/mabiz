@@ -42,25 +42,69 @@ export async function PATCH(req: NextRequest) {
 
     const saleIds = sales.map((s) => s.id);
 
-    // 일괄 업데이트
-    const result = await prisma.affiliateSale.updateMany({
+    // 승인 대상 판매 건 전체 조회 (커미션 계산용)
+    const saleDetails = await prisma.affiliateSale.findMany({
       where: { id: { in: saleIds } },
-      data: {
-        status: 'APPROVED',
-        updatedAt: new Date(),
+      select: {
+        id: true,
+        organizationId: true,
+        commissionAmount: true,
+        commissionRate: true,
+        saleAmount: true,
       },
     });
 
-    logger.log('[sales-confirmation batch-approve] 일괄 승인', {
+    // 일괄 업데이트 + CommissionLedger 생성 (단일 트랜잭션)
+    const [result] = await prisma.$transaction([
+      prisma.affiliateSale.updateMany({
+        where: { id: { in: saleIds } },
+        data: {
+          status: 'APPROVED',
+          updatedAt: new Date(),
+        },
+      }),
+    ]);
+
+    // CommissionLedger 생성 (승인된 건마다 커미션 원장 기록)
+    const ledgerData = saleDetails.map((sale) => {
+      const commissionAmt =
+        sale.commissionAmount > 0
+          ? sale.commissionAmount
+          : Math.round((sale.saleAmount * sale.commissionRate) / 100);
+      const withholdingAmt = Math.round(commissionAmt * 0.033); // 3.3% 원천징수
+      return {
+        saleId: sale.id,
+        organizationId: sale.organizationId,
+        entryType: 'COMMISSION_APPROVED',
+        amount: commissionAmt,
+        withholdingAmount: withholdingAmt,
+        isSettled: false,
+        notes: `일괄 승인 — approver: ${session.userId}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    });
+
+    if (ledgerData.length > 0) {
+      // skipDuplicates: saleId UNIQUE 인덱스에 의한 중복 방지
+      await prisma.commissionLedger.createMany({
+        data: ledgerData,
+        skipDuplicates: true,
+      });
+    }
+
+    logger.log('[sales-confirmation batch-approve] 일괄 승인 + CommissionLedger 생성', {
       approverId: session.userId,
       saleIds,
       updated: result.count,
+      ledgerCreated: ledgerData.length,
     });
 
     return NextResponse.json({
       ok: true,
       updated: result.count,
       failed: ids.length - result.count,
+      ledgerCreated: ledgerData.length,
     });
   } catch (error: unknown) {
     logger.error('[sales-confirmation batch-approve] 오류', {
