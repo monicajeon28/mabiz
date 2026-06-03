@@ -65,6 +65,9 @@ jobs:
           GOOGLE_CALENDAR_STATE_SECRET: "ci-build-placeholder"
           WEBHOOK_SECRET: "ci-build-placeholder"
           CRON_SECRET: "ci-build-placeholder"
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'ci-placeholder' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'ci-placeholder' }}
 
       - name: 빌드 성공 알림
         if: success()
