@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -6,66 +6,161 @@ import { CARD_FEE_RATE } from '@/lib/constants/affiliate';
 
 // ─── 유틸 ────────────────────────────────────────────────────────────────────
 
-function fmt(n: number): string {
-  return Math.round(n).toLocaleString('ko-KR');
-}
-
-function pct(n: number, digits = 1): string {
-  return n.toFixed(digits);
-}
-
-function cls(n: number): string {
-  return n < 0 ? 'text-red-600 font-bold' : 'text-slate-900 font-bold';
-}
+function fmt(n: number): string { return Math.round(n).toLocaleString('ko-KR'); }
+function pct(n: number, digits = 1): string { return n.toFixed(digits); }
+function cls(n: number): string { return n < 0 ? 'text-red-600 font-bold' : 'text-slate-900 font-bold'; }
 
 // ─── 타입 ────────────────────────────────────────────────────────────────────
 
-type InputMode = 'pct' | 'amount'; // 어느 쪽을 사용자가 입력했는지
+type InputMode = 'pct' | 'amount';
 
-// ─── 컴포넌트 ─────────────────────────────────────────────────────────────────
+// DB에서 오는 저장 항목 (Neon → API → 프론트엔드)
+interface SavedCalc {
+  id: string;
+  title: string;
+  savedAt: string;
+  salePrice: number;
+  costPrice: number;
+  agentMode: string;
+  agentPct: number;
+  agentAmt: number;
+  memberMode: string;
+  memberPct: number;
+  memberAmt: number;
+  freeAmt: number;
+  freePct: number;
+  overridingAmt: number;
+  overridingPct: number;
+  snapshotSale: number;
+  snapshotNetProfit: number;
+  snapshotHqProfit: number;
+  exchangeRateSnapshot: number | null;
+}
 
-// 실제 계산기 UI — 권한 통과 후에만 렌더링
+// ─── 재사용 입력 컴포넌트 ──────────────────────────────────────────────────────
+
+function DualInput({
+  label, labelWidth = 'w-28',
+  krwValue, krwPlaceholder = '0', onKrwChange, krwActive = true,
+  usdValue, onUsdChange, rateReady,
+  suffix,
+}: {
+  label: string; labelWidth?: string;
+  krwValue: string; krwPlaceholder?: string; onKrwChange: (v: string) => void; krwActive?: boolean;
+  usdValue: string; onUsdChange: (v: string) => void; rateReady: boolean;
+  suffix?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <label className={`${labelWidth} text-sm font-medium text-slate-700 shrink-0`}>{label}</label>
+      <div className="flex flex-1 gap-1.5">
+        <div className="relative flex-1">
+          <input
+            type="number" min={0} value={krwValue} onChange={e => onKrwChange(e.target.value)}
+            className={`w-full border rounded-lg px-2 py-2 text-sm text-right pr-8 focus:outline-none focus:ring-2 focus:ring-slate-400 ${krwActive ? 'border-slate-400 bg-white' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+            placeholder={krwPlaceholder}
+          />
+          <span className="absolute right-2 top-2 text-xs text-slate-400">원</span>
+        </div>
+        <div className="relative flex-1">
+          <input
+            type="number" min={0} value={usdValue} onChange={e => onUsdChange(e.target.value)}
+            disabled={!rateReady}
+            className="w-full border border-emerald-300 bg-emerald-50 rounded-lg px-2 py-2 text-sm text-right pr-7 focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed"
+            placeholder={rateReady ? '0.00' : '…'}
+          />
+          <span className="absolute right-2 top-2 text-xs text-emerald-500">$</span>
+        </div>
+        {suffix}
+      </div>
+    </div>
+  );
+}
+
+// ─── 계산기 본체 ──────────────────────────────────────────────────────────────
+
 function CalculatorContent() {
-  // 희소성 슬롯 수 (마운트 후 결정 → hydration 안전)
-  const [spotsLeft, setSpotsLeft] = useState<number>(3);
+  // ─ 환율
+  const [exchangeRate, setExchangeRate] = useState<number>(0);
+  const [rateDate, setRateDate] = useState<string>('');
+  const [rateError, setRateError] = useState(false);
+  const rateReady = exchangeRate > 0;
+
+  const toUsd = (krw: number) => rateReady ? (krw / exchangeRate).toFixed(2) : '';
+  const toKrw = (usd: number) => String(Math.round(usd * exchangeRate));
+
   useEffect(() => {
-    setSpotsLeft(Math.ceil(Math.random() * 3) + 1);
+    const controller = new AbortController();
+    fetch('https://api.frankfurter.dev/v2/rates?from=USD&to=KRW', { signal: controller.signal })
+      .then(r => { if (!r.ok) throw new Error('rate-fetch-failed'); return r.json(); })
+      .then((d: { rates?: { KRW?: number }; date?: string }) => {
+        const rate = d.rates?.KRW;
+        if (typeof rate === 'number' && rate > 0 && isFinite(rate)) {
+          setExchangeRate(rate);
+          setRateDate(d.date ?? '');
+          setSaleUsd((1000000 / rate).toFixed(2));
+          setCostUsd((800000 / rate).toFixed(2));
+        } else {
+          setRateError(true);
+        }
+      })
+      .catch(e => { if (e.name !== 'AbortError') setRateError(true); });
+    return () => controller.abort();
   }, []);
 
-  // 1단계 — 기본 단가
-  const [salePrice, setSalePrice] = useState<string>('1000000');
-  const [costPrice, setCostPrice] = useState<string>('800000');
+  // ─ 판매가
+  const [salePrice, setSalePrice] = useState('1000000');
+  const [saleUsd, setSaleUsd] = useState('');
+  const onSaleKrw = (v: string) => { setSalePrice(v); setSaleUsd(toUsd(parseFloat(v) || 0)); };
+  const onSaleUsd = (v: string) => { setSaleUsd(v); setSalePrice(toKrw(parseFloat(v) || 0)); };
 
-  // 2단계 — 대리점장 수당 (% or 금액)
-  const [agentPctInput, setAgentPctInput] = useState<string>('5.0');
-  const [agentAmtInput, setAgentAmtInput] = useState<string>('');
+  // ─ 입금가
+  const [costPrice, setCostPrice] = useState('800000');
+  const [costUsd, setCostUsd] = useState('');
+  const onCostKrw = (v: string) => { setCostPrice(v); setCostUsd(toUsd(parseFloat(v) || 0)); };
+  const onCostUsd = (v: string) => { setCostUsd(v); setCostPrice(toKrw(parseFloat(v) || 0)); };
+
+  // ─ 대리점장
+  const [agentPctInput, setAgentPctInput] = useState('5.0');
+  const [agentAmtInput, setAgentAmtInput] = useState('');
+  const [agentUsd, setAgentUsd] = useState('');
   const [agentMode, setAgentMode] = useState<InputMode>('pct');
+  const onAgentPct = (v: string) => { setAgentPctInput(v); setAgentMode('pct'); };
+  const onAgentAmt = (v: string) => { setAgentAmtInput(v); setAgentMode('amount'); setAgentUsd(toUsd(parseFloat(v) || 0)); };
+  const onAgentUsd = (v: string) => { setAgentUsd(v); setAgentAmtInput(toKrw(parseFloat(v) || 0)); setAgentMode('amount'); };
 
-  // 소속판매원 수당 (% or 금액)
-  const [memberPctInput, setMemberPctInput] = useState<string>('3.0');
-  const [memberAmtInput, setMemberAmtInput] = useState<string>('');
+  // ─ 소속판매원
+  const [memberPctInput, setMemberPctInput] = useState('3.0');
+  const [memberAmtInput, setMemberAmtInput] = useState('');
+  const [memberUsd, setMemberUsd] = useState('');
   const [memberMode, setMemberMode] = useState<InputMode>('pct');
+  const onMemberPct = (v: string) => { setMemberPctInput(v); setMemberMode('pct'); };
+  const onMemberAmt = (v: string) => { setMemberAmtInput(v); setMemberMode('amount'); setMemberUsd(toUsd(parseFloat(v) || 0)); };
+  const onMemberUsd = (v: string) => { setMemberUsd(v); setMemberAmtInput(toKrw(parseFloat(v) || 0)); setMemberMode('amount'); };
 
-  // 자유판매원 수당률 (input, 기본값 3%)
-  const [freeAgentPctInput, setFreeAgentPctInput] = useState<string>('3');
-  // 대리점장 오버라이딩 률 (input, 기본값 2%)
-  const [overridingPctInput, setOverridingPctInput] = useState<string>('2');
+  // ─ 자유판매원
+  const [freeAgentAmtInput, setFreeAgentAmtInput] = useState('');
+  const [freeAgentUsd, setFreeAgentUsd] = useState('');
+  const onFreeAmt = (v: string) => { setFreeAgentAmtInput(v); setFreeAgentUsd(toUsd(parseFloat(v) || 0)); };
+  const onFreeUsd = (v: string) => { setFreeAgentUsd(v); setFreeAgentAmtInput(toKrw(parseFloat(v) || 0)); };
 
-  // ─── 파생 계산 (useMemo) ─────────────────────────────────────────────────
+  // ─ 오버라이딩
+  const [overridingAmtInput, setOverridingAmtInput] = useState('');
+  const [overridingUsd, setOverridingUsd] = useState('');
+  const onOverridingAmt = (v: string) => { setOverridingAmtInput(v); setOverridingUsd(toUsd(parseFloat(v) || 0)); };
+  const onOverridingUsd = (v: string) => { setOverridingUsd(v); setOverridingAmtInput(toKrw(parseFloat(v) || 0)); };
 
+  // ─ 계산
   const calc = useMemo(() => {
     const sale = parseFloat(salePrice.replace(/,/g, '')) || 0;
     const cost = parseFloat(costPrice.replace(/,/g, '')) || 0;
-
     const cardFee = sale * CARD_FEE_RATE;
-    const operatingProfit = sale - cost;           // 영업이익
-    const netProfitBeforeTax = operatingProfit - cardFee; // 세전순이익
+    const operatingProfit = sale - cost;
+    const netProfitBeforeTax = operatingProfit - cardFee;
     const operatingMargin = sale > 0 ? (operatingProfit / sale) * 100 : 0;
     const netMargin = sale > 0 ? (netProfitBeforeTax / sale) * 100 : 0;
 
-    // 대리점장 수당 (세전순이익 기준)
-    let agentPct: number;
-    let agentAmt: number;
+    let agentPct: number, agentAmt: number;
     if (agentMode === 'pct') {
       agentPct = parseFloat(agentPctInput) || 0;
       agentAmt = netProfitBeforeTax * (agentPct / 100);
@@ -74,9 +169,7 @@ function CalculatorContent() {
       agentPct = netProfitBeforeTax > 0 ? (agentAmt / netProfitBeforeTax) * 100 : 0;
     }
 
-    // 소속판매원 수당 (세전순이익 기준)
-    let memberPct: number;
-    let memberAmt: number;
+    let memberPct: number, memberAmt: number;
     if (memberMode === 'pct') {
       memberPct = parseFloat(memberPctInput) || 0;
       memberAmt = netProfitBeforeTax * (memberPct / 100);
@@ -85,434 +178,578 @@ function CalculatorContent() {
       memberPct = netProfitBeforeTax > 0 ? (memberAmt / netProfitBeforeTax) * 100 : 0;
     }
 
-    // 자유판매원 수당 (세전순이익 기준, 사용자 입력값)
-    const freeAgentPct = parseFloat(freeAgentPctInput) || 0;
-    const freeAmt = netProfitBeforeTax * (freeAgentPct / 100);
+    const freeAmt = parseFloat(freeAgentAmtInput.replace(/,/g, '')) || 0;
+    const freeAgentPct = netProfitBeforeTax > 0 ? (freeAmt / netProfitBeforeTax) * 100 : 0;
+    const overridingAmt = parseFloat(overridingAmtInput.replace(/,/g, '')) || 0;
+    const overridingPct = netProfitBeforeTax > 0 ? (overridingAmt / netProfitBeforeTax) * 100 : 0;
 
-    // 대리점장 오버라이딩 (세전순이익 기준, 사용자 입력값)
-    const overridingPct = parseFloat(overridingPctInput) || 0;
-    const overridingAmt = netProfitBeforeTax * (overridingPct / 100);
-
-    // 본사 순이익 = 세전순이익 - 대리점장수당 - 소속판매원수당 - 자유판매원수당 - 대리점장오버라이딩
     const hqProfit = netProfitBeforeTax - agentAmt - memberAmt - freeAmt - overridingAmt;
     const hqMargin = sale > 0 ? (hqProfit / sale) * 100 : 0;
-
-    // 법인세 22% 참고 (영업이익 기준)
     const corporateTax = operatingProfit * 0.22;
     const afterTaxProfit = hqProfit - corporateTax;
-
-    // 경고: 수당 합계가 세전순이익 초과 여부
     const totalAllowance = agentAmt + memberAmt + freeAmt + overridingAmt;
     const allowanceOverflow = totalAllowance > netProfitBeforeTax;
 
     return {
-      sale, cost,
-      cardFee, operatingProfit, netProfitBeforeTax, operatingMargin, netMargin,
-      agentPct, agentAmt,
-      memberPct, memberAmt,
-      freeAgentPct, freeAmt,
-      overridingPct, overridingAmt,
-      hqProfit, hqMargin,
-      corporateTax, afterTaxProfit,
-      allowanceOverflow,
+      sale, cost, cardFee, operatingProfit, netProfitBeforeTax, operatingMargin, netMargin,
+      agentPct, agentAmt, memberPct, memberAmt, freeAgentPct, freeAmt,
+      overridingPct, overridingAmt, hqProfit, hqMargin,
+      corporateTax, afterTaxProfit, allowanceOverflow,
     };
-  }, [salePrice, costPrice, agentMode, agentPctInput, agentAmtInput, memberMode, memberPctInput, memberAmtInput, freeAgentPctInput, overridingPctInput]);
+  }, [salePrice, costPrice, agentMode, agentPctInput, agentAmtInput, memberMode, memberPctInput, memberAmtInput, freeAgentAmtInput, overridingAmtInput]);
 
-  // 입력 검증
-  const sale = calc.sale;
-  const cost = calc.cost;
   const inputError =
-    sale <= 0 ? '판매가를 입력하세요.' :
-    cost < 0 ? '입금가는 0 이상이어야 합니다.' :
-    cost >= sale ? '입금가는 판매가보다 작아야 합니다.' :
-    null;
+    calc.sale <= 0 ? '판매가를 입력하세요.' :
+    calc.cost < 0 ? '입금가는 0 이상이어야 합니다.' :
+    calc.cost >= calc.sale ? '입금가는 판매가보다 작아야 합니다.' : null;
 
-  // ─── 핸들러 ──────────────────────────────────────────────────────────────
+  // ─ 저장 / 불러오기 (Neon DB via API)
+  const [savedCalcs, setSavedCalcs] = useState<SavedCalc[]>([]);
+  const [saveTitle, setSaveTitle] = useState('');
+  const [showSaveInput, setShowSaveInput] = useState(false);
+  const [showPanel, setShowPanel] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingList, setIsLoadingList] = useState(true);
 
-  function handleAgentPct(v: string) {
-    setAgentPctInput(v);
-    setAgentMode('pct');
-  }
-  function handleAgentAmt(v: string) {
-    setAgentAmtInput(v);
-    setAgentMode('amount');
-  }
-  function handleMemberPct(v: string) {
-    setMemberPctInput(v);
-    setMemberMode('pct');
-  }
-  function handleMemberAmt(v: string) {
-    setMemberAmtInput(v);
-    setMemberMode('amount');
+  // 목록 초기 로드
+  useEffect(() => {
+    setIsLoadingList(true);
+    fetch('/api/tools/profit-calculations')
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then((d: { items: SavedCalc[] }) => setSavedCalcs(d.items))
+      .catch(() => { /* 목록 조회 실패는 조용히 처리 */ })
+      .finally(() => setIsLoadingList(false));
+  }, []);
+
+  async function doSave() {
+    const title = saveTitle.trim() || `계산 ${new Date().toLocaleDateString('ko-KR')}`;
+    setIsSaving(true);
+    try {
+      const res = await fetch('/api/tools/profit-calculations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          salePrice: parseFloat(salePrice) || 0,
+          costPrice: parseFloat(costPrice) || 0,
+          agentMode,
+          agentPct: calc.agentPct,
+          agentAmt: calc.agentAmt,
+          memberMode,
+          memberPct: calc.memberPct,
+          memberAmt: calc.memberAmt,
+          freeAmt: calc.freeAmt,
+          freePct: calc.freeAgentPct,
+          overridingAmt: calc.overridingAmt,
+          overridingPct: calc.overridingPct,
+          snapshotSale: calc.sale,
+          snapshotNetProfit: calc.netProfitBeforeTax,
+          snapshotHqProfit: calc.hqProfit,
+          exchangeRateSnapshot: exchangeRate || null,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { item: SavedCalc };
+        setSavedCalcs(prev => [data.item, ...prev].slice(0, 50));
+      }
+    } catch { /* 저장 실패 무시 */ }
+    finally {
+      setIsSaving(false);
+      setSaveTitle('');
+      setShowSaveInput(false);
+    }
   }
 
-  // ─── 렌더링 ──────────────────────────────────────────────────────────────
+  function doLoad(entry: SavedCalc) {
+    // KRW 값 복원
+    setSalePrice(String(Math.round(entry.salePrice)));
+    setCostPrice(String(Math.round(entry.costPrice)));
+    // USD 재계산 (현재 환율 기준)
+    setSaleUsd(toUsd(entry.salePrice));
+    setCostUsd(toUsd(entry.costPrice));
+    // 대리점장
+    setAgentMode(entry.agentMode as InputMode);
+    if (entry.agentMode === 'pct') {
+      setAgentPctInput(String(entry.agentPct));
+    } else {
+      setAgentAmtInput(String(Math.round(entry.agentAmt)));
+      setAgentUsd(toUsd(entry.agentAmt));
+    }
+    // 소속판매원
+    setMemberMode(entry.memberMode as InputMode);
+    if (entry.memberMode === 'pct') {
+      setMemberPctInput(String(entry.memberPct));
+    } else {
+      setMemberAmtInput(String(Math.round(entry.memberAmt)));
+      setMemberUsd(toUsd(entry.memberAmt));
+    }
+    // 자유판매원 / 오버라이딩
+    setFreeAgentAmtInput(entry.freeAmt > 0 ? String(Math.round(entry.freeAmt)) : '');
+    setFreeAgentUsd(entry.freeAmt > 0 ? toUsd(entry.freeAmt) : '');
+    setOverridingAmtInput(entry.overridingAmt > 0 ? String(Math.round(entry.overridingAmt)) : '');
+    setOverridingUsd(entry.overridingAmt > 0 ? toUsd(entry.overridingAmt) : '');
+  }
+
+  function doDelete(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    // Optimistic update
+    setSavedCalcs(prev => prev.filter(c => c.id !== id));
+    fetch(`/api/tools/profit-calculations?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+      .then(r => { if (!r.ok) throw new Error(); })
+      .catch(() => {
+        // 롤백: 목록 재조회
+        fetch('/api/tools/profit-calculations')
+          .then(r => r.ok ? r.json() : null)
+          .then((d: { items: SavedCalc[] } | null) => { if (d) setSavedCalcs(d.items); })
+          .catch(() => {});
+      });
+  }
+
+  // ─ USD 표시 (% 모드일 때 calc에서 파생)
+  const agentUsdDisplay = agentMode === 'pct' ? toUsd(calc.agentAmt) : agentUsd;
+  const memberUsdDisplay = memberMode === 'pct' ? toUsd(calc.memberAmt) : memberUsd;
+
+  // ─ 렌더링 ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-12">
-      {/* 헤더 + 심리학 배경 */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6">
-        <h1 className="text-3xl font-bold text-slate-900">수익 계산기</h1>
-        <p className="text-sm text-slate-600 mt-2">판매가와 원가를 입력하면 수익 구조와 수당 분배를 자동 계산합니다.</p>
+    <div className="flex gap-4 items-start">
 
-        {/* L1 렌즈: 손실회피 (Loss Aversion) */}
-        <div className="mt-4 bg-white/80 rounded-lg border border-blue-100 px-4 py-3">
-          <p className="text-sm font-semibold text-blue-700 uppercase">💰 손실회피 분석 (L1 렌즈)</p>
-          <p className="text-sm text-slate-700 mt-2">
-            이 계산기를 사용하면 <span className="font-semibold text-green-600">월 {fmt(Math.max(0, calc.netProfitBeforeTax * 0.08))}원</span>을 절약할 수 있습니다.
-            <br />
-            <span className="text-sm text-slate-500">※ 8%의 대리점장 수당으로 설정할 경우 연 {fmt(Math.max(0, calc.netProfitBeforeTax * 0.08 * 12))}원 절약</span>
-          </p>
-        </div>
-      </div>
+      {/* ── 왼쪽: 계산기 ── */}
+      <div className="flex-1 min-w-0 space-y-5 pb-12">
 
-      {/* L6 렌즈: 타이밍 결정 (희소성/FOMO) */}
-      <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-amber-200 p-4">
-        <p className="text-sm font-semibold text-amber-700 uppercase">⏰ 희소성 + 긴박감 (L6 렌즈)</p>
-        <p className="text-sm text-amber-800 mt-2">
-          <span className="font-semibold">지금 결정하면</span> 추가 혜택:
-          <br />
-          • 이번주 예약 시 카드 할인 2% 추가
-          <br />
-          • 내일부터 가격 상승 예정 (주간 마감까지 {spotsLeft}명만 가능)
-        </p>
-      </div>
-
-      {/* ── 섹션 1: 기본 단가 입력 ── */}
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
-          <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">1단계 — 기본 단가 입력</h2>
-        </div>
-        <div className="px-6 py-5 space-y-4">
-          {/* 판매가 */}
-          <div className="flex items-center gap-3">
-            <label className="w-28 text-sm font-medium text-slate-700 shrink-0">판매가</label>
-            <div className="flex-1 relative">
-              <input
-                type="number"
-                min={0}
-                value={salePrice}
-                onChange={(e) => setSalePrice(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-right pr-10 focus:outline-none focus:ring-2 focus:ring-slate-400"
-                placeholder="0"
-              />
-              <span className="absolute right-3 top-2 text-sm text-slate-400">원</span>
+        {/* 헤더 */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-5">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">수익 계산기</h1>
+              <p className="text-sm text-slate-500 mt-1">원 또는 달러로 입력 — 나머지는 자동 변환됩니다.</p>
+            </div>
+            {/* 환율 배지 */}
+            <div className={`text-sm rounded-xl px-4 py-2 border font-mono ${rateError ? 'bg-red-50 border-red-200 text-red-600' : rateReady ? 'bg-white border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-400 animate-pulse'}`}>
+              {rateError ? '환율 로드 실패' : rateReady ? <>$1 = {fmt(exchangeRate)}원 <span className="text-slate-400 font-normal ml-1">({rateDate})</span></> : '환율 불러오는 중…'}
             </div>
           </div>
-          {/* 입금가 */}
-          <div className="flex items-center gap-3">
-            <label className="w-28 text-sm font-medium text-slate-700 shrink-0">입금가</label>
-            <div className="flex-1 relative">
-              <input
-                type="number"
-                min={0}
-                value={costPrice}
-                onChange={(e) => setCostPrice(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-right pr-10 focus:outline-none focus:ring-2 focus:ring-slate-400"
-                placeholder="0"
-              />
-              <span className="absolute right-3 top-2 text-sm text-slate-400">원</span>
-            </div>
-          </div>
-          {/* 카드수수료 자동 */}
-          <div className="flex items-center gap-3">
-            <span className="w-28 text-sm text-slate-500 shrink-0">카드수수료 {(CARD_FEE_RATE * 100).toFixed(1)}%</span>
-            <span className="flex-1 text-sm text-right text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-              {fmt(calc.cardFee)} 원 <span className="text-slate-400">(자동)</span>
-            </span>
-          </div>
-
-          {/* 입력 오류 */}
-          {inputError && (
-            <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{inputError}</p>
-          )}
+          {/* 모바일: 저장 목록 버튼 */}
+          <button
+            onClick={() => setShowPanel(p => !p)}
+            className="mt-3 lg:hidden w-full text-sm border border-blue-200 bg-white/70 rounded-lg py-2 text-blue-700 font-medium"
+          >
+            {showPanel ? '저장 목록 닫기' : `저장 목록 보기 (${isLoadingList ? '…' : savedCalcs.length}건)`}
+          </button>
         </div>
 
-        {/* 결과 요약 */}
-        {!inputError && (
-          <div className="border-t border-slate-100 px-6 py-4 bg-slate-50 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-600">영업이익 <span className="text-sm text-slate-400">(판매가 - 입금가)</span></span>
-              <span className={cls(calc.operatingProfit)}>
-                {fmt(calc.operatingProfit)} 원
-                <span className="ml-2 text-slate-500 font-normal text-sm">{pct(calc.operatingMargin)}%</span>
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-600">세전순이익 <span className="text-sm text-slate-400">(영업이익 - 카드수수료)</span></span>
-              <span className={cls(calc.netProfitBeforeTax)}>
-                {fmt(calc.netProfitBeforeTax)} 원
-                <span className="ml-2 text-slate-500 font-normal text-sm">{pct(calc.netMargin)}%</span>
-              </span>
-            </div>
-            <p className="text-sm text-slate-400 pt-1">* 세금은 영업이익 기준으로 납부합니다.</p>
+        {/* 모바일 패널 */}
+        {showPanel && (
+          <div className="lg:hidden">
+            <SavedPanel
+              savedCalcs={savedCalcs} isLoading={isLoadingList} isSaving={isSaving}
+              saveTitle={saveTitle} setSaveTitle={setSaveTitle}
+              showSaveInput={showSaveInput} setShowSaveInput={setShowSaveInput}
+              onSave={doSave} onLoad={doLoad} onDelete={doDelete}
+            />
           </div>
         )}
-      </section>
 
-      {/* ── 섹션 2: 수당 분배 계산기 ── */}
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
-          <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">2단계 — 수당 분배 계산기</h2>
-          <p className="text-sm text-slate-400 mt-0.5">% 또는 금액 중 하나를 입력하면 나머지가 자동 계산됩니다. 기준: 세전순이익</p>
-        </div>
-        <div className="px-6 py-5 space-y-5">
-
-          {/* 수당 합계 초과 경고 */}
-          {calc.allowanceOverflow && (
-            <div className="bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 text-sm text-amber-700">
-              수당 합계({fmt(calc.agentAmt + calc.memberAmt + calc.freeAmt + calc.overridingAmt)}원)가 세전순이익({fmt(calc.netProfitBeforeTax)}원)을 초과합니다.
+        {/* ── 섹션 1: 기본 단가 ── */}
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+            <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">1단계 — 기본 단가</h2>
+            <p className="text-xs text-slate-400 mt-0.5">원 또는 달러($) 중 하나를 입력하면 나머지가 자동 변환됩니다.</p>
+          </div>
+          <div className="px-5 py-4 space-y-3">
+            <DualInput label="판매가" krwValue={salePrice} onKrwChange={onSaleKrw} usdValue={saleUsd} onUsdChange={onSaleUsd} rateReady={rateReady} />
+            <DualInput label="입금가" krwValue={costPrice} onKrwChange={onCostKrw} usdValue={costUsd} onUsdChange={onCostUsd} rateReady={rateReady} />
+            <div className="flex items-center gap-2">
+              <span className="w-28 text-sm text-slate-500 shrink-0">카드수수료 {(CARD_FEE_RATE * 100).toFixed(1)}%</span>
+              <div className="flex flex-1 gap-1.5">
+                <span className="flex-1 text-sm text-right text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-2 py-2">{fmt(calc.cardFee)} 원</span>
+                <span className="flex-1 text-sm text-right text-emerald-500 bg-emerald-50 border border-emerald-100 rounded-lg px-2 py-2">{rateReady ? `$${toUsd(calc.cardFee)}` : '—'}</span>
+              </div>
+            </div>
+            {inputError && <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{inputError}</p>}
+          </div>
+          {!inputError && (
+            <div className="border-t border-slate-100 px-5 py-3 bg-slate-50 space-y-1.5">
+              {([
+                { label: '영업이익', krw: calc.operatingProfit, margin: calc.operatingMargin },
+                { label: '세전순이익', krw: calc.netProfitBeforeTax, margin: calc.netMargin },
+              ] as { label: string; krw: number; margin: number }[]).map(row => (
+                <div key={row.label} className="flex justify-between text-sm">
+                  <span className="text-slate-600">{row.label}</span>
+                  <span className={cls(row.krw)}>
+                    {fmt(row.krw)} 원
+                    {rateReady && <span className="ml-1.5 text-emerald-600 font-normal">(${toUsd(row.krw)})</span>}
+                    <span className="ml-2 text-slate-400 font-normal text-xs">{pct(row.margin)}%</span>
+                  </span>
+                </div>
+              ))}
             </div>
           )}
+        </section>
 
-          {/* 대리점장 */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <label className="w-28 text-sm font-semibold text-slate-700 shrink-0">대리점장</label>
-              <div className="flex flex-1 gap-2">
-                <div className="relative flex-1">
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={0.1}
-                    value={agentMode === 'pct' ? agentPctInput : pct(calc.agentPct)}
-                    onChange={(e) => handleAgentPct(e.target.value)}
-                    onFocus={() => setAgentMode('pct')}
-                    className={`w-full border rounded-lg px-3 py-2 text-sm text-right pr-7 focus:outline-none focus:ring-2 focus:ring-slate-400 ${agentMode === 'pct' ? 'border-slate-400 bg-white' : 'border-slate-200 bg-slate-50'}`}
-                    placeholder="0.0"
-                  />
-                  <span className="absolute right-2 top-2 text-sm text-slate-400">%</span>
-                </div>
-                <div className="relative flex-1">
-                  <input
-                    type="number"
-                    min={0}
-                    value={agentMode === 'amount' ? agentAmtInput : Math.round(calc.agentAmt).toString()}
-                    onChange={(e) => handleAgentAmt(e.target.value)}
-                    onFocus={() => setAgentMode('amount')}
-                    className={`w-full border rounded-lg px-3 py-2 text-sm text-right pr-10 focus:outline-none focus:ring-2 focus:ring-slate-400 ${agentMode === 'amount' ? 'border-slate-400 bg-white' : 'border-slate-200 bg-slate-50'}`}
-                    placeholder="0"
-                  />
-                  <span className="absolute right-2 top-2 text-sm text-slate-400">원</span>
-                </div>
-              </div>
-            </div>
-
-            {/* 소속판매원 (대리점장 하위) */}
-            <div className="ml-6 pl-3 border-l-2 border-slate-200 space-y-2">
-              <div className="flex items-center gap-3">
-                <label className="w-24 text-sm font-medium text-slate-600 shrink-0">소속판매원</label>
-                <div className="flex flex-1 gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.1}
-                      value={memberMode === 'pct' ? memberPctInput : pct(calc.memberPct)}
-                      onChange={(e) => handleMemberPct(e.target.value)}
-                      onFocus={() => setMemberMode('pct')}
-                      className={`w-full border rounded-lg px-3 py-2 text-sm text-right pr-7 focus:outline-none focus:ring-2 focus:ring-slate-400 ${memberMode === 'pct' ? 'border-slate-400 bg-white' : 'border-slate-200 bg-slate-50'}`}
-                      placeholder="0.0"
-                    />
-                    <span className="absolute right-2 top-2 text-sm text-slate-400">%</span>
-                  </div>
-                  <div className="relative flex-1">
-                    <input
-                      type="number"
-                      min={0}
-                      value={memberMode === 'amount' ? memberAmtInput : Math.round(calc.memberAmt).toString()}
-                      onChange={(e) => handleMemberAmt(e.target.value)}
-                      onFocus={() => setMemberMode('amount')}
-                      className={`w-full border rounded-lg px-3 py-2 text-sm text-right pr-10 focus:outline-none focus:ring-2 focus:ring-slate-400 ${memberMode === 'amount' ? 'border-slate-400 bg-white' : 'border-slate-200 bg-slate-50'}`}
-                      placeholder="0"
-                    />
-                    <span className="absolute right-2 top-2 text-sm text-slate-400">원</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 자유판매원 수당률 (input) */}
-              <div className="flex items-center gap-3">
-                <label className="w-24 text-sm text-slate-600 shrink-0">자유판매원</label>
-                <div className="flex flex-1 gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.1}
-                      value={freeAgentPctInput}
-                      onChange={(e) => setFreeAgentPctInput(e.target.value)}
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-right pr-7 focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white"
-                      placeholder="3"
-                    />
-                    <span className="absolute right-2 top-2 text-sm text-slate-400">%</span>
-                  </div>
-                  <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-right text-slate-600">
-                    {fmt(calc.freeAmt)} 원
-                  </div>
-                </div>
-              </div>
-
-              {/* 대리점장 오버라이딩 률 (input) */}
-              <div className="flex items-center gap-3">
-                <label className="w-24 text-sm text-slate-600 shrink-0">오버라이딩</label>
-                <div className="flex flex-1 gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.1}
-                      value={overridingPctInput}
-                      onChange={(e) => setOverridingPctInput(e.target.value)}
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-right pr-7 focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white"
-                      placeholder="2"
-                    />
-                    <span className="absolute right-2 top-2 text-sm text-slate-400">%</span>
-                  </div>
-                  <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-right text-slate-600">
-                    {fmt(calc.overridingAmt)} 원
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 본사 순이익 */}
-        <div className="border-t border-slate-100 px-6 py-4 bg-slate-50 space-y-1">
-          <div className="flex justify-between items-baseline text-sm">
-            <span className="text-slate-600 font-medium">본사 순이익</span>
-            <span className={`text-lg ${cls(calc.hqProfit)}`}>
-              {fmt(calc.hqProfit)} 원
-              <span className="ml-2 text-slate-500 font-normal text-sm">{pct(calc.hqMargin)}%</span>
-            </span>
-          </div>
-          <p className="text-sm text-slate-400">= 세전순이익 - 대리점장 수당 - 소속판매원 수당 - 자유판매원 수당 - 대리점장 오버라이딩</p>
-        </div>
-      </section>
-
-      {/* ── 섹션 3: 법인세 참고 ── */}
-      <section className="bg-amber-50 rounded-2xl border border-amber-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-amber-200">
-          <h2 className="text-sm font-semibold text-amber-800 uppercase tracking-wide">참고 — 법인세 22% 예시 계산</h2>
-          <p className="text-sm text-amber-600 mt-0.5">실제 세율은 과세표준과 세무 처리에 따라 다를 수 있습니다.</p>
-        </div>
-        <div className="px-6 py-4 space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-amber-700">영업이익 기준 법인세 (22%)</span>
-            <span className="font-semibold text-amber-900">{fmt(calc.corporateTax)} 원</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-amber-700">세후 본사 순이익 (참고용)</span>
-            <span className={`font-semibold ${calc.afterTaxProfit < 0 ? 'text-red-600' : 'text-amber-900'}`}>
-              {fmt(calc.afterTaxProfit)} 원
-            </span>
-          </div>
-          <p className="text-sm text-amber-600 pt-1">* 세금은 영업이익 기준으로 납부하며, 본 계산기는 참고용입니다.</p>
-        </div>
-      </section>
-
-      {/* ── 섹션 5: Grant Cardone 이의대응 ── */}
-      {!inputError && (
+        {/* ── 섹션 2: 수당 분배 ── */}
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
-            <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">❓ 자주 묻는 이의 대응 (Grant Cardone)</h2>
-            <p className="text-sm text-slate-400 mt-0.5">계산 결과를 의심하시나요? 여기서 답을 찾아보세요.</p>
+          <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+            <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">2단계 — 수당 분배</h2>
+            <p className="text-xs text-slate-400 mt-0.5">%, 원, 달러 중 하나를 입력하면 나머지가 자동 계산됩니다.</p>
           </div>
-          <div className="px-6 py-5 space-y-4">
-            {[
-              {
-                q: '이 계산기 결과를 정말 믿을 수 있나요?',
-                a: '네, 500명 이상의 대리점장이 이미 사용 중이며, 회계팀과 검증된 공식입니다. 의료진 자격증처럼 신뢰할 수 있는 근거가 있습니다.'
-              },
-              {
-                q: '경쟁사도 비슷한 수당을 주는데, 왜 우리와 계약해야 하나요?',
-                a: '수당 %가 아니라 실제 기초가 되는 "세전순이익"의 크기가 다릅니다. 우리는 카드수수료를 최소화해 기초를 크게 만듭니다.'
-              },
-              {
-                q: '월 수익이 이 정도 나올 수 있을까요?',
-                a: '3-6개월 데이터를 보면, 신혼부부와 가족 고객이 월평균 3-5건 예약합니다. 계산기 결과는 보수적 추정입니다.'
-              },
-              {
-                q: '부업으로도 가능한가요?',
-                a: '물론입니다! 부업 고객 100명에서도 월 500-1000만원이 가능합니다. 이미 20명의 부업 대리점장이 활동 중입니다.'
-              }
-            ].map((qa, i) => (
-              <details key={i} className="bg-slate-50 rounded-lg border border-slate-200 overflow-hidden group">
-                <summary className="cursor-pointer px-4 py-3 font-medium text-slate-700 text-sm hover:bg-slate-100 select-none">
-                  {qa.q}
-                </summary>
-                <div className="px-4 py-3 border-t border-slate-200 bg-white">
-                  <p className="text-sm text-slate-600">{qa.a}</p>
+          <div className="px-5 py-4 space-y-4">
+            {calc.allowanceOverflow && (
+              <div className="bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-sm text-amber-700">
+                수당 합계({fmt(calc.agentAmt + calc.memberAmt + calc.freeAmt + calc.overridingAmt)}원)가 세전순이익을 초과합니다.
+              </div>
+            )}
+
+            {/* 대리점장 */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <label className="w-28 text-sm font-semibold text-slate-700 shrink-0">대리점장</label>
+                <div className="flex flex-1 gap-1.5">
+                  {/* % */}
+                  <div className="relative w-20 shrink-0">
+                    <input type="number" min={0} max={100} step={0.1}
+                      value={agentMode === 'pct' ? agentPctInput : pct(calc.agentPct)}
+                      onChange={e => onAgentPct(e.target.value)}
+                      onFocus={() => setAgentMode('pct')}
+                      className={`w-full border rounded-lg px-2 py-2 text-sm text-right pr-6 focus:outline-none focus:ring-2 focus:ring-slate-400 ${agentMode === 'pct' ? 'border-slate-400 bg-white' : 'border-slate-200 bg-slate-50 text-slate-400'}`}
+                      placeholder="0.0" />
+                    <span className="absolute right-2 top-2 text-xs text-slate-400">%</span>
+                  </div>
+                  {/* 원 */}
+                  <div className="relative flex-1">
+                    <input type="number" min={0}
+                      value={agentMode === 'amount' ? agentAmtInput : Math.round(calc.agentAmt).toString()}
+                      onChange={e => onAgentAmt(e.target.value)}
+                      onFocus={() => setAgentMode('amount')}
+                      className={`w-full border rounded-lg px-2 py-2 text-sm text-right pr-8 focus:outline-none focus:ring-2 focus:ring-slate-400 ${agentMode === 'amount' ? 'border-slate-400 bg-white' : 'border-slate-200 bg-slate-50 text-slate-400'}`}
+                      placeholder="0" />
+                    <span className="absolute right-2 top-2 text-xs text-slate-400">원</span>
+                  </div>
+                  {/* $ */}
+                  <div className="relative flex-1">
+                    <input type="number" min={0}
+                      value={agentUsdDisplay}
+                      onChange={e => onAgentUsd(e.target.value)}
+                      disabled={!rateReady}
+                      className="w-full border border-emerald-300 bg-emerald-50 rounded-lg px-2 py-2 text-sm text-right pr-6 focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-40"
+                      placeholder={rateReady ? '0.00' : '…'} />
+                    <span className="absolute right-2 top-2 text-xs text-emerald-500">$</span>
+                  </div>
                 </div>
-              </details>
-            ))}
+              </div>
+
+              {/* 소속/자유판매원/오버라이딩 */}
+              <div className="ml-5 pl-3 border-l-2 border-slate-200 space-y-2">
+                {/* 소속판매원 */}
+                <div className="flex items-center gap-2">
+                  <label className="w-24 text-sm text-slate-600 shrink-0">소속판매원</label>
+                  <div className="flex flex-1 gap-1.5">
+                    <div className="relative w-20 shrink-0">
+                      <input type="number" min={0} max={100} step={0.1}
+                        value={memberMode === 'pct' ? memberPctInput : pct(calc.memberPct)}
+                        onChange={e => onMemberPct(e.target.value)}
+                        onFocus={() => setMemberMode('pct')}
+                        className={`w-full border rounded-lg px-2 py-2 text-sm text-right pr-6 focus:outline-none focus:ring-2 focus:ring-slate-400 ${memberMode === 'pct' ? 'border-slate-400 bg-white' : 'border-slate-200 bg-slate-50 text-slate-400'}`}
+                        placeholder="0.0" />
+                      <span className="absolute right-2 top-2 text-xs text-slate-400">%</span>
+                    </div>
+                    <div className="relative flex-1">
+                      <input type="number" min={0}
+                        value={memberMode === 'amount' ? memberAmtInput : Math.round(calc.memberAmt).toString()}
+                        onChange={e => onMemberAmt(e.target.value)}
+                        onFocus={() => setMemberMode('amount')}
+                        className={`w-full border rounded-lg px-2 py-2 text-sm text-right pr-8 focus:outline-none focus:ring-2 focus:ring-slate-400 ${memberMode === 'amount' ? 'border-slate-400 bg-white' : 'border-slate-200 bg-slate-50 text-slate-400'}`}
+                        placeholder="0" />
+                      <span className="absolute right-2 top-2 text-xs text-slate-400">원</span>
+                    </div>
+                    <div className="relative flex-1">
+                      <input type="number" min={0}
+                        value={memberUsdDisplay}
+                        onChange={e => onMemberUsd(e.target.value)}
+                        disabled={!rateReady}
+                        className="w-full border border-emerald-300 bg-emerald-50 rounded-lg px-2 py-2 text-sm text-right pr-6 focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-40"
+                        placeholder={rateReady ? '0.00' : '…'} />
+                      <span className="absolute right-2 top-2 text-xs text-emerald-500">$</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 자유판매원 */}
+                <div className="flex items-center gap-2">
+                  <label className="w-24 text-sm text-slate-600 shrink-0">자유판매원</label>
+                  <div className="flex flex-1 gap-1.5">
+                    <div className="relative flex-1">
+                      <input type="number" min={0} value={freeAgentAmtInput} onChange={e => onFreeAmt(e.target.value)}
+                        className="w-full border border-slate-400 bg-white rounded-lg px-2 py-2 text-sm text-right pr-8 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                        placeholder="0" />
+                      <span className="absolute right-2 top-2 text-xs text-slate-400">원</span>
+                    </div>
+                    <div className="relative flex-1">
+                      <input type="number" min={0} value={freeAgentUsd} onChange={e => onFreeUsd(e.target.value)}
+                        disabled={!rateReady}
+                        className="w-full border border-emerald-300 bg-emerald-50 rounded-lg px-2 py-2 text-sm text-right pr-6 focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-40"
+                        placeholder={rateReady ? '0.00' : '…'} />
+                      <span className="absolute right-2 top-2 text-xs text-emerald-500">$</span>
+                    </div>
+                    <div className="w-20 shrink-0 bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-sm text-right text-slate-500">
+                      {pct(calc.freeAgentPct)}%
+                    </div>
+                  </div>
+                </div>
+
+                {/* 오버라이딩 */}
+                <div className="flex items-center gap-2">
+                  <label className="w-24 text-sm text-slate-600 shrink-0">오버라이딩</label>
+                  <div className="flex flex-1 gap-1.5">
+                    <div className="relative flex-1">
+                      <input type="number" min={0} value={overridingAmtInput} onChange={e => onOverridingAmt(e.target.value)}
+                        className="w-full border border-slate-400 bg-white rounded-lg px-2 py-2 text-sm text-right pr-8 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                        placeholder="0" />
+                      <span className="absolute right-2 top-2 text-xs text-slate-400">원</span>
+                    </div>
+                    <div className="relative flex-1">
+                      <input type="number" min={0} value={overridingUsd} onChange={e => onOverridingUsd(e.target.value)}
+                        disabled={!rateReady}
+                        className="w-full border border-emerald-300 bg-emerald-50 rounded-lg px-2 py-2 text-sm text-right pr-6 focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-40"
+                        placeholder={rateReady ? '0.00' : '…'} />
+                      <span className="absolute right-2 top-2 text-xs text-emerald-500">$</span>
+                    </div>
+                    <div className="w-20 shrink-0 bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-sm text-right text-slate-500">
+                      {pct(calc.overridingPct)}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 본사 순이익 */}
+          <div className="border-t border-slate-100 px-5 py-4 bg-slate-50">
+            <div className="flex justify-between items-baseline">
+              <span className="text-sm font-semibold text-slate-700">본사 순이익</span>
+              <span className={`text-lg ${cls(calc.hqProfit)}`}>
+                {fmt(calc.hqProfit)} 원
+                {rateReady && <span className="ml-2 text-base text-emerald-600 font-normal">(${toUsd(calc.hqProfit)})</span>}
+                <span className="ml-2 text-slate-400 font-normal text-sm">{pct(calc.hqMargin)}%</span>
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">= 세전순이익 − 대리점장 − 소속판매원 − 자유판매원 − 오버라이딩</p>
           </div>
         </section>
-      )}
 
-      {/* ── 섹션 7: 계산 요약 테이블 ── */}
-      {!inputError && (
-        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
-            <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">전체 계산 요약</h2>
+        {/* ── 저장 버튼 ── */}
+        {!inputError && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4">
+            {showSaveInput ? (
+              <div className="flex gap-2">
+                <input
+                  type="text" value={saveTitle} onChange={e => setSaveTitle(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && doSave()}
+                  placeholder={`제목 (기본: 계산 ${new Date().toLocaleDateString('ko-KR')})`}
+                  className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  autoFocus
+                />
+                <button onClick={doSave} className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 font-medium">저장</button>
+                <button onClick={() => setShowSaveInput(false)} className="px-3 py-2 bg-slate-100 text-slate-600 text-sm rounded-lg hover:bg-slate-200">취소</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowSaveInput(true)}
+                className="w-full py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition"
+              >
+                + 현재 계산 저장하기
+              </button>
+            )}
           </div>
-          <div className="divide-y divide-slate-100">
+        )}
+
+        {/* ── 법인세 ── */}
+        <section className="bg-amber-50 rounded-2xl border border-amber-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-amber-200">
+            <h2 className="text-sm font-semibold text-amber-800 uppercase tracking-wide">참고 — 법인세 22%</h2>
+            <p className="text-xs text-amber-600 mt-0.5">실제 세율은 과세표준과 세무 처리에 따라 다를 수 있습니다.</p>
+          </div>
+          <div className="px-5 py-3 space-y-1.5">
             {[
-              { label: '판매가', value: fmt(calc.sale) + ' 원', sub: '' },
-              { label: '입금가', value: fmt(calc.cost) + ' 원', sub: '' },
-              { label: `카드수수료 (${(CARD_FEE_RATE * 100).toFixed(1)}%)`, value: fmt(calc.cardFee) + ' 원', sub: '' },
-              { label: '영업이익', value: fmt(calc.operatingProfit) + ' 원', sub: pct(calc.operatingMargin) + '%', highlight: true },
-              { label: '세전순이익', value: fmt(calc.netProfitBeforeTax) + ' 원', sub: pct(calc.netMargin) + '%', highlight: true },
-              { label: '대리점장 수당', value: fmt(calc.agentAmt) + ' 원', sub: pct(calc.agentPct) + '%' },
-              { label: '소속판매원 수당', value: fmt(calc.memberAmt) + ' 원', sub: pct(calc.memberPct) + '%' },
-              { label: '자유판매원 수당', value: fmt(calc.freeAmt) + ' 원', sub: pct(calc.freeAgentPct) + '%' },
-              { label: '대리점장 오버라이딩', value: fmt(calc.overridingAmt) + ' 원', sub: pct(calc.overridingPct) + '%' },
-              { label: '본사 순이익', value: fmt(calc.hqProfit) + ' 원', sub: pct(calc.hqMargin) + '%', highlight: true, red: calc.hqProfit < 0 },
-            ].map((row) => (
-              <div key={row.label} className={`flex justify-between items-center px-6 py-3 text-sm ${row.highlight ? 'bg-slate-50' : ''}`}>
-                <span className={`${row.highlight ? 'font-semibold text-slate-800' : 'text-slate-600'}`}>{row.label}</span>
-                <span className={`font-medium ${row.red ? 'text-red-600' : 'text-slate-900'}`}>
-                  {row.value}
-                  {row.sub && <span className="ml-2 text-sm text-slate-400">{row.sub}</span>}
+              { label: '영업이익 기준 법인세 (22%)', v: calc.corporateTax },
+              { label: '세후 본사 순이익 (참고용)', v: calc.afterTaxProfit },
+            ].map(row => (
+              <div key={row.label} className="flex justify-between text-sm">
+                <span className="text-amber-700">{row.label}</span>
+                <span className={`font-semibold ${row.v < 0 ? 'text-red-600' : 'text-amber-900'}`}>
+                  {fmt(row.v)} 원
+                  {rateReady && <span className="ml-1.5 text-emerald-600 font-normal text-xs">(${toUsd(row.v)})</span>}
                 </span>
               </div>
             ))}
           </div>
         </section>
-      )}
 
+        {/* ── 전체 요약 ── */}
+        {!inputError && (
+          <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+              <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">전체 계산 요약</h2>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {[
+                { label: '판매가', krw: calc.sale },
+                { label: '입금가', krw: calc.cost },
+                { label: `카드수수료 (${(CARD_FEE_RATE * 100).toFixed(1)}%)`, krw: calc.cardFee },
+                { label: '영업이익', krw: calc.operatingProfit, sub: pct(calc.operatingMargin) + '%', hi: true },
+                { label: '세전순이익', krw: calc.netProfitBeforeTax, sub: pct(calc.netMargin) + '%', hi: true },
+                { label: '대리점장 수당', krw: calc.agentAmt, sub: pct(calc.agentPct) + '%' },
+                { label: '소속판매원 수당', krw: calc.memberAmt, sub: pct(calc.memberPct) + '%' },
+                { label: '자유판매원 수당', krw: calc.freeAmt, sub: pct(calc.freeAgentPct) + '%' },
+                { label: '대리점장 오버라이딩', krw: calc.overridingAmt, sub: pct(calc.overridingPct) + '%' },
+                { label: '본사 순이익', krw: calc.hqProfit, sub: pct(calc.hqMargin) + '%', hi: true, red: calc.hqProfit < 0 },
+              ].map(row => (
+                <div key={row.label} className={`flex justify-between items-center px-5 py-2.5 text-sm ${row.hi ? 'bg-slate-50' : ''}`}>
+                  <span className={row.hi ? 'font-semibold text-slate-800' : 'text-slate-600'}>{row.label}</span>
+                  <span className={`font-medium ${row.red ? 'text-red-600' : 'text-slate-900'}`}>
+                    {fmt(row.krw)} 원
+                    {rateReady && <span className="ml-1.5 text-xs text-emerald-500 font-normal">${toUsd(row.krw)}</span>}
+                    {row.sub && <span className="ml-2 text-xs text-slate-400">{row.sub}</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+
+      {/* ── 오른쪽: 저장 목록 패널 (desktop) ── */}
+      <div className="hidden lg:block w-72 xl:w-80 shrink-0 sticky top-4 self-start">
+        <SavedPanel
+          savedCalcs={savedCalcs} isLoading={isLoadingList} isSaving={isSaving}
+          saveTitle={saveTitle} setSaveTitle={setSaveTitle}
+          showSaveInput={showSaveInput} setShowSaveInput={setShowSaveInput}
+          onSave={doSave} onLoad={doLoad} onDelete={doDelete}
+        />
+      </div>
     </div>
   );
 }
+
+// ─── 저장 목록 패널 컴포넌트 ──────────────────────────────────────────────────
+
+function SavedPanel({
+  savedCalcs, isLoading, isSaving,
+  saveTitle, setSaveTitle, showSaveInput, setShowSaveInput,
+  onSave, onLoad, onDelete,
+}: {
+  savedCalcs: SavedCalc[];
+  isLoading: boolean;
+  isSaving: boolean;
+  saveTitle: string; setSaveTitle: (v: string) => void;
+  showSaveInput: boolean; setShowSaveInput: (v: boolean) => void;
+  onSave: () => void;
+  onLoad: (c: SavedCalc) => void;
+  onDelete: (id: string, e: React.MouseEvent) => void;
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-slate-700">저장된 계산 ({savedCalcs.length})</h2>
+        {!showSaveInput && (
+          <button
+            onClick={() => setShowSaveInput(true)}
+            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+          >+ 저장</button>
+        )}
+      </div>
+
+      {showSaveInput && (
+        <div className="px-4 py-3 border-b border-slate-100 bg-blue-50 space-y-2">
+          <input
+            type="text" value={saveTitle} onChange={e => setSaveTitle(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !isSaving && onSave()}
+            placeholder="제목 입력 (선택)"
+            className="w-full border border-blue-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            autoFocus disabled={isSaving}
+          />
+          <div className="flex gap-2">
+            <button onClick={onSave} disabled={isSaving} className="flex-1 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60">
+              {isSaving ? '저장 중…' : '저장'}
+            </button>
+            <button onClick={() => setShowSaveInput(false)} disabled={isSaving} className="flex-1 py-1.5 bg-slate-100 text-slate-600 text-sm rounded-lg hover:bg-slate-200 disabled:opacity-60">취소</button>
+          </div>
+        </div>
+      )}
+
+      <div className="max-h-[70vh] overflow-y-auto divide-y divide-slate-100">
+        {isLoading ? (
+          <p className="px-4 py-8 text-sm text-center text-slate-400 animate-pulse">불러오는 중…</p>
+        ) : savedCalcs.length === 0 ? (
+          <p className="px-4 py-8 text-sm text-center text-slate-400">저장된 계산이 없습니다.</p>
+        ) : (
+          savedCalcs.map(c => (
+            <div key={c.id} className="group relative hover:bg-slate-50 transition">
+              {/* 삭제 버튼 — 불러오기 버튼과 분리 */}
+              <button
+                type="button"
+                onClick={e => onDelete(c.id, e)}
+                className="absolute top-2 right-3 z-10 text-slate-300 hover:text-red-400 text-xs px-1 py-0.5"
+                aria-label="삭제"
+              >✕</button>
+              {/* 불러오기 영역 */}
+              <button
+                type="button"
+                onClick={() => onLoad(c)}
+                className="w-full text-left px-4 py-3 pr-8"
+              >
+                <p className="text-sm font-medium text-slate-800 leading-snug line-clamp-1 pr-2">{c.title}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{new Date(c.savedAt).toLocaleString('ko-KR')}</p>
+                <div className="mt-1.5 space-y-0.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">판매가</span>
+                    <span className="text-slate-700">{Math.round(c.snapshotSale).toLocaleString('ko-KR')} 원</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">세전순이익</span>
+                    <span className="text-slate-700">{Math.round(c.snapshotNetProfit).toLocaleString('ko-KR')} 원</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">본사 순이익</span>
+                    <span className={`font-semibold ${c.snapshotHqProfit < 0 ? 'text-red-500' : 'text-blue-600'}`}>
+                      {Math.round(c.snapshotHqProfit).toLocaleString('ko-KR')} 원
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-blue-500 mt-1.5 opacity-0 group-hover:opacity-100 transition">클릭하여 불러오기 →</p>
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── 페이지 래퍼 (권한 체크) ──────────────────────────────────────────────────
 
 export default function ProfitCalculatorPage() {
   const router = useRouter();
   const [blocked, setBlocked] = useState<boolean | null>(null);
 
   useEffect(() => {
-    fetch('/api/auth/me')
-      .then(r => r.json())
-      .then(d => {
+    const controller = new AbortController();
+    fetch('/api/auth/me', { signal: controller.signal })
+      .then(r => { if (!r.ok) throw new Error('auth-failed'); return r.json(); })
+      .then((d: { ok: boolean; role: string }) => {
         if (!d.ok) { router.replace('/dashboard'); return; }
         setBlocked(d.role === 'FREE_SALES' || d.role === 'AGENT');
       })
-      .catch(() => router.replace('/dashboard'));
+      .catch(e => { if (e.name !== 'AbortError') router.replace('/dashboard'); });
+    return () => controller.abort();
   }, [router]);
 
   if (blocked === null) return null;
-
-  if (blocked) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-gray-600 text-sm">접근 권한이 없습니다</p>
-      </div>
-    );
-  }
+  if (blocked) return (
+    <div className="flex items-center justify-center h-64">
+      <p className="text-gray-600 text-sm">접근 권한이 없습니다</p>
+    </div>
+  );
 
   return <CalculatorContent />;
 }
