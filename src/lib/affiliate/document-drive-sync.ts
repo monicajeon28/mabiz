@@ -320,31 +320,35 @@ export interface ContractDriveResult {
 
 /**
  * 구매계약서 서명 완료 시 Google Drive에 저장
- * - 폴더: CRM_계약서_{organizationId} (자동 생성)
- * - 파일명: 계약서_{고객명}_{YYYY-MM-DD}.html
+ * - 폴더: GOOGLE_DRIVE_CONTRACTS_FOLDER_ID (지정된 공유 드라이브 폴더)
+ * - 파일명: {고객명}_{연락처}_{YYYY-MM-DD}.html
  */
 export async function saveContractToDrive(
   documentId: string,
   htmlContent: string,
   customerName: string,
-  organizationId: string
+  organizationId: string,
+  customerPhone?: string
 ): Promise<ContractDriveResult> {
-  const rootFolderId = process.env.GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID;
-  if (!rootFolderId) {
-    logger.log('[ContractDriveSync] GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID 미설정 — 건너뜀');
-    return { ok: false, error: 'GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID 미설정' };
+  // 계약서 전용 폴더 ID (환경변수 우선, 없으면 기본 폴더로 fallback)
+  const contractFolderId =
+    process.env.GOOGLE_DRIVE_CONTRACTS_FOLDER_ID ||
+    process.env.GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID;
+  if (!contractFolderId) {
+    logger.log('[ContractDriveSync] Drive 폴더 ID 미설정 — 건너뜀');
+    return { ok: false, error: 'Drive 폴더 ID 미설정' };
   }
 
   try {
     const drive = getDriveClient();
-    const folderName = `CRM_계약서_${organizationId}`;
-    const contractFolderId = await findOrCreateFolder(folderName, rootFolderId);
 
     const safeName = customerName.replace(/[/\\?%*:|"<>]/g, '_');
+    const safePhone = (customerPhone ?? '').replace(/[^0-9]/g, '');
     const dateStr = new Date().toISOString().split('T')[0];
-    const fileName = `계약서_${safeName}_${dateStr}_${documentId.slice(-6)}.html`;
+    const namePart = safePhone ? `${safeName}_${safePhone}` : safeName;
+    const fileName = `${namePart}_${dateStr}.html`;
 
-    // 기존 파일 탐색
+    // 기존 파일 탐색 (같은 이름이면 덮어쓰기)
     const list = await drive.files.list({
       q: `name='${fileName.replace(/'/g, "\\'")}' and '${contractFolderId}' in parents and trashed=false`,
       fields: 'files(id)',
