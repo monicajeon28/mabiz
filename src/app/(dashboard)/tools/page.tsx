@@ -94,8 +94,12 @@ export default function ToolsPage() {
 
   useEffect(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam === "qa") {
-      setMainTab("qa");
+    const validTabs: Array<typeof mainTab> = [
+      "dashboard", "training", "scripts", "playbook", "feedback",
+      "qa", "call-feedback", "call-playbook", "sms-templates",
+    ];
+    if (tabParam && (validTabs as string[]).includes(tabParam)) {
+      setMainTab(tabParam as typeof mainTab);
     }
   }, [searchParams]);
 

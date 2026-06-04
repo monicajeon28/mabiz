@@ -76,4 +76,12 @@ echo "✅ TypeScript 통과"
 # ============================================================
 # 3단계: ESLint (변경 파일만)
 # ============================================================
+# lint-staged v17 stash restore 후 새 파일 누락 방지
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
 npx lint-staged
+LINT_EXIT=$?
+# lint-staged 완료 후 누락된 파일 재add
+for SF in $STAGED_FILES; do
+  git add "$SF" 2>/dev/null || true
+done
+exit $LINT_EXIT
