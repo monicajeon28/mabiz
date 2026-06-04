@@ -395,7 +395,7 @@ export default function PassportPage() {
 
   const toggle = (id: number) => setSelectedIds(prev => {
     const next = new Set(prev);
-    next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) { next.delete(id); } else { next.add(id); }
     return next;
   });
 
@@ -426,7 +426,13 @@ export default function PassportPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.message || '발송 실패');
+      if (!res.ok || !data.ok) {
+        // 잔액 부족(402) 시 UI 잔액 표시도 갱신
+        if (res.status === 402 && typeof data.remainingCash === 'number') {
+          setAligoBalance(data.remainingCash);
+        }
+        throw new Error(data.message || '발송 실패');
+      }
 
       const items: (SendResultItem & { noPhone?: boolean })[] = data.results ?? [];
 

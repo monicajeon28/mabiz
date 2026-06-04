@@ -23,7 +23,12 @@ export async function POST(req: NextRequest) {
     // 1. User & Trip 확인
     const user = await prisma.gmUser.findUnique({
       where: { id: userId },
-      include: { trips: true },
+      include: {
+        trips: {
+          orderBy: { startDate: 'desc' },
+          take: 5,
+        },
+      },
     });
 
     if (!user) {
@@ -65,7 +70,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://cruise-guide.co.kr';
+    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://cruise-guide.co.kr').replace(/\/$/, '');
     const passportLink = `${baseUrl}/passport/${submission.token}?mode=passport`;
     const pnrLink = `${baseUrl}/passport/${submission.token}?mode=pnr`;
 
@@ -75,8 +80,9 @@ export async function POST(req: NextRequest) {
       pnrLink,
       token: submission.token,
     });
-  } catch (error: any) {
-    logger.error('[Passport Link] Error', { error: error?.message });
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.error('[Passport Link] Error', { error: msg });
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
