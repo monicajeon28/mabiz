@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, canDelete } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId, canDelete } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
@@ -27,12 +27,12 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = resolveOrgIdOrNull(ctx);
+    const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
-    // 상세 조회 — 에디터/폼 등 모든 필드 필요
+    // 상세 조회 — 조직 소유권 필터 필수
     const page = await prisma.b2BLandingPage.findFirst({
-      where: { id, ...(orgId ? { organizationId: orgId } : {}) },
+      where: { id, organizationId: orgId },
       include: {
         _count: { select: { registrations: true } },
         registrations: {
@@ -43,12 +43,6 @@ export async function GET(_req: Request, { params }: Params) {
       },
     });
     if (!page) return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: '랜딩페이지를 찾을 수 없습니다.' }, { status: 404 });
-
-    // [SEC-002] 권한 검증 강화: 명시적 확인
-    // orgId가 없으면 (public 사용자) 공개 페이지 접근만 허용
-    if (orgId && page.organizationId !== orgId) {
-      return NextResponse.json({ ok: false, error: 'UNAUTHORIZED', message: '이 페이지에 접근할 권한이 없습니다.' }, { status: 403 });
-    }
 
     return NextResponse.json({ ok: true, data: page, page });
   } catch (err) {

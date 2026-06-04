@@ -238,6 +238,18 @@ export default function GroupsPage() {
   // 스크립트 로딩
   const [scriptLoading, setScriptLoading] = useState<string | null>(null);
 
+  // 그룹 편집 모달
+  const [editGroup, setEditGroup] = useState<{ id: string; data: Record<string, unknown> } | null>(null);
+  const [editLoading, setEditLoading] = useState<string | null>(null);
+
+  // 고객 목록 팝업
+  const [memberModal, setMemberModal] = useState<{ groupId: string; groupName: string } | null>(null);
+  const [memberList, setMemberList] = useState<{ contactId: string; name: string; phone: string; addedAt: string; daysSince: number }[]>([]);
+  const [memberTotal, setMemberTotal] = useState(0);
+  const [memberLoading, setMemberLoading] = useState(false);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [memberPage, setMemberPage] = useState(1);
+
   // 그룹폼 데이터
   const [funnels, setFunnels] = useState<{ id: string; name: string }[]>([]);
   const [funnelSmsList, setFunnelSmsList] = useState<{ id: string; title: string }[]>([]);
@@ -343,6 +355,67 @@ export default function GroupsPage() {
     });
   };
 
+  // ── 그룹 편집 핸들러 ──────────────────────────────────────────────────────────
+  const handleEditGroup = async (groupId: string) => {
+    setEditLoading(groupId);
+    try {
+      const res = await fetch(`/api/groups/${groupId}`);
+      const data = await res.json();
+      if (data.ok && data.group) {
+        setEditGroup({ id: groupId, data: data.group });
+      } else {
+        showError('그룹 정보를 불러올 수 없습니다.');
+      }
+    } catch {
+      showError('오류가 발생했습니다.');
+    } finally {
+      setEditLoading(null);
+    }
+  };
+
+  // ── 고객 목록 로드 ─────────────────────────────────────────────────────────
+  const loadMembers = async (groupId: string, q = '', page = 1) => {
+    setMemberLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(page), limit: '50' });
+      if (q) params.set('q', q);
+      const res = await fetch(`/api/groups/${groupId}/members?${params}`);
+      const data = await res.json();
+      if (data.ok) {
+        setMemberList(data.members ?? []);
+        setMemberTotal(data.total ?? 0);
+      }
+    } catch {
+      showError('고객 목록을 불러올 수 없습니다.');
+    } finally {
+      setMemberLoading(false);
+    }
+  };
+
+  // ── 멤버 수 배지 클릭 핸들러 ───────────────────────────────────────────────
+  const handleMemberBadgeClick = (groupId: string, groupName: string) => {
+    setMemberModal({ groupId, groupName });
+    setMemberSearch('');
+    setMemberPage(1);
+    loadMembers(groupId);
+  };
+
+  // ── 그룹에서 제거 핸들러 ───────────────────────────────────────────────────
+  const handleRemoveMember = async (groupId: string, contactId: string) => {
+    if (!confirm('이 고객을 그룹에서 해제하시겠습니까?')) return;
+    try {
+      await fetch(`/api/groups/${groupId}/members`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contactIds: [contactId] }),
+      });
+      loadMembers(groupId, memberSearch, memberPage);
+      setGroups(prev => prev.map(g => g.id === groupId ? { ...g, memberCount: g.memberCount - 1 } : g));
+    } catch {
+      showError('그룹 해제에 실패했습니다.');
+    }
+  };
+
   // ── 스크립트 클릭: seq 있으면 바로, 없으면 API 호출해서 생성 ──────────────────
   const handleScriptClick = async (groupId: string, existingSeq: string | null) => {
     if (existingSeq) {
@@ -422,6 +495,110 @@ export default function GroupsPage() {
             void loadGroups();
           }}
         />
+      )}
+
+      {editGroup && (
+        <GroupForm
+          groups={groups.filter(g => g.id !== editGroup.id).map(g => ({ id: g.id, name: g.name }))}
+          funnels={funnels}
+          funnelSmsList={funnelSmsList}
+          funnelEmailList={[]}
+          csrfToken={csrfToken}
+          editGroupId={editGroup.id}
+          initialData={{
+            name: editGroup.data.name as string,
+            category: editGroup.data.category as string | undefined,
+            parentGroupId: editGroup.data.parentGroupId as string | undefined,
+            description: editGroup.data.description as string | undefined,
+            funnelIds: editGroup.data.funnelIds as string[] | undefined,
+            funnelSmsIds: editGroup.data.funnelSmsIds as string[] | undefined,
+            reEntryPolicy: editGroup.data.reEntryPolicy as string | undefined,
+            autoMoveEnabled: editGroup.data.autoMoveEnabled as boolean | undefined,
+            autoMoveDays: editGroup.data.autoMoveDays as number | null | undefined,
+            autoMoveTargetGroupId: editGroup.data.autoMoveTargetGroupId as string | null | undefined,
+          }}
+          onClose={() => setEditGroup(null)}
+          onCreated={() => { setEditGroup(null); void loadGroups(); }}
+        />
+      )}
+
+      {memberModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl mx-4">
+            <div className="flex items-center justify-between px-5 py-4 border-b bg-teal-500 rounded-t-xl">
+              <h2 className="text-base font-semibold text-white">고객리스트</h2>
+              <button onClick={() => setMemberModal(null)} className="text-white hover:text-gray-200">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5">
+              <p className="text-sm font-medium text-gray-700 mb-3">그룹명:{memberModal.groupName}</p>
+              <input
+                type="text"
+                value={memberSearch}
+                onChange={e => setMemberSearch(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    setMemberPage(1);
+                    loadMembers(memberModal.groupId, memberSearch, 1);
+                  }
+                }}
+                placeholder="검색 필터"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none"
+              />
+              {memberLoading ? (
+                <div className="text-center py-8 text-gray-400">불러오는 중...</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="pb-2 text-left text-gray-600 font-medium">고객명</th>
+                        <th className="pb-2 text-left text-gray-600 font-medium">휴대폰번호</th>
+                        <th className="pb-2 text-center text-gray-600 font-medium">그룹유입일</th>
+                        <th className="pb-2 text-center text-gray-600 font-medium">일차</th>
+                        <th className="pb-2 text-center text-gray-600 font-medium">그룹해제</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {memberList.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-8 text-center text-gray-400">고객이 없습니다.</td>
+                        </tr>
+                      ) : memberList.map(member => (
+                        <tr key={member.contactId} className="hover:bg-gray-50">
+                          <td className="py-2 text-gray-800">{member.name}</td>
+                          <td className="py-2 text-gray-600">{member.phone}</td>
+                          <td className="py-2 text-center text-gray-500 text-xs">
+                            {new Date(member.addedAt).toLocaleDateString('ko-KR').replace(/\./g, '.').trim()}
+                          </td>
+                          <td className="py-2 text-center text-gray-600">{member.daysSince}</td>
+                          <td className="py-2 text-center">
+                            <button
+                              onClick={() => handleRemoveMember(memberModal.groupId, member.contactId)}
+                              className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors"
+                            >
+                              그룹해제
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div className="flex justify-between items-center mt-4">
+                <span className="text-xs text-gray-400">총 {memberTotal}명</span>
+                <button
+                  onClick={() => setMemberModal(null)}
+                  className="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="flex flex-col h-full p-4 md:p-6 space-y-3">
@@ -596,7 +773,13 @@ export default function GroupsPage() {
                             </span>
                           </span>
                         ) : (
-                          parent.name
+                          <button
+                            onClick={() => handleEditGroup(parent.id)}
+                            disabled={editLoading === parent.id}
+                            className="text-blue-600 hover:underline text-left disabled:opacity-50"
+                          >
+                            {editLoading === parent.id ? '로딩...' : parent.name}
+                          </button>
                         )}
                       </td>
                       <td className="px-3 py-2 text-gray-500 text-xs">
@@ -604,9 +787,12 @@ export default function GroupsPage() {
                       </td>
                       <td className="px-3 py-2 text-center">
                         {!hasChildren && (
-                          <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                          <button
+                            onClick={() => handleMemberBadgeClick(parent.id, parent.name)}
+                            className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 cursor-pointer transition-colors"
+                          >
                             {parent.memberCount.toLocaleString()}명
-                          </span>
+                          </button>
                         )}
                       </td>
                       <td className="px-3 py-2 text-gray-600 text-xs">
@@ -654,14 +840,23 @@ export default function GroupsPage() {
                           <td className="px-3 py-2">
                             <span className="inline-flex items-center gap-1.5">
                               <span className="text-gray-300 select-none">└</span>
-                              <span className="text-gray-800">{child.name}</span>
+                              <button
+                                onClick={() => handleEditGroup(child.id)}
+                                disabled={editLoading === child.id}
+                                className="text-blue-600 hover:underline text-left disabled:opacity-50"
+                              >
+                                {editLoading === child.id ? '로딩...' : child.name}
+                              </button>
                             </span>
                           </td>
                           <td className="px-3 py-2 text-gray-500 text-xs">{parent.name}</td>
                           <td className="px-3 py-2 text-center">
-                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                            <button
+                              onClick={() => handleMemberBadgeClick(child.id, child.name)}
+                              className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 cursor-pointer transition-colors"
+                            >
                               {child.memberCount.toLocaleString()}명
-                            </span>
+                            </button>
                           </td>
                           <td className="px-3 py-2 text-gray-600 text-xs">
                             {child._funnelSmsName ??
