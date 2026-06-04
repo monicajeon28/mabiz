@@ -146,17 +146,20 @@ model KakaoConfig {
 }
 
 model OrganizationMember {
-  id              String       @id @default(cuid())
-  organizationId  String
-  userId          String
-  phone           String?
-  passwordHash    String?
-  role            String       @default("AGENT")
-  displayName     String?
-  isActive        Boolean      @default(true)
-  email           String?
-  emailSenderName String?
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id                  String       @id @default(cuid())
+  organizationId      String
+  userId              String
+  phone               String?
+  passwordHash        String?
+  role                String       @default("AGENT")
+  displayName         String?
+  isActive            Boolean      @default(true)
+  email               String?
+  emailSenderName     String?
+  // 계약서 디지털 서명
+  contractSignature   String?
+  contractSignedAt    DateTime?
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, userId])
   @@index([organizationId])
@@ -1523,6 +1526,9 @@ model OrgInviteToken {
   usedAt          DateTime?
   usedByUserId    String?
   agreedToTerms   Boolean      @default(false)
+  signature       String?      // 디지털 서명 (실명 입력값)
+  signedAt        DateTime?    // 서명 일시
+  memberEmail     String?      // 가입자 이메일 (계약서 발송용)
   createdByUserId String?
   createdAt       DateTime     @default(now())
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)

@@ -33,7 +33,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyGmcruiseWebhook } from '@/lib/webhook-verify';
 import { findOrCreateOrganization } from '@/lib/organization';
-import { notifyGlobalAdmin } from '@/lib/system-email';
+import { sendSystemEmail, COMPANY_EMAIL } from '@/lib/system-email';
 import { renderNewOrgEmail } from '@/lib/email-templates';
 import { logger } from '@/lib/logger';
 import prisma from '@/lib/prisma';
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
       crmUrl:      process.env.NEXT_PUBLIC_APP_URL ?? '',
     });
 
-    notifyGlobalAdmin(subject, html).catch((e) =>
+    sendSystemEmail({ to: COMPANY_EMAIL, subject, html }).catch((e: unknown) =>
       logger.error('[ContractSignedWebhook] GLOBAL_ADMIN 알림 실패', { e })
     );
   }

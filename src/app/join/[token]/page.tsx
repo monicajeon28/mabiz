@@ -68,6 +68,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
   const [accepting,   setAccepting]   = useState(false);
   const [phone,       setPhone]       = useState('');
   const [password,    setPassword]    = useState('');
+  const [email,       setEmail]       = useState('');
 
   useEffect(() => {
     fetch(`/api/join/${token}`)
@@ -95,7 +96,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
     const res  = await fetch(`/api/join/${token}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ displayName, agreedToTerms: true, signature, phone: phoneClean, password }),
+      body: JSON.stringify({ displayName, agreedToTerms: true, signature, phone: phoneClean, password, email: email.trim() || undefined }),
     });
     const data = await res.json();
     setAccepting(false);
@@ -173,6 +174,21 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
                   inputMode="tel"
                   className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500"
                 />
+              </div>
+
+              {/* 이메일 입력 (계약서 수신용) */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1.5 block">
+                  이메일 <span className="text-xs text-gray-400 font-normal">(계약서 PDF 수신용 — 선택)</span>
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="example@email.com"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500"
+                />
+                <p className="text-xs text-gray-400 mt-1">입력 시 서명된 계약서 PDF가 이메일로 발송됩니다</p>
               </div>
 
               {/* 비밀번호 입력 */}
