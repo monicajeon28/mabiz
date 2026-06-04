@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
@@ -248,7 +248,11 @@ export async function GET(req: Request) {
     const docs = await prisma.salesDocument.findMany({
       where: { organizationId: orgId, documentType: 'PURCHASE_CONTRACT' },
       orderBy: { createdAt: 'desc' }, take: 50,
-      select: { id: true, status: true, orderId: true, createdAt: true, approvedAt: true },
+      select: {
+        id: true, status: true, orderId: true, createdAt: true, approvedAt: true,
+        contactId: true, generatedData: true,
+        contact: { select: { name: true, phone: true } },
+      },
     });
     return NextResponse.json({ ok: true, documents: docs });
   } catch (e) {

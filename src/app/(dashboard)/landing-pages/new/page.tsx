@@ -316,10 +316,10 @@ ${footerBlock}
         if (!urlRes.ok) { setError(`${file.name}: 업로드 URL 발급 실패`); continue; }
         const { uploadUrl } = await urlRes.json();
 
-        // 2. Drive에 직접 업로드
+        // 2. Drive에 직접 업로드 (Content-Length는 브라우저가 자동 설정)
         const driveRes = await fetch(uploadUrl, {
           method: "PUT",
-          headers: { "Content-Type": mimeType, "Content-Length": String(file.size) },
+          headers: { "Content-Type": mimeType },
           body: file,
         });
         if (!driveRes.ok) { setError(`${file.name}: Drive 업로드 실패 (${driveRes.status})`); continue; }
