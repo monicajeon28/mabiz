@@ -12,7 +12,7 @@ export async function GET(req: Request) {
 
     // GLOBAL_ADMIN은 organizationId 없어도 접근 가능 (전체 통합 통계 빈 데이터 반환)
     if (!ctx.organizationId) {
-      if (ctx.sessionUser?.role === 'admin') {
+      if (ctx.sessionUser?.role === 'admin' || ctx.sessionUser?.role === 'owner') {
         return NextResponse.json({
           ok: true,
           message: '조직을 선택하면 상세 데이터를 볼 수 있습니다',

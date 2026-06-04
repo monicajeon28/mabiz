@@ -401,7 +401,7 @@ function DrilldownDrawer({
 
 /* ─────────────────── B2C 탭 ─────────────────── */
 
-function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; loading: boolean; month: string; onDrilldown: (config: DrilldownConfig) => void }) {
+function B2CTab({ data, loading, month, onDrilldown, onRefresh }: { data: B2CData | null; loading: boolean; month: string; onDrilldown: (config: DrilldownConfig) => void; onRefresh: () => void }) {
   const [passportSubTab, setPassportSubTab] = useState<'pending' | 'complete'>('pending');
   const router = useRouter();
   const { toast } = useToast();
@@ -732,8 +732,7 @@ function B2CTab({ data, loading, month, onDrilldown }: { data: B2CData | null; l
                                   .then((json) => {
                                     if (json.ok) {
                                       toast({ title: '수당 승인 완료', description: '수당 승인이 완료되었습니다.' });
-                                      // @ts-ignore - refreshTrigger is defined in component scope
-                                      setRefreshTrigger(t => t + 1);
+                                      onRefresh();
                                     } else {
                                       toast({ title: '오류', description: json.error || '승인 실패', variant: 'destructive' });
                                     }
@@ -1199,8 +1198,14 @@ export default function PartnerDashboardPage() {
     fetch('/api/partner/suspension-status')
       .then((res) => res.json())
       .then((data) => {
-        if (data.ok) {
-          setSuspensionInfo(data.data);
+        if (data.ok && data.data) {
+          const raw = data.data;
+          setSuspensionInfo({
+            status: raw.suspensionStatus ?? raw.status ?? 'ACTIVE',
+            suspensionReason: raw.suspensionReason,
+            reasonDetails: raw.reasonDetails,
+            appealMessage: raw.appealMessage,
+          });
         }
       })
       .catch(() => setSuspensionInfo({ status: 'ACTIVE' }));
@@ -1236,8 +1241,7 @@ export default function PartnerDashboardPage() {
         const error = await res.json();
         toast({ title: '제출 실패', description: error.error || '다시 시도해주세요.', variant: 'destructive' });
       }
-    } catch (err) {
-      console.error('오류:', err);
+    } catch {
       toast({ title: '오류 발생', description: '잠시 후 다시 시도해주세요.', variant: 'destructive' });
     } finally {
       setAppealSubmitting(false);
@@ -1406,7 +1410,7 @@ export default function PartnerDashboardPage() {
       </div>
 
       {/* 탭 콘텐츠 */}
-      {activeTab === 'b2c' && <B2CTab data={b2cData} loading={loading && !b2cData} month={month} onDrilldown={openDrilldown} />}
+      {activeTab === 'b2c' && <B2CTab data={b2cData} loading={loading && !b2cData} month={month} onDrilldown={openDrilldown} onRefresh={() => setRefreshTrigger(t => t + 1)} />}
       {activeTab === 'b2b' && <B2BTab data={b2bData} loading={loading && !b2bData} month={month} onDrilldown={openDrilldown} />}
       {activeTab === 'gold' && <GoldTab data={goldData} loading={loading && !goldData} month={month} onDrilldown={openDrilldown} />}
 
