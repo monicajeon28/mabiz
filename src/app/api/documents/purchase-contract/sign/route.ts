@@ -5,6 +5,8 @@ import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
 import { checkRateLimitAsync } from '@/lib/rate-limit';
 import { saveContractToDrive } from '@/lib/affiliate/document-drive-sync';
+import { generatePurchaseContractPdf } from '@/lib/purchase-contract-pdf';
+import { sendSystemEmail, COMPANY_EMAIL } from '@/lib/system-email';
 
 type Companion = {
   name: string;      // 이름 (필수)
@@ -440,6 +442,90 @@ export async function POST(req: Request) {
         logger.error('[PurchaseContractSign] Drive 저장 예외', {
           docId,
           error: driveErr instanceof Error ? driveErr.message : String(driveErr),
+        });
+      }
+    })();
+
+    // 구매계약서 PDF 생성 + 이메일 발송 (fire-and-forget)
+    void (async () => {
+      try {
+        const freshDoc = await prisma.salesDocument.findUnique({
+          where:  { id: docId },
+          select: { generatedData: true },
+        });
+        if (!freshDoc) return;
+
+        const d = freshDoc.generatedData as Record<string, unknown>;
+        const signedAtStr = new Date(signedAt).toLocaleString('ko-KR', {
+          timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric',
+          hour: '2-digit', minute: '2-digit',
+        });
+
+        const pdfBuffer = await generatePurchaseContractPdf({
+          docId,
+          buyerName:          typeof d.buyerName    === 'string' ? d.buyerName    : signerName,
+          buyerTel:           typeof d.buyerTel     === 'string' ? d.buyerTel     : '',
+          productName:        typeof d.productName  === 'string' ? d.productName  : '크루즈 상품',
+          amount:             typeof d.amount       === 'number' ? d.amount       : Number(d.amount ?? 0),
+          departureDate:      typeof d.departureDate === 'string' ? d.departureDate : null,
+          nights:             typeof d.nights       === 'number' ? d.nights       : null,
+          paymentMethod:      typeof d.paymentMethod === 'string' ? d.paymentMethod : '-',
+          paidAt:             typeof d.paidAt       === 'string' ? d.paidAt       : null,
+          cancellationPolicy: Array.isArray(d.cancellationPolicy) ? (d.cancellationPolicy as string[]) : [],
+          specialTerms:       typeof d.specialTerms === 'string' ? d.specialTerms : null,
+          companions,
+          signatureImage:     typeof d.signatureImage === 'string' ? d.signatureImage : signatureImage,
+          signedAt:           signedAtStr,
+          signedByName:       signerName,
+          companyName:        typeof d.companyName === 'string' ? d.companyName : '크루즈닷',
+        });
+
+        const productName = typeof d.productName === 'string' ? d.productName : '크루즈 상품';
+        const filename = `구매계약서_${signerName}_${signedAt.slice(0, 10)}.pdf`;
+        const subject  = `[크루즈닷] ${signerName}님 구매계약서 (${signedAt.slice(0, 10)})`;
+
+        const html = `
+          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1a1a1a">
+            <h2 style="color:#1a3a6b;margin-bottom:16px">📋 크루즈 여행 구매계약서</h2>
+            <p>안녕하세요. 크루즈닷입니다.</p>
+            <p>아래 계약이 전자서명으로 완료되었습니다. PDF가 첨부되어 있습니다.</p>
+            <table style="border-collapse:collapse;width:100%;margin:20px 0;font-size:14px">
+              <tr style="background:#f5f7fa"><td style="padding:10px;border:1px solid #e5e7eb;font-weight:600;width:120px">고객명</td><td style="padding:10px;border:1px solid #e5e7eb">${escHtml(signerName)}</td></tr>
+              <tr><td style="padding:10px;border:1px solid #e5e7eb;font-weight:600">상품명</td><td style="padding:10px;border:1px solid #e5e7eb">${escHtml(productName)}</td></tr>
+              <tr style="background:#f5f7fa"><td style="padding:10px;border:1px solid #e5e7eb;font-weight:600">서명 일시</td><td style="padding:10px;border:1px solid #e5e7eb">${signedAtStr}</td></tr>
+              <tr><td style="padding:10px;border:1px solid #e5e7eb;font-weight:600">동행자</td><td style="padding:10px;border:1px solid #e5e7eb">${companions.length}명</td></tr>
+            </table>
+            <p style="font-size:12px;color:#888;border-top:1px solid #eee;padding-top:12px">
+              본 계약서는 전자서명법에 따라 법적 효력을 가집니다.
+            </p>
+          </div>`;
+
+        const attachment = [{ filename, content: pdfBuffer, contentType: 'application/pdf' }];
+
+        // 발송 1: 회사 보관 (jmonica@cruisedot.co.kr)
+        await sendSystemEmail({
+          to:          COMPANY_EMAIL,
+          subject:     `[회사보관] ${subject}`,
+          html,
+          attachments: attachment,
+        });
+
+        // 발송 2: 구매자 본인 이메일
+        const buyerEmail = typeof d.buyerEmail === 'string' ? d.buyerEmail : null;
+        if (buyerEmail && buyerEmail.includes('@')) {
+          await sendSystemEmail({
+            to:          buyerEmail,
+            subject:     `[본인보관] ${subject}`,
+            html:        html.replace('PDF가 첨부되어 있습니다.', '본인 보관용 계약서 PDF가 첨부되어 있습니다. 안전한 곳에 보관해 주세요.'),
+            attachments: attachment,
+          });
+        }
+
+        logger.log('[PurchaseContractSign] PDF 이메일 발송 완료', { docId, buyerEmail });
+      } catch (pdfErr) {
+        logger.error('[PurchaseContractSign] PDF 발송 실패', {
+          docId,
+          error: pdfErr instanceof Error ? pdfErr.message : String(pdfErr),
         });
       }
     })();
