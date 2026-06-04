@@ -57,23 +57,26 @@ export async function GET(req: Request) {
     const validProviders: Provider[] = ['KAKAO', 'NAVER', 'GOOGLE', 'DIRECT'];
     const isValidProvider = validProviders.includes(providerParam as Provider);
 
-    // provider에 따른 mallUserId LIKE 조건
+    // provider 필터 조건 — socialProvider 필드 우선, mallUserId 보조
     let providerFilter: Prisma.Sql;
     if (isValidProvider) {
       if (providerParam === 'KAKAO') {
-        providerFilter = Prisma.sql`AND u."mallUserId" LIKE 'kakao_%'`;
+        providerFilter = Prisma.sql`AND (u."socialProvider" = 'kakao' OR u."mallUserId" LIKE 'kakao_%')`;
       } else if (providerParam === 'NAVER') {
-        providerFilter = Prisma.sql`AND u."mallUserId" LIKE 'naver_%'`;
+        providerFilter = Prisma.sql`AND (u."socialProvider" = 'naver' OR u."mallUserId" LIKE 'naver_%')`;
       } else if (providerParam === 'GOOGLE') {
-        providerFilter = Prisma.sql`AND u."mallUserId" LIKE 'google_%'`;
+        providerFilter = Prisma.sql`AND (u."socialProvider" = 'google' OR u."mallUserId" LIKE 'google_%')`;
       } else {
-        // DIRECT: mallUserId가 NULL이거나 소셜 접두사가 없는 경우
+        // DIRECT: socialProvider 없고 mallUserId 소셜 접두사도 없는 경우
         providerFilter = Prisma.sql`AND (
-          u."mallUserId" IS NULL
-          OR (
-            u."mallUserId" NOT LIKE 'kakao_%'
-            AND u."mallUserId" NOT LIKE 'naver_%'
-            AND u."mallUserId" NOT LIKE 'google_%'
+          (u."socialProvider" IS NULL OR u."socialProvider" = '')
+          AND (
+            u."mallUserId" IS NULL
+            OR (
+              u."mallUserId" NOT LIKE 'kakao_%'
+              AND u."mallUserId" NOT LIKE 'naver_%'
+              AND u."mallUserId" NOT LIKE 'google_%'
+            )
           )
         )`;
       }
@@ -109,9 +112,9 @@ export async function GET(req: Request) {
           u."memberStatus",
           COALESCE(u."memberTags", ARRAY[]::text[]) as "memberTags",
           CASE
-            WHEN u."mallUserId" LIKE 'kakao_%' THEN 'KAKAO'
-            WHEN u."mallUserId" LIKE 'naver_%' THEN 'NAVER'
-            WHEN u."mallUserId" LIKE 'google_%' THEN 'GOOGLE'
+            WHEN u."socialProvider" = 'kakao' OR u."mallUserId" LIKE 'kakao_%' THEN 'KAKAO'
+            WHEN u."socialProvider" = 'naver' OR u."mallUserId" LIKE 'naver_%' THEN 'NAVER'
+            WHEN u."socialProvider" = 'google' OR u."mallUserId" LIKE 'google_%' THEN 'GOOGLE'
             ELSE 'DIRECT'
           END as provider
         FROM "User" u
