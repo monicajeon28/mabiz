@@ -16,7 +16,7 @@ export async function GET(req: Request) {
       where:   { createdBy: ctx.userId, isActive: true },
       orderBy: { createdAt: 'desc' },
       take:    100,
-      select:  { id: true, code: true, title: true, targetUrl: true, category: true, clickCount: true, createdAt: true, contactId: true, autoGroupId: true },
+      select:  { id: true, code: true, title: true, targetUrl: true, category: true, clickCount: true, createdAt: true, contactId: true, autoGroupId: true, createdBy: true },
     });
     return NextResponse.json({ ok: true, links });
   } catch (e) {

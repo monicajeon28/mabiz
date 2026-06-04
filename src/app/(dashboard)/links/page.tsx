@@ -1,6 +1,6 @@
 ﻿"use client";
-import { useState, useEffect, useRef } from "react";
-import { Copy, Check, Link2, Plus, MousePointer, User, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Copy, Check, Link2, Plus, MousePointer, X, Users } from "lucide-react";
 import { showError } from "@/components/ui/Toast";
 
 type ShortLink = {
@@ -8,11 +8,18 @@ type ShortLink = {
   targetUrl: string; category: string | null;
   clickCount: number; createdAt: string;
   contactId: string | null;
+  autoGroupId: string | null;
 };
 
-type ContactResult = { id: string; name: string; phone: string };
+type GroupResult = { id: string; name: string; memberCount?: number };
+type GroupMemberStatus = { id: string; name: string; phone: string; clicked: boolean; clickedAt: string | null };
 type ClickLog = { id: string; contactId: string | null; clickedAt: string };
-type ClickStats = { clickCount: number; clicks: ClickLog[] };
+type ClickStats = {
+  clickCount: number;
+  clicks: ClickLog[];
+  groupName?: string | null;
+  groupStatus?: GroupMemberStatus[];
+};
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
@@ -35,13 +42,11 @@ export default function LinksPage() {
   const [loadingClicks, setLoadingClicks] = useState<string | null>(null);
   const [openClickId,   setOpenClickId]   = useState<string | null>(null);
 
-  // 고객 연결
-  const [linkToContact,     setLinkToContact]     = useState(false);
-  const [contactSearch,     setContactSearch]     = useState('');
-  const [contactResults,    setContactResults]    = useState<ContactResult[]>([]);
-  const [selectedContact,   setSelectedContact]   = useState<ContactResult | null>(null);
-  const [searchingContact,  setSearchingContact]  = useState(false);
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 그룹 연결
+  const [linkToGroup,    setLinkToGroup]    = useState(false);
+  const [groups,         setGroups]         = useState<GroupResult[]>([]);
+  const [selectedGroup,  setSelectedGroup]  = useState<GroupResult | null>(null);
+  const [groupsLoading,  setGroupsLoading]  = useState(false);
 
   const load = async (signal?: AbortSignal) => {
     try {
@@ -73,35 +78,27 @@ export default function LinksPage() {
     };
   }, []);
 
-  // 고객 검색 디바운스
+  // 그룹 목록 로드
   useEffect(() => {
-    if (!linkToContact || contactSearch.length < 2) {
-      setContactResults([]);
-      return;
-    }
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(async () => {
-      setSearchingContact(true);
-      try {
-        const res = await fetch(`/api/contacts?q=${encodeURIComponent(contactSearch)}&limit=8`);
-        const d = await res.json() as { ok: boolean; contacts?: ContactResult[] };
-        if (d.ok) setContactResults(d.contacts ?? []);
-      } finally {
-        setSearchingContact(false);
-      }
-    }, 300);
-    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
-  }, [contactSearch, linkToContact]);
+    if (!linkToGroup || groups.length > 0) return;
+    setGroupsLoading(true);
+    fetch('/api/groups?limit=100')
+      .then(r => r.json())
+      .then((d: { ok: boolean; groups?: GroupResult[] }) => {
+        if (d.ok && d.groups) setGroups(d.groups);
+      })
+      .catch(() => {})
+      .finally(() => setGroupsLoading(false));
+  }, [linkToGroup, groups.length]);
 
   const resetForm = () => {
     setShowForm(false); setTitle(''); setTargetUrl('');
-    setLinkToContact(false); setContactSearch('');
-    setContactResults([]); setSelectedContact(null);
+    setLinkToGroup(false); setSelectedGroup(null);
   };
 
   const create = async () => {
     if (!targetUrl.trim()) { showError('URL을 입력해주세요'); return; }
-    if (linkToContact && !selectedContact) { showError('연결할 고객을 선택해주세요'); return; }
+    if (linkToGroup && !selectedGroup) { showError('연결할 그룹을 선택해주세요'); return; }
     setCreating(true);
     try {
       const res = await fetch('/api/links', {
@@ -110,7 +107,7 @@ export default function LinksPage() {
         body: JSON.stringify({
           targetUrl,
           title: title || null,
-          contactId: selectedContact?.id ?? null,
+          autoGroupId: selectedGroup?.id ?? null,
         }),
       });
       const d = await res.json() as { ok: boolean };
@@ -175,52 +172,44 @@ export default function LinksPage() {
           <input value={targetUrl} onChange={e => setTargetUrl(e.target.value)}
             placeholder="연결할 URL (https://...)" className="w-full border rounded-lg px-3 py-2 text-sm mb-3" />
 
-          {/* 고객 연결 토글 */}
+          {/* 그룹 연결 토글 */}
           <label className="flex items-center gap-2 text-sm mb-3 cursor-pointer select-none">
-            <input type="checkbox" checked={linkToContact}
-              onChange={e => { setLinkToContact(e.target.checked); setSelectedContact(null); setContactSearch(''); }}
+            <input type="checkbox" checked={linkToGroup}
+              onChange={e => { setLinkToGroup(e.target.checked); setSelectedGroup(null); }}
               className="w-4 h-4 rounded" />
-            <User className="w-4 h-4 text-blue-500" />
-            <span className="font-medium text-gray-700">특정 고객에게 연결 (개인 추적링크)</span>
+            <Users className="w-4 h-4 text-blue-500" />
+            <span className="font-medium text-gray-700">그룹 연결 (그룹 클릭 추적)</span>
           </label>
 
-          {linkToContact && (
-            <div className="relative mb-3">
-              {selectedContact ? (
+          {linkToGroup && (
+            <div className="mb-3">
+              {groupsLoading ? (
+                <p className="text-sm text-gray-500">그룹 로딩 중...</p>
+              ) : selectedGroup ? (
                 <div className="flex items-center justify-between px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm">
-                  <span className="text-blue-700 font-medium">
-                    {selectedContact.name} ({selectedContact.phone})
-                  </span>
-                  <button onClick={() => { setSelectedContact(null); setContactSearch(''); }}
-                    className="text-blue-400 hover:text-blue-600">
-                    <X className="w-4 h-4" />
-                  </button>
+                  <span className="text-blue-700 font-medium">👥 {selectedGroup.name}</span>
+                  <button onClick={() => setSelectedGroup(null)} className="text-blue-400 hover:text-blue-600">✕</button>
                 </div>
               ) : (
-                <>
-                  <input value={contactSearch} onChange={e => setContactSearch(e.target.value)}
-                    placeholder="고객 이름 또는 전화번호 검색..."
-                    className="w-full border rounded-lg px-3 py-2 text-sm" />
-                  {searchingContact && (
-                    <p className="text-sm text-gray-600 mt-1 ml-1">검색 중...</p>
-                  )}
-                  {contactResults.length > 0 && (
-                    <div className="absolute z-10 w-full bg-white border rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
-                      {contactResults.map(c => (
-                        <button key={c.id} onClick={() => { setSelectedContact(c); setContactSearch(''); setContactResults([]); }}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center gap-2">
-                          <User className="w-3.5 h-3.5 text-gray-600 shrink-0" />
-                          <span className="font-medium">{c.name}</span>
-                          <span className="text-gray-600 text-sm">{c.phone}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
+                <select
+                  onChange={e => {
+                    const g = groups.find(g => g.id === e.target.value);
+                    if (g) setSelectedGroup(g);
+                  }}
+                  className="w-full border rounded-lg px-3 py-2 text-sm bg-white"
+                  defaultValue=""
+                >
+                  <option value="" disabled>— 그룹 선택 —</option>
+                  {groups.map(g => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
               )}
-              <p className="text-sm text-gray-600 mt-1">
-                고객별 링크를 사용하면 문자 발송 시 누가 클릭했는지 추적됩니다.
-              </p>
+              {selectedGroup && (
+                <p className="text-xs text-gray-500 mt-1">
+                  SMS 발송 시 각 고객에게 개인화 링크를 자동 생성합니다
+                </p>
+              )}
             </div>
           )}
 
@@ -251,9 +240,9 @@ export default function LinksPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-sm truncate">{link.title ?? link.targetUrl}</p>
-                      {link.contactId && (
+                      {link.autoGroupId && (
                         <span className="shrink-0 px-1.5 py-0.5 bg-blue-100 text-blue-600 text-sm rounded-full flex items-center gap-1">
-                          <User className="w-3 h-3" /> 개인링크
+                          <Users className="w-3 h-3" /> 그룹링크
                         </span>
                       )}
                     </div>
@@ -273,9 +262,38 @@ export default function LinksPage() {
                   </div>
                 </div>
               </div>
-              {openClickId === link.id && (
+              {openClickId === link.id && clickStats[link.id] && (
                 <div className="bg-gray-50 border-t px-4 py-3">
-                  {(clickStats[link.id]?.clicks ?? []).length === 0 ? (
+                  {clickStats[link.id].groupStatus && clickStats[link.id].groupStatus!.length > 0 ? (
+                    // 그룹 클릭 현황 테이블
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 mb-2">
+                        👥 {clickStats[link.id].groupName} 클릭 현황
+                        ({clickStats[link.id].groupStatus!.filter(m => m.clicked).length}/{clickStats[link.id].groupStatus!.length}명 확인)
+                      </p>
+                      <div className="space-y-1 max-h-48 overflow-y-auto">
+                        {clickStats[link.id].groupStatus!.map(member => (
+                          <div key={member.id} className="flex items-center justify-between text-sm px-2 py-1 rounded hover:bg-gray-50">
+                            <div className="flex items-center gap-2">
+                              <span>{member.clicked ? '✅' : '⏳'}</span>
+                              <span className="text-gray-700">{member.name}</span>
+                              <span className="text-gray-400 text-xs">{member.phone}</span>
+                            </div>
+                            {member.clickedAt && (
+                              <span className="text-xs text-gray-400">
+                                {new Date(member.clickedAt).toLocaleDateString('ko-KR')}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      {link.autoGroupId && (
+                        <p className="text-xs text-gray-400 mt-2">
+                          SMS 발송 시: <code className="bg-gray-100 px-1 rounded">/l/{link.code}?c={'{고객ID}'}</code> 형태로 발송하세요
+                        </p>
+                      )}
+                    </div>
+                  ) : (clickStats[link.id]?.clicks ?? []).length === 0 ? (
                     <p className="text-sm text-gray-600 text-center py-2">클릭 기록이 없습니다</p>
                   ) : (
                     <div className="space-y-1.5 max-h-48 overflow-y-auto">

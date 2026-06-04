@@ -8,6 +8,10 @@ type Params = { params: Promise<{ code: string }> };
 export async function GET(req: Request, { params }: Params) {
   const { code } = await params;
 
+  // URL에서 고객 ID 추출 (?c=contactId)
+  const reqUrl = new URL(req.url);
+  const paramContactId = reqUrl.searchParams.get('c') ?? null;
+
   // visitToken 로깅 (쿠키에서 읽기)
   const cookieHeader = req.headers.get('cookie') ?? '';
   const vtMatch = cookieHeader.match(/visitToken=([^;]+)/);
@@ -32,7 +36,7 @@ export async function GET(req: Request, { params }: Params) {
     prisma.shortLinkClick.create({
       data: {
         linkId:    link.id,
-        contactId: link.contactId ?? null,
+        contactId: paramContactId ?? link.contactId ?? null,
         userAgent: req.headers.get('user-agent')?.substring(0, 200) ?? null,
       },
     }),
