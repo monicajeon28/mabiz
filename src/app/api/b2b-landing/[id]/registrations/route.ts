@@ -41,6 +41,7 @@ export async function GET(req: Request, { params }: Params) {
           utmMedium: true,
           utmCampaign: true,
           createdAt: true,
+          funnelStarted: true,
         },
       }),
       prisma.b2BLandingRegistration.count({ where: { landingPageId: id } }),
@@ -55,6 +56,7 @@ export async function GET(req: Request, { params }: Params) {
     return NextResponse.json({
       ok: true,
       registrations,
+      total,
       pagination: { page, limit, total, totalPages },
     });
   } catch (err) {

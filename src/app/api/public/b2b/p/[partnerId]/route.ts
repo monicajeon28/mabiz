@@ -275,14 +275,32 @@ export async function POST(req: Request, { params }: Params) {
           logger.error('[B2B Lead] Contact upsert 실패 (비치명적)', { err: e });
         }
 
-        // 3) B2BLandingRegistration 생성
+        // 3) B2BLandingRegistration 생성 (landingPageId 없으면 partnerId로 자동 조회)
+        let resolvedLandingPageId = body.landingPageId ?? null;
+        if (!resolvedLandingPageId) {
+          const lp = await tx.b2BLandingPage.findFirst({
+            where: { organizationId: org.id, partnerId, isActive: true },
+            select: { id: true },
+          });
+          if (!lp) {
+            // 글로벌 폴백
+            const lpGlobal = await tx.b2BLandingPage.findFirst({
+              where: { organizationId: org.id, partnerId: null, isActive: true },
+              select: { id: true },
+            });
+            resolvedLandingPageId = lpGlobal?.id ?? null;
+          } else {
+            resolvedLandingPageId = lp.id;
+          }
+        }
+
         let registration = null;
-        if (body.landingPageId) {
+        if (resolvedLandingPageId) {
           try {
             registration = await tx.b2BLandingRegistration.create({
               data: {
                 organizationId: org.id,
-                landingPageId: body.landingPageId,
+                landingPageId: resolvedLandingPageId,
                 name: (body.name ?? '').trim(),
                 phone: formattedPhone,
                 email: body.email?.trim() || null,
