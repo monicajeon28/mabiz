@@ -67,52 +67,6 @@ function ShimmerCard() {
   );
 }
 
-// ─── QR 코드 모달 ──────────────────────────────────────────────────────
-function QrModal({ url, onClose }: { url: string; onClose: () => void }) {
-  const [dataUrl, setDataUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    QRCode.toDataURL(url, { width: 256, margin: 2, color: { dark: '#1e3a5f', light: '#ffffff' } })
-      .then((d) => { if (!cancelled) setDataUrl(d); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [url]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-         onClick={onClose}>
-      <div className="bg-white rounded-2xl p-6 max-w-xs w-full shadow-2xl"
-           onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <p className="font-semibold text-gray-900">QR 코드</p>
-          <button onClick={onClose} className="text-gray-600 hover:text-gray-600">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        {dataUrl ? (
-          <img src={dataUrl} alt="초대 QR 코드" className="w-full rounded-xl" />
-        ) : (
-          <div className="flex items-center justify-center h-40">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-600" />
-          </div>
-        )}
-        <p className="text-sm text-gray-600 text-center mt-3 break-all">{url}</p>
-        {dataUrl && (
-          <a
-            href={dataUrl}
-            download="invite-qr.png"
-            className="mt-4 w-full flex items-center justify-center gap-2 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            QR 이미지 저장
-          </a>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ─── 서류 패널 ──────────────────────────────────────────────────────────
 function MemberDocumentPanel({ userId }: { userId: string }) {
   const [docs, setDocs] = useState<MemberDoc[]>([]);
@@ -275,21 +229,8 @@ function MemberDocumentPanel({ userId }: { userId: string }) {
 
 // ─── 메인 페이지 ────────────────────────────────────────────────────────
 export default function MembersPage() {
-  const [myRole, setMyRole]           = useState<string | null>(null);
   const [members, setMembers]         = useState<Member[]>([]);
-  const [invites, setInvites]         = useState<InviteToken[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
-  const [loadingInvites, setLoadingInvites] = useState(true);
-
-  // 초대 링크 생성
-  const [newRole, setNewRole]     = useState('AGENT');
-  const [newNote, setNewNote]     = useState('');
-  const [creating, setCreating]   = useState(false);
-  const [createdUrl, setCreatedUrl] = useState<string | null>(null);
-  const [copied, setCopied]       = useState<string | null>(null); // invite.id or 'created'
-
-  // QR 모달
-  const [qrUrl, setQrUrl] = useState<string | null>(null);
 
   // 멤버 삭제 컨펌
   const [confirmOpen, setConfirmOpen]   = useState(false);
@@ -307,33 +248,24 @@ export default function MembersPage() {
     const sig = ctrl.signal;
 
     setLoadingMembers(true);
-    setLoadingInvites(true);
 
     try {
       // /api/auth/me 호출 제거 - layout에서 권한 관리
-      const [membersRes, invitesRes] = await Promise.all([
-        fetch('/api/org/members', { signal: sig }),
-        fetch('/api/org/invite',  { signal: sig }),
-      ]);
+      const membersRes = await fetch('/api/org/members', { signal: sig });
 
       if (sig.aborted) return;
 
-      const [membersData, invitesData] = await Promise.all([
-        membersRes.json(), invitesRes.json(),
-      ]);
+      const membersData = await membersRes.json();
 
       if (sig.aborted) return;
 
       setMembers(membersData.members ?? []);
-      setInvites(invitesData.tokens ?? []);
-      if (membersData.myRole) setMyRole(membersData.myRole);
     } catch (e) {
       if ((e as Error).name === 'AbortError') return;
       showError('데이터를 불러오지 못했습니다.');
     } finally {
       if (!sig.aborted) {
         setLoadingMembers(false);
-        setLoadingInvites(false);
       }
     }
   }, []);
@@ -342,11 +274,6 @@ export default function MembersPage() {
     fetchAll();
     return () => { abortRef.current?.abort(); };
   }, [fetchAll]);
-
-  // 역할별 허용 초대 역할 — OWNER/GLOBAL_ADMIN은 모든 역할 초대 가능
-  const allowedInviteRoles = (myRole === 'GLOBAL_ADMIN' || myRole === 'OWNER')
-    ? [{ value: 'OWNER', label: '대리점장 (OWNER)' }, { value: 'AGENT', label: '판매원 (AGENT)' }, { value: 'FREE_SALES', label: '프리세일즈 (FREE_SALES)' }]
-    : [{ value: 'AGENT', label: '판매원 (AGENT)' }, { value: 'FREE_SALES', label: '프리세일즈 (FREE_SALES)' }];
 
   async function handleToggleActive(userId: string, currentActive: boolean) {
     try {
@@ -380,52 +307,6 @@ export default function MembersPage() {
       showError('요청 처리 중 오류가 발생했습니다.');
     } finally {
       setPendingDelete(null);
-    }
-  }
-
-  async function handleCreateInvite() {
-    setCreating(true);
-    setCreatedUrl(null);
-    try {
-      const res = await fetch('/api/org/invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: newRole, note: newNote.trim() || undefined }),
-      });
-      const data = await res.json();
-      if (!data.ok) { showError(data.message ?? '초대 링크 생성에 실패했습니다.'); return; }
-      setCreatedUrl(data.invite.url);
-      setNewNote('');
-      setInvites((prev) => [
-        { ...data.invite, isExpired: false, isUsed: false, createdAt: new Date().toISOString() },
-        ...prev,
-      ]);
-    } catch {
-      showError('요청 처리 중 오류가 발생했습니다.');
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  async function copyToClipboard(url: string, key: string) {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(key);
-      setTimeout(() => setCopied(null), 2000);
-    } catch {
-      showError('클립보드 복사에 실패했습니다.');
-    }
-  }
-
-  async function handleCancelInvite(id: string) {
-    try {
-      const res = await fetch(`/api/org/invite?id=${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (!data.ok) { showError(data.message ?? '초대 링크 취소에 실패했습니다.'); return; }
-      showSuccess('초대 링크를 취소했습니다.');
-      setInvites((prev) => prev.filter((t) => t.id !== id));
-    } catch {
-      showError('요청 처리 중 오류가 발생했습니다.');
     }
   }
 
@@ -514,138 +395,6 @@ export default function MembersPage() {
         </div>
       </section>
 
-      {/* 초대 링크 생성 */}
-      <section className="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-3">
-        <h2 className="text-sm font-semibold text-gray-700">초대 링크 생성</h2>
-
-        <div className="space-y-2">
-          <label className="block text-sm text-gray-500 font-medium">역할</label>
-          <select
-            value={newRole}
-            onChange={(e) => setNewRole(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-          >
-            {allowedInviteRoles.map((r) => (
-              <option key={r.value} value={r.value}>{r.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="space-y-2">
-          <label className="block text-sm text-gray-500 font-medium">메모 (선택)</label>
-          <input
-            type="text"
-            value={newNote}
-            onChange={(e) => setNewNote(e.target.value)}
-            placeholder="예: 박팀장님께 전달"
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
-
-        <button
-          onClick={handleCreateInvite}
-          disabled={creating}
-          className="w-full py-2 bg-[#1e3a5f] hover:bg-[#162d4a] text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {creating && <Loader2 className="w-4 h-4 animate-spin" />}
-          <Link2 className="w-4 h-4" />
-          초대 링크 생성
-        </button>
-
-        {/* 방금 생성된 URL 표시 */}
-        {createdUrl && (
-          <div className="bg-white border border-blue-200 rounded-xl p-3 space-y-2">
-            <p className="text-sm font-medium text-blue-700">링크 생성 완료!</p>
-            <p className="text-sm text-gray-600 break-all">{createdUrl}</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => copyToClipboard(createdUrl, 'created')}
-                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-              >
-                {copied === 'created' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                {copied === 'created' ? '복사됨!' : '링크 복사'}
-              </button>
-              <button
-                onClick={() => setQrUrl(createdUrl)}
-                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"
-              >
-                <QrCode className="w-3 h-3" />
-                QR
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* 초대 링크 목록 */}
-      <section>
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">초대 링크 목록</h2>
-        {loadingInvites ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-5 h-5 animate-spin text-gray-600" />
-          </div>
-        ) : invites.length === 0 ? (
-          <p className="text-sm text-gray-600 text-center py-6">생성된 초대 링크가 없습니다.</p>
-        ) : (
-          <div className="space-y-2">
-            {invites.map((invite) => {
-              const statusLabel = invite.isUsed ? '사용됨' : invite.isExpired ? '만료' : '유효';
-              const statusClass = invite.isUsed
-                ? 'bg-gray-100 text-gray-500'
-                : invite.isExpired
-                ? 'bg-red-100 text-red-600'
-                : 'bg-green-100 text-green-700';
-              const canCancel = !invite.isUsed && !invite.isExpired;
-
-              return (
-                <div key={invite.id} className="p-3 bg-white rounded-xl border border-gray-200 space-y-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-sm px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[invite.role] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {ROLE_LABELS[invite.role] ?? invite.role}
-                    </span>
-                    <span className={`text-sm px-2 py-0.5 rounded-full font-medium ${statusClass}`}>
-                      {statusLabel}
-                    </span>
-                    {invite.note && (
-                      <span className="text-sm text-gray-500 truncate max-w-[140px]">{invite.note}</span>
-                    )}
-                    <span className="text-sm text-gray-600 ml-auto">
-                      {new Date(invite.expiresAt).toLocaleDateString('ko-KR')}까지
-                    </span>
-                  </div>
-
-                  {/* 액션 버튼 */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => copyToClipboard(invite.url, invite.id)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"
-                    >
-                      {copied === invite.id ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
-                      {copied === invite.id ? '복사됨!' : '링크 복사'}
-                    </button>
-                    <button
-                      onClick={() => setQrUrl(invite.url)}
-                      className="flex items-center justify-center gap-1 px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm rounded-lg transition-colors"
-                      aria-label="QR 코드"
-                    >
-                      <QrCode className="w-3.5 h-3.5" />
-                    </button>
-                    {canCancel && (
-                      <button
-                        onClick={() => handleCancelInvite(invite.id)}
-                        className="flex items-center justify-center px-2.5 py-1 text-red-400 hover:text-red-600 text-sm font-medium transition-colors"
-                      >
-                        취소
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
       {/* 멤버 삭제 확인 */}
       <ConfirmDialog
         open={confirmOpen}
@@ -680,8 +429,6 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* QR 코드 모달 */}
-      {qrUrl && <QrModal url={qrUrl} onClose={() => setQrUrl(null)} />}
     </div>
   );
 }
