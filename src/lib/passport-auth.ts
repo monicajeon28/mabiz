@@ -113,7 +113,25 @@ export async function requirePartnerContext(): Promise<PartnerContext | null> {
       };
     }
 
-    // OWNER/AGENT: mallUser에서 AffiliateProfile 확인
+    // OWNER: 조직 관리자 — affiliateProfileId 없어도 접근 가능
+    if (session.role === 'OWNER') {
+      return {
+        sessionUser: {
+          id: session.mallUser?.id ?? 0,
+          crmUserId: session.userId,
+          name: session.mallUser?.name ?? null,
+          role: 'owner',
+        },
+        profile: {
+          id: 0,
+          type: 'OWNER',
+          managerId: null,
+        },
+        organizationId: session.organizationId,
+      };
+    }
+
+    // AGENT: mallUser에서 AffiliateProfile 확인
     if (!session.mallUser?.affiliateProfileId) return null;
 
     const profile = await prisma.$queryRaw<Array<{
@@ -135,7 +153,7 @@ export async function requirePartnerContext(): Promise<PartnerContext | null> {
         id: session.mallUser.id,
         crmUserId: session.userId,
         name: session.mallUser.name,
-        role: session.role === 'OWNER' ? 'affiliate' : 'agent',
+        role: 'agent',
       },
       profile: {
         id: profile[0].id,
