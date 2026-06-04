@@ -93,17 +93,33 @@ export async function POST(req: Request) {
       );
     }
 
-    const drive = getDriveClient();
-
     // ── Step 1: Drive에서 원본 파일 다운로드 ──────────────────────────────
-    const downloadRes = await drive.files.get(
-      { fileId: driveFileId, alt: 'media' },
-      { responseType: 'arraybuffer' },
-    );
+    // googleapis의 responseType:'arraybuffer' 타입 불일치 우회 → fetch 직접 호출
+    const serviceAccountKey = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY;
+    if (!serviceAccountKey) throw new Error('GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY 미설정');
 
-    const originalBuffer = Buffer.from(
-      downloadRes.data as ArrayBuffer,
+    const { google } = await import('googleapis');
+    const auth = new google.auth.GoogleAuth({
+      credentials: JSON.parse(serviceAccountKey),
+      scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+    });
+    const driveAuthClient = await auth.getClient() as {
+      getAccessToken(): Promise<{ token?: string | null }>;
+    };
+    const { token: driveToken } = await driveAuthClient.getAccessToken();
+    if (!driveToken) throw new Error('Drive 토큰 발급 실패');
+
+    const downloadRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`,
+      { headers: { Authorization: `Bearer ${driveToken}` } },
     );
+    if (!downloadRes.ok) {
+      throw new Error(`Drive 다운로드 실패: ${downloadRes.status}`);
+    }
+    const originalBuffer = Buffer.from(await downloadRes.arrayBuffer());
+
+    // 업로드/삭제용 Drive 클라이언트
+    const drive = getDriveClient();
 
     // ── Step 2: sharp로 WebP 변환 ─────────────────────────────────────────
     const isGif = mimeType === 'image/gif';

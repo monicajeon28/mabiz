@@ -42,19 +42,23 @@ interface SalesDocumentItem {
 }
 
 type AffiliateSale = {
-  id: string;
+  id: string;        // mapped from saleId
   orderId?: string | null;
   productName?: string | null;
   saleAmount: number;
   commissionAmount?: number;
-  status: string;
+  status: string;    // derived: 'REFUNDED'|'CONFIRMED'|'PAID'|'PENDING'|'CANCELLED'
   paidAt?: string | null;
-  refundedAt?: string | null;
+  refundedAt?: string | null;    // mapped from cancelledAt when refund
   cancelReason?: string | null;
   customerPhone?: string | null;
   createdAt?: string | null;
   affiliateCode?: string | null;
   affiliateUserId?: string | null;
+  // extra fields from search-sales
+  buyerName?: string | null;
+  canIssuePurchaseCert?: boolean;
+  canIssueRefundCert?: boolean;
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -135,23 +139,57 @@ export default function DocumentsApprovalPage() {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
-      if (statusFilter !== 'all') params.set('status', statusFilter);
-      if (searchQuery.trim()) params.set('search', searchQuery.trim());
+      // search-sales API uses 'q' param; status is handled client-side via filteredSales
+      if (searchQuery.trim()) params.set('q', searchQuery.trim());
 
-      const res = await fetch(`/api/admin/affiliate/sales?${params}`);
+      const res = await fetch(`/api/documents/search-sales?${params}`);
       const json = await res.json();
 
       if (!res.ok || !json.ok) {
         throw new Error(json.message || '판매 목록을 불러오지 못했습니다.');
       }
-      setSales(json.sales || []);
+      // Map search-sales response shape to AffiliateSale shape
+      type RawSale = {
+        saleId: string;
+        orderId?: string | null;
+        productName?: string | null;
+        saleAmount: number;
+        buyerName?: string | null;
+        buyerTel?: string | null;
+        customerPhone?: string | null;
+        paidAt?: string | null;
+        cancelledAt?: string | null;
+        canIssuePurchaseCert?: boolean;
+        canIssueRefundCert?: boolean;
+      };
+      const mapped: AffiliateSale[] = (json.sales || []).map((s: RawSale) => {
+        // Derive status from capabilities
+        let status = 'PENDING';
+        if (s.cancelledAt && s.canIssueRefundCert) status = 'REFUNDED';
+        else if (s.paidAt) status = 'PAID';
+        else if (s.canIssuePurchaseCert) status = 'CONFIRMED';
+        return {
+          id: s.saleId,
+          orderId: s.orderId,
+          productName: s.productName,
+          saleAmount: s.saleAmount,
+          status,
+          paidAt: s.paidAt,
+          refundedAt: s.cancelledAt ?? null,
+          customerPhone: s.customerPhone ?? s.buyerTel ?? null,
+          buyerName: s.buyerName,
+          canIssuePurchaseCert: s.canIssuePurchaseCert,
+          canIssueRefundCert: s.canIssueRefundCert,
+        };
+      });
+      setSales(mapped);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '판매 목록 로드 실패';
       showError(msg);
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter, searchQuery]);
+  }, [searchQuery]);
 
   useEffect(() => {
     if (activeTab !== 'contracts') {
