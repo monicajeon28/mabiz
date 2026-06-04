@@ -349,7 +349,11 @@ export async function POST(req: Request) {
           where: { id: docId },
           select: { generatedData: true },
         });
-        const data = (freshDoc?.generatedData ?? {}) as Record<string, unknown>;
+        if (!freshDoc) {
+          logger.error('[PurchaseContractSign] Drive 저장용 문서 없음', { docId });
+          return;
+        }
+        const data = freshDoc.generatedData as Record<string, unknown>;
 
         const productName = typeof data.productName === 'string' ? data.productName : '크루즈 상품';
         const amount = data.amount != null ? Number(data.amount).toLocaleString() + '원' : '-';

@@ -7,13 +7,12 @@ import { sendFunnelEmail } from '@/lib/email';
 // POST: 구매확인증서 발급 요청
 export async function POST(req: Request) {
   try {
-    const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
-
-    // FREE_SALES 차단
+    const ctx = await getAuthContext();
+    // FREE_SALES 체크를 requireOrgId 전에 해야 500 대신 403 반환
     if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false, message: '권한 없음' }, { status: 403 });
     }
+    const orgId = requireOrgId(ctx);
 
     const body = await req.json() as { orderId?: string; note?: string };
     if (!body.orderId) {

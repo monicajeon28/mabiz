@@ -95,7 +95,7 @@ export async function GET(req: Request) {
         refunderName,
         customerPhone: s.customerPhone,
         canIssuePurchaseCert: pay?.status === 'completed',
-        canIssueRefundCert: pay?.status === 'completed' || pay?.status === 'cancelled',
+        canIssueRefundCert: pay?.status === 'cancelled',
         paidAt:        pay?.paidAt ?? null,
         cancelledAt:   pay?.cancelledAt ?? null,
         createdAt:     s.createdAt,

@@ -86,6 +86,26 @@ export default function ImageLibraryPage() {
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 라이트박스
+  const [lightbox, setLightbox] = useState<{ src: string; name: string; idx: number; list: { src: string; name: string }[] } | null>(null);
+
+  const openLightbox = (src: string, name: string, idx: number, list: { src: string; name: string }[]) =>
+    setLightbox({ src, name, idx, list });
+  const closeLightbox = () => setLightbox(null);
+  const lightboxPrev = () => setLightbox((lb) => lb && lb.idx > 0 ? { ...lb, idx: lb.idx - 1, src: lb.list[lb.idx - 1].src, name: lb.list[lb.idx - 1].name } : lb);
+  const lightboxNext = () => setLightbox((lb) => lb && lb.idx < lb.list.length - 1 ? { ...lb, idx: lb.idx + 1, src: lb.list[lb.idx + 1].src, name: lb.list[lb.idx + 1].name } : lb);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') lightboxPrev();
+      if (e.key === 'ArrowRight') lightboxNext();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [lightbox]);
+
   // ═══════════════════════════════════════════════════════════════════════════════
   // 로컬 이미지 함수들
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -494,12 +514,16 @@ export default function ImageLibraryPage() {
         <div className="text-center py-8 text-gray-500">로딩 중...</div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {assets.map((asset) => (
+          {assets.map((asset, idx) => {
+            const localList = assets.map((a) => ({ src: a.thumbnailUrl, name: a.title }));
+            return (
             <div key={asset.id} className="relative group">
               <img
                 src={asset.thumbnailUrl}
                 alt={asset.title}
-                className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                onClick={() => openLightbox(asset.thumbnailUrl, asset.title, idx, localList)}
+                className="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-zoom-in"
+                loading="lazy"
               />
               <input
                 type="checkbox"
@@ -529,7 +553,7 @@ export default function ImageLibraryPage() {
               </div>
               <p className="mt-2 text-xs text-gray-600 truncate">{asset.title}</p>
             </div>
-          ))}
+          );})}
         </div>
       )}
 
@@ -666,12 +690,15 @@ export default function ImageLibraryPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {gdImages.map((image) => (
+            {gdImages.map((image, idx) => {
+              const gdList = gdImages.map((i) => ({ src: i.thumbnailUrl, name: i.name }));
+              return (
               <div key={image.id} className="relative group">
                 <img
                   src={image.thumbnailUrl}
                   alt={image.name}
-                  className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                  onClick={() => openLightbox(image.thumbnailUrl, image.name, idx, gdList)}
+                  className="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-zoom-in"
                   loading="lazy"
                 />
                 <input
@@ -702,7 +729,7 @@ export default function ImageLibraryPage() {
                 </div>
                 <p className="mt-2 text-xs text-gray-600 truncate">{image.name}</p>
               </div>
-            ))}
+              );})}
           </div>
 
           {/* 페이지네이션 */}
@@ -810,6 +837,54 @@ export default function ImageLibraryPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 라이트박스 */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
+          onClick={closeLightbox}
+        >
+          {/* 닫기 */}
+          <button
+            onClick={closeLightbox}
+            className="absolute top-4 right-4 text-white text-3xl font-bold hover:text-gray-300 z-10 leading-none"
+          >
+            ✕
+          </button>
+
+          {/* 이전 */}
+          {lightbox.idx > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); lightboxPrev(); }}
+              className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white rounded-full w-12 h-12 flex items-center justify-center text-2xl transition"
+            >
+              <ChevronLeftIcon className="w-6 h-6" />
+            </button>
+          )}
+
+          {/* 이미지 */}
+          <div className="max-w-5xl max-h-[90vh] flex flex-col items-center gap-3" onClick={(e) => e.stopPropagation()}>
+            <img
+              key={lightbox.src}
+              src={lightbox.src}
+              alt={lightbox.name}
+              className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+            />
+            <p className="text-white text-sm opacity-80 truncate max-w-md">{lightbox.name}</p>
+            <p className="text-white/50 text-xs">{lightbox.idx + 1} / {lightbox.list.length}</p>
+          </div>
+
+          {/* 다음 */}
+          {lightbox.idx < lightbox.list.length - 1 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); lightboxNext(); }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white rounded-full w-12 h-12 flex items-center justify-center text-2xl transition"
+            >
+              <ChevronRightIcon className="w-6 h-6" />
+            </button>
+          )}
         </div>
       )}
     </div>
