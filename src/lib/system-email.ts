@@ -1,36 +1,31 @@
 /**
- * src/lib/system-email.ts
- * 시스템 알림 전용 발신자 — 조직 SMTP와 완전히 분리
- *
- * 용도: 웹훅 수신 시 GLOBAL_ADMIN 알림, 파트너 계약 완료 알림
- * 발신: jmonica@cruisedot.co.kr (Gmail 앱 비밀번호)
- *
- * 환경변수:
- *   SYSTEM_SMTP_HOST  = smtp.gmail.com
- *   SYSTEM_SMTP_PORT  = 587
- *   SYSTEM_SMTP_USER  = jmonica@cruisedot.co.kr
- *   SYSTEM_SMTP_PASS  = Gmail 앱 비밀번호 (16자)
- *   GLOBAL_ADMIN_NOTIFY_EMAIL = jmonica@cruisedot.co.kr
+ * 시스템 레벨 이메일 발송 (NODEMAILER_* 환경변수 사용)
+ * 계약서 PDF 등 조직 SMTP 없이 발송해야 할 때 사용
  */
 import { createTransport } from 'nodemailer';
 import { logger } from '@/lib/logger';
 
 interface SystemEmailParams {
-  to:      string;
+  to: string | string[];
   subject: string;
-  html:    string;
+  html: string;
+  attachments?: Array<{
+    filename: string;
+    content:  Buffer;
+    contentType: string;
+  }>;
 }
 
 export async function sendSystemEmail(params: SystemEmailParams): Promise<boolean> {
-  const host = process.env.SYSTEM_SMTP_HOST;
-  const port = parseInt(process.env.SYSTEM_SMTP_PORT ?? '587');
-  const user = process.env.SYSTEM_SMTP_USER;
-  const pass = process.env.SYSTEM_SMTP_PASS;
+  const host  = process.env.NODEMAILER_HOST;
+  const port  = parseInt(process.env.NODEMAILER_PORT ?? '587', 10);
+  const user  = process.env.NODEMAILER_USER;
+  const pass  = process.env.NODEMAILER_PASS;
+  const from  = process.env.NODEMAILER_FROM_EMAIL ?? user;
+  const name  = process.env.NODEMAILER_FROM_NAME  ?? '마비즈스쿨';
 
   if (!host || !user || !pass) {
-    logger.warn('[SystemEmail] SMTP 환경변수 미설정 — 발송 생략', {
-      missing: [!host && 'SYSTEM_SMTP_HOST', !user && 'SYSTEM_SMTP_USER', !pass && 'SYSTEM_SMTP_PASS'].filter(Boolean),
-    });
+    logger.error('[SystemEmail] NODEMAILER 환경변수 미설정');
     return false;
   }
 
@@ -43,13 +38,14 @@ export async function sendSystemEmail(params: SystemEmailParams): Promise<boolea
     });
 
     await transporter.sendMail({
-      from:    `"크루즈닷 CRM" <${user}>`,
-      to:      params.to,
-      subject: params.subject,
-      html:    params.html,
+      from:        `"${name}" <${from}>`,
+      to:          Array.isArray(params.to) ? params.to.join(', ') : params.to,
+      subject:     params.subject,
+      html:        params.html,
+      attachments: params.attachments,
     });
 
-    logger.warn('[SystemEmail] 발송 성공', { to: params.to, subject: params.subject });
+    logger.log('[SystemEmail] 발송 성공', { to: params.to, subject: params.subject });
     return true;
   } catch (err) {
     logger.error('[SystemEmail] 발송 실패', { err, to: params.to });
@@ -57,12 +53,12 @@ export async function sendSystemEmail(params: SystemEmailParams): Promise<boolea
   }
 }
 
+/** 회사 수신 이메일 (마비즈스쿨 원격평생교육원) */
+export const COMPANY_EMAIL = process.env.NODEMAILER_FROM_EMAIL ?? 'hyeseon28@gmail.com';
+
 /** GLOBAL_ADMIN 알림 — 환경변수에서 수신자 자동 결정 */
 export async function notifyGlobalAdmin(subject: string, html: string): Promise<void> {
-  const to = process.env.GLOBAL_ADMIN_NOTIFY_EMAIL;
-  if (!to) {
-    logger.warn('[SystemEmail] GLOBAL_ADMIN_NOTIFY_EMAIL 미설정');
-    return;
-  }
+  const to = process.env.GLOBAL_ADMIN_NOTIFY_EMAIL ?? process.env.ADMIN_EMAIL;
+  if (!to) return;
   await sendSystemEmail({ to, subject, html });
 }
