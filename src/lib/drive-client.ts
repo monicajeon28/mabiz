@@ -15,15 +15,20 @@ export function getDriveClient() {
     return driveClientInstance;
   }
 
-  const privateKey = (
-    process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_PRIVATE_KEY ??
-    process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? ''
-  ).replace(/\\n/g, '\n');
+  // GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY (전체 JSON) 우선, 없으면 개별 키 조합
+  const serviceAccountKey = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY;
+  const credentials = serviceAccountKey
+    ? JSON.parse(serviceAccountKey)
+    : {
+        client_email: process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_EMAIL ?? process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+        private_key: (
+          process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_PRIVATE_KEY ??
+          process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? ''
+        ).replace(/\\n/g, '\n'),
+      };
+
   const auth = new google.auth.GoogleAuth({
-    credentials: {
-      client_email: process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_EMAIL ?? process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key: privateKey,
-    },
+    credentials,
     scopes: ['https://www.googleapis.com/auth/drive'],
   });
 

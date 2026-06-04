@@ -25,23 +25,31 @@ export async function uploadImageToDrive(params: {
   width?: number;
   height?: number;
   orientation?: number;
+  folderId?: string; // 직접 지정 시 조직/카테고리 폴더 계층 건너뜀
 }) {
-  const { organizationId, userId, orgName, buffer, fileName, mimeType, category, tags, width, height, orientation } = params;
+  const { organizationId, userId, orgName, buffer, fileName, mimeType, category, tags, width, height, orientation, folderId } = params;
 
   try {
     const drive = getDriveClient();
 
-    // CRM자산 루트 폴더 ID 확인
-    const rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID;
-    if (!rootFolderId) {
-      throw new Error('GOOGLE_DRIVE_ROOT_FOLDER_ID 환경변수 미설정');
+    let categoryFolder: string;
+
+    if (folderId) {
+      // folderId 직접 지정 시 해당 폴더에 바로 업로드
+      categoryFolder = folderId;
+    } else {
+      // CRM자산 루트 폴더 ID 확인
+      const rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID;
+      if (!rootFolderId) {
+        throw new Error('GOOGLE_DRIVE_ROOT_FOLDER_ID 환경변수 미설정');
+      }
+
+      // 조직별 폴더 생성/탐색
+      const orgFolder = await findOrCreateFolder(orgName, rootFolderId);
+
+      // 카테고리별 폴더 생성/탐색
+      categoryFolder = category ? await findOrCreateFolder(category, orgFolder) : orgFolder;
     }
-
-    // 조직별 폴더 생성/탐색
-    const orgFolder = await findOrCreateFolder(orgName, rootFolderId);
-
-    // 카테고리별 폴더 생성/탐색
-    const categoryFolder = category ? await findOrCreateFolder(category, orgFolder) : orgFolder;
 
     // Drive에 파일 업로드
     // googleapis media.body는 stream.Readable 필요 — Buffer 직접 전달 시 오류

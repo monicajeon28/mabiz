@@ -125,7 +125,7 @@ export async function POST(req: Request) {
       select: { name: true },
     });
 
-    // Google Drive 백업 (랜딩페이지/{제목}/ 폴더)
+    // Google Drive 백업 (랜딩페이지 전용 폴더)
     const asset = await uploadImageToDrive({
       organizationId: orgId,
       userId: ctx.userId,
@@ -137,6 +137,7 @@ export async function POST(req: Request) {
       tags: ['landing-page', landingPageId],
       width: meta.width,
       height: displayHeight,
+      folderId: process.env.LANDING_PAGES_DRIVE_FOLDER_ID ?? '1PpZbApjr5rZRlyP5onwkRUxz6X9gFPZz',
     });
 
     // WebP 처리 완료 표시 (GIF가 아닌 경우)
@@ -173,7 +174,7 @@ export async function POST(req: Request) {
       // 권한 설정 실패는 무시 (이미지는 업로드됨)
     }
 
-    const thumbnailUrl = `https://drive.google.com/thumbnail?id=${asset.driveFileId}&sz=w800`;
+    const thumbnailUrl = `/api/landing-pages/images/proxy?id=${asset.driveFileId}`;
 
     logger.info('[landing-images] 업로드 완료', {
       pageId: landingPageId,
@@ -265,7 +266,7 @@ export async function GET(req: Request) {
         return {
           id: img.id,
           assetId: img.imageAssetId,
-          url: asset ? `https://drive.google.com/thumbnail?id=${asset.driveFileId}&sz=w800` : '',
+          url: asset ? `/api/landing-pages/images/proxy?id=${asset.driveFileId}` : '',
           fullUrl: asset ? `https://drive.google.com/uc?id=${asset.driveFileId}&export=download` : '',
           driveFileId: asset?.driveFileId ?? '',
           fileName: asset?.originalFileName ?? '',

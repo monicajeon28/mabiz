@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
 import { checkRateLimitAsync } from '@/lib/rate-limit';
+import { saveContractToDrive } from '@/lib/affiliate/document-drive-sync';
 
 type Companion = {
   name: string;      // 이름 (필수)
@@ -339,6 +340,103 @@ export async function POST(req: Request) {
       companions: companions.length,
       organizationId,
     });
+
+    // Google Drive 계약서 저장 (fire-and-forget)
+    void (async () => {
+      try {
+        // 최신 generatedData로 계약서 HTML 생성
+        const freshDoc = await prisma.salesDocument.findUnique({
+          where: { id: docId },
+          select: { generatedData: true },
+        });
+        const data = (freshDoc?.generatedData ?? {}) as Record<string, unknown>;
+
+        const productName = typeof data.productName === 'string' ? data.productName : '크루즈 상품';
+        const amount = data.amount != null ? Number(data.amount).toLocaleString() + '원' : '-';
+        const departureDate = typeof data.departureDate === 'string' ? data.departureDate : '-';
+        const nights = data.nights != null ? `${data.nights}박` : '-';
+        const paymentMethod = typeof data.paymentMethod === 'string' ? data.paymentMethod : '-';
+        const companionRows = (companions as { name: string; birthDate: string; relation: string; phone: string }[])
+          .map((c, i) => `<tr><td>${i + 1}</td><td>${escHtml(c.name)}</td><td>${escHtml(c.birthDate)}</td><td>${escHtml(c.relation)}</td><td>${escHtml(c.phone)}</td></tr>`)
+          .join('');
+
+        const htmlContent = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>구매계약서 - ${escHtml(signerName)}</title>
+  <style>
+    body { font-family: 'Malgun Gothic', sans-serif; max-width: 800px; margin: 40px auto; padding: 0 24px; color: #222; }
+    h1 { color: #1a2e4a; border-bottom: 2px solid #1a2e4a; padding-bottom: 12px; }
+    h2 { color: #1a2e4a; margin-top: 32px; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+    th, td { border: 1px solid #ddd; padding: 10px 14px; text-align: left; }
+    th { background: #f0f4f8; color: #1a2e4a; width: 30%; }
+    .signature-box { border: 1px solid #ddd; padding: 16px; margin-top: 24px; text-align: center; }
+    .footer { margin-top: 40px; font-size: 12px; color: #888; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>구매계약서</h1>
+  <table>
+    <tr><th>문서번호</th><td>${escHtml(docId)}</td></tr>
+    <tr><th>상품명</th><td>${escHtml(productName)}</td></tr>
+    <tr><th>고객명</th><td>${escHtml(signerName)}</td></tr>
+    <tr><th>결제금액</th><td>${escHtml(amount)}</td></tr>
+    <tr><th>출발일</th><td>${escHtml(departureDate)}</td></tr>
+    <tr><th>일수</th><td>${escHtml(nights)}</td></tr>
+    <tr><th>결제수단</th><td>${escHtml(paymentMethod)}</td></tr>
+    <tr><th>서명일시</th><td>${escHtml(signedAt)}</td></tr>
+  </table>
+  ${companionRows ? `<h2>동행자 정보</h2>
+  <table>
+    <thead><tr><th>#</th><th>이름</th><th>생년월일</th><th>관계</th><th>연락처</th></tr></thead>
+    <tbody>${companionRows}</tbody>
+  </table>` : ''}
+  <div class="signature-box">
+    <p><strong>서명자:</strong> ${escHtml(signerName)}</p>
+    <img src="${typeof data.signatureImage === 'string' ? data.signatureImage : ''}" alt="전자서명" style="max-width:300px;border:1px solid #eee;margin-top:8px;" />
+  </div>
+  <div class="footer">이 문서는 마비즈 CRM에서 자동 생성된 전자 계약서입니다. 생성일시: ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</div>
+</body>
+</html>`;
+
+        const driveResult = await saveContractToDrive(
+          docId,
+          htmlContent,
+          signerName,
+          organizationId
+        );
+
+        if (driveResult.ok && driveResult.driveFileId) {
+          // SalesDocument generatedData에 driveFileId, driveUrl 저장
+          await prisma.salesDocument.update({
+            where: { id: docId },
+            data: {
+              generatedData: {
+                ...data,
+                driveFileId: driveResult.driveFileId,
+                driveUrl: driveResult.driveUrl,
+              },
+            },
+          });
+          logger.log('[PurchaseContractSign] Drive 저장 완료', {
+            docId,
+            driveFileId: driveResult.driveFileId,
+          });
+        } else {
+          logger.error('[PurchaseContractSign] Drive 저장 실패', {
+            docId,
+            error: driveResult.error,
+          });
+        }
+      } catch (driveErr) {
+        logger.error('[PurchaseContractSign] Drive 저장 예외', {
+          docId,
+          error: driveErr instanceof Error ? driveErr.message : String(driveErr),
+        });
+      }
+    })();
 
     // POST 응답에 signedAt 포함
     return NextResponse.json({ ok: true, message: '서명이 완료되었습니다', signedAt });

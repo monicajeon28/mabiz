@@ -55,6 +55,9 @@ export interface ContractInstanceResponse {
   templateName: string;
   contactId: string | null;
   status: string;
+  boundData?: unknown;
+  appliedLenses?: unknown;
+  signedAt?: string | null;
   expiresAt: string | null;
   timeRemaining: string;
   smsStatus: {
@@ -68,6 +71,7 @@ export interface ContractInstanceResponse {
     day3SentAt: string | null;
   };
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface ContractTemplateAuditLogResponse {

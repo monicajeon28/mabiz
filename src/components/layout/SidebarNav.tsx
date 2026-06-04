@@ -70,7 +70,7 @@ const navSections: NavSection[] = [
       { href: "/messages",              icon: MessageSquare,label: "문자 CRM" },
       { href: "/messages/scheduled",    icon: AlarmClock,   label: "예약 발송" },
       { href: "/sms-logs",              icon: ClipboardList,label: "발송 기록" },
-      { href: "/funnels",               icon: GitBranch,    label: "퍼널" },
+      { href: "/funnel-sms",             icon: GitBranch,    label: "퍼널문자" },
       { href: "/landing-pages",         icon: FileText,     label: "랜딩페이지" },
       { href: "/payments",              icon: CreditCard,   label: "결제 관리" },
       { href: "/links",                 icon: Link2,        label: "상담 링크" },
@@ -148,7 +148,6 @@ export function SidebarNav({ className, session }: SidebarNavProps) {
       {/* 로고 */}
       <div className="px-6 py-5 flex items-center justify-between border-b border-[#2A4080]">
         <div className="flex items-center gap-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="크루즈닷파트너스" className="h-8 w-auto object-contain" />
         </div>
         <NotificationBell />
