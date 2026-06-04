@@ -33,10 +33,15 @@ interface NewContractForm {
 }
 
 const DEFAULT_CONTRACT_TYPE_LABELS: Record<string, string> = {
-  AFFILIATE: '📜 크루즈닷 어필리에이트 계약서 (공통)',
-  BRANCH_MANAGER: '🏢 대리점장 계약서 (750만원)',
-  SALES_AGENT: '👤 판매원 계약서 (330만원)',
-  CRUISE_STAFF: '🚢 크루즈스탭 계약서 (540만원)',
+  // 2026 신규 3종 (우선 표시)
+  CRUISEDOT_PARTNERS: '🤝 크루즈닷 파트너스 계약서 (프리세일즈 · 무료)',
+  CRUISEDOT_SALES:    '🎤 크루즈닷 판매원 계약서 (1개월 교육 · 330만원)',
+  CRUISEDOT_MANAGER:  '🏆 크루즈닷 대리점장 계약서 (3개월 교육 · 750만원)',
+  // 구버전
+  AFFILIATE:          '📜 크루즈닷 어필리에이트 계약서 (구버전)',
+  BRANCH_MANAGER:     '🏢 대리점장 계약서 (구버전 · 750만원)',
+  SALES_AGENT:        '👤 판매원 계약서 (구버전 · 330만원)',
+  CRUISE_STAFF:       '🚢 크루즈스탭 계약서 (구버전 · 540만원)',
 };
 
 const ICON_OPTIONS = ['📄', '📋', '📜', '📝', '🏢', '👤', '🚢', '💳', '🎯', '✨', '🌟', '💼', '🤝', '📊', '💰'];
