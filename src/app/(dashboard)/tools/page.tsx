@@ -14,7 +14,7 @@ const QaLibrary = lazy(() => import("@/components/tools/QaLibrary").then(mod => 
 import { SkeletonCard, SkeletonTrainingCard, SkeletonRecommendationCard } from "./components/SkeletonLoader";
 
 type Template = { id: string; category: string; title: string; content: string; triggerOffset: number | null };
-type Playbook  = { id: string; type: string; title: string; content: string; priority: number; customerSegment?: string };
+type Playbook  = { id: string; type: string; title: string; content: string; priority: number; customerSegment?: string; scriptTab?: string };
 type ProductTraining = { id: string; category: string; title: string; description: string; icon: string; content: string; lastViewed?: string };
 type ToolRecommendation = { toolId: string; title: string; category: string; reason: string; relevance: number };
 
@@ -187,9 +187,13 @@ export default function ToolsPage() {
     return result;
   }, [training, productCategory, searchQuery]);
 
+  // scriptTab="CALL_SCRIPT" 인 항목만 대상으로 페르소나 필터
   const filteredScripts = useMemo(() =>
     playbooks
-      .filter((p) => p.type === scriptPersona || p.customerSegment === scriptPersona)
+      .filter((p) =>
+        p.scriptTab === "CALL_SCRIPT" &&
+        (p.type === scriptPersona || p.customerSegment === scriptPersona)
+      )
       .sort((a, b) => a.priority - b.priority)
       .slice(0, 5),
     [playbooks, scriptPersona]

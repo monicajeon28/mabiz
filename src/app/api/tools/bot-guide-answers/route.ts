@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
+import { getMabizSession } from "@/lib/auth";
 
 const PAGE_SIZE = 20;
 
@@ -132,6 +133,13 @@ export async function GET(req: NextRequest) {
  * - confirm?: boolean (replace 모드 확인용)
  */
 export async function POST(req: NextRequest) {
+  // 인증 확인: OWNER 또는 GLOBAL_ADMIN만 허용
+  const session = await getMabizSession();
+  if (!session) return NextResponse.json({ ok: false }, { status: 401 });
+  if (!["OWNER", "GLOBAL_ADMIN"].includes(session.role)) {
+    return NextResponse.json({ ok: false, message: "권한 없음" }, { status: 403 });
+  }
+
   try {
     // [SEC-005] Rate Limiting: 공개 API 스팸 방지
     const clientIp = req.headers.get("x-forwarded-for") ||

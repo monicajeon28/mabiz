@@ -11,13 +11,14 @@ export async function GET(req: Request) {
     const phase           = searchParams.get("phase");
     const customerSegment = searchParams.get("customerSegment");
     const type            = searchParams.get("type");
-    const scriptTab       = searchParams.get("scriptTab")   ?? "GENERAL";
+    const scriptTabParam  = searchParams.get("scriptTab");
+    const scriptTab       = scriptTabParam ?? null; // null = 전체 반환
     const productCode     = searchParams.get("productCode") ?? "ALL";
 
     const items = await prisma.salesPlaybook.findMany({
       where: {
         isActive: true,
-        scriptTab,
+        ...(scriptTab ? { scriptTab } : {}),
         ...(phase !== null && { sectionOrder: parseInt(phase) }),
         ...(customerSegment && customerSegment !== "ALL" && { customerSegment }),
         ...(type ? { type } : {}),
