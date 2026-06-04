@@ -205,14 +205,14 @@ export default function CallScriptPanel({ contact, isExpanded = true, onPhaseCha
                 ))}
               </div>
 
-              {/* 프레임워크 (PASONA/SPIN) */}
+              {/* 프레임워크 (모니카의 멘트/모니카의 전략) */}
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="bg-white p-2 rounded border border-blue-200">
-                  <div className="font-semibold text-blue-700">PASONA</div>
+                  <div className="font-semibold text-blue-700">모니카의 멘트</div>
                   <div className="text-gray-600">{script?.pasona?.join(" → ")}</div>
                 </div>
                 <div className="bg-white p-2 rounded border border-blue-200">
-                  <div className="font-semibold text-blue-700">SPIN</div>
+                  <div className="font-semibold text-blue-700">모니카의 전략</div>
                   <div className="text-gray-600">{script?.spin?.join(" → ")}</div>
                 </div>
               </div>

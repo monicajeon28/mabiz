@@ -44,6 +44,7 @@ interface ContactCallTabProps {
   backing: boolean;
   backupResult: { url: string; count: number } | null;
   addCallLog: () => Promise<void>;
+  savingCallLog?: boolean;
   deleteCallLog: (logId: string) => Promise<void>;
   deleteAllCallLogs: () => Promise<void>;
   backupCallLogs: () => Promise<void>;
@@ -53,8 +54,8 @@ interface ContactCallTabProps {
 function ContactCallTabComponent({
   contact, contactId, callForm, setCallForm, showCallForm, setShowCallForm,
   selectedObjectionModal, setSelectedObjectionModal, expandedLogId, setExpandedLogId,
-  copiedLogId, backing, backupResult, addCallLog, deleteCallLog, deleteAllCallLogs,
-  backupCallLogs, copyCallLog,
+  copiedLogId, backing, backupResult, addCallLog, savingCallLog = false,
+  deleteCallLog, deleteAllCallLogs, backupCallLogs, copyCallLog,
 }: ContactCallTabProps) {
   return (
     <div>
@@ -226,7 +227,13 @@ function ContactCallTabComponent({
           </div>
 
           <div className="flex gap-2">
-            <button onClick={addCallLog} className="flex-1 bg-navy-900 text-white py-2 rounded-lg text-sm font-medium">저장</button>
+            <button
+              onClick={addCallLog}
+              disabled={savingCallLog}
+              className="flex-1 bg-navy-900 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {savingCallLog ? "저장 중..." : "저장"}
+            </button>
             <button onClick={() => setShowCallForm(false)} className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg text-sm">취소</button>
           </div>
         </div>

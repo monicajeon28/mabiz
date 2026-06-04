@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import { Send, AlarmClock } from "lucide-react";
 
 interface SmsLog {
   id: string;
@@ -14,11 +15,32 @@ interface SmsLog {
 interface ContactSmsTabProps {
   smsLogs: SmsLog[];
   smsLoading: boolean;
+  onOpenSmsModal?: () => void;
+  onOpenSchedModal?: () => void;
 }
 
-function ContactSmsTabComponent({ smsLogs, smsLoading }: ContactSmsTabProps) {
+function ContactSmsTabComponent({ smsLogs, smsLoading, onOpenSmsModal, onOpenSchedModal }: ContactSmsTabProps) {
   return (
     <div className="space-y-2">
+      {/* 발송 바로가기 버튼 */}
+      <div className="flex gap-2 mb-3">
+        <button
+          onClick={onOpenSmsModal}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition-colors"
+        >
+          <Send className="w-4 h-4" />
+          즉시 발송
+        </button>
+        <button
+          onClick={onOpenSchedModal}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-orange-500 text-white rounded-xl text-sm font-medium hover:bg-orange-600 transition-colors"
+        >
+          <AlarmClock className="w-4 h-4" />
+          예약 발송
+        </button>
+      </div>
+
+      <p className="text-xs font-semibold text-gray-500 px-1 mb-1">발송 내역</p>
       {smsLoading ? (
         <div className="text-center text-sm text-gray-400 py-8">불러오는 중...</div>
       ) : smsLogs.length === 0 ? (

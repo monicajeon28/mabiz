@@ -78,6 +78,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     campaign: { id: string; title: string; sendSms: boolean; sendEmail: boolean } | null;
   }>>([]);
   const [campaignLoading, setCampaignLoading] = useState(false);
+  const [campaignLoaded, setCampaignLoaded] = useState(false);
 
   // 예약 탭
   type ReservationItem = {
@@ -136,6 +137,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     recoveryTime: "",
   });
   const [selectedObjectionModal, setSelectedObjectionModal] = useState<ObjectionData | null>(null);
+  const [savingCallLog, setSavingCallLog] = useState(false);
 
   // 메모 폼
   const [showMemoForm, setShowMemoForm]   = useState(false);
@@ -405,55 +407,87 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     return () => clearTimeout(timer);
   }, [schedResult]);
 
+  useEffect(() => {
+    if (!assignMsg) return;
+    const timer = setTimeout(() => setAssignMsg(""), 3000);
+    return () => clearTimeout(timer);
+  }, [assignMsg]);
+
   const addCallLog = useCallback(async () => {
-    const res  = await fetch(`/api/contacts/${id}/call-logs`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(callForm),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      setContact((c) => c ? { ...c, callLogs: [data.log, ...c.callLogs] } : c);
-      setShowCallForm(false);
-      setCallForm({
-        content: "",
-        result: "INTERESTED",
-        convictionScore: "5",
-        nextAction: "",
-        scheduledAt: "",
-        objectionId: "",
-        customerReaction: "neutral",
-        recovered: false,
-        recoveryTime: "",
-      });
-      setSelectedObjectionModal(null);
+    // [E-002] 동시성 제어: 이미 저장 중이면 무시
+    if (savingCallLog) return;
 
+    // 클라이언트 사전 검증: 내용 필수
+    if (!callForm.content.trim()) {
       toast({
-        title: "콜 기록 저장",
-        description: "콜 기록이 저장되었습니다.",
-        variant: "success",
-      });
-
-      logger.log("[ContactDetail]", {
-        action: "add-call-log",
-        contactId: id,
-        result: callForm.result,
-        status: "success",
-      });
-    } else {
-      toast({
-        title: "저장 실패",
-        description: data.message || "콜 기록 저장에 실패했습니다.",
+        title: "입력 오류",
+        description: "콜 기록 내용을 입력하세요.",
         variant: "destructive",
       });
-
-      logger.log("[ContactDetail]", {
-        action: "add-call-log",
-        contactId: id,
-        status: "error",
-        error: data.message,
-      });
+      return;
     }
-  }, [id, callForm, toast]);
+
+    setSavingCallLog(true);
+    try {
+      const res  = await fetch(`/api/contacts/${id}/call-logs`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(callForm),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setContact((c) => c ? { ...c, callLogs: [data.log, ...c.callLogs] } : c);
+        setShowCallForm(false);
+        setCallForm({
+          content: "",
+          result: "INTERESTED",
+          convictionScore: "5",
+          nextAction: "",
+          scheduledAt: "",
+          objectionId: "",
+          customerReaction: "neutral",
+          recovered: false,
+          recoveryTime: "",
+        });
+        setSelectedObjectionModal(null);
+
+        toast({
+          title: "콜 기록 저장",
+          description: "콜 기록이 저장되었습니다.",
+          variant: "success",
+        });
+
+        logger.log("[ContactDetail]", {
+          action: "add-call-log",
+          contactId: id,
+          result: callForm.result,
+          status: "success",
+        });
+      } else {
+        toast({
+          title: "저장 실패",
+          description: data.message || "콜 기록 저장에 실패했습니다.",
+          variant: "destructive",
+        });
+
+        logger.log("[ContactDetail]", {
+          action: "add-call-log",
+          contactId: id,
+          status: "error",
+          error: data.message,
+        });
+      }
+    } catch (err) {
+      // [E-003] 네트워크/파싱 에러 전파
+      toast({
+        title: "네트워크 오류",
+        description: err instanceof Error ? err.message : "콜 기록 저장에 실패했습니다.",
+        variant: "destructive",
+      });
+      logger.error("[addCallLog error]", { err, contactId: id });
+    } finally {
+      setSavingCallLog(false);
+    }
+  }, [id, callForm, toast, savingCallLog]);
 
   const addMemo = useCallback(async () => {
     if (!memoText.trim()) return;
@@ -516,21 +550,38 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     if (!selectedGroup) return;
     setAssigning(true);
     setAssignMsg("");
-    const res  = await fetch(`/api/groups/${selectedGroup}/members`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contactIds: [id] }),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      const g    = allGroups.find((g) => g.id === selectedGroup);
-      const msg  = g?.funnelId
-        ? `✅ "${g.name}" 그룹 배정 + 퍼널 자동 시작!`
-        : `✅ "${g?.name}" 그룹 배정 완료`;
-      setAssignMsg(msg);
-      setContact((c) => c ? { ...c, groups: [...c.groups, { group: { id: g!.id, name: g!.name } }] } : c);
-      setSelectedGroup("");
+    try {
+      const res  = await fetch(`/api/groups/${selectedGroup}/members`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactIds: [id] }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        const g    = allGroups.find((g) => g.id === selectedGroup);
+        const msg  = g?.funnelId
+          ? `✅ "${g.name}" 그룹 배정 + 퍼널 자동 시작!`
+          : `✅ "${g?.name}" 그룹 배정 완료`;
+        setAssignMsg(msg);
+        setContact((c) => c ? { ...c, groups: [...c.groups, { group: { id: g!.id, name: g!.name } }] } : c);
+        setSelectedGroup("");
+      } else {
+        toast({
+          title: "그룹 배정 실패",
+          description: data.message ?? "그룹 배정에 실패했습니다.",
+          variant: "destructive",
+        });
+        logger.error("[assignGroup] API error", { message: data.message, groupId: selectedGroup });
+      }
+    } catch (err) {
+      toast({
+        title: "네트워크 오류",
+        description: "그룹 배정 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+      logger.error("[assignGroup] fetch error", { err, groupId: selectedGroup });
+    } finally {
+      setAssigning(false);
     }
-    setAssigning(false);
   };
 
   // WO-28: DB 전달 모달 열기 (대상 목록 로드)
@@ -740,6 +791,17 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     if (data.ok) {
       setSendResult("✅ 발송 완료!");
       setSmsMsg("");
+      // SMS 탭 로그 목록 새로고침 (최신 발송 내역 즉시 반영)
+      fetch(`/api/contacts/${id}/sms-logs?limit=20&page=1`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok) {
+            setSmsLogs(d.logs ?? []);
+            setSmsHasMore(d.hasMore ?? false);
+            setSmsPage(1);
+          }
+        })
+        .catch(() => {});
       closeSmsModal();
     } else {
       setSendResult(`❌ ${data.message ?? "발송 실패"}`);
@@ -1164,12 +1226,13 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                     setSmsLoading(false);
                   });
               }
-              if (t.key === "campaigns" && campaignHistories.length === 0) {
+              if (t.key === "campaigns" && !campaignLoaded && !campaignLoading) {
                 setCampaignLoading(true);
                 fetch(`/api/contacts/${contact.id}/campaigns?limit=20&page=1`)
                   .then(r => r.json())
                   .then(d => {
                     if (d.ok) setCampaignHistories(d.histories ?? []);
+                    setCampaignLoaded(true);
                     setCampaignLoading(false);
                   })
                   .catch(err => {
@@ -1220,6 +1283,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           backing={backing}
           backupResult={backupResult}
           addCallLog={addCallLog}
+          savingCallLog={savingCallLog}
           deleteCallLog={deleteCallLog}
           deleteAllCallLogs={deleteAllCallLogs}
           backupCallLogs={backupCallLogs}
@@ -1236,6 +1300,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           memoText={memoText}
           setMemoText={setMemoText}
           addMemo={addMemo}
+          savingMemo={savingMemo}
           deleteMemo={deleteMemo}
           deleteAllMemos={deleteAllMemos}
         />
@@ -1304,12 +1369,28 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         <ContactSmsTab
           smsLogs={smsLogs}
           smsLoading={smsLoading}
+          onOpenSmsModal={openSmsModal}
+          onOpenSchedModal={openSchedModal}
         />
       )}
 
       {/* Campaigns Tab */}
       {tab === "campaigns" && (
         <div className="space-y-2">
+          {/* 캠페인 발송 바로가기 버튼 */}
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-800">캠페인 발송</p>
+              <p className="text-xs text-blue-500 mt-0.5">캠페인 관리 페이지에서 이 고객에게 발송하세요</p>
+            </div>
+            <button
+              onClick={() => router.push("/marketing/campaigns/new")}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700"
+            >
+              <Send className="w-3.5 h-3.5" />
+              캠페인 만들기
+            </button>
+          </div>
           {campaignLoading ? (
             <div className="text-center text-sm text-gray-400 py-8">불러오는 중...</div>
           ) : campaignHistories.length === 0 ? (

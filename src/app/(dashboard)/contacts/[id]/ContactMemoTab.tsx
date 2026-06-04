@@ -15,13 +15,14 @@ interface ContactMemoTabProps {
   memoText: string;
   setMemoText: (text: string) => void;
   addMemo: () => Promise<void>;
+  savingMemo: boolean;
   deleteMemo: (memoId: string) => Promise<void>;
   deleteAllMemos: () => Promise<void>;
 }
 
 function ContactMemoTabComponent({
   contact, showMemoForm, setShowMemoForm, memoText, setMemoText,
-  addMemo, deleteMemo, deleteAllMemos,
+  addMemo, savingMemo, deleteMemo, deleteAllMemos,
 }: ContactMemoTabProps) {
   return (
     <div>
@@ -52,7 +53,7 @@ function ContactMemoTabComponent({
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-gold-500"
           />
           <div className="flex gap-2">
-            <button onClick={addMemo} className="flex-1 bg-navy-900 text-white py-2 rounded-lg text-sm font-medium">저장</button>
+            <button onClick={addMemo} disabled={savingMemo || !memoText.trim()} className="flex-1 bg-navy-900 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50">{savingMemo ? "저장 중..." : "저장"}</button>
             <button onClick={() => setShowMemoForm(false)} className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg text-sm">취소</button>
           </div>
         </div>

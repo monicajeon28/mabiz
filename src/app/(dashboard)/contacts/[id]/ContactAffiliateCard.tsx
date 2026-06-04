@@ -77,11 +77,57 @@ export default function ContactAffiliateCard({
   }
 
   if (error) {
-    return null; // 조용히 실패 (필수 기능 아님)
+    // 에러가 있어도 Day 0-3 시작 버튼은 항상 표시
+    return (
+      <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <Award className="w-5 h-5 text-amber-500" />
+            제휴 담당자
+          </h2>
+          <button
+            onClick={() => onStartSequence(contactId)}
+            disabled={sequenceLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {sequenceLoading ? (
+              <Loader className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            Day 0-3 시작
+          </button>
+        </div>
+        <p className="text-sm text-gray-400 mt-3">제휴 정보를 불러올 수 없습니다.</p>
+      </div>
+    );
   }
 
   if (!affiliateInfo?.manager && !affiliateInfo?.agent) {
-    return null;
+    // 제휴 담당자 없어도 Day 0-3 시작 버튼은 항상 표시
+    return (
+      <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <Award className="w-5 h-5 text-amber-500" />
+            제휴 담당자
+          </h2>
+          <button
+            onClick={() => onStartSequence(contactId)}
+            disabled={sequenceLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {sequenceLoading ? (
+              <Loader className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            Day 0-3 시작
+          </button>
+        </div>
+        <p className="text-sm text-gray-400 mt-3">배정된 제휴 담당자가 없습니다.</p>
+      </div>
+    );
   }
 
   return (

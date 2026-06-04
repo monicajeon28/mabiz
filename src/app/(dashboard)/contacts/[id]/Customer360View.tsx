@@ -133,7 +133,7 @@ export default function Customer360View({ contactId }: Customer360ViewProps) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="animate-spin mr-2" />
-        <span>Loading 360° customer view...</span>
+        <span>360° 고객 뷰 로딩 중...</span>
       </div>
     );
   }
@@ -144,7 +144,7 @@ export default function Customer360View({ contactId }: Customer360ViewProps) {
         <div className="flex items-start gap-3">
           <AlertCircle className="text-red-500 flex-shrink-0 mt-1" />
           <div>
-            <h3 className="font-semibold text-red-900">Error loading view</h3>
+            <h3 className="font-semibold text-red-900">뷰 로딩 오류</h3>
             <p className="text-sm text-red-700">{error}</p>
           </div>
         </div>
@@ -153,7 +153,7 @@ export default function Customer360View({ contactId }: Customer360ViewProps) {
   }
 
   if (!data?.data) {
-    return <Card className="p-6">No customer data available</Card>;
+    return <Card className="p-6">고객 데이터가 없습니다.</Card>;
   }
 
   const customer = data.data;
@@ -166,7 +166,7 @@ export default function Customer360View({ contactId }: Customer360ViewProps) {
         <div>
           <h2 className="text-2xl font-bold">{customer.name}</h2>
           <p className="text-sm text-gray-600 mt-1">
-            Source: {customer.sourceType} • Org: {meta.contactId.substring(0, 8)}...
+            유입경로: {customer.sourceType} • 조직: {meta.contactId.substring(0, 8)}...
           </p>
         </div>
 
@@ -178,36 +178,36 @@ export default function Customer360View({ contactId }: Customer360ViewProps) {
             }
             className="px-3 py-2 border rounded-md text-sm"
           >
-            <option value="ADMIN">Admin (Full Access)</option>
-            <option value="MANAGER">Manager (Partial)</option>
-            <option value="AGENT">Agent (Masked)</option>
-            <option value="PUBLIC">Public (Max Masked)</option>
+            <option value="ADMIN">관리자 (전체 공개)</option>
+            <option value="MANAGER">매니저 (일부 공개)</option>
+            <option value="AGENT">에이전트 (마스킹)</option>
+            <option value="PUBLIC">공개 (최대 마스킹)</option>
           </select>
           <span className="text-xs text-gray-500 whitespace-nowrap">
-            Loaded in {meta.duration_ms}ms
+            로드 시간: {meta.duration_ms}ms
           </span>
         </div>
       </div>
 
       {/* Contact Info Summary */}
       <Card className="p-6">
-        <h3 className="font-semibold mb-4">Contact Information</h3>
+        <h3 className="font-semibold mb-4">고객 기본 정보</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
-            <div className="text-gray-600">Phone</div>
+            <div className="text-gray-600">전화번호</div>
             <div className="font-mono font-semibold">{customer.phone}</div>
           </div>
           <div>
-            <div className="text-gray-600">Email</div>
-            <div className="font-mono font-semibold">{customer.email || "N/A"}</div>
+            <div className="text-gray-600">이메일</div>
+            <div className="font-mono font-semibold">{customer.email || "없음"}</div>
           </div>
           <div>
-            <div className="text-gray-600">Type</div>
+            <div className="text-gray-600">유형</div>
             <div className="font-semibold capitalize">{customer.type}</div>
           </div>
           <div>
-            <div className="text-gray-600">Status</div>
-            <div className="font-semibold">{customer.contact?.status || "Unknown"}</div>
+            <div className="text-gray-600">상태</div>
+            <div className="font-semibold">{customer.contact?.status || "알 수 없음"}</div>
           </div>
         </div>
       </Card>
@@ -215,8 +215,8 @@ export default function Customer360View({ contactId }: Customer360ViewProps) {
       {/* Psychology Lenses */}
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold">Psychology Lenses (L0-L10)</h3>
-          <span className="text-xs text-gray-600">{meta.lensCount} detected</span>
+          <h3 className="font-semibold">심리학 렌즈 (L0-L10)</h3>
+          <span className="text-xs text-gray-600">{meta.lensCount}개 감지됨</span>
         </div>
 
         {customer.primaryLens && (
@@ -225,7 +225,7 @@ export default function Customer360View({ contactId }: Customer360ViewProps) {
               <div>
                 <div className="font-semibold text-blue-900">{customer.primaryLens.label}</div>
                 <div className="text-sm text-blue-700 mt-1">
-                  Confidence: {customer.primaryLens.confidenceScore}% | Readiness: {customer.primaryLens.readinessScore}%
+                  확신도: {customer.primaryLens.confidenceScore}% | 준비도: {customer.primaryLens.readinessScore}%
                 </div>
               </div>
               <Badge className="bg-blue-600">{customer.primaryLens.lensType}</Badge>
@@ -242,7 +242,7 @@ export default function Customer360View({ contactId }: Customer360ViewProps) {
               <div className="flex-1">
                 <div className="text-sm font-medium">{lens.label}</div>
                 <div className="text-xs text-gray-600">
-                  Confidence: {lens.confidenceScore}% • Readiness: {lens.readinessScore}%
+                  확신도: {lens.confidenceScore}% • 준비도: {lens.readinessScore}%
                 </div>
               </div>
               <Badge variant="outline">{lens.lensType}</Badge>
@@ -253,11 +253,11 @@ export default function Customer360View({ contactId }: Customer360ViewProps) {
 
       {/* Risk Assessment */}
       <Card className="p-6">
-        <h3 className="font-semibold mb-4">Risk Assessment</h3>
+        <h3 className="font-semibold mb-4">위험도 평가</h3>
 
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">Risk Score</span>
+            <span className="text-sm font-medium">위험도 점수</span>
             <span className="text-lg font-bold">{customer.riskScore}/100</span>
           </div>
           <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -294,7 +294,7 @@ export default function Customer360View({ contactId }: Customer360ViewProps) {
 
         {customer.riskFlags.length > 0 && (
           <div className="space-y-2">
-            <div className="text-sm font-medium text-gray-700">Risk Flags:</div>
+            <div className="text-sm font-medium text-gray-700">위험 신호:</div>
             <div className="flex flex-wrap gap-2">
               {customer.riskFlags.map((flag) => (
                 <Badge key={flag} variant="secondary" className="text-xs">
@@ -309,22 +309,22 @@ export default function Customer360View({ contactId }: Customer360ViewProps) {
       {/* Engagement Metrics */}
       {customer.contact && (
         <Card className="p-6">
-          <h3 className="font-semibold mb-4">Engagement Metrics</h3>
+          <h3 className="font-semibold mb-4">참여 지표</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-3 bg-gray-50 rounded-lg">
-              <div className="text-xs text-gray-600 mb-1">Lead Score</div>
+              <div className="text-xs text-gray-600 mb-1">리드 점수</div>
               <div className="text-2xl font-bold">{customer.contact.leadScore}</div>
             </div>
             <div className="p-3 bg-gray-50 rounded-lg">
-              <div className="text-xs text-gray-600 mb-1">Calls</div>
+              <div className="text-xs text-gray-600 mb-1">콜 횟수</div>
               <div className="text-2xl font-bold">{customer.contact.callCount}</div>
             </div>
             <div className="p-3 bg-gray-50 rounded-lg">
-              <div className="text-xs text-gray-600 mb-1">Memos</div>
+              <div className="text-xs text-gray-600 mb-1">메모 수</div>
               <div className="text-2xl font-bold">{customer.contact.memoCount}</div>
             </div>
             <div className="p-3 bg-gray-50 rounded-lg">
-              <div className="text-xs text-gray-600 mb-1">Cruise Count</div>
+              <div className="text-xs text-gray-600 mb-1">크루즈 횟수</div>
               <div className="text-2xl font-bold">{customer.contact.cruiseCount}</div>
             </div>
           </div>
@@ -359,7 +359,7 @@ export default function Customer360View({ contactId }: Customer360ViewProps) {
       <Card className="p-6">
         <h3 className="font-semibold mb-4 flex items-center gap-2">
           <Clock size={18} />
-          Journey ({meta.journeyEventCount} events)
+          활동 이력 ({meta.journeyEventCount}건)
         </h3>
 
         <div className="space-y-3 max-h-96 overflow-y-auto">
@@ -388,7 +388,9 @@ export default function Customer360View({ contactId }: Customer360ViewProps) {
                 )}
               </div>
               <div className="flex-1">
-                <div className="text-sm font-medium capitalize">{event.type}</div>
+                <div className="text-sm font-medium capitalize">
+                  {event.type === "call" ? "콜" : event.type === "memo" ? "메모" : event.type === "payment" ? "결제" : event.type === "sms" ? "문자" : event.type === "email" ? "이메일" : event.type === "lens_update" ? "렌즈 업데이트" : event.type}
+                </div>
                 <div className="text-xs text-gray-600 mt-1">
                   {new Date(event.timestamp).toLocaleString()}
                 </div>
