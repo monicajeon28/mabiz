@@ -51,19 +51,36 @@ export async function POST(req: Request) {
       }
     } catch { return NextResponse.json({ ok: false, message: '유효하지 않은 URL' }, { status: 400 }); }
 
+    // 중복 없는 코드 확보 (최대 10회 재시도)
     let code = generateCode();
-    let attempts = 0;
-    while (attempts < 5) {
+    for (let i = 0; i < 10; i++) {
       const exists = await prisma.shortLink.findUnique({ where: { code } });
       if (!exists) break;
+      if (i === 9) {
+        return NextResponse.json({ ok: false, message: '링크 생성 실패. 잠시 후 다시 시도해주세요.' }, { status: 500 });
+      }
       code = generateCode();
-      attempts++;
     }
 
-    const link = await prisma.shortLink.create({
-      data: { organizationId: orgId, code, ...body },
-      select: { id: true, code: true, targetUrl: true, title: true },
-    });
+    // Race condition 방어: DB unique constraint 위반 시 새 코드로 1회 재시도
+    let link;
+    try {
+      link = await prisma.shortLink.create({
+        data: { organizationId: orgId, code, ...body },
+        select: { id: true, code: true, targetUrl: true, title: true },
+      });
+    } catch (createErr) {
+      const msg = createErr instanceof Error ? createErr.message : String(createErr);
+      if (msg.includes('Unique constraint') || msg.includes('unique constraint')) {
+        code = generateCode();
+        link = await prisma.shortLink.create({
+          data: { organizationId: orgId, code, ...body },
+          select: { id: true, code: true, targetUrl: true, title: true },
+        });
+      } else {
+        throw createErr;
+      }
+    }
 
     logger.log('[Links POST] 생성', { code, orgId });
     return NextResponse.json({ ok: true, link, shortUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/l/${link.code}` });
