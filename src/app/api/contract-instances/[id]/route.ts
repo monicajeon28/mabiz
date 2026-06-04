@@ -161,11 +161,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // 상태머신 전환 매트릭스: 허용된 전환만 통과
+    // 상태머신 전환 매트릭스: 허용된 전환만 통과 (반드시 SIGNED 단계를 거쳐야 COMPLETED 가능)
     if (status) {
       const allowedTransitions: Record<string, string[]> = {
-        DRAFT:     ["SENT", "COMPLETED"],
-        SENT:      ["SIGNED", "DRAFT", "COMPLETED"],
+        DRAFT:     ["SENT"],
+        SENT:      ["SIGNED", "DRAFT"],
         SIGNED:    ["COMPLETED"],
         COMPLETED: [],
       };
@@ -236,15 +236,31 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    // SIGNED 또는 COMPLETED 전환 시 Google Drive에 계약서 저장 (fire-and-forget)
-    if (status === "SIGNED" || status === "COMPLETED") {
+    // SIGNED 전환 시에만 Google Drive에 계약서 저장 (fire-and-forget)
+    // COMPLETED 전환은 이미 SIGNED 단계에서 저장 완료된 상태이므로 중복 생성 방지를 위해 건너뜀
+    if (status === "SIGNED") {
       void (async () => {
         try {
-          // boundData에서 고객명 추출 (buyerName → signerName → customerName 순으로 시도)
+          // 경쟁 조건 방지: status 업데이트 이후 최신 DB 값을 다시 읽어 stale 스프레드 방지
+          const freshInstance = await prisma.contractInstance.findUnique({
+            where: { id },
+            select: { boundData: true },
+          });
           const boundDataObj =
-            updatedInstance.boundData && typeof updatedInstance.boundData === "object"
-              ? (updatedInstance.boundData as Record<string, unknown>)
+            freshInstance?.boundData && typeof freshInstance.boundData === "object"
+              ? (freshInstance.boundData as Record<string, unknown>)
               : {};
+
+          // 중복 저장 방지: driveFileId가 이미 존재하면 건너뜀
+          if (typeof boundDataObj.driveFileId === "string") {
+            logger.log("[PATCH /api/contract-instances/[id]] Drive 저장 스킵 (이미 존재)", {
+              instanceId: id,
+              driveFileId: boundDataObj.driveFileId,
+            });
+            return;
+          }
+
+          // boundData에서 고객명 추출 (buyerName → signerName → customerName 순으로 시도)
           const customerName =
             (typeof boundDataObj.buyerName === "string" ? boundDataObj.buyerName : "") ||
             (typeof boundDataObj.signerName === "string" ? boundDataObj.signerName : "") ||
@@ -293,16 +309,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           );
 
           if (driveResult.ok && driveResult.driveFileId) {
-            // boundData에 driveFileId, driveUrl 저장
-            const currentBoundData =
-              updatedInstance.boundData && typeof updatedInstance.boundData === "object"
-                ? (updatedInstance.boundData as Record<string, unknown>)
-                : {};
+            // boundDataObj는 위에서 이미 최신 DB 값으로 읽어온 상태 (stale 스프레드 방지)
             await prisma.contractInstance.update({
               where: { id: updatedInstance.id },
               data: {
                 boundData: {
-                  ...currentBoundData,
+                  ...boundDataObj,
                   driveFileId: driveResult.driveFileId,
                   driveUrl: driveResult.driveUrl,
                 },

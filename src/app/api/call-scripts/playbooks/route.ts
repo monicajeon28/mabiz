@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
         ...(tab ? { scriptTab: tab } : {}),
       },
       orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
+      take: 200,
       select: {
         id: true,
         type: true,

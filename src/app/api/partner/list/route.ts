@@ -14,12 +14,15 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const month = parseInt(searchParams.get('month') ?? String(new Date().getMonth() + 1));
     const year = parseInt(searchParams.get('year') ?? String(new Date().getFullYear()));
+    // status 파라미터: 'ACTIVE' | 'INACTIVE' | 'ALL' (기본값: 'ALL')
+    const statusParam = searchParams.get('status') ?? 'ALL';
+    const statusFilter = statusParam === 'ACTIVE' || statusParam === 'INACTIVE' ? statusParam : undefined;
 
     // N+1 최적화: select로 필요한 필드만 조회, metrics는 join으로 처리
     const partners = await prisma.partner.findMany({
       where: {
         ...(orgId ? { organizationId: orgId } : {}),
-        status: 'ACTIVE',
+        ...(statusFilter ? { status: statusFilter } : {}),
       },
       select: {
         id: true,

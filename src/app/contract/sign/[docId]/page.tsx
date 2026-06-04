@@ -123,6 +123,9 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
   const drawnDistanceRef = useRef(0);
   const lastDrawPosRef = useRef<{ x: number; y: number } | null>(null);
 
+  // P1: 다시 시도 트리거 — 증가시키면 fetch useEffect 재실행
+  const [retryCount, setRetryCount] = useState(0);
+
   // ── 토큰 검증 (P1-3: AbortController 메모리 누수 방지) ─────────────────────
   useEffect(() => {
     if (!docId || !token) {
@@ -131,6 +134,7 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
       setStep("error");
       return;
     }
+    setStep("loading");
     const controller = new AbortController();
     fetch(`/api/documents/purchase-contract/sign?docId=${docId}&token=${token}`, {
       signal: controller.signal,
@@ -161,7 +165,7 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
         setStep("error");
       });
     return () => controller.abort();
-  }, [docId, token]);
+  }, [docId, token, retryCount]);
 
   // ── 동행자 배열 동기화 (P1-4: 감소 시 기존 데이터 보존) ───────────────────
   useEffect(() => {
@@ -417,7 +421,8 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
             <button
               onClick={() => {
                 setErrorMsg("");
-                setStep("signature");
+                setIsTokenError(false);
+                setRetryCount((c) => c + 1);
               }}
               className="mt-6 w-full bg-[#1a2e4a] text-white text-base font-bold py-3 rounded-2xl hover:bg-[#243d5e] transition-colors"
             >

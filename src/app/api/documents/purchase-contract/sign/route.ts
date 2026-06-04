@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { sendFunnelEmail } from '@/lib/email';
 import { checkRateLimitAsync } from '@/lib/rate-limit';
 import { saveContractToDrive } from '@/lib/affiliate/document-drive-sync';
 import { generatePurchaseContractPdf } from '@/lib/purchase-contract-pdf';
@@ -310,11 +309,11 @@ export async function POST(req: Request) {
         const adminEmail = admin?.email ?? null;
         if (!adminEmail) return;
 
-        await sendFunnelEmail({
-          organizationId,
+        // P1: sendFunnelEmail → sendSystemEmail (SYSTEM_SMTP 사용, OrgEmailConfig 불필요)
+        await sendSystemEmail({
           to:      adminEmail,
-          subject: `[서명완료] ${escHtml(productName)} 계약서 서명이 완료되었습니다`,
-          // P2-2: signerName, productName HTML 이스케이프
+          subject: `[서명완료] ${productName} 계약서 서명이 완료되었습니다`,
+          // escHtml은 HTML 본문 내부에서만 사용. subject는 텍스트 필드이므로 escHtml 불필요
           html: `<div style="font-family:sans-serif;line-height:1.8;max-width:600px;margin:0 auto;padding:32px 24px">
 <h2 style="color:#1a1a2e;margin:0 0 16px">구매계약서 서명 완료 알림</h2>
 <p>고객이 구매계약서에 서명을 완료했습니다.</p>
@@ -327,7 +326,6 @@ export async function POST(req: Request) {
 </table>
 <p style="color:#666;font-size:14px">CRM에서 계약서를 확인하세요.</p>
 </div>`,
-          channel: 'MANUAL',
         });
       } catch (emailErr) {
         logger.error('[PurchaseContractSign] 에이전트 이메일 발송 실패', {

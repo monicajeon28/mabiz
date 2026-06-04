@@ -219,8 +219,9 @@ export async function POST(request: NextRequest) {
       boundData as Record<string, string>
     );
 
-    // 유효기한 설정 (24시간 후, L10 렌즈)
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    // 유효기한 설정 (요청 body의 expiresHours 우선, 없으면 24시간 기본값, L10 렌즈)
+    const expiresHours = validatedData.expiresHours ?? 24;
+    const expiresAt = new Date(Date.now() + expiresHours * 60 * 60 * 1000);
 
     // 계약서 인스턴스 생성
     const instance = await prisma.contractInstance.create({
@@ -249,56 +250,154 @@ export async function POST(request: NextRequest) {
 
     // SMS 자동화 큐잉 (Day 0-3)
     if (autoSendSms && contactId) {
-      // ContactLensClassification 또는 ContactLensSequence 생성
-      // 여러 렌즈가 있을 수 있으므로 각 렌즈별로 처리
-
-      for (const lens of template.psychologyLenses) {
-        // ContactLensClassification 조회 또는 생성
-        let classification = await prisma.contactLensClassification.findUnique(
-          {
-            where: {
-              organizationId_contactId_lensType: {
+      // ── N+1 방지: 기존 분류 레코드를 한 번에 조회 ──────────────────────────
+      const existingClassifications =
+        template.psychologyLenses.length > 0
+          ? await prisma.contactLensClassification.findMany({
+              where: {
                 organizationId,
                 contactId,
-                lensType: lens,
+                lensType: { in: template.psychologyLenses },
               },
-            },
-          }
-        );
+              select: { id: true, lensType: true },
+            })
+          : [];
 
-        if (!classification) {
-          classification = await prisma.contactLensClassification.create({
-            data: {
-              organizationId,
-              contactId,
-              lensType: lens,
-              status: "ACTIVE",
-            },
-          });
-        }
+      const existingLensSet = new Set(
+        existingClassifications.map((c) => c.lensType)
+      );
 
-        // ContactLensSequence 생성 (SMS 자동화 추적용)
-        await prisma.contactLensSequence.create({
-          data: {
+      // 누락된 렌즈 분류 레코드 일괄 생성
+      const newLenses = template.psychologyLenses.filter(
+        (l) => !existingLensSet.has(l)
+      );
+
+      if (newLenses.length > 0) {
+        await prisma.contactLensClassification.createMany({
+          data: newLenses.map((lens) => ({
             organizationId,
             contactId,
-            classificationId: classification.id,
-            sequenceType: "CONTRACTED",
             lensType: lens,
-            status: "PENDING",
-          },
+            status: "ACTIVE",
+          })),
+          skipDuplicates: true,
         });
       }
 
-      // ScheduledSms 큐잉 (Day 0-3)
-      // 실제 구현에서는 SmsTemplate을 참조하여 메시지 생성
-      // 여기서는 기본 구조만 제시
+      // 생성 후 전체 분류 목록 재조회 (새로 생성된 레코드 id 포함)
+      const allClassifications =
+        template.psychologyLenses.length > 0
+          ? await prisma.contactLensClassification.findMany({
+              where: {
+                organizationId,
+                contactId,
+                lensType: { in: template.psychologyLenses },
+              },
+              select: { id: true, lensType: true },
+            })
+          : [];
 
-      if (template.smsDay0TemplateId) {
-        // Day 0 SMS 스케줄링
-        // 즉시 발송 또는 지정된 시간에 발송
+      // ContactLensSequence 일괄 생성 (SMS 자동화 추적용)
+      if (allClassifications.length > 0) {
+        await prisma.contactLensSequence.createMany({
+          data: allClassifications.map((c) => ({
+            organizationId,
+            contactId,
+            classificationId: c.id,
+            sequenceType: "CONTRACTED",
+            lensType: c.lensType,
+            status: "PENDING",
+          })),
+          skipDuplicates: true,
+        });
       }
-      // Day 1, 2, 3도 유사하게 처리
+
+      // ── Day 0-3 SMS 스케줄링 ─────────────────────────────────────────────────
+      // SmsTemplate id 목록 수집 (null 제외)
+      const smsDayRaw: Array<{
+        templateId: string | null;
+        dayOffset: number;
+      }> = [
+        { templateId: template.smsDay0TemplateId, dayOffset: 0 },
+        { templateId: template.smsDay1TemplateId, dayOffset: 1 },
+        { templateId: template.smsDay2TemplateId, dayOffset: 2 },
+        { templateId: template.smsDay3TemplateId, dayOffset: 3 },
+      ];
+      const smsDayEntries = smsDayRaw.filter(
+        (entry): entry is { templateId: string; dayOffset: number } =>
+          entry.templateId !== null && entry.templateId !== undefined
+      );
+
+      if (smsDayEntries.length > 0) {
+        // 메시지 내용 일괄 조회 (N+1 방지)
+        const smsTemplateIds = smsDayEntries.map((e) => e.templateId);
+        const smsTemplateRecords = await prisma.smsTemplate.findMany({
+          where: { id: { in: smsTemplateIds } },
+          select: { id: true, content: true },
+        });
+
+        const smsContentMap = new Map(
+          smsTemplateRecords.map((t) => [t.id, t.content])
+        );
+
+        const now = new Date();
+        const scheduledSmsData = smsDayEntries
+          .map((entry) => {
+            const message = smsContentMap.get(entry.templateId);
+            if (!message) {
+              logger.warn(
+                "[ContractInstance] SMS 템플릿 내용 없음 — 스킵",
+                {
+                  templateId: entry.templateId,
+                  dayOffset: entry.dayOffset,
+                  instanceId: instance.id,
+                }
+              );
+              return null;
+            }
+            const scheduledAt = new Date(
+              now.getTime() + entry.dayOffset * 24 * 60 * 60 * 1000
+            );
+            return {
+              organizationId,
+              contactId,
+              message,
+              scheduledAt,
+              status: "PENDING",
+              createdByUserId: userId,
+              channel: "CONTRACT",
+            };
+          })
+          .filter(
+            (
+              item
+            ): item is {
+              organizationId: string;
+              contactId: string;
+              message: string;
+              scheduledAt: Date;
+              status: string;
+              createdByUserId: string;
+              channel: string;
+            } => item !== null
+          );
+
+        if (scheduledSmsData.length > 0) {
+          await prisma.scheduledSms.createMany({
+            data: scheduledSmsData,
+            skipDuplicates: true,
+          });
+          logger.info("[ContractInstance] Day 0-3 SMS 스케줄링 완료", {
+            instanceId: instance.id,
+            count: scheduledSmsData.length,
+          });
+        }
+      } else {
+        logger.warn(
+          "[ContractInstance] SMS 템플릿 미연결 — Day 0-3 스케줄링 스킵",
+          { instanceId: instance.id, templateId }
+        );
+      }
     }
 
     // 응답

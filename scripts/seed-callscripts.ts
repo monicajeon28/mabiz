@@ -295,7 +295,7 @@ const scripts = [
   },
   {
     type: 'PERSONA', scriptTab: 'CALL_SCRIPT', priority: 1,
-    customerSegment: 'NEWLYWEDS', psychology: '욕망증폭',
+    customerSegment: 'NEWLYWED', psychology: '욕망증폭',
     title: '신혼/연인 — 감정설계 완전판',
     content: `[라포] 둘이 가시는 거예요? 혹시 기념일이라든가 특별한 일정 있으세요?
 

@@ -23,12 +23,13 @@ export async function GET(_req: Request, { params }: Params) {
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
 
     // 역할별 필터링
-    let whereClause: any = { contactId: id };
+    // [S-ORG] 모든 역할에서 조직 격리 보장: contact 관계 필터로 cross-org 조회 차단
+    let whereClause: any = { contactId: id, contact: { organizationId: orgId } };
     if (ctx.role === 'AGENT') {
       // 판매원은 자신이 만든 콜기록만 봄
       whereClause.userId = ctx.userId;
     }
-    // OWNER/GLOBAL_ADMIN은 contactId 필터만으로 OK (조직/전체 콜 모두 볼 수 있음)
+    // OWNER/GLOBAL_ADMIN은 contactId + 조직 격리 필터만으로 OK
 
     // 페이지 파라미터 추출 (기본값: page=1)
     const pageParam = new URL(_req.url).searchParams.get('page') ?? '1';

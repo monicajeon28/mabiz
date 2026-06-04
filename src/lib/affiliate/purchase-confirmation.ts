@@ -97,7 +97,7 @@ export async function sendPurchaseConfirmation(
 
     // Payment 없으면 AffiliateSale 기반 데이터로 fallback 발급
     const buyerName = payment?.buyerName ?? null;
-    const buyerTel = payment?.buyerTel ?? sale.affiliateUserId ?? null;
+    const buyerTel = payment?.buyerTel ?? null;
     const buyerEmail = payment?.buyerEmail ?? null;
     const amount = payment?.amount ?? sale.saleAmount;
     const productName = payment?.productName ?? sale.productName;

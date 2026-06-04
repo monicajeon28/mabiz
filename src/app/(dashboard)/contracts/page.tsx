@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useToast } from "@/lib/api/use-toast";
 
 interface Contract {
@@ -113,6 +113,77 @@ export default function ContractsPage() {
   // L10 렌즈: 삼중선택 모달 상태
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // 옵션 A: 즉시 서명 링크 발송
+  const handleSendSignLink = useCallback(async () => {
+    if (!selectedContract) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(
+        `/api/contract-instances/${selectedContract.id}/send-sign-link`,
+        { method: "POST" }
+      );
+      const data = (await res.json()) as { ok: boolean; signUrl?: string; error?: string };
+      if (data.ok && data.signUrl) {
+        await navigator.clipboard.writeText(data.signUrl).catch(() => {});
+        toast({
+          title: "✅ 서명 링크 준비 완료",
+          description: `링크가 클립보드에 복사되었습니다. 고객에게 전달하세요:\n${data.signUrl}`,
+          variant: "success",
+        });
+      } else {
+        toast({
+          title: "오류",
+          description: data.error ?? "서명 링크 생성에 실패했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({ title: "네트워크 오류", description: "다시 시도해주세요.", variant: "destructive" });
+    } finally {
+      setActionLoading(false);
+      setShowOptionsModal(false);
+    }
+  }, [selectedContract, toast]);
+
+  // 옵션 B: 이메일로 서명 링크 발송
+  const handleSendEmail = useCallback(async () => {
+    if (!selectedContract) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(
+        `/api/contract-instances/${selectedContract.id}/send-email`,
+        { method: "POST" }
+      );
+      const data = (await res.json()) as { ok: boolean; message?: string; error?: string };
+      if (data.ok) {
+        toast({
+          title: "📧 이메일 발송 완료",
+          description: data.message ?? "서명 링크가 이메일로 발송되었습니다.",
+          variant: "success",
+        });
+      } else {
+        toast({
+          title: "이메일 발송 실패",
+          description: data.error ?? "이메일 발송에 실패했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({ title: "네트워크 오류", description: "다시 시도해주세요.", variant: "destructive" });
+    } finally {
+      setActionLoading(false);
+      setShowOptionsModal(false);
+    }
+  }, [selectedContract, toast]);
+
+  // 옵션 C: PDF 미리보기/다운로드 (새 탭)
+  const handleOpenPdf = useCallback(() => {
+    if (!selectedContract) return;
+    window.open(`/api/contract-instances/${selectedContract.id}/pdf`, "_blank");
+    setShowOptionsModal(false);
+  }, [selectedContract]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -287,67 +358,46 @@ export default function ContractsPage() {
             <div className="space-y-3 mb-6">
               {/* 옵션 A: 지금 즉시 서명 (추천) */}
               <button
-                onClick={() => {
-                  toast({
-                    title: "✅ 옵션 A: 즉시 서명",
-                    description: "즉시 서명 링크가 발송되었습니다. 지금 클릭하면 5분 내 완료 가능합니다.",
-                    variant: "success",
-                  });
-                  setShowOptionsModal(false);
-                  // Day 0 SMS 발송 로직 추가 예상
-                }}
-                className="w-full p-4 border-2 border-blue-500 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-left"
+                onClick={handleSendSignLink}
+                disabled={actionLoading}
+                className="w-full p-4 border-2 border-blue-500 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 rounded-lg transition-colors text-left"
               >
                 <div className="flex items-start gap-3">
                   <span className="text-2xl">⚡</span>
                   <div>
                     <p className="font-semibold text-blue-700">옵션 A: 지금 즉시 서명</p>
                     <p className="text-sm text-blue-600 mt-1">가장 빠름 • 15분 내 완료 가능</p>
-                    <p className="text-sm text-blue-500 mt-1">✅ 권장</p>
+                    <p className="text-sm text-blue-500 mt-1">✅ 권장 — 서명 링크 클립보드 복사</p>
                   </div>
                 </div>
               </button>
 
               {/* 옵션 B: 이메일로 링크받기 */}
               <button
-                onClick={() => {
-                  toast({
-                    title: "📧 옵션 B: 이메일 링크",
-                    description: "이메일 링크가 발송되었습니다. 나중에 클릭하시면 됩니다.",
-                    variant: "default",
-                  });
-                  setShowOptionsModal(false);
-                  // Day 0 SMS 발송 로직 추가 예상
-                }}
-                className="w-full p-4 border-2 border-gray-300 bg-white hover:bg-gray-50 rounded-lg transition-colors text-left"
+                onClick={handleSendEmail}
+                disabled={actionLoading}
+                className="w-full p-4 border-2 border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 rounded-lg transition-colors text-left"
               >
                 <div className="flex items-start gap-3">
                   <span className="text-2xl">📧</span>
                   <div>
                     <p className="font-semibold text-gray-700">옵션 B: 이메일로 링크받기</p>
-                    <p className="text-sm text-gray-600 mt-1">나중에 편한 시간에 가능</p>
+                    <p className="text-sm text-gray-600 mt-1">나중에 편한 시간에 가능 — 고객 이메일로 자동 발송</p>
                   </div>
                 </div>
               </button>
 
               {/* 옵션 C: PDF 다운로드 후 인쇄 */}
               <button
-                onClick={() => {
-                  toast({
-                    title: "📄 옵션 C: PDF 다운로드",
-                    description: "PDF가 다운로드되었습니다. 인쇄 후 서명하시면 됩니다.",
-                    variant: "default",
-                  });
-                  setShowOptionsModal(false);
-                  // Day 0 SMS 발송 로직 추가 예상
-                }}
-                className="w-full p-4 border-2 border-gray-300 bg-white hover:bg-gray-50 rounded-lg transition-colors text-left"
+                onClick={handleOpenPdf}
+                disabled={actionLoading}
+                className="w-full p-4 border-2 border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 rounded-lg transition-colors text-left"
               >
                 <div className="flex items-start gap-3">
                   <span className="text-2xl">📄</span>
                   <div>
                     <p className="font-semibold text-gray-700">옵션 C: PDF 다운로드</p>
-                    <p className="text-sm text-gray-600 mt-1">전통적인 방식 • 인쇄 후 서명</p>
+                    <p className="text-sm text-gray-600 mt-1">전통적인 방식 • 인쇄 후 서명 — 새 탭에서 열림</p>
                   </div>
                 </div>
               </button>

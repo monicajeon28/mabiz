@@ -1,20 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
 import { getMabizSession } from "@/lib/auth";
 import { logger } from "@/lib/logger";
-
-// Track B 스크립트 데이터 로드 (프로젝트 루트의 JSON 파일)
-function loadTrackBScripts() {
-  try {
-    const dataPath = path.join(process.cwd(), "PHASE3_TRACK_B_CALL_SCRIPT_SEGMENTS.json");
-    const fileContents = fs.readFileSync(dataPath, "utf8");
-    return JSON.parse(fileContents);
-  } catch (error) {
-    logger.error("[Track B API] Failed to load PHASE3_TRACK_B_CALL_SCRIPT_SEGMENTS.json", { error: error instanceof Error ? error.message : String(error) });
-    return null;
-  }
-}
+import trackBData from "./track-b-scripts.json";
 
 export async function GET(req: NextRequest) {
   try {
@@ -35,16 +22,8 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const data = loadTrackBScripts();
-    if (!data) {
-      return NextResponse.json(
-        { ok: false, error: "Track B 스크립트 데이터 로드 실패" },
-        { status: 500 }
-      );
-    }
-
     // segment A, B, C, D에 해당하는 version 찾기
-    const version = data.callScriptVersions.find((v: any) => v.segment === segment);
+    const version = trackBData.callScriptVersions.find((v: { segment: string }) => v.segment === segment);
     if (!version) {
       return NextResponse.json(
         { ok: false, error: `Segment ${segment} not found` },
@@ -77,11 +56,11 @@ export async function GET(req: NextRequest) {
         spin: scriptPhase.spin,
         psychologyLenses: scriptPhase.psychologyLenses,
         script: scriptPhase.script,
-        objectives: scriptPhase.objectives,
-        keyMessages: scriptPhase.keyMessages,
-        silencePoints: scriptPhase.silencePoints,
-        customerEngagement: scriptPhase.customerEngagement,
-        tips: scriptPhase.tips || [],
+        objectives: (scriptPhase as Record<string, unknown>).objectives ?? [],
+        keyMessages: (scriptPhase as Record<string, unknown>).keyMessages ?? [],
+        silencePoints: (scriptPhase as Record<string, unknown>).silencePoints ?? [],
+        customerEngagement: (scriptPhase as Record<string, unknown>).customerEngagement ?? '',
+        tips: (scriptPhase as Record<string, unknown>).tips ?? [],
       },
     });
   } catch (error) {
