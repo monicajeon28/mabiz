@@ -14,20 +14,14 @@ import {
 
 interface ImageAsset {
   id: string;
-  fileName: string;
-  driveFileId: string;
-  category: string;
+  title: string;       // 파일명 (API: title)
+  driveFileId?: string;
+  folder: string;      // 카테고리 (API: folder)
   tags: string[];
-  mimeType: string;
-  fileSize?: string;
-  width?: number;
-  height?: number;
-  uploadedAt: string;
-  lastAccessedAt?: string;
+  isGif?: boolean;
+  source: 'asset' | 'cache';
   thumbnailUrl: string;
-  driveUrl: string;
-  webpDriveFileId?: string;
-  processingStatus: string;
+  fullUrl: string;     // 공개 URL (API: fullUrl)
 }
 
 interface GoogleDriveImage {
@@ -43,8 +37,8 @@ interface GoogleDriveImage {
 
 interface GoogleDriveFolder {
   id: string;
-  category: string;
-  total: number;
+  name: string;       // API: name
+  imageCount: number; // API: imageCount
 }
 
 const CATEGORIES = ['배너', '상품', '로고', '기타'];
@@ -100,17 +94,18 @@ export default function ImageLibraryPage() {
     try {
       setIsLoading(true);
       const params = new URLSearchParams();
-      if (search) params.append('search', search);
-      if (selectedCategory) params.append('category', selectedCategory);
+      if (search) params.append('q', search);
+      if (selectedCategory) params.append('folder', selectedCategory);
       selectedTags.forEach((tag) => params.append('tags', tag));
       params.append('offset', offset.toString());
       params.append('limit', limit.toString());
 
       const res = await fetch(`/api/image-library?${params}`, { method: 'GET' });
       const json = await res.json();
-      if (json.ok && json.data) {
-        setAssets(json.data.assets ?? []);
-        setTotal(json.data.total ?? 0);
+      if (json.ok) {
+        const imgs = json.images ?? json.data?.assets ?? [];
+        setAssets(imgs);
+        setTotal(json.total ?? json.data?.total ?? imgs.length);
       }
     } finally {
       setIsLoading(false);
@@ -221,10 +216,11 @@ export default function ImageLibraryPage() {
   // ═══════════════════════════════════════════════════════════════════════════════
 
   const downloadLocalAsset = (asset: ImageAsset) => {
-    const url = `/api/image-library/download?id=${asset.driveFileId}&name=${encodeURIComponent(asset.fileName)}`;
+    if (!asset.driveFileId) return;
+    const url = `/api/image-library/download?id=${asset.driveFileId}&name=${encodeURIComponent(asset.title)}`;
     const a = document.createElement('a');
     a.href = url;
-    a.download = asset.fileName.replace(/\.[^.]+$/, '') + '_watermark.png';
+    a.download = asset.title.replace(/\.[^.]+$/, '') + '_watermark.png';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -258,7 +254,7 @@ export default function ImageLibraryPage() {
   };
 
   const copyLocalImgSrc = (asset: ImageAsset) => {
-    const imgSrc = `<img src="${asset.driveUrl}" alt="${asset.fileName}" />`;
+    const imgSrc = `<img src="${asset.fullUrl}" alt="${asset.title}" />`;
     navigator.clipboard.writeText(imgSrc).then(() => {
       setCopiedId(asset.id);
       setTimeout(() => setCopiedId(null), 2000);
@@ -282,7 +278,7 @@ export default function ImageLibraryPage() {
       Array.from(selected).forEach((id) => {
         const asset = assets.find((a) => a.id === id);
         if (asset) {
-          html += `<img src="${asset.driveUrl}" alt="${asset.fileName}" />\n`;
+          html += `<img src="${asset.fullUrl}" alt="${asset.title}" />\n`;
         }
       });
     } else {
@@ -326,7 +322,7 @@ export default function ImageLibraryPage() {
 
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('category', category);
+    formData.append('folder', category);
     formData.append('tags', selectedTags.join(','));
 
     const xhr = new XMLHttpRequest();
@@ -502,7 +498,7 @@ export default function ImageLibraryPage() {
             <div key={asset.id} className="relative group">
               <img
                 src={asset.thumbnailUrl}
-                alt={asset.fileName}
+                alt={asset.title}
                 className="w-full h-32 object-cover rounded-lg border border-gray-200"
               />
               <input
@@ -531,7 +527,7 @@ export default function ImageLibraryPage() {
                   <DownloadIcon className="w-4 h-4 text-gray-600" />
                 </button>
               </div>
-              <p className="mt-2 text-xs text-gray-600 truncate">{asset.fileName}</p>
+              <p className="mt-2 text-xs text-gray-600 truncate">{asset.title}</p>
             </div>
           ))}
         </div>
@@ -583,7 +579,7 @@ export default function ImageLibraryPage() {
             }`}
           >
             <FolderIcon className="w-4 h-4 inline mr-1" />
-            {folder.category} ({folder.total})
+            {folder.name} ({folder.imageCount})
           </button>
         ))}
         <button
