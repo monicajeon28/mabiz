@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { Search, X, Phone, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, X, Phone, ChevronDown, ChevronUp, Copy } from "lucide-react";
 import {
   CRUISE_PRODUCTS,
   SEGMENT_COLORS,
@@ -10,6 +10,23 @@ import {
   buildSearchIndex,
   SearchItem,
 } from "@/constants/products";
+import { useToast } from "@/lib/api/use-toast";
+
+// ── DB 상품 타입 ──────────────────────────────────────────────────────────────
+type DbProduct = {
+  id: number;
+  productCode: string;
+  name: string;
+  cruiseLine: string;
+  ship: string;
+  price: number | null;
+  nights: number;
+  startDate: string | null;
+  saleStatus: string;
+  availableCount: number | null;
+  daysLeft: number | null;
+  tourCities: string | null;
+};
 
 // ── 검색 하이라이트 ──────────────────────────────────────────────────────────
 function highlight(text: string, q: string): React.ReactNode {
@@ -53,6 +70,61 @@ function SearchResultCard({ item, q }: { item: SearchItem; q: string }) {
   );
 }
 
+// ── DB 상품 카드 ──────────────────────────────────────────────────────────────
+function DbProductCard({ product, q, onCopy }: { product: DbProduct; q: string; onCopy: (text: string) => void }) {
+  const daysLeft = product.daysLeft;
+  const urgentBadge = daysLeft !== null && daysLeft <= 7
+    ? <span className="text-xs font-bold text-white bg-red-500 px-2 py-0.5 rounded-full">D-{daysLeft}</span>
+    : daysLeft !== null && daysLeft <= 30
+    ? <span className="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">D-{daysLeft}</span>
+    : null;
+
+  const copyText = [
+    product.name,
+    product.startDate ? `출발: ${product.startDate}` : '',
+    product.price ? `${product.price.toLocaleString()}원` : '가격 문의',
+    product.availableCount !== null ? `잔여 ${product.availableCount}석` : '',
+    product.tourCities ?? '',
+  ].filter(Boolean).join(' | ');
+
+  return (
+    <div className="bg-white border-2 border-blue-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-base">🚢</span>
+          <span className="text-sm font-bold text-gray-900">{highlight(product.name, q)}</span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {urgentBadge}
+          <button
+            onClick={() => onCopy(copyText)}
+            className="p-1.5 rounded-lg bg-gray-100 hover:bg-blue-100 text-gray-500 hover:text-blue-600 transition-colors"
+            title="클립보드 복사"
+          >
+            <Copy className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        {product.price && (
+          <span className="font-bold text-blue-600 text-base">{product.price.toLocaleString()}원/인</span>
+        )}
+        {product.startDate && <span className="text-gray-500">출발 {product.startDate}</span>}
+        <span className="text-gray-500">{product.nights}박{product.nights + 1}일</span>
+        {product.availableCount !== null && (
+          <span className={`font-semibold ${product.availableCount <= 5 ? 'text-red-600' : 'text-green-600'}`}>
+            잔여 {product.availableCount}석
+          </span>
+        )}
+        {product.tourCities && <span className="text-gray-400 text-xs">{product.tourCities}</span>}
+      </div>
+      <div className="flex items-center gap-2 mt-1.5">
+        <span className="text-xs text-gray-400">{product.cruiseLine} · {product.ship}</span>
+      </div>
+    </div>
+  );
+}
+
 // ── 거절 아코디언 ─────────────────────────────────────────────────────────────
 function ObjectionItem({ objection, response }: { objection: string; response: string }) {
   const [open, setOpen] = useState(false);
@@ -83,18 +155,57 @@ export default function TrainingPage() {
   const [activeProduct, setActiveProduct] = useState<ProductCode>("GOLD_A");
   const [searchQ, setSearchQ] = useState("");
   const [inputVal, setInputVal] = useState("");
+  const { toast } = useToast();
   const searchRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const [dbProducts, setDbProducts] = useState<DbProduct[]>([]);
+  const [dbLoading, setDbLoading] = useState(false);
+  const [dbCache, setDbCache] = useState<{ data: DbProduct[]; ts: number } | null>(null);
+  const dbDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const searchIndex = useMemo(() => buildSearchIndex(), []);
   const product = CRUISE_PRODUCTS[activeProduct];
+
+  // DB 상품 검색 함수
+  const fetchDbProducts = useCallback(async (q: string) => {
+    // 캐시 확인 (5분)
+    if (!q && dbCache && Date.now() - dbCache.ts < 5 * 60 * 1000) {
+      setDbProducts(dbCache.data);
+      return;
+    }
+    setDbLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: '20' });
+      if (q) params.set('q', q);
+      const res = await fetch(`/api/products/training-search?${params}`);
+      const data = await res.json() as { ok: boolean; products?: DbProduct[] };
+      if (data.ok && data.products) {
+        setDbProducts(data.products);
+        if (!q) setDbCache({ data: data.products, ts: Date.now() });
+      }
+    } catch {
+      // 조용히 실패
+    } finally {
+      setDbLoading(false);
+    }
+  }, [dbCache]);
+
+  // 페이지 로드 시 DB 상품 미리 fetch
+  useEffect(() => {
+    void fetchDbProducts('');
+  }, [fetchDbProducts]);
 
   // 디바운스 검색
   const handleInput = useCallback((val: string) => {
     setInputVal(val);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => setSearchQ(val.trim()), 150);
-  }, []);
+    // DB 상품 검색 (300ms 디바운스)
+    if (dbDebounceRef.current) clearTimeout(dbDebounceRef.current);
+    dbDebounceRef.current = setTimeout(() => {
+      void fetchDbProducts(val.trim());
+    }, 300);
+  }, [fetchDbProducts]);
 
   // 전역 단축키: / 키로 검색창 포커스
   useEffect(() => {
@@ -165,18 +276,83 @@ export default function TrainingPage() {
       <div className="max-w-4xl mx-auto px-4 py-6">
         {/* ── 검색 결과 모드 ── */}
         {isSearchMode ? (
-          <div className="space-y-3">
-            <p className="text-sm text-gray-500 font-medium">
-              {searchResults.length === 0
-                ? `"${searchQ}" 관련 내용이 없습니다.`
-                : `"${searchQ}" 관련 ${searchResults.length}개 결과`}
-            </p>
-            {searchResults.map((item, i) => (
-              <SearchResultCard key={i} item={item} q={searchQ} />
-            ))}
+          <div className="space-y-4">
+            {/* DB 실시간 상품 */}
+            {(dbLoading || dbProducts.filter(p => {
+              const q2 = searchQ.toLowerCase();
+              return !q2 || p.name.toLowerCase().includes(q2) || (p.tourCities ?? '').toLowerCase().includes(q2) || (p.cruiseLine ?? '').toLowerCase().includes(q2);
+            }).length > 0) && (
+              <div>
+                <p className="text-xs font-bold text-blue-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                  <span>🚢</span> 현재 판매 상품
+                  {dbLoading && <span className="text-gray-400 font-normal normal-case">(로딩 중...)</span>}
+                </p>
+                <div className="space-y-2">
+                  {dbProducts
+                    .filter(p => {
+                      const q2 = searchQ.toLowerCase();
+                      if (!q2) return true;
+                      return p.name.toLowerCase().includes(q2)
+                        || (p.tourCities ?? '').toLowerCase().includes(q2)
+                        || (p.cruiseLine ?? '').toLowerCase().includes(q2)
+                        || String(p.price ?? '').includes(q2);
+                    })
+                    .slice(0, 5)
+                    .map((p) => (
+                      <DbProductCard
+                        key={p.id}
+                        product={p}
+                        q={searchQ}
+                        onCopy={(text) => {
+                          navigator.clipboard.writeText(text).then(() => {
+                            toast({ title: '복사됨', description: '클립보드에 복사했습니다.' });
+                          });
+                        }}
+                      />
+                    ))}
+                </div>
+              </div>
+            )}
+            {/* 정적 교육 결과 */}
+            {searchResults.length > 0 && (
+              <div>
+                <p className="text-xs font-bold text-purple-600 uppercase tracking-wide mb-2">📚 멤버십 교육</p>
+                <div className="space-y-2">
+                  {searchResults.slice(0, 10).map((item, i) => (
+                    <SearchResultCard key={i} item={item} q={searchQ} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {!dbLoading && dbProducts.filter(p => {
+              const q2 = searchQ.toLowerCase();
+              return !q2 || p.name.toLowerCase().includes(q2) || (p.tourCities ?? '').toLowerCase().includes(q2);
+            }).length === 0 && searchResults.length === 0 && (
+              <p className="text-sm text-gray-400 text-center py-8">"{searchQ}" 검색 결과가 없습니다.</p>
+            )}
           </div>
         ) : (
           <>
+            {/* ── 현재 판매 상품 빠른 뱃지 (탭 위) ── */}
+            {dbProducts.length > 0 && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                {dbProducts.slice(0, 3).map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-full px-3 py-1 text-xs text-blue-800"
+                  >
+                    <span>🚢</span>
+                    <span className="font-semibold truncate max-w-[120px]">{p.name}</span>
+                    {p.price && <span className="text-blue-600 font-bold">{p.price.toLocaleString()}원</span>}
+                    {p.daysLeft !== null && (
+                      <span className={`font-bold ${p.daysLeft <= 7 ? 'text-red-600' : 'text-orange-600'}`}>
+                        D-{p.daysLeft}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             {/* ── 상품 탭 ── */}
             <div className="mb-6 overflow-x-auto">
               <div className="flex gap-2 pb-2 flex-nowrap">
