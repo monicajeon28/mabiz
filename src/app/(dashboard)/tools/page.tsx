@@ -29,12 +29,13 @@ type FeedbackResult = {
 };
 
 const PRODUCT_CATEGORIES = [
-  { key: "ALL",          label: "전체", icon: "🎯" },
-  { key: "BUSAN",        label: "부산출도착", icon: "🏴‍☠️" },
-  { key: "JAPAN",        label: "일본크루즈", icon: "🗾" },
+  { key: "ALL",            label: "전체", icon: "🎯" },
+  { key: "BUSAN",          label: "부산출도착", icon: "⚓" },
+  { key: "JAPAN",          label: "일본크루즈", icon: "🗾" },
   { key: "SOUTHEAST_ASIA", label: "동남아크루즈", icon: "🌴" },
-  { key: "SHANGHAI",     label: "상하이크루즈", icon: "🏮" },
-  { key: "ALASKA",       label: "알래스카크루즈", icon: "❄️" },
+  { key: "MEDITERRANEAN",  label: "지중해크루즈", icon: "🏛️" },
+  { key: "ALASKA",         label: "알래스카크루즈", icon: "🧊" },
+  { key: "CRUISE_SERVICE", label: "선내서비스", icon: "🛳️" },
 ];
 
 const CALL_SCRIPT_PERSONAS = [
