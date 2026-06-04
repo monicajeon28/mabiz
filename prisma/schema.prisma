@@ -82,6 +82,8 @@ model Organization {
   monthlySettlements         MonthlySettlement[]
   // FunnelSms (퍼널문자)
   funnelSmsList              FunnelSms[]
+  // 수익 계산기 저장
+  profitCalculations         ProfitCalculation[]
 }
 
 model OrgSmsConfig {
@@ -6576,4 +6578,50 @@ model FunnelSmsMessage {
   @@unique([funnelSmsId, order])
   @@index([funnelSmsId])
   @@map("FunnelSmsMessage")
+}
+
+model ProfitCalculation {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  title          String
+  savedAt        DateTime @default(now())
+
+  // 입력값 (원)
+  salePrice      Float
+  costPrice      Float
+
+  // 대리점장 수당
+  agentMode      String   @default("pct")
+  agentPct       Float    @default(0)
+  agentAmt       Float    @default(0)
+
+  // 소속판매원 수당
+  memberMode     String   @default("pct")
+  memberPct      Float    @default(0)
+  memberAmt      Float    @default(0)
+
+  // 자유판매원 수당
+  freeAmt        Float    @default(0)
+  freePct        Float    @default(0)
+
+  // 오버라이딩
+  overridingAmt  Float    @default(0)
+  overridingPct  Float    @default(0)
+
+  // 계산 결과 스냅샷
+  snapshotSale         Float
+  snapshotNetProfit    Float
+  snapshotHqProfit     Float
+
+  // 환율 (저장 시점)
+  exchangeRateSnapshot Float?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, savedAt(sort: Desc)])
+  @@index([organizationId, userId])
 }
