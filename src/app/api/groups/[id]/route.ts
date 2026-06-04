@@ -26,6 +26,7 @@ export async function GET(req: Request, { params }: Params) {
         funnelId: true,
         funnelIds: true,
         funnelSmsIds: true,
+        funnelEmailIds: true,
         reEntryPolicy: true,
         autoMoveEnabled: true,
         autoMoveDays: true,
@@ -145,6 +146,7 @@ export async function PATCH(req: Request, { params }: Params) {
     if (body.parentGroupId !== undefined) updateData.parentGroupId = body.parentGroupId;
     if (body.funnelIds !== undefined) updateData.funnelIds = body.funnelIds;
     if (body.funnelSmsIds !== undefined) updateData.funnelSmsIds = body.funnelSmsIds;
+    if (body.funnelEmailIds !== undefined) updateData.funnelEmailIds = body.funnelEmailIds;
     if (body.reEntryPolicy !== undefined) updateData.reEntryPolicy = body.reEntryPolicy;
     if (body.autoMoveEnabled !== undefined) updateData.autoMoveEnabled = body.autoMoveEnabled;
     if (body.autoMoveDays !== undefined) updateData.autoMoveDays = body.autoMoveDays;
