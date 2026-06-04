@@ -671,6 +671,7 @@ export default function ContactSlidePanel({
                   addMemo={addMemo}
                   deleteMemo={deleteMemo}
                   deleteAllMemos={deleteAllMemos}
+                  savingMemo={savingMemo}
                 />
               )}
 
