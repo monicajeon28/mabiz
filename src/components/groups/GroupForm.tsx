@@ -11,6 +11,21 @@ interface GroupFormProps {
   csrfToken: string;
   onClose: () => void;
   onCreated: () => void;
+  // 편집 모드용
+  editGroupId?: string;      // 있으면 편집 모드
+  initialData?: {
+    name?: string;
+    category?: string;
+    parentGroupId?: string;
+    description?: string;
+    funnelIds?: string[];
+    funnelSmsIds?: string[];
+    funnelEmailIds?: string[];
+    reEntryPolicy?: string;
+    autoMoveEnabled?: boolean;
+    autoMoveDays?: number | null;
+    autoMoveTargetGroupId?: string | null;
+  };
 }
 
 type ReEntryPolicy =
@@ -26,24 +41,44 @@ export function GroupForm({
   csrfToken,
   onClose,
   onCreated,
+  editGroupId,
+  initialData,
 }: GroupFormProps) {
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState('');
-  const [parentGroupId, setParentGroupId] = useState('');
-  const [description, setDescription] = useState('');
+  const [name, setName] = useState(initialData?.name ?? '');
+  const [category, setCategory] = useState(initialData?.category ?? '');
+  const [parentGroupId, setParentGroupId] = useState(initialData?.parentGroupId ?? '');
+  const [description, setDescription] = useState(initialData?.description ?? '');
 
   // 퍼널톡 3개
-  const [funnelIds, setFunnelIds] = useState<[string, string, string]>(['', '', '']);
+  const [funnelIds, setFunnelIds] = useState<[string, string, string]>([
+    initialData?.funnelIds?.[0] ?? '',
+    initialData?.funnelIds?.[1] ?? '',
+    initialData?.funnelIds?.[2] ?? '',
+  ]);
   // 퍼널문자 3개
-  const [funnelSmsIds, setFunnelSmsIds] = useState<[string, string, string]>(['', '', '']);
+  const [funnelSmsIds, setFunnelSmsIds] = useState<[string, string, string]>([
+    initialData?.funnelSmsIds?.[0] ?? '',
+    initialData?.funnelSmsIds?.[1] ?? '',
+    initialData?.funnelSmsIds?.[2] ?? '',
+  ]);
   // 퍼널메일 3개
-  const [funnelEmailIds, setFunnelEmailIds] = useState<[string, string, string]>(['', '', '']);
+  const [funnelEmailIds, setFunnelEmailIds] = useState<[string, string, string]>([
+    initialData?.funnelEmailIds?.[0] ?? '',
+    initialData?.funnelEmailIds?.[1] ?? '',
+    initialData?.funnelEmailIds?.[2] ?? '',
+  ]);
 
-  const [reEntryPolicy, setReEntryPolicy] = useState<ReEntryPolicy>('KEEP_TIME_KEEP_DATA');
+  const [reEntryPolicy, setReEntryPolicy] = useState<ReEntryPolicy>(
+    (initialData?.reEntryPolicy as ReEntryPolicy) ?? 'KEEP_TIME_KEEP_DATA'
+  );
 
-  const [autoMoveEnabled, setAutoMoveEnabled] = useState(false);
-  const [autoMoveDays, setAutoMoveDays] = useState('');
-  const [autoMoveTargetGroupId, setAutoMoveTargetGroupId] = useState('');
+  const [autoMoveEnabled, setAutoMoveEnabled] = useState(initialData?.autoMoveEnabled ?? false);
+  const [autoMoveDays, setAutoMoveDays] = useState(
+    initialData?.autoMoveDays ? String(initialData.autoMoveDays) : ''
+  );
+  const [autoMoveTargetGroupId, setAutoMoveTargetGroupId] = useState(
+    initialData?.autoMoveTargetGroupId ?? ''
+  );
 
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -96,8 +131,10 @@ export function GroupForm({
         body.autoMoveTargetGroupId = autoMoveTargetGroupId || undefined;
       }
 
-      const res = await fetch('/api/groups', {
-        method: 'POST',
+      const isEdit = !!editGroupId;
+
+      const res = await fetch(isEdit ? `/api/groups/${editGroupId}` : '/api/groups', {
+        method: isEdit ? 'PATCH' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-CSRF-Token': csrfToken,
@@ -109,7 +146,7 @@ export function GroupForm({
         onCreated();
         onClose();
       } else {
-        setFormError(data.message || data.error || '그룹 생성에 실패했습니다.');
+        setFormError(data.message || data.error || (isEdit ? '그룹 수정에 실패했습니다.' : '그룹 생성에 실패했습니다.'));
       }
     } catch {
       setFormError('서버와 통신 중 오류가 발생했습니다.');
@@ -123,7 +160,9 @@ export function GroupForm({
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* 헤더 */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900">그룹 만들기</h2>
+          <h2 className="text-base font-semibold text-gray-900">
+            {editGroupId ? '그룹 편집' : '그룹 만들기'}
+          </h2>
           <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 text-gray-500">
             <X className="w-4 h-4" />
           </button>
@@ -388,7 +427,7 @@ export function GroupForm({
             className="px-5 py-2 rounded bg-navy-900 text-white text-sm font-medium hover:bg-navy-700 disabled:opacity-50 flex items-center gap-2"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-            저장
+            {saving ? '저장 중...' : (editGroupId ? '수정' : '저장')}
           </button>
         </div>
       </div>

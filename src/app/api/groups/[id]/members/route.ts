@@ -8,6 +8,78 @@ import { addLeadScore } from "@/lib/lead-score";
 
 type Params = { params: Promise<{ id: string }> };
 
+// GET /api/groups/[id]/members — 그룹 멤버 목록 조회
+export async function GET(req: Request, { params }: Params) {
+  try {
+    const ctx = await getAuthContext();
+    let orgId: string;
+    if (ctx.organizationId) {
+      orgId = ctx.organizationId;
+    } else if (ctx.role === 'GLOBAL_ADMIN') {
+      const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
+      if (!firstOrg) return NextResponse.json({ ok: false }, { status: 500 });
+      orgId = firstOrg.id;
+    } else {
+      return NextResponse.json({ ok: false }, { status: 403 });
+    }
+
+    const { id: groupId } = await params;
+    const { searchParams } = new URL(req.url);
+    const q = searchParams.get('q') ?? '';
+    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
+    const limit = Math.min(100, parseInt(searchParams.get('limit') ?? '50', 10));
+    const skip = (page - 1) * limit;
+
+    // 그룹 소유권 확인
+    const group = await prisma.contactGroup.findFirst({
+      where: { id: groupId, organizationId: orgId },
+      select: { id: true, name: true },
+    });
+    if (!group) return NextResponse.json({ ok: false }, { status: 404 });
+
+    const where = {
+      groupId,
+      ...(q ? {
+        contact: {
+          OR: [
+            { name: { contains: q, mode: 'insensitive' as const } },
+            { phone: { contains: q } },
+          ],
+        },
+      } : {}),
+    };
+
+    const [members, total] = await Promise.all([
+      prisma.contactGroupMember.findMany({
+        where,
+        orderBy: { addedAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          contactId: true,
+          addedAt: true,
+          contact: { select: { name: true, phone: true } },
+        },
+      }),
+      prisma.contactGroupMember.count({ where }),
+    ]);
+
+    const now = new Date();
+    const result = members.map((m) => ({
+      contactId: m.contactId,
+      name: m.contact.name ?? '이름없음',
+      phone: m.contact.phone ?? '',
+      addedAt: m.addedAt.toISOString(),
+      daysSince: Math.floor((now.getTime() - m.addedAt.getTime()) / 86_400_000),
+    }));
+
+    return NextResponse.json({ ok: true, members: result, total, groupName: group.name });
+  } catch (err) {
+    logger.error('[GET /api/groups/[id]/members]', { err });
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+}
+
 // POST /api/groups/[id]/members — 고객을 그룹에 추가 → 퍼널 자동 시작
 export async function POST(req: Request, { params }: Params) {
   try {

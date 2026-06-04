@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import type { ContactGroup } from '@prisma/client';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -21,8 +20,16 @@ export async function GET(req: Request, { params }: Params) {
         id: true,
         name: true,
         description: true,
+        category: true,
         color: true,
+        parentGroupId: true,
         funnelId: true,
+        funnelIds: true,
+        funnelSmsIds: true,
+        reEntryPolicy: true,
+        autoMoveEnabled: true,
+        autoMoveDays: true,
+        autoMoveTargetGroupId: true,
         _count: { select: { members: true } },
       },
     });
@@ -86,9 +93,7 @@ export async function PATCH(req: Request, { params }: Params) {
     }
 
     // SEC-004: 화이트리스트 검증
-    const allowedFields = ['name', 'description', 'funnelId'] as const;
-    type UpdateData = Pick<ContactGroup, typeof allowedFields[number]>;
-    const updateData: Partial<UpdateData> = {};
+    const updateData: Record<string, unknown> = {};
 
     if (name !== undefined) {
       if (typeof name === 'string' && name.trim().length > 0) {
@@ -135,6 +140,15 @@ export async function PATCH(req: Request, { params }: Params) {
         );
       }
     }
+
+    if (body.category !== undefined) updateData.category = body.category;
+    if (body.parentGroupId !== undefined) updateData.parentGroupId = body.parentGroupId;
+    if (body.funnelIds !== undefined) updateData.funnelIds = body.funnelIds;
+    if (body.funnelSmsIds !== undefined) updateData.funnelSmsIds = body.funnelSmsIds;
+    if (body.reEntryPolicy !== undefined) updateData.reEntryPolicy = body.reEntryPolicy;
+    if (body.autoMoveEnabled !== undefined) updateData.autoMoveEnabled = body.autoMoveEnabled;
+    if (body.autoMoveDays !== undefined) updateData.autoMoveDays = body.autoMoveDays;
+    if (body.autoMoveTargetGroupId !== undefined) updateData.autoMoveTargetGroupId = body.autoMoveTargetGroupId;
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
