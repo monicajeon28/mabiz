@@ -30,6 +30,7 @@ export async function POST(
 
     let reason: string | null = null;
     try {
+    const params = await context.params;
       const body = await req.json() as { reason?: string };
       reason = typeof body.reason === 'string' ? body.reason.slice(0, 500) : null;
     } catch {

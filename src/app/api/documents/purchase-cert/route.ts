@@ -46,17 +46,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: '이 조직의 판매건이 아닙니다' }, { status: 403 });
     }
 
-    // 3-1. 중복 발급 차단 (같은 orderId에 APPROVED 문서가 이미 있으면 기존 문서 반환)
-    const existingDoc = await prisma.salesDocument.findFirst({
+    // 3-1. 재발급 여부 확인 (중복 발급 허용, 안내만)
+    const existingCount = await prisma.salesDocument.count({
       where: { orderId: body.orderId, documentType: 'PURCHASE_CONFIRMATION', status: 'APPROVED' },
-      select: { id: true, status: true },
     });
-    if (existingDoc) {
-      return NextResponse.json(
-        { ok: true, documentId: existingDoc.id, status: existingDoc.status, isReissue: true },
-        { status: 200 },
-      );
-    }
 
     // 4. 결제 방법 판단
     const paymentMethod = payment.pgProvider
@@ -125,8 +118,8 @@ export async function POST(req: Request) {
       }
     }
 
-    logger.log('[PurchaseCert] 발급 요청', { orgId, orderId: body.orderId, status, role: ctx.role });
-    return NextResponse.json({ ok: true, documentId: doc.id, status, isReissue: false });
+    logger.log('[PurchaseCert] 발급 요청', { orgId, orderId: body.orderId, status, role: ctx.role, isReissue: existingCount > 0 });
+    return NextResponse.json({ ok: true, documentId: doc.id, status, isReissue: existingCount > 0 });
   } catch (e) {
     logger.log('[PurchaseCert] 오류', { error: e instanceof Error ? e.message : String(e) });
     return NextResponse.json({ ok: false }, { status: 500 });

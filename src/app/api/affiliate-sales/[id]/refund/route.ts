@@ -28,11 +28,7 @@ export async function POST(
     }
 
     const body = await req.json().catch(() => ({})) as { refundedAt?: string };
-    const parsedDate = body.refundedAt ? new Date(body.refundedAt) : null;
-    if (parsedDate && isNaN(parsedDate.getTime())) {
-      return NextResponse.json({ ok: false, error: '유효하지 않은 날짜 형식' }, { status: 400 });
-    }
-    const refundedAt = parsedDate ?? new Date();
+    const refundedAt = body.refundedAt ? new Date(body.refundedAt) : new Date();
 
     // OWNER: 자신의 managerId 소속 판매만 처리
     let scopeCondition: Prisma.Sql = Prisma.empty;

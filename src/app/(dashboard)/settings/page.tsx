@@ -1,5 +1,5 @@
 ﻿import Link from "next/link";
-import { MessageSquare, Mail, Users } from "lucide-react";
+import { MessageSquare, Mail, Users, Shield } from "lucide-react";
 
 const items = [
   {
@@ -22,6 +22,13 @@ const items = [
     title: "팀원 관리",
     desc: "판매원 초대 및 권한 설정",
     color: "bg-purple-50 text-purple-600",
+  },
+  {
+    href: "/settings/organization",
+    icon: Shield,
+    title: "조직 설정",
+    desc: "조직명, 플랜 정보",
+    color: "bg-orange-50 text-orange-600",
   },
 ];
 

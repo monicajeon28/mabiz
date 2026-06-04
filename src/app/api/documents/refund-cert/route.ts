@@ -96,7 +96,7 @@ export async function POST(req: Request) {
       ? `${payment.pgProvider} (원결제수단 동일 환불)`
       : '계좌이체 환불 (담당자 확인 필요)';
 
-    const status = (ctx.role === 'GLOBAL_ADMIN' || ctx.role === 'OWNER') ? 'APPROVED' : 'PENDING_APPROVAL';
+    const status = ctx.role === 'GLOBAL_ADMIN' ? 'APPROVED' : 'PENDING_APPROVAL';
 
     const doc = await prisma.salesDocument.create({
       data: {

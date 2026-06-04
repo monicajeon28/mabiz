@@ -56,11 +56,7 @@ export async function GET(req: NextRequest) {
     const conditions: Prisma.Sql[] = [];
 
     // 역할별 기본 필터
-    if (ctx.role === 'OWNER') {
-      if (!ctx.mallUser?.affiliateProfileId) {
-        // OWNER의 affiliateProfileId가 없으면 데이터 유출 방지를 위해 빈 결과 반환
-        return NextResponse.json({ ok: true, sales: [], total: 0, page: 1, totalPages: 1 });
-      }
+    if (ctx.role === 'OWNER' && ctx.mallUser?.affiliateProfileId) {
       conditions.push(Prisma.sql`als."managerId" = ${ctx.mallUser.affiliateProfileId}`);
     } else if (ctx.role === 'AGENT' && ctx.mallUser?.affiliateProfileId) {
       conditions.push(Prisma.sql`als."agentId" = ${ctx.mallUser.affiliateProfileId}`);

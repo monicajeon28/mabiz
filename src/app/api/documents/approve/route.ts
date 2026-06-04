@@ -51,40 +51,39 @@ export async function POST(req: Request) {
       );
     }
 
-    // 승인 기록 생성 + 문서 상태 업데이트 — 원자성 보장
+    // 승인 기록 생성 (또는 업데이트)
     const approvalStatus = action === 'approve' ? 'APPROVED' : 'REJECTED';
-    const newStatus = action === 'approve' ? 'APPROVED' : 'REJECTED';
-    const updated = await prisma.$transaction(async (tx) => {
-      await tx.documentApproval.upsert({
-        where: {
-          documentId_approvedBy: {
-            documentId,
-            approvedBy: ctx.userId,
-          },
-        },
-        create: {
+    await prisma.documentApproval.upsert({
+      where: {
+        documentId_approvedBy: {
           documentId,
           approvedBy: ctx.userId,
-          status: approvalStatus,
-          comment: comment || null,
         },
-        update: {
-          status: approvalStatus,
-          comment: comment || null,
-        },
-      });
+      },
+      create: {
+        documentId,
+        approvedBy: ctx.userId,
+        status: approvalStatus,
+        comment: comment || null,
+      },
+      update: {
+        status: approvalStatus,
+        comment: comment || null,
+      },
+    });
 
-      return tx.document.update({
-        where: { id: documentId },
-        data: {
-          status: newStatus,
-          updatedBy: ctx.userId,
-        },
-        include: {
-          versions: { orderBy: { versionNumber: 'desc' } },
-          approvals: true,
-        },
-      });
+    // 문서 상태 업데이트
+    const newStatus = action === 'approve' ? 'APPROVED' : 'REJECTED';
+    const updated = await prisma.document.update({
+      where: { id: documentId },
+      data: {
+        status: newStatus,
+        updatedBy: ctx.userId,
+      },
+      include: {
+        versions: { orderBy: { versionNumber: 'desc' } },
+        approvals: true,
+      },
     });
 
     return NextResponse.json({

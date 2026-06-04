@@ -64,17 +64,9 @@ export async function sendEmail(
       };
     }
 
-    // SendGrid 우선, SMTP 폴백 (SendGrid 실패 시 SMTP로 재시도)
+    // SendGrid 우선, SMTP 폴백
     if (process.env.SENDGRID_API_KEY) {
-      const sgResult = await sendViaSendGrid(payload);
-      if (sgResult.status !== 'FAILED') {
-        return sgResult;
-      }
-      // SendGrid 실패 → SMTP 폴백
-      logger.warn('[EmailService] SendGrid failed, falling back to SMTP', {
-        organizationId: payload.organizationId,
-      });
-      return await sendViaSMTP(payload, emailConfig);
+      return await sendViaSendGrid(payload);
     } else {
       return await sendViaSMTP(payload, emailConfig);
     }
@@ -186,59 +178,27 @@ async function sendViaSendGrid(
       error: error instanceof Error ? error.message : String(error),
     });
 
-    return {
-      messageId: '',
-      status: 'FAILED',
-      provider: 'SENDGRID',
-    };
+    throw error;
   }
 }
 
-interface OrgEmailConfigFields {
-  smtpHost: string;
-  smtpPort: number;
-  smtpUser: string;
-  smtpPassEncrypted: string;
-  senderName: string;
-  senderEmail: string;
-  isActive: boolean;
-}
-
 /**
- * SMTP를 통한 이메일 발송 (src/lib/email.ts의 sendEmail 활용)
+ * SMTP를 통한 이메일 발송 (Nodemailer)
  */
 async function sendViaSMTP(
   payload: EmailPayload,
-  emailConfig: OrgEmailConfigFields
+  emailConfig: any
 ): Promise<SendEmailResponse> {
   try {
-    const { sendEmail: sendEmailLib } = await import('@/lib/email');
-    const ok = await sendEmailLib({
-      smtpHost: emailConfig.smtpHost,
-      smtpPort: emailConfig.smtpPort,
-      smtpUser: emailConfig.smtpUser,
-      smtpPassEncrypted: emailConfig.smtpPassEncrypted,
-      senderName: emailConfig.senderName,
-      senderEmail: emailConfig.senderEmail,
-      to: payload.recipientEmail,
-      subject: payload.subject,
-      html: payload.htmlContent,
+    // Nodemailer 동적 import (optional)
+    // import('nodemailer') 사용
+    logger.warn('[EmailService] SMTP method not yet implemented', {
+      organizationId: payload.organizationId,
     });
 
-    if (ok) {
-      logger.log('[EmailService] Email sent via SMTP', {
-        organizationId: payload.organizationId,
-        recipientEmail: payload.recipientEmail,
-      });
-    } else {
-      logger.error('[EmailService] SMTP send returned false', {
-        organizationId: payload.organizationId,
-      });
-    }
-
     return {
-      messageId: ok ? `smtp_${Date.now()}` : '',
-      status: ok ? 'SENT' : 'FAILED',
+      messageId: '',
+      status: 'FAILED',
       provider: 'SMTP',
     };
   } catch (error) {
@@ -364,7 +324,7 @@ function getPasonaEmailHTML(
       <hr>
       <p style="color: #999; font-size: 12px;">
         © 2026 mabiz CRM. All rights reserved.<br>
-        ${vars.unsubscribeUrl ? `<a href="${escapeHtml(vars.unsubscribeUrl)}" style="color: #999;">구독 해제</a>` : ''}
+        <a href="{{unsubscribe}}" style="color: #999;">구독 해제</a>
       </p>
     </body>
     </html>

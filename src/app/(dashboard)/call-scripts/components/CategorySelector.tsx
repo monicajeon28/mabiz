@@ -36,13 +36,6 @@ const CATEGORIES = [
     color: "bg-purple-100 border-purple-300",
     icon: "🔄",
   },
-  {
-    id: "rose_db",
-    name: "로즈 스크립트",
-    description: "6거장 DB 스크립트",
-    color: "bg-rose-100 border-rose-300",
-    icon: "🌹",
-  },
 ];
 
 export function CategorySelector({ selected, onSelect }: CategorySelectorProps) {

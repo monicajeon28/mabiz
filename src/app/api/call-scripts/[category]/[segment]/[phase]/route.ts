@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CALL_SCRIPTS_DATA } from "../../../data";
-import { getMabizSession } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 
 export async function GET(
@@ -8,11 +7,6 @@ export async function GET(
   { params }: { params: Promise<{ category: string; segment: string; phase: string }> }
 ) {
   try {
-    const session = await getMabizSession();
-    if (!session) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    }
-
     const { category, segment, phase } = await params;
     const decodedSegment = decodeURIComponent(segment);
 
