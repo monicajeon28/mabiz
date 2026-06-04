@@ -173,7 +173,7 @@ export default function NewB2BPage() {
     if (images.length > 0) {
       const imgHtml = images.map((img) => {
         const ar = img.width && img.height ? `aspect-ratio:${img.width}/${img.height};` : "";
-        const previewUrl = img.driveFileId ? `/api/landing-pages/images/proxy?id=${img.driveFileId}` : img.url;
+        const previewUrl = img.driveFileId ? `/api/b2b-landing/images/proxy?id=${img.driveFileId}` : img.url;
         return `<img src="${previewUrl}" alt="" style="width:100%;display:block;${ar}" loading="lazy">`;
       }).join("\n");
       return `<div style="line-height:0">${imgHtml}</div>`;
@@ -272,7 +272,7 @@ ${footerBlock}
       const fd = new FormData();
       fd.append("file", file); fd.append("landingPageId", pageId); fd.append("sortOrder", String(baseImageCount + uploaded));
       try {
-        const res  = await fetch("/api/landing-pages/images", { method: "POST", body: fd });
+        const res  = await fetch("/api/b2b-landing/images", { method: "POST", body: fd });
         const data = await res.json();
         if (data.ok) { setImages((prev) => [...prev, data.image]); uploaded++; }
         else setError(data.message ?? `${file.name} 업로드 실패`);
@@ -292,13 +292,13 @@ ${footerBlock}
   const handleDragEnd = async () => {
     setDragIdx(null);
     if (!savedPageId) return;
-    await fetch("/api/landing-pages/images", {
+    await fetch("/api/b2b-landing/images", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ landingPageId: savedPageId, imageIds: images.map((i) => i.id) }),
     });
   };
   const removeImage = async (id: string) => {
-    await fetch("/api/landing-pages/images", {
+    await fetch("/api/b2b-landing/images", {
       method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }),
     });
     setImages((prev) => prev.filter((i) => i.id !== id));
@@ -490,7 +490,7 @@ ${footerBlock}
                         className={`flex items-center gap-3 bg-white rounded-xl border p-3 transition-all cursor-grab ${dragIdx === idx ? "border-yellow-400 shadow-md opacity-80" : "border-gray-200 hover:border-gray-300"}`}>
                         <GripVertical className="w-4 h-4 text-gray-300 shrink-0" />
                         <div className="w-14 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                          <img src={img.driveFileId ? `/api/landing-pages/images/proxy?id=${img.driveFileId}` : img.url} alt="" className="w-full h-full object-cover" />
+                          <img src={img.driveFileId ? `/api/b2b-landing/images/proxy?id=${img.driveFileId}` : img.url} alt="" className="w-full h-full object-cover" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate text-gray-700">{img.fileName}</p>
@@ -687,7 +687,7 @@ ${footerBlock}
                 <label className="text-sm text-gray-500 block mb-1.5">썸네일 이미지</label>
                 {exposureImage ? (
                   <div className="flex items-center gap-2">
-                    <img src={`/api/landing-pages/images/proxy?id=${(exposureImage?.match(/id=([^&]+)/) ?? [])[1] ?? ""}`}
+                    <img src={`/api/b2b-landing/images/proxy?id=${(exposureImage?.match(/id=([^&]+)/) ?? [])[1] ?? ""}`}
                       alt="OG 이미지" className="w-20 h-14 object-cover rounded-lg border border-gray-200"
                       onError={(e) => { (e.target as HTMLImageElement).src = ""; }} />
                     <div className="flex-1 min-w-0">
@@ -788,7 +788,7 @@ ${footerBlock}
                 <img
                   src={(() => {
                     const m = exposureImage.match(/id=([^&]+)/);
-                    return m ? `/api/landing-pages/images/proxy?id=${m[1]}` : exposureImage;
+                    return m ? `/api/b2b-landing/images/proxy?id=${m[1]}` : exposureImage;
                   })()}
                   alt="OG 썸네일"
                   className="w-full h-36 object-cover"

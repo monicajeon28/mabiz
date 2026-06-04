@@ -245,22 +245,38 @@ export async function GET(req: Request) {
       orderBy: { sortOrder: 'asc' },
     });
 
+    // imageAsset 별도 조회 (B2BLandingPageImage에 relation 없음)
+    const assetIds = images.map((img) => img.imageAssetId).filter(Boolean);
+    const assets = assetIds.length > 0
+      ? await prisma.imageAsset.findMany({ where: { id: { in: assetIds } } })
+      : [];
+    const assetMap = new Map(assets.map((a) => [a.id, a]));
+
     return NextResponse.json({
       ok: true,
-      images: images.map((img) => ({
-        id: img.id,
-        assetId: img.imageAssetId,
-        url: '',
-        fullUrl: '',
-        driveFileId: '',
-        fileName: '',
-        width: 0,
-        height: 0,
-        mimeType: '',
-        fileSize: 0,
-        sortOrder: img.sortOrder,
-        altText: img.altText,
-      })),
+      images: images.map((img) => {
+        const asset = assetMap.get(img.imageAssetId);
+        const thumbnailUrl = asset?.driveFileId
+          ? `https://drive.google.com/thumbnail?id=${asset.driveFileId}&sz=w800`
+          : '';
+        const fullUrl = asset?.driveFileId
+          ? `https://lh3.googleusercontent.com/d/${asset.driveFileId}=w1200`
+          : '';
+        return {
+          id: img.id,
+          assetId: img.imageAssetId,
+          url: thumbnailUrl,
+          fullUrl,
+          driveFileId: asset?.driveFileId ?? '',
+          fileName: asset?.originalFileName ?? '',
+          width: asset?.width ?? 0,
+          height: asset?.height ?? 0,
+          mimeType: asset?.mimeType ?? '',
+          fileSize: asset?.fileSize ?? 0,
+          sortOrder: img.sortOrder,
+          altText: img.altText,
+        };
+      }),
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
