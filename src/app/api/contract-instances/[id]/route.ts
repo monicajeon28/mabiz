@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMabizSession } from "@/lib/auth";
-import { ApiResponse } from "@/lib/types/contract-templates";
+import { ApiResponse, ContractInstanceResponse } from "@/lib/types/contract-templates";
 import { logger } from "@/lib/logger";
+import { saveContractToDrive } from "@/lib/affiliate/document-drive-sync";
 
 interface RouteParams {
   params: Promise<{
@@ -71,7 +72,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const response: ApiResponse<any> = {
+    const response: ApiResponse<ContractInstanceResponse> = {
       ok: true,
       data: {
         id: instance.id,
@@ -235,7 +236,98 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    const response: ApiResponse<any> = {
+    // SIGNED 또는 COMPLETED 전환 시 Google Drive에 계약서 저장 (fire-and-forget)
+    if (status === "SIGNED" || status === "COMPLETED") {
+      void (async () => {
+        try {
+          // boundData에서 고객명 추출 (buyerName → signerName → customerName 순으로 시도)
+          const boundDataObj =
+            updatedInstance.boundData && typeof updatedInstance.boundData === "object"
+              ? (updatedInstance.boundData as Record<string, unknown>)
+              : {};
+          const customerName =
+            (typeof boundDataObj.buyerName === "string" ? boundDataObj.buyerName : "") ||
+            (typeof boundDataObj.signerName === "string" ? boundDataObj.signerName : "") ||
+            (typeof boundDataObj.customerName === "string" ? boundDataObj.customerName : "") ||
+            "고객";
+
+          // 계약서 HTML 생성 (boundData를 기반으로 간단한 HTML 구성)
+          const signedAtStr = updatedInstance.signedAt
+            ? updatedInstance.signedAt.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })
+            : new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+
+          const htmlContent = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>계약서 - ${customerName}</title>
+  <style>
+    body { font-family: 'Malgun Gothic', sans-serif; max-width: 800px; margin: 40px auto; padding: 0 24px; color: #222; }
+    h1 { color: #1a2e4a; border-bottom: 2px solid #1a2e4a; padding-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    th, td { border: 1px solid #ddd; padding: 10px 14px; text-align: left; }
+    th { background: #f0f4f8; color: #1a2e4a; width: 30%; }
+    .footer { margin-top: 40px; font-size: 12px; color: #888; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>전자 계약서</h1>
+  <table>
+    <tr><th>계약서 ID</th><td>${updatedInstance.id}</td></tr>
+    <tr><th>템플릿</th><td>${updatedInstance.template.name}</td></tr>
+    <tr><th>고객명</th><td>${customerName}</td></tr>
+    <tr><th>상태</th><td>${updatedInstance.status}</td></tr>
+    <tr><th>서명일시</th><td>${signedAtStr}</td></tr>
+  </table>
+  <h2>계약 내용</h2>
+  <pre style="background:#f8f9fa;padding:16px;border-radius:8px;white-space:pre-wrap;word-break:break-all;">${JSON.stringify(boundDataObj, null, 2)}</pre>
+  <div class="footer">이 문서는 마비즈 CRM에서 자동 생성된 전자 계약서입니다. 생성일시: ${new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}</div>
+</body>
+</html>`;
+
+          const driveResult = await saveContractToDrive(
+            updatedInstance.id,
+            htmlContent,
+            customerName,
+            updatedInstance.organizationId
+          );
+
+          if (driveResult.ok && driveResult.driveFileId) {
+            // boundData에 driveFileId, driveUrl 저장
+            const currentBoundData =
+              updatedInstance.boundData && typeof updatedInstance.boundData === "object"
+                ? (updatedInstance.boundData as Record<string, unknown>)
+                : {};
+            await prisma.contractInstance.update({
+              where: { id: updatedInstance.id },
+              data: {
+                boundData: {
+                  ...currentBoundData,
+                  driveFileId: driveResult.driveFileId,
+                  driveUrl: driveResult.driveUrl,
+                },
+              },
+            });
+            logger.log("[PATCH /api/contract-instances/[id]] Drive 저장 완료", {
+              instanceId: updatedInstance.id,
+              driveFileId: driveResult.driveFileId,
+            });
+          } else {
+            logger.error("[PATCH /api/contract-instances/[id]] Drive 저장 실패", {
+              instanceId: updatedInstance.id,
+              error: driveResult.error,
+            });
+          }
+        } catch (driveErr) {
+          logger.error("[PATCH /api/contract-instances/[id]] Drive 저장 예외", {
+            instanceId: updatedInstance.id,
+            error: driveErr instanceof Error ? driveErr.message : String(driveErr),
+          });
+        }
+      })();
+    }
+
+    const response: ApiResponse<ContractInstanceResponse> = {
       ok: true,
       data: {
         id: updatedInstance.id,
@@ -248,6 +340,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         signedAt: updatedInstance.signedAt?.toISOString() || null,
         createdAt: updatedInstance.createdAt.toISOString(),
         updatedAt: updatedInstance.updatedAt.toISOString(),
+        smsStatus: {
+          day0Sent: updatedInstance.smsDay0Sent,
+          day0SentAt: updatedInstance.smsDay0SentAt?.toISOString() || null,
+          day1Sent: updatedInstance.smsDay1Sent,
+          day1SentAt: updatedInstance.smsDay1SentAt?.toISOString() || null,
+          day2Sent: updatedInstance.smsDay2Sent,
+          day2SentAt: updatedInstance.smsDay2SentAt?.toISOString() || null,
+          day3Sent: updatedInstance.smsDay3Sent,
+          day3SentAt: updatedInstance.smsDay3SentAt?.toISOString() || null,
+        },
       },
       message: "계약서 상태가 업데이트되었습니다",
     };

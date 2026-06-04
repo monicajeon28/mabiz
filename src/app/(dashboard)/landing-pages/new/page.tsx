@@ -296,46 +296,53 @@ ${footerBlock}
   const uploadFiles = async (files: File[]) => {
     setError("");
     let pageId: string | null = null;
-    try {
-      pageId = await ensurePage();
-    } catch (e) {
-      setError(`페이지 생성 오류: ${e instanceof Error ? e.message : String(e)}`);
-      return;
-    }
+    try { pageId = await ensurePage(); } catch (e) { setError(`페이지 생성 오류: ${e instanceof Error ? e.message : String(e)}`); return; }
     if (!pageId) return;
     setUploading(true);
     let uploaded = 0;
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      // Windows 드래그&드롭 시 file.type이 빈 문자열일 수 있어 확장자로도 검사
-      const isImage = file.type.startsWith("image/") ||
-        /\.(jpe?g|png|gif|webp|bmp)$/i.test(file.name);
+      const isImage = file.type.startsWith("image/") || /\.(jpe?g|png|gif|webp|bmp)$/i.test(file.name);
       if (!isImage) continue;
-      if (file.size > 20 * 1024 * 1024) { setError(`${file.name}: 20MB 초과`); continue; }
-      const fd = new FormData();
-      fd.append("file", file); fd.append("landingPageId", pageId); fd.append("sortOrder", String(images.length + uploaded));
+      if (file.size > 50 * 1024 * 1024) { setError(`${file.name}: 50MB 초과`); continue; }
+
       try {
-        const res  = await fetch("/api/landing-pages/images", { method: "POST", body: fd });
-        if (!res.ok) {
-          const contentType = res.headers.get('content-type');
-          let errorMsg = `${file.name} 업로드 실패`;
-          try {
-            if (contentType?.includes('application/json')) {
-              const errData = await res.json();
-              errorMsg = errData.message || errorMsg;
-            } else {
-              const text = await res.text();
-              if (text.length < 200) errorMsg = text;
-            }
-          } catch {}
-          setError(errorMsg);
-          continue;
+        // 1. Resumable Upload URL 발급
+        const mimeType = file.type || "image/jpeg";
+        const urlRes = await fetch(
+          `/api/landing-pages/images/upload-url?${new URLSearchParams({ fileName: file.name, mimeType })}`
+        );
+        if (!urlRes.ok) { setError(`${file.name}: 업로드 URL 발급 실패`); continue; }
+        const { uploadUrl } = await urlRes.json();
+
+        // 2. Drive에 직접 업로드
+        const driveRes = await fetch(uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": mimeType, "Content-Length": String(file.size) },
+          body: file,
+        });
+        if (!driveRes.ok) { setError(`${file.name}: Drive 업로드 실패 (${driveRes.status})`); continue; }
+        const driveData = await driveRes.json();
+        const driveFileId = driveData.id;
+        if (!driveFileId) { setError(`${file.name}: Drive fileId 없음`); continue; }
+
+        // 3. 서버에서 WebP 변환 + DB 등록
+        const finalRes = await fetch("/api/landing-pages/images/finalize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ driveFileId, landingPageId: pageId, mimeType, fileName: file.name, sortOrder: images.length + uploaded }),
+        });
+        const finalData = finalRes.ok ? await finalRes.json() : null;
+        if (finalData?.ok) {
+          setImages((prev) => [...prev, finalData.image]);
+          uploaded++;
+        } else {
+          const msg = finalData?.message || `${file.name} 처리 실패`;
+          setError(msg);
         }
-        const data = await res.json();
-        if (data.ok) { setImages((prev) => [...prev, data.image]); uploaded++; }
-        else setError(data.message ?? `${file.name} 업로드 실패`);
       } catch (e) {
-        setError(`${file.name} 업로드 중 오류: ${e instanceof Error ? e.message : String(e)}`);
+        setError(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
     setUploading(false);

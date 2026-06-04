@@ -11,15 +11,19 @@ async function getServiceToken(): Promise<string> {
   if (_tokenCache && Date.now() < _tokenCache.expiresAt - 120_000) {
     return _tokenCache.token;
   }
-  const privateKey = (
-    process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_PRIVATE_KEY ??
-    process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? ''
-  ).replace(/\\n/g, '\n');
+  const serviceAccountKey = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY;
+  const credentials = serviceAccountKey
+    ? JSON.parse(serviceAccountKey)
+    : {
+        client_email: process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_EMAIL ?? process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+        private_key: (
+          process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_PRIVATE_KEY ??
+          process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? ''
+        ).replace(/\\n/g, '\n'),
+      };
+
   const auth = new google.auth.GoogleAuth({
-    credentials: {
-      client_email: process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_EMAIL ?? process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key: privateKey,
-    },
+    credentials,
     scopes: ['https://www.googleapis.com/auth/drive.readonly'],
   });
   const client = await auth.getClient() as {

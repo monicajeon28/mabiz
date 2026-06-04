@@ -73,7 +73,7 @@ async function fetchFolderImages(folderId: string, folderName: string): Promise<
             name: file.name,
             mimeType: file.mimeType,
             webViewLink: file.webViewLink || '',
-            thumbnailUrl: `https://drive.google.com/thumbnail?id=${file.id}&sz=w300`,
+            thumbnailUrl: `/api/landing-pages/images/proxy?id=${file.id}`,
             downloadUrl: `https://drive.google.com/uc?id=${file.id}&export=download`,
             category: folderName,
           });
