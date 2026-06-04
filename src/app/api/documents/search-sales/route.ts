@@ -98,6 +98,7 @@ export async function GET(req: Request) {
         canIssueRefundCert: pay?.status === 'completed' || pay?.status === 'cancelled',
         paidAt:        pay?.paidAt ?? null,
         cancelledAt:   pay?.cancelledAt ?? null,
+        createdAt:     s.createdAt,
       };
     });
 

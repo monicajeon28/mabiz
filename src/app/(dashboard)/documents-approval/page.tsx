@@ -159,6 +159,7 @@ export default function DocumentsApprovalPage() {
         customerPhone?: string | null;
         paidAt?: string | null;
         cancelledAt?: string | null;
+        createdAt?: string | null;
         canIssuePurchaseCert?: boolean;
         canIssueRefundCert?: boolean;
       };
@@ -176,6 +177,7 @@ export default function DocumentsApprovalPage() {
           status,
           paidAt: s.paidAt,
           refundedAt: s.cancelledAt ?? null,
+          createdAt: s.createdAt ?? null,
           customerPhone: s.customerPhone ?? s.buyerTel ?? null,
           buyerName: s.buyerName,
           canIssuePurchaseCert: s.canIssuePurchaseCert,
@@ -225,16 +227,19 @@ export default function DocumentsApprovalPage() {
   // ─── Tab-filtered sales ───────────────────────────────────────────────────
 
   const filteredSales = sales.filter((s) => {
+    // Tab-level filter
     if (activeTab === 'comparison') {
-      return s.status !== 'REFUNDED' && s.status !== 'CANCELLED';
+      if (s.status === 'REFUNDED' || s.status === 'CANCELLED') return false;
+    } else if (activeTab === 'purchase') {
+      if (s.status !== 'CONFIRMED' && s.status !== 'PAID') return false;
+    } else if (activeTab === 'refund') {
+      if (s.status !== 'REFUNDED') return false;
+    } else {
+      return false;
     }
-    if (activeTab === 'purchase') {
-      return s.status === 'CONFIRMED' || s.status === 'PAID';
-    }
-    if (activeTab === 'refund') {
-      return s.status === 'REFUNDED';
-    }
-    return false;
+    // Status dropdown filter (secondary)
+    if (statusFilter !== 'all' && s.status !== statusFilter) return false;
+    return true;
   });
 
   // ─── Filtered contracts ───────────────────────────────────────────────────
