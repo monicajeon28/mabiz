@@ -30,7 +30,7 @@ export function recommendProducts(segment: Segment): ProductRecommendation[] {
         rank: "primary",
       },
       {
-        productCode: "GOLD_MEMBERSHIP",
+        productCode: "GOLD_A",
         reason: "자주 여행 가신다면 구독으로 매번 저렴하게",
         rank: "secondary",
       },
@@ -49,7 +49,7 @@ export function recommendProducts(segment: Segment): ProductRecommendation[] {
     ],
     C: [
       {
-        productCode: "GOLD_MEMBERSHIP",
+        productCode: "GOLD_A",
         reason: "중년 부부의 꾸준한 여행 취향에 최적화된 구독형",
         rank: "primary",
       },
@@ -61,7 +61,7 @@ export function recommendProducts(segment: Segment): ProductRecommendation[] {
     ],
     D: [
       {
-        productCode: "BASIC_PACKAGE",
+        productCode: "GOLD_BASIC",
         reason: "50-60대의 건강 관리와 가성비를 모두 챙김",
         rank: "primary",
       },
@@ -78,7 +78,7 @@ export function recommendProducts(segment: Segment): ProductRecommendation[] {
         rank: "primary",
       },
       {
-        productCode: "ABC_COURSE",
+        productCode: "GOLD_C",
         reason: "가족과 함께라면 렌탈까지 필요할 수 있음",
         rank: "secondary",
       },

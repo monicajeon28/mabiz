@@ -1,237 +1,367 @@
 /**
- * 크루즈닷 5개 상품 교육 상수
- * PASONA 프레임워크 + 거절 대응 포함
+ * 크루즈닷 상품 교육 상수 — 실제 데이터 기반
+ * 출처: www.cruisedot.co.kr 골드 멤버십 페이지 확인 완료
  */
 
 export const CRUISE_PRODUCTS = {
-  GOLD_MEMBERSHIP: {
-    code: "GOLD_MEMBERSHIP",
-    name: "크루즈닷 골드 회원쉽",
-    emoji: "👑",
+  GOLD_A: {
+    code: "GOLD_A",
+    name: "골드 A플랜",
+    emoji: "🇯🇵",
     type: "subscription" as const,
-    features: ["렌탈 가능", "특별 상품 선계약"],
-    recommendedSegments: ["A", "C"] as const,
-    tagline: "자주 가는 사람들의 선택",
-    description: "좋은 크루즈를 자주 가고 싶은 분들을 위한 구독형 상품",
+    price: "33,000원/월 (하루 1,100원)",
+    features: [
+      "일본·대만·홍콩 크루즈 10~20% 할인",
+      "출발 48시간 전 우선 예약 오픈",
+      "KB헬스케어 포함",
+      "원하는 달만 납부 (해지 위약금 없음)",
+      "단체 15명: 굿즈 증정 / 20명: 스탭 무료 / 30명: 인솔자+스탭 풀팀",
+    ],
+    recommendedSegments: ["A", "B"] as const,
+    tagline: "일본·대만·홍콩 자주 가는 분들의 선택",
+    description: "일본, 대만, 홍콩 크루즈를 자주 이용하는 분들을 위한 골드 멤버십. 월 33,000원으로 최대 20% 할인에 KB헬스케어까지 누리세요.",
     pasona: {
-      problem: "좋은 크루즈를 자주 가고 싶은데 매번 비싸다",
-      affinity: "여행을 사랑하고 품질을 아는 사람들",
-      solution: "월정액으로 싼 가격 + 새로운 상품 먼저 제공",
-      offer: "지금 가입하면 첫 달 50% 할인",
+      problem: "일본·대만 크루즈를 자주 가고 싶은데 매번 정가를 내야 한다",
+      affinity: "아시아 크루즈를 즐기는 분들",
+      solution: "월 33,000원으로 10~20% 할인 + 48시간 전 우선 예약으로 좋은 방 선점",
+      offer: "원하는 달만 내고, 해지 위약금도 없어서 부담이 전혀 없습니다",
     },
     topObjections: [
       {
-        objection: "매달 돈 내면서까지 가야해?",
-        response: "1년에 3번 가신다면, 1회당 비용이 30% 저렴해져서 결국 절약됩니다!",
+        objection: "매달 33,000원씩 내면 손해 아닌가요?",
+        response: "1회 여행에서 할인받는 금액이 33,000원을 훌쩍 넘습니다. 일본 크루즈 140만원짜리가 98만원이 되면, 한 번에 42만원 절약이에요.",
       },
       {
-        objection: "잘못 구매하면?",
-        response: "언제든 취소 가능하고, 안 가면 그냥 중단하세요!",
+        objection: "안 가는 달은 어떡하나요?",
+        response: "안 가는 달은 그냥 안 내시면 됩니다. 원하는 달만 납부하고, 해지 위약금도 없어요.",
       },
       {
-        objection: "다른 상품이랑 뭐가 다르네?",
-        response: "렌탈도 되고, 남들 못 사는 한정판 상품이 있어요!",
+        objection: "일본만 가는 건 아닌데요?",
+        response: "A플랜도 크루즈닷 전 상품에 우선 예약이 적용됩니다. 다른 지역 가실 때는 B, C 플랜을 추가하거나 업그레이드하시면 더 많이 할인받으세요.",
+      },
+      {
+        objection: "KB헬스케어가 뭔가요?",
+        response: "의료상담, 병원 예약 대행, 검진 할인, 간병인 파견까지 10년 동안 지원해드리는 프리미엄 헬스케어 서비스입니다.",
       },
     ],
+    keywords: ["일본", "대만", "홍콩", "아시아", "33000", "A플랜", "할인", "헬스케어"],
   },
-  BASIC_PACKAGE: {
-    code: "BASIC_PACKAGE",
-    name: "크루즈닷 기본 패키지",
+
+  GOLD_B: {
+    code: "GOLD_B",
+    name: "골드 B플랜",
+    emoji: "🌏",
+    type: "subscription" as const,
+    price: "66,000원/월 (하루 2,200원)",
+    features: [
+      "동남아·싱가포르·말레이시아 크루즈 20~30% 할인",
+      "출발 48시간 전 우선 예약 오픈",
+      "KB헬스케어 포함",
+      "원하는 달만 납부 (해지 위약금 없음)",
+      "단체 15명: 굿즈 증정 / 20명: 스탭 무료 / 30명: 인솔자+스탭 풀팀",
+    ],
+    recommendedSegments: ["A", "B", "C"] as const,
+    tagline: "동남아 크루즈의 절대적 선택",
+    description: "동남아, 싱가포르, 말레이시아 크루즈를 20~30% 할인받는 골드 B플랜. 싱가포르 3박4일 300만원 → 210만원으로 90만원 절약.",
+    pasona: {
+      problem: "동남아 크루즈는 비싸서 자주 못 간다",
+      affinity: "동남아 크루즈를 즐기는 분들",
+      solution: "월 66,000원으로 20~30% 할인. 싱가포르 한 번만 가도 본전",
+      offer: "해지 위약금 없이 원하는 달만 납부. 첫 달 여행 후 아니면 즉시 해지 가능",
+    },
+    topObjections: [
+      {
+        objection: "66,000원은 좀 비싸지 않나요?",
+        response: "싱가포르 3박4일 300만원이 210만원이 됩니다. 한 번만 가도 90만원 절약이에요. 66,000원은 첫 달만 내도 본전 훨씬 넘어요.",
+      },
+      {
+        objection: "동남아 크루즈는 자주 못 가는데요.",
+        response: "1년에 한 번만 가셔도 됩니다. 안 가는 달은 납부 안 하시면 되고, 여행 가는 달에만 내시면 돼요.",
+      },
+      {
+        objection: "할인이 항상 적용되나요?",
+        response: "멤버십 유지 기간 동안 전 상품 무제한 적용됩니다.",
+      },
+    ],
+    keywords: ["동남아", "싱가포르", "말레이시아", "66000", "B플랜", "20%", "30%"],
+  },
+
+  GOLD_C: {
+    code: "GOLD_C",
+    name: "골드 C플랜",
+    emoji: "🌍",
+    type: "subscription" as const,
+    price: "99,000원/월 (하루 3,300원)",
+    features: [
+      "유럽·미국·알래스카 크루즈 20~30% 할인",
+      "출발 48시간 전 우선 예약 오픈",
+      "KB헬스케어 포함",
+      "원하는 달만 납부 (해지 위약금 없음)",
+      "최대 절감 1,230만원 이상 (10개 상품 기준)",
+      "단체 15명: 굿즈 증정 / 20명: 스탭 무료 / 30명: 인솔자+스탭 풀팀",
+    ],
+    recommendedSegments: ["A", "C"] as const,
+    tagline: "유럽·알래스카 꿈을 현실로",
+    description: "유럽, 미국, 알래스카 크루즈를 20~30% 할인받는 프리미엄 플랜. 유럽 5박6일 460만원 → 320만원으로 140만원 절약.",
+    pasona: {
+      problem: "유럽·알래스카 크루즈는 너무 비싸서 엄두가 안 난다",
+      affinity: "버킷리스트에 유럽 크루즈가 있는 분들",
+      solution: "월 99,000원으로 20~30% 할인. 유럽 한 번만 가도 수백만원 절약",
+      offer: "유럽 5박6일 460만원 → 320만원. 140만원 절약, 한 번에 C플랜 1년치 이상 절감",
+    },
+    topObjections: [
+      {
+        objection: "매달 99,000원은 부담돼요.",
+        response: "유럽 한 번 가면 140만원 절약됩니다. C플랜 1년치가 119만원이에요. 한 번만 가도 훨씬 이득이에요.",
+      },
+      {
+        objection: "유럽은 자주 못 가는데요.",
+        response: "자주 안 가셔도 됩니다. 가는 달에만 내시면 되고, 10개 상품 기준 최대 1,230만원을 절약할 수 있어요.",
+      },
+      {
+        objection: "알래스카도 포함인가요?",
+        response: "네, 유럽·미국·알래스카 모두 C플랜 할인이 적용됩니다.",
+      },
+    ],
+    keywords: ["유럽", "미국", "알래스카", "99000", "C플랜", "1230만원", "프리미엄"],
+  },
+
+  GOLD_BASIC: {
+    code: "GOLD_BASIC",
+    name: "골드 기본 (헬스케어)",
     emoji: "🏥",
     type: "subscription" as const,
-    features: ["헬스케어 100회", "렌탈 불가", "의무납입 없음"],
+    price: "27,000원/월",
+    features: [
+      "KB헬스케어 10년 보장",
+      "의료상담·검진할인·병원예약·간병인 파견",
+      "의무납입 없음",
+      "원하는 달만 납부",
+      "해지 위약금 없음",
+    ],
     recommendedSegments: ["D", "E"] as const,
-    tagline: "건강하게 여행하는 가장 저렴한 방법",
-    description: "건강을 소중히 여기는 분들을 위한 저가형 구독 상품",
+    tagline: "하루 900원으로 10년 건강 보장",
+    description: "크루즈 할인 없이 KB헬스케어만 이용하는 기본 플랜. 월 27,000원으로 의료상담, 검진할인, 간병인 파견까지 10년 보장.",
     pasona: {
-      problem: "나이가 들면서 건강이 걱정되는데, 여행은 포기 못 한다",
+      problem: "나이 들면서 건강이 걱정되는데 의료비 부담이 크다",
       affinity: "건강을 소중히 여기는 현명한 분들",
-      solution: "저렴하게 매달 헬스케어 100회 이용 가능",
-      offer: "지금 가입하면 첫달 무료",
+      solution: "월 27,000원으로 KB헬스케어 10년. 병원비·간병비 걱정 덜기",
+      offer: "의무납입 없고 해지 위약금도 없습니다. 부담 제로",
     },
     topObjections: [
       {
-        objection: "27,000원도 비싼데?",
-        response:
-          "병원 건강검진이 최소 50만원인데, 이건 27,000원으로 100회를 써요!",
+        objection: "27,000원도 아깝은데요.",
+        response: "KB헬스케어 하루 900원입니다. 병원 한 번 가면 수만원인데, 10년 의료상담과 간병인 파견이 27,000원이에요.",
       },
       {
-        objection: "100회도 안 쓸 것 같은데?",
-        response: "안 쓰면 그냥 중단하면 돼요! 의무납입이 없거든요!",
+        objection: "크루즈 안 가는데도 가입해야 하나요?",
+        response: "크루즈 없이 헬스케어만 이용하셔도 됩니다. 나중에 크루즈 가고 싶으실 때 A/B/C 플랜으로 업그레이드하시면 돼요.",
       },
       {
-        objection: "렌탈은 안 돼?",
-        response: "차 따로, 크루즈 따로 예약하면 오히려 더 자유로워요!",
+        objection: "KB헬스케어는 뭘 해주나요?",
+        response: "의료상담, 병원 예약 대행, 검진 할인, 간병인 파견까지 지원합니다. 혼자 사시는 부모님께 특히 안심이 되죠.",
       },
     ],
+    keywords: ["헬스케어", "건강", "KB", "간병인", "27000", "기본", "의료상담", "검진"],
   },
-  ABC_COURSE: {
-    code: "ABC_COURSE",
-    name: "ABC코스",
-    emoji: "🚗",
-    type: "subscription" as const,
-    features: ["크루즈+렌탈 세트", "의무납입 60회"],
-    recommendedSegments: ["A", "B"] as const,
-    tagline: "가족 여행은 이것만으로 완벽",
-    description: "가족과 함께 크루즈와 렌탈을 한 번에 누릴 수 있는 패키지",
-    pasona: {
-      problem: "가족과 여행 가려면 크루즈도, 렌탈도 해야 하는데 복잡하다",
-      affinity: "가족과의 추억을 소중히 여기는 분들",
-      solution: "크루즈와 렌탈을 한 번에 묶어서 관리",
-      offer: "60회를 꽉 쓰면 1인당 비용이 30% 저렴",
-    },
-    topObjections: [
-      {
-        objection: "60회를 다 써야 한다고?",
-        response: "가족 4명이 함께 가면 2주에 한 번씩 3번 가도 충분합니다!",
-      },
-      {
-        objection: "렌탈은 운전하기 힘든데?",
-        response: "차가 필요 없으면 스킵해도 돼요! 크루즈만 써도 괜찮습니다!",
-      },
-      {
-        objection: "너무 복잡해 보여",
-        response: "앱 한 곳에서 크루즈도, 렌탈도 모두 관리됩니다!",
-      },
-    ],
-  },
+
   FREE_TRAVEL: {
     code: "FREE_TRAVEL",
-    name: "크루즈닷 자유여행",
+    name: "자유여행 (인솔자 없음)",
     emoji: "🗺️",
     type: "one_time" as const,
-    features: ["스탭 없음 (자유)", "AI패키지보다 10~20% 저렴"],
+    price: "AI패키지 대비 10~20% 저렴",
+    features: [
+      "인솔자·스탭 없음 (완전 자유)",
+      "AI패키지보다 10~20% 저렴",
+      "와이파이 포함",
+      "비상연락망 제공",
+      "선상 모든 시설 자유 이용",
+    ],
     recommendedSegments: ["B", "C"] as const,
-    tagline: "나의 속도로 즐기는 여행",
-    description: "스탭의 가이드 없이 자유로운 일정으로 여행하는 상품",
+    tagline: "내 방식대로, 내 속도로",
+    description: "인솔자 없이 스스로 일정을 짜는 크루즈 여행. 스탭 비용이 없어서 AI패키지보다 저렴하고, 선상에서 원하는 것만 즐깁니다.",
     pasona: {
-      problem: "가이드 따라다니기 싫고, 혼자 자유롭게 여행하고 싶다",
-      affinity: "자신의 취향을 아는 자유로운 영혼들",
-      solution: "스탭 없이 자유로운 일정으로 여행",
-      offer: "지금 예약하면 와인 무료 제공",
+      problem: "가이드 따라다니기 싫고, 내 마음대로 여행하고 싶다",
+      affinity: "자유를 즐기는 경험 많은 여행자",
+      solution: "스탭 없이 자유롭게. 가격도 더 저렴",
+      offer: "선상 프로그램과 시설 100% 자유 이용. 와이파이·비상연락망으로 안전 보장",
     },
     topObjections: [
       {
-        objection: "스탭이 없으면 안 불안한가?",
-        response:
-          "와이파이, 비상연락망 다 있어요! 배 위 모든 시설이 open이라 전혀 문제 없습니다!",
+        objection: "인솔자 없으면 불안하지 않나요?",
+        response: "배 안에서는 길을 잃을 일이 없어요. 와이파이, 비상연락망 다 있고, 선내 직원들이 항상 계세요.",
       },
       {
-        objection: "혼자 가기 불안해",
-        response: "선상 프로그램이 많아서 자동으로 사람들을 만나게 됩니다!",
+        objection: "혼자 가면 외롭지 않나요?",
+        response: "선상 프로그램에 자동으로 사람들을 만나게 됩니다. 혼자 여행자도 많아요.",
       },
       {
-        objection: "왜 AI패키지보다 저렴하지?",
-        response:
-          "스탭의 도움이 없는 대신 비용을 아껴서, 자유를 원하는 분들이 더 저렴하게 이용할 수 있어요!",
+        objection: "왜 AI패키지보다 저렴한 거죠?",
+        response: "스탭 인건비가 없어서요. 그 비용을 고객님께 돌려드리는 거예요.",
       },
     ],
+    keywords: ["자유여행", "인솔자없음", "스탭없음", "저렴", "자유", "혼자"],
   },
+
   AI_PACKAGE: {
     code: "AI_PACKAGE",
-    name: "크루즈닷 AI 패키지",
-    emoji: "🤖",
+    name: "AI 패키지 (인솔자 동행)",
+    emoji: "👨‍✈️",
     type: "one_time" as const,
-    features: ["스탭 있음", "선상 투어", "건강관리", "와이파이", "팁 포함"],
+    price: "자유여행 대비 10~20% 프리미엄",
+    features: [
+      "전문 인솔자·스탭 동행",
+      "선상 투어 안내",
+      "건강 케어 서비스",
+      "와이파이 포함",
+      "팁 포함",
+      "단체 혜택 자동 적용",
+    ],
     recommendedSegments: ["A", "B", "D", "E"] as const,
-    tagline: "완벽한 여행은 스탭과 함께",
-    description: "스탭이 함께 투어하고 건강을 챙기는 프리미엄 상품",
+    tagline: "완벽한 여행, 스탭이 다 챙겨드립니다",
+    description: "전문 인솔자와 스탭이 동행하여 투어, 건강, 비상상황 모두 책임지는 프리미엄 패키지. 처음 크루즈 가시는 분, 부모님 모시는 분께 강력 추천.",
     pasona: {
-      problem: "혼자 또는 가족과 가는데, 혹시 모를 상황이 불안하다",
-      affinity: "안전과 품질을 모두 원하는 현명한 여행자들",
-      solution: "스탭이 함께 투어하고, 건강/비상상황 모두 챙긴다",
-      offer: "생일자에게는 특별한 깜짝 이벤트 제공",
+      problem: "처음 크루즈인데 뭘 어떻게 해야 할지 막막하다. 부모님 건강이 걱정된다",
+      affinity: "안전하고 알찬 여행을 원하는 분들",
+      solution: "스탭이 모든 것을 챙겨드립니다. 팁, 와이파이, 건강케어까지",
+      offer: "60대 부모님과 함께해도 안심. 비상 상황 완벽 대처",
     },
     topObjections: [
       {
-        objection: "스탭이 따라다니면 불편하지 않나?",
-        response: "강제로 따라다니는 게 아니라, 필요할 때만 도움주는 거예요!",
+        objection: "스탭이 따라다니면 불편하지 않나요?",
+        response: "강제로 따라다니는 게 아닙니다. 필요할 때만 도움받고, 자유롭게 다니셔도 돼요.",
       },
       {
-        objection: "비싸지 않나?",
-        response:
-          "혼자 계획하고 헤매는 것보다, 스탭이 있어서 시간을 정말 효율적으로 써요!",
+        objection: "비싸지 않나요?",
+        response: "혼자 계획하고 헤매는 시간 vs 스탭이 다 챙겨주는 시간, 여행 질이 달라요. 팁·와이파이 포함이라 추가 비용도 없고요.",
       },
       {
-        objection: "60대 부모님과 가는데 가능할까?",
-        response:
-          "오히려 이 상품이 딱입니다! 건강 문제도 챙기고, 배 위에서 뭘 할지도 안내받을 수 있거든요!",
+        objection: "60대 부모님과 가도 괜찮을까요?",
+        response: "오히려 이 상품이 딱입니다! 건강 케어, 비상상황 대처, 뭘 해야 할지 안내까지 다 해드려요.",
       },
     ],
+    keywords: ["AI패키지", "인솔자", "스탭", "동행", "부모님", "건강케어", "처음", "팁포함"],
   },
 } as const;
 
 export type ProductCode = keyof typeof CRUISE_PRODUCTS;
 export type ProductType = (typeof CRUISE_PRODUCTS)[ProductCode];
 
-// PRODUCT_CODES 배열 - playbook-viewer에서 사용
 export const PRODUCT_CODES = Object.keys(CRUISE_PRODUCTS) as ProductCode[];
 export type ProductCodeType = ProductCode;
 
 /**
- * 세그먼트별 색상 지정 (배지용)
+ * 전화 중 즉석 검색용 — 모든 상품의 검색 가능한 항목 flat 리스트
+ */
+export type SearchItem = {
+  productCode: ProductCode;
+  productName: string;
+  emoji: string;
+  type: "feature" | "objection" | "response" | "pasona" | "price";
+  label: string;
+  content: string;
+  keywords: string[];
+};
+
+export function buildSearchIndex(): SearchItem[] {
+  const items: SearchItem[] = [];
+
+  for (const [code, product] of Object.entries(CRUISE_PRODUCTS)) {
+    const pCode = code as ProductCode;
+
+    // 가격
+    if ("price" in product) {
+      items.push({
+        productCode: pCode,
+        productName: product.name,
+        emoji: product.emoji,
+        type: "price",
+        label: "가격",
+        content: (product as { price: string }).price,
+        keywords: ["가격", "얼마", "비용", "월", ...(product.keywords ?? [])],
+      });
+    }
+
+    // 기능/특징
+    product.features.forEach((f) => {
+      items.push({
+        productCode: pCode,
+        productName: product.name,
+        emoji: product.emoji,
+        type: "feature",
+        label: "특징",
+        content: f,
+        keywords: [f, ...(product.keywords ?? [])],
+      });
+    });
+
+    // PASONA
+    Object.entries(product.pasona).forEach(([key, value]) => {
+      const labelMap: Record<string, string> = {
+        problem: "문제 (Problem)",
+        affinity: "공감 (Affinity)",
+        solution: "해결 (Solution)",
+        offer: "제안 (Offer)",
+      };
+      items.push({
+        productCode: pCode,
+        productName: product.name,
+        emoji: product.emoji,
+        type: "pasona",
+        label: labelMap[key] ?? key,
+        content: value,
+        keywords: [key, ...(product.keywords ?? [])],
+      });
+    });
+
+    // 거절 대응
+    product.topObjections.forEach((obj) => {
+      items.push({
+        productCode: pCode,
+        productName: product.name,
+        emoji: product.emoji,
+        type: "objection",
+        label: "거절",
+        content: obj.objection,
+        keywords: ["거절", "이의", ...(product.keywords ?? [])],
+      });
+      items.push({
+        productCode: pCode,
+        productName: product.name,
+        emoji: product.emoji,
+        type: "response",
+        label: "대응 스크립트",
+        content: obj.response,
+        keywords: ["대응", "답변", "스크립트", ...(product.keywords ?? [])],
+      });
+    });
+  }
+
+  return items;
+}
+
+/**
+ * 세그먼트별 색상
  */
 export const SEGMENT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  A: {
-    bg: "bg-blue-50",
-    text: "text-blue-700",
-    border: "border-blue-200",
-  },
-  B: {
-    bg: "bg-orange-50",
-    text: "text-orange-700",
-    border: "border-orange-200",
-  },
-  C: {
-    bg: "bg-green-50",
-    text: "text-green-700",
-    border: "border-green-200",
-  },
-  D: {
-    bg: "bg-yellow-50",
-    text: "text-yellow-700",
-    border: "border-yellow-200",
-  },
-  E: {
-    bg: "bg-red-50",
-    text: "text-red-700",
-    border: "border-red-200",
-  },
+  A: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
+  B: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
+  C: { bg: "bg-green-50", text: "text-green-700", border: "border-green-200" },
+  D: { bg: "bg-yellow-50", text: "text-yellow-700", border: "border-yellow-200" },
+  E: { bg: "bg-red-50", text: "text-red-700", border: "border-red-200" },
 };
 
 /**
  * PASONA 단계별 색상
  */
 export const PASONA_COLORS = {
-  problem: {
-    bg: "bg-red-50",
-    accent: "border-l-4 border-red-500",
-    emoji: "⚠️",
-    label: "Problem",
-  },
-  affinity: {
-    bg: "bg-blue-50",
-    accent: "border-l-4 border-blue-500",
-    emoji: "🤝",
-    label: "Affinity",
-  },
-  solution: {
-    bg: "bg-green-50",
-    accent: "border-l-4 border-green-500",
-    emoji: "💡",
-    label: "Solution",
-  },
-  offer: {
-    bg: "bg-purple-50",
-    accent: "border-l-4 border-purple-500",
-    emoji: "🎁",
-    label: "Offer",
-  },
+  problem: { bg: "bg-red-50", accent: "border-l-4 border-red-500", emoji: "⚠️", label: "Problem" },
+  affinity: { bg: "bg-blue-50", accent: "border-l-4 border-blue-500", emoji: "🤝", label: "Affinity" },
+  solution: { bg: "bg-green-50", accent: "border-l-4 border-green-500", emoji: "💡", label: "Solution" },
+  offer: { bg: "bg-purple-50", accent: "border-l-4 border-purple-500", emoji: "🎁", label: "Offer" },
 };
 
-/**
- * 세그먼트 정보
- */
 export const SEGMENTS = [
   { code: "A", label: "30대 커플", description: "신혼부부, 자주 여행" },
   { code: "B", label: "40대 가족", description: "자녀 동반, 패키지형 선호" },
