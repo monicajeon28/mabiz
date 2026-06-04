@@ -105,13 +105,12 @@ export async function GET(req: NextRequest) {
     // SQL 인젝션 방지를 위해 Prisma.sql 사용
     const whereConditions: Prisma.Sql[] = [
       Prisma.sql`u.role != 'admin'`,
-      // 구매 고객만 필터링: 확정된 예약 + 결제 완료
-      // Reservation(@@map="Reservation") ← GmReservation Prisma 모델 확인 완료
+      // 구매 고객만 필터링: Trip이 존재하는 사용자 (예약 여부와 무관하게 여행 고객 전체)
+      // paymentAmount > 0 조건 제거: 결제 미완료/0원 고객도 여권 수집 대상
+      // status = 'CONFIRMED' 조건 제거: PENDING 예약자도 여권 요청 가능
       Prisma.sql`EXISTS(
-        SELECT 1 FROM "Reservation" rc
-        WHERE rc."mainUserId" = u.id
-        AND rc.status = 'CONFIRMED'
-        AND rc."paymentAmount" > 0
+        SELECT 1 FROM "Trip" rc
+        WHERE rc."userId" = u.id
       )`
     ];
 
@@ -123,8 +122,10 @@ export async function GET(req: NextRequest) {
       whereConditions.push(
         Prisma.sql`EXISTS(
           SELECT 1 FROM "CrmAffiliateSale" af
-          WHERE REGEXP_REPLACE(af."customerPhone", '[^0-9]', '', 'g')
-              = REGEXP_REPLACE(u.phone, '[^0-9]', '', 'g')
+          WHERE af."customerPhone" IS NOT NULL
+            AND u.phone IS NOT NULL
+            AND REGEXP_REPLACE(af."customerPhone", '[^0-9]', '', 'g')
+                = REGEXP_REPLACE(u.phone, '[^0-9]', '', 'g')
             AND af."organizationId" = ${manager.organizationId}
         )`
       );
@@ -174,11 +175,8 @@ export async function GET(req: NextRequest) {
       whereConditions.push(
         Prisma.sql`EXISTS(
           SELECT 1 FROM "Trip" t3
-          JOIN "Reservation" r2 ON r2."tripId" = t3.id
           WHERE t3."userId" = u.id
             AND t3."productCode" = ${productCodeParam}
-            AND r2.status = 'CONFIRMED'
-            AND r2."paymentAmount" > 0
         )`
       );
     }
