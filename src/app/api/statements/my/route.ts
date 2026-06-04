@@ -100,12 +100,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const { role } = session;
 
-    // FREE_SALES, AGENT, OWNER만 접근 가능
+    // 파트너 역할이 아닌 경우 빈 정산 내역 반환 (403 대신 안내 응답)
     if (role !== 'FREE_SALES' && role !== 'AGENT' && role !== 'OWNER') {
-      return NextResponse.json(
-        { ok: false, error: 'FORBIDDEN', message: '파트너 권한이 필요합니다.' },
-        { status: 403 }
-      );
+      return NextResponse.json({
+        ok: true,
+        role,
+        data: {
+          sales: [],
+          payslips: [],
+          summary: { totalCommission: 0, totalWithholding: 0, totalNet: 0, totalDeduction: 0, pendingCount: 0, paidCount: 0 },
+          document: { hasIdCard: false, hasBankBook: false, bankName: null, bankAccount: null, bankAccountHolder: null, withholdingRate: 3.3 },
+          pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+        },
+        message: '파트너 계정으로 로그인하면 정산 내역을 확인할 수 있습니다.',
+      });
     }
 
     const { searchParams } = new URL(req.url);

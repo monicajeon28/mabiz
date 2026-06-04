@@ -70,7 +70,7 @@ type Pagination = {
 
 type ApiResponse = {
   ok: boolean;
-  role: "FREE_SALES" | "AGENT" | "OWNER" | "GLOBAL_ADMIN";
+  role: string;
   data: {
     sales?: SaleItem[];
     payslips?: PayslipItem[];
@@ -79,6 +79,7 @@ type ApiResponse = {
     pagination: Pagination;
   };
   error?: string;
+  message?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -442,6 +443,7 @@ export default function StatementsPage() {
       credentials: "include",
     })
       .then((r) => {
+        if (r.status === 403) throw new Error("접근 권한이 없습니다. 파트너 계정으로 로그인해주세요.");
         if (!r.ok) throw new Error(`서버 오류 (HTTP ${r.status})`);
         return r.json() as Promise<ApiResponse>;
       })
@@ -477,8 +479,9 @@ export default function StatementsPage() {
   const sales      = apiData?.data.sales ?? [];
   const payslips   = apiData?.data.payslips ?? [];
 
-  const isFreeSales   = role === "FREE_SALES";
+  const isFreeSales    = role === "FREE_SALES";
   const isAgentOrOwner = role === "AGENT" || role === "OWNER";
+  const isPartner      = isFreeSales || isAgentOrOwner;
   const totalPages     = pagination?.totalPages ?? 1;
   const totalCount     = pagination?.total ?? 0;
 
@@ -514,6 +517,21 @@ export default function StatementsPage() {
             : "월별 커미션 정산 내역 (다음달 15일 지급)"}
         </p>
       </div>
+
+      {/* 비파트너 역할 안내 */}
+      {!loading && !error && apiData && !isPartner && (
+        <div className="mb-5 p-5 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
+          <div className="flex items-start gap-3">
+            <ReceiptText className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold mb-1">파트너 계정이 필요합니다</p>
+              <p className="text-blue-700">
+                {apiData.message ?? "정산 내역은 자유판매원 / 소속판매원 / 대리점장 계정으로 로그인하면 확인할 수 있습니다."}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 히어로 카드 — AGENT/OWNER: 이번달 받을 금액 크게 표시 */}
       {!loading && !error && isAgentOrOwner && summary && (
