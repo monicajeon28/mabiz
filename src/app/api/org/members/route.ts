@@ -111,7 +111,6 @@ export async function GET(req: Request) {
         total: totalCount,
         totalPages,
       },
-      myRole: ctx.role,
     });
   } catch (e) {
     logger.error('[OrgMembers GET]', { e });

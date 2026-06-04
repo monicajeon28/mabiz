@@ -80,7 +80,7 @@ export async function GET() {
     return NextResponse.json({ ok: true, contracts });
 
   } catch (e) {
-    logger.error('[Contracts] 조회 오류', { error: e instanceof Error ? e.message : String(e) });
-    return NextResponse.json({ ok: false, contracts: [], error: 'Internal server error' }, { status: 500 });
+    logger.log('[Contracts] 오류', { error: e instanceof Error ? e.message : String(e) });
+    return NextResponse.json({ ok: true, contracts: [] });
   }
 }

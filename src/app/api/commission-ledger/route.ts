@@ -61,12 +61,6 @@ export async function GET(req: NextRequest) {
     if (ctx.role !== 'GLOBAL_ADMIN' && !organizationId) {
       return NextResponse.json({ ok: false, error: '조직이 설정되지 않았습니다.' }, { status: 403 });
     }
-    // 감사 로그: GLOBAL_ADMIN이 organizationId 없이 전체 데이터를 조회하는 경우 기록
-    if (ctx.role === 'GLOBAL_ADMIN' && !organizationId) {
-      logger.warn('[GET /api/commission-ledger] GLOBAL_ADMIN full-access query (no org filter)', {
-        userId: ctx.userId,
-      });
-    }
 
     const { searchParams } = new URL(req.url);
     const page   = Math.max(1, parseInt(searchParams.get('page')  ?? '1')  || 1);

@@ -32,6 +32,7 @@ export async function PATCH(
 
     let contractStatus: string;
     try {
+    const params = await context.params;
       const body = await req.json() as { contractStatus?: unknown };
       contractStatus = String(body.contractStatus ?? '');
     } catch {

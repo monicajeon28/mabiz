@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
 import Link from "next/link";
 import { Search, Plus, Filter, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet, Loader2, Share2, FolderDown } from "lucide-react";
 import { logger } from "@/lib/logger";
@@ -272,37 +272,30 @@ export default function ContactsPage() {
   const handleBulkShare = async () => {
     if (!shareTarget || selectedIds.size === 0) return;
     setSharing(true);
-    try {
-      const res = await fetch("/api/contacts/bulk-send-db", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contactIds: Array.from(selectedIds),
-          targetUserId: shareTarget,
-        }),
-      });
-      const data = await res.json() as { ok: boolean; succeeded?: number; failed?: number; failedNames?: string[]; message?: string };
-      if (data.ok) {
-        const failedNames = data.failedNames ?? [];
-        let msg = `✅ ${data.succeeded ?? 0}건 전달 완료`;
-        if ((data.failed ?? 0) > 0) {
-          const nameList = failedNames.slice(0, 5).join(", ");
-          const extra = failedNames.length > 5 ? ` 외 ${failedNames.length - 5}명` : "";
-          msg += ` / ❌ ${data.failed}건 실패 (${nameList}${extra})`;
-        }
-        setShareResult(msg);
+    const results = await Promise.allSettled(
+      Array.from(selectedIds).map((contactId) =>
+        fetch(`/api/contacts/${contactId}/send-db`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ targetUserId: shareTarget }),
+        }).then((r) => r.json())
+      )
+    );
+    let ok = 0;
+    let fail = 0;
+    results.forEach((r) => {
+      if (r.status === 'fulfilled' && r.value.ok) {
+        ok++;
       } else {
-        setShareResult(`❌ 전달 실패: ${data.message ?? "다시 시도해주세요."}`);
-        logger.error("[bulkShare] 전달 실패", { message: data.message });
+        fail++;
+        const reason = r.status === 'rejected' ? r.reason : r.value;
+        logger.error('[bulkShare failed]', { reason });
       }
-    } catch (err) {
-      setShareResult("❌ 네트워크 오류가 발생했습니다.");
-      logger.error("[bulkShare] 네트워크 오류", { err });
-    } finally {
-      setSharing(false);
-      setSelectedIds(new Set());
-      fetchContacts();
-    }
+    });
+    setSharing(false);
+    setShareResult(`✅ ${ok}건 전달 완료${fail > 0 ? ` / ❌ ${fail}건 실패` : ""}`);
+    setSelectedIds(new Set());
+    fetchContacts();
     // [L6] setTimeout: cleanup 처리됨 (아래 useEffect 참고)
   };
 
@@ -416,9 +409,20 @@ export default function ContactsPage() {
   const [quickCallLoading, setQuickCallLoading] = useState(false);
   const [quickCallError, setQuickCallError] = useState<string | null>(null);
 
-  // P2-8: AbortController ref to properly cancel in-flight requests
-  const fetchAbortRef = useRef<AbortController | null>(null);
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // P2-8: Debounce function to prevent excessive API calls
+  const debounce = useCallback(
+    <T extends unknown[]>(
+      fn: (...args: T) => Promise<void>,
+      delay: number
+    ) => {
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      return (...args: T) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => fn(...args), delay);
+      };
+    },
+    []
+  );
 
   const fetchContacts = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -445,28 +449,24 @@ export default function ContactsPage() {
     }
   }, [q, type, page, filterGroupId, filterSourceType, filterAssignedTo, selectedTags]); // P0-6
 
-  useEffect(() => {
-    // P2-8: Abort any in-flight request before starting a new one
-    fetchAbortRef.current?.abort();
-    const controller = new AbortController();
-    fetchAbortRef.current = controller;
+  // P2-8: Debounced search with 300ms delay to prevent rapid API calls
+  const debouncedFetch = useMemo(
+    () => debounce(fetchContacts, 300),
+    [fetchContacts, debounce]
+  );
 
-    // 검색어(q)만 입력 중 → 300ms debounce (사용자 타이핑 대기)
+  useEffect(() => {
+    const controller = new AbortController();
+    // P2-8: Use debounced fetch instead of direct fetch for search queries
+    // 검색어(q)만 입력 중 → debounce (사용자 타이핑 대기)
     // 필터 변경 → 직접 호출 (필터는 드롭다운이라 안정적)
     if (q) {
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = setTimeout(() => {
-        fetchContacts(controller.signal);
-      }, 300);
+      debouncedFetch(controller.signal);
     } else {
       fetchContacts(controller.signal);
     }
-
-    return () => {
-      controller.abort();
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    };
-  }, [q, type, page, filterGroupId, filterSourceType, filterAssignedTo, selectedTags, fetchContacts]);
+    return () => controller.abort();
+  }, [q, type, page, filterGroupId, filterSourceType, filterAssignedTo, selectedTags, fetchContacts, debouncedFetch]);
 
   useEffect(() => { setPage(1); }, [filterGroupId, filterSourceType, filterAssignedTo, selectedTags]); // P0-6
 

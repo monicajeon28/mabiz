@@ -5,21 +5,7 @@ interface SMSSequencePreviewProps {
   segment: string;
 }
 
-type SmsDay = {
-  title: string;
-  preview: string;
-  icon: string;
-  targetRate: number;
-};
-
-type SmsSequence = {
-  Day_0: SmsDay;
-  Day_1: SmsDay;
-  Day_2: SmsDay;
-  Day_3: SmsDay;
-};
-
-const SMS_SEQUENCE_MAP: Record<string, SmsSequence> = {
+const SMS_SEQUENCE_MAP: Record<string, any> = {
   healthcare: {
     Day_0: {
       title: "Day 0: 기대감 형성",
@@ -138,10 +124,7 @@ export function SMSSequencePreview({ category, segment }: SMSSequencePreviewProp
     <div className="bg-white rounded-lg border border-gray-200 p-4">
       <h3 className="font-semibold text-gray-900 mb-3 text-sm">📧 SMS 3일 시퀀스</h3>
       <div className="space-y-3">
-        {days.length === 0 && (
-          <p className="text-sm text-gray-500 py-4 text-center">이 카테고리는 SMS 시퀀스가 준비 중입니다.</p>
-        )}
-        {days.map((day: SmsDay, idx: number) => (
+        {days.map((day: any, idx: number) => (
           <div key={idx} className="border border-gray-200 rounded-lg p-3">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-lg">{day.icon}</span>

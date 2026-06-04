@@ -153,45 +153,17 @@ export async function GET(req: NextRequest) {
     const totalRevenue = paymentRecords
       .filter((p) => p.status === 'completed')
       .reduce((sum, p) => sum + p.amount, 0);
-    const conversionRate = totalViews > 0 ? totalPayments / totalViews : 0;
-    const avgOrderAmount = totalPayments > 0 ? Math.round(totalRevenue / totalPayments) : 0;
-
-    // ── 페이지별 매출/전환율/판매건수 계산
-    const pagesWithStats = landingPages.map((page) => {
-      const pagePayments = paymentRecords.filter((p) => p.landingPageId === page.id);
-      const pageRevenue = pagePayments
-        .filter((p) => p.status === 'completed')
-        .reduce((sum, p) => sum + p.amount, 0);
-      const pageSalesCount = pagePayments.filter((p) => p.status === 'completed').length;
-      const pageConversionRate = page.viewCount > 0 ? pageSalesCount / page.viewCount : 0;
-      return {
-        id: page.id,
-        title: page.title,
-        revenue: pageRevenue,
-        conversionRate: pageConversionRate,
-        salesCount: pageSalesCount,
-      };
-    });
-
-    // ── UI가 json.data로 접근하므로 data 키로 래핑
-    const data = {
-      totalRevenue,
-      conversionRate,
-      avgOrderAmount,
-      topProducts: [],
-      pages: pagesWithStats,
-    };
 
     const response = {
       ok: true,
       month: `${year}-${String(month).padStart(2, '0')}`,
-      data,
       summary: {
         totalPages: landingPages.length,
         totalViews,
         totalPayments,
         totalRevenue,
       },
+      pages: landingPages,
       payments: paymentRecords,
       ...(pageIdParam && { monthlyTrend, customers }),
     };

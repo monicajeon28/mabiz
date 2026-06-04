@@ -30,7 +30,6 @@ const EMPTY_FORM = {
 export default function PartnerPage() {
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
@@ -46,13 +45,12 @@ export default function PartnerPage() {
   };
 
   // 파트너 목록 조회
-  const load = useCallback(async (filter: 'ALL' | 'ACTIVE' | 'INACTIVE' = statusFilter) => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
         month: String(new Date().getMonth() + 1),
         year: String(new Date().getFullYear()),
-        status: filter,
       });
       const res = await fetch(`/api/partner/list?${params}`);
       if (!res.ok) {
@@ -71,7 +69,7 @@ export default function PartnerPage() {
       showToast('파트너 목록 조회 중 오류가 발생했습니다');
     }
     setLoading(false);
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -210,26 +208,6 @@ export default function PartnerPage() {
             <Plus size={20} />
             파트너 추가
           </button>
-        </div>
-
-        {/* 상태 필터 탭 */}
-        <div className="flex gap-2 mb-4">
-          {(['ALL', 'ACTIVE', 'INACTIVE'] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => {
-                setStatusFilter(s);
-                load(s);
-              }}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${
-                statusFilter === s
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {s === 'ALL' ? '전체' : s === 'ACTIVE' ? '활성' : '비활성'}
-            </button>
-          ))}
         </div>
 
         {/* 파트너 목록 테이블 */}

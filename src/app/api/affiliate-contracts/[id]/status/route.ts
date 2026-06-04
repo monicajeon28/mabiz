@@ -37,27 +37,6 @@ export async function PATCH(
       );
     }
 
-    const existing = await prisma.$queryRaw<{ id: number; status: string }[]>(
-      Prisma.sql`SELECT id, status FROM "AffiliateContract" WHERE id = ${contractId}`
-    );
-    if (existing.length === 0) {
-      return NextResponse.json({ ok: false, error: '계약 없음' }, { status: 404 });
-    }
-    const current = existing[0].status;
-    const allowed: Record<string, string[]> = {
-      DRAFT: ['SENT'],
-      SENT: ['SIGNED', 'CANCELLED'],
-      SIGNED: ['EXPIRED'],
-      EXPIRED: [],
-      CANCELLED: [],
-    };
-    if (!allowed[current]?.includes(status)) {
-      return NextResponse.json(
-        { ok: false, error: `'${current}'→'${status}' 전환 불가` },
-        { status: 422 }
-      );
-    }
-
     const rows = await prisma.$queryRaw<{ id: number; status: string }[]>(Prisma.sql`
       UPDATE "AffiliateContract"
       SET    status = ${status}, "updatedAt" = NOW()
