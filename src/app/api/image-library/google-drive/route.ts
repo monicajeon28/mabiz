@@ -5,37 +5,95 @@ import { logger } from '@/lib/logger';
 
 /**
  * GET /api/image-library/google-drive
- * 구글 드라이브의 마비즈 자료 폴더에서 이미지 목록 조회
+ * 하드코딩된 3개 폴더에서 이미지 목록 조회
  *
- * 폴더 ID: 1YEsNRV2MQT5nSjtMniVcEVsECUeCgLBz
- * 하위 폴더:
- * - 크루즈자료
- * - 후기
- * - 크루즈정보사진
- * - 크루즈닷메인로고
- * - 상품
+ * ?folders=true                          → 폴더 목록 + 각 폴더 이미지 수
+ * ?folderId=xxx&page=1&limit=20          → 특정 폴더 이미지 목록
+ *
+ * POST /api/image-library/google-drive
+ * Body: { action: 'add_folder', name: string, driveId: string }
+ * → 세션 메모리(customFolders)에 임시 추가 (서버 재시작 전까지 유효)
  */
 
-interface GoogleDriveImage {
+// ────────────────────────────────────────────────────────────────
+// 타입
+// ────────────────────────────────────────────────────────────────
+
+interface FolderDef {
+  name: string;
+  id: string;
+}
+
+interface DriveImageItem {
   id: string;
   name: string;
   mimeType: string;
+  thumbnailUrl: string;   // proxy 경유 (내부)
+  publicUrl: string;      // lh3 공개 URL
+  altPublicUrl: string;   // drive.google.com/uc 공개 URL
   webViewLink: string;
-  thumbnailUrl: string;
-  downloadUrl: string;
-  category: string;
+  folderId: string;
+  folderName: string;
 }
 
-const ROOT_FOLDER_ID = '1YEsNRV2MQT5nSjtMniVcEVsECUeCgLBz';
+interface FolderSummary {
+  id: string;
+  name: string;
+  imageCount: number;
+}
 
-// 캐시 (5분)
-let cachedFolders: Map<string, GoogleDriveImage[]> | null = null;
-let cacheTime = 0;
-const CACHE_DURATION = 5 * 60 * 1000;
+// ────────────────────────────────────────────────────────────────
+// 기본 폴더 정의 (환경변수 GOOGLE_DRIVE_FOLDERS_JSON 으로 오버라이드 가능)
+// ────────────────────────────────────────────────────────────────
 
-/**
- * Google Drive API 클라이언트 초기화
- */
+const DEFAULT_FOLDERS: FolderDef[] = [
+  { name: '후기',           id: '1po1OyLETzyRUA_WHWe9QlUGdoh34pm51' },
+  { name: '크루즈 정보사진', id: '17QT8_NTQXpOzcfaZ3silp-hqD0sgOAck' },
+  { name: '상품',           id: '18YuEBt313yyKI3F7PSzjFFRF3Af-bVPH' },
+];
+
+function getBaseFolders(): FolderDef[] {
+  const envJson = process.env.GOOGLE_DRIVE_FOLDERS_JSON;
+  if (envJson) {
+    try {
+      return JSON.parse(envJson) as FolderDef[];
+    } catch {
+      logger.warn('[GoogleDrive] GOOGLE_DRIVE_FOLDERS_JSON 파싱 실패, 기본값 사용');
+    }
+  }
+  return DEFAULT_FOLDERS;
+}
+
+// 세션 메모리 — POST로 추가된 커스텀 폴더 (서버 재시작 전까지 유효)
+const customFolders: FolderDef[] = [];
+
+function getAllFolders(): FolderDef[] {
+  return [...getBaseFolders(), ...customFolders];
+}
+
+// ────────────────────────────────────────────────────────────────
+// 폴더별 독립 캐시
+// ────────────────────────────────────────────────────────────────
+
+const CACHE_DURATION = 5 * 60 * 1000; // 5분
+
+interface FolderCache {
+  images: DriveImageItem[];
+  fetchedAt: number;
+}
+
+const folderCache = new Map<string, FolderCache>();
+
+function isCacheValid(folderId: string): boolean {
+  const entry = folderCache.get(folderId);
+  if (!entry) return false;
+  return Date.now() - entry.fetchedAt < CACHE_DURATION;
+}
+
+// ────────────────────────────────────────────────────────────────
+// Google Drive 클라이언트
+// ────────────────────────────────────────────────────────────────
+
 function getGoogleDriveClient() {
   const serviceAccountKey = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY;
   if (!serviceAccountKey) {
@@ -50,83 +108,71 @@ function getGoogleDriveClient() {
   return google.drive({ version: 'v3', auth });
 }
 
-/**
- * 폴더의 모든 이미지 파일 조회
- */
-async function fetchFolderImages(folderId: string, folderName: string): Promise<GoogleDriveImage[]> {
-  try {
-    const drive = getGoogleDriveClient();
-    const images: GoogleDriveImage[] = [];
+// ────────────────────────────────────────────────────────────────
+// 폴더 이미지 조회 (페이지네이션 없이 최대 200개)
+// ────────────────────────────────────────────────────────────────
 
+async function fetchFolderImages(folder: FolderDef): Promise<DriveImageItem[]> {
+  const drive = getGoogleDriveClient();
+  const images: DriveImageItem[] = [];
+
+  let pageToken: string | undefined;
+
+  do {
     const response = await drive.files.list({
-      q: `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`,
+      q: `'${folder.id}' in parents and mimeType contains 'image/' and trashed = false`,
       spaces: 'drive',
-      fields: 'files(id, name, mimeType, webViewLink, size)',
+      fields: 'nextPageToken, files(id, name, mimeType, webViewLink)',
       pageSize: 100,
+      ...(pageToken ? { pageToken } : {}),
     });
 
-    if (response.data.files) {
-      for (const file of response.data.files) {
-        if (file.id && file.name && file.mimeType) {
-          images.push({
-            id: file.id,
-            name: file.name,
-            mimeType: file.mimeType,
-            webViewLink: file.webViewLink || '',
-            thumbnailUrl: `/api/landing-pages/images/proxy?id=${file.id}`,
-            downloadUrl: `https://drive.google.com/uc?id=${file.id}&export=download`,
-            category: folderName,
-          });
-        }
-      }
+    const files = response.data.files ?? [];
+    for (const file of files) {
+      if (!file.id || !file.name || !file.mimeType) continue;
+      images.push({
+        id: file.id,
+        name: file.name,
+        mimeType: file.mimeType,
+        thumbnailUrl: `/api/landing-pages/images/proxy?id=${file.id}`,
+        publicUrl: `https://lh3.googleusercontent.com/d/${file.id}=w1200`,
+        altPublicUrl: `https://drive.google.com/uc?export=view&id=${file.id}`,
+        webViewLink: file.webViewLink ?? '',
+        folderId: folder.id,
+        folderName: folder.name,
+      });
     }
 
+    pageToken = response.data.nextPageToken ?? undefined;
+  } while (pageToken && images.length < 200);
+
+  return images;
+}
+
+async function getOrFetchFolder(folder: FolderDef): Promise<DriveImageItem[]> {
+  if (isCacheValid(folder.id)) {
+    return folderCache.get(folder.id)!.images;
+  }
+
+  try {
+    const images = await fetchFolderImages(folder);
+    folderCache.set(folder.id, { images, fetchedAt: Date.now() });
     return images;
   } catch (err) {
-    logger.error(`[GoogleDrive] 폴더 조회 실패: ${folderName}`, { err });
-    return [];
+    logger.error(`[GoogleDrive] 폴더 이미지 조회 실패: ${folder.name} (${folder.id})`, { err });
+    // 캐시에 이전 데이터가 있으면 만료돼도 반환
+    return folderCache.get(folder.id)?.images ?? [];
   }
 }
 
-/**
- * 루트 폴더의 모든 하위 폴더 조회
- */
-async function fetchGoogleDriveFolders(): Promise<Map<string, GoogleDriveImage[]>> {
-  const result = new Map<string, GoogleDriveImage[]>();
-
-  try {
-    const drive = getGoogleDriveClient();
-
-    // 루트 폴더의 하위 폴더 목록 조회
-    const foldersResponse = await drive.files.list({
-      q: `'${ROOT_FOLDER_ID}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
-      spaces: 'drive',
-      fields: 'files(id, name)',
-      pageSize: 50,
-    });
-
-    if (foldersResponse.data.files) {
-      for (const folder of foldersResponse.data.files) {
-        if (folder.id && folder.name) {
-          const images = await fetchFolderImages(folder.id, folder.name);
-          if (images.length > 0) {
-            result.set(folder.name, images);
-          }
-        }
-      }
-    }
-  } catch (err) {
-    logger.error('[GoogleDrive] 폴더 목록 조회 실패', { err });
-  }
-
-  return result;
-}
+// ────────────────────────────────────────────────────────────────
+// GET 핸들러
+// ────────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
   try {
     const ctx = await getAuthContext();
 
-    // 권한: GLOBAL_ADMIN, OWNER, AGENT 모두 접근 가능
     if (!ctx || (ctx.role !== 'GLOBAL_ADMIN' && ctx.role !== 'OWNER' && ctx.role !== 'AGENT')) {
       return NextResponse.json(
         { ok: false, error: 'FORBIDDEN', message: '접근 권한이 없습니다.' },
@@ -135,55 +181,127 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const category = searchParams.get('category'); // 폴더 필터 (필수)
-    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
-    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') ?? '12', 10)));
+    const foldersParam = searchParams.get('folders');
+    const folderId    = searchParams.get('folderId');
+    const page  = Math.max(1, parseInt(searchParams.get('page')  ?? '1',  10));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10)));
 
-    // 캐시 확인
-    const now = Date.now();
-    if (!cachedFolders || (now - cacheTime) >= CACHE_DURATION) {
-      // 구글 드라이브 폴더 조회
-      cachedFolders = await fetchGoogleDriveFolders();
-      cacheTime = now;
+    const allFolders = getAllFolders();
+
+    // ── ?folders=true → 폴더 목록 + 각 이미지 수 ──────────────────
+    if (foldersParam === 'true') {
+      const summaries: FolderSummary[] = await Promise.all(
+        allFolders.map(async (f) => {
+          const images = await getOrFetchFolder(f);
+          return { id: f.id, name: f.name, imageCount: images.length };
+        })
+      );
+
+      return NextResponse.json({ ok: true, folders: summaries });
     }
 
-    if (!category || !cachedFolders.has(category)) {
-      // 전체 폴더 목록 반환
-      const foldersArray = Array.from(cachedFolders.entries())
-        .map(([name, images]) => ({
-          category: name,
-          total: images.length,
-        }))
-        .sort((a, b) => a.category.localeCompare(b.category, 'ko'));
+    // ── ?folderId=xxx → 특정 폴더 이미지 페이지네이션 ─────────────
+    if (folderId) {
+      const folderDef = allFolders.find((f) => f.id === folderId);
+      if (!folderDef) {
+        return NextResponse.json(
+          { ok: false, error: 'NOT_FOUND', message: '등록되지 않은 폴더 ID입니다.' },
+          { status: 404 }
+        );
+      }
+
+      const images    = await getOrFetchFolder(folderDef);
+      const total     = images.length;
+      const skip      = (page - 1) * limit;
+      const paginated = images.slice(skip, skip + limit);
+      const totalPages = Math.ceil(total / limit);
+
+      const cacheEntry = folderCache.get(folderId);
 
       return NextResponse.json({
         ok: true,
-        folders: foldersArray,
+        folderId,
+        folderName: folderDef.name,
+        images: paginated,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasMore: page < totalPages,
+        },
+        cacheExpiry: cacheEntry
+          ? new Date(cacheEntry.fetchedAt + CACHE_DURATION).toISOString()
+          : null,
       });
     }
 
-    // 특정 카테고리의 이미지 페이지네이션
-    const images = cachedFolders.get(category) || [];
-    const total = images.length;
-    const skip = (page - 1) * limit;
-    const paginatedImages = images.slice(skip, skip + limit);
-    const totalPages = Math.ceil(total / limit);
-
-    return NextResponse.json({
-      ok: true,
-      category,
-      images: paginatedImages,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasMore: page < totalPages,
-      },
-      cacheExpiry: new Date(cacheTime + CACHE_DURATION).toISOString(),
-    });
+    // ── 파라미터 없음 → 폴더 목록만 반환 (이미지 수 제외, 빠름) ───
+    const folderList = allFolders.map((f) => ({ id: f.id, name: f.name }));
+    return NextResponse.json({ ok: true, folders: folderList });
   } catch (err) {
     logger.error('[GET /api/image-library/google-drive]', { err });
+    return NextResponse.json(
+      { ok: false, error: 'INTERNAL_SERVER_ERROR', message: '서버 오류가 발생했습니다.' },
+      { status: 500 }
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────
+// POST 핸들러 — 커스텀 폴더 추가 (메모리, 서버 재시작 전까지 유효)
+// ────────────────────────────────────────────────────────────────
+
+export async function POST(req: NextRequest) {
+  try {
+    const ctx = await getAuthContext();
+
+    if (!ctx || (ctx.role !== 'GLOBAL_ADMIN' && ctx.role !== 'OWNER')) {
+      return NextResponse.json(
+        { ok: false, error: 'FORBIDDEN', message: '폴더 추가 권한이 없습니다.' },
+        { status: 403 }
+      );
+    }
+
+    const body = await req.json() as { action?: string; name?: string; driveId?: string };
+
+    if (body.action !== 'add_folder') {
+      return NextResponse.json(
+        { ok: false, error: 'BAD_REQUEST', message: 'action은 add_folder 여야 합니다.' },
+        { status: 400 }
+      );
+    }
+
+    const name    = (body.name    ?? '').trim();
+    const driveId = (body.driveId ?? '').trim();
+
+    if (!name || !driveId) {
+      return NextResponse.json(
+        { ok: false, error: 'BAD_REQUEST', message: 'name과 driveId는 필수입니다.' },
+        { status: 400 }
+      );
+    }
+
+    // 중복 확인
+    const exists = getAllFolders().some((f) => f.id === driveId);
+    if (exists) {
+      return NextResponse.json(
+        { ok: false, error: 'CONFLICT', message: '이미 등록된 폴더 ID입니다.' },
+        { status: 409 }
+      );
+    }
+
+    const newFolder: FolderDef = { name, id: driveId };
+    customFolders.push(newFolder);
+
+    logger.info(`[GoogleDrive] 커스텀 폴더 추가: ${name} (${driveId})`);
+
+    return NextResponse.json(
+      { ok: true, message: '폴더가 추가되었습니다 (서버 재시작 전까지 유효).', folder: newFolder },
+      { status: 201 }
+    );
+  } catch (err) {
+    logger.error('[POST /api/image-library/google-drive]', { err });
     return NextResponse.json(
       { ok: false, error: 'INTERNAL_SERVER_ERROR', message: '서버 오류가 발생했습니다.' },
       { status: 500 }

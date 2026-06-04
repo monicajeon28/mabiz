@@ -245,11 +245,17 @@ export default function DocumentsApprovalPage() {
   // ─── Filtered contracts ───────────────────────────────────────────────────
 
   const filteredContracts = salesDocuments.filter((c) => {
+    const signStatus = typeof c.generatedData?.signStatus === 'string' ? c.generatedData.signStatus : null;
     if (contractFilter === 'complete') {
-      return c.status === 'SIGNED' || c.status === 'COMPLETED';
+      return c.status === 'SIGNED' || c.status === 'COMPLETED' || signStatus === 'SIGNED';
     }
     if (contractFilter === 'incomplete') {
-      return c.status === 'DRAFT' || c.status === 'SENT' || c.status === 'PENDING_APPROVAL';
+      return (
+        c.status === 'DRAFT' ||
+        c.status === 'SENT' ||
+        c.status === 'PENDING_APPROVAL' ||
+        (c.status === 'APPROVED' && signStatus !== 'SIGNED')
+      );
     }
     return true;
   });
@@ -357,16 +363,23 @@ export default function DocumentsApprovalPage() {
       return;
     }
 
+    if (!selectedSale.orderId) {
+      showError('주문번호가 없어 문서를 발급할 수 없습니다.');
+      return;
+    }
+
     setIsGenerating(true);
     try {
-      const res = await fetch('/api/admin/affiliate/documents/generate', {
+      const endpoint =
+        modalDocType === 'PURCHASE_CONFIRMATION'
+          ? '/api/documents/purchase-cert'
+          : '/api/documents/refund-cert';
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          documentType: modalDocType,
-          saleId: selectedSale.id,
-        }),
+        body: JSON.stringify({ orderId: selectedSale.orderId }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
@@ -374,6 +387,7 @@ export default function DocumentsApprovalPage() {
       }
       showSuccess(json.message || '문서가 생성되었습니다.');
       closeModal();
+      loadSales();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '문서 생성 오류';
       showError(msg);
@@ -700,15 +714,15 @@ export default function DocumentsApprovalPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filteredContracts.map((contract) => {
-                      const isComplete = contract.status === 'SIGNED' || contract.status === 'COMPLETED';
-                      const isSent = contract.status === 'SENT' || contract.status === 'APPROVED';
+                      const gd = contract.generatedData;
+                      const signStatus = typeof gd?.signStatus === 'string' ? gd.signStatus : null;
+                      const isComplete = contract.status === 'SIGNED' || contract.status === 'COMPLETED' || signStatus === 'SIGNED';
+                      const isSent = !isComplete && (contract.status === 'SENT' || contract.status === 'APPROVED' || contract.status === 'PENDING_APPROVAL');
                       const statusConfig = isComplete
                         ? { icon: '✅', label: '완료', cls: 'bg-green-50 text-green-700 border-green-200' }
                         : isSent
                         ? { icon: '📤', label: '발송됨', cls: 'bg-blue-50 text-blue-700 border-blue-200' }
                         : { icon: '⏳', label: '미발송', cls: 'bg-gray-100 text-gray-600 border-gray-200' };
-
-                      const gd = contract.generatedData;
                       const driveFileId = typeof gd?.driveFileId === 'string' ? gd.driveFileId : null;
                       const signToken = typeof gd?.signToken === 'string' ? gd.signToken : null;
                       const buyerName = typeof gd?.buyerName === 'string' ? gd.buyerName : null;
@@ -754,7 +768,7 @@ export default function DocumentsApprovalPage() {
                               </a>
                             ) : signToken ? (
                               <a
-                                href={`/contract/sign/${contract.id}`}
+                                href={`/contract/sign/${contract.id}?token=${signToken}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700 transition-colors"

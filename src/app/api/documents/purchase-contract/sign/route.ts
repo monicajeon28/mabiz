@@ -210,11 +210,11 @@ export async function POST(req: Request) {
         select: { id: true, status: true, generatedData: true, organizationId: true },
       });
       if (!docExists) return 'NOT_FOUND' as const; // 문서 없음 → 401
-      if (docExists.status === 'APPROVED') return null; // 이미 서명 → 409
 
       const current = docExists;
-
       const existingData = current.generatedData as Record<string, unknown>;
+      // APPROVED는 "관리자 발급" + "서명 완료" 두 경우 모두 가능하므로 signStatus로 판단
+      if (existingData.signStatus === 'SIGNED') return null; // 이미 서명 → 409
 
       // P0-2: timingSafeEqual 토큰 비교
       const storedToken = typeof existingData.signToken === 'string' ? existingData.signToken : '';
