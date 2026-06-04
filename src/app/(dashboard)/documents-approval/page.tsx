@@ -197,7 +197,9 @@ export default function DocumentsApprovalPage() {
     if (activeTab !== 'contracts') {
       loadSales();
     }
-  }, [activeTab, loadSales]);
+    // activeTab 변경 시만 재로드 (searchQuery 타이핑마다 자동 호출 방지)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // ─── Load contracts (SalesDocument) ───────────────────────────────────────
 
@@ -509,7 +511,7 @@ export default function DocumentsApprovalPage() {
             {TAB_CONFIG.map(({ key, label }) => (
               <button
                 key={key}
-                onClick={() => setActiveTab(key)}
+                onClick={() => { setActiveTab(key); setStatusFilter('all'); }}
                 className={`px-5 py-3 text-sm font-semibold rounded-t-lg transition-all duration-200 ${
                   activeTab === key
                     ? key === 'contracts'
@@ -810,7 +812,8 @@ export default function DocumentsApprovalPage() {
               </h2>
               <button
                 onClick={closeModal}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                disabled={isGenerating || isDownloading}
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <X className="h-5 w-5" />
               </button>
