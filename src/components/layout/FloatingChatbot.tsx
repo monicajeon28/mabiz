@@ -10,7 +10,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // ─── 타입 ───────────────────────────────────────────────────────────────────
 
 interface BotAnswer {
-  id: string;
+  id: number;          // Prisma Int @id
   key: string;
   question: string;
   answer: string;
@@ -49,8 +49,10 @@ export function FloatingChatbot() {
   const [query, setQuery]           = useState("");
   const [results, setResults]       = useState<BotAnswer[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [copiedId, setCopiedId]     = useState<string | null>(null);
+  const [copiedId, setCopiedId]     = useState<number | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [expandedId, setExpandedId]  = useState<number | null>(null);
+  const [searchError, setSearchError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -63,6 +65,7 @@ export function FloatingChatbot() {
     }
     setIsSearching(true);
     setHasSearched(true);
+    setSearchError(false);
     try {
       const res = await fetch(
         `/api/tools/bot-guide-answers?q=${encodeURIComponent(q)}&limit=5`
@@ -71,6 +74,7 @@ export function FloatingChatbot() {
       setResults(json.ok ? (json.data ?? []) : []);
     } catch {
       setResults([]);
+      setSearchError(true);
     } finally {
       setIsSearching(false);
     }
@@ -85,7 +89,7 @@ export function FloatingChatbot() {
     };
   }, [query, doSearch]);
 
-  // 봇 열릴 때 포커스
+  // 봇 열릴 때 포커스 + Escape 키로 닫기
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 100);
@@ -93,13 +97,20 @@ export function FloatingChatbot() {
       setQuery("");
       setResults([]);
       setHasSearched(false);
+      setExpandedId(null);
+      setSearchError(false);
     }
   }, [isOpen]);
 
-  // 상황 칩 클릭
+  useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => { if (e.key === "Escape" && isOpen) setIsOpen(false); };
+    document.addEventListener("keydown", onEsc);
+    return () => document.removeEventListener("keydown", onEsc);
+  }, [isOpen]);
+
+  // 상황 칩 클릭 — setQuery만 (useEffect debounce가 doSearch 처리)
   const handleChip = (keyword: string) => {
     setQuery(keyword);
-    doSearch(keyword);
     inputRef.current?.focus();
   };
 
@@ -110,7 +121,7 @@ export function FloatingChatbot() {
   };
 
   // 답변 복사
-  const handleCopy = (id: string, text: string) => {
+  const handleCopy = (id: number, text: string) => {
     navigator.clipboard.writeText(text).catch(() => {});
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -121,17 +132,21 @@ export function FloatingChatbot() {
       {/* ── 패널 ── */}
       {isOpen && (
         <div
-          className="fixed bottom-20 right-4 w-80 max-h-[80vh] bg-white rounded-2xl shadow-2xl border border-gray-100 z-40 flex flex-col md:bottom-24 md:right-6"
-          style={{ maxHeight: "min(80vh, 640px)" }}
+          role="dialog"
+          aria-label="세일즈봇"
+          aria-modal="true"
+          className="fixed bottom-[140px] right-4 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-40 flex flex-col md:bottom-28 md:right-6"
+          style={{ maxHeight: "min(75vh, 600px)" }}
         >
           {/* 헤더 */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
             <div className="flex items-center gap-2">
               <span className="text-lg">🤖</span>
-              <span className="font-bold text-gray-900 text-sm">세일즈봇</span>
+              <span className="font-bold text-gray-900 text-base">세일즈봇</span>
             </div>
             <button
               onClick={() => setIsOpen(false)}
+              aria-label="챗봇 닫기"
               className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
             >
               <X className="w-4 h-4" />
@@ -151,7 +166,7 @@ export function FloatingChatbot() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="키워드 검색 (예: 가격, 비행기...)"
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                  className="w-full pl-9 pr-3 py-2.5 text-base border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
                 />
               </div>
             </div>
@@ -159,13 +174,13 @@ export function FloatingChatbot() {
             {/* 상황별 빠른 칩 */}
             {!hasSearched && (
               <div className="px-4 pb-3 shrink-0">
-                <p className="text-xs text-gray-400 font-medium mb-2">💬 고객이 이렇게 말한다면?</p>
+                <p className="text-sm text-gray-500 font-medium mb-2">💬 고객이 이렇게 말한다면?</p>
                 <div className="flex flex-wrap gap-1.5">
                   {SITUATION_CHIPS.map((chip) => (
                     <button
                       key={chip.keyword}
                       onClick={() => handleChip(chip.keyword)}
-                      className="px-2.5 py-1 text-xs bg-blue-50 text-blue-700 rounded-full border border-blue-100 hover:bg-blue-100 hover:border-blue-300 transition-colors font-medium"
+                      className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded-full border border-blue-100 hover:bg-blue-100 hover:border-blue-300 transition-colors font-medium"
                     >
                       {chip.label}
                     </button>
@@ -184,37 +199,47 @@ export function FloatingChatbot() {
                   </div>
                 ) : results.length > 0 ? (
                   <div className="space-y-3">
-                    <p className="text-xs text-gray-400 font-medium">🔍 연관 검색 결과 {results.length}건</p>
-                    {results.map((item) => (
-                      <div
-                        key={item.id}
-                        className="bg-gray-50 rounded-xl p-3 border border-gray-100"
-                      >
-                        <p className="text-xs font-semibold text-gray-700 mb-1.5 leading-snug">
-                          Q. {item.question}
-                        </p>
-                        <p className="text-xs text-gray-600 leading-relaxed line-clamp-3 mb-2">
-                          {item.answer}
-                        </p>
-                        <div className="flex items-center justify-between gap-2">
-                          {item.category && (
-                            <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
-                              {item.category}
-                            </span>
-                          )}
+                    <p className="text-sm text-gray-500 font-medium">🔍 연관 검색 결과 {results.length}건</p>
+                    {results.map((item) => {
+                      const isExpanded = expandedId === item.id;
+                      return (
+                        <div
+                          key={item.id}
+                          className="bg-gray-50 rounded-xl p-3 border border-gray-100"
+                        >
+                          <p className="text-sm font-semibold text-gray-700 mb-1.5 leading-snug">
+                            Q. {item.question}
+                          </p>
+                          <p className={`text-sm text-gray-600 leading-relaxed mb-1 ${isExpanded ? "" : "line-clamp-3"}`}>
+                            {item.answer}
+                          </p>
+                          {/* 펼치기 / 접기 */}
                           <button
-                            onClick={() => handleCopy(item.id, item.answer)}
-                            className="ml-auto flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 px-2 py-1 rounded-lg hover:bg-gray-200 transition-colors"
+                            onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                            className="text-xs text-blue-500 hover:text-blue-700 mb-2"
                           >
-                            {copiedId === item.id ? (
-                              <><Check className="w-3 h-3 text-green-500" /> 복사됨</>
-                            ) : (
-                              <><Copy className="w-3 h-3" /> 복사</>
-                            )}
+                            {isExpanded ? "▲ 접기" : "▼ 전체 보기"}
                           </button>
+                          <div className="flex items-center justify-between gap-2">
+                            {item.category && (
+                              <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
+                                {item.category}
+                              </span>
+                            )}
+                            <button
+                              onClick={() => handleCopy(item.id, item.answer)}
+                              className="ml-auto flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 px-2 py-1 rounded-lg hover:bg-gray-200 transition-colors"
+                            >
+                              {copiedId === item.id ? (
+                                <><Check className="w-3 h-3 text-green-500" /> 복사됨</>
+                              ) : (
+                                <><Copy className="w-3 h-3" /> 복사</>
+                              )}
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {/* Q&A 전체 보기 */}
                     <Link
                       href={`/tools?tab=qa&q=${encodeURIComponent(query)}`}
@@ -226,8 +251,26 @@ export function FloatingChatbot() {
                   </div>
                 ) : (
                   <div className="text-center py-6">
-                    <p className="text-sm text-gray-500">"{query}"에 대한 결과가 없습니다.</p>
-                    <p className="text-xs text-gray-400 mt-1">다른 키워드로 검색해보세요.</p>
+                    {searchError ? (
+                      <p className="text-sm font-medium text-red-500">검색 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.</p>
+                    ) : (
+                      <>
+                        <p className="text-base font-medium text-gray-500">"{query}"에 대한 결과가 없습니다.</p>
+                        <p className="text-sm text-gray-400 mt-1">다른 키워드로 검색하거나 아래를 눌러보세요.</p>
+                      </>
+                    )}
+                    {/* 결과 없을 때도 칩 표시 */}
+                    <div className="flex flex-wrap gap-1.5 justify-center mt-3">
+                      {SITUATION_CHIPS.slice(0, 5).map((chip) => (
+                        <button
+                          key={chip.keyword}
+                          onClick={() => handleChip(chip.keyword)}
+                          className="px-3 py-1 text-xs bg-blue-50 text-blue-700 rounded-full border border-blue-100 hover:bg-blue-100 transition-colors"
+                        >
+                          {chip.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -236,7 +279,7 @@ export function FloatingChatbot() {
             {/* 도구 탐색 버튼 — 검색 결과 없을 때 항상 표시 */}
             {!hasSearched && (
               <div className="px-4 pb-4 shrink-0">
-                <p className="text-xs text-gray-400 font-medium mb-2">🚀 도구 바로가기</p>
+                <p className="text-sm text-gray-500 font-medium mb-2">🚀 도구 바로가기</p>
                 <div className="grid grid-cols-3 gap-2">
                   {QUICK_TOOLS.map((tool) => (
                     <button
@@ -278,7 +321,7 @@ export function FloatingChatbot() {
       {/* ── FAB 버튼 ── */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-4 w-14 h-14 rounded-full shadow-xl transition-all duration-200 z-50 flex items-center justify-center md:right-6 ${
+        className={`fixed bottom-[72px] right-4 w-14 h-14 rounded-full shadow-xl transition-all duration-200 z-50 flex items-center justify-center md:bottom-8 md:right-6 ${
           isOpen
             ? "bg-gray-800 hover:bg-gray-900 rotate-0"
             : "bg-blue-600 hover:bg-blue-700"
