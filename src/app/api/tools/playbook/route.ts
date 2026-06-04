@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgIdOrNull } from "@/lib/rbac";
+import { getAuthContext } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 // GET /api/tools/playbook?phase=X&customerSegment=Y&type=Z
 export async function GET(req: Request) {
   try {
-    const ctx = await getAuthContext();
-    const orgId = resolveOrgIdOrNull(ctx);
+    await getAuthContext();
     const { searchParams } = new URL(req.url);
     const phase           = searchParams.get("phase");
     const customerSegment = searchParams.get("customerSegment");
@@ -15,13 +14,10 @@ export async function GET(req: Request) {
     const scriptTab       = searchParams.get("scriptTab")   ?? "GENERAL";
     const productCode     = searchParams.get("productCode") ?? "ALL";
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const orgFilter: any = orgId ? { organizationId: orgId } : {};
     const items = await prisma.salesPlaybook.findMany({
       where: {
         isActive: true,
         scriptTab,
-        ...orgFilter,
         ...(phase !== null && { sectionOrder: parseInt(phase) }),
         ...(customerSegment && customerSegment !== "ALL" && { customerSegment }),
         ...(type ? { type } : {}),

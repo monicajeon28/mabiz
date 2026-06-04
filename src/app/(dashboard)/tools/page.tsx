@@ -14,7 +14,7 @@ const QaLibrary = lazy(() => import("@/components/tools/QaLibrary").then(mod => 
 import { SkeletonCard, SkeletonTrainingCard, SkeletonRecommendationCard } from "./components/SkeletonLoader";
 
 type Template = { id: string; category: string; title: string; content: string; triggerOffset: number | null };
-type Playbook  = { id: string; type: string; title: string; content: string; priority: number };
+type Playbook  = { id: string; type: string; title: string; content: string; priority: number; customerSegment?: string };
 type ProductTraining = { id: string; category: string; title: string; description: string; icon: string; content: string; lastViewed?: string };
 type ToolRecommendation = { toolId: string; title: string; category: string; reason: string; relevance: number };
 
@@ -65,7 +65,7 @@ const PLAYBOOK_TABS = [
 export default function ToolsPage() {
   const searchParams = useSearchParams();
   const [showCompressor, setShowCompressor] = useState(false);
-  const [mainTab,  setMainTab]   = useState<"dashboard" | "training" | "scripts" | "playbook" | "feedback" | "qa" | "call-feedback" | "call-playbook">("dashboard");
+  const [mainTab,  setMainTab]   = useState<"dashboard" | "training" | "scripts" | "playbook" | "feedback" | "qa" | "call-feedback" | "call-playbook" | "sms-templates">("dashboard");
 
   const [productCategory, setProductCategory] = useState("ALL");
   const [scriptPersona,   setScriptPersona]   = useState("PRICE_SENSITIVE");
@@ -187,8 +187,11 @@ export default function ToolsPage() {
   }, [training, productCategory, searchQuery]);
 
   const filteredScripts = useMemo(() =>
-    playbooks.filter((p) => p.type === "OPENING").slice(0, 5),
-    [playbooks]
+    playbooks
+      .filter((p) => p.type === scriptPersona || p.customerSegment === scriptPersona)
+      .sort((a, b) => a.priority - b.priority)
+      .slice(0, 5),
+    [playbooks, scriptPersona]
   );
 
   const scoreColor = useCallback((s: number) =>
@@ -224,13 +227,14 @@ export default function ToolsPage() {
       )}
 
       {/* 메인 탭 - 50대 친화형 대형 버튼 */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         {[
           { key: "dashboard",      label: "대시보드", icon: "📊", desc: "추천 도구" },
           { key: "training",       label: "상품교육", icon: "📚", desc: "5가지 상품" },
           { key: "scripts",        label: "콜스크립트", icon: "🎤", desc: "페르소나별" },
           { key: "playbook",       label: "플레이북", icon: "📖", desc: "8가지 상황" },
-          { key: "feedback",       label: "콜분석", icon: "🔊", desc: "AI 피드백" },
+          { key: "call-feedback",  label: "콜분석", icon: "🔊", desc: "AI 피드백" },
+          { key: "sms-templates",  label: "SMS템플릿", icon: "📱", desc: "문자 템플릿" },
         ].map((t) => (
           <button
             key={t.key}
@@ -324,7 +328,7 @@ export default function ToolsPage() {
                 { icon: "📚", label: "상품교육", tab: "training" as const, href: null },
                 { icon: "🎤", label: "콜스크립트", tab: "scripts" as const, href: null },
                 { icon: "📖", label: "플레이북", tab: "playbook" as const, href: null },
-                { icon: "📱", label: "SMS템플릿", tab: "feedback" as const, href: null },
+                { icon: "📱", label: "SMS템플릿", tab: "sms-templates" as const, href: null },
                 { icon: "❓", label: "Q&A", tab: "qa" as const, href: null },
                 { icon: "🔊", label: "콜분석", tab: "call-feedback" as const, href: null },
                 { icon: "🔍", label: "키워드검색량", tab: null, href: "/tools/keyword-volume" },
@@ -478,7 +482,7 @@ export default function ToolsPage() {
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div>
                     <h3 className="font-bold text-gray-900 text-sm">{script.title}</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">기본 오프닝</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{CALL_SCRIPT_PERSONAS.find(p => p.key === scriptPersona)?.label ?? "스크립트"}</p>
                   </div>
                   <button
                     onClick={() => copy(script.id, script.content)}
@@ -498,6 +502,13 @@ export default function ToolsPage() {
             ))}
           </div>
 
+          {filteredScripts.length === 0 && !isLoading && (
+            <div className="text-center py-8 text-gray-500 text-sm">
+              <p>{CALL_SCRIPT_PERSONAS.find(p => p.key === scriptPersona)?.label} 스크립트를 준비 중입니다.</p>
+              <p className="mt-1">플레이북에서 다른 유형을 확인해보세요.</p>
+            </div>
+          )}
+
           {/* 전체 플레이북으로 이동 */}
           <button
             onClick={() => setMainTab("playbook")}
@@ -509,7 +520,7 @@ export default function ToolsPage() {
       )}
 
       {/* SMS 템플릿 */}
-      {mainTab === "feedback" && (
+      {mainTab === "sms-templates" && (
         <div>
           <div className="flex gap-2 mb-4 flex-wrap">
             {TEMPLATE_TABS.map((t) => (
