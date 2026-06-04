@@ -11,12 +11,11 @@ function generateCode(): string {
 export async function GET(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    // GLOBAL_ADMIN은 organizationId 없음 → null 분기로 전체 조회
-    const orgId = ctx.role === 'GLOBAL_ADMIN' ? null : requireOrgId(ctx);
+    // 자기가 만든 링크만 조회 (GLOBAL_ADMIN 포함)
     const links = await prisma.shortLink.findMany({
-      where:   { ...(orgId ? { organizationId: orgId } : {}), isActive: true },
+      where:   { createdBy: ctx.userId, isActive: true },
       orderBy: { createdAt: 'desc' },
-      take:    50,
+      take:    100,
       select:  { id: true, code: true, title: true, targetUrl: true, category: true, clickCount: true, createdAt: true, contactId: true, autoGroupId: true },
     });
     return NextResponse.json({ ok: true, links });
@@ -66,7 +65,7 @@ export async function POST(req: Request) {
     let link;
     try {
       link = await prisma.shortLink.create({
-        data: { organizationId: orgId, code, ...body },
+        data: { organizationId: orgId, createdBy: ctx.userId, code, ...body },
         select: { id: true, code: true, targetUrl: true, title: true },
       });
     } catch (createErr) {
@@ -74,7 +73,7 @@ export async function POST(req: Request) {
       if (msg.includes('Unique constraint') || msg.includes('unique constraint')) {
         code = generateCode();
         link = await prisma.shortLink.create({
-          data: { organizationId: orgId, code, ...body },
+          data: { organizationId: orgId, createdBy: ctx.userId, code, ...body },
           select: { id: true, code: true, targetUrl: true, title: true },
         });
       } else {

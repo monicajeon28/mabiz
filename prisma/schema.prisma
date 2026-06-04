@@ -1660,6 +1660,7 @@ model ScriptPattern {
 model ShortLink {
   id             String           @id @default(cuid())
   organizationId String
+  createdBy      String?          // OrganizationMember.userId — 생성자 본인 링크만 조회
   code           String           @unique
   targetUrl      String
   title          String?
@@ -1673,6 +1674,7 @@ model ShortLink {
   organization   Organization     @relation(fields: [organizationId], references: [id])
   clicks         ShortLinkClick[]
 
+  @@index([organizationId, createdBy])
   @@map("ShortLink")
 }
 
