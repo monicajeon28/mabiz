@@ -356,7 +356,7 @@ export default function EditB2BPage() {
     formData.append("sortOrder", String(sortOrder));
 
     try {
-      const res = await fetch("/api/landing-pages/images", { method: "POST", body: formData });
+      const res = await fetch("/api/b2b-landing/images", { method: "POST", body: formData });
       // Task 1-5: res.ok 체크 추가
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -446,7 +446,7 @@ export default function EditB2BPage() {
     const previousImages = [...images]; // Task 1-3: previousImages 백업
 
     try {
-      const res = await fetch("/api/landing-pages/images", {
+      const res = await fetch("/api/b2b-landing/images", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ landingPageId: id, imageIds: images.map((img) => img.id) }),
@@ -472,7 +472,7 @@ export default function EditB2BPage() {
     setImages((prev) => prev.filter((img) => img.id !== imgId)); // Task 1-3: 낙관적 업데이트
 
     try {
-      const res = await fetch("/api/landing-pages/images", {
+      const res = await fetch("/api/b2b-landing/images", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: imgId }),
