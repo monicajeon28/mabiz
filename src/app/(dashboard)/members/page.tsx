@@ -49,10 +49,10 @@ const PROVIDER_BADGE: Record<string, { label: string; color: string }> = {
 };
 
 const AFFILIATE_BADGE: Record<string, { label: string; color: string }> = {
-  BRANCH_MANAGER: { label: "지사장",     color: "bg-purple-100 text-purple-700" },
+  BRANCH_MANAGER: { label: "대리점장",   color: "bg-purple-100 text-purple-700" },
   HQ:             { label: "본사",       color: "bg-indigo-100 text-indigo-700" },
   PRESALES:       { label: "프리세일즈", color: "bg-sky-100 text-sky-700" },
-  SALES_AGENT:    { label: "영업직원",   color: "bg-orange-100 text-orange-700" },
+  SALES_AGENT:    { label: "판매원",     color: "bg-orange-100 text-orange-700" },
 };
 
 const STATUS_BADGE: Record<string, { label: string; color: string }> = {
