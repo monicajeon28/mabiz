@@ -511,7 +511,7 @@ export default function DocumentsApprovalPage() {
             {TAB_CONFIG.map(({ key, label }) => (
               <button
                 key={key}
-                onClick={() => { setActiveTab(key); setStatusFilter('all'); }}
+                onClick={() => { setActiveTab(key); setStatusFilter('all'); setSearchQuery(''); }}
                 className={`px-5 py-3 text-sm font-semibold rounded-t-lg transition-all duration-200 ${
                   activeTab === key
                     ? key === 'contracts'

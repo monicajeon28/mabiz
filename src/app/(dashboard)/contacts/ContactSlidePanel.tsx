@@ -180,6 +180,8 @@ export default function ContactSlidePanel({
     if (propContact) {
       setContact(propContact);
       setActiveTab("call");
+      groupsLoadedRef.current = false; // 새 고객 선택 시 그룹/퍼널 캐시 초기화
+      setAllGroups([]); setFunnels([]);
       // SMS/캠페인/예약 상태 초기화
       setSmsLogs([]); setSmsHasMore(true); setSmsPage(1);
       setCampaignHistories([]); setCampaignLoading(false);
@@ -199,6 +201,7 @@ export default function ContactSlidePanel({
   const [copiedLogId, setCopiedLogId] = useState<string | null>(null);
   const [backing, setBacking] = useState(false);
   const [backupResult, setBackupResult] = useState<{ url: string; count: number } | null>(null);
+  const [savingCallLog, setSavingCallLog] = useState(false);
 
   useEffect(() => {
     if (!copiedLogId) return;
@@ -207,7 +210,8 @@ export default function ContactSlidePanel({
   }, [copiedLogId]);
 
   const addCallLog = useCallback(async () => {
-    if (!contact) return;
+    if (!contact || savingCallLog) return;
+    setSavingCallLog(true);
     try {
       const res = await fetch(`/api/contacts/${contact.id}/call-logs`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -228,8 +232,10 @@ export default function ContactSlidePanel({
     } catch (err) {
       logger.error("[addCallLog failed]", { err });
       toast({ title: "네트워크 오류", description: err instanceof Error ? err.message : "요청 실패", variant: "destructive" });
+    } finally {
+      setSavingCallLog(false);
     }
-  }, [contact, callForm, toast, onRefresh]);
+  }, [contact, callForm, savingCallLog, toast, onRefresh]);
 
   const deleteCallLog = useCallback(async (logId: string) => {
     if (!contact) return;
@@ -653,6 +659,7 @@ export default function ContactSlidePanel({
                   backing={backing}
                   backupResult={backupResult}
                   addCallLog={addCallLog}
+                  savingCallLog={savingCallLog}
                   deleteCallLog={deleteCallLog}
                   deleteAllCallLogs={deleteAllCallLogs}
                   backupCallLogs={backupCallLogs}

@@ -24,6 +24,15 @@ export async function GET(_req: Request, { params }: Params) {
     });
     if (!member) return NextResponse.json({ ok: false }, { status: 404 });
 
+    // 권한: OWNER/GLOBAL_ADMIN은 전체 조회, 그 외는 자신만
+    const canView =
+      ctx.role === 'OWNER' ||
+      ctx.role === 'GLOBAL_ADMIN' ||
+      ctx.userId === userId;
+    if (!canView) {
+      return NextResponse.json({ ok: false, message: '접근 권한 없음' }, { status: 403 });
+    }
+
     const docs = await prisma.memberDocument.findMany({
       where: { userId, organizationId: orgId },
       orderBy: { uploadedAt: 'desc' },

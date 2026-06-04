@@ -36,6 +36,7 @@ export const createContractInstanceSchema = z.object({
   contactId: z.string().optional(),
   boundData: z.record(z.string(), z.any()).optional(),
   autoSendSms: z.boolean().default(true),
+  expiresHours: z.number().int().positive().optional(),
 });
 
 export const listContractTemplatesQuerySchema = z.object({

@@ -2,65 +2,16 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
 import { Readable } from 'stream';
 import prisma from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+import { getDriveClient, findOrCreateFolder } from '@/lib/drive-client';
 
 const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024; // 10MB
 
 const DOCUMENTS_FOLDER_ID = process.env.GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID!;
-
-function getDriveClient() {
-  if (!DOCUMENTS_FOLDER_ID) {
-    throw new Error('GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID is not configured');
-  }
-
-  const privateKey = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? '')
-    .replace(/\\n/g, '\n');
-  const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-
-  if (!serviceAccountEmail || !privateKey) {
-    throw new Error('Google Service Account credentials not configured');
-  }
-
-  const auth = new google.auth.GoogleAuth({
-    credentials: {
-      client_email: serviceAccountEmail,
-      private_key: privateKey,
-    },
-    scopes: ['https://www.googleapis.com/auth/drive'],
-  });
-  return google.drive({ version: 'v3', auth });
-}
-
-/**
- * 폴더 찾기 (없으면 생성)
- */
-async function findOrCreateFolder(name: string, parentId: string): Promise<string> {
-  const drive = getDriveClient();
-  const res = await drive.files.list({
-    q: `mimeType='application/vnd.google-apps.folder' and name='${name.replace(/'/g, "\\'")}' and '${parentId}' in parents and trashed=false`,
-    fields: 'files(id, name)',
-    corpora: 'allDrives',
-    includeItemsFromAllDrives: true,
-    supportsAllDrives: true,
-  });
-  if (res.data.files && res.data.files.length > 0) {
-    return res.data.files[0].id!;
-  }
-  const created = await drive.files.create({
-    requestBody: {
-      name,
-      mimeType: 'application/vnd.google-apps.folder',
-      parents: [parentId],
-    },
-    fields: 'id',
-    supportsAllDrives: true,
-  });
-  return created.data.id!;
-}
 
 /**
  * POST: 문서 업로드
@@ -122,31 +73,42 @@ export async function POST(req: Request) {
 
     const driveFileId = uploadedFile.data.id!;
 
-    // DB에 Document 생성
-    const document = await prisma.document.create({
-      data: {
-        organizationId: orgId,
-        contactId: contactId || null,
-        title,
-        category: category || null,
-        description: description || null,
-        driveFileId,
-        fileSize: file.size,
-        mimeType: file.type,
-        createdBy: ctx.userId,
-        status: 'DRAFT',
-      },
-    });
+    // DB에 Document 생성 — 실패 시 Drive 파일 정리
+    let document: Awaited<ReturnType<typeof prisma.document.create>>;
+    try {
+      document = await prisma.document.create({
+        data: {
+          organizationId: orgId,
+          contactId: contactId || null,
+          title,
+          category: category || null,
+          description: description || null,
+          driveFileId,
+          fileSize: file.size,
+          mimeType: file.type,
+          createdBy: ctx.userId,
+          status: 'DRAFT',
+        },
+      });
+    } catch (dbErr) {
+      await drive.files.delete({ fileId: driveFileId, supportsAllDrives: true }).catch(() => {});
+      throw dbErr;
+    }
 
-    // DocumentVersion 생성 (v1)
-    await prisma.documentVersion.create({
-      data: {
-        documentId: document.id,
-        versionNumber: 1,
-        driveFileId,
-        uploadedBy: ctx.userId,
-      },
-    });
+    // DocumentVersion 생성 (v1) — 실패 시 Drive 파일 정리
+    try {
+      await prisma.documentVersion.create({
+        data: {
+          documentId: document.id,
+          versionNumber: 1,
+          driveFileId,
+          uploadedBy: ctx.userId,
+        },
+      });
+    } catch (dbErr) {
+      await drive.files.delete({ fileId: driveFileId, supportsAllDrives: true }).catch(() => {});
+      throw dbErr;
+    }
 
     return NextResponse.json(
       {
@@ -180,8 +142,8 @@ export async function GET(req: Request) {
     const status = url.searchParams.get('status');
     const category = url.searchParams.get('category');
 
-    const where: any = { organizationId: orgId };
-    if (status) where.status = status;
+    const where: Prisma.DocumentWhereInput = { organizationId: orgId };
+    if (status) where.status = status as Prisma.DocumentWhereInput['status'];
     if (category) where.category = category;
 
     const documents = await prisma.document.findMany({

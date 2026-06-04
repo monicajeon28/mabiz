@@ -162,7 +162,6 @@ export async function GET(req: Request) {
       ? await prisma.contactTransferLog.findMany({
           where:   { contactId: { in: contactIds } },
           orderBy: [{ contactId: 'asc' }, { createdAt: "desc" }],
-          take: contactIds.length,
           select:  { id: true, contactId: true, toUserId: true, transferType: true, newContactId: true, transferredBy: true },
         })
       : [];

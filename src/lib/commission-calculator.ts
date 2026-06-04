@@ -148,6 +148,7 @@ export async function createCommissionLedger(
   profileId?: number | null
 ): Promise<any> {
   try {
+    // Serializable 격리로 Race Condition(이중정산) 방지
     const ledger = await prisma.$transaction(async (tx) => {
       // 트랜잭션 내에서 원자적으로 조회 후 생성/업데이트 (이중정산 방지)
       const existingLedger = await tx.commissionLedger.findFirst({
@@ -176,7 +177,7 @@ export async function createCommissionLedger(
           currency: 'KRW',
         },
       });
-    });
+    }, { isolationLevel: 'Serializable' });
 
     logger.info('[Commission] Ledger 생성', {
       organizationId,
@@ -238,6 +239,21 @@ export async function batchCalculateCommissions(
     // 조회된 Sale ID 집합 (존재하지 않는 ID 식별용)
     const foundSaleIds = new Set(sales.map(s => s.id));
 
+    // 1.5️⃣ commissionRate가 null/0인 Sale의 affiliateCode를 일괄 조회하여 Tier 요율 캐싱 (N+1 방지)
+    const missingRateCodes = [...new Set(
+      sales
+        .filter(s => s.commissionRate == null || Number(s.commissionRate) <= 0)
+        .map(s => s.affiliateCode)
+        .filter((code): code is string => !!code)
+    )];
+    const tierRateCache = new Map<string, number>();
+    await Promise.all(
+      missingRateCodes.map(async (code) => {
+        const { rate } = await getCommissionRateByAffiliateCode(code, organizationId);
+        tierRateCache.set(code, rate);
+      })
+    );
+
     // 2️⃣ Commission 계산 및 Ledger 데이터 준비
     const ledgerDataToCreate = [];
     const ledgerSaleIdsForUpdate = [];
@@ -245,9 +261,14 @@ export async function batchCalculateCommissions(
 
     for (const sale of sales) {
       try {
+        // commissionRate가 null/0이면 Tier 요율(캐시) 사용
+        const effectiveRate = (sale.commissionRate != null && Number(sale.commissionRate) > 0)
+          ? Number(sale.commissionRate)
+          : (sale.affiliateCode ? (tierRateCache.get(sale.affiliateCode) ?? 18) : 18);
+
         const { commissionAmount } = await calculateCommission(
           Number(sale.saleAmount || 0),
-          sale.commissionRate || 0,
+          effectiveRate,
           organizationId
         );
 

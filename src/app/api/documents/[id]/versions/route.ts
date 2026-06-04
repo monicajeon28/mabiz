@@ -1,33 +1,10 @@
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
 import prisma from '@/lib/prisma';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+import { getDriveClient } from '@/lib/drive-client';
 
 const DOCUMENTS_FOLDER_ID = process.env.GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID!;
-
-function getDriveClient() {
-  if (!DOCUMENTS_FOLDER_ID) {
-    throw new Error('GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID is not configured');
-  }
-
-  const privateKey = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? '')
-    .replace(/\\n/g, '\n');
-  const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-
-  if (!serviceAccountEmail || !privateKey) {
-    throw new Error('Google Service Account credentials not configured');
-  }
-
-  const auth = new google.auth.GoogleAuth({
-    credentials: {
-      client_email: serviceAccountEmail,
-      private_key: privateKey,
-    },
-    scopes: ['https://www.googleapis.com/auth/drive'],
-  });
-  return google.drive({ version: 'v3', auth });
-}
 
 /**
  * 폴더 찾기
@@ -161,27 +138,33 @@ export async function POST(
 
     const driveFileId = uploadedFile.data.id!;
 
-    // DocumentVersion 생성
-    const version = await prisma.documentVersion.create({
-      data: {
-        documentId: id,
-        versionNumber: newVersionNumber,
-        driveFileId,
-        description: description || null,
-        uploadedBy: ctx.userId,
-      },
-    });
+    // DocumentVersion 생성 + document 업데이트 — DB 실패 시 Drive 파일 정리
+    let version: Awaited<ReturnType<typeof prisma.documentVersion.create>>;
+    try {
+      version = await prisma.documentVersion.create({
+        data: {
+          documentId: id,
+          versionNumber: newVersionNumber,
+          driveFileId,
+          description: description || null,
+          uploadedBy: ctx.userId,
+        },
+      });
 
-    // 최신 드라이브 파일 ID 업데이트
-    await prisma.document.update({
-      where: { id },
-      data: {
-        driveFileId,
-        fileSize: file.size,
-        mimeType: file.type,
-        updatedBy: ctx.userId,
-      },
-    });
+      // 최신 드라이브 파일 ID 업데이트
+      await prisma.document.update({
+        where: { id },
+        data: {
+          driveFileId,
+          fileSize: file.size,
+          mimeType: file.type,
+          updatedBy: ctx.userId,
+        },
+      });
+    } catch (dbErr) {
+      await drive.files.delete({ fileId: driveFileId, supportsAllDrives: true }).catch(() => {});
+      throw dbErr;
+    }
 
     return NextResponse.json(
       { ok: true, data: version, message: '새 버전이 업로드되었습니다' },

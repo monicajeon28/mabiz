@@ -146,7 +146,11 @@ export async function POST(req: NextRequest) {
 
     const agentId   = typeof body.agentId === 'number' ? Math.floor(body.agentId) : parseInt(String(body.agentId ?? ''));
     const type      = typeof body.type === 'string' && ALLOWED_TYPES.has(body.type) ? body.type : null;
-    const amount    = typeof body.amount === 'number' ? Math.floor(body.amount) : parseInt(String(body.amount ?? ''));
+    // amount 부호 규칙:
+    //   BONUS     → 양수 (지급 증가)
+    //   DEDUCTION → 음수 허용 (차감; 양수로 입력 시 집계 쿼리에서 -로 적용)
+    //   CORRECTION → 양수/음수 모두 허용 (보정값)
+    const amount    = typeof body.amount === 'number' ? Math.trunc(body.amount) : parseInt(String(body.amount ?? ''));
     const yearMonth = typeof body.yearMonth === 'string' && YEAR_MONTH_RE.test(body.yearMonth) ? body.yearMonth : null;
     const reason    = typeof body.reason === 'string' ? body.reason.slice(0, 500) : null;
 
@@ -156,8 +160,8 @@ export async function POST(req: NextRequest) {
     if (!type) {
       return NextResponse.json({ ok: false, error: `type 필수: ${[...ALLOWED_TYPES].join('|')}` }, { status: 400 });
     }
-    if (!amount || isNaN(amount) || amount <= 0) {
-      return NextResponse.json({ ok: false, error: 'amount 필수 (양의 정수)' }, { status: 400 });
+    if (amount === 0 || isNaN(amount)) {
+      return NextResponse.json({ ok: false, error: 'amount 필수 (0이 아닌 정수; DEDUCTION/CORRECTION은 음수 허용)' }, { status: 400 });
     }
     if (!yearMonth) {
       return NextResponse.json({ ok: false, error: 'yearMonth 필수 (YYYY-MM)' }, { status: 400 });

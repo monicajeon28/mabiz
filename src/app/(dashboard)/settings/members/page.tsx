@@ -3,11 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, Copy, Check, Loader2, UserX,
+  ArrowLeft, Loader2, UserX,
   ToggleLeft, ToggleRight, Trash2, FileText,
-  Upload, X, Download, QrCode, Link2,
+  Upload, X, Download,
 } from 'lucide-react';
-import QRCode from 'qrcode';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
@@ -18,18 +17,6 @@ type Member = {
   isActive: boolean;
   isGoldMember: boolean;
   goldMemberSince: string | null;
-};
-
-type InviteToken = {
-  id: string;
-  token: string;
-  role: string;
-  note: string | null;
-  url: string;
-  isExpired: boolean;
-  isUsed: boolean;
-  expiresAt: string;
-  createdAt: string;
 };
 
 type MemberDoc = {
@@ -339,6 +326,7 @@ export default function MembersPage() {
 
       setMembers(membersData.members ?? []);
       setInvites(invitesData.tokens ?? []);
+      if (membersData.myRole) setMyRole(membersData.myRole);
     } catch (e) {
       if ((e as Error).name === 'AbortError') return;
       showError('데이터를 불러오지 못했습니다.');
@@ -355,8 +343,8 @@ export default function MembersPage() {
     return () => { abortRef.current?.abort(); };
   }, [fetchAll]);
 
-  // 역할별 허용 초대 역할
-  const allowedInviteRoles = myRole === 'GLOBAL_ADMIN'
+  // 역할별 허용 초대 역할 — OWNER/GLOBAL_ADMIN은 모든 역할 초대 가능
+  const allowedInviteRoles = (myRole === 'GLOBAL_ADMIN' || myRole === 'OWNER')
     ? [{ value: 'OWNER', label: '대리점장 (OWNER)' }, { value: 'AGENT', label: '판매원 (AGENT)' }, { value: 'FREE_SALES', label: '프리세일즈 (FREE_SALES)' }]
     : [{ value: 'AGENT', label: '판매원 (AGENT)' }, { value: 'FREE_SALES', label: '프리세일즈 (FREE_SALES)' }];
 

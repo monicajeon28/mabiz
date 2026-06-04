@@ -41,6 +41,7 @@ export default function EmailSettingsPage() {
       })
       .catch((err) => {
         console.error("[EmailSettings] GET 실패:", err);
+        setMsg({ type: "err", text: "이메일 설정을 불러오지 못했습니다." });
       });
   }, []);
 

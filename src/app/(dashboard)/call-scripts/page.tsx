@@ -42,6 +42,7 @@ export default function CallScriptsPage() {
   const [error, setError] = useState<string | null>(null);
   const [dbScripts, setDbScripts] = useState<DbScript[]>([]);
   const [dbLoading, setDbLoading] = useState(false);
+  const [dbError, setDbError] = useState<string | null>(null);
   const [dbTypeFilter, setDbTypeFilter] = useState<string>('ALL');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -75,15 +76,18 @@ export default function CallScriptsPage() {
     if (category !== 'rose_db') return;
     const fetchDb = async () => {
       setDbLoading(true);
+      setDbError(null);
       try {
         const params = new URLSearchParams();
         if (segment && segment !== 'GENERAL') params.set('segment', segment);
         params.set('tab', 'CALL_SCRIPT');
         const res = await fetch(`/api/call-scripts/playbooks?${params}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data.ok) setDbScripts(data.scripts || []);
-      } catch {
-        // silent
+      } catch (err) {
+        setDbError("스크립트를 불러올 수 없습니다");
+        console.error("Error fetching DB scripts:", err);
       } finally {
         setDbLoading(false);
       }
@@ -91,10 +95,20 @@ export default function CallScriptsPage() {
     fetchDb();
   }, [category, segment]);
 
+  // 카테고리별 기본 세그먼트
+  const CATEGORY_DEFAULT_SEGMENT: Record<string, string> = {
+    healthcare: "신혼부부 (30-35세)",
+    rental: "초심자",
+    product_new_db: "모든 고객",
+    product_inactive_db: "모든 고객",
+    rose_db: "GENERAL",
+  };
+
   // 카테고리 변경 시 세그먼트 초기화
   const handleCategoryChange = (newCategory: string) => {
     setCategory(newCategory);
     setPhase("1");
+    setSegment(CATEGORY_DEFAULT_SEGMENT[newCategory] ?? "");
   };
 
   const handleSegmentChange = (newSegment: string) => {
@@ -160,6 +174,8 @@ export default function CallScriptsPage() {
               {/* 스크립트 카드 목록 */}
               {dbLoading ? (
                 <div className="text-center py-12 text-gray-500 text-sm">로드 중...</div>
+              ) : dbError ? (
+                <div className="text-center py-12 text-red-500 text-sm">{dbError}</div>
               ) : (
                 dbScripts
                   .filter(s => dbTypeFilter === 'ALL' || s.type === dbTypeFilter)

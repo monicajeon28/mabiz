@@ -175,8 +175,8 @@ export async function POST(req: Request) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mabizcruisedot.com';
     const signUrl = `${appUrl}/contract/sign/${doc.id}?token=${signToken}`;
 
-    // P1-2: APPROVED 시 서명 링크 이메일 중복 발송 방지
-    if (payment.buyerEmail && status !== 'APPROVED') {
+    // 서명 링크 이메일 발송 (PENDING_APPROVAL / APPROVED 모두 발송)
+    if (payment.buyerEmail) {
       sendFunnelEmail({
         organizationId: orgId,
         to:      payment.buyerEmail,
@@ -201,32 +201,6 @@ export async function POST(req: Request) {
 </div>`,
         channel: 'MANUAL',
       }).catch(() => {});
-    }
-
-    // APPROVED면 발급 안내 이메일
-    if (status === 'APPROVED') {
-      if (payment.buyerEmail) {
-        sendFunnelEmail({
-          organizationId: orgId,
-          to:      payment.buyerEmail,
-          subject: `[구매계약서] ${escHtml(payment.productName ?? '크루즈 상품')} 구매 계약서가 발급되었습니다`,
-          html: `<div style="font-family:sans-serif;line-height:1.8;max-width:600px;margin:0 auto;padding:32px 24px">
-<h2 style="color:#1a1a2e;margin:0 0 16px">구매 계약서 발급 안내</h2>
-<p>${escHtml(payment.buyerName ?? '')}님, 아래 내용으로 구매 계약서가 발급되었습니다.</p>
-<table style="width:100%;border-collapse:collapse;margin:20px 0">
-  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666;width:40%">상품명</td><td style="padding:10px 14px;font-weight:600">${escHtml(payment.productName ?? '크루즈 상품')}</td></tr>
-  ${departureDate ? `<tr><td style="padding:10px 14px;color:#666">출발일</td><td style="padding:10px 14px">${escHtml(departureDate)}</td></tr>` : ''}
-  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">계약금액</td><td style="padding:10px 14px;font-weight:700;color:#2b6cb0">${payment.amount.toLocaleString()}원</td></tr>
-  <tr><td style="padding:10px 14px;color:#666">결제방법</td><td style="padding:10px 14px">${escHtml(paymentMethod)}</td></tr>
-  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">계약일</td><td style="padding:10px 14px">${escHtml(signedAt)}</td></tr>
-  <tr><td style="padding:10px 14px;color:#666">문서번호</td><td style="padding:10px 14px;font-size:12px;color:#888">${escHtml(doc.id)}</td></tr>
-</table>
-${body.specialTerms ? `<p style="background:#fffbeb;border-left:4px solid #f59e0b;padding:12px 16px;margin:16px 0;border-radius:0 8px 8px 0"><strong>특약사항:</strong> ${escHtml(body.specialTerms)}</p>` : ''}
-<p style="color:#666;font-size:14px">문의사항은 담당 에이전트에게 연락해 주세요.</p>
-</div>`,
-          channel: 'MANUAL',
-        }).catch(() => {});
-      }
     }
 
     logger.log('[PurchaseContract] 발급', { orgId, orderId: body.orderId, status, docId: doc.id });

@@ -237,16 +237,24 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       newValues
     );
 
-    await logContractTemplateAudit({
-      organizationId: orgId,
-      templateId: id,
-      userId: ctx.userId,
-      action: "UPDATE",
-      previousValues,
-      newValues,
-      changeDescription,
-      request: req,
-    });
+    try {
+      await logContractTemplateAudit({
+        organizationId: orgId,
+        templateId: id,
+        userId: ctx.userId,
+        action: "UPDATE",
+        previousValues,
+        newValues,
+        changeDescription,
+        request: req,
+      });
+    } catch (auditErr) {
+      logger.error('감사 로그 저장 실패 — 템플릿은 업데이트됨', {
+        templateId: id,
+        error: auditErr instanceof Error ? auditErr.message : String(auditErr),
+      });
+      // 응답은 성공으로 처리하되 경고
+    }
 
     logger.info(`Contract template updated: ${id} (v${updatedTemplate.version})`);
 
