@@ -103,7 +103,7 @@ export async function GET(req: Request) {
       .toBuffer();
 
     const safeName = encodeURIComponent(downloadName.replace(/\.[^.]+$/, ''));
-    return new Response(result.buffer.slice(result.byteOffset, result.byteOffset + result.byteLength) as ArrayBuffer, {
+    return new Response(result as unknown as BodyInit, {
       headers: {
         'Content-Type': 'image/png',
         'Content-Disposition': `attachment; filename="${safeName}.png"; filename*=UTF-8''${safeName}.png`,
