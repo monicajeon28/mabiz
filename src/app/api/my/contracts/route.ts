@@ -1,70 +1,83 @@
 import { NextResponse } from 'next/server';
-import { getAuthContext } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-
-type Contract = {
-  id: string;
-  contractorName: string;
-  status: "invited" | "signed" | "completed" | "rejected";
-  invitedAt: string | null;
-  signedAt: string | null;
-  completedAt: string | null;
-  submittedAt: string | null;
-  mentorCode: string | null;
-  // L10 렌즈: SMS 자동화 메타데이터
-  smsDay0Sent?: boolean;
-  smsDay1Sent?: boolean;
-  smsDay2Sent?: boolean;
-  lastReminderAt?: string | null;
-  // P1 거장단 토론: 계약 타입별 명확한 상태 표시
-  contractType?: "cruisedot-partners" | "rental-partner" | "other";
-};
 
 export async function GET() {
   try {
     const ctx = await getAuthContext();
 
-    // OWNER만 접근 가능
-    if (ctx.role !== 'OWNER') {
+    // FREE_SALES는 접근 불가
+    if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: true, contracts: [] });
     }
 
-    // 1. affiliateCode 조회
-    const sale = await prisma.affiliateSale.findFirst({
-      where: { affiliateUserId: ctx.userId },
+    const orgId = resolveOrgId(ctx);
+
+    // ContractInstance: CRM 자체 DB에서 조회 (template 관계 포함)
+    const instances = await prisma.contractInstance.findMany({
+      where: { organizationId: orgId },
       orderBy: { createdAt: 'desc' },
-      select: { affiliateCode: true },
+      take: 100,
+      include: {
+        template: { select: { name: true, category: true } },
+      },
     });
 
-    if (!sale?.affiliateCode) {
-      return NextResponse.json({ ok: true, contracts: [] });
-    }
+    // contactId 목록으로 Contact 이름 일괄 조회
+    const contactIds = instances
+      .map((i) => i.contactId)
+      .filter((id): id is string => id !== null);
 
-    // 2. 크루즈닷 internal API 호출
-    const baseUrl = process.env.CRUISEDOT_BASE_URL;
-    const secret  = process.env.CRUISEDOT_INTERNAL_SECRET;
+    const contacts = contactIds.length > 0
+      ? await prisma.contact.findMany({
+          where: { id: { in: contactIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const contactMap = new Map(contacts.map((c) => [c.id, c.name]));
 
-    if (!baseUrl || !secret) {
-      logger.log('[Contracts] CRUISEDOT 환경변수 미설정');
-      return NextResponse.json({ ok: true, contracts: [] });
-    }
+    const contracts = instances.map((inst) => {
+      // status 매핑
+      const statusMap: Record<string, string> = {
+        DRAFT:     'invited',
+        SENT:      'invited',
+        SIGNED:    'signed',
+        COMPLETED: 'completed',
+      };
 
-    const res = await fetch(
-      `${baseUrl}/api/internal/contracts?affiliateCode=${encodeURIComponent(sale.affiliateCode)}`,
-      {
-        headers: { Authorization: `Bearer ${secret}` },
-        next: { revalidate: 300 }, // 5분 캐시
-      }
-    );
+      // contractType: 템플릿 카테고리로 판단
+      const category = inst.template?.category ?? '';
+      let contractType: 'cruisedot-partners' | 'rental-partner' | 'other' = 'other';
+      if (category === 'CRUISE' || category === 'PACKAGE') contractType = 'cruisedot-partners';
+      else if (category === 'RENTAL') contractType = 'rental-partner';
 
-    if (!res.ok) {
-      logger.log('[Contracts] 크루즈닷 응답 실패', { status: res.status });
-      return NextResponse.json({ ok: true, contracts: [] });
-    }
+      // 계약자 이름: Contact → boundData.name → fallback
+      const bound = (inst.boundData as Record<string, unknown>) ?? {};
+      const contractorName =
+        (inst.contactId ? contactMap.get(inst.contactId) : null) ??
+        (typeof bound.name === 'string' ? bound.name : null) ??
+        '이름 없음';
 
-    const data = await res.json() as { ok: boolean; contracts: Contract[] };
-    return NextResponse.json({ ok: true, contracts: data.contracts ?? [] });
+      return {
+        id:             inst.id,
+        contractorName,
+        status:         statusMap[inst.status] ?? 'invited',
+        invitedAt:      inst.createdAt.toISOString(),
+        signedAt:       inst.signedAt?.toISOString() ?? null,
+        completedAt:    inst.signedAt?.toISOString() ?? null,
+        submittedAt:    inst.createdAt.toISOString(),
+        mentorCode:     null,
+        smsDay0Sent:    inst.smsDay0Sent,
+        smsDay1Sent:    inst.smsDay1Sent,
+        smsDay2Sent:    inst.smsDay2Sent,
+        lastReminderAt: inst.smsDay2SentAt?.toISOString() ?? null,
+        contractType,
+      };
+    });
+
+    logger.log('[Contracts] 조회', { orgId, count: contracts.length });
+    return NextResponse.json({ ok: true, contracts });
 
   } catch (e) {
     logger.log('[Contracts] 오류', { error: e instanceof Error ? e.message : String(e) });
