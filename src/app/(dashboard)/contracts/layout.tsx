@@ -34,8 +34,10 @@ export default async function ContractsLayout({ children }: ContractsLayoutProps
     redirect('/sign-in');
   }
 
-  // GLOBAL_ADMIN이 아님 → 대시보드로
-  if (ctx.role !== 'GLOBAL_ADMIN') {
+  // GLOBAL_ADMIN 또는 OWNER만 접근 허용
+  // OWNER: /contracts (내 계약서 조회)
+  // GLOBAL_ADMIN: /contracts + /contracts/templates (템플릿 관리)
+  if (ctx.role !== 'GLOBAL_ADMIN' && ctx.role !== 'OWNER') {
     logger.warn(`contracts.layout: unauthorized access - role=${ctx.role}, userId=${ctx.userId}`);
     redirect('/dashboard');
   }
