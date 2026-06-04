@@ -272,26 +272,42 @@ export default function LinksPage() {
                         ({clickStats[link.id].groupStatus!.filter(m => m.clicked).length}/{clickStats[link.id].groupStatus!.length}명 확인)
                       </p>
                       <div className="space-y-1 max-h-48 overflow-y-auto">
-                        {clickStats[link.id].groupStatus!.map(member => (
-                          <div key={member.id} className="flex items-center justify-between text-sm px-2 py-1 rounded hover:bg-gray-50">
+                        {clickStats[link.id].groupStatus!.map(member => {
+                          const personalUrl = `${APP_URL}/l/${link.code}?c=${member.id}`;
+                          return (
+                          <div key={member.id} className="flex items-center justify-between text-sm px-2 py-1 rounded hover:bg-gray-50 group">
                             <div className="flex items-center gap-2">
                               <span>{member.clicked ? '✅' : '⏳'}</span>
                               <span className="text-gray-700">{member.name}</span>
                               <span className="text-gray-400 text-xs">{member.phone}</span>
                             </div>
-                            {member.clickedAt && (
-                              <span className="text-xs text-gray-400">
-                                {new Date(member.clickedAt).toLocaleDateString('ko-KR')}
-                              </span>
-                            )}
+                            <div className="flex items-center gap-2">
+                              {member.clickedAt && (
+                                <span className="text-xs text-gray-400">
+                                  {new Date(member.clickedAt).toLocaleDateString('ko-KR')}
+                                </span>
+                              )}
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(personalUrl);
+                                  setCopied(member.id);
+                                  setTimeout(() => setCopied(null), 2000);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded transition-opacity"
+                                title="개인화 URL 복사"
+                              >
+                                {copied === member.id
+                                  ? <Check className="w-3 h-3 text-green-500" />
+                                  : <Copy className="w-3 h-3 text-gray-400" />}
+                              </button>
+                            </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
-                      {link.autoGroupId && (
-                        <p className="text-xs text-gray-400 mt-2">
-                          SMS 발송 시: <code className="bg-gray-100 px-1 rounded">/l/{link.code}?c={'{고객ID}'}</code> 형태로 발송하세요
-                        </p>
-                      )}
+                      <p className="text-xs text-gray-400 mt-2">
+                        각 고객 행에 마우스를 올리면 개인화 URL 복사 버튼이 나타납니다
+                      </p>
                     </div>
                   ) : (clickStats[link.id]?.clicks ?? []).length === 0 ? (
                     <p className="text-sm text-gray-600 text-center py-2">클릭 기록이 없습니다</p>
