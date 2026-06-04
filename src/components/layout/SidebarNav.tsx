@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, Users2, MessageSquare, GitBranch,
@@ -148,7 +149,7 @@ export function SidebarNav({ className, session }: SidebarNavProps) {
       {/* 로고 */}
       <div className="px-6 py-5 flex items-center justify-between border-b border-[#2A4080]">
         <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="크루즈닷파트너스" className="h-8 w-auto object-contain" />
+          <Image src="/logo.png" alt="크루즈닷파트너스" width={120} height={32} className="h-8 w-auto object-contain" />
         </div>
         <NotificationBell />
       </div>
