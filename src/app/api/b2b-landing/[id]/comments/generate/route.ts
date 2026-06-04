@@ -231,7 +231,7 @@ ${textContent}
       model: anthropicModel,
     });
 
-    return NextResponse.json({ ok: true, data: created });
+    return NextResponse.json({ ok: true, comments: created });
   } catch (err) {
     if (err instanceof NotFoundError) {
       return NextResponse.json(

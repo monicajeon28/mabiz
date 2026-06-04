@@ -63,7 +63,7 @@ export async function GET(req: Request, { params }: Params) {
 
     // [캐싱] Redis에서 5분 TTL로 캐시된 댓글 목록 조회
     const cacheKey = `b2b:comments:${id}:${skip}:${limit}`;
-    const cachedComments = await getCache<{ ok: boolean; data: B2BComment[]; total: number; totalPages: number }>(cacheKey);
+    const cachedComments = await getCache<{ ok: boolean; comments: B2BComment[]; total: number; totalPages: number }>(cacheKey);
     if (cachedComments) {
       logger.log('[B2B comments] 캐시에서 조회', { id, orgId, skip, limit });
       return NextResponse.json(cachedComments);
@@ -108,7 +108,7 @@ export async function GET(req: Request, { params }: Params) {
 
     const response = {
       ok: true,
-      data: comments,
+      comments,
       total,
       totalPages,
     };
@@ -128,5 +128,41 @@ export async function GET(req: Request, { params }: Params) {
       stack: err instanceof Error ? err.stack?.split('\n').slice(0, 3).join('\n') : undefined,
     });
     return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR', message: '댓글을 불러오지 못했습니다.' }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/b2b-landing/[id]/comments?commentId=xxx
+ * B2B 랜딩페이지 댓글 삭제
+ */
+export async function DELETE(req: Request, { params }: Params) {
+  try {
+    const ctx = await getAuthContext();
+    const orgId = requireOrgId(ctx);
+    const { id } = await params;
+    const { searchParams } = new URL(req.url);
+    const commentId = searchParams.get('commentId');
+
+    if (!commentId) {
+      return NextResponse.json({ ok: false, error: 'INVALID_INPUT', message: 'commentId 필수' }, { status: 400 });
+    }
+
+    // 소유권 확인
+    const page = await prisma.b2BLandingPage.findFirst({
+      where: { id, organizationId: orgId },
+      select: { id: true },
+    });
+    if (!page) {
+      return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: '랜딩페이지를 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    await prisma.b2BLandingComment.delete({ where: { id: commentId } });
+
+    logger.log('[DELETE /api/b2b-landing/[id]/comments]', { landingPageId: id, commentId, orgId });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    logger.error('[DELETE /api/b2b-landing/[id]/comments] Error', { error: errorMsg });
+    return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR', message: '댓글 삭제 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
