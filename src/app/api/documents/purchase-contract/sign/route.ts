@@ -405,11 +405,13 @@ export async function POST(req: Request) {
 </body>
 </html>`;
 
+        const customerPhone = typeof data.buyerTel === 'string' ? data.buyerTel : '';
         const driveResult = await saveContractToDrive(
           docId,
           htmlContent,
           signerName,
-          organizationId
+          organizationId,
+          customerPhone
         );
 
         if (driveResult.ok && driveResult.driveFileId) {
