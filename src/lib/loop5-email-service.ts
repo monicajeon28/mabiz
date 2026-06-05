@@ -1,4 +1,3 @@
-import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { sendEmail, getOrgEmailConfig } from '@/lib/email';
 
@@ -85,7 +84,8 @@ function getEmailSubject(
 function generateDay0EmailHTML(
   segment: Segment,
   variant: ABVariant,
-  contactName?: string
+  contactName?: string,
+  contactId?: string
 ): string {
   const name = contactName ? contactName.split(' ')[0] : '고객님';
 
@@ -222,9 +222,9 @@ function generateDay0EmailHTML(
     </div>
 
     <div class="footer">
-      <p>© 2026 cruisedot.com | 문의: contact@cruisedot.com</p>
+      <p>© 2026 cruisedot.com | 문의: ${process.env.BRAND_CONTACT_EMAIL ?? 'contact@cruisedot.com'}</p>
       <p>
-        <a href="#" style="color: #0066cc; text-decoration: none;">수신거부</a> |
+        <a href="${process.env.UNSUBSCRIBE_BASE_URL ? `${process.env.UNSUBSCRIBE_BASE_URL}?contactId=${contactId}` : '#'}" style="color: #0066cc; text-decoration: none;">수신거부</a> |
         <a href="#" style="color: #0066cc; text-decoration: none;">개인정보처리방침</a>
       </p>
     </div>
@@ -240,7 +240,8 @@ function generateDay0EmailHTML(
 function generateDay2EmailHTML(
   segment: Segment,
   variant: ABVariant,
-  contactName?: string
+  contactName?: string,
+  contactId?: string
 ): string {
   const name = contactName ? contactName.split(' ')[0] : '고객님';
 
@@ -316,7 +317,10 @@ function generateDay2EmailHTML(
     </div>
 
     <div class="footer">
-      <p>© 2026 cruisedot.com | 긴급 문의: 1644-1234</p>
+      <p>© 2026 cruisedot.com | 긴급 문의: ${process.env.BRAND_CONTACT_PHONE ?? '1644-1234'}</p>
+      <p>
+        <a href="${process.env.UNSUBSCRIBE_BASE_URL ? `${process.env.UNSUBSCRIBE_BASE_URL}?contactId=${contactId}` : '#'}" style="color: #cc0000; text-decoration: none;">수신거부</a>
+      </p>
     </div>
   </div>
 </body>
@@ -347,8 +351,13 @@ export async function sendDay0Email(
       };
     }
 
+    // 이메일 형식 검증
+    if (!email || !email.includes('@')) {
+      return { success: false, error: 'invalid_email' };
+    }
+
     // HTML 생성
-    const html = generateDay0EmailHTML(segment, variant, contactName);
+    const html = generateDay0EmailHTML(segment, variant, contactName, contactId);
     const subject = getEmailSubject(segment, 0, variant);
 
     // 발송
@@ -406,7 +415,12 @@ export async function sendDay2Email(
       };
     }
 
-    const html = generateDay2EmailHTML(segment, variant, contactName);
+    // 이메일 형식 검증
+    if (!email || !email.includes('@')) {
+      return { success: false, error: 'invalid_email' };
+    }
+
+    const html = generateDay2EmailHTML(segment, variant, contactName, contactId);
     const subject = getEmailSubject(segment, 2, variant);
 
     const success = await sendEmail({

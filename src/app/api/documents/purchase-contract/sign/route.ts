@@ -253,7 +253,8 @@ export async function POST(req: Request) {
         },
       });
 
-      return { signedAt, organizationId: current.organizationId };
+      const productName = typeof existingData.productName === 'string' ? existingData.productName : '크루즈 상품';
+      return { signedAt, organizationId: current.organizationId, productName };
     });
 
     if (result === 'NOT_FOUND') {
@@ -282,19 +283,12 @@ export async function POST(req: Request) {
     }
 
     // 에이전트 이메일 알림 (fire-and-forget)
-    const { signedAt, organizationId } = result;
-    const productNameRaw = '크루즈 상품'; // 이메일에 사용할 상품명은 DB에서 읽어올 수 없으므로 기본값
+    const { signedAt, organizationId, productName: productNameFromTx } = result;
 
     void (async () => {
       try {
-        // DB에서 상품명 조회
-        const freshDoc = await prisma.salesDocument.findUnique({
-          where: { id: docId },
-          select: { generatedData: true },
-        });
-        const productName = typeof (freshDoc?.generatedData as Record<string, unknown> | null)?.productName === 'string'
-          ? ((freshDoc!.generatedData as Record<string, unknown>).productName as string)
-          : productNameRaw;
+        // 트랜잭션에서 이미 읽은 productName 재활용 (불필요한 DB 왕복 방지)
+        const productName = productNameFromTx;
 
         // P1-4: isActive 필터 추가
         const admin = await prisma.organizationMember.findFirst({
@@ -502,23 +496,35 @@ export async function POST(req: Request) {
 
         const attachment = [{ filename, content: pdfBuffer, contentType: 'application/pdf' }];
 
-        // 발송 1: 회사 보관 (jmonica@cruisedot.co.kr)
-        await sendSystemEmail({
-          to:          COMPANY_EMAIL,
-          subject:     `[회사보관] ${subject}`,
-          html,
-          attachments: attachment,
-        });
-
-        // 발송 2: 구매자 본인 이메일
-        const buyerEmail = typeof d.buyerEmail === 'string' ? d.buyerEmail : null;
-        if (buyerEmail && buyerEmail.includes('@')) {
+        // 발송 1: 회사 보관 — 실패해도 발송 2에 영향 없음
+        try {
           await sendSystemEmail({
-            to:          buyerEmail,
-            subject:     `[본인보관] ${subject}`,
-            html:        html.replace('PDF가 첨부되어 있습니다.', '본인 보관용 계약서 PDF가 첨부되어 있습니다. 안전한 곳에 보관해 주세요.'),
+            to:          COMPANY_EMAIL,
+            subject:     `[회사보관] ${subject}`,
+            html,
             attachments: attachment,
           });
+        } catch (e1) {
+          logger.error('[PurchaseContractSign] 회사 보관 이메일 발송 실패', {
+            docId, error: e1 instanceof Error ? e1.message : String(e1),
+          });
+        }
+
+        // 발송 2: 구매자 본인 이메일 — 회사 발송 실패 여부와 독립
+        const buyerEmail = typeof d.buyerEmail === 'string' ? d.buyerEmail : null;
+        if (buyerEmail) {
+          try {
+            await sendSystemEmail({
+              to:          buyerEmail,
+              subject:     `[본인보관] ${subject}`,
+              html:        html.replace('PDF가 첨부되어 있습니다.', '본인 보관용 계약서 PDF가 첨부되어 있습니다. 안전한 곳에 보관해 주세요.'),
+              attachments: attachment,
+            });
+          } catch (e2) {
+            logger.error('[PurchaseContractSign] 구매자 본인 이메일 발송 실패', {
+              docId, error: e2 instanceof Error ? e2.message : String(e2),
+            });
+          }
         }
 
         logger.log('[PurchaseContractSign] PDF 이메일 발송 완료', { docId, buyerEmail });

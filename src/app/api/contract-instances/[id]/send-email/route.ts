@@ -4,6 +4,10 @@ import { getMabizSession } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { sendSystemEmail } from "@/lib/system-email";
 
+function escHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
@@ -71,6 +75,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // 이메일 형식 검증
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
+      return NextResponse.json(
+        { ok: false, error: "이메일 주소 형식이 올바르지 않습니다." },
+        { status: 422 }
+      );
+    }
+
     // DRAFT → SENT 전환
     if (instance.status === "DRAFT") {
       await prisma.contractInstance.update({
@@ -104,8 +116,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 </head>
 <body>
   <div class="card">
-    <h1>📝 ${templateName} 서명 요청</h1>
-    <p>안녕하세요, <strong>${recipientName}</strong>님!</p>
+    <h1>📝 ${escHtml(templateName)} 서명 요청</h1>
+    <p>안녕하세요, <strong>${escHtml(recipientName)}</strong>님!</p>
     <p>마비즈에서 계약서 서명을 요청드립니다. 아래 버튼을 클릭하여 5~10분 내에 간편하게 전자서명을 완료하실 수 있습니다.</p>
     <a href="${signUrl}" class="btn">⚡ 지금 바로 서명하기</a>
     <p>버튼이 작동하지 않는 경우 아래 주소를 직접 복사하여 브라우저에 붙여넣기 해주세요.</p>

@@ -5,6 +5,10 @@ import { hashPassword } from "@/lib/password";
 import { generateContractPdf } from "@/lib/contract-pdf";
 import { sendSystemEmail, COMPANY_EMAIL } from "@/lib/system-email";
 
+function escHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 type Params = { params: Promise<{ token: string }> };
 
 // GET /api/join/[token] — 초대 토큰 정보 조회 (공개)
@@ -214,14 +218,14 @@ async function sendContractPdf(p: {
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1a1a1a">
       <h2 style="color:#1a3a6b;margin-bottom:16px">📋 어필리에이트 판매원 계약서</h2>
       <p>안녕하세요.</p>
-      <p><strong>${p.memberName}</strong>님이 크루즈닷 어필리에이트 판매원으로 계약을 체결하였습니다.<br>
+      <p><strong>${escHtml(p.memberName)}</strong>님이 크루즈닷 어필리에이트 판매원으로 계약을 체결하였습니다.<br>
       서명된 계약서 PDF가 첨부되어 있습니다.</p>
       <table style="border-collapse:collapse;width:100%;margin:20px 0;font-size:14px">
-        <tr style="background:#f5f7fa"><td style="padding:10px;border:1px solid #e5e7eb;width:120px;font-weight:600">성명</td><td style="padding:10px;border:1px solid #e5e7eb">${p.memberName}</td></tr>
-        <tr><td style="padding:10px;border:1px solid #e5e7eb;font-weight:600">전화번호</td><td style="padding:10px;border:1px solid #e5e7eb">${p.memberPhone.slice(0, 3)}****${p.memberPhone.slice(-4)}</td></tr>
+        <tr style="background:#f5f7fa"><td style="padding:10px;border:1px solid #e5e7eb;width:120px;font-weight:600">성명</td><td style="padding:10px;border:1px solid #e5e7eb">${escHtml(p.memberName)}</td></tr>
+        <tr><td style="padding:10px;border:1px solid #e5e7eb;font-weight:600">전화번호</td><td style="padding:10px;border:1px solid #e5e7eb">${escHtml(p.memberPhone.slice(0, 3))}****${escHtml(p.memberPhone.slice(-4))}</td></tr>
         <tr style="background:#f5f7fa"><td style="padding:10px;border:1px solid #e5e7eb;font-weight:600">역할</td><td style="padding:10px;border:1px solid #e5e7eb">${p.role === 'OWNER' ? '대리점장' : p.role === 'FREE_SALES' ? '자유판매원' : '소속판매원'}</td></tr>
-        <tr><td style="padding:10px;border:1px solid #e5e7eb;font-weight:600">소속</td><td style="padding:10px;border:1px solid #e5e7eb">${orgName}</td></tr>
-        <tr style="background:#f5f7fa"><td style="padding:10px;border:1px solid #e5e7eb;font-weight:600">서명 일시</td><td style="padding:10px;border:1px solid #e5e7eb">${signedAtStr}</td></tr>
+        <tr><td style="padding:10px;border:1px solid #e5e7eb;font-weight:600">소속</td><td style="padding:10px;border:1px solid #e5e7eb">${escHtml(orgName)}</td></tr>
+        <tr style="background:#f5f7fa"><td style="padding:10px;border:1px solid #e5e7eb;font-weight:600">서명 일시</td><td style="padding:10px;border:1px solid #e5e7eb">${escHtml(signedAtStr)}</td></tr>
       </table>
       <p style="font-size:12px;color:#888;border-top:1px solid #eee;padding-top:12px">
         본 계약서는 전자서명법에 따라 법적 효력을 가집니다. 크루즈닷 × ${orgName}

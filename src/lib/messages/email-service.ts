@@ -184,30 +184,24 @@ async function sendViaSendGrid(
 
 /**
  * SMTP를 통한 이메일 발송 (Nodemailer)
+ * NOTE: sendViaSMTP는 현재 미구현 상태입니다.
+ * SENDGRID_API_KEY가 없을 때 이 경로에 도달하면 명시적 오류를 반환합니다.
+ * 실제 SMTP 구현이 필요하다면 src/lib/email.ts의 sendEmail()을 활용하세요.
  */
 async function sendViaSMTP(
   payload: EmailPayload,
-  emailConfig: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  _emailConfig: any
 ): Promise<SendEmailResponse> {
-  try {
-    // Nodemailer 동적 import (optional)
-    // import('nodemailer') 사용
-    logger.warn('[EmailService] SMTP method not yet implemented', {
-      organizationId: payload.organizationId,
-    });
+  logger.error('[EmailService] SENDGRID_API_KEY 미설정 — 이메일 발송 불가. SENDGRID_API_KEY 환경변수를 설정하거나 SMTP 구현을 완성하세요.', {
+    organizationId: payload.organizationId,
+  });
 
-    return {
-      messageId: '',
-      status: 'FAILED',
-      provider: 'SMTP',
-    };
-  } catch (error) {
-    logger.error('[EmailService] SMTP failed', {
-      error: error instanceof Error ? error.message : String(error),
-    });
-
-    throw error;
-  }
+  return {
+    messageId: '',
+    status: 'FAILED',
+    provider: 'SMTP',
+  };
 }
 
 /**
@@ -253,10 +247,7 @@ function getPasonaEmailSubject(day: 0 | 1 | 2 | 3, lens: string, contactName?: s
   };
 
   const template = subjects[day]?.[lens] || subjects[day]?.['default'] || '안내';
-  if (contactName) {
-    return template.replace('{{name}}', escapeHtml(contactName));
-  }
-  return template.replace('{{name}}', '');
+  return template.replace('{{name}}', escapeHtml(contactName ?? ''));
 }
 
 function getPasonaEmailHTML(
@@ -306,6 +297,9 @@ function getPasonaEmailHTML(
   for (const [key, value] of Object.entries(vars)) {
     html = html.replace(`{{${key}}}`, escapeHtml(value));
   }
+
+  // {{unsubscribe}} 플레이스홀더 폴백 처리 (수신거부 링크)
+  html = html.replace('{{unsubscribe}}', vars['unsubscribe'] ?? '#');
 
   // 이메일 래퍼
   return `

@@ -28,6 +28,7 @@ import { logger } from '@/lib/logger';
 import { DailyReportGenerator, saveDailyReport } from '@/lib/services/daily-report-service';
 import { sendDailyReportToSlack, sendCriticalAlertToSlack } from '@/lib/services/slack-daily-report';
 import { generateDailyReportEmail, generateDailyReportText } from '@/lib/templates/daily-report-email';
+import { sendSystemEmail } from '@/lib/system-email';
 
 interface EmailPayload {
   to: string[];
@@ -234,12 +235,18 @@ async function sendEmailReport(
         throw new Error(`Email API error: ${response.statusText}`);
       }
     } else {
-      // Fallback: Log the email content (for development)
-      logger.log('[DailyPerfReport] Email would be sent', {
-        orgId: org.id,
-        to: recipients.join(', '),
+      // Fallback: sendSystemEmail (nodemailer) when EMAIL_API_URL is not configured
+      const sent = await sendSystemEmail({
+        to: emailPayload.to,
         subject: emailPayload.subject,
+        html: emailPayload.html,
       });
+      if (!sent) {
+        logger.warn('[DailyPerfReport] sendSystemEmail 발송 실패 — NODEMAILER 환경변수 확인 필요', {
+          orgId: org.id,
+          to: recipients.join(', '),
+        });
+      }
     }
 
     logger.log('[DailyPerfReport] Email sent', {

@@ -7,6 +7,23 @@
  *   renderNewOrgEmail         — 신규 대리점(Organization) 생성 시 GLOBAL_ADMIN 수신
  */
 
+// ── HTML 이스케이프 헬퍼 ──────────────────────────────────────────────
+function escapeHtml(text: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return text.replace(/[&<>"']/g, (char) => map[char]);
+}
+
+/** URL이 https:// 또는 http://로 시작하는지 확인, 아니면 '#' 반환 */
+function safeUrl(u: string): string {
+  return /^https?:\/\//i.test(u) ? u : '#';
+}
+
 // ── 공통 래퍼 ──────────────────────────────────────────────────────────
 function wrapEmail(body: string): string {
   return `<!DOCTYPE html>
@@ -88,19 +105,19 @@ export function renderPartnerJoinedEmail(p: PartnerJoinedEmailParams): { subject
       신규 파트너가 가입했습니다
     </h2>
     <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">
-      ${p.ownerName}님 안녕하세요. 새로운 ${roleLabel}이 초대 링크를 통해 가입을 완료했습니다.
+      ${escapeHtml(p.ownerName)}님 안녕하세요. 새로운 ${escapeHtml(roleLabel)}이 초대 링크를 통해 가입을 완료했습니다.
     </p>
 
     <table width="100%" cellpadding="0" cellspacing="0" border="0">
-      ${infoRow('이름',    p.partnerName)}
-      ${infoRow('전화번호', p.partnerPhone)}
-      ${infoRow('역할',    roleLabel)}
-      ${infoRow('가입일시', p.joinedAt)}
+      ${infoRow('이름',    escapeHtml(p.partnerName))}
+      ${infoRow('전화번호', escapeHtml(p.partnerPhone))}
+      ${infoRow('역할',    escapeHtml(roleLabel))}
+      ${infoRow('가입일시', escapeHtml(p.joinedAt))}
     </table>
 
     ${p.crmUrl ? `
     <div style="margin-top:28px;">
-      <a href="${p.crmUrl}/dashboard/partners"
+      <a href="${safeUrl(p.crmUrl)}/dashboard/partners"
          style="display:inline-block;background:#1e3a5f;color:#ffffff;text-decoration:none;
                 padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;">
         파트너 목록 확인하기
@@ -134,12 +151,12 @@ export function renderNewOrgEmail(p: NewOrgEmailParams): { subject: string; html
     </p>
 
     <table width="100%" cellpadding="0" cellspacing="0" border="0">
-      ${infoRow('대리점명',      p.orgName)}
-      ${infoRow('대리점 ID',     p.orgId)}
-      ${infoRow('대리점장',      p.ownerName)}
-      ${infoRow('대리점장 연락처', p.ownerPhone)}
-      ${infoRow('계약 참조 ID',  p.contractRef)}
-      ${infoRow('생성일시',      p.createdAt)}
+      ${infoRow('대리점명',      escapeHtml(p.orgName))}
+      ${infoRow('대리점 ID',     escapeHtml(p.orgId))}
+      ${infoRow('대리점장',      escapeHtml(p.ownerName))}
+      ${infoRow('대리점장 연락처', escapeHtml(p.ownerPhone))}
+      ${infoRow('계약 참조 ID',  escapeHtml(p.contractRef))}
+      ${infoRow('생성일시',      escapeHtml(p.createdAt))}
     </table>
 
     <div style="margin-top:20px;padding:16px;background:#fef3c7;border-radius:8px;border-left:4px solid #f59e0b;">
@@ -150,7 +167,7 @@ export function renderNewOrgEmail(p: NewOrgEmailParams): { subject: string; html
 
     ${p.crmUrl ? `
     <div style="margin-top:24px;">
-      <a href="${p.crmUrl}/admin/organizations"
+      <a href="${safeUrl(p.crmUrl)}/admin/organizations"
          style="display:inline-block;background:#1e3a5f;color:#ffffff;text-decoration:none;
                 padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;">
         대리점 관리 페이지 열기
@@ -173,25 +190,26 @@ export interface InviteLinkEmailParams {
 export function renderInviteLinkEmail(p: InviteLinkEmailParams): { subject: string; html: string } {
   const roleLabel = ROLE_LABEL[p.role] ?? p.role;
   const subject   = `[크루즈닷 CRM] ${p.orgName} ${roleLabel} 초대장`;
+  const safeInviteUrl = safeUrl(p.inviteUrl);
 
   const body = `
     <h2 style="margin:0 0 8px;color:#111827;font-size:22px;font-weight:700;">
       CRM 가입 초대장
     </h2>
     <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">
-      ${p.recipientName}님, ${p.orgName}에서 ${roleLabel}(으)로 초대합니다.
+      ${escapeHtml(p.recipientName)}님, ${escapeHtml(p.orgName)}에서 ${escapeHtml(roleLabel)}(으)로 초대합니다.
     </p>
 
     <div style="background:#f0f7ff;border-radius:10px;padding:24px;margin-bottom:24px;">
-      <p style="margin:0 0 4px;color:#6b7280;font-size:12px;">초대 링크 (${p.expiresAt}까지 유효)</p>
+      <p style="margin:0 0 4px;color:#6b7280;font-size:12px;">초대 링크 (${escapeHtml(p.expiresAt)}까지 유효)</p>
       <p style="margin:0;word-break:break-all;">
-        <a href="${p.inviteUrl}"
-           style="color:#1e3a5f;font-size:13px;font-weight:500;">${p.inviteUrl}</a>
+        <a href="${safeInviteUrl}"
+           style="color:#1e3a5f;font-size:13px;font-weight:500;">${escapeHtml(p.inviteUrl)}</a>
       </p>
     </div>
 
     <div style="margin-top:4px;">
-      <a href="${p.inviteUrl}"
+      <a href="${safeInviteUrl}"
          style="display:inline-block;background:#1e3a5f;color:#ffffff;text-decoration:none;
                 padding:14px 32px;border-radius:8px;font-size:15px;font-weight:600;">
         가입하기
@@ -225,7 +243,7 @@ export function renderPartnerWelcomeEmail(p: PartnerWelcomeEmailParams): { subje
       계약이 승인되었습니다! 🎉
     </h2>
     <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">
-      ${p.name}님, 귀사의 ${p.tier} 계약이 승인되었습니다.
+      ${escapeHtml(p.name)}님, 귀사의 ${escapeHtml(p.tier)} 계약이 승인되었습니다.
       아래의 대리점 코드로 CRM 시스템에 접속할 수 있습니다.
     </p>
 
@@ -298,15 +316,15 @@ export interface FunnelDay0EmailParams {
 }
 
 export function renderFunnelDay0Email(p: FunnelDay0EmailParams): { subject: string; html: string } {
-  const subject = `[크루즈닷] ${p.name}님 상담 감사합니다 - 즉시 실천 방법 3가지`;
+  const subject = `[크루즈닷] ${escapeHtml(p.name)}님 상담 감사합니다 - 즉시 실천 방법 3가지`;
 
   const body = `
     <h2 style="margin:0 0 8px;color:#111827;font-size:22px;font-weight:700;">
       상담이 완료되었습니다 ✓
     </h2>
     <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">
-      ${p.name}님 안녕하세요.<br />
-      ${p.consultantName} 상담사의 ${p.consultationType}를 완료해주셔서 감사합니다.
+      ${escapeHtml(p.name)}님 안녕하세요.<br />
+      ${escapeHtml(p.consultantName)} 상담사의 ${escapeHtml(p.consultationType)}를 완료해주셔서 감사합니다.
     </p>
 
     <!-- P단계: 문제 재확인 -->
@@ -337,7 +355,7 @@ export function renderFunnelDay0Email(p: FunnelDay0EmailParams): { subject: stri
       <p style="margin:0 0 12px;color:#6b7280;font-size:13px;">
         <strong>⏰ 주의</strong>: 상담 이후 처음 72시간 동안 실행하는 사람이 성공률이 89% 높습니다.
       </p>
-      <a href="${p.crmUrl}/consultation/followup"
+      <a href="${safeUrl(p.crmUrl ?? '')}/consultation/followup"
          style="display:inline-block;background:#28a745;color:#ffffff;text-decoration:none;
                 padding:14px 28px;border-radius:8px;font-size:14px;font-weight:600;margin-top:8px;">
         맞춤형 실천 계획서 받기 (72시간 한정)
@@ -456,7 +474,7 @@ export function renderFunnelDay1Email(p: FunnelDay1EmailParams): { subject: stri
     <div style="background:#e7f3ff;border-left:4px solid #0d6efd;padding:14px;border-radius:6px;margin:20px 0;">
       <p style="margin:0;color:#004085;font-size:12px;line-height:1.6;">
         💡 <strong>왜 표준형인가?</strong><br />
-        상담에서 확인된 당신의 BMI(${p.name}), 혈당 수치와 스트레스 레벨을 고려할 때,<br />
+        상담에서 확인된 당신의 BMI 수치, 혈당 수치와 스트레스 레벨을 고려할 때,<br />
         기본형으로는 부족하고 프리미엄형은 과도합니다.
       </p>
     </div>
@@ -571,14 +589,14 @@ export interface FunnelDay3EmailParams {
 }
 
 export function renderFunnelDay3Email(p: FunnelDay3EmailParams): { subject: string; html: string } {
-  const subject = `[긴급] ${p.name}님 한정 할인이 72시간 뒤 종료됩니다 ⏰`;
+  const subject = `[긴급] ${escapeHtml(p.name)}님 한정 할인이 72시간 뒤 종료됩니다 ⏰`;
 
   const body = `
     <h2 style="margin:0 0 8px;color:#d32f2f;font-size:22px;font-weight:700;">
       ⚠️ 긴급 알림: 한정 할인 72시간 남음
     </h2>
     <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">
-      ${p.name}님께 드린 ${p.discountPercent || 25}% 할인 혜택이<br />
+      ${escapeHtml(p.name)}님께 드린 ${p.discountPercent || 25}% 할인 혜택이<br />
       <strong>72시간(3일) 뒤 자동으로 종료됩니다.</strong>
     </p>
 
@@ -626,7 +644,7 @@ export function renderFunnelDay3Email(p: FunnelDay3EmailParams): { subject: stri
 
     <!-- 최종 CTA (강한 색상) -->
     <div style="text-align:center;margin:24px 0;">
-      <a href="${p.crmUrl}/purchase"
+      <a href="${safeUrl(p.crmUrl ?? '')}/purchase"
          style="display:inline-block;background:#d32f2f;color:#ffffff;text-decoration:none;
                 padding:16px 40px;border-radius:8px;font-size:16px;font-weight:700;margin-bottom:12px;">
         지금 신청하기 (72시간 한정)

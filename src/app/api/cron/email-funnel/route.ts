@@ -8,7 +8,10 @@
  * - 실패한 이메일은 자동 재시도 (최대 3회)
  */
 
+export const maxDuration = 60; // 배치 100건 × 0.5초 sleep = 최대 50초, Vercel 기본 10초 초과 방지
+
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import prisma from "@/lib/prisma";
 import { sendFunnelEmail } from "@/lib/email";
 import { logger } from "@/lib/logger";
@@ -24,8 +27,11 @@ export async function GET(req: Request) {
       logger.error("[Cron] CRON_SECRET 환경변수 미설정");
       return NextResponse.json({ error: "CRON_SECRET 환경변수 미설정" }, { status: 500 });
     }
-    const authHeader = req.headers.get("authorization");
-    if (authHeader !== `Bearer ${expectedToken}`) {
+    const authHeader = req.headers.get("authorization") ?? '';
+    const expectedBearer = `Bearer ${expectedToken}`;
+    const isValid = authHeader.length === expectedBearer.length &&
+      timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedBearer));
+    if (!isValid) {
       logger.warn("[Cron] 미인증 요청", { ip: req.headers.get("x-forwarded-for") });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

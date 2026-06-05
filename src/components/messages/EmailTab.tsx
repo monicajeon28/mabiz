@@ -289,7 +289,13 @@ export function EmailTab({
 
         {/* 발송 버튼 */}
         <button
-          onClick={onSend}
+          onClick={async () => {
+            try {
+              await onSend();
+            } catch (e) {
+              showError('발송 실패: ' + (e instanceof Error ? e.message : '알 수 없는 오류'));
+            }
+          }}
           disabled={sending || !selectedGroup || !subject.trim() || !body.trim()}
           className="w-full py-3 bg-blue-600 text-white rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors"
           aria-label={`이메일 ${sendMode === "now" ? "즉시 발송" : "예약 발송"}`}

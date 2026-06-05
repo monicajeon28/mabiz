@@ -4,6 +4,10 @@ import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
 
+function escHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 // POST: 구매확인증서 발급 요청
 export async function POST(req: Request) {
   try {
@@ -104,17 +108,17 @@ export async function POST(req: Request) {
           subject: `[구매확인증] ${payment.productName ?? '크루즈 상품'} 구매 확인증이 발급되었습니다`,
           html: `<div style="font-family:sans-serif;line-height:1.8;max-width:600px;margin:0 auto;padding:32px 24px">
 <h2 style="color:#1a1a2e;margin:0 0 16px">구매 확인증 발급 안내</h2>
-<p>${payment.buyerName}님, 아래 내용으로 구매 확인증이 발급되었습니다.</p>
+<p>${escHtml(payment.buyerName ?? '')}님, 아래 내용으로 구매 확인증이 발급되었습니다.</p>
 <table style="width:100%;border-collapse:collapse;margin:20px 0">
-  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666;width:40%">상품명</td><td style="padding:10px 14px;font-weight:600">${payment.productName ?? '크루즈 상품'}</td></tr>
+  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666;width:40%">상품명</td><td style="padding:10px 14px;font-weight:600">${escHtml(payment.productName ?? '크루즈 상품')}</td></tr>
   <tr><td style="padding:10px 14px;color:#666">결제금액</td><td style="padding:10px 14px;font-weight:600">${payment.amount.toLocaleString()}원</td></tr>
-  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">결제일시</td><td style="padding:10px 14px">${payment.paidAt ? new Date(payment.paidAt).toLocaleString('ko-KR') : '-'}</td></tr>
-  <tr><td style="padding:10px 14px;color:#666">문서번호</td><td style="padding:10px 14px;font-size:12px;color:#888">${doc.id}</td></tr>
+  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">결제일시</td><td style="padding:10px 14px">${payment.paidAt ? escHtml(new Date(payment.paidAt).toLocaleString('ko-KR')) : '-'}</td></tr>
+  <tr><td style="padding:10px 14px;color:#666">문서번호</td><td style="padding:10px 14px;font-size:12px;color:#888">${escHtml(doc.id)}</td></tr>
 </table>
 <p style="color:#666;font-size:14px">문의사항이 있으시면 담당 에이전트에게 연락해 주세요.</p>
 </div>`,
           channel: 'MANUAL',
-        }).catch(() => {});
+        }).catch((e: unknown) => logger.error('[PurchaseCert] 이메일 발송 실패', { e }));
       }
     }
 
