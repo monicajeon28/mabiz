@@ -115,6 +115,7 @@ export function normalizeContactType(value: unknown): string | null {
     // 구매 고객
     '구매': 'CUSTOMER',
     '구매고객': 'CUSTOMER',
+    '구매완료': 'CUSTOMER',
     'customer': 'CUSTOMER',
     '법인': 'CUSTOMER',
     'corporate': 'CUSTOMER',

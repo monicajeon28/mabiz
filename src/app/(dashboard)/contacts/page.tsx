@@ -750,10 +750,19 @@ export default function ContactsPage() {
                   <FileSpreadsheet className="w-3.5 h-3.5" /> 샘플 다운로드
                 </a>
               </div>
-              <p>• 반드시 써야 할 것: <strong>이름</strong>, <strong>전화번호</strong></p>
-              <p>• 있으면 좋은 것: 이메일, 관심크루즈, 예산, 메모, 유형</p>
-              <p>• 유형: "잠재고객" 또는 "구매완료" (기본: 잠재고객)</p>
-              <p>• 같은 전화번호면 정보가 새로워져요</p>
+              <p>• <strong className="text-red-600">필수:</strong> 이름, 전화번호 (이 두 열은 꼭 있어야 해요)</p>
+              <p>• <strong>선택:</strong> 이메일, 관심크루즈, 예산, 메모, 유형</p>
+              <div className="bg-white rounded-lg p-2 mt-1 border border-gray-200 text-xs space-y-0.5">
+                <p className="font-medium text-gray-700 mb-1">열 이름 (한국어·영어 모두 인식해요)</p>
+                <p>이름 / name / 성명</p>
+                <p>전화번호 / 연락처 / phone / 휴대폰</p>
+                <p>이메일 / email &nbsp;|&nbsp; 관심크루즈 / cruise</p>
+                <p>예산 / budget &nbsp;|&nbsp; 메모 / 비고 / memo</p>
+                <p>유형 / 구분 / type</p>
+              </div>
+              <p>• 유형 값: <strong>잠재고객</strong> 또는 <strong>구매완료</strong> (입력 없으면 잠재고객)</p>
+              <p>• 같은 전화번호면 기존 정보가 새 내용으로 업데이트돼요</p>
+              <p className="text-orange-600 font-medium">• 최대 <strong>10MB</strong> / .xlsx · .xls만 가능</p>
             </div>
 
             {/* 파일 선택 */}
