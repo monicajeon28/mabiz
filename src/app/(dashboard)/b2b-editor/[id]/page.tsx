@@ -530,7 +530,10 @@ export default function EditB2BPage() {
       const encodedFileId = encodeHtml(img.driveFileId);
       // Task 1-1: altText 동적화
       const altText = encodeHtml(img.altText || `이미지 ${idx + 1}/${images.length}`);
-      const src = `https://lh3.googleusercontent.com/d/${encodedFileId}=w1200`;
+      // GIF는 움직임 유지를 위해 원본 스트리밍(공개 엔드포인트), 그 외는 lh3 썸네일(=w1200) 사용
+      const src = img.mimeType === "image/gif"
+        ? `/api/public/landing-image?id=${encodedFileId}`
+        : `https://lh3.googleusercontent.com/d/${encodedFileId}=w1200`;
       const ar = img.width && img.height ? `aspect-ratio:${img.width}/${img.height};` : "";
       return `<img src="${src}" alt="${altText}" style="width:100%;display:block;${ar}" loading="lazy" />`;
     }).join("\n");
