@@ -75,10 +75,18 @@ export async function GET(req: Request) {
       });
     }
 
-    // Drive가 content-type 안 주거나 octet-stream인 경우 파일 ID로 추정
+    // Drive가 content-type 안 주거나 octet-stream인 경우 파일 시그니처로 추정
     const rawCT = driveRes.headers.get('content-type') ?? '';
-    const contentType = rawCT && !rawCT.includes('octet-stream') ? rawCT : 'image/jpeg';
+    let contentType = rawCT && !rawCT.includes('octet-stream') ? rawCT : '';
     const buffer = Buffer.from(await driveRes.arrayBuffer());
+    if (!contentType) {
+      // 파일 시그니처(magic bytes)로 타입 추정
+      if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) contentType = 'image/gif';
+      else if (buffer[0] === 0xff && buffer[1] === 0xd8) contentType = 'image/jpeg';
+      else if (buffer[0] === 0x89 && buffer[1] === 0x50) contentType = 'image/png';
+      else if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[4] === 0x57) contentType = 'image/webp';
+      else contentType = 'image/jpeg';
+    }
 
     return new NextResponse(buffer, {
       headers: {
