@@ -6,7 +6,7 @@ import { useToast } from "@/lib/api/use-toast";
 interface Contract {
   id: string;
   contractorName: string;
-  status: "invited" | "signed" | "completed" | "rejected";
+  status: "draft" | "invited" | "signed" | "completed" | "rejected";
   invitedAt: string | null;
   signedAt: string | null;
   completedAt: string | null;
@@ -19,6 +19,8 @@ interface Contract {
   lastReminderAt?: string | null;
   // P1 거장단 토론: 계약 타입별 명확한 상태 표시
   contractType?: "cruisedot-partners" | "rental-partner" | "other"; // 크루즈닷 파트너스, 렌탈 파트너, 기타
+  // 옵션 C: 서명 완료 후 Drive PDF URL
+  driveUrl?: string | null;
 }
 
 interface ApiResponse {
@@ -36,6 +38,7 @@ const PROGRESS_STAGES = [
 ];
 
 const STATUS_LABEL: Record<string, string> = {
+  draft: "작성중",
   invited: "초대됨",
   signed: "서명됨",
   completed: "완료",
@@ -43,6 +46,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const STATUS_CLASS: Record<string, string> = {
+  draft: "bg-gray-100 text-gray-600",
   invited: "bg-blue-100 text-blue-700",
   signed: "bg-yellow-100 text-yellow-700",
   completed: "bg-green-100 text-green-700",
@@ -51,7 +55,9 @@ const STATUS_CLASS: Record<string, string> = {
 
 // P1 거장단 토론: 계약 타입별 명확한 승인 상태 텍스트
 function getContractStatusLabel(status: string, contractType?: string): string {
-  if (status === "invited" && contractType === "cruisedot-partners") {
+  if (status === "draft") {
+    return "작성중";
+  } else if (status === "invited" && contractType === "cruisedot-partners") {
     return "크루즈닷 파트너스 사입신청";
   } else if (status === "invited" && contractType === "rental-partner") {
     return "렌탈 파트너 승인 대기";
@@ -62,6 +68,8 @@ function getContractStatusLabel(status: string, contractType?: string): string {
 // L10 렌즈: 계약 진행 단계 계산
 function getContractStage(status: string): number {
   switch (status) {
+    case "draft":
+      return 0; // 작성 중 (미발송)
     case "invited":
       return 0; // 초대 링크 클릭 대기
     case "signed":
@@ -114,7 +122,10 @@ export default function ContractsPage() {
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
 
-  useEffect(() => {
+  function fetchContracts() {
+    setLoading(true);
+    setError(null);
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
 
@@ -127,8 +138,8 @@ export default function ContractsPage() {
           setError(data.message ?? "데이터를 불러오지 못했습니다.");
         }
       })
-      .catch((err) => {
-        if (err.name === 'AbortError') {
+      .catch((err: unknown) => {
+        if (err instanceof Error && err.name === "AbortError") {
           setError("요청 시간 초과 - 다시 시도해주세요.");
         } else {
           setError("네트워크 오류가 발생했습니다.");
@@ -138,6 +149,11 @@ export default function ContractsPage() {
         clearTimeout(timeout);
         setLoading(false);
       });
+  }
+
+  useEffect(() => {
+    fetchContracts();
+     
   }, []);
 
   return (
@@ -173,12 +189,21 @@ export default function ContractsPage() {
       )}
 
       {loading && (
-        <div className="text-center py-12 text-gray-500">불러오는 중...</div>
+        <div className="flex items-center justify-center py-16 gap-3 text-gray-500">
+          <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          불러오는 중...
+        </div>
       )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4">
-          {error}
+          <p>{error}</p>
+          <button
+            onClick={fetchContracts}
+            className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            다시 시도
+          </button>
         </div>
       )}
 
@@ -197,7 +222,6 @@ export default function ContractsPage() {
                 <th className="text-center px-4 py-3 font-medium text-gray-600">진행 상태</th>
                 <th className="text-center px-4 py-3 font-medium text-gray-600">남은 시간</th>
                 <th className="text-center px-4 py-3 font-medium text-gray-600">SMS 단계</th>
-                <th className="text-center px-4 py-3 font-medium text-gray-600">멘토코드</th>
                 <th className="text-center px-4 py-3 font-medium text-gray-600">액션</th>
               </tr>
             </thead>
@@ -245,9 +269,6 @@ export default function ContractsPage() {
                       {getNextSmsDay(c.status, c.smsDay0Sent, c.smsDay1Sent, c.smsDay2Sent)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center text-gray-700 font-mono text-sm">
-                    {c.mentorCode ?? "-"}
-                  </td>
                   <td className="px-4 py-3 text-center">
                     {/* L10 렌즈: 삼중선택 CTA 버튼 */}
                     {c.status !== "completed" && (
@@ -287,14 +308,31 @@ export default function ContractsPage() {
             <div className="space-y-3 mb-6">
               {/* 옵션 A: 지금 즉시 서명 (추천) */}
               <button
-                onClick={() => {
-                  toast({
-                    title: "✅ 옵션 A: 즉시 서명",
-                    description: "즉시 서명 링크가 발송되었습니다. 지금 클릭하면 5분 내 완료 가능합니다.",
-                    variant: "success",
-                  });
+                onClick={async () => {
                   setShowOptionsModal(false);
-                  // Day 0 SMS 발송 로직 추가 예상
+                  try {
+                    const res = await fetch(
+                      `/api/contract-instances/${selectedContract.id}/send-sign-link`,
+                      { method: "POST" }
+                    );
+                    const data = await res.json() as { ok: boolean; message?: string; signUrl?: string; error?: string };
+                    if (data.ok && data.signUrl) {
+                      window.open(data.signUrl, "_blank", "noopener,noreferrer");
+                      toast({
+                        title: "서명 링크 준비 완료",
+                        description: data.message ?? "새 탭에서 서명 페이지가 열렸습니다.",
+                        variant: "success",
+                      });
+                    } else {
+                      toast({
+                        title: "링크 생성 실패",
+                        description: data.error ?? data.message ?? "서명 링크 생성에 실패했습니다.",
+                        variant: "destructive",
+                      });
+                    }
+                  } catch {
+                    toast({ title: "네트워크 오류", description: "서버와 통신할 수 없습니다.", variant: "destructive" });
+                  }
                 }}
                 className="w-full p-4 border-2 border-blue-500 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-left"
               >
@@ -310,14 +348,30 @@ export default function ContractsPage() {
 
               {/* 옵션 B: 이메일로 링크받기 */}
               <button
-                onClick={() => {
-                  toast({
-                    title: "📧 옵션 B: 이메일 링크",
-                    description: "이메일 링크가 발송되었습니다. 나중에 클릭하시면 됩니다.",
-                    variant: "default",
-                  });
+                onClick={async () => {
                   setShowOptionsModal(false);
-                  // Day 0 SMS 발송 로직 추가 예상
+                  try {
+                    const res = await fetch(
+                      `/api/contract-instances/${selectedContract.id}/send-email`,
+                      { method: "POST" }
+                    );
+                    const data = await res.json() as { ok: boolean; message?: string; recipientEmail?: string; error?: string };
+                    if (data.ok) {
+                      toast({
+                        title: "이메일 발송 완료",
+                        description: data.message ?? `${data.recipientEmail ?? ""}으로 서명 링크가 발송되었습니다.`,
+                        variant: "success",
+                      });
+                    } else {
+                      toast({
+                        title: "이메일 발송 실패",
+                        description: data.error ?? data.message ?? "이메일 발송에 실패했습니다.",
+                        variant: "destructive",
+                      });
+                    }
+                  } catch {
+                    toast({ title: "네트워크 오류", description: "서버와 통신할 수 없습니다.", variant: "destructive" });
+                  }
                 }}
                 className="w-full p-4 border-2 border-gray-300 bg-white hover:bg-gray-50 rounded-lg transition-colors text-left"
               >
@@ -330,24 +384,37 @@ export default function ContractsPage() {
                 </div>
               </button>
 
-              {/* 옵션 C: PDF 다운로드 후 인쇄 */}
+              {/* 옵션 C: PDF 다운로드 (서명 완료 후 활성화) */}
               <button
                 onClick={() => {
-                  toast({
-                    title: "📄 옵션 C: PDF 다운로드",
-                    description: "PDF가 다운로드되었습니다. 인쇄 후 서명하시면 됩니다.",
-                    variant: "default",
-                  });
-                  setShowOptionsModal(false);
-                  // Day 0 SMS 발송 로직 추가 예상
+                  if (selectedContract.driveUrl) {
+                    window.open(selectedContract.driveUrl, "_blank", "noopener,noreferrer");
+                    setShowOptionsModal(false);
+                  } else {
+                    toast({
+                      title: "PDF 준비 중",
+                      description: "서명이 완료되면 PDF가 자동 생성됩니다.",
+                      variant: "default",
+                    });
+                    setShowOptionsModal(false);
+                  }
                 }}
-                className="w-full p-4 border-2 border-gray-300 bg-white hover:bg-gray-50 rounded-lg transition-colors text-left"
+                disabled={!selectedContract.driveUrl}
+                className={`w-full p-4 border-2 rounded-lg transition-colors text-left ${
+                  selectedContract.driveUrl
+                    ? "border-gray-300 bg-white hover:bg-gray-50 cursor-pointer"
+                    : "border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed"
+                }`}
               >
                 <div className="flex items-start gap-3">
                   <span className="text-2xl">📄</span>
                   <div>
                     <p className="font-semibold text-gray-700">옵션 C: PDF 다운로드</p>
-                    <p className="text-sm text-gray-600 mt-1">전통적인 방식 • 인쇄 후 서명</p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {selectedContract.driveUrl
+                        ? "서명된 PDF를 Drive에서 열기"
+                        : "서명 완료 후 이용 가능"}
+                    </p>
                   </div>
                 </div>
               </button>

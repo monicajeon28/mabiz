@@ -80,7 +80,7 @@ export async function GET(
     return NextResponse.json({ ok: true, data: versions });
   } catch (err) {
     logger.error('[GET /api/documents/versions]', { error: err instanceof Error ? err.message : String(err) });
-    return NextResponse.json({ ok: false, message: String(err) }, { status: 500 });
+    return NextResponse.json({ ok: false, message: '처리 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
 
@@ -189,6 +189,6 @@ export async function POST(
     );
   } catch (err) {
     logger.error('[POST /api/documents/versions]', { error: err instanceof Error ? err.message : String(err) });
-    return NextResponse.json({ ok: false, message: String(err) }, { status: 500 });
+    return NextResponse.json({ ok: false, message: '처리 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

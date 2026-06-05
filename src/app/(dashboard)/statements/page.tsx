@@ -9,6 +9,7 @@ import {
   CheckCircle,
   XCircle,
   Building2,
+  Download,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -42,6 +43,7 @@ type PayslipItem = {
   expectedPaymentDate: string;
   paidAt: string | null;
   note: string | null;
+  tierLabel?: string | null;
 };
 
 type Summary = {
@@ -362,6 +364,7 @@ function PayslipTable({ payslips }: { payslips: PayslipItem[] }) {
         <thead className="bg-gray-50 border-b border-gray-200">
           <tr>
             <th className="text-left px-4 py-3 font-medium text-gray-500 whitespace-nowrap">정산기간</th>
+            <th className="text-left px-4 py-3 font-medium text-gray-500 whitespace-nowrap">Tier</th>
             <th className="text-right px-4 py-3 font-medium text-gray-500 whitespace-nowrap">기본커미션</th>
             <th className="text-right px-4 py-3 font-medium text-gray-500 whitespace-nowrap">보너스</th>
             <th className="text-right px-4 py-3 font-medium text-gray-500 whitespace-nowrap">환수금액</th>
@@ -378,6 +381,9 @@ function PayslipTable({ payslips }: { payslips: PayslipItem[] }) {
               <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-4 py-3 font-mono text-gray-700 whitespace-nowrap">
                   {p.yearMonth}
+                </td>
+                <td className="px-4 py-3 text-gray-600 text-sm whitespace-nowrap">
+                  {p.tierLabel ?? '-'}
                 </td>
                 <td className="px-4 py-3 text-right text-blue-600 font-medium">
                   {formatKRW(p.baseCommission)}
@@ -575,6 +581,21 @@ export default function StatementsPage() {
               <option key={ym} value={ym}>{ym}</option>
             ))}
           </select>
+
+          {/* CSV Export */}
+          <button
+            type="button"
+            onClick={() => {
+              const params = new URLSearchParams({ format: "csv" });
+              if (period) params.set("period", period);
+              if (statusFilter) params.set("status", statusFilter);
+              window.location.href = `/api/statements/my/export?${params.toString()}`;
+            }}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            CSV 내보내기
+          </button>
         </div>
       )}
 

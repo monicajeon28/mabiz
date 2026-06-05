@@ -30,6 +30,7 @@ type RawLedger = {
   notes: string | null;
   createdAt: Date;
   balance: number;  // 누적 잔액
+  commissionRate: number | null;  // AffiliateSale.commissionRate (%)
 };
 
 type RawSummary = {
@@ -153,8 +154,10 @@ export async function GET(req: NextRequest) {
                    PARTITION BY cl."profileId"
                    ORDER BY cl."createdAt" ASC
                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                 ) AS balance
+                 ) AS balance,
+                 afs."commissionRate"
           FROM "CommissionLedger" cl
+          LEFT JOIN "AffiliateSale" afs ON cl."saleId" IS NOT NULL AND afs.id = cl."saleId"::int
           WHERE 1=1
             ${orgCondition} ${roleCondition} ${profileCondition} ${yearMonthCondition} ${typeCondition}
         )
@@ -195,6 +198,7 @@ export async function GET(req: NextRequest) {
       note:             r.notes ?? null,
       createdAt:        r.createdAt.toISOString(),
       balance:          Number(r.balance),
+      commissionRate:   r.commissionRate != null ? Number(r.commissionRate) : null,
     }));
 
     logger.log('[GET /api/commission-ledger]', { role: ctx.role, total, page, yearMonth });

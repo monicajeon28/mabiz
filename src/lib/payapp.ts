@@ -63,8 +63,9 @@ interface RequestPaymentParams {
   price: number;
   recvphone: string;
   feedbackurl: string;
-  var1?: string;      // orderId
-  var2?: string;      // landingPageSlug 등
+  shopname?: string;    // 상점명 (미설정 시 PayApp 등록 상점명 사용)
+  var1?: string;        // orderId
+  var2?: string;        // landingPageSlug 등
   returnurl?: string;
   recvemail?: string;
   openpaytype?: string; // card,phone,kakaopay 등
@@ -82,6 +83,7 @@ export async function requestPayment(params: RequestPaymentParams): Promise<{
   const result = await payappApiPost({
     cmd: 'payrequest',
     userid: config.userid,
+    shopname: params.shopname ?? (process.env.PAYAPP_SHOPNAME ?? '마비즈스쿨'),
     goodname: params.goodname,
     price: String(params.price),
     recvphone: params.recvphone.replace(/[^0-9]/g, ''),

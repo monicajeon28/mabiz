@@ -123,26 +123,30 @@ export function SMSSequencePreview({ category, segment }: SMSSequencePreviewProp
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
       <h3 className="font-semibold text-gray-900 mb-3 text-sm">📧 SMS 3일 시퀀스</h3>
-      <div className="space-y-3">
-        {days.map((day: any, idx: number) => (
-          <div key={idx} className="border border-gray-200 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg">{day.icon}</span>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm">{day.title}</div>
-                <div className="text-sm text-gray-600">목표 오픈: {day.targetRate}%</div>
+      {days.length === 0 ? (
+        <p className="text-sm text-gray-400 text-center py-4">
+          이 카테고리의 SMS 시퀀스가 아직 준비되지 않았습니다.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {days.map((day: any, idx: number) => (
+            <div key={idx} className="border border-gray-200 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">{day.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm">{day.title}</div>
+                  <div className="text-sm text-gray-600">목표 오픈: {day.targetRate}%</div>
+                </div>
               </div>
+              <p className="text-sm text-gray-700 line-clamp-2">{day.preview}</p>
             </div>
-            <p className="text-sm text-gray-700 line-clamp-2">{day.preview}</p>
-          </div>
-        ))}
-      </div>
-      <a
-        href={`/docs/call-scripts/${category}/sms-sequence`}
-        className="mt-3 block text-center px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-      >
-        전체 보기 →
-      </a>
+          ))}
+        </div>
+      )}
+      {/* 전체 보기 링크 — /docs 라우트 미구현 상태이므로 비활성 표시 */}
+      <span className="mt-3 block text-center px-3 py-2 text-sm text-gray-400 cursor-not-allowed select-none">
+        전체 보기 (준비 중)
+      </span>
     </div>
   );
 }

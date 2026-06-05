@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
+import { enforceRBAC } from "@/app/api/_middleware/enforce-rbac";
 
 /**
  * System Health Check API
@@ -9,7 +10,7 @@ import { logger } from "@/lib/logger";
  * Comprehensive health status of all systems and integrations
  */
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const startTime = Date.now();
     const checks = await Promise.allSettled([
@@ -54,6 +55,15 @@ export async function GET() {
       checks: results.length,
     });
 
+    // Public response: only minimal status, no infra details
+    const rbacCheck = enforceRBAC(req, { allowedRoles: ["GLOBAL_ADMIN"] });
+    if (rbacCheck !== true) {
+      return NextResponse.json({
+        status: overallStatus === "HEALTHY" ? "ok" : "degraded",
+      });
+    }
+
+    // GLOBAL_ADMIN: full details
     return NextResponse.json({
       ok: true,
       status: overallStatus,
@@ -71,7 +81,6 @@ export async function GET() {
         ok: false,
         status: "CRITICAL",
         message: "Health check failed",
-        error: err instanceof Error ? err.message : String(err),
       },
       { status: 503 }
     );

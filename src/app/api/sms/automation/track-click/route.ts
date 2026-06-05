@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { checkRateLimitAsync } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
 
 interface ClickEvent {
   messageId: string;
@@ -20,6 +22,13 @@ interface ClickEvent {
  */
 export async function POST(request: NextRequest) {
   try {
+    // IP 기반 레이트 리밋: 분당 30회 제한
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+    const rl = await checkRateLimitAsync(`sms_track_click:${ip}`, 30, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 });
+    }
+
     const event: ClickEvent = await request.json();
     const { messageId, contactId, timestamp } = event;
 
@@ -32,6 +41,20 @@ export async function POST(request: NextRequest) {
 
     const now = new Date();
     const clickTime = timestamp ? new Date(timestamp) : now;
+
+    // timestamp 검증: 파싱 불가 또는 60초 초과 미래 날짜 거부
+    if (timestamp && (isNaN(clickTime.getTime()) || clickTime > new Date(Date.now() + 60_000))) {
+      return NextResponse.json({ error: 'Invalid timestamp' }, { status: 400 });
+    }
+
+    // 메시지 존재 여부 사전 확인 (IDOR 방지: update 전 조직 소속 검증)
+    const existing = await prisma.crmMarketingMessage.findUnique({
+      where: { id: messageId },
+      select: { organizationId: true, contactId: true },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+    }
 
     // 메시지 조회 및 업데이트
     const message = await prisma.crmMarketingMessage.update({
@@ -85,9 +108,9 @@ export async function POST(request: NextRequest) {
       trackedAt: clickTime.toISOString()
     });
   } catch (error) {
-    console.error('Error in track-click:', error);
+    logger.error('[POST /api/sms/automation/track-click]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import {
   SMS_DAY0_3_SCHEDULE,
   assignAbTestVariant,
@@ -21,8 +22,16 @@ interface CallCompletedEvent {
 
 export async function POST(request: NextRequest) {
   try {
+    const ctx = await getAuthContext();
+    const orgId = requireOrgId(ctx);
+
     const event: CallCompletedEvent = await request.json();
     const { contactId, organizationId, segment, callTime, firstName } = event;
+
+    // 조직 소속 검증
+    if (event.organizationId !== orgId) {
+      return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
+    }
 
     // 입력값 검증
     if (!contactId || !organizationId || !segment || !callTime) {

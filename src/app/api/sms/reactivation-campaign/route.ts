@@ -29,17 +29,37 @@ import prisma from '@/lib/prisma';
 import { getReactivationTemplate } from '@/lib/sms/reactivation-templates';
 import { logger } from '@/lib/logger';
 import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
+import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { checkRateLimitAsync } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
+    const ctx = await getAuthContext();
+    const orgId = requireOrgId(ctx);
+
     const body = await request.json();
     const {
       organizationId,
       segment,
       templateId,
-      minLikelihood = 50,
-      dryRun = false,
+      minLikelihood,
+      dryRun,
     } = body;
+
+    // 입력값 검증: minLikelihood는 0-100 범위의 숫자, dryRun은 엄격한 boolean
+    const safeMinLikelihood = Math.max(0, Math.min(100, Number(minLikelihood) || 50));
+    const safeDryRun = dryRun === true;
+
+    // 조직 소속 검증
+    if (organizationId !== orgId) {
+      return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
+    }
+
+    // 레이트 리밋: 조직당 분당 1회
+    const rl = await checkRateLimitAsync(`sms_reactivation:${orgId}`, 1, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 });
+    }
 
     // 필수 필드 검증
     if (!organizationId || !segment) {
@@ -75,7 +95,7 @@ export async function POST(request: NextRequest) {
         deletedAt: null,
         type: 'CUSTOMER',
         reactivationSegment: segment,
-        reactivationLikelihood: { gte: minLikelihood },
+        reactivationLikelihood: { gte: safeMinLikelihood },
       },
       select: {
         id: true,
@@ -99,7 +119,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Dry Run 모드
-    if (dryRun) {
+    if (safeDryRun) {
       const expectedRevenue = recipients.length * 366000 * 0.63; // 450명 * $366K * 63% 전환율
       return NextResponse.json(
         {

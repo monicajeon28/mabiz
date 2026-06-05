@@ -69,6 +69,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
   const [phone,       setPhone]       = useState('');
   const [password,    setPassword]    = useState('');
   const [email,       setEmail]       = useState('');
+  const [errors,      setErrors]      = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetch(`/api/join/${token}`)
@@ -83,14 +84,19 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
   }, [token]);
 
   const accept = async () => {
-    if (!agreed || !allChecked || !displayName.trim()) return;
+    const newErrors: Record<string, string> = {};
+    if (!displayName.trim()) newErrors.name = '실명을 입력해주세요.';
+    const phoneClean = phone.trim().replace(/[^0-9]/g, '');
+    if (!phoneClean) newErrors.phone = '전화번호를 입력해주세요.';
+    if (!password || password.length < 8) newErrors.password = '비밀번호는 8자 이상이어야 합니다.';
+    if (Object.keys(newErrors).length) { setErrors(newErrors); return; }
+    setErrors({});
+
+    if (!agreed || !allChecked) return;
     if (signature.trim() !== displayName.trim()) {
       showError("디지털 서명이 이름과 일치하지 않습니다.");
       return;
     }
-    const phoneClean = phone.trim().replace(/[^0-9]/g, '');
-    if (!phoneClean) { showError("전화번호를 입력해주세요."); return; }
-    if (!password) { showError("비밀번호를 입력해주세요."); return; }
 
     setAccepting(true);
     const res  = await fetch(`/api/join/${token}`, {
@@ -158,10 +164,11 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
                 <label className="text-sm font-medium text-gray-700 mb-1.5 block">실명 *</label>
                 <input
                   value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
+                  onChange={(e) => { setDisplayName(e.target.value); if (errors.name) setErrors((prev) => { const n = { ...prev }; delete n.name; return n; }); }}
                   placeholder="홍길동 (계약서 서명에 사용됩니다)"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500"
+                  className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500 ${errors.name ? 'border-red-400' : 'border-gray-200'}`}
                 />
+                {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
               </div>
 
               {/* 전화번호 입력 */}
@@ -169,11 +176,12 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
                 <label className="text-sm font-medium text-gray-700 mb-1.5 block">전화번호 (아이디로 사용) *</label>
                 <input
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => { setPhone(e.target.value); if (errors.phone) setErrors((prev) => { const n = { ...prev }; delete n.phone; return n; }); }}
                   placeholder="01012345678"
                   inputMode="tel"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500"
+                  className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500 ${errors.phone ? 'border-red-400' : 'border-gray-200'}`}
                 />
+                {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
               </div>
 
               {/* 이메일 입력 (계약서 수신용) */}
@@ -197,12 +205,15 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
                 <input
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="로그인에 사용할 비밀번호"
+                  onChange={(e) => { setPassword(e.target.value); if (errors.password) setErrors((prev) => { const n = { ...prev }; delete n.password; return n; }); }}
+                  placeholder="로그인에 사용할 비밀번호 (8자 이상)"
                   autoComplete="new-password"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500"
+                  className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500 ${errors.password ? 'border-red-400' : 'border-gray-200'}`}
                 />
-                <p className="text-xs text-gray-400 mt-1">나중에 설정으로 변경 가능합니다</p>
+                {errors.password
+                  ? <p className="text-xs text-red-500 mt-1">{errors.password}</p>
+                  : <p className="text-xs text-gray-400 mt-1">나중에 설정으로 변경 가능합니다</p>
+                }
               </div>
 
               {/* 계약서 본문 */}

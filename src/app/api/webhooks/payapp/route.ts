@@ -42,51 +42,25 @@ export async function POST(req: Request) {
   let params: URLSearchParams | null = null;
 
   try {
-    // ── [1단계] IP 화이트리스트 검증 (필수) ────────────────────
-    const allowedIPs =
-      process.env.PAYAPP_ALLOWED_IPS?.split(",")
-        .map((s) => s.trim())
-        .filter(Boolean) ?? [];
-
-    // [P0-SEC-302] X-Forwarded-For는 신뢰할 수 있는 프록시(Vercel/Cloudflare)만 사용
-    // 신뢰할 수 없는 네트워크에서는 X-Forwarded-For를 무시하고 direct IP만 사용
-    // DevOps 담당자: PAYAPP_TRUSTED_PROXY='vercel' 또는 'cloudflare' 또는 'nginx' 설정 필수
+    // ── [1단계] 요청 IP 로깅 (PayApp은 서버 IP를 공개하지 않으므로 화이트리스트 대신 HMAC으로 검증)
     const trustedProxy = process.env.PAYAPP_TRUSTED_PROXY?.toLowerCase() ?? '';
     let requestIP = 'unknown';
-
     if (trustedProxy === 'vercel') {
-      requestIP = req.headers.get('x-real-ip') || 'unknown';
+      requestIP = req.headers.get('x-real-ip') || req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     } else if (trustedProxy === 'cloudflare') {
       requestIP = req.headers.get('cf-connecting-ip') || 'unknown';
-    } else if (trustedProxy === 'nginx') {
-      // Nginx: 마지막 프록시 IP만 신뢰 (내부 프록시만 거쳐야 함)
-      requestIP = req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() || 'unknown';
     } else {
-      // P0-3: 프록시 미설정 — 필수 설정이므로 즉시 반환 (보안 강화)
-      logger.error('[PayApp Webhook] CRITICAL: PAYAPP_TRUSTED_PROXY 미설정. IP 검증 불가능.', {
-        allowedValues: 'vercel|cloudflare|nginx',
-        contactDevOps: true,
-      });
-      return new Response("FAIL", { status: 403 });
+      requestIP = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     }
 
-    // IP 화이트리스트 미설정 — 중대 오류 (즉시 조치 필요)
-    if (allowedIPs.length === 0) {
-      logger.error(
-        "[PayApp Webhook] CRITICAL: PAYAPP_ALLOWED_IPS 미설정. 웹훅 수신 불가능합니다. DevOps에 연락하세요.",
-        { requestIP }
-      );
-      return new Response("FAIL", { status: 500 }); // 설정 오류는 500
+    // PAYAPP_ALLOWED_IPS 설정 시 추가 IP 필터링 (선택적)
+    const allowedIPs = process.env.PAYAPP_ALLOWED_IPS?.split(',').map(s => s.trim()).filter(Boolean) ?? [];
+    if (allowedIPs.length > 0 && !allowedIPs.includes(requestIP)) {
+      logger.error('[PayApp Webhook] IP 화이트리스트 차단', { requestIP, allowedIPs });
+      return new Response('FAIL', { status: 403 });
     }
 
-    // IP 화이트리스트 검증 실패
-    if (!allowedIPs.includes(requestIP)) {
-      logger.error(
-        "[PayApp Webhook] IP 화이트리스트 실패. 요청 차단됨.",
-        { requestIP, allowedIPs: allowedIPs.join(", ") }
-      );
-      return new Response("FAIL", { status: 403 });
-    }
+    logger.log('[PayApp Webhook] 요청 수신', { requestIP });
 
     // [P0-SEC-201] Bearer Token 검증 (선택적 → 향후 필수 변경)
     // 현재: IP 화이트리스트만으로 충분 (PayApp 서버 고정)

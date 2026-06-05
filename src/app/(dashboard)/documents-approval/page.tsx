@@ -27,7 +27,7 @@ type TabType = 'comparison' | 'purchase' | 'refund' | 'contracts';
 
 // ─── SalesDocument types ──────────────────────────────────────────────────────
 
-type ContractFilter = 'all' | 'complete' | 'incomplete';
+type ContractFilter = 'all' | 'DRAFT' | 'SENT' | 'SIGNED' | 'COMPLETED';
 
 interface SalesDocumentItem {
   id: string;
@@ -195,11 +195,10 @@ export default function DocumentsApprovalPage() {
 
   useEffect(() => {
     if (activeTab !== 'contracts') {
-      loadSales();
+      const t = setTimeout(() => { loadSales(); }, 400);
+      return () => clearTimeout(t);
     }
-    // activeTab 변경 시만 재로드 (searchQuery 타이핑마다 자동 호출 방지)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [searchQuery, activeTab, loadSales]);
 
   // ─── Load contracts (SalesDocument) ───────────────────────────────────────
 
@@ -247,19 +246,12 @@ export default function DocumentsApprovalPage() {
   // ─── Filtered contracts ───────────────────────────────────────────────────
 
   const filteredContracts = salesDocuments.filter((c) => {
+    if (contractFilter === 'all') return true;
     const signStatus = typeof c.generatedData?.signStatus === 'string' ? c.generatedData.signStatus : null;
-    if (contractFilter === 'complete') {
+    if (contractFilter === 'SIGNED') {
       return c.status === 'SIGNED' || c.status === 'COMPLETED' || signStatus === 'SIGNED';
     }
-    if (contractFilter === 'incomplete') {
-      return (
-        c.status === 'DRAFT' ||
-        c.status === 'SENT' ||
-        c.status === 'PENDING_APPROVAL' ||
-        (c.status === 'APPROVED' && signStatus !== 'SIGNED')
-      );
-    }
-    return true;
+    return c.status === contractFilter;
   });
 
   // ─── Modal open/close ──────────────────────────────────────────────────────
@@ -387,7 +379,14 @@ export default function DocumentsApprovalPage() {
       if (!res.ok || !json.ok) {
         throw new Error(json.error || json.message || '문서 생성에 실패했습니다.');
       }
-      showSuccess(json.message || '문서가 생성되었습니다.');
+      // 생성된 문서 URL 자동 열기
+      const docUrl: string | undefined = json.downloadUrl || json.pdfUrl || json.url;
+      if (docUrl) {
+        window.open(docUrl, '_blank', 'noopener,noreferrer');
+        showSuccess('문서가 생성되었습니다. 새 탭에서 확인하세요.');
+      } else {
+        showSuccess(json.message || '문서가 생성되었습니다.');
+      }
       closeModal();
       loadSales();
     } catch (err: unknown) {
@@ -511,7 +510,7 @@ export default function DocumentsApprovalPage() {
             {TAB_CONFIG.map(({ key, label }) => (
               <button
                 key={key}
-                onClick={() => { setActiveTab(key); setStatusFilter('all'); }}
+                onClick={() => { setActiveTab(key); setStatusFilter('all'); setSearchQuery(''); }}
                 className={`px-5 py-3 text-sm font-semibold rounded-t-lg transition-all duration-200 ${
                   activeTab === key
                     ? key === 'contracts'
@@ -535,7 +534,7 @@ export default function DocumentsApprovalPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && loadSales()}
-                  placeholder="주문번호·상품명·고객 전화번호로 검색"
+                  placeholder="주문번호·상품명·고객 전화번호 검색 (Enter 또는 버튼)"
                   className="w-full rounded-lg border border-gray-200 py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                 />
               </div>
@@ -572,7 +571,7 @@ export default function DocumentsApprovalPage() {
                 계약서 보내기
               </button>
               <div className="flex gap-1.5 ml-auto">
-                {(['all', 'complete', 'incomplete'] as const).map((f) => (
+                {(['all', 'DRAFT', 'SENT', 'SIGNED', 'COMPLETED'] as const).map((f) => (
                   <button
                     key={f}
                     onClick={() => setContractFilter(f)}
@@ -582,7 +581,7 @@ export default function DocumentsApprovalPage() {
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
-                    {f === 'all' ? '전체' : f === 'complete' ? '완료' : '미완료'}
+                    {f === 'all' ? '전체' : f === 'DRAFT' ? '초안' : f === 'SENT' ? '발송됨' : f === 'SIGNED' ? '서명됨' : '완료'}
                   </button>
                 ))}
               </div>
@@ -693,7 +692,11 @@ export default function DocumentsApprovalPage() {
             ) : filteredContracts.length === 0 ? (
               <div className="rounded-xl border border-dashed border-gray-300 bg-white py-20 text-center text-gray-500">
                 <FileText className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-                <p>계약서가 없습니다.</p>
+                <p>
+                  {contractFilter === 'all'
+                    ? '아직 발급된 계약서가 없습니다.'
+                    : `'${contractFilter}' 상태의 계약서가 없습니다.`}
+                </p>
                 <button
                   onClick={() => setSendContractOpen(true)}
                   className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 transition-colors"
@@ -801,7 +804,12 @@ export default function DocumentsApprovalPage() {
 
       {/* ─── Document generation modal ──────────────────────────────────── */}
       {isModalOpen && selectedSale && modalDocType && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isGenerating && !isDownloading) closeModal();
+          }}
+        >
           <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
             {/* Modal header */}
             <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-2xl bg-white px-6 py-4 border-b border-gray-100">
@@ -1127,7 +1135,15 @@ export default function DocumentsApprovalPage() {
 
       {/* ─── Send contract modal ─────────────────────────────────────────── */}
       {sendContractOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !sendingContract) {
+              setSendContractOpen(false);
+              setSendForm({ orderId: '', specialTerms: '' });
+            }
+          }}
+        >
           <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
             <div className="flex items-center justify-between rounded-t-2xl border-b border-gray-100 px-6 py-4">
               <h2 className="text-lg font-bold text-gray-900">계약서 보내기</h2>

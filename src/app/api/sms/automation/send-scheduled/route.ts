@@ -31,11 +31,14 @@ async function sendSmsToContact(
 
 export async function GET(request: NextRequest) {
   try {
-    // Vercel Cron 시크릿 검증 (선택사항)
+    // Vercel Cron 시크릿 검증 (필수)
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
+      return NextResponse.json({ error: 'MISCONFIGURED' }, { status: 500 });
+    }
     const authHeader = request.headers.get('authorization');
-    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      // 시크릿이 설정되어 있으면 검증
-      // 하지만 로컬 테스트를 위해 필수는 아님
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
     }
 
     // 발송 대기 중이고, 스케줄된 시간이 현재 시간 이전인 메시지 조회

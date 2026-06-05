@@ -41,6 +41,7 @@ export function ScriptViewer({
         <div className="flex justify-between items-start mb-3">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">Phase {phase}</h2>
+            <p className="text-base font-medium text-gray-700 mt-0.5">{phaseName}</p>
             <p className="text-sm text-gray-600 mt-1">예상 시간: {estimatedTime}</p>
           </div>
           <button
