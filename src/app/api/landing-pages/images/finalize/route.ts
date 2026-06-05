@@ -3,6 +3,7 @@ export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
 import sharp from 'sharp';
+import { parseServiceAccount } from '@/lib/parse-service-account';
 import { Readable } from 'stream';
 import prisma from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
@@ -95,12 +96,9 @@ export async function POST(req: Request) {
 
     // ── Step 1: Drive에서 원본 파일 다운로드 ──────────────────────────────
     // googleapis의 responseType:'arraybuffer' 타입 불일치 우회 → fetch 직접 호출
-    const serviceAccountKey = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY;
-    if (!serviceAccountKey) throw new Error('GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY 미설정');
-
     const { google } = await import('googleapis');
     const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(serviceAccountKey),
+      credentials: parseServiceAccount(process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY),
       scopes: ['https://www.googleapis.com/auth/drive.readonly'],
     });
     const driveAuthClient = await auth.getClient() as {

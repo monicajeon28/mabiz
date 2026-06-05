@@ -41,9 +41,9 @@ interface GoogleDriveFolder {
   imageCount: number; // API: imageCount
 }
 
-const CATEGORIES = ['배너', '상품', '로고', '기타'];
+const CATEGORIES = ['후기', '크루즈정보사진', '상품'];
 const GOOGLE_DRIVE_LIMIT = 20;
-const UPLOAD_CATEGORIES = ['후기', '크루즈 정보사진', '상품', '배너', '로고', '기타'];
+const UPLOAD_CATEGORIES = ['후기', '크루즈정보사진', '상품'];
 
 export default function ImageLibraryPage() {
   const [activeTab, setActiveTab] = useState<'local' | 'drive'>('local');
@@ -63,7 +63,7 @@ export default function ImageLibraryPage() {
   // 업로드 모달 상태
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<FileList | null>(null);
-  const [uploadCategory, setUploadCategory] = useState('기타');
+  const [uploadCategory, setUploadCategory] = useState('후기');
 
   // Google Drive 상태
   const [gdFolders, setGdFolders] = useState<GoogleDriveFolder[]>([]);

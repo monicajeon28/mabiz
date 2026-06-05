@@ -115,7 +115,7 @@ export async function GET(req: Request) {
 
     const result = [...assetResult, ...cacheResult];
 
-    return NextResponse.json({ ok: true, images: result });
+    return NextResponse.json({ ok: true, images: result, total: result.length });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : undefined;
