@@ -25,6 +25,8 @@ type RawInquiry = {
   status: string;
   createdAt: Date;
   userId: number | null;
+  agentId: number | null;
+  managerId: number | null;
 };
 
 /**
@@ -72,6 +74,20 @@ export async function GET(req: NextRequest) {
       ? Prisma.sql`AND (pi.name ILIKE ${`%${q}%`} OR pi.phone ILIKE ${`%${q}%`})`
       : Prisma.empty;
 
+    // 역할별 어필리에이트 필터 (OWNER/AGENT는 자신과 연결된 문의만 조회)
+    const mallUserId = ctx.mallUser?.id ?? null;
+    const affiliateFilter: Prisma.Sql = (() => {
+      if (ctx.role === 'GLOBAL_ADMIN') return Prisma.empty;
+      if (!mallUserId) return Prisma.empty;
+      if (ctx.role === 'OWNER') {
+        return Prisma.sql`AND (pi."managerId" = ${mallUserId} OR pi."agentId" = ${mallUserId})`;
+      }
+      if (ctx.role === 'AGENT') {
+        return Prisma.sql`AND pi."agentId" = ${mallUserId}`;
+      }
+      return Prisma.empty;
+    })();
+
     const [rows, countRows] = await Promise.all([
       prisma.$queryRaw<RawInquiry[]>(Prisma.sql`
         SELECT
@@ -82,11 +98,14 @@ export async function GET(req: NextRequest) {
           pi.message,
           pi.status,
           pi."createdAt",
-          pi."userId"
+          pi."userId",
+          pi."agentId",
+          pi."managerId"
         FROM "ProductInquiry" pi
         WHERE pi."productCode" = 'GOLD_MEMBERSHIP'
           ${statusCondition}
           ${searchCondition}
+          ${affiliateFilter}
         ORDER BY pi."createdAt" DESC
         LIMIT ${limit} OFFSET ${offset}
       `),
@@ -96,6 +115,7 @@ export async function GET(req: NextRequest) {
         WHERE pi."productCode" = 'GOLD_MEMBERSHIP'
           ${statusCondition}
           ${searchCondition}
+          ${affiliateFilter}
       `),
     ]);
 
@@ -110,8 +130,10 @@ export async function GET(req: NextRequest) {
       status:      r.status,
       submittedAt: new Date(r.createdAt).toISOString(), // $queryRaw는 문자열 반환 가능 → 방어적 처리
       createdAt:   new Date(r.createdAt).toISOString(),
-      tier:        null,     // ProductInquiry에 tier 컬럼 없음
-      agentName:   null,     // ProductInquiry에 agentId 컬럼 없음
+      tier:        null,
+      agentName:   null,     // GMcruise GmUser JOIN 불가 → null 유지
+      agentId:     r.agentId ?? null,
+      managerId:   r.managerId ?? null,
     }));
 
     logger.log('[GET /api/gold-inquiries]', { role: ctx.role, total, page });

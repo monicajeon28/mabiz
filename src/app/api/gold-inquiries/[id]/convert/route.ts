@@ -36,9 +36,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     }
 
     // ProductInquiry 원본 데이터 조회 (GMcruise 공유 DB)
-    const inquiries = await prisma.$queryRaw<Array<{ name: string; phone: string; message: string | null }>>(
+    const inquiries = await prisma.$queryRaw<Array<{ name: string; phone: string; message: string | null; agentId: number | null; managerId: number | null }>>(
       Prisma.sql`
-        SELECT name, phone, message
+        SELECT name, phone, message, "agentId", "managerId"
         FROM "ProductInquiry"
         WHERE id = ${inquiryId} AND "productCode" = 'GOLD_MEMBERSHIP'
         LIMIT 1
@@ -90,6 +90,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         paidCount: 0,
         totalPayments: 0,
         memo: inquiry.message ? `[골드문의 전환] ${inquiry.message}` : '[골드문의 전환]',
+        ...(inquiry.agentId != null ? { agentId: inquiry.agentId } : {}),
+        ...(inquiry.managerId != null ? { managerId: inquiry.managerId } : {}),
       },
       select: { id: true },
     });
