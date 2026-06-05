@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  Plus, X, Loader2, ShieldOff, Users, FileCheck, Clock,
+  X, Loader2, ShieldOff, Users, FileCheck, Clock,
   ChevronRight, Copy, Check, ExternalLink, RefreshCw,
   UserCheck, Link2, AlertTriangle, Building2, Share2,
   ToggleLeft, ToggleRight, Trash2, XCircle, CheckCircle,
@@ -755,73 +755,6 @@ function Shimmer() {
   );
 }
 
-// ─── Register modal ───────────────────────────────────────────
-
-function RegisterModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [orgName, setOrgName] = useState('');
-  const [ownerName, setOwnerName] = useState('');
-  const [ownerPhone, setOwnerPhone] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!orgName.trim()) { showError('대리점명을 입력해 주세요.'); return; }
-    if (!ownerName.trim()) { showError('대표자명을 입력해 주세요.'); return; }
-    if (!ownerPhone.trim()) { showError('연락처를 입력해 주세요.'); return; }
-    setSubmitting(true);
-    try {
-      const res = await fetch('/api/admin/organizations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: orgName.trim(), ownerName: ownerName.trim(), ownerPhone: ownerPhone.trim() }),
-      });
-      const data = await res.json();
-      if (!data.ok) { showError(data.message ?? '등록 실패'); return; }
-      showSuccess('대리점을 등록했습니다.');
-      onCreated();
-      onClose();
-    } catch {
-      showError('요청 처리 중 오류가 발생했습니다.');
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-gray-900">신규 대리점 수동 등록</h2>
-          <button onClick={onClose} className="text-gray-600 hover:text-gray-600"><X className="w-5 h-5" /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {[
-            { label: '대리점명', value: orgName, set: setOrgName, type: 'text', placeholder: '예: 크루즈닷몰 부산지점' },
-            { label: '대표자명', value: ownerName, set: setOwnerName, type: 'text', placeholder: '예: 홍길동' },
-            { label: '연락처', value: ownerPhone, set: setOwnerPhone, type: 'tel', placeholder: '예: 010-1234-5678' },
-          ].map(({ label, value, set, type, placeholder }) => (
-            <div key={label} className="space-y-1">
-              <label className="block text-sm font-medium text-gray-600">{label} <span className="text-red-500">*</span></label>
-              <input
-                type={type} value={value} onChange={(e) => set(e.target.value)} placeholder={placeholder}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
-            </div>
-          ))}
-          <div className="flex gap-2 pt-1">
-            <button type="button" onClick={onClose} className="flex-1 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">취소</button>
-            <button type="submit" disabled={submitting} className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
-              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-              등록
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main page ────────────────────────────────────────────────
 
 export default function OrganizationsPage() {
@@ -831,7 +764,6 @@ export default function OrganizationsPage() {
   const [forbidden, setForbidden] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
 
   const [pendingContracts, setPendingContracts] = useState<PendingContract[]>([]);
   const [contractsLoading, setContractsLoading] = useState(true);
@@ -1039,10 +971,6 @@ export default function OrganizationsPage() {
           <button onClick={() => { searchRef.current = ''; setSearch(''); fetchManagers(); }} className="p-2 text-gray-600 hover:text-gray-600 transition-colors" title="새로고침">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <button onClick={() => setShowModal(true)} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
-            <Plus className="w-4 h-4" />
-            대리점 등록
-          </button>
         </div>
       </div>
 
@@ -1075,7 +1003,7 @@ export default function OrganizationsPage() {
             <UserCheck className="w-10 h-10" />
             <p className="text-sm">등록된 대리점장이 없습니다.</p>
             <p className="text-sm text-center text-gray-300 leading-relaxed">
-              계약 승인 또는 수동 등록으로<br />대리점장을 추가하세요.
+              계약서 작성 → 승인 절차를 완료하면<br />대리점장이 자동으로 추가됩니다.
             </p>
           </div>
         ) : (
@@ -1119,14 +1047,6 @@ export default function OrganizationsPage() {
             fetchPendingContracts();
             fetchManagers(searchRef.current);
           }}
-        />
-      )}
-
-      {/* 대리점 등록 모달 */}
-      {showModal && (
-        <RegisterModal
-          onClose={() => setShowModal(false)}
-          onCreated={() => fetchManagers(searchRef.current)}
         />
       )}
 
