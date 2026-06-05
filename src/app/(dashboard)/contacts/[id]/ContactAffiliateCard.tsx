@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Building2, User, Phone, Mail, Award, Send, Loader, Share2 } from "lucide-react";
+import { Building2, User, Phone, Mail, Award, Share2 } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { useSession } from "@/hooks/useSession";
 
@@ -37,14 +37,10 @@ interface DbRecipient {
 
 interface ContactAffiliateCardProps {
   contactId: string;
-  onStartSequence: (contactId: string) => Promise<void>;
-  sequenceLoading?: boolean;
 }
 
 export default function ContactAffiliateCard({
   contactId,
-  onStartSequence,
-  sequenceLoading = false,
 }: ContactAffiliateCardProps) {
   const { role } = useSession();
   const canShareDb = role !== 'FREE_SALES';

@@ -263,12 +263,10 @@ function FunnelTab({
 
 // ── 제휴 탭 ──────────────────────────────────────────────────────────────────
 function AffiliateTab({
-  contactId, contactName, onStartSequence, sequenceLoading,
+  contactId, contactName,
 }: {
   contactId: string;
   contactName: string;
-  onStartSequence: (contactId: string) => Promise<void>;
-  sequenceLoading: boolean;
 }) {
   const [affiliateInfo, setAffiliateInfo] = useState<{
     manager: { id: string; name: string; phone: string | null; email: string | null; org: string } | null;
@@ -303,17 +301,6 @@ function AffiliateTab({
 
   return (
     <div className="space-y-4">
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
-        <div>
-          <p className="text-sm font-semibold text-blue-900">Day 0-3 자동화 시퀀스</p>
-          <p className="text-xs text-blue-600 mt-0.5">SMS 자동 발송 시퀀스 시작</p>
-        </div>
-        <button onClick={() => onStartSequence(contactId)} disabled={sequenceLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium">
-          {sequenceLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          시작
-        </button>
-      </div>
       {hasManager ? (
         <div className="space-y-3">
           {affiliateInfo?.manager && (
@@ -627,21 +614,6 @@ export default function ContactSlidePanel({
   const [smsPage, setSmsPage] = useState(1);
   const [smsHasMore, setSmsHasMore] = useState(true);
   const [smsModalMode, setSmsModalMode] = useState<"instant" | "scheduled" | null>(null);
-  const [sequenceLoading, setSequenceLoading] = useState(false);
-
-  const startDay0_3Sequence = useCallback(async (contactId: string) => {
-    if (!confirm("Day 0-3 SMS 자동화 시퀀스를 시작하시겠어요?")) return;
-    setSequenceLoading(true);
-    try {
-      const res = await fetch(`/api/contacts/${contactId}/start-day0-3-sequence`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sendNow: true }),
-      });
-      const data = await res.json();
-      if (data.ok) toast({ title: "Day 0-3 시퀀스가 시작되었습니다!", variant: "success" });
-      else toast({ title: data.message ?? "시퀀스 시작 실패", variant: "destructive" });
-    } catch (err) { logger.error("[SlidePanel Day0-3]", { err, contactId }); toast({ title: "오류 발생", variant: "destructive" }); }
-    finally { setSequenceLoading(false); }
-  }, [toast]);
 
   const loadMoreSmsLogs = useCallback(async () => {
     if (!contact || smsLoading || !smsHasMore) return;
@@ -779,7 +751,6 @@ export default function ContactSlidePanel({
               {activeTab === "affiliate" && (
                 <AffiliateTab
                   contactId={contact.id} contactName={contact.name}
-                  onStartSequence={startDay0_3Sequence} sequenceLoading={sequenceLoading}
                 />
               )}
             </div>

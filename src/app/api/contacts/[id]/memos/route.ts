@@ -37,8 +37,9 @@ export async function DELETE(req: Request, { params }: Params) {
     const { searchParams } = new URL(req.url);
     const memoId = searchParams.get("memoId");
 
-    // [S-001] memoId UUID 형식 검증
-    if (memoId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(memoId)) {
+    // [S-001] memoId 형식 검증 — cuid/uuid 모두 허용(영숫자·_·-, 인젝션 방지용 안전 문자만)
+    // 실제 삭제는 contactId(및 AGENT는 userId)로 스코프되므로 형식만 가볍게 검증
+    if (memoId && !/^[a-zA-Z0-9_-]{1,64}$/.test(memoId)) {
       return NextResponse.json({ ok: false, message: "유효하지 않은 메모 ID 형식입니다" }, { status: 400 });
     }
 
