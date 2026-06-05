@@ -6,6 +6,7 @@ import {
   ShoppingCart, Users, CreditCard, UserPlus, GraduationCap,
   DollarSign, Crown, MessageSquare, Percent, Plane, FileText,
   Clock, Loader2, CalendarDays, ChevronDown, X, ChevronLeft, ChevronRight, AlertCircle,
+  TrendingUp,
 } from 'lucide-react';
 import { maskPhoneNumber, maskCustomerName } from '@/lib/pii-mask';
 import { genericApiResponseSchema } from '@/lib/schemas/partner-api';
@@ -13,7 +14,7 @@ import { useToast } from '@/lib/api/use-toast';
 
 /* ─────────────────── 타입 ─────────────────── */
 
-type Tab = 'b2c' | 'b2b' | 'gold';
+type Tab = 'b2c' | 'b2b' | 'gold' | 'performance';
 
 // B2C
 type B2CSale = {
@@ -94,6 +95,29 @@ type GoldData = {
   members: GoldMember[];
   recentConsultations: GoldConsultation[];
   trends?: TrendValues;
+};
+
+// Performance
+type PerformanceMember = {
+  memberId: string;
+  displayName: string;
+  role: string;
+  orgName: string;
+  monthlySales: { month: string; amount: number; count: number }[];
+  currentMonthSales: number;
+  currentMonthRefunds: number;
+  refundRate: number;
+  refundScore: number;
+  activityScore: number;
+  score: number;
+  status: 'GREEN' | 'YELLOW' | 'RED' | 'BLACK';
+  isSelf: boolean;
+};
+type PerformanceData = {
+  members: PerformanceMember[];
+  isAdmin: boolean;
+  isOwner: boolean;
+  monthLabels: string[];
 };
 
 /* ─────────────────── 유틸 ─────────────────── */
@@ -1074,18 +1098,238 @@ function GoldTab({ data, loading, month, onDrilldown }: { data: GoldData | null;
   );
 }
 
+/* ─────────────────── 성과현황 탭 ─────────────────── */
+
+const STATUS_PERF: Record<string, { bg: string; text: string; border: string; label: string }> = {
+  GREEN:  { bg: 'bg-green-50',  text: 'text-green-700',  border: 'border-green-200', label: '정상' },
+  YELLOW: { bg: 'bg-amber-50',  text: 'text-amber-700',  border: 'border-amber-200', label: '주의' },
+  RED:    { bg: 'bg-red-50',    text: 'text-red-700',    border: 'border-red-200',   label: '정지위험' },
+  BLACK:  { bg: 'bg-gray-800',  text: 'text-white',      border: 'border-gray-700',  label: '계약해지' },
+};
+
+const ROLE_LABEL: Record<string, string> = {
+  OWNER: '대리점장', owner: '대리점장',
+  AGENT: '판매원', agent: '판매원',
+  FREE_SALES: '프리세일즈', free_sales: '프리세일즈',
+  BRANCH_MANAGER: '지점장',
+};
+
+function ScoreGauge({ score, status }: { score: number; status: string }) {
+  const r = 36;
+  const circ = 2 * Math.PI * r;
+  const filled = (score / 100) * circ;
+  const stroke = status === 'GREEN' ? '#16a34a' : status === 'YELLOW' ? '#d97706' : status === 'RED' ? '#dc2626' : '#1f2937';
+  return (
+    <div className="relative w-24 h-24 flex items-center justify-center flex-shrink-0">
+      <svg width="96" height="96" className="-rotate-90" style={{ display: 'block' }}>
+        <circle cx="48" cy="48" r={r} fill="none" stroke="#e5e7eb" strokeWidth="8" />
+        <circle
+          cx="48" cy="48" r={r}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="8"
+          strokeDasharray={`${filled} ${circ}`}
+          strokeLinecap="round"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-2xl font-bold text-gray-900 leading-none">{score}</span>
+        <span className="text-[10px] text-gray-400">/ 100</span>
+      </div>
+    </div>
+  );
+}
+
+function MiniBar({ monthlySales }: { monthlySales: { month: string; amount: number; count: number }[] }) {
+  const maxAmt = Math.max(...monthlySales.map(m => m.amount), 1);
+  return (
+    <div className="flex items-end gap-0.5 h-10">
+      {monthlySales.map((m, i) => {
+        const h = Math.max(3, Math.round((m.amount / maxAmt) * 36));
+        return (
+          <div key={m.month} className="flex flex-col items-center gap-0.5 flex-1 min-w-0">
+            <div
+              className={`w-full rounded-sm ${i === monthlySales.length - 1 ? 'bg-blue-500' : 'bg-gray-300'}`}
+              style={{ height: `${h}px` }}
+              title={`${m.month}: ${m.count}건 ${m.amount.toLocaleString()}원`}
+            />
+            <span className="text-[8px] text-gray-400 truncate w-full text-center">{m.month.slice(5)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PerformanceTab({ data, loading }: { data: PerformanceData | null; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-xl border border-gray-200 bg-white p-6 animate-pulse">
+          <div className="h-5 w-36 bg-gray-200 rounded mb-4" />
+          <div className="flex gap-4">
+            <div className="w-24 h-24 bg-gray-200 rounded-full flex-shrink-0" />
+            <div className="flex-1 grid grid-cols-3 gap-3">
+              {[1, 2, 3].map(i => <div key={i} className="h-16 bg-gray-200 rounded-lg" />)}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data || data.members.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+        <TrendingUp className="h-12 w-12 mb-3 text-gray-200" />
+        <p className="text-sm">성과 데이터가 없습니다.</p>
+      </div>
+    );
+  }
+
+  const self = data.members.find(m => m.isSelf);
+  const team = data.members.filter(m => !m.isSelf);
+  const selfStatus = STATUS_PERF[self?.status ?? 'GREEN'];
+
+  return (
+    <div className="space-y-6">
+      {/* 나의 성과 */}
+      {self && (
+        <div className={`rounded-xl border-2 bg-white shadow-sm overflow-hidden`}
+          style={{ borderColor: self.status === 'GREEN' ? '#bbf7d0' : self.status === 'YELLOW' ? '#fde68a' : self.status === 'RED' ? '#fecaca' : '#374151' }}>
+          <div className={`px-5 py-3 flex items-center justify-between ${selfStatus.bg}`}>
+            <span className="font-semibold text-gray-800 text-sm">나의 성과현황</span>
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold border ${selfStatus.text} ${selfStatus.bg} ${selfStatus.border}`}>
+              {selfStatus.label}
+            </span>
+          </div>
+          <div className="p-5">
+            <div className="flex flex-col sm:flex-row gap-6 items-start">
+              <div className="flex flex-col items-center gap-1">
+                <ScoreGauge score={self.score} status={self.status} />
+                <p className="text-[10px] text-gray-400 text-center">
+                  환불 {self.refundScore}pt<br />활성 {self.activityScore}pt
+                </p>
+              </div>
+              <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                  <p className="text-xs text-gray-500 mb-1">이번달 환불율</p>
+                  <p className={`text-2xl font-bold ${self.refundRate >= 20 ? 'text-red-600' : self.refundRate >= 10 ? 'text-amber-600' : 'text-gray-900'}`}>
+                    {self.refundRate}%
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">{self.currentMonthRefunds} / {self.currentMonthSales}건</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                  <p className="text-xs text-gray-500 mb-1">이번달 판매</p>
+                  <p className="text-2xl font-bold text-gray-900">{self.currentMonthSales}건</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{formatWon(self.monthlySales[4]?.amount ?? 0)}원</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 col-span-2 sm:col-span-1">
+                  <p className="text-xs text-gray-500 mb-2">최근 5개월 추세</p>
+                  <MiniBar monthlySales={self.monthlySales} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 팀 성과 (OWNER / ADMIN) */}
+      {(data.isOwner || data.isAdmin) && team.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <Users className="h-4 w-4 text-gray-400" />
+            팀 성과현황
+            <span className="text-xs font-normal text-gray-400">({team.length}명)</span>
+          </h3>
+
+          {/* 상태별 요약 배지 */}
+          <div className="flex gap-2 mb-4 flex-wrap">
+            {(['GREEN', 'YELLOW', 'RED', 'BLACK'] as const).map(s => {
+              const cnt = team.filter(m => m.status === s).length;
+              if (cnt === 0) return null;
+              const p = STATUS_PERF[s];
+              return (
+                <span key={s} className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${p.text} ${p.bg} ${p.border}`}>
+                  {p.label} {cnt}명
+                </span>
+              );
+            })}
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">이름</th>
+                    {data.isAdmin && <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">조직</th>}
+                    <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">환불율</th>
+                    <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">점수</th>
+                    <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide w-32">5개월</th>
+                    <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">상태</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {team.map(m => {
+                    const p = STATUS_PERF[m.status] ?? STATUS_PERF.GREEN;
+                    return (
+                      <tr key={m.memberId} className={`hover:bg-gray-50 transition-colors ${m.status === 'RED' || m.status === 'BLACK' ? 'bg-red-50/30' : ''}`}>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-gray-900">{m.displayName}</p>
+                          <p className="text-xs text-gray-400">{ROLE_LABEL[m.role] ?? m.role}</p>
+                        </td>
+                        {data.isAdmin && (
+                          <td className="px-4 py-3 text-xs text-gray-500 max-w-[120px] truncate">{m.orgName}</td>
+                        )}
+                        <td className={`px-4 py-3 text-right font-semibold tabular-nums ${m.refundRate >= 20 ? 'text-red-600' : m.refundRate >= 10 ? 'text-amber-600' : 'text-gray-700'}`}>
+                          {m.refundRate}%
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-gray-900 tabular-nums">
+                          {m.score}
+                        </td>
+                        <td className="px-4 py-3 w-32">
+                          <MiniBar monthlySales={m.monthlySales} />
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${p.text} ${p.bg} ${p.border}`}>
+                            {p.label}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 점수 기준 안내 */}
+      <div className="text-xs text-gray-400 bg-gray-50 rounded-lg p-3 space-y-0.5 border border-gray-100">
+        <p>• <strong>점수</strong> = 환불율 점수(최대 60pt) + 활성도(최근 5개월 중 판매한 달 수 × 8pt, 최대 40pt)</p>
+        <p>• 환불율 10% 이상 → 주의(YELLOW) 자동 적용 / 20% 이상 → 정지위험(RED) 강제 적용</p>
+        <p>• 최근 5개월 실적 + 이번달 환불율 기준 / 실시간 산출</p>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────────── 메인 페이지 ─────────────────── */
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'b2c', label: 'B2C', icon: <ShoppingCart className="h-4 w-4" /> },
   { key: 'b2b', label: 'B2B', icon: <Users className="h-4 w-4" /> },
   { key: 'gold', label: '골드회원', icon: <Crown className="h-4 w-4" /> },
+  { key: 'performance', label: '성과현황', icon: <TrendingUp className="h-4 w-4" /> },
 ];
 
 const API_MAP: Record<Tab, string> = {
-  b2c: '/api/partner/dashboard/b2c',
-  b2b: '/api/partner/dashboard/b2b',
-  gold: '/api/partner/dashboard/gold',
+  b2c:         '/api/partner/dashboard/b2c',
+  b2b:         '/api/partner/dashboard/b2b',
+  gold:        '/api/partner/dashboard/gold',
+  performance: '/api/partner/dashboard/performance',
 };
 
 interface SuspensionInfo {
@@ -1108,6 +1352,7 @@ export default function PartnerDashboardPage() {
   const [b2cData, setB2cData] = useState<B2CData | null>(null);
   const [b2bData, setB2bData] = useState<B2BData | null>(null);
   const [goldData, setGoldData] = useState<GoldData | null>(null);
+  const [performanceData, setPerformanceData] = useState<PerformanceData | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // 정지 상태
@@ -1127,20 +1372,23 @@ export default function PartnerDashboardPage() {
   const monthOptions = getMonthOptions();
 
   const fetchTab = useCallback(async (tab: Tab, ym: string) => {
+    // 성과현황은 월 필터 없음 — 'all' 키로 캐시
+    const cacheKey = tab === 'performance' ? 'all' : ym;
+
     // 캐시 히트
-    const cached = cache.current[ym]?.[tab];
+    const cached = cache.current[cacheKey]?.[tab];
     if (cached) {
       if (tab === 'b2c') setB2cData(cached as B2CData);
       if (tab === 'b2b') setB2bData(cached as B2BData);
       if (tab === 'gold') setGoldData(cached as GoldData);
+      if (tab === 'performance') setPerformanceData(cached as PerformanceData);
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_MAP[tab]}?month=${ym}`, {
-        credentials: 'include',
-      });
+      const url = tab === 'performance' ? API_MAP[tab] : `${API_MAP[tab]}?month=${ym}`;
+      const res = await fetch(url, { credentials: 'include' });
 
       if (res.status === 401 || res.status === 403) {
         setAuthError(true);
@@ -1163,12 +1411,13 @@ export default function PartnerDashboardPage() {
         return;
       }
 
-      if (!cache.current[ym]) cache.current[ym] = {} as Record<Tab, unknown>;
-      cache.current[ym][tab] = d;
+      if (!cache.current[cacheKey]) cache.current[cacheKey] = {} as Record<Tab, unknown>;
+      cache.current[cacheKey][tab] = d;
 
       if (tab === 'b2c') setB2cData(d as B2CData);
       if (tab === 'b2b') setB2bData(d as B2BData);
       if (tab === 'gold') setGoldData(d as GoldData);
+      if (tab === 'performance') setPerformanceData(d as PerformanceData);
     } catch {
       // 네트워크 오류 무시 — 스켈레톤 유지
     }
@@ -1182,6 +1431,9 @@ export default function PartnerDashboardPage() {
     setB2cData((c?.b2c as B2CData) ?? null);
     setB2bData((c?.b2b as B2BData) ?? null);
     setGoldData((c?.gold as GoldData) ?? null);
+    // 성과현황은 월 무관 — 'all' 캐시에서 복원
+    const perfCached = cache.current['all']?.performance;
+    if (perfCached) setPerformanceData(perfCached as PerformanceData);
     // 현재 탭 데이터 fetch
     fetchTab(activeTab, month);
   }, [activeTab, month, fetchTab, refreshTrigger]);
@@ -1361,11 +1613,11 @@ export default function PartnerDashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">파트너 대시보드</h1>
-          <p className="text-sm text-gray-500 mt-1">B2C / B2B / 골드회원 현황을 한눈에 확인하세요.</p>
+          <p className="text-sm text-gray-500 mt-1">B2C / B2B / 골드회원 / 성과현황을 한눈에 확인하세요.</p>
         </div>
 
-        {/* 월 선택 */}
-        <div className="relative">
+        {/* 월 선택 — 성과현황 탭에서는 숨김 */}
+        <div className={`relative ${activeTab === 'performance' ? 'invisible' : ''}`}>
           <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
           <select
             value={month}
@@ -1413,6 +1665,7 @@ export default function PartnerDashboardPage() {
       {activeTab === 'b2c' && <B2CTab data={b2cData} loading={loading && !b2cData} month={month} onDrilldown={openDrilldown} onRefresh={() => setRefreshTrigger(t => t + 1)} />}
       {activeTab === 'b2b' && <B2BTab data={b2bData} loading={loading && !b2bData} month={month} onDrilldown={openDrilldown} />}
       {activeTab === 'gold' && <GoldTab data={goldData} loading={loading && !goldData} month={month} onDrilldown={openDrilldown} />}
+      {activeTab === 'performance' && <PerformanceTab data={performanceData} loading={loading && !performanceData} />}
 
       {/* 드릴다운 드로어 */}
       <DrilldownDrawer config={drawerConfig} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
