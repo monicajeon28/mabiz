@@ -420,8 +420,10 @@ ${footerBlock}
       const pageId = savedPageId || (await ensurePage());
       if (!pageId) { setSaving(false); return; }
       const imgTags = images.map((img) => {
-        const src = img.fullUrl
-          ?? `https://drive.google.com/thumbnail?id=${img.driveFileId}&sz=w1920`;
+        // GIF는 움직임 유지를 위해 원본 스트리밍(공개 엔드포인트), 그 외는 썸네일 사용
+        const src = img.mimeType === "image/gif"
+          ? `/api/public/landing-image?id=${img.driveFileId}`
+          : (img.fullUrl ?? `https://drive.google.com/thumbnail?id=${img.driveFileId}&sz=w1920`);
         const ar  = img.width && img.height ? `aspect-ratio:${img.width}/${img.height};` : "";
         return `<img src="${src}" alt="" style="width:100%;display:block;${ar}" loading="lazy">`;
       }).join("\n");
