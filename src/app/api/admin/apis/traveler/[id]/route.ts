@@ -5,6 +5,7 @@ import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
 import prisma from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import {
   writeTravelerWithAudit,
   moveTravelerRoomWithAudit,
@@ -122,12 +123,22 @@ export async function PATCH(
         return NextResponse.json({ ok: false, error: '이동할 방 번호가 올바르지 않습니다.' }, { status: 400, headers: noStore });
       }
 
-      // 같은 trip에 속한 모든 reservation id (이동 범위 = trip 내부)
-      const tripReservations = await prisma.gmReservation.findMany({
-        where: { tripId: reservation.tripId },
-        select: { id: true },
-      });
-      const tripReservationIds = tripReservations.map((r) => r.id);
+      // 같은 trip 내 이동 범위. OWNER는 자기 조직 예약으로 한정해
+      // 방이동 재판정·쓰기가 타 조직 traveler에 부수효과를 내지 않게 한다([P2] 격리).
+      // GLOBAL_ADMIN은 trip 전체(전권). 이동 대상 예약은 위 assertReservationInOrg를 이미 통과.
+      const isOwnerScoped = ctx.role === 'OWNER' && !!ctx.organizationId;
+      const tripReservationIds = isOwnerScoped
+        ? (await prisma.$queryRaw<{ id: number }[]>(Prisma.sql`
+            SELECT r.id FROM "Reservation" r
+            JOIN "User" u ON u.id = r."mainUserId"
+            JOIN "OrganizationMember" om
+              ON om.phone = u.phone AND om."organizationId" = ${ctx.organizationId}
+            WHERE r."tripId" = ${reservation.tripId}
+          `)).map((r) => r.id)
+        : (await prisma.gmReservation.findMany({
+            where: { tripId: reservation.tripId },
+            select: { id: true },
+          })).map((r) => r.id);
 
       const { moved, residualUpdated } = await moveTravelerRoomWithAudit({
         travelerId,
