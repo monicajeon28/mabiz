@@ -69,6 +69,54 @@ const PHASE_LABELS = [
   { number: 6, name: "클로징", duration: 180 },
 ];
 
+// 영어 심리학 렌즈 → 한국어 변환
+const LENS_KO: Record<string, string> = {
+  "Authority": "권위성",
+  "Trust Rebuilding": "신뢰 재구축",
+  "Emotional Anchor": "감정적 연결",
+  "Self-Disclosure": "자기 공개",
+  "Loss Aversion": "손실회피",
+  "Loss Aversion (Time)": "손실회피(시간)",
+  "Loss Aversion (Relationship)": "손실회피(관계)",
+  "Loss Aversion (Health)": "손실회피(건강)",
+  "Loss Aversion (Opportunity)": "손실회피(기회)",
+  "Scarcity": "희소성",
+  "Value Repositioning": "가치 재정의",
+  "Anchoring": "앵커링",
+  "Reassurance": "안심 제공",
+  "Social Proof": "사회적 증거",
+  "Choice Architecture": "선택 구조화",
+  "Emotional Closure": "감정적 클로징",
+  "Commitment & Consistency": "일관성 원칙",
+  "Generational Empathy": "세대 공감",
+  "Child Interest": "자녀 관심",
+  "MI": "동기면담",
+  "DARN-CAT": "변화동기 유도",
+  "MI + DARN-CAT": "동기면담+변화동기",
+  "Bundle Value": "번들 가치",
+  "Family Package": "가족 패키지",
+  "Life Transition": "인생 전환기",
+  "Second Life Chapter": "제2의 인생",
+  "Deep Listening": "깊은 경청",
+  "Health Assurance": "건강 보장",
+  "Time Value": "시간 가치",
+  "5-Year Promise": "5년 약속",
+  "Couple Rediscovery": "부부 재발견",
+  "Generational Respect": "세대 존중",
+  "Trust Building": "신뢰 구축",
+  "Experience Credibility": "경험 신뢰도",
+  "OARS + MI": "공감 경청+동기면담",
+  "Open Questions": "개방형 질문",
+  "Companion System": "동반자 시스템",
+  "Medical Assurance": "의료 보장",
+  "Peace of Mind": "마음의 평안",
+  "Child Happiness Anchor": "자녀 행복 앵커",
+};
+
+function translateLens(lens: string): string {
+  return LENS_KO[lens] ?? lens;
+}
+
 export default function CallScriptPanel({ contact, isExpanded = true, onPhaseChange }: CallScriptPanelProps) {
   const [expanded, setExpanded] = useState(isExpanded);
   const [currentPhase, setCurrentPhase] = useState(0);
@@ -79,14 +127,16 @@ export default function CallScriptPanel({ contact, isExpanded = true, onPhaseCha
 
   const segment = detectSegmentTrackB(contact);
 
+  // 접힌 상태에서는 API 호출하지 않음 (성능 최적화)
   useEffect(() => {
+    if (!expanded) return;
     abortControllerRef.current = new AbortController();
     fetchScript(segment, currentPhase);
 
     return () => {
       abortControllerRef.current?.abort();
     };
-  }, [segment, currentPhase]);
+  }, [segment, currentPhase, expanded]);
 
   async function fetchScript(seg: string, phase: number) {
     setLoading(true);
@@ -200,7 +250,7 @@ export default function CallScriptPanel({ contact, isExpanded = true, onPhaseCha
                 {script?.psychologyLenses?.map((lens) => (
                   <span key={lens} className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-medium">
                     <Zap className="w-3 h-3" />
-                    {lens}
+                    {translateLens(lens)}
                   </span>
                 ))}
               </div>
