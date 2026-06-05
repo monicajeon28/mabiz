@@ -305,41 +305,23 @@ ${footerBlock}
       const file = files[i];
       const isImage = file.type.startsWith("image/") || /\.(jpe?g|png|gif|webp|bmp)$/i.test(file.name);
       if (!isImage) continue;
-      if (file.size > 50 * 1024 * 1024) { setError(`${file.name}: 50MB 초과`); continue; }
+      if (file.size > 20 * 1024 * 1024) { setError(`${file.name}: 20MB 초과`); continue; }
 
       try {
-        // 1. Resumable Upload URL 발급
-        const mimeType = file.type || "image/jpeg";
-        const urlRes = await fetch(
-          `/api/landing-pages/images/upload-url?${new URLSearchParams({ fileName: file.name, mimeType })}`
-        );
-        if (!urlRes.ok) { setError(`${file.name}: 업로드 URL 발급 실패`); continue; }
-        const { uploadUrl } = await urlRes.json();
+        // 편집기와 동일한 검증된 단일 POST 경로 사용 (취약한 resumable upload-url/finalize 대신)
+        // 서버가 GIF는 압축 유지, JPG/PNG/WebP는 WebP 변환 후 Drive 백업까지 처리
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("landingPageId", pageId);
+        formData.append("sortOrder", String(images.length + uploaded));
 
-        // 2. Drive에 직접 업로드 (Content-Length는 브라우저가 자동 설정)
-        const driveRes = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": mimeType },
-          body: file,
-        });
-        if (!driveRes.ok) { setError(`${file.name}: Drive 업로드 실패 (${driveRes.status})`); continue; }
-        const driveData = await driveRes.json();
-        const driveFileId = driveData.id;
-        if (!driveFileId) { setError(`${file.name}: Drive fileId 없음`); continue; }
-
-        // 3. 서버에서 WebP 변환 + DB 등록
-        const finalRes = await fetch("/api/landing-pages/images/finalize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ driveFileId, landingPageId: pageId, mimeType, fileName: file.name, sortOrder: images.length + uploaded }),
-        });
-        const finalData = finalRes.ok ? await finalRes.json() : null;
-        if (finalData?.ok) {
-          setImages((prev) => [...prev, finalData.image]);
+        const res = await fetch("/api/landing-pages/images", { method: "POST", body: formData });
+        const data = res.ok ? await res.json() : await res.json().catch(() => null);
+        if (data?.ok && data.image) {
+          setImages((prev) => [...prev, data.image]);
           uploaded++;
         } else {
-          const msg = finalData?.message || `${file.name} 처리 실패`;
-          setError(msg);
+          setError(data?.message || `${file.name}: 업로드 실패`);
         }
       } catch (e) {
         setError(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
