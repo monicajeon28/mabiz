@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
-import { COMPANY_INFO, CANCELLATION_POLICY_LINES } from '@/lib/company-info';
+import { COMPANY_INFO, CANCELLATION_POLICY_LINES, BANK_TRANSFER_LABEL } from '@/lib/company-info';
 
 // P0-4: HTML 이스케이프 함수
 function escHtml(s: string): string {
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
 
     const paymentMethod = payment.pgProvider
       ? `${payment.pgProvider} (온라인 결제)`
-      : '계좌이체 (국민은행 531301-04-167150 / 예금주: 배연성)';
+      : BANK_TRANSFER_LABEL;
 
     const signedAt = body.signedAt ?? new Date().toISOString().split('T')[0];
 

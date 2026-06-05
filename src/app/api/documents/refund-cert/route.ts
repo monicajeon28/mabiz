@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
+import { REFUND_ACCOUNT_LABEL } from '@/lib/company-info';
 
 export async function POST(req: Request) {
   try {
@@ -119,7 +120,7 @@ export async function POST(req: Request) {
       daysBeforeDep:            refundCalc.daysBeforeDep,
       refundBasis:              refundCalc.basis,
       paymentMethod,
-      companyAccount:           '국민은행 531301-04-167150 (배연성/크루즈닷)',
+      companyAccount:           REFUND_ACCOUNT_LABEL,
       issuedAt:                 new Date().toISOString(),
       note:                     body.note ?? null,
       refunderName:             body.refunderName ?? null,

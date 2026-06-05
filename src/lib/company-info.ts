@@ -10,9 +10,13 @@ export const COMPANY_INFO = {
   bankHolder: '배연성',
 } as const;
 
-// 계좌이체 안내 문구 (구매확인/환불/계약서 결제수단 표기 공통)
+// 계좌이체 안내 문구 (구매확인/계약서 결제수단 표기 공통)
 export const BANK_TRANSFER_LABEL =
   `계좌이체 (${COMPANY_INFO.bankName} ${COMPANY_INFO.bankAccount} / 예금주: ${COMPANY_INFO.bankHolder})`;
+
+// 환불 입금 계좌 안내 문구 (환불증서 companyAccount 표기용)
+export const REFUND_ACCOUNT_LABEL =
+  `${COMPANY_INFO.bankName} ${COMPANY_INFO.bankAccount} (${COMPANY_INFO.bankHolder}/${COMPANY_INFO.name})`;
 
 // 취소·환불 규정 (관광진흥법 시행령 기준 요약) — 미리보기/실제 계약서 공통
 export const CANCELLATION_POLICY: { label: string; value: string }[] = [
