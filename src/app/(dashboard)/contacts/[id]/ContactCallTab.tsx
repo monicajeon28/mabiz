@@ -65,7 +65,7 @@ function ContactCallTabComponent({
           maritalStatus: contact.maritalStatus ?? undefined,
           childrenCount: contact.childrenCount ?? undefined,
         }}
-        isExpanded={true}
+        isExpanded={false}
       />
 
       <div className="flex gap-2 mb-3 flex-wrap">
