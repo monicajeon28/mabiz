@@ -17,6 +17,8 @@ import { logger } from "@/lib/logger";
 import { GroupForm } from "@/components/groups/GroupForm";
 
 // ─── 타입 정의 ────────────────────────────────────────────────────────────────
+type FunnelSmsChip = { id: string; title: string };
+
 type GroupRow = {
   id: string;
   seq: string;
@@ -25,9 +27,9 @@ type GroupRow = {
   parentGroupId: string | null;
   memberCount: number;
   funnelSmsIds: string[];
+  funnelSmsChips?: FunnelSmsChip[];
   createdAt: string;
   children?: GroupRow[];
-  _funnelSmsName?: string;
 };
 
 type PageSize = 10 | 50 | 100;
@@ -54,6 +56,45 @@ function buildEmbedScript(seq: string): string {
 </form>
 <script>function step_submit(frm){if(frm.nm.value==""){alert("이름이 없습니다");return false;}var regExp=/^01([0|1|6|7|8|9]?)-?([0-9]{3,4})-?([0-9]{4})$/;if(!regExp.test(frm.hp.value)){alert('잘못된 휴대폰 번호입니다. 숫자, -를 포함한 숫자만 입력하세요.');return false;}return true;}<\/script>
 <!-- //include form -->`;
+}
+
+// ─── 연결한 퍼널문자 칩 (최대 2개 + '+N') ─────────────────────────────────────
+function FunnelSmsChips({
+  chips,
+  fallbackCount,
+}: {
+  chips: FunnelSmsChip[] | undefined;
+  fallbackCount: number;
+}) {
+  // title 매핑이 있는 칩 우선 표시
+  if (chips && chips.length > 0) {
+    const visible = chips.slice(0, 2);
+    const rest = chips.length - visible.length;
+    return (
+      <span className="inline-flex flex-wrap items-center gap-1">
+        {visible.map((chip) => (
+          <a
+            key={chip.id}
+            href={`/sms-logs?tab=funnel&funnelSmsId=${encodeURIComponent(chip.id)}`}
+            title={chip.title}
+            className="inline-flex max-w-[120px] items-center truncate rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
+          >
+            <span className="truncate">{chip.title}</span>
+          </a>
+        ))}
+        {rest > 0 && (
+          <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[11px] font-medium text-gray-500">
+            +{rest}
+          </span>
+        )}
+      </span>
+    );
+  }
+  // 칩 매핑이 없으나 연결 id는 존재 → 개수 폴백
+  if (fallbackCount > 0) {
+    return <span className="text-gray-600 text-xs">{fallbackCount}개</span>;
+  }
+  return <span className="text-gray-400 text-xs">—</span>;
 }
 
 // ─── 스크립트 모달 ─────────────────────────────────────────────────────────────
@@ -796,11 +837,12 @@ export default function GroupsPage() {
                         )}
                       </td>
                       <td className="px-3 py-2 text-gray-600 text-xs">
-                        {!hasChildren &&
-                          (parent._funnelSmsName ??
-                            (parent.funnelSmsIds.length > 0
-                              ? `${parent.funnelSmsIds.length}개`
-                              : "—"))}
+                        {!hasChildren && (
+                          <FunnelSmsChips
+                            chips={parent.funnelSmsChips}
+                            fallbackCount={parent.funnelSmsIds.length}
+                          />
+                        )}
                       </td>
                       <td className="px-3 py-2 text-center text-gray-500 text-xs">
                         {!hasChildren ? formatDate(parent.createdAt) : ""}
@@ -859,10 +901,10 @@ export default function GroupsPage() {
                             </button>
                           </td>
                           <td className="px-3 py-2 text-gray-600 text-xs">
-                            {child._funnelSmsName ??
-                              (child.funnelSmsIds.length > 0
-                                ? `${child.funnelSmsIds.length}개`
-                                : "—")}
+                            <FunnelSmsChips
+                              chips={child.funnelSmsChips}
+                              fallbackCount={child.funnelSmsIds.length}
+                            />
                           </td>
                           <td className="px-3 py-2 text-center text-gray-500 text-xs">
                             {formatDate(child.createdAt)}

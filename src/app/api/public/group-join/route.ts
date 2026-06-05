@@ -100,10 +100,13 @@ export async function POST(req: Request) {
       select: { groupId: true },
     });
 
-    await prisma.contactGroupMember.upsert({
+    // 재등록(이미 멤버) 시 update:{}로 addedAt을 갱신하지 않는다.
+    //  → 퍼널문자 1일차/2일차 발송 기준일(anchorDate)은 "최초 그룹 입력일"로 고정된다.
+    const member = await prisma.contactGroupMember.upsert({
       where: { groupId_contactId: { groupId: group.id, contactId: contact.id } },
       create: { groupId: group.id, contactId: contact.id },
       update: {},
+      select: { addedAt: true },
     });
 
     // 실제 신규 등록 시에만 memberCount 증가
@@ -130,6 +133,8 @@ export async function POST(req: Request) {
             groupId:        group.id,
             organizationId: group.organizationId,
             funnelSmsId,
+            // 발송 기준일 = 고객이 그룹에 들어온 날(최초 입력일). 재등록 시에도 불변.
+            anchorDate:     member.addedAt,
           }).catch((err) => {
             logger.error('[group-join] FunnelSms trigger 실패', {
               seq, groupId: group.id, contactId: contact.id, funnelSmsId, err,

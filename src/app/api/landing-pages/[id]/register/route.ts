@@ -216,12 +216,14 @@ export async function POST(req: Request, { params }: Params) {
 
       // 그룹 배정 + 퍼널 시작
       if (landingPage.groupId) {
-        await prisma.contactGroupMember.upsert({
+        // 재등록 시 update:{}로 addedAt 미갱신 → 발송 기준일은 "최초 그룹 입력일"로 고정.
+        const member = await prisma.contactGroupMember.upsert({
           where: {
             groupId_contactId: { groupId: landingPage.groupId, contactId: contact.id },
           },
           create: { groupId: landingPage.groupId, contactId: contact.id },
           update: {},
+          select: { addedAt: true },
         });
 
         const triggered = await triggerGroupFunnel({
@@ -236,6 +238,8 @@ export async function POST(req: Request, { params }: Params) {
           contactId:      contact.id,
           groupId:        landingPage.groupId,
           organizationId: orgId,
+          // 발송 기준일 = 고객이 그룹에 들어온 날(최초 입력일).
+          anchorDate:     member.addedAt,
         }).catch((err) => {
           logger.error('[LandingRegister] 퍼널문자 트리거 실패', { err });
           return false;
