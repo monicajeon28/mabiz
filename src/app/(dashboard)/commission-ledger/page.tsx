@@ -13,6 +13,7 @@ type LedgerEntry = {
   yearMonth: string;
   note: string | null;
   createdAt: string;
+  commissionRate?: number | null;
 };
 
 type Summary = {
@@ -232,6 +233,7 @@ export default function CommissionLedgerPage() {
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">날짜</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">기간</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">구분</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-500 text-sm">요율</th>
                   <th className="text-right px-4 py-3 font-medium text-gray-500 text-sm">금액</th>
                   <th className="text-right px-4 py-3 font-medium text-gray-500 text-sm">잔액</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">메모</th>
@@ -252,6 +254,9 @@ export default function CommissionLedgerPage() {
                         <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${meta.badge}`}>
                           {meta.label}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-600 text-sm">
+                        {entry.commissionRate != null ? `${entry.commissionRate}%` : '-'}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {formatAmount(entry.type, entry.amount)}

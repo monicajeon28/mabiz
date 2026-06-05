@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getAuthContext, requireOrgId } from '@/lib/rbac';
 
 interface MetricsByDay {
   [key: string]: {
@@ -23,17 +24,12 @@ interface MetricsBySegment {
  */
 export async function GET(request: NextRequest) {
   try {
+    const ctx = await getAuthContext();
+    const organizationId = requireOrgId(ctx);
+
     // Query parameters
     const searchParams = request.nextUrl.searchParams;
-    const organizationId = searchParams.get('organizationId');
     const days = searchParams.get('days') ? parseInt(searchParams.get('days')!) : 7; // 기본 7일
-
-    if (!organizationId) {
-      return NextResponse.json(
-        { error: 'Missing required parameter: organizationId' },
-        { status: 400 }
-      );
-    }
 
     // 최근 N일간의 메시지 조회
     const startDate = new Date();

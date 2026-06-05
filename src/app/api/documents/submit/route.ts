@@ -58,6 +58,6 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     logger.error('[POST /api/documents/submit]', { err });
-    return NextResponse.json({ ok: false, message: String(err) }, { status: 500 });
+    return NextResponse.json({ ok: false, message: '처리 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

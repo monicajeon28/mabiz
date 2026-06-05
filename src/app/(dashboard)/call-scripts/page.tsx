@@ -1,9 +1,10 @@
 ﻿"use client";
 
 import { useState, useEffect } from "react";
+import { logger } from "@/lib/logger";
 import { CategorySelector } from "./components/CategorySelector";
-import { SegmentSelector } from "./components/SegmentSelector";
-import { ScriptPhaseNav } from "./components/ScriptPhaseNav";
+import { SegmentSelector, SEGMENT_MAP } from "./components/SegmentSelector";
+import { ScriptPhaseNav, AVAILABLE_PHASES_MAP } from "./components/ScriptPhaseNav";
 import { ScriptViewer } from "./components/ScriptViewer";
 import { SMSSequencePreview } from "./components/SMSSequencePreview";
 import { CallFeedback } from "./components/CallFeedback";
@@ -29,11 +30,16 @@ export default function CallScriptsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 카테고리 + 세그먼트에서 사용 가능한 페이즈 계산
+  const availablePhases =
+    AVAILABLE_PHASES_MAP[category]?.[segment] ?? ["1"];
+
   // 스크립트 데이터 로드
   useEffect(() => {
     const fetchScript = async () => {
       try {
         setLoading(true);
+        setError(null);
         const res = await fetch(
           `/api/call-scripts/${category}/${encodeURIComponent(segment)}/${phase}`
         );
@@ -43,7 +49,7 @@ export default function CallScriptsPage() {
           setScript(data.script);
         }
       } catch (err) {
-        console.error("Error fetching script:", err);
+        logger.error("Error fetching script:", { error: err instanceof Error ? err.message : String(err) });
         setError("스크립트를 불러올 수 없습니다");
       } finally {
         setLoading(false);
@@ -57,6 +63,9 @@ export default function CallScriptsPage() {
   const handleCategoryChange = (newCategory: string) => {
     setCategory(newCategory);
     setPhase("1");
+    // 새 카테고리의 첫 번째 세그먼트로 리셋
+    const firstSegment = SEGMENT_MAP[newCategory]?.[0] ?? "";
+    setSegment(firstSegment);
   };
 
   const handleSegmentChange = (newSegment: string) => {
@@ -92,7 +101,11 @@ export default function CallScriptsPage() {
           {/* Phase 네비게이션 */}
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">스크립트 단계</h3>
-            <ScriptPhaseNav selected={phase} onSelect={setPhase} />
+            <ScriptPhaseNav
+              selected={phase}
+              onSelect={setPhase}
+              availablePhases={availablePhases}
+            />
           </div>
         </aside>
 
@@ -119,7 +132,11 @@ export default function CallScriptsPage() {
               pasonaPhase={script.pasonaPhase}
               tips={script.tips}
             />
-          ) : null}
+          ) : (
+            <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
+              <p className="text-gray-400 text-sm">스크립트를 선택해주세요</p>
+            </div>
+          )}
         </main>
 
         {/* 우측: SMS 시퀀스 + 피드백 */}

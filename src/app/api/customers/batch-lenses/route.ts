@@ -22,7 +22,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { detectCustomerLenses } from "@/lib/customers/lens-detector";
+import { detectCustomerLensesBatch } from "@/lib/customers/lens-detector";
+import { logger } from "@/lib/logger";
 import { getServerSession } from "next-auth";
 
 interface BatchLensRequest {
@@ -69,67 +70,60 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Detect lenses for each contact in parallel
+    // Detect lenses for all contacts in a single batch (3 DB queries total)
     const results: Record<string, any> = {};
 
-    await Promise.all(
-      contacts.map(async (contact) => {
-        try {
-          const lenses = await detectCustomerLenses(contact, orgId);
+    const batchLenses = await detectCustomerLensesBatch(contacts, orgId);
 
-          // Calculate risk score
-          let riskScore = 0;
-          if (contact.lastContactedAt) {
-            const daysSinceContact = Math.floor(
-              (Date.now() - contact.lastContactedAt.getTime()) / (1000 * 60 * 60 * 24)
-            );
-            if (daysSinceContact > 180) riskScore += 25;
-            else if (daysSinceContact > 90) riskScore += 15;
-          }
+    for (const contact of contacts) {
+      const lenses = batchLenses[contact.id] ?? [];
 
-          if (contact.tags?.includes("price_sensitive")) riskScore += 20;
-          if (contact.optOutAt) riskScore += 30;
+      // Calculate risk score
+      let riskScore = 0;
+      if (contact.lastContactedAt) {
+        const daysSinceContact = Math.floor(
+          (Date.now() - contact.lastContactedAt.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        if (daysSinceContact > 180) riskScore += 25;
+        else if (daysSinceContact > 90) riskScore += 15;
+      }
 
-          const readyLens = lenses.find((l) => l.readinessScore > 70);
-          if (readyLens) riskScore = Math.max(0, riskScore - 10);
+      if (contact.tags?.includes("price_sensitive")) riskScore += 20;
+      if (contact.optOutAt) riskScore += 30;
 
-          riskScore = Math.min(100, riskScore);
+      const readyLens = lenses.find((l) => l.readinessScore > 70);
+      if (readyLens) riskScore = Math.max(0, riskScore - 10);
 
-          results[contact.id] = {
-            name: contact.name,
-            phone: contact.phone,
-            lenses: lenses.map((l) => ({
-              lensType: l.lensType,
-              label: l.label,
-              confidenceScore: l.confidenceScore,
-              readinessScore: l.readinessScore,
-              signals: l.signals,
-            })),
-            riskScore,
-            riskLevel:
-              riskScore >= 80
-                ? "CRITICAL"
-                : riskScore >= 60
-                  ? "HIGH"
-                  : riskScore >= 40
-                    ? "MEDIUM"
-                    : "LOW",
-            primaryLens: lenses[0]
-              ? {
-                  lensType: lenses[0].lensType,
-                  label: lenses[0].label,
-                  confidence: lenses[0].confidenceScore,
-                }
-              : null,
-          };
-        } catch (e) {
-          console.error(`[Batch Lens] Error for contact ${contact.id}:`, e);
-          results[contact.id] = {
-            error: "Failed to detect lenses",
-          };
-        }
-      })
-    );
+      riskScore = Math.min(100, riskScore);
+
+      results[contact.id] = {
+        name: contact.name,
+        phone: contact.phone,
+        lenses: lenses.map((l) => ({
+          lensType: l.lensType,
+          label: l.label,
+          confidenceScore: l.confidenceScore,
+          readinessScore: l.readinessScore,
+          signals: l.signals,
+        })),
+        riskScore,
+        riskLevel:
+          riskScore >= 80
+            ? "CRITICAL"
+            : riskScore >= 60
+              ? "HIGH"
+              : riskScore >= 40
+                ? "MEDIUM"
+                : "LOW",
+        primaryLens: lenses[0]
+          ? {
+              lensType: lenses[0].lensType,
+              label: lenses[0].label,
+              confidence: lenses[0].confidenceScore,
+            }
+          : null,
+      };
+    }
 
     const duration = Date.now() - startTime;
 
@@ -143,7 +137,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[Batch Lens] Error:", error);
+    logger.error("[Batch Lens] Error:", error);
     return NextResponse.json(
       {
         error: "Internal server error",

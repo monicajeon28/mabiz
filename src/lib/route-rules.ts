@@ -68,6 +68,13 @@ export const ROUTE_RULES: RouteRule[] = [
     redirectTo: '/dashboard',
   },
 
+  // 수익 계산기 - GLOBAL_ADMIN 전용 (대리점장/판매원 차단)
+  {
+    pattern: '/tools/profit-calculator',
+    requiredRole: 'GLOBAL_ADMIN',
+    redirectTo: '/tools',
+  },
+
   // Dashboard root - MEMBER+ (호환성 유지)
   {
     pattern: '/dashboard',

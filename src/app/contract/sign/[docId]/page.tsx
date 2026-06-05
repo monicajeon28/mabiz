@@ -123,6 +123,9 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
   const drawnDistanceRef = useRef(0);
   const lastDrawPosRef = useRef<{ x: number; y: number } | null>(null);
 
+  // 네트워크 오류 재시도 카운터
+  const [retryCount, setRetryCount] = useState(0);
+
   // ── 토큰 검증 (P1-3: AbortController 메모리 누수 방지) ─────────────────────
   useEffect(() => {
     if (!docId || !token) {
@@ -161,7 +164,7 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
         setStep("error");
       });
     return () => controller.abort();
-  }, [docId, token]);
+  }, [docId, token, retryCount]);
 
   // ── 동행자 배열 동기화 (P1-4: 감소 시 기존 데이터 보존) ───────────────────
   useEffect(() => {
@@ -417,7 +420,10 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
             <button
               onClick={() => {
                 setErrorMsg("");
-                setStep("signature");
+                setIsTokenError(false);
+                submitLockRef.current = false;
+                setStep("loading");
+                setRetryCount((c) => c + 1);
               }}
               className="mt-6 w-full bg-[#1a2e4a] text-white text-base font-bold py-3 rounded-2xl hover:bg-[#243d5e] transition-colors"
             >
@@ -443,8 +449,11 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">서명이 완료되었습니다!</h2>
-          <p className="text-base text-gray-500 mb-4">
+          <p className="text-base text-gray-500 mb-2">
             담당 에이전트에게 알림이 전송되었습니다.
+          </p>
+          <p className="text-sm text-blue-600 bg-blue-50 rounded-xl px-4 py-2 mb-4">
+            📧 입력하신 이메일로 계약서 사본이 발송됩니다 (수분 내 수신).
           </p>
           {completedAt && (
             <div className="bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-600">

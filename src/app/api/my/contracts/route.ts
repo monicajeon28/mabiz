@@ -40,10 +40,11 @@ export async function GET() {
     const contracts = instances.map((inst) => {
       // status 매핑
       const statusMap: Record<string, string> = {
-        DRAFT:     'invited',
+        DRAFT:     'draft',
         SENT:      'invited',
         SIGNED:    'signed',
         COMPLETED: 'completed',
+        REJECTED:  'rejected',
       };
 
       // contractType: 템플릿 카테고리로 판단
@@ -59,6 +60,9 @@ export async function GET() {
         (typeof bound.name === 'string' ? bound.name : null) ??
         '이름 없음';
 
+      // driveUrl: boundData에서 추출 (서명 완료 후 Drive에 저장됨)
+      const driveUrl = typeof bound.driveUrl === 'string' ? bound.driveUrl : null;
+
       return {
         id:             inst.id,
         contractorName,
@@ -73,6 +77,7 @@ export async function GET() {
         smsDay2Sent:    inst.smsDay2Sent,
         lastReminderAt: inst.smsDay2SentAt?.toISOString() ?? null,
         contractType,
+        driveUrl,
       };
     });
 

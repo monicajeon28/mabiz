@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import Link from "next/link";
 import { Search, Plus, Filter, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet, Loader2, Share2, FolderDown } from "lucide-react";
 import { logger } from "@/lib/logger";
@@ -409,21 +409,6 @@ export default function ContactsPage() {
   const [quickCallLoading, setQuickCallLoading] = useState(false);
   const [quickCallError, setQuickCallError] = useState<string | null>(null);
 
-  // P2-8: Debounce function to prevent excessive API calls
-  const debounce = useCallback(
-    <T extends unknown[]>(
-      fn: (...args: T) => Promise<void>,
-      delay: number
-    ) => {
-      let timeoutId: ReturnType<typeof setTimeout> | null = null;
-      return (...args: T) => {
-        if (timeoutId) clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => fn(...args), delay);
-      };
-    },
-    []
-  );
-
   const fetchContacts = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: "30" });
@@ -449,24 +434,33 @@ export default function ContactsPage() {
     }
   }, [q, type, page, filterGroupId, filterSourceType, filterAssignedTo, selectedTags]); // P0-6
 
-  // P2-8: Debounced search with 300ms delay to prevent rapid API calls
-  const debouncedFetch = useMemo(
-    () => debounce(fetchContacts, 300),
-    [fetchContacts, debounce]
-  );
+  // P2-8: refs persist across renders — prevents debounce timer reset and premature AbortController abort
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    const controller = new AbortController();
-    // P2-8: Use debounced fetch instead of direct fetch for search queries
-    // 검색어(q)만 입력 중 → debounce (사용자 타이핑 대기)
-    // 필터 변경 → 직접 호출 (필터는 드롭다운이라 안정적)
-    if (q) {
-      debouncedFetch(controller.signal);
-    } else {
+    // 검색어(q)만 입력 중 → 300ms debounce (사용자 타이핑 대기)
+    // 필터 변경 → 즉시 호출 (필터는 드롭다운이라 안정적)
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+
+    const doFetch = () => {
+      // AbortController를 fetch 직전에 생성해야 debounce 대기 중 abort가 일어나지 않음
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
       fetchContacts(controller.signal);
+    };
+
+    if (q) {
+      debounceTimerRef.current = setTimeout(doFetch, 300);
+    } else {
+      doFetch();
     }
-    return () => controller.abort();
-  }, [q, type, page, filterGroupId, filterSourceType, filterAssignedTo, selectedTags, fetchContacts, debouncedFetch]);
+
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, [q, type, page, filterGroupId, filterSourceType, filterAssignedTo, selectedTags, fetchContacts]);
 
   useEffect(() => { setPage(1); }, [filterGroupId, filterSourceType, filterAssignedTo, selectedTags]); // P0-6
 
@@ -536,36 +530,53 @@ export default function ContactsPage() {
     if (!groupId) return;
     setAssigning(contactId);
 
-    // 기존 그룹 제거 후 새 그룹 배정 (그룹은 1개만) — 병렬 처리
-    const contact = contacts.find(c => c.id === contactId);
-    if (contact && (contact.groups ?? []).length > 0) {
-      await Promise.all(
-        (contact.groups ?? []).map((g) =>
-          fetch(`/api/groups/${g.group.id}/members`, {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contactIds: [contactId] }),
-          })
-        )
-      );
-    }
+    try {
+      // 기존 그룹 제거 후 새 그룹 배정 (그룹은 1개만) — 병렬 처리
+      const contact = contacts.find(c => c.id === contactId);
+      if (contact && (contact.groups ?? []).length > 0) {
+        const removeResults = await Promise.all(
+          (contact.groups ?? []).map((g) =>
+            fetch(`/api/groups/${g.group.id}/members`, {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ contactIds: [contactId] }),
+            })
+          )
+        );
+        for (const r of removeResults) {
+          if (!r.ok) throw new Error('기존 그룹 제거 실패 (HTTP ' + r.status + ')');
+        }
+      }
 
-    await fetch(`/api/groups/${groupId}/members`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contactIds: [contactId] }),
-    });
+      const res = await fetch(`/api/groups/${groupId}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactIds: [contactId] }),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json() as { ok?: boolean; message?: string };
+      if (!data.ok) throw new Error(data.message ?? '배정 실패');
 
-    // 로컬 상태 업데이트 (새 그룹만 표시)
-    const grp = groups.find(g => g.id === groupId);
-    if (grp) {
-      setContacts(prev => prev.map(c =>
-        c.id === contactId
-          ? { ...c, groups: [{ group: { id: grp.id, name: grp.name, color: null } }] }
-          : c
-      ));
+      // 로컬 상태 업데이트 (새 그룹만 표시)
+      const grp = groups.find(g => g.id === groupId);
+      if (grp) {
+        setContacts(prev => prev.map(c =>
+          c.id === contactId
+            ? { ...c, groups: [{ group: { id: grp.id, name: grp.name, color: null } }] }
+            : c
+        ));
+      }
+      toast({ title: `"${grp?.name ?? '그룹'}" 배정 완료`, variant: 'success' });
+    } catch (err) {
+      logger.error('[quickAssign failed]', { err });
+      toast({
+        title: '그룹 배정 실패',
+        description: err instanceof Error ? err.message : '다시 시도해주세요.',
+        variant: 'destructive',
+      });
+    } finally {
+      setAssigning(null);
     }
-    setAssigning(null);
   };
 
   const bulkAssignUnassigned = async () => {

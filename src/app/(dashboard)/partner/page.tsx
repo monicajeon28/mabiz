@@ -27,6 +27,15 @@ const EMPTY_FORM = {
   commissionRate: '',
 };
 
+const STATUS_META: Record<string, { label: string; cls: string }> = {
+  ACTIVE:    { label: '활성',   cls: 'bg-green-100 text-green-700' },
+  INACTIVE:  { label: '비활성', cls: 'bg-gray-100 text-gray-600' },
+  SUSPENDED: { label: '정지',   cls: 'bg-red-100 text-red-700' },
+  PENDING:   { label: '검토중', cls: 'bg-yellow-100 text-yellow-700' },
+};
+
+const TOGGLEABLE_STATUSES = new Set(['ACTIVE', 'INACTIVE']);
+
 export default function PartnerPage() {
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
@@ -268,16 +277,22 @@ export default function PartnerPage() {
                         {partner.customerCount}명
                       </td>
                       <td className="px-6 py-4">
-                        <button
-                          onClick={() => toggleStatus(partner.id, partner.status)}
-                          className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            partner.status === 'ACTIVE'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-gray-100 text-gray-600'
-                          }`}
-                        >
-                          {partner.status === 'ACTIVE' ? '활성' : '비활성'}
-                        </button>
+                        {(() => {
+                          const meta = STATUS_META[partner.status] ?? { label: partner.status, cls: 'bg-gray-100 text-gray-600' };
+                          const canToggle = TOGGLEABLE_STATUSES.has(partner.status);
+                          return canToggle ? (
+                            <button
+                              onClick={() => toggleStatus(partner.id, partner.status)}
+                              className={`px-3 py-1 rounded-full text-sm font-medium ${meta.cls}`}
+                            >
+                              {meta.label}
+                            </button>
+                          ) : (
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${meta.cls}`}>
+                              {meta.label}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex gap-2 justify-center">

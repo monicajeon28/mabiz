@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { sendSms, resolveUserSmsConfig } from '@/lib/aligo';
+import { checkRateLimitAsync } from '@/lib/rate-limit';
 
 interface FamilySmsPayload {
   contactId: string;
@@ -79,6 +80,12 @@ export async function POST(req: NextRequest) {
         { error: 'contactId, targetRole, and day are required' },
         { status: 400 }
       );
+    }
+
+    const rlKey = `family_sms:${organizationId}:${contactId}:day${day}`;
+    const { allowed } = await checkRateLimitAsync(rlKey, 1, 24 * 60 * 60 * 1000);
+    if (!allowed) {
+      return NextResponse.json({ error: '이미 발송된 SMS입니다.' }, { status: 429 });
     }
 
     const contact = await prisma.contact.findFirst({

@@ -52,6 +52,7 @@ interface PayslipItem {
   note: string | null;
   agentDisplayName: string | null;
   agentMallUserId: string | null;
+  tierLabel: string | null;
   createdAt: string;
 }
 
@@ -78,6 +79,19 @@ interface PaginationData {
   limit: number;
   total: number;
   totalPages: number;
+}
+
+/** Tier 문자열 → 커미션율 라벨 (예: "Bronze" → "Bronze 15%") */
+const TIER_RATE_MAP: Record<string, string> = {
+  Bronze:   'Bronze 15%',
+  Silver:   'Silver 18%',
+  Gold:     'Gold 20%',
+  Platinum: 'Platinum 22%',
+};
+
+function buildTierLabel(tier: string | null | undefined): string | null {
+  if (!tier) return null;
+  return TIER_RATE_MAP[tier] ?? tier;
 }
 
 /** YYYY-MM 문자열에서 다음 달 15일 반환 (ISO 형식, UTC 고정) */
@@ -304,8 +318,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       prisma.affiliatePayslip.count({ where }),
     ]);
 
-    // 문서 상태 조회
+    // 문서 상태 조회 (ap.id 포함 — Partner tier 조회에 사용)
     const profileRows = await prisma.$queryRaw<Array<{
+      profileId: number;
       withholdingRate: number;
       bankName: string | null;
       bankAccount: string | null;
@@ -315,6 +330,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }>>(
       Prisma.sql`
         SELECT
+          ap."id" AS "profileId",
           ap."withholdingRate",
           COALESCE(ac."bankName", ap."bankName") AS "bankName",
           COALESCE(ac."bankAccount", ap."bankAccount") AS "bankAccount",
@@ -330,6 +346,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const profileDoc = profileRows[0];
     const withholdingRate = profileDoc?.withholdingRate ?? 3.3;
+
+    // Partner tier 조회 (externalProfileId = AffiliateProfile.id)
+    let tierLabel: string | null = null;
+    if (profileDoc?.profileId) {
+      const partnerRecord = await prisma.partner.findFirst({
+        where: { externalProfileId: profileDoc.profileId },
+        select: { tier: true },
+      });
+      tierLabel = buildTierLabel(partnerRecord?.tier ?? null);
+    }
 
     const payslipItems: PayslipItem[] = payslips.map((p: AffiliatePayslip) => {
       const base = Number(p.baseCommission);
@@ -352,6 +378,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         note: p.note ?? null,
         agentDisplayName: p.agentDisplayName ?? null,
         agentMallUserId: p.agentMallUserId ?? null,
+        tierLabel,
         createdAt: p.createdAt.toISOString(),
       };
     });

@@ -38,7 +38,7 @@ export async function GET(
     return NextResponse.json({ ok: true, data: doc });
   } catch (err) {
     logger.error('[GET /api/documents/:id]', { err });
-    return NextResponse.json({ ok: false, message: String(err) }, { status: 500 });
+    return NextResponse.json({ ok: false, message: '처리 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
 
@@ -96,7 +96,7 @@ export async function PATCH(
     return NextResponse.json({ ok: true, data: updated });
   } catch (err) {
     logger.error('[PATCH /api/documents/:id]', { err });
-    return NextResponse.json({ ok: false, message: String(err) }, { status: 500 });
+    return NextResponse.json({ ok: false, message: '처리 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
 
@@ -142,6 +142,6 @@ export async function DELETE(
     return NextResponse.json({ ok: true, message: '문서가 삭제되었습니다' });
   } catch (err) {
     logger.error('[DELETE /api/documents/:id]', { err });
-    return NextResponse.json({ ok: false, message: String(err) }, { status: 500 });
+    return NextResponse.json({ ok: false, message: '처리 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

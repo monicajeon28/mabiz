@@ -64,6 +64,83 @@ export async function detectCustomerLenses(
     }),
   ]);
 
+  return detectLensesFromData(contact, memos, calls, messages);
+}
+
+/**
+ * Batch lens detection function — fetches all supporting data once per batch
+ * using `{ in: [...] }` queries instead of one query per contact.
+ * Use this instead of calling detectCustomerLenses in a loop.
+ */
+export async function detectCustomerLensesBatch(
+  contacts: Contact[],
+  _organizationId: string
+): Promise<Record<string, LensDetectionResult[]>> {
+  if (contacts.length === 0) return {};
+
+  const contactIds = contacts.map((c) => c.id);
+
+  // Single round-trip per table for the entire batch
+  const [allMemos, allCalls, allMessages] = await Promise.all([
+    prisma.contactMemo.findMany({
+      where: { contactId: { in: contactIds } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.callLog.findMany({
+      where: { contactId: { in: contactIds } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.crmMarketingMessage.findMany({
+      where: { contactId: { in: contactIds } },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  // Build Maps indexed by contactId for O(1) lookup
+  const memosByContact = new Map<string, typeof allMemos>();
+  const callsByContact = new Map<string, typeof allCalls>();
+  const messagesByContact = new Map<string, typeof allMessages>();
+
+  for (const memo of allMemos) {
+    const list = memosByContact.get(memo.contactId) ?? [];
+    if (list.length < 20) list.push(memo);
+    memosByContact.set(memo.contactId, list);
+  }
+  for (const call of allCalls) {
+    const list = callsByContact.get(call.contactId) ?? [];
+    if (list.length < 20) list.push(call);
+    callsByContact.set(call.contactId, list);
+  }
+  for (const msg of allMessages) {
+    const list = messagesByContact.get(msg.contactId) ?? [];
+    if (list.length < 20) list.push(msg);
+    messagesByContact.set(msg.contactId, list);
+  }
+
+  // Detect lenses synchronously — no extra DB calls
+  const results: Record<string, LensDetectionResult[]> = {};
+  for (const contact of contacts) {
+    const memos = memosByContact.get(contact.id) ?? [];
+    const calls = callsByContact.get(contact.id) ?? [];
+    const messages = messagesByContact.get(contact.id) ?? [];
+    results[contact.id] = detectLensesFromData(contact, memos, calls, messages);
+  }
+
+  return results;
+}
+
+/**
+ * Pure (synchronous) lens detection given pre-fetched supporting data.
+ * Called by both detectCustomerLenses and detectCustomerLensesBatch.
+ */
+function detectLensesFromData(
+  contact: Contact,
+  memos: any[],
+  calls: any[],
+  _messages: any[]
+): LensDetectionResult[] {
+  const results: LensDetectionResult[] = [];
+
   // L0: Reactivation - Inactive customers
   const l0 = detectL0Reactivation(contact);
   if (l0) results.push(l0);

@@ -384,7 +384,7 @@ export default function ContactSlidePanel({
   const [loadingTransfer, setLoadingTransfer] = useState(false);
   const groupsLoadedRef = useRef(false);
 
-  // 그룹 탭 클릭 시 데이터 로드
+  // 그룹/퍼널 목록은 세션 동안 거의 변하지 않으므로 한 번만 로드 (패널 닫힘 시 캐시 유지)
   useEffect(() => {
     if (activeTab !== "group" || groupsLoadedRef.current) return;
     groupsLoadedRef.current = true;
@@ -395,19 +395,18 @@ export default function ContactSlidePanel({
       if (g.status === "fulfilled" && g.value?.ok) setAllGroups(g.value.groups ?? []);
       if (f.status === "fulfilled" && f.value?.ok) setFunnels(f.value.funnels ?? []);
     }).catch(err => logger.error("[SlidePanel groups]", { err }));
+  }, [activeTab]);
 
-    if (contact?.id) {
-      setLoadingTransfer(true);
-      fetch(`/api/contacts/${contact.id}/transfer-logs`)
-        .then(r => r.json())
-        .then(d => { if (d.ok) setTransferLogs(d.logs ?? []); })
-        .catch(err => logger.error("[SlidePanel transfer-logs]", { err }))
-        .finally(() => setLoadingTransfer(false));
-    }
-  }, [activeTab, contact?.id]);
-
-  // 패널이 닫히면 그룹 로드 플래그 리셋 (다음 번 열릴 때 재로드)
-  useEffect(() => { if (!open) groupsLoadedRef.current = false; }, [open]);
+  // transfer-logs는 contact가 바뀌거나 그룹 탭이 열릴 때마다 재요청
+  useEffect(() => {
+    if (!contact?.id || activeTab !== "group") return;
+    setLoadingTransfer(true);
+    fetch(`/api/contacts/${contact.id}/transfer-logs`)
+      .then(r => r.json())
+      .then(d => { if (d.ok) setTransferLogs(d.logs ?? []); })
+      .catch(err => logger.error("[SlidePanel transfer-logs]", { err }))
+      .finally(() => setLoadingTransfer(false));
+  }, [contact?.id, activeTab]);
 
   const assignGroup = useCallback(async () => {
     if (!contact || !selectedGroup) return;
