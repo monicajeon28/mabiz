@@ -12,6 +12,7 @@ import { randomUUID } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { getAuthContext } from '@/lib/rbac';
+import { sendSystemEmail } from '@/lib/system-email';
 
 export async function PUT(
   req: NextRequest,
@@ -34,7 +35,7 @@ export async function PUT(
 
     const contract = await prisma.gmAffiliateContract.findUnique({
       where: { id: contractId },
-      select: { id: true, status: true, metadata: true, name: true, phone: true },
+      select: { id: true, status: true, metadata: true, name: true, phone: true, email: true },
     });
     if (!contract) {
       return NextResponse.json({ ok: false, message: '신청을 찾을 수 없습니다.' }, { status: 404 });
@@ -82,10 +83,37 @@ export async function PUT(
       name: contract.name,
     });
 
+    // 승인 직후 신청자에게 신분증/통장 제출 링크 이메일 자동 발송 (best-effort, 실패해도 승인은 유지)
+    let emailSent = false;
+    if (contract.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contract.email)) {
+      const html = `
+        <div style="font-family:'Apple SD Gothic Neo',sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+          <h2 style="font-size:18px;color:#1a1a1a;">크루즈닷 파트너스 가입이 승인되었습니다 🎉</h2>
+          <p style="font-size:14px;color:#444;line-height:1.6;">
+            ${contract.name || '신청자'}님, 가입 신청이 승인되었습니다.<br/>
+            마지막으로 <b>신분증</b>과 <b>통장 사본</b>을 제출해 주세요. 아래 버튼을 눌러 업로드하시면 됩니다.
+          </p>
+          <p style="margin:24px 0;">
+            <a href="${completionLink}" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:15px;">서류 제출하러 가기</a>
+          </p>
+          <p style="font-size:12px;color:#888;">※ 이 링크는 발급 후 24시간 동안만 유효합니다.</p>
+        </div>`;
+      try {
+        emailSent = await sendSystemEmail({
+          to: contract.email,
+          subject: '[크루즈닷 파트너스] 가입 승인 — 신분증·통장 제출 안내',
+          html,
+        });
+      } catch (mailErr) {
+        logger.error('[CRUISE-PARTNER] 승인 이메일 발송 오류', { contractId, err: mailErr });
+      }
+      if (!emailSent) logger.warn('[CRUISE-PARTNER] 승인 이메일 미발송(설정/주소 확인)', { contractId });
+    }
+
     return NextResponse.json({
       ok: true,
-      message: '신청이 승인되었습니다.',
-      data: { contractId, name: contract.name, completionLink },
+      message: emailSent ? '승인 완료 — 신청자에게 서류 제출 링크를 이메일로 보냈습니다.' : '신청이 승인되었습니다.',
+      data: { contractId, name: contract.name, completionLink, emailSent },
     });
   } catch (err) {
     logger.error('[CRUISE-PARTNER] 승인 실패', { error: err });
