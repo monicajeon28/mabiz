@@ -85,6 +85,76 @@ export async function POST(req: Request) {
     // buildContactWhere로 권한 스코프 제한(OWNER=자기조직, GLOBAL_ADMIN=전체) +
     // deletedAt:null 자동 적용 → 남의 조직 고객/이미 삭제된 고객은 대상에서 제외됨.
     const where = buildContactWhere(ctx, { id: { in: contactIds as string[] } });
+
+    // ── Drive 백업 (삭제 전 스냅샷) — 단건 삭제와 동일하게 복수삭제도 백업 ──
+    // 백업 준비/실행 실패해도 삭제는 진행하되, 실패는 반드시 로그로 남긴다(조용한 실패 방지).
+    try {
+      const targets = await prisma.contact.findMany({
+        where,
+        include: {
+          callLogs: { orderBy: { createdAt: 'desc' } },
+          memos: { orderBy: { createdAt: 'desc' } },
+          groups: { include: { group: { select: { id: true, name: true } } } },
+          organization: { select: { id: true, name: true } },
+        },
+      });
+
+      if (targets.length > 0) {
+        const ids = targets.map((c) => c.id);
+        const allTransfers = await prisma.contactTransferLog.findMany({
+          where: { contactId: { in: ids } },
+          orderBy: { createdAt: 'desc' },
+        });
+        const transfersByContact = new Map<string, typeof allTransfers>();
+        for (const t of allTransfers) {
+          const arr = transfersByContact.get(t.contactId) ?? [];
+          arr.push(t);
+          transfersByContact.set(t.contactId, arr);
+        }
+
+        // 조직별 그룹핑 (GLOBAL_ADMIN이 여러 조직을 섞어 삭제할 수 있으므로 org별 파일로 분리)
+        const byOrg = new Map<string, { orgName: string; contacts: typeof targets }>();
+        for (const c of targets) {
+          const g = byOrg.get(c.organizationId) ?? { orgName: c.organization.name, contacts: [] };
+          g.contacts.push(c);
+          byOrg.set(c.organizationId, g);
+        }
+
+        for (const [orgId, group] of byOrg) {
+          const contacts = group.contacts.map((c) => ({
+            ...c,
+            tags: c.tags ?? [],
+            groups: c.groups,
+            transferLogs: (transfersByContact.get(c.id) ?? []).map((t) => ({ ...t, toUserName: null })),
+          }));
+          import('@/lib/backup-xlsx')
+            .then(({ backupContactsToExcel }) =>
+              backupContactsToExcel({
+                orgName: group.orgName,
+                orgId,
+                contacts,
+                mode: 'pre_delete',
+                contactNameForDelete: `일괄삭제_${contacts.length}명`,
+              }).catch((err) =>
+                logger.error('[bulk-delete] Drive 백업 실패', {
+                  orgId, count: contacts.length,
+                  error: err instanceof Error ? err.message : String(err),
+                })
+              )
+            )
+            .catch((err) =>
+              logger.error('[bulk-delete] 백업 모듈 로드 실패', {
+                error: err instanceof Error ? err.message : String(err),
+              })
+            );
+        }
+      }
+    } catch (backupErr) {
+      logger.error('[bulk-delete] 백업 준비 중 오류 (삭제는 계속 진행)', {
+        error: backupErr instanceof Error ? backupErr.message : String(backupErr),
+      });
+    }
+
     const result = await prisma.contact.updateMany({
       where,
       data: {
