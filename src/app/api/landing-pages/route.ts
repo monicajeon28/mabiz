@@ -165,7 +165,22 @@ export async function POST(req: Request) {
       },
     });
 
-    logger.log("[POST /api/landing-pages] 생성", { id: page.id });
+    // ShortLink도 함께 저장
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const targetUrl = `${appUrl}/landing/${page.id}`;
+    await prisma.shortLink.create({
+      data: {
+        code: page.shortlink ?? page.id,
+        targetUrl,
+        title: page.title,
+        organizationId: orgId,
+        createdBy: ctx.userId,
+        category: "landing",
+        isActive: true,
+      },
+    });
+
+    logger.log("[POST /api/landing-pages] 생성", { id: page.id, shortlink: page.shortlink });
     return NextResponse.json({ ok: true, page }, { status: 201 });
   } catch (err: unknown) {
     if ((err as { code?: string }).code === "P2002") {
