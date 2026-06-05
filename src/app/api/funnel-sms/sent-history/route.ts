@@ -167,7 +167,7 @@ export async function GET(req: Request) {
         phone: c?.phone ?? null,
         addedAt,
         round: resolvedRound,
-        dayLabel: resolvedRound !== null ? resolvedRound + 1 : null,
+        dayLabel: resolvedRound, // = daysAfter = N일차 (0-인덱스: round 0 → 0일차=유입 당일)
         status: r.status,
         scheduledAt: r.scheduledAt,
         sentAt: r.sentAt,
