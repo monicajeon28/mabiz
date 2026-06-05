@@ -31,10 +31,11 @@ type RawInquiry = {
 
 /**
  * GET /api/gold-inquiries
- * GMcruise ProductInquiry 목록 조회
+ * GMcruise CruiseProductInquiry 목록 조회
  *
- * ProductInquiry에는 agentId/managerId 컬럼이 없으므로 역할별 scope 없음
- * GLOBAL_ADMIN / OWNER / AGENT: 전체 조회 (productCode로만 필터)
+ * GLOBAL_ADMIN: 전체 조회
+ * OWNER: managerId=자신 OR agentId=자신인 문의만 (mallUser 연동 필수)
+ * AGENT: agentId=자신인 문의만 (mallUser 연동 필수)
  * FREE_SALES: 403
  */
 export async function GET(req: NextRequest) {
@@ -74,12 +75,22 @@ export async function GET(req: NextRequest) {
       ? Prisma.sql`AND (pi.name ILIKE ${`%${q}%`} OR pi.phone ILIKE ${`%${q}%`})`
       : Prisma.empty;
 
-    // 역할별 어필리에이트 필터 (OWNER/AGENT는 자신과 연결된 문의만 조회)
+    // 역할별 어필리에이트 필터
     const mallUserId = ctx.mallUser?.id ?? null;
+
+    // OWNER/AGENT가 GMcruise 미연동이면 403 (전체 데이터 노출 방지)
+    if ((ctx.role === 'OWNER' || ctx.role === 'AGENT') && !mallUserId) {
+      return NextResponse.json(
+        { ok: false, error: 'GMCRUISE_LINK_REQUIRED', message: '크루즈닷몰 계정 연동이 필요합니다.' },
+        { status: 403 }
+      );
+    }
+
     const affiliateFilter: Prisma.Sql = (() => {
       if (ctx.role === 'GLOBAL_ADMIN') return Prisma.empty;
       if (!mallUserId) return Prisma.empty;
       if (ctx.role === 'OWNER') {
+        // OWNER = 자신이 managerId이거나 agentId인 문의 모두
         return Prisma.sql`AND (pi."managerId" = ${mallUserId} OR pi."agentId" = ${mallUserId})`;
       }
       if (ctx.role === 'AGENT') {
@@ -101,8 +112,8 @@ export async function GET(req: NextRequest) {
           pi."userId",
           pi."agentId",
           pi."managerId"
-        FROM "ProductInquiry" pi
-        WHERE pi."productCode" = 'GOLD_MEMBERSHIP'
+        FROM "CruiseProductInquiry" pi
+        WHERE pi."productCode" LIKE 'GOLD_MEMBERSHIP%'
           ${statusCondition}
           ${searchCondition}
           ${affiliateFilter}
@@ -111,8 +122,8 @@ export async function GET(req: NextRequest) {
       `),
       prisma.$queryRaw<[{ total: bigint }]>(Prisma.sql`
         SELECT COUNT(*)::bigint AS total
-        FROM "ProductInquiry" pi
-        WHERE pi."productCode" = 'GOLD_MEMBERSHIP'
+        FROM "CruiseProductInquiry" pi
+        WHERE pi."productCode" LIKE 'GOLD_MEMBERSHIP%'
           ${statusCondition}
           ${searchCondition}
           ${affiliateFilter}
