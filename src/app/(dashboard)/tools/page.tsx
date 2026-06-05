@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   MessageSquare, Phone, BookOpen, User, Copy, Check, Loader2, Upload, FileText, BookMarked, ExternalLink,
-  Zap, TrendingUp, Users, Search, Filter, Star, Clock, AlertCircle
+  Zap, TrendingUp, Users, Search, Filter, Star, Clock, AlertCircle, ChevronDown
 } from "lucide-react";
 
 // 동적 import: 초기 로드에서 제외
@@ -80,6 +80,7 @@ export default function ToolsPage() {
   const [playbooks,  setPlaybooks]  = useState<Playbook[]>([]);
   const [training,   setTraining]   = useState<ProductTraining[]>([]);
   const [copied,     setCopied]     = useState<string | null>(null);
+  const [expandedTraining, setExpandedTraining] = useState<string | null>(null);
 
   // 로딩 상태
   const [isLoading, setIsLoading]   = useState(true);
@@ -91,6 +92,8 @@ export default function ToolsPage() {
   const [feedbackErr, setFeedbackErr] = useState("");
   const [converted,   setConverted]  = useState<boolean | null>(null);
   const [productType, setProductType] = useState<'GOLD' | 'GENERAL'>('GOLD');
+  const [uploading,   setUploading]   = useState(false);
+  const [uploadResult, setUploadResult] = useState<{ ok: boolean; viewUrl?: string; message?: string } | null>(null);
 
   useEffect(() => {
     const tabParam = searchParams.get("tab");
@@ -172,6 +175,25 @@ export default function ToolsPage() {
       setFeedbackErr("네트워크 오류가 발생했습니다.");
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  const uploadToDrive = async () => {
+    if (!callText.trim() || uploading) return;
+    setUploading(true);
+    setUploadResult(null);
+    try {
+      const res = await fetch("/api/tools/call-upload-drive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callText, converted: converted ?? false, productType }),
+      });
+      const data = await res.json();
+      setUploadResult(data);
+    } catch {
+      setUploadResult({ ok: false, message: "네트워크 오류가 발생했습니다." });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -423,33 +445,35 @@ export default function ToolsPage() {
               filteredTraining.map((item) => (
                 <div
                   key={item.id}
-                  onClick={() => trackToolView(item.id)}
-                  className="bg-white border-2 border-gray-200 rounded-xl p-5 hover:border-navy-900 hover:shadow-lg transition-all cursor-pointer"
+                  className="bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-navy-900 transition-all"
                 >
-                  <div className="flex items-start gap-3 mb-3">
-                    <span className="text-3xl">{item.icon}</span>
-                    <div className="flex-1">
+                  <button
+                    onClick={() => {
+                      const next = expandedTraining === item.id ? null : item.id;
+                      setExpandedTraining(next);
+                      if (next) trackToolView(item.id);
+                    }}
+                    className="w-full flex items-center gap-3 p-5 text-left"
+                  >
+                    <span className="text-3xl flex-shrink-0">{item.icon}</span>
+                    <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-gray-900">{item.title}</h3>
+                      <p className="text-sm text-gray-600 mt-0.5">{item.description}</p>
                       {item.lastViewed && (
                         <p className="text-xs text-gray-500 mt-0.5">마지막 본 시간: {item.lastViewed}</p>
                       )}
                     </div>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-3">{item.description}</p>
-                  <button
-                    onClick={() => copy(item.id, item.content)}
-                    className="w-full py-2 bg-navy-900 text-white rounded-lg text-sm font-medium hover:bg-navy-800 transition-colors flex items-center justify-center gap-2"
-                  >
-                    {copied === item.id ? (
-                      <>
-                        <Check className="w-4 h-4" /> 복사됨
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4" /> 자료 복사
-                      </>
-                    )}
+                    <ChevronDown
+                      className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform duration-200 ${
+                        expandedTraining === item.id ? "rotate-180" : ""
+                      }`}
+                    />
                   </button>
+                  {expandedTraining === item.id && (
+                    <div className="px-5 pb-5 border-t border-gray-100">
+                      <p className="text-sm text-gray-700 mt-4 whitespace-pre-line leading-relaxed">{item.content}</p>
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -658,6 +682,22 @@ export default function ToolsPage() {
       {/* 콜 피드백 AI */}
       {mainTab === "call-feedback" && (
         <div className="space-y-4">
+          {/* AI 콜 코치 GPT 배너 */}
+          <a
+            href="https://chatgpt.com/g/g-68766298e59081918f7df00eaec777ea-monika-100-kol-koci"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 w-full bg-gradient-to-r from-green-50 to-emerald-50 border border-green-300 rounded-xl px-4 py-3.5 hover:from-green-100 hover:to-emerald-100 transition-colors text-left"
+          >
+            <span className="text-2xl">🤖</span>
+            <div className="flex-1">
+              <p className="font-semibold text-sm text-gray-900">AI 콜 분석하기</p>
+              <p className="text-xs text-gray-600">모니카 100% 콜 코치 GPT 열기 · ChatGPT 계정 로그인 필요</p>
+            </div>
+            <div className="flex items-center gap-1 text-sm font-medium text-green-700">
+              <ExternalLink className="w-4 h-4" />새탭
+            </div>
+          </a>
           {/* 입력 영역 */}
           <div className="bg-white border border-gray-200 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
@@ -698,19 +738,52 @@ export default function ToolsPage() {
               rows={8}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-gold-500"
             />
-            <div className="flex items-center justify-between mt-2">
-              <p className="text-sm text-gray-600">{callText.length.toLocaleString()} / 20,000자</p>
+            <div className="mt-2 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-600">{callText.length.toLocaleString()} / 20,000자</p>
+                <button
+                  onClick={analyze}
+                  disabled={analyzing || !callText.trim()}
+                  className="flex items-center gap-2 bg-navy-900 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 disabled:opacity-50"
+                >
+                  {analyzing ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> 분석 중...</>
+                  ) : (
+                    <><Phone className="w-4 h-4" /> AI 분석 시작</>
+                  )}
+                </button>
+              </div>
               <button
-                onClick={analyze}
-                disabled={analyzing || !callText.trim()}
-                className="flex items-center gap-2 bg-navy-900 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 disabled:opacity-50"
+                onClick={uploadToDrive}
+                disabled={uploading || !callText.trim()}
+                className="w-full flex items-center justify-center gap-2 border-2 border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:border-navy-900 hover:text-navy-900 disabled:opacity-50 transition-colors"
               >
-                {analyzing ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> 분석 중...</>
+                {uploading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Drive 업로드 중...</>
                 ) : (
-                  <><Phone className="w-4 h-4" /> AI 분석 시작</>
+                  <><Upload className="w-4 h-4" /> 통화기록 Drive에 업로드하기</>
                 )}
               </button>
+              {uploadResult && (
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
+                  uploadResult.ok
+                    ? "bg-green-50 text-green-800 border border-green-200"
+                    : "bg-red-50 text-red-800 border border-red-200"
+                }`}>
+                  {uploadResult.ok ? (
+                    <>
+                      <Check className="w-4 h-4 flex-shrink-0" />
+                      <span>Drive 업로드 완료</span>
+                      {uploadResult.viewUrl && (
+                        <a href={uploadResult.viewUrl} target="_blank" rel="noopener noreferrer"
+                          className="ml-auto underline font-medium">파일 열기</a>
+                      )}
+                    </>
+                  ) : (
+                    <><AlertCircle className="w-4 h-4 flex-shrink-0" />{uploadResult.message ?? "업로드 실패"}</>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

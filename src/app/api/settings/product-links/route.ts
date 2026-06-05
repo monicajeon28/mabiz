@@ -11,8 +11,13 @@ export async function GET() {
     const ctx = await getAuthContext();
     const orgId = resolveOrgId(ctx);
 
+    // Option B: 관리자는 모든 링크, 일반사용자는 자신의 링크만
     const links = await prisma.shortLink.findMany({
-      where: { organizationId: orgId, isActive: true },
+      where: {
+        organizationId: orgId,
+        isActive: true,
+        ...(ctx.role !== 'GLOBAL_ADMIN' ? { createdBy: ctx.userId } : {}),
+      },
       select: { id: true, title: true, targetUrl: true, code: true, category: true },
       orderBy: { createdAt: 'desc' },
       take: 30,
