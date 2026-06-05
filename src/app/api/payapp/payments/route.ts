@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgIdOrNull } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 /**
@@ -13,7 +13,7 @@ import { logger } from '@/lib/logger';
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx); // GLOBAL_ADMIN → null (전체 조직), 그 외 → orgId (없으면 에러)
     const url = new URL(req.url);
 
     const VALID_STATUSES = ['paid', 'pending', 'waiting', 'refunded', 'partial_refunded', 'cancelled'];
@@ -25,7 +25,8 @@ export async function GET(req: Request) {
     const limit  = Math.min(50, parseInt(url.searchParams.get('limit') ?? '20'));
 
     // Where 조건 구성
-    const where: Record<string, unknown> = { organizationId: orgId };
+    const where: Record<string, unknown> = {};
+    if (orgId) where.organizationId = orgId;
     if (status) where.status = status;
     if (search) {
       where.OR = [
@@ -55,19 +56,20 @@ export async function GET(req: Request) {
     ]);
 
     // 통계 (DB 레벨 집계 — 메모리 효율)
+    const orgFilter = orgId ? { organizationId: orgId } : {};
     const [paidAgg, refundAgg, pendingAgg] = await Promise.all([
       prisma.payAppPayment.aggregate({
-        where: { organizationId: orgId, status: 'paid' },
+        where: { ...orgFilter, status: 'paid' },
         _sum: { amount: true },
         _count: true,
       }),
       prisma.payAppPayment.aggregate({
-        where: { organizationId: orgId, status: { in: ['refunded', 'partial_refunded'] } },
+        where: { ...orgFilter, status: { in: ['refunded', 'partial_refunded'] } },
         _sum: { refundAmount: true },
         _count: true,
       }),
       prisma.payAppPayment.aggregate({
-        where: { organizationId: orgId, status: { in: ['pending', 'waiting'] } },
+        where: { ...orgFilter, status: { in: ['pending', 'waiting'] } },
         _sum: { amount: true },
         _count: true,
       }),
