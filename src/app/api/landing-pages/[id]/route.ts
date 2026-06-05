@@ -13,6 +13,9 @@ const PatchSchema = z.object({
   isActive:       z.boolean().optional(),
   isPublic:       z.boolean().optional(),
   groupId:        z.string().nullable().optional(),
+  // 이름+연락처 입력 시 배정 그룹: 대그룹=카테고리, 소그룹=그룹명. 서버가 그룹 관리에 생성/연결
+  groupCategory:  z.string().max(100).nullable().optional(),
+  groupSubName:   z.string().max(100).nullable().optional(),
   commentEnabled: z.boolean().optional(),
   autoFunnelId:   z.string().nullable().optional(),
   // 에디터 고도화 필드
@@ -55,6 +58,7 @@ export async function GET(_req: Request, { params }: Params) {
       include: {
         _count: { select: { registrations: true } },
         registrations: { orderBy: { createdAt: "desc" }, take: 50 },
+        group: { select: { id: true, name: true, category: true } },
       },
     });
     if (!page) return NextResponse.json({ ok: false }, { status: 404 });
@@ -88,12 +92,43 @@ export async function PATCH(req: Request, { params }: Params) {
 
     const {
       title, slug, htmlContent, isActive, isPublic, groupId, commentEnabled, autoFunnelId,
+      groupCategory, groupSubName,
       editorMode, description, category, pageGroup, buttonTitle, completionPageUrl,
       headerScript, exposureTitle, exposureImage, infoCollection, formConfig,
       paymentEnabled, paymentType, productName, productPrice, cycleDay, expireDate,
       regEmailEnabled, regEmailSubject, regEmailContent,
     } = parsed.data;
     const sanitizedContent = htmlContent !== undefined ? sanitizeHtml(htmlContent) : undefined;
+
+    // ── 그룹 관리 연결: 대그룹(카테고리) + 소그룹(그룹명) → ContactGroup 생성/재사용 ──
+    // groupSubName이 오면 groupId보다 우선. 같은 조직 내 (name, category) 동일 그룹이 있으면 재사용.
+    let resolvedGroupId: string | null | undefined = groupId;
+    if (groupSubName !== undefined) {
+      const subName = (groupSubName ?? "").trim();
+      if (!subName) {
+        resolvedGroupId = null; // 소그룹 비우면 배정 해제
+      } else {
+        const cat = (groupCategory ?? "").trim() || null;
+        const found = await prisma.contactGroup.findFirst({
+          where: { organizationId: existing.organizationId, name: subName, category: cat },
+          select: { id: true },
+        });
+        if (found) {
+          resolvedGroupId = found.id;
+        } else {
+          const createdGroup = await prisma.contactGroup.create({
+            data: {
+              organizationId: existing.organizationId,
+              name: subName,
+              category: cat,
+              ownerId: ctx.userId,
+            },
+            select: { id: true },
+          });
+          resolvedGroupId = createdGroup.id;
+        }
+      }
+    }
     const page = await prisma.crmLandingPage.update({
       where: { id },
       data: {
@@ -102,7 +137,7 @@ export async function PATCH(req: Request, { params }: Params) {
         ...(sanitizedContent  !== undefined ? { htmlContent: sanitizedContent }         : {}),
         ...(isActive          !== undefined ? { isActive }                              : {}),
         ...(isPublic          !== undefined ? { isPublic }                              : {}),
-        ...(groupId           !== undefined ? { groupId: groupId ?? null }              : {}),
+        ...(resolvedGroupId   !== undefined ? { groupId: resolvedGroupId ?? null }      : {}),
         ...(commentEnabled    !== undefined ? { commentEnabled }                        : {}),
         ...(autoFunnelId      !== undefined ? { autoFunnelId: autoFunnelId ?? null }    : {}),
         ...(editorMode        !== undefined ? { editorMode }                            : {}),
