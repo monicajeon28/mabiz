@@ -432,6 +432,10 @@ model Contact {
   // Inquiry 전용 필드
   inquiryProductCode String? @db.VarChar(50) // CruiseProductInquiry.productCode
 
+  // 엑셀 가져오기: 유입날짜 + 설문 응답
+  inflowDate         DateTime? // DB 원본 유입일 (엑셀 가져오기 시 유입날짜 컬럼)
+  surveyData         Json?     // 설문 응답 { q1: "...", q2: "...", q3: "..." }
+
   @@unique([phone, organizationId])
   @@unique([bookingRef, organizationId], map: "uq_contact_booking_org") // P0-ISS-02: UPSERT 멱등성
   @@unique([email, organizationId], map: "uq_contact_email_org") // Webhook: Customer email upsert
@@ -803,6 +807,7 @@ model CrmLandingPage {
   organization  Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   registrations CrmLandingRegistration[]
   shares        CrmLandingShare[]
+  images        CrmLandingPageImage[]
 
   @@unique([slug, organizationId])
   @@index([organizationId])
@@ -835,6 +840,10 @@ model CrmLandingPageImage {
   sortOrder     Int      @default(0)
   altText       String?
   createdAt     DateTime @default(now())
+
+  // P0-9: FK 정의 + onDelete Cascade
+  landingPage CrmLandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+  imageAsset  ImageAsset     @relation(fields: [imageAssetId], references: [id], onDelete: Cascade)
 
   @@unique([landingPageId, imageAssetId])
   @@index([landingPageId, sortOrder])
@@ -2276,6 +2285,7 @@ model ImageAsset {
   processingStatus String       @default("PENDING")
   orientation      Int          @default(1)
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  crmLandingPageImages CrmLandingPageImage[]
 
   @@unique([organizationId, driveFileId])
   @@index([organizationId, category])
