@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { checkOrigin } from "@/lib/origin-guard";
 import { rlIncr } from "@/lib/redis";
@@ -27,7 +27,7 @@ export async function POST(req: Request, { params }: Params) {
     }
 
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
     if (!id) {

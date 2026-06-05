@@ -29,13 +29,13 @@ import prisma from '@/lib/prisma';
 import { getReactivationTemplate } from '@/lib/sms/reactivation-templates';
 import { logger } from '@/lib/logger';
 import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { checkRateLimitAsync } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const body = await request.json();
     const {

@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import {
@@ -32,7 +32,7 @@ const serializeCampaign = (campaign: any) => ({
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     // 쿼리 파라미터 파싱
     const url = new URL(req.url);
@@ -140,7 +140,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const body = await req.json();
     const validation = CampaignCreateSchema.safeParse(body);

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { cancelPayment } from '@/lib/payapp';
 
@@ -13,7 +13,7 @@ import { cancelPayment } from '@/lib/payapp';
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const body = await req.json();
 
     const { paymentId, reason, partcancel = false, cancelprice } = body as {

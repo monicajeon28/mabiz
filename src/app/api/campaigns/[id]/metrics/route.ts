@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 // NOTE: getCampaignMetrics는 MultiChannelCampaign 마이그레이션 후 활성화
 // import { getCampaignMetrics } from "@/lib/services/multi-channel-campaign";
@@ -14,7 +14,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
-    const organizationId = requireOrgId(ctx);
+    const organizationId = resolveOrgId(ctx);
     const { id: campaignId } = await params;
 
     // 캠페인 소유권 확인

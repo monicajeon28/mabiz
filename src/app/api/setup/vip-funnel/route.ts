@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 const VIP_STAGES = [
@@ -16,7 +16,7 @@ const VIP_STAGES = [
 export async function POST() {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     // 이미 존재하는지 확인
     const existing = await prisma.funnel.findFirst({

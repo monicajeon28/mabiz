@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 // NOTE: multi-channel-campaign 서비스는 MultiChannelCampaign Prisma 모델 마이그레이션 후 활성화
 // import { createCampaign, executeCampaign } from "@/lib/services/multi-channel-campaign";
@@ -25,7 +25,7 @@ export async function POST(_req: Request) {
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const organizationId = requireOrgId(ctx);
+    const organizationId = resolveOrgId(ctx);
 
     const url = new URL(req.url);
     const status = url.searchParams.get("status");

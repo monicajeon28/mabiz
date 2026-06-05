@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 interface CruiseRecommendation {
@@ -86,7 +86,7 @@ const CRUISE_COURSES = [
 export async function GET(req: NextRequest) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const contactId = req.nextUrl.searchParams.get("contactId");
     if (!contactId) {
@@ -161,9 +161,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const ctx = await getAuthContext();
-    const organizationId = requireOrgId(ctx);
+    const organizationId = resolveOrgId(ctx);
 
-    // organizationId는 ctx에서 이미 requireOrgId로 검증됨
+    // organizationId는 ctx에서 이미 resolveOrgId로 검증됨
 
     // 크루즈 종료 후 10일-180일 사이 고객 대상
     const tenDaysAgo = new Date();

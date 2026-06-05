@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId, canDelete } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId, canDelete } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 type Params = { params: Promise<{ id: string }> };
@@ -9,7 +9,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
     const page = await prisma.crmLandingPage.findFirst({
@@ -36,7 +36,7 @@ export async function GET(_req: Request, { params }: Params) {
 export async function DELETE(req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
     if (!canDelete(ctx)) {

@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { sendSms, resolveUserSmsConfig } from '@/lib/aligo';
@@ -58,7 +58,7 @@ const SMS_MESSAGES: Record<SMSVariant, string> = {
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const body = (await req.json()) as Day0SMSRequest;
     const { contactId, groupId, variant = 'family' } = body;

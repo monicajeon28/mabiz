@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -45,7 +45,7 @@ function makeRegionalStages(shortName: string, regionEmoji: string) {
 export async function POST() {
   try {
     const ctx = await getAuthContext();
-    const organizationId = requireOrgId(ctx);
+    const organizationId = resolveOrgId(ctx);
 
   const created: string[] = [];
   const skipped: string[] = [];

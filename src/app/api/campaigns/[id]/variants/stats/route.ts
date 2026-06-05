@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import {
   calculateChiSquare,
@@ -65,7 +65,7 @@ export async function GET(
   try {
     // 1. 인증 확인
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     // 2. IDOR 방지: Campaign의 organizationId 확인
     const campaign = await prisma.crmMarketingCampaign.findUnique({

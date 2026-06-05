@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { COMPETITOR_MENTION_KEYWORDS, COMPETITORS, L3_SMS_TEMPLATES } from '@/lib/l3-competitor-data';
 import { logger } from '@/lib/logger';
 import { sendScheduledSms } from '@/lib/sms-service';
@@ -28,7 +28,7 @@ import { sendScheduledSms } from '@/lib/sms-service';
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const body = await req.json() as {
       contactId?: string;

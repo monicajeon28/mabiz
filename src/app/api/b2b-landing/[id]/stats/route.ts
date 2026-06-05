@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { checkOrigin } from '@/lib/origin-guard';
@@ -50,7 +50,7 @@ export async function GET(req: Request, { params }: Params) {
     }
 
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
     // [캐싱] Redis에서 5분 TTL로 캐시된 통계 조회

@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { CampaignUpdateSchema, type CampaignUpdateData } from '@/schemas/campaign';
@@ -31,7 +31,7 @@ const serializeCampaign = (campaign: any) => ({
 export async function PATCH(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { id: campaignId } = await params;
 
     const body = await req.json();
@@ -304,7 +304,7 @@ export async function PATCH(req: Request, { params }: Params) {
 export async function DELETE(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { id: campaignId } = await params;
 
     // ✅ IDOR 보안: organizationId 체크 및 캠페인 존재 확인

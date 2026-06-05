@@ -6,7 +6,7 @@
 
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import {
   scheduleDay0To3Funnel,
@@ -17,7 +17,7 @@ import {
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const body = (await req.json()) as {
       contactId: string;
@@ -109,7 +109,7 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { searchParams } = new URL(req.url);
     const contactId = searchParams.get("contactId");
 
@@ -142,7 +142,7 @@ export async function GET(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { searchParams } = new URL(req.url);
     const contactId = searchParams.get("contactId");
     const reason = (searchParams.get("reason") ||
