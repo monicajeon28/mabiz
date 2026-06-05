@@ -25,16 +25,18 @@ import {
   Calendar,
   Building2,
   AlertTriangle,
-  Stamp,
 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import {
   SaleResult,
+  CurrentAgent,
   formatMoney,
   formatDate,
-  todayKo,
   CustomerAutocomplete,
   useImageDownload,
+  useCurrentAgent,
+  DocumentLetterhead,
+  DocumentSeal,
 } from './shared';
 
 // ─── 발급 응답 generatedData 타입 ───────────────────────────────────────────────
@@ -97,6 +99,8 @@ const CONFIG = {
 export default function CertificateTab({ mode }: { mode: CertMode }) {
   const cfg = CONFIG[mode];
   const { ref, isDownloading, download } = useImageDownload();
+  // 현재 로그인 담당자(대리점/판매원) 정보 → 증서 푸터 "담당자 연락처"에 표시
+  const agent = useCurrentAgent();
 
   // 선택된 판매 건
   const [selectedSale, setSelectedSale] = useState<SaleResult | null>(null);
@@ -248,10 +252,10 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
 
           {/* 미리보기 카드 */}
           {mode === 'purchase' && purchaseData && (
-            <PurchasePreview cardRef={ref} data={purchaseData} headerBar={cfg.headerBar} />
+            <PurchasePreview cardRef={ref} data={purchaseData} agent={agent} />
           )}
           {mode === 'refund' && refundData && (
-            <RefundPreview cardRef={ref} data={refundData} />
+            <RefundPreview cardRef={ref} data={refundData} agent={agent} />
           )}
 
           {/* 액션 버튼 */}
@@ -291,29 +295,23 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
 function PurchasePreview({
   cardRef,
   data,
-  headerBar,
+  agent,
 }: {
   cardRef: React.RefObject<HTMLDivElement | null>;
   data: PurchaseData;
-  headerBar: string;
+  agent: CurrentAgent;
 }) {
   return (
     <div className="flex justify-center">
       <div
         ref={cardRef}
-        className="w-full max-w-xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md"
+        className="w-full max-w-xl overflow-hidden rounded-2xl border border-gray-200 bg-white px-8 py-6 shadow-md"
       >
-        {/* 헤더 */}
-        <div className={`bg-gradient-to-r ${headerBar} px-8 py-7 text-center text-white`}>
-          <p className="text-xs font-medium tracking-widest text-white/70">CRUISE.DOT</p>
-          <h2 className="mt-1 text-2xl font-extrabold">구매확인증서</h2>
-          <p className="mt-2 text-xs text-white/80">
-            발행일: {data.issuedAt ? formatDate(data.issuedAt) : todayKo()}
-          </p>
-        </div>
+        {/* 가운데 로고 레터헤드 (로고 + 제목 + 발행일 자동 렌더) */}
+        <DocumentLetterhead title="구매확인증서" accentClass="border-emerald-100" />
 
         {/* 본문 */}
-        <div className="px-8 py-6">
+        <div className="pt-6">
           <p className="mb-5 text-sm leading-relaxed text-gray-600">
             아래와 같이 정상적으로 구매·결제가 완료되었음을 확인합니다.
           </p>
@@ -332,21 +330,8 @@ function PurchasePreview({
             <InfoRow icon={CreditCard} label="결제방법" value={data.paymentMethod || '-'} />
           </dl>
 
-          {/* 발급기관 + 직인 박스 */}
-          <div className="mt-6 flex items-end justify-between border-t border-gray-100 pt-5">
-            <div className="text-sm">
-              <p className="font-semibold text-gray-800">발급기관</p>
-              <p className="mt-0.5 flex items-center gap-1 text-gray-600">
-                <Building2 className="h-3.5 w-3.5 text-gray-400" />
-                크루즈닷 (CRUISE.DOT)
-              </p>
-            </div>
-            <div className="flex h-20 w-20 flex-col items-center justify-center rounded-full border-2 border-emerald-200 text-emerald-600">
-              <Stamp className="h-5 w-5" />
-              <span className="mt-0.5 text-[10px] font-bold">직인</span>
-              <span className="text-[10px] font-bold">CRUISE</span>
-            </div>
-          </div>
+          {/* 좌하단 직인 + 우측 담당자 연락처 (증서는 유효기간 없음 → validDays 미전달) */}
+          <DocumentSeal agent={agent} />
         </div>
       </div>
     </div>
@@ -360,10 +345,13 @@ function PurchasePreview({
 function RefundPreview({
   cardRef,
   data,
+  agent,
 }: {
   cardRef: React.RefObject<HTMLDivElement | null>;
   data: RefundData;
+  agent: CurrentAgent;
 }) {
+  // 환불 상태에 따라 제목 분기 (기존 로직 유지)
   const title = data.isRefundPending ? '환불예정확인서' : '환불완료증서';
   const hasPenalty = (data.penaltyRate ?? 0) > 0;
 
@@ -371,17 +359,13 @@ function RefundPreview({
     <div className="flex justify-center">
       <div
         ref={cardRef}
-        className="w-full max-w-xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md"
+        className="w-full max-w-xl overflow-hidden rounded-2xl border border-gray-200 bg-white px-8 py-6 shadow-md"
       >
-        {/* 헤더 */}
-        <div className="bg-gradient-to-r from-red-600 to-red-700 px-8 py-7 text-center text-white">
-          <p className="text-xs font-medium tracking-widest text-white/70">CRUISE.DOT</p>
-          <h2 className="mt-1 text-2xl font-extrabold">{title}</h2>
-          <p className="mt-2 text-xs text-white/80">발행일: {todayKo()}</p>
-        </div>
+        {/* 가운데 로고 레터헤드 (로고 + 제목 + 발행일 자동 렌더) */}
+        <DocumentLetterhead title={title} accentClass="border-red-100" />
 
         {/* 본문 */}
-        <div className="px-8 py-6">
+        <div className="pt-6">
           <p className="mb-5 text-sm leading-relaxed text-gray-600">
             {data.isRefundPending
               ? '아래와 같이 환불이 예정되어 있음을 확인합니다.'
@@ -438,21 +422,8 @@ function RefundPreview({
             </p>
           )}
 
-          {/* 발급기관 + 직인 박스 */}
-          <div className="mt-6 flex items-end justify-between border-t border-gray-100 pt-5">
-            <div className="text-sm">
-              <p className="font-semibold text-gray-800">발급기관</p>
-              <p className="mt-0.5 flex items-center gap-1 text-gray-600">
-                <Building2 className="h-3.5 w-3.5 text-gray-400" />
-                크루즈닷 (CRUISE.DOT)
-              </p>
-            </div>
-            <div className="flex h-20 w-20 flex-col items-center justify-center rounded-full border-2 border-red-200 text-red-600">
-              <Stamp className="h-5 w-5" />
-              <span className="mt-0.5 text-[10px] font-bold">직인</span>
-              <span className="text-[10px] font-bold">CRUISE</span>
-            </div>
-          </div>
+          {/* 좌하단 직인 + 우측 담당자 연락처 (증서는 유효기간 없음 → validDays 미전달) */}
+          <DocumentSeal agent={agent} />
         </div>
       </div>
     </div>

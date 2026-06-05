@@ -1,7 +1,15 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Search, Loader2, User, Package, X } from 'lucide-react';
+import { Search, Loader2, User, Package, X, Phone } from 'lucide-react';
+
+// ─── 회사 에셋/정보 상수 ────────────────────────────────────────────────────────
+export const COMPANY = {
+  logo: '/logo.png',            // 가운데 정렬 로고 (4종 서류 공통)
+  seal: '/cruise-stamp.png',    // 좌하단 직인 (회사 도장)
+  name: '크루즈닷',
+  ceo: '배연성',
+};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -49,6 +57,99 @@ export function formatDate(d?: string | null): string {
 
 export function todayKo(): string {
   return new Date().toLocaleDateString('ko-KR');
+}
+
+// 발급일 + N일 후 유효기간 (비교견적서용)
+export function validUntilKo(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toLocaleDateString('ko-KR');
+}
+
+// ─── 현재 담당자(대리점/판매원) 정보 훅 ─────────────────────────────────────────
+// 서류 "담당자 연락처"에 로그인 사용자의 이름/전화번호 자동 표시
+export type CurrentAgent = { displayName: string | null; phone: string | null };
+
+export function useCurrentAgent(): CurrentAgent {
+  const [agent, setAgent] = useState<CurrentAgent>({ displayName: null, phone: null });
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (alive && j?.ok) setAgent({ displayName: j.displayName ?? null, phone: j.phone ?? null });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  return agent;
+}
+
+// ─── 서류 공통: 가운데 정렬 로고 레터헤드 ───────────────────────────────────────
+// html2canvas 캡처 호환을 위해 next/image 대신 일반 <img> + crossOrigin 사용
+export function DocumentLetterhead({
+  title,
+  accentClass = 'border-indigo-100',
+}: {
+  title: string;
+  accentClass?: string;
+}) {
+  return (
+    <div className={`border-b-2 ${accentClass} pb-4 text-center`}>
+      {/* html2canvas 캡처 호환을 위해 next/image·img 대신 배경이미지 div 사용 */}
+      <div
+        role="img"
+        aria-label={COMPANY.name}
+        className="mx-auto mb-3 h-12 w-44 bg-contain bg-center bg-no-repeat"
+        style={{ backgroundImage: `url(${COMPANY.logo})` }}
+      />
+      <h3 className="text-2xl font-extrabold tracking-tight text-gray-900">{title}</h3>
+      <p className="mt-1 text-xs text-gray-400">발행일: {todayKo()}</p>
+    </div>
+  );
+}
+
+// ─── 서류 공통: 좌하단 직인 + 담당자 연락처 푸터 ────────────────────────────────
+export function DocumentSeal({
+  agent,
+  validDays,
+}: {
+  agent: CurrentAgent;
+  validDays?: number; // 지정 시 "유효기간: 발급일로부터 N일 (YYYY.MM.DD까지)" 표시 (비교견적서)
+}) {
+  return (
+    <div className="mt-2 flex items-end justify-between border-t border-gray-100 pt-4">
+      {/* 좌측 하단: 직인 + 발급기관 */}
+      <div className="flex items-end gap-3">
+        {/* 직인: 배경이미지 div (html2canvas 캡처 호환) */}
+        <div
+          role="img"
+          aria-label="직인"
+          className="h-20 w-20 bg-contain bg-center bg-no-repeat opacity-95"
+          style={{ backgroundImage: `url(${COMPANY.seal})` }}
+        />
+        <div className="pb-1 text-xs leading-relaxed text-gray-500">
+          <p className="font-bold text-gray-700">{COMPANY.name}</p>
+          <p>대표 {COMPANY.ceo}</p>
+        </div>
+      </div>
+
+      {/* 우측: 담당자 연락처 + (선택)유효기간 */}
+      <div className="text-right text-xs leading-relaxed text-gray-600">
+        {(agent.displayName || agent.phone) && (
+          <p className="flex items-center justify-end gap-1 font-semibold text-gray-700">
+            <Phone className="h-3 w-3" />
+            담당자 {agent.displayName ?? ''} {agent.phone ?? ''}
+          </p>
+        )}
+        {validDays != null && (
+          <p className="mt-1 text-gray-500">
+            유효기간: 발급일로부터 {validDays}일 ({validUntilKo(validDays)}까지)
+          </p>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ─── search-sales fetch helper ─────────────────────────────────────────────────
