@@ -10,11 +10,14 @@ interface ApisTravelerRow {
   travelerId: number; reservationId: number; pnrNumber: string | null;
   roomNumber: number | null; cabinType: string | null;
   engSurname: string | null; engGivenName: string | null; korName: string | null;
-  gender: string | null; birthDate: string | null; nationality: string | null;
+  residentNum: string | null; gender: string | null; birthDate: string | null;
+  nationality: string | null;
   passportNo: string | null; issueDate: string | null; expiryDate: string | null;
   phone: string | null; companionGroupId: number | null; roomingGroupId: number | null;
-  airlineName: string | null; agentName: string | null; notes: string | null;
-  passportDriveUrl: string | null;
+  airlineName: string | null;
+  paymentDate: Date | null; paymentMethod: string | null; paymentAmount: number | null;
+  agentName: string | null; remarks: string | null; groupMemo: string | null;
+  notes: string | null; passportDriveUrl: string | null;
 }
 
 export async function GET(req: NextRequest) {
@@ -37,10 +40,11 @@ export async function GET(req: NextRequest) {
         tr.id as "travelerId", tr."reservationId",
         r."pnrNumber", tr."roomNumber", r."cabinType",
         tr."engSurname", tr."engGivenName", tr."korName",
-        tr.gender, tr."birthDate", tr.nationality,
+        tr."residentNum", tr.gender, tr."birthDate", tr.nationality,
         tr."passportNo", tr."issueDate", tr."expiryDate",
         tr.phone, tr."companionGroupId", tr."roomingGroupId",
-        r."airlineName", r."agentName", tr.notes, tr."passportDriveUrl"
+        r."airlineName", r."paymentDate", r."paymentMethod", r."paymentAmount",
+        r."agentName", r.remarks, r."groupMemo", tr.notes, tr."passportDriveUrl"
       FROM "Traveler" tr
       JOIN "Reservation" r ON r.id = tr."reservationId"
       WHERE r."tripId" = ${tripId}
