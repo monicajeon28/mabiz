@@ -126,11 +126,20 @@ export async function GET(_req: Request) {
     });
     const suspendedSet = new Set(suspensions.map(s => s.partnerId).filter(Boolean) as string[]);
 
+    // ── 판매 Map 인덱싱 (O(N×M) → O(N+M)) ──
+    const salesByMember = new Map<string, typeof allSales>();
+    for (const sale of allSales) {
+      if (!sale.affiliateUserId) continue;
+      const list = salesByMember.get(sale.affiliateUserId) ?? [];
+      list.push(sale);
+      salesByMember.set(sale.affiliateUserId, list);
+    }
+
     // ── 통계 계산 ──
     const statusOrder: Record<PerfStatus, number> = { BLACK: 0, RED: 1, YELLOW: 2, GREEN: 3 };
 
     const result = memberRows.map(member => {
-      const sales = allSales.filter(s => s.affiliateUserId === member.id);
+      const sales = salesByMember.get(member.id) ?? [];
 
       // 월별 집계
       const monthlySales = monthRanges.map(({ ym, start, end }) => {

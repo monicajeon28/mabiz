@@ -1179,10 +1179,10 @@ function PerformanceTab({
 }) {
   const { toast } = useToast();
   const [suspending, setSuspending] = useState<string | null>(null);
-  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  useEffect(() => { setLastRefreshed(new Date()); }, []);
 
   const handleRefresh = () => {
-    setLastRefreshed(new Date());
     onRefresh();
   };
 
@@ -1250,7 +1250,9 @@ function PerformanceTab({
       {/* 새로고침 헤더 */}
       <div className="flex items-center justify-between">
         <p className="text-xs text-gray-400">
-          갱신 {lastRefreshed.getHours()}:{String(lastRefreshed.getMinutes()).padStart(2,'0')} · 실시간 산출
+          {lastRefreshed
+          ? `갱신 ${lastRefreshed.getHours()}:${String(lastRefreshed.getMinutes()).padStart(2,'0')} · 실시간 산출`
+          : '실시간 산출'}
         </p>
         <button onClick={handleRefresh}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 border border-blue-200 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors font-medium">
@@ -1643,12 +1645,10 @@ export default function PartnerDashboardPage() {
                   이의 제기
                 </button>
                 <a
-                  href="https://support.mabiz.io/help/suspension"
-                  target="_blank"
-                  rel="noreferrer"
+                  href="mailto:admin@mabiz.io?subject=정지 관련 문의"
                   className="px-6 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors"
                 >
-                  안내 보기
+                  관리자 문의
                 </a>
               </div>
 

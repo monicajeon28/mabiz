@@ -50,4 +50,7 @@ export interface Contact {
   lastPaymentAt?: string | null;
   lastRefundedAt?: string | null;
   paymentStatusNote?: string | null;
+  // 엑셀 가져오기
+  inflowDate?: string | null;
+  surveyData?: Record<string, string | null> | null;
 }

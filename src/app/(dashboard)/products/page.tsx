@@ -44,6 +44,7 @@ type Product = {
   departureDate: string | null;
   daysLeft: number | null;
   cabinSummary: CabinSummary | null;
+  driveSheetUrl?: string | null;
 };
 
 interface ApiResponse {
@@ -636,15 +637,56 @@ const APIS_KEYS = APIS_COLUMNS.map(c => c.key);
 
 interface ApisModalProps {
   product: Product;
+  canManage: boolean;
   onClose: () => void;
 }
 
-function ApisModal({ product, onClose }: ApisModalProps) {
+function ApisModal({ product, canManage, onClose }: ApisModalProps) {
   const [rows, setRows] = useState<ApisRow[]>([]);
   const [tripTitle, setTripTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  // ── Drive 시트 상태 (없으면 만들기 / 있으면 열기+갱신) ──────────────
+  const [driveUrl, setDriveUrl] = useState<string | null>(product.driveSheetUrl ?? null);
+  const [driveSaving, setDriveSaving] = useState(false);
+  const [driveNotice, setDriveNotice] = useState<string | null>(null);
+
+  async function handleDriveSave() {
+    setDriveSaving(true);
+    setDriveNotice(null);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/apis/drive?productCode=${encodeURIComponent(product.code)}`,
+        { method: "POST" },
+      );
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        setError("Drive 응답 파싱 실패");
+        return;
+      }
+      if (!res.ok || !data.ok) {
+        setError(data?.error ?? "Drive 저장에 실패했습니다.");
+        return;
+      }
+      if (data.skipped) {
+        setDriveNotice(data.message ?? "탑승객 0명 — 저장할 명단이 없습니다.");
+        return;
+      }
+      if (data.viewUrl) {
+        setDriveUrl(data.viewUrl);
+        window.open(data.viewUrl, "_blank", "noopener,noreferrer");
+        setDriveNotice("Drive 시트에 저장되었습니다.");
+      }
+    } catch {
+      setError("Drive 네트워크 오류가 발생했습니다.");
+    } finally {
+      setDriveSaving(false);
+    }
+  }
 
   useEffect(() => {
     const handle = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -744,11 +786,49 @@ function ApisModal({ product, onClose }: ApisModalProps) {
                 {downloading ? "생성 중..." : "엑셀 다운로드"}
               </button>
             )}
+            {/* Drive 시트: OWNER/GLOBAL_ADMIN 전용 (없으면 만들기 / 있으면 열기+갱신) */}
+            {!loading && !error && canManage && (
+              driveUrl ? (
+                <>
+                  <a
+                    href={driveUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    Drive 열기
+                  </a>
+                  <button
+                    onClick={handleDriveSave}
+                    disabled={driveSaving}
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-700 border border-blue-200 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {driveSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                    {driveSaving ? "갱신 중..." : "최신본 갱신"}
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={handleDriveSave}
+                  disabled={driveSaving}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {driveSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
+                  {driveSaving ? "저장 중..." : "Drive 시트 만들기"}
+                </button>
+              )
+            )}
             <button onClick={onClose} className="p-1.5 rounded-full hover:bg-gray-100">
               <X className="w-5 h-5 text-gray-600" />
             </button>
           </div>
         </div>
+        {driveNotice && (
+          <div className="px-6 py-2 text-sm text-blue-700 bg-blue-50 border-b border-blue-100 shrink-0">
+            {driveNotice}
+          </div>
+        )}
 
         {/* 내용 */}
         <div className="flex-1 overflow-auto p-4">
@@ -1154,7 +1234,11 @@ export default function ProductsPage() {
 
       {/* APIS 미리보기 모달 */}
       {apisProduct && (
-        <ApisModal product={apisProduct} onClose={() => setApisProduct(null)} />
+        <ApisModal
+          product={apisProduct}
+          canManage={canDownloadApis}
+          onClose={() => setApisProduct(null)}
+        />
       )}
 
       {/* 객실 등록 모달 */}

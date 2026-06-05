@@ -30,6 +30,8 @@ type TripRow = {
   productCode: string;
   departureDate: Date;
   shipName: string;
+  spreadsheetId: string | null;
+  googleFolderId: string | null;
 };
 
 // CabinInventory: 상품 등록 시 설정한 총 용량
@@ -143,12 +145,21 @@ export async function GET(req: NextRequest) {
 
     const [tripRows, inventoryRows, reservationRows] = await (codes.length > 0
       ? Promise.all([
-          // 1) Trip 출발일
+          // 1) Trip 출발일 + Drive 시트 연결
+          // ⚠️ fetchApisData(src/lib/apis-excel.ts)와 Trip 선택 기준을 통일한다.
+          //    저장(fetchApisData)은 "미래 출발편 우선(departureDate >= now), 없으면 가장 이른 편"
+          //    으로 trip을 골라 그 GmTrip.id에 spreadsheetId/googleFolderId를 기록한다.
+          //    목록이 다른 행(가장 이른 과거편)을 읽으면 spreadsheetId=null → Drive 링크 미표시 버그.
+          //    추가 안전장치: spreadsheetId 가 있는 행을 최우선으로 픽한다.
           prisma.$queryRaw<TripRow[]>(Prisma.sql`
-            SELECT DISTINCT ON ("productCode") "productCode", "departureDate", "shipName"
+            SELECT DISTINCT ON ("productCode") "productCode", "departureDate", "shipName",
+                   "spreadsheetId", "googleFolderId"
             FROM "Trip"
             WHERE "productCode" IN (${Prisma.join(codes)})
-            ORDER BY "productCode", "departureDate" ASC
+            ORDER BY "productCode",
+                     ("spreadsheetId" IS NOT NULL) DESC,
+                     ("departureDate" >= NOW()) DESC,
+                     "departureDate" ASC
           `),
           // 2) CabinInventory 총 용량 (상품 등록 시 설정)
           // GLOBAL_ADMIN은 organizationId가 null → 전체 조회
@@ -256,6 +267,12 @@ export async function GET(req: NextRequest) {
 
       const ports = extractPorts(r.itineraryPattern);
 
+      // fetchApisData와 동일 픽 로직(spreadsheetId 보유 → 미래편 우선 → 이른편)으로 고른 Trip의
+      // spreadsheetId가 있으면 Drive 파일 뷰어 URL 생성, 없으면 null
+      const driveSheetUrl: string | null = trip?.spreadsheetId
+        ? `https://drive.google.com/file/d/${trip.spreadsheetId}/view`
+        : null;
+
       return {
         id:           r.id,
         code:         r.productCode,
@@ -276,6 +293,7 @@ export async function GET(req: NextRequest) {
         departureDate: depDate ? depDate.toISOString() : null,
         daysLeft,
         cabinSummary,
+        driveSheetUrl,
       };
     });
 

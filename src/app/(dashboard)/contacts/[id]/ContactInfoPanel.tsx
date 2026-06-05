@@ -187,6 +187,10 @@ function ContactInfoPanelComponent({
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div><span className="text-gray-400">전화번호</span><p className="font-medium mt-0.5 font-mono">{maskPhone(contact.phone)}</p></div>
 
+          {contact.inflowDate && (
+            <div><span className="text-gray-400">유입날짜</span><p className="font-medium mt-0.5">{new Date(contact.inflowDate).toLocaleDateString("ko-KR")}</p></div>
+          )}
+
           {/* 상태 — 인라인 드롭다운 */}
           <div>
             <span className="text-gray-400">상태</span>
@@ -416,6 +420,33 @@ function ContactInfoPanelComponent({
           ))}
         </div>
       </div>
+
+      {/* 설문 응답 */}
+      {contact.surveyData && (contact.surveyData.q1 || contact.surveyData.q2 || contact.surveyData.q3) && (
+        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">📋 설문 응답</h3>
+          <div className="space-y-1.5">
+            {contact.surveyData.q1 && (
+              <div className="flex gap-2 text-sm">
+                <span className="text-gray-400 shrink-0 w-12">설문1</span>
+                <span className="text-gray-800">{contact.surveyData.q1}</span>
+              </div>
+            )}
+            {contact.surveyData.q2 && (
+              <div className="flex gap-2 text-sm">
+                <span className="text-gray-400 shrink-0 w-12">설문2</span>
+                <span className="text-gray-800">{contact.surveyData.q2}</span>
+              </div>
+            )}
+            {contact.surveyData.q3 && (
+              <div className="flex gap-2 text-sm">
+                <span className="text-gray-400 shrink-0 w-12">설문3</span>
+                <span className="text-gray-800">{contact.surveyData.q3}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 결제 상태 */}
       {contact.lastPaymentStatus && (

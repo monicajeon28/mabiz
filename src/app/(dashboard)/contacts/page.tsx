@@ -751,14 +751,15 @@ export default function ContactsPage() {
                 </a>
               </div>
               <p>• <strong className="text-red-600">필수:</strong> 이름, 전화번호 (이 두 열은 꼭 있어야 해요)</p>
-              <p>• <strong>선택:</strong> 이메일, 관심크루즈, 예산, 메모, 유형</p>
+              <p>• <strong>선택:</strong> 이메일, 관심크루즈, 예산, 메모, 유형, 유입날짜, 설문1~3</p>
               <div className="bg-white rounded-lg p-2 mt-1 border border-gray-200 text-xs space-y-0.5">
                 <p className="font-medium text-gray-700 mb-1">열 이름 (한국어·영어 모두 인식해요)</p>
                 <p>이름 / name / 성명</p>
                 <p>전화번호 / 연락처 / phone / 휴대폰</p>
-                <p>이메일 / email &nbsp;|&nbsp; 관심크루즈 / cruise</p>
-                <p>예산 / budget &nbsp;|&nbsp; 메모 / 비고 / memo</p>
-                <p>유형 / 구분 / type</p>
+                <p>이메일 / email &nbsp;|&nbsp; 관심크루즈 / 크루즈</p>
+                <p>예산 / budget &nbsp;|&nbsp; 메모 / 비고</p>
+                <p>유형 / 구분 &nbsp;|&nbsp; 유입날짜 / 유입일 / 등록일</p>
+                <p>설문1 / 질문1 / q1 &nbsp;|&nbsp; 설문2 / 질문2 / q2 &nbsp;|&nbsp; 설문3 / 질문3 / q3</p>
               </div>
               <p>• 유형 값: <strong>잠재고객</strong> 또는 <strong>구매완료</strong> (입력 없으면 잠재고객)</p>
               <p>• 같은 전화번호면 기존 정보가 새 내용으로 업데이트돼요</p>
