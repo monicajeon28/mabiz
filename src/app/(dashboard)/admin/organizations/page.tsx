@@ -755,79 +755,88 @@ function Shimmer() {
   );
 }
 
-// ─── 기존 어필리에이트 연결 모달 ──────────────────────────────
+// ─── 기존 어필리에이트 자동 연결 모달 ────────────────────────
 
-function LinkExistingModal({ onClose, onLinked }: { onClose: () => void; onLinked: () => void }) {
-  const [code, setCode] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ displayName: string; phone: string | null } | null>(null);
+type AutoLinkRow = { name: string; affiliateCode: string; status: 'linked' | 'skipped' | 'error'; reason?: string };
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const affiliateCode = code.trim();
-    if (!affiliateCode) return;
-    setSubmitting(true);
+function AutoLinkModal({ onClose, onLinked }: { onClose: () => void; onLinked: () => void }) {
+  const [running, setRunning] = useState(false);
+  const [results, setResults] = useState<{ linked_count: number; skipped_count: number; error_count: number; results: AutoLinkRow[] } | null>(null);
+
+  async function handleRun() {
+    setRunning(true);
     try {
-      const res = await fetch('/api/admin/affiliate-managers/link-existing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ affiliateCode }),
-      });
+      const res = await fetch('/api/admin/affiliate-managers/auto-link', { method: 'POST' });
       const data = await res.json();
-      if (!data.ok) { showError(data.message ?? '연결 실패'); return; }
-      setResult({ displayName: data.data.displayName, phone: data.data.phone });
-      showSuccess(data.message);
-      onLinked();
+      if (!data.ok) { showError(data.message ?? '자동 연결 실패'); return; }
+      setResults(data.data);
+      if (data.data.linked_count > 0) {
+        showSuccess(data.message);
+        onLinked();
+      } else {
+        showSuccess(data.message);
+      }
     } catch {
       showError('요청 처리 중 오류가 발생했습니다.');
     } finally {
-      setSubmitting(false);
+      setRunning(false);
     }
   }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-gray-900">기존 계정 CRM 연결</h2>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between shrink-0">
+          <h2 className="text-base font-bold text-gray-900">미연결 대리점장 자동 연결</h2>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
 
-        {result ? (
+        {!results ? (
           <div className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-800 space-y-1">
-              <p className="font-semibold">✅ 연결 완료</p>
-              <p><span className="text-gray-500">이름:</span> {result.displayName}</p>
-              {result.phone && <p><span className="text-gray-500">전화번호(로그인 ID):</span> {result.phone}</p>}
-              <p className="text-green-600 mt-2">크루즈닷몰 기존 비밀번호로 CRM 로그인 가능합니다.</p>
-            </div>
-            <button onClick={onClose} className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">닫기</button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
-              크루즈닷몰에서 어필리에이트 성과에 나오는 기존 대리점장을 CRM에 연결합니다.<br />
-              어필리에이트 코드(예: MGR-XXXXXXXX)를 입력하세요.
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">어필리에이트 코드 <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="MGR-XXXXXXXX"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                autoFocus
-              />
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800 leading-relaxed">
+              크루즈닷몰에 존재하는 <b>BRANCH_MANAGER</b> 어필리에이트 중<br />
+              CRM에 아직 연결되지 않은 대리점장을 <b>전부 자동으로 연결</b>합니다.<br />
+              기존 크루즈닷몰 비밀번호 그대로 사용 가능합니다.
             </div>
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-colors">취소</button>
-              <button type="submit" disabled={submitting || !code.trim()} className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1">
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-                {submitting ? '연결 중...' : 'CRM 연결'}
+              <button type="button" onClick={handleRun} disabled={running} className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5">
+                {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+                {running ? '연결 중...' : '자동 연결 실행'}
               </button>
             </div>
-          </form>
+          </div>
+        ) : (
+          <div className="space-y-3 flex flex-col min-h-0">
+            <div className="flex gap-3 shrink-0">
+              <span className="px-2.5 py-1 bg-green-100 text-green-700 rounded-lg text-sm font-semibold">신규 {results.linked_count}명</span>
+              <span className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg text-sm font-semibold">기존 {results.skipped_count}명</span>
+              {results.error_count > 0 && <span className="px-2.5 py-1 bg-red-100 text-red-600 rounded-lg text-sm font-semibold">오류 {results.error_count}명</span>}
+            </div>
+            <div className="overflow-y-auto flex-1 space-y-1.5 min-h-0">
+              {results.results.map((r, i) => (
+                <div key={i} className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm border ${
+                  r.status === 'linked' ? 'bg-green-50 border-green-200' :
+                  r.status === 'error'  ? 'bg-red-50 border-red-200' :
+                  'bg-gray-50 border-gray-200'
+                }`}>
+                  <div className="min-w-0">
+                    <span className="font-medium text-gray-900">{r.name}</span>
+                    <span className="ml-2 text-xs text-gray-400 font-mono">{r.affiliateCode}</span>
+                    {r.reason && <p className="text-xs text-gray-400 mt-0.5">{r.reason}</p>}
+                  </div>
+                  <span className={`shrink-0 ml-2 text-xs font-semibold ${
+                    r.status === 'linked' ? 'text-green-600' :
+                    r.status === 'error'  ? 'text-red-600' :
+                    'text-gray-400'
+                  }`}>
+                    {r.status === 'linked' ? '연결됨' : r.status === 'error' ? '오류' : '이미 연결'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <button onClick={onClose} className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors shrink-0">닫기</button>
+          </div>
         )}
       </div>
     </div>
@@ -1052,10 +1061,10 @@ export default function OrganizationsPage() {
           <button
             onClick={() => setShowLinkModal(true)}
             className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-300 text-amber-700 hover:bg-amber-100 rounded-lg text-sm font-semibold transition-colors"
-            title="크루즈닷몰 기존 계정을 CRM 대리점장으로 연결"
+            title="크루즈닷몰 기존 대리점장 전체 자동 연결"
           >
             <Link2 className="w-3.5 h-3.5" />
-            기존 계정 연결
+            미연결 자동 연결
           </button>
           <button onClick={() => { searchRef.current = ''; setSearch(''); fetchManagers(); }} className="p-2 text-gray-600 hover:text-gray-600 transition-colors" title="새로고침">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -1139,14 +1148,11 @@ export default function OrganizationsPage() {
         />
       )}
 
-      {/* 기존 계정 연결 모달 */}
+      {/* 기존 어필리에이트 자동 연결 모달 */}
       {showLinkModal && (
-        <LinkExistingModal
+        <AutoLinkModal
           onClose={() => setShowLinkModal(false)}
-          onLinked={() => {
-            fetchManagers(searchRef.current);
-            setShowLinkModal(false);
-          }}
+          onLinked={() => fetchManagers(searchRef.current)}
         />
       )}
 
