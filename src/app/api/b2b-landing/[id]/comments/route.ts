@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { getCache, setCache } from '@/lib/redis';
 
@@ -32,7 +32,7 @@ interface B2BComment {
 export async function GET(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
     // B2B 랜딩페이지 소유권 확인
@@ -138,7 +138,7 @@ export async function GET(req: Request, { params }: Params) {
 export async function DELETE(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { id } = await params;
     const { searchParams } = new URL(req.url);
     const commentId = searchParams.get('commentId');

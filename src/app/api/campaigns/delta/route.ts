@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { CreateDeltaCampaignSchema, type CreateDeltaCampaignData } from '@/schemas/campaign';
@@ -41,7 +41,7 @@ import deltaSequence from '@/data/delta_sms_sequence.json';
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const body = await req.json();
     const validation = CreateDeltaCampaignSchema.safeParse(body);

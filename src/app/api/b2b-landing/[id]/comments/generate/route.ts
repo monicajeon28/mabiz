@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { checkOrigin } from '@/lib/origin-guard';
 import { getCache, setCache } from '@/lib/redis';
@@ -38,7 +38,7 @@ export async function POST(req: Request, { params }: Params) {
     }
 
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
     // B2B 랜딩페이지 조회 및 소유권 확인

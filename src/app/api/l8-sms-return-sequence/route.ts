@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { sendSms, getOrgSmsConfig } from "@/lib/aligo";
 
@@ -80,7 +80,7 @@ const PSYCHOLOGY_LENSES = {
 export async function POST(req: NextRequest) {
   try {
     const ctx = await getAuthContext();
-    const resolvedOrgId = requireOrgId(ctx);
+    const resolvedOrgId = resolveOrgId(ctx);
 
     const body = await req.json();
     const { contactId, day, auto } = body;
@@ -338,7 +338,7 @@ async function logSmsEvent(
 export async function GET(req: NextRequest) {
   try {
     const ctx = await getAuthContext();
-    const organizationId = requireOrgId(ctx);
+    const organizationId = resolveOrgId(ctx);
 
     void req; // 파라미터 불필요 (ctx에서 orgId 가져옴)
 

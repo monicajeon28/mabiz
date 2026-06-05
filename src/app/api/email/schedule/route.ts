@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { sendFunnelEmail } from "@/lib/email";
 
@@ -9,7 +9,7 @@ import { sendFunnelEmail } from "@/lib/email";
 export async function POST(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const body = await req.json() as {
       contactId?:  string;
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status") ?? "PENDING";
 
@@ -128,7 +128,7 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const body = await req.json() as { id: string; action: "pause" | "resume" | "retry" };
 
     if (!body.id || !body.action) {
@@ -187,7 +187,7 @@ export async function PATCH(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ ok: false, message: "id 필수" }, { status: 400 });

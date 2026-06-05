@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import {
   HOTEL_EXPERIENCE_LEVELS,
   L3_CORE_MESSAGE,
@@ -33,7 +33,7 @@ import { sendScheduledSms } from '@/lib/sms-service';
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const body = await req.json() as {
       contactId?: string;

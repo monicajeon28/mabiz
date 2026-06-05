@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 const CRUISE_BASE_PRICE = 2500; // $2,500 평균 예약가
@@ -22,7 +22,7 @@ const CRUISE_BASE_PRICE = 2500; // $2,500 평균 예약가
 export async function POST(req: NextRequest) {
   try {
     const ctx = await getAuthContext();
-    const organizationId = requireOrgId(ctx);
+    const organizationId = resolveOrgId(ctx);
 
     const { contactId, cruiseEndDate, cruisePrice, satisfactionScore, nextCruiseInterestLevel } = await req.json();
 
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const ctx = await getAuthContext();
-    const organizationId = requireOrgId(ctx);
+    const organizationId = resolveOrgId(ctx);
 
     void req; // 파라미터 불필요 (ctx에서 orgId 가져옴)
 

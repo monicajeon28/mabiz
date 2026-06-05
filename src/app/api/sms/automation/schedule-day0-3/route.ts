@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import {
   SMS_DAY0_3_SCHEDULE,
   assignAbTestVariant,
@@ -23,7 +23,7 @@ interface CallCompletedEvent {
 export async function POST(request: NextRequest) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const event: CallCompletedEvent = await request.json();
     const { contactId, organizationId, segment, callTime, firstName } = event;

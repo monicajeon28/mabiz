@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthContext, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import {
   recommendChannels,
@@ -24,7 +24,7 @@ import type { ChannelRecommendationRequest } from "@/lib/types/multi-channel";
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const organizationId = requireOrgId(ctx);
+    const organizationId = resolveOrgId(ctx);
 
     const body = (await req.json()) as ChannelRecommendationRequest;
     const { segmentId, contactId, messageType, urgency, frequency } = body;

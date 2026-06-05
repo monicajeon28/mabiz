@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { calculateEstimatedRoi } from '@/lib/cost-utils';
@@ -89,7 +89,7 @@ function getMonthEndDate(yearMonth: string): Date {
 export async function GET(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
-    const authOrgId = requireOrgId(ctx);
+    const authOrgId = resolveOrgId(ctx);
     const { orgId } = await params;
 
     // ✅ IDOR 보안: 요청 orgId와 인증 orgId 일치 확인

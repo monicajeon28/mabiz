@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 interface AnxietyMetrics {
@@ -26,7 +26,7 @@ interface AnxietyMetrics {
 export async function GET(request: NextRequest) {
   try {
     const ctx = await getAuthContext();
-    const organizationId = requireOrgId(ctx);
+    const organizationId = resolveOrgId(ctx);
 
     // 1. 불안도별 고객 분포
     const anxietyDistribution = await prisma.contact.groupBy({
