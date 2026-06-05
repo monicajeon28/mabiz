@@ -210,12 +210,14 @@ export async function POST(req: Request, { params }: Params) {
       );
     }
 
-    // Track A: 이의처리 데이터 검증
+    // Track A: 이의처리 데이터 검증 (빈 문자열 → undefined 정규화)
     const objectionValidation = validateObjectionInput({
-      objectionId,
-      customerReaction,
+      objectionId: objectionId || undefined,
+      customerReaction: customerReaction || undefined,
       recovered,
-      recoveryTime,
+      recoveryTime: (recoveryTime !== undefined && recoveryTime !== "" && recoveryTime !== null)
+        ? Number(recoveryTime)
+        : undefined,
     });
     if (!objectionValidation.isValid) {
       return NextResponse.json(
