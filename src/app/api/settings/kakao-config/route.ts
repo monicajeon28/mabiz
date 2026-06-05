@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, requireOrgId, canManageSettings } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -7,7 +7,7 @@ import { logger } from '@/lib/logger';
  * GET /api/settings/kakao-config
  * 조직의 카카오톡 설정 조회
  */
-export async function GET(req: Request) {
+export async function GET(_req: Request) {
   try {
     const ctx = await getAuthContext();
     const orgId = requireOrgId(ctx);
@@ -62,6 +62,13 @@ export async function PATCH(req: Request) {
     if (!orgId) {
       return NextResponse.json(
         { ok: false, message: '조직 정보 없음' },
+        { status: 403 }
+      );
+    }
+
+    if (!canManageSettings(ctx)) {
+      return NextResponse.json(
+        { ok: false, message: 'OWNER 또는 관리자만 카카오 설정을 변경할 수 있습니다.' },
         { status: 403 }
       );
     }

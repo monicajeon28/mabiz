@@ -251,7 +251,8 @@ function SmsTab() {
   // 카테고리 변경 시에만 재로드 (toggle은 기존 데이터 유지)
   useEffect(() => {
     if (showTemplates && templates.length === 0) loadTemplates();
-  }, [templateCat, showTemplates, loadTemplates, templates.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateCat, showTemplates]);
 
   const insertAtCursor = (token: string) => {
     const el = textareaRef.current;
