@@ -224,6 +224,8 @@ model Contact {
   type                             String    @default("INQUIRY")
   utmSource                        String?
   deletedAt                        DateTime?
+  deletedBy                        String?   // 삭제한 사용자 ID (휴지통 "삭제자" 표시용)
+  deletedByName                    String?   // 삭제 시점 삭제자 표시명 (스냅샷)
   partnerId                        String?
   status                           String?   @db.VarChar(20) // "ACTIVE", "INACTIVE", "PENDING_DELETION" 등
   phoneEncrypted                   String?

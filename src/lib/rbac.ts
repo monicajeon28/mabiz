@@ -119,9 +119,37 @@ export function maskContactInfo<T extends object>(contact: T, _ctx: AuthContext)
   return contact; // 할당된 고객은 실명/연락처 공개
 }
 
-/** 삭제 권한 체크 */
+/** 삭제 권한 체크 (판매원 AGENT/FREE_SALES 불가) */
 export function canDelete(ctx: AuthContext): boolean {
   return ctx.role === "GLOBAL_ADMIN" || ctx.role === "OWNER";
+}
+
+/** 휴지통(삭제 DB) 조회 권한 — 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) */
+export function canViewTrash(ctx: AuthContext): boolean {
+  return ctx.role === "GLOBAL_ADMIN" || ctx.role === "OWNER";
+}
+
+/**
+ * 휴지통 WHERE — 삭제된(deletedAt != null) 고객 스코프.
+ * GLOBAL_ADMIN: 전체 / OWNER: 자기 조직 삭제분만 / AGENT·FREE_SALES: 접근 차단
+ */
+export function buildTrashWhere(ctx: AuthContext, extra: Record<string, unknown> = {}) {
+  if (!canViewTrash(ctx)) throw new Error("NO_TRASH_ACCESS");
+  if (ctx.role === "GLOBAL_ADMIN") {
+    return { ...extra, deletedAt: { not: null } };
+  }
+  // OWNER: 자기 조직 삭제분만
+  return { ...extra, organizationId: ctx.organizationId!, deletedAt: { not: null } };
+}
+
+/** 영구삭제(완전 삭제) 권한 — 시스템관리자(GLOBAL_ADMIN)만 */
+export function canPurge(ctx: AuthContext): boolean {
+  return ctx.role === "GLOBAL_ADMIN";
+}
+
+/** 삭제자 표시명 — 휴지통 "삭제자" 컬럼 스냅샷용 */
+export function actorDisplayName(ctx: AuthContext): string {
+  return ctx.member?.displayName ?? ctx.mallUser?.name ?? (ctx.role === "GLOBAL_ADMIN" ? "시스템관리자" : "담당자");
 }
 
 /** SMS/이메일 설정 권한 (OWNER 이상만) */

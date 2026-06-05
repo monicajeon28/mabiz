@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, buildContactWhere, canDelete, canHardDelete, maskContactInfo } from "@/lib/rbac";
+import { getAuthContext, buildContactWhere, canDelete, maskContactInfo, actorDisplayName } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 type Params = { params: Promise<{ id: string }> };
@@ -171,9 +171,9 @@ export async function PATCH(req: Request, { params }: Params) {
 }
 
 // DELETE /api/contacts/[id]
-// GLOBAL_ADMIN: 삭제 전 Drive 백업 → 하드 삭제
-// OWNER: 소프트 삭제 (deletedAt 설정) → Drive 백업 fire-and-forget
-// AGENT: 불가
+// 모든 삭제는 휴지통(soft delete: deletedAt + deletedBy 기록)으로 이동.
+// 영구삭제는 휴지통(/api/contacts/trash/purge)에서만 가능 (GLOBAL_ADMIN).
+// 권한: OWNER·GLOBAL_ADMIN만 / AGENT·FREE_SALES 불가
 export async function DELETE(_req: Request, { params }: Params) {
   try {
     const ctx  = await getAuthContext();
@@ -181,7 +181,7 @@ export async function DELETE(_req: Request, { params }: Params) {
 
     if (!canDelete(ctx)) {
       return NextResponse.json(
-        { ok: false, message: "삭제 권한이 없습니다." },
+        { ok: false, message: "삭제 권한이 없습니다. (판매원은 삭제할 수 없습니다)" },
         { status: 403 }
       );
     }
@@ -198,50 +198,35 @@ export async function DELETE(_req: Request, { params }: Params) {
     });
     if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
 
-    if (canHardDelete(ctx)) {
-      // GLOBAL_ADMIN: Drive 백업 후 하드 삭제
-      const transferLogs = await prisma.contactTransferLog.findMany({
-        where: { contactId: id }, orderBy: { createdAt: "desc" },
-      });
-      import("@/lib/backup-xlsx").then(({ backupContactsToExcel }) =>
-        backupContactsToExcel({
-          orgName:              existing.organization.name,
-          orgId:                existing.organizationId,
-          contacts: [{
-            ...existing,
-            tags:        existing.tags ?? [],
-            groups:      existing.groups,
-            transferLogs: transferLogs.map(t => ({ ...t, toUserName: null })),
-          }],
-          mode:                 "pre_delete",
-          contactNameForDelete: existing.name,
-        }).catch(() => {})
-      ).catch(() => {});
-      await prisma.contact.delete({ where: { id } });
-      logger.log("[DELETE] 하드 삭제", { id });
-    } else {
-      // OWNER: 소프트 삭제
-      await prisma.contact.update({ where: { id }, data: { deletedAt: new Date() } });
-      // Drive 백업 fire-and-forget
-      const transferLogs = await prisma.contactTransferLog.findMany({
-        where: { contactId: id }, orderBy: { createdAt: "desc" },
-      });
-      import("@/lib/backup-xlsx").then(({ backupContactsToExcel }) =>
-        backupContactsToExcel({
-          orgName:              existing.organization.name,
-          orgId:                existing.organizationId,
-          contacts: [{
-            ...existing,
-            tags:        existing.tags ?? [],
-            groups:      existing.groups,
-            transferLogs: transferLogs.map(t => ({ ...t, toUserName: null })),
-          }],
-          mode:                 "pre_delete",
-          contactNameForDelete: existing.name,
-        }).catch(() => {})
-      ).catch(() => {});
-      logger.log("[DELETE] 소프트 삭제", { id });
-    }
+    // 휴지통으로 이동 (소프트 삭제) + 삭제자 기록
+    await prisma.contact.update({
+      where: { id },
+      data: {
+        deletedAt:     new Date(),
+        deletedBy:     ctx.userId,
+        deletedByName: actorDisplayName(ctx),
+      },
+    });
+
+    // Drive 백업 fire-and-forget (삭제 전 스냅샷)
+    const transferLogs = await prisma.contactTransferLog.findMany({
+      where: { contactId: id }, orderBy: { createdAt: "desc" },
+    });
+    import("@/lib/backup-xlsx").then(({ backupContactsToExcel }) =>
+      backupContactsToExcel({
+        orgName:              existing.organization.name,
+        orgId:                existing.organizationId,
+        contacts: [{
+          ...existing,
+          tags:        existing.tags ?? [],
+          groups:      existing.groups,
+          transferLogs: transferLogs.map(t => ({ ...t, toUserName: null })),
+        }],
+        mode:                 "pre_delete",
+        contactNameForDelete: existing.name,
+      }).catch(() => {})
+    ).catch(() => {});
+    logger.log("[DELETE] 휴지통 이동(soft)", { id, by: ctx.userId });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -35,6 +35,7 @@ export async function POST(req: Request) {
     const contacts = await prisma.contact.findMany({
       where: {
         organizationId: orgId,
+        deletedAt: null, // 삭제된 고객(soft delete) 제외
         tags:   { hasEvery: tags },
         optOutAt: null,
         phone:  { not: "" },
