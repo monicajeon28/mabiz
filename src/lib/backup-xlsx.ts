@@ -9,6 +9,7 @@ import { Readable } from 'stream';
 import { google } from 'googleapis';
 import { logger } from '@/lib/logger';
 import { formatKSTDate } from '@/lib/utils/dateUtils';
+import { parseServiceAccount } from '@/lib/parse-service-account';
 
 const CRM_BACKUP_ROOT = process.env.GOOGLE_DRIVE_CRM_BACKUP_FOLDER_ID!;
 
@@ -17,19 +18,10 @@ function getDriveClient() {
     throw new Error('GOOGLE_DRIVE_CRM_BACKUP_FOLDER_ID is not configured');
   }
 
-  const privateKey = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? '')
-    .replace(/\\n/g, '\n');
-  const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-
-  if (!serviceAccountEmail || !privateKey) {
-    throw new Error('Google Service Account credentials not configured');
-  }
-
+  // 검증된 단일 인증(parse-service-account)으로 통일 — 공유드라이브 접근 보장
+  const credentials = parseServiceAccount(process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY);
   const auth = new google.auth.GoogleAuth({
-    credentials: {
-      client_email: serviceAccountEmail,
-      private_key: privateKey,
-    },
+    credentials,
     scopes: ['https://www.googleapis.com/auth/drive'],
   });
   return google.drive({ version: 'v3', auth });
