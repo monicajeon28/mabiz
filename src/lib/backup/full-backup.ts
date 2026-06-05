@@ -15,6 +15,11 @@ import { logger } from '@/lib/logger';
 
 const { Client } = pg;
 
+// Neon/Supabase 모두 SSL 필수 (Supabase pooler는 self-signed → rejectUnauthorized:false)
+function makeClient(connectionString: string) {
+  return new Client({ connectionString, ssl: { rejectUnauthorized: false } });
+}
+
 // 백업 대상 핵심 테이블 (Neon 실제 테이블명 기준)
 export const BACKUP_TABLES = [
   'User',            // 회원 (GmUser @map "User")
@@ -36,8 +41,8 @@ export async function neonToSupabase(snapshotDate: string): Promise<NeonToSupaba
   if (!neonUrl) throw new Error('DATABASE_URL 미설정');
   if (!supaUrl) throw new Error('SUPABASE_BACKUP_URL 미설정 — Neon→Supabase 백업 불가');
 
-  const neon = new Client({ connectionString: neonUrl });
-  const supa = new Client({ connectionString: supaUrl });
+  const neon = makeClient(neonUrl);
+  const supa = makeClient(supaUrl);
   await neon.connect();
   await supa.connect();
 
@@ -80,7 +85,7 @@ export async function supabaseToDrive(snapshotDate: string): Promise<SupabaseToD
   if (!supaUrl) throw new Error('SUPABASE_BACKUP_URL 미설정');
   if (!rootFolder) throw new Error('GOOGLE_DRIVE_DB_BACKUP_FOLDER_ID 미설정 — Drive 덤프 불가');
 
-  const supa = new Client({ connectionString: supaUrl });
+  const supa = makeClient(supaUrl);
   await supa.connect();
 
   const uploaded: SupabaseToDriveResult = [];
