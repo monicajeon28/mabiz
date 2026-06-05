@@ -1375,12 +1375,18 @@ model ScheduledSms {
   failureReason   String?
   channel         String       @default("GENERAL") @db.VarChar(100)
   senderPhone     String?      @db.VarChar(20) // 퍼널문자용 발신번호 (없으면 org 기본값 사용)
+  // 퍼널문자 회차 추적 (사람별 "몇 회차 발송됐는지" 영속 스냅샷) — 모두 nullable, FK 미연결(plain)
+  funnelSmsId        String?   // 퍼널문자 단위 집계용
+  funnelSmsMessageId String?   // 회차 역조인 후보키 (스냅샷 우선)
+  round              Int?      // 발송 당시 FunnelSmsMessage.daysAfter 스냅샷 (UI: round+1 = "N일차")
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, status, scheduledAt])
   @@index([scheduledAt, status])
   @@index([channel])
   @@index([organizationId, channel, status], map: "idx_scheduled_sms_org_channel_status")
+  @@index([organizationId, funnelSmsId, round])
+  @@index([funnelSmsMessageId, status])
   // [P1-2] 퍼널문자 중복 발송 방지용 부분 UNIQUE 인덱스는 Prisma 스키마로 표현 불가
   //  → prisma/migrations/manual_add_scheduled_sms_funnel_unique.sql 로 수동 관리.
   //  (전역 @@unique([organizationId, contactId, channel])는 'SMS'/'EMAIL'/'GROUP' 등
