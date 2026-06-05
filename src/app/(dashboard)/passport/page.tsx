@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle, CheckCircle, RefreshCw, Search, Send,
   UserCheck, Copy, Check, X, Phone, PhoneOff, FileText,
-  ChevronDown, ChevronUp, ArrowRight, Info,
+  ChevronDown, ChevronUp, ArrowRight, Info, UserPlus,
 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import { fillTemplate } from '@/lib/passport-utils';
@@ -219,6 +219,7 @@ export default function PassportPage() {
   } | null>(null);
 
   const [refreshTick, setRefreshTick] = useState(0);
+  const [showManualRegister, setShowManualRegister] = useState(false);
   // 페이지네이션: "더 보기" 방식
   const [currentPage, setCurrentPage] = useState(1);
   const [hasNextPage, setHasNextPage] = useState(false);
@@ -512,6 +513,13 @@ export default function PassportPage() {
               문자 잔액: {aligoBalance.toLocaleString()}원{aligoBalance <= 5000 ? ' ⚠ 충전 필요' : ''}
             </span>
           )}
+          <button
+            onClick={() => setShowManualRegister(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700"
+          >
+            <UserPlus className="w-4 h-4" />
+            수동 등록
+          </button>
           <button
             onClick={() => setRefreshTick(t => t + 1)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -882,6 +890,145 @@ export default function PassportPage() {
           sending={sending}
         />
       )}
+
+      {/* 수동 등록 모달 */}
+      {showManualRegister && (
+        <ManualRegisterModal
+          onClose={() => setShowManualRegister(false)}
+          onSuccess={() => {
+            setShowManualRegister(false);
+            setRefreshTick(t => t + 1);
+            showSuccess('고객이 등록되었습니다. 목록에서 확인하세요.');
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── 수동 등록 모달 ──────────────────────────────────────────────────────
+function ManualRegisterModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const [step, setStep] = useState<'search' | 'form'>('search');
+  const [phone, setPhone] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [foundUsers, setFoundUsers] = useState<Array<{ id: number; name: string | null; phone: string | null; tripCount: number | null }>>([]);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [form, setForm] = useState({ name: '', phone: '', email: '', shipName: '', productCode: '', cruiseName: '', departureDate: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const searchUser = async () => {
+    if (phone.replace(/[^0-9]/g, '').length < 4) return;
+    setSearching(true);
+    try {
+      const res = await fetch(`/api/passport/admin/user-search?phone=${encodeURIComponent(phone)}`);
+      const data = await res.json();
+      setFoundUsers(data.users ?? []);
+      setStep('form');
+    } catch { setError('검색 중 오류가 발생했습니다.'); }
+    finally { setSearching(false); }
+  };
+
+  const handleSubmit = async () => {
+    if (!form.shipName || !form.departureDate) { setError('선박명과 출발일은 필수입니다.'); return; }
+    if (!selectedUserId && (!form.name || !form.phone)) { setError('이름과 전화번호는 필수입니다.'); return; }
+    setSaving(true); setError('');
+    try {
+      const body = selectedUserId
+        ? { userId: selectedUserId, shipName: form.shipName, productCode: form.productCode, cruiseName: form.cruiseName, departureDate: new Date(form.departureDate).toISOString() }
+        : { name: form.name, phone: form.phone.replace(/[^0-9]/g, ''), email: form.email, shipName: form.shipName, productCode: form.productCode, cruiseName: form.cruiseName, departureDate: new Date(form.departureDate).toISOString() };
+      const res = await fetch('/api/passport/admin/create-trip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!data.ok) { setError(data.message ?? '등록 실패'); return; }
+      onSuccess();
+    } catch { setError('네트워크 오류가 발생했습니다.'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+            <UserPlus className="w-5 h-5 text-blue-600" />
+            고객 수동 등록
+          </h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100"><X className="w-4 h-4" /></button>
+        </div>
+
+        {step === 'search' && (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500">전화번호로 기존 고객을 검색하거나 신규 등록하세요.</p>
+            <div className="flex gap-2">
+              <input
+                type="tel"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && searchUser()}
+                placeholder="전화번호 (예: 01012345678)"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button onClick={searchUser} disabled={searching} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                {searching ? '검색 중...' : '검색'}
+              </button>
+            </div>
+            <button onClick={() => setStep('form')} className="text-sm text-blue-600 hover:underline">→ 검색 없이 직접 신규 등록</button>
+          </div>
+        )}
+
+        {step === 'form' && (
+          <div className="space-y-4">
+            {foundUsers.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-700">검색 결과 ({foundUsers.length}명)</p>
+                {foundUsers.map(u => (
+                  <button
+                    key={u.id}
+                    onClick={() => setSelectedUserId(u.id)}
+                    className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-colors ${
+                      selectedUserId === u.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="font-medium">{u.name ?? '이름없음'}</span>
+                    <span className="text-gray-500 ml-2">{u.phone}</span>
+                    <span className="text-gray-400 ml-2 text-xs">여행 {u.tripCount ?? 0}건</span>
+                  </button>
+                ))}
+                <button onClick={() => setSelectedUserId(null)} className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${!selectedUserId && foundUsers.length > 0 ? 'border-blue-500 bg-blue-50' : 'border-dashed border-gray-300 hover:bg-gray-50'}`}>
+                  + 위 결과 말고 신규 등록
+                </button>
+              </div>
+            )}
+
+            {!selectedUserId && (
+              <div className="space-y-3 pt-2 border-t border-gray-100">
+                <p className="text-sm font-medium text-gray-700">신규 고객 정보</p>
+                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="이름 *" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="전화번호 * (01012345678)" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="이메일 (선택)" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            )}
+
+            <div className="space-y-3 pt-2 border-t border-gray-100">
+              <p className="text-sm font-medium text-gray-700">여행 정보</p>
+              <input value={form.shipName} onChange={e => setForm(f => ({ ...f, shipName: e.target.value }))} placeholder="선박명 * (예: MSC Bellissima)" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="date" value={form.departureDate} onChange={e => setForm(f => ({ ...f, departureDate: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input value={form.productCode} onChange={e => setForm(f => ({ ...f, productCode: e.target.value }))} placeholder="상품코드 (선택, 예: MSC001)" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input value={form.cruiseName} onChange={e => setForm(f => ({ ...f, cruiseName: e.target.value }))} placeholder="크루즈명 (선택, 예: 지중해 10박)" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+
+            {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => { setStep('search'); setSelectedUserId(null); setFoundUsers([]); }} className="flex-1 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">이전</button>
+              <button onClick={handleSubmit} disabled={saving} className="flex-1 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                {saving ? '등록 중...' : '등록하기'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

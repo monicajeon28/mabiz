@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface HeaderValue {
   title: string;
@@ -18,10 +18,49 @@ interface Props {
   groups?: { id: string; name: string }[];
 }
 
+interface SmsDefaults {
+  senderPhone: string;
+  arsNum: string;
+}
+
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = [0, 15, 30, 45];
 
 export default function FunnelSmsHeader({ value, onChange }: Props) {
+  const [defaults, setDefaults] = useState<SmsDefaults>({ senderPhone: '', arsNum: '' });
+  const hasFilled = useRef(false);
+
+  useEffect(() => {
+    fetch('/api/settings/sms-defaults')
+      .then((res) => res.json())
+      .then((data: { ok: boolean; senderPhone: string; arsNum: string }) => {
+        if (!data.ok) return;
+        setDefaults({ senderPhone: data.senderPhone, arsNum: data.arsNum });
+        // 최초 마운트 시 빈 필드만 자동 채우기
+        if (!hasFilled.current) {
+          hasFilled.current = true;
+          if (!value.senderPhone && data.senderPhone) {
+            onChange('senderPhone', data.senderPhone);
+          }
+          if (!value.arsNum && data.arsNum) {
+            onChange('arsNum', data.arsNum);
+          }
+        }
+      })
+      .catch(() => {
+        // 환경변수 미설정 시 조용히 무시
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fillSenderPhone = () => {
+    if (defaults.senderPhone) onChange('senderPhone', defaults.senderPhone);
+  };
+
+  const fillArsNum = () => {
+    if (defaults.arsNum) onChange('arsNum', defaults.arsNum);
+  };
+
   return (
     <div className="space-y-4">
       {/* 제목 */}
@@ -45,14 +84,25 @@ export default function FunnelSmsHeader({ value, onChange }: Props) {
         <label className="block text-sm font-medium text-gray-700 mb-1">
           발신번호
         </label>
-        <input
-          type="text"
-          maxLength={20}
-          value={value.senderPhone ?? ''}
-          onChange={(e) => onChange('senderPhone', e.target.value)}
-          placeholder="예) 0212345678"
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            maxLength={20}
+            value={value.senderPhone ?? ''}
+            onChange={(e) => onChange('senderPhone', e.target.value)}
+            placeholder="예) 0212345678"
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {defaults.senderPhone && (
+            <button
+              type="button"
+              onClick={fillSenderPhone}
+              className="shrink-0 px-3 py-2 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+            >
+              자동입력
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 카테고리 */}
@@ -110,14 +160,25 @@ export default function FunnelSmsHeader({ value, onChange }: Props) {
         <label className="block text-sm font-medium text-gray-700 mb-1">
           080 수신거부 번호
         </label>
-        <input
-          type="text"
-          maxLength={20}
-          value={value.arsNum ?? ''}
-          onChange={(e) => onChange('arsNum', e.target.value)}
-          placeholder="예) 08012345678"
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            maxLength={20}
+            value={value.arsNum ?? ''}
+            onChange={(e) => onChange('arsNum', e.target.value)}
+            placeholder="예) 08012345678"
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {defaults.arsNum && (
+            <button
+              type="button"
+              onClick={fillArsNum}
+              className="shrink-0 px-3 py-2 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+            >
+              자동입력
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 설명 */}

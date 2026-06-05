@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Plus, ChevronDown, Trash2 } from "lucide-react";
 import { showError } from "@/components/ui/Toast";
 import FunnelSmsHeader from "@/components/funnel-sms/FunnelSmsHeader";
 import FunnelSmsMessageEditor from "@/components/funnel-sms/FunnelSmsMessageEditor";
@@ -43,7 +43,6 @@ export default function FunnelSmsNewPage() {
     { order: 1, daysAfter: 0, content: "", msgType: "SMS" },
   ]);
 
-  const [activeTab, setActiveTab] = useState(0);
   const [saving, setSaving] = useState(false);
 
   const handleHeaderChange = (field: keyof HeaderState, value: string | number) => {
@@ -60,17 +59,30 @@ export default function FunnelSmsNewPage() {
     );
   };
 
-  const handleAddTab = () => {
+  const addMessage = () => {
     if (messages.length >= 500) {
       showError("회차는 최대 500개까지 추가할 수 있습니다.");
       return;
     }
-    const maxOrder = messages.reduce((acc, m) => Math.max(acc, m.order), 0);
     setMessages((prev) => [
       ...prev,
-      { order: maxOrder + 1, daysAfter: 0, content: "", msgType: "SMS" },
+      {
+        order: prev.length + 1,
+        daysAfter: prev[prev.length - 1].daysAfter + 1,
+        content: "",
+        msgType: "SMS",
+      },
     ]);
-    setActiveTab(messages.length); // 새 탭으로 이동
+  };
+
+  const removeMessage = (index: number) => {
+    if (messages.length <= 1) {
+      showError("최소 1개의 회차가 필요합니다.");
+      return;
+    }
+    setMessages((prev) =>
+      prev.filter((_, i) => i !== index).map((m, i) => ({ ...m, order: i + 1 }))
+    );
   };
 
   const handleSave = async () => {
@@ -133,8 +145,6 @@ export default function FunnelSmsNewPage() {
     }
   };
 
-  const activeMessage = messages[activeTab];
-
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
       {/* 헤더 */}
@@ -161,42 +171,62 @@ export default function FunnelSmsNewPage() {
             <FunnelSmsHeader value={header} onChange={handleHeaderChange} />
           </div>
 
-          {/* 메시지 탭 */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="text-sm font-semibold text-gray-700 mb-4">메시지 회차</h2>
-
-            {/* 탭 버튼 */}
-            <div className="flex items-center gap-1 flex-wrap mb-5 border-b border-gray-200 pb-3">
-              {messages.map((m, i) => (
-                <button
-                  key={m.order}
-                  onClick={() => setActiveTab(i)}
-                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                    activeTab === i
-                      ? "bg-blue-600 text-white font-medium"
-                      : "text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  {m.order}회차
-                </button>
-              ))}
-              <button
-                onClick={handleAddTab}
-                className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 border border-dashed border-blue-300 rounded-lg transition-colors ml-1"
-              >
-                + 회차추가
-              </button>
-            </div>
-
-            {/* 활성 메시지 에디터 */}
-            {activeMessage && (
-              <FunnelSmsMessageEditor
-                message={activeMessage}
-                onChange={(field, value) => handleMessageChange(activeTab, field, value)}
-                sendHour={header.sendHour}
-                sendMinute={header.sendMinute}
-              />
-            )}
+          {/* 메시지 회차 타임라인 */}
+          <div className="space-y-0">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">메시지 회차</h2>
+            {messages.map((m, i) => (
+              <div key={m.order}>
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  {/* 회차 헤더 */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
+                        {m.order}
+                      </span>
+                      <span className="text-sm font-semibold text-gray-700">
+                        {m.daysAfter === 0 ? "즉시 발송 (Day 0)" : `D+${m.daysAfter}`}
+                      </span>
+                    </div>
+                    {messages.length > 1 && (
+                      <button
+                        onClick={() => removeMessage(i)}
+                        className="text-red-400 hover:text-red-600 p-1 rounded transition-colors"
+                        aria-label={`${m.order}회차 삭제`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  {/* 메시지 에디터 */}
+                  <FunnelSmsMessageEditor
+                    message={m}
+                    onChange={(field, value) => handleMessageChange(i, field, value)}
+                    sendHour={header.sendHour}
+                    sendMinute={header.sendMinute}
+                  />
+                  {/* 마지막 회차 아래 추가 버튼 */}
+                  {i === messages.length - 1 && (
+                    <div className="mt-4 flex justify-center">
+                      <button
+                        onClick={addMessage}
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" /> 다음 회차 추가
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {/* 회차 간 연결 화살표 */}
+                {i < messages.length - 1 && (
+                  <div className="flex justify-center my-2">
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-px h-4 bg-gray-300" />
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
 
           {/* 저장 버튼 */}
@@ -214,8 +244,8 @@ export default function FunnelSmsNewPage() {
         {/* 오른쪽: 폰 미리보기 */}
         <div className="hidden lg:block">
           <div className="sticky top-6">
-            <p className="text-xs font-medium text-gray-500 mb-3 text-center">미리보기</p>
-            <FunnelSmsPhonePreview content={activeMessage?.content ?? ""} />
+            <p className="text-xs font-medium text-gray-500 mb-3 text-center">미리보기 (1회차)</p>
+            <FunnelSmsPhonePreview content={messages[0]?.content ?? ""} />
           </div>
         </div>
       </div>

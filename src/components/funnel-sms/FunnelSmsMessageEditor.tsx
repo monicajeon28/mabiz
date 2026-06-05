@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 
 interface MessageValue {
   order: number;
@@ -21,7 +21,6 @@ function getEucKrBytes(text: string): number {
   let bytes = 0;
   for (let i = 0; i < text.length; i++) {
     const code = text.charCodeAt(i);
-    // EUC-KR: 한글 등 0x80 이상 문자는 2바이트
     bytes += code > 0x7f ? 2 : 1;
   }
   return bytes;
@@ -39,16 +38,44 @@ function getPreviewDate(daysAfter: number): string {
 const SMS_LIMIT = 80;
 const LMS_LIMIT = 2000;
 
+/** URL 입력 팝오버 상태 */
+type PopoverType = '상품링크' | '카톡방링크' | null;
+
 export default function FunnelSmsMessageEditor({
   message,
   onChange,
   sendHour,
   sendMinute,
 }: Props) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [popover, setPopover] = useState<PopoverType>(null);
+  const [urlInput, setUrlInput] = useState('');
+
   const bytes = getEucKrBytes(message.content);
   const autoMsgType: 'SMS' | 'LMS' = bytes > SMS_LIMIT ? 'LMS' : 'SMS';
   const limit = autoMsgType === 'SMS' ? SMS_LIMIT : LMS_LIMIT;
   const overLimit = bytes > LMS_LIMIT;
+
+  /** 커서 위치에 변수 삽입 */
+  const insertAtCursor = useCallback(
+    (variable: string) => {
+      const el = textareaRef.current;
+      if (!el) {
+        onChange('content', message.content + variable);
+        return;
+      }
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const next =
+        message.content.slice(0, start) + variable + message.content.slice(end);
+      onChange('content', next);
+      setTimeout(() => {
+        el.focus();
+        el.setSelectionRange(start + variable.length, start + variable.length);
+      }, 0);
+    },
+    [message.content, onChange]
+  );
 
   // content가 바뀔 때마다 msgType 자동 동기화
   const handleContentChange = useCallback(
@@ -64,12 +91,42 @@ export default function FunnelSmsMessageEditor({
     [message.msgType, onChange]
   );
 
-  const handleInsertName = useCallback(() => {
-    onChange('content', message.content + '[이름]');
-  }, [message.content, onChange]);
+  /** [상품링크] / [카톡방링크] 팝오버 확인 */
+  const handleUrlConfirm = useCallback(() => {
+    if (!popover) return;
+    const trimmed = urlInput.trim();
+    if (trimmed) {
+      insertAtCursor(`[${popover}:${trimmed}]`);
+    } else {
+      insertAtCursor(`[${popover}]`);
+    }
+    setPopover(null);
+    setUrlInput('');
+  }, [popover, urlInput, insertAtCursor]);
+
+  const handlePopoverOpen = useCallback(
+    (type: '상품링크' | '카톡방링크') => {
+      setUrlInput('');
+      setPopover(type);
+    },
+    []
+  );
+
+  const handlePopoverCancel = useCallback(() => {
+    setPopover(null);
+    setUrlInput('');
+  }, []);
 
   const previewDate = getPreviewDate(message.daysAfter);
   const timeStr = `${String(sendHour).padStart(2, '0')}:${String(sendMinute).padStart(2, '0')}`;
+
+  /** 단순 변수 버튼 목록 */
+  const simpleVars: { label: string; variable: string }[] = [
+    { label: '[이름]', variable: '[이름]' },
+    { label: '[전화번호]', variable: '[전화번호]' },
+    { label: '[날짜]', variable: '[날짜]' },
+    { label: '[담당자]', variable: '[담당자]' },
+  ];
 
   return (
     <div className="space-y-4">
@@ -129,17 +186,75 @@ export default function FunnelSmsMessageEditor({
 
       {/* 메시지 입력 */}
       <div>
-        <div className="flex items-center justify-between mb-1">
-          <label className="text-sm font-medium text-gray-700">메시지 내용</label>
+        <label className="text-sm font-medium text-gray-700 block mb-2">메시지 내용</label>
+
+        {/* 변수 칩 버튼 줄 */}
+        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+          {simpleVars.map(({ label, variable }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => insertAtCursor(variable)}
+              className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 border border-blue-300 rounded px-2 py-0.5 hover:bg-blue-50 transition-colors"
+            >
+              {label}
+            </button>
+          ))}
+          {/* 상품링크 */}
           <button
             type="button"
-            onClick={handleInsertName}
-            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-300 rounded px-2 py-0.5 hover:bg-blue-50 transition-colors"
+            onClick={() => handlePopoverOpen('상품링크')}
+            className="inline-flex items-center text-xs text-indigo-600 hover:text-indigo-800 border border-indigo-300 rounded px-2 py-0.5 hover:bg-indigo-50 transition-colors"
           >
-            + [이름] 삽입
+            [상품링크]
+          </button>
+          {/* 카톡방링크 */}
+          <button
+            type="button"
+            onClick={() => handlePopoverOpen('카톡방링크')}
+            className="inline-flex items-center text-xs text-yellow-700 hover:text-yellow-900 border border-yellow-400 rounded px-2 py-0.5 hover:bg-yellow-50 transition-colors"
+          >
+            [카톡방링크]
           </button>
         </div>
+
+        {/* URL 인라인 팝오버 */}
+        {popover !== null && (
+          <div className="mb-2 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+            <span className="text-xs font-medium text-gray-600 whitespace-nowrap">
+              {popover} URL:
+            </span>
+            <input
+              autoFocus
+              type="url"
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleUrlConfirm();
+                if (e.key === 'Escape') handlePopoverCancel();
+              }}
+              placeholder="https://..."
+              className="flex-1 min-w-0 border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              type="button"
+              onClick={handleUrlConfirm}
+              className="text-xs bg-blue-600 text-white rounded px-2.5 py-1 hover:bg-blue-700 transition-colors whitespace-nowrap"
+            >
+              삽입
+            </button>
+            <button
+              type="button"
+              onClick={handlePopoverCancel}
+              className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              취소
+            </button>
+          </div>
+        )}
+
         <textarea
+          ref={textareaRef}
           rows={6}
           value={message.content}
           onChange={handleContentChange}
@@ -152,9 +267,7 @@ export default function FunnelSmsMessageEditor({
         />
         {/* 바이트 카운터 */}
         <div className="mt-1 flex items-center justify-between">
-          <span className="text-xs text-gray-400">
-            발송 시간: {timeStr}
-          </span>
+          <span className="text-xs text-gray-400">발송 시간: {timeStr}</span>
           <span
             className={`text-xs font-medium ${
               overLimit
