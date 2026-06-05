@@ -123,43 +123,51 @@ export async function POST(req: Request) {
 
     // ── Step 2: sharp로 WebP 변환 ─────────────────────────────────────────
     const isGif = mimeType === 'image/gif';
-    let processedBuffer: Buffer;
-    let finalMimeType: string;
-    let finalFileName: string;
+    let processedBuffer: Buffer = originalBuffer;
+    let finalMimeType: string = mimeType;
+    let finalFileName: string = fileName;
 
     if (isGif) {
-      // GIF: animated WebP 변환 시도, 실패 시 GIF 압축 유지
-      try {
-        const metadata = await sharp(originalBuffer, {
-          animated: true,
-        }).metadata();
-        const needsResize = metadata.width && metadata.width > 1200;
+      // GIF: animated WebP 변환 시도 → GIF 압축 시도 → 원본 그대로 (3단계 폴백)
+      let gifDone = false;
 
+      // 1차: animated WebP 변환
+      try {
+        const metadata = await sharp(originalBuffer, { animated: true }).metadata();
+        const needsResize = metadata.width && metadata.width > 1200;
         processedBuffer = await sharp(originalBuffer, { animated: true })
-          .resize(needsResize ? 1200 : (metadata.width ?? undefined), null, {
-            withoutEnlargement: true,
-          })
+          .resize(needsResize ? 1200 : (metadata.width ?? undefined), null, { withoutEnlargement: true })
           .webp({ quality: 80, loop: 0 })
           .toBuffer();
-
         finalMimeType = 'image/webp';
         finalFileName = fileName.replace(/\.[^.]+$/, '.webp');
+        gifDone = true;
       } catch {
-        // animated WebP 변환 실패 시 GIF 압축으로 폴백
-        const metadata = await sharp(originalBuffer, {
-          animated: true,
-        }).metadata();
-        const needsResize = metadata.width && metadata.width > 1200;
+        logger.warn('[finalize] animated WebP 변환 실패, GIF 압축 시도');
+      }
 
-        processedBuffer = await sharp(originalBuffer, { animated: true })
-          .resize(needsResize ? 1200 : (metadata.width ?? undefined), null, {
-            withoutEnlargement: true,
-          })
-          .gif({ colors: 256 })
-          .toBuffer();
+      // 2차: GIF 압축
+      if (!gifDone) {
+        try {
+          const metadata = await sharp(originalBuffer, { animated: true }).metadata();
+          const needsResize = metadata.width && metadata.width > 1200;
+          processedBuffer = await sharp(originalBuffer, { animated: true })
+            .resize(needsResize ? 1200 : (metadata.width ?? undefined), null, { withoutEnlargement: true })
+            .gif({ colors: 256 })
+            .toBuffer();
+          finalMimeType = 'image/gif';
+          finalFileName = fileName.replace(/\.[^.]+$/, '.gif');
+          gifDone = true;
+        } catch {
+          logger.warn('[finalize] GIF 압축 실패, 원본 그대로 사용');
+        }
+      }
 
+      // 3차: sharp 불가 시 원본 GIF 그대로 업로드
+      if (!gifDone) {
+        processedBuffer = originalBuffer;
         finalMimeType = 'image/gif';
-        finalFileName = fileName.replace(/\.[^.]+$/, '.gif');
+        finalFileName = fileName.endsWith('.gif') ? fileName : fileName.replace(/\.[^.]+$/, '.gif');
       }
     } else {
       // JPG / PNG / WebP → WebP 변환 (quality 85, 최대 가로 1600px)
