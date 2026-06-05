@@ -75,6 +75,18 @@ export const ROUTE_RULES: RouteRule[] = [
     redirectTo: '/tools',
   },
 
+  // OWNER 이상 전용 — 판매원(AGENT) 직접 URL 접근 차단
+  { pattern: '/marketing',          requiredRole: 'MEMBER', redirectTo: '/contacts' },
+  { pattern: '/marketing/*',        requiredRole: 'MEMBER', redirectTo: '/contacts' },
+  { pattern: '/landing-pages',      requiredRole: 'MEMBER', redirectTo: '/contacts' },
+  { pattern: '/landing-pages/*',    requiredRole: 'MEMBER', redirectTo: '/contacts' },
+  { pattern: '/funnel-sms',         requiredRole: 'MEMBER', redirectTo: '/messages' },
+  { pattern: '/funnel-sms/*',       requiredRole: 'MEMBER', redirectTo: '/messages' },
+  { pattern: '/links',              requiredRole: 'MEMBER', redirectTo: '/contacts' },
+  { pattern: '/links/*',            requiredRole: 'MEMBER', redirectTo: '/contacts' },
+  { pattern: '/image-library',      requiredRole: 'MEMBER', redirectTo: '/contacts' },
+  { pattern: '/image-library/*',    requiredRole: 'MEMBER', redirectTo: '/contacts' },
+
   // Dashboard root - MEMBER+ (호환성 유지)
   {
     pattern: '/dashboard',
