@@ -224,7 +224,7 @@ export async function predictAllChurns(
 ): Promise<ChurnPrediction[]> {
   // 단일 배치 쿼리로 모든 contact + 관련 데이터를 한 번에 조회
   const contacts = await prisma.contact.findMany({
-    where: { organizationId },
+    where: { organizationId, deletedAt: null }, // 삭제된 고객(soft delete) 제외
     take: 1000,
     include: {
       callLogs: { orderBy: { createdAt: "desc" }, take: 30 },
@@ -334,7 +334,7 @@ export async function identifyAllUpsells(
   organizationId: string
 ): Promise<UpsellOpportunity[]> {
   const contacts = await prisma.contact.findMany({
-    where: { organizationId },
+    where: { organizationId, deletedAt: null }, // 삭제된 고객(soft delete) 제외
     select: { id: true },
     take: 1000,
   });

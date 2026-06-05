@@ -40,6 +40,7 @@ export async function GET(req: Request) {
     // 1️⃣ 최근 N시간 Contact 전체 조회
     const recentContacts = await prisma.contact.findMany({
       where: {
+        deletedAt: null, // 삭제된 고객(soft delete) 제외
         createdAt: {
           gte: cutoffTime,
         },
@@ -67,6 +68,7 @@ export async function GET(req: Request) {
     // 2️⃣ 통계 계산
     const allContacts = await prisma.contact.findMany({
       where: {
+        deletedAt: null, // 삭제된 고객(soft delete) 제외
         createdAt: {
           gte: cutoffTime,
         },
@@ -90,6 +92,7 @@ export async function GET(req: Request) {
     const orgDistribution = await prisma.contact.groupBy({
       by: ["organizationId"],
       where: {
+        deletedAt: null, // 삭제된 고객(soft delete) 제외
         createdAt: {
           gte: cutoffTime,
         },
@@ -101,6 +104,7 @@ export async function GET(req: Request) {
     const typeDistribution = await prisma.contact.groupBy({
       by: ["type"],
       where: {
+        deletedAt: null, // 삭제된 고객(soft delete) 제외
         createdAt: {
           gte: cutoffTime,
         },
@@ -112,6 +116,7 @@ export async function GET(req: Request) {
     const assignmentDistribution = await prisma.contact.groupBy({
       by: ["assignedUserId"],
       where: {
+        deletedAt: null, // 삭제된 고객(soft delete) 제외
         createdAt: {
           gte: cutoffTime,
         },

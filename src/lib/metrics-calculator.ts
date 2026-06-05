@@ -79,11 +79,12 @@ export async function calculateHeroKPIs(
     previousConversions,
   ] = await Promise.all([
     prisma.contact.count({
-      where: { organizationId, createdAt: { gte: monthStart } },
+      where: { organizationId, deletedAt: null, createdAt: { gte: monthStart } }, // 삭제된 고객(soft delete) 제외
     }),
     prisma.contact.count({
       where: {
         organizationId,
+        deletedAt: null, // 삭제된 고객(soft delete) 제외
         createdAt: { gte: lastMonthStart, lt: monthStart },
       },
     }),
@@ -218,6 +219,7 @@ export async function calculateMetricsPyramid(
         const contactCount = await prisma.contact.count({
           where: {
             organizationId,
+            deletedAt: null, // 삭제된 고객(soft delete) 제외
             tags: { hasSome: [lens] },
           },
         });
@@ -284,12 +286,13 @@ export async function calculateMetricsPyramid(
 
   // Layer 4: Risk metrics
   const totalContacts = await prisma.contact.count({
-    where: { organizationId },
+    where: { organizationId, deletedAt: null }, // 삭제된 고객(soft delete) 제외
   });
 
   const atRiskContacts = await prisma.contact.count({
     where: {
       organizationId,
+      deletedAt: null, // 삭제된 고객(soft delete) 제외
       tags: { hasSome: ["RISK_HIGH", "RISK_CRITICAL"] },
     },
   });

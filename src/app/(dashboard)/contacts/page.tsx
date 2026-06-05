@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import Link from "next/link";
-import { Search, Plus, Filter, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet, Loader2, Share2, FolderDown } from "lucide-react";
+import { Search, Plus, Filter, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet, Loader2, Share2, FolderDown, Trash2 } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/lib/api/use-toast";
 import { useSession } from "@/hooks/useSession";
@@ -808,6 +808,17 @@ export default function ContactsPage() {
           <p className="text-sm text-gray-500 mt-0.5">총 {total.toLocaleString()}명</p>
         </div>
         <div className="flex gap-2">
+          {/* 삭제 DB(휴지통) 진입 — 대리점장/관리자만 */}
+          {canDelete && (
+            <Link
+              href="/contacts/trash"
+              className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+              title="삭제된 고객을 보고 복구합니다 (대리점장/관리자 전용)"
+            >
+              <Trash2 className="w-4 h-4" />
+              삭제 DB
+            </Link>
+          )}
           {/* L7: 팀 공유 기능 강화 */}
           {selectedIds.size > 0 && (
             <>

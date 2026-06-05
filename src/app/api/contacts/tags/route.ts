@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '200', 10), 1000);
 
     const contacts = await prisma.contact.findMany({
-      where: { organizationId: orgId },
+      where: { organizationId: orgId, deletedAt: null }, // 삭제된 고객(soft delete) 제외
       select: { tags: true },
     });
 

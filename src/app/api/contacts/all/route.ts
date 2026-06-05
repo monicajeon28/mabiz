@@ -30,6 +30,7 @@ export async function GET(req: Request) {
       { updatedAt: 'desc' as const }; // 기본값
 
     const where = {
+      deletedAt: null, // 삭제된 고객(soft delete) 제외
       ...(orgId ? { organizationId: orgId } : {}),
       ...(type ? { type } : {}),
       ...(tags.length > 0 ? { tags: { hasEvery: tags } } : {}),

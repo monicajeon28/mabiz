@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId, resolveOrgId } from '@/lib/rbac';
+import { getAuthContext, canDelete, buildContactWhere, actorDisplayName } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 /**
  * POST /api/contacts/bulk-delete
- * 고객 일괄 삭제 (소프트 삭제: deletedAt 설정)
- * 대리점장(OWNER) 및 관리자(GLOBAL_ADMIN)만 가능
+ * 고객 일괄(복수) 삭제 — 휴지통(소프트 삭제: deletedAt + 삭제자 기록)으로 이동
+ * 대리점장(OWNER) 및 관리자(GLOBAL_ADMIN)만 가능 (판매원 AGENT/FREE_SALES 불가)
  *
  * Request:
  *   {
@@ -27,10 +27,10 @@ export async function POST(req: Request) {
     const ctx = await getAuthContext();
 
     // ⚠️ 대리점장(OWNER)과 관리자(GLOBAL_ADMIN)만 삭제 가능
-    // 판매원(AGENT, FREE_SALES) 불가
-    if (ctx.role !== 'OWNER' && ctx.role !== 'GLOBAL_ADMIN') {
+    // 판매원(AGENT, FREE_SALES)은 canDelete=false로 차단됨
+    if (!canDelete(ctx)) {
       return NextResponse.json(
-        { ok: false, message: '고객 삭제는 대리점장 이상만 가능합니다', code: 'FORBIDDEN' },
+        { ok: false, message: '삭제 권한이 없습니다. (판매원은 삭제할 수 없습니다)', code: 'FORBIDDEN' },
         { status: 403 }
       );
     }
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { contactIds, organizationId: bodyOrgId } = body as { contactIds?: unknown; organizationId?: string };
+    const { contactIds } = body as { contactIds?: unknown };
 
     // 타입 검증: contactIds는 배열이어야 함
     if (!Array.isArray(contactIds)) {
@@ -81,55 +81,36 @@ export async function POST(req: Request) {
       );
     }
 
-    // organizationId 결정
-    let orgId: string;
-    if (ctx.role === 'GLOBAL_ADMIN') {
-      // GLOBAL_ADMIN: Body에 organizationId가 있으면 사용, 없으면 resolveOrgId()로 본사 기본값(BONSA_ORG_ID) 사용
-      orgId = bodyOrgId || resolveOrgId(ctx);
-    } else {
-      // OWNER: 자신의 organizationId 사용 (필수)
-      try {
-        orgId = requireOrgId(ctx);
-      } catch (err) {
-        return NextResponse.json(
-          { ok: false, message: '조직 정보가 없습니다', code: 'ORG_REQUIRED' },
-          { status: 400 }
-        );
-      }
-    }
-
-    // 하드 삭제: DB에서 완전 제거 (백업: Neon → Supabase → Google Drive)
-    const result = await prisma.$transaction(async (tx) => {
-      const deleted = await tx.contact.deleteMany({
-        where: {
-          id: { in: contactIds as string[] },
-          // GLOBAL_ADMIN은 전체 고객 삭제 가능 (org 필터 없음)
-          ...(ctx.role !== 'GLOBAL_ADMIN' ? { organizationId: orgId } : {}),
-        },
-      });
-
-      return deleted.count;
+    // 휴지통 이동(소프트 삭제): deletedAt + 삭제자 기록.
+    // buildContactWhere로 권한 스코프 제한(OWNER=자기조직, GLOBAL_ADMIN=전체) +
+    // deletedAt:null 자동 적용 → 남의 조직 고객/이미 삭제된 고객은 대상에서 제외됨.
+    const where = buildContactWhere(ctx, { id: { in: contactIds as string[] } });
+    const result = await prisma.contact.updateMany({
+      where,
+      data: {
+        deletedAt: new Date(),
+        deletedBy: ctx.userId,
+        deletedByName: actorDisplayName(ctx),
+      },
     });
 
-    // 🔴 부분 삭제 경고: 요청한 ID 중 일부만 삭제됨
-    if (result < contactIds.length) {
-      logger.warn('[POST /api/contacts/bulk-delete] Partial deletion detected', {
-        orgId,
+    // 🔴 부분 처리 경고: 요청한 ID 중 일부만 휴지통 이동됨 (권한 밖/이미 삭제)
+    if (result.count < contactIds.length) {
+      logger.warn('[POST /api/contacts/bulk-delete] Partial soft-delete detected', {
         requested: contactIds.length,
-        deleted: result,
-        missing: contactIds.length - result,
+        deleted: result.count,
+        missing: contactIds.length - result.count,
         deletedBy: ctx.userId,
       });
     }
 
-    logger.log('[POST /api/contacts/bulk-delete]', {
-      orgId,
-      count: result,
+    logger.log('[POST /api/contacts/bulk-delete] 휴지통 이동(soft)', {
+      count: result.count,
       total: contactIds.length,
       deletedBy: ctx.userId,
     });
 
-    return NextResponse.json({ ok: true, count: result });
+    return NextResponse.json({ ok: true, deleted: result.count });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : '';
