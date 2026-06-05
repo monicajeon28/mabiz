@@ -89,6 +89,8 @@ type RawGroup = {
   children?: RawGroup[];
 };
 
+type FunnelSmsChip = { id: string; title: string };
+
 type SerializedGroup = {
   id: string;
   seq: string | null;
@@ -106,13 +108,28 @@ type SerializedGroup = {
   funnelIds: string[];
   funnelSmsIds: string[];
   funnelEmailIds: string[];
+  // 연결된 퍼널문자 제목 칩 (id+title) — 배치 조회로 매핑
+  funnelSmsChips: FunnelSmsChip[];
   memberCount: number;
   createdAt: Date | string;
   _count: { members: number };
   children: SerializedGroup[] | undefined;
 };
 
-function serializeGroup(g: RawGroup): SerializedGroup {
+function serializeGroup(
+  g: RawGroup,
+  funnelSmsTitleMap?: Map<string, string>
+): SerializedGroup {
+  const smsIds = g.funnelSmsIds ?? [];
+  const funnelSmsChips: FunnelSmsChip[] = funnelSmsTitleMap
+    ? smsIds
+        .map((id) => {
+          const title = funnelSmsTitleMap.get(id);
+          return title ? { id, title } : null;
+        })
+        .filter((c): c is FunnelSmsChip => c !== null)
+    : [];
+
   return {
     id: g.id,
     seq: g.seq ?? null,
@@ -128,14 +145,15 @@ function serializeGroup(g: RawGroup): SerializedGroup {
     funnelId: g.funnelId ?? null,
     funnelSmsId: g.funnelSmsId ?? null,
     funnelIds: g.funnelIds ?? [],
-    funnelSmsIds: g.funnelSmsIds ?? [],
+    funnelSmsIds: smsIds,
     funnelEmailIds: g.funnelEmailIds ?? [],
+    funnelSmsChips,
     memberCount: g.memberCount ?? 0,
     createdAt: g.createdAt,
     _count: { members: g._count?.members ?? 0 },
     // 자식 그룹 (GET에서 include 시 포함)
     children: Array.isArray(g.children)
-      ? g.children.map((c) => serializeGroup(c))
+      ? g.children.map((c) => serializeGroup(c, funnelSmsTitleMap))
       : undefined,
   };
 }
@@ -260,10 +278,29 @@ export async function GET(req: NextRequest) {
       take: limit,
     });
 
+    // ── 연결된 퍼널문자 title 배치 조회 (N+1 방지: in-절 1회) ──
+    // 대그룹 + 자식 그룹의 funnelSmsIds 를 모두 수집 후 1회 쿼리로 매핑.
+    const allFunnelSmsIds = new Set<string>();
+    for (const g of groups) {
+      for (const id of g.funnelSmsIds ?? []) allFunnelSmsIds.add(id);
+      for (const child of g.children ?? []) {
+        for (const id of child.funnelSmsIds ?? []) allFunnelSmsIds.add(id);
+      }
+    }
+
+    const funnelSmsTitleMap = new Map<string, string>();
+    if (allFunnelSmsIds.size > 0) {
+      const smsRows = await prisma.funnelSms.findMany({
+        where: { id: { in: [...allFunnelSmsIds] }, organizationId: orgId },
+        select: { id: true, title: true },
+      });
+      for (const row of smsRows) funnelSmsTitleMap.set(row.id, row.title);
+    }
+
     const result = groups
       .map((g) => {
         try {
-          return serializeGroup(g);
+          return serializeGroup(g, funnelSmsTitleMap);
         } catch (err) {
           logger.error("[serializeGroup failed]", { err, groupId: g.id });
           return null;

@@ -129,10 +129,12 @@ export async function POST(req: Request, { params }: Params) {
     const results = await Promise.allSettled(
       filteredIds.map(async (contactId: string) => {
         // 그룹에 추가 (이미 있으면 upsert)
-        await prisma.contactGroupMember.upsert({
+        // 재등록 시 update:{}로 addedAt 미갱신 → 발송 기준일은 "최초 그룹 입력일"로 고정.
+        const member = await prisma.contactGroupMember.upsert({
           where: { groupId_contactId: { groupId, contactId } },
           create: { groupId, contactId },
           update: {},
+          select: { addedAt: true },
         });
 
         // 리드 스코어 +10 (그룹 배정 = 파트너 관심)
@@ -163,6 +165,8 @@ export async function POST(req: Request, { params }: Params) {
             groupId,
             organizationId: orgId,
             funnelSmsId,
+            // 발송 기준일 = 고객이 그룹에 들어온 날(최초 입력일).
+            anchorDate:     member.addedAt,
           }).catch((err) => {
             logger.error('[GroupMember] 퍼널문자 트리거 실패', { err, funnelSmsId });
           });
