@@ -2564,7 +2564,10 @@ model GmTraveler {
   companionGroupId Int?
   roomingGroupId   Int?
   passportDriveUrl String?
-  updatedAt        DateTime @default(now())
+  // 협업 편집 기반: 저장 시 자동 갱신(낙관적 잠금 기준값) + 수정자 추적
+  updatedAt        DateTime @updatedAt
+  version          Int      @default(0)  // 낙관적 잠금: 저장 시 +1, 불일치하면 충돌(409)
+  updatedBy        Int?                  // 마지막 수정자 (OrganizationMember/GlobalAdmin userId)
 
   @@index([reservationId])
   @@index([userId])
