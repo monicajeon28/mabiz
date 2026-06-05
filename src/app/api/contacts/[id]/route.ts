@@ -224,8 +224,8 @@ export async function DELETE(_req: Request, { params }: Params) {
         }],
         mode:                 "pre_delete",
         contactNameForDelete: existing.name,
-      }).catch(() => {})
-    ).catch(() => {});
+      }).catch((err) => logger.error("[DELETE] Drive 백업 실패", { id, error: err instanceof Error ? err.message : String(err) }))
+    ).catch((err) => logger.error("[DELETE] 백업 모듈 로드 실패", { id, error: err instanceof Error ? err.message : String(err) }));
     logger.log("[DELETE] 휴지통 이동(soft)", { id, by: ctx.userId });
 
     return NextResponse.json({ ok: true });
