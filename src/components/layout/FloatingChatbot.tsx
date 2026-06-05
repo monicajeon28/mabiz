@@ -10,8 +10,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // ─── 타입 ───────────────────────────────────────────────────────────────────
 
 interface BotAnswer {
-  id: number;          // Prisma Int @id
-  key: string;
+  id: string;           // number → string (통합 검색 소스별 ID)
+  source: 'qa' | 'script' | 'product';  // 추가
+  key?: string;
   question: string;
   answer: string;
   category: string;
@@ -49,9 +50,9 @@ export function FloatingChatbot() {
   const [query, setQuery]           = useState("");
   const [results, setResults]       = useState<BotAnswer[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [copiedId, setCopiedId]     = useState<number | null>(null);
+  const [copiedId, setCopiedId]     = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
-  const [expandedId, setExpandedId]  = useState<number | null>(null);
+  const [expandedId, setExpandedId]  = useState<string | null>(null);
   const [searchError, setSearchError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -68,7 +69,7 @@ export function FloatingChatbot() {
     setSearchError(false);
     try {
       const res = await fetch(
-        `/api/tools/bot-guide-answers?q=${encodeURIComponent(q)}&limit=5`
+        `/api/tools/unified-search?q=${encodeURIComponent(q)}&limit=8`
       );
       const json = await res.json();
       setResults(json.ok ? (json.data ?? []) : []);
@@ -121,7 +122,7 @@ export function FloatingChatbot() {
   };
 
   // 답변 복사
-  const handleCopy = (id: number, text: string) => {
+  const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text).catch(() => {});
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -220,7 +221,22 @@ export function FloatingChatbot() {
                           >
                             {isExpanded ? "▲ 접기" : "▼ 전체 보기"}
                           </button>
-                          <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            {item.source === 'script' && (
+                              <span className="text-xs px-2 py-0.5 bg-red-50 text-red-600 rounded-full border border-red-100 font-medium">
+                                🎤 콜스크립트
+                              </span>
+                            )}
+                            {item.source === 'product' && (
+                              <span className="text-xs px-2 py-0.5 bg-green-50 text-green-600 rounded-full border border-green-100 font-medium">
+                                📚 상품교육
+                              </span>
+                            )}
+                            {item.source === 'qa' && (
+                              <span className="text-xs px-2 py-0.5 bg-gray-50 text-gray-500 rounded-full border border-gray-100">
+                                📖 Q&A
+                              </span>
+                            )}
                             {item.category && (
                               <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
                                 {item.category}
