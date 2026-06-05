@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
 import { triggerGroupFunnelSms } from "@/lib/funnel-sms-trigger";
+import { shouldResetOnReentry } from "@/lib/funnel-sms-helpers";
 import { logger } from "@/lib/logger";
 import { addLeadScore } from "@/lib/lead-score";
 import { normalizePhone } from "@/lib/phone-normalize";
@@ -216,13 +217,18 @@ export async function POST(req: Request, { params }: Params) {
 
       // 그룹 배정 + 퍼널 시작
       if (landingPage.groupId) {
-        // 재등록 시 update:{}로 addedAt 미갱신 → 발송 기준일은 "최초 그룹 입력일"로 고정.
+        // 재유입 정책 조회: RESET 계열이면 addedAt=now 갱신 → 퍼널문자 0일차부터 재시작.
+        //  (랜딩 재신청이 대표적 재유입 경로). KEEP(기본)이면 최초 입력일 유지.
+        const grp = await prisma.contactGroup.findUnique({
+          where: { id: landingPage.groupId },
+          select: { reEntryPolicy: true },
+        });
         const member = await prisma.contactGroupMember.upsert({
           where: {
             groupId_contactId: { groupId: landingPage.groupId, contactId: contact.id },
           },
           create: { groupId: landingPage.groupId, contactId: contact.id },
-          update: {},
+          update: shouldResetOnReentry(grp?.reEntryPolicy) ? { addedAt: new Date() } : {},
           select: { addedAt: true },
         });
 
