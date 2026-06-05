@@ -1,8 +1,10 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { Search, Filter, Building2, ArrowUpDown, X, Tag } from "lucide-react";
+import type { Contact as FullContact } from "@/types/contact";
+
+const ContactSlidePanel = lazy(() => import('../ContactSlidePanel'));
 
 type ContactAll = {
   id: string;
@@ -25,7 +27,6 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default function ContactsAllPage() {
-  const router = useRouter();
   // 권한 확인은 layout에서 처리 (GLOBAL_ADMIN만 접근 가능)
   const [role] = useState<string | null>('GLOBAL_ADMIN');
   const [authLoaded] = useState(true);
@@ -42,6 +43,31 @@ export default function ContactsAllPage() {
   const [tagInput, setTagInput] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('updatedAt_desc');
+
+  // 슬라이드 패널 상태
+  const [slidePanelContact, setSlidePanelContact] = useState<FullContact | null>(null);
+  const [slidePanelOpen, setSlidePanelOpen] = useState(false);
+  const [slidePanelLoadingId, setSlidePanelLoadingId] = useState<string | null>(null);
+  const slidePanelAbortRef = useRef<AbortController | null>(null);
+
+  const openSlidePanel = useCallback(async (contactId: string) => {
+    slidePanelAbortRef.current?.abort();
+    const controller = new AbortController();
+    slidePanelAbortRef.current = controller;
+    setSlidePanelLoadingId(contactId);
+    try {
+      const res = await fetch(`/api/contacts/${contactId}`, { signal: controller.signal });
+      const data = await res.json();
+      if (data.ok && data.contact) {
+        setSlidePanelContact(data.contact as FullContact);
+        setSlidePanelOpen(true);
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+    } finally {
+      setSlidePanelLoadingId(null);
+    }
+  }, []);
 
   // 조직 목록 로드
   useEffect(() => {
@@ -238,7 +264,12 @@ export default function ContactsAllPage() {
             return (
               <div
                 key={c.id}
-                className="bg-white rounded-xl border border-gray-200 hover:border-gold-300 hover:shadow-sm transition-all px-4 py-3 flex items-center gap-3"
+                role="button"
+                tabIndex={0}
+                onClick={() => openSlidePanel(c.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSlidePanel(c.id); } }}
+                aria-label={`${c.name} 고객 상세 보기`}
+                className={`bg-white rounded-xl border hover:border-gold-300 hover:shadow-sm transition-all px-4 py-3 flex items-center gap-3 cursor-pointer ${slidePanelLoadingId === c.id ? 'opacity-60' : 'border-gray-200'}`}
               >
                 {/* 아바타 */}
                 <div className="w-10 h-10 rounded-full bg-navy-900 text-white flex items-center justify-center text-sm font-bold shrink-0">
@@ -300,6 +331,22 @@ export default function ContactsAllPage() {
             다음
           </button>
         </div>
+      )}
+
+      {/* 고객 상세 슬라이드 패널 (행 클릭 시) */}
+      {slidePanelOpen && (
+        <Suspense fallback={null}>
+          <ContactSlidePanel
+            contact={slidePanelContact}
+            open={slidePanelOpen}
+            onClose={() => { setSlidePanelOpen(false); setTimeout(() => setSlidePanelContact(null), 400); }}
+            onRefresh={(updated) => {
+              if (updated) {
+                setSlidePanelContact(prev => prev ? { ...prev, ...updated } : null);
+              }
+            }}
+          />
+        </Suspense>
       )}
     </div>
   );
