@@ -3,76 +3,155 @@ import prisma from "@/lib/prisma";
 import { getAuthContext } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
-// 캐시 설정: 30분 (AI 추천은 자주 변함)
-const CACHE_DURATION = 1800;
+// 캐시 10분 (실데이터 기반이라 자주 갱신)
+const CACHE_DURATION = 600;
 
-// GET /api/tools/recommended
-// AI 기반 추천: 고객 상태, 최근 활동, 심리학 렌즈 기반
-export async function GET(req: Request) {
+type RecCategory = "scripts" | "playbook" | "training";
+type Rec = {
+  toolId: string;
+  title: string;
+  category: RecCategory;
+  reason: string;      // 실제 건수 기반 근거 (하드코딩 문구 아님)
+  relevance: number;   // 실제 데이터량에 비례한 점수
+};
+
+// 세그먼트 코드 → 50대도 이해하는 한글 라벨
+function segLabel(seg: string): string {
+  const map: Record<string, string> = {
+    hyodo: "효도 여행", honeymoon: "신혼", family: "가족", senior: "시니어",
+    repurchase: "재구매", couple: "부부", friends: "친구", solo: "혼자",
+    price_sensitive: "가격 민감", general: "일반",
+  };
+  return map[seg] ?? seg; // 이미 한글이면 그대로
+}
+
+/**
+ * GET /api/tools/recommended
+ * 실제 데이터 기반 추천 (하드코딩 더미 제거)
+ *  1) 최근 7일 본인 거절·이의 콜 건수 → 거절 대응 스크립트
+ *  2) 출발 임박(7일 내) 고객 수 → 클로징 스크립트
+ *  3) 가장 많은 고객 세그먼트 → 해당 페르소나 스크립트
+ *  데이터 없으면 기본 안내로 폴백
+ */
+export async function GET() {
   try {
-    const context = await getAuthContext();
-    const userId = context.userId;
+    const ctx = await getAuthContext();
+    const userId = ctx.userId;
+    const orgId = ctx.organizationId;
 
-    // 사용자의 최근 활동 데이터 수집 (향후 DB 연동)
-    // - 최근 본 고객의 심리학 렌즈
-    // - 통화 패턴
-    // - 성공률 메트릭
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const in7days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    // 현재는 기본 추천 규칙 사용
-    const recommendations = [
-      {
-        toolId: "rec-1",
-        title: "효도 여행 고객 스크립트",
-        category: "scripts" as const,
-        reason: "요즘 효도 여행 문의가 늘어나고 있어요",
-        relevance: 92,
+    const recs: Rec[] = [];
+
+    // ── 1. 최근 7일 본인 거절·이의 콜 ───────────────────────────
+    const objectionCount = await prisma.callLog.count({
+      where: {
+        userId,
+        createdAt: { gte: weekAgo },
+        OR: [
+          { customerReaction: "negative" },
+          { result: { in: ["REJECTED", "거절", "PENDING", "보류"] } },
+          { objectionId: { not: null } },
+        ],
       },
-      {
-        toolId: "rec-2",
-        title: "가격 민감 고객 대응 가이드",
-        category: "playbook" as const,
-        reason: "최근 가격 이의 고객 3건",
-        relevance: 87,
-      },
-      {
-        toolId: "rec-3",
-        title: "일본 크루즈 상품교육",
-        category: "training" as const,
-        reason: "성수기 일본 문의 증가",
-        relevance: 84,
-      },
-      {
-        toolId: "rec-4",
-        title: "클로징 기법 플레이북",
-        category: "playbook" as const,
-        reason: "전환율 개선 노하우",
-        relevance: 78,
-      },
-      {
-        toolId: "rec-5",
-        title: "재구매 고객 콜스크립트",
-        category: "scripts" as const,
-        reason: "기존 고객 재구매 유도",
-        relevance: 75,
-      },
-    ];
+    });
+    if (objectionCount > 0) {
+      recs.push({
+        toolId: "rec-objection",
+        title: "거절·이의 대응 스크립트",
+        category: "scripts",
+        reason: `이번 주 거절·이의 ${objectionCount}건`,
+        relevance: Math.min(98, 70 + objectionCount * 3),
+      });
+    }
+
+    // ── 2. 출발 임박(7일 이내) 고객 ─────────────────────────────
+    let departingCount = 0;
+    if (orgId) {
+      departingCount = await prisma.contact.count({
+        where: {
+          organizationId: orgId,
+          deletedAt: null,
+          departureDate: { gte: now, lte: in7days },
+        },
+      });
+    }
+    if (departingCount > 0) {
+      recs.push({
+        toolId: "rec-closing",
+        title: "출발 임박 클로징 스크립트",
+        category: "playbook",
+        reason: `출발 임박 고객 ${departingCount}명`,
+        relevance: Math.min(96, 65 + departingCount * 4),
+      });
+    }
+
+    // ── 3. 가장 많은 고객 세그먼트 ──────────────────────────────
+    if (orgId) {
+      const segCounts = await prisma.contact.groupBy({
+        by: ["autoSegment"],
+        where: {
+          organizationId: orgId,
+          deletedAt: null,
+          autoSegment: { not: null },
+        },
+        _count: { autoSegment: true },
+        orderBy: { _count: { autoSegment: "desc" } },
+        take: 1,
+      });
+      const top = segCounts[0];
+      if (
+        top?.autoSegment &&
+        top.autoSegment !== "unclassified" &&
+        top._count.autoSegment > 0
+      ) {
+        const label = segLabel(top.autoSegment);
+        recs.push({
+          toolId: "rec-persona",
+          title: `${label} 고객 페르소나 스크립트`,
+          category: "scripts",
+          reason: `${label} 고객이 ${top._count.autoSegment}명으로 가장 많아요`,
+          relevance: 80,
+        });
+      }
+    }
+
+    // ── 폴백: 실데이터 추천이 하나도 없으면 기본 안내 ───────────
+    if (recs.length === 0) {
+      recs.push(
+        {
+          toolId: "rec-default-scripts",
+          title: "콜 스크립트 둘러보기",
+          category: "scripts",
+          reason: "통화 기록이 쌓이면 맞춤 추천을 드려요",
+          relevance: 60,
+        },
+        {
+          toolId: "rec-default-training",
+          title: "상품 교육 자료",
+          category: "training",
+          reason: "기본 상품 지식부터 시작하세요",
+          relevance: 55,
+        },
+      );
+    }
+
+    recs.sort((a, b) => b.relevance - a.relevance);
 
     const response = NextResponse.json({
       ok: true,
-      recommendations,
-      generatedAt: new Date().toISOString(),
+      recommendations: recs,
+      generatedAt: now.toISOString(),
     });
-
-    // HTTP 캐싱 헤더 추가 (30분)
-    response.headers.set('Cache-Control', `private, max-age=${CACHE_DURATION}, stale-while-revalidate=${CACHE_DURATION}`);
-    response.headers.set('CDN-Cache-Control', `max-age=${CACHE_DURATION}`);
-
+    response.headers.set("Cache-Control", `private, max-age=${CACHE_DURATION}`);
     return response;
   } catch (error) {
     logger.error("Error fetching recommendations:", error as object);
     return NextResponse.json(
       { ok: false, message: "추천 도구 로드 실패" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
