@@ -1,9 +1,12 @@
-﻿'use client';
+'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { CheckCircle, XCircle, Clock, Eye, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import {
+  CheckCircle, XCircle, Clock, ChevronRight, RefreshCw,
+  ExternalLink, X, ZoomIn, Loader2,
+} from 'lucide-react';
 
 type ContractStatus = 'submitted' | 'PROCESSING' | 'APPROVED' | 'rejected';
 
@@ -31,307 +34,390 @@ interface Application {
 }
 
 const STATUS_CONFIG: Record<ContractStatus, { label: string; color: string; icon: React.ReactNode }> = {
-  submitted: {
-    label: '검토 대기',
-    color: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-    icon: <Clock className="w-3.5 h-3.5" />,
-  },
-  PROCESSING: {
-    label: '처리 중',
-    color: 'bg-blue-50 text-blue-700 border-blue-200',
-    icon: <RefreshCw className="w-3.5 h-3.5 animate-spin" />,
-  },
-  APPROVED: {
-    label: '승인 완료',
-    color: 'bg-green-50 text-green-700 border-green-200',
-    icon: <CheckCircle className="w-3.5 h-3.5" />,
-  },
-  rejected: {
-    label: '반려',
-    color: 'bg-red-50 text-red-700 border-red-200',
-    icon: <XCircle className="w-3.5 h-3.5" />,
-  },
+  submitted: { label: '검토 대기', color: 'bg-yellow-50 text-yellow-700 border-yellow-200', icon: <Clock className="w-3.5 h-3.5" /> },
+  PROCESSING: { label: '처리 중', color: 'bg-blue-50 text-blue-700 border-blue-200', icon: <RefreshCw className="w-3.5 h-3.5 animate-spin" /> },
+  APPROVED: { label: '승인 완료', color: 'bg-green-50 text-green-700 border-green-200', icon: <CheckCircle className="w-3.5 h-3.5" /> },
+  rejected: { label: '반려', color: 'bg-red-50 text-red-700 border-red-200', icon: <XCircle className="w-3.5 h-3.5" /> },
 };
 
-const SNS_LABELS: Record<string, string> = {
-  youtube: '유튜브',
-  instagram: '인스타그램',
-  blog: '블로그',
-  kakao: '카카오채널',
-  etc: '기타',
+// SNS 채널별 아이덴티티 (의존성 없이 색/라벨로 직관화)
+const SNS_CONFIG: Record<string, { label: string; dot: string; text: string }> = {
+  youtube: { label: '유튜브', dot: 'bg-red-500', text: 'text-red-600' },
+  instagram: { label: '인스타그램', dot: 'bg-pink-500', text: 'text-pink-600' },
+  blog: { label: '블로그', dot: 'bg-green-500', text: 'text-green-600' },
+  kakao: { label: '카카오채널', dot: 'bg-yellow-400', text: 'text-yellow-700' },
+  etc: { label: '기타', dot: 'bg-gray-400', text: 'text-gray-600' },
 };
+
+// 자주 쓰는 반려 사유 프리셋
+const REJECT_REASONS = ['서류 미제출', 'SNS 채널 부적합', '정보 불일치', '중복 신청'];
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-// ── 신청 상세 카드 ────────────────────────────────────────────────────
+/**
+ * URL 안전 정규화 — 외부 공개 신청폼발 입력이므로 신뢰 불가.
+ * http(s)만 허용, javascript:/data:/vbscript: 등 스킴 차단. 부적합 시 null.
+ */
+function safeHref(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  let s = raw.trim();
+  if (!s) return null;
+  if (!/^https?:\/\//i.test(s)) s = `https://${s.replace(/^\/+/, '')}`;
+  try {
+    const u = new URL(s);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
 
-function ApplicationCard({
-  app,
-  onApprove,
-  onReject,
-}: {
-  app: Application;
-  onApprove: (id: number) => void;
-  onReject: (id: number) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [showIdPhoto, setShowIdPhoto] = useState(false);
-  const [showBankBook, setShowBankBook] = useState(false);
-  const statusCfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG.submitted;
-  const meta = app.metadata;
-  const hasSns = meta?.snsChannels && Object.keys(meta.snsChannels).length > 0;
+// ── 라이트박스 (이미지 확대) ───────────────────────────────────────────
+function Lightbox({ url, label, onClose }: { url: string; label: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const safe = safeHref(url);
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/85 flex flex-col items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute top-4 right-4 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+        {safe && (
+          <a href={safe} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1 px-3 py-2 bg-white/90 text-gray-800 rounded-lg text-sm font-medium hover:bg-white">
+            <ExternalLink className="w-4 h-4" /> 원본 열기
+          </a>
+        )}
+        <button onClick={onClose} className="p-2 bg-white/90 text-gray-800 rounded-lg hover:bg-white" aria-label="닫기">
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      <Image
+        src={url} alt={label} width={1200} height={1600} unoptimized
+        className="max-h-[88vh] w-auto object-contain rounded-lg"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+}
+
+// ── 첨부 서류 슬롯 (클릭 시에만 로드 → 라이트박스 확대) ──────────────────
+function DocSlot({ label, url, status }: { label: string; url?: string; status: ContractStatus }) {
+  const [loaded, setLoaded] = useState(false);
+  const [lightbox, setLightbox] = useState(false);
+  const safe = safeHref(url);
+
+  if (!safe) {
+    // 검토 대기인데 미제출이면 주의(amber), 그 외엔 회색 점선
+    const warn = status === 'submitted';
+    return (
+      <div className="space-y-1">
+        <p className="text-xs text-gray-400">{label}</p>
+        <div className={`rounded-xl py-4 text-center text-sm border border-dashed ${warn ? 'border-amber-300 bg-amber-50 text-amber-600' : 'border-gray-200 bg-white text-gray-400'}`}>
+          미제출
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-      {/* 헤더 */}
-      <div className="px-5 py-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-blue-700 font-bold text-sm">{(app.name || '?')[0]}</span>
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-gray-900 text-sm truncate">{app.name}</p>
-            <p className="text-sm text-gray-500">{app.phone}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span className={`inline-flex items-center gap-1 text-sm font-medium px-2 py-1 rounded-full border ${statusCfg.color}`}>
-            {statusCfg.icon}
-            {statusCfg.label}
+    <div className="space-y-1">
+      <p className="text-xs text-gray-400">{label}</p>
+      {loaded ? (
+        <button onClick={() => setLightbox(true)} className="relative block w-full group" aria-label={`${label} 확대`}>
+          <span className="block w-full aspect-[3/2] rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
+            <Image src={safe} alt={label} width={400} height={267} unoptimized loading="lazy"
+              className="w-full h-full object-cover" />
           </span>
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="p-1.5 text-gray-600 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
-          >
-            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-        </div>
-      </div>
-
-      {/* 담당 대리점장 표시 */}
-      {meta?.supervisorName && (
-        <div className="px-5 pb-3">
-          <span className="inline-flex items-center gap-1.5 text-sm bg-teal-50 text-teal-700 border border-teal-200 rounded-full px-2.5 py-1">
-            담당: {meta.supervisorName} ({meta.supervisorAgency || '-'})
+          <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 rounded-xl transition-colors">
+            <ZoomIn className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
           </span>
-        </div>
+        </button>
+      ) : (
+        <button onClick={() => setLoaded(true)}
+          className="w-full text-sm bg-white border border-gray-200 rounded-xl py-3 text-blue-600 hover:bg-blue-50 transition flex items-center justify-center gap-1">
+          <ZoomIn className="w-3.5 h-3.5" /> 확인
+        </button>
       )}
+      {lightbox && <Lightbox url={safe} label={label} onClose={() => setLightbox(false)} />}
+    </div>
+  );
+}
 
-      {/* 신청 시각 */}
-      <div className="px-5 pb-3">
-        <p className="text-sm text-gray-600">신청: {formatDate(app.createdAt)}</p>
-        {meta?.approvedAt && <p className="text-sm text-green-600">승인: {formatDate(meta.approvedAt)}</p>}
-        {meta?.rejectedAt && <p className="text-sm text-red-500">반려: {formatDate(meta.rejectedAt)}{meta.rejectReason ? ` · ${meta.rejectReason}` : ''}</p>}
-      </div>
+// ── 상세 모달 ──────────────────────────────────────────────────────────
+function DetailModal({
+  app, actionLoading, onApprove, onReject, onClose,
+}: {
+  app: Application;
+  actionLoading: number | null;
+  onApprove: (id: number) => void;
+  onReject: (id: number, reason: string) => void;
+  onClose: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState('');
+  const meta = app.metadata;
+  const statusCfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG.submitted;
+  const busy = actionLoading === app.id;
+  const isPending = app.status === 'submitted';
 
-      {/* 확장 상세 */}
-      {expanded && (
-        <div className="border-t border-gray-100 px-5 py-4 space-y-4 bg-gray-50">
-          {/* 기본 정보 */}
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            {app.email && (
-              <div>
-                <p className="text-sm text-gray-500 mb-0.5">이메일</p>
-                <p className="text-gray-800 text-sm">{app.email}</p>
-              </div>
-            )}
-            {app.address && (
-              <div>
-                <p className="text-sm text-gray-500 mb-0.5">주소</p>
-                <p className="text-gray-800 text-sm">{app.address}</p>
-              </div>
-            )}
+  // ESC 닫기(반려 패널 열려있으면 그것부터) + 포커스 트랩 + body 스크롤 락
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (rejecting) { setRejecting(false); return; }
+        onClose();
+        return;
+      }
+      if (e.key === 'Tab' && panelRef.current) {
+        const f = panelRef.current.querySelectorAll<HTMLElement>(
+          'a[href],button:not([disabled]),textarea,input,[tabindex]:not([tabindex="-1"])',
+        );
+        if (f.length === 0) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [onClose, rejecting]);
+
+  const snsEntries = meta?.snsChannels
+    ? Object.entries(meta.snsChannels).filter(([, v]) => safeHref(v))
+    : [];
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center sm:p-4"
+      onClick={() => !busy && onClose()}>
+      <div
+        ref={panelRef}
+        role="dialog" aria-modal="true" aria-labelledby="app-modal-title"
+        className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[92vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 헤더 (sticky) */}
+        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-blue-700 font-bold text-sm">{(app.name || '?')[0]}</span>
+            </div>
+            <div className="min-w-0">
+              <h3 id="app-modal-title" className="font-bold text-gray-900 text-base truncate">{app.name}</h3>
+              <p className="text-sm text-gray-500">{app.phone} · {formatDate(app.createdAt)}</p>
+            </div>
           </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full border ${statusCfg.color}`}>
+              {statusCfg.icon}{statusCfg.label}
+            </span>
+            <button onClick={onClose} className="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition" aria-label="닫기">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
 
-          {/* SNS 채널 */}
-          {hasSns && (
-            <div>
-              <p className="text-sm font-semibold text-gray-600 mb-2">SNS 채널</p>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(meta!.snsChannels!).map(([key, url]) => (
-                  <a
-                    key={key}
-                    href={url.startsWith('http') ? url : `https://${url}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm bg-white border border-gray-200 text-blue-600 hover:text-blue-800 rounded-full px-2.5 py-1 transition"
-                  >
-                    <Eye className="w-3 h-3" />
-                    {SNS_LABELS[key] ?? key}
-                  </a>
-                ))}
+        {/* 본문 (스크롤) */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-gray-50">
+          {/* 반려된 건이면 사유 배너 */}
+          {app.status === 'rejected' && meta?.rejectReason && (
+            <div className="bg-red-50 border border-red-100 text-red-700 rounded-xl p-3 text-sm">
+              <span className="font-semibold">반려 사유</span> · {meta.rejectReason}
+            </div>
+          )}
+
+          {/* 담당 대리점장 */}
+          {meta?.supervisorName && (
+            <div className="bg-white rounded-xl border border-gray-100 border-l-2 border-l-teal-300 p-4">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">담당 대리점장</p>
+              <p className="text-sm text-gray-900 font-medium">
+                {meta.supervisorName} <span className="text-gray-500 font-normal">({meta.supervisorAgency || '-'})</span>
+              </p>
+              {meta.supervisorPhone && <p className="text-sm text-gray-500 mt-0.5">{meta.supervisorPhone}</p>}
+            </div>
+          )}
+
+          {/* 기본 정보 */}
+          {(app.email || app.address) && (
+            <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">기본 정보</p>
+              <div className="grid grid-cols-2 gap-3">
+                {app.email && (
+                  <div><p className="text-xs text-gray-400 mb-0.5">이메일</p><p className="text-sm text-gray-900 break-all">{app.email}</p></div>
+                )}
+                {app.address && (
+                  <div><p className="text-xs text-gray-400 mb-0.5">주소</p><p className="text-sm text-gray-900">{app.address}</p></div>
+                )}
               </div>
             </div>
           )}
 
-          {/* 지원동기 */}
+          {/* SNS 채널 */}
+          {snsEntries.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">SNS 채널</p>
+              <div className="flex flex-wrap gap-2">
+                {snsEntries.map(([key, url]) => {
+                  const cfg = SNS_CONFIG[key] ?? SNS_CONFIG.etc;
+                  const href = safeHref(url)!;
+                  return (
+                    <a key={key} href={href} target="_blank" rel="noopener noreferrer"
+                      aria-label={`${cfg.label} 새 탭으로 열기`}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 transition text-sm">
+                      <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
+                      <span className={`font-medium ${cfg.text}`}>{cfg.label}</span>
+                      <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 지원 동기 */}
           {meta?.applyNote && (
-            <div>
-              <p className="text-sm font-semibold text-gray-600 mb-1">지원 동기</p>
-              <p className="text-sm text-gray-700 bg-white border border-gray-200 rounded-xl p-3 leading-relaxed">{meta.applyNote}</p>
+            <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">지원 동기</p>
+              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words bg-blue-50/40 rounded-lg p-3">
+                {meta.applyNote}
+              </p>
             </div>
           )}
 
           {/* 첨부 서류 */}
-          <div className="space-y-2">
-            <p className="text-sm font-semibold text-gray-600">첨부 서류</p>
+          <div className="bg-white rounded-xl border border-gray-100 p-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">첨부 서류</p>
             <div className="grid grid-cols-2 gap-2">
-              {meta?.idPhotoUrl ? (
-                <div className="space-y-1">
-                  <p className="text-sm text-gray-500">신분증</p>
-                  {showIdPhoto ? (
-                    <div className="relative">
-                      <Image src={meta.idPhotoUrl} alt="신분증" width={400} height={300} className="w-full rounded-xl border border-gray-200" unoptimized />
-                      <button
-                        onClick={() => setShowIdPhoto(false)}
-                        className="absolute top-1 right-1 bg-white/80 text-gray-600 rounded-full w-6 h-6 flex items-center justify-center text-sm"
-                      >✕</button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setShowIdPhoto(true)}
-                      className="w-full text-sm bg-white border border-gray-200 rounded-xl py-2 text-blue-600 hover:bg-blue-50 transition flex items-center justify-center gap-1"
-                    >
-                      <Eye className="w-3.5 h-3.5" /> 확인
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="text-sm text-gray-600 bg-white border border-gray-200 rounded-xl py-3 text-center">신분증 없음</div>
-              )}
-              {meta?.bankBookUrl ? (
-                <div className="space-y-1">
-                  <p className="text-sm text-gray-500">통장사본</p>
-                  {showBankBook ? (
-                    <div className="relative">
-                      <Image src={meta.bankBookUrl} alt="통장사본" width={400} height={300} className="w-full rounded-xl border border-gray-200" unoptimized />
-                      <button
-                        onClick={() => setShowBankBook(false)}
-                        className="absolute top-1 right-1 bg-white/80 text-gray-600 rounded-full w-6 h-6 flex items-center justify-center text-sm"
-                      >✕</button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setShowBankBook(true)}
-                      className="w-full text-sm bg-white border border-gray-200 rounded-xl py-2 text-blue-600 hover:bg-blue-50 transition flex items-center justify-center gap-1"
-                    >
-                      <Eye className="w-3.5 h-3.5" /> 확인
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="text-sm text-gray-600 bg-white border border-gray-200 rounded-xl py-3 text-center">통장사본 없음</div>
-              )}
+              <DocSlot label="신분증" url={meta?.idPhotoUrl} status={app.status} />
+              <DocSlot label="통장사본" url={meta?.bankBookUrl} status={app.status} />
             </div>
           </div>
-        </div>
-      )}
 
-      {/* 승인/반려 버튼 */}
-      {app.status === 'submitted' && (
-        <div className="px-5 pb-4 flex gap-2">
-          <button
-            onClick={() => onReject(app.id)}
-            className="flex-1 py-2.5 border border-red-200 text-red-600 rounded-xl text-sm font-medium hover:bg-red-50 transition-colors flex items-center justify-center gap-1.5"
-          >
-            <XCircle className="w-4 h-4" />
-            반려
-          </button>
-          <button
-            onClick={() => onApprove(app.id)}
-            className="flex-1 py-2.5 bg-blue-700 text-white rounded-xl text-sm font-medium hover:bg-blue-800 transition-colors flex items-center justify-center gap-1.5"
-          >
-            <CheckCircle className="w-4 h-4" />
-            승인
-          </button>
+          {/* 처리 이력 */}
+          {meta?.approvedAt && <p className="text-sm text-green-600 px-1">승인: {formatDate(meta.approvedAt)}</p>}
+          {meta?.rejectedAt && <p className="text-sm text-red-500 px-1">반려: {formatDate(meta.rejectedAt)}</p>}
         </div>
-      )}
-    </div>
-  );
-}
 
-// ── 반려 모달 ─────────────────────────────────────────────────────────
-
-function RejectModal({
-  contractId,
-  name,
-  onConfirm,
-  onClose,
-}: {
-  contractId: number;
-  name: string;
-  onConfirm: (reason: string) => void;
-  onClose: () => void;
-}) {
-  const [reason, setReason] = useState('');
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-        <div>
-          <h3 className="font-bold text-gray-900 text-lg">신청 반려</h3>
-          <p className="text-sm text-gray-500 mt-1">{name}님의 신청을 반려합니다.</p>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">반려 사유 (선택)</label>
-          <textarea
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="신청자에게 전달할 반려 사유를 입력해 주세요"
-            rows={3}
-            className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-red-400 focus:border-red-400 outline-none resize-none"
-          />
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
-          >
-            취소
-          </button>
-          <button
-            onClick={() => onConfirm(reason)}
-            className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition"
-          >
-            반려 확정
-          </button>
-        </div>
+        {/* 액션바 (sticky 하단) */}
+        {isPending ? (
+          <div className="flex-shrink-0 border-t border-gray-100 bg-white/95 backdrop-blur px-5 py-4">
+            {rejecting ? (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-700 mb-2">반려 사유 (선택)</p>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {REJECT_REASONS.map((r) => (
+                      <button key={r} type="button" onClick={() => setReason(r)}
+                        className={`px-2.5 py-1 rounded-full text-xs border transition ${reason === r ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-600 border-gray-200 hover:border-red-300'}`}>
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2}
+                    placeholder="신청자에게 전달할 반려 사유를 입력하세요"
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-red-400 focus:border-red-400 outline-none resize-none" />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => { setRejecting(false); setReason(''); }} disabled={busy}
+                    className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50">
+                    취소
+                  </button>
+                  <button onClick={() => onReject(app.id, reason)} disabled={busy}
+                    className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition disabled:opacity-60 flex items-center justify-center gap-1.5">
+                    {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />} 반려 확정
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button onClick={() => setRejecting(true)} disabled={busy}
+                  className="flex-1 py-2.5 border border-red-200 text-red-600 rounded-xl text-sm font-medium hover:bg-red-50 transition disabled:opacity-50 flex items-center justify-center gap-1.5">
+                  <XCircle className="w-4 h-4" /> 반려
+                </button>
+                <button onClick={() => onApprove(app.id)} disabled={busy}
+                  className="flex-[2] py-2.5 bg-blue-700 text-white rounded-xl text-sm font-semibold hover:bg-blue-800 transition disabled:opacity-60 flex items-center justify-center gap-1.5">
+                  {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} 승인
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex-shrink-0 border-t border-gray-100 bg-white px-5 py-4">
+            <div className={`flex items-center justify-center gap-1.5 text-sm font-medium px-3 py-2 rounded-xl border ${statusCfg.color}`}>
+              {statusCfg.icon}{statusCfg.label}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// ── 클라이언트 컴포넌트 ──────────────────────────────────────────────────────
+// ── 목록 카드 (요약만, 클릭 시 모달) ─────────────────────────────────────
+const ApplicationCard = memo(function ApplicationCard({ app, onClick }: { app: Application; onClick: () => void }) {
+  const statusCfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG.submitted;
+  const meta = app.metadata;
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-md hover:border-blue-200 transition px-5 py-4 flex items-center justify-between gap-3"
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+          <span className="text-blue-700 font-bold text-sm">{(app.name || '?')[0]}</span>
+        </div>
+        <div className="min-w-0">
+          <p className="font-semibold text-gray-900 text-sm truncate">{app.name}</p>
+          <p className="text-sm text-gray-500">{app.phone}</p>
+          {meta?.supervisorName && (
+            <p className="text-xs text-teal-600 mt-0.5 truncate">담당: {meta.supervisorName} ({meta.supervisorAgency || '-'})</p>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full border ${statusCfg.color}`}>
+          {statusCfg.icon}{statusCfg.label}
+        </span>
+        <ChevronRight className="w-4 h-4 text-gray-300" />
+      </div>
+    </button>
+  );
+});
 
+// ── 클라이언트 컴포넌트 ──────────────────────────────────────────────────────
 interface PartnerApplicationsClientProps {
   initialRole: string;
 }
 
-export default function PartnerApplicationsClient({ initialRole }: PartnerApplicationsClientProps) {
+export default function PartnerApplicationsClient({ initialRole: _initialRole }: PartnerApplicationsClientProps) {
   const router = useRouter();
   const [applications, setApplications] = useState<Application[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'all' | ContractStatus>('submitted');
-  const [rejectTarget, setRejectTarget] = useState<{ id: number; name: string } | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [toastMsg, setToastMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
-  const showToast = (text: string, type: 'success' | 'error') => {
+  const showToast = useCallback((text: string, type: 'success' | 'error') => {
     setToastMsg({ text, type });
     setTimeout(() => setToastMsg(null), 3000);
-  };
+  }, []);
 
-  const refreshApplications = async () => {
+  const refreshApplications = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await fetch(`/api/affiliate/contracts?status=${statusFilter}&page=1`);
       const data = await res.json();
-      if (data.ok) {
-        // CRUISE_PARTNER 타입만 필터링
-        const cruisePartners = (data.data.contracts as Application[]).filter(
+      if (data?.ok) {
+        const cruisePartners = ((data.data?.contracts ?? []) as Application[]).filter(
           (c) => (c.metadata as Record<string, unknown>)?.type === 'CRUISE_PARTNER',
         );
         setApplications(cruisePartners);
@@ -341,22 +427,16 @@ export default function PartnerApplicationsClient({ initialRole }: PartnerApplic
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [statusFilter, showToast]);
 
   // 권한 확인 (GLOBAL_ADMIN만)
   useEffect(() => {
     const checkAuth = async () => {
       try {
         const res = await fetch('/api/auth/me', { credentials: 'include' });
-        if (!res.ok) {
-          router.push('/');
-          return;
-        }
+        if (!res.ok) { router.push('/'); return; }
         const ctx = await res.json();
-        if (ctx.role !== 'GLOBAL_ADMIN') {
-          router.push('/');
-          return;
-        }
+        if (ctx.role !== 'GLOBAL_ADMIN') { router.push('/'); return; }
         setAuthChecked(true);
       } catch {
         router.push('/');
@@ -365,61 +445,71 @@ export default function PartnerApplicationsClient({ initialRole }: PartnerApplic
     checkAuth();
   }, [router]);
 
-  // ✅ 수정: statusFilter와 authChecked를 의존성 배열에 포함 (exhaustive-deps 충족)
   useEffect(() => {
     if (!authChecked) return;
     refreshApplications();
-  }, [statusFilter, authChecked]);
+  }, [authChecked, refreshApplications]);
 
-  const handleApprove = async (contractId: number) => {
-    if (!confirm('이 신청을 승인하시겠습니까?')) return;
-    setActionLoading(contractId);
+  // 선택 항목 파생 (stale 방지) — 목록에서 사라지면 모달 자동 닫힘
+  const selected = applications.find((a) => a.id === selectedId) ?? null;
+  useEffect(() => {
+    if (selectedId !== null && !selected) setSelectedId(null);
+  }, [selectedId, selected]);
+
+  // 낙관적 업데이트: 현재 필터와 안 맞으면 목록에서 제거, 맞으면 status 패치
+  const applyLocal = useCallback((id: number, status: ContractStatus, extraMeta?: Record<string, unknown>) => {
+    setApplications((prev) => {
+      const keep = statusFilter === 'all' || statusFilter === status;
+      if (!keep) return prev.filter((a) => a.id !== id);
+      return prev.map((a) => (a.id === id
+        ? { ...a, status, metadata: { ...(a.metadata ?? {}), ...extraMeta } }
+        : a));
+    });
+  }, [statusFilter]);
+
+  const handleApprove = useCallback(async (id: number) => {
+    if (actionLoading !== null) return;
+    setActionLoading(id);
     try {
-      const res = await fetch(`/api/affiliate/contracts/${contractId}/simple-approve`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+      const res = await fetch(`/api/affiliate/contracts/${id}/simple-approve`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
       });
       const data = await res.json();
-      if (data.ok) {
+      if (data?.ok) {
+        applyLocal(id, 'APPROVED', { approvedAt: new Date().toISOString() });
+        setSelectedId(null);
         showToast('승인되었습니다.', 'success');
-        refreshApplications();
       } else {
-        showToast(data.message || '승인 실패', 'error');
+        showToast(data?.message || '승인 실패', 'error');
       }
     } catch {
       showToast('오류가 발생했습니다.', 'error');
     } finally {
       setActionLoading(null);
     }
-  };
+  }, [actionLoading, applyLocal, showToast]);
 
-  const handleRejectConfirm = async (reason: string) => {
-    if (!rejectTarget) return;
-    const { id } = rejectTarget;
-    setRejectTarget(null);
+  const handleReject = useCallback(async (id: number, reason: string) => {
+    if (actionLoading !== null) return;
     setActionLoading(id);
     try {
       const res = await fetch(`/api/affiliate/contracts/${id}/reject`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason }),
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }),
       });
       const data = await res.json();
-      if (data.ok) {
+      if (data?.ok) {
+        applyLocal(id, 'rejected', { rejectedAt: new Date().toISOString(), rejectReason: reason });
+        setSelectedId(null);
         showToast('반려되었습니다.', 'success');
-        refreshApplications();
       } else {
-        showToast(data.message || '반려 실패', 'error');
+        showToast(data?.message || '반려 실패', 'error');
       }
     } catch {
       showToast('오류가 발생했습니다.', 'error');
     } finally {
       setActionLoading(null);
     }
-  };
-
-  const pendingCount = applications.length;
+  }, [actionLoading, applyLocal, showToast]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -431,10 +521,7 @@ export default function PartnerApplicationsClient({ initialRole }: PartnerApplic
               <h1 className="text-lg font-bold text-gray-900">파트너스 신청 관리</h1>
               <p className="text-sm text-gray-500 mt-0.5">크루즈닷 파트너스 가입 신청 검토</p>
             </div>
-            <button
-              onClick={refreshApplications}
-              className="p-2 text-gray-600 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition"
-            >
+            <button onClick={refreshApplications} className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition" aria-label="새로고침">
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
           </div>
@@ -445,20 +532,15 @@ export default function PartnerApplicationsClient({ initialRole }: PartnerApplic
         {/* 상태 필터 */}
         <div className="flex gap-2 overflow-x-auto pb-1">
           {([
-            { value: 'submitted', label: '검토 대기', count: null },
-            { value: 'APPROVED', label: '승인 완료', count: null },
-            { value: 'rejected', label: '반려', count: null },
-            { value: 'all', label: '전체', count: null },
+            { value: 'submitted', label: '검토 대기' },
+            { value: 'APPROVED', label: '승인 완료' },
+            { value: 'rejected', label: '반려' },
+            { value: 'all', label: '전체' },
           ] as const).map((item) => (
-            <button
-              key={item.value}
-              onClick={() => setStatusFilter(item.value)}
+            <button key={item.value} onClick={() => setStatusFilter(item.value)}
               className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${
-                statusFilter === item.value
-                  ? 'bg-blue-700 text-white border-blue-700'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
-              }`}
-            >
+                statusFilter === item.value ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+              }`}>
               {item.label}
             </button>
           ))}
@@ -467,8 +549,8 @@ export default function PartnerApplicationsClient({ initialRole }: PartnerApplic
         {/* 결과 요약 */}
         {!isLoading && (
           <p className="text-sm text-gray-500">
-            총 <strong className="text-gray-800">{pendingCount}건</strong>
-            {statusFilter === 'submitted' && pendingCount > 0 && (
+            총 <strong className="text-gray-800">{applications.length}건</strong>
+            {statusFilter === 'submitted' && applications.length > 0 && (
               <span className="ml-2 text-orange-600 font-medium">검토가 필요합니다</span>
             )}
           </p>
@@ -477,9 +559,7 @@ export default function PartnerApplicationsClient({ initialRole }: PartnerApplic
         {/* 목록 */}
         {isLoading ? (
           <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-white rounded-2xl h-24 animate-pulse border border-gray-100" />
-            ))}
+            {[1, 2, 3].map((i) => <div key={i} className="bg-white rounded-2xl h-20 animate-pulse border border-gray-100" />)}
           </div>
         ) : applications.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
@@ -491,31 +571,26 @@ export default function PartnerApplicationsClient({ initialRole }: PartnerApplic
         ) : (
           <div className="space-y-3">
             {applications.map((app) => (
-              <div key={app.id} className={actionLoading === app.id ? 'opacity-60 pointer-events-none' : ''}>
-                <ApplicationCard
-                  app={app}
-                  onApprove={handleApprove}
-                  onReject={(id) => setRejectTarget({ id, name: app.name })}
-                />
-              </div>
+              <ApplicationCard key={app.id} app={app} onClick={() => setSelectedId(app.id)} />
             ))}
           </div>
         )}
       </div>
 
-      {/* 반려 모달 */}
-      {rejectTarget && (
-        <RejectModal
-          contractId={rejectTarget.id}
-          name={rejectTarget.name}
-          onConfirm={handleRejectConfirm}
-          onClose={() => setRejectTarget(null)}
+      {/* 상세 모달 */}
+      {selected && (
+        <DetailModal
+          app={selected}
+          actionLoading={actionLoading}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          onClose={() => setSelectedId(null)}
         />
       )}
 
       {/* 토스트 */}
       {toastMsg && (
-        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-lg text-sm font-medium text-white transition-all ${
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-2xl shadow-lg text-sm font-medium text-white ${
           toastMsg.type === 'success' ? 'bg-green-600' : 'bg-red-600'
         }`}>
           {toastMsg.text}
