@@ -12,6 +12,7 @@ export async function POST(req: Request) {
 
     const body = await req.json() as {
       contactId?: string;
+      affiliateSaleId?: string;
       productName: string;
       cruiseLine?: string;
       nights?: number;
@@ -43,6 +44,7 @@ export async function POST(req: Request) {
         documentType:   'COMPARISON_QUOTE',
         status:         'APPROVED',
         contactId:      body.contactId ?? null,
+        affiliateSaleId: body.affiliateSaleId ?? null,
         createdBy:      ctx.userId,
         generatedData: {
           productName:       body.productName,

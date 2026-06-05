@@ -5,6 +5,10 @@
       "schedule": "0 18 * * *"
     },
     {
+      "path": "/api/cron/sync-documents",
+      "schedule": "0 19 * * *"
+    },
+    {
       "path": "/api/cron/push-daily",
       "schedule": "0 * * * *"
     },
