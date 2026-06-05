@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+import { parseServiceAccount } from '@/lib/parse-service-account';
 
 /**
  * GET /api/image-library/google-drive
@@ -95,13 +96,8 @@ function isCacheValid(folderId: string): boolean {
 // ────────────────────────────────────────────────────────────────
 
 function getGoogleDriveClient() {
-  const serviceAccountKey = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY;
-  if (!serviceAccountKey) {
-    throw new Error('GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY 환경변수가 설정되지 않았습니다');
-  }
-
   const auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(serviceAccountKey),
+    credentials: parseServiceAccount(process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY),
     scopes: ['https://www.googleapis.com/auth/drive.readonly'],
   });
 

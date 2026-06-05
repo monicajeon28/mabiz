@@ -5,6 +5,7 @@ import { google } from 'googleapis';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import sharp from 'sharp';
+import { parseServiceAccount } from '@/lib/parse-service-account';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -17,10 +18,8 @@ async function getDriveToken(): Promise<string> {
     return _tokenCache.token;
   }
   const serviceAccountKey = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY;
-  if (!serviceAccountKey) throw new Error('GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY 미설정');
-
   const auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(serviceAccountKey),
+    credentials: parseServiceAccount(serviceAccountKey),
     scopes: ['https://www.googleapis.com/auth/drive.readonly'],
   });
   const client = await auth.getClient() as {

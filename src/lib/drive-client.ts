@@ -4,6 +4,7 @@
  * - findOrCreateFolder(): 폴더 찾기 또는 생성 (중복 제거)
  */
 import { google } from 'googleapis';
+import { parseServiceAccount } from './parse-service-account';
 
 let driveClientInstance: ReturnType<typeof google.drive> | null = null;
 
@@ -18,7 +19,7 @@ export function getDriveClient() {
   // GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY (전체 JSON) 우선, 없으면 개별 키 조합
   const serviceAccountKey = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY;
   const credentials = serviceAccountKey
-    ? JSON.parse(serviceAccountKey)
+    ? parseServiceAccount(serviceAccountKey)
     : {
         client_email: process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_EMAIL ?? process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
         private_key: (
