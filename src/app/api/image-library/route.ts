@@ -56,17 +56,24 @@ export async function GET(req: Request) {
       fileName: string;
     };
 
-    const cacheResult = (cacheImages as CacheRow[]).map((img) => ({
-      id:           String(img.id),
-      title:        img.title ?? img.fileName,
-      thumbnailUrl: img.thumbnailUrl ?? img.driveUrl ?? "",
-      fullUrl:      img.driveUrl ?? img.thumbnailUrl ?? "",
-      folder:       img.folder ?? "기타",
-      tags:         img.tags,
-      isGif:        img.fileName?.toLowerCase().endsWith(".gif") ?? false,
-      isVideo:      false,
-      source:       "cache" as const,
-    }));
+    const cacheResult = (cacheImages as CacheRow[]).map((img) => {
+      // driveUrl에서 파일 ID 추출: https://...?id=FILE_ID 형식
+      const fileIdMatch = img.driveUrl?.match(/[?&]id=([^&]+)/);
+      const fileId = fileIdMatch?.[1] || img.driveUrl?.split('/').pop() || '';
+      const proxyUrl = fileId ? `/api/landing-pages/images/proxy?id=${fileId}` : '';
+
+      return {
+        id:           String(img.id),
+        title:        img.title ?? img.fileName,
+        thumbnailUrl: proxyUrl || img.thumbnailUrl || "",
+        fullUrl:      proxyUrl || img.driveUrl || img.thumbnailUrl || "",
+        folder:       img.folder ?? "기타",
+        tags:         img.tags,
+        isGif:        img.fileName?.toLowerCase().endsWith(".gif") ?? false,
+        isVideo:      false,
+        source:       "cache" as const,
+      };
+    });
 
     // ── GLOBAL_ADMIN org 패턴 ─────────────────────────────
     let orgId: string;
@@ -103,8 +110,8 @@ export async function GET(req: Request) {
       title:        asset.originalFileName,
       // 모달 썸네일: proxy (인증 보장)
       thumbnailUrl: `/api/landing-pages/images/proxy?id=${asset.driveFileId}`,
-      // 삽입 HTML용: Drive 공개 URL (랜딩페이지에서 외부 공개)
-      fullUrl:      `https://drive.google.com/thumbnail?id=${asset.driveFileId}&sz=w1200`,
+      // 삽입 HTML용: proxy로 통일 (모든 이미지 미리보기처럼 제공)
+      fullUrl:      `/api/landing-pages/images/proxy?id=${asset.driveFileId}`,
       folder:       asset.category ?? "기타",
       tags:         asset.tags,
       isGif:        asset.mimeType === "image/gif",
