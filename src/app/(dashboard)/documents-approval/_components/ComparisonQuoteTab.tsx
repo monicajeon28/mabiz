@@ -22,7 +22,10 @@ import {
   CustomerAutocomplete,
   useImageDownload,
   formatMoney,
-  todayKo,
+  formatDate,
+  useCurrentAgent,
+  DocumentLetterhead,
+  DocumentSeal,
   type SaleResult,
 } from './shared';
 
@@ -43,6 +46,8 @@ type QuoteForm = {
   ourPrice: number;
   headcount: string; // 입력 편의를 위해 문자열 보관
   cabinType: string;
+  departureDate: string; // 출발일 (YYYY-MM-DD, 빈문자 기본)
+  itinerary: string; // 일정표/기항지 문자열 (빈문자 기본)
   competitorPrices: CompetitorPrice[];
 };
 
@@ -56,8 +61,29 @@ const EMPTY_FORM: QuoteForm = {
   ourPrice: 0,
   headcount: '',
   cabinType: '',
+  departureDate: '',
+  itinerary: '',
   competitorPrices: [{ companyName: '', price: 0, notes: '' }],
 };
+
+// ─── itineraryPattern 배열 → 기항지 경로 문자열 변환 ──────────────────────────
+// [{type,location,country?}] → "인천 → 오사카(일본) → 해상 → 인천"
+// type: departure/arrival/port/sea 등 / sea는 "해상" 으로 표기, location 사용
+function buildItinerary(pattern: unknown): string {
+  if (!Array.isArray(pattern)) return '';
+  const parts = pattern
+    .map((p) => {
+      if (!p || typeof p !== 'object') return '';
+      const item = p as { type?: string; location?: string; country?: string };
+      if (item.type === 'sea') return '해상';
+      const loc = (item.location || '').trim();
+      if (!loc) return '';
+      const country = (item.country || '').trim();
+      return country ? `${loc}(${country})` : loc;
+    })
+    .filter(Boolean);
+  return parts.join(' → ');
+}
 
 export default function ComparisonQuoteTab() {
   // 폼 상태
@@ -66,6 +92,8 @@ export default function ComparisonQuoteTab() {
   const [isLoadingProduct, setIsLoadingProduct] = useState(false);
   // 미리보기 PNG 다운로드 훅
   const { ref, isDownloading, download } = useImageDownload();
+  // 현재 로그인 담당자(직인 푸터 표시용)
+  const agent = useCurrentAgent();
 
   // ─── 고객 자동완성 선택 → 폼 자동 채움 ──────────────────────────────────
   const handleSelectCustomer = (sale: SaleResult) => {
@@ -107,11 +135,23 @@ export default function ComparisonQuoteTab() {
       if (!res.ok || !json.ok || !json.product) {
         throw new Error(json.error || '상품을 찾을 수 없습니다.');
       }
+      // 출발일: product.startDate → YYYY-MM-DD (input[type=date] 호환)
+      const startRaw = json.product.startDate;
+      let departureDate = '';
+      if (startRaw) {
+        const d = new Date(startRaw);
+        if (!isNaN(d.getTime())) departureDate = d.toISOString().slice(0, 10);
+      }
+      // 일정표: itineraryPattern 배열 → "인천 → 오사카(일본) → ... → 인천" 문자열로 변환
+      const itinerary = buildItinerary(json.product.itineraryPattern);
+
       setForm((prev) => ({
         ...prev,
         productName: json.product.productName || prev.productName,
         productCode: json.product.productCode || prev.productCode,
         ourPrice: json.product.basePrice || prev.ourPrice,
+        departureDate: departureDate || prev.departureDate,
+        itinerary: itinerary || prev.itinerary,
       }));
       showSuccess('상품 정보를 불러왔습니다.');
     } catch (error) {
@@ -292,6 +332,27 @@ export default function ComparisonQuoteTab() {
               />
             </div>
           </div>
+          {/* 출발일 (조회 시 자동 채움 / 직접 수정 가능) */}
+          <div>
+            <label className="mb-1 block text-xs text-gray-500">출발일</label>
+            <input
+              type="date"
+              value={form.departureDate}
+              onChange={(e) => setField('departureDate', e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          </div>
+          {/* 일정표/기항지 (조회 시 자동 채움 / 직접 수정 가능) */}
+          <div>
+            <label className="mb-1 block text-xs text-gray-500">일정표 (기항지)</label>
+            <input
+              type="text"
+              value={form.itinerary}
+              onChange={(e) => setField('itinerary', e.target.value)}
+              placeholder="예: 인천 → 오사카(일본) → 나가사키(일본) → 인천"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          </div>
         </div>
 
         {/* 경쟁사 가격 (동적 행) */}
@@ -366,13 +427,8 @@ export default function ComparisonQuoteTab() {
           ref={ref}
           className="space-y-5 rounded-2xl border border-gray-200 bg-white p-8 text-sm shadow-sm"
         >
-          {/* 제목 */}
-          <div className="border-b-2 border-indigo-100 pb-4 text-center">
-            <h3 className="text-2xl font-extrabold tracking-tight text-gray-900">
-              타사 비교 견적서
-            </h3>
-            <p className="mt-1 text-xs text-gray-400">발행일: {todayKo()}</p>
-          </div>
+          {/* 제목 (가운데 로고 레터헤드 자동 포함) */}
+          <DocumentLetterhead title="타사 비교 견적서" accentClass="border-indigo-100" />
 
           {/* 고객 정보 */}
           <div className="rounded-xl bg-gray-50 p-4">
@@ -416,6 +472,17 @@ export default function ComparisonQuoteTab() {
               {form.headcount && (
                 <p>
                   <span className="font-semibold">인원:</span> {form.headcount}명
+                </p>
+              )}
+              {form.departureDate && (
+                <p>
+                  <span className="font-semibold">출발일:</span>{' '}
+                  {formatDate(form.departureDate)}
+                </p>
+              )}
+              {form.itinerary && (
+                <p>
+                  <span className="font-semibold">일정표:</span> {form.itinerary}
                 </p>
               )}
             </div>
@@ -474,6 +541,9 @@ export default function ComparisonQuoteTab() {
               </p>
             </div>
           )}
+
+          {/* 좌하단 직인 + 담당자 연락처 + 유효기간(발급일로부터 3일) */}
+          <DocumentSeal agent={agent} validDays={3} />
         </div>
       </div>
     </div>

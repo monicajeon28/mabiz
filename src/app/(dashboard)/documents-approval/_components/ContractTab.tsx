@@ -28,9 +28,11 @@ import {
   type SalesDocumentItem,
   formatMoney,
   formatDate,
-  todayKo,
   CustomerAutocomplete,
   ModalShell,
+  useCurrentAgent,
+  DocumentLetterhead,
+  DocumentSeal,
 } from './shared';
 
 // ─── 표준 취소·환불 규정 (계약서 양식 표시용 — API generatedData.cancellationPolicy 와 동일 기준) ──
@@ -69,6 +71,9 @@ function gdStr(gd: Record<string, unknown>, key: string): string | null {
 }
 
 export default function ContractTab() {
+  // ── 현재 담당자(대리점/판매원) 정보 — 직인 옆 담당자 연락처 표시용 ──
+  const agent = useCurrentAgent();
+
   // ── 발급된 계약서 목록 ──
   const [documents, setDocuments] = useState<SalesDocumentItem[]>([]);
   const [listLoading, setListLoading] = useState(true);
@@ -470,10 +475,8 @@ export default function ContractTab() {
                 계약서 미리보기 (실제 발송 양식)
               </span>
               <div className="rounded-xl border border-gray-200 bg-white p-5 text-[13px] leading-relaxed text-gray-800 shadow-sm">
-                <div className="mb-4 text-center">
-                  <h3 className="text-base font-bold text-gray-900">크루즈 여행 구매 계약서</h3>
-                  <p className="mt-0.5 text-xs text-gray-400">발급일 {todayKo()}</p>
-                </div>
+                {/* 가운데 상단: 회사 로고 + 제목 + 발행일 */}
+                <DocumentLetterhead title="구매 계약서" accentClass="border-orange-100" />
 
                 {/* 계약 당사자 */}
                 <SectionTitle icon={<User className="h-3.5 w-3.5" />}>계약 당사자</SectionTitle>
@@ -504,16 +507,14 @@ export default function ContractTab() {
                   ))}
                 </ul>
 
-                {/* 회사 정보 */}
-                <SectionTitle>회사 정보</SectionTitle>
-                <PreviewRow label="회사명" value="크루즈닷" />
-                <PreviewRow label="대표" value="배연성" />
-
                 {!pv && (
                   <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-center text-xs text-gray-400">
                     좌측에서 구매자를 선택하면 계약 당사자·상품·금액이 자동 반영됩니다.
                   </p>
                 )}
+
+                {/* 양식 하단: 좌하단 직인 + 회사명/대표 + 우측 담당자 연락처 (유효기간 없음) */}
+                <DocumentSeal agent={agent} />
               </div>
             </div>
           </div>
