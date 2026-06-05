@@ -16,6 +16,7 @@ interface Contact {
   childrenCount?: number | null;
   callLogs: CallLog[];
   sharedCallLogs?: (CallLog & { _sharedFrom: string })[];
+  leadScore?: number | null;
 }
 
 const RESULT_LABELS: Record<string, string> = {
@@ -67,6 +68,19 @@ function ContactCallTabComponent({
         }}
         isExpanded={false}
       />
+
+      {contact.leadScore != null && (
+        <div className={`flex items-center gap-2 rounded-xl px-3 py-2 mb-3 text-sm font-medium ${
+          contact.leadScore >= 70
+            ? "bg-red-50 text-red-700 border border-red-200"
+            : contact.leadScore >= 40
+            ? "bg-amber-50 text-amber-700 border border-amber-200"
+            : "bg-green-50 text-green-700 border border-green-200"
+        }`}>
+          <span>{contact.leadScore >= 70 ? "위험도 높음" : contact.leadScore >= 40 ? "주의" : "정상"}</span>
+          <span className="ml-auto font-bold">{contact.leadScore}점</span>
+        </div>
+      )}
 
       <div className="flex gap-2 mb-3 flex-wrap">
         <button

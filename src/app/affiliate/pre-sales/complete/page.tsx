@@ -7,6 +7,7 @@
 
 import { useState, useRef, useCallback, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 
 // ── 서명 캔버스 ──────────────────────────────────────────────────────
 
@@ -156,8 +157,7 @@ function FileUpload({ label, required, hint, securityNote, onChange, preview }: 
       {hint && <p className="text-sm text-gray-500 mb-1.5">{hint}</p>}
       {preview ? (
         <div className="relative border border-gray-200 rounded-xl overflow-hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={preview} alt={label} className="w-full max-h-40 object-contain bg-gray-50" />
+          <Image src={preview} alt={label} width={600} height={160} className="w-full max-h-40 object-contain bg-gray-50" />
           <button
             type="button"
             onClick={() => onChange(null)}
@@ -521,8 +521,7 @@ function CompleteForm() {
               <div className="flex justify-end">
                 <div className="text-center">
                   <p className="text-sm text-gray-500 mb-1.5">을 ({contractName})</p>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={signatureDataUrl} alt="서명" className="w-20 h-14 object-contain border border-dashed border-gray-300 rounded mx-auto" />
+                  <Image src={signatureDataUrl} alt="서명" width={80} height={56} className="w-20 h-14 object-contain border border-dashed border-gray-300 rounded mx-auto" />
                 </div>
               </div>
             )}

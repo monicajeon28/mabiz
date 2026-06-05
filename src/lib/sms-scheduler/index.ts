@@ -109,10 +109,10 @@ export async function scheduleContactLensSequence(
     // 렌즈 시퀀스의 Day 정보 추출
     const dayNumbers: (0 | 1 | 2 | 3)[] = [];
     if (lensSequence) {
-      lensSequence.templates.day_0 && dayNumbers.push(0);
-      lensSequence.templates.day_1 && dayNumbers.push(1);
-      lensSequence.templates.day_2 && dayNumbers.push(2);
-      lensSequence.templates.day_3 && dayNumbers.push(3);
+      if (lensSequence.templates.day_0) { dayNumbers.push(0); }
+      if (lensSequence.templates.day_1) { dayNumbers.push(1); }
+      if (lensSequence.templates.day_2) { dayNumbers.push(2); }
+      if (lensSequence.templates.day_3) { dayNumbers.push(3); }
     } else {
       dayNumbers.push(0); // 기본값
     }

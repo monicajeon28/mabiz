@@ -17,9 +17,11 @@ interface ContactSmsTabProps {
   smsLoading: boolean;
   onOpenSmsModal?: () => void;
   onOpenSchedModal?: () => void;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
 }
 
-function ContactSmsTabComponent({ smsLogs, smsLoading, onOpenSmsModal, onOpenSchedModal }: ContactSmsTabProps) {
+function ContactSmsTabComponent({ smsLogs, smsLoading, onOpenSmsModal, onOpenSchedModal, hasMore, onLoadMore }: ContactSmsTabProps) {
   return (
     <div className="space-y-2">
       {/* 발송 바로가기 버튼 */}
@@ -64,6 +66,14 @@ function ContactSmsTabComponent({ smsLogs, smsLoading, onOpenSmsModal, onOpenSch
             <p className="text-xs text-gray-400 mt-1">{log.phone} · {log.channel}</p>
           </div>
         ))
+      )}
+      {hasMore && (
+        <button
+          onClick={onLoadMore}
+          className="w-full py-2 text-sm text-blue-600 hover:text-blue-800 border border-blue-200 rounded-xl mt-2"
+        >
+          더 보기
+        </button>
       )}
     </div>
   );

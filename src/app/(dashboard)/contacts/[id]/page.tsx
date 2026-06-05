@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft, Phone, MessageSquare,
   Plus, Clock, FileText, Star, GitBranch, Calendar, Send, AlarmClock,
-  Share2, Users, Building2, X, ChevronDown, Trash2, Copy, Check, CloudUpload, Search, FileDown
+  Share2, Building2, X, ChevronDown, Trash2, Copy, Check, CloudUpload, Search, FileDown
 } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/lib/api/use-toast";
@@ -67,19 +67,12 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const { toast } = useToast();
 
   const [contact,       setContact]       = useState<Contact | null>(null);
-  const [tab,           setTab]           = useState<"call" | "memo" | "group" | "sms" | "campaigns" | "reservations">("call");
+  const [tab,           setTab]           = useState<"call" | "memo" | "group" | "sms" | "reservations">("call");
   const [loading,       setLoading]       = useState(true);
   const [smsLogs,       setSmsLogs]       = useState<{ id: string; phone: string; contentPreview: string; status: string; channel: string; sentAt: string }[]>([]);
   const [smsLoading,    setSmsLoading]    = useState(false);
   const [smsPage,       setSmsPage]       = useState(1);
   const [smsHasMore,    setSmsHasMore]    = useState(true);
-  const [campaignHistories, setCampaignHistories] = useState<Array<{
-    id: string; channel: string; status: string; sentAt: string | null; createdAt: string;
-    campaign: { id: string; title: string; sendSms: boolean; sendEmail: boolean } | null;
-  }>>([]);
-  const [campaignLoading, setCampaignLoading] = useState(false);
-  const [campaignLoaded, setCampaignLoaded] = useState(false);
-
   // 예약 탭
   type ReservationItem = {
     id: number; status: string; totalPeople: number; cabinType: string | null;
@@ -1198,11 +1191,10 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       {/* 탭 */}
       <div className="flex border-b border-gray-200 mb-4">
         {[
-          { key: "call",      label: `📞 콜기록 (${contact.callLogs.length})` },
-          { key: "memo",      label: `📝 메모 (${contact.memos.length})` },
-          { key: "group",     label: "👥 그룹 배정" },
-          { key: "sms",       label: "💬 발송내역" },
-          { key: "campaigns",    label: "📣 캠페인" },
+          { key: "call",         label: `📞 콜기록 (${contact.callLogs.length})` },
+          { key: "memo",         label: `📝 메모 (${contact.memos.length})` },
+          { key: "group",        label: "🔄 퍼널" },
+          { key: "sms",          label: "💬 발송내역" },
           { key: "reservations", label: "🚢 예약" },
         ].map((t) => (
           <button
@@ -1224,20 +1216,6 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                   .catch(err => {
                     logger.error("[ContactDetail] SMS 로그 fetch 실패", { contactId: contact.id, err });
                     setSmsLoading(false);
-                  });
-              }
-              if (t.key === "campaigns" && !campaignLoaded && !campaignLoading) {
-                setCampaignLoading(true);
-                fetch(`/api/contacts/${contact.id}/campaigns?limit=20&page=1`)
-                  .then(r => r.json())
-                  .then(d => {
-                    if (d.ok) setCampaignHistories(d.histories ?? []);
-                    setCampaignLoaded(true);
-                    setCampaignLoading(false);
-                  })
-                  .catch(err => {
-                    logger.error("[ContactDetail] 캠페인 이력 fetch 실패", { contactId: contact.id, err });
-                    setCampaignLoading(false);
                   });
               }
               if (t.key === "reservations" && !reservationLoaded) {
@@ -1372,58 +1350,6 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           onOpenSmsModal={openSmsModal}
           onOpenSchedModal={openSchedModal}
         />
-      )}
-
-      {/* Campaigns Tab */}
-      {tab === "campaigns" && (
-        <div className="space-y-2">
-          {/* 캠페인 발송 바로가기 버튼 */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-blue-800">캠페인 발송</p>
-              <p className="text-xs text-blue-500 mt-0.5">캠페인 관리 페이지에서 이 고객에게 발송하세요</p>
-            </div>
-            <button
-              onClick={() => router.push("/marketing/campaigns/new")}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700"
-            >
-              <Send className="w-3.5 h-3.5" />
-              캠페인 만들기
-            </button>
-          </div>
-          {campaignLoading ? (
-            <div className="text-center text-sm text-gray-400 py-8">불러오는 중...</div>
-          ) : campaignHistories.length === 0 ? (
-            <p className="text-center text-sm text-gray-400 py-8">캠페인 발송 이력이 없습니다.</p>
-          ) : (
-            campaignHistories.map((h) => (
-              <div key={h.id} className="bg-white border border-gray-200 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                    h.status === "SENT"   ? "bg-green-100 text-green-700" :
-                    h.status === "FAILED" ? "bg-red-100 text-red-700" :
-                    h.status === "PENDING" ? "bg-yellow-100 text-yellow-700" :
-                                            "bg-gray-100 text-gray-500"
-                  }`}>
-                    {h.status === "SENT" ? "✅ 발송완료" : h.status === "FAILED" ? "❌ 발송실패" : h.status === "PENDING" ? "⏳ 대기중" : h.status}
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {new Date(h.sentAt ?? h.createdAt).toLocaleString("ko-KR")}
-                  </span>
-                </div>
-                <p className="text-sm font-medium text-gray-800">
-                  {h.campaign?.title ?? "캠페인 정보 없음"}
-                </p>
-                <p className="text-xs text-gray-400 mt-1">
-                  {h.channel}
-                  {h.campaign && (
-                    <> · {h.campaign.sendSms ? "SMS" : ""}{h.campaign.sendEmail ? " 이메일" : ""}</>
-                  )}
-                </p>
-              </div>
-            ))
-          )}
-        </div>
       )}
 
       {/* Reservations Tab */}

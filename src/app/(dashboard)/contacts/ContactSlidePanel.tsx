@@ -22,6 +22,7 @@ import type { ObjectionData } from "@/lib/objections/validation";
 import ContactCallTab from "./[id]/ContactCallTab";
 import ContactMemoTab from "./[id]/ContactMemoTab";
 import ContactSmsTab from "./[id]/ContactSmsTab";
+import FunnelEnrollSection from "./[id]/FunnelEnrollSection";
 
 type Funnel = { id: string; name: string; funnelType: string };
 type SmsLog = { id: string; phone: string; contentPreview: string; status: string; channel: string; sentAt: string };
@@ -91,7 +92,14 @@ function SmsModal({
       }
       const data = await res.json();
       if (data.ok) { toast({ title: mode === "instant" ? "문자 발송 완료" : "예약 발송 등록 완료", variant: "success" }); onSent(); onClose(); }
-      else toast({ title: data.message ?? "발송 실패", variant: "destructive" });
+      else {
+        const isConfigError = data.message?.includes("SMS 설정");
+        toast({
+          title: data.message ?? "발송 실패",
+          description: isConfigError ? "설정 → SMS 메뉴에서 Aligo 정보를 입력하세요." : undefined,
+          variant: "destructive",
+        });
+      }
     } catch (err) {
       logger.error("[SmsModal send]", { err });
       toast({ title: "네트워크 오류", variant: "destructive" });
@@ -131,7 +139,7 @@ function SmsModal({
 }
 
 // ── DB 공유 모달 ──────────────────────────────────────────────────────────────
-function DbShareModal({ contact, onClose }: { contact: { id: string; name: string }; onClose: () => void }) {
+function DbShareModal({ contact, onClose, onShared }: { contact: { id: string; name: string }; onClose: () => void; onShared?: () => void }) {
   const { toast } = useToast();
   const [targets, setTargets] = useState<ShareTarget[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,17 +147,18 @@ function DbShareModal({ contact, onClose }: { contact: { id: string; name: strin
   const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
-    fetch("/api/org/agents")
-      .then(r => r.json())
-      .then(d => {
-        if (d.ok) {
-          const all: ShareTarget[] = (d.sections ?? []).flatMap(
-            (s: { members?: ShareTarget[] }) => s.members ?? []
-          );
-          setTargets(all);
-        } else {
+    fetch("/api/contacts/share-targets")
+      .then(r => {
+        if (r.status === 403) {
           setTargets([]);
+          setLoading(false);
+          return null;
         }
+        return r.json();
+      })
+      .then(d => {
+        if (d && d.ok) setTargets(d.targets ?? []);
+        else if (d) setTargets([]);
       })
       .catch(() => setTargets([]))
       .finally(() => setLoading(false));
@@ -164,8 +173,16 @@ function DbShareModal({ contact, onClose }: { contact: { id: string; name: strin
         body: JSON.stringify({ contactIds: [contact.id], targetUserId: selectedId }),
       });
       const data = await res.json();
-      if (data.ok) { toast({ title: `${contact.name} DB 전달 완료`, variant: "success" }); onClose(); }
-      else toast({ title: data.message ?? "전달 실패", variant: "destructive" });
+      if (data.ok && (data.succeeded ?? 1) > 0) {
+        toast({ title: `${contact.name} DB 전달 완료`, variant: "success" });
+        onShared?.();
+        onClose();
+      } else if (data.ok && data.succeeded === 0) {
+        const reason = data.failedNames?.[0] ?? "전달 불가 상태입니다.";
+        toast({ title: reason, variant: "destructive" });
+      } else {
+        toast({ title: data.message ?? "전달 실패", variant: "destructive" });
+      }
     } catch (err) {
       logger.error("[DbShareModal share]", { err });
       toast({ title: "네트워크 오류", variant: "destructive" });
@@ -184,7 +201,7 @@ function DbShareModal({ contact, onClose }: { contact: { id: string; name: strin
         {loading ? (
           <div className="text-center text-sm text-gray-400 py-6">불러오는 중...</div>
         ) : targets.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-6">전달 가능한 대상이 없습니다.</p>
+          <p className="text-sm text-gray-400 text-center py-6">이 권한으로는 DB 공유를 할 수 없습니다. 대리점장 또는 본사에 문의하세요.</p>
         ) : (
           <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}
             className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -209,7 +226,7 @@ function DbShareModal({ contact, onClose }: { contact: { id: string; name: strin
 function FunnelTab({
   contact, funnels, selectedFunnelId, setSelectedFunnelId,
   enrollStartDate, setEnrollStartDate, enrollSendNow, setEnrollSendNow,
-  enrolling, enrollError, handleFunnelEnroll,
+  enrolling, enrollError, funnelError, handleFunnelEnroll,
 }: {
   contact: { id: string; vipSequences?: VipSequence[] };
   funnels: Funnel[];
@@ -221,58 +238,25 @@ function FunnelTab({
   setEnrollSendNow: (v: boolean) => void;
   enrolling: boolean;
   enrollError: string;
+  funnelError: string;
   handleFunnelEnroll: () => Promise<void>;
 }) {
-  const enrolledFunnelIds = new Set((contact.vipSequences ?? []).map(s => s.funnelId));
   return (
     <div className="space-y-4">
-      <div className="bg-white border border-gray-200 rounded-xl p-4">
-        <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
-          <GitBranch className="w-4 h-4 text-blue-500" />퍼널 직접 등록
-        </h3>
-        <p className="text-xs text-gray-400 mb-3">그룹 없이 퍼널에 바로 등록합니다</p>
-        <div className="space-y-3">
-          <select value={selectedFunnelId} onChange={(e) => setSelectedFunnelId(e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-            <option value="">퍼널 선택</option>
-            {funnels.map(f => (
-              <option key={f.id} value={f.id} disabled={enrolledFunnelIds.has(f.id)}>
-                {f.name}{enrolledFunnelIds.has(f.id) ? " (이미 등록됨)" : ""}
-              </option>
-            ))}
-          </select>
-          <input type="date" value={enrollStartDate} onChange={(e) => setEnrollStartDate(e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="시작일 (비우면 오늘)" />
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={enrollSendNow} onChange={(e) => setEnrollSendNow(e.target.checked)} className="w-4 h-4 rounded accent-blue-600" />
-            <span className="text-sm text-gray-700">즉시 첫 메시지 발송</span>
-          </label>
-          {enrollError && <p className="text-xs text-red-500">{enrollError}</p>}
-          <button onClick={handleFunnelEnroll} disabled={!selectedFunnelId || enrolling}
-            className="w-full py-2.5 bg-navy-900 text-white rounded-xl text-sm font-medium disabled:opacity-50 hover:bg-navy-800">
-            {enrolling ? "등록 중..." : "퍼널 등록"}
-          </button>
-        </div>
-        {(contact.vipSequences ?? []).length > 0 && (
-          <div className="mt-4 border-t pt-3">
-            <p className="text-xs font-medium text-gray-500 mb-2">등록된 퍼널</p>
-            <div className="space-y-1.5">
-              {(contact.vipSequences ?? []).map(seq => {
-                const funnel = funnels.find(f => f.id === seq.funnelId);
-                return (
-                  <div key={seq.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                    <span className="text-xs font-medium text-gray-700">{funnel?.name ?? seq.funnelId}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${seq.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                      {seq.status === "ACTIVE" ? "진행중" : seq.status}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
+      <FunnelEnrollSection
+        funnels={funnels}
+        enrolledSequences={contact.vipSequences ?? []}
+        selectedFunnelId={selectedFunnelId}
+        setSelectedFunnelId={setSelectedFunnelId}
+        enrollStartDate={enrollStartDate}
+        setEnrollStartDate={setEnrollStartDate}
+        enrollSendNow={enrollSendNow}
+        setEnrollSendNow={setEnrollSendNow}
+        enrolling={enrolling}
+        enrollError={enrollError}
+        funnelError={funnelError}
+        onEnroll={handleFunnelEnroll}
+      />
     </div>
   );
 }
@@ -294,11 +278,18 @@ function AffiliateTab({
   const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/contacts/${contactId}/affiliate-info`)
+    const ctrl = new AbortController();
+    setAfLoading(true);
+    setAffiliateInfo(null);
+    fetch(`/api/contacts/${contactId}/affiliate-info`, { signal: ctrl.signal })
       .then(r => r.json())
       .then(d => { if (d.ok) setAffiliateInfo(d.data); })
-      .catch(err => logger.error("[AffiliateTab]", { err, contactId }))
+      .catch(err => {
+        if (err?.name === "AbortError") return;
+        logger.error("[AffiliateTab]", { err, contactId });
+      })
       .finally(() => setAfLoading(false));
+    return () => ctrl.abort();
   }, [contactId]);
 
   const hasManager = !!(affiliateInfo?.manager || affiliateInfo?.agent);
@@ -354,7 +345,21 @@ function AffiliateTab({
           <p className="text-xs text-gray-400 mt-2 text-center">누구에게 이 고객을 전달할지 선택합니다</p>
         </div>
       )}
-      {showShareModal && <DbShareModal contact={{ id: contactId, name: contactName }} onClose={() => setShowShareModal(false)} />}
+      {showShareModal && (
+        <DbShareModal
+          contact={{ id: contactId, name: contactName }}
+          onClose={() => setShowShareModal(false)}
+          onShared={() => {
+            setAffiliateInfo(null);
+            setAfLoading(true);
+            fetch(`/api/contacts/${contactId}/affiliate-info`)
+              .then(r => r.json())
+              .then(d => { if (d.ok) setAffiliateInfo(d.data); })
+              .catch(err => logger.error("[AffiliateTab onShared]", { err, contactId }))
+              .finally(() => setAfLoading(false));
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -409,6 +414,13 @@ export default function ContactSlidePanel({
     if (propContact) {
       setContact(propContact); setActiveTab("call");
       setSmsLogs([]); setSmsHasMore(true); setSmsPage(1);
+      // 고객 변경 시 퍼널 선택 상태 초기화
+      setSelectedFunnelId("");
+      setEnrollStartDate("");
+      setEnrollSendNow(false);
+      setEnrollError("");
+      setFunnelError("");
+      funnelLoadedRef.current = false;
     }
   }, [propContact]);
 
@@ -434,6 +446,10 @@ export default function ContactSlidePanel({
 
   const addCallLog = useCallback(async () => {
     if (!contact || savingCallLog) return;
+    if (!callForm.content.trim()) {
+      toast({ title: "통화 내용을 입력하세요.", variant: "destructive" });
+      return;
+    }
     setSavingCallLog(true);
     try {
       const res = await fetch(`/api/contacts/${contact.id}/call-logs`, {
@@ -558,12 +574,19 @@ export default function ContactSlidePanel({
   const [enrollSendNow, setEnrollSendNow] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
   const [enrollError, setEnrollError] = useState("");
+  const [funnelError, setFunnelError] = useState("");
   const funnelLoadedRef = useRef(false);
 
   useEffect(() => {
     if (activeTab !== "funnel" || funnelLoadedRef.current) return;
     funnelLoadedRef.current = true;
-    fetch("/api/funnels").then(r => r.json()).then(d => { if (d.ok) setFunnels(d.funnels ?? []); }).catch(err => logger.error("[SlidePanel funnels]", { err }));
+    fetch("/api/funnels")
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) setFunnels(d.funnels ?? []);
+        else setFunnelError("퍼널 목록을 불러오지 못했습니다.");
+      })
+      .catch(() => setFunnelError("퍼널 불러오기 실패. 다시 시도하세요."));
   }, [activeTab]);
 
   const handleFunnelEnroll = useCallback(async () => {
@@ -577,13 +600,20 @@ export default function ContactSlidePanel({
       if (!res.ok) throw new Error("HTTP " + res.status);
       const d = await res.json();
       if (d.ok) {
+        // 낙관적 업데이트: 재조회 없이 vipSequences에 직접 추가
+        const newSeq: VipSequence = {
+          id: d.sequence?.id ?? `temp-${Date.now()}`,
+          funnelId: selectedFunnelId,
+          status: "ACTIVE",
+          startDate: enrollStartDate || new Date().toISOString(),
+        };
+        setContact(prev => prev ? {
+          ...prev,
+          vipSequences: [...(prev.vipSequences ?? []), newSeq],
+        } : prev);
         setSelectedFunnelId(""); setEnrollStartDate(""); setEnrollSendNow(false);
         toast({ title: "퍼널 등록 완료", variant: "success" });
-        try {
-          const refreshRes = await fetch(`/api/contacts/${contact.id}`);
-          const cd = await refreshRes.json();
-          if (cd.ok) { setContact(cd.contact); onRefresh?.({ id: contact.id }); }
-        } catch (err) { logger.error("[SlidePanel funnelEnroll refresh]", { err }); }
+        onRefresh?.({ id: contact.id });
       } else { setEnrollError(d.message ?? "등록 실패"); }
     } catch (err) { logger.error("[handleFunnelEnroll failed]", { err }); setEnrollError(err instanceof Error ? err.message : "네트워크 오류"); }
     finally { setEnrolling(false); }
@@ -610,6 +640,25 @@ export default function ContactSlidePanel({
     } catch (err) { logger.error("[SlidePanel Day0-3]", { err, contactId }); toast({ title: "오류 발생", variant: "destructive" }); }
     finally { setSequenceLoading(false); }
   }, [toast]);
+
+  const loadMoreSmsLogs = useCallback(async () => {
+    if (!contact || smsLoading || !smsHasMore) return;
+    const nextPage = smsPage + 1;
+    setSmsLoading(true);
+    try {
+      const res = await fetch(`/api/contacts/${contact.id}/sms-logs?limit=20&page=${nextPage}`);
+      const d = await res.json();
+      if (d.ok) {
+        setSmsLogs(prev => [...prev, ...(d.logs ?? [])]);
+        setSmsHasMore(d.hasMore ?? false);
+        setSmsPage(nextPage);
+      }
+    } catch (err) {
+      logger.error("[loadMoreSmsLogs]", { err });
+    } finally {
+      setSmsLoading(false);
+    }
+  }, [contact, smsLoading, smsHasMore, smsPage]);
 
   const tabFetchAbortRef = useRef<AbortController | null>(null);
   const handleTabChange = useCallback((key: TabKey) => {
@@ -712,6 +761,7 @@ export default function ContactSlidePanel({
                   enrollStartDate={enrollStartDate} setEnrollStartDate={setEnrollStartDate}
                   enrollSendNow={enrollSendNow} setEnrollSendNow={setEnrollSendNow}
                   enrolling={enrolling} enrollError={enrollError}
+                  funnelError={funnelError}
                   handleFunnelEnroll={handleFunnelEnroll}
                 />
               )}
@@ -720,6 +770,8 @@ export default function ContactSlidePanel({
                   smsLogs={smsLogs} smsLoading={smsLoading}
                   onOpenSmsModal={() => setSmsModalMode("instant")}
                   onOpenSchedModal={() => setSmsModalMode("scheduled")}
+                  hasMore={smsHasMore}
+                  onLoadMore={loadMoreSmsLogs}
                 />
               )}
               {activeTab === "affiliate" && (
