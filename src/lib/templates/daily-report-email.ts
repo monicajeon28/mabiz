@@ -11,6 +11,11 @@
 
 import { DailyReportMetrics } from '@/lib/services/daily-report-service';
 
+function escapeHtml(text: string): string {
+  const map: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return text.replace(/[&<>"']/g, (c) => map[c]);
+}
+
 interface EmailOptions {
   baseUrl: string; // e.g., https://app.mabiz.com
   teamName: string;
@@ -439,7 +444,7 @@ export function generateDailyReportEmail(
             (alert) => `
           <div class="alert-item ${alert.type.toLowerCase()}">
             <span class="alert-icon">${alert.type === 'RED' ? '🔴' : '🟡'}</span>
-            <span class="alert-message"><strong>${alert.metric}:</strong> ${alert.message}</span>
+            <span class="alert-message"><strong>${escapeHtml(alert.metric)}:</strong> ${escapeHtml(alert.message)}</span>
           </div>
         `
           )
@@ -485,7 +490,7 @@ export function generateDailyReportEmail(
             (partner, i) => `
           <div class="partner-item">
             <div>
-              <div class="partner-name">${i + 1}. ${partner.name}</div>
+              <div class="partner-name">${i + 1}. ${escapeHtml(partner.name)}</div>
             </div>
             <div class="partner-stats">
               <div class="partner-revenue">$${partner.revenue.toFixed(0)}</div>
@@ -511,8 +516,8 @@ export function generateDailyReportEmail(
           .map(
             (rec) => `
           <div class="recommendation-item">
-            <div class="recommendation-title">${rec.title}</div>
-            <div class="recommendation-desc">${rec.description}</div>
+            <div class="recommendation-title">${escapeHtml(rec.title)}</div>
+            <div class="recommendation-desc">${escapeHtml(rec.description)}</div>
             <div class="recommendation-impact">Impact: ${rec.impact}</div>
           </div>
         `

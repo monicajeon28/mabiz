@@ -176,6 +176,9 @@ export async function POST(req: Request) {
     const signUrl = `${appUrl}/contract/sign/${doc.id}?token=${signToken}`;
 
     // P1-2: APPROVED 시 서명 링크 이메일 중복 발송 방지
+    if (!payment.buyerEmail) {
+      logger.warn('[PurchaseContract] buyerEmail 없음 — 서명 링크 이메일 미발송. signUrl 응답에 포함됨', { docId: doc.id, signUrl });
+    }
     if (payment.buyerEmail && status !== 'APPROVED') {
       sendFunnelEmail({
         organizationId: orgId,

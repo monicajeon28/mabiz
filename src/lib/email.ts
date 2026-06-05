@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { createTransport } from "nodemailer";
+import { createTransport, type Transporter } from "nodemailer";
 import { encrypt, decrypt } from "@/lib/crypto";
 
 if (!process.env.EMAIL_ENCRYPT_KEY || process.env.EMAIL_ENCRYPT_KEY.length < 32) {
@@ -26,6 +26,9 @@ interface SendEmailParams {
   html: string;
 }
 
+/** smtpHost:smtpPort:smtpUser 키 기반 transporter 싱글턴 캐시 */
+const _transporterCache = new Map<string, Transporter>();
+
 export async function sendEmail(params: SendEmailParams): Promise<boolean> {
   const {
     smtpHost, smtpPort, smtpUser, smtpPassEncrypted,
@@ -34,12 +37,17 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
 
   try {
     const pass = decryptSmtpPassword(smtpPassEncrypted);
-    const transporter = createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpPort === 465,
-      auth: { user: smtpUser, pass },
-    });
+    const cacheKey = `${smtpHost}:${smtpPort}:${smtpUser}`;
+    let transporter = _transporterCache.get(cacheKey);
+    if (!transporter) {
+      transporter = createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: { user: smtpUser, pass },
+      });
+      _transporterCache.set(cacheKey, transporter);
+    }
 
     await transporter.sendMail({
       from: `"${senderName}" <${senderEmail}>`,

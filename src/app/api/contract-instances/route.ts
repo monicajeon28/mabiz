@@ -295,8 +295,12 @@ export async function POST(request: NextRequest) {
       // 여기서는 기본 구조만 제시
 
       if (template.smsDay0TemplateId) {
-        // Day 0 SMS 스케줄링
-        // 즉시 발송 또는 지정된 시간에 발송
+        // TODO: Day 0 SMS 스케줄링 미구현 — ScheduledSms 레코드 생성 필요
+        // 현재 autoSendSms=true 설정 시에도 SMS가 발송되지 않습니다.
+        logger.warn('[ContractInstances] SMS Day 0 자동발송 미구현', {
+          templateId: template.id,
+          smsDay0TemplateId: template.smsDay0TemplateId,
+        });
       }
       // Day 1, 2, 3도 유사하게 처리
     }

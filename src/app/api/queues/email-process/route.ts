@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { processEmailQueue, getEmailQueueStatus } from '@/lib/email-queue';
 import { logger } from '@/lib/logger';
+
+function safeTokenCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
 /**
  * Email 로그 큐 처리 엔드포인트
@@ -16,7 +22,7 @@ export async function POST(request: NextRequest) {
     const authToken = request.headers.get('authorization')?.replace('Bearer ', '');
     const expectedToken = process.env.QUEUE_WORKER_TOKEN;
 
-    if (expectedToken && authToken !== expectedToken) {
+    if (expectedToken && (!authToken || !safeTokenCompare(authToken, expectedToken))) {
       logger.warn('[Email Queue API] 인증 실패', {
         hasToken: !!authToken,
       });
@@ -55,7 +61,7 @@ export async function GET(request: NextRequest) {
     const authToken = request.headers.get('authorization')?.replace('Bearer ', '');
     const expectedToken = process.env.QUEUE_WORKER_TOKEN;
 
-    if (expectedToken && authToken !== expectedToken) {
+    if (expectedToken && (!authToken || !safeTokenCompare(authToken, expectedToken))) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
