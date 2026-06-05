@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+import { parseServiceAccount } from '@/lib/parse-service-account';
 
 const FOLDER_ID =
   process.env.LANDING_PAGES_DRIVE_FOLDER_ID ?? '1PpZbApjr5rZRlyP5onwkRUxz6X9gFPZz';
@@ -33,11 +34,8 @@ export async function GET(req: Request) {
       );
     }
 
-    const serviceAccountKey = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY;
-    if (!serviceAccountKey) throw new Error('GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY 환경변수 미설정');
-
     const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(serviceAccountKey),
+      credentials: parseServiceAccount(process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY),
       scopes: ['https://www.googleapis.com/auth/drive'],
     });
 

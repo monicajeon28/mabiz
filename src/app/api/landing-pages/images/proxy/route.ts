@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { getAuthContext } from '@/lib/rbac';
+import { parseServiceAccount } from '@/lib/parse-service-account';
 
 /** 모듈 레벨 토큰 캐시 — 만료 2분 전까지 재사용 */
 let _tokenCache: { token: string; expiresAt: number } | null = null;
@@ -13,7 +14,7 @@ async function getServiceToken(): Promise<string> {
   }
   const serviceAccountKey = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY;
   const credentials = serviceAccountKey
-    ? JSON.parse(serviceAccountKey)
+    ? (() => { try { return JSON.parse(serviceAccountKey); } catch { return parseServiceAccount(serviceAccountKey); } })()
     : {
         client_email: process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_EMAIL ?? process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
         private_key: (
