@@ -93,8 +93,8 @@ interface FunnelSentRow {
   name: string | null; // 고객명 (Contact.name)
   phone: string | null; // 수신번호 (Contact.phone)
   addedAt: string | null; // DB 유입일 (ContactGroupMember.addedAt)
-  round: number | null; // 발송 당시 daysAfter 스냅샷 (round+1 = N일차, round=0 → 1일차). 레거시 NULL 가능
-  dayLabel: number | null; // round+1 (N일차)
+  round: number | null; // 발송 당시 daysAfter 스냅샷 = N일차 (round=0 → 0일차=유입 당일). 레거시 NULL 가능
+  dayLabel: number | null; // = round (N일차, 0-인덱스)
   status: FunnelSentStatus; // 성공여부
   scheduledAt: string; // 발송 예정일시
   sentAt: string | null; // 실제 발송일시
@@ -225,10 +225,11 @@ function formatDateOnly(iso: string | null): string {
   });
 }
 
-// 회차 라벨 1곳 고정: round+1 + "일차" (round=0 → "1일차" = 유입 당일)
+// 회차 라벨 1곳 고정: round = daysAfter = "N일차" (0-인덱스). round=0 → 유입 당일.
 function roundLabel(round: number | null): string {
   if (round === null || round === undefined) return "회차 미상";
-  return `${round + 1}일차`;
+  if (round === 0) return "0일차(당일)";
+  return `${round}일차`;
 }
 
 // ─── 통계 카드 컴포넌트 ────────────────────────────────────────────────────

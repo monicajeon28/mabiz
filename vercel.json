@@ -9,6 +9,10 @@
       "schedule": "0 19 * * *"
     },
     {
+      "path": "/api/cron/backup-contacts-excel",
+      "schedule": "0 20 * * *"
+    },
+    {
       "path": "/api/cron/push-daily",
       "schedule": "0 * * * *"
     },
