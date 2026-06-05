@@ -4,6 +4,7 @@
  */
 import { google } from 'googleapis';
 import { logger } from '@/lib/logger';
+import { parseServiceAccount } from '@/lib/parse-service-account';
 
 const CALL_LOG_FOLDER_ID = process.env.GOOGLE_DRIVE_CALL_LOG_FOLDER_ID ?? '';
 
@@ -12,19 +13,11 @@ function getDriveClient() {
     throw new Error('GOOGLE_DRIVE_CALL_LOG_FOLDER_ID is not configured');
   }
 
-  const privateKey = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? '')
-    .replace(/\\n/g, '\n');
-  const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-
-  if (!serviceAccountEmail || !privateKey) {
-    throw new Error('Google Service Account credentials not configured');
-  }
-
+  // 검증된 단일 인증(parse-service-account: GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY 우선)
+  // → 다른 Drive 백업(서류/이미지)과 동일 서비스계정으로 통일. 공유드라이브 접근 보장.
+  const credentials = parseServiceAccount(process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY);
   const auth = new google.auth.GoogleAuth({
-    credentials: {
-      client_email: serviceAccountEmail,
-      private_key: privateKey,
-    },
+    credentials,
     scopes: ['https://www.googleapis.com/auth/drive'],
   });
   return google.drive({ version: 'v3', auth });
@@ -72,6 +65,84 @@ async function findFile(name: string, parentId: string): Promise<string | null> 
     supportsAllDrives: true,
   });
   return res.data.files?.[0]?.id ?? null;
+}
+
+/**
+ * 콜 스크립트 백업 (관리자용)
+ * 경로: call-scripts / {segment} / {phase}.txt
+ */
+export async function backupCallScriptToGoogleDrive(params: {
+  segment: string;
+  phase: string;
+  phaseName: string;
+  content: string;
+  psychologyPrinciples: string[];
+  pasonaPhase: string;
+  tips: string[];
+}): Promise<{ fileId: string; viewUrl: string }> {
+  const drive = getDriveClient();
+  const { segment, phase, phaseName, content, psychologyPrinciples, pasonaPhase, tips } = params;
+
+  // 1. call-scripts 폴더 찾기 / 생성
+  const scriptsFolderId = await findOrCreateFolder('call-scripts', CALL_LOG_FOLDER_ID);
+
+  // 2. 세그먼트별 폴더 찾기 / 생성
+  const segmentFolderId = await findOrCreateFolder(segment, scriptsFolderId);
+
+  // 3. txt 파일 내용 생성
+  const lines = [
+    `=== 콜 스크립트 ===`,
+    `세그먼트: ${segment}`,
+    `단계: Phase ${phase} - ${phaseName}`,
+    `PASONA 단계: ${pasonaPhase}`,
+    `백업일시: ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`,
+    '',
+    '--- 스크립트 ---',
+    content,
+    '',
+    '--- 심리학 원리 ---',
+    psychologyPrinciples.map((p) => `• ${p}`).join('\n'),
+    '',
+    '--- 팁 ---',
+    tips.map((t) => `• ${t}`).join('\n'),
+  ];
+  const fileContent = lines.join('\n');
+
+  // 4. 파일명
+  const safeName = `phase_${phase}_${phaseName.replace(/[/\\?%*:|"<>]/g, '_')}.txt`;
+  const existingId = await findFile(safeName, segmentFolderId);
+
+  let fileId: string;
+  if (existingId) {
+    // 기존 파일 덮어쓰기
+    const updated = await drive.files.update({
+      fileId: existingId,
+      media: { mimeType: 'text/plain; charset=utf-8', body: fileContent },
+      fields: 'id, webViewLink',
+      supportsAllDrives: true,
+    });
+    fileId = updated.data.id!;
+  } else {
+    // 신규 파일 생성
+    const created = await drive.files.create({
+      requestBody: { name: safeName, parents: [segmentFolderId] },
+      media: { mimeType: 'text/plain; charset=utf-8', body: fileContent },
+      fields: 'id, webViewLink',
+      supportsAllDrives: true,
+    });
+    fileId = created.data.id!;
+  }
+
+  const meta = await drive.files.get({
+    fileId,
+    fields: 'webViewLink',
+    supportsAllDrives: true,
+  });
+
+  return {
+    fileId,
+    viewUrl: meta.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`,
+  };
 }
 
 /**
