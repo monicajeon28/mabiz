@@ -98,6 +98,30 @@ export async function POST(req: Request) {
 
     const status = ctx.role === 'GLOBAL_ADMIN' ? 'APPROVED' : 'PENDING_APPROVAL';
 
+    // 미리보기/PNG 렌더용 데이터 (응답에 그대로 반환)
+    const generatedData = {
+      buyerName:                payment.buyerName,
+      buyerTel:                 payment.buyerTel,
+      buyerEmail:               payment.buyerEmail ?? null,
+      amount:                   payment.amount,
+      productName:              payment.productName ?? '크루즈 상품',
+      paidAt:                   payment.paidAt?.toISOString() ?? null,
+      cancelledAt:              payment.cancelledAt?.toISOString() ?? null,
+      cancellationRequestedAt:  cancelDate.toISOString(),
+      isRefundPending:          !isCancelled,
+      departureDate:            departureDate?.toISOString() ?? null,
+      refundAmount:             refundCalc.refundAmount,
+      penaltyRate:              refundCalc.penaltyRate,
+      penaltyAmount:            refundCalc.penaltyAmount,
+      daysBeforeDep:            refundCalc.daysBeforeDep,
+      refundBasis:              refundCalc.basis,
+      paymentMethod,
+      companyAccount:           '국민은행 531301-04-167150 (배연성/크루즈닷)',
+      issuedAt:                 new Date().toISOString(),
+      note:                     body.note ?? null,
+      refunderName:             body.refunderName ?? null,
+    };
+
     const doc = await prisma.salesDocument.create({
       data: {
         organizationId: orgId,
@@ -106,28 +130,7 @@ export async function POST(req: Request) {
         orderId:        body.orderId,
         affiliateSaleId: sale.id,
         createdBy:      ctx.userId,
-        generatedData: {
-          buyerName:                payment.buyerName,
-          buyerTel:                 payment.buyerTel,
-          buyerEmail:               payment.buyerEmail ?? null,
-          amount:                   payment.amount,
-          productName:              payment.productName ?? '크루즈 상품',
-          paidAt:                   payment.paidAt?.toISOString() ?? null,
-          cancelledAt:              payment.cancelledAt?.toISOString() ?? null,
-          cancellationRequestedAt:  cancelDate.toISOString(),
-          isRefundPending:          !isCancelled,
-          departureDate:            departureDate?.toISOString() ?? null,
-          refundAmount:             refundCalc.refundAmount,
-          penaltyRate:              refundCalc.penaltyRate,
-          penaltyAmount:            refundCalc.penaltyAmount,
-          daysBeforeDep:            refundCalc.daysBeforeDep,
-          refundBasis:              refundCalc.basis,
-          paymentMethod,
-          companyAccount:           '국민은행 531301-04-167150 (배연성/크루즈닷)',
-          issuedAt:                 new Date().toISOString(),
-          note:                     body.note ?? null,
-          refunderName:             body.refunderName ?? null,
-        },
+        generatedData,
       },
       select: { id: true, status: true },
     });
@@ -167,7 +170,7 @@ export async function POST(req: Request) {
     }
 
     logger.log('[RefundCert] 발급', { orgId, orderId: body.orderId, status, refundAmount: refundCalc.refundAmount });
-    return NextResponse.json({ ok: true, documentId: doc.id, status, refundCalc });
+    return NextResponse.json({ ok: true, documentId: doc.id, status, refundCalc, generatedData });
   } catch (e) {
     logger.log('[RefundCert] 오류', { error: e instanceof Error ? e.message : String(e) });
     return NextResponse.json({ ok: false }, { status: 500 });
