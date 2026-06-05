@@ -3,7 +3,9 @@ import { createTransport, type Transporter } from "nodemailer";
 import { encrypt, decrypt } from "@/lib/crypto";
 
 if (!process.env.EMAIL_ENCRYPT_KEY || process.env.EMAIL_ENCRYPT_KEY.length < 32) {
-  if (process.env.NODE_ENV === 'production') logger.error("[FATAL] EMAIL_ENCRYPT_KEY 미설정 — 조직 SMTP 불동작");
+  const msg = '[FATAL] EMAIL_ENCRYPT_KEY 미설정 또는 32자 미만 — 이메일 암호화 불가';
+  logger.error(msg);
+  if (process.env.NODE_ENV === 'production') throw new Error(msg);
 }
 
 export function encryptSmtpPassword(plain: string): string {

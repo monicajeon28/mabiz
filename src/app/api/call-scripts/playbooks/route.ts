@@ -10,6 +10,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
 
+    if (!['OWNER', 'GLOBAL_ADMIN', 'AGENT'].includes(session.role ?? '')) {
+      return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const type = searchParams.get('type') || undefined;
     const segment = searchParams.get('segment') || undefined;

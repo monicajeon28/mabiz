@@ -579,9 +579,9 @@ export async function runSegmentation(
   totalContacts: number;
   convergenceStatus: "CONVERGED" | "MAX_ITERATIONS";
 }> {
-  console.log(
-    `[Segmentation] Starting for org ${organizationId} with ${numSegments} segments`
-  );
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[Segmentation] Starting for org ${organizationId} with ${numSegments} segments`);
+  }
 
   // 1. Load all active contacts
   const contacts = await prisma.contact.findMany({
@@ -618,7 +618,9 @@ export async function runSegmentation(
     },
   });
 
-  console.log(`[Segmentation] Loaded ${contacts.length} contacts`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[Segmentation] Loaded ${contacts.length} contacts`);
+  }
 
   if (contacts.length === 0) {
     return {
@@ -646,9 +648,9 @@ export async function runSegmentation(
   const kmeans = new KMeansClustering(numSegments);
   const { clusters, centers, converged } = kmeans.cluster(normalizedFeatures);
 
-  console.log(
-    `[Segmentation] K-means converged: ${converged}, centers: ${centers.length}`
-  );
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[Segmentation] K-means converged: ${converged}, centers: ${centers.length}`);
+  }
 
   // 5. Group contacts by cluster
   const segmentGroups: Map<number, (Contact & { features: ContactFeatures })[]> =
@@ -713,9 +715,9 @@ export async function runSegmentation(
   //   }
   // }
 
-  console.log(
-    `[Segmentation] Saved ${savedSegments.length} segments and ${assignments.length} assignments`
-  );
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[Segmentation] Saved ${savedSegments.length} segments and ${assignments.length} assignments`);
+  }
 
   return {
     segments: savedSegments,
@@ -760,7 +762,9 @@ export async function triggerReclustering(organizationId: string) {
 
   if (!org) throw new Error("Organization not found");
 
-  console.log(`[Segmentation] Triggering re-clustering for ${org.name}`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[Segmentation] Triggering re-clustering for ${org.name}`);
+  }
   return runSegmentation(organizationId, 5);
 }
 

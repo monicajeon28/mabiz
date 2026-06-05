@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { logger } from "@/lib/logger";
 import {
   ChevronLeft,
   ChevronRight,
@@ -463,7 +464,7 @@ export default function StatementsPage() {
       })
       .catch((e: unknown) => {
         if (e instanceof Error && e.name !== "AbortError") {
-          console.error("[statements]", e);
+          logger.error("[statements]", { message: e.message });
           setError(e.message || "데이터를 불러올 수 없습니다.");
         }
       })

@@ -125,8 +125,9 @@ const MOCK_DATA: DashboardData = {
 };
 
 export default function ChannelsPage() {
-  const [data, setData] = useState<DashboardData>(MOCK_DATA);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<MessageChannel | null>(
     null
   );
@@ -134,6 +135,7 @@ export default function ChannelsPage() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      setError(null);
       try {
         const response = await fetch("/api/analytics/channels");
         const result = await response.json();
@@ -143,9 +145,11 @@ export default function ChannelsPage() {
             periodStart: new Date(result.periodStart),
             periodEnd: new Date(result.periodEnd),
           });
+        } else {
+          setError(result.message || '데이터를 불러올 수 없습니다.');
         }
-      } catch (error) {
-        console.error("Failed to fetch channel data:", error);
+      } catch (err) {
+        setError('채널 데이터 로드 중 오류가 발생했습니다.');
       } finally {
         setLoading(false);
       }
@@ -153,15 +157,31 @@ export default function ChannelsPage() {
     fetchData();
   }, []);
 
-  const totalSent = data.channels.reduce((sum, c) => sum + c.sent, 0);
-  const totalConverted = data.channels.reduce((sum, c) => sum + c.converted, 0);
-  const totalCost = data.channels.reduce((sum, c) => sum + c.cost, 0);
+  const totalSent = data?.channels.reduce((sum, c) => sum + c.sent, 0) ?? 0;
+  const totalConverted = data?.channels.reduce((sum, c) => sum + c.converted, 0) ?? 0;
+  const totalCost = data?.channels.reduce((sum, c) => sum + c.cost, 0) ?? 0;
   const avgConversionRate =
     totalSent > 0 ? ((totalConverted / totalSent) * 100).toFixed(2) : "0.00";
 
-  const bestPerformerData = data.channels.find(
+  const bestPerformerData = data?.channels.find(
     (c) => c.channel === data.bestPerformer
   );
+
+  if (loading) {
+    return (
+      <div className="p-4 md:p-6 max-w-7xl mx-auto flex items-center justify-center min-h-64">
+        <div className="text-center text-gray-500">데이터를 불러오는 중...</div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="p-4 md:p-6 max-w-7xl mx-auto flex items-center justify-center min-h-64">
+        <div className="text-center text-red-500">{error ?? '데이터 없음'}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">

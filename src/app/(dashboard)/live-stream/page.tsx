@@ -2,10 +2,10 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-// sonner not installed - inline toast implementation
+import { showSuccess, showError } from '@/components/ui/Toast';
 const toast = {
-  success: (msg: string) => console.log('[toast:success]', msg),
-  error: (msg: string) => console.error('[toast:error]', msg),
+  success: (msg: string) => showSuccess(msg),
+  error: (msg: string) => showError(msg),
 };
 
 /**

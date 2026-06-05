@@ -32,11 +32,12 @@ export default function CTASection() {
     });
 
     try {
-      // Simulate form submission
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Here you would typically send the form data to an API
-      console.log('Form submitted:', formData);
+      const res = await fetch('/api/landing/contact-signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      if (!res.ok) throw new Error('서버 오류');
 
       setSubmitStatus('success');
       setFormData({

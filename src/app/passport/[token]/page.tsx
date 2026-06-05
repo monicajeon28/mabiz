@@ -572,6 +572,19 @@ export default function CustomerPassportPage() {
     }
   };
 
+  // 제출 성공 시 PNR 페이지로 자동 리다이렉트 (hooks는 조건문 밖에서 호출해야 함)
+  useEffect(() => {
+    if (!isSuccess) return;
+    const timer = setTimeout(() => {
+      if (reservation?.id) {
+        router.push(`/pnr/${reservation.id}`);
+      } else {
+        router.push('/');
+      }
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [isSuccess, reservation?.id, router]);
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -601,17 +614,6 @@ export default function CustomerPassportPage() {
   }
 
   if (isSuccess) {
-    // 제출 후 PNR 페이지로 자동 리다이렉트
-    useEffect(() => {
-      const timer = setTimeout(() => {
-        if (reservation?.id) {
-          router.push(`/pnr/${reservation.id}`);
-        } else {
-          router.push('/');
-        }
-      }, 2500);
-      return () => clearTimeout(timer);
-    }, [reservation?.id, router]);
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 px-4 py-12">

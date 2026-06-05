@@ -55,20 +55,8 @@ export default function NewReservationPage() {
       }
 
       const data = await response.json();
-      console.log('[NewReservationPage] trips API 응답:', {
-        ok: data.ok,
-        tripsCount: data.trips?.length || 0,
-        trips: data.trips,
-        error: data.error,
-      });
       if (data.ok) {
         setTrips(data.trips || []);
-        if (!data.trips || data.trips.length === 0) {
-          console.warn('[NewReservationPage] trips가 비어있습니다.');
-          if (data.error) {
-            console.error('[NewReservationPage] trips API 에러:', data.error);
-          }
-        }
       } else {
         throw new Error(data.message || '여행 상품 목록을 불러올 수 없습니다.');
       }

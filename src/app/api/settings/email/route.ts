@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext } from "@/lib/rbac";
+import { getAuthContext, canManageSettings } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { encryptSmtpPassword, sendEmail } from "@/lib/email";
 
@@ -65,6 +65,10 @@ export async function PUT(req: Request) {
         { ok: false, error: "UNAUTHORIZED", message: "인증되지 않음" },
         { status: 401 }
       );
+    }
+
+    if (!canManageSettings(ctx)) {
+      return NextResponse.json({ ok: false, message: 'OWNER 또는 관리자만 이메일 설정을 변경할 수 있습니다.' }, { status: 403 });
     }
 
     const body = await req.json();
@@ -172,6 +176,10 @@ export async function POST(req: Request) {
         { ok: false, error: "UNAUTHORIZED", message: "인증되지 않음" },
         { status: 401 }
       );
+    }
+
+    if (!canManageSettings(ctx)) {
+      return NextResponse.json({ ok: false, message: 'OWNER 또는 관리자만 이메일 설정을 변경할 수 있습니다.' }, { status: 403 });
     }
 
     const body = await req.json();

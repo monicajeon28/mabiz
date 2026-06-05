@@ -16,6 +16,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { processOnboardingSequence } from '@/lib/services/partner-onboarding-service';
@@ -54,7 +55,10 @@ export async function POST(req: Request) {
     // Verify auth
     const authHeader = req.headers.get('Authorization');
     const cronSecret = authHeader?.replace('Bearer ', '');
-    if (cronSecret !== process.env.CRON_SECRET) {
+    const envSecret = process.env.CRON_SECRET;
+    if (!envSecret || !cronSecret ||
+        cronSecret.length !== envSecret.length ||
+        !timingSafeEqual(Buffer.from(cronSecret), Buffer.from(envSecret))) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }

@@ -105,7 +105,7 @@ export async function GET(req: Request) {
           channel:        "MANUAL",
         });
 
-        result.result_code === 1 ? sentCount++ : failedCount++;
+        if (result.result_code === 1) { sentCount++; } else { failedCount++; }
       }
 
       await prisma.scheduledEmail.update({
