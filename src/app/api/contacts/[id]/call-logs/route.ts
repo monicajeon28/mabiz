@@ -1,12 +1,10 @@
 export const runtime = 'nodejs';
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getOrgId } from "@/lib/org";
 import { getMabizSession } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { addLeadScore } from "@/lib/lead-score";
 import { getAuthContext } from "@/lib/rbac";
-import { backupCallLogsToGoogleDrive } from "@/lib/google-drive";
 import { validateObjectionInput } from "@/lib/objections/validation";
 import { CallLogIdSchema } from "@/lib/validators";
 
@@ -15,11 +13,13 @@ type Params = { params: Promise<{ id: string }> };
 // GET /api/contacts/[id]/call-logs
 export async function GET(_req: Request, { params }: Params) {
   try {
-    const orgId = await getOrgId();
     const ctx = await getAuthContext();
     const { id } = await params;
 
-    const contact = await prisma.contact.findFirst({ where: { id, organizationId: orgId } });
+    const contactWhere = ctx.role === 'GLOBAL_ADMIN'
+      ? { id }
+      : { id, organizationId: ctx.organizationId! };
+    const contact = await prisma.contact.findFirst({ where: contactWhere });
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
 
     // 역할별 필터링
@@ -61,13 +61,15 @@ export async function GET(_req: Request, { params }: Params) {
 // DELETE /api/contacts/[id]/call-logs             (전체)
 export async function DELETE(req: Request, { params }: Params) {
   try {
-    const orgId = await getOrgId();
     const ctx = await getAuthContext();
     const { id } = await params;
     const { searchParams } = new URL(req.url);
     const logId = searchParams.get("logId");
 
-    const contact = await prisma.contact.findFirst({ where: { id, organizationId: orgId } });
+    const contactWhere = ctx.role === 'GLOBAL_ADMIN'
+      ? { id }
+      : { id, organizationId: ctx.organizationId! };
+    const contact = await prisma.contact.findFirst({ where: contactWhere });
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
 
     // AGENT는 자신의 콜로그만 삭제 가능
@@ -101,7 +103,6 @@ export async function DELETE(req: Request, { params }: Params) {
 // PUT /api/contacts/[id]/call-logs?logId=xxx (수정)
 export async function PUT(req: Request, { params }: Params) {
   try {
-    const orgId = await getOrgId();
     const ctx = await getAuthContext();
     const { id } = await params;
     const { searchParams } = new URL(req.url);
@@ -118,7 +119,10 @@ export async function PUT(req: Request, { params }: Params) {
       );
     }
 
-    const contact = await prisma.contact.findFirst({ where: { id, organizationId: orgId } });
+    const contactWhere = ctx.role === 'GLOBAL_ADMIN'
+      ? { id }
+      : { id, organizationId: ctx.organizationId! };
+    const contact = await prisma.contact.findFirst({ where: contactWhere });
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
 
     // 기존 콜 기록 확인
@@ -179,14 +183,16 @@ export async function PUT(req: Request, { params }: Params) {
 // POST /api/contacts/[id]/call-logs
 export async function POST(req: Request, { params }: Params) {
   try {
-    const orgId    = await getOrgId();
     const ctx      = await getAuthContext();
     const session  = await getMabizSession();
     const { id }   = await params;
     const body     = await req.json();
 
+    const contactWhere = ctx.role === 'GLOBAL_ADMIN'
+      ? { id }
+      : { id, organizationId: ctx.organizationId! };
     const contact = await prisma.contact.findFirst({
-      where: { id, organizationId: orgId },
+      where: contactWhere,
       select: { id: true, name: true, phone: true },
     });
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
@@ -282,7 +288,14 @@ export async function POST(req: Request, { params }: Params) {
           },
         },
       }).catch(err => {
-        logger.error('[CallLog] BackupJob 등록 실패', { err });
+        // P2: BackupJob 누락은 Neon 저장 성공과 구분해서 별도 추적
+        logger.error('[CallLog] BackupJob 등록 실패 — Drive 백업 누락 위험', {
+          err,
+          contactId: id,
+          logId: log.id,
+          severity: 'BACKUP_MISSING',
+        });
+        // TODO: 알람 시스템 연동 시 여기에 Slack/PagerDuty 알림 추가
       });
     }
 

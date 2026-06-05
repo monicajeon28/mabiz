@@ -1,7 +1,6 @@
 export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getOrgId } from '@/lib/org';
 import { getAuthContext } from '@/lib/rbac';
 import { backupCallLogsToGoogleDrive } from '@/lib/google-drive';
 import { logger } from '@/lib/logger';
@@ -15,14 +14,16 @@ type Params = { params: Promise<{ id: string }> };
  */
 export async function POST(_req: Request, { params }: Params) {
   try {
-    const orgId = await getOrgId();
     const ctx   = await getAuthContext();
 
     const { id: contactId } = await params;
 
     // 고객 조회 (소유권 검증)
+    const contactWhere = ctx.role === 'GLOBAL_ADMIN'
+      ? { id: contactId }
+      : { id: contactId, organizationId: ctx.organizationId! };
     const contact = await prisma.contact.findFirst({
-      where: { id: contactId, organizationId: orgId },
+      where: contactWhere,
       select: { id: true, name: true, phone: true },
     });
     if (!contact) return NextResponse.json({ ok: false, message: '고객을 찾을 수 없습니다.' }, { status: 404 });
