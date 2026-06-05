@@ -1,10 +1,6 @@
 /** @type {import('next').NextConfig} */
 
 const nextConfig = {
-  experimental: {
-    nodeMiddleware: true,
-  },
-
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true }, // ESLint는 CI lint 단계에서 별도 실행
 
@@ -18,12 +14,6 @@ const nextConfig = {
       { protocol: 'https', hostname: 'cruisedot.co.kr' },
       { protocol: 'https', hostname: 'mabizcruisedot.com' },
     ],
-  },
-
-  // Windows NTFS rename race condition → prod은 캐시 끔, dev는 메모리 캐시 사용
-  webpack: (config, { dev }) => {
-    config.cache = dev ? { type: 'memory' } : false;
-    return config;
   },
 
   generateEtags: true,

@@ -146,20 +146,20 @@ model KakaoConfig {
 }
 
 model OrganizationMember {
-  id                  String       @id @default(cuid())
-  organizationId      String
-  userId              String
-  phone               String?
-  passwordHash        String?
-  role                String       @default("AGENT")
-  displayName         String?
-  isActive            Boolean      @default(true)
-  email               String?
-  emailSenderName     String?
+  id                String       @id @default(cuid())
+  organizationId    String
+  userId            String
+  phone             String?
+  passwordHash      String?
+  role              String       @default("AGENT")
+  displayName       String?
+  isActive          Boolean      @default(true)
+  email             String?
+  emailSenderName   String?
   // 계약서 디지털 서명
-  contractSignature   String?
-  contractSignedAt    DateTime?
-  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contractSignature String?
+  contractSignedAt  DateTime?
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, userId])
   @@index([organizationId])
@@ -499,7 +499,6 @@ model Contact {
   @@index([affiliateManagerId], map: "idx_contact_affiliate_manager_id")
   @@index([affiliateAgentId], map: "idx_contact_affiliate_agent_id")
   @@index([signupMethod], map: "idx_contact_signup_method")
-
   // P1-22: 태그 배열 필터링 인덱스 추가 (hasEvery 성능 최적화)
   @@index([organizationId, tags], map: "idx_contact_org_tags")
 }
@@ -744,6 +743,7 @@ model ContactMemo {
   contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   @@index([contactId])
+  @@index([userId])
 }
 
 model CrmLandingPage {
@@ -989,9 +989,9 @@ model SmsLog {
   responseAt     DateTime?
   segmentCode    String? // e.g., "L0_INACTIVE", "L1_PRICE", "L6_TIMING"
   psychologyLens String? // e.g., "LOSS_AVERSION", "SCARCITY", "URGENCY"
-  trackingId     String?  @unique // SMS 추적 ID (메시지 수신/오픈/클릭 추적용)
-  trackingUrl    String?  // SMS 내 클릭 추적 URL
-  createdAt      DateTime @default(now()) // SMS 생성 시간
+  trackingId     String?   @unique // SMS 추적 ID (메시지 수신/오픈/클릭 추적용)
+  trackingUrl    String? // SMS 내 클릭 추적 URL
+  createdAt      DateTime  @default(now()) // SMS 생성 시간
   cost           Int? // SMS 비용 (센트 단위)
 
   @@index([organizationId, sentAt])
@@ -1526,9 +1526,9 @@ model OrgInviteToken {
   usedAt          DateTime?
   usedByUserId    String?
   agreedToTerms   Boolean      @default(false)
-  signature       String?      // 디지털 서명 (실명 입력값)
-  signedAt        DateTime?    // 서명 일시
-  memberEmail     String?      // 가입자 이메일 (계약서 발송용)
+  signature       String? // 디지털 서명 (실명 입력값)
+  signedAt        DateTime? // 서명 일시
+  memberEmail     String? // 가입자 이메일 (계약서 발송용)
   createdByUserId String?
   createdAt       DateTime     @default(now())
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -1576,27 +1576,27 @@ model ContactChangeLog {
 }
 
 model AffiliateSale {
-  id                String          @id @default(cuid())
+  id                String             @id @default(cuid())
   organizationId    String
   affiliateCode     String
   affiliateUserId   String?
   productName       String
   saleAmount        Int
-  commissionRate    Int             @default(0)
-  commissionAmount  Int             @default(0)
-  refundedAmount    Int             @default(0)
+  commissionRate    Int                @default(0)
+  commissionAmount  Int                @default(0)
+  refundedAmount    Int                @default(0)
   refundedAt        DateTime?
   cancelledAt       DateTime?
-  cancelReason      String?         @db.VarChar(255)
-  status            String          @default("PENDING")
+  cancelReason      String?            @db.VarChar(255)
+  status            String             @default("PENDING")
   travelCompletedAt DateTime?
   paidAt            DateTime?
   customerPhone     String?
-  orderId           String?         @unique
+  orderId           String?            @unique
   sourceWebhook     String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   salesDocuments    SalesDocument[]
   commissionLedgers CommissionLedger[]
 
@@ -1668,7 +1668,7 @@ model ScriptPattern {
 model ShortLink {
   id             String           @id @default(cuid())
   organizationId String
-  createdBy      String?          // OrganizationMember.userId — 생성자 본인 링크만 조회
+  createdBy      String? // OrganizationMember.userId — 생성자 본인 링크만 조회
   code           String           @unique
   targetUrl      String
   title          String?
@@ -2306,23 +2306,23 @@ model GoogleCalendarToken {
 }
 
 model Document {
-  id             String             @id @default(dbgenerated("gen_random_uuid()"))
+  id             String                @id @default(dbgenerated("gen_random_uuid()"))
   organizationId String
   contactId      String?
   passportId     Int?
   title          String
   description    String?
   category       String?
-  status         String             @default("DRAFT")
+  status         String                @default("DRAFT")
   driveFileId    String?
   fileSize       BigInt?
   mimeType       String?
   createdBy      String
   updatedBy      String?
-  createdAt      DateTime           @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime           @updatedAt @db.Timestamptz(6)
-  contact        Contact?           @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime              @updatedAt @db.Timestamptz(6)
+  contact        Contact?              @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   passport       GmPassportSubmission? @relation("PassportDocuments", fields: [passportId], references: [id], onDelete: Cascade)
   approvals      DocumentApproval[]
   versions       DocumentVersion[]
@@ -2806,19 +2806,19 @@ model GmApisSyncQueue {
 }
 
 model GmPassportSubmission {
-  id             Int       @id @default(autoincrement())
+  id             Int        @id @default(autoincrement())
   userId         Int
   tripId         Int?
-  token          String    @unique /// 필수: 여권 제출 고유 토큰
+  token          String     @unique /// 필수: 여권 제출 고유 토큰
   tokenExpiresAt DateTime
-  isSubmitted    Boolean   @default(false)
+  isSubmitted    Boolean    @default(false)
   submittedAt    DateTime?
   driveFolderUrl String?
   extraData      Json?
-  createdAt      DateTime  @default(now()) /// 필수: 제출 요청 생성 시간
-  updatedAt      DateTime  @default(now()) @updatedAt
-  trip           GmTrip?   @relation(fields: [tripId], references: [id])
-  user           GmUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now()) /// 필수: 제출 요청 생성 시간
+  updatedAt      DateTime   @default(now()) @updatedAt
+  trip           GmTrip?    @relation(fields: [tripId], references: [id])
+  user           GmUser     @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents      Document[] @relation("PassportDocuments")
 
   @@unique([userId, tripId])
@@ -3539,26 +3539,26 @@ model CmsNotificationTemplate {
 }
 
 model CommissionLedger {
-  id                Int             @id @default(autoincrement())
-  saleId            String?         // FK to AffiliateSale.id (String, nullable for settlement-based entries)
+  id                Int       @id @default(autoincrement())
+  saleId            String? // FK to AffiliateSale.id (String, nullable for settlement-based entries)
   organizationId    String
   profileId         Int?
   entryType         String
   amount            Int
-  currency          String          @default("KRW")
+  currency          String    @default("KRW")
   withholdingAmount Int?
   settlementId      Int?
-  isSettled         Boolean         @default(false)
+  isSettled         Boolean   @default(false)
   settleableAfter   DateTime?
   notes             String?
   metadata          Json?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @default(now())
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now())
   agentId           Int?
 
   // Relations
-  sale              AffiliateSale?  @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sale         AffiliateSale? @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Indexes for Race Condition Prevention
   // Note: We use a partial unique index in the migration (saleId, organizationId) WHERE saleId IS NOT NULL
@@ -4485,24 +4485,24 @@ model MeetingRoom {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model MonthlySettlement {
-  id             Int          @id @default(autoincrement())
+  id             Int       @id @default(autoincrement())
   organizationId String
-  periodStart    DateTime     @db.Timestamp(6)
-  periodEnd      DateTime     @db.Timestamp(6)
+  periodStart    DateTime  @db.Timestamp(6)
+  periodEnd      DateTime  @db.Timestamp(6)
   targetRole     String?
-  status         String       @default("DRAFT")
+  status         String    @default("DRAFT")
   approvedById   Int?
-  approvedAt     DateTime?    @db.Timestamp(6)
-  lockedAt       DateTime?    @db.Timestamp(6)
-  paymentDate    DateTime?    @db.Timestamp(6)
+  approvedAt     DateTime? @db.Timestamp(6)
+  lockedAt       DateTime? @db.Timestamp(6)
+  paymentDate    DateTime? @db.Timestamp(6)
   exportUrl      String?
   summary        Json?
   notes          String?
-  createdAt      DateTime     @default(now()) @db.Timestamp(6)
-  updatedAt      DateTime     @default(now()) @db.Timestamp(6)
+  createdAt      DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime  @default(now()) @db.Timestamp(6)
 
   // Relations
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([periodStart, periodEnd, organizationId])
   @@index([organizationId, status])
@@ -4909,20 +4909,20 @@ model PayslipBonus {
 }
 
 model AffiliatePayslip {
-  id                 Int       @id @default(autoincrement())
-  agentId            Int // GMcruise User.id (파트너)
-  yearMonth          String // YYYY-MM 형식
-  baseCommission     BigInt // 기본 커미션 (단위: 원)
-  bonus              BigInt? // 추가 보너스
-  deduction          BigInt? // 공제 (세금, 페널티 등)
-  netAmount          BigInt // 실지급액
-  status             String    @default("PENDING") // PENDING, APPROVED, SENT
-  paidAt             DateTime? // 지급일
-  note               String? // 메모
-  agentDisplayName   String? // 파트너 이름 (스냅샷)
-  agentMallUserId    String? // 파트너 mallUserId (스냅샷)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id               Int       @id @default(autoincrement())
+  agentId          Int // GMcruise User.id (파트너)
+  yearMonth        String // YYYY-MM 형식
+  baseCommission   BigInt // 기본 커미션 (단위: 원)
+  bonus            BigInt? // 추가 보너스
+  deduction        BigInt? // 공제 (세금, 페널티 등)
+  netAmount        BigInt // 실지급액
+  status           String    @default("PENDING") // PENDING, APPROVED, SENT
+  paidAt           DateTime? // 지급일
+  note             String? // 메모
+  agentDisplayName String? // 파트너 이름 (스냅샷)
+  agentMallUserId  String? // 파트너 mallUserId (스냅샷)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@unique([agentId, yearMonth])
   @@index([status])
@@ -5998,7 +5998,7 @@ model CrmMarketingMessage {
   metadata Json?
 
   // 예약 연결
-  bookingId String?
+  bookingId  String?
   campaignId String? // 캠페인 ID (참조)
 
   createdAt DateTime @default(now())
@@ -6594,39 +6594,39 @@ model ProfitCalculation {
   savedAt        DateTime @default(now())
 
   // 입력값 (원)
-  salePrice      Float
-  costPrice      Float
+  salePrice Float
+  costPrice Float
 
   // 대리점장 수당
-  agentMode      String   @default("pct")
-  agentPct       Float    @default(0)
-  agentAmt       Float    @default(0)
+  agentMode String @default("pct")
+  agentPct  Float  @default(0)
+  agentAmt  Float  @default(0)
 
   // 소속판매원 수당
-  memberMode     String   @default("pct")
-  memberPct      Float    @default(0)
-  memberAmt      Float    @default(0)
+  memberMode String @default("pct")
+  memberPct  Float  @default(0)
+  memberAmt  Float  @default(0)
 
   // 자유판매원 수당
-  freeAmt        Float    @default(0)
-  freePct        Float    @default(0)
+  freeAmt Float @default(0)
+  freePct Float @default(0)
 
   // 오버라이딩
-  overridingAmt  Float    @default(0)
-  overridingPct  Float    @default(0)
+  overridingAmt Float @default(0)
+  overridingPct Float @default(0)
 
   // 계산 결과 스냅샷
-  snapshotSale         Float
-  snapshotNetProfit    Float
-  snapshotHqProfit     Float
+  snapshotSale      Float
+  snapshotNetProfit Float
+  snapshotHqProfit  Float
 
   // 환율 (저장 시점)
   exchangeRateSnapshot Float?
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, savedAt(sort: Desc)])
   @@index([organizationId, userId])
