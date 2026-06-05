@@ -1,16 +1,33 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
 type Params = { params: Promise<{ id: string }> };
 
+// 조직 ID 해석 (GLOBAL_ADMIN 지원 — 목록 API와 동일 정책)
+// GLOBAL_ADMIN은 organizationId가 null이므로 첫 조직을 사용한다.
+async function resolveOrgId(ctx: Awaited<ReturnType<typeof getAuthContext>>): Promise<string | null> {
+  if (ctx.organizationId) return ctx.organizationId;
+  if (ctx.role === 'GLOBAL_ADMIN') {
+    const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
+    return firstOrg?.id ?? null;
+  }
+  return null;
+}
+
 // GET /api/groups/[id] - 그룹 상세 정보 조회 (L10 렌즈: 즉시구매 클로징)
 export async function GET(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = await resolveOrgId(ctx);
+    if (!orgId) {
+      return NextResponse.json(
+        { ok: false, error: 'FORBIDDEN', message: '조직 정보가 없습니다.' },
+        { status: 403 }
+      );
+    }
     const { id: groupId } = await params;
 
     // IDOR 보안: organizationId 체크
@@ -67,7 +84,13 @@ export async function GET(req: Request, { params }: Params) {
 export async function PATCH(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = await resolveOrgId(ctx);
+    if (!orgId) {
+      return NextResponse.json(
+        { ok: false, error: 'FORBIDDEN', message: '조직 정보가 없습니다.' },
+        { status: 403 }
+      );
+    }
     const { id: groupId } = await params;
     const body = await req.json();
     const { name, description, funnelId } = body;
@@ -178,7 +201,13 @@ export async function PATCH(req: Request, { params }: Params) {
 export async function DELETE(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = await resolveOrgId(ctx);
+    if (!orgId) {
+      return NextResponse.json(
+        { ok: false, error: 'FORBIDDEN', message: '조직 정보가 없습니다.' },
+        { status: 403 }
+      );
+    }
     const { id: groupId } = await params;
 
     // IDOR 보안: organizationId 체크
