@@ -160,9 +160,6 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const [transferLogs,    setTransferLogs]    = useState<TransferLog[]>([]);
   const [loadingTransfer, setLoadingTransfer] = useState(false);
 
-  // Day 0-3 SMS 자동화 시퀀스
-  const [sequenceLoading, setSequenceLoading] = useState(false);
-
   // 콜 기록 accordion
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
 
@@ -179,32 +176,6 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   // 이 고객 Drive 백업
   const [backingContact, setBackingContact] = useState(false);
   const [contactBackupMsg, setContactBackupMsg] = useState("");
-
-  // Day 0-3 SMS 자동화 시퀀스 시작 (L6 손실회피 + L10 클로징)
-  const startDay0_3Sequence = async (contactId: string) => {
-    if (!confirm("Day 0-3 SMS 자동화 시퀀스를 시작하시겠어요?\n\n- Day 0: 즉시 발송\n- Day 1-3: 자동 스케줄")) return;
-
-    setSequenceLoading(true);
-    try {
-      const res = await fetch(`/api/contacts/${contactId}/start-day0-3-sequence`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sendNow: true }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        toast({ title: "✅ Day 0-3 시퀀스가 시작되었습니다!", variant: "success" });
-        logger.log("[startDay0_3Sequence] 시퀀스 시작 성공", { contactId, ...data.data });
-      } else {
-        toast({ title: data.message ?? "시퀀스 시작 실패", variant: "destructive" });
-      }
-    } catch (err) {
-      logger.error("[startDay0_3Sequence]", { err, contactId });
-      toast({ title: "시퀀스 시작 중 오류 발생", variant: "destructive" });
-    } finally {
-      setSequenceLoading(false);
-    }
-  };
 
   // 콜 기록 삭제
   const deleteCallLog = async (logId: string) => {
@@ -1114,11 +1085,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       />
 
       {/* Phase 3.4: 제휴 담당자 정보 (L9 신뢰도 + L10 클로징) */}
-      <ContactAffiliateCard
-        contactId={id}
-        onStartSequence={startDay0_3Sequence}
-        sequenceLoading={sequenceLoading}
-      />
+      <ContactAffiliateCard contactId={id} />
 
       {/* Phase 4D: 거래 위험도 (10개 신호 자동 감지) */}
       <ContactRiskPanel contactId={id} />
