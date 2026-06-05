@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     }
 
     // OWNER는 자기 조직만 처리 가능
-    if (isOwner && body.organizationId !== ctx.organizationId) {
+    if (isOwner && (!ctx.organizationId || body.organizationId !== ctx.organizationId)) {
       return NextResponse.json({ ok: false, error: '해당 조직에 대한 권한이 없습니다' }, { status: 403 });
     }
 
@@ -61,14 +61,15 @@ export async function POST(req: Request) {
         partnerName:        body.memberName,
         partnerRole:        body.memberRole,
         suspensionStatus:   'SUSPENDED',
-        suspensionReason:   `환불율 기준 초과 정지: ${body.refundRate}% (기준 20%)`,
+        suspensionReason:   'HIGH_REFUND',
         reasonDetails:      {
-          trigger:     'REFUND_RATE_EXCEEDED',
-          refundRate:  body.refundRate,
-          score:       body.score,
-          threshold:   20,
-          triggeredBy: isAdmin ? 'admin' : 'owner',
-          triggeredAt: new Date().toISOString(),
+          trigger:         'REFUND_RATE_EXCEEDED',
+          refundRate:      body.refundRate,
+          score:           body.score,
+          threshold:       20,
+          displayMessage:  `환불율 기준 초과 정지: ${body.refundRate}% (기준 20%)`,
+          triggeredBy:     isAdmin ? 'admin' : 'owner',
+          triggeredAt:     new Date().toISOString(),
         },
         suspendedAt:        new Date(),
         suspendedByAdminId: ctx.sessionUser.crmUserId,

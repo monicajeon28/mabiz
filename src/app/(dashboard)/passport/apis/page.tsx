@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Ship, Search, Download, FileSpreadsheet, ArrowLeft, Users, RefreshCw, Loader2, Lock } from 'lucide-react';
+import { Ship, Search, Download, FileSpreadsheet, ArrowLeft, Users, RefreshCw, Loader2, Lock, FolderPlus, ExternalLink } from 'lucide-react';
 import { showError } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
 import type { ApisRow } from '@/app/api/admin/apis/excel/route';
@@ -17,6 +17,7 @@ interface ProductItem {
   departureDate: string | null;
   saleStatus: string | null;
   isActive: boolean;
+  driveSheetUrl?: string | null;   // /api/products 응답서 채움 (Trip.spreadsheetId 기반 뷰어 URL)
 }
 
 function fmtDate(iso: string | null): string {
@@ -35,6 +36,7 @@ export default function ApisPage() {
   const [selected, setSelected] = useState<ProductItem | null>(null);
   const [rows, setRows] = useState<ApisRow[]>([]);
   const [loadingRows, setLoadingRows] = useState(false);
+  const [savingDrive, setSavingDrive] = useState(false);
 
   // 실제 판매 상품 목록 로드 (/products 와 동일 소스)
   const loadProducts = useCallback(async (q: string) => {
@@ -72,6 +74,28 @@ export default function ApisPage() {
   const downloadExcel = () => {
     if (!selected) return;
     window.open(`/api/admin/apis/excel?productCode=${encodeURIComponent(selected.code)}`, '_blank');
+  };
+
+  // Drive 시트 저장/갱신 — POST /api/admin/apis/drive (멱등, OWNER/GLOBAL_ADMIN 전용)
+  const saveToDrive = async () => {
+    if (!selected || !canManage || savingDrive) return;
+    setSavingDrive(true);
+    try {
+      const res = await fetch(
+        `/api/admin/apis/drive?productCode=${encodeURIComponent(selected.code)}`,
+        { method: 'POST' },
+      );
+      const data = await res.json();
+      if (!data.ok) { showError(data.error ?? 'Drive 저장에 실패했습니다.'); return; }
+      if (data.skipped) { showError('탑승객 0명 — 저장할 명단 없음'); return; }
+      if (data.viewUrl) {
+        window.open(data.viewUrl, '_blank');
+        // 로컬 상태 갱신: 만들기 → 열기/갱신 버튼으로 전환
+        setSelected(prev => prev ? { ...prev, driveSheetUrl: data.viewUrl } : prev);
+        setProducts(prev => prev.map(p => p.id === selected.id ? { ...p, driveSheetUrl: data.viewUrl } : p));
+      }
+    } catch { showError('네트워크 오류'); }
+    finally { setSavingDrive(false); }
   };
 
   // 권한 가드: APIS 엑셀이 OWNER/GLOBAL_ADMIN 전용이라 페이지도 동일하게 차단
@@ -173,13 +197,51 @@ export default function ApisPage() {
                     <span className="flex items-center gap-0.5"><Users className="w-3 h-3" />탑승객 {rows.length}명</span>
                   </p>
                 </div>
-                <button
-                  onClick={downloadExcel}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700"
-                >
-                  <Download className="w-4 h-4" />
-                  엑셀 다운로드
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={downloadExcel}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700"
+                  >
+                    <Download className="w-4 h-4" />
+                    엑셀 다운로드
+                  </button>
+
+                  {/* Drive 시트 — OWNER/GLOBAL_ADMIN 전용 */}
+                  {canManage && (
+                    selected.driveSheetUrl ? (
+                      <>
+                        <a
+                          href={selected.driveSheetUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-2 border border-blue-300 text-blue-700 text-sm font-medium rounded-lg hover:bg-blue-50"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          Drive 열기
+                        </a>
+                        <button
+                          onClick={saveToDrive}
+                          disabled={savingDrive || rows.length === 0}
+                          title={rows.length === 0 ? '탑승객 0명 — 갱신할 명단 없음' : '최신 명단으로 덮어쓰기'}
+                          className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {savingDrive ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                          최신본 갱신
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={saveToDrive}
+                        disabled={savingDrive || rows.length === 0}
+                        title={rows.length === 0 ? '탑승객 0명 — 저장할 명단이 없습니다' : 'Google Drive에 APIS 명단 저장'}
+                        className="flex items-center gap-1.5 px-3 py-2 border border-blue-300 text-blue-700 text-sm font-medium rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {savingDrive ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderPlus className="w-4 h-4" />}
+                        Drive 시트 만들기
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
 
               {loadingRows ? (

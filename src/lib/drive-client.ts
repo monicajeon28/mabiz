@@ -4,6 +4,7 @@
  * - findOrCreateFolder(): 폴더 찾기 또는 생성 (중복 제거)
  */
 import { google } from 'googleapis';
+import { Readable } from 'stream';
 import { parseServiceAccount } from './parse-service-account';
 
 let driveClientInstance: ReturnType<typeof google.drive> | null = null;
@@ -72,4 +73,96 @@ export async function findOrCreateFolder(
   });
 
   return created.data.id!;
+}
+
+/**
+ * 파일 찾기 (이름 + 부모 폴더 기준)
+ * - 없으면 null 반환
+ */
+export async function findFile(
+  name: string,
+  parentId: string
+): Promise<string | null> {
+  const drive = getDriveClient();
+  const res = await drive.files.list({
+    q: `name='${name.replace(/'/g, "\\'")}' and '${parentId}' in parents and trashed=false`,
+    fields: 'files(id, name)',
+    corpora: 'allDrives',
+    includeItemsFromAllDrives: true,
+    supportsAllDrives: true,
+  });
+  return res.data.files?.[0]?.id ?? null;
+}
+
+const XLSX_MIME =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/**
+ * xlsx 멱등 업로드
+ * - existingFileId 가 있으면 해당 파일을 덮어쓰되, 404면 신규 생성으로 self-heal
+ * - existingFileId 가 없으면 findFile 로 동일 이름 탐색 → 있으면 update, 없으면 create
+ * - 항상 supportsAllDrives:true
+ */
+export async function uploadXlsxIdempotent(
+  buf: Buffer,
+  fileName: string,
+  parentId: string,
+  existingFileId?: string | null
+): Promise<{ fileId: string; viewUrl: string }> {
+  const drive = getDriveClient();
+
+  const create = async (): Promise<string> => {
+    const created = await drive.files.create({
+      requestBody: { name: fileName, parents: [parentId] },
+      media: { mimeType: XLSX_MIME, body: Readable.from(buf) },
+      fields: 'id, webViewLink',
+      supportsAllDrives: true,
+    });
+    fileId = created.data.id!;
+    viewUrl = created.data.webViewLink ?? '';
+    return fileId;
+  };
+
+  const update = async (id: string): Promise<string> => {
+    const updated = await drive.files.update({
+      fileId: id,
+      media: { mimeType: XLSX_MIME, body: Readable.from(buf) },
+      fields: 'id, webViewLink',
+      supportsAllDrives: true,
+    });
+    fileId = updated.data.id!;
+    viewUrl = updated.data.webViewLink ?? '';
+    return fileId;
+  };
+
+  let fileId = '';
+  let viewUrl = '';
+
+  if (existingFileId) {
+    try {
+      await update(existingFileId);
+    } catch (err) {
+      // 404 → 파일이 삭제됨: 신규 생성으로 self-heal
+      const status =
+        (err as { code?: number; status?: number })?.code ??
+        (err as { code?: number; status?: number })?.status;
+      if (status === 404) {
+        await create();
+      } else {
+        throw err;
+      }
+    }
+  } else {
+    const found = await findFile(fileName, parentId);
+    if (found) {
+      await update(found);
+    } else {
+      await create();
+    }
+  }
+
+  return {
+    fileId,
+    viewUrl: viewUrl || `https://drive.google.com/file/d/${fileId}/view`,
+  };
 }

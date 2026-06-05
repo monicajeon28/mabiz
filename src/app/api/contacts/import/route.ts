@@ -23,7 +23,44 @@ const COLUMN_MAP: Record<string, string> = {
   "비고":        "adminMemo",
   "유형":        "type",
   "구분":        "type",
+  // 유입날짜
+  "유입날짜":    "inflowDate",
+  "유입일":      "inflowDate",
+  "등록일":      "inflowDate",
+  "입수일":      "inflowDate",
+  "inflow":      "inflowDate",
+  // 설문
+  "설문1":       "survey1",
+  "설문2":       "survey2",
+  "설문3":       "survey3",
+  "질문1":       "survey1",
+  "질문2":       "survey2",
+  "질문3":       "survey3",
+  "survey1":     "survey1",
+  "survey2":     "survey2",
+  "survey3":     "survey3",
+  "q1":          "survey1",
+  "q2":          "survey2",
+  "q3":          "survey3",
 };
+
+function parseInflowDate(value: string): Date | null {
+  if (!value?.trim()) return null;
+  const s = value.trim();
+  // YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD
+  const iso = s.match(/^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+  if (iso) {
+    const d = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+    return isNaN(d.getTime()) ? null : d;
+  }
+  // 2023년 1월 5일 / 2023.1.5
+  const kor = s.match(/(\d{4})[년]?\s*(\d{1,2})[월]?\s*(\d{1,2})/);
+  if (kor) {
+    const d = new Date(Number(kor[1]), Number(kor[2]) - 1, Number(kor[3]));
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
 
 // POST /api/contacts/import
 export async function POST(req: Request) {
@@ -68,7 +105,7 @@ export async function POST(req: Request) {
     const errors: string[] = [];
 
     // P1-23: 배열 기반 전처리 (유효성 검증 + 정규화)
-    const validRows: Array<{ index: number; data: Record<string, string> }> = [];
+    const validRows: Array<{ index: number; data: Record<string, string>; inflowDate: Date | null }> = [];
     for (let i = 0; i < rows.length; i++) {
       const row  = rows[i];
       const data: Record<string, string> = {};
@@ -92,7 +129,7 @@ export async function POST(req: Request) {
         data.type = normalized ?? "LEAD";
       }
 
-      validRows.push({ index: i, data });
+      validRows.push({ index: i, data, inflowDate: data.inflowDate ? parseInflowDate(data.inflowDate) : null });
     }
 
     // 50건 단위 청크 처리 (수천건 동시 upsert → DB 과부하 방지)
@@ -112,13 +149,23 @@ export async function POST(req: Request) {
               email:          row.data.email          ?? null,
               type:           row.data.type           ?? "LEAD",
               cruiseInterest: row.data.cruiseInterest ?? null,
+              budgetRange:    row.data.budgetRange    ?? null,
               adminMemo:      row.data.adminMemo      ?? null,
+              inflowDate:     row.inflowDate          ?? null,
+              ...(row.data.survey1 || row.data.survey2 || row.data.survey3 ? {
+                surveyData: { q1: row.data.survey1 ?? null, q2: row.data.survey2 ?? null, q3: row.data.survey3 ?? null },
+              } : {}),
             },
             update: {
               name:           row.data.name,
               email:          row.data.email          ?? undefined,
               cruiseInterest: row.data.cruiseInterest ?? undefined,
+              budgetRange:    row.data.budgetRange    ?? undefined,
               adminMemo:      row.data.adminMemo      ?? undefined,
+              ...(row.inflowDate ? { inflowDate: row.inflowDate } : {}),
+              ...(row.data.survey1 || row.data.survey2 || row.data.survey3 ? {
+                surveyData: { q1: row.data.survey1 ?? null, q2: row.data.survey2 ?? null, q3: row.data.survey3 ?? null },
+              } : {}),
             },
           })
         )
