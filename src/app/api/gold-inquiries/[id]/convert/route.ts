@@ -39,8 +39,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const inquiries = await prisma.$queryRaw<Array<{ name: string; phone: string; message: string | null; agentId: number | null; managerId: number | null }>>(
       Prisma.sql`
         SELECT name, phone, message, "agentId", "managerId"
-        FROM "ProductInquiry"
-        WHERE id = ${inquiryId} AND "productCode" = 'GOLD_MEMBERSHIP'
+        FROM "CruiseProductInquiry"
+        WHERE id = ${inquiryId} AND "productCode" LIKE 'GOLD_MEMBERSHIP%'
         LIMIT 1
       `
     );

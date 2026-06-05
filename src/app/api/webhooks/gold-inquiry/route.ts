@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
 
       const existing = await tx.contact.findUnique({
         where: { phone_organizationId: { phone: normalizedPhone, organizationId } },
-        select: { id: true, type: true, leadScore: true },
+        select: { id: true, type: true, leadScore: true, affiliateAgentId: true, affiliateManagerId: true },
       });
 
       if (existing) {
@@ -109,8 +109,9 @@ export async function POST(req: NextRequest) {
             type: existing.type === 'PURCHASED' ? 'PURCHASED' : 'LEAD',
             leadScore: (existing.leadScore ?? 0) + 50,
             ...(gmUser ? { userId: gmUser.id } : {}),
-            ...(agentId ? { affiliateAgentId: String(agentId) } : {}),
-            ...(managerId ? { affiliateManagerId: String(managerId) } : {}),
+            // 기존값 없을 때만 설정 (첫 귀속 후 덮어쓰기 방지)
+            ...(agentId != null && !existing.affiliateAgentId ? { affiliateAgentId: String(agentId) } : {}),
+            ...(managerId != null && !existing.affiliateManagerId ? { affiliateManagerId: String(managerId) } : {}),
           },
         });
         contactId = existing.id;
@@ -122,8 +123,8 @@ export async function POST(req: NextRequest) {
             ...(affiliateCode ? { affiliateCode } : {}),
             type: 'LEAD', leadScore: 50,
             userId: gmUser?.id ?? null,
-            ...(agentId ? { affiliateAgentId: String(agentId) } : {}),
-            ...(managerId ? { affiliateManagerId: String(managerId) } : {}),
+            ...(agentId != null ? { affiliateAgentId: String(agentId) } : {}),
+            ...(managerId != null ? { affiliateManagerId: String(managerId) } : {}),
           },
           select: { id: true },
         });
