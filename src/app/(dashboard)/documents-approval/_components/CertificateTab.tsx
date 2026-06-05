@@ -197,11 +197,12 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
           <button
             type="button"
             onClick={handleIssue}
-            disabled={!selectedSale || isIssuing || hasIssued}
+            // hasIssued 차단 제거 — 발급 후에도 같은 고객으로 재발급 가능 (다운로드 실패 후 재시도 등)
+            disabled={!selectedSale || isIssuing}
             className={`inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${cfg.issueBtn}`}
           >
             {isIssuing ? <Loader2 className="h-4 w-4 animate-spin" /> : <cfg.Icon className="h-4 w-4" />}
-            증서 발급
+            {hasIssued ? '재발급' : '증서 발급'}
           </button>
         </div>
 

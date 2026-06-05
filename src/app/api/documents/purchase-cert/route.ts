@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
+import { BANK_TRANSFER_LABEL } from '@/lib/company-info';
 
 function escHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
     // 4. 결제 방법 판단
     const paymentMethod = payment.pgProvider
       ? `${payment.pgProvider} (온라인 결제)`
-      : '계좌이체 (국민은행 531301-04-167150 / 예금주: 배연성)';
+      : BANK_TRANSFER_LABEL;
 
     // 5. SalesDocument 생성 (AGENT는 PENDING_APPROVAL, OWNER/ADMIN은 APPROVED)
     const status = (ctx.role === 'OWNER' || ctx.role === 'GLOBAL_ADMIN') ? 'APPROVED' : 'PENDING_APPROVAL';

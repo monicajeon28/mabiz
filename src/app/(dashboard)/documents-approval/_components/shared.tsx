@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useId } from 'react';
 import { Search, Loader2, User, Package, X, Phone } from 'lucide-react';
 
 // ─── 회사 에셋/정보 상수 ────────────────────────────────────────────────────────
@@ -246,6 +246,14 @@ const ACCENT_HOVER: Record<string, string> = {
   orange: 'hover:bg-orange-50',
 };
 
+// 키보드 네비 활성 항목 배경 (탭 accent와 일치)
+const ACCENT_ACTIVE: Record<string, string> = {
+  indigo: 'bg-indigo-50',
+  emerald: 'bg-emerald-50',
+  red: 'bg-red-50',
+  orange: 'bg-orange-50',
+};
+
 export function CustomerAutocomplete({
   label = '고객 검색',
   placeholder = '이름·주문번호·전화번호 입력',
@@ -258,7 +266,9 @@ export function CustomerAutocomplete({
   const [results, setResults] = useState<SaleResult[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1); // 키보드 네비 활성 항목
   const boxRef = useRef<HTMLDivElement>(null);
+  const listboxId = useId();
 
   // 디바운스 검색
   useEffect(() => {
@@ -302,6 +312,38 @@ export function CustomerAutocomplete({
     setQuery(s.buyerName || s.orderId || '');
     setResults([]); // 선택 후 stale 결과가 재포커스 시 다시 열리지 않도록 정리
     setOpen(false);
+    setActiveIndex(-1);
+  };
+
+  // 결과가 바뀌면 활성 항목 초기화
+  useEffect(() => { setActiveIndex(-1); }, [results]);
+
+  // 활성 항목이 보이도록 스크롤
+  useEffect(() => {
+    if (activeIndex < 0) return;
+    document.getElementById(`${listboxId}-opt-${activeIndex}`)?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, listboxId]);
+
+  // 키보드 네비게이션 (↑↓ 이동 / Enter 선택 / Esc 닫기)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setOpen(false);
+      setActiveIndex(-1);
+      return;
+    }
+    if (!open || results.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex((i) => (i + 1) % results.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex((i) => (i <= 0 ? results.length - 1 : i - 1));
+    } else if (e.key === 'Enter') {
+      if (activeIndex >= 0 && activeIndex < results.length) {
+        e.preventDefault();
+        pick(results[activeIndex]);
+      }
+    }
   };
 
   return (
@@ -314,7 +356,13 @@ export function CustomerAutocomplete({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setOpen(true)}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
+          role="combobox"
+          aria-expanded={open && results.length > 0}
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          aria-activedescendant={activeIndex >= 0 ? `${listboxId}-opt-${activeIndex}` : undefined}
           className={`w-full rounded-lg border border-gray-300 py-2 pl-9 pr-9 text-sm focus:outline-none focus:ring-2 ${ACCENT_RING[accent]}`}
         />
         {loading && (
@@ -332,13 +380,21 @@ export function CustomerAutocomplete({
       </div>
 
       {open && results.length > 0 && (
-        <div className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-xl">
-          {results.map((s) => (
+        <div
+          id={listboxId}
+          role="listbox"
+          className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-xl"
+        >
+          {results.map((s, i) => (
             <button
               key={s.saleId}
+              id={`${listboxId}-opt-${i}`}
+              role="option"
+              aria-selected={i === activeIndex}
               type="button"
+              onMouseEnter={() => setActiveIndex(i)}
               onClick={() => pick(s)}
-              className={`flex w-full flex-col gap-0.5 border-b border-gray-50 px-3 py-2.5 text-left text-sm last:border-0 ${ACCENT_HOVER[accent]}`}
+              className={`flex w-full flex-col gap-0.5 border-b border-gray-50 px-3 py-2.5 text-left text-sm last:border-0 ${ACCENT_HOVER[accent]} ${i === activeIndex ? ACCENT_ACTIVE[accent] : ''}`}
             >
               <div className="flex items-center gap-2">
                 <User className="h-3.5 w-3.5 text-gray-400" />
@@ -381,17 +437,61 @@ export function ModalShell({
   maxWidth?: string;
   locked?: boolean;
 }) {
+  const titleId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // ESC 키로 닫기 (작업 진행 중 locked면 무시)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !locked) onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [locked, onClose]);
+
+  // 열릴 때 패널로 초기 포커스 이동
+  useEffect(() => {
+    panelRef.current?.focus();
+  }, []);
+
+  // Tab 포커스 트랩 (모달 밖으로 포커스가 빠지지 않도록 순환)
+  const handleTrap = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab' || !panelRef.current) return;
+    const focusables = panelRef.current.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
       onClick={(e) => { if (e.target === e.currentTarget && !locked) onClose(); }}
     >
-      <div className={`relative w-full ${maxWidth} max-h-[92vh] overflow-y-auto rounded-2xl bg-white shadow-2xl`}>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onKeyDown={handleTrap}
+        className={`relative w-full ${maxWidth} max-h-[92vh] overflow-y-auto rounded-2xl bg-white shadow-2xl focus:outline-none`}
+      >
         <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-2xl border-b border-gray-100 bg-white px-6 py-4">
-          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+          <h2 id={titleId} className="text-lg font-bold text-gray-900">{title}</h2>
           <button
             onClick={onClose}
             disabled={locked}
+            aria-label="닫기"
             className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <X className="h-5 w-5" />
