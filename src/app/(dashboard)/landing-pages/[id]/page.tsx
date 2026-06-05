@@ -629,6 +629,17 @@ export default function EditLandingPage() {
     return `<div style="margin:0;padding:0;line-height:0;background:#fff;">\n${imgTags}\n</div>\n<form style="max-width:480px;margin:0 auto;padding:32px 20px 48px;background:#fff;font-family:'Pretendard',sans-serif;"><h3 style="text-align:center;font-size:22px;font-weight:700;color:#1a1a1a;margin:0 0 8px;">지금 바로 신청하세요</h3><p style="text-align:center;font-size:14px;color:#888;margin:0 0 24px;">상담 신청 후 담당자가 연락드립니다</p>${formFieldsHtml}<button type="submit" style="width:100%;padding:16px;background:#FF6B35;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;">${encodedButtonTitle}</button>${encodedFooter ? `<p style="text-align:center;font-size:12px;color:#999;margin-top:12px;">${encodedFooter}</p>` : ""}</form>`;
   };
 
+  // 모드 전환 — 두 형식이 서로 침범하지 않도록 안전하게 전환
+  // 이미지형 → HTML형: HTML 에디터가 비어 있으면 현재 이미지로 만든 HTML을 채워 "내용 사라짐" 방지
+  // (이미 작성한 HTML이 있으면 덮어쓰지 않음)
+  const switchMode = (mode: "html" | "image") => {
+    if (mode === editorMode) return;
+    if (mode === "html" && editorMode === "image" && !html.trim() && images.length > 0) {
+      setHtml(buildHtmlFromImages());
+    }
+    setEditorMode(mode);
+  };
+
   // T42: AI 카피 생성 — PASONA 기반 HTML 카피 생성 후 에디터에 삽입
   const generateAiCopy = async () => {
     if (!aiProductName.trim() || !aiTargetAudience.trim()) {
@@ -670,6 +681,11 @@ export default function EditLandingPage() {
   // Task 1-5: save 함수 — HTTP 에러 처리 추가
   const save = async () => {
     if (!title.trim() || !slug.trim()) { setError("제목과 슬러그를 입력하세요."); return; }
+    // 이미지형인데 이미지가 없으면 저장 차단 — 기존 내용(HTML)이 빈 폼으로 덮어써지는 사고 방지
+    if (editorMode === "image" && images.length === 0) {
+      setError("이미지형은 이미지를 1장 이상 올린 뒤 저장하세요. (HTML형으로 작업하려면 상단에서 HTML형을 선택하세요)");
+      return;
+    }
     setSaving(true);
     setError("");
 
@@ -796,11 +812,11 @@ export default function EditLandingPage() {
           <>
             {/* 모드 토글 */}
             <div className="flex bg-gray-100 rounded-lg p-0.5">
-              <button onClick={() => setEditorMode("image")}
+              <button onClick={() => switchMode("image")}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${editorMode === "image" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500"}`}>
                 <ImageIcon className="w-3 h-3" /> 이미지형
               </button>
-              <button onClick={() => setEditorMode("html")}
+              <button onClick={() => switchMode("html")}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${editorMode === "html" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500"}`}>
                 <Code className="w-3 h-3" /> HTML형
               </button>
