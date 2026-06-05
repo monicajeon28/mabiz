@@ -774,7 +774,7 @@ export default function ContactsPage() {
                   {importResult.skipCount > 0 && ` / ⚠️ ${importResult.skipCount}건 건너뛰었어요`}
                 </p>
                 {importResult.errors.slice(0, 3).map((e, i) => (
-                  <p key={i} className="text-sm opacity-80">{e}</p>
+                  <p key={`import-err-${i}`} className="text-sm opacity-80">{e}</p>
                 ))}
               </div>
             )}

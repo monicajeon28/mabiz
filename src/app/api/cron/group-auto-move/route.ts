@@ -1,4 +1,5 @@
 // Vercel Cron: 0 16 * * * (매일 01:00 KST = UTC 16:00)
+export const maxDuration = 60;
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';

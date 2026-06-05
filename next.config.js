@@ -10,6 +10,14 @@ const nextConfig = {
 
   images: {
     unoptimized: process.env.NODE_ENV === 'development',
+    remotePatterns: [
+      { protocol: 'https', hostname: '**.googleusercontent.com' },
+      { protocol: 'https', hostname: '**.googleapis.com' },
+      { protocol: 'https', hostname: 'drive.google.com' },
+      { protocol: 'https', hostname: '**.supabase.co' },
+      { protocol: 'https', hostname: 'cruisedot.co.kr' },
+      { protocol: 'https', hostname: 'mabizcruisedot.com' },
+    ],
   },
 
   // Windows NTFS rename race condition → prod은 캐시 끔, dev는 메모리 캐시 사용
