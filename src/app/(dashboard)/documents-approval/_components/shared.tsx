@@ -9,6 +9,7 @@ export const COMPANY = {
   seal: '/cruise-stamp.png',    // 좌하단 직인 (회사 도장)
   name: '크루즈닷',
   ceo: '배연성',
+  hqPhone: '010-3289-3800',     // 본사 대표번호 (담당자 연락처 미입력 시 폴백)
 };
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -136,10 +137,16 @@ export function DocumentSeal({
 
       {/* 우측: 담당자 연락처 + (선택)유효기간 */}
       <div className="text-right text-xs leading-relaxed text-gray-600">
-        {(agent.displayName || agent.phone) && (
+        {/* 담당자 전화번호가 있으면 담당자 표기, 없으면 본사 대표번호로 폴백 */}
+        {agent.phone && agent.phone.trim() ? (
           <p className="flex items-center justify-end gap-1 font-semibold text-gray-700">
             <Phone className="h-3 w-3" />
-            담당자 {agent.displayName ?? ''} {agent.phone ?? ''}
+            담당자 {agent.displayName ?? ''} {agent.phone}
+          </p>
+        ) : (
+          <p className="flex items-center justify-end gap-1 font-semibold text-gray-700">
+            <Phone className="h-3 w-3" />
+            본사 {COMPANY.hqPhone}
           </p>
         )}
         {validDays != null && (
