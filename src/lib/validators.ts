@@ -73,8 +73,8 @@ export type AddCallLogInput = z.infer<typeof AddCallLogSchema>;
 
 // [S-001] SQL Injection 방지: 쿼리 파라미터 검증
 export const CallLogIdSchema = z.object({
-  logId: z.string().uuid('유효한 ID 형식이 아닙니다'),
-  contactId: z.string().uuid('유효한 Contact ID 형식이 아닙니다'),
+  logId: z.string().min(1, '유효한 ID 형식이 아닙니다'),
+  contactId: z.string().min(1, '유효한 Contact ID 형식이 아닙니다'),
 });
 
 export type CallLogIdInput = z.infer<typeof CallLogIdSchema>;

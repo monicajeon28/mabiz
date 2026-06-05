@@ -2,7 +2,7 @@
 
 import { useState, useMemo, memo } from "react";
 import {
-  Plus, Clock, Star, FileText, Check, Copy, CloudUpload, Trash2, FileDown, ChevronDown, Share2,
+  Plus, Clock, Star, FileText, Check, Copy, Trash2, FileDown, ChevronDown, Share2,
 } from "lucide-react";
 import CallScriptPanel from "./CallScriptPanel";
 import { getObjectionData } from "@/lib/objections/validation";
@@ -42,21 +42,20 @@ interface ContactCallTabProps {
   expandedLogId: string | null;
   setExpandedLogId: (id: string | null) => void;
   copiedLogId: string | null;
-  backing: boolean;
-  backupResult: { url: string; count: number } | null;
+
   addCallLog: () => Promise<void>;
   savingCallLog?: boolean;
   deleteCallLog: (logId: string) => Promise<void>;
   deleteAllCallLogs: () => Promise<void>;
-  backupCallLogs: () => Promise<void>;
+
   copyCallLog: (log: CallLog) => void;
 }
 
 function ContactCallTabComponent({
   contact, contactId, callForm, setCallForm, showCallForm, setShowCallForm,
   selectedObjectionModal, setSelectedObjectionModal, expandedLogId, setExpandedLogId,
-  copiedLogId, backing, backupResult, addCallLog, savingCallLog = false,
-  deleteCallLog, deleteAllCallLogs, backupCallLogs, copyCallLog,
+  copiedLogId, addCallLog, savingCallLog = false,
+  deleteCallLog, deleteAllCallLogs, copyCallLog,
 }: ContactCallTabProps) {
   return (
     <div>
@@ -90,31 +89,14 @@ function ContactCallTabComponent({
           <Plus className="w-4 h-4" /> 콜 기록 추가
         </button>
         {contact.callLogs.length > 0 && (
-          <>
-            <button
-              onClick={backupCallLogs}
-              disabled={backing}
-              className="flex items-center gap-1.5 px-3 py-2 border border-blue-200 text-blue-600 rounded-xl text-xs hover:bg-blue-50 transition-colors disabled:opacity-50"
-            >
-              <CloudUpload className="w-3.5 h-3.5" />
-              {backing ? "백업 중..." : "Drive 백업"}
-            </button>
-            <button
-              onClick={deleteAllCallLogs}
-              className="flex items-center gap-1.5 px-3 py-2 border border-red-200 text-red-500 rounded-xl text-xs hover:bg-red-50 transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" /> 전체 삭제
-            </button>
-          </>
+          <button
+            onClick={deleteAllCallLogs}
+            className="flex items-center gap-1.5 px-3 py-2 border border-red-200 text-red-500 rounded-xl text-xs hover:bg-red-50 transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> 전체 삭제
+          </button>
         )}
       </div>
-
-      {backupResult && (
-        <div className="mb-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm flex items-center justify-between">
-          <span className="text-blue-700">✅ {backupResult.count}건 Drive 백업 완료</span>
-          <a href={backupResult.url} target="_blank" rel="noreferrer" className="text-blue-600 underline text-xs">파일 열기 →</a>
-        </div>
-      )}
 
       {showCallForm && (
         <div className="bg-white border border-gold-300 rounded-xl p-4 mb-3 space-y-3">
