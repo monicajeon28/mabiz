@@ -178,7 +178,7 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
                 ) : productLinks.length === 0 ? (
                   <div className="p-3">
                     <p className="text-xs text-gray-500 mb-2">등록된 상담링크가 없습니다.</p>
-                    <a href="/contacts" target="_blank" rel="noreferrer"
+                    <a href="/links" target="_blank" rel="noreferrer"
                       className="text-xs text-blue-600 flex items-center gap-1 hover:underline">
                       단축링크 관리 <ExternalLink className="w-3 h-3" />
                     </a>
