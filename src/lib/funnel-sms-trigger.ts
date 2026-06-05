@@ -70,6 +70,10 @@ export async function triggerGroupFunnelSms(opts: TriggerOptions): Promise<boole
   //    nowUtc는 과거시각 보정(아래) 비교용으로 별도 유지한다.
   const nowUtc = new Date();
   const anchor = opts.anchorDate ?? nowUtc;
+  // 유입 에피소드 식별키: addedAt(=anchor) epoch ms.
+  // 같은 유입 → 같은 epoch → channel 동일 → 중복 차단.
+  // 재유입(RESET 정책)으로 addedAt이 now로 갱신되면 epoch가 달라져 새 시퀀스 허용(0일차부터 재시작).
+  const anchorEpoch = anchor.getTime();
   const kstAnchor = new Date(anchor.getTime() + 9 * 60 * 60 * 1000);
   const kstYear  = kstAnchor.getUTCFullYear();
   const kstMonth = kstAnchor.getUTCMonth();  // 0-indexed
@@ -82,7 +86,7 @@ export async function triggerGroupFunnelSms(opts: TriggerOptions): Promise<boole
       // 5-1. 멱등성 체크: PENDING/SENDING/SENT 상태 스케줄이 이미 있으면 스킵
       // (FAILED는 재시도 허용 → 차단하지 않음)
       // 중복 발송 경로: 랜딩 중복신청, 그룹이동 레이스, Webhook 재전송, 재트리거 API
-      const idempotency = await checkFunnelSmsIdempotency(organizationId, contactId, funnelSmsId);
+      const idempotency = await checkFunnelSmsIdempotency(organizationId, contactId, funnelSmsId, anchorEpoch);
       if (idempotency.isDuplicate) {
         logger.log("[FunnelSmsTrigger] 중복 퍼널문자 차단 (멱등성)", {
           contactId,
@@ -158,7 +162,9 @@ export async function triggerGroupFunnelSms(opts: TriggerOptions): Promise<boole
           );
           scheduledAt = new Date(kstNextMs - 9 * 60 * 60 * 1000);
         }
-        const channel = `FUNNEL_SMS:${funnelSmsId}:${msg.id}`;
+        // 유입 에피소드(anchorEpoch)를 포함해 재유입 시 새 시퀀스가 생성되도록 한다.
+        // 같은 유입은 동일 channel → 부분 UNIQUE 인덱스로 race 중복 차단.
+        const channel = `FUNNEL_SMS:${funnelSmsId}:${msg.id}:${anchorEpoch}`;
         const message = msg.content.replace(/\[이름\]/g, contact.name ?? "");
 
         return {

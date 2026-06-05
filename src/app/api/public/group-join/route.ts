@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { triggerGroupFunnelSms } from '@/lib/funnel-sms-trigger';
+import { shouldResetOnReentry } from '@/lib/funnel-sms-helpers';
 import { checkRateLimitAsync } from '@/lib/rate-limit';
 
 // 전화번호 정규화 (010-1234-5678 → 01012345678)
@@ -69,7 +70,7 @@ export async function POST(req: Request) {
     // seq로 그룹 조회
     const group = await prisma.contactGroup.findFirst({
       where: { seq },
-      select: { id: true, organizationId: true, name: true, funnelSmsIds: true, funnelSmsId: true },
+      select: { id: true, organizationId: true, name: true, funnelSmsIds: true, funnelSmsId: true, reEntryPolicy: true },
     });
 
     if (!group) {
@@ -100,12 +101,12 @@ export async function POST(req: Request) {
       select: { groupId: true },
     });
 
-    // 재등록(이미 멤버) 시 update:{}로 addedAt을 갱신하지 않는다.
-    //  → 퍼널문자 1일차/2일차 발송 기준일(anchorDate)은 "최초 그룹 입력일"로 고정된다.
+    // 재유입 정책: RESET 계열이면 addedAt=now 갱신 → 퍼널문자 0일차부터 재시작.
+    //  KEEP(기본)이면 update:{} → 최초 입력일 유지(재발송 안 함).
     const member = await prisma.contactGroupMember.upsert({
       where: { groupId_contactId: { groupId: group.id, contactId: contact.id } },
       create: { groupId: group.id, contactId: contact.id },
-      update: {},
+      update: shouldResetOnReentry(group.reEntryPolicy) ? { addedAt: new Date() } : {},
       select: { addedAt: true },
     });
 
