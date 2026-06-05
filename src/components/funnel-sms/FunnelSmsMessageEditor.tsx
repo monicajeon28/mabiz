@@ -146,7 +146,7 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
           <span className="text-sm text-gray-500">일 후</span>
         </div>
         <div className="flex items-center gap-1 text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-200">
-          <span>{previewDate} {timeStr} 발송 예정</span>
+          <span>고객 입장 후 Day {message.daysAfter} ({timeStr}) 발송</span>
         </div>
       </div>
 
