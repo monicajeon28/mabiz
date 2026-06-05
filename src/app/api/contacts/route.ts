@@ -62,8 +62,8 @@ export async function GET(req: Request) {
                   purchasedAt: { not: null }
                 };
               } else if (normalized === 'INQUIRY') {
-                // 문의: type이 LEAD/INQUIRY
-                return { type: { in: ["LEAD", "INQUIRY"] } };
+                // 문의: type이 LEAD/INQUIRY/잠재고객 (엑셀 가져오기는 LEAD, UI 입력은 잠재고객)
+                return { type: { in: ["LEAD", "INQUIRY", "잠재고객"] } };
               } else if (normalized === 'GOLD') {
                 // 금회원: type이 GOLD 또는 vipStatus가 GOLD
                 return {

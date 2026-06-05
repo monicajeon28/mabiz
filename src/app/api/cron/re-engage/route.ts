@@ -63,7 +63,7 @@ export async function GET(req: Request) {
   // 이탈 리드 조회 (조직별로 처리)
   const candidates = await prisma.contact.findMany({
     where: {
-      type:         "LEAD",
+      type:         { in: ["LEAD", "잠재고객", "INQUIRY"] },
       optOutAt:     null,
       reEngageCount: { lt: 2 },
       OR: [

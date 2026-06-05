@@ -156,6 +156,7 @@ model OrganizationMember {
   isActive          Boolean      @default(true)
   email             String?
   emailSenderName   String?
+  emailVerified     Boolean      @default(false)
   // 계약서 디지털 서명
   contractSignature String?
   contractSignedAt  DateTime?
@@ -3655,6 +3656,7 @@ model CruiseProduct {
   isDomestic       Boolean   @default(false)
   isJapan          Boolean   @default(false)
   isBudget         Boolean   @default(false)
+  isVisible        Boolean   @default(true)
   isUrgent         Boolean   @default(false)
   isMainProduct    Boolean   @default(false)
   saleStatus       String    @default("판매중")

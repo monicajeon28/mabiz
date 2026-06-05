@@ -199,9 +199,9 @@ export async function GET(req: NextRequest) {
         fsStatsMap.set(code, { leads: 0, converted: 0 });
       }
       const entry = fsStatsMap.get(code)!;
-      if (row.type === 'LEAD') {
+      if (row.type === 'LEAD' || row.type === '잠재고객' || row.type === 'INQUIRY') {
         entry.leads += row._count._all;
-      } else if (row.type === 'CUSTOMER') {
+      } else if (row.type === 'CUSTOMER' || row.type === '구매완료' || row.type === 'PURCHASED') {
         entry.converted += row._count._all;
       }
     }
