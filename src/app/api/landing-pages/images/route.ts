@@ -34,6 +34,18 @@ export async function POST(req: Request) {
     const ctx = await getAuthContext();
     const orgId = await getOrgId(ctx);
 
+    // P0-1: Content-Length 헤더 사전 검증
+    const contentLength = req.headers.get('content-length');
+    if (contentLength) {
+      const sizeBytes = parseInt(contentLength, 10);
+      if (sizeBytes > MAX_FILE_SIZE) {
+        return NextResponse.json(
+          { ok: false, message: `파일 크기는 20MB 이하여야 합니다 (현재: ${(sizeBytes / 1024 / 1024).toFixed(1)}MB)` },
+          { status: 413 },
+        );
+      }
+    }
+
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const landingPageId = formData.get('landingPageId') as string | null;
@@ -52,7 +64,17 @@ export async function POST(req: Request) {
       gif: 'image/gif', webp: 'image/webp',
     };
     const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-    const resolvedType = file.type || extMime[ext] || '';
+    const mimeFromExt = extMime[ext] || '';
+
+    // P0-2: Magic bytes 검증
+    const magicCheck = await validateFileMagic(file);
+    if (!magicCheck.valid) {
+      return NextResponse.json(
+        { ok: false, message: `유효하지 않은 이미지 형식입니다 (${magicCheck.detected || '감지 불가'})` },
+        { status: 400 },
+      );
+    }
+    const resolvedType = magicCheck.mimeType || mimeFromExt || '';
 
     if (!ALLOWED_TYPES.includes(resolvedType)) {
       return NextResponse.json(
@@ -91,14 +113,15 @@ export async function POST(req: Request) {
     let finalFileName: string;
 
     if (isGif) {
-      // GIF: 리사이즈 + 품질 압축 (최대 가로 1200px, 색상 256개로 제한)
-      const metadata = await sharp(originalBuffer, { animated: true }).metadata();
+      // P0-4: Sharp 인스턴스 단일화 (이중 호출 제거)
+      const sharpInstance = sharp(originalBuffer, { animated: true });
+      const metadata = await sharpInstance.metadata();
       const needsResize = metadata.width && metadata.width > 1200;
 
-      // 리사이즈가 필요하면 리사이즈, 아니어도 품질 압축은 적용
-      processedBuffer = await sharp(originalBuffer, { animated: true })
+      // 같은 인스턴스에 transform 파이프라인 연결
+      processedBuffer = await sharpInstance
         .resize(needsResize ? 1200 : metadata.width, null, { withoutEnlargement: true })
-        .gif({ colors: 256 })  // 색상 팔레트 256개로 제한 → 파일 크기 40-60% 감소
+        .gif({ colors: 256 })
         .toBuffer();
 
       finalMimeType = 'image/gif';
@@ -140,38 +163,68 @@ export async function POST(req: Request) {
       folderId: process.env.LANDING_PAGES_DRIVE_FOLDER_ID ?? '1PpZbApjr5rZRlyP5onwkRUxz6X9gFPZz',
     });
 
-    // WebP 처리 완료 표시 (GIF가 아닌 경우)
-    if (!isGif) {
-      await prisma.imageAsset.update({
-        where: { id: asset.id },
-        data: {
-          webpDriveFileId: asset.driveFileId,
-          processingStatus: 'DONE',
-          processedAt: new Date(),
-        },
-      });
-    }
-
     // 중간 테이블에 순서 기록
     const sortOrder = sortOrderStr ? parseInt(sortOrderStr) : await getNextSortOrder(landingPageId);
 
-    const pageImage = await prisma.crmLandingPageImage.create({
-      data: {
-        landingPageId,
-        imageAssetId: asset.id,
-        sortOrder,
-      },
+    // P0-7/8: Prisma 트랜잭션으로 원자성 보장
+    const pageImage = await prisma.$transaction(async (tx) => {
+      // 2단계: WebP 처리 상태 업데이트 (트랜잭션 내)
+      if (!isGif) {
+        await tx.imageAsset.update({
+          where: { id: asset.id },
+          data: {
+            webpDriveFileId: asset.driveFileId,
+            processingStatus: 'DONE',
+            processedAt: new Date(),
+          },
+        });
+      }
+
+      // 3단계: CrmLandingPageImage 생성 (트랜잭션 내, FK 제약 자동 검증)
+      return await tx.crmLandingPageImage.create({
+        data: {
+          landingPageId,
+          imageAssetId: asset.id,
+          sortOrder,
+        },
+      });
     });
 
     // 랜딩페이지 이미지는 공개 접근 가능하도록 권한 설정
-    try {
-      const drive = getDriveClient();
-      await drive.permissions.create({
-        fileId: asset.driveFileId,
-        requestBody: { role: 'reader', type: 'anyone' },
-      });
-    } catch {
-      // 권한 설정 실패는 무시 (이미지는 업로드됨)
+    // P0-6: Drive 권한 설정 재시도 (exponential backoff)
+    const MAX_RETRIES = 3;
+    let retryCount = 0;
+    let permissionSuccess = false;
+
+    while (retryCount < MAX_RETRIES && !permissionSuccess) {
+      try {
+        const drive = getDriveClient();
+        await drive.permissions.create({
+          fileId: asset.driveFileId,
+          requestBody: { role: 'reader', type: 'anyone' },
+        });
+        permissionSuccess = true;
+      } catch (err) {
+        retryCount++;
+        if (retryCount >= MAX_RETRIES) {
+          // 최종 실패: 로그만 기록
+          const errMsg = err instanceof Error ? err.message : String(err);
+          logger.warn('[landing-images] Drive 공개 권한 설정 최종 실패', {
+            assetId: asset.id,
+            attempt: retryCount,
+            error: errMsg,
+          });
+        } else {
+          // 재시도 (exponential backoff: 1초, 2초, 4초)
+          const waitMs = Math.pow(2, retryCount) * 1000;
+          await new Promise(resolve => setTimeout(resolve, waitMs));
+          logger.debug('[landing-images] Drive 권한 설정 재시도', {
+            assetId: asset.id,
+            attempt: retryCount,
+            nextWaitMs: waitMs,
+          });
+        }
+      }
     }
 
     const thumbnailUrl = `/api/landing-pages/images/proxy?id=${asset.driveFileId}`;
@@ -387,6 +440,38 @@ export async function DELETE(req: Request) {
     }
     logger.error('[landing-images] 삭제 실패', { err });
     return NextResponse.json({ ok: false, message: '삭제 중 오류 발생' }, { status: 500 });
+  }
+}
+
+// P0-2: Magic bytes 기반 파일 타입 검증
+async function validateFileMagic(file: File): Promise<{ valid: boolean; mimeType: string | null; detected?: string }> {
+  const MAGIC_BYTES: Record<string, { bytes: number[]; mimeType: string }> = {
+    jpeg: { bytes: [0xff, 0xd8, 0xff], mimeType: 'image/jpeg' },
+    png: { bytes: [0x89, 0x50, 0x4e, 0x47], mimeType: 'image/png' },
+    gif: { bytes: [0x47, 0x49, 0x46], mimeType: 'image/gif' },
+    webp: { bytes: [0x52, 0x49, 0x46, 0x46], mimeType: 'image/webp' },
+  };
+
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    for (const [fmt, { bytes: magicBytes, mimeType }] of Object.entries(MAGIC_BYTES)) {
+      if (buffer.length >= magicBytes.length) {
+        const match = magicBytes.every((byte, i) => buffer[i] === byte);
+        if (match) {
+          if (fmt === 'webp') {
+            const webpCheck = buffer.length >= 12 && buffer.toString('ascii', 8, 12) === 'WEBP';
+            if (webpCheck) return { valid: true, mimeType };
+          } else {
+            return { valid: true, mimeType };
+          }
+        }
+      }
+    }
+
+    return { valid: false, mimeType: null, detected: 'unknown' };
+  } catch {
+    return { valid: false, mimeType: null, detected: 'read_error' };
   }
 }
 
