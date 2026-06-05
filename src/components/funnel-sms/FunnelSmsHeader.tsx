@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 
 interface HeaderValue {
   title: string;
@@ -21,34 +22,31 @@ interface Props {
 interface SmsDefaults {
   senderPhone: string;
   arsNum: string;
+  connected: boolean; // 알리고 연결 여부
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = [0, 15, 30, 45];
 
 export default function FunnelSmsHeader({ value, onChange }: Props) {
-  const [defaults, setDefaults] = useState<SmsDefaults>({ senderPhone: '', arsNum: '' });
+  const [defaults, setDefaults] = useState<SmsDefaults>({ senderPhone: '', arsNum: '', connected: false });
   const hasFilled = useRef(false);
 
   useEffect(() => {
     fetch('/api/settings/sms-defaults')
       .then((res) => res.json())
       .then((data: { ok: boolean; senderPhone: string; arsNum: string }) => {
-        if (!data.ok) return;
-        setDefaults({ senderPhone: data.senderPhone, arsNum: data.arsNum });
+        const connected = data.ok && !!data.senderPhone;
+        setDefaults({ senderPhone: data.senderPhone ?? '', arsNum: data.arsNum ?? '', connected });
         // 최초 마운트 시 빈 필드만 자동 채우기
-        if (!hasFilled.current) {
+        if (!hasFilled.current && connected) {
           hasFilled.current = true;
-          if (!value.senderPhone && data.senderPhone) {
-            onChange('senderPhone', data.senderPhone);
-          }
-          if (!value.arsNum && data.arsNum) {
-            onChange('arsNum', data.arsNum);
-          }
+          if (!value.senderPhone && data.senderPhone) onChange('senderPhone', data.senderPhone);
+          if (!value.arsNum && data.arsNum) onChange('arsNum', data.arsNum);
         }
       })
       .catch(() => {
-        // 환경변수 미설정 시 조용히 무시
+        setDefaults({ senderPhone: '', arsNum: '', connected: false });
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -81,24 +79,26 @@ export default function FunnelSmsHeader({ value, onChange }: Props) {
 
       {/* 발신번호 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          발신번호
-        </label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-sm font-medium text-gray-700">발신번호</label>
+          {!defaults.connected && (
+            <Link href="/settings/sms" className="text-xs text-orange-500 hover:text-orange-700 font-medium flex items-center gap-1">
+              ⚠ 알리고 미연결 — 설정하기 →
+            </Link>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <input
             type="text"
             maxLength={20}
             value={value.senderPhone ?? ''}
             onChange={(e) => onChange('senderPhone', e.target.value)}
-            placeholder="예) 0212345678"
+            placeholder={defaults.connected ? '' : '알리고 연결 후 자동 입력됩니다'}
             className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          {defaults.senderPhone && (
-            <button
-              type="button"
-              onClick={fillSenderPhone}
-              className="shrink-0 px-3 py-2 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
-            >
+          {defaults.connected && defaults.senderPhone && (
+            <button type="button" onClick={fillSenderPhone}
+              className="shrink-0 px-3 py-2 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
               자동입력
             </button>
           )}
@@ -157,24 +157,26 @@ export default function FunnelSmsHeader({ value, onChange }: Props) {
 
       {/* 080 수신거부 번호 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          080 수신거부 번호
-        </label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-sm font-medium text-gray-700">080 수신거부 번호</label>
+          {!defaults.connected && (
+            <Link href="/settings/sms" className="text-xs text-orange-500 hover:text-orange-700 font-medium">
+              설정하기 →
+            </Link>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <input
             type="text"
             maxLength={20}
             value={value.arsNum ?? ''}
             onChange={(e) => onChange('arsNum', e.target.value)}
-            placeholder="예) 08012345678"
+            placeholder={defaults.connected ? '예) 08012345678' : '알리고 연결 후 자동 입력됩니다'}
             className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          {defaults.arsNum && (
-            <button
-              type="button"
-              onClick={fillArsNum}
-              className="shrink-0 px-3 py-2 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
-            >
+          {defaults.connected && defaults.arsNum && (
+            <button type="button" onClick={fillArsNum}
+              className="shrink-0 px-3 py-2 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
               자동입력
             </button>
           )}
