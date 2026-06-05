@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "@/hooks/useSession";
-import type { ApisRow } from "@/app/api/admin/apis/excel/route";
+import ApisBoard from "@/components/apis/ApisBoard";
 import {
   ShoppingBag,
   ChevronLeft,
@@ -605,35 +605,7 @@ function RefundModal({ product, onClose }: RefundModalProps) {
   );
 }
 
-// ── APIS 미리보기 모달 ────────────────────────────────────────────
-
-const APIS_COLUMNS: { key: keyof ApisRow; label: string }[] = [
-  { key: "seq",           label: "순번" },
-  { key: "rv",            label: "RV" },
-  { key: "cabin",         label: "CABIN" },
-  { key: "groupId",       label: "일행" },
-  { key: "roomingGroupId", label: "루밍" },
-  { key: "cabinType",     label: "카테고리" },
-  { key: "engSurname",    label: "영문성" },
-  { key: "engGivenName",  label: "영문이름" },
-  { key: "korName",       label: "성명" },
-  { key: "residentNum",   label: "주민번호" },
-  { key: "gender",        label: "성별" },
-  { key: "birthDate",     label: "생년월일" },
-  { key: "passportNo",    label: "여권번호" },
-  { key: "issueDate",     label: "여권발급" },
-  { key: "expiryDate",    label: "여권만료" },
-  { key: "phone",         label: "연락처" },
-  { key: "airline",       label: "항공" },
-  { key: "paymentDate",   label: "결제일" },
-  { key: "paymentMethod", label: "결제방법" },
-  { key: "paymentAmount", label: "결제금액" },
-  { key: "agentName",     label: "담당자" },
-  { key: "remarks",       label: "비고" },
-];
-
-const APIS_HEADERS = APIS_COLUMNS.map(c => c.label);
-const APIS_KEYS = APIS_COLUMNS.map(c => c.key);
+// ── APIS 협업 편집 모달 (보드는 공용 ApisBoard 컴포넌트 사용) ──────────
 
 interface ApisModalProps {
   product: Product;
@@ -642,9 +614,8 @@ interface ApisModalProps {
 }
 
 function ApisModal({ product, canManage, onClose }: ApisModalProps) {
-  const [rows, setRows] = useState<ApisRow[]>([]);
-  const [tripTitle, setTripTitle] = useState("");
-  const [loading, setLoading] = useState(true);
+  // 탑승자 명단(rows)은 ApisBoard 가 단독으로 fetch/표시 — 중복 fetch 제거.
+  // 모달은 헤더(제목 + 엑셀/Drive 버튼)와 보드 컨테이너만 담당.
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   // ── Drive 시트 상태 (없으면 만들기 / 있으면 열기+갱신) ──────────────
@@ -693,35 +664,6 @@ function ApisModal({ product, canManage, onClose }: ApisModalProps) {
     window.addEventListener("keydown", handle);
     return () => window.removeEventListener("keydown", handle);
   }, [onClose]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`/api/admin/apis/excel?productCode=${encodeURIComponent(product.code)}&preview=1`);
-        if (!res.ok) {
-          setError(`요청 실패: ${res.status}`);
-          return;
-        }
-        let d;
-        try {
-          d = await res.json();
-        } catch (e) {
-          setError("응답 파싱 실패");
-          return;
-        }
-        if (d.ok) {
-          setRows(d.rows ?? []);
-          setTripTitle(d.tripTitle ?? product.name);
-        } else {
-          setError(d.error ?? "데이터를 불러오지 못했습니다.");
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "데이터를 불러오지 못했습니다.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [product.code, product.name]);
 
   async function handleDownload() {
     setDownloading(true);
@@ -772,22 +714,20 @@ function ApisModal({ product, canManage, onClose }: ApisModalProps) {
             <FileSpreadsheet className="w-5 h-5 text-green-600" />
             <div>
               <h2 className="text-base font-bold text-gray-900">APIS 탑승자 명단</h2>
-              {tripTitle && <p className="text-sm text-gray-500 mt-0.5">{tripTitle}</p>}
+              {product.name && <p className="text-sm text-gray-500 mt-0.5">{product.name}</p>}
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {!loading && !error && (
-              <button
-                onClick={handleDownload}
-                disabled={downloading}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                {downloading ? "생성 중..." : "엑셀 다운로드"}
-              </button>
-            )}
+            <button
+              onClick={handleDownload}
+              disabled={downloading}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              {downloading ? "생성 중..." : "엑셀 다운로드"}
+            </button>
             {/* Drive 시트: OWNER/GLOBAL_ADMIN 전용 (없으면 만들기 / 있으면 열기+갱신) */}
-            {!loading && !error && canManage && (
+            {canManage && (
               driveUrl ? (
                 <>
                   <a
@@ -829,54 +769,15 @@ function ApisModal({ product, canManage, onClose }: ApisModalProps) {
             {driveNotice}
           </div>
         )}
+        {error && (
+          <div className="px-6 py-2 text-sm text-red-700 bg-red-50 border-b border-red-100 shrink-0">
+            {error}
+          </div>
+        )}
 
-        {/* 내용 */}
+        {/* 내용 — 협업 편집 보드 (단일 공용 컴포넌트, /passport/apis 와 공유) */}
         <div className="flex-1 overflow-auto p-4">
-          {loading && (
-            <div className="flex items-center justify-center py-20 gap-2 text-gray-500">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-sm">데이터 불러오는 중...</span>
-            </div>
-          )}
-          {error && (
-            <div className="text-center py-20 text-red-500 text-sm">{error}</div>
-          )}
-          {!loading && !error && (
-            <div className="text-sm">
-              <p className="text-gray-500 mb-2 font-medium">
-                {rows.length > 0 ? `총 ${rows.length}명` : "등록된 탑승자 없음 — 아래 양식으로 엑셀 다운로드 가능합니다"}
-              </p>
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      {APIS_HEADERS.map((h) => (
-                        <th key={h} className="px-2 py-2 text-left font-medium text-gray-600 whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {rows.map((row, i) => (
-                      <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                        {APIS_KEYS.map((k) => (
-                          <td key={k} className="px-2 py-1.5 text-gray-800 whitespace-nowrap max-w-[120px] truncate">
-                            {String(row[k] ?? "")}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                    {rows.length === 0 && (
-                      <tr>
-                        <td colSpan={APIS_HEADERS.length} className="text-center py-8 text-gray-600">
-                          탑승자 정보가 아직 없습니다
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          <ApisBoard productCode={product.code} canManage={canManage} />
         </div>
       </div>
     </div>

@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Ship, Search, Download, FileSpreadsheet, ArrowLeft, Users, RefreshCw, Loader2, Lock, FolderPlus, ExternalLink } from 'lucide-react';
+import { Ship, Search, Download, FileSpreadsheet, ArrowLeft, RefreshCw, Loader2, Lock, FolderPlus, ExternalLink } from 'lucide-react';
 import { showError } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
-import type { ApisRow } from '@/app/api/admin/apis/excel/route';
+import ApisBoard from '@/components/apis/ApisBoard';
 
 // 실제 판매 상품(CruiseProduct) — /api/products 응답
 interface ProductItem {
@@ -34,8 +34,8 @@ export default function ApisPage() {
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<ProductItem | null>(null);
-  const [rows, setRows] = useState<ApisRow[]>([]);
-  const [loadingRows, setLoadingRows] = useState(false);
+  // Drive 저장 버튼 게이팅용 탑승객 수 (표 자체는 ApisBoard가 자체 로드)
+  const [travelerCount, setTravelerCount] = useState<number | null>(null);
   const [savingDrive, setSavingDrive] = useState(false);
 
   // 실제 판매 상품 목록 로드 (/products 와 동일 소스)
@@ -56,18 +56,16 @@ export default function ApisPage() {
 
   useEffect(() => { loadProducts(''); }, [loadProducts]);
 
-  // 상품 선택 → /products 와 동일한 productCode 기준 APIS 미리보기
+  // 상품 선택 → selected만 세팅 (APIS 표는 ApisBoard가 자체 로드)
+  // Drive 저장 버튼 게이팅을 위해 탑승객 수만 가볍게 조회
   const selectProduct = async (product: ProductItem) => {
     setSelected(product);
-    setLoadingRows(true);
-    setRows([]);
+    setTravelerCount(null);
     try {
       const res = await fetch(`/api/admin/apis/excel?productCode=${encodeURIComponent(product.code)}&preview=1`);
       const data = await res.json();
-      if (data.ok) setRows(data.rows ?? []);
-      else showError(data.error ?? 'APIS 데이터를 불러오지 못했습니다.');
-    } catch { showError('네트워크 오류'); }
-    finally { setLoadingRows(false); }
+      if (data.ok) setTravelerCount((data.rows ?? []).length);
+    } catch { /* 표는 ApisBoard가 로드하므로 카운트 실패는 무시 */ }
   };
 
   // 엑셀 다운로드 — /products 와 동일 엔드포인트(productCode 기준)
@@ -191,11 +189,7 @@ export default function ApisPage() {
               <div className="flex items-center justify-between p-4 border-b border-gray-100">
                 <div>
                   <h2 className="font-bold text-gray-900">{selected.shipName || selected.name}</h2>
-                  <p className="text-xs text-gray-500 flex items-center gap-1.5">
-                    <span>{selected.code}</span>
-                    <span className="text-gray-300">·</span>
-                    <span className="flex items-center gap-0.5"><Users className="w-3 h-3" />탑승객 {rows.length}명</span>
-                  </p>
+                  <p className="text-xs text-gray-500">{selected.code}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -221,8 +215,8 @@ export default function ApisPage() {
                         </a>
                         <button
                           onClick={saveToDrive}
-                          disabled={savingDrive || rows.length === 0}
-                          title={rows.length === 0 ? '탑승객 0명 — 갱신할 명단 없음' : '최신 명단으로 덮어쓰기'}
+                          disabled={savingDrive || travelerCount === 0}
+                          title={travelerCount === 0 ? '탑승객 0명 — 갱신할 명단 없음' : '최신 명단으로 덮어쓰기'}
                           className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {savingDrive ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
@@ -232,8 +226,8 @@ export default function ApisPage() {
                     ) : (
                       <button
                         onClick={saveToDrive}
-                        disabled={savingDrive || rows.length === 0}
-                        title={rows.length === 0 ? '탑승객 0명 — 저장할 명단이 없습니다' : 'Google Drive에 APIS 명단 저장'}
+                        disabled={savingDrive || travelerCount === 0}
+                        title={travelerCount === 0 ? '탑승객 0명 — 저장할 명단이 없습니다' : 'Google Drive에 APIS 명단 저장'}
                         className="flex items-center gap-1.5 px-3 py-2 border border-blue-300 text-blue-700 text-sm font-medium rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {savingDrive ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderPlus className="w-4 h-4" />}
@@ -244,46 +238,10 @@ export default function ApisPage() {
                 </div>
               </div>
 
-              {loadingRows ? (
-                <div className="flex items-center justify-center py-16 text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
-              ) : rows.length === 0 ? (
-                <div className="text-center py-16 text-gray-400 text-sm">
-                  아직 제출된 탑승객 APIS 정보가 없습니다 — 빈 양식 엑셀은 위 버튼으로 다운로드할 수 있습니다
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-gray-50 text-gray-500">
-                      <tr>
-                        <th className="px-2 py-2 text-left font-medium">예약(RV)</th>
-                        <th className="px-2 py-2 text-left font-medium">객실</th>
-                        <th className="px-2 py-2 text-left font-medium">성명</th>
-                        <th className="px-2 py-2 text-left font-medium">영문</th>
-                        <th className="px-2 py-2 text-left font-medium">성별</th>
-                        <th className="px-2 py-2 text-left font-medium">생년월일</th>
-                        <th className="px-2 py-2 text-left font-medium">여권번호</th>
-                        <th className="px-2 py-2 text-left font-medium">만료일</th>
-                        <th className="px-2 py-2 text-left font-medium">연락처</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {rows.map((t, idx) => (
-                        <tr key={`${t.rv}-${t.seq}-${idx}`} className="hover:bg-gray-50">
-                          <td className="px-2 py-2 text-gray-600">{t.rv || '-'}</td>
-                          <td className="px-2 py-2 text-gray-600">{t.cabinType || t.cabin || '-'}</td>
-                          <td className="px-2 py-2 font-medium text-gray-900">{t.korName || '-'}</td>
-                          <td className="px-2 py-2 text-gray-600">{[t.engSurname, t.engGivenName].filter(Boolean).join(' ') || '-'}</td>
-                          <td className="px-2 py-2 text-gray-600">{t.gender || '-'}</td>
-                          <td className="px-2 py-2 text-gray-600">{t.birthDate || '-'}</td>
-                          <td className="px-2 py-2 text-gray-600">{t.passportNo || '-'}</td>
-                          <td className="px-2 py-2 text-gray-600">{t.expiryDate || '-'}</td>
-                          <td className="px-2 py-2 text-gray-600">{t.phone || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              {/* APIS 협업 편집 보드 — /products 와 동일한 단일 공용 컴포넌트 (중복 금지) */}
+              <div className="p-4">
+                <ApisBoard productCode={selected.code} canManage={canManage} />
+              </div>
             </div>
           )}
         </div>

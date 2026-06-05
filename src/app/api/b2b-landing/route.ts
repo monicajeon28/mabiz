@@ -1,10 +1,13 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
+import { customAlphabet } from "nanoid";
 import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, BONSA_ORG_ID } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { ForbiddenError, ValidationError, B2BError } from "@/lib/b2b/errors";
 import { handleB2BError } from "@/lib/b2b/response-handler";
+
+const nanoid = customAlphabet('0-9a-z', 8);
 
 // GET /api/b2b-landing
 export async function GET() {
@@ -60,6 +63,19 @@ export async function POST(req: Request) {
       throw new ValidationError('제목은 필수입니다.');
     }
 
+    // 무작위 8자 shortlink 생성 (충돌 시 자동 재시도)
+    let shortlinkCode = nanoid();
+    let attempts = 0;
+    while (attempts < 10) {
+      const existing = await prisma.shortLink.findFirst({
+        where: { code: shortlinkCode },
+        select: { id: true },
+      });
+      if (!existing) break;
+      shortlinkCode = nanoid();
+      attempts++;
+    }
+
     // partnerId는 선택사항 (null 가능)
     const page = await prisma.b2BLandingPage.create({
       data: {
@@ -86,8 +102,22 @@ export async function POST(req: Request) {
       },
     });
 
-    logger.log("[POST /api/b2b-landing] 생성", { id: page.id, orgId });
-    return NextResponse.json({ ok: true, page }, { status: 201 });
+    // ShortLink 레코드 자동 생성
+    const targetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/b2b-landing/${page.id}`;
+    await prisma.shortLink.create({
+      data: {
+        code: shortlinkCode,
+        targetUrl,
+        title: page.title,
+        organizationId: orgId,
+        createdBy: ctx.userId,
+        category: 'b2b-landing',
+        isActive: true,
+      },
+    });
+
+    logger.log("[POST /api/b2b-landing] 생성", { id: page.id, orgId, shortlinkCode });
+    return NextResponse.json({ ok: true, page, shortlinkCode }, { status: 201 });
   } catch (err: unknown) {
     return handleB2BError(err, "POST /api/b2b-landing");
   }
