@@ -1,7 +1,6 @@
 ﻿'use client';
 
 import React, { useState } from 'react';
-// @ts-ignore
 import {
   DragDropContext,
   Droppable,
@@ -195,7 +194,7 @@ export default function FormBuilder({ onChange, initialFields }: FormBuilderProp
             type="text"
             value={customInput}
             onChange={(e) => setCustomInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && addCustomField()}
+            onKeyPress={(e) => { if (e.key === 'Enter') { addCustomField(); } }}
             placeholder="필드명 입력 (예: 직급, 부서)"
             className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-blue-500"
           />

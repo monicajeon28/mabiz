@@ -70,7 +70,7 @@ export async function POST(req: Request) {
           html: personalHtml,
           channel: "MANUAL",
         });
-        result.result_code === 1 ? sentCount++ : failedCount++;
+        if (result.result_code === 1) { sentCount++; } else { failedCount++; }
       }
 
       logger.log("[POST /api/email/schedule] 즉시 발송 완료", { orgId, sentCount, failedCount });

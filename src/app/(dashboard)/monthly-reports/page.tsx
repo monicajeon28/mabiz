@@ -15,20 +15,21 @@ export default async function MonthlyReportsPage() {
     return notFound();
   }
 
-  // 최근 12개월 MonthlySettlement 조회
-  // 📌 P0-SEC-001: 테넌트 격리 필터 필요
-  // TODO: MonthlySettlement 스키마에 organizationId 추가 필수
-  // 현재: 스키마에 organizationId 없음 → summary.organizationId에 저장된 값 확인 필요
+  // 최근 12개월 MonthlySettlement 조회 — summary JSON의 organizationId로 필터
+  // NOTE: 스키마에 organizationId 컬럼이 없어 JSON 필터를 사용하나 인덱스 없음.
+  //       장기적으로 MonthlySettlement에 organizationId String 컬럼 추가 필요.
   const allSettlements = await prisma.monthlySettlement.findMany({
+    where: {
+      summary: {
+        path: ['organizationId'],
+        equals: session.organizationId,
+      },
+    },
     orderBy: { periodStart: 'desc' },
-    take: 24 // 더 많이 조회해서 필터링
+    take: 12,
   });
 
-  // 현재 조직의 settlement만 필터링 (summary.organizationId 기반)
-  const settlements = allSettlements.filter((s: any) => {
-    const summary = s.summary as any;
-    return summary?.organizationId === session.organizationId;
-  }).slice(0, 12);
+  const settlements = allSettlements;
 
   // 총 통계 계산
   const totalAmount = settlements.reduce((sum: number, s: any) => {

@@ -174,19 +174,12 @@ export default function Loop5DashboardPage() {
     });
   };
 
+  // TODO: PDF 생성 로직 구현 전까지 버튼 비활성화
   const handleExportPDF = async () => {
     toast({
-      title: 'PDF 생성 중',
-      description: '고급 리포트를 생성 중입니다...',
+      title: 'PDF 기능 준비 중',
+      description: '곧 제공 예정입니다.',
     });
-
-    // TODO: PDF 생성 로직
-    setTimeout(() => {
-      toast({
-        title: 'PDF 준비 완료',
-        description: '다운로드 링크가 준비되었습니다.',
-      });
-    }, 2000);
   };
 
   const handleSendEmail = () => {
@@ -242,10 +235,12 @@ export default function Loop5DashboardPage() {
                   </button>
                   <button
                     onClick={handleExportPDF}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors text-left"
+                    disabled
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 dark:text-gray-500 rounded transition-colors text-left cursor-not-allowed opacity-50"
+                    title="PDF 기능 준비 중"
                   >
                     <FileText className="w-4 h-4" />
-                    PDF 리포트
+                    PDF 리포트 (준비 중)
                   </button>
                   <button
                     onClick={handleSendEmail}
@@ -336,7 +331,7 @@ export default function Loop5DashboardPage() {
               </div>
             )}
 
-            {stats?.byDay[0]?.rate! < 10 && (
+            {(stats?.byDay[0]?.rate ?? 0) < 10 && (
               <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-4 border border-blue-200 dark:border-blue-800">
                 <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
                   🕐 Day 0 응답율 개선

@@ -432,12 +432,19 @@ interface LandingSignupLogData {
  * 감사 로그: 나중에 분석용 DB 저장 가능
  */
 function logLandingSignup(data: LandingSignupLogData) {
-  const logData = {
+  // PII 마스킹: phone/email을 로그에 직접 노출하지 않음 (개인정보보호법 준수)
+  const masked = {
     ...data,
+    phone: data.phone
+      ? `${data.phone.slice(0, 3)}****${data.phone.slice(-4)}`
+      : undefined,
+    email: data.email
+      ? `${data.email.slice(0, 2)}***@${data.email.split('@')[1] ?? ''}`
+      : undefined,
     level: 'INFO',
-    service: 'landing-contact-signup'
+    service: 'landing-contact-signup',
   };
-  console.log('[LandingSignupLog]', JSON.stringify(logData, null, 2));
+  console.log('[LandingSignupLog]', JSON.stringify(masked));
 }
 
 // OPTIONS 메서드 (CORS 프리플라이트)

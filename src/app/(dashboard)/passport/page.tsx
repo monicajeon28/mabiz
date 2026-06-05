@@ -825,7 +825,7 @@ export default function PassportPage() {
                   <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed bg-white border border-gray-100 rounded p-2">
                     {fillTemplate(selectedTemplate.body, {
                       고객명: selectedCustomers[0]?.name ? `${selectedCustomers[0].name}님` : '고객님',
-                      링크: 'https://크루즈닷.com/p/xxxxx',
+                      링크: '(링크는 발송 시 자동 생성)',
                       상품명: selectedCustomers[0]?.latestTrip?.cruiseName ?? '크루즈 여행',
                       출발일: selectedCustomers[0]?.latestTrip?.departureDate?.split('T')[0] ?? '',
                     })}

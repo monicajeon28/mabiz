@@ -164,8 +164,9 @@ const CHANNEL_CONFIG: Record<
 };
 
 export default function OptimizationDashboard() {
-  const [data, setData] = useState<OptimizationDashboardData>(MOCK_DATA);
+  const [data, setData] = useState<OptimizationDashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<MessageChannel | null>(
     null
   );
@@ -173,6 +174,7 @@ export default function OptimizationDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
+      setFetchError(null);
       try {
         const response = await fetch('/api/analytics/optimization');
         const result = await response.json();
@@ -182,9 +184,11 @@ export default function OptimizationDashboard() {
             lastUpdateAt: new Date(result.lastUpdateAt),
             nextUpdateAt: new Date(result.nextUpdateAt),
           });
+        } else {
+          setFetchError(result.message || '데이터를 불러올 수 없습니다.');
         }
-      } catch (error) {
-        console.error('Failed to fetch optimization data:', error);
+      } catch (err) {
+        setFetchError('최적화 데이터 로드 중 오류가 발생했습니다.');
       } finally {
         setIsLoading(false);
       }
@@ -227,6 +231,22 @@ export default function OptimizationDashboard() {
       minute: "2-digit",
     }).format(date);
   };
+
+  if (isLoading && !data) {
+    return (
+      <div className="space-y-6 flex items-center justify-center min-h-64">
+        <div className="text-center text-gray-500">데이터를 불러오는 중...</div>
+      </div>
+    );
+  }
+
+  if (fetchError || !data) {
+    return (
+      <div className="space-y-6 flex items-center justify-center min-h-64">
+        <div className="text-center text-red-500">{fetchError ?? '데이터 없음'}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

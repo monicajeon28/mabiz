@@ -34,11 +34,15 @@ export async function GET(_req: Request) {
       });
     }
 
+    const masked = kakaoConfig.senderKey
+      ? '****' + kakaoConfig.senderKey.slice(-4)
+      : null;
     return NextResponse.json({
       ok: true,
       config: {
-        senderKey: kakaoConfig.senderKey,
+        senderKey: masked,
         isActive: kakaoConfig.isActive,
+        hasSenderKey: !!kakaoConfig.senderKey,
       },
     });
   } catch (err) {

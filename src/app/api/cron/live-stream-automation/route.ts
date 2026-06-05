@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendSmsViaAligo } from '@/lib/sms-service';
 import { logLiveStreamEvent } from '@/lib/live-stream/tracking';
+import { logger } from '@/lib/logger';
 
 // Cron 인증 토큰 (미설정 시 fail-closed)
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('[LIVE_STREAM_CRON]', error);
+    logger.error('[LIVE_STREAM_CRON]', { error: String(error) });
     return NextResponse.json(
       { error: 'Internal server error', details: String(error) },
       { status: 500 }
@@ -139,7 +140,7 @@ async function handleDay1(
       sms++;
       scheduled++;
     } catch (error) {
-      console.error(`[DAY1_ERROR] Contact: ${contact.id}`, error);
+      logger.error(`[DAY1_ERROR] Contact: ${contact.id}`, { error: String(error) });
       failed++;
     }
   }
@@ -176,7 +177,7 @@ async function handleDay2(
       sms++;
       sent++;
     } catch (error) {
-      console.error(`[DAY2_ERROR] Contact: ${contact.id}`, error);
+      logger.error(`[DAY2_ERROR] Contact: ${contact.id}`, { error: String(error) });
       failed++;
     }
   }
@@ -213,7 +214,7 @@ async function handleDay3(
       sms++;
       sent++;
     } catch (error) {
-      console.error(`[DAY3_ERROR] Contact: ${contact.id}`, error);
+      logger.error(`[DAY3_ERROR] Contact: ${contact.id}`, { error: String(error) });
       failed++;
     }
   }
