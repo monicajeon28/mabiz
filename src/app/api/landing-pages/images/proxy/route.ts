@@ -14,7 +14,7 @@ async function getServiceToken(): Promise<string> {
   }
   const serviceAccountKey = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY;
   const credentials = serviceAccountKey
-    ? (() => { try { return JSON.parse(serviceAccountKey); } catch { return parseServiceAccount(serviceAccountKey); } })()
+    ? parseServiceAccount(serviceAccountKey)
     : {
         client_email: process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_EMAIL ?? process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
         private_key: (
