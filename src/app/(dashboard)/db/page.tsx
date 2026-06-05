@@ -130,10 +130,10 @@ export default function DbPage() {
   // B2B는 B2BProspect 테이블이라 contacts/bulk-delete 사용 불가
   const isB2BTab = importTarget === "b2b_buyer" || importTarget === "b2b_inquiry";
 
-  // ── 소프트 삭제 ───────────────────────────────────────────
+  // ── 하드 삭제 ─────────────────────────────────────────────
   const handleDelete = async () => {
     if (selected.size === 0 || isB2BTab) return;
-    if (!confirm(`선택한 ${selected.size}명의 고객을 삭제하시겠습니까?\n\n※ 실제 데이터 삭제가 아닌 화면에서 숨김 처리됩니다.`)) return;
+    if (!confirm(`선택한 ${selected.size}명의 고객을 삭제하시겠습니까?\n\n⚠️ DB에서 완전히 삭제됩니다. 복구하려면 백업에서 복원이 필요합니다.`)) return;
     setDeleting(true);
     setDeleteMsg(null);
     try {
@@ -193,7 +193,7 @@ export default function DbPage() {
       document.removeEventListener("visibilitychange", onVisible);
       ctrl.abort();
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  
 
   const handleImportNew = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

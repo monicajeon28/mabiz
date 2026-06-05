@@ -98,16 +98,13 @@ export async function POST(req: Request) {
       }
     }
 
-    // 트랜잭션: 일괄 소프트 삭제
+    // 하드 삭제: DB에서 완전 제거 (백업: Neon → Supabase → Google Drive)
     const result = await prisma.$transaction(async (tx) => {
-      // 소유권 확인 + 소프트 삭제 (deletedAt 설정)
-      const deleted = await tx.contact.updateMany({
+      const deleted = await tx.contact.deleteMany({
         where: {
           id: { in: contactIds as string[] },
           organizationId: orgId,
-          deletedAt: null, // 이미 삭제된 것은 제외
         },
-        data: { deletedAt: new Date() },
       });
 
       return deleted.count;
