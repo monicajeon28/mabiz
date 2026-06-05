@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgIdOrNull } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 export async function GET(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx); // string | null (GLOBAL_ADMIN → null = 전체조회)
     if (ctx.role === 'FREE_SALES') return NextResponse.json({ ok: false }, { status: 403 });
 
     const { searchParams } = new URL(req.url);
@@ -28,7 +28,7 @@ export async function GET(req: Request) {
       // 권한 검사: 현재 조직의 AffiliateSale과 교차 확인
       const orgOrderIds = await prisma.affiliateSale.findMany({
         where: {
-          organizationId: orgId,
+          ...(orgId ? { organizationId: orgId } : {}),
           orderId: { in: matchedPayments.map(p => p.orderId) },
         },
         select: { orderId: true },
@@ -39,7 +39,7 @@ export async function GET(req: Request) {
     // ── 2단계: AffiliateSale 검색 (조직 소유 필터 + 전체 상태) ──
     const sales = await prisma.affiliateSale.findMany({
       where: {
-        organizationId: orgId,
+        ...(orgId ? { organizationId: orgId } : {}),
         status: { in: ['PENDING', 'EARNED', 'PAID', 'CANCELLED'] },
         ...(q ? {
           OR: [
