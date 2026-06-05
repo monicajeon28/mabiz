@@ -30,6 +30,8 @@ interface Application {
     rejectReason?: string;
     idPhotoUrl?: string;
     bankBookUrl?: string;
+    idPhotoDriveId?: string;
+    bankBookDriveId?: string;
   } | null;
 }
 
@@ -76,28 +78,25 @@ function safeHref(raw: unknown): string | null {
 }
 
 // ── 라이트박스 (이미지 확대) ───────────────────────────────────────────
-function Lightbox({ url, label, onClose }: { url: string; label: string; onClose: () => void }) {
+function Lightbox({ src, label, onClose }: { src: string; label: string; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
-  const safe = safeHref(url);
   return (
     <div className="fixed inset-0 z-[70] bg-black/85 flex flex-col items-center justify-center p-4" onClick={onClose}>
       <div className="absolute top-4 right-4 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-        {safe && (
-          <a href={safe} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1 px-3 py-2 bg-white/90 text-gray-800 rounded-lg text-sm font-medium hover:bg-white">
-            <ExternalLink className="w-4 h-4" /> 원본 열기
-          </a>
-        )}
+        <a href={src} target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-1 px-3 py-2 bg-white/90 text-gray-800 rounded-lg text-sm font-medium hover:bg-white">
+          <ExternalLink className="w-4 h-4" /> 원본 열기
+        </a>
         <button onClick={onClose} className="p-2 bg-white/90 text-gray-800 rounded-lg hover:bg-white" aria-label="닫기">
           <X className="w-5 h-5" />
         </button>
       </div>
       <Image
-        src={url} alt={label} width={1200} height={1600} unoptimized
+        src={src} alt={label} width={1200} height={1600} unoptimized
         className="max-h-[88vh] w-auto object-contain rounded-lg"
         onClick={(e) => e.stopPropagation()}
       />
@@ -105,13 +104,28 @@ function Lightbox({ url, label, onClose }: { url: string; label: string; onClose
   );
 }
 
+// 서류 src 해석: Drive fileId → 관리자 프록시 경로 / 레거시 base64·URL 폴백
+function docSrc(app: Application, kind: 'idPhoto' | 'bankBook'): string | null {
+  const m = app.metadata;
+  if (!m) return null;
+  const driveId = kind === 'idPhoto' ? m.idPhotoDriveId : m.bankBookDriveId;
+  if (typeof driveId === 'string' && driveId) {
+    return `/api/affiliate/contracts/${app.id}/document?kind=${kind}`;
+  }
+  const legacy = kind === 'idPhoto' ? m.idPhotoUrl : m.bankBookUrl;
+  if (typeof legacy === 'string' && legacy) {
+    if (legacy.startsWith('data:image/')) return legacy; // 레거시 base64
+    return safeHref(legacy);                              // 레거시 외부 URL
+  }
+  return null;
+}
+
 // ── 첨부 서류 슬롯 (클릭 시에만 로드 → 라이트박스 확대) ──────────────────
-function DocSlot({ label, url, status }: { label: string; url?: string; status: ContractStatus }) {
+function DocSlot({ label, src, status }: { label: string; src: string | null; status: ContractStatus }) {
   const [loaded, setLoaded] = useState(false);
   const [lightbox, setLightbox] = useState(false);
-  const safe = safeHref(url);
 
-  if (!safe) {
+  if (!src) {
     // 검토 대기인데 미제출이면 주의(amber), 그 외엔 회색 점선
     const warn = status === 'submitted';
     return (
@@ -130,7 +144,7 @@ function DocSlot({ label, url, status }: { label: string; url?: string; status: 
       {loaded ? (
         <button onClick={() => setLightbox(true)} className="relative block w-full group" aria-label={`${label} 확대`}>
           <span className="block w-full aspect-[3/2] rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
-            <Image src={safe} alt={label} width={400} height={267} unoptimized loading="lazy"
+            <Image src={src} alt={label} width={400} height={267} unoptimized loading="lazy"
               className="w-full h-full object-cover" />
           </span>
           <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 rounded-xl transition-colors">
@@ -143,7 +157,7 @@ function DocSlot({ label, url, status }: { label: string; url?: string; status: 
           <ZoomIn className="w-3.5 h-3.5" /> 확인
         </button>
       )}
-      {lightbox && <Lightbox url={safe} label={label} onClose={() => setLightbox(false)} />}
+      {lightbox && <Lightbox src={src} label={label} onClose={() => setLightbox(false)} />}
     </div>
   );
 }
@@ -295,8 +309,8 @@ function DetailModal({
           <div className="bg-white rounded-xl border border-gray-100 p-4">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">첨부 서류</p>
             <div className="grid grid-cols-2 gap-2">
-              <DocSlot label="신분증" url={meta?.idPhotoUrl} status={app.status} />
-              <DocSlot label="통장사본" url={meta?.bankBookUrl} status={app.status} />
+              <DocSlot label="신분증" src={docSrc(app, 'idPhoto')} status={app.status} />
+              <DocSlot label="통장사본" src={docSrc(app, 'bankBook')} status={app.status} />
             </div>
           </div>
 

@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { uploadContractDocToDrive } from '@/lib/affiliate/contract-docs';
 
 // ── GET ──────────────────────────────────────────────────────────────
 
@@ -131,6 +132,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 신분증/통장(base64 dataURL)을 비공개 Drive로 업로드 → fileId만 저장(민감정보, base64 미보관)
+    // 업로드 실패 시에만 base64 폴백 유지(제출 자체는 실패시키지 않음)
+    const ts = Date.now();
+    let idPhotoDriveId: string | undefined;
+    let bankBookDriveId: string | undefined;
+    if (typeof idPhotoUrl === 'string' && idPhotoUrl.startsWith('data:')) {
+      idPhotoDriveId = (await uploadContractDocToDrive(idPhotoUrl, `${contract.id}_idPhoto_${ts}`)) ?? undefined;
+    }
+    if (typeof bankBookUrl === 'string' && bankBookUrl.startsWith('data:')) {
+      bankBookDriveId = (await uploadContractDocToDrive(bankBookUrl, `${contract.id}_bankBook_${ts}`)) ?? undefined;
+    }
+
     await prisma.gmAffiliateContract.update({
       where: { id: contract.id },
       data: {
@@ -141,8 +154,13 @@ export async function POST(req: NextRequest) {
         signatureImageUrl: typeof signatureImageUrl === 'string' ? signatureImageUrl : undefined,
         metadata: {
           ...meta,
-          idPhotoUrl: typeof idPhotoUrl === 'string' ? idPhotoUrl : undefined,
-          bankBookUrl: typeof bankBookUrl === 'string' ? bankBookUrl : undefined,
+          // Drive 업로드 성공: fileId 저장 + base64 제거 / 실패: base64 폴백
+          ...(idPhotoDriveId
+            ? { idPhotoDriveId, idPhotoUrl: undefined }
+            : { idPhotoUrl: typeof idPhotoUrl === 'string' ? idPhotoUrl : undefined }),
+          ...(bankBookDriveId
+            ? { bankBookDriveId, bankBookUrl: undefined }
+            : { bankBookUrl: typeof bankBookUrl === 'string' ? bankBookUrl : undefined }),
           signName: typeof signName === 'string' ? signName.trim() : undefined,
           documentsSubmittedAt: new Date().toISOString(),
         },
