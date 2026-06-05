@@ -45,7 +45,7 @@ export type SalesDocumentItem = {
 // ─── Format helpers ───────────────────────────────────────────────────────────
 
 export function formatMoney(n: number | null | undefined): string {
-  if (n == null) return '-';
+  if (n == null || !Number.isFinite(n)) return '-'; // NaN/Infinity 방어
   return n.toLocaleString('ko-KR') + '원';
 }
 
@@ -180,12 +180,25 @@ export function useImageDownload() {
     if (!ref.current) return false;
     setIsDownloading(true);
     try {
+      // 로고/직인 배경이미지가 로드되기 전 캡처하면 빈 이미지가 되므로 먼저 preload
+      await Promise.all(
+        [COMPANY.logo, COMPANY.seal].map(
+          (src) =>
+            new Promise<void>((resolve) => {
+              const img = new Image();
+              img.onload = () => resolve();
+              img.onerror = () => resolve(); // 로드 실패해도 캡처는 진행
+              img.src = src;
+            })
+        )
+      );
       const html2canvas = (await import('html2canvas')).default;
       const canvas = await html2canvas(ref.current, {
         backgroundColor: '#ffffff',
         scale: 2,
         logging: false,
         useCORS: true,
+        imageTimeout: 3000,
       });
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
@@ -225,6 +238,14 @@ const ACCENT_RING: Record<string, string> = {
   orange: 'focus:ring-orange-400',
 };
 
+// 드롭다운 항목 hover 색상 (탭 accent와 일치)
+const ACCENT_HOVER: Record<string, string> = {
+  indigo: 'hover:bg-indigo-50',
+  emerald: 'hover:bg-emerald-50',
+  red: 'hover:bg-red-50',
+  orange: 'hover:bg-orange-50',
+};
+
 export function CustomerAutocomplete({
   label = '고객 검색',
   placeholder = '이름·주문번호·전화번호 입력',
@@ -245,21 +266,26 @@ export function CustomerAutocomplete({
       setResults([]);
       return;
     }
+    // alive 플래그: 빠른 타이핑/언마운트 시 늦게 도착한 stale fetch 응답이
+    // 최신 결과를 덮어쓰거나 unmount 후 setState 하는 race 방어
+    let alive = true;
     const t = setTimeout(async () => {
       setLoading(true);
       try {
         let sales = await searchSales(query);
+        if (!alive) return;
         if (onlyPurchasable) sales = sales.filter((s) => s.canIssuePurchaseCert);
+        // 환불예정확인서는 결제완료(미취소) 건도 발급 가능하므로 canIssuePurchaseCert도 허용
         if (onlyRefundable) sales = sales.filter((s) => s.canIssueRefundCert || s.canIssuePurchaseCert);
         setResults(sales);
         setOpen(true);
       } catch {
-        setResults([]);
+        if (alive) setResults([]);
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     }, 300);
-    return () => clearTimeout(t);
+    return () => { alive = false; clearTimeout(t); };
   }, [query, onlyPurchasable, onlyRefundable]);
 
   // 바깥 클릭 닫기
@@ -274,6 +300,7 @@ export function CustomerAutocomplete({
   const pick = (s: SaleResult) => {
     onSelect(s);
     setQuery(s.buyerName || s.orderId || '');
+    setResults([]); // 선택 후 stale 결과가 재포커스 시 다시 열리지 않도록 정리
     setOpen(false);
   };
 
@@ -311,7 +338,7 @@ export function CustomerAutocomplete({
               key={s.saleId}
               type="button"
               onClick={() => pick(s)}
-              className="flex w-full flex-col gap-0.5 border-b border-gray-50 px-3 py-2.5 text-left text-sm hover:bg-indigo-50 last:border-0"
+              className={`flex w-full flex-col gap-0.5 border-b border-gray-50 px-3 py-2.5 text-left text-sm last:border-0 ${ACCENT_HOVER[accent]}`}
             >
               <div className="flex items-center gap-2">
                 <User className="h-3.5 w-3.5 text-gray-400" />

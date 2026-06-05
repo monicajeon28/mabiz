@@ -23,6 +23,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
+import { CANCELLATION_POLICY } from '@/lib/company-info';
 import {
   type SaleResult,
   type SalesDocumentItem,
@@ -36,15 +37,6 @@ import {
 } from './shared';
 
 // ─── 표준 취소·환불 규정 (계약서 양식 표시용 — API generatedData.cancellationPolicy 와 동일 기준) ──
-const CANCELLATION_POLICY: { label: string; value: string }[] = [
-  { label: '출발 30일 이전', value: '위약금 없음' },
-  { label: '출발 20일 이전', value: '여행 요금의 10%' },
-  { label: '출발 10일 이전', value: '여행 요금의 15%' },
-  { label: '출발 8일 이전', value: '여행 요금의 20%' },
-  { label: '출발 1일 이전', value: '여행 요금의 30%' },
-  { label: '출발 당일', value: '여행 요금의 50%' },
-];
-
 // ─── 상태 필터 옵션 ──────────────────────────────────────────────────────────
 type StatusFilter = 'all' | 'DRAFT' | 'SENT' | 'SIGNED' | 'COMPLETED';
 const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
@@ -155,11 +147,8 @@ export default function ContractTab() {
 
   const removeSelected = (orderId: string) => {
     setSelected((prev) => prev.filter((p) => p.orderId !== orderId));
-    setPreviewBuyer((prev) => {
-      if (prev?.orderId !== orderId) return prev;
-      const rest = selected.filter((p) => p.orderId !== orderId);
-      return rest.length > 0 ? rest[rest.length - 1] : null;
-    });
+    // 제거된 항목이 현재 미리보기면 비움 (stale selected 참조 제거 — 남은 칩 클릭으로 재선택 가능)
+    setPreviewBuyer((prev) => (prev?.orderId === orderId ? null : prev));
   };
 
   // ── 일괄 발급 (선택된 각 orderId 에 대해 순차 POST) ──────────────────────────

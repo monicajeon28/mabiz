@@ -50,7 +50,10 @@ export async function POST(req: Request) {
     // 환불 계산 — cancelled이면 cancelledAt 기준, completed이면 오늘 날짜 기준 예상 환불액
     const isCancelled = payment.status === 'cancelled';
     const cancelDate = isCancelled
-      ? (body.cancellationRequestedAt ? new Date(body.cancellationRequestedAt) : new Date(payment.cancelledAt!))
+      // cancelledAt이 DB상 null일 수 있으므로 폴백 처리 (null → new Date(null)은 1970년이 되어 환불계산이 깨짐)
+      ? (body.cancellationRequestedAt
+          ? new Date(body.cancellationRequestedAt)
+          : (payment.cancelledAt ? new Date(payment.cancelledAt) : new Date()))
       : new Date(); // 아직 미취소면 오늘 기준 예상 환불액
 
     // 출발일 + 상품별 환불 정책 조회

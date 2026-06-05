@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
+import { COMPANY_INFO, CANCELLATION_POLICY_LINES } from '@/lib/company-info';
 
 // P0-4: HTML 이스케이프 함수
 function escHtml(s: string): string {
@@ -123,17 +124,10 @@ export async function POST(req: Request) {
             affiliateCode:  sale.affiliateCode ?? null,
             signedAt,
             specialTerms:   body.specialTerms ?? null,
-            // 취소/환불 규정 (법정 기준 요약)
-            cancellationPolicy: [
-              '출발 30일 이전: 위약금 없음',
-              '출발 20일 이전: 여행 요금의 10%',
-              '출발 10일 이전: 여행 요금의 15%',
-              '출발 8일 이전: 여행 요금의 20%',
-              '출발 1일 이전: 여행 요금의 30%',
-              '출발 당일: 여행 요금의 50%',
-            ],
-            companyName:   '크루즈닷',
-            companyReg:    '대표: 배연성',
+            // 취소/환불 규정 (법정 기준 요약) — 단일 출처(company-info) 사용으로 미리보기와 일치
+            cancellationPolicy: CANCELLATION_POLICY_LINES,
+            companyName:   COMPANY_INFO.name,
+            companyReg:    `대표: ${COMPANY_INFO.ceo}`,
             issuedAt:      new Date().toISOString(),
             // 서명 관련 필드
             signToken,
