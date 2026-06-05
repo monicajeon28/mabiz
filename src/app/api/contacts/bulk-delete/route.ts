@@ -103,7 +103,8 @@ export async function POST(req: Request) {
       const deleted = await tx.contact.deleteMany({
         where: {
           id: { in: contactIds as string[] },
-          organizationId: orgId,
+          // GLOBAL_ADMIN은 전체 고객 삭제 가능 (org 필터 없음)
+          ...(ctx.role !== 'GLOBAL_ADMIN' ? { organizationId: orgId } : {}),
         },
       });
 
