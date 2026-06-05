@@ -104,8 +104,30 @@ export async function GET() {
       }
     }
 
-    logger.log("[GET /api/contacts/share-targets]", { count: targets.length, role: ctx.role });
-    return NextResponse.json({ ok: true, targets });
+    // 중복 제거: id 기준 + displayName+role 기준 (globalAdmin↔organizationMember 교집합 방지)
+    const seenIds = new Set<string>();
+    const seenNames = new Set<string>();
+    const unique = targets.filter(t => {
+      if (seenIds.has(t.id)) return false;
+      const nameKey = `${t.displayName}__${t.role}__${t.orgName}`;
+      if (seenNames.has(nameKey)) return false;
+      seenIds.add(t.id);
+      seenNames.add(nameKey);
+      return true;
+    });
+
+    // 역할 라벨 정리 (OWNER → 대리점장, AGENT → 판매원 등)
+    const ROLE_LABEL: Record<string, string> = {
+      OWNER: "대리점장", AGENT: "판매원", FREE_SALES: "프리세일즈",
+      BRANCH_MANAGER: "지점장", SALES_AGENT: "판매원",
+    };
+    const labeled = unique.map(t => ({
+      ...t,
+      role: ROLE_LABEL[t.role] ?? t.role,
+    }));
+
+    logger.log("[GET /api/contacts/share-targets]", { count: labeled.length, role: ctx.role });
+    return NextResponse.json({ ok: true, targets: labeled });
   } catch (err) {
     logger.error("[GET /api/contacts/share-targets]", { err });
     const msg = err instanceof Error ? err.message : String(err);
