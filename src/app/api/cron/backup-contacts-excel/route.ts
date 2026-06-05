@@ -42,6 +42,7 @@ export async function GET(req: Request) {
   }
 
   const orgs = await prisma.organization.findMany({
+    where: { status: 'ACTIVE' },
     select: { id: true, name: true },
   });
 
