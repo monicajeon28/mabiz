@@ -63,6 +63,19 @@ export async function POST(req: Request) {
     // 5. SalesDocument 생성 (AGENT는 PENDING_APPROVAL, OWNER/ADMIN은 APPROVED)
     const status = (ctx.role === 'OWNER' || ctx.role === 'GLOBAL_ADMIN') ? 'APPROVED' : 'PENDING_APPROVAL';
 
+    // 미리보기/PNG 렌더용 데이터 (응답에 그대로 반환)
+    const generatedData = {
+      buyerName:     payment.buyerName,
+      buyerTel:      payment.buyerTel,
+      buyerEmail:    payment.buyerEmail ?? null,
+      amount:        payment.amount,
+      productName:   payment.productName ?? '크루즈 상품',
+      paidAt:        payment.paidAt?.toISOString() ?? null,
+      paymentMethod,
+      issuedAt:      new Date().toISOString(),
+      issuerOrgId:   orgId,
+    };
+
     const doc = await prisma.salesDocument.create({
       data: {
         organizationId: orgId,
@@ -71,17 +84,7 @@ export async function POST(req: Request) {
         orderId:        body.orderId,
         affiliateSaleId: sale.id,
         createdBy:      ctx.userId,
-        generatedData: {
-          buyerName:     payment.buyerName,
-          buyerTel:      payment.buyerTel,
-          buyerEmail:    payment.buyerEmail ?? null,
-          amount:        payment.amount,
-          productName:   payment.productName ?? '크루즈 상품',
-          paidAt:        payment.paidAt?.toISOString() ?? null,
-          paymentMethod,
-          issuedAt:      new Date().toISOString(),
-          issuerOrgId:   orgId,
-        },
+        generatedData,
       },
       select: { id: true, status: true },
     });
@@ -123,7 +126,7 @@ export async function POST(req: Request) {
     }
 
     logger.log('[PurchaseCert] 발급 요청', { orgId, orderId: body.orderId, status, role: ctx.role, isReissue: existingCount > 0 });
-    return NextResponse.json({ ok: true, documentId: doc.id, status, isReissue: existingCount > 0 });
+    return NextResponse.json({ ok: true, documentId: doc.id, status, isReissue: existingCount > 0, generatedData });
   } catch (e) {
     logger.log('[PurchaseCert] 오류', { error: e instanceof Error ? e.message : String(e) });
     return NextResponse.json({ ok: false }, { status: 500 });
