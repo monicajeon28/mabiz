@@ -106,7 +106,13 @@ export async function GET(req: NextRequest) {
       Prisma.sql`p."deletedAt" IS NULL`,
     ];
     if (isActive !== null) conditions.push(Prisma.sql`p."isActive" = ${isActive}`);
-    if (q) conditions.push(Prisma.sql`(p."packageName" ILIKE ${'%' + q + '%'} OR p."productCode" ILIKE ${'%' + q + '%'})`);
+    // 검색: 상품명(packageName)·상품코드·선박명(shipName)·크루즈명(cruiseLine) 통합
+    if (q) conditions.push(Prisma.sql`(
+      p."packageName" ILIKE ${'%' + q + '%'}
+      OR p."productCode" ILIKE ${'%' + q + '%'}
+      OR p."shipName" ILIKE ${'%' + q + '%'}
+      OR p."cruiseLine" ILIKE ${'%' + q + '%'}
+    )`);
 
     const whereClause = Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`;
 
@@ -121,7 +127,7 @@ export async function GET(req: NextRequest) {
         FROM "CruiseProduct" p
         ${whereClause}
         ORDER BY p."startDate" DESC NULLS LAST, p."createdAt" DESC
-        LIMIT 50 OFFSET ${offset}
+        LIMIT ${limit} OFFSET ${offset}
       `),
       prisma.$queryRaw<[{ total: bigint }]>(Prisma.sql`
         SELECT COUNT(*)::bigint AS total FROM "CruiseProduct" p ${whereClause}
