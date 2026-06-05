@@ -88,6 +88,8 @@ function buildItinerary(pattern: unknown): string {
 export default function ComparisonQuoteTab() {
   // 폼 상태
   const [form, setForm] = useState<QuoteForm>(EMPTY_FORM);
+  // 자동완성으로 선택된 AffiliateSale.id (Drive sync 연결용)
+  const [selectedAffiliateId, setSelectedAffiliateId] = useState<string | null>(null);
   // 상품 조회 로딩
   const [isLoadingProduct, setIsLoadingProduct] = useState(false);
   // 미리보기 PNG 다운로드 훅
@@ -97,6 +99,7 @@ export default function ComparisonQuoteTab() {
 
   // ─── 고객 자동완성 선택 → 폼 자동 채움 ──────────────────────────────────
   const handleSelectCustomer = (sale: SaleResult) => {
+    setSelectedAffiliateId(sale.saleId);
     setForm((prev) => ({
       ...prev,
       customerName: sale.buyerName || sale.refunderName || prev.customerName,
@@ -110,6 +113,7 @@ export default function ComparisonQuoteTab() {
   // ─── 직접 입력으로 새로 작성 (빈 폼 초기화) ─────────────────────────────
   const handleNewBlank = () => {
     setForm(EMPTY_FORM);
+    setSelectedAffiliateId(null);
     showSuccess('새 견적서를 작성합니다.');
   };
 
@@ -198,15 +202,35 @@ export default function ComparisonQuoteTab() {
     return minComp - form.ourPrice;
   }, [form.ourPrice, form.competitorPrices]);
 
-  // ─── PNG 다운로드 ────────────────────────────────────────────────────────
+  // ─── PNG 다운로드 + DB 저장 (Drive sync 연결) ───────────────────────────
   const handleDownload = async () => {
     if (!form.customerName.trim() || form.ourPrice <= 0) {
       showError('고객명과 당사 가격을 입력해주세요.');
       return;
     }
     const ok = await download(`비교견적서_${form.customerName.trim() || '고객'}`);
-    if (ok) showSuccess('비교견적서 이미지가 다운로드되었습니다.');
-    else showError('이미지 다운로드 중 오류가 발생했습니다.');
+    if (ok) {
+      showSuccess('비교견적서 이미지가 다운로드되었습니다.');
+      // DB에 저장 (Drive sync 연결을 위해 fire-and-forget)
+      fetch('/api/documents/comparison-quote', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(selectedAffiliateId ? { affiliateSaleId: selectedAffiliateId } : {}),
+          productName: form.productName || form.customerName,
+          cruiseLine: form.cabinType || undefined,
+          nights: form.headcount ? Number(form.headcount) : undefined,
+          price: form.ourPrice,
+          competitorPrices: form.competitorPrices
+            .filter((cp) => cp.companyName && cp.price > 0)
+            .map((cp) => ({ name: cp.companyName, price: cp.price })),
+          departureDate: form.departureDate || undefined,
+        }),
+      }).catch(() => {});
+    } else {
+      showError('이미지 다운로드 중 오류가 발생했습니다.');
+    }
   };
 
   return (
