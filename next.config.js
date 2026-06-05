@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 
 const nextConfig = {
+  // API bodyParser 크기 제한 설정
+  api: {
+    bodyParser: {
+      sizeLimit: '25mb',
+    },
+  },
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true }, // ESLint는 CI lint 단계에서 별도 실행
 

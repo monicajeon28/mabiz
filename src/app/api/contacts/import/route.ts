@@ -48,6 +48,14 @@ const COLUMN_MAP: Record<string, string> = {
 function parseInflowDate(value: string): Date | null {
   if (!value?.trim()) return null;
   const s = value.trim();
+  // Excel 날짜 시리얼 숫자 (5자리, 40000~60000 범위 = 2009~2064년)
+  if (/^\d{5}$/.test(s)) {
+    const serial = parseInt(s, 10);
+    if (serial >= 40000 && serial <= 60000) {
+      const d = new Date((serial - 25569) * 86400000); // Excel serial → Unix ms
+      return isNaN(d.getTime()) ? null : d;
+    }
+  }
   // YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD
   const iso = s.match(/^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
   if (iso) {

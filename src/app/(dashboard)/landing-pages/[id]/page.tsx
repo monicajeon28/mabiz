@@ -791,13 +791,13 @@ export default function EditLandingPage() {
             onClick={() => setTab("registrations")}
             className={`px-3 py-1.5 font-medium flex items-center gap-1 transition-colors ${tab === "registrations" ? "bg-navy-900 text-white" : "text-gray-500 hover:bg-gray-50"}`}
           >
-            <Users className="w-3 h-3" /> 등록자 {regTotal > 0 && `(${regTotal})`}
+            <Users className="w-3 h-3" /> 등록자 {regTotal > 0 ? `(${regTotal})` : null}
           </button>
           <button
             onClick={() => setTab("comments")}
             className={`px-3 py-1.5 font-medium flex items-center gap-1 transition-colors ${tab === "comments" ? "bg-navy-900 text-white" : "text-gray-500 hover:bg-gray-50"}`}
           >
-            <MessageSquare className="w-3 h-3" /> 후기 {comments.length > 0 && `(${comments.length})`}
+            <MessageSquare className="w-3 h-3" /> 후기 {comments.length > 0 ? `(${comments.length})` : null}
           </button>
           <button
             onClick={() => setTab("stats")}

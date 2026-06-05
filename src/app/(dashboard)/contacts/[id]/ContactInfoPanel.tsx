@@ -196,7 +196,11 @@ function ContactInfoPanelComponent({
             <span className="text-gray-400">상태</span>
             <div className="mt-0.5 relative">
               <select
-                value={contact.type}
+                value={
+                  contact.type === 'LEAD' || contact.type === 'INQUIRY' ? '잠재고객' :
+                  contact.type === 'CUSTOMER' || contact.type === 'PURCHASED' ? '구매완료' :
+                  contact.type
+                }
                 disabled={savingField === "type"}
                 onChange={(e) => saveField("type", e.target.value)}
                 className="w-full font-medium bg-transparent border-0 border-b border-dashed border-gray-300 focus:outline-none focus:border-navy-500 pr-5 py-0 cursor-pointer text-sm appearance-none"

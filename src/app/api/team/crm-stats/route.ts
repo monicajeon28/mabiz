@@ -73,10 +73,10 @@ export async function GET(req: NextRequest) {
               select: { userId: true, displayName: true, role: true },
             }),
         prisma.contact.count({ where: { ...orgFilter } }),
-        prisma.contact.count({ where: { ...orgFilter, type: 'LEAD' } }),
-        prisma.contact.count({ where: { ...orgFilter, type: 'CUSTOMER' } }),
+        prisma.contact.count({ where: { ...orgFilter, type: { in: ['LEAD', '잠재고객', 'INQUIRY'] } } }),
+        prisma.contact.count({ where: { ...orgFilter, type: { in: ['CUSTOMER', '구매완료', 'PURCHASED'] } } }),
         prisma.contact.count({
-          where: { ...orgFilter, type: 'LEAD', createdAt: { gte: monthStart } },
+          where: { ...orgFilter, type: { in: ['LEAD', '잠재고객', 'INQUIRY'] }, createdAt: { gte: monthStart } },
         }),
         prisma.contact.count({
           where: { ...orgFilter, purchasedAt: { gte: monthStart } },
