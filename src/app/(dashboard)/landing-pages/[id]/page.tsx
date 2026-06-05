@@ -67,8 +67,12 @@ export default function EditLandingPage() {
   const [images, setImages]     = useState<UploadedImage[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragIdx, setDragIdx]   = useState<number | null>(null);
-  const [groups, setGroups]     = useState<{ id: string; name: string; funnelId: string | null }[]>([]);
-  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
+  // 이름+연락처 입력 시 "그룹 관리(/groups)"로 연결 — 대그룹=카테고리, 소그룹=그룹명(랜딩페이지 제목)
+  const [groupCategories, setGroupCategories] = useState<string[]>([]); // 대그룹(카테고리) 후보 = 불러오기
+  const [parentCategory, setParentCategory]   = useState<string>("");   // 선택된 대그룹(카테고리)
+  const [addingCategory, setAddingCategory]   = useState(false);        // 대그룹 직접 추가 모드
+  const [newCategory, setNewCategory]         = useState("");           // 새 대그룹 이름
+  const [subGroupName, setSubGroupName]       = useState("");           // 소그룹(=랜딩페이지 제목)
 
   // 결제 설정
   const [paymentEnabled, setPaymentEnabled] = useState(false);
@@ -158,8 +162,17 @@ export default function EditLandingPage() {
         setTitle(pageData.page.title ?? "");
         setSlug(pageData.page.slug ?? "");
         setHtml(pageData.page.htmlContent ?? "");
-        setSelectedGroupId(pageData.page.groupId ?? "");
         setEditorMode(pageData.page.editorMode === "image" ? "image" : "html");
+        // 대그룹(카테고리)/소그룹(그룹명) prefill — 연결된 그룹이 있으면 그 값, 없으면 소그룹은 제목 기본값
+        {
+          const grp = pageData.page.group as { name?: string; category?: string | null } | null | undefined;
+          if (grp) {
+            setSubGroupName(grp.name ?? "");
+            setParentCategory(grp.category ?? "");
+          } else {
+            setSubGroupName(pageData.page.title ?? "");
+          }
+        }
         setCommentEnabled(pageData.page.commentEnabled ?? false);
         setPaymentEnabled(pageData.page.paymentEnabled ?? false);
         // 이메일 설정
@@ -199,7 +212,7 @@ export default function EditLandingPage() {
         if (cc?.dateFrom) setCommentDateFrom(cc.dateFrom);
         if (cc?.dateTo)   setCommentDateTo(cc.dateTo);
       }
-      if (groupData.ok) setGroups(groupData.groups ?? []);
+      if (groupData.ok) setGroupCategories(groupData.categories ?? []);
       if (membersData.ok && membersData.members) {
         setOrgMembers(membersData.members.filter((m: OrgMember) => m.role === "OWNER"));
       }
@@ -667,7 +680,14 @@ export default function EditLandingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title, slug, htmlContent: content, editorMode,
-          groupId: selectedGroupId || null, paymentEnabled,
+          // 이름+연락처 입력 시 배정 그룹: 대그룹=카테고리, 소그룹=그룹명. 서버가 그룹 관리에 생성/연결
+          ...(subGroupName.trim()
+            ? {
+                groupCategory: addingCategory ? (newCategory.trim() || null) : (parentCategory || null),
+                groupSubName: subGroupName.trim(),
+              }
+            : { groupId: null }),
+          paymentEnabled,
           infoCollection: true,
           formConfig: {
             ...(b2bEduType ? { b2bEduType } : {}),
@@ -697,6 +717,16 @@ export default function EditLandingPage() {
         // Task 1: setTimeout 제거 - useEffect cleanup이 자동으로 처리함 (줄 291-311)
         setSaveMsg("저장됐어요!");
         setUnsaved(false); // T28: 저장 성공 시 unsaved 해제
+        // 새 대그룹(카테고리)을 추가했으면 선택값으로 확정하고, 대그룹 목록 새로고침
+        if (addingCategory && newCategory.trim()) {
+          setParentCategory(newCategory.trim());
+          setAddingCategory(false);
+          setNewCategory("");
+        }
+        fetch("/api/groups")
+          .then((r) => (r.ok ? r.json() : { ok: false }))
+          .then((d) => { if (d.ok) setGroupCategories(d.categories ?? []); })
+          .catch(() => {});
       } else {
         throw new Error(data.message ?? "저장 실패");
       }
@@ -809,21 +839,48 @@ export default function EditLandingPage() {
                 className="border border-gray-200 rounded px-2 py-1 text-xs w-40 focus:outline-none focus:border-gold-500"
               />
             </div>
-            <div className="flex items-center gap-2 flex-1">
-              <label className="text-xs text-gray-500 whitespace-nowrap">등록 고객 배정 그룹</label>
-              <select
-                value={selectedGroupId}
-                onChange={(e) => setSelectedGroupId(e.target.value)}
+            <div className="flex items-center gap-2 flex-1 flex-wrap">
+              <label className="text-xs text-gray-500 whitespace-nowrap">이름·연락처 입력 시 배정</label>
+              {/* 대그룹 = 카테고리 (불러오기 / 추가하기) */}
+              <span className="text-xs text-gray-400">대그룹</span>
+              {addingCategory ? (
+                <>
+                  <input
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    placeholder="새 대그룹(카테고리) 이름"
+                    className="border border-gray-200 rounded px-2 py-1 text-xs w-40 focus:outline-none focus:border-gold-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setAddingCategory(false); setNewCategory(""); }}
+                    className="text-xs text-gray-400 hover:text-gray-600"
+                  >취소</button>
+                </>
+              ) : (
+                <select
+                  value={parentCategory}
+                  onChange={(e) => {
+                    if (e.target.value === "__new__") { setAddingCategory(true); }
+                    else { setParentCategory(e.target.value); }
+                  }}
+                  className="border border-gray-200 rounded px-2 py-1 text-xs w-40 focus:outline-none focus:border-gold-500"
+                >
+                  <option value="">(대그룹 없음)</option>
+                  {groupCategories.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                  <option value="__new__">+ 추가하기…</option>
+                </select>
+              )}
+              {/* 소그룹 = 그룹명 (기본값: 랜딩페이지 제목) */}
+              <span className="text-xs text-gray-400">소그룹</span>
+              <input
+                value={subGroupName}
+                onChange={(e) => setSubGroupName(e.target.value)}
+                placeholder="소그룹 제목 (예: 랜딩페이지 제목)"
                 className="border border-gray-200 rounded px-2 py-1 text-xs flex-1 max-w-xs focus:outline-none focus:border-gold-500"
-              >
-                <option value="">그룹 미지정</option>
-                {groups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name} {g.funnelId ? "🔄" : ""}
-                  </option>
-                ))}
-              </select>
-              <span className="text-xs text-gray-400">🔄 = 등록 즉시 자동 문자</span>
+              />
             </div>
             {/* 결제 설정 */}
             <div className="flex items-center gap-3 mt-2 pt-2 border-t border-gray-100">
