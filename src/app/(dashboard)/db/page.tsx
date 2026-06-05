@@ -145,7 +145,7 @@ export default function DbPage() {
       const data = await res.json() as { ok: boolean; count?: number; message?: string };
       if (data.ok) {
         const now = new Date().toLocaleString('ko-KR');
-        setDeleteMsg(`✅ ${data.count}명 숨김 처리 완료 (${now})`);
+        setDeleteMsg(`✅ ${data.count}명 삭제 완료 (${now})`);
         setSelected(new Set());
         loadContacts(contactsPage);
         loadStats();
