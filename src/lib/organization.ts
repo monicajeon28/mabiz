@@ -6,8 +6,8 @@
  * API route에서 직접 prisma.organization.create() 호출 금지.
  *
  * 호출처:
- *   POST /api/webhooks/gmcruise/contract-signed  — 계약서 서명 완료 시
- *   POST /api/admin/organizations                 — GLOBAL_ADMIN 수동 생성
+ *   POST /api/webhooks/gmcruise/contract-signed  — 계약서 서명 완료 시 (유일한 생성 경로)
+ *   (수동 생성 경로 POST /api/admin/organizations 는 2026-06-05 폐지)
  */
 
 import prisma from '@/lib/prisma';

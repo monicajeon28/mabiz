@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { Search, X, Phone, ChevronDown, ChevronUp, Copy } from "lucide-react";
+import { Search, X, Phone, ChevronDown, ChevronUp } from "lucide-react";
 import {
   CRUISE_PRODUCTS,
   SEGMENT_COLORS,
@@ -70,8 +70,8 @@ function SearchResultCard({ item, q }: { item: SearchItem; q: string }) {
   );
 }
 
-// ── DB 상품 카드 ──────────────────────────────────────────────────────────────
-function DbProductCard({ product, q, onCopy }: { product: DbProduct; q: string; onCopy: (text: string) => void }) {
+// ── DB 상품 카드 (클릭 시 모달 상세보기) ────────────────────────────────────────
+function DbProductCard({ product, q, onSelect }: { product: DbProduct; q: string; onSelect: (p: DbProduct) => void }) {
   const daysLeft = product.daysLeft;
   const urgentBadge = daysLeft !== null && daysLeft <= 7
     ? <span className="text-xs font-bold text-white bg-red-500 px-2 py-0.5 rounded-full">D-{daysLeft}</span>
@@ -79,16 +79,14 @@ function DbProductCard({ product, q, onCopy }: { product: DbProduct; q: string; 
     ? <span className="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">D-{daysLeft}</span>
     : null;
 
-  const copyText = [
-    product.name,
-    product.startDate ? `출발: ${product.startDate}` : '',
-    product.price ? `${product.price.toLocaleString()}원` : '가격 문의',
-    product.availableCount !== null ? `잔여 ${product.availableCount}석` : '',
-    product.tourCities ?? '',
-  ].filter(Boolean).join(' | ');
-
   return (
-    <div className="bg-white border-2 border-blue-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(product)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(product); } }}
+      className="bg-white border-2 border-blue-100 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer"
+    >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-base">🚢</span>
@@ -96,13 +94,6 @@ function DbProductCard({ product, q, onCopy }: { product: DbProduct; q: string; 
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {urgentBadge}
-          <button
-            onClick={() => onCopy(copyText)}
-            className="p-1.5 rounded-lg bg-gray-100 hover:bg-blue-100 text-gray-500 hover:text-blue-600 transition-colors"
-            title="클립보드 복사"
-          >
-            <Copy className="w-3.5 h-3.5" />
-          </button>
         </div>
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
@@ -162,6 +153,7 @@ export default function TrainingPage() {
   const [dbLoading, setDbLoading] = useState(false);
   const [dbCache, setDbCache] = useState<{ data: DbProduct[]; ts: number } | null>(null);
   const dbDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const [selectedDbProduct, setSelectedDbProduct] = useState<DbProduct | null>(null);
 
   const searchIndex = useMemo(() => buildSearchIndex(), []);
   const product = CRUISE_PRODUCTS[activeProduct];
@@ -303,11 +295,7 @@ export default function TrainingPage() {
                         key={p.id}
                         product={p}
                         q={searchQ}
-                        onCopy={(text) => {
-                          navigator.clipboard.writeText(text).then(() => {
-                            toast({ title: '복사됨', description: '클립보드에 복사했습니다.' });
-                          });
-                        }}
+                        onSelect={setSelectedDbProduct}
                       />
                     ))}
                 </div>
@@ -464,6 +452,74 @@ export default function TrainingPage() {
           </>
         )}
       </div>
+
+      {/* DB 상품 상세 모달 */}
+      {selectedDbProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setSelectedDbProduct(null)} />
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">🚢</span>
+                <h2 className="text-lg font-bold text-gray-900">{selectedDbProduct.name}</h2>
+              </div>
+              <button
+                onClick={() => setSelectedDbProduct(null)}
+                className="p-1.5 rounded-lg hover:bg-gray-100 shrink-0"
+                aria-label="닫기"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {selectedDbProduct.daysLeft !== null && selectedDbProduct.daysLeft <= 30 && (
+              <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold ${
+                selectedDbProduct.daysLeft <= 7 ? 'bg-red-500 text-white' : 'bg-orange-100 text-orange-700'
+              }`}>
+                출발 D-{selectedDbProduct.daysLeft} {selectedDbProduct.daysLeft <= 7 ? '· 마감 임박!' : ''}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="bg-blue-50 rounded-xl p-3">
+                <p className="text-gray-500 text-xs mb-0.5">가격</p>
+                <p className="font-bold text-blue-600 text-lg">
+                  {selectedDbProduct.price ? `${selectedDbProduct.price.toLocaleString()}원/인` : '가격 문의'}
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-gray-500 text-xs mb-0.5">출발일</p>
+                <p className="font-semibold text-gray-900">{selectedDbProduct.startDate ?? '미정'}</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-gray-500 text-xs mb-0.5">일정</p>
+                <p className="font-semibold text-gray-900">{selectedDbProduct.nights}박 {selectedDbProduct.nights + 1}일</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-gray-500 text-xs mb-0.5">잔여석</p>
+                <p className={`font-semibold ${
+                  selectedDbProduct.availableCount !== null && selectedDbProduct.availableCount <= 5 ? 'text-red-600' : 'text-green-600'
+                }`}>
+                  {selectedDbProduct.availableCount !== null ? `${selectedDbProduct.availableCount}석` : '문의'}
+                </p>
+              </div>
+            </div>
+
+            {selectedDbProduct.tourCities && (
+              <div>
+                <p className="text-gray-500 text-xs mb-1">기항지·투어 도시</p>
+                <p className="text-sm text-gray-900 bg-gray-50 rounded-xl p-3 leading-relaxed">{selectedDbProduct.tourCities}</p>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 text-sm text-gray-500 pt-2 border-t border-gray-100">
+              <span className="font-medium">{selectedDbProduct.cruiseLine}</span>
+              <span>·</span>
+              <span>{selectedDbProduct.ship}</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
