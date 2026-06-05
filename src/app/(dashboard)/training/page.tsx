@@ -46,7 +46,7 @@ function highlight(text: string, q: string): React.ReactNode {
 const TYPE_BADGE: Record<SearchItem["type"], { label: string; cls: string }> = {
   price:     { label: "💰 가격",        cls: "bg-green-100 text-green-800" },
   feature:   { label: "✅ 특징",        cls: "bg-blue-100 text-blue-800" },
-  pasona:    { label: "📋 PASONA",      cls: "bg-purple-100 text-purple-800" },
+  pasona:    { label: "📋 모니카 멘트",  cls: "bg-purple-100 text-purple-800" },
   objection: { label: "❌ 거절",        cls: "bg-red-100 text-red-800" },
   response:  { label: "✅ 대응 스크립트", cls: "bg-emerald-100 text-emerald-800" },
 };
@@ -397,7 +397,7 @@ export default function TrainingPage() {
 
               {/* 2. PASONA */}
               <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                <h3 className="text-base font-bold text-gray-900 mb-4">📋 PASONA 판매 스크립트</h3>
+                <h3 className="text-base font-bold text-gray-900 mb-4">📋 모니카 멘트 판매 스크립트</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {Object.entries(product.pasona).map(([key, value]) => {
                     const c = PASONA_COLORS[key as keyof typeof PASONA_COLORS];
