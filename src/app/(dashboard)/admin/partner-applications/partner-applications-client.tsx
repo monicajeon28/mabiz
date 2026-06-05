@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { CheckCircle, XCircle, Clock, Eye, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 
 type ContractStatus = 'submitted' | 'PROCESSING' | 'APPROVED' | 'rejected';
@@ -183,8 +184,7 @@ function ApplicationCard({
                   <p className="text-sm text-gray-500">신분증</p>
                   {showIdPhoto ? (
                     <div className="relative">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={meta.idPhotoUrl} alt="신분증" className="w-full rounded-xl border border-gray-200" />
+                      <Image src={meta.idPhotoUrl} alt="신분증" width={400} height={300} className="w-full rounded-xl border border-gray-200" unoptimized />
                       <button
                         onClick={() => setShowIdPhoto(false)}
                         className="absolute top-1 right-1 bg-white/80 text-gray-600 rounded-full w-6 h-6 flex items-center justify-center text-sm"
@@ -207,8 +207,7 @@ function ApplicationCard({
                   <p className="text-sm text-gray-500">통장사본</p>
                   {showBankBook ? (
                     <div className="relative">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={meta.bankBookUrl} alt="통장사본" className="w-full rounded-xl border border-gray-200" />
+                      <Image src={meta.bankBookUrl} alt="통장사본" width={400} height={300} className="w-full rounded-xl border border-gray-200" unoptimized />
                       <button
                         onClick={() => setShowBankBook(false)}
                         className="absolute top-1 right-1 bg-white/80 text-gray-600 rounded-full w-6 h-6 flex items-center justify-center text-sm"

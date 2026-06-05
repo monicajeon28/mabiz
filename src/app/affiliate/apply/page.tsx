@@ -6,6 +6,7 @@
  */
 
 import { useRef, useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
 import { CONTRACT_PRICE_TIERS, type PriceTierKey } from '@/lib/affiliate/priceTiers';
 
 // ─── 회사 정보 ────────────────────────────────────────────────────
@@ -17,6 +18,43 @@ const COMPANY = {
   address: '서울특별시 마포구 월드컵로 196, B105-M26호',
   phone: '010-2495-8013',
 };
+
+// ─── 회사 도장 이미지 컴포넌트 (fallback 2단계) ─────────────────────
+function StampImage() {
+  const [stampSrc, setStampSrc] = useState('/jeonhyesun-stamp.png');
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <div className="h-40 border-2 border-dashed border-red-200 rounded-lg bg-red-50 flex flex-col items-center justify-center gap-2">
+        <div className="text-red-400 text-center text-sm px-4">
+          도장
+          <br />
+          (관리자 승인 후 날인)
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-40 border-2 border-dashed border-red-200 rounded-lg bg-red-50 flex flex-col items-center justify-center gap-2">
+      <Image
+        src={stampSrc}
+        alt="전혜선 도장"
+        width={112}
+        height={112}
+        className="object-contain"
+        onError={() => {
+          if (stampSrc === '/jeonhyesun-stamp.png') {
+            setStampSrc('/jeonhyesun-stamp2.png');
+          } else {
+            setFailed(true);
+          }
+        }}
+      />
+    </div>
+  );
+}
 
 // ─── 서비스 혜택 (3개 계약 공통) ────────────────────────────────────
 const SERVICES = [
@@ -931,36 +969,7 @@ export default function AffiliatApplyPage() {
               {/* 회사 도장 */}
               <div className="space-y-3">
                 <p className="text-sm font-semibold text-gray-700">회사 도장</p>
-                <div className="h-40 border-2 border-dashed border-red-200 rounded-lg bg-red-50 flex flex-col items-center justify-center gap-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/jeonhyesun-stamp.png"
-                    alt="전혜선 도장"
-                    className="h-28 w-28 object-contain"
-                    onError={(e) => {
-                      // fallback to second stamp file
-                      const img = e.currentTarget as HTMLImageElement;
-                      if (!img.dataset.fallback) {
-                        img.dataset.fallback = '1';
-                        img.src = '/jeonhyesun-stamp2.png';
-                      } else {
-                        const el = img.parentElement;
-                        if (el) {
-                          // Safe DOM creation instead of innerHTML to prevent XSS
-                          const fallbackDiv = document.createElement('div');
-                          fallbackDiv.className = 'text-red-400 text-center text-sm px-4';
-                          const text1 = document.createTextNode('도장');
-                          const br = document.createElement('br');
-                          const text2 = document.createTextNode('(관리자 승인 후 날인)');
-                          fallbackDiv.appendChild(text1);
-                          fallbackDiv.appendChild(br);
-                          fallbackDiv.appendChild(text2);
-                          el.replaceChildren(fallbackDiv);
-                        }
-                      }
-                    }}
-                  />
-                </div>
+                <StampImage />
                 <p className="text-sm text-gray-500 text-center">{COMPANY.name}</p>
               </div>
             </div>

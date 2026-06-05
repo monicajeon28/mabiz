@@ -168,7 +168,7 @@ export default function CallScriptPanel({ contact, isExpanded = true, onPhaseCha
     setCurrentPhase(phase);
   };
 
-  if (!script && !loading && !error) {
+  if (!script && !loading && !error && !expanded) {
     return null;
   }
 

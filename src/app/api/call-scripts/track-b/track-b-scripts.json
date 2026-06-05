@@ -35,7 +35,7 @@
           "duration": 60,
           "pasona": ["P", "A"],
           "spin": ["S", "P"],
-          "psychologyLenses": ["Authority", "Trust Rebuilding"],
+          "psychologyLenses": ["권위성", "신뢰 재구축"],
           "script": "안녕하세요, 모니카입니다! 지난 3월에 신혼부부분들 대상으로 상담해드렸는데, 당신을 기억했어요. 그때 하와이 얘기 기억나세요? (고객 반응) 신혼이 얼마나 특별한 시간인지 알죠? 지금이 정말 중요한데요. 당신과 배우자분이 가장 함께하고 싶은 여행이 뭔가요?",
           "objectives": [
             "출처 명확화 (신뢰 재구축)",
@@ -52,7 +52,7 @@
           "duration": 60,
           "pasona": ["A"],
           "spin": ["I"],
-          "psychologyLenses": ["Emotional Anchor", "Self-Disclosure"],
+          "psychologyLenses": ["감정 앵커", "자기노출"],
           "script": "바쁠수록 더 필요해요. 신혼 때는 정말 짧거든요. 당신은 배우자분과 뭘 하면서 웃고 싶으세요?",
           "objectives": [
             "자기발화 유도 (욕망 명확화)",
@@ -69,7 +69,7 @@
           "duration": 60,
           "pasona": ["I", "O"],
           "spin": ["I", "N"],
-          "psychologyLenses": ["Loss Aversion", "Scarcity"],
+          "psychologyLenses": ["손실회피", "희소성"],
           "script": "당신들 신혼시절이 1년, 2년, 5년 지나갈수록... 이 시간이 점점 사라진다는 거 알죠? 그래서 지금이 정말 중요한 거예요. 5년 뒤에 '그때 함께 떠났으면'이라고 후회할 수도 있고.",
           "objectives": [
             "손실회피 강조 (시간의 유한성)",
@@ -86,7 +86,7 @@
           "duration": 60,
           "pasona": ["O", "A"],
           "spin": ["N"],
-          "psychologyLenses": ["Value Repositioning", "Anchoring"],
+          "psychologyLenses": ["가치 재정의", "앵커링"],
           "script": "그래서 저희가 신혼부부분들을 위해 5월 특가를 만들었어요. 월 33만원이면... 당신 둘이 년에 4-5번 크루즈도 타고, 렌탈도 쓰고, 의료 보험도 받을 수 있어요. 하루에 1,100원이니까 커피값 정도죠?",
           "objectives": [
             "특가 제시 (긴급성 강조)",
@@ -111,7 +111,7 @@
           "duration": 90,
           "pasona": ["A"],
           "spin": ["I"],
-          "psychologyLenses": ["Reassurance", "Social Proof"],
+          "psychologyLenses": ["안심", "사회적 증거"],
           "objectionsMapped": [
             {
               "objectionId": "2-1",
@@ -147,7 +147,7 @@
           "duration": 90,
           "pasona": ["S", "A"],
           "spin": [],
-          "psychologyLenses": ["Choice Architecture", "Emotional Closure"],
+          "psychologyLenses": ["선택 설계", "감정 마무리"],
           "closingTechnique": "trippleChoice",
           "choices": [
             {
@@ -176,7 +176,7 @@
           "duration": 30,
           "pasona": ["A"],
           "spin": [],
-          "psychologyLenses": ["Commitment & Consistency"],
+          "psychologyLenses": ["일관성"],
           "nextSteps": [
             {
               "day": 0,
@@ -223,7 +223,7 @@
           "duration": 90,
           "pasona": ["P", "A"],
           "spin": ["S", "P"],
-          "psychologyLenses": ["Generational Empathy", "Child Interest"],
+          "psychologyLenses": ["세대 공감", "자녀 관심"],
           "script": "지난 2월에 아이 있는 가정 대상으로 상담해드렸는데, 당신을 기억했어요. 자녀들이 몇 살이세요? (고객 반응) 그럼 정말 바쁘셨겠네요. 아이들이 이 나이대일 때가 엄마/아빠와 함께 있는 시간을 가장 많이 필요로 하는 시간이거든요. 지금까지 당신이 아이들과 가장 기억에 남는 시간이 뭐예요?"
         },
         {
@@ -232,7 +232,7 @@
           "duration": 180,
           "pasona": ["A"],
           "spin": ["I"],
-          "psychologyLenses": ["MI", "Self-Disclosure", "DARN-CAT"],
+          "psychologyLenses": ["동기면담", "자기노출", "변화언어"],
           "miTechnique": "DARN-CAT 완전 5단계",
           "script": "아이들이 가장 행복해하는 때가... 엄마/아빠와 함께 있을 때인 것 같은데... 요즘은 그런 시간이 부족하신 거 같아요?",
           "objectives": [
@@ -246,7 +246,7 @@
           "duration": 120,
           "pasona": ["I"],
           "spin": ["I", "N"],
-          "psychologyLenses": ["Loss Aversion (Time)", "Loss Aversion (Relationship)"],
+          "psychologyLenses": ["손실회피(시간)", "손실회피(관계)"],
           "script": "아이들이 5살, 8살인 이 시간이... 언제까지 지속될까요? 2년이면 7살, 10살이고... 청소년기에 접어들면... 엄마, 아빠와 떠나는 여행을 싫어하게 돼요.",
           "lossAversion": [
             "시간의 유한성 (5년 한정)",
@@ -259,7 +259,7 @@
           "duration": 120,
           "pasona": ["O", "A"],
           "spin": ["N"],
-          "psychologyLenses": ["Bundle Value", "Family Package"],
+          "psychologyLenses": ["패키지 가치", "가족 패키지"],
           "script": "가족 단위 크루즈를 만들었어요. 부모 2명, 아이 2명... 월 33만원이면 년에 4-5번 떠날 수 있어요.",
           "familyPackage": {
             "monthly": 330000,
@@ -308,7 +308,7 @@
           "duration": 120,
           "pasona": ["S"],
           "spin": [],
-          "psychologyLenses": ["Choice Architecture", "Child Happiness Anchor"],
+          "psychologyLenses": ["선택 설계", "자녀 행복 앵커"],
           "script": "당신과 아이들이 함께 크루즈를 탈 거라면... (삼중선택)",
           "emotionalAnchor": "당신이 아이들에게 주는 이 선물... 평생 기억될 거예요."
         },
@@ -366,7 +366,7 @@
           "duration": 90,
           "pasona": ["P", "A"],
           "spin": ["S", "P"],
-          "psychologyLenses": ["Life Transition", "Second Life Chapter"],
+          "psychologyLenses": ["삶의 전환", "제2의 인생"],
           "script": "지난 1월에 당신과 배우자분 대상으로 상담해드렸는데, 기억나세요? 당신이 얘기했던 게... '아이들이 다 나가니까 이제 우리 시간이 생겼다'고 했던 것 같은데... 그 이후 어떻게 지내셨어요?",
           "lifeTransitionTheme": "지난 20-30년 아이 교육 → 이제 '우리'를 위한 시간"
         },
@@ -376,7 +376,7 @@
           "duration": 240,
           "pasona": ["A"],
           "spin": ["I"],
-          "psychologyLenses": ["MI + DARN-CAT", "Deep Listening"],
+          "psychologyLenses": ["동기면담+변화언어", "깊은 경청"],
           "miTechnique": "DARN-CAT 완전 5단계 + 침묵 기다리기",
           "script": "당신과 배우자분이 지난 20년간... 가장 해보고 싶었던 게 뭐예요?",
           "silenceWaitingTime": "각 질문 후 최소 3초 침묵"
@@ -387,7 +387,7 @@
           "duration": 150,
           "pasona": ["I"],
           "spin": ["I", "N"],
-          "psychologyLenses": ["Loss Aversion (Health)", "Loss Aversion (Time)", "Loss Aversion (Relationship)"],
+          "psychologyLenses": ["손실회피(건강)", "손실회피(시간)", "손실회피(관계)"],
           "script": "중년의 건강이... 여행 역량의 마지막 기회라고 봐요. 5년 뒤에 당신들의 건강이... 지금처럼 괜찮을까요?",
           "lossAversion": [
             "건강 감소 (5년 후 체력)",
@@ -401,7 +401,7 @@
           "duration": 150,
           "pasona": ["O", "A"],
           "spin": ["N"],
-          "psychologyLenses": ["Health Assurance", "Time Value"],
+          "psychologyLenses": ["건강 안심", "시간 가치"],
           "medicalSupport": {
             "included": ["항멀미제", "의료진 24h", "응급약"],
             "evidence": "지난 10년 배멀미 심한 분 100명 완주"
@@ -449,7 +449,7 @@
           "duration": 150,
           "pasona": ["S"],
           "spin": [],
-          "psychologyLenses": ["5-Year Promise", "Couple Rediscovery"],
+          "psychologyLenses": ["5년 약속", "커플 재발견"],
           "script": "당신과 배우자분이 앞으로 5년을 함께 여행할 거라면...",
           "emotionalAnchor": "당신과 배우자분의 다음 5년... 이전과 달라질 거예요."
         },
@@ -513,7 +513,7 @@
           "duration": 120,
           "pasona": ["P", "A"],
           "spin": ["S", "P"],
-          "psychologyLenses": ["Generational Respect", "Trust Building", "Experience Credibility"],
+          "psychologyLenses": ["세대 공경", "신뢰 구축", "경험 신뢰성"],
           "script": "저는 지난 5년간 100분 이상의 시니어분들을 모시고 왔어요. 당신도 그 분들 중 한 분이 될 거예요.",
           "trustBuildingStrategy": [
             "세대 존중 (당신의 삶 인정)",
@@ -527,7 +527,7 @@
           "duration": 300,
           "pasona": ["A"],
           "spin": ["I"],
-          "psychologyLenses": ["OARS + MI", "Deep Listening", "Open Questions"],
+          "psychologyLenses": ["OARS+동기면담", "깊은 경청", "열린 질문"],
           "miTechnique": "OARS (Open, Affirmation, Reflection, Summarization) 완전 형식 + MI Change Talk",
           "listeningRatio": "상담사 30%, 고객 70%",
           "silenceStrategy": "각 질문 후 최소 3-5초 침묵, 고객이 답할 때까지 기다리기",
@@ -544,7 +544,7 @@
           "duration": 180,
           "pasona": ["I"],
           "spin": ["I", "N"],
-          "psychologyLenses": ["Loss Aversion (Health)", "Loss Aversion (Time)", "Loss Aversion (Opportunity)"],
+          "psychologyLenses": ["손실회피(건강)", "손실회피(시간)", "손실회피(기회)"],
           "spinTechnique": "실마리 찾기 (Eliciting Problems)",
           "script": "당신이 말씀하신 게 3가지가 있어요. 혼자 가기가 무섭고, 배멀미가 있고, 건강도 걱정이다... 맞죠?",
           "psychologyCore": "이 모든 게 실제로는 해결될 수 있는 문제들이에요. 그리고 지금이 그 유일한 기회예요.",
@@ -556,7 +556,7 @@
           "duration": 180,
           "pasona": ["O", "A"],
           "spin": ["N"],
-          "psychologyLenses": ["Companion System", "Medical Assurance", "Peace of Mind"],
+          "psychologyLenses": ["동반자 시스템", "의료 안심", "마음의 평화"],
           "threePillarSolution": [
             {
               "pillar": "동반자 시스템",
@@ -629,7 +629,7 @@
           "duration": 180,
           "pasona": ["S"],
           "spin": [],
-          "psychologyLenses": ["Peace of Mind", "Medical Assurance", "Emotional Closure"],
+          "psychologyLenses": ["마음의 평화", "의료 안심", "감정 마무리"],
           "closingTechnique": "heavierChoice",
           "choices": [
             {
@@ -714,7 +714,7 @@
       "I": "Implication 암시 및 자기발화",
       "N": "Need Payoff 해결책 이득"
     },
-    "MI": {
+    "동기면담": {
       "techniques": [
         "Open Questions (개방형 질문)",
         "Affirmations (긍정)",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Building2, User, Phone, Mail, Award, Send, Loader } from "lucide-react";
+import { Building2, User, Phone, Mail, Award, Send, Loader, Share2 } from "lucide-react";
 import { logger } from "@/lib/logger";
 
 interface AffiliateInfo {
@@ -11,7 +11,7 @@ interface AffiliateInfo {
     phone: string | null;
     email: string | null;
     org: string;
-    trustScore: number; // L9: 신뢰도
+    trustScore: number;
     expertise: string;
   } | null;
   agent: {
@@ -24,6 +24,14 @@ interface AffiliateInfo {
     expertise: string;
   } | null;
   assignedAt: string;
+}
+
+interface DbRecipient {
+  id: string;
+  displayName: string | null;
+  loginId?: string;
+  orgName: string;
+  role?: string;
 }
 
 interface ContactAffiliateCardProps {
@@ -40,6 +48,15 @@ export default function ContactAffiliateCard({
   const [affiliateInfo, setAffiliateInfo] = useState<AffiliateInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // DB 공유 상태
+  const [showDbShare, setShowDbShare] = useState(false);
+  const [dbRecipients, setDbRecipients] = useState<DbRecipient[]>([]);
+  const [dbSearch, setDbSearch] = useState("");
+  const [selectedRecipient, setSelectedRecipient] = useState("");
+  const [sendingDb, setSendingDb] = useState(false);
+  const [dbResult, setDbResult] = useState("");
+  const [loadingRecipients, setLoadingRecipients] = useState(false);
 
   useEffect(() => {
     const fetchAffiliateInfo = async () => {
@@ -65,6 +82,123 @@ export default function ContactAffiliateCard({
     fetchAffiliateInfo();
   }, [contactId]);
 
+  const loadDbRecipients = async () => {
+    setLoadingRecipients(true);
+    try {
+      const res = await fetch("/api/contacts/share-targets");
+      const data = await res.json();
+      if (data.ok) {
+        setDbRecipients(data.targets ?? []);
+      }
+    } catch (err) {
+      logger.error("[ContactAffiliateCard] DB 수신자 조회 실패", { err });
+    } finally {
+      setLoadingRecipients(false);
+    }
+  };
+
+  const handleDbShare = async () => {
+    if (!selectedRecipient || sendingDb) return;
+    setSendingDb(true);
+    try {
+      // CSRF 토큰 조회
+      let csrfToken = "";
+      try {
+        const csrfRes = await fetch("/api/csrf-token");
+        const csrfData = await csrfRes.json();
+        csrfToken = csrfData.token ?? "";
+      } catch {
+        // CSRF 토큰 없이 진행 (서버가 허용하는 경우)
+      }
+      const res = await fetch(`/api/contacts/${contactId}/send-db`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+        body: JSON.stringify({ targetUserId: selectedRecipient }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setDbResult("✅ DB 공유 완료");
+        setShowDbShare(false);
+        setSelectedRecipient("");
+      } else {
+        setDbResult(`❌ ${data.message ?? "공유 실패"}`);
+      }
+    } catch (err) {
+      logger.error("[ContactAffiliateCard] DB 공유 실패", { err });
+      setDbResult("❌ 네트워크 오류");
+    } finally {
+      setSendingDb(false);
+    }
+  };
+
+  const filteredRecipients = dbRecipients.filter((r) => {
+    const q = dbSearch.toLowerCase();
+    return (r.displayName ?? r.loginId ?? "").toLowerCase().includes(q) || r.orgName.toLowerCase().includes(q);
+  });
+
+  const DbShareSection = () => (
+    <div className="mt-4 border-t pt-4">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+          <Share2 className="w-4 h-4 text-blue-500" />
+          DB 공유
+        </p>
+        <button
+          onClick={() => {
+            setShowDbShare(!showDbShare);
+            if (!showDbShare && dbRecipients.length === 0) loadDbRecipients();
+          }}
+          className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+        >
+          {showDbShare ? "닫기" : "공유하기"}
+        </button>
+      </div>
+      {dbResult && <p className="text-sm font-medium mb-2">{dbResult}</p>}
+      {showDbShare && (
+        <div className="space-y-2">
+          <input
+            type="text"
+            value={dbSearch}
+            onChange={(e) => setDbSearch(e.target.value)}
+            placeholder="담당자 이름 또는 조직 검색..."
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+          />
+          {loadingRecipients ? (
+            <p className="text-xs text-gray-400 text-center py-2">불러오는 중...</p>
+          ) : filteredRecipients.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-2">담당자가 없습니다.</p>
+          ) : (
+            <div className="max-h-40 overflow-y-auto space-y-1 border border-gray-100 rounded-lg p-1">
+              {filteredRecipients.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => setSelectedRecipient(r.id)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                    selectedRecipient === r.id
+                      ? "bg-blue-600 text-white"
+                      : "hover:bg-gray-50 text-gray-700"
+                  }`}
+                >
+                  <span className="font-medium">{r.displayName ?? r.loginId ?? r.id}</span>
+                  <span className={`text-xs ml-1.5 ${selectedRecipient === r.id ? "text-blue-100" : "text-gray-400"}`}>
+                    {r.orgName}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={handleDbShare}
+            disabled={!selectedRecipient || sendingDb}
+            className="w-full py-2 bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 hover:bg-blue-700"
+          >
+            {sendingDb ? "공유 중..." : "DB 공유"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="bg-white border border-gray-200 rounded-xl p-6">
@@ -76,8 +210,7 @@ export default function ContactAffiliateCard({
     );
   }
 
-  if (error) {
-    // 에러가 있어도 Day 0-3 시작 버튼은 항상 표시
+  if (error || (!affiliateInfo?.manager && !affiliateInfo?.agent)) {
     return (
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <div className="flex items-center justify-between">
@@ -98,34 +231,10 @@ export default function ContactAffiliateCard({
             Day 0-3 시작
           </button>
         </div>
-        <p className="text-sm text-gray-400 mt-3">제휴 정보를 불러올 수 없습니다.</p>
-      </div>
-    );
-  }
-
-  if (!affiliateInfo?.manager && !affiliateInfo?.agent) {
-    // 제휴 담당자 없어도 Day 0-3 시작 버튼은 항상 표시
-    return (
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <Award className="w-5 h-5 text-amber-500" />
-            제휴 담당자
-          </h2>
-          <button
-            onClick={() => onStartSequence(contactId)}
-            disabled={sequenceLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {sequenceLoading ? (
-              <Loader className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-            Day 0-3 시작
-          </button>
-        </div>
-        <p className="text-sm text-gray-400 mt-3">배정된 제휴 담당자가 없습니다.</p>
+        <p className="text-sm text-gray-400 mt-3">
+          {error ?? "배정된 제휴 담당자가 없습니다."}
+        </p>
+        <DbShareSection />
       </div>
     );
   }
@@ -137,7 +246,6 @@ export default function ContactAffiliateCard({
           <Award className="w-5 h-5 text-amber-500" />
           제휴 담당자
         </h2>
-        {/* L10 클로징: 즉시 시퀀스 시작 버튼 */}
         <button
           onClick={() => onStartSequence(contactId)}
           disabled={sequenceLoading}
@@ -177,7 +285,6 @@ export default function ContactAffiliateCard({
                 <p className="text-gray-900">{affiliateInfo.manager.expertise}</p>
               </div>
 
-              {/* L9 의료신뢰: 신뢰도 배지 */}
               <div className="flex items-center gap-2 pt-2 border-t border-blue-200">
                 <div className="flex-1">
                   <p className="text-gray-600 text-xs mb-1">신뢰도</p>
@@ -244,7 +351,6 @@ export default function ContactAffiliateCard({
                 <p className="text-gray-900">{affiliateInfo.agent.expertise}</p>
               </div>
 
-              {/* L9 의료신뢰: 신뢰도 배지 */}
               <div className="flex items-center gap-2 pt-2 border-t border-green-200">
                 <div className="flex-1">
                   <p className="text-gray-600 text-xs mb-1">신뢰도</p>
@@ -287,6 +393,8 @@ export default function ContactAffiliateCard({
           </div>
         )}
       </div>
+
+      <DbShareSection />
     </div>
   );
 }
