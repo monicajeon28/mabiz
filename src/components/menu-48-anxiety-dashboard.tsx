@@ -127,7 +127,7 @@ export function Menu48AnxietyDashboard() {
       <div>
         <h1 className="text-3xl font-bold">Menu #48: L2 렌즈 불안도 관리 대시보드</h1>
         <p className="text-gray-600 mt-2">
-          준비 불안 고객을 위한 SPIN 기반 5단계 자동화 시퀀스
+          준비 불안 고객을 위한 모니카 전략 기반 5단계 자동화 시퀀스
         </p>
       </div>
 
@@ -343,7 +343,7 @@ export function Menu48AnxietyDashboard() {
 
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-3 bg-blue-50 rounded-lg">
-              <h5 className="text-sm font-semibold text-blue-900">Day 0: SPIN 질문</h5>
+              <h5 className="text-sm font-semibold text-blue-900">Day 0: 모니카 전략 질문</h5>
               <p className="text-sm text-blue-700 mt-1">
                 초기 인식 & 문제 발견
               </p>
@@ -375,7 +375,7 @@ export function Menu48AnxietyDashboard() {
         <CardContent>
           <div className="space-y-4">
             <div>
-              <h4 className="font-semibold text-sm mb-2">1. SPIN 판매법 (5단계 질문)</h4>
+              <h4 className="font-semibold text-sm mb-2">1. 모니카 전략 판매법 (5단계 질문)</h4>
               <p className="text-sm text-gray-600">
                 Situation → Problem → Implication → Need → Reward
                 <br />

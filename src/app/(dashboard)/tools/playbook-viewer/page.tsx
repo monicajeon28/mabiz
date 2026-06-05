@@ -84,11 +84,11 @@ const PSYCHOLOGY_BADGES: Record<string, { bg: string; text: string; label: strin
 };
 
 const SHINMIN_STEPS: Record<string, { label: string; color: string; emoji: string }> = {
-  "1": { label: "Step 1: 라포 형성", color: "bg-blue-100 text-blue-800", emoji: "👋" },
-  "2": { label: "Step 2: 니즈 SPIN", color: "bg-green-100 text-green-800", emoji: "❓" },
-  "3": { label: "Step 3: 욕망 증폭", color: "bg-purple-100 text-purple-800", emoji: "✨" },
-  "4": { label: "Step 4: 감정 피크", color: "bg-pink-100 text-pink-800", emoji: "❤️" },
-  "5": { label: "Step 5: 클로징", color: "bg-red-100 text-red-800", emoji: "🎯" },
+  "1": { label: "1단계: 친밀감 쌓기", color: "bg-blue-100 text-blue-800", emoji: "👋" },
+  "2": { label: "2단계: 니즈 파악 (모니카 전략)", color: "bg-green-100 text-green-800", emoji: "❓" },
+  "3": { label: "3단계: 욕구 키우기", color: "bg-purple-100 text-purple-800", emoji: "✨" },
+  "4": { label: "4단계: 감정 절정", color: "bg-pink-100 text-pink-800", emoji: "❤️" },
+  "5": { label: "5단계: 계약 마무리", color: "bg-red-100 text-red-800", emoji: "🎯" },
 };
 
 const MONIKA_AMPLIFY_LEVELS: Record<string, string> = {
@@ -726,7 +726,7 @@ export default function PlaybookViewerPage() {
                 {/* PASONA 단계 배지 */}
                 {selectedItem?.pasonaStage && PASONA_STAGE_BADGES[selectedItem.pasonaStage] && (
                   <div>
-                    <h3 className="text-base font-semibold text-gray-700 uppercase mb-3 tracking-wide">PASONA 단계</h3>
+                    <h3 className="text-base font-semibold text-gray-700 uppercase mb-3 tracking-wide">모니카 멘트 단계</h3>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`inline-block px-3 py-1.5 rounded-lg text-sm font-semibold ${PASONA_STAGE_BADGES[selectedItem.pasonaStage].color}`}>
                         {PASONA_STAGE_BADGES[selectedItem.pasonaStage].icon} {PASONA_STAGE_BADGES[selectedItem.pasonaStage].label}
@@ -852,17 +852,17 @@ export default function PlaybookViewerPage() {
 
                 {/* PASONA 프레임워크 설명 */}
                 <div className="p-4 bg-indigo-50 border-l-4 border-indigo-500 rounded">
-                  <h3 className="text-base font-semibold text-indigo-900 uppercase mb-3 tracking-wide">📊 PASONA 심리학 프레임워크</h3>
+                  <h3 className="text-base font-semibold text-indigo-900 uppercase mb-3 tracking-wide">📊 모니카 멘트 (고객 마음 여는 6단계)</h3>
                   <div className="space-y-2 text-base text-indigo-700 leading-relaxed">
-                    <p><span className="font-semibold">P</span>roblem: 고객의 문제 인식 → <span className="font-semibold">A</span>gitate: 문제의 심각성 강조</p>
-                    <p><span className="font-semibold">S</span>olution: 해결책 제시 → <span className="font-semibold">O</span>ffer: 구체적 조건 제시</p>
-                    <p><span className="font-semibold">N</span>arrow: 범위 좁혀서 결정 단순화 → <span className="font-semibold">A</span>ction: 지금 바로 행동</p>
+                    <p><span className="font-semibold">①</span> 문제 짚기: 고객의 고민을 먼저 알아주기 → <span className="font-semibold">②</span> 마음 흔들기: 그 고민이 왜 중요한지 강조</p>
+                    <p><span className="font-semibold">③</span> 해결책 보여주기: 우리 상품으로 풀어드리기 → <span className="font-semibold">④</span> 구체적 제안: 가격·혜택 명확히</p>
+                    <p><span className="font-semibold">⑤</span> 선택 좁히기: 결정하기 쉽게 정리 → <span className="font-semibold">⑥</span> 행동 권하기: 지금 바로 결정하도록</p>
                   </div>
                 </div>
 
                 {/* Day 0-3 PASONA 일정 */}
                 <div>
-                  <h3 className="text-base font-semibold text-gray-700 uppercase mb-3 tracking-wide">📅 Day 0-3 PASONA 일정</h3>
+                  <h3 className="text-base font-semibold text-gray-700 uppercase mb-3 tracking-wide">📅 Day 0-3 모니카 멘트 일정</h3>
                   <div className="space-y-2">
                     {DAY_0_3_SCHEDULE.map((day) => (
                       <div key={day.day} className={`p-2 rounded-lg border border-gray-200 ${day.color}`}>
