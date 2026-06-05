@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
+import { type Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
@@ -155,7 +156,7 @@ export async function POST(req: Request) {
               ...(row.data.survey1 || row.data.survey2 || row.data.survey3 ? {
                 surveyData: { q1: row.data.survey1 ?? null, q2: row.data.survey2 ?? null, q3: row.data.survey3 ?? null },
               } : {}),
-            },
+            } satisfies Prisma.ContactUncheckedCreateInput,
             update: {
               name:           row.data.name,
               email:          row.data.email          ?? undefined,
