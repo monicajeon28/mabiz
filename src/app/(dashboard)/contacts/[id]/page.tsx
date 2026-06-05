@@ -1258,13 +1258,10 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           expandedLogId={expandedLogId}
           setExpandedLogId={setExpandedLogId}
           copiedLogId={copiedLogId}
-          backing={backing}
-          backupResult={backupResult}
           addCallLog={addCallLog}
           savingCallLog={savingCallLog}
           deleteCallLog={deleteCallLog}
           deleteAllCallLogs={deleteAllCallLogs}
-          backupCallLogs={backupCallLogs}
           copyCallLog={copyCallLog}
         />
       )}

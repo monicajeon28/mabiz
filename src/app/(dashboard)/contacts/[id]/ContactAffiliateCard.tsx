@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Building2, User, Phone, Mail, Award, Send, Loader, Share2 } from "lucide-react";
 import { logger } from "@/lib/logger";
+import { useSession } from "@/hooks/useSession";
 
 interface AffiliateInfo {
   manager: {
@@ -45,6 +46,9 @@ export default function ContactAffiliateCard({
   onStartSequence,
   sequenceLoading = false,
 }: ContactAffiliateCardProps) {
+  const { role } = useSession();
+  const canShareDb = role !== 'FREE_SALES';
+
   const [affiliateInfo, setAffiliateInfo] = useState<AffiliateInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -218,23 +222,11 @@ export default function ContactAffiliateCard({
             <Award className="w-5 h-5 text-amber-500" />
             제휴 담당자
           </h2>
-          <button
-            onClick={() => onStartSequence(contactId)}
-            disabled={sequenceLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {sequenceLoading ? (
-              <Loader className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-            Day 0-3 시작
-          </button>
         </div>
         <p className="text-sm text-gray-400 mt-3">
           {error ?? "배정된 제휴 담당자가 없습니다."}
         </p>
-        <DbShareSection />
+        {canShareDb && <DbShareSection />}
       </div>
     );
   }
@@ -246,18 +238,6 @@ export default function ContactAffiliateCard({
           <Award className="w-5 h-5 text-amber-500" />
           제휴 담당자
         </h2>
-        <button
-          onClick={() => onStartSequence(contactId)}
-          disabled={sequenceLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {sequenceLoading ? (
-            <Loader className="w-4 h-4 animate-spin" />
-          ) : (
-            <Send className="w-4 h-4" />
-          )}
-          Day 0-3 시작
-        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -463,6 +463,8 @@ export default function ContactSlidePanel({
         setSelectedObjectionModal(null);
         onRefresh?.({ id: contact.id, callLogs: updated.callLogs });
         toast({ title: "콜 기록 저장 완료", variant: "success" });
+        // Drive 백업 자동 실행 (백그라운드, 실패해도 무시)
+        fetch(`/api/contacts/${contact.id}/call-logs/backup`, { method: "POST" }).catch(() => {});
       } else { toast({ title: "저장 실패", description: data.message, variant: "destructive" }); }
     } catch (err) {
       logger.error("[addCallLog failed]", { err });
@@ -739,10 +741,10 @@ export default function ContactSlidePanel({
                   showCallForm={showCallForm} setShowCallForm={setShowCallForm}
                   selectedObjectionModal={selectedObjectionModal} setSelectedObjectionModal={setSelectedObjectionModal}
                   expandedLogId={expandedLogId} setExpandedLogId={setExpandedLogId}
-                  copiedLogId={copiedLogId} backing={backing} backupResult={backupResult}
+                  copiedLogId={copiedLogId}
                   addCallLog={addCallLog} savingCallLog={savingCallLog}
                   deleteCallLog={deleteCallLog} deleteAllCallLogs={deleteAllCallLogs}
-                  backupCallLogs={backupCallLogs} copyCallLog={copyCallLog}
+                  copyCallLog={copyCallLog}
                 />
               )}
               {activeTab === "memo" && (
