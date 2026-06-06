@@ -71,7 +71,16 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (body.includeLanding !== undefined) data.includeLanding = body.includeLanding;
     if (body.sendAt !== undefined) data.sendAt = new Date(body.sendAt);
     if (body.repeatRule !== undefined) data.repeatRule = body.repeatRule || null;
-    if (body.status !== undefined) data.status = body.status;
+    if (body.status !== undefined) {
+      const PATCHABLE_STATUSES = ['DRAFT', 'PENDING'];
+      if (!PATCHABLE_STATUSES.includes(body.status)) {
+        return NextResponse.json(
+          { ok: false, message: 'PATCH로 변경 가능한 상태는 DRAFT, PENDING만 허용됩니다.' },
+          { status: 400 }
+        );
+      }
+      data.status = body.status;
+    }
 
     // organizationId 포함: findFirst → update 사이 TOCTOU 방지
     const campaign = await prisma.crmMarketingCampaign.update({
