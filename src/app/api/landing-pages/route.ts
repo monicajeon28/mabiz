@@ -1,13 +1,11 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
-import { customAlphabet } from "nanoid";
 import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, BONSA_ORG_ID } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
-
-const nanoid = customAlphabet('0-9a-z', 8);
+import { generateUniqueShortlink } from "@/lib/landing-page-utils";
 
 // GET /api/landing-pages
 export async function GET() {
@@ -124,60 +122,55 @@ export async function POST(req: Request) {
     const mode = editorMode === 'image' ? 'image' : 'html';
 
     // 무작위 8자 shortlink 생성 (충돌 시 자동 재시도)
-    let shortlink = nanoid();
-    let attempts = 0;
-    while (attempts < 10) {
-      const existing = await prisma.crmLandingPage.findFirst({
-        where: { shortlink },
-        select: { id: true },
-      });
-      if (!existing) break;
-      shortlink = nanoid();
-      attempts++;
-    }
+    const shortlink = await generateUniqueShortlink();
 
-    const page = await prisma.crmLandingPage.create({
-      data: {
-        organizationId: orgId, title, slug, shortlink,
-        htmlContent: sanitizeHtml(htmlContent ?? ""),
-        groupId: groupId ?? null,
-        editorMode: mode,
-        commentEnabled: commentEnabled === true,
-        // 에디터 고도화 필드
-        ...(rest.description      ? { description: rest.description }            : {}),
-        ...(rest.buttonTitle      ? { buttonTitle: rest.buttonTitle }             : {}),
-        ...(rest.completionPageUrl ? { completionPageUrl: rest.completionPageUrl } : {}),
-        ...(rest.headerScript     ? { headerScript: sanitizeHeaderScript(rest.headerScript) } : {}),
-        ...(rest.exposureTitle    ? { exposureTitle: rest.exposureTitle }         : {}),
-        ...(rest.exposureImage    ? { exposureImage: rest.exposureImage }         : {}),
-        ...(rest.formConfig       ? { formConfig: rest.formConfig, infoCollection: true } : {}),
-        // 결제 설정 (있으면)
-        ...(rest.paymentEnabled ? {
-          paymentEnabled: true,
-          paymentType: rest.paymentType ?? null,
-          productName: rest.productName ?? null,
-          productPrice: rest.productPrice ? parseInt(rest.productPrice) : null,
-          ...(rest.paymentType === 'subscription' ? {
-            cycleDay: rest.cycleDay ? parseInt(rest.cycleDay) : null,
-            expireDate: rest.expireDate ? new Date(rest.expireDate) : null,
+    // 트랜잭션: CrmLandingPage 생성 + ShortLink 저장
+    const page = await prisma.$transaction(async (tx) => {
+      const newPage = await tx.crmLandingPage.create({
+        data: {
+          organizationId: orgId, title, slug, shortlink,
+          htmlContent: sanitizeHtml(htmlContent ?? ""),
+          groupId: groupId ?? null,
+          editorMode: mode,
+          commentEnabled: commentEnabled === true,
+          // 에디터 고도화 필드
+          ...(rest.description      ? { description: rest.description }            : {}),
+          ...(rest.buttonTitle      ? { buttonTitle: rest.buttonTitle }             : {}),
+          ...(rest.completionPageUrl ? { completionPageUrl: rest.completionPageUrl } : {}),
+          ...(rest.headerScript     ? { headerScript: sanitizeHeaderScript(rest.headerScript) } : {}),
+          ...(rest.exposureTitle    ? { exposureTitle: rest.exposureTitle }         : {}),
+          ...(rest.exposureImage    ? { exposureImage: rest.exposureImage }         : {}),
+          ...(rest.formConfig       ? { formConfig: rest.formConfig, infoCollection: true } : {}),
+          // 결제 설정 (있으면)
+          ...(rest.paymentEnabled ? {
+            paymentEnabled: true,
+            paymentType: rest.paymentType ?? null,
+            productName: rest.productName ?? null,
+            productPrice: rest.productPrice ? parseInt(rest.productPrice) : null,
+            ...(rest.paymentType === 'subscription' ? {
+              cycleDay: rest.cycleDay ? parseInt(rest.cycleDay) : null,
+              expireDate: rest.expireDate ? new Date(rest.expireDate) : null,
+            } : {}),
           } : {}),
-        } : {}),
-      },
-    });
+        },
+      });
 
-    // ShortLink도 함께 저장
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const targetUrl = `${appUrl}/landing/${page.id}`;
-    await prisma.shortLink.create({
-      data: {
-        code: page.shortlink ?? page.id,
-        targetUrl,
-        title: page.title,
-        organizationId: orgId,
-        createdBy: ctx.userId,
-        category: "landing",
-        isActive: true,
-      },
+      // ShortLink도 함께 저장
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const targetUrl = `${appUrl}/landing/${newPage.id}`;
+      await tx.shortLink.create({
+        data: {
+          code: newPage.shortlink ?? newPage.id,
+          targetUrl,
+          title: newPage.title,
+          organizationId: orgId,
+          createdBy: ctx.userId,
+          category: "landing",
+          isActive: true,
+        },
+      });
+
+      return newPage;
     });
 
     logger.log("[POST /api/landing-pages] 생성", { id: page.id, shortlink: page.shortlink });
