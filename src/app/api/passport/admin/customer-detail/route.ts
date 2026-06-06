@@ -21,7 +21,9 @@ function normalizeTravelerDate(v: unknown): string | null {
 
 /**
  * OWNER 테넌트 격리: 대상 고객(userId)이 OWNER의 조직 소속인지 확인.
- * (submission-guests/route.ts와 동일 — CrmAffiliateSale.customerPhone ↔ User.phone ↔ organizationId)
+ * 판매기록(CrmAffiliateSale) OR 리드(AffiliateLead) 합집합으로 판정 —
+ * 여권 파이프라인은 리드 기반이라 아직 판매 전환 전(리드 단계)인 정당한 고객도 허용해야
+ * OWNER의 합법적 여권 등록/수정이 거짓 403되지 않는다. (phone 숫자만 정규화 후 조직 대조)
  * @returns true = 차단해야 함(권한 없음), false = 접근 허용
  */
 async function ownerOrgBlocked(
@@ -32,12 +34,17 @@ async function ownerOrgBlocked(
   if (!manager.organizationId) return true; // organizationId 없는 OWNER는 차단(보안 기본값)
   const orgId = String(manager.organizationId);
   const rows = await prisma.$queryRaw<Array<{ cnt: bigint }>>`
-    SELECT COUNT(*) AS cnt
-    FROM "User" u
-    JOIN "CrmAffiliateSale" af ON REGEXP_REPLACE(af."customerPhone", '[^0-9]', '', 'g')
-        = REGEXP_REPLACE(u.phone, '[^0-9]', '', 'g')
-    WHERE u.id = ${userId}
-      AND af."organizationId" = ${orgId}
+    SELECT (
+      (SELECT COUNT(*) FROM "User" u
+       JOIN "CrmAffiliateSale" af ON REGEXP_REPLACE(af."customerPhone", '[^0-9]', '', 'g')
+           = REGEXP_REPLACE(u.phone, '[^0-9]', '', 'g')
+       WHERE u.id = ${userId} AND af."organizationId" = ${orgId})
+      +
+      (SELECT COUNT(*) FROM "User" u
+       JOIN "AffiliateLead" al ON REGEXP_REPLACE(al."customerPhone", '[^0-9]', '', 'g')
+           = REGEXP_REPLACE(u.phone, '[^0-9]', '', 'g')
+       WHERE u.id = ${userId} AND al."organizationId" = ${orgId})
+    ) AS cnt
   `;
   return Number(rows[0]?.cnt ?? 0) === 0;
 }

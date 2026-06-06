@@ -7,6 +7,7 @@ import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { hashPassword } from '@/lib/password';
+import { normalizePassportNo, isPassportDupViolation } from '@/lib/passport-match';
 
 // ── 관리자 SMS 알림 (fire-and-forget) ──────────────────────────────────────
 /**
@@ -160,7 +161,7 @@ export async function POST(
           groupNumber: group.groupNumber,
           name: (guest.name?.trim() ?? '').substring(0, 100),
           phone: guest.phone?.trim() || null,
-          passportNumber: guest.passportNumber?.trim().substring(0, 20) || null,
+          passportNumber: normalizePassportNo(guest.passportNumber)?.substring(0, 20) || null,
           nationality: guest.nationality?.trim().substring(0, 50) || null,
           dateOfBirth: parseDate(guest.dateOfBirth),
           passportExpiryDate: parseDate(guest.passportExpiryDate),
@@ -201,13 +202,10 @@ export async function POST(
         throw Object.assign(new Error('ALREADY_SUBMITTED'), { code: 'ALREADY_SUBMITTED' });
       }
 
-      // 1. 기존 게스트 정보 삭제
-      await tx.gmPassportSubmissionGuest.deleteMany({ where: { submissionId: submission.id } });
-
-      // 2. 새 게스트 정보 저장
-      await tx.gmPassportSubmissionGuest.createMany({
-        data: guestRecords.map((guest) => ({
-          submissionId: submission.id,
+      // 1·2. 게스트 정보 점진 동기화 (전량삭제 제거 — '먼저 낸 사람' 보존)
+      //   passportNo 기준 upsert. 없으면 append. 이름 매칭 금지(동명이인 교차오염 방지).
+      for (const guest of guestRecords) {
+        const guestRow = {
           groupNumber: guest.groupNumber,
           name: guest.name,
           phone: guest.phone,
@@ -215,8 +213,23 @@ export async function POST(
           nationality: guest.nationality,
           dateOfBirth: guest.dateOfBirth,
           passportExpiryDate: guest.passportExpiryDate,
-        })),
-      });
+          // 감사: 서버측 도출값 (토큰 소유자)
+          submittedBy: submission.userId,
+          source: 'token_submit',
+          submittedAt: new Date(),
+        };
+        const existingGuest = guest.passportNumber
+          ? await tx.gmPassportSubmissionGuest.findFirst({
+              where: { submissionId: submission.id, passportNumber: guest.passportNumber },
+              select: { id: true },
+            })
+          : null;
+        if (existingGuest) {
+          await tx.gmPassportSubmissionGuest.update({ where: { id: existingGuest.id }, data: guestRow });
+        } else {
+          await tx.gmPassportSubmissionGuest.create({ data: { submissionId: submission.id, ...guestRow } });
+        }
+      }
 
       // 3. Submission 상태 업데이트
       await tx.gmPassportSubmission.update({
@@ -267,22 +280,18 @@ export async function POST(
             }
 
             // 4-2. Traveler 레코드 동기화
-            // 이름이나 여권번호로 기존 Traveler 찾기 시도
-            let traveler = await tx.gmTraveler.findFirst({
-              where: {
-                reservationId: reservation.id,
-                OR: [
-                  { passportNo: guest.passportNumber },
-                  { korName: guest.name },
-                  { engSurname: guest.name }, // 영문 이름일 수도 있음
-                ],
-              },
-            });
+            // passportNo 기준으로만 매칭 (이름 매칭 금지 — 동명이인 PII 교차오염 방지).
+            // passportNo 없으면 신규 생성(추후제출). updatedBy로 최근수정자 추적.
+            const traveler = guest.passportNumber
+              ? await tx.gmTraveler.findFirst({
+                  where: { reservationId: reservation.id, passportNo: guest.passportNumber },
+                })
+              : null;
 
             const travelerData = {
               reservationId: reservation.id,
               roomNumber: guest.groupNumber, // Group Number
-              korName: guest.name, // 일단 이름 필드에 저장 (한글/영문 구분 로직은 복잡하므로)
+              korName: guest.name, // 레거시 payload는 name 한 칸 (eng 분리 없음)
               passportNo: guest.passportNumber,
               nationality: guest.nationality,
               birthDate: guest.dateOfBirth ? guest.dateOfBirth.toISOString().split('T')[0] : null,
@@ -290,6 +299,7 @@ export async function POST(
                 ? guest.passportExpiryDate.toISOString().split('T')[0]
                 : null,
               userId: userId, // 연결된 유저 ID
+              updatedBy: submission.userId, // 최근수정자 = 토큰 소유자
             };
 
             if (traveler) {
@@ -335,6 +345,10 @@ export async function POST(
   } catch (error) {
     // TOCTOU: 동시 제출 충돌
     if (error instanceof Error && (error as Error & { code?: string }).code === 'ALREADY_SUBMITTED') {
+      return NextResponse.json({ ok: false, error: '이미 제출된 정보입니다. 수정이 필요하시면 담당자에게 문의하세요.' }, { status: 409 });
+    }
+    // 동시 제출로 같은 여권번호 부분 UNIQUE 충돌 → 일반 500 대신 친절한 409
+    if (isPassportDupViolation(error)) {
       return NextResponse.json({ ok: false, error: '이미 제출된 정보입니다. 수정이 필요하시면 담당자에게 문의하세요.' }, { status: 409 });
     }
     const err = error as Record<string, unknown>;

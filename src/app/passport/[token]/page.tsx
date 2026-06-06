@@ -4,6 +4,19 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { fetchWithRetry, saveTravelersDraft, loadTravelersDraft, clearTravelersDraft } from '@/lib/fetch-utils';
 
+// 여권 만료 상태 (KST 오늘 기준): 만료됨 / 6개월 이내 / 정상.
+// 만료 여권으로 제출했다가 입국 거부되는 사고를 사전 경고. (서버 evaluateExpiryFlag와 동일 규칙)
+function getPassportExpiryStatus(dateStr: string): 'EXPIRED' | 'SOON' | 'OK' | null {
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const today = kst.toISOString().slice(0, 10);
+  if (dateStr < today) return 'EXPIRED';
+  const six = new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth() + 6, kst.getUTCDate()));
+  const threshold = six.toISOString().slice(0, 10);
+  return dateStr <= threshold ? 'SOON' : 'OK';
+}
+
 interface Traveler {
   id?: number;
   korName: string;
@@ -1152,9 +1165,24 @@ export default function CustomerPassportPage() {
                               value={traveler.passportExpiryDate}
                               onChange={(e) => updateTraveler(index, 'passportExpiryDate', e.target.value)}
                               disabled={traveler.isSubmitLater}
-                              className={`w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 ${traveler.isSubmitLater ? 'bg-gray-100' : ''
-                                }`}
+                              className={`w-full rounded-lg border px-4 py-2 focus:outline-none focus:ring-2 ${
+                                getPassportExpiryStatus(traveler.passportExpiryDate) === 'EXPIRED'
+                                  ? 'border-red-400 focus:border-red-500 focus:ring-red-200'
+                                  : getPassportExpiryStatus(traveler.passportExpiryDate) === 'SOON'
+                                    ? 'border-orange-400 focus:border-orange-500 focus:ring-orange-200'
+                                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
+                              } ${traveler.isSubmitLater ? 'bg-gray-100' : ''}`}
                             />
+                            {!traveler.isSubmitLater && getPassportExpiryStatus(traveler.passportExpiryDate) === 'EXPIRED' && (
+                              <p className="mt-1 text-xs font-semibold text-red-600">
+                                ⚠️ 만료된 여권입니다. 여행 전 반드시 갱신해 주세요.
+                              </p>
+                            )}
+                            {!traveler.isSubmitLater && getPassportExpiryStatus(traveler.passportExpiryDate) === 'SOON' && (
+                              <p className="mt-1 text-xs font-semibold text-orange-600">
+                                ⚠️ 만료가 6개월 이내예요. 일부 국가는 입국이 거부될 수 있습니다.
+                              </p>
+                            )}
                           </div>
 
                           <div>

@@ -117,26 +117,28 @@ async function sendCampaignAsync(
     const CONCURRENT_BATCHES = 3;
 
     const batches = chunk(members, BATCH_SIZE);
+    let totalSent = 0;
 
     for (let i = 0; i < batches.length; i += CONCURRENT_BATCHES) {
       const batchGroup = batches.slice(i, i + CONCURRENT_BATCHES);
 
-      await Promise.all(
+      const batchResults = await Promise.all(
         batchGroup.map((batch) => processBatch(campaignId, campaign, batch, organizationId, smsConfig, emailConfig))
       );
+      totalSent += batchResults.reduce((a, b) => a + b, 0);
     }
 
     await prisma.crmMarketingCampaign.update({
       where: { id: campaignId },
       data: {
         status: 'SENT',
-        sentCount: members.length,
+        sentCount: totalSent,
       },
     });
 
     logger.info('[sendCampaignAsync] Campaign sent successfully', {
       campaignId,
-      sentCount: members.length,
+      sentCount: totalSent,
     });
   } catch (err) {
     logger.error('[sendCampaignAsync] Error', { err, campaignId });
@@ -148,7 +150,7 @@ async function sendCampaignAsync(
   }
 }
 
-// 배치 처리
+// 배치 처리 - 성공한 수신자 수 반환
 async function processBatch(
   campaignId: string,
   campaign: any,
@@ -156,15 +158,16 @@ async function processBatch(
   organizationId: string,
   smsConfig: Awaited<ReturnType<typeof getOrgSmsConfig>>,
   emailConfig: Awaited<ReturnType<typeof getOrgEmailConfig>>
-) {
-  const promises = members.map((member) =>
-    processRecipient(campaignId, campaign, member, organizationId, smsConfig, emailConfig)
+): Promise<number> {
+  const results = await Promise.all(
+    members.map((member) =>
+      processRecipient(campaignId, campaign, member, organizationId, smsConfig, emailConfig)
+    )
   );
-
-  await Promise.all(promises);
+  return results.filter(Boolean).length;
 }
 
-// 개별 수신자 처리
+// 개별 수신자 처리 - 성공 여부 반환
 async function processRecipient(
   campaignId: string,
   campaign: any,
@@ -172,7 +175,7 @@ async function processRecipient(
   organizationId: string,
   smsConfig: Awaited<ReturnType<typeof getOrgSmsConfig>>,
   emailConfig: Awaited<ReturnType<typeof getOrgEmailConfig>>
-) {
+): Promise<boolean> {
   const contact = member.contact;
   let smsSent = false;
   let emailSent = false;
@@ -212,7 +215,9 @@ async function processRecipient(
     // 발송 기록은 SmsLog (sendSms 내부에서 자동 기록) 및 EmailLog에서 처리
 
     logger.info('[processRecipient] done', { campaignId, contactId: contact.id, smsSent, emailSent });
+    return smsSent || emailSent;
   } catch (err) {
     logger.error('[processRecipient] Error', { err, campaignId, recipientId: contact.id });
+    return false;
   }
 }
