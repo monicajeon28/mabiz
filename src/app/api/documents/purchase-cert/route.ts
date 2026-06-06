@@ -51,11 +51,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: '이 조직의 판매건이 아닙니다' }, { status: 403 });
     }
 
-    // 3-1. 재발급 여부 확인 (중복 발급 허용, 안내만)
-    const existingCount = await prisma.salesDocument.count({
-      where: { orderId: body.orderId, documentType: 'PURCHASE_CONFIRMATION', status: 'APPROVED' },
-    });
-
     // 4. 결제 방법 판단
     const paymentMethod = payment.pgProvider
       ? `${payment.pgProvider} (온라인 결제)`
@@ -77,32 +72,40 @@ export async function POST(req: Request) {
       issuerOrgId:   orgId,
     };
 
-    const doc = await prisma.salesDocument.create({
-      data: {
-        organizationId: orgId,
-        documentType:   'PURCHASE_CONFIRMATION',
-        status,
-        orderId:        body.orderId,
-        affiliateSaleId: sale.id,
-        createdBy:      ctx.userId,
-        generatedData,
-      },
-      select: { id: true, status: true },
-    });
-
-    // OWNER/ADMIN이면 승인 기록도 생성
-    if (status === 'APPROVED') {
-      await prisma.salesDocumentApproval.create({
-        data: {
-          documentId:     doc.id,
-          organizationId: orgId,
-          requestedBy:    ctx.userId,
-          approvedBy:     ctx.userId,
-          status:         'APPROVED',
-          processedAt:    new Date(),
-        },
+    // 원자적 생성: SalesDocument + 승인 기록을 단일 트랜잭션으로 처리
+    const { doc, isReissue } = await prisma.$transaction(async (tx) => {
+      const prevCount = await tx.salesDocument.count({
+        where: { orderId: body.orderId, documentType: 'PURCHASE_CONFIRMATION', status: 'APPROVED' },
       });
-    }
+
+      const newDoc = await tx.salesDocument.create({
+        data: {
+          organizationId: orgId,
+          documentType:   'PURCHASE_CONFIRMATION',
+          status,
+          orderId:        body.orderId,
+          affiliateSaleId: sale.id,
+          createdBy:      ctx.userId,
+          generatedData,
+        },
+        select: { id: true, status: true },
+      });
+
+      if (status === 'APPROVED') {
+        await tx.salesDocumentApproval.create({
+          data: {
+            documentId:     newDoc.id,
+            organizationId: orgId,
+            requestedBy:    ctx.userId,
+            approvedBy:     ctx.userId,
+            status:         'APPROVED',
+            processedAt:    new Date(),
+          },
+        });
+      }
+
+      return { doc: newDoc, isReissue: prevCount > 0 };
+    });
 
     // 이메일 발송 (fire-and-forget) — 발급 시 항상 발송.
     // AGENT 발급분(PENDING_APPROVAL)은 승인 UI가 별도로 없어 메일이 영영 안 나가던 문제 해소.
@@ -129,8 +132,8 @@ export async function POST(req: Request) {
       }
     }
 
-    logger.log('[PurchaseCert] 발급 요청', { orgId, orderId: body.orderId, status, role: ctx.role, isReissue: existingCount > 0 });
-    return NextResponse.json({ ok: true, documentId: doc.id, status, isReissue: existingCount > 0, generatedData });
+    logger.log('[PurchaseCert] 발급 요청', { orgId, orderId: body.orderId, status, role: ctx.role, isReissue });
+    return NextResponse.json({ ok: true, documentId: doc.id, status, isReissue, generatedData });
   } catch (e) {
     logger.log('[PurchaseCert] 오류', { error: e instanceof Error ? e.message : String(e) });
     return NextResponse.json({ ok: false }, { status: 500 });
@@ -140,9 +143,9 @@ export async function POST(req: Request) {
 // GET: 구매확인증서 목록
 export async function GET(req: Request) {
   try {
-    const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const ctx = await getAuthContext();
     if (ctx.role === 'FREE_SALES') return NextResponse.json({ ok: false }, { status: 403 });
+    const orgId = requireOrgId(ctx);
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');

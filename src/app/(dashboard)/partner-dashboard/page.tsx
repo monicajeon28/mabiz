@@ -779,14 +779,17 @@ function B2CTab({ data, loading, month, onDrilldown, onRefresh }: { data: B2CDat
                           {p.saleId && (
                             <button
                               onClick={() => {
-                                fetch(`/api/partner/dashboard/b2c/confirm`, {
+                                void fetch(`/api/partner/dashboard/b2c/confirm`, {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ saleId: p.saleId }),
                                   credentials: 'include',
                                 })
-                                  .then((res) => res.json())
-                                  .then((json) => {
+                                  .then((res) => {
+                                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                                    return res.json();
+                                  })
+                                  .then((json: { ok: boolean; error?: string }) => {
                                     if (json.ok) {
                                       toast({ title: '수당 승인 완료', description: '수당 승인이 완료되었습니다.' });
                                       onRefresh();
@@ -1593,15 +1596,23 @@ export default function PartnerDashboardPage() {
   // 정지 상태 조회
   useEffect(() => {
     fetch('/api/partner/suspension-status')
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) return null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return res.json() as Promise<{ ok: boolean; data?: Record<string, any> }>;
+      })
       .then((data) => {
-        if (data.ok && data.data) {
+        if (data?.ok && data.data) {
           const raw = data.data;
+          const knownStatuses = ['ACTIVE', 'SUSPENDED', 'APPEALING', 'RESOLVED'] as const;
+          type SuspStatus = typeof knownStatuses[number];
+          const rawStatus = raw.suspensionStatus ?? raw.status ?? 'ACTIVE';
+          const validStatus: SuspStatus = (knownStatuses as readonly string[]).includes(rawStatus) ? rawStatus as SuspStatus : 'ACTIVE';
           setSuspensionInfo({
-            status: raw.suspensionStatus ?? raw.status ?? 'ACTIVE',
-            suspensionReason: raw.suspensionReason,
+            status: validStatus,
+            suspensionReason: typeof raw.suspensionReason === 'string' ? raw.suspensionReason : undefined,
             reasonDetails: raw.reasonDetails,
-            appealMessage: raw.appealMessage,
+            appealMessage: typeof raw.appealMessage === 'string' ? raw.appealMessage : undefined,
           });
         }
       })

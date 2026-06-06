@@ -141,8 +141,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : '상품 정보 조회 중 오류가 발생했습니다';
-    console.error('[Product Info API] Error:', error);
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    console.error('[Product Info API] Error:', error instanceof Error ? error.message : String(error));
+    return NextResponse.json({ ok: false, error: '상품 정보 조회 중 오류가 발생했습니다' }, { status: 500 });
   }
 }

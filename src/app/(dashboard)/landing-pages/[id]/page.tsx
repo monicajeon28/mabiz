@@ -35,6 +35,8 @@ export default function EditLandingPage() {
   const searchParams = useSearchParams();
   const id = params.id as string;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // stale closure 방지: 최신 save 함수를 항상 참조하기 위한 ref
+  const saveRef = useRef<() => Promise<void>>(async () => {});
 
   const [tab, setTab]           = useState<"editor" | "registrations" | "comments" | "stats" | "share">(
     searchParams.get("tab") === "registrations" ? "registrations" :
@@ -338,11 +340,12 @@ export default function EditLandingPage() {
   }, [emailSaveMsg, shareMsg, saveMsg]);
 
   // T28: Auto-save — 5초 debounce (html 변경 시)
+  // saveRef.current를 사용해 stale closure 방지 (save 함수가 title/slug 등 state를 캡처하므로)
   useEffect(() => {
     if (loading) return; // 초기 로딩 중에는 트리거하지 않음
     setUnsaved(true);
     const timer = setTimeout(() => {
-      save().then(() => setUnsaved(false)).catch(() => {/* save() 내부에서 에러 처리 */});
+      saveRef.current().then(() => setUnsaved(false)).catch(() => {/* save() 내부에서 에러 처리 */});
     }, 5000);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -757,6 +760,8 @@ export default function EditLandingPage() {
       setSaving(false);
     }
   };
+  // 매 렌더마다 saveRef를 최신 save로 갱신 (auto-save stale closure 방지)
+  saveRef.current = save;
 
   if (loading) return <div className="h-screen bg-gray-50 animate-pulse" />;
 

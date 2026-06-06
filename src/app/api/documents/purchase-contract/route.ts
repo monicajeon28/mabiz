@@ -270,7 +270,7 @@ ${body.specialTerms ? `<p style="background:#fffbeb;border-left:4px solid #f59e0
     }
 
     logger.log('[PurchaseContract] 발급', { orgId, orderId: body.orderId, status, docId: doc.id });
-    return NextResponse.json({ ok: true, documentId: doc.id, status, signUrl });
+    return NextResponse.json({ ok: true, documentId: doc.id, status });
   } catch (e) {
     // P2-3: logger.error 사용
     logger.error('[PurchaseContract] 오류', { error: e instanceof Error ? e.message : String(e) });
