@@ -6,15 +6,21 @@ import {
   ShoppingCart, Users, CreditCard, UserPlus, GraduationCap,
   DollarSign, Crown, MessageSquare, Percent, Plane, FileText,
   Clock, Loader2, CalendarDays, ChevronDown, X, ChevronLeft, ChevronRight, AlertCircle,
-  TrendingUp,
+  TrendingUp, Link2,
 } from 'lucide-react';
 import { maskPhoneNumber, maskCustomerName } from '@/lib/pii-mask';
 import { genericApiResponseSchema } from '@/lib/schemas/partner-api';
 import { useToast } from '@/lib/api/use-toast';
+import { ShortlinkPerformanceSummary } from './ShortlinkPerformanceSummary';
+import { ShortlinkTrendChart } from './ShortlinkTrendChart';
+import { ShortlinkTable } from './ShortlinkTable';
+import { ShortlinkABTestCard } from './ShortlinkABTestCard';
+import { CreateABTestModal } from './CreateABTestModal';
+import { Plus } from 'lucide-react';
 
 /* ─────────────────── 타입 ─────────────────── */
 
-type Tab = 'b2c' | 'b2b' | 'gold' | 'performance';
+type Tab = 'b2c' | 'b2b' | 'gold' | 'performance' | 'shortlink';
 
 // B2C
 type B2CSale = {
@@ -95,6 +101,28 @@ type GoldData = {
   members: GoldMember[];
   recentConsultations: GoldConsultation[];
   trends?: TrendValues;
+};
+
+// Shortlink
+type ShortLink = {
+  id: string;
+  title: string;
+  shortCode: string;
+  clickCount: number;
+  createdAt: string;
+};
+type DailyClick = {
+  date: string;
+  clicks: number;
+};
+type ShortlinkData = {
+  total: {
+    clickCount: number;
+    averageClicksPerDay: number;
+    linkCount: number;
+  };
+  dailyClicks: DailyClick[];
+  shortLinks: ShortLink[];
 };
 
 // Performance
@@ -1433,6 +1461,7 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'b2b', label: 'B2B', icon: <Users className="h-4 w-4" /> },
   { key: 'gold', label: '골드회원', icon: <Crown className="h-4 w-4" /> },
   { key: 'performance', label: '성과현황', icon: <TrendingUp className="h-4 w-4" /> },
+  { key: 'shortlink', label: '숏링크 성과', icon: <Link2 className="h-4 w-4" /> },
 ];
 
 const API_MAP: Record<Tab, string> = {
@@ -1440,6 +1469,7 @@ const API_MAP: Record<Tab, string> = {
   b2b:         '/api/partner/dashboard/b2b',
   gold:        '/api/partner/dashboard/gold',
   performance: '/api/partner/dashboard/performance',
+  shortlink:   '/api/partner/dashboard/shortlink',
 };
 
 interface SuspensionInfo {
@@ -1463,6 +1493,7 @@ export default function PartnerDashboardPage() {
   const [b2bData, setB2bData] = useState<B2BData | null>(null);
   const [goldData, setGoldData] = useState<GoldData | null>(null);
   const [performanceData, setPerformanceData] = useState<PerformanceData | null>(null);
+  const [shortlinkData, setShortlinkData] = useState<ShortlinkData | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // 정지 상태
@@ -1482,8 +1513,8 @@ export default function PartnerDashboardPage() {
   const monthOptions = getMonthOptions();
 
   const fetchTab = useCallback(async (tab: Tab, ym: string) => {
-    // 성과현황은 월 필터 없음 — 'all' 키로 캐시
-    const cacheKey = tab === 'performance' ? 'all' : ym;
+    // 성과현황과 숏링크는 월 필터 없음 — 'all' 키로 캐시
+    const cacheKey = (tab === 'performance' || tab === 'shortlink') ? 'all' : ym;
 
     // 캐시 히트
     const cached = cache.current[cacheKey]?.[tab];
@@ -1492,12 +1523,13 @@ export default function PartnerDashboardPage() {
       if (tab === 'b2b') setB2bData(cached as B2BData);
       if (tab === 'gold') setGoldData(cached as GoldData);
       if (tab === 'performance') setPerformanceData(cached as PerformanceData);
+      if (tab === 'shortlink') setShortlinkData(cached as ShortlinkData);
       return;
     }
 
     setLoading(true);
     try {
-      const url = tab === 'performance' ? API_MAP[tab] : `${API_MAP[tab]}?month=${ym}`;
+      const url = (tab === 'performance' || tab === 'shortlink') ? API_MAP[tab] : `${API_MAP[tab]}?month=${ym}`;
       const res = await fetch(url, { credentials: 'include' });
 
       if (res.status === 401 || res.status === 403) {
@@ -1528,6 +1560,7 @@ export default function PartnerDashboardPage() {
       if (tab === 'b2b') setB2bData(d as B2BData);
       if (tab === 'gold') setGoldData(d as GoldData);
       if (tab === 'performance') setPerformanceData(d as PerformanceData);
+      if (tab === 'shortlink') setShortlinkData(d as ShortlinkData);
     } catch {
       // 네트워크 오류 무시 — 스켈레톤 유지
     }
@@ -1541,9 +1574,11 @@ export default function PartnerDashboardPage() {
     setB2cData((c?.b2c as B2CData) ?? null);
     setB2bData((c?.b2b as B2BData) ?? null);
     setGoldData((c?.gold as GoldData) ?? null);
-    // 성과현황은 월 무관 — 'all' 캐시에서 복원
+    // 성과현황과 숏링크는 월 무관 — 'all' 캐시에서 복원
     const perfCached = cache.current['all']?.performance;
     if (perfCached) setPerformanceData(perfCached as PerformanceData);
+    const slinkCached = cache.current['all']?.shortlink;
+    if (slinkCached) setShortlinkData(slinkCached as ShortlinkData);
     // 현재 탭 데이터 fetch
     fetchTab(activeTab, month);
   }, [activeTab, month, fetchTab, refreshTrigger]);
@@ -1724,8 +1759,8 @@ export default function PartnerDashboardPage() {
           <p className="text-sm text-gray-500 mt-1">B2C / B2B / 골드회원 / 성과현황을 한눈에 확인하세요.</p>
         </div>
 
-        {/* 월 선택 — 성과현황 탭에서는 숨김 */}
-        <div className={`relative ${activeTab === 'performance' ? 'invisible' : ''}`}>
+        {/* 월 선택 — 성과현황/숏링크 탭에서는 숨김 */}
+        <div className={`relative ${(activeTab === 'performance' || activeTab === 'shortlink') ? 'invisible' : ''}`}>
           <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
           <select
             value={month}
@@ -1785,9 +1820,235 @@ export default function PartnerDashboardPage() {
           }}
         />
       )}
+      {activeTab === 'shortlink' && (
+        <ShortlinkTabContent
+          shortlinkData={shortlinkData}
+          loading={loading && !shortlinkData}
+        />
+      )}
 
       {/* 드릴다운 드로어 */}
       <DrilldownDrawer config={drawerConfig} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+    </div>
+  );
+}
+
+/**
+ * 숏링크 성과 탭 — 3개 서브탭 포함
+ */
+interface ShortlinkTabContentProps {
+  shortlinkData: ShortlinkData | null;
+  loading: boolean;
+}
+
+function ShortlinkTabContent({ shortlinkData, loading }: ShortlinkTabContentProps) {
+  const [shortlinkTab, setShortlinkTab] = useState<'performance' | 'testing' | 'completed'>('performance');
+  const [abTests, setAbTests] = useState<any[]>([]);
+  const [abTestsLoading, setAbTestsLoading] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const { toast } = useToast();
+
+  // A/B 테스트 목록 조회
+  useEffect(() => {
+    if (shortlinkTab === 'testing' || shortlinkTab === 'completed') {
+      fetchABTests();
+    }
+  }, [shortlinkTab]);
+
+  const fetchABTests = async () => {
+    try {
+      setAbTestsLoading(true);
+      const res = await fetch('/api/links/ab-tests');
+      if (!res.ok) throw new Error('Failed to fetch AB tests');
+      const data = await res.json();
+      setAbTests(data);
+    } catch (err) {
+      console.error('Failed to fetch AB tests:', err);
+      toast({
+        title: '오류',
+        description: 'A/B 테스트 목록을 불러올 수 없습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setAbTestsLoading(false);
+    }
+  };
+
+  const handleCreateTest = async (
+    testName: string,
+    variantA_id: string,
+    variantB_id: string
+  ) => {
+    try {
+      const res = await fetch('/api/links/ab-tests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ testName, variantA_id, variantB_id }),
+      });
+      if (!res.ok) throw new Error('Failed to create test');
+
+      await fetchABTests();
+      toast({
+        title: '성공',
+        description: '테스트가 생성되었습니다.',
+      });
+    } catch (err) {
+      throw err instanceof Error ? err : new Error('Failed to create test');
+    }
+  };
+
+  // 성과현황 탭
+  if (shortlinkTab === 'performance') {
+    return (
+      <div className="space-y-6">
+        {loading ? (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm animate-pulse">
+                  <div className="h-4 w-20 bg-gray-200 rounded mb-3" />
+                  <div className="h-8 w-32 bg-gray-200 rounded" />
+                </div>
+              ))}
+            </div>
+            <div className="bg-white rounded-lg border border-gray-200 p-4 animate-pulse h-80" />
+            <div className="bg-white rounded-lg border border-gray-200 p-4 animate-pulse h-40" />
+          </>
+        ) : shortlinkData ? (
+          <>
+            <ShortlinkPerformanceSummary data={shortlinkData} />
+            <ShortlinkTrendChart data={shortlinkData.dailyClicks} />
+            <ShortlinkTable shortLinks={shortlinkData.shortLinks} />
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+            <p className="text-sm">데이터를 불러올 수 없습니다.</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // A/B 테스트 탭들
+  const activeTests = abTests.filter(t => t.status === 'ACTIVE');
+  const completedTests = abTests.filter(t => ['WINNER_A', 'WINNER_B', 'PAUSED'].includes(t.status));
+  const currentTab = shortlinkTab as string; // performance early-return 이후 타입 좁혀짐 방지
+
+  return (
+    <div className="space-y-6">
+      {/* 탭 네비게이션 */}
+      <div className="border-b border-gray-200">
+        <nav className="flex gap-1" role="tablist">
+          <button
+            role="tab"
+            aria-selected={currentTab === 'performance'}
+            onClick={() => setShortlinkTab('performance')}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              currentTab === 'performance'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            숏링크 성과
+          </button>
+          <button
+            role="tab"
+            aria-selected={shortlinkTab === 'testing'}
+            onClick={() => setShortlinkTab('testing')}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              shortlinkTab === 'testing'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            테스트 중 ({activeTests.length})
+          </button>
+          <button
+            role="tab"
+            aria-selected={shortlinkTab === 'completed'}
+            onClick={() => setShortlinkTab('completed')}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              shortlinkTab === 'completed'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            완료된 테스트 ({completedTests.length})
+          </button>
+        </nav>
+      </div>
+
+      {/* 탭 콘텐츠 */}
+      {shortlinkTab === 'testing' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">진행 중인 테스트</h2>
+            <button
+              onClick={() => setCreateModalOpen(true)}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4" />
+              테스트 생성
+            </button>
+          </div>
+
+          {abTestsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-gray-500">로딩 중...</p>
+            </div>
+          ) : activeTests.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <p className="mb-4">진행 중인 테스트가 없습니다</p>
+              <button
+                onClick={() => setCreateModalOpen(true)}
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                <Plus className="h-4 w-4" />
+                첫 테스트 만들기
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {activeTests.map((test) => (
+                <ShortlinkABTestCard key={test.id} testId={test.id} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {shortlinkTab === 'completed' && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">완료된 테스트</h2>
+
+          {abTestsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-gray-500">로딩 중...</p>
+            </div>
+          ) : completedTests.length === 0 ? (
+            <p className="text-gray-500">완료된 테스트가 없습니다</p>
+          ) : (
+            <div className="grid gap-4">
+              {completedTests.map((test) => (
+                <ShortlinkABTestCard key={test.id} testId={test.id} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 테스트 생성 모달 */}
+      <CreateABTestModal
+        open={createModalOpen}
+        links={shortlinkData?.shortLinks?.map(link => ({
+          id: link.id,
+          code: link.shortCode,
+          title: link.title,
+          clickCount: link.clickCount,
+        })) || []}
+        onCreate={handleCreateTest}
+        onOpenChange={setCreateModalOpen}
+      />
     </div>
   );
 }
