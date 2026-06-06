@@ -1251,21 +1251,84 @@ function EmailTab() {
 }
 
 
-// ─── 카카오톡 탭 (개발 중) ───────────────────────────────────
+// ─── 카카오톡 탭 ───────────────────────────────────────────
 function KakaoTab() {
+  const [phone, setPhone] = useState('');
+  const [content, setContent] = useState('');
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  async function handleSend() {
+    if (!phone.trim() || !content.trim()) {
+      setResult({ ok: false, message: '전화번호와 내용을 입력하세요' });
+      return;
+    }
+    setSending(true);
+    setResult(null);
+    try {
+      const res = await fetch('/api/messages/send-kakao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, content }),
+      });
+      const data = await res.json() as { ok: boolean; message: string };
+      setResult(data);
+      if (data.ok) { setPhone(''); setContent(''); }
+    } catch {
+      setResult({ ok: false, message: '발송 실패' });
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="text-5xl mb-4">💬</div>
-      <h2 className="text-lg font-bold text-gray-700 mb-2">카카오톡 알림톡</h2>
-      <p className="text-sm text-gray-500 mb-4 max-w-sm">
-        카카오 비즈니스 채널 연동 기능을 준비 중입니다.<br/>
-        SMS 탭에서 그룹 발송하거나, 아래 오픈채팅방을 활용해주세요.
+    <div className="max-w-lg mx-auto space-y-4 py-4">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-2xl">💬</span>
+        <h2 className="text-lg font-bold text-gray-800">카카오톡 알림톡 발송</h2>
+      </div>
+      <p className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+        알림톡 발송을 위해 알리고 카카오 채널 연동이 필요합니다. (ALIGO_KAKAO_SENDER_KEY 환경변수)
       </p>
-      <a href="https://open.kakao.com/o/plREDDUh" target="_blank" rel="noopener noreferrer"
-        className="flex items-center gap-2 px-5 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold rounded-xl text-sm">
-        카카오 오픈채팅방 바로가기
-      </a>
-      <p className="text-sm text-gray-500 mt-4">정식 알림톡 발송은 추후 업데이트 예정입니다.</p>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">전화번호</label>
+        <input
+          type="tel"
+          value={phone}
+          onChange={e => setPhone(e.target.value)}
+          placeholder="010-0000-0000"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">메시지 내용</label>
+        <textarea
+          value={content}
+          onChange={e => setContent(e.target.value)}
+          rows={5}
+          placeholder="발송할 메시지를 입력하세요"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 resize-none"
+        />
+        <p className="text-xs text-gray-400 mt-1 text-right">{content.length}자</p>
+      </div>
+      {result && (
+        <div className={`text-sm px-3 py-2 rounded-lg ${result.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+          {result.message}
+        </div>
+      )}
+      <div className="flex gap-3 items-center">
+        <button
+          onClick={handleSend}
+          disabled={sending}
+          className="px-5 py-2 bg-yellow-400 hover:bg-yellow-500 disabled:opacity-50 text-black font-semibold rounded-xl text-sm transition-colors"
+        >
+          {sending ? '발송 중...' : '알림톡 발송'}
+        </button>
+        <a href="https://open.kakao.com/o/plREDDUh" target="_blank" rel="noopener noreferrer"
+          className="text-sm text-gray-500 hover:text-gray-700 underline">
+          오픈채팅방 바로가기
+        </a>
+      </div>
     </div>
   );
 }
