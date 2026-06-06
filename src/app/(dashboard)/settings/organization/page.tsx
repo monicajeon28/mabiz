@@ -217,10 +217,7 @@ export default function OrganizationPage() {
 
         {/* 대리점 코드 */}
         <div className="flex items-center gap-3 p-4">
-          <div className="w-24 shrink-0">
-            <span className="text-sm text-gray-500 block">대리점 코드</span>
-            <span className="text-xs text-gray-400">팀원 초대 시 사용</span>
-          </div>
+          <span className="text-sm text-gray-500 w-24 shrink-0">어필리에이트 ID</span>
           <div className="flex-1 flex items-center gap-2 min-w-0">
             {org.externalAffiliateProfileId !== null ? (
               <>

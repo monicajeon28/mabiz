@@ -31,8 +31,14 @@ export async function GET() {
       return notFound('조직을 찾을 수 없습니다.');
     }
 
+    // GLOBAL_ADMIN 이외에는 내부 식별 코드 숨김
+    const safeOrg = {
+      ...org,
+      externalAffiliateProfileId: ctx.role === 'GLOBAL_ADMIN' ? org.externalAffiliateProfileId : null,
+    };
+
     logger.info('[GET /api/settings/organization] Success', { orgId });
-    return NextResponse.json({ ok: true, org });
+    return NextResponse.json({ ok: true, org: safeOrg });
   } catch (err: any) {
     if (err.message === 'UNAUTHORIZED') {
       return unauthorized('인증이 필요합니다.');
