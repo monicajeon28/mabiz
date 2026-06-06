@@ -69,7 +69,6 @@ export default function SettingsPage() {
   }, []);
 
   const allDocs = docs?.hasIdCard && docs?.hasBankBook;
-  const noDocs  = docs && !docs.hasIdCard && !docs.hasBankBook;
 
   return (
     <div className="max-w-lg mx-auto p-4 md:p-6">
