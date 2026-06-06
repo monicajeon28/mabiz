@@ -1753,9 +1753,9 @@ model ShortLinkABTest {
   createdAt DateTime @default(now())
   completedAt DateTime?
 
-  // 관계
-  variantA ShortLink @relation("TestVariantA", fields: [variantA_id], references: [id])
-  variantB ShortLink @relation("TestVariantB", fields: [variantB_id], references: [id])
+  // 관계 (P1-10: CASCADE delete)
+  variantA ShortLink @relation("TestVariantA", fields: [variantA_id], references: [id], onDelete: Cascade)
+  variantB ShortLink @relation("TestVariantB", fields: [variantB_id], references: [id], onDelete: Cascade)
 
   @@index([organizationId, createdBy])
   @@index([status])

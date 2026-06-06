@@ -139,6 +139,14 @@ export async function PATCH(req: Request, { params }: Params) {
             departureDate, productName, bookingRef, commentEnabled,
             isActive } = body;
 
+    // 필수 필드 빈 문자열 방지
+    if (name !== undefined && (typeof name !== 'string' || name.trim() === '')) {
+      return NextResponse.json({ ok: false, message: '이름은 비워둘 수 없습니다.' }, { status: 400 });
+    }
+    if (phone !== undefined && (typeof phone !== 'string' || phone.trim() === '')) {
+      return NextResponse.json({ ok: false, message: '전화번호는 비워둘 수 없습니다.' }, { status: 400 });
+    }
+
     const contact = await prisma.contact.update({
       where: { id },
       data: {

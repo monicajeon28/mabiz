@@ -1845,6 +1845,7 @@ function ShortlinkTabContent({ shortlinkData, loading }: ShortlinkTabContentProp
   const [shortlinkTab, setShortlinkTab] = useState<'performance' | 'testing' | 'completed'>('performance');
   const [abTests, setAbTests] = useState<any[]>([]);
   const [abTestsLoading, setAbTestsLoading] = useState(false);
+  const [abTestsError, setAbTestsError] = useState<string | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const { toast } = useToast();
 
@@ -1858,15 +1859,17 @@ function ShortlinkTabContent({ shortlinkData, loading }: ShortlinkTabContentProp
   const fetchABTests = async () => {
     try {
       setAbTestsLoading(true);
+      setAbTestsError(null);
       const res = await fetch('/api/links/ab-tests');
       if (!res.ok) throw new Error('Failed to fetch AB tests');
       const data = await res.json();
       setAbTests(data);
     } catch (err) {
-      console.error('Failed to fetch AB tests:', err);
+      const errorMsg = err instanceof Error ? err.message : 'A/B 테스트 목록을 불러올 수 없습니다.';
+      setAbTestsError(errorMsg);
       toast({
         title: '오류',
-        description: 'A/B 테스트 목록을 불러올 수 없습니다.',
+        description: errorMsg,
         variant: 'destructive',
       });
     } finally {
@@ -1992,6 +1995,15 @@ function ShortlinkTabContent({ shortlinkData, loading }: ShortlinkTabContentProp
             </button>
           </div>
 
+          {abTestsError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 flex gap-3">
+              <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-red-700">
+                {abTestsError}
+              </div>
+            </div>
+          )}
+
           {abTestsLoading ? (
             <div className="flex items-center justify-center py-12">
               <p className="text-gray-500">로딩 중...</p>
@@ -2020,6 +2032,15 @@ function ShortlinkTabContent({ shortlinkData, loading }: ShortlinkTabContentProp
       {shortlinkTab === 'completed' && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">완료된 테스트</h2>
+
+          {abTestsError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 flex gap-3">
+              <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-red-700">
+                {abTestsError}
+              </div>
+            </div>
+          )}
 
           {abTestsLoading ? (
             <div className="flex items-center justify-center py-12">
