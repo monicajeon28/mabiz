@@ -11,6 +11,7 @@ import {
   moveTravelerRoomWithAudit,
   assertReservationInOrg,
   resolveActorGmUserId,
+  judgeSingleCharge,
   TravelerVersionConflict,
   TravelerNotFound,
   ReservationForbidden,
@@ -214,6 +215,188 @@ export async function PATCH(
       );
     }
     logger.error('[APIS Traveler PATCH]', { err });
+    return NextResponse.json({ ok: false, error: '서버 오류' }, { status: 500, headers: noStore });
+  }
+}
+
+/**
+ * DELETE /api/admin/apis/traveler/[id]
+ *
+ * APIS 협업 편집 Phase 2 — 안전 단건삭제(전체 JSON 스냅샷 복구가능).
+ * OWNER / GLOBAL_ADMIN 전용 + 테넌트 격리(assertReservationInOrg).
+ *
+ * 안전장치:
+ *   - 단건만 삭제(deleteMany 전량삭제 절대 금지). id 1개만 처리.
+ *   - 삭제 전 traveler 전체 JSON을 GmReservationAudit.oldValue 에 스냅샷으로 남겨
+ *     이후 1클릭 되돌리기(undo)로 복구 가능하게 한다.
+ *   - 삭제로 같은 방 잔류자의 인원 구성이 바뀌므로 isSingleCharge 를 재판정한다.
+ *   - 모든 변경(삭제 + 재판정)을 한 트랜잭션 + 감사로그로 묶는다.
+ *
+ * 응답:
+ *   - 200 { ok:true, deleted: { id, roomNumber, isCompanion }, residualUpdated }
+ *   - 404 { ok:false, error }   대상 없음
+ *   - 400 / 401 / 403 / 500
+ */
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const noStore = { 'Cache-Control': 'no-store' };
+
+  // ── RBAC: GLOBAL_ADMIN / OWNER 전용 ───────────────────────────
+  const rbacCheck = enforceRBAC(req, {
+    allowedRoles: ['GLOBAL_ADMIN', 'OWNER'],
+    errorMessage: '권한이 없습니다.',
+  });
+  if (rbacCheck !== true) return rbacCheck;
+
+  try {
+    const ctx = await getMabizSession();
+    if (!ctx) {
+      return NextResponse.json({ ok: false, error: '인증이 필요합니다.' }, { status: 401, headers: noStore });
+    }
+    if (ctx.role !== 'OWNER' && ctx.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403, headers: noStore });
+    }
+
+    // ── 대상 traveler id (단건) ──────────────────────────────────
+    const { id } = await params;
+    const travelerId = Number(id);
+    if (!Number.isInteger(travelerId) || travelerId <= 0) {
+      return NextResponse.json({ ok: false, error: '잘못된 travelerId 입니다.' }, { status: 400, headers: noStore });
+    }
+
+    // updatedBy / 감사 userId 로 기록할 GmUser id(Int) 해석 (PATCH 와 동일 규칙)
+    const userId = await resolveActorGmUserId({
+      userId: ctx.userId,
+      role: ctx.role,
+      mallUserId: ctx.mallUser?.id ?? null,
+    });
+
+    // ── 대상 traveler 조회 (전체 컬럼 — 스냅샷용) ──
+    const traveler = await prisma.gmTraveler.findUnique({ where: { id: travelerId } });
+    if (!traveler) {
+      return NextResponse.json({ ok: false, error: '대상 탑승객을 찾을 수 없습니다.' }, { status: 404, headers: noStore });
+    }
+
+    const reservation = await prisma.gmReservation.findUnique({
+      where: { id: traveler.reservationId },
+      select: { id: true, tripId: true },
+    });
+    if (!reservation) {
+      return NextResponse.json({ ok: false, error: '예약 정보를 찾을 수 없습니다.' }, { status: 404, headers: noStore });
+    }
+
+    // ── 테넌트 격리: PATCH 와 동일. OWNER 는 자기 조직 예약만(위반 시 catch → 403) ──
+    await assertReservationInOrg({
+      reservationId: reservation.id,
+      role: ctx.role,
+      organizationId: ctx.organizationId,
+    });
+
+    // 같은 방 잔류자 재판정 모집단: OWNER 는 자기 조직 예약으로 한정(타 조직 부수효과 차단),
+    // GLOBAL_ADMIN 은 trip 전체. (PATCH moveRoom 과 동일한 격리 규칙)
+    const isOwnerScoped = ctx.role === 'OWNER' && !!ctx.organizationId;
+    const tripReservationIds = isOwnerScoped
+      ? (await prisma.$queryRaw<{ id: number }[]>(Prisma.sql`
+          SELECT r.id FROM "Reservation" r
+          JOIN "User" u ON u.id = r."mainUserId"
+          JOIN "OrganizationMember" om
+            ON om.phone = u.phone AND om."organizationId" = ${ctx.organizationId}
+          WHERE r."tripId" = ${reservation.tripId}
+        `)).map((r) => r.id)
+      : (await prisma.gmReservation.findMany({
+          where: { tripId: reservation.tripId },
+          select: { id: true },
+        })).map((r) => r.id);
+
+    const deletedRoom = traveler.roomNumber;
+    const isCompanion = traveler.companionGroupId != null;
+
+    // ── 단건 삭제 + 스냅샷 + 잔류자 싱글차지 재판정 (한 트랜잭션) ──
+    const residualUpdated = await prisma.$transaction(async (tx) => {
+      // (1) 트랜잭션 내 재확인 (그 사이 삭제됐을 수 있음)
+      const cur = await tx.gmTraveler.findUnique({ where: { id: travelerId } });
+      if (!cur) throw new TravelerNotFound();
+
+      // (2) 삭제 감사로그 — oldValue = traveler 전체 JSON 스냅샷(복구가능)
+      await tx.gmReservationAudit.create({
+        data: {
+          reservationId: cur.reservationId,
+          userId,
+          action: 'TRAVELER_DELETE',
+          oldValue: JSON.stringify(cur),
+          metadata: { travelerId, isCompanion } as Prisma.InputJsonValue,
+        },
+      });
+
+      // (3) 단건 삭제 (deleteMany 금지 — id 1건만)
+      await tx.gmTraveler.delete({ where: { id: travelerId } });
+
+      // (4) 같은 방 잔류자 isSingleCharge 재판정 (삭제 후 상태 기준)
+      // ⚠️ [P0/data-loss] roomNumber 는 예약 단위(메인유저=room 1)라 trip 전역 유일값이
+      // 아니다. 같은 방 잔류자는 반드시 (reservationId, roomNumber) 복합키로 한정한다.
+      const remaining = await tx.gmTraveler.findMany({
+        where: { reservationId: { in: tripReservationIds } },
+        select: { id: true, reservationId: true, roomNumber: true, passportNo: true, isSingleCharge: true },
+      });
+      const deletedReservationId = cur.reservationId;
+      const roomSingle = judgeSingleCharge(remaining, deletedReservationId, deletedRoom);
+
+      let updatedCount = 0;
+      const residents = remaining.filter(
+        (t) => t.reservationId === deletedReservationId && t.roomNumber === deletedRoom,
+      );
+      for (const r of residents) {
+        if (r.isSingleCharge !== roomSingle) {
+          await tx.gmTraveler.update({
+            where: { id: r.id },
+            data: { isSingleCharge: roomSingle, version: { increment: 1 }, updatedBy: userId },
+          });
+          await tx.gmReservationAudit.create({
+            data: {
+              reservationId: cur.reservationId,
+              userId,
+              action: 'TRAVELER_SINGLE_CHARGE_RECHECK',
+              oldValue: JSON.stringify({ isSingleCharge: r.isSingleCharge }),
+              newValue: JSON.stringify({ isSingleCharge: roomSingle }),
+              metadata: { travelerId: r.id, cause: 'delete', oldRoom: deletedRoom } as Prisma.InputJsonValue,
+            },
+          });
+          updatedCount++;
+        }
+      }
+      return updatedCount;
+    });
+
+    logger.log('[APIS Traveler DELETE]', {
+      role: ctx.role,
+      travelerId,
+      action: 'TRAVELER_DELETE',
+      roomNumber: deletedRoom,
+      isCompanion,
+      residualUpdated,
+    });
+
+    return NextResponse.json(
+      { ok: true, deleted: { id: travelerId, roomNumber: deletedRoom, isCompanion }, residualUpdated },
+      { status: 200, headers: noStore }
+    );
+  } catch (err) {
+    // 테넌트 격리 위반 → 403
+    if (err instanceof ReservationForbidden) {
+      return NextResponse.json(
+        { ok: false, error: '해당 예약에 접근할 권한이 없습니다.' },
+        { status: 403, headers: noStore }
+      );
+    }
+    if (err instanceof TravelerNotFound) {
+      return NextResponse.json(
+        { ok: false, error: '대상 탑승객을 찾을 수 없습니다.' },
+        { status: 404, headers: noStore }
+      );
+    }
+    logger.error('[APIS Traveler DELETE]', { err });
     return NextResponse.json({ ok: false, error: '서버 오류' }, { status: 500, headers: noStore });
   }
 }
