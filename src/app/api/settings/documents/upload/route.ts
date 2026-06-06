@@ -74,7 +74,7 @@ export async function POST(req: Request) {
         : { bankbookPath: viewUrl, bankbookOriginalName: file.name };
 
       if (contract) {
-        await prisma.gmAffiliateContract.update({ where: { id: contract.id }, data: docData });
+        await prisma.gmAffiliateContract.updateMany({ where: { id: contract.id, userId: gmUserId }, data: docData });
       } else {
         await prisma.gmAffiliateContract.create({
           data: { userId: gmUserId, name: userName, phone: '', ...docData },
@@ -87,8 +87,8 @@ export async function POST(req: Request) {
         select: { id: true },
       });
       if (existing) {
-        await prisma.memberDocument.update({
-          where: { id: existing.id },
+        await prisma.memberDocument.updateMany({
+          where: { id: existing.id, userId: ctx.userId, organizationId: ctx.organizationId },
           data: { fileUrl: viewUrl, fileName, storagePath: viewUrl, fileSize: file.size, uploadedAt: new Date() },
         });
       } else {
