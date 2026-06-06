@@ -53,18 +53,25 @@ export function ShortlinkABTestCard({
   const [loading, setLoading] = useState(true);
   const [showDetails, setShowDetails] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [declaringWinner, setDeclaringWinner] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchResults = async () => {
       try {
-        const res = await fetch(`/api/analytics/ab-test-results?testId=${testId}`);
+        const res = await fetch(`/api/analytics/ab-test-results?testId=${testId}`, {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error('Failed to fetch');
         const data = await res.json();
         setResult(data);
         setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        if (err instanceof Error && err.name !== 'AbortError') {
+          setError(err.message);
+        }
       } finally {
         setLoading(false);
       }
@@ -73,7 +80,10 @@ export function ShortlinkABTestCard({
     fetchResults();
     // 10초마다 갱신
     const interval = setInterval(fetchResults, 10000);
-    return () => clearInterval(interval);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [testId]);
 
   if (loading) {
@@ -110,6 +120,7 @@ export function ShortlinkABTestCard({
       : 0;
 
   const handleDeclareWinner = async (variant: 'A' | 'B') => {
+    setDeclaringWinner(true);
     try {
       const res = await fetch(
         `/api/links/ab-tests/${testId}/declare-winner`,
@@ -144,6 +155,8 @@ export function ShortlinkABTestCard({
         description: err instanceof Error ? err.message : 'Unknown error',
         variant: 'destructive',
       });
+    } finally {
+      setDeclaringWinner(false);
     }
   };
 
@@ -228,12 +241,12 @@ export function ShortlinkABTestCard({
         </div>
 
         {/* 샘플 크기 */}
-        <div className="rounded border border-gray-200 bg-gray-50 p-3 text-sm">
+        <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm">
           <p className="text-gray-700">
             총 노출: <strong>{totalImpressions}</strong> (목표: 200)
           </p>
           {totalImpressions < 200 && (
-            <p className="mt-1 text-xs text-yellow-700">
+            <p className="mt-1 text-xs text-amber-900 font-medium">
               ⚠️ 더 수집하면 정확도가 올라갑니다 ({200 - totalImpressions}회)
             </p>
           )}
@@ -286,9 +299,12 @@ export function ShortlinkABTestCard({
                   const winner = ctrA > ctrB ? 'A' : 'B';
                   handleDeclareWinner(winner);
                 }}
-                className="flex-1 rounded-lg bg-green-600 py-2 text-center font-medium text-white transition-colors hover:bg-green-700"
+                disabled={declaringWinner}
+                aria-label="우승 링크를 선택합니다"
+                title="우승 링크를 선택합니다"
+                className="flex-1 rounded-lg bg-green-600 py-2 text-center font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                🏆 우승자 선택하기
+                {declaringWinner ? '처리 중...' : '🏆 우승자 선택하기'}
               </button>
               <button
                 onClick={() => {
@@ -296,7 +312,9 @@ export function ShortlinkABTestCard({
                     onStopTest(testId);
                   }
                 }}
-                className="flex-1 rounded-lg border border-gray-300 py-2 text-center font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                disabled={declaringWinner}
+                aria-label="테스트를 중지합니다"
+                className="flex-1 rounded-lg border border-gray-300 py-2 text-center font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 중지
               </button>

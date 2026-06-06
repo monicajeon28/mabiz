@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle, XCircle, Upload, Loader2, AlertTriangle, ArrowLeft, ExternalLink } from "lucide-react";
+import { CheckCircle, XCircle, Upload, Loader2, AlertTriangle, ArrowLeft, ExternalLink, Link2 } from "lucide-react";
 
 type DocStatus = {
   ok: boolean;
@@ -110,6 +110,15 @@ export default function DocumentsSettingPage() {
 
   const [idCardState,   setIdCardState]   = useState<UploadState>('idle');
   const [bankbookState, setBankbookState] = useState<UploadState>('idle');
+  const [copied, setCopied] = useState(false);
+
+  const copyLink = () => {
+    const url = `${window.location.origin}/settings/documents`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   const loadStatus = async () => {
     setLoading(true);
@@ -163,10 +172,21 @@ export default function DocumentsSettingPage() {
         >
           <ArrowLeft className="w-5 h-5 text-gray-600" />
         </button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-bold text-gray-900">서류 제출</h1>
           <p className="text-sm text-gray-500">신분증, 통장사본을 제출하면 정산 승인이 더 빠릅니다.</p>
         </div>
+        <button
+          onClick={copyLink}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+            copied
+              ? 'bg-green-50 border-green-300 text-green-700'
+              : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400'
+          }`}
+        >
+          <Link2 className="w-4 h-4" />
+          {copied ? '복사됨!' : '링크 복사'}
+        </button>
       </div>
 
       {/* 안내 배너 */}

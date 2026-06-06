@@ -11,10 +11,17 @@ export async function trackShortLinkImpressions(
   organizationId?: string
 ) {
   try {
+    // Step 0: P1-9 ReDoS 방지 - 메시지 길이 제한
+    const MAX_MESSAGE_LENGTH = 2000;
+    let processBody = body;
+    if (body.length > MAX_MESSAGE_LENGTH) {
+      processBody = body.substring(0, MAX_MESSAGE_LENGTH);
+    }
+
     // Step 1: 본문에서 모든 shortlink 감지
     // [P0 FIX #3] nanoid 기본값에 맞게 (a-z0-9- 만, underscore 불포함, 대문자 불포함)
     const linkPattern = /\/l\/([a-z0-9\-]{8})/g;
-    const matches = Array.from(body.matchAll(linkPattern));
+    const matches = Array.from(processBody.matchAll(linkPattern));
 
     if (matches.length === 0) {
       // 링크 없음, skip
@@ -32,9 +39,7 @@ export async function trackShortLinkImpressions(
     });
 
     if (links.length === 0) {
-      console.warn(
-        `[trackShortLinkImpressions] No links found: ${codes.join(",")}`
-      );
+      // No links found, skip
       return [];
     }
 
@@ -54,7 +59,7 @@ export async function trackShortLinkImpressions(
 
     return impressions;
   } catch (error) {
-    console.error("[trackShortLinkImpressions] Error:", error);
+    // Error tracking impressions, return empty
     return [];
   }
 }
@@ -70,32 +75,33 @@ export function selectABVariant(): "A" | "B" {
 }
 
 /**
- * ShortLinkABTest 분산 로직 확인
+ * ShortLinkABTest 분산 로직 확인 (P1-5: 1쿼리로 최적화)
  */
 export async function getABTestVariant(
   shortLinkId: string
 ): Promise<{ variant: "A" | "B"; testId: string } | null> {
   try {
-    // shortLinkId가 어떤 테스트의 A 또는 B인가?
-    const testA = await prisma.shortLinkABTest.findFirst({
-      where: { variantA_id: shortLinkId, status: "ACTIVE" },
+    // shortLinkId가 어떤 테스트의 A 또는 B인가? (1 쿼리로 통합)
+    const test = await prisma.shortLinkABTest.findFirst({
+      where: {
+        OR: [
+          { variantA_id: shortLinkId },
+          { variantB_id: shortLinkId }
+        ],
+        status: "ACTIVE"
+      },
     });
 
-    if (testA) {
-      return { variant: "A", testId: testA.id };
+    if (!test) {
+      return null;
     }
 
-    const testB = await prisma.shortLinkABTest.findFirst({
-      where: { variantB_id: shortLinkId, status: "ACTIVE" },
-    });
-
-    if (testB) {
-      return { variant: "B", testId: testB.id };
-    }
-
-    return null;
+    return {
+      variant: test.variantA_id === shortLinkId ? "A" : "B",
+      testId: test.id
+    };
   } catch (error) {
-    console.error("[getABTestVariant] Error:", error);
+    // Error retrieving AB test variant, return null
     return null;
   }
 }
