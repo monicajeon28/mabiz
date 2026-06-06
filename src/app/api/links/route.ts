@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         // continue (검증 스킵)
       } else if (isDev && !isLocalhost) {
         // DEV 환경이지만 localhost가 아니면: 경고만 (개발 편의성)
-        console.warn(`[WARNING] Non-localhost URL in DEV: ${h}`);
+        logger.warn(`Non-localhost URL in DEV`, { hostname: h });
         // continue (허용하지만 경고)
       } else if (!isDev) {
         // PROD 환경: 엄격한 화이트리스트
