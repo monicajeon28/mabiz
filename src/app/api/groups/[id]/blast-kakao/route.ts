@@ -149,9 +149,9 @@ export async function POST(req: Request, { params }: Params) {
       });
     }
 
-    // Rate limit 확인
+    // Rate limit 확인 — groupId 제외: 다른 그룹 사용 우회 방지
     const userId = ctx.userId || '';
-    const rlKey = `kakao_blast:${userId}:${groupId}`;
+    const rlKey = `kakao_blast:${userId}`;
     const { allowed } = await checkRateLimitAsync(rlKey, KAKAO_BLAST_MAX_PER_DAY, KAKAO_BLAST_WINDOW_MS);
     if (!allowed) {
       const status = getRateLimitStatus(rlKey, KAKAO_BLAST_MAX_PER_DAY, KAKAO_BLAST_WINDOW_MS);
