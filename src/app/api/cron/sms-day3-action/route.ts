@@ -93,7 +93,7 @@ export async function POST(req: Request) {
     // 2. 각 고객의 누적 응답 분석 + 최종 결정 메시지
     for (const contact of day2SentContacts) {
       try {
-        const normalizedPhone = contact.phone.replace(/[^\d]/g, '');
+        const normalizedPhone = contact.phone?.replace(/[^\d]/g, '') ?? '';
         if (!normalizedPhone || normalizedPhone.length < 10) {
           response.failCount++;
           response.errors.push({

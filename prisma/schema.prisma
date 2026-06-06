@@ -1699,6 +1699,9 @@ model ShortLink {
   contact        Contact?         @relation(fields: [contactId], references: [id], onDelete: SetNull)
   organization   Organization     @relation(fields: [organizationId], references: [id])
   clicks         ShortLinkClick[]
+  impressions    ShortLinkImpression[] @relation("Impressions")
+  testVariantA   ShortLinkABTest[] @relation("TestVariantA")
+  testVariantB   ShortLinkABTest[] @relation("TestVariantB")
 
   @@index([organizationId, createdBy])
   @@map("ShortLink")
@@ -1708,6 +1711,7 @@ model ShortLinkClick {
   id        String    @id @default(cuid())
   linkId    String
   contactId String?
+  variant   String?   // "A", "B", null (일반 링크)
   clickedAt DateTime  @default(now()) @db.Timestamptz(6)
   userAgent String?
   contact   Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
@@ -1716,7 +1720,71 @@ model ShortLinkClick {
   @@index([linkId, clickedAt], map: "idx_shortlinkclick_link_time")
   @@index([contactId], map: "idx_shortlinkclick_contact")
   @@index([clickedAt], map: "idx_shortlinkclick_time")
+  @@index([variant])
   @@map("ShortLinkClick")
+}
+
+// A/B 테스트 메타 테이블
+model ShortLinkABTest {
+  id String @id @default(cuid())
+
+  // 기본 정보
+  testName String
+  organizationId String
+  createdBy String
+
+  // 링크 참조 (이미 생성된 ShortLink 2개)
+  variantA_id String
+  variantB_id String
+
+  // 통계 (미리 계산해서 저장)
+  clicksA Int @default(0)
+  clicksB Int @default(0)
+  impressionsA Int @default(0)
+  impressionsB Int @default(0)
+
+  // 결과
+  status String @default("ACTIVE")  // ACTIVE, WINNER_A, WINNER_B, PAUSED
+  winner String?  // "A", "B"
+  pValue Float?
+  confidenceLevel Float?  // 95.0, 99.0
+
+  // 타임스탐프
+  createdAt DateTime @default(now())
+  completedAt DateTime?
+
+  // 관계
+  variantA ShortLink @relation("TestVariantA", fields: [variantA_id], references: [id])
+  variantB ShortLink @relation("TestVariantB", fields: [variantB_id], references: [id])
+
+  @@index([organizationId, createdBy])
+  @@index([status])
+  @@index([createdAt])
+  @@map("ShortLinkABTest")
+}
+
+// Impression 추적 (노출 데이터)
+model ShortLinkImpression {
+  id String @id @default(cuid())
+
+  // 어떤 링크가 노출되었는가
+  shortLinkId String
+
+  // 어떤 채널인가
+  channel String  // "sms", "email", "manual"
+
+  // 누가 받았는가 (선택사항)
+  contactId String?
+
+  // 언제 노출되었는가
+  sentAt DateTime @default(now())
+
+  // 관계
+  shortLink ShortLink @relation("Impressions", fields: [shortLinkId], references: [id], onDelete: Cascade)
+
+  @@index([shortLinkId, sentAt])
+  @@index([channel])
+  @@map("ShortLinkImpression")
 }
 
 model Payment {

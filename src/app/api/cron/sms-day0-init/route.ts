@@ -143,7 +143,7 @@ export async function POST(req: Request) {
     for (const contact of qualifiedContacts) {
       try {
         // 정규화된 전화번호
-        const normalizedPhone = contact.phone.replace(/[^\d]/g, '');
+        const normalizedPhone = contact.phone?.replace(/[^\d]/g, '') ?? '';
         if (!normalizedPhone || normalizedPhone.length < 10) {
           response.failCount++;
           response.errors.push({

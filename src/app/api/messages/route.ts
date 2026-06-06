@@ -19,6 +19,7 @@ import { sendScheduledSms } from '@/lib/sms-service';
 import { sendKakaoMessage, logKakaoMessage } from '@/lib/messages/kakao-service';
 import { sendEmail, getPasonaEmailTemplate, logEmailMessage } from '@/lib/messages/email-service';
 import { getSpinQuestion, appendSpinQuestion } from '@/lib/messages/spin-integration';
+import { trackShortLinkImpressions } from '@/lib/link-tracking';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -248,6 +249,14 @@ export async function POST(req: NextRequest) {
 
     if (messageType === 'SMS') {
       try {
+        // ✅ ShortLink Impression 추적
+        const impressions = await trackShortLinkImpressions(
+          renderedMessage,
+          'sms',
+          contactId,
+          session.organizationId
+        );
+
         scheduledSmsId = await sendScheduledSms({
           organizationId: session.organizationId,
           contactId,
@@ -269,6 +278,7 @@ export async function POST(req: NextRequest) {
           scheduledSmsId,
           sendAt: sendTime.toISOString(),
           lens,
+          impressionCount: impressions.length,
         });
       } catch (err) {
         logger.error('[messages] SMS 스케줄 실패', {
