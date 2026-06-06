@@ -15,18 +15,21 @@ export async function GET(_req: Request) {
       select:  { id: true, code: true, title: true, targetUrl: true, category: true, createdAt: true, contactId: true, autoGroupId: true, createdBy: true },
     });
 
-    // [P0 FIX #5] clickCount는 ShortLinkClick 테이블에서 동적 계산
-    const links = await Promise.all(
-      linksBase.map(async (link) => {
-        const clickCount = await prisma.shortLinkClick.count({
-          where: { linkId: link.id }
-        });
-        return {
-          ...link,
-          clickCount,
-        };
-      })
+    // [P1-2 FIX] N+1 쿼리 → groupBy 최적화: Promise.all 제거, 단일 쿼리 + Map
+    const clickCounts = await prisma.shortLinkClick.groupBy({
+      by: ['linkId'],
+      _count: { id: true },
+      where: { linkId: { in: linksBase.map(l => l.id) } }
+    });
+
+    const clickMap = new Map(
+      clickCounts.map(c => [c.linkId, c._count.id])
     );
+
+    const links = linksBase.map(link => ({
+      ...link,
+      clickCount: clickMap.get(link.id) ?? 0
+    }));
 
     return NextResponse.json({ ok: true, links });
   } catch (e) {
