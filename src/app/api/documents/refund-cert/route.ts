@@ -22,6 +22,12 @@ export async function POST(req: Request) {
     };
     if (!body.orderId) return NextResponse.json({ ok: false, message: 'orderId 필수' }, { status: 400 });
 
+    // P0-6: orderId 정규식 검증 (XSS 방지)
+    if (!/^[a-zA-Z0-9\-_]+$/.test(body.orderId)) {
+      logger.warn('[RefundCert] 의심 orderId 패턴', { orderId: body.orderId, orgId });
+      return NextResponse.json({ ok: false, message: '유효하지 않은 주문번호 형식' }, { status: 400 });
+    }
+
     // Payment 조회 — 취소 완료 확인
     const payment = await prisma.payment.findUnique({
       where: { orderId: body.orderId },
