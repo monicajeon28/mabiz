@@ -104,7 +104,7 @@ export async function POST(req: Request, { params }: Params) {
       where: { organizationId: invite.organizationId, phone: phoneClean },
     });
     if (existing) {
-      await prisma.orgInviteToken.update({ where: { id: invite.id }, data: { usedAt: null, usedByUserId: null } });
+      await prisma.orgInviteToken.updateMany({ where: { id: invite.id, token }, data: { usedAt: null, usedByUserId: null } });
       return NextResponse.json({ ok: false, message: "이미 가입된 전화번호입니다." }, { status: 400 });
     }
 

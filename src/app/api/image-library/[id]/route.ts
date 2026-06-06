@@ -40,7 +40,7 @@ export async function DELETE(
     });
 
     // DB에서 삭제 (ImageCache는 건드리지 않음)
-    await prisma.imageAsset.delete({ where: { id } });
+    await prisma.imageAsset.deleteMany({ where: { id, organizationId: orgId } });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

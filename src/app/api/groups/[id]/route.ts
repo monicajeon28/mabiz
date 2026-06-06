@@ -235,7 +235,7 @@ export async function DELETE(req: Request, { params }: Params) {
     await prisma.$transaction([
       prisma.contactGroupMember.deleteMany({ where: { groupId } }),
       prisma.groupToken.deleteMany({ where: { groupId } }),
-      prisma.contactGroup.delete({ where: { id: groupId } }),
+      prisma.contactGroup.deleteMany({ where: { id: groupId, organizationId: orgId } }),
     ]);
 
     logger.log('[GroupDelete]', { groupId });

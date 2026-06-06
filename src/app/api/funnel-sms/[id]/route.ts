@@ -200,7 +200,7 @@ export async function DELETE(_req: Request, { params }: Params) {
 
     // cascade: onDelete: Cascade 설정으로 FunnelSmsMessage도 자동 삭제
     // ContactGroup.funnelSmsId: onDelete: SetNull — 그룹 연결은 null로 처리
-    await prisma.funnelSms.delete({ where: { id } });
+    await prisma.funnelSms.deleteMany({ where: { id, organizationId: orgId } });
 
     logger.info('[DELETE /api/funnel-sms/[id]]', { orgId, id });
 

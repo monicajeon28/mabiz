@@ -56,7 +56,7 @@ export async function DELETE(req: Request, { params }: Params) {
     });
     if (!comment) return NextResponse.json({ ok: false }, { status: 404 });
 
-    await prisma.crmLandingComment.delete({ where: { id: commentId } });
+    await prisma.crmLandingComment.deleteMany({ where: { id: commentId, landingPageId: id } });
 
     logger.log("[DELETE /api/landing-pages/[id]/comments]", { commentId, landingPageId: id, orgId });
 

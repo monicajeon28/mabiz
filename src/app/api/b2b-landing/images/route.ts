@@ -414,7 +414,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: '이미지를 찾을 수 없습니다' }, { status: 404 });
     }
 
-    await prisma.b2BLandingPageImage.delete({ where: { id } });
+    await prisma.b2BLandingPageImage.deleteMany({ where: { id, landingPageId: pageImage.landingPageId } });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

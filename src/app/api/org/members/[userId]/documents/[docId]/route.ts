@@ -26,7 +26,7 @@ export async function DELETE(
     const supabase = getSupabaseAdmin();
     await supabase.storage.from('member-documents').remove([doc.storagePath]);
 
-    await prisma.memberDocument.delete({ where: { id: docId } });
+    await prisma.memberDocument.deleteMany({ where: { id: docId, organizationId: orgId, userId } });
 
     logger.log('[MemberDocs DELETE]', { orgId, userId: userId.substring(0, 8), docId });
     return NextResponse.json({ ok: true });
