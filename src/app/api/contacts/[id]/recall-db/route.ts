@@ -47,7 +47,7 @@ export async function POST(req: Request, { params }: Params) {
           where: { id: log.newContactId },
           data:  { deletedAt: new Date() },
         }),
-        prisma.contactTransferLog.delete({ where: { id: log.id } }),
+        prisma.contactTransferLog.deleteMany({ where: { id: log.id, contactId: contactId } }),
       ]);
       logger.log("[recall-db] ORG_COPY 회수 — 복사본 소프트 삭제", { contactId, newContactId: log.newContactId });
     } else {
@@ -58,7 +58,7 @@ export async function POST(req: Request, { params }: Params) {
           where: { id: contactId },
           data:  { assignedUserId: null },
         }),
-        prisma.contactTransferLog.delete({ where: { id: log.id } }),
+        prisma.contactTransferLog.deleteMany({ where: { id: log.id, contactId: contactId } }),
       ]);
       logger.log("[recall-db] AGENT_ASSIGN 회수 — 미배정 상태로 원복", { contactId, toUserId: log.toUserId });
     }

@@ -90,7 +90,14 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       return NextResponse.json({ ok: false, error: '접근 권한이 없습니다.' }, { status: 403 });
     }
 
-    const member = await prisma.goldMember.update({ where: { id }, data });
+    const updated = await prisma.goldMember.updateMany({
+      where: { id, ...(ctx.role !== 'GLOBAL_ADMIN' && ctx.organizationId ? { organizationId: ctx.organizationId } : {}) },
+      data,
+    });
+    if (updated.count === 0) {
+      return NextResponse.json({ ok: false, error: '없음' }, { status: 404 });
+    }
+    const member = await prisma.goldMember.findUnique({ where: { id } });
     return NextResponse.json({ ok: true, member });
   } catch (err) {
     logger.error('[PATCH /api/gold-members/[id]]', { err });
