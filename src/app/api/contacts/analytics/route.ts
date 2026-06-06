@@ -32,30 +32,38 @@ export async function GET(req: Request) {
       _count: { id: true },
     });
 
-    // 4. 출처별 응답율 (lastContactedAt 기준)
-    const sourceStats = await Promise.all(
-      sourceDistribution.map(async (s) => {
-        const total = s._count.id;
-        const contacted = await prisma.contact.count({
-          where: {
-            ...baseWhere,
-            sourceType: s.sourceType,
-            lastContactedAt: { not: null },
-          },
-        });
-        const avgScore = await prisma.contact.aggregate({
-          where: { ...baseWhere, sourceType: s.sourceType },
-          _avg: { leadScore: true },
-        });
+    // 4. 출처별 응답율 (lastContactedAt 기준) — groupBy 2회로 N+1 제거
+    const [contactedBySource, avgScoreBySource] = await Promise.all([
+      prisma.contact.groupBy({
+        by: ["sourceType"],
+        where: { ...baseWhere, lastContactedAt: { not: null } },
+        _count: { id: true },
+      }),
+      prisma.contact.groupBy({
+        by: ["sourceType"],
+        where: baseWhere,
+        _avg: { leadScore: true },
+      }),
+    ]);
 
-        return {
-          sourceType: s.sourceType,
-          count: total,
-          responseRate: total > 0 ? Math.round((contacted / total) * 100) : 0,
-          avgLeadScore: Math.round(avgScore._avg.leadScore ?? 0),
-        };
-      })
+    const contactedMap = new Map<string | null, number>(
+      contactedBySource.map((r) => [r.sourceType, r._count.id])
     );
+    const avgScoreMap = new Map<string | null, number | null>(
+      avgScoreBySource.map((r) => [r.sourceType, r._avg.leadScore])
+    );
+
+    const sourceStats = sourceDistribution.map((s) => {
+      const total = s._count.id;
+      const contacted = contactedMap.get(s.sourceType) ?? 0;
+      const avgLeadScore = avgScoreMap.get(s.sourceType) ?? null;
+      return {
+        sourceType: s.sourceType,
+        count: total,
+        responseRate: total > 0 ? Math.round((contacted / total) * 100) : 0,
+        avgLeadScore: Math.round(avgLeadScore ?? 0),
+      };
+    });
 
     // 5. 본사/판매원 이름 조회
     const affiliateUserIds = [

@@ -216,7 +216,7 @@ export async function POST(req: Request) {
     if (!payment.buyerEmail) {
       logger.warn('[PurchaseContract] buyerEmail 없음 — 서명 링크 이메일 미발송. signUrl 응답에 포함됨', { docId: doc.id, signUrl });
     }
-    if (payment.buyerEmail && status !== 'APPROVED') {
+    if (payment.buyerEmail) {
       sendFunnelEmail({
         organizationId: orgId,
         to:      payment.buyerEmail,

@@ -84,8 +84,8 @@ export async function PATCH(req: Request, { params }: Params) {
         return NextResponse.json({ ok: false, message: "ACTIVE 상태만 일시정지할 수 있습니다" }, { status: 400 });
       }
       await prisma.$transaction([
-        prisma.vipCareSequence.update({
-          where: { id: body.sequenceId },
+        prisma.vipCareSequence.updateMany({
+          where: { id: body.sequenceId, funnelId },
           data: { status: "PAUSED", pausedAt: new Date(), pausedBy: ctx.userId },
         }),
         // PENDING 상태의 미발송 로그도 일시정지
@@ -102,8 +102,8 @@ export async function PATCH(req: Request, { params }: Params) {
         return NextResponse.json({ ok: false, message: "일시정지 상태만 재개할 수 있습니다" }, { status: 400 });
       }
       await prisma.$transaction([
-        prisma.vipCareSequence.update({
-          where: { id: body.sequenceId },
+        prisma.vipCareSequence.updateMany({
+          where: { id: body.sequenceId, funnelId },
           data: { status: "ACTIVE", pausedAt: null, pausedBy: null },
         }),
         // PAUSED 로그를 다시 PENDING으로
@@ -120,8 +120,8 @@ export async function PATCH(req: Request, { params }: Params) {
         return NextResponse.json({ ok: false, message: "이미 취소된 시퀀스입니다" }, { status: 400 });
       }
       await prisma.$transaction([
-        prisma.vipCareSequence.update({
-          where: { id: body.sequenceId },
+        prisma.vipCareSequence.updateMany({
+          where: { id: body.sequenceId, funnelId },
           data: { status: "CANCELLED" },
         }),
         // 미발송 로그 전부 취소
