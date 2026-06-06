@@ -6,7 +6,8 @@ import { google } from 'googleapis';
 import { logger } from '@/lib/logger';
 import { parseServiceAccount } from '@/lib/parse-service-account';
 
-const CALL_LOG_FOLDER_ID = process.env.GOOGLE_DRIVE_CALL_LOG_FOLDER_ID ?? '';
+const CALL_LOG_FOLDER_ID =
+  process.env.GOOGLE_DRIVE_CALL_LOG_FOLDER_ID ?? '1g8vNIeXEVHkavQnlBAXsBMkVZB_Y29Fk';
 
 function getDriveClient() {
   if (!CALL_LOG_FOLDER_ID) {

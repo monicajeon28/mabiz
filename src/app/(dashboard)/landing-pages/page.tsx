@@ -45,8 +45,8 @@ type LandingStats = {
 type ShareableOrg = {
   orgId: string;
   orgName: string;
-  ownerUserId: string | null;
-  ownerDisplayName: string | null;
+  ownerUserIds: string[];
+  ownerDisplayNames: string[];
   label: string;
   isBonsa?: boolean;
 };

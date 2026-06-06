@@ -47,12 +47,16 @@ export async function GET() {
       .filter((v): v is string => Boolean(v))
       .slice(0, 3);
 
-    // organizationId → 첫 번째 대리점장 매핑
-    const ownerMap: Record<string, { userId: string; displayName: string }> = {};
+    // organizationId → 모든 대리점장 매핑
+    const ownerMap: Record<string, { userIds: string[]; displayNames: string[] }> = {};
     for (const m of members) {
       if (!ownerMap[m.organizationId]) {
-        const name = m.displayName?.trim() || "대리점장";
-        ownerMap[m.organizationId] = { userId: m.userId, displayName: name };
+        ownerMap[m.organizationId] = { userIds: [], displayNames: [] };
+      }
+      const name = m.displayName?.trim() || "대리점장";
+      if (!ownerMap[m.organizationId].displayNames.includes(name)) {
+        ownerMap[m.organizationId].userIds.push(m.userId);
+        ownerMap[m.organizationId].displayNames.push(name);
       }
     }
 
@@ -73,20 +77,23 @@ export async function GET() {
           return {
             orgId: o.id,
             orgName: "본사",
-            ownerUserId: null,
-            ownerDisplayName: adminNames || "본사",
+            ownerUserIds: [],
+            ownerDisplayNames: bonsaAdmins,
             label: adminNames ? `본사 (${adminNames})` : "본사",
             isBonsa: true,
           };
         }
 
         const owner = ownerMap[o.id];
+        const displayNamesStr = owner?.displayNames.length
+          ? owner.displayNames.join(", ")
+          : null;
         return {
           orgId: o.id,
           orgName: o.name,
-          ownerUserId: owner?.userId ?? null,
-          ownerDisplayName: owner?.displayName ?? null,
-          label: owner?.displayName ? `${owner.displayName} (${o.name})` : o.name,
+          ownerUserIds: owner?.userIds ?? [],
+          ownerDisplayNames: owner?.displayNames ?? [],
+          label: displayNamesStr ? `${displayNamesStr} (${o.name})` : o.name,
           isBonsa: false,
         };
       });

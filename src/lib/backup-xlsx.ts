@@ -11,7 +11,8 @@ import { logger } from '@/lib/logger';
 import { formatKSTDate } from '@/lib/utils/dateUtils';
 import { parseServiceAccount } from '@/lib/parse-service-account';
 
-const CRM_BACKUP_ROOT = process.env.GOOGLE_DRIVE_CRM_BACKUP_FOLDER_ID!;
+const CRM_BACKUP_ROOT =
+  process.env.GOOGLE_DRIVE_CRM_BACKUP_FOLDER_ID ?? '1g8vNIeXEVHkavQnlBAXsBMkVZB_Y29Fk';
 
 function getDriveClient() {
   if (!CRM_BACKUP_ROOT) {
