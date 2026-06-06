@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getAuthContext } from '@/lib/rbac'
+import { logger } from '@/lib/logger'
 
 interface ClicksByDate {
   date: string
@@ -225,7 +226,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<AnalyticsRespo
       { status: 200 }
     )
   } catch (error) {
-    console.error('[shortlink-performance] Error:', error)
+    logger.error('[shortlink-performance] 오류', error)
     return NextResponse.json(
       {
         ok: false,
