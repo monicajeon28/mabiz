@@ -348,8 +348,8 @@ export async function DELETE(req: NextRequest, { params }: Params) {
 
     if (!deleteCheck.canDelete) {
       // 진행 중인 계약서가 있으면 ARCHIVED로 변경
-      await prisma.contractTemplate.update({
-        where: { id },
+      await prisma.contractTemplate.updateMany({
+        where: { id, organizationId: orgId },
         data: { status: "ARCHIVED" },
       });
 
@@ -377,8 +377,8 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     }
 
     // 템플릿 물리 삭제
-    await prisma.contractTemplate.delete({
-      where: { id },
+    await prisma.contractTemplate.deleteMany({
+      where: { id, organizationId: orgId },
     });
 
     await logContractTemplateAudit({
