@@ -43,12 +43,14 @@ export async function PATCH(
       );
     }
 
+    // 테이블명은 CruiseProductInquiry (GET/convert 라우트와 동일), productCode는 LIKE로
+    // 실제 값(GOLD_MEMBERSHIP_A 등)까지 매칭 — 정확일치는 404가 되어 상태변경이 막혔음.
     const rows = await prisma.$queryRaw<{ id: number }[]>(Prisma.sql`
-      UPDATE "ProductInquiry"
+      UPDATE "CruiseProductInquiry"
       SET    status = ${status},
              "updatedAt" = NOW()
       WHERE  id = ${inquiryId}
-        AND  "productCode" = 'GOLD_MEMBERSHIP'
+        AND  "productCode" LIKE 'GOLD_MEMBERSHIP%'
       RETURNING id
     `);
 

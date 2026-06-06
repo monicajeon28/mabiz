@@ -302,10 +302,14 @@ function SmsTab() {
       });
       const d = await res.json() as {
         ok: boolean; count?: number; willSend?: number; sampleMessages?: string[]; linkNoCount?: number; rateLimitStatus?: any;
+        error?: string; message?: string;
       };
       if (!d.ok) {
-        // Rate Limit 거절 시 명확한 메시지
-        if (d.rateLimitStatus?.remaining === 0) {
+        // 90자 초과 거절 시 명확한 안내
+        if (d.error === 'MESSAGE_TOO_LONG' || message.length > 90) {
+          showError(d.message || "메시지는 90자 이내여야 합니다. 길이를 줄여주세요.");
+        } else if (d.rateLimitStatus?.remaining === 0) {
+          // Rate Limit 거절 시 명확한 메시지
           showError("일일 발송 한도를 모두 사용했습니다. 내일 초기화됩니다.");
         } else {
           showError("확인 실패");
@@ -550,14 +554,13 @@ function SmsTab() {
           <div className="flex items-center justify-between mb-2">
             <label className="text-sm font-semibold text-gray-500">메시지 내용</label>
             {(() => {
-              const byteLen = new TextEncoder().encode(message).length;
-              let byteColor = "text-green-600";
-              let byteLabel = "단문";
-              if (byteLen > 2000) { byteColor = "text-red-500 font-bold"; byteLabel = "발송불가"; }
-              else if (byteLen > 90) { byteColor = "text-orange-500 font-medium"; byteLabel = "장문 메시지 (+추가요금)"; }
+              // 단문(SMS) 90자 기준 — 서버가 90자 초과를 차단하므로 화면도 90자로 통일
+              const charLen = message.length;
+              const color = charLen > 90 ? "text-red-500 font-bold" : "text-green-600";
+              const label = charLen > 90 ? "90자 초과 — 발송 불가" : "단문";
               return (
-                <span className={`text-sm ${byteColor}`}>
-                  {byteLen}바이트 · {byteLabel}
+                <span className={`text-sm ${color}`}>
+                  {charLen}/90자 · {label}
                 </span>
               );
             })()}
@@ -581,15 +584,10 @@ function SmsTab() {
             </p>
           )}
           {(() => {
-            const byteLen = new TextEncoder().encode(message).length;
-            if (byteLen > 2000) return (
+            const charLen = message.length;
+            if (charLen > 90) return (
               <p className="mt-1 text-sm text-red-500 font-medium">
-                메시지가 너무 깁니다 ({byteLen}바이트). 2000바이트 이하로 줄여주세요.
-              </p>
-            );
-            if (byteLen > 90) return (
-              <p className="mt-1 text-sm text-orange-500">
-                장문 메시지로 발송됩니다 ({byteLen}/2000바이트). 추가 요금이 발생합니다.
+                90자를 초과했습니다 ({charLen}/90자). 단문 발송을 위해 90자 이하로 줄여주세요.
               </p>
             );
             return null;
@@ -704,9 +702,9 @@ function SmsTab() {
 
         {/* 미리보기 & 발송 */}
         <div className="rounded-xl border bg-white p-4">
-          <button onClick={doDryRun} disabled={!selectedGroup || !message.trim()}
+          <button onClick={doDryRun} disabled={!selectedGroup || !message.trim() || message.length > 90}
             className="w-full py-2.5 border-2 border-blue-300 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed mb-3">
-            발송 전 확인하기
+            {message.length > 90 ? '90자 이하로 줄여주세요' : '발송 전 확인하기'}
           </button>
 
           {selectedGroup && rateLimitStatus && (

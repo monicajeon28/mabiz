@@ -296,6 +296,7 @@ export default function CustomerPnrPage({
           credentials: 'include',
           body: JSON.stringify({
             reservationId: parseInt(reservationId),
+            phone: verifyPhone || undefined, // 비로그인 고객 본인확인용(관리자는 세션으로 통과)
             travelers: travelers.map((t) => ({
               id: t.id,
               korName: t.korName,

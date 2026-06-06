@@ -102,8 +102,11 @@ export async function POST(req: Request) {
           processedAt:    new Date(),
         },
       });
+    }
 
-      // 이메일 발송 (fire-and-forget)
+    // 이메일 발송 (fire-and-forget) — 발급 시 항상 발송.
+    // AGENT 발급분(PENDING_APPROVAL)은 승인 UI가 별도로 없어 메일이 영영 안 나가던 문제 해소.
+    {
       const recipientEmail = payment.buyerEmail;
       if (recipientEmail) {
         sendFunnelEmail({
