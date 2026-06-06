@@ -3,34 +3,15 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { ERROR_MESSAGES, PNR_ERROR_CODES } from '@/lib/pnr-errors';
-import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
+import { ERROR_MESSAGES } from '@/lib/pnr-errors';
 import { getMabizSession } from '@/lib/auth';
 import { validateAllTravelers } from '@/lib/pnr-validators';
 import type { TravelerInput, PnrSubmitBody } from '@/lib/types/pnr';
 
 export async function POST(req: NextRequest) {
-  // ────────────────────────────────────────────────────────
-  // RBAC: 인증된 사용자만 (AUTH 필수)
-  // ────────────────────────────────────────────────────────
-  const rbacCheck = enforceRBAC(req, {
-    authOnly: true,
-    errorMessage: '인증이 필요합니다.',
-  });
-  if (rbacCheck !== true) return rbacCheck;
-
   try {
-    // Step 1: 세션 정보 조회
-    const session = await getMabizSession();
-    if (!session) {
-      return NextResponse.json(
-        { ok: false, message: '세션이 만료되었습니다.' },
-        { status: 401 }
-      );
-    }
-
-    // Step 2: 요청 본문 검증
-    const body: PnrSubmitBody = await req.json();
+    // Step 1: 요청 본문 검증 (phone = 비로그인 고객 본인확인용)
+    const body: PnrSubmitBody & { phone?: string } = await req.json();
     const { reservationId, travelers } = body;
 
     if (!reservationId || !travelers || !Array.isArray(travelers) || travelers.length === 0) {
@@ -49,11 +30,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Step 3: 예약 조회 (조직 경계 포함)
+    // Step 2: 예약 조회 (소유권/본인확인용 mainUser.phone 포함)
     const reservation = await prisma.gmReservation.findUnique({
       where: { id: reservationId },
       include: {
         trip: true,
+        mainUser: { select: { phone: true } },
       },
     });
 
@@ -64,52 +46,41 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Step 3: 인증 — 세션(직원) 또는 본인확인(phone, 비로그인 고객).
+    //   GET /api/pnr/customer/[reservationId]가 비로그인 phone 접근을 허용하므로 submit도 동일 모델.
+    const session = await getMabizSession();
+    if (session) {
+      // 직원 경로: 기존 RBAC + 조직 소유권 검증 (IDOR 방지)
+      if (session.role === 'OWNER' || session.role === 'AGENT') {
+        if (!session.organizationId) {
+          return NextResponse.json({ ok: false, message: '조직 정보가 없습니다.' }, { status: 403 });
+        }
+        const contact = await prisma.contact.findFirst({
+          where: { organizationId: session.organizationId, userId: reservation.mainUserId },
+        });
+        if (!contact) {
+          logger.warn('[PNR Submit] Unauthorized access attempt', {
+            sessionId: session.userId, role: session.role, reservationId, organizationId: session.organizationId,
+          });
+          return NextResponse.json({ ok: false, message: '이 예약에 접근할 권한이 없습니다.' }, { status: 403 });
+        }
+      } else if (session.role !== 'GLOBAL_ADMIN') {
+        return NextResponse.json({ ok: false, message: '이 작업을 수행할 권한이 없습니다.' }, { status: 403 });
+      }
+    } else {
+      // 비로그인 고객 경로: body.phone === 예약 대표자 전화 (숫자만 비교)
+      const digits = (p: string | null | undefined) => (p || '').replace(/[^0-9]/g, '');
+      const inputPhone = digits(body.phone);
+      const ownerPhone = digits(reservation.mainUser?.phone);
+      if (!inputPhone || !ownerPhone || inputPhone !== ownerPhone) {
+        return NextResponse.json({ ok: false, message: '본인확인에 실패했습니다. 전화번호를 확인해 주세요.' }, { status: 401 });
+      }
+    }
+
     const existingTravelerRows = await prisma.gmTraveler.findMany({
       where: { reservationId },
       select: { id: true },
     });
-
-    // Step 4: 소유권 검증 (IDOR 방지)
-    // CASE 1: OWNER/AGENT → 자신의 organization contact인지 확인
-    if (session.role === 'OWNER' || session.role === 'AGENT') {
-      if (!session.organizationId) {
-        return NextResponse.json(
-          { ok: false, message: '조직 정보가 없습니다.' },
-          { status: 403 }
-        );
-      }
-
-      // 예약이 이 조직의 contact에 속하는지 확인 (mainUserId → Contact.userId)
-      const contact = await prisma.contact.findFirst({
-        where: {
-          organizationId: session.organizationId,
-          userId: reservation.mainUserId,
-        },
-      });
-
-      if (!contact) {
-        logger.warn('[PNR Submit] Unauthorized access attempt', {
-          sessionId: session.userId,
-          role: session.role,
-          reservationId,
-          organizationId: session.organizationId,
-        });
-        return NextResponse.json(
-          { ok: false, message: '이 예약에 접근할 권한이 없습니다.' },
-          { status: 403 }
-        );
-      }
-    }
-
-    // CASE 2: GLOBAL_ADMIN → 모든 예약 접근 가능 (특별 처리 없음)
-
-    // CASE 3: 기타 역할 → 거부
-    if (!['OWNER', 'AGENT', 'GLOBAL_ADMIN'].includes(session.role)) {
-      return NextResponse.json(
-        { ok: false, message: '이 작업을 수행할 권한이 없습니다.' },
-        { status: 403 }
-      );
-    }
 
     // 기존 Traveler ID 목록
     const existingTravelerIds = existingTravelerRows.map((t) => t.id);

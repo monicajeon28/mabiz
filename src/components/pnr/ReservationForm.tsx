@@ -1502,7 +1502,7 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
     }
     try {
       setLoadingStatuses(true);
-      const response = await fetch(`/api/pnr/partner/reservations/by-payment/${selectedPaymentId}`, {
+      const response = await fetch(`/api/pnr/partner/by-payment/${selectedPaymentId}`, {
         credentials: 'include',
       });
       const data = await response.json();
@@ -1553,13 +1553,13 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
         try {
           const passportUrl = customer.passportUrl;
           const message = `안녕하세요 ${customer.customerName}님. 여권 정보를 등록해주시기 바랍니다. 아래 링크를 클릭해주세요.\n\n${passportUrl}`;
-          const response = await fetch('/api/partner/customers/send-sms', {
+          const response = await fetch('/api/messages/send-sms', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             body: JSON.stringify({
               phone: customer.phone.replace(/[^0-9]/g, ''),
-              message: message,
+              content: message,
             }),
           });
           const data = await response.json();
@@ -1681,13 +1681,13 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
     }
     try {
       setSendingPassport(true);
-      const response = await fetch('/api/partner/customers/send-sms', {
+      const response = await fetch('/api/messages/send-sms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           phone: passportPhone.replace(/[^0-9]/g, ''),
-          message: passportMessage,
+          content: passportMessage,
         }),
       });
       const data = await response.json();

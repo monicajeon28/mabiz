@@ -491,17 +491,8 @@ export default function AnalyticsDashboard() {
                   월간/분기 성과 분석
                 </div>
               </Link>
-
-              <Link
-                href="/analytics/proactive"
-                className="p-4 rounded-lg bg-pink-50 border border-pink-200 hover:bg-pink-100 transition cursor-pointer"
-              >
-                <div className="font-semibold text-pink-900 mb-2">🎯 프로액티브</div>
-                <div className="text-sm text-pink-700">
-                  AI 기반 예측 분석<br />
-                  조기 개입 및 최적화 추천
-                </div>
-              </Link>
+              {/* 프로액티브 카드 제거 — /analytics/proactive 페이지가 없어 404였음.
+                  해당 기능 구현 시 카드 복원. */}
             </div>
           </div>
         </>
