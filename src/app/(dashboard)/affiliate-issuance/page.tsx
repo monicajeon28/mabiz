@@ -108,6 +108,8 @@ function IssuanceForm() {
   const [withholdingRate, setWithholdingRate] = useState('3.3');
   const [agentCommissionRate, setAgentCommissionRate] = useState('');
   const [guarantorName, setGuarantorName] = useState('');
+  const [guarantorId, setGuarantorId] = useState('');
+  const [landingSlug, setLandingSlug] = useState('');
   const [contractSignedAt, setContractSignedAt] = useState('');
   const [contractSignature, setContractSignature] = useState('');
   const [contractVersion, setContractVersion] = useState('');
@@ -164,6 +166,8 @@ function IssuanceForm() {
           ? parseInt(agentCommissionRate, 10)
           : undefined,
         guarantorName: guarantorName.trim() || undefined,
+        guarantorId: guarantorId.trim() ? parseInt(guarantorId.trim(), 10) : undefined,
+        landingSlug: landingSlug.trim() || undefined,
         contractSignedAt: contractSignedAt || undefined,
         contractSignature: contractSignature.trim() || undefined,
         contractVersion: contractVersion.trim() || undefined,
@@ -206,6 +210,8 @@ function IssuanceForm() {
     setWithholdingRate('3.3');
     setAgentCommissionRate('');
     setGuarantorName('');
+    setGuarantorId('');
+    setLandingSlug('');
     setContractSignedAt('');
     setContractSignature('');
     setContractVersion('');
@@ -453,6 +459,29 @@ function IssuanceForm() {
                   placeholder="선택 사항"
                   className={inputCls}
                 />
+              </Field>
+
+              <Field label="보증인 ID (guarantorId)">
+                <input
+                  type="number"
+                  value={guarantorId}
+                  onChange={e => setGuarantorId(e.target.value)}
+                  placeholder="선택 사항 — 숫자 ID"
+                  className={inputCls}
+                />
+              </Field>
+
+              <Field label="랜딩 슬러그 (landingSlug)">
+                <input
+                  type="text"
+                  value={landingSlug}
+                  onChange={e => setLandingSlug(e.target.value)}
+                  placeholder="예: hong-gildong (영문·숫자·하이픈, 선택)"
+                  className={inputCls}
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  크루즈닷 랜딩페이지 슬러그 (비워두면 서버가 자동 설정)
+                </p>
               </Field>
 
               <Field label="계약 서명일 (contractSignedAt)">

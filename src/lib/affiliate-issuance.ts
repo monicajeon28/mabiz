@@ -93,6 +93,7 @@ export interface IssueAffiliateInput {
   contractIp?: string;
   contractVersion?: string;
   contractUserAgent?: string;
+  landingSlug?: string;
   initialPassword?: string;
 }
 

@@ -165,6 +165,7 @@ export async function POST(req: Request) {
       contractSignedAt,
       contractSignature,
       contractVersion,
+      landingSlug,
       initialPassword = "1101",
     } = body;
 
@@ -238,6 +239,7 @@ export async function POST(req: Request) {
           agentCommissionRate: agentCommissionRate ?? null,
           guarantorName: guarantorName ?? null,
           guarantorId: guarantorId ?? null,
+          landingSlug: landingSlug?.trim() || null,
           contractSignedAt: contractSignedAt ? new Date(contractSignedAt) : null,
           contractSignature: contractSignature ?? null,
           contractIp: contractSignedAt ? ip : null,
