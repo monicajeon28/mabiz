@@ -25,6 +25,26 @@ function resolveDefaultModelName(): string {
   return process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 }
 
+/**
+ * 원격 이미지 다운로드 — 타임아웃 + 크기 상한 적용(자원 고갈 방지).
+ * SSRF 화이트리스트 검증은 호출자가 선행해야 한다(이 함수는 다운로드만 담당).
+ * @throws Error 다운로드 실패/타임아웃/크기 초과
+ */
+export async function fetchImageWithLimit(
+  url: string,
+  opts: { timeoutMs?: number; maxBytes?: number } = {}
+): Promise<Buffer> {
+  const timeoutMs = opts.timeoutMs ?? 15000;
+  const maxBytes = opts.maxBytes ?? 10 * 1024 * 1024; // 10MB
+  const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+  if (!res.ok) throw new Error(`이미지 다운로드 실패: ${res.status}`);
+  const len = res.headers.get('content-length');
+  if (len && Number(len) > maxBytes) throw new Error('IMAGE_TOO_LARGE');
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.length > maxBytes) throw new Error('IMAGE_TOO_LARGE');
+  return buf;
+}
+
 /** 여권 OCR 추출 정규화 결과 (scan normalizedData와 동일 shape) */
 export interface PassportNormalizedData {
   korName: string;

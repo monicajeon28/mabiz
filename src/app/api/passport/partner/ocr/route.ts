@@ -1,5 +1,5 @@
 export const runtime = 'nodejs';
-﻿export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
@@ -7,6 +7,7 @@ import { requirePartnerContext, canAccessLead } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
 import {
   extractPassportFromBuffer,
+  fetchImageWithLimit,
   PassportOcrApiError,
   PassportOcrEmptyResponse,
   PassportOcrUnreadable,
@@ -143,12 +144,7 @@ export async function POST(req: NextRequest) {
     logger.log('[Partner OCR to APIS] 이미지 다운로드 시작');
     let imageBuffer: Buffer;
     try {
-      const imageResponse = await fetch(body.imageUrl);
-      if (!imageResponse.ok) {
-        throw new Error(`이미지 다운로드 실패: ${imageResponse.status}`);
-      }
-      const arrayBuffer = await imageResponse.arrayBuffer();
-      imageBuffer = Buffer.from(arrayBuffer);
+      imageBuffer = await fetchImageWithLimit(body.imageUrl); // 타임아웃 15s + 10MB 상한
     } catch (error) {
       const err = error as Record<string, unknown>;
       logger.error('[Partner OCR to APIS] 이미지 다운로드 오류:', { err });

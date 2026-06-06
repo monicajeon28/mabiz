@@ -156,7 +156,9 @@ export async function POST(req: NextRequest) {
                 shipName: '임시 여행 (수동 여권 등록)',
                 departureDate: new Date(),
                 status: 'Upcoming',
-              } as any,
+                userId,                 // 필수(@default 없음) — 누락 시 런타임 500
+                updatedAt: new Date(),  // 필수(@default/@updatedAt 없음)
+              },
             });
             targetTripId = newTrip.id;
           } else {

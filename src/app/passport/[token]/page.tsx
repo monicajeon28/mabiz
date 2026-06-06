@@ -289,7 +289,6 @@ export default function CustomerPassportPage() {
                   type: 'image/jpeg',
                   lastModified: Date.now(),
                 });
-                console.log(`[Image Compress] 원본: ${(file.size / 1024 / 1024).toFixed(2)}MB -> 압축: ${(blob.size / 1024 / 1024).toFixed(2)}MB`);
                 resolve(compressedFile);
               } else {
                 reject(new Error('이미지 압축 실패'));
@@ -380,9 +379,7 @@ export default function CustomerPassportPage() {
           },
           { maxRetries: 2, timeoutMs: 15000 }
         ).then((uploadResponse) => {
-          if (uploadResponse.ok) {
-            console.log('[Passport] 구글 드라이브 백업 완료');
-          } else {
+          if (!uploadResponse.ok) {
             console.error('[Passport] 구글 드라이브 백업 실패');
           }
         }).catch((uploadError) => {
