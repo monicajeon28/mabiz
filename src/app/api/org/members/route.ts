@@ -187,9 +187,9 @@ export async function PATCH(req: Request) {
       );
     }
 
-    // 업데이트
+    // 업데이트 (organizationId 포함: findFirst → update 사이 TOCTOU 방지)
     await prisma.organizationMember.update({
-      where: { id: memberId },
+      where: { id: memberId, organizationId: orgId },
       data: { role },
     });
 
@@ -280,9 +280,9 @@ export async function DELETE(req: Request) {
       }
     }
 
-    // 삭제
+    // 삭제 (organizationId 포함: findFirst → delete 사이 TOCTOU 방지)
     await prisma.organizationMember.delete({
-      where: { id: memberId },
+      where: { id: memberId, organizationId: orgId },
     });
 
     logger.log('[OrgMembers DELETE]', {

@@ -112,7 +112,7 @@ const WEEK_MATERIALS: Record<
 export async function POST(request: NextRequest) {
   try {
     const ctx = await getAuthContext();
-    resolveOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const body: ProgressUpdateRequest = await request.json();
     const {
@@ -138,9 +138,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // OnboardingProgress 조회
-    const progress = await prisma.onboardingProgress.findUnique({
-      where: { id: onboardingProgressId },
+    // OnboardingProgress 조회 + 조직 소속 확인 (IDOR 방지)
+    const progress = await prisma.onboardingProgress.findFirst({
+      where: { id: onboardingProgressId, partner: { organizationId: orgId } },
     });
 
     if (!progress) {
@@ -189,23 +189,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // OnboardingProgress 업데이트
-    const updatedProgress = await prisma.onboardingProgress.update({
-      where: { id: onboardingProgressId },
-      data: updateData,
-    });
-
-    // 상태 변경 시 Partner 정보도 업데이트
-    if (status === "COMPLETED" && week === 5) {
-      await prisma.partner.update({
-        where: { id: progress.partnerId },
-        data: {
-          onboardingStatus: "COMPLETED",
-          incomeLevel: "INTERMEDIATE",
-          automationRate: 50,
-        },
+    // OnboardingProgress + Partner 업데이트를 단일 트랜잭션으로 (원자성 보장)
+    const updatedProgress = await prisma.$transaction(async (tx) => {
+      const updated = await tx.onboardingProgress.update({
+        where: { id: onboardingProgressId },
+        data: updateData,
       });
-    }
+
+      if (status === "COMPLETED" && week === 5) {
+        await tx.partner.update({
+          where: { id: progress.partnerId },
+          data: {
+            onboardingStatus: "COMPLETED",
+            incomeLevel: "INTERMEDIATE",
+            automationRate: 50,
+          },
+        });
+      }
+
+      return updated;
+    });
 
     // 다음 주 정보 반환
     const nextWeek = week < 5 ? week + 1 : null;

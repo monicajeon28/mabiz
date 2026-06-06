@@ -245,8 +245,6 @@ export async function POST(req: NextRequest) {
         ok: false,
         error: '여권 등록에 실패했습니다.',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-        errorCode: error.code,
-        errorName: error.name,
       },
       { status: 500 }
     );
@@ -348,8 +346,6 @@ export async function PUT(req: NextRequest) {
         ok: false,
         error: '여권 정보 수정에 실패했습니다.',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-        errorCode: error.code,
-        errorName: error.name,
       },
       { status: 500 }
     );

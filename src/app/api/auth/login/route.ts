@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { MABIZ_SESSION_COOKIE } from '@/lib/auth';
 import { createHash, timingSafeEqual } from 'crypto';
 import bcrypt from 'bcryptjs';
+import { checkRateLimitAsync } from '@/lib/rate-limit';
 
 function isBcryptHash(h: string) {
   return h.startsWith('$2b$') || h.startsWith('$2a$');
@@ -87,6 +88,19 @@ export async function POST(req: Request) {
     // 아이디: 숫자만 있으면 전화번호 정규화, 영문 포함이면 그대로
     const raw = phone.trim();
     const phoneClean = /^[0-9\-\s]+$/.test(raw) ? raw.replace(/[^0-9]/g, '') : raw;
+
+    // 브루트포스 방지: 식별자(전화번호)별 15분 내 10회 제한
+    const headersList = await headers();
+    const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+    const rlKey = `login:${phoneClean}:${ip}`;
+    const rl = await checkRateLimitAsync(rlKey, 10, 15 * 60 * 1000);
+    if (!rl.allowed) {
+      logger.warn('[POST /api/auth/login] 레이트리밋 초과', { phoneClean, ip });
+      return NextResponse.json(
+        { ok: false, error: '잠시 후 다시 시도해주세요. (15분 후 재시도 가능)' },
+        { status: 429 }
+      );
+    }
 
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     const cookieStore = await cookies();

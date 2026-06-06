@@ -78,7 +78,7 @@ async function sendAlertNotification(
 export async function POST(request: NextRequest) {
   try {
     const ctx = await getAuthContext();
-    resolveOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const body: RiskFlagRequest = await request.json();
     const {
@@ -96,9 +96,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 파트너 존재 여부 확인
-    const partner = await prisma.partner.findUnique({
-      where: { id: partnerId },
+    // 파트너 존재 여부 + 조직 소속 확인 (IDOR 방지)
+    const partner = await prisma.partner.findFirst({
+      where: { id: partnerId, organizationId: orgId },
       include: { riskFlags: true },
     });
 
@@ -263,7 +263,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const ctx = await getAuthContext();
-    resolveOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const { searchParams } = new URL(request.url);
     const partnerId = searchParams.get("partnerId");
@@ -275,8 +275,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const riskFlags = await prisma.partnerRiskFlags.findUnique({
-      where: { partnerId },
+    // 조직 소속 확인 후 위험신호 조회 (IDOR 방지)
+    const riskFlags = await prisma.partnerRiskFlags.findFirst({
+      where: { partnerId, partner: { organizationId: orgId } },
     });
 
     if (!riskFlags) {
