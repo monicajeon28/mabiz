@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: errorMessage || 'Ensemble forecasting failed',
+        error: '예측 처리 중 오류가 발생했습니다.',
       },
       { status: 500 }
     );
