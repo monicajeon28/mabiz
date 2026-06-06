@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        message: `대리점장(BRANCH_MANAGER) 계정만 연결할 수 있습니다. (현재 타입: ${profile.type})`,
+        message: '대리점장(BRANCH_MANAGER) 계정만 연결할 수 있습니다.',
       },
       { status: 400 },
     );
