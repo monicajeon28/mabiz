@@ -112,11 +112,12 @@ export default function CampaignDetailPage() {
 
   const getStatusColor = (status: string) => {
     const colors = {
+      DRAFT: 'text-gray-700 bg-gray-50',
       PENDING: 'text-yellow-700 bg-yellow-50',
       SENDING: 'text-blue-700 bg-blue-50',
       SENT: 'text-green-700 bg-green-50',
       FAILED: 'text-red-700 bg-red-50',
-      CANCELLED: 'text-gray-700 bg-gray-50',
+      CANCELLED: 'text-gray-500 bg-gray-50',
     };
     return colors[status as keyof typeof colors] || colors.PENDING;
   };
@@ -133,6 +134,7 @@ export default function CampaignDetailPage() {
         </div>
         <div className="flex gap-2 flex-wrap">
           <span className={`px-3 py-1 rounded-lg font-medium ${getStatusColor(campaign.status)}`}>
+            {campaign.status === 'DRAFT' && '임시저장'}
             {campaign.status === 'PENDING' && '대기 중'}
             {campaign.status === 'SENDING' && '발송 중'}
             {campaign.status === 'SENT' && '발송 완료'}
@@ -145,7 +147,7 @@ export default function CampaignDetailPage() {
           >
             🔬 A/B 테스트
           </Button>
-          {campaign.status === 'PENDING' && (
+          {['PENDING', 'DRAFT'].includes(campaign.status) && (
             <Button onClick={handleSend} className="bg-green-600 hover:bg-green-700">
               지금 발송
             </Button>

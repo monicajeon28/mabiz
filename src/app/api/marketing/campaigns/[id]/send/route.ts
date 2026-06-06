@@ -41,8 +41,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       );
     }
 
-    // 상태 확인
-    if (campaign.status !== 'PENDING') {
+    // 상태 확인 (PENDING 또는 DRAFT 모두 허용)
+    if (!['PENDING', 'DRAFT'].includes(campaign.status)) {
       return NextResponse.json(
         { ok: false, message: '이미 발송 중이거나 발송 완료된 캠페인입니다.' },
         { status: 409 }

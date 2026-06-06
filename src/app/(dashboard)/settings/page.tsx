@@ -1,7 +1,14 @@
 ﻿import Link from "next/link";
-import { MessageSquare, Mail, Users, Shield } from "lucide-react";
+import { MessageSquare, Mail, Users, Shield, FileText } from "lucide-react";
 
 const items = [
+  {
+    href: "/settings/documents",
+    icon: FileText,
+    title: "서류 제출",
+    desc: "신분증, 통장사본 업로드 — 정산 승인 필수",
+    color: "bg-amber-50 text-amber-600",
+  },
   {
     href: "/settings/sms",
     icon: MessageSquare,

@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
         sendAt: new Date(sendAt),
         repeatRule: repeatRule || null,
         totalCount: memberCount,
-        status: 'DRAFT',
+        status: 'PENDING',
       },
       include: {
         group: { select: { id: true, name: true } },
