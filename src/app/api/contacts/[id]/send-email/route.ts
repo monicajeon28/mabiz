@@ -46,13 +46,8 @@ export async function POST(req: Request, { params }: Params) {
       templateId: templateId || "custom",
     });
 
-    // TODO: 실제 이메일 서비스 연결 (SendGrid, AWS SES 등)
-    // const result = await emailClient.send({
-    //   to: contact.email,
-    //   subject: emailSubject,
-    //   html: emailBody,
-    //   organizationId: contact.organizationId,
-    // });
+    // NOTE: 실제 이메일 서비스 연결(SendGrid, AWS SES 등)은 별도 구현 필요
+    // (현재는 로깅만 수행, 실제 발송 미구현)
 
     return NextResponse.json({
       ok: true,

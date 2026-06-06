@@ -39,12 +39,8 @@ export async function POST(req: Request, { params }: Params) {
       messageLength: msgToSend.length,
     });
 
-    // TODO: 실제 카카오 API 연결
-    // const result = await kakaoClient.sendMessage({
-    //   phoneNumber: contact.phone,
-    //   message: msgToSend,
-    //   templateId: templateId,
-    // });
+    // NOTE: 실제 카카오 API 연결은 별도 구현 필요
+    // (현재는 로깅만 수행, 실제 발송 미구현)
 
     return NextResponse.json({
       ok: true,

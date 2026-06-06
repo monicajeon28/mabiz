@@ -7,6 +7,7 @@ import {
   LoaderIcon,
 } from 'lucide-react';
 import { formatFileSize } from '@/lib/image-metadata';
+import { logger } from '@/lib/logger';
 
 interface ImageAsset {
   id: string;
@@ -66,7 +67,7 @@ export function ImageLibraryModal({
         setAssets(json.data.assets);
       }
     } catch (err) {
-      console.error('Failed to fetch assets:', err);
+      logger.warn('[ImageLibraryModal] 이미지 목록 조회 실패', { error: err instanceof Error ? err.message : String(err) });
     } finally {
       setIsLoading(false);
     }
