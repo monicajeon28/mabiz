@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
   const authHeader = req.headers.get('authorization') ?? '';
-  const token = authHeader.replace('Bearer ', '');
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (
     token.length !== secret.length ||
     !timingSafeEqual(Buffer.from(token), Buffer.from(secret))
@@ -33,7 +33,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  const body = await req.json();
+  let body: Awaited<ReturnType<typeof req.json>>;
+  try {
+    body = await req.json();
+  } catch {
+    logger.error('[PurchaseWebhook] JSON 파싱 실패');
+    return NextResponse.json({ ok: false, message: 'Invalid JSON' }, { status: 400 });
+  }
+
   const {
     phone, name, productName, departureDate, orderId, organizationId,
     affiliateCode, saleAmount, commissionRate, commissionAmount,

@@ -93,8 +93,8 @@ export async function PATCH(
     // 트랜잭션으로 계약서 업데이트
     const updated = await prisma.$transaction(async (tx) => {
       // 1. 계약서 메타데이터 업데이트
-      const updatedContract = await tx.partnerContract.update({
-        where: { id: contractId },
+      await tx.partnerContract.updateMany({
+        where: { id: contractId, organizationId: orgId },
         data: {
           ...(htmlContent !== undefined && { htmlContent }),
           ...(jsonContent !== undefined && { jsonContent }),
@@ -102,6 +102,7 @@ export async function PATCH(
           ...(fieldMapping !== undefined && { fieldMapping }),
         },
       });
+      const updatedContract = await tx.partnerContract.findUnique({ where: { id: contractId } });
 
       // 2. 섹션 업데이트 (있으면)
       if (sections && Array.isArray(sections)) {
@@ -170,8 +171,8 @@ export async function DELETE(
     }
 
     // 삭제
-    await prisma.partnerContract.delete({
-      where: { id: contractId },
+    await prisma.partnerContract.deleteMany({
+      where: { id: contractId, organizationId: orgId },
     });
 
     return NextResponse.json({

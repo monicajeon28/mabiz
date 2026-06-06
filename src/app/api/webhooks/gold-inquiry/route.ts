@@ -17,7 +17,8 @@ export async function POST(req: NextRequest) {
     logger.error('[GoldInquiryWebhook] MABIZ_GOLD_INQUIRY_WEBHOOK_SECRET 미설정');
     return NextResponse.json({ ok: false }, { status: 500 });
   }
-  const token = (req.headers.get('authorization') ?? '').replace('Bearer ', '');
+  const authHeader = req.headers.get('authorization') ?? '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (
     token.length !== secret.length ||
     !timingSafeEqual(Buffer.from(token), Buffer.from(secret))
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  const body = await req.json() as {
+  let body: {
     phone: string;
     name: string;
     email?: string;
@@ -40,6 +41,12 @@ export async function POST(req: NextRequest) {
     submittedAt?: string;
     eventId?: string;
   };
+  try {
+    body = await req.json() as typeof body;
+  } catch {
+    logger.error('[GoldInquiryWebhook] JSON 파싱 실패');
+    return NextResponse.json({ ok: false, message: 'Invalid JSON' }, { status: 400 });
+  }
 
   const { phone, name, email, courseType, message, affiliateCode, organizationId: bodyOrgId, eventId, agentId, managerId } = body;
 

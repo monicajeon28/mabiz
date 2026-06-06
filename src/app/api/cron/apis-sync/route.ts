@@ -3,10 +3,11 @@
  * GmApisSyncQueue 테이블의 대기 중인 작업을 처리합니다.
  *
  * Vercel Cron: vercel.json crons에 path="/api/cron/apis-sync" schedule="every 5 min" 등록
- * 수동 호출: GET /api/cron/apis-sync?secret=CRON_SECRET
+ * 수동 호출: GET /api/cron/apis-sync  (Authorization: Bearer <CRON_SECRET> 헤더 필수)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { processApisSyncQueue } from '@/lib/apis/apis-sync-queue';
 import { logger } from '@/lib/logger';
 
@@ -15,15 +16,23 @@ export const maxDuration = 60;
 
 export async function GET(request: NextRequest) {
   try {
-    // Vercel Cron 인증 또는 시크릿 키 검증
-    const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
-    const urlSecret = request.nextUrl.searchParams.get('secret');
+    if (!cronSecret) {
+      return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
+    }
 
-    const isVercelCron = authHeader === `Bearer ${cronSecret}`;
-    const isManualCall = urlSecret === cronSecret;
+    const authHeader = request.headers.get('authorization') ?? '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
 
-    if (!isVercelCron && !isManualCall) {
+    // Vercel Cron 서명 헤더 검증 (Vercel이 자동으로 Authorization: Bearer <secret> 주입)
+    const isVercelCron =
+      token.length === cronSecret.length &&
+      timingSafeEqual(Buffer.from(token), Buffer.from(cronSecret));
+
+    // 수동 호출도 동일한 Authorization Bearer 헤더 방식 사용
+    const isAuthorized = isVercelCron;
+
+    if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

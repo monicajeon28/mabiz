@@ -62,18 +62,21 @@ export async function POST(req: Request) {
 
     logger.log('[PayApp Webhook] 요청 수신', { requestIP });
 
-    // [P0-SEC-201] Bearer Token 검증 (선택적 → 향후 필수 변경)
-    // 현재: IP 화이트리스트만으로 충분 (PayApp 서버 고정)
-    // 향후: PayApp 요청 시 Authorization: Bearer PAYAPP_WEBHOOK_TOKEN 추가 예정
+    // [P0-SEC-201] Bearer Token 검증 — PAYAPP_WEBHOOK_TOKEN 설정 시 필수
+    const payappToken = process.env.PAYAPP_WEBHOOK_TOKEN;
     const authHeader = req.headers.get("authorization") ?? "";
-    if (authHeader) {
+    if (payappToken) {
+      // env가 설정된 경우 Authorization 헤더는 반드시 있어야 함
+      if (!authHeader) {
+        logger.warn("[PayApp Webhook] Authorization 헤더 누락 — 요청 차단", { requestIP });
+        return new Response("FAIL", { status: 401 });
+      }
       if (!authHeader.startsWith("Bearer ")) {
         logger.warn("[PayApp Webhook] 잘못된 Bearer format — 요청 차단", { requestIP });
         return new Response("FAIL", { status: 401 });
       }
 
       const token = authHeader.slice(7);
-      const payappToken = process.env.PAYAPP_WEBHOOK_TOKEN;
 
       // [P0-4] Bearer Token 길이 검증: 최소 32자 이상 (강력한 토큰 필수)
       if (token.length < 32) {
@@ -81,8 +84,14 @@ export async function POST(req: Request) {
         return new Response("FAIL", { status: 403 });
       }
 
-      if (payappToken && (token.length !== payappToken.length || !timingSafeEqual(Buffer.from(token), Buffer.from(payappToken)))) {
+      if (token.length !== payappToken.length || !timingSafeEqual(Buffer.from(token), Buffer.from(payappToken))) {
         logger.warn("[PayApp Webhook] Bearer token 불일치 — 인증 실패", { requestIP });
+        return new Response("FAIL", { status: 401 });
+      }
+    } else if (authHeader) {
+      // env 미설정이지만 헤더가 있는 경우: 형식만 검증
+      if (!authHeader.startsWith("Bearer ")) {
+        logger.warn("[PayApp Webhook] 잘못된 Bearer format — 요청 차단", { requestIP });
         return new Response("FAIL", { status: 401 });
       }
     }
@@ -126,10 +135,23 @@ export async function POST(req: Request) {
       return new Response("FAIL", { status: 403 });
     }
 
-    // ── [3단계] HMAC 검증 (PayApp이 hmac 파라미터 전송 시만 동작) ──
-    // linkval 검증 성공 후, hmac 파라미터가 있을 때만 추가 검증 (비활성 배포 방식)
+    // ── [3단계] HMAC 검증 — PAYAPP_LINKKEY 설정 시 hmac 파라미터 필수 ──
+    const hmacLinkkey = process.env.PAYAPP_LINKKEY;
     const hmacValue = params.get('hmac');
-    if (hmacValue) {
+    if (hmacLinkkey) {
+      // PAYAPP_LINKKEY가 설정된 경우 hmac 파라미터는 반드시 있어야 함
+      if (!hmacValue) {
+        logger.error('[PayApp Webhook] HMAC 파라미터 누락 — 요청 차단', { requestIP });
+        return new Response('FAIL', { status: 401 });
+      }
+      const paramsObj = Object.fromEntries(params.entries());
+      if (!validateFeedbackWithHMAC(paramsObj, String(hmacValue))) {
+        logger.error('[PayApp Webhook] HMAC 검증 실패', { requestIP });
+        return new Response('FAIL', { status: 403 });
+      }
+      logger.info('[PayApp Webhook] HMAC 검증 통과', { requestIP });
+    } else if (hmacValue) {
+      // PAYAPP_LINKKEY 미설정이지만 hmac 파라미터가 있는 경우: 검증 시도
       const paramsObj = Object.fromEntries(params.entries());
       if (!validateFeedbackWithHMAC(paramsObj, String(hmacValue))) {
         logger.error('[PayApp Webhook] HMAC 검증 실패', { requestIP });

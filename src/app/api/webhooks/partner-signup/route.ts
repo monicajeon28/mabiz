@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  const body = await req.json() as {
+  let body: {
     mallUserId: string;
     name: string;
     phone: string;
@@ -40,6 +40,12 @@ export async function POST(req: NextRequest) {
     joinedAt?: string;
     eventId?: string;
   };
+  try {
+    body = await req.json() as typeof body;
+  } catch {
+    logger.error('[PartnerSignupWebhook] JSON 파싱 실패');
+    return NextResponse.json({ ok: false, message: 'Invalid JSON' }, { status: 400 });
+  }
 
   const { mallUserId, name, phone, email, affiliateType, affiliateCode, organizationId: bodyOrgId, eventId } = body;
 

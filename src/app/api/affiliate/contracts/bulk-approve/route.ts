@@ -22,6 +22,7 @@ export const dynamic = 'force-dynamic';
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import type { GmAffiliateContract } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { getAuthContext } from '@/lib/rbac';
@@ -106,12 +107,17 @@ export async function PUT(req: NextRequest) {
     }> = [];
     let approvedCount = 0;
 
+    // N+1 최적화: 모든 계약을 한 번에 조회 후 Map으로 O(1) 접근
+    const contractMap = new Map<number, GmAffiliateContract>();
+    const contractRows = await prisma.gmAffiliateContract.findMany({
+      where: { id: { in: contractIds } },
+    });
+    contractRows.forEach(c => contractMap.set(c.id, c));
+
     for (const contractId of contractIds) {
       try {
-        // 5a. 계약 정보 조회
-        const contract = await prisma.gmAffiliateContract.findUnique({
-          where: { id: contractId },
-        });
+        // 5a. 계약 정보 조회 (Map에서 O(1) 접근)
+        const contract = contractMap.get(contractId);
 
         if (!contract) {
           results.push({

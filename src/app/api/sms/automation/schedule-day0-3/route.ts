@@ -49,9 +49,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 고객 확인
-    const contact = await prisma.contact.findUnique({
-      where: { id: contactId }
+    // 고객 확인 (소유권 검증 포함)
+    const contact = await prisma.contact.findFirst({
+      where: { id: contactId, organizationId: orgId }
     });
 
     if (!contact) {
@@ -128,8 +128,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Contact 메타데이터 업데이트: SMS 발송 날짜 기록
-    await prisma.contact.update({
-      where: { id: contactId },
+    await prisma.contact.updateMany({
+      where: { id: contactId, organizationId: orgId },
       data: {
         smsDay0Sent: false, // 아직 발송 전
         smsDay0SentAt: null,
