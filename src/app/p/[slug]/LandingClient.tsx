@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import DOMPurify from "dompurify";
 import { logger } from "@/lib/logger";
 import { CountdownTimer } from "@/components/landing/CountdownTimer";
 import { StockGaugeWidget } from "@/components/landing/StockGaugeWidget";
@@ -619,7 +620,11 @@ export function LandingClient({
         ref={containerRef}
         role="main"
         aria-label="랜딩페이지 콘텐츠"
-        dangerouslySetInnerHTML={{ __html: htmlContent }}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(htmlContent, {
+          ALLOWED_TAGS: ['b', 'i', 'u', 'p', 'br', 'strong', 'em', 'a', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'span', 'div', 'section', 'article'],
+          ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'data-*'],
+          KEEP_CONTENT: true
+        }) }}
       />
 
       {/* 방문자 후기 댓글 섹션 */}
