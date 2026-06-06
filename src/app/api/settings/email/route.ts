@@ -253,7 +253,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           ok: false,
-          message: `SMTP 오류: ${smtpErr instanceof Error ? smtpErr.message : "알 수 없는 오류"}`,
+          message: "SMTP 오류가 발생했습니다. 이메일 설정을 다시 확인해주세요.",
         },
         { status: 400 }
       );

@@ -34,7 +34,7 @@ interface CreateOnboardingRequest {
 export async function POST(request: NextRequest) {
   try {
     const ctx = await getAuthContext();
-    resolveOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const body: CreateOnboardingRequest = await request.json();
     const { partnerId, action } = body;
@@ -46,9 +46,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 파트너 존재 여부 확인
-    const partner = await prisma.partner.findUnique({
-      where: { id: partnerId },
+    // 파트너 존재 여부 + 조직 소속 확인 (IDOR 방지)
+    const partner = await prisma.partner.findFirst({
+      where: { id: partnerId, organizationId: orgId },
       include: { onboardingProgress: true },
     });
 
@@ -59,38 +59,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // action === "restart" 이면 기존 OnboardingProgress 삭제
-    if (action === "restart" && partner.onboardingProgress) {
-      await prisma.onboardingProgress.delete({
-        where: { partnerId },
-      });
-    }
-
-    // 새로운 OnboardingProgress 생성
     const startDate = new Date();
     const expectedCompletionDate = new Date(startDate);
     expectedCompletionDate.setDate(expectedCompletionDate.getDate() + 35); // 5주 = 35일
 
-    const onboardingProgress = await prisma.onboardingProgress.create({
-      data: {
-        partnerId,
-        week: 1,
-        status: "IN_PROGRESS",
-        weekBehind: false,
-        needsIntervention: false,
-      },
-    });
+    // OnboardingProgress 생성 + Partner 업데이트를 단일 트랜잭션으로 (원자성 보장)
+    const { onboardingProgress } = await prisma.$transaction(async (tx) => {
+      // action === "restart" 이면 기존 OnboardingProgress 삭제
+      if (action === "restart" && partner.onboardingProgress) {
+        await tx.onboardingProgress.delete({ where: { partnerId } });
+      }
 
-    // Partner 모델의 onboardingStatus와 onboardingStartedAt 업데이트
-    await prisma.partner.update({
-      where: { id: partnerId },
-      data: {
-        onboardingStatus: "IN_PROGRESS",
-        onboardingStartedAt: startDate,
-        incomeLevel: "BEGINNER",
-        monthlyIncomeGoal: BigInt(5000000), // 신입 목표: 500만원
-        automationRate: 30, // 초기값: 30%
-      },
+      // 새로운 OnboardingProgress 생성
+      const onboardingProgress = await tx.onboardingProgress.create({
+        data: {
+          partnerId,
+          week: 1,
+          status: "IN_PROGRESS",
+          weekBehind: false,
+          needsIntervention: false,
+        },
+      });
+
+      // Partner 모델의 onboardingStatus와 onboardingStartedAt 업데이트
+      await tx.partner.update({
+        where: { id: partnerId },
+        data: {
+          onboardingStatus: "IN_PROGRESS",
+          onboardingStartedAt: startDate,
+          incomeLevel: "BEGINNER",
+          monthlyIncomeGoal: BigInt(5000000),
+          automationRate: 30,
+        },
+      });
+
+      return { onboardingProgress };
     });
 
     return NextResponse.json({

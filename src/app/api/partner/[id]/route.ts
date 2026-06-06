@@ -68,11 +68,15 @@ export async function PATCH(
     if (updateData.commissionRate !== undefined) data.commissionRate = updateData.commissionRate;
     if (updateData.status) data.status = updateData.status;
 
-    const updated = await prisma.partner.update({
-      where: { id },
+    // updateMany로 organizationId 포함 (TOCTOU 방지: validatePartnerOwnership → update 사이 원자화)
+    const updateResult = await prisma.partner.updateMany({
+      where: { id, organizationId: orgId },
       data,
     });
-
+    if (updateResult.count === 0) {
+      return NextResponse.json({ ok: false, message: '접근 권한 없음' }, { status: 403 });
+    }
+    const updated = await prisma.partner.findUnique({ where: { id } });
     return NextResponse.json({ ok: true, data: updated });
   } catch (err) {
     logger.error('[PATCH /api/partner/[id]]', { err });
@@ -96,10 +100,13 @@ export async function DELETE(
       return NextResponse.json({ ok: false, message: '접근 권한 없음' }, { status: 403 });
     }
 
-    await prisma.partner.delete({
-      where: { id },
+    // deleteMany로 organizationId 포함 (TOCTOU 방지: validatePartnerOwnership → delete 사이 원자화)
+    const deleteResult = await prisma.partner.deleteMany({
+      where: { id, organizationId: orgId },
     });
-
+    if (deleteResult.count === 0) {
+      return NextResponse.json({ ok: false, message: '접근 권한 없음' }, { status: 403 });
+    }
     return NextResponse.json({ ok: true, message: '파트너가 삭제되었습니다.' });
   } catch (err) {
     logger.error('[DELETE /api/partner/[id]]', { err });
