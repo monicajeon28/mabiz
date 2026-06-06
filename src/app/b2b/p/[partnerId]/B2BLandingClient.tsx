@@ -466,6 +466,11 @@ export function B2BLandingClient({
                     });
                     const data = await res.json();
                     if (data.ok && data.payUrl) {
+                      // P0-7: 결제 URL 검증 (Open Redirect 방지)
+                      if (!isSafeUrl(data.payUrl)) {
+                        setFieldError("결제 URL이 유효하지 않습니다.");
+                        return;
+                      }
                       window.location.href = data.payUrl;
                     } else {
                       setFieldError(
@@ -554,7 +559,7 @@ export function B2BLandingClient({
         {editorMode === "html" ? (
           <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(htmlContent, {
             ALLOWED_TAGS: ['b', 'i', 'u', 'p', 'br', 'strong', 'em', 'a', 'img', 'h1', 'h2', 'h3', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'span', 'div'],
-            ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'style'],
+            ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id'],
             KEEP_CONTENT: true
           }) }} />
         ) : (
