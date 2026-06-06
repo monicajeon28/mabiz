@@ -9,6 +9,17 @@ import { validateFeedback, validateFeedbackWithHMAC, parsePayState, parsePayType
 import { normalizePhone } from "@/lib/phone-normalize";
 import { createRefundNotifications } from "@/lib/notification-service";
 
+// ─── P1-6: 민감정보 마스킹 헬퍼 ───
+function maskPhone(phone: string | null): string {
+  if (!phone || phone.length < 4) return 'none';
+  return `${phone.slice(0, 2)}***${phone.slice(-2)}`;
+}
+
+function maskOrderId(orderId: string | null): string {
+  if (!orderId || orderId.length < 6) return 'none';
+  return `${orderId.slice(0, 3)}***${orderId.slice(-3)}`;
+}
+
 /**
  * PayApp 날짜 형식: YYYYMMDDHHMMSS (14자리, 구분자 없음)
  * 잘못된 문자열은 현재 시각으로 폴백
@@ -58,6 +69,14 @@ export async function POST(req: Request) {
     if (allowedIPs.length > 0 && !allowedIPs.includes(requestIP)) {
       logger.error('[PayApp Webhook] IP 화이트리스트 차단', { requestIP, allowedIPs });
       return new Response('FAIL', { status: 403 });
+    }
+
+    // P0-1: Content-Length DoS 방어
+    const contentLength = parseInt(req.headers.get('content-length') ?? '0');
+    const MAX_PAYLOAD = 1024 * 1024; // 1MB
+    if (contentLength > MAX_PAYLOAD) {
+      logger.warn('[PayApp Webhook] Content-Length 초과', { contentLength, ip: requestIP });
+      return new Response('FAIL', { status: 413 });
     }
 
     logger.log('[PayApp Webhook] 요청 수신', { requestIP });
@@ -113,6 +132,7 @@ export async function POST(req: Request) {
 
     // ── [2단계] linkval 검증 (필수) ────────────────────────────
     const linkval = params.get("linkval");
+    const maskedLinkval = linkval ? `${linkval.slice(0, 2)}***${linkval.slice(-2)}` : 'none';
 
     // linkval 누락 — 필수값
     if (!linkval) {
@@ -129,36 +149,32 @@ export async function POST(req: Request) {
         "[PayApp Webhook] linkval 불일치. 요청 차단됨.",
         {
           requestIP,
-          received: linkval.substring(0, 4) + "***", // 로그에 전체 값 노출하지 않기
+          received: maskedLinkval, // P1-1: 마스킹된 값 로깅
         }
       );
       return new Response("FAIL", { status: 403 });
     }
 
-    // ── [3단계] HMAC 검증 — PAYAPP_LINKKEY 설정 시 hmac 파라미터 필수 ──
+    // ── [3단계] HMAC 검증 — 필수화 ──
     const hmacLinkkey = process.env.PAYAPP_LINKKEY;
-    const hmacValue = params.get('hmac');
-    if (hmacLinkkey) {
-      // PAYAPP_LINKKEY가 설정된 경우 hmac 파라미터는 반드시 있어야 함
-      if (!hmacValue) {
-        logger.error('[PayApp Webhook] HMAC 파라미터 누락 — 요청 차단', { requestIP });
-        return new Response('FAIL', { status: 401 });
-      }
-      const paramsObj = Object.fromEntries(params.entries());
-      if (!validateFeedbackWithHMAC(paramsObj, String(hmacValue))) {
-        logger.error('[PayApp Webhook] HMAC 검증 실패', { requestIP });
-        return new Response('FAIL', { status: 403 });
-      }
-      logger.info('[PayApp Webhook] HMAC 검증 통과', { requestIP });
-    } else if (hmacValue) {
-      // PAYAPP_LINKKEY 미설정이지만 hmac 파라미터가 있는 경우: 검증 시도
-      const paramsObj = Object.fromEntries(params.entries());
-      if (!validateFeedbackWithHMAC(paramsObj, String(hmacValue))) {
-        logger.error('[PayApp Webhook] HMAC 검증 실패', { requestIP });
-        return new Response('FAIL', { status: 403 });
-      }
-      logger.info('[PayApp Webhook] HMAC 검증 통과', { requestIP });
+    if (!hmacLinkkey) {
+      logger.error('[PayApp Webhook] PAYAPP_LINKKEY 미설정 — HMAC 검증 불가', { requestIP });
+      return new Response('FAIL', { status: 503 });
     }
+
+    const hmacValue = params.get('hmac');
+    if (!hmacValue) {
+      logger.warn('[PayApp Webhook] HMAC 파라미터 누락', { requestIP });
+      return new Response('FAIL', { status: 400 });
+    }
+
+    const paramsObj = Object.fromEntries(params.entries());
+    if (!validateFeedbackWithHMAC(paramsObj, String(hmacValue))) {
+      logger.warn('[PayApp Webhook] HMAC 검증 실패', { requestIP });
+      return new Response('FAIL', { status: 403 });
+    }
+
+    logger.info('[PayApp Webhook] HMAC 검증 통과', { requestIP });
 
     // ── [4단계] 요청 본문 파싱 (성공 로그) ──────────────────────
     logger.info("[PayApp Webhook] 검증 통과 - 처리 시작", { requestIP });
@@ -167,7 +183,7 @@ export async function POST(req: Request) {
     const mulNo       = params.get("mul_no") ?? "";
     const orderId     = params.get("var1") ?? "";
     const landingSlug = params.get("var2") ?? "";
-    const phone       = params.get("recvphone") ?? "";
+    const phone       = params.get("recvphone")?.slice(0, 20) ?? ""; // P1-3: 길이 제한
     const name        = params.get("goodname") ?? "";
     const price       = parseInt(params.get("price") ?? "0");
     const payTypeCode = params.get("pay_type") ?? "";
@@ -176,6 +192,18 @@ export async function POST(req: Request) {
     const customerName = params.get("pay_memo")
       ? params.get("pay_memo")!
       : (params.get("recvphone") ? "" : "");
+
+    // P1-4: price 범위 검증
+    if (price < 0 || price > 100_000_000) {
+      logger.warn('[PayApp] 결제액 범위 초과', { amount: price });
+      return new Response('FAIL', { status: 400 });
+    }
+
+    // P1-5: slug SQL Injection 방지
+    if (!/^[a-zA-Z0-9\-_]*$/.test(landingSlug)) {
+      logger.warn('[PayApp] 의심 slug 패턴', { slug: landingSlug });
+      return new Response('FAIL', { status: 400 });
+    }
 
     // [P0-8] orderId/mulNo 형식 검증: 안전한 문자만 허용
     const SAFE_ID_REGEX = /^[a-zA-Z0-9_\-]{1,50}$/;
@@ -195,7 +223,7 @@ export async function POST(req: Request) {
 
     logger.log("[PayApp Webhook] 수신", {
       payState, status, mulNo, orderId,
-      phone: normalizedPhone.slice(0, 4) + "***",
+      phone: maskPhone(normalizedPhone), // P1-6: 마스킹 적용
     });
 
     // ─── 결제 완료 (pay_state=4) ─────────────────────────────
@@ -377,6 +405,11 @@ export async function POST(req: Request) {
                 cancelReason: "PAYMENT_CANCELLED_PAYAPP",
               },
             });
+          } else if (!sale) {
+            // P1-8: AffiliateSale 조회 실패 로깅
+            logger.warn("[PayApp Webhook] AffiliateSale 조회 실패 (취소 처리)", {
+              orderId: maskOrderId(orderId),
+            });
           }
 
           return { cancelResult, affiliateSale: sale };
@@ -393,14 +426,24 @@ export async function POST(req: Request) {
             select: { name: true },
           });
 
-          await createRefundNotifications({
-            organizationId: affiliateSale.organizationId,
-            orderId,
-            customerName: contact?.name || '고객',
-            refundAmount: affiliateSale.saleAmount,
-            refundReason: cancelmemo || '결제 취소',
-            type: 'payment_cancelled',
-          }).catch(() => {});
+          // P1-10: 환불 알림 에러 추적
+          try {
+            await createRefundNotifications({
+              organizationId: affiliateSale.organizationId,
+              orderId,
+              customerName: contact?.name || '고객',
+              refundAmount: affiliateSale.saleAmount,
+              refundReason: cancelmemo || '결제 취소',
+              type: 'payment_cancelled',
+            });
+          } catch (err) {
+            logger.warn("[PayApp Webhook] 환불 알림 발송 실패", {
+              orderId: maskOrderId(orderId),
+              error: err instanceof Error ? err.message : "Unknown error",
+              type: "payment_cancelled",
+            });
+            // 계속 진행 (DB는 업데이트됨)
+          }
 
           logger.log("[PayApp Webhook] AffiliateSale 수당 취소", {
             affiliateSaleId: affiliateSale.id,
@@ -449,6 +492,12 @@ export async function POST(req: Request) {
                 },
               });
               affiliateSaleByMul = sale;
+            } else if (!sale) {
+              // P1-8: AffiliateSale 조회 실패 로깅 (mulNo 경로)
+              logger.warn("[PayApp Webhook] AffiliateSale 조회 실패 (mulNo 취소)", {
+                mulNo,
+                orderId: payment?.orderId ? maskOrderId(payment.orderId) : "null",
+              });
             }
           }
 
@@ -486,6 +535,26 @@ export async function POST(req: Request) {
         if (original) {
           const partialAmount = origPrice - price; // 원금 - 현재금 = 환불액
 
+          // P1-7: 환불액 검증 — 환불액이 원금을 초과하면 거절
+          if (partialAmount < 0) {
+            logger.warn('[PayApp Webhook] 부분취소 환불액 < 0', {
+              orderId: maskOrderId(orderId),
+              origPrice,
+              currentPrice: price,
+              partialAmount,
+            });
+            return new Response('FAIL', { status: 400 });
+          }
+
+          if (partialAmount > original.amount) {
+            logger.warn('[PayApp Webhook] 부분취소 환불액 > 원금', {
+              orderId: maskOrderId(orderId),
+              originalAmount: original.amount,
+              partialAmount,
+            });
+            return new Response('FAIL', { status: 400 });
+          }
+
           // PayAppPayment + AffiliateSale 원자적 부분취소
           const { affiliateSale, commissionDeduction } = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             await tx.payAppPayment.update({
@@ -518,8 +587,19 @@ export async function POST(req: Request) {
               return { affiliateSale: sale, commissionDeduction: 0 };
             }
 
-            // 환불액 비율만큼 수당 감액
+            // P1-9: 부분취소 분수 범위 검증
             const refundRatio = partialAmount / sale.saleAmount;
+            if (refundRatio < 0 || refundRatio > 1.0) {
+              logger.warn('[PayApp Webhook] 부분취소 비율 범위 초과', {
+                orderId: maskOrderId(orderId),
+                refundRatio,
+                partialAmount,
+                originalAmount: sale.saleAmount,
+              });
+              return { affiliateSale: sale, commissionDeduction: 0 };
+            }
+
+            // 환불액 비율만큼 수당 감액
             const deduction = Math.floor(sale.commissionAmount * refundRatio);
 
             await tx.affiliateSale.update({
@@ -541,14 +621,24 @@ export async function POST(req: Request) {
               select: { name: true },
             });
 
-            await createRefundNotifications({
-              organizationId: affiliateSale.organizationId,
-              orderId,
-              customerName: contact?.name || '고객',
-              refundAmount: partialAmount,
-              refundReason: `부분취소: ${partialAmount.toLocaleString()}원`,
-              type: 'partial_refund',
-            }).catch(() => {});
+            // P1-10: 부분취소 알림 에러 추적
+            try {
+              await createRefundNotifications({
+                organizationId: affiliateSale.organizationId,
+                orderId,
+                customerName: contact?.name || '고객',
+                refundAmount: partialAmount,
+                refundReason: `부분취소: ${partialAmount.toLocaleString()}원`,
+                type: 'partial_refund',
+              });
+            } catch (err) {
+              logger.warn("[PayApp Webhook] 부분취소 알림 발송 실패", {
+                orderId: maskOrderId(orderId),
+                error: err instanceof Error ? err.message : "Unknown error",
+                type: "partial_refund",
+              });
+              // 계속 진행 (DB는 업데이트됨)
+            }
 
             logger.log("[PayApp Webhook] AffiliateSale 수당 부분감액", {
               affiliateSaleId: affiliateSale.id,
@@ -596,7 +686,15 @@ export async function POST(req: Request) {
     // params가 초기화된 경우에만 DLQ에 저장
     if (params) {
       const payloadObj = Object.fromEntries(params);
-      await enqueueDLQ("payapp", payloadObj, err instanceof Error ? err.message : String(err), "form-data").catch(() => {});
+
+      // P1-6: DLQ 저장 시 민감정보 마스킹
+      const maskedPayload = {
+        ...payloadObj,
+        recvphone: maskPhone(payloadObj.recvphone as string | null),
+        var1: maskOrderId(payloadObj.var1 as string | null), // orderId
+      };
+
+      await enqueueDLQ("payapp", maskedPayload, err instanceof Error ? err.message : String(err), "form-data").catch(() => {});
     }
 
     return new Response("FAIL", { status: 500 });
