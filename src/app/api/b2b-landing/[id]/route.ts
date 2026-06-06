@@ -145,10 +145,12 @@ export async function PATCH(req: Request, { params }: Params) {
       ...(regEmailContent    !== undefined ? { regEmailContent: regEmailContent ?? null }      : {}),
     };
 
-    const page = await prisma.b2BLandingPage.update({
-      where: { id },
+    await prisma.b2BLandingPage.updateMany({
+      where: { id, organizationId: orgId },
       data: updateData,
     });
+    const page = await prisma.b2BLandingPage.findUnique({ where: { id } });
+    if (!page) return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: '랜딩페이지를 찾을 수 없습니다.' }, { status: 404 });
     return NextResponse.json({ ok: true, data: page, page });
   } catch (err) {
     return handleB2BError(err, "PATCH /api/b2b-landing/[id]");

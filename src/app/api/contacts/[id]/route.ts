@@ -215,8 +215,8 @@ export async function DELETE(_req: Request, { params }: Params) {
     if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
 
     // 휴지통으로 이동 (소프트 삭제) + 삭제자 기록
-    await prisma.contact.update({
-      where: { id },
+    await prisma.contact.updateMany({
+      where: buildContactWhere(ctx, { id }),
       data: {
         deletedAt:     new Date(),
         deletedBy:     ctx.userId,

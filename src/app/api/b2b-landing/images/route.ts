@@ -355,8 +355,8 @@ export async function PATCH(req: Request) {
         return NextResponse.json({ ok: false, error: 'UNAUTHORIZED', message: '접근 권한이 없습니다' }, { status: 403 });
       }
 
-      await prisma.b2BLandingPageImage.update({
-        where: { id },
+      await prisma.b2BLandingPageImage.updateMany({
+        where: { id, landingPageId: pageImage.landingPageId },
         data: {
           ...(sortOrder !== undefined ? { sortOrder } : {}),
           ...(altText !== undefined ? { altText: altText ?? null } : {}),
