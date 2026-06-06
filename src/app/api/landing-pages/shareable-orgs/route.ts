@@ -48,10 +48,11 @@ export async function GET() {
       .slice(0, 3);
 
     // organizationId → 첫 번째 대리점장 매핑
-    const ownerMap: Record<string, { userId: string; displayName: string | null }> = {};
+    const ownerMap: Record<string, { userId: string; displayName: string }> = {};
     for (const m of members) {
       if (!ownerMap[m.organizationId]) {
-        ownerMap[m.organizationId] = { userId: m.userId, displayName: m.displayName };
+        const name = m.displayName?.trim() || "대리점장";
+        ownerMap[m.organizationId] = { userId: m.userId, displayName: name };
       }
     }
 
@@ -100,6 +101,9 @@ export async function GET() {
     return NextResponse.json({ ok: true, orgs: result });
   } catch (err) {
     logger.error("[GET /api/landing-pages/shareable-orgs]", { err });
-    return NextResponse.json({ ok: false, orgs: [] }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, message: "조직 목록 조회 실패", orgs: [] },
+      { status: 500 }
+    );
   }
 }
