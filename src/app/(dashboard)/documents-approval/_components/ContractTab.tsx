@@ -13,7 +13,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
-import { CANCELLATION_POLICY, COMPANY_INFO } from '@/lib/company-info';
+import { CANCELLATION_POLICY, CRUISE_CANCELLATION_POLICY, COMPANY_INFO } from '@/lib/company-info';
 import {
   type SaleResult,
   type SalesDocumentItem,
@@ -508,42 +508,139 @@ function FullContractPreview({
           </div>
         </div>
 
-        {/* 취소·환불 규정 */}
-        <div>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-orange-700">취소·환불 규정</p>
-          <table className="w-full border-collapse text-[11px]">
+        {/* ── 크루즈 여행 특별약관 ────────────────────────────────── */}
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-red-700">크루즈 여행 특별약관</p>
+          <p className="mb-1 text-[11px] font-semibold text-red-600">제1조 (목적)</p>
+          <p className="mb-2 text-[10px] text-gray-600">본 특약은 국외여행표준약관을 보완하고 크루즈 여행 고유의 여행조건, 취소규정, 유의사항 등을 여행자에게 사전 고지함에 그 목적이 있습니다.</p>
+
+          {/* 환불고지 — 크루즈 취소료 규정 */}
+          <p className="mb-1 text-[11px] font-semibold text-red-600">제2조 (크루즈 취소료 규정) — 환불 고지</p>
+          <div className="mb-1 rounded-lg bg-red-100 px-2 py-1 text-[10px] font-medium text-red-700">
+            ⚠ 본 상품은 항공사·선사 비용 사전 지급으로 인해 <strong>일반여행 취소료 규정이 아닌 크루즈 특별 취소료를 우선 적용</strong>합니다.
+          </div>
+          <table className="mb-2 w-full border-collapse text-[10px]">
             <thead>
-              <tr className="bg-orange-50">
-                <th className="border border-gray-200 px-3 py-1.5 text-left font-semibold text-orange-700">취소 시점</th>
-                <th className="border border-gray-200 px-3 py-1.5 text-right font-semibold text-orange-700">위약금</th>
+              <tr className="bg-red-200">
+                <th className="border border-red-200 px-2 py-1 text-left font-semibold text-red-800">해지 시기</th>
+                <th className="border border-red-200 px-2 py-1 text-right font-semibold text-red-800">취소료</th>
+              </tr>
+            </thead>
+            <tbody>
+              {CRUISE_CANCELLATION_POLICY.map((p) => (
+                <tr key={p.label} className="border-b border-red-100">
+                  <td className="border border-red-100 px-2 py-1 text-gray-700">{p.label}</td>
+                  <td className="border border-red-100 px-2 py-1 text-right font-bold text-red-700">{p.value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="space-y-0.5 text-[10px] text-gray-600">
+            <p>1) 총 경비는 할인가격이 아닌 <strong>정상가격</strong> 기준으로 계산합니다.</p>
+            <p>2) 크루즈 예약 후 발생되는 모든 예약 변경은 비용이 부과됩니다.</p>
+            <p>3) 연휴·연말·휴가기간에는 특별 취소료 규정이 적용됩니다. (예약 시 별도 고지)</p>
+            <p>4) 질병·부상·사망·천재지변 등으로 인한 취소에도 상기 규정이 적용됩니다.</p>
+            <p>5) 기상악화 및 선사 사정으로 기항지 투어 진행 불가 시 선사 책정 금액 외 추가 보상은 없습니다.</p>
+          </div>
+
+          <p className="mb-0.5 mt-2 text-[11px] font-semibold text-red-600">제3조 (유의사항)</p>
+          <div className="space-y-0.5 text-[10px] text-gray-600">
+            <p>1) 여권 유효기간은 여행 출발일 기준 <strong>6개월 이상</strong> 남아있어야 합니다.</p>
+            <p>2) 예약 후 3일 이내 계약금 결제 必 — 미결제 시 예약 자동취소.</p>
+            <p>3) 잔금은 출발 전 지정일까지 완납하여야 하며, 미납 시 자동취소됩니다. (위약금 발생)</p>
+            <p>4) 18세 이하 어린이는 보호자 동반 필수 / 6개월 미만 유아는 탑승 제한될 수 있음.</p>
+            <p>5) 임신 6개월 이상 임산부는 탑승 불가 / 미만은 의사 소견서(영문) + 동의서 제출 필요.</p>
+            <p>6) 여행자 본인 과실로 인한 안전사고는 여행자 본인이 책임집니다.</p>
+            <p>7) 선내 면세점·현지 관광 중 구매한 쇼핑 물품은 단순 변심·훼손 시 교환·환불 불가.</p>
+          </div>
+
+          <div className="mt-2 rounded-lg border border-red-100 bg-white px-3 py-2 text-[10px]">
+            <strong>약관 교부 확인:</strong> 여행자( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )은 담당자( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )으로부터 크루즈여행특별약관을 교부받았으며, 취소료 규정·유의사항 및 본 약관이 국외여행표준약관에 우선함을 충분히 설명 들었습니다.
+            <p className="mt-1.5 text-right text-gray-500">여행자: ( 인 / 서명 )</p>
+          </div>
+        </div>
+
+        {/* ── 국외여행표준약관 ─────────────────────────────────────── */}
+        <div>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-orange-700">국외여행표준약관</p>
+          <p className="mb-1 text-[10px] text-gray-500">{COMPANY.name}은 공정거래위원회 표준약관을 준수합니다.</p>
+          <div className="space-y-1.5 rounded-xl border border-gray-100 bg-gray-50 p-3 text-[10px] text-gray-600">
+            <p><span className="font-semibold text-gray-700">제1조 (목적)</span> 이 약관은 {COMPANY.name}(이하 '당사')와 여행자가 체결한 국외여행계약의 세부 이행 및 준수사항을 정함을 목적으로 합니다.</p>
+            <p><span className="font-semibold text-gray-700">제2조 (당사와 여행자 의무)</span> ① 당사는 여행자에게 안전하고 만족스러운 여행서비스를 제공하기 위하여 맡은 바 임무를 충실히 수행합니다. ② 여행자는 안전하고 즐거운 여행을 위하여 여행자 간 화합 도모 및 당사의 여행 질서 유지에 적극 협조합니다.</p>
+            <p><span className="font-semibold text-gray-700">제3조 (용어의 정의)</span> ① 기획여행: 당사가 미리 여행일정·요금을 정하여 여행자를 모집하여 실시하는 여행. ② 희망여행: 여행자가 희망하는 조건에 따라 당사가 계획을 수립하여 실시하는 여행.</p>
+            <p><span className="font-semibold text-gray-700">제4조 (계약 구성)</span> 여행계약은 여행계약서·여행약관·여행일정표(또는 여행설명서)를 계약내용으로 합니다.</p>
+            <p><span className="font-semibold text-gray-700">제5조 (특약)</span> 당사와 여행자는 관계법규에 위반되지 않는 범위에서 서면으로 특약을 맺을 수 있습니다. 크루즈 특별약관은 본 약관에 우선하여 적용합니다.</p>
+            <p><span className="font-semibold text-gray-700">제6조 (계약서 및 약관 교부)</span> 당사는 여행자와 여행계약 체결 시 계약서·여행약관·여행일정표를 각 1부씩 여행자에게 교부합니다.</p>
+            <p><span className="font-semibold text-gray-700">제8조 (당사의 책임)</span> 당사는 여행 출발 시부터 도착 시까지 당사 또는 그 사용인이 여행자에게 고의 또는 과실로 손해를 가한 경우 배상책임을 집니다.</p>
+            <p><span className="font-semibold text-gray-700">제9조 (최저행사인원 미충족)</span> 당사는 최저행사인원 미충족으로 계약 해제 시 여행출발 7일 전까지 여행자에게 통지합니다. 기일 내 미통지 해제 시 출발 1일 전까지 통지: 여행요금의 30%, 당일 통지: 50% 배상합니다.</p>
+            <p><span className="font-semibold text-gray-700">제11조 (여행요금)</span> 여행요금에는 운임·숙박·식사·안내자경비·각종 세금·관광기금·공항항만세·관광지 입장료 등이 포함됩니다. 계약금(여행요금의 10% 이하)은 계약 체결 시 지급합니다.</p>
+            <p><span className="font-semibold text-gray-700">제12조 (여행요금 변경)</span> 이용 운송·숙박기관 요금이 계약 시보다 5% 이상 증감하거나 환율이 2% 이상 증감하면 요금 증감을 청구할 수 있습니다. 요금 증액 시 출발 15일 전에 통지합니다.</p>
+            <p><span className="font-semibold text-gray-700">제13조 (여행조건 변경 및 정산)</span> 여행조건 변경 및 요금 증감으로 생긴 차액은 여행 출발 전 변경분은 출발 이전에, 여행 중 변경분은 여행 종료 후 10일 이내에 정산·환급합니다.</p>
+            <p><span className="font-semibold text-gray-700">제14조 (손해배상)</span> ① 당사는 현지 여행사 등의 고의·과실로 여행자에게 손해를 가한 경우 배상합니다. ② 당사 귀책으로 사증·재입국 허가 등 미취득 시 수수료 전액 및 그 100% 상당액을 배상합니다. ③ 교통기관 연발착으로 인한 손해는 당사 고의·과실 없음 입증 시 제외됩니다.</p>
+            <p><span className="font-semibold text-gray-700">제15조 (여행 출발 전 계약 해제)</span> 당사 또는 여행자는 출발 전 계약 해제 가능. 발생 손해는 소비자분쟁해결기준(공정거래위원회 고시)에 따라 배상합니다. 천재지변·여행자 사망·질병 등 불가항력 사유는 위약금 없이 해제 가능합니다.</p>
+            <p><span className="font-semibold text-gray-700">제16조 (여행 출발 후 계약 해지)</span> 부득이한 사유로 계약 해지 시, 당사는 여행자 귀국에 필요한 사항을 협조하며, 당사 귀책이 아닌 비용은 여행자가 부담합니다.</p>
+            <p><span className="font-semibold text-gray-700">제17조 (여행의 시작과 종료)</span> 여행의 시작은 탑승수속(선박의 경우 승선수속) 완료 시점, 종료는 여행자가 입국장 보세구역을 벗어나는 시점으로 합니다.</p>
+            <p><span className="font-semibold text-gray-700">제18조 (설명의무)</span> 당사는 계약서에 정해진 중요한 내용 및 변경사항을 여행자가 이해할 수 있도록 설명합니다.</p>
+            <p><span className="font-semibold text-gray-700">제19조 (보험 가입)</span> 당사는 여행자에게 손해가 발생한 경우 보험금을 지급하기 위한 보험 또는 공제에 가입하거나 영업보증금을 예치합니다.</p>
+            <p><span className="font-semibold text-gray-700">제20조 (기타)</span> 이 계약에 명시되지 않은 사항은 당사 또는 여행자가 합의하여 결정하되, 미합의 시 관계법령 및 일반관례에 따릅니다.</p>
+            <p className="mt-1 text-gray-400">※ 본 계약 관련 분쟁 시 관광불편신고처리위원회(☎1588-8692) 또는 소재지 도청 문화관광과에 중재 신청 가능합니다.</p>
+          </div>
+        </div>
+
+        {/* ── 일반 취소료 규정 (참고용) ──────────────────────────── */}
+        <div>
+          <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-orange-700">일반여행 취소·환불 규정 (참고)</p>
+          <p className="mb-1 text-[10px] text-red-500">※ 크루즈 여행은 위 특별약관 제2조 취소료 규정이 우선 적용됩니다.</p>
+          <table className="w-full border-collapse text-[10px]">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border border-gray-200 px-2 py-1 text-left font-semibold text-gray-600">취소 시점</th>
+                <th className="border border-gray-200 px-2 py-1 text-right font-semibold text-gray-600">위약금</th>
               </tr>
             </thead>
             <tbody>
               {CANCELLATION_POLICY.map((p) => (
                 <tr key={p.label} className="border-b border-gray-100">
-                  <td className="border border-gray-200 px-3 py-1.5 text-gray-600">{p.label}</td>
-                  <td className="border border-gray-200 px-3 py-1.5 text-right font-medium text-gray-700">{p.value}</td>
+                  <td className="border border-gray-200 px-2 py-1 text-gray-500">{p.label}</td>
+                  <td className="border border-gray-200 px-2 py-1 text-right text-gray-600">{p.value}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {/* 국외여행표준약관 요약 */}
-        <div>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-orange-700">국외여행표준약관 (요약)</p>
-          <div className="space-y-1.5 rounded-xl border border-gray-100 bg-gray-50 p-3 text-[11px] text-gray-600">
-            <p><span className="font-semibold">제1조 (목적)</span> 이 약관은 {COMPANY.name}(이하 '당사')와 여행자가 체결한 국외여행계약의 세부 이행 및 준수사항을 정함을 목적으로 합니다.</p>
-            <p><span className="font-semibold">제2조 (의무)</span> ① 당사는 안전하고 만족스러운 여행서비스를 제공하기 위해 맡은 바 임무를 충실히 수행합니다. ② 여행자는 여행 질서 유지에 협조합니다.</p>
-            <p><span className="font-semibold">제4조 (계약 구성)</span> 여행계약은 여행계약서·여행약관·여행일정표를 계약내용으로 합니다.</p>
-            <p><span className="font-semibold">제8조 (책임)</span> 당사는 여행 출발 시부터 여행 종료 시까지 여행자에게 발생한 손해에 대해 배상책임을 집니다.</p>
-            <p><span className="font-semibold">제12조 (최저행사인원)</span> 최저행사인원 미달 시 여행출발 7일 전까지 여행자에게 통보합니다.</p>
-            <p><span className="font-semibold">제15조 (취소)</span> 여행자 사정으로 계약 해제 시, 약관에 따른 위약금이 발생합니다.</p>
-            <p><span className="font-semibold">제18조 (분쟁 해결)</span> 본 계약과 관련한 분쟁은 관광불편신고처리위원회(☎1588-8692) 또는 소재지 도청 문화관광과에 중재 신청 가능합니다.</p>
+        {/* ── 개인정보처리 동의 ─────────────────────────────────── */}
+        <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-blue-700">개인정보처리 동의사항</p>
+
+          <p className="mb-0.5 text-[10px] font-semibold text-blue-600">1. 개인정보 수집·이용 동의 (필수)</p>
+          <div className="mb-2 space-y-0.5 text-[10px] text-gray-600">
+            <p><strong>수집·이용 목적:</strong> 크루즈여행계약 체결·심사·관리, 서비스 제공, 고객관리, 대금결제, 민원처리</p>
+            <p><strong>수집 항목:</strong> 성명, 생년월일, 주소(자택/직장), 연락처(휴대폰/자택/직장), 이메일</p>
+            <p><strong>보유 기간:</strong> 목적 달성 시까지 / 계약·청약철회 기록 5년 / 대금결제 기록 5년 / 분쟁처리 기록 3년</p>
+            <p className="text-right text-gray-500">계약자: ( 인 / 서명 )</p>
+          </div>
+
+          <p className="mb-0.5 text-[10px] font-semibold text-blue-600">2. 제3자 제공 동의 (필수)</p>
+          <div className="mb-2 space-y-0.5 text-[10px] text-gray-600">
+            <p><strong>제공 대상:</strong> 각 항공사·선사·랜드사, {COMPANY.name}</p>
+            <p><strong>제공 항목:</strong> 성명, 생년월일, 주소, 연락처</p>
+            <p><strong>제공 목적:</strong> 크루즈 여행 서비스 제공</p>
+            <p><strong>보유 기간:</strong> 크루즈 여행 서비스 종료 시 삭제</p>
+            <p className="text-right text-gray-500">계약자: ( 인 / 서명 )</p>
+          </div>
+
+          <p className="mb-0.5 text-[10px] font-semibold text-blue-600">3. 마케팅 활용 동의 (선택)</p>
+          <div className="space-y-0.5 text-[10px] text-gray-600">
+            <p><strong>활용 목적:</strong> {COMPANY.name}이 제공하는 서비스 홍보 및 소개</p>
+            <p><strong>방법:</strong> 우편·전화·이메일·방문·문자</p>
+            <p><strong>보유 기간:</strong> 계약 종료 후 5년</p>
+            <p>※ 상기 동의를 거부할 수 있으나, 미동의 시 정상 서비스 제공이 어려울 수 있습니다.</p>
+            <p className="text-right text-gray-500">계약자: ( 인 / 서명 )</p>
           </div>
         </div>
 
-        {/* 여행업자 정보 */}
+        {/* ── 여행업자 정보 ─────────────────────────────────────── */}
         <div className="rounded-xl border border-orange-100 bg-orange-50 p-3 text-[11px]">
           <p className="mb-1 font-bold text-orange-700">여행업자 정보</p>
           <div className="grid grid-cols-2 gap-1 text-gray-600">
@@ -551,6 +648,7 @@ function FullContractPreview({
             <span>대표: {COMPANY_INFO.ceo}</span>
             <span>전화: {COMPANY_INFO.hqPhone}</span>
             <span>담당자: {agent.displayName || '___'} {agent.phone || ''}</span>
+            <span className="col-span-2">계좌: 국민은행 531301-04-167150 (배연성)</span>
           </div>
         </div>
 
