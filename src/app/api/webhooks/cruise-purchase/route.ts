@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
+import { getCommissionRateByAffiliateCode } from '@/lib/commission-calculator';
 
 /**
  * POST /api/webhooks/cruise-purchase
@@ -148,6 +149,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, duplicate: true });
     }
 
+    // ── 수당 계산 (트랜잭션 진입 전) ─────────────────────────────
+    const saleAmount = typeof amount === 'number' ? amount : 0;
+    const { rate: commissionRate } = await getCommissionRateByAffiliateCode(affiliateCode, organizationId);
+    const commissionAmount = Math.floor(saleAmount * commissionRate / 100);
+
     // ── Contact upsert + AffiliateSale 기록 (트랜잭션) ────────────
     const paidAtDate = paidAt ? new Date(paidAt) : new Date();
 
@@ -184,14 +190,14 @@ export async function POST(req: NextRequest) {
         data: {
           organizationId,
           affiliateCode,
-          productName:     productName ?? '크루즈 상품',
-          saleAmount:      typeof amount === 'number' ? amount : 0,
-          commissionRate:  0,    // 크루즈닷몰에서 전달 시 업데이트 가능
-          commissionAmount: 0,
-          status:          'PENDING',
-          customerPhone:   buyerTel.substring(0, 4) + '****',
+          productName:      productName ?? '크루즈 상품',
+          saleAmount,
+          commissionRate,
+          commissionAmount,
+          status:           'PENDING',
+          customerPhone:    buyerTel.substring(0, 4) + '****',
           orderId,
-          sourceWebhook:   'cruise-purchase',
+          sourceWebhook:    'cruise-purchase',
         },
         select: { id: true },
       });
