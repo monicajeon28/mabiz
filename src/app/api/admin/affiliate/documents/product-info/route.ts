@@ -82,6 +82,7 @@ export async function GET(req: NextRequest) {
         tourType: true,
         airlineName: true,
         tags: true,
+        refundPolicy: true,
       },
     });
 
@@ -135,6 +136,8 @@ export async function GET(req: NextRequest) {
         isDomestic: product.isDomestic ?? false,
         tourType: product.tourType ?? 'FREE',
         airlineName: product.airlineName ?? null,
+        // 상품별 환불정책 (없으면 null → 프론트에서 기본 크루즈 취소료 적용)
+        refundPolicy: product.refundPolicy ?? null,
       },
     });
   } catch (error: unknown) {

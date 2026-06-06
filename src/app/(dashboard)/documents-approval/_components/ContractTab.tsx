@@ -8,9 +8,9 @@ import {
   ExternalLink,
   Send,
   X,
-  User,
-  Package,
+  Search,
   CheckCircle2,
+  RefreshCcw,
 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import { CANCELLATION_POLICY, CRUISE_CANCELLATION_POLICY, COMPANY_INFO } from '@/lib/company-info';
@@ -29,6 +29,7 @@ import {
   COMPANY,
 } from './shared';
 
+/* ────────────────── Status filter ────────────────── */
 type StatusFilter = 'all' | 'DRAFT' | 'SENT' | 'SIGNED' | 'COMPLETED';
 const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
   { key: 'all', label: '전체' },
@@ -38,15 +39,55 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
   { key: 'COMPLETED', label: '완료' },
 ];
 
-type SelectedBuyer = {
+/* ────────────────── Form data type ────────────────── */
+type ContractFormData = {
   orderId: string;
   buyerName: string;
-  buyerTel: string | null;
-  productName: string | null;
-  amount: number;
+  buyerTel: string;
+  productName: string;
+  departureDate: string;
+  nights: number | null;
+  amount: number | null;
+  includedItems: string[];
+  excludedItems: string[];
+  hasGuide: 'Y' | 'N';
+  refundPolicy: { label: string; value: string }[];
+  specialTerms: string;
 };
 
-// generatedData 안전 추출 헬퍼
+const EMPTY_FORM: ContractFormData = {
+  orderId: '',
+  buyerName: '',
+  buyerTel: '',
+  productName: '',
+  departureDate: '',
+  nights: null,
+  amount: null,
+  includedItems: [
+    '선박/항공기 운임', '숙박/식사료', '항만세·관광기금',
+    '제세금', '여행알선수수료', '유류할증료', '관광지 입장료', '여행보험료',
+  ],
+  excludedItems: ['선상팁', '쇼핑비', '선택관광'],
+  hasGuide: 'Y',
+  refundPolicy: [...CRUISE_CANCELLATION_POLICY],
+  specialTerms: '',
+};
+
+/* ────────────────── Preview data type ────────────────── */
+type ContractPreviewData = {
+  buyerName?: string | null;
+  buyerTel?: string | null;
+  productName?: string | null;
+  amount?: number | null;
+  departureDate?: string | null;
+  includedItems?: string[];
+  excludedItems?: string[];
+  hasGuide?: 'Y' | 'N' | '';
+  refundPolicy?: { label: string; value: string }[];
+  specialTerms?: string | null;
+};
+
+/* ────────────────── generatedData helpers ────────────────── */
 function gdStr(gd: Record<string, unknown>, key: string): string | null {
   const v = gd?.[key];
   return typeof v === 'string' ? v : null;
@@ -59,32 +100,48 @@ function gdArr(gd: Record<string, unknown>, key: string): string[] {
   const v = gd?.[key];
   return Array.isArray(v) ? (v as string[]) : [];
 }
+function gdRefundPolicy(gd: Record<string, unknown>): { label: string; value: string }[] | undefined {
+  const v = gd?.refundPolicy;
+  if (!Array.isArray(v)) return undefined;
+  return v as { label: string; value: string }[];
+}
 
-// 계약서 미리보기에 사용할 데이터 타입
-type ContractPreviewData = {
-  buyerName?: string | null;
-  buyerTel?: string | null;
-  productName?: string | null;
-  amount?: number | null;
-  departureDate?: string | null;
-  includedItems?: string[];
-  excludedItems?: string[];
-  hasGuide?: 'Y' | 'N' | '';
-};
+/* ────────────────── form → preview adapter ────────────────── */
+function formToPreview(f: ContractFormData): ContractPreviewData {
+  return {
+    buyerName: f.buyerName || null,
+    buyerTel: f.buyerTel || null,
+    productName: f.productName || null,
+    amount: f.amount,
+    departureDate: f.departureDate || null,
+    includedItems: f.includedItems,
+    excludedItems: f.excludedItems,
+    hasGuide: f.hasGuide,
+    refundPolicy: f.refundPolicy,
+    specialTerms: f.specialTerms || null,
+  };
+}
 
+/* ═══════════════════════════════════════════════════════════
+   ContractTab (main export)
+════════════════════════════════════════════════════════════ */
 export default function ContractTab() {
   const agent = useCurrentAgent();
   const [documents, setDocuments] = useState<SalesDocumentItem[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [modalOpen, setModalOpen] = useState(false);
-  const [selected, setSelected] = useState<SelectedBuyer[]>([]);
-  const [previewBuyer, setPreviewBuyer] = useState<SelectedBuyer | null>(null);
-  const [issuing, setIssuing] = useState(false);
 
-  // 우측 항상 표시 미리보기용: 목록 행 클릭 시 업데이트
+  // 우측 항상 표시 미리보기 (목록 행 클릭 시 업데이트)
   const [previewData, setPreviewData] = useState<ContractPreviewData>({});
 
+  // 모달 폼 상태
+  const [form, setForm] = useState<ContractFormData>(EMPTY_FORM);
+  const [productCode, setProductCode] = useState('');
+  const [loadingProduct, setLoadingProduct] = useState(false);
+  const [issuing, setIssuing] = useState(false);
+
+  /* ── document list ── */
   const loadDocuments = useCallback(async () => {
     setListLoading(true);
     try {
@@ -102,6 +159,7 @@ export default function ContractTab() {
 
   useEffect(() => { loadDocuments(); }, [loadDocuments]);
 
+  /* ── status display ── */
   const resolveStatus = (doc: SalesDocumentItem) => {
     const signStatus = gdStr(doc.generatedData, 'signStatus');
     const isComplete = doc.status === 'SIGNED' || doc.status === 'COMPLETED' || signStatus === 'SIGNED';
@@ -118,61 +176,13 @@ export default function ContractTab() {
     return st.key === statusFilter;
   });
 
-  const handlePickSale = (sale: SaleResult) => {
-    if (!sale.orderId) { showError('주문번호가 없는 건은 계약서를 발급할 수 없습니다.'); return; }
-    const buyer: SelectedBuyer = {
-      orderId: sale.orderId,
-      buyerName: sale.buyerName || '(이름없음)',
-      buyerTel: sale.buyerTel || sale.customerPhone,
-      productName: sale.productName,
-      amount: sale.saleAmount,
-    };
-    setSelected((prev) => prev.some((p) => p.orderId === sale.orderId) ? prev : [...prev, buyer]);
-    setPreviewBuyer(buyer);
-    // 모달 밖 우측 미리보기도 업데이트
-    setPreviewData({ buyerName: buyer.buyerName, buyerTel: buyer.buyerTel, productName: buyer.productName, amount: buyer.amount });
-  };
-
-  const removeSelected = (orderId: string) => {
-    setSelected((prev) => prev.filter((p) => p.orderId !== orderId));
-    setPreviewBuyer((prev) => (prev?.orderId === orderId ? null : prev));
-  };
-
-  const handleBulkIssue = async () => {
-    if (selected.length === 0) { showError('발급할 구매자를 1명 이상 선택해주세요.'); return; }
-    setIssuing(true);
-    let success = 0; let conflict = 0; let failed = 0;
-    for (const buyer of selected) {
-      try {
-        const res = await fetch('/api/documents/purchase-contract', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-          body: JSON.stringify({ orderId: buyer.orderId }),
-        });
-        if (res.status === 409) conflict += 1;
-        else if (res.ok) { const json = await res.json(); if (json.ok) success += 1; else failed += 1; }
-        else failed += 1;
-      } catch { failed += 1; }
-    }
-    setIssuing(false);
-    const parts: string[] = [];
-    if (success > 0) parts.push(`${success}건 발급`);
-    if (conflict > 0) parts.push(`${conflict}건 중복`);
-    if (failed > 0) parts.push(`${failed}건 실패`);
-    const summary = parts.join(', ') || '처리된 건이 없습니다.';
-    if (failed > 0 && success === 0) showError(summary);
-    else showSuccess(summary);
-    if (success > 0 || conflict > 0) {
-      setModalOpen(false); setSelected([]); setPreviewBuyer(null);
-      await loadDocuments();
-    }
-  };
-
-  // 목록 행 클릭 → 우측 미리보기 업데이트
+  /* ── 목록 행 클릭 → 우측 미리보기 ── */
   const handleRowClick = (doc: SalesDocumentItem) => {
     const gd = doc.generatedData;
     const inc = gdArr(gd, 'includedItems');
     const exc = gdArr(gd, 'excludedItems');
     const hg = gdStr(gd, 'hasGuide') as 'Y' | 'N' | '' | null;
+    const rp = gdRefundPolicy(gd);
     setPreviewData({
       buyerName: gdStr(gd, 'buyerName') ?? doc.contact?.name,
       buyerTel: gdStr(gd, 'buyerTel') ?? doc.contact?.phone,
@@ -182,6 +192,105 @@ export default function ContractTab() {
       includedItems: inc.length > 0 ? inc : undefined,
       excludedItems: exc.length > 0 ? exc : undefined,
       hasGuide: hg ?? '',
+      refundPolicy: rp,
+      specialTerms: gdStr(gd, 'specialTerms'),
+    });
+  };
+
+  /* ── 모달: 고객 선택 ── */
+  const handleCustomerSelect = (sale: SaleResult) => {
+    if (!sale.orderId) { showError('주문번호가 없는 건은 계약서를 발급할 수 없습니다.'); return; }
+    setForm((prev) => ({
+      ...prev,
+      orderId: sale.orderId as string,
+      buyerName: sale.buyerName || prev.buyerName,
+      buyerTel: sale.buyerTel || sale.customerPhone || prev.buyerTel,
+      productName: sale.productName || prev.productName,
+      amount: sale.saleAmount || prev.amount,
+    }));
+  };
+
+  /* ── 모달: 상품 코드 조회 ── */
+  const handleLoadProduct = async () => {
+    const code = productCode.trim().toUpperCase();
+    if (!code) { showError('상품 코드를 입력해주세요.'); return; }
+    setLoadingProduct(true);
+    try {
+      const res = await fetch(
+        `/api/admin/affiliate/documents/product-info?productCode=${encodeURIComponent(code)}`,
+        { credentials: 'include' },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.ok) { showError((json.error as string) || '상품 정보 조회 실패'); return; }
+      const p = json.product as {
+        productName?: string;
+        startDate?: string;
+        nights?: number;
+        includedItems?: string[];
+        excludedItems?: string[];
+        hasGuide?: 'Y' | 'N';
+        refundPolicy?: { label: string; value: string }[];
+      };
+      setForm((prev) => ({
+        ...prev,
+        productName: p.productName || prev.productName,
+        departureDate: p.startDate ? (p.startDate as string).split('T')[0] : prev.departureDate,
+        nights: p.nights ?? prev.nights,
+        includedItems: p.includedItems ?? prev.includedItems,
+        excludedItems: p.excludedItems ?? prev.excludedItems,
+        hasGuide: p.hasGuide ?? prev.hasGuide,
+        refundPolicy: Array.isArray(p.refundPolicy) ? p.refundPolicy : [...CRUISE_CANCELLATION_POLICY],
+      }));
+      showSuccess('상품 정보가 자동 반영되었습니다.');
+    } catch (e) {
+      showError(e instanceof Error ? e.message : '상품 정보 로드 실패');
+    } finally {
+      setLoadingProduct(false);
+    }
+  };
+
+  /* ── 모달: 계약서 발급 ── */
+  const handleIssue = async () => {
+    if (!form.orderId) { showError('구매자를 검색하여 주문 건을 선택해주세요.'); return; }
+    setIssuing(true);
+    try {
+      const res = await fetch('/api/documents/purchase-contract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          orderId: form.orderId,
+          specialTerms: form.specialTerms || undefined,
+          overrideProductName: form.productName || undefined,
+          overrideDepartureDate: form.departureDate || undefined,
+          overrideNights: form.nights ?? undefined,
+          overrideIncludedItems: form.includedItems.length > 0 ? form.includedItems : undefined,
+          overrideExcludedItems: form.excludedItems.length > 0 ? form.excludedItems : undefined,
+          overrideHasGuide: form.hasGuide,
+          overrideRefundPolicy: form.refundPolicy.length > 0 ? form.refundPolicy : undefined,
+        }),
+      });
+      if (res.status === 409) { showError('이미 발급된 계약서가 있습니다.'); return; }
+      const json = await res.json();
+      if (!res.ok || !json.ok) { showError((json.message as string) || '발급 실패'); return; }
+      showSuccess('계약서가 발급되었습니다.');
+      setModalOpen(false);
+      setForm(EMPTY_FORM);
+      setProductCode('');
+      await loadDocuments();
+    } catch (e) {
+      showError(e instanceof Error ? e.message : '발급 중 오류가 발생했습니다.');
+    } finally {
+      setIssuing(false);
+    }
+  };
+
+  /* ── 포함/불포함 항목 토글 ── */
+  const toggleItem = (type: 'inc' | 'exc', item: string) => {
+    setForm((prev) => {
+      const key = type === 'inc' ? 'includedItems' : 'excludedItems';
+      const arr = prev[key];
+      return { ...prev, [key]: arr.includes(item) ? arr.filter((x) => x !== item) : [...arr, item] };
     });
   };
 
@@ -199,7 +308,8 @@ export default function ContractTab() {
               </button>
             ))}
           </div>
-          <button onClick={() => { setSelected([]); setPreviewBuyer(null); setModalOpen(true); }}
+          <button
+            onClick={() => { setForm(EMPTY_FORM); setProductCode(''); setModalOpen(true); }}
             className="inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700">
             <Plus className="h-4 w-4" />계약서 보내기
           </button>
@@ -286,11 +396,11 @@ export default function ContractTab() {
         <FullContractPreview data={previewData} agent={agent} />
       </div>
 
-      {/* ═══ 계약서 보내기 모달 ════════════════════════════════════════════ */}
+      {/* ═══ 계약서 작성 모달 (2-panel: 입력 폼 + 실시간 미리보기) ═════════ */}
       {modalOpen && (
         <ModalShell
-          title="계약서 보내기"
-          maxWidth="max-w-3xl"
+          title="계약서 작성 및 발급"
+          maxWidth="max-w-[90rem]"
           locked={issuing}
           onClose={() => setModalOpen(false)}
           footer={
@@ -299,70 +409,197 @@ export default function ContractTab() {
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40">
                 닫기
               </button>
-              <button onClick={handleBulkIssue} disabled={issuing || selected.length === 0}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-40">
+              <button onClick={handleIssue} disabled={issuing || !form.orderId}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-5 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-40">
                 {issuing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                {issuing ? '발급 중...' : `선택 ${selected.length}명 일괄 발급`}
+                {issuing ? '발급 중...' : '발급 및 서명 요청'}
               </button>
             </>
           }
         >
-          <div className="space-y-4">
-            <CustomerAutocomplete
-              label="구매자 검색 (이름·주문번호·전화번호)"
-              placeholder="이름을 입력하면 결제건이 검색됩니다"
-              accent="orange"
-              onlyPurchasable
-              onSelect={handlePickSale}
-            />
-            <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">선택된 구매자 ({selected.length}명)</span>
-                {selected.length > 0 && (
-                  <button onClick={() => { setSelected([]); setPreviewBuyer(null); }} className="text-xs text-gray-400 hover:text-gray-600">
-                    전체 해제
-                  </button>
+          {/* 2-panel flex layout */}
+          <div className="flex h-[72vh] min-h-0 gap-5 overflow-hidden">
+
+            {/* ─ 좌측: 입력 폼 ─────────────────────────────────────────── */}
+            <div className="w-[400px] flex-shrink-0 space-y-3 overflow-y-auto pr-1">
+
+              {/* ① 고객 검색 */}
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                <p className="mb-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">① 구매자 검색 (주문 건 선택)</p>
+                <CustomerAutocomplete
+                  label=""
+                  placeholder="이름·주문번호·전화번호로 검색"
+                  accent="orange"
+                  onlyPurchasable
+                  onSelect={handleCustomerSelect}
+                />
+                {form.orderId && (
+                  <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-orange-100 px-3 py-1.5 text-xs text-orange-700">
+                    <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 text-orange-500" />
+                    <span className="flex-1 truncate">주문: {form.orderId}</span>
+                    <button type="button" onClick={() => setForm((p) => ({ ...p, orderId: '' }))}
+                      className="text-orange-400 hover:text-orange-600">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 )}
               </div>
-              {selected.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-6 text-center text-sm text-gray-400">
-                  검색 후 구매자를 클릭하면 여기에 추가됩니다.
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {selected.map((b) => (
-                    <button key={b.orderId} type="button" onClick={() => setPreviewBuyer(b)}
-                      className={`group inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${previewBuyer?.orderId === b.orderId ? 'border-orange-400 bg-orange-100 text-orange-800' : 'border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100'}`}>
-                      <User className="h-3 w-3" />
-                      <span>{b.buyerName}</span>
-                      <span role="button" tabIndex={0}
-                        onClick={(e) => { e.stopPropagation(); removeSelected(b.orderId); }}
-                        className="ml-0.5 rounded-full p-0.5 text-orange-400 hover:bg-orange-200">
-                        <X className="h-3 w-3" />
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {selected.length > 0 && (
-                <p className="mt-2 flex items-center gap-1 text-xs text-gray-400">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-orange-400" />
-                  칩을 클릭하면 해당 구매자의 계약서 미리보기로 전환됩니다.
-                </p>
-              )}
-            </div>
 
-            {/* 모달 내 소형 미리보기 */}
-            {previewBuyer && (
-              <div className="rounded-xl border border-orange-100 bg-orange-50 p-4 text-sm">
-                <p className="mb-1 text-xs font-semibold text-orange-700">선택된 구매자 계약서</p>
-                <div className="flex flex-wrap gap-4 text-gray-700">
-                  <span><span className="text-gray-400">구매자:</span> {previewBuyer.buyerName}</span>
-                  {previewBuyer.productName && <span><span className="text-gray-400">상품:</span> {previewBuyer.productName}</span>}
-                  <span><span className="text-gray-400">금액:</span> {formatMoney(previewBuyer.amount)}</span>
+              {/* ② 상품 코드 검색 */}
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                <p className="mb-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">② 상품 코드 조회 (포함/불포함·환불정책 자동)</p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={productCode}
+                    onChange={(e) => setProductCode(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => { if (e.key === 'Enter') void handleLoadProduct(); }}
+                    placeholder="상품 코드 (예: MSC001)"
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-xs focus:border-orange-400 focus:outline-none"
+                  />
+                  <button type="button" onClick={() => void handleLoadProduct()} disabled={loadingProduct}
+                    className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-40">
+                    {loadingProduct ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                    조회
+                  </button>
                 </div>
               </div>
-            )}
+
+              {/* ③ 계약 기본 정보 */}
+              <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-2.5">
+                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">③ 계약 기본 정보 (수동 수정 가능)</p>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-0.5 block text-[11px] text-gray-500">구매자 이름</label>
+                    <input type="text" value={form.buyerName}
+                      onChange={(e) => setForm((p) => ({ ...p, buyerName: e.target.value }))}
+                      className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-orange-400 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="mb-0.5 block text-[11px] text-gray-500">연락처</label>
+                    <input type="text" value={form.buyerTel}
+                      onChange={(e) => setForm((p) => ({ ...p, buyerTel: e.target.value }))}
+                      className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-orange-400 focus:outline-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-0.5 block text-[11px] text-gray-500">상품명</label>
+                  <input type="text" value={form.productName}
+                    onChange={(e) => setForm((p) => ({ ...p, productName: e.target.value }))}
+                    className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-orange-400 focus:outline-none" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-0.5 block text-[11px] text-gray-500">출발일</label>
+                    <input type="date" value={form.departureDate}
+                      onChange={(e) => setForm((p) => ({ ...p, departureDate: e.target.value }))}
+                      className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-orange-400 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="mb-0.5 block text-[11px] text-gray-500">계약 금액 (원)</label>
+                    <input type="number" value={form.amount ?? ''}
+                      onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value ? Number(e.target.value) : null }))}
+                      className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-orange-400 focus:outline-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[11px] text-gray-500">여행 인솔자</label>
+                  <div className="flex gap-4">
+                    {(['Y', 'N'] as const).map((v) => (
+                      <label key={v} className="flex cursor-pointer items-center gap-1.5 text-xs">
+                        <input type="radio" name="modal-hasGuide" value={v} checked={form.hasGuide === v}
+                          onChange={() => setForm((p) => ({ ...p, hasGuide: v }))} className="accent-orange-500" />
+                        {v === 'Y' ? '있음' : '없음'}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* ④ 포함/불포함 체크박스 */}
+              <div className="rounded-xl border border-gray-200 bg-white p-3">
+                <p className="mb-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">④ 포함/불포함 내역</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="mb-1.5 text-[11px] font-medium text-emerald-700">포함 항목</p>
+                    <div className="space-y-1">
+                      {ALL_INCLUDE_ITEMS.map((item) => (
+                        <label key={item} className="flex cursor-pointer items-center gap-1.5 text-[11px]">
+                          <input type="checkbox" checked={form.includedItems.includes(item)}
+                            onChange={() => toggleItem('inc', item)}
+                            className="h-3 w-3 accent-emerald-500" />
+                          {item}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-[11px] font-medium text-red-700">불포함 항목</p>
+                    <div className="space-y-1">
+                      {ALL_EXCLUDE_ITEMS.map((item) => (
+                        <label key={item} className="flex cursor-pointer items-center gap-1.5 text-[11px]">
+                          <input type="checkbox" checked={form.excludedItems.includes(item)}
+                            onChange={() => toggleItem('exc', item)}
+                            className="h-3 w-3 accent-red-500" />
+                          {item}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ⑤ 환불 규정 */}
+              <div className="rounded-xl border border-gray-200 bg-white p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">⑤ 환불 규정</p>
+                  <button type="button"
+                    onClick={() => setForm((p) => ({ ...p, refundPolicy: [...CRUISE_CANCELLATION_POLICY] }))}
+                    className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-orange-500">
+                    <RefreshCcw className="h-3 w-3" />기본값
+                  </button>
+                </div>
+                <table className="w-full border-collapse text-[10px]">
+                  <thead>
+                    <tr className="bg-red-50">
+                      <th className="border border-red-100 px-2 py-1 text-left text-red-700">해지 시기</th>
+                      <th className="border border-red-100 px-2 py-1 text-right text-red-700">취소료</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {form.refundPolicy.map((p, i) => (
+                      <tr key={i} className="border-b border-gray-100">
+                        <td className="border border-gray-100 px-2 py-1 text-gray-600">{p.label}</td>
+                        <td className="border border-gray-100 px-2 py-1 text-right font-semibold text-red-600">{p.value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="mt-1 text-[10px] text-gray-400">상품 코드 조회 시 상품별 환불 규정으로 자동 교체됩니다.</p>
+              </div>
+
+              {/* ⑥ 특약사항 */}
+              <div className="rounded-xl border border-gray-200 bg-white p-3">
+                <label className="mb-1 block text-[11px] font-semibold text-gray-500 uppercase tracking-wide">⑥ 특약사항 (선택)</label>
+                <textarea
+                  value={form.specialTerms}
+                  onChange={(e) => setForm((p) => ({ ...p, specialTerms: e.target.value }))}
+                  placeholder="특별 약정 사항이 있으면 입력하세요..."
+                  rows={3}
+                  className="w-full resize-none rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-orange-400 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* ─ 우측: 실시간 미리보기 ─────────────────────────────────── */}
+            <div className="min-w-0 flex-1 overflow-y-auto">
+              <p className="mb-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">실시간 계약서 미리보기</p>
+              <FullContractPreview data={formToPreview(form)} agent={agent} />
+            </div>
           </div>
         </ModalShell>
       )}
@@ -370,9 +607,9 @@ export default function ContractTab() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 전체 가능 포함/불포함 항목 목록 (체크박스 렌더링용)
-// ─────────────────────────────────────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────────────────────────
+   포함/불포함 전체 항목 목록 (체크박스 렌더링용)
+───────────────────────────────────────────────────────────────────────────── */
 const ALL_INCLUDE_ITEMS = [
   '선박/항공기 운임', '숙박/식사료', '안내자경비', '항만세·관광기금',
   '제세금', '여행알선수수료', '관광지 입장료', '유류할증료', '여행보험료',
@@ -389,10 +626,9 @@ function CheckBox({ checked }: { checked: boolean }) {
     : <span className="inline-block h-3 w-3 rounded border border-gray-300 bg-white" />;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 크루즈닷 여행계약서 전체 미리보기
-// ─────────────────────────────────────────────────────────────────────────────
-
+/* ─────────────────────────────────────────────────────────────────────────────
+   크루즈닷 여행계약서 전체 미리보기
+───────────────────────────────────────────────────────────────────────────── */
 function FullContractPreview({
   data,
   agent,
@@ -402,10 +638,12 @@ function FullContractPreview({
 }) {
   const hasData = !!(data.buyerName || data.productName);
 
-  // 체크 상태: generatedData에서 가져온 배열이 있으면 그것 기준, 없으면 기본값
   const checkedIncludes = data.includedItems ?? [];
   const checkedExcludes = data.excludedItems ?? [];
   const guideRow = data.hasGuide === 'Y' ? '■ 있음  □ 없음' : data.hasGuide === 'N' ? '□ 있음  ■ 없음' : '□ 있음  □ 없음';
+
+  // 상품별 환불 규정 우선, 없으면 크루즈 기본
+  const cancellationRows = data.refundPolicy ?? CRUISE_CANCELLATION_POLICY;
 
   return (
     <div className="max-h-[calc(100vh-200px)] overflow-y-auto rounded-xl border border-gray-200 bg-white text-[12px] leading-relaxed text-gray-800 shadow-sm">
@@ -455,11 +693,10 @@ function FullContractPreview({
           </table>
         </div>
 
-        {/* 여행요금 포함내역 */}
+        {/* 여행요금 포함/불포함 내역 */}
         <div>
           <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-orange-700">여행요금 포함/불포함 내역</p>
           <div className="grid grid-cols-2 gap-3">
-            {/* 포함 */}
             <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
               <p className="mb-1.5 text-[11px] font-semibold text-emerald-700">▸ 포함 항목</p>
               <div className="space-y-1">
@@ -471,7 +708,6 @@ function FullContractPreview({
                 ))}
               </div>
             </div>
-            {/* 불포함 */}
             <div className="rounded-xl border border-red-100 bg-red-50 p-3">
               <p className="mb-1.5 text-[11px] font-semibold text-red-700">▸ 불포함 항목</p>
               <div className="space-y-1">
@@ -508,13 +744,21 @@ function FullContractPreview({
           </div>
         </div>
 
+        {/* 특약사항 (있을 때만) */}
+        {data.specialTerms && (
+          <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-3">
+            <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-yellow-700">특약사항</p>
+            <p className="whitespace-pre-wrap text-[11px] text-gray-700">{data.specialTerms}</p>
+          </div>
+        )}
+
         {/* ── 크루즈 여행 특별약관 ────────────────────────────────── */}
         <div className="rounded-xl border border-red-200 bg-red-50 p-3">
           <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-red-700">크루즈 여행 특별약관</p>
           <p className="mb-1 text-[11px] font-semibold text-red-600">제1조 (목적)</p>
           <p className="mb-2 text-[10px] text-gray-600">본 특약은 국외여행표준약관을 보완하고 크루즈 여행 고유의 여행조건, 취소규정, 유의사항 등을 여행자에게 사전 고지함에 그 목적이 있습니다.</p>
 
-          {/* 환불고지 — 크루즈 취소료 규정 */}
+          {/* 환불고지 — 상품별 or 기본 크루즈 취소료 */}
           <p className="mb-1 text-[11px] font-semibold text-red-600">제2조 (크루즈 취소료 규정) — 환불 고지</p>
           <div className="mb-1 rounded-lg bg-red-100 px-2 py-1 text-[10px] font-medium text-red-700">
             ⚠ 본 상품은 항공사·선사 비용 사전 지급으로 인해 <strong>일반여행 취소료 규정이 아닌 크루즈 특별 취소료를 우선 적용</strong>합니다.
@@ -527,7 +771,7 @@ function FullContractPreview({
               </tr>
             </thead>
             <tbody>
-              {CRUISE_CANCELLATION_POLICY.map((p) => (
+              {cancellationRows.map((p) => (
                 <tr key={p.label} className="border-b border-red-100">
                   <td className="border border-red-100 px-2 py-1 text-gray-700">{p.label}</td>
                   <td className="border border-red-100 px-2 py-1 text-right font-bold text-red-700">{p.value}</td>
