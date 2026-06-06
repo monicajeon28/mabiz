@@ -492,7 +492,7 @@ function CalculatorContent() {
                       <input type="number" min={0}
                         value={memberMode === 'amount' ? memberAmtInput : Math.round(calc.memberAmt).toString()}
                         onChange={e => onMemberAmt(e.target.value)}
-                        onFocus={() => setMemberMode('amount')}
+                        onFocus={() => { if (memberMode !== 'amount') { setMemberAmtInput(Math.round(calc.memberAmt).toString()); setMemberMode('amount'); } }}
                         className={`w-full border rounded-lg px-2 py-2 text-sm text-right pr-8 focus:outline-none focus:ring-2 focus:ring-slate-400 ${memberMode === 'amount' ? 'border-slate-400 bg-white' : 'border-slate-200 bg-slate-50 text-slate-400'}`}
                         placeholder="0" />
                       <span className="absolute right-2 top-2 text-xs text-slate-400">원</span>
