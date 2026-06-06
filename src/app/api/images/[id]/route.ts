@@ -81,14 +81,16 @@ export async function PATCH(
       );
     }
 
-    const updated = await prisma.imageAsset.update({
-      where: { id },
+    await prisma.imageAsset.updateMany({
+      where: { id, organizationId: orgId },
       data: {
         ...(category && { category }),
         ...(tags && { tags }),
         lastAccessedAt: new Date(),
       },
     });
+     
+    const updated = (await prisma.imageAsset.findUnique({ where: { id } }))!;
 
     logger.info('[PATCH /api/images/[id]] 메타데이터 수정', {
       assetId: id,
@@ -138,8 +140,8 @@ export async function DELETE(
     }
 
     // DB에서만 삭제 (Drive 파일은 유지)
-    await prisma.imageAsset.delete({
-      where: { id },
+    await prisma.imageAsset.deleteMany({
+      where: { id, organizationId: orgId },
     });
 
     logger.info('[DELETE /api/images/[id]] 이미지 삭제', {
