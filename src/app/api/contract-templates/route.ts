@@ -37,21 +37,12 @@ export async function GET(req: Request) {
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          category: true,
-          visibility: true,
-          status: true,
-          version: true,
-          usageCount: true,
-          lastUsedAt: true,
-          psychologyLenses: true,
-          isSystemTemplate: true,
-          createdAt: true,
-          updatedAt: true,
-          createdByUserId: true,
+        include: {
+          applicableEntities: {
+            select: {
+              partnerId: true,
+            },
+          },
         },
       }),
       prisma.contractTemplate.count({ where }),
@@ -59,10 +50,33 @@ export async function GET(req: Request) {
 
     const totalPages = Math.ceil(total / limit);
 
+    // 응답 포맷 (적용 대상 정보 포함)
+    const formattedTemplates = templates.map((t: any) => ({
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      category: t.category,
+      visibility: t.visibility,
+      status: t.status,
+      version: t.version,
+      usageCount: t.usageCount,
+      lastUsedAt: t.lastUsedAt,
+      psychologyLenses: t.psychologyLenses,
+      isSystemTemplate: t.isSystemTemplate,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
+      createdByUserId: t.createdByUserId,
+      // 적용 대상 정보
+      applyToAllPartners: t.applicableEntities.some((e: any) => e.partnerId === null),
+      applicablePartnerIds: t.applicableEntities
+        .filter((e: any) => e.partnerId !== null)
+        .map((e: any) => e.partnerId),
+    }));
+
     return NextResponse.json(
       {
         ok: true,
-        data: templates,
+        data: formattedTemplates,
         pagination: {
           page,
           limit,
@@ -106,27 +120,60 @@ export async function POST(req: Request) {
     // Zod 스키마로 검증
     const validatedData = createContractTemplateSchema.parse(body);
 
-    // 계약 템플릿 생성
-    const template = await prisma.contractTemplate.create({
-      data: {
-        organizationId: orgId,
-        name: validatedData.name.trim(),
-        category: validatedData.category,
-        description: validatedData.description?.trim() || null,
-        htmlContent: validatedData.htmlContent || null,
-        jsonContent: body.jsonContent || null,
-        visibility: validatedData.visibility,
-        createdByUserId: ctx.userId,
-        fieldMapping: validatedData.fieldMapping || {},
-        psychologyLenses: validatedData.psychologyLenses,
-        smsDay0TemplateId: validatedData.smsDay0TemplateId || null,
-        smsDay1TemplateId: validatedData.smsDay1TemplateId || null,
-        smsDay2TemplateId: validatedData.smsDay2TemplateId || null,
-        smsDay3TemplateId: validatedData.smsDay3TemplateId || null,
-        status: "DRAFT",
-        version: 1,
-        isSystemTemplate: false,
-      },
+    // 트랜잭션: 템플릿 생성 + 적용 대상 설정
+    const template = await prisma.$transaction(async (tx) => {
+      // 1. 계약 템플릿 생성
+      const newTemplate = await tx.contractTemplate.create({
+        data: {
+          organizationId: orgId,
+          name: validatedData.name.trim(),
+          category: validatedData.category,
+          description: validatedData.description?.trim() || null,
+          htmlContent: validatedData.htmlContent || null,
+          jsonContent: body.jsonContent || null,
+          visibility: validatedData.visibility,
+          createdByUserId: ctx.userId,
+          fieldMapping: validatedData.fieldMapping || {},
+          psychologyLenses: validatedData.psychologyLenses,
+          smsDay0TemplateId: validatedData.smsDay0TemplateId || null,
+          smsDay1TemplateId: validatedData.smsDay1TemplateId || null,
+          smsDay2TemplateId: validatedData.smsDay2TemplateId || null,
+          smsDay3TemplateId: validatedData.smsDay3TemplateId || null,
+          status: "DRAFT",
+          version: 1,
+          isSystemTemplate: false,
+        },
+      });
+
+      // 2. 적용 대상 설정 (applicableEntities)
+      const applicablePartnerIds = body.applicablePartnerIds || []; // 특정 대리점 ID 배열
+      const applyToAllPartners = body.applyToAllPartners ?? true; // 기본: 모든 대리점에 적용
+
+      if (applyToAllPartners) {
+        // 모든 대리점에 적용 (partnerId = null)
+        await tx.contractApplicableEntity.create({
+          data: {
+            templateId: newTemplate.id,
+            organizationId: orgId,
+            entityType: "partner",
+            partnerId: null,
+          },
+        });
+      } else if (applicablePartnerIds.length > 0) {
+        // 특정 대리점만 적용
+        for (const partnerId of applicablePartnerIds) {
+          await tx.contractApplicableEntity.create({
+            data: {
+              templateId: newTemplate.id,
+              organizationId: orgId,
+              entityType: "partner",
+              partnerId,
+            },
+          });
+        }
+      }
+
+      return newTemplate;
     });
 
     logger.info(

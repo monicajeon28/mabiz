@@ -61,6 +61,8 @@ model Organization {
   contractTemplates          ContractTemplate[]
   contractInstances          ContractInstance[]
   contractTemplateAuditLogs  ContractTemplateAuditLog[]  @relation("ContractTemplateAuditLogs")
+  contractApplicableEntities ContractApplicableEntity[]  @relation("ContractApplicableEntities")
+  partnerContracts           PartnerContract[]          @relation("PartnerContracts")
   l1PriceObjections          L1PriceObjectionAttempt[]
   l1ABTestVariants           L1ABTestVariant[]
   l1OptimizationScores       L1OptimizationScore[]
@@ -2087,6 +2089,9 @@ model Partner {
   smsLogs            PartnerSmsLog[]
   riskScoreChanges   PartnerRiskScoreChange[]
   settlementLedger   SettlementLedger[]
+  // 계약서
+  contracts          PartnerContract[] @relation("Contracts")
+  applicableTemplates ContractApplicableEntity[] @relation("ApplicableContracts")
 
   @@unique([organizationId, name])
   @@index([organizationId])
@@ -5978,6 +5983,8 @@ model ContractTemplate {
   organization Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   instances    ContractInstance[]         @relation("TemplateInstances")
   auditLogs    ContractTemplateAuditLog[] @relation("AuditLogs")
+  applicableEntities ContractApplicableEntity[] @relation("ApplicableEntities")
+  usedByPartners PartnerContract[] @relation("UsedByPartners")
 
   @@index([organizationId])
   @@index([status])
@@ -6059,6 +6066,93 @@ model ContractTemplateAuditLog {
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+}
+
+// 계약서 템플릿 적용 대상 정의 (어디에 쓸 수 있는지)
+model ContractApplicableEntity {
+  id            String @id @default(cuid())
+  templateId    String
+  organizationId String
+
+  // 적용 대상 유형
+  entityType    String  // "partner" | "department" | "employee" | "customer"
+
+  // 적용 대상 (null = 모두에게 적용 가능)
+  partnerId     String?
+
+  // 타임스탬프
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+
+  // 관계
+  template      ContractTemplate @relation("ApplicableEntities", fields: [templateId], references: [id], onDelete: Cascade)
+  organization  Organization @relation("ContractApplicableEntities", fields: [organizationId], references: [id], onDelete: Cascade)
+  partner       Partner? @relation("ApplicableContracts", fields: [partnerId], references: [id], onDelete: SetNull)
+
+  @@unique([templateId, entityType, partnerId])
+  @@index([organizationId])
+  @@index([templateId])
+  @@index([partnerId])
+}
+
+// 대리점별 적용된 계약서 (실제 사용)
+model PartnerContract {
+  id            String @id @default(cuid())
+  organizationId String
+  partnerId     String
+  templateId    String
+
+  // 커스터마이즈된 본문 (템플릿에서 복사 후 수정 가능)
+  htmlContent   String? @db.Text
+  jsonContent   Json?
+
+  // 필드 매핑
+  fieldMapping  Json @default("{}")
+
+  // 섹션 정보 (템플릿 섹션을 복사)
+  sections      PartnerContractSection[]
+
+  // 상태
+  status        String @default("active") // "draft" | "active" | "archived"
+
+  // 심리학 렌즈
+  psychologyLenses String[] @default([])
+
+  // 타임스탬프
+  appliedAt     DateTime @default(now()) @db.Timestamptz(6)
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+
+  // 관계
+  organization  Organization @relation("PartnerContracts", fields: [organizationId], references: [id], onDelete: Cascade)
+  partner       Partner @relation("Contracts", fields: [partnerId], references: [id], onDelete: Cascade)
+  template      ContractTemplate @relation("UsedByPartners", fields: [templateId], references: [id], onDelete: Restrict)
+
+  @@unique([partnerId, templateId])
+  @@index([organizationId])
+  @@index([partnerId])
+  @@index([templateId])
+  @@index([status])
+}
+
+// 대리점별 계약서의 섹션
+model PartnerContractSection {
+  id            String @id @default(cuid())
+  contractId    String
+
+  // 섹션 정보
+  title         String
+  content       String? @db.Text
+  order         Int @default(0)
+
+  // 타임스탐프
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+
+  // 관계
+  contract      PartnerContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
 }
 
 model CrmMarketingMessage {
