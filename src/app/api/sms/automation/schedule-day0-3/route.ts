@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     if (!contact) {
       return NextResponse.json(
-        { error: `Contact not found: ${contactId}` },
+        { error: '고객 정보를 찾을 수 없습니다.' },
         { status: 404 }
       );
     }

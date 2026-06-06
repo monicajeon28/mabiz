@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
 
     if (!recipientPhone) {
       return NextResponse.json(
-        { error: `${targetRole} phone number not found` },
+        { error: '연락처 정보를 찾을 수 없습니다.' },
         { status: 400 }
       );
     }

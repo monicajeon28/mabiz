@@ -84,7 +84,7 @@ export async function PATCH(
       return NextResponse.json(
         {
           ok: false,
-          error: `이미 처리되었거나 승인 가능 상태가 아닙니다. (현재 상태: ${existing.status})`,
+          error: '이미 처리되었거나 승인 가능 상태가 아닙니다.',
         },
         { status: 409 }
       );
