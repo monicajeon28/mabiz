@@ -74,6 +74,9 @@ export async function GET(req: NextRequest) {
 
     const { trip } = data;
     const departureDate = trip.departureDate;
+    // [P1-3] 만료 비교/표시 모두 KST 'YYYY-MM-DD' 날짜만 기준으로 통일.
+    // new Date('YYYY-MM-DD') = UTC 자정 함정을 피하기 위해 서버·UI가 동일한 날짜문자열을 쓴다.
+    const departureYmd = toKstYmd(departureDate);
 
     // ── OWNER 테넌트격리: 해당 organization 소유 예약만 조회 ────────
     // Reservation → GmUser(mainUser) → OrganizationMember(phone 매칭) 으로 소속 판별.
@@ -164,11 +167,11 @@ export async function GET(req: NextRequest) {
         // 동일 reservationId·roomNumber 범위 안에서 동일 passportNo 가 서로 다른 travelerId 로
         // 2건+ 존재하면 중복 후보. (다른 예약은 grouping 단계에서 이미 분리되어 섞이지 않는다.)
         //
-        // ⚠️ 단, '싱글차지(1인 1실 = 동일 인물 여권 2회 입력)'는 정식 데이터 모델로 허용되므로
-        //    중복 오탐(false positive)에서 제외한다.
-        //    (apis-traveler-write.ts judgeSingleCharge / pnr/partner/create 의 판정 규칙과 동일 의미)
-        //    제외 조건: 해당 여권번호를 가진 같은 방 행이 모두 isSingleCharge=true 이면
-        //    동일인 더블엔트리(싱글차지)로 보고 중복 경고를 띄우지 않는다.
+        // ⚠️ [P2-1] '싱글차지(1인 1실 = 동일 인물 여권 2회 입력)' 정상 케이스 판정을
+        //    isSingleCharge 플래그 의존이 아니라 judgeSingleCharge 와 '동일 기준'(데이터 기하)으로 통일한다.
+        //    (apis-traveler-write.ts judgeSingleCharge: 방에 여권이 입력된 행이 2건+ 이고
+        //     그 방의 distinct passportNo 가 정확히 1개 = '그 방이 그 여권뿐'이면 동일인 더블엔트리)
+        //    → 그런 방의 그 여권만 중복 경고에서 제외. 그 외 서로 다른 사람이 같은 여권이면 중복 경고.
         const passportOwners = new Map<string, Set<number>>();
         for (const tv of list) {
           const pno = normalizePassport(tv.passportNo);
@@ -176,13 +179,22 @@ export async function GET(req: NextRequest) {
           if (!passportOwners.has(pno)) passportOwners.set(pno, new Set());
           passportOwners.get(pno)!.add(tv.travelerId);
         }
+
+        // judgeSingleCharge 와 동일한 기준의 '동일인 더블엔트리 방' 판정:
+        // 방 안에서 여권이 입력된 행이 2건+ 이고, 그 distinct 여권번호가 정확히 1개이면
+        // = 같은 사람을 2회 입력한 싱글차지 방(그 방=그 여권뿐) → 그 여권은 중복 경고 제외.
+        const filledPnos = list
+          .map((t) => normalizePassport(t.passportNo))
+          .filter((p): p is string => !!p);
+        const distinctPnos = new Set(filledPnos);
+        const isSameOccupantRoom = filledPnos.length >= 2 && distinctPnos.size === 1;
+
         const dupPassportSet = new Set<string>();
         for (const [pno, owners] of passportOwners) {
           if (owners.size < 2) continue;
-          // 같은 방에서 이 여권번호를 가진 모든 행
-          const ownerRows = list.filter((t) => normalizePassport(t.passportNo) === pno);
-          // 싱글차지 더블엔트리(동일인 2회 입력)면 정상 케이스 → 중복 제외
-          if (ownerRows.every((t) => t.isSingleCharge)) continue;
+          // '그 방이 그 여권뿐'(동일인 더블엔트리)이면 정상 케이스 → 중복 제외.
+          // 그 외(같은 방에 다른 여권도 섞여 있는데 동일 여권이 서로 다른 사람으로 2건+) → 중복 경고.
+          if (isSameOccupantRoom) continue;
           dupPassportSet.add(pno);
         }
 
@@ -201,7 +213,7 @@ export async function GET(req: NextRequest) {
             const isComplete = filled >= REQUIRED_FIELDS;
             if (isComplete) completed++;
 
-            const expiredPassport = isPassportExpired(tv.expiryDate, departureDate);
+            const expiredPassport = isPassportExpired(tv.expiryDate, departureYmd);
             if (expiredPassport) expiredCount++;
             if (!tv.passportNo || !String(tv.passportNo).trim()) pendingPassport++;
 
@@ -293,7 +305,8 @@ export async function GET(req: NextRequest) {
       product: {
         code: trip.productCode,
         name: trip.cruiseName ?? trip.packageName ?? trip.shipName ?? trip.productCode,
-        departureDate,
+        // [P1-3] UI(ApisBoard)가 만료배지·일수계산에 쓰는 출발일을 KST 'YYYY-MM-DD' 날짜만으로 통일.
+        departureDate: departureYmd,
         shipName: trip.shipName,
       },
       rooms,
@@ -364,10 +377,42 @@ function normalizePassport(passportNo: string | null): string | null {
   return norm.length > 0 ? norm : null;
 }
 
-/** 여권만료일(YYYY-MM-DD 등) < 출발일 이면 만료. 파싱 불가 시 false. */
-function isPassportExpired(expiryDate: string | null, departureDate: Date): boolean {
-  if (!expiryDate || !String(expiryDate).trim()) return false;
-  const exp = new Date(String(expiryDate).trim());
-  if (Number.isNaN(exp.getTime())) return false;
-  return exp.getTime() < departureDate.getTime();
+/**
+ * [P1-3] Date → KST(UTC+9) 'YYYY-MM-DD' 날짜 문자열.
+ * 출발일(서버 Date)을 UI와 동일한 날짜만 기준으로 비교/표시하기 위해 +9h 보정 후 날짜만 자른다.
+ * (new Date('YYYY-MM-DD') = UTC 자정 함정 제거)
+ */
+function toKstYmd(d: Date): string {
+  if (!d || Number.isNaN(d.getTime())) return '';
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  return kst.toISOString().slice(0, 10);
+}
+
+/**
+ * [P1-3] 임의 만료일 입력 → 'YYYY-MM-DD' 날짜만 정규화.
+ * 이미 'YYYY-MM-DD…' 형태면 앞 10자리를 그대로 쓰고(타임존 영향 0),
+ * 그 외(예: ISO/타임스탬프)는 KST 보정 후 날짜만 자른다. 파싱 불가 시 빈 문자열.
+ */
+function toExpiryYmd(raw: string | null): string {
+  if (!raw) return '';
+  const s = String(raw).trim();
+  if (!s) return '';
+  // 'YYYY-MM-DD' 또는 'YYYY/MM/DD' 같은 날짜 프리픽스는 그대로 날짜만 사용
+  const m = s.match(/^(\d{4})[-/.](\d{2})[-/.](\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  const dt = new Date(s);
+  if (Number.isNaN(dt.getTime())) return '';
+  return toKstYmd(dt);
+}
+
+/**
+ * 여권만료일 < 출발일 이면 만료. [P1-3] 'YYYY-MM-DD' 날짜 문자열 비교(일 단위)로 통일.
+ * departureYmd 는 KST 'YYYY-MM-DD'. 파싱 불가 시 false.
+ */
+function isPassportExpired(expiryDate: string | null, departureYmd: string): boolean {
+  if (!departureYmd) return false;
+  const expYmd = toExpiryYmd(expiryDate);
+  if (!expYmd) return false;
+  // 동일 형식 'YYYY-MM-DD' 문자열은 사전식 비교 = 날짜 비교와 동일.
+  return expYmd < departureYmd;
 }

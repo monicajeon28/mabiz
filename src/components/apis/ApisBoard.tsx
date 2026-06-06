@@ -232,14 +232,42 @@ function travelerDisplayName(t: BoardTraveler): string {
   return eng || '(이름없음)';
 }
 
-/** 출발일 기준 만료까지 남은 일수. 출발일에 이미 만료면 음수/0. null=계산불가 */
+/**
+ * 문자열을 'YYYY-MM-DD'(KST 달력 날짜)로 정규화해 UTC 자정 epoch(ms)로 환산한다.
+ * 서버(board route)의 만료 판정과 UI 배지를 동일 기준으로 맞추기 위한 핵심 헬퍼([P1-3]).
+ *
+ * 왜 필요한가: `new Date('2026-06-30').getTime()` 은 UTC 자정으로 파싱되지만,
+ * `new Date(isoWithTime)` 은 로컬 타임존이 섞여 들어가 같은 달력 날짜라도 시각 성분 때문에
+ * D-N 이 ±1 흔들리고 서버 판정과 어긋난다. → 시각 성분을 버리고 'YYYY-MM-DD'(KST)만 비교한다.
+ *  - 출발일(departureDate)은 서버가 ISO(시각 포함)로 내려줄 수 있어 KST 달력일로 환산한다.
+ *  - 만료일(expiryDate)은 보통 'YYYY-MM-DD' 문자열이며 동일하게 달력일만 취한다.
+ * 반환: UTC 자정 epoch(ms) / 파싱 불가 시 null.
+ */
+function toKstDateEpoch(value: string): number | null {
+  const s = (value || '').trim();
+  if (!s) return null;
+  // 이미 'YYYY-MM-DD'(앞 10자) 형태면 시각 성분 없이 그대로 사용 (타임존 드리프트 0)
+  const ymd = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymd) {
+    return Date.UTC(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
+  }
+  // 시각이 섞인 ISO 등은 KST(UTC+9) 달력일로 환산 후 날짜만 취한다 (서버 KST 기준과 일치)
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return null;
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  return Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate());
+}
+
+/**
+ * 출발일 기준 만료까지 남은 일수(달력 날짜 차, KST). 출발일에 이미 만료면 음수/0. null=계산불가.
+ * 서버 board route 의 만료 판정(만료일 < 출발일)과 같은 달력 기준이라 UI 배지와 서버 판정이 일치한다([P1-3]).
+ */
 function daysToExpiry(expiryDate: string, departureDate: string): number | null {
-  if (!expiryDate?.trim() || !departureDate?.trim()) return null;
-  const exp = new Date(expiryDate.trim());
-  const dep = new Date(departureDate.trim());
-  if (Number.isNaN(exp.getTime()) || Number.isNaN(dep.getTime())) return null;
+  const exp = toKstDateEpoch(expiryDate);
+  const dep = toKstDateEpoch(departureDate);
+  if (exp == null || dep == null) return null;
   const MS = 1000 * 60 * 60 * 24;
-  return Math.round((exp.getTime() - dep.getTime()) / MS);
+  return Math.round((exp - dep) / MS);
 }
 
 /** 만료 배지 텍스트: 출발일 이전 만료면 'D-N 만료위험' / 이미 지났으면 '만료' */
@@ -608,64 +636,35 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
     [loadBoard, showToast],
   );
 
-  // 삭제 되살리기: 같은 예약/방에 동행인으로 재등록 후 핵심필드 복원.
-  // 호출 전제(deleteTraveler 에서 보장): 배정된 방(room>0)의 "동행인" 만 이 경로로 복구한다.
-  // (미배정 room 0 은 POST 가 400 을 반환하고, 비동행인은 역할이 뒤바뀌므로 호출하지 않는다.)
-  const restoreTraveler = useCallback(
-    async (snap: BoardTraveler & { currentRoom: number }) => {
-      // 안전망: room 0 으로는 POST 가 400 → 거짓 복구를 시도하지 않는다.
-      if (!(snap.currentRoom > 0)) {
-        showToast('미배정 카드는 자동 되살리기를 할 수 없어요. 직접 다시 등록해 주세요.', 'warn');
-        return;
-      }
+  // 삭제 무손실 되살리기: POST /undo {expectedAuditId} 로 서버가 DELETE 스냅샷(전체 JSON)을
+  // 그대로 복원한다([P0]). 기존 '동행인 POST 재생성'(손실복원: 역할/그룹/고객연결/여권필드 유실)을
+  // 완전히 대체한다. 구매자·동행인·미배정 모두 같은 경로로 원래 모습 그대로 복원된다.
+  //   - expectedAuditId = 그 삭제건의 TRAVELER_DELETE 감사로그 id (DELETE 응답의 auditId).
+  //     서버가 이 id 로 '정확히 그 삭제건만' 멱등 복원하고, 이미 복원/존재 시 409 로 차단한다.
+  const undoDelete = useCallback(
+    async (who: string, expectedAuditId: number, travelerId: number): Promise<void> => {
       try {
-        const res = await fetch('/api/admin/apis/traveler', {
+        const res = await fetch(`/api/admin/apis/traveler/${travelerId}/undo`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            reservationId: snap.reservationId,
-            roomNumber: snap.currentRoom,
-            korName: snap.korName?.trim() || undefined,
-            phone: snap.phone?.trim() || undefined,
-            passportNo: snap.passportNo?.trim() || undefined,
-          }),
+          body: JSON.stringify({ expectedAuditId }),
         });
         const data = await res.json();
+        if (res.status === 409) {
+          // 이미 되살림 / 대상 id 가 이미 존재(중복 복원) → 보드만 최신화
+          showToast(data.error || '이미 되살렸어요. 최신 정보를 불러옵니다.', 'warn');
+          await loadBoard();
+          return;
+        }
         if (!res.ok || !data.ok) {
           showToast(data.error || '되살리기에 실패했습니다.', 'warn');
           await loadBoard();
           return;
         }
-        // 새로 생성된 traveler 에 핵심 여권필드 복원(있으면)
-        const newId: number | undefined =
-          typeof data.traveler?.id === 'number' ? data.traveler.id : undefined;
-        const newVer: number =
-          typeof data.traveler?.version === 'number' ? data.traveler.version : 0;
-        if (newId != null) {
-          const restore: Record<string, string> = {};
-          for (const k of EDITABLE_KEYS) {
-            const v = (snap as unknown as Record<string, unknown>)[k];
-            if (v != null && String(v).trim()) restore[k] = String(v).trim();
-          }
-          // 이미 POST 로 들어간 korName/phone 제외 — 나머지만 PATCH
-          delete restore.korName;
-          delete restore.phone;
-          if (Object.keys(restore).length > 0) {
-            await fetch(`/api/admin/apis/traveler/${newId}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'update',
-                changes: restore,
-                expectedVersion: newVer,
-              }),
-            });
-          }
-        }
-        showToast(`${travelerDisplayName(snap)}님을 되살렸어요.`, 'ok');
+        showToast(`${who}님을 되살렸어요.`, 'ok');
         await loadBoard();
       } catch (err) {
-        logger.error('[ApisBoard] restoreTraveler failed', { err: String(err) });
+        logger.error('[ApisBoard] undoDelete failed', { err: String(err) });
         showToast('되살리기 중 오류가 발생했습니다.', 'warn');
         await loadBoard();
       }
@@ -673,36 +672,30 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
     [loadBoard, showToast],
   );
 
-  // ── 단건 삭제 ──────────────────────────────────────────────
+  // ── 단건 삭제 (무손실 undo) ─────────────────────────────────
   //
-  // 되살리기(undo)는 동행인 추가(POST) 경로로 새 traveler 를 재생성하는 방식이라
-  // 다음 경우엔 "원래 모습 그대로" 복구가 불가능하다 → 거짓 약속을 하지 않는다:
-  //   (A) 미배정(room 0): POST 가 roomNumber>0 을 요구해 400('roomNumber가 올바르지 않습니다')
-  //       → 되살리기 버튼이 항상 실패. (깨진 undo 약속 = 데이터 영구 소실)
-  //   (B) 원래 구매자(비동행인): POST 는 항상 companionGroupId 를 부여해 동행인으로 역할이 뒤바뀌고,
-  //       userId 재매칭 실패 시 고아 PROSPECT 가 생긴다(원본 User 연결 끊김).
-  // 위 두 경우는 5초 undo 를 제공하지 않고, 영구 삭제임을 명확히 confirm 으로 알린다.
-  // (역할/그룹/고객연결까지 무손실 복구는 서버 RESTORE 엔드포인트가 필요 — 별도 작업.)
-  //
-  // 안전 복구가 의미 있는 경우 = "배정된 방(room>0)의 동행인" 일 때만 5초 되살리기를 제공한다.
+  // [P0] 삭제 후 되살리기는 서버 /undo 라우트로 DELETE 스냅샷을 무손실 복원한다.
+  // 따라서 구매자·동행인·미배정을 가리지 않고 모두 5초 되살리기를 제공한다(거짓 약속 없음).
+  // 단, 서버가 auditId 를 돌려주지 않은 경우(계약 미충족)에만 되살리기 버튼을 숨겨
+  // 깨진 undo 약속을 만들지 않는다.
+  // [R1] DELETE 에 expectedVersion(t.version)을 함께 보내 lost-delete(그 사이 다른 사람이
+  //      수정한 최신 행을 모르고 지움)를 서버 낙관락으로 차단한다. 409 → 최신 불러오기.
   const deleteTraveler = useCallback(
     async (t: BoardTraveler, currentRoom: number) => {
       const who = travelerDisplayName(t);
       const role = t.isCompanion ? '동행인' : '구매자';
-      // 동행인 + 배정된 방일 때만 동행인 POST 경로로 원래 역할 그대로 복구 가능
-      const canSafelyUndo = t.isCompanion && currentRoom > 0;
 
-      const confirmMsg = canSafelyUndo
-        ? `${who}님(${role})을 이 명단에서 정말 빼나요?\n삭제해도 5초 안에 되살릴 수 있어요.`
-        : `${who}님(${role})을 이 명단에서 정말 빼나요?\n` +
-          `이 경우는 자동 되살리기가 안 돼요(영구 삭제). 다시 추가하려면 직접 등록해야 해요.`;
-
+      const confirmMsg =
+        `${who}님(${role})을 이 명단에서 정말 빼나요?\n삭제해도 5초 안에 되살릴 수 있어요.`;
       if (!window.confirm(confirmMsg)) return;
 
-      // 되살리기용 스냅샷(현재 화면값) 보관 — 안전 복구 가능한 경우에만 사용
-      const snapshot = { ...t, currentRoom };
       try {
-        const res = await fetch(`/api/admin/apis/traveler/${t.id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/admin/apis/traveler/${t.id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          // [R1] 낙관락: 화면이 본 version 을 함께 보내 그 사이 수정된 행을 모르고 지우는 것 차단
+          body: JSON.stringify({ expectedVersion: t.version }),
+        });
         const data = await res.json();
         if (res.status === 409) {
           showToast('다른 담당자가 방금 수정했어요. 최신 정보를 불러옵니다.', 'warn');
@@ -713,14 +706,17 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
           showToast(data.error || '삭제에 실패했습니다.', 'warn');
           return;
         }
-        // 안전 복구 가능한 경우(배정된 방의 동행인)에만 5초 되살리기 버튼 제공.
-        if (canSafelyUndo) {
+
+        // 무손실 되살리기: 서버가 돌려준 auditId 를 expectedAuditId 로 /undo 호출.
+        const auditId: number | null =
+          typeof data.auditId === 'number' && Number.isInteger(data.auditId) ? data.auditId : null;
+        if (auditId != null) {
           showToast(`${who}님을 명단에서 뺐어요.`, 'ok', () => {
-            void restoreTraveler(snapshot);
+            void undoDelete(who, auditId, t.id);
           });
         } else {
-          // 거짓 undo 약속 금지 — 되살리기 버튼 없이 영구 삭제됨을 안내
-          showToast(`${who}님을 명단에서 뺐어요. (자동 되살리기 불가)`, 'warn');
+          // 계약 미충족(auditId 누락) → 거짓 undo 약속 금지: 되살리기 버튼 없이 안내
+          showToast(`${who}님을 명단에서 뺐어요.`, 'warn');
         }
         await loadBoard();
       } catch (err) {
@@ -728,7 +724,7 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
         showToast('삭제 중 오류가 발생했습니다.', 'warn');
       }
     },
-    [loadBoard, showToast, restoreTraveler],
+    [loadBoard, showToast, undoDelete],
   );
 
   // ── 엑셀(CSV) 다운로드 — 경고 confirm 후 클라이언트 생성 ────────

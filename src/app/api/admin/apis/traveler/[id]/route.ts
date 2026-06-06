@@ -231,9 +231,18 @@ export async function PATCH(
  *     이후 1클릭 되돌리기(undo)로 복구 가능하게 한다.
  *   - 삭제로 같은 방 잔류자의 인원 구성이 바뀌므로 isSingleCharge 를 재판정한다.
  *   - 모든 변경(삭제 + 재판정)을 한 트랜잭션 + 감사로그로 묶는다.
+ *   - [P1-4] 낙관적 잠금: expectedVersion(body/query) 제공 시 트랜잭션 내에서
+ *     현재 traveler.version 과 비교, 불일치하면 409 conflict + 최신본 반환 →
+ *     '내가 보던 화면이 그 사이 바뀐 상태에서 엉뚱한 행을 지우는' lost-delete 차단.
+ *
+ * body(또는 query) (선택):
+ *   - expectedVersion?: number  낙관적 잠금 기준값(불일치 시 409 conflict)
  *
  * 응답:
- *   - 200 { ok:true, deleted: { id, roomNumber, isCompanion }, residualUpdated }
+ *   - 200 { ok:true, deleted: { id, roomNumber, isCompanion }, auditId, residualUpdated }
+ *           auditId = 이 삭제로 남긴 TRAVELER_DELETE 감사로그 id. UI가 이 값을
+ *           POST /undo { expectedAuditId } 로 넘겨 정확한 그 삭제건만 무손실 복원한다.
+ *   - 409 { ok:false, conflict:true, latest }   낙관적 잠금 충돌(최신본 동봉)
  *   - 404 { ok:false, error }   대상 없음
  *   - 400 / 401 / 403 / 500
  */
@@ -264,6 +273,32 @@ export async function DELETE(
     const travelerId = Number(id);
     if (!Number.isInteger(travelerId) || travelerId <= 0) {
       return NextResponse.json({ ok: false, error: '잘못된 travelerId 입니다.' }, { status: 400, headers: noStore });
+    }
+
+    // ── [P1-4] 낙관적 잠금 기준값 expectedVersion 파싱 (body 우선, 없으면 query) ──
+    // DELETE 는 body 가 없을 수 있어 query(?expectedVersion=) 도 허용한다. 둘 다 없으면
+    // undefined → 낙관락 미적용(기존 동작 보존, 회귀 없음).
+    let expectedVersion: number | undefined;
+    {
+      const raw = req.headers.get('content-length');
+      const hasBody = raw !== null && raw !== '0';
+      if (hasBody) {
+        try {
+          const body = (await req.json()) as { expectedVersion?: unknown };
+          if (typeof body?.expectedVersion === 'number' && Number.isInteger(body.expectedVersion)) {
+            expectedVersion = body.expectedVersion;
+          }
+        } catch {
+          // 본문 파싱 실패는 무시 — query 폴백으로 진행(낙관락은 선택값)
+        }
+      }
+      if (expectedVersion === undefined) {
+        const q = req.nextUrl.searchParams.get('expectedVersion');
+        if (q !== null && q.trim() !== '') {
+          const n = Number(q);
+          if (Number.isInteger(n)) expectedVersion = n;
+        }
+      }
     }
 
     // updatedBy / 감사 userId 로 기록할 GmUser id(Int) 해석 (PATCH 와 동일 규칙)
@@ -314,13 +349,22 @@ export async function DELETE(
     const isCompanion = traveler.companionGroupId != null;
 
     // ── 단건 삭제 + 스냅샷 + 잔류자 싱글차지 재판정 (한 트랜잭션) ──
-    const residualUpdated = await prisma.$transaction(async (tx) => {
+    const { auditId, residualUpdated } = await prisma.$transaction(async (tx) => {
       // (1) 트랜잭션 내 재확인 (그 사이 삭제됐을 수 있음)
       const cur = await tx.gmTraveler.findUnique({ where: { id: travelerId } });
       if (!cur) throw new TravelerNotFound();
 
-      // (2) 삭제 감사로그 — oldValue = traveler 전체 JSON 스냅샷(복구가능)
-      await tx.gmReservationAudit.create({
+      // (1.5) [P1-4] 낙관적 잠금: 그 사이 다른 사용자가 같은 행을 수정(version+1)했다면
+      // 내가 보던 스냅샷과 달라졌으므로 삭제를 막고 최신본을 돌려준다(409). 트랜잭션 내부에서
+      // 비교해 TOCTOU 없이 안전. expectedVersion 미제공 시 기존 동작 유지(검사 생략).
+      if (expectedVersion !== undefined && cur.version !== expectedVersion) {
+        throw new TravelerVersionConflict(cur);
+      }
+
+      // (2) 삭제 감사로그 — oldValue = traveler 전체 JSON 스냅샷(복구가능).
+      // 생성된 audit.id 를 캡처해 응답으로 돌려준다 → UI 가 /undo { expectedAuditId } 로
+      // 정확히 이 삭제건만 무손실 복원(P0 토대).
+      const deleteAudit = await tx.gmReservationAudit.create({
         data: {
           reservationId: cur.reservationId,
           userId,
@@ -328,6 +372,7 @@ export async function DELETE(
           oldValue: JSON.stringify(cur),
           metadata: { travelerId, isCompanion } as Prisma.InputJsonValue,
         },
+        select: { id: true },
       });
 
       // (3) 단건 삭제 (deleteMany 금지 — id 1건만)
@@ -366,7 +411,7 @@ export async function DELETE(
           updatedCount++;
         }
       }
-      return updatedCount;
+      return { auditId: deleteAudit.id, residualUpdated: updatedCount };
     });
 
     logger.log('[APIS Traveler DELETE]', {
@@ -375,11 +420,17 @@ export async function DELETE(
       action: 'TRAVELER_DELETE',
       roomNumber: deletedRoom,
       isCompanion,
+      auditId,
       residualUpdated,
     });
 
     return NextResponse.json(
-      { ok: true, deleted: { id: travelerId, roomNumber: deletedRoom, isCompanion }, residualUpdated },
+      {
+        ok: true,
+        deleted: { id: travelerId, roomNumber: deletedRoom, isCompanion },
+        auditId,
+        residualUpdated,
+      },
       { status: 200, headers: noStore }
     );
   } catch (err) {
@@ -388,6 +439,13 @@ export async function DELETE(
       return NextResponse.json(
         { ok: false, error: '해당 예약에 접근할 권한이 없습니다.' },
         { status: 403, headers: noStore }
+      );
+    }
+    // [P1-4] 낙관적 잠금 충돌 → 409 + 최신본 (UI '최신본 불러오기' 후 재시도)
+    if (err instanceof TravelerVersionConflict) {
+      return NextResponse.json(
+        { ok: false, conflict: true, latest: err.latest },
+        { status: 409, headers: noStore }
       );
     }
     if (err instanceof TravelerNotFound) {
