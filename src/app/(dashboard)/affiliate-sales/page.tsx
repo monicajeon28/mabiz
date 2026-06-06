@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { AffiliateSalesResponse } from "@/lib/affiliate/types";
 import { useToast } from "@/lib/api/use-toast";
+import { logger } from "@/lib/logger";
 
 type Sale = {
   id: number;
@@ -19,7 +20,16 @@ type Sale = {
   customerName: string | null;
   customerPhone: string | null;
   createdAt: string;
+  // 수당 귀속(대리점장 구매확인)
+  managerDisplayName?: string | null;
+  presalesDisplayName?: string | null;
+  presalesPhone?: string | null;
+  commissionOwnerType?: string | null;
+  commissionOwnerConfirmed?: boolean;
+  confirmedOwnerAt?: string | null;
 };
+
+const OWNER_LABEL: Record<string, string> = { PRESALES: "프리세일즈", BRANCH_MANAGER: "대리점장" };
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   PENDING:          { label: "대기",     color: "bg-yellow-100 text-yellow-700" },
@@ -39,6 +49,9 @@ export default function AffiliateSalesPage() {
   const [status,  setStatus]  = useState("");
   const [loading, setLoading] = useState(true);
   const [acting,  setActing]  = useState<number | null>(null);
+  // 수당 귀속 확정 모달
+  const [confirmTarget, setConfirmTarget] = useState<{ sale: Sale; ownerType: "PRESALES" | "BRANCH_MANAGER"; name: string } | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   const totalPages = Math.ceil(total / 20);
 
@@ -66,7 +79,7 @@ export default function AffiliateSalesPage() {
       // ✅ HTTP 상태 코드 확인
       if (!r.ok) {
         const errorMsg = await r.text().catch(() => `HTTP ${r.status}`);
-        console.warn(`[affiliate-sales] ${action} 실패`, { id, status: r.status, error: errorMsg });
+        logger.warn(`[affiliate-sales] ${action} 실패`, { id, status: r.status, error: errorMsg });
         toast({ title: '요청 실패', description: `(${r.status}): ${errorMsg}`, variant: 'destructive' });
         setActing(null);
         return;
@@ -75,7 +88,7 @@ export default function AffiliateSalesPage() {
       const d = await r.json().catch(() => ({ ok: false }));
 
       if (!d.ok) {
-        console.warn("[affiliate-sales] action 실패", { id, action, message: d.message });
+        logger.warn("[affiliate-sales] action 실패", { id, action, message: d.message });
         toast({ title: `${action} 실패`, description: d.message || '서버 오류', variant: 'destructive' });
         setActing(null);
         return;
@@ -85,9 +98,35 @@ export default function AffiliateSalesPage() {
       load();
     } catch (err) {
       const msg = err instanceof Error ? err.message : '네트워크 오류';
-      console.warn("[affiliate-sales] action 네트워크 오류", { id, action, err: msg });
+      logger.warn("[affiliate-sales] action 네트워크 오류", { id, action, err: msg });
       toast({ title: '네트워크 오류', description: msg, variant: 'destructive' });
       setActing(null);
+    }
+  };
+
+  // 수당 귀속 확정 (몰로 발신)
+  const doConfirmOwner = async () => {
+    if (!confirmTarget) return;
+    const { sale, ownerType } = confirmTarget;
+    setConfirming(true);
+    try {
+      const r = await fetch(`/api/affiliate-sales/${sale.id}/confirm-owner`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ownerType }),
+      });
+      const d = await r.json().catch(() => ({ ok: false }));
+      if (r.ok && d.ok) {
+        toast({ title: "구매확인 완료", description: `#${sale.id} → ${OWNER_LABEL[ownerType]} 귀속 확정` });
+        setConfirmTarget(null);
+        load();
+      } else {
+        toast({ title: "구매확인 실패", description: d.error || `HTTP ${r.status}`, variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "네트워크 오류", description: err instanceof Error ? err.message : "전송 실패", variant: "destructive" });
+    } finally {
+      setConfirming(false);
     }
   };
 
@@ -133,6 +172,7 @@ export default function AffiliateSalesPage() {
                   <th className="text-right px-4 py-3 font-medium text-gray-500 text-sm">판매액</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">기간</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">상태</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">수당 귀속</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">액션</th>
                 </tr>
               </thead>
@@ -150,6 +190,38 @@ export default function AffiliateSalesPage() {
                       <td className="px-4 py-3 text-gray-500 text-sm">{s.yearMonth ?? "-"}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${st.color}`}>{st.label}</span>
+                      </td>
+                      {/* 수당 귀속: 프리세일즈/대리점장 표기 + 2택 구매확인 or 확정배지 */}
+                      <td className="px-4 py-3">
+                        {(s.presalesDisplayName || s.managerDisplayName) && (
+                          <div className="mb-1 space-y-0.5 text-xs text-gray-500">
+                            {s.presalesDisplayName && <div>프리세일즈: <span className="text-gray-700">{s.presalesDisplayName}</span>{s.presalesPhone ? ` (${s.presalesPhone})` : ""}</div>}
+                            {s.managerDisplayName && <div>대리점장: <span className="text-gray-700">{s.managerDisplayName}</span></div>}
+                          </div>
+                        )}
+                        {s.commissionOwnerConfirmed ? (
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                            (s.status === "REFUNDED" || s.status === "CANCELLED")
+                              ? "bg-gray-100 text-gray-400 line-through" // 환불·취소 시 무력화 표시(몰이 정산 처리)
+                              : "bg-blue-100 text-blue-700"
+                          }`}>
+                            확정 · {OWNER_LABEL[s.commissionOwnerType ?? ""] ?? s.commissionOwnerType ?? "-"}
+                            {s.confirmedOwnerAt ? ` · ${new Date(s.confirmedOwnerAt).toLocaleDateString("ko-KR")}` : ""}
+                          </span>
+                        ) : (s.status !== "REFUNDED" && s.status !== "CANCELLED" && s.status !== "REJECTED") ? (
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => setConfirmTarget({ sale: s, ownerType: "PRESALES", name: s.presalesDisplayName ?? s.agentDisplayName ?? "프리세일즈" })}
+                              className="px-2 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            >프리세일즈 확인</button>
+                            <button
+                              onClick={() => setConfirmTarget({ sale: s, ownerType: "BRANCH_MANAGER", name: s.managerDisplayName ?? "대리점장" })}
+                              className="px-2 py-1 rounded-lg text-xs font-medium bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                            >대리점장 확인</button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
@@ -209,6 +281,31 @@ export default function AffiliateSalesPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 수당 귀속 확정 모달 */}
+      {confirmTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !confirming && setConfirmTarget(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900">구매확인 — 수당 귀속</h3>
+            <p className="mt-3 text-sm text-gray-600">
+              판매 <strong>#{confirmTarget.sale.id}</strong>의 수당을{" "}
+              <strong className="text-indigo-700">{confirmTarget.name}</strong>
+              <span className="text-gray-500"> ({OWNER_LABEL[confirmTarget.ownerType]})</span>에게 귀속 확정합니다.
+            </p>
+            <p className="mt-2 text-xs text-gray-400">
+              확정하면 크루즈닷몰로 전달되어 수당이 확정됩니다.{confirmTarget.ownerType === "BRANCH_MANAGER" ? " (대리점장 수당에서 1,000원이 프리세일즈 DB값으로 전달됩니다.)" : ""} 환불 시 자동 해제됩니다.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setConfirmTarget(null)} disabled={confirming}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50">취소</button>
+              <button onClick={doConfirmOwner} disabled={confirming}
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 inline-flex items-center gap-1">
+                {confirming && <Loader2 className="w-4 h-4 animate-spin" />} 확정
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

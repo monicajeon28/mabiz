@@ -22,6 +22,15 @@ type RawSale = {
   agentMallUserId: string | null;
   customerName: string | null;
   customerPhone: string | null;
+  // 담당자 분리 표기 + 확정 신호 (대리점장 구매확인용)
+  managerDisplayName: string | null;     // 대리점장(managerId)
+  presalesDisplayName: string | null;    // 프리세일즈(sourceAgentId)
+  presalesPhone: string | null;
+  sourceAgentId: number | null;
+  commissionOwnerType: string | null;
+  commissionOwnerConfirmed: boolean;
+  confirmedOwnerById: number | null;
+  confirmedOwnerAt: Date | null;
 };
 
 const ALLOWED_STATUSES = new Set([
@@ -87,11 +96,22 @@ export async function GET(req: NextRequest) {
           ap."displayName"   AS "agentDisplayName",
           u."mallUserId"     AS "agentMallUserId",
           lead."customerName",
-          lead."customerPhone"
+          lead."customerPhone",
+          mgr."displayName"  AS "managerDisplayName",
+          pre."displayName"  AS "presalesDisplayName",
+          preU."phone"       AS "presalesPhone",
+          als."sourceAgentId",
+          als."commissionOwnerType",
+          als."commissionOwnerConfirmed",
+          als."confirmedOwnerById",
+          als."confirmedOwnerAt"
         FROM "AffiliateSale" als
         LEFT JOIN "AffiliateProfile" ap   ON ap.id   = als."agentId"
         LEFT JOIN "User"             u    ON u.id    = ap."userId"
         LEFT JOIN "AffiliateLead"    lead ON lead.id = als."leadId"
+        LEFT JOIN "AffiliateProfile" mgr  ON mgr.id  = als."managerId"
+        LEFT JOIN "AffiliateProfile" pre  ON pre.id  = als."sourceAgentId"
+        LEFT JOIN "User"             preU ON preU.id = pre."userId"
         ${whereClause}
         ORDER BY als."createdAt" DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -122,6 +142,14 @@ export async function GET(req: NextRequest) {
       agentMallUserId:    r.agentMallUserId,
       customerName:       r.customerName,
       customerPhone:      r.customerPhone ? r.customerPhone.slice(0, 3) + '-****-****' : null,
+      managerDisplayName:       r.managerDisplayName,
+      presalesDisplayName:      r.presalesDisplayName,
+      presalesPhone:            r.presalesPhone ? r.presalesPhone.slice(0, 3) + '-****-****' : null,
+      sourceAgentId:            r.sourceAgentId,
+      commissionOwnerType:      r.commissionOwnerType,
+      commissionOwnerConfirmed: r.commissionOwnerConfirmed,
+      confirmedOwnerById:       r.confirmedOwnerById,
+      confirmedOwnerAt:         r.confirmedOwnerAt ? new Date(r.confirmedOwnerAt).toISOString() : null,
     }));
 
     logger.log('[GET /api/affiliate-sales]', { role: ctx.role, total });
