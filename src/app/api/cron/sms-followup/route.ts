@@ -216,7 +216,7 @@ export async function POST(req: Request) {
             }
 
             // SMS 발송
-            const normalizedPhone = contact.phone.replace(/[^\d]/g, '');
+            const normalizedPhone = contact.phone?.replace(/[^\d]/g, '') ?? '';
             if (!normalizedPhone || normalizedPhone.length < 10) {
               response.failCount++;
               await prisma.scheduledSms.update({

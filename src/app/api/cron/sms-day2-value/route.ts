@@ -117,7 +117,7 @@ export async function POST(req: Request) {
     // 2. 각 고객의 응답 여부 분석 + 메시지 맞춤화
     for (const contact of day1SentContacts) {
       try {
-        const normalizedPhone = contact.phone.replace(/[^\d]/g, '');
+        const normalizedPhone = contact.phone?.replace(/[^\d]/g, '') ?? '';
         if (!normalizedPhone || normalizedPhone.length < 10) {
           response.failCount++;
           response.errors.push({

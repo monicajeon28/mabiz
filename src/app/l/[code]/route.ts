@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { logVisitToken } from '@/lib/visit-token';
+import { getABTestVariant, selectABVariant } from '@/lib/link-tracking';
 
 type Params = { params: Promise<{ code: string }> };
 
@@ -27,6 +28,54 @@ export async function GET(req: Request, { params }: Params) {
     return NextResponse.redirect('https://www.cruisedot.co.kr');
   }
 
+  // ✅ A/B 테스트 확인
+  let targetUrl = link.targetUrl;
+  let variant: "A" | "B" | null = null;
+  let abTestId: string | null = null;
+
+  // 이 링크가 B 변형인가?
+  const testAsB = await prisma.shortLinkABTest.findFirst({
+    where: { variantB_id: link.id, status: "ACTIVE" }
+  }).catch(() => null);
+
+  if (testAsB) {
+    // 테스트 중인 링크 (B 변형)
+    variant = selectABVariant();
+    abTestId = testAsB.id;
+
+    if (variant === "B") {
+      // B 링크니까 그냥 link.targetUrl 사용
+      targetUrl = link.targetUrl;
+    } else {
+      // A 링크로 분산
+      const variantA = await prisma.shortLink.findUnique({
+        where: { id: testAsB.variantA_id }
+      }).catch(() => null);
+      targetUrl = variantA?.targetUrl || link.targetUrl;
+    }
+  } else {
+    // 이 링크가 A 변형인가?
+    const testAsA = await prisma.shortLinkABTest.findFirst({
+      where: { variantA_id: link.id, status: "ACTIVE" }
+    }).catch(() => null);
+
+    if (testAsA) {
+      variant = selectABVariant();
+      abTestId = testAsA.id;
+
+      if (variant === "A") {
+        // A 링크니까 그냥 link.targetUrl 사용
+        targetUrl = link.targetUrl;
+      } else {
+        // B 링크로 분산
+        const variantB = await prisma.shortLink.findUnique({
+          where: { id: testAsA.variantB_id }
+        }).catch(() => null);
+        targetUrl = variantB?.targetUrl || link.targetUrl;
+      }
+    }
+  }
+
   // 클릭 기록 + 카운트 증가 (fire-and-forget)
   prisma.$transaction([
     prisma.shortLink.update({
@@ -38,6 +87,7 @@ export async function GET(req: Request, { params }: Params) {
         linkId:    link.id,
         contactId: paramContactId ?? link.contactId ?? null,
         userAgent: req.headers.get('user-agent')?.substring(0, 200) ?? null,
+        variant: variant || null,  // A/B 테스트 변형 추적
       },
     }),
   ]).catch((e) => logger.log('[ShortLink] 클릭 기록 실패', { code, error: e instanceof Error ? e.message : String(e) }));
@@ -53,16 +103,16 @@ export async function GET(req: Request, { params }: Params) {
     ).catch((e) => logger.log('[ShortLink] 그룹 배정 실패', { error: e instanceof Error ? e.message : String(e) }));
   }
 
-  logger.log('[ShortLink] 클릭', { code, contactId: link.contactId ?? '없음' });
+  logger.log('[ShortLink] 클릭', { code, contactId: link.contactId ?? '없음', variant, abTestId });
   try {
-    const parsed = new URL(link.targetUrl);
+    const parsed = new URL(targetUrl);
     if (parsed.protocol !== 'https:') {
       return NextResponse.redirect('https://www.cruisedot.co.kr', { status: 302 });
     }
   } catch {
     return NextResponse.redirect('https://www.cruisedot.co.kr', { status: 302 });
   }
-  const response = NextResponse.redirect(link.targetUrl, { status: 302 });
+  const response = NextResponse.redirect(targetUrl, { status: 302 });
   // visitToken 쿠키 설정 (24시간 유효)
   response.cookies.set('visitToken', link.id, {
     httpOnly: true,

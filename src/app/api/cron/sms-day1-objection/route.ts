@@ -89,7 +89,7 @@ export async function POST(req: Request) {
     // 2. 각 고객의 응답 여부 확인 + SMS 발송
     for (const contact of day0SentContacts) {
       try {
-        const normalizedPhone = contact.phone.replace(/[^\d]/g, '');
+        const normalizedPhone = contact.phone?.replace(/[^\d]/g, '') ?? '';
         if (!normalizedPhone || normalizedPhone.length < 10) {
           response.failCount++;
           response.errors.push({
