@@ -64,74 +64,108 @@ export async function POST(_req: Request, { params }: Params) {
     });
     if (conflict) newSlug = `${baseSlug}-${Date.now()}`;
 
-    // shortlink 생성
+    // shortlink 생성 (3회 재시도 + 충돌 방지)
     const shortlink = await generateUniqueShortlink();
 
-    // 트랜잭션: 복사 + 이미지 복사 + ShortLink 생성
-    const cloned = await prisma.$transaction(async (tx) => {
-      const newPage = await tx.crmLandingPage.create({
-        data: {
-          organizationId: orgId,
-          title: `${original.title} - 사본`,
-          slug: newSlug,
-          shortlink: shortlink,  // ← 생성된 shortlink 저장
-          htmlContent: original.htmlContent,
-          editorMode: original.editorMode,
-          isActive: false,
-          isPublic: original.isPublic,
-          groupId: null,
-          description: original.description,
-          buttonTitle: original.buttonTitle,
-          completionPageUrl: original.completionPageUrl,
-          headerScript: original.headerScript,
-          exposureTitle: original.exposureTitle,
-          exposureImage: original.exposureImage,
-          infoCollection: original.infoCollection,
-          formConfig: original.formConfig ?? undefined,
-          viewCount: 0,
-          createdByUserId: ctx.userId,  // ← SECURITY: 복제 사용자를 소유자로 설정
-        },
-        select: { id: true, title: true, slug: true, shortlink: true, isActive: true },
-      });
-
-      // 이미지 복사
-      if (originalImages.length > 0) {
-        await tx.crmLandingPageImage.createMany({
-          data: originalImages.map((img) => ({
-            landingPageId: newPage.id,
-            imageAssetId: img.imageAssetId,
-            sortOrder: img.sortOrder,
-            altText: img.altText ?? null,
-          })),
-          skipDuplicates: true,
+    // 트랜잭션: 복사 + 이미지 복사 + ShortLink 생성 (타임아웃 5초)
+    // 거장합의: Option A + 3회 재시도 + 트랜잭션 + 타임아웃 5초
+    const cloned = await prisma.$transaction(
+      async (tx) => {
+        const newPage = await tx.crmLandingPage.create({
+          data: {
+            organizationId: orgId,
+            title: `${original.title} - 사본`,
+            slug: newSlug,
+            shortlink: shortlink, // SECURITY: 고유 shortlink 저장
+            htmlContent: original.htmlContent,
+            editorMode: original.editorMode,
+            isActive: false,
+            isPublic: original.isPublic,
+            groupId: null,
+            description: original.description,
+            buttonTitle: original.buttonTitle,
+            completionPageUrl: original.completionPageUrl,
+            headerScript: original.headerScript,
+            exposureTitle: original.exposureTitle,
+            exposureImage: original.exposureImage,
+            infoCollection: original.infoCollection,
+            formConfig: original.formConfig ?? undefined,
+            viewCount: 0,
+            createdByUserId: ctx.userId, // SECURITY: 복제 사용자를 소유자로 설정
+          },
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            shortlink: true,
+            isActive: true,
+          },
         });
+
+        // 이미지 복사
+        if (originalImages.length > 0) {
+          await tx.crmLandingPageImage.createMany({
+            data: originalImages.map((img) => ({
+              landingPageId: newPage.id,
+              imageAssetId: img.imageAssetId,
+              sortOrder: img.sortOrder,
+              altText: img.altText ?? null,
+            })),
+            skipDuplicates: true,
+          });
+        }
+
+        // ShortLink 레코드 생성 (감사추적용)
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+        const targetUrl = `${appUrl}/landing/${newPage.id}`;
+        await tx.shortLink.create({
+          data: {
+            code: shortlink,
+            targetUrl,
+            title: newPage.title,
+            organizationId: orgId,
+            createdBy: ctx.userId,
+            category: "landing",
+            isActive: true,
+          },
+        });
+
+        return newPage;
+      },
+      {
+        timeout: 5000, // 거장 권장: 5초 타임아웃
+        maxWait: 5000, // 최대 대기 시간
       }
-
-      // ShortLink 레코드 생성
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      const targetUrl = `${appUrl}/landing/${newPage.id}`;
-      await tx.shortLink.create({
-        data: {
-          code: shortlink,
-          targetUrl,
-          title: newPage.title,
-          organizationId: orgId,
-          createdBy: ctx.userId,
-          category: "landing",
-          isActive: true,
-        },
-      });
-
-      return newPage;
-    });
+    );
 
     logger.log("[POST /api/landing-pages/[id]/clone-shared]", {
-      sourceId: id, newId: cloned.id, orgId,
+      sourceId: id,
+      newId: cloned.id,
+      shortlink: cloned.shortlink,
+      orgId,
     });
 
     return NextResponse.json({ ok: true, page: cloned });
   } catch (err) {
+    // SECURITY: unique violation 캐치 (감사추적)
+    if (
+      err instanceof Error &&
+      (err.message.includes("unique") || err.message.includes("Unique constraint"))
+    ) {
+      logger.error("[POST /api/landing-pages/[id]/clone-shared] UNIQUE_VIOLATION", {
+        err: err.message,
+      });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "DUPLICATE",
+          message: "복사 중 충돌이 발생했습니다. 다시 시도해주세요.",
+        },
+        { status: 409 }
+      );
+    }
+
     logger.error("[POST /api/landing-pages/[id]/clone-shared]", { err });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "SERVER_ERROR" }, { status: 500 });
   }
 }
