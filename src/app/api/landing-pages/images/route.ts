@@ -426,7 +426,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ ok: false, message: '이미지를 찾을 수 없습니다' }, { status: 404 });
     }
 
-    await prisma.crmLandingPageImage.delete({ where: { id } });
+    await prisma.crmLandingPageImage.deleteMany({ where: { id, landingPageId: ownerPage.id } });
 
     return NextResponse.json({ ok: true });
   } catch (err) {
