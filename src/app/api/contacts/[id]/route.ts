@@ -147,8 +147,9 @@ export async function PATCH(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: '전화번호는 비워둘 수 없습니다.' }, { status: 400 });
     }
 
+    // organizationId 포함: findFirst → update 사이 TOCTOU 방지
     const contact = await prisma.contact.update({
-      where: { id },
+      where: { id, organizationId: existing.organizationId },
       data: {
         ...(name           !== undefined ? { name }           : {}),
         // 전화번호는 OWNER/GLOBAL_ADMIN만 변경 가능 (고유 식별키 보호)

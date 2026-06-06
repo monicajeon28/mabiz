@@ -73,8 +73,9 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (body.repeatRule !== undefined) data.repeatRule = body.repeatRule || null;
     if (body.status !== undefined) data.status = body.status;
 
+    // organizationId 포함: findFirst → update 사이 TOCTOU 방지
     const campaign = await prisma.crmMarketingCampaign.update({
-      where: { id },
+      where: { id, organizationId: existing.organizationId ?? undefined },
       data,
       include: {
         group: { select: { id: true, name: true } },
