@@ -19,6 +19,9 @@ export async function GET() {
         { status: 401 }
       );
     }
+    if (!canManageSettings(ctx)) {
+      return NextResponse.json({ ok: false, message: "OWNER 또는 관리자만 이메일 설정을 조회할 수 있습니다." }, { status: 403 });
+    }
 
     const config = await prisma.orgEmailConfig.findUnique({
       where: { organizationId: ctx.organizationId },

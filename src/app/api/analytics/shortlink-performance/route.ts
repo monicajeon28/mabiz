@@ -70,7 +70,6 @@ export async function GET(req: NextRequest): Promise<NextResponse<AnalyticsRespo
         targetUrl: true,
         category: true,
         createdAt: true,
-        clickCount: true,
       },
     })
 

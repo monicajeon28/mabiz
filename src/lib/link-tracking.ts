@@ -12,7 +12,8 @@ export async function trackShortLinkImpressions(
 ) {
   try {
     // Step 1: 본문에서 모든 shortlink 감지
-    const linkPattern = /\/l\/([a-zA-Z0-9\-_]{8})/g;
+    // [P0 FIX #3] nanoid 기본값에 맞게 (a-z0-9- 만, underscore 불포함, 대문자 불포함)
+    const linkPattern = /\/l\/([a-z0-9\-]{8})/g;
     const matches = Array.from(body.matchAll(linkPattern));
 
     if (matches.length === 0) {

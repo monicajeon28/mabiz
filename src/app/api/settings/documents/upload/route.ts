@@ -17,10 +17,6 @@ export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
 
-    if (!ctx.mallUser?.id) {
-      return NextResponse.json({ ok: false, message: 'GMcruise 계정 연동이 필요합니다.' }, { status: 403 });
-    }
-
     const formData = await req.formData();
     const type = formData.get('type') as string | null;       // 'idCard' | 'bankbook'
     const file = formData.get('file') as File | null;
@@ -43,8 +39,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: 'Drive 폴더 설정 오류' }, { status: 500 });
     }
 
-    const userId = ctx.mallUser.id;
-    const userName = ctx.mallUser.name ?? `user_${userId}`;
+    // 사용자 식별: mallUser 없어도 member 이름 사용
+    const userName = ctx.mallUser?.name ?? ctx.member?.displayName ?? ctx.userId;
     const typeLabel = type === 'idCard' ? '신분증' : '통장사본';
 
     // KST 타임스탬프
@@ -69,38 +65,31 @@ export async function POST(req: Request) {
     const viewUrl = created.data.webViewLink
       ?? `https://drive.google.com/file/d/${created.data.id}/view`;
 
-    // GmAffiliateContract 업데이트 (userId 기준)
-    const contract = await prisma.gmAffiliateContract.findFirst({
-      where: { userId },
-      select: { id: true },
-    });
+    // GmAffiliateContract 업데이트 — GMcruise 연동된 경우에만 DB 저장
+    if (ctx.mallUser?.id) {
+      const gmUserId = ctx.mallUser.id;
+      const contract = await prisma.gmAffiliateContract.findFirst({
+        where: { userId: gmUserId },
+        select: { id: true },
+      });
 
-    if (contract) {
-      const updateData = type === 'idCard'
+      const docData = type === 'idCard'
         ? { idCardPath: viewUrl, idCardOriginalName: file.name }
         : { bankbookPath: viewUrl, bankbookOriginalName: file.name };
 
-      await prisma.gmAffiliateContract.update({
-        where: { id: contract.id },
-        data: updateData,
-      });
-    } else {
-      // 계약서 없으면 신규 생성 (최소 필드만)
-      const createData = type === 'idCard'
-        ? { idCardPath: viewUrl, idCardOriginalName: file.name }
-        : { bankbookPath: viewUrl, bankbookOriginalName: file.name };
-
-      await prisma.gmAffiliateContract.create({
-        data: {
-          userId,
-          name: userName,
-          phone: '',
-          ...createData,
-        },
-      });
+      if (contract) {
+        await prisma.gmAffiliateContract.update({
+          where: { id: contract.id },
+          data: docData,
+        });
+      } else {
+        await prisma.gmAffiliateContract.create({
+          data: { userId: gmUserId, name: userName, phone: '', ...docData },
+        });
+      }
     }
 
-    logger.log('[settings/documents/upload] 서류 업로드 완료', { type, userId, fileName });
+    logger.log('[settings/documents/upload] 서류 업로드 완료', { type, userName, fileName });
 
     return NextResponse.json({ ok: true, viewUrl, type });
   } catch (err) {
@@ -114,29 +103,38 @@ export async function GET() {
   try {
     const ctx = await getAuthContext();
 
-    if (!ctx.mallUser?.id) {
-      return NextResponse.json({ ok: false, message: 'GMcruise 계정 연동이 필요합니다.' }, { status: 403 });
+    // GMcruise 연동된 경우 DB에서 제출 상태 조회
+    if (ctx.mallUser?.id) {
+      const contract = await prisma.gmAffiliateContract.findFirst({
+        where: { userId: ctx.mallUser.id },
+        select: {
+          idCardPath: true,
+          idCardOriginalName: true,
+          bankbookPath: true,
+          bankbookOriginalName: true,
+        },
+      });
+
+      return NextResponse.json({
+        ok: true,
+        hasIdCard: !!contract?.idCardPath,
+        hasBankBook: !!contract?.bankbookPath,
+        idCardUrl: contract?.idCardPath ?? null,
+        bankbookUrl: contract?.bankbookPath ?? null,
+        idCardName: contract?.idCardOriginalName ?? null,
+        bankbookName: contract?.bankbookOriginalName ?? null,
+      });
     }
 
-    const userId = ctx.mallUser.id;
-    const contract = await prisma.gmAffiliateContract.findFirst({
-      where: { userId },
-      select: {
-        idCardPath: true,
-        idCardOriginalName: true,
-        bankbookPath: true,
-        bankbookOriginalName: true,
-      },
-    });
-
+    // GMcruise 미연동 사용자: 업로드 UI 표시 (제출 내역은 Drive에서 확인)
     return NextResponse.json({
       ok: true,
-      hasIdCard: !!contract?.idCardPath,
-      hasBankBook: !!contract?.bankbookPath,
-      idCardUrl: contract?.idCardPath ?? null,
-      bankbookUrl: contract?.bankbookPath ?? null,
-      idCardName: contract?.idCardOriginalName ?? null,
-      bankbookName: contract?.bankbookOriginalName ?? null,
+      hasIdCard: false,
+      hasBankBook: false,
+      idCardUrl: null,
+      bankbookUrl: null,
+      idCardName: null,
+      bankbookName: null,
     });
   } catch (err) {
     logger.error('[settings/documents/upload GET] 오류', { err });

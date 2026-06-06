@@ -76,21 +76,15 @@ export async function GET(req: Request, { params }: Params) {
     }
   }
 
-  // 클릭 기록 + 카운트 증가 (fire-and-forget)
-  prisma.$transaction([
-    prisma.shortLink.update({
-      where: { id: link.id },
-      data: { clickCount: { increment: 1 } },
-    }),
-    prisma.shortLinkClick.create({
-      data: {
-        linkId:    link.id,
-        contactId: paramContactId ?? link.contactId ?? null,
-        userAgent: req.headers.get('user-agent')?.substring(0, 200) ?? null,
-        variant: variant || null,  // A/B 테스트 변형 추적
-      },
-    }),
-  ]).catch((e) => logger.log('[ShortLink] 클릭 기록 실패', { code, error: e instanceof Error ? e.message : String(e) }));
+  // 클릭 기록 (fire-and-forget)
+  prisma.shortLinkClick.create({
+    data: {
+      linkId:    link.id,
+      contactId: paramContactId ?? link.contactId ?? null,
+      userAgent: req.headers.get('user-agent')?.substring(0, 200) ?? null,
+      variant: variant || null,
+    },
+  }).catch((e) => logger.log('[ShortLink] 클릭 기록 실패', { code, error: e instanceof Error ? e.message : String(e) }));
 
   // 클릭 시 그룹 자동 배정 (contactId + autoGroupId 있을 때)
   if (link.contactId && link.autoGroupId) {

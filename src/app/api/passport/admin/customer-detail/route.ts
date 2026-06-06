@@ -4,6 +4,43 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireCrmManager } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
+import { normalizeDateOnlyString } from '@/lib/passport-date';
+
+/**
+ * GmTraveler.birthDate/expiryDate(String SSoT)용 날짜 정규화.
+ * 문자열은 yyyy-MM-dd 검증, Date/timestamp는 변환 후 검증.
+ * 형식 불일치('2030/01/15','Invalid' 등)는 null → APIS 엑셀 깨짐 차단.
+ */
+function normalizeTravelerDate(v: unknown): string | null {
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'string') return normalizeDateOnlyString(v);
+  const d = new Date(v as string | number | Date);
+  if (isNaN(d.getTime())) return null;
+  return normalizeDateOnlyString(d.toISOString().slice(0, 10));
+}
+
+/**
+ * OWNER 테넌트 격리: 대상 고객(userId)이 OWNER의 조직 소속인지 확인.
+ * (submission-guests/route.ts와 동일 — CrmAffiliateSale.customerPhone ↔ User.phone ↔ organizationId)
+ * @returns true = 차단해야 함(권한 없음), false = 접근 허용
+ */
+async function ownerOrgBlocked(
+  manager: { role?: string | null; organizationId?: string | number | null },
+  userId: number,
+): Promise<boolean> {
+  if (manager.role !== 'OWNER') return false; // GLOBAL_ADMIN 등은 통과
+  if (!manager.organizationId) return true; // organizationId 없는 OWNER는 차단(보안 기본값)
+  const orgId = String(manager.organizationId);
+  const rows = await prisma.$queryRaw<Array<{ cnt: bigint }>>`
+    SELECT COUNT(*) AS cnt
+    FROM "User" u
+    JOIN "CrmAffiliateSale" af ON REGEXP_REPLACE(af."customerPhone", '[^0-9]', '', 'g')
+        = REGEXP_REPLACE(u.phone, '[^0-9]', '', 'g')
+    WHERE u.id = ${userId}
+      AND af."organizationId" = ${orgId}
+  `;
+  return Number(rows[0]?.cnt ?? 0) === 0;
+}
 
 // POST: 수동 여권 등록 (조건 없이 등록 가능)
 export async function POST(req: NextRequest) {
@@ -43,6 +80,11 @@ export async function POST(req: NextRequest) {
         { ok: false, error: 'User not found' },
         { status: 404 }
       );
+    }
+
+    // OWNER 테넌트 격리: 타 조직 고객 여권 PII 조작 차단
+    if (await ownerOrgBlocked(manager, userId)) {
+      return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
     }
 
     let targetReservationId: number;
@@ -147,8 +189,8 @@ export async function POST(req: NextRequest) {
           engGivenName: engGivenName?.trim() || null,
           engSurname: engSurname?.trim() || null,
           passportNo: passportNo.trim(),
-          birthDate: birthDate ? (typeof birthDate === 'string' ? birthDate : new Date(birthDate).toISOString().split('T')[0]) : null,
-          expiryDate: expiryDate ? (typeof expiryDate === 'string' ? expiryDate : new Date(expiryDate).toISOString().split('T')[0]) : null,
+          birthDate: normalizeTravelerDate(birthDate),
+          expiryDate: normalizeTravelerDate(expiryDate),
         },
       });
 
@@ -173,8 +215,8 @@ export async function POST(req: NextRequest) {
         engGivenName: engGivenName?.trim() || null,
         engSurname: engSurname?.trim() || null,
         passportNo: passportNo.trim(),
-        birthDate: birthDate ? (typeof birthDate === 'string' ? birthDate : new Date(birthDate).toISOString().split('T')[0]) : null,
-        expiryDate: expiryDate ? (typeof expiryDate === 'string' ? expiryDate : new Date(expiryDate).toISOString().split('T')[0]) : null,
+        birthDate: normalizeTravelerDate(birthDate),
+        expiryDate: normalizeTravelerDate(expiryDate),
       },
     });
 
@@ -263,6 +305,11 @@ export async function PUT(req: NextRequest) {
       );
     }
 
+    // OWNER 테넌트 격리: 타 조직 고객 여권 PII 조작 차단
+    if (await ownerOrgBlocked(manager, userId)) {
+      return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
+    }
+
     // 여권 정보 업데이트
     await prisma.gmTraveler.update({
       where: { id: travelerId },
@@ -271,8 +318,8 @@ export async function PUT(req: NextRequest) {
         engGivenName: engGivenName?.trim() || null,
         engSurname: engSurname?.trim() || null,
         passportNo: passportNo.trim(),
-        birthDate: birthDate ? (typeof birthDate === 'string' ? birthDate : new Date(birthDate).toISOString().split('T')[0]) : null,
-        expiryDate: expiryDate ? (typeof expiryDate === 'string' ? expiryDate : new Date(expiryDate).toISOString().split('T')[0]) : null,
+        birthDate: normalizeTravelerDate(birthDate),
+        expiryDate: normalizeTravelerDate(expiryDate),
       },
     });
 

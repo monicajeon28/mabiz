@@ -13,7 +13,7 @@ export async function GET(_req: Request, { params }: Params) {
 
     const link = await prisma.shortLink.findFirst({
       where: { id, organizationId: orgId },
-      select: { id: true, clickCount: true, autoGroupId: true },
+      select: { id: true, autoGroupId: true },
     });
     if (!link) return NextResponse.json({ ok: false }, { status: 404 });
 
@@ -54,7 +54,7 @@ export async function GET(_req: Request, { params }: Params) {
       groupName = group?.name ?? null;
     }
 
-    return NextResponse.json({ ok: true, clickCount: link.clickCount, clicks, groupName, groupStatus });
+    return NextResponse.json({ ok: true, clickCount: clicks.length, clicks, groupName, groupStatus });
   } catch (e) {
     logger.log('[LinkClicks] 오류', { error: e instanceof Error ? e.message : String(e) });
     return NextResponse.json({ ok: false }, { status: 500 });

@@ -19,6 +19,9 @@ import {
 export async function GET() {
   try {
     const ctx = await getAuthContext();
+    if (!canManageSettings(ctx)) {
+      return NextResponse.json({ ok: false, message: "OWNER 또는 관리자만 SMS 설정을 조회할 수 있습니다." }, { status: 403 });
+    }
     const orgId = resolveOrgId(ctx);
 
     const config = await prisma.orgSmsConfig.findUnique({

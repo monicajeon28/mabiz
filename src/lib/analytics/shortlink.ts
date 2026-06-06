@@ -46,7 +46,6 @@ export async function getShortLinkAnalytics(
       targetUrl: true,
       category: true,
       createdAt: true,
-      clickCount: true,
     },
   })
 
