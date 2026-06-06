@@ -130,7 +130,7 @@ export async function PATCH(req: Request, { params }: Params) {
       }
     }
     const page = await prisma.crmLandingPage.update({
-      where: { id },
+      where: { id, organizationId: orgId },
       data: {
         ...(title             !== undefined ? { title }                                : {}),
         ...(slug              !== undefined ? { slug }                                  : {}),
