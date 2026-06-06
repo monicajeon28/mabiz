@@ -107,6 +107,53 @@ export async function resolveActorGmUserId(params: {
   return Number.isInteger(n) ? n : null;
 }
 
+/**
+ * 감사로그/updatedBy 의 userId(Int) 목록 → 표시 이름 Map 배치 조회 (공용).
+ *
+ * board GET 카드의 수정자 표시와 audit 타임라인의 수정자 표시가 동일 규칙을 쓰도록 공유한다.
+ * userId 는 GmUser.id(Int) 이지만 OrganizationMember/GlobalAdmin 은 userId(String) 로 연결될 수
+ * 있으므로 세 소스를 모두 IN 절 1회로 배치 조회해 우선순위(몰유저 → 관리자 → 멤버)로 합친다.
+ * 모든 조회는 IN 절 1회 — N+1 없음.
+ */
+export async function resolveUpdaterNames(ids: number[]): Promise<Map<number, string>> {
+  const result = new Map<number, string>();
+  if (ids.length === 0) return result;
+
+  const strIds = ids.map((i) => String(i));
+
+  const [members, admins, mallUsers] = await Promise.all([
+    prisma.organizationMember.findMany({
+      where: { userId: { in: strIds } },
+      select: { userId: true, displayName: true },
+    }),
+    prisma.globalAdmin.findMany({
+      where: { userId: { in: strIds } },
+      select: { userId: true, displayName: true },
+    }),
+    prisma.$queryRaw<{ id: number; name: string | null }[]>(Prisma.sql`
+      SELECT id, name FROM "User"
+      WHERE id = ANY(ARRAY[${Prisma.join(ids)}]::int[])
+    `),
+  ]);
+
+  // 우선순위 낮음 → 높음 순서로 채워 마지막에 높은 우선순위가 덮어쓰게 함
+  for (const u of mallUsers) {
+    if (u.name && u.name.trim()) result.set(u.id, u.name.trim());
+  }
+  for (const a of admins) {
+    if (a.userId && a.displayName && a.displayName.trim()) {
+      result.set(Number(a.userId), a.displayName.trim());
+    }
+  }
+  for (const m of members) {
+    if (m.userId && m.displayName && m.displayName.trim()) {
+      result.set(Number(m.userId), m.displayName.trim());
+    }
+  }
+
+  return result;
+}
+
 /** 낙관적 잠금 충돌 — 다른 사람이 먼저 수정함. latest로 최신본 반환. */
 export class TravelerVersionConflict extends Error {
   constructor(public latest: unknown) {
@@ -228,12 +275,21 @@ export async function writeTravelerWithAudit(params: WriteTravelerParams) {
  * src/app/api/pnr/partner/create/route.ts 의 판정 규칙과 동일:
  *  - 방 인원이 1명이거나
  *  - 같은 여권번호가 2개 이상(동일 인물 2회 입력) → 싱글차지.
+ *
+ * ⚠️ [P0/data-loss] roomNumber 는 trip 전역 유일값이 아니라 '예약(reservationId) 단위'로
+ * 매겨진다 — 각 예약의 메인유저는 항상 room 1 로 배정된다(pnr/partner/create). 따라서
+ * trip 내 여러 예약을 한 모집단으로 넘기면 서로 다른 예약의 'room 1'들이 한 방으로 잘못
+ * 합산되어 싱글차지 판정이 뒤집힌다(요금 누락/오과금). 같은 방은 반드시
+ * (reservationId, roomNumber) 복합키로 식별한다.
  */
 export function judgeSingleCharge(
-  travelers: { roomNumber: number; passportNo: string | null }[],
+  travelers: { reservationId: number; roomNumber: number; passportNo: string | null }[],
+  reservationId: number,
   roomNumber: number,
 ): boolean {
-  const inRoom = travelers.filter((t) => t.roomNumber === roomNumber);
+  const inRoom = travelers.filter(
+    (t) => t.reservationId === reservationId && t.roomNumber === roomNumber,
+  );
   if (inRoom.length <= 1) return true;
 
   const passportCounts = new Map<string, number>();
@@ -294,11 +350,14 @@ export async function moveTravelerRoomWithAudit(params: MoveTravelerParams) {
     }
 
     const oldRoom = cur.roomNumber;
+    // 방 번호는 예약 단위로 매겨지므로(메인유저=room 1) 같은 방 판정은 반드시
+    // cur.reservationId 로 한정한다. 방 이동은 같은 예약 안에서만 일어난다.
+    const reservationId = cur.reservationId;
 
-    // trip 내 전체 탑승객 (재판정 모집단)
+    // trip 내 전체 탑승객 (재판정 모집단). reservationId 를 함께 읽어 복합키 판정.
     const tripTravelers = await tx.gmTraveler.findMany({
       where: { reservationId: { in: tripReservationIds } },
-      select: { id: true, roomNumber: true, passportNo: true, isSingleCharge: true },
+      select: { id: true, reservationId: true, roomNumber: true, passportNo: true, isSingleCharge: true },
     });
 
     // 동일 방으로의 이동이면 변경 없음
@@ -306,9 +365,9 @@ export async function moveTravelerRoomWithAudit(params: MoveTravelerParams) {
       return { moved: cur, residualUpdated: 0 };
     }
 
-    // 정원 초과 차단: targetRoom 의 현재 인원(대상 제외) + 1 > 정원
+    // 정원 초과 차단: 같은 예약의 targetRoom 현재 인원(대상 제외) + 1 > 정원
     const targetCurrentCount = tripTravelers.filter(
-      (t) => t.roomNumber === targetRoom && t.id !== travelerId,
+      (t) => t.reservationId === reservationId && t.roomNumber === targetRoom && t.id !== travelerId,
     ).length;
     if (targetCurrentCount + 1 > ROOM_MAX_OCCUPANCY) {
       throw new RoomCapacityExceeded(targetRoom);
@@ -319,7 +378,7 @@ export async function moveTravelerRoomWithAudit(params: MoveTravelerParams) {
       t.id === travelerId ? { ...t, roomNumber: targetRoom } : t,
     );
 
-    const targetSingle = judgeSingleCharge(movedState, targetRoom);
+    const targetSingle = judgeSingleCharge(movedState, reservationId, targetRoom);
 
     // ── 1) 이동 대상 갱신 (낙관적 잠금 조건부 원자 업데이트) ──
     const moveData = {
@@ -355,10 +414,11 @@ export async function moveTravelerRoomWithAudit(params: MoveTravelerParams) {
     });
 
     // ── 2) "떠난 방" 잔류 탑승객 싱글차지 재판정 (변동분만 갱신) ──
-    const oldRoomSingle = judgeSingleCharge(movedState, oldRoom);
+    // 같은 예약(reservationId)의 oldRoom 만 잔류자로 본다(타 예약 room 1 합산 금지).
+    const oldRoomSingle = judgeSingleCharge(movedState, reservationId, oldRoom);
     let residualUpdated = 0;
     const residents = tripTravelers.filter(
-      (t) => t.roomNumber === oldRoom && t.id !== travelerId,
+      (t) => t.reservationId === reservationId && t.roomNumber === oldRoom && t.id !== travelerId,
     );
     for (const r of residents) {
       if (r.isSingleCharge !== oldRoomSingle) {

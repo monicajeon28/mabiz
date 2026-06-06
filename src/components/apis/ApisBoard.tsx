@@ -1,16 +1,24 @@
 'use client';
 
 /**
- * APIS 협업 편집 보드 (공용 컴포넌트) — Phase 1
+ * APIS 협업 편집 보드 (공용 컴포넌트) — Phase 2
  *
  * /products 와 /passport/apis 가 둘 다 이 단일 컴포넌트를 import 한다 (중복 금지, SSoT).
  *
- * 핵심 동작:
+ * 핵심 동작 (Phase 1, 절대 보존):
  *  1) GET  /api/admin/apis/board?productCode=        → 방=색깔카드 보드 로드
  *  2) PATCH /api/admin/apis/traveler/[id]            → 셀 수정(낙관적 잠금 version) / 방 이동
  *  3) POST  /api/admin/apis/traveler                 → 동행인 추가(PROSPECT 자동매칭)
  *
- * 모든 쓰기는 서버 라우트를 거쳐 writeTravelerWithAudit()로 감사로그 + version+1.
+ * Phase 2 추가:
+ *  4) GET  /api/admin/apis/audit?travelerId=         → 탑승객별 변경 이력 타임라인
+ *  5) 1클릭 되돌리기(undo) — oldValue 로 PATCH(action:'update', 낙관락). undo 도 감사기록.
+ *  6) 검증 색강조 — board 의 warnings/status 기반(빈칸·만료·형식·영문분리·중복).
+ *  7) 상단 진척바 + 문제 행 점프 필터칩(만료/미완성).
+ *  8) 엑셀 다운로드 전 경고(미완성/만료위험 건수 confirm) — 클라이언트 CSV 생성.
+ *  9) 안전 단건삭제 — DELETE(전체 JSON 스냅샷 복구가능) + 5초 undo(되살리기).
+ *
+ * 모든 쓰기/삭제/undo 는 서버 라우트를 거쳐 감사로그 기록 + version+1.
  * 409 충돌 시 '○○님이 방금 수정' 안내 + 보드 새로고침.
  *
  * 50대 직관 UI: 큰 글자 / 색 구분 / 큰 터치영역 / 저장됨·되돌리기 토스트.
@@ -30,6 +38,10 @@ import {
   Undo2,
   UserPlus,
   Pencil,
+  History,
+  Trash2,
+  Download,
+  Filter,
 } from 'lucide-react';
 import { logger } from '@/lib/logger';
 
@@ -58,9 +70,15 @@ interface BoardTraveler {
   updatedByName: string;
   completeness: { filled: number; required: number };
   expiredPassport: boolean;
+  /** board route 가 산출한 검증 경고 코드들 (missing/expired/passport_format/eng_split/dup_passport) */
+  warnings: string[];
+  /** complete | partial | error (카드 점 색) */
+  status: 'complete' | 'partial' | 'error';
 }
 
 interface BoardRoom {
+  // 그룹핑 단위 = 예약×방. 같은 roomNumber 라도 예약이 다르면 별도 카드(서버 board route 기준).
+  reservationId: number;
   roomNumber: number;
   colorHex: string;
   travelers: BoardTraveler[];
@@ -73,22 +91,39 @@ interface BoardProduct {
   shipName: string | null;
 }
 
+interface BoardSummary {
+  totalTravelers: number;
+  completed: number;
+  pendingPassport: number;
+  expiredCount: number;
+  incompleteCount?: number;
+  dupCount?: number;
+}
+
 interface BoardResponse {
   ok: boolean;
   product?: BoardProduct;
   rooms?: BoardRoom[];
-  summary?: {
-    totalTravelers: number;
-    completed: number;
-    pendingPassport: number;
-    expiredCount: number;
-  };
+  summary?: BoardSummary;
   error?: string;
+}
+
+// 감사 이력 1행 (audit route 응답과 1:1)
+interface AuditRow {
+  id: number;
+  action: string;
+  userName: string;
+  oldValue: unknown;
+  newValue: unknown;
+  changedFields: string[];
+  reason: string | null;
+  createdAt: string;
+  travelerId: number | null;
 }
 
 interface ApisBoardProps {
   productCode: string;
-  /** false면 읽기 전용(편집/이동/추가 버튼 숨김) */
+  /** false면 읽기 전용(편집/이동/추가/삭제/되돌리기 버튼 숨김) */
   canManage: boolean;
 }
 
@@ -113,6 +148,37 @@ type EditableKey =
   | (typeof CORE_FIELDS)[number]['key']
   | (typeof MORE_FIELDS)[number]['key'];
 
+// 필드 키 → 한국어 라벨 (이력 타임라인·되돌리기 표시용)
+const FIELD_LABELS: Record<string, string> = {
+  engSurname: '영문 성',
+  engGivenName: '영문 이름',
+  gender: '성별',
+  birthDate: '생년월일',
+  passportNo: '여권번호',
+  expiryDate: '여권 만료일',
+  korName: '한글 이름',
+  nationality: '국적',
+  issueDate: '여권 발급일',
+  phone: '연락처',
+  roomNumber: '방 번호',
+  isSingleCharge: '싱글차지',
+};
+
+// 경고 코드 → 한국어 + 색
+const WARNING_META: Record<string, { label: string; tone: 'red' | 'yellow' }> = {
+  missing: { label: '미완성', tone: 'yellow' },
+  expired: { label: '여권 만료', tone: 'red' },
+  passport_format: { label: '여권번호 형식 오류', tone: 'red' },
+  eng_split: { label: '영문 성/이름 미분리', tone: 'yellow' },
+  dup_passport: { label: '같은 방 여권 중복', tone: 'red' },
+};
+
+// 편집 가능 필드만 화이트리스트(undo 시 안전 적용)
+const EDITABLE_KEYS = new Set<string>([
+  ...CORE_FIELDS.map((f) => f.key),
+  ...MORE_FIELDS.map((f) => f.key),
+]);
+
 // ─────────────────────────────────────────────────────────────
 // 헬퍼
 // ─────────────────────────────────────────────────────────────
@@ -133,8 +199,15 @@ function maskBirth(v: string): string {
   return m ? `${m[1]}-**-**` : '****';
 }
 
-/** 완성도 점 색: 6/6 초록 / 1~5 노랑 / 여권없음·0 빨강 */
+/** 완성도 점 색: status(error 빨강 / partial 노랑 / complete 초록) 우선, 폴백은 completeness */
 function dotColor(t: BoardTraveler): { bg: string; label: string } {
+  if (t.status === 'error') {
+    if (t.warnings?.includes('expired')) return { bg: '#dc2626', label: '여권 만료' };
+    return { bg: '#dc2626', label: '확인 필요' };
+  }
+  if (t.status === 'partial') return { bg: '#eab308', label: '일부 입력' };
+  if (t.status === 'complete') return { bg: '#16a34a', label: '완성' };
+  // 폴백 (구버전 board 응답 호환 — status 미존재 시)
   const { filled, required } = t.completeness;
   if (!t.passportNo?.trim()) return { bg: '#dc2626', label: '여권없음' };
   if (filled >= required) return { bg: '#16a34a', label: '완성' };
@@ -159,6 +232,61 @@ function travelerDisplayName(t: BoardTraveler): string {
   return eng || '(이름없음)';
 }
 
+/** 출발일 기준 만료까지 남은 일수. 출발일에 이미 만료면 음수/0. null=계산불가 */
+function daysToExpiry(expiryDate: string, departureDate: string): number | null {
+  if (!expiryDate?.trim() || !departureDate?.trim()) return null;
+  const exp = new Date(expiryDate.trim());
+  const dep = new Date(departureDate.trim());
+  if (Number.isNaN(exp.getTime()) || Number.isNaN(dep.getTime())) return null;
+  const MS = 1000 * 60 * 60 * 24;
+  return Math.round((exp.getTime() - dep.getTime()) / MS);
+}
+
+/** 만료 배지 텍스트: 출발일 이전 만료면 'D-N 만료위험' / 이미 지났으면 '만료' */
+function expiryBadge(t: BoardTraveler, departureDate: string): string | null {
+  if (!t.expiredPassport) return null;
+  const d = daysToExpiry(t.expiryDate, departureDate);
+  if (d == null) return '만료';
+  if (d <= 0) return '만료';
+  return `D-${d} 만료위험`;
+}
+
+/** CSV 한 셀 이스케이프 */
+function csvCell(v: unknown): string {
+  const s = v == null ? '' : String(v);
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+/** 이력 행 한 줄 한국어 요약 (예: "여권번호 수정 M1234 → M5678") */
+function describeAudit(a: AuditRow): string {
+  const actionLabel: Record<string, string> = {
+    TRAVELER_UPDATE: '정보 수정',
+    TRAVELER_MOVE_ROOM: '방 이동',
+    TRAVELER_DELETE: '명단에서 삭제',
+    TRAVELER_RESTORE: '삭제 되살리기',
+    TRAVELER_SINGLE_CHARGE_RECHECK: '싱글차지 재판정',
+  };
+  const base = actionLabel[a.action] ?? a.action;
+
+  // changedFields 가 1개면 '필드 수정 old → new' 형태로 상세 표시
+  if (a.changedFields.length > 0 && a.oldValue && typeof a.oldValue === 'object') {
+    const oldObj = a.oldValue as Record<string, unknown>;
+    const newObj =
+      a.newValue && typeof a.newValue === 'object' ? (a.newValue as Record<string, unknown>) : {};
+    const parts = a.changedFields.slice(0, 3).map((f) => {
+      const label = FIELD_LABELS[f] ?? f;
+      const ov = oldObj[f];
+      const nv = newObj[f];
+      const ovs = ov == null || ov === '' ? '(비어있음)' : String(ov);
+      const nvs = nv == null || nv === '' ? '(비어있음)' : String(nv);
+      return `${label} ${ovs} → ${nvs}`;
+    });
+    return parts.join(', ');
+  }
+  return base;
+}
+
 // ─────────────────────────────────────────────────────────────
 // 메인 컴포넌트
 // ─────────────────────────────────────────────────────────────
@@ -168,12 +296,18 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
   const [error, setError] = useState<string | null>(null);
   const [product, setProduct] = useState<BoardProduct | null>(null);
   const [rooms, setRooms] = useState<BoardRoom[]>([]);
-  const [summary, setSummary] = useState<BoardResponse['summary'] | null>(null);
+  const [summary, setSummary] = useState<BoardSummary | null>(null);
 
   // 슬라이드 편집 패널 대상 traveler id
   const [editingId, setEditingId] = useState<number | null>(null);
+  // 이력 패널 대상 traveler id (id 만 보관 — 실제 traveler 는 rooms 에서 최신값 재계산.
+  // 객체 스냅샷을 그대로 들고 있으면 board 재로드 후 version 이 stale 이 되어
+  // revertField 의 expectedVersion 이 구버전 → 첫 시도 항상 409 로 헛도는 버그가 생긴다.)
+  const [historyId, setHistoryId] = useState<number | null>(null);
   // 동행인 추가 모달: 대상 방 정보
   const [addTarget, setAddTarget] = useState<{ reservationId: number; roomNumber: number } | null>(null);
+  // 문제 행 점프 필터: null=전체 / 'expired' / 'incomplete'
+  const [problemFilter, setProblemFilter] = useState<null | 'expired' | 'incomplete'>(null);
 
   // 저장됨·되돌리기 토스트
   const [toast, setToast] = useState<{
@@ -229,11 +363,19 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
     };
   }, []);
 
-  // 방 이동 드롭다운 옵션 (현재 보드의 모든 방)
-  const roomOptions = useMemo(
-    () => rooms.map((r) => ({ roomNumber: r.roomNumber, colorHex: r.colorHex })),
-    [rooms],
-  );
+  // 방 이동 드롭다운 옵션 (현재 보드의 모든 방번호, 중복 제거)
+  // 예약×방 단위로 카드가 분리되면서 서로 다른 예약이 같은 roomNumber 를 가질 수 있으므로
+  // roomNumber 기준으로 중복을 제거해 드롭다운에 같은 방 버튼이 두 번 뜨지 않게 한다.
+  const roomOptions = useMemo(() => {
+    const seen = new Set<number>();
+    const opts: { roomNumber: number; colorHex: string }[] = [];
+    for (const r of rooms) {
+      if (seen.has(r.roomNumber)) continue;
+      seen.add(r.roomNumber);
+      opts.push({ roomNumber: r.roomNumber, colorHex: r.colorHex });
+    }
+    return opts.sort((a, b) => a.roomNumber - b.roomNumber);
+  }, [rooms]);
 
   const editingTraveler = useMemo(() => {
     if (editingId == null) return null;
@@ -243,6 +385,62 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
     }
     return null;
   }, [editingId, rooms]);
+
+  // 이력 패널 대상 traveler — editingTraveler 와 동일하게 rooms 기준으로 최신값 재계산.
+  // 이렇게 해야 이력을 연 뒤 같은 탑승객이 다른 곳에서 수정돼 board 가 재로드돼도
+  // revertField 가 항상 최신 version 으로 호출된다(stale version 409 헛돎 방지).
+  const historyTraveler = useMemo(() => {
+    if (historyId == null) return null;
+    for (const r of rooms) {
+      const found = r.travelers.find((t) => t.id === historyId);
+      if (found) return found;
+    }
+    return null;
+  }, [historyId, rooms]);
+
+  const departureDate = product?.departureDate ?? '';
+
+  // ── 진척/문제 집계 (summary 우선, 없으면 rooms 로 폴백) ──────────
+  const stats = useMemo(() => {
+    let total = 0;
+    let completed = 0;
+    let expired = 0;
+    let incomplete = 0;
+    let pendingPassport = 0;
+    for (const r of rooms) {
+      for (const t of r.travelers) {
+        total++;
+        if (t.status === 'complete') completed++;
+        if (t.expiredPassport) expired++;
+        if (t.warnings?.includes('missing')) incomplete++;
+        if (!t.passportNo?.trim()) pendingPassport++;
+      }
+    }
+    return {
+      total: summary?.totalTravelers ?? total,
+      completed: summary?.completed ?? completed,
+      expired: summary?.expiredCount ?? expired,
+      incomplete: summary?.incompleteCount ?? incomplete,
+      pendingPassport: summary?.pendingPassport ?? pendingPassport,
+    };
+  }, [rooms, summary]);
+
+  const progressPct = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+
+  // ── 필터 적용된 방 목록 (문제 행 점프) ──────────────────────────
+  const filteredRooms = useMemo(() => {
+    if (!problemFilter) return rooms;
+    return rooms
+      .map((r) => ({
+        ...r,
+        travelers: r.travelers.filter((t) =>
+          problemFilter === 'expired'
+            ? t.expiredPassport
+            : t.warnings?.includes('missing'),
+        ),
+      }))
+      .filter((r) => r.travelers.length > 0);
+  }, [rooms, problemFilter]);
 
   // ── 방 이동 ────────────────────────────────────────────────
   const moveRoom = useCallback(
@@ -313,13 +511,14 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
           return false;
         }
 
-        // 되돌리기: 이전 값으로 재저장 (서버가 올려준 새 version 사용)
+        // 되돌리기: 이전 값으로 재저장 (서버가 올려준 새 version 사용 — undo 도 감사기록됨)
         const newVersion: number =
           typeof data.traveler?.version === 'number' ? data.traveler.version : t.version + 1;
-        showToast('저장됐어요.', 'ok', () => {
+        const fieldLabel = FIELD_LABELS[key] ?? key;
+        showToast(`${fieldLabel} 저장됐어요.`, 'ok', () => {
           void (async () => {
             try {
-              await fetch(`/api/admin/apis/traveler/${t.id}`, {
+              const undoRes = await fetch(`/api/admin/apis/traveler/${t.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -328,6 +527,9 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
                   expectedVersion: newVersion,
                 }),
               });
+              if (undoRes.status === 409) {
+                showToast('그 사이 다른 담당자가 수정해 되돌릴 수 없어요. 최신 정보를 불러옵니다.', 'warn');
+              }
             } catch (err) {
               logger.error('[ApisBoard] undo failed', { err: String(err) });
             } finally {
@@ -345,6 +547,254 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
     },
     [loadBoard, showToast],
   );
+
+  // ── 이력 → 특정 필드 1건 되돌리기 (oldValue 로 PATCH, 감사기록) ──
+  // 409(다른 담당자가 그 사이 수정)일 때는 서버가 돌려준 latest.version 으로 1회 자동 재시도한다.
+  // historyTraveler 가 rooms 기준 최신값이라도, 이력 패널을 띄운 짧은 사이에
+  // 같은 탑승객이 수정될 수 있으므로 안전망으로 자동 재시도를 둔다(되돌리기 헛돎 방지).
+  const revertField = useCallback(
+    async (t: BoardTraveler, key: string, oldVal: unknown): Promise<void> => {
+      if (!EDITABLE_KEYS.has(key)) {
+        showToast('이 항목은 되돌릴 수 없어요.', 'warn');
+        return;
+      }
+      const value = oldVal == null ? '' : String(oldVal).trim();
+      const fieldLabel = FIELD_LABELS[key] ?? key;
+
+      const attempt = async (expectedVersion: number) => {
+        const res = await fetch(`/api/admin/apis/traveler/${t.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'update',
+            changes: { [key]: value },
+            expectedVersion,
+          }),
+        });
+        const data = await res.json();
+        return { res, data };
+      };
+
+      try {
+        let { res, data } = await attempt(t.version);
+
+        // 409: 서버가 돌려준 최신 version 으로 1회 자동 재시도
+        if (res.status === 409) {
+          const latestVersion =
+            data?.latest && typeof data.latest.version === 'number'
+              ? (data.latest.version as number)
+              : null;
+          if (latestVersion != null && latestVersion !== t.version) {
+            ({ res, data } = await attempt(latestVersion));
+          }
+        }
+
+        if (res.status === 409) {
+          showToast('다른 담당자가 방금 수정했어요. 최신 정보를 불러옵니다.', 'warn');
+          await loadBoard();
+          return;
+        }
+        if (!res.ok || !data.ok) {
+          showToast(data.error || '되돌리기에 실패했습니다.', 'warn');
+          return;
+        }
+        showToast(`${fieldLabel}을(를) 되돌렸어요.`, 'ok');
+        await loadBoard();
+      } catch (err) {
+        logger.error('[ApisBoard] revertField failed', { err: String(err) });
+        showToast('되돌리기 중 오류가 발생했습니다.', 'warn');
+      }
+    },
+    [loadBoard, showToast],
+  );
+
+  // 삭제 되살리기: 같은 예약/방에 동행인으로 재등록 후 핵심필드 복원.
+  // 호출 전제(deleteTraveler 에서 보장): 배정된 방(room>0)의 "동행인" 만 이 경로로 복구한다.
+  // (미배정 room 0 은 POST 가 400 을 반환하고, 비동행인은 역할이 뒤바뀌므로 호출하지 않는다.)
+  const restoreTraveler = useCallback(
+    async (snap: BoardTraveler & { currentRoom: number }) => {
+      // 안전망: room 0 으로는 POST 가 400 → 거짓 복구를 시도하지 않는다.
+      if (!(snap.currentRoom > 0)) {
+        showToast('미배정 카드는 자동 되살리기를 할 수 없어요. 직접 다시 등록해 주세요.', 'warn');
+        return;
+      }
+      try {
+        const res = await fetch('/api/admin/apis/traveler', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reservationId: snap.reservationId,
+            roomNumber: snap.currentRoom,
+            korName: snap.korName?.trim() || undefined,
+            phone: snap.phone?.trim() || undefined,
+            passportNo: snap.passportNo?.trim() || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          showToast(data.error || '되살리기에 실패했습니다.', 'warn');
+          await loadBoard();
+          return;
+        }
+        // 새로 생성된 traveler 에 핵심 여권필드 복원(있으면)
+        const newId: number | undefined =
+          typeof data.traveler?.id === 'number' ? data.traveler.id : undefined;
+        const newVer: number =
+          typeof data.traveler?.version === 'number' ? data.traveler.version : 0;
+        if (newId != null) {
+          const restore: Record<string, string> = {};
+          for (const k of EDITABLE_KEYS) {
+            const v = (snap as unknown as Record<string, unknown>)[k];
+            if (v != null && String(v).trim()) restore[k] = String(v).trim();
+          }
+          // 이미 POST 로 들어간 korName/phone 제외 — 나머지만 PATCH
+          delete restore.korName;
+          delete restore.phone;
+          if (Object.keys(restore).length > 0) {
+            await fetch(`/api/admin/apis/traveler/${newId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'update',
+                changes: restore,
+                expectedVersion: newVer,
+              }),
+            });
+          }
+        }
+        showToast(`${travelerDisplayName(snap)}님을 되살렸어요.`, 'ok');
+        await loadBoard();
+      } catch (err) {
+        logger.error('[ApisBoard] restoreTraveler failed', { err: String(err) });
+        showToast('되살리기 중 오류가 발생했습니다.', 'warn');
+        await loadBoard();
+      }
+    },
+    [loadBoard, showToast],
+  );
+
+  // ── 단건 삭제 ──────────────────────────────────────────────
+  //
+  // 되살리기(undo)는 동행인 추가(POST) 경로로 새 traveler 를 재생성하는 방식이라
+  // 다음 경우엔 "원래 모습 그대로" 복구가 불가능하다 → 거짓 약속을 하지 않는다:
+  //   (A) 미배정(room 0): POST 가 roomNumber>0 을 요구해 400('roomNumber가 올바르지 않습니다')
+  //       → 되살리기 버튼이 항상 실패. (깨진 undo 약속 = 데이터 영구 소실)
+  //   (B) 원래 구매자(비동행인): POST 는 항상 companionGroupId 를 부여해 동행인으로 역할이 뒤바뀌고,
+  //       userId 재매칭 실패 시 고아 PROSPECT 가 생긴다(원본 User 연결 끊김).
+  // 위 두 경우는 5초 undo 를 제공하지 않고, 영구 삭제임을 명확히 confirm 으로 알린다.
+  // (역할/그룹/고객연결까지 무손실 복구는 서버 RESTORE 엔드포인트가 필요 — 별도 작업.)
+  //
+  // 안전 복구가 의미 있는 경우 = "배정된 방(room>0)의 동행인" 일 때만 5초 되살리기를 제공한다.
+  const deleteTraveler = useCallback(
+    async (t: BoardTraveler, currentRoom: number) => {
+      const who = travelerDisplayName(t);
+      const role = t.isCompanion ? '동행인' : '구매자';
+      // 동행인 + 배정된 방일 때만 동행인 POST 경로로 원래 역할 그대로 복구 가능
+      const canSafelyUndo = t.isCompanion && currentRoom > 0;
+
+      const confirmMsg = canSafelyUndo
+        ? `${who}님(${role})을 이 명단에서 정말 빼나요?\n삭제해도 5초 안에 되살릴 수 있어요.`
+        : `${who}님(${role})을 이 명단에서 정말 빼나요?\n` +
+          `이 경우는 자동 되살리기가 안 돼요(영구 삭제). 다시 추가하려면 직접 등록해야 해요.`;
+
+      if (!window.confirm(confirmMsg)) return;
+
+      // 되살리기용 스냅샷(현재 화면값) 보관 — 안전 복구 가능한 경우에만 사용
+      const snapshot = { ...t, currentRoom };
+      try {
+        const res = await fetch(`/api/admin/apis/traveler/${t.id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.status === 409) {
+          showToast('다른 담당자가 방금 수정했어요. 최신 정보를 불러옵니다.', 'warn');
+          await loadBoard();
+          return;
+        }
+        if (!res.ok || !data.ok) {
+          showToast(data.error || '삭제에 실패했습니다.', 'warn');
+          return;
+        }
+        // 안전 복구 가능한 경우(배정된 방의 동행인)에만 5초 되살리기 버튼 제공.
+        if (canSafelyUndo) {
+          showToast(`${who}님을 명단에서 뺐어요.`, 'ok', () => {
+            void restoreTraveler(snapshot);
+          });
+        } else {
+          // 거짓 undo 약속 금지 — 되살리기 버튼 없이 영구 삭제됨을 안내
+          showToast(`${who}님을 명단에서 뺐어요. (자동 되살리기 불가)`, 'warn');
+        }
+        await loadBoard();
+      } catch (err) {
+        logger.error('[ApisBoard] deleteTraveler failed', { err: String(err) });
+        showToast('삭제 중 오류가 발생했습니다.', 'warn');
+      }
+    },
+    [loadBoard, showToast, restoreTraveler],
+  );
+
+  // ── 엑셀(CSV) 다운로드 — 경고 confirm 후 클라이언트 생성 ────────
+  const downloadCsv = useCallback(() => {
+    const expired = stats.expired;
+    const incomplete = stats.incomplete;
+    if (expired > 0 || incomplete > 0) {
+      const ok = window.confirm(
+        `미완성 ${incomplete}건 · 만료위험 ${expired}건이 있어요.\n그래도 다운로드를 진행할까요?`,
+      );
+      if (!ok) return;
+    }
+
+    const header = [
+      '방',
+      '한글이름',
+      '영문성',
+      '영문이름',
+      '성별',
+      '생년월일',
+      '국적',
+      '여권번호',
+      '발급일',
+      '만료일',
+      '연락처',
+      '담당자',
+      '상태',
+    ];
+    const lines: string[] = [header.map(csvCell).join(',')];
+    for (const room of rooms) {
+      for (const t of room.travelers) {
+        const statusText =
+          t.status === 'complete' ? '완성' : t.status === 'error' ? '확인필요' : '미완성';
+        lines.push(
+          [
+            room.roomNumber > 0 ? `${room.roomNumber}번방` : '미배정',
+            t.korName,
+            t.engSurname,
+            t.engGivenName,
+            t.gender,
+            t.birthDate,
+            t.nationality,
+            t.passportNo,
+            t.issueDate,
+            t.expiryDate,
+            t.phone,
+            t.agentName,
+            statusText,
+          ]
+            .map(csvCell)
+            .join(','),
+        );
+      }
+    }
+    const csv = '﻿' + lines.join('\r\n'); // BOM(엑셀 한글 깨짐 방지)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `APIS_${product?.code ?? productCode}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('명단을 내려받았어요.', 'ok');
+  }, [rooms, stats, product, productCode, showToast]);
 
   // ─────────────────────────────────────────────────────────────
   // 렌더
@@ -393,23 +843,31 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
           {summary && (
             <div className="flex flex-wrap gap-2 text-sm font-semibold">
               <span className="rounded-full bg-gray-100 px-3 py-1.5 text-gray-700">
-                탑승객 {summary.totalTravelers}명
+                탑승객 {stats.total}명
               </span>
               <span className="rounded-full bg-green-100 px-3 py-1.5 text-green-700">
-                완성 {summary.completed}
+                완성 {stats.completed}
               </span>
-              {summary.pendingPassport > 0 && (
+              {stats.pendingPassport > 0 && (
                 <span className="rounded-full bg-red-100 px-3 py-1.5 text-red-700">
-                  여권없음 {summary.pendingPassport}
+                  여권없음 {stats.pendingPassport}
                 </span>
               )}
-              {summary.expiredCount > 0 && (
+              {stats.expired > 0 && (
                 <span className="rounded-full bg-orange-100 px-3 py-1.5 text-orange-700">
-                  만료임박 {summary.expiredCount}
+                  만료위험 {stats.expired}
                 </span>
               )}
             </div>
           )}
+          <button
+            type="button"
+            onClick={downloadCsv}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-base font-bold text-emerald-700 hover:bg-emerald-50"
+            title="현재 명단 엑셀(CSV) 다운로드"
+          >
+            <Download className="h-5 w-5" /> 엑셀
+          </button>
           <button
             type="button"
             onClick={() => void loadBoard()}
@@ -421,21 +879,89 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
         </div>
       </div>
 
+      {/* 진척바 + 문제 행 점프 칩 */}
+      {stats.total > 0 && (
+        <div className="mb-5 rounded-2xl border border-gray-200 bg-white p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-base font-bold text-gray-800">
+              {stats.total}명 중{' '}
+              <span className="text-blue-700">{stats.completed}명</span> 여권 완료
+              {stats.pendingPassport > 0 && (
+                <span className="ml-2 text-red-600">· 미제출 {stats.pendingPassport}명</span>
+              )}
+            </p>
+            <span className="text-lg font-bold text-blue-700">{progressPct}%</span>
+          </div>
+          <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100" aria-hidden>
+            <div
+              className="h-full rounded-full bg-blue-600 transition-all"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          {/* 문제 점프 칩 */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 text-sm font-semibold text-gray-500">
+              <Filter className="h-4 w-4" /> 빠른 보기
+            </span>
+            <button
+              type="button"
+              onClick={() => setProblemFilter(null)}
+              className={`rounded-full px-3 py-1.5 text-sm font-bold ${
+                problemFilter === null
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              전체 {stats.total}
+            </button>
+            <button
+              type="button"
+              onClick={() => setProblemFilter(problemFilter === 'expired' ? null : 'expired')}
+              disabled={stats.expired === 0}
+              className={`rounded-full px-3 py-1.5 text-sm font-bold disabled:opacity-40 ${
+                problemFilter === 'expired'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-red-50 text-red-700 hover:bg-red-100'
+              }`}
+            >
+              만료위험 {stats.expired}
+            </button>
+            <button
+              type="button"
+              onClick={() => setProblemFilter(problemFilter === 'incomplete' ? null : 'incomplete')}
+              disabled={stats.incomplete === 0}
+              className={`rounded-full px-3 py-1.5 text-sm font-bold disabled:opacity-40 ${
+                problemFilter === 'incomplete'
+                  ? 'bg-yellow-500 text-white'
+                  : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
+              }`}
+            >
+              미완성 {stats.incomplete}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 방 색깔카드 세로 스택 (가로 스크롤 금지) */}
-      {rooms.length === 0 ? (
+      {filteredRooms.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center text-lg text-gray-500">
-          등록된 방이 없습니다.
+          {problemFilter
+            ? '해당 조건의 탑승객이 없습니다.'
+            : '등록된 방이 없습니다.'}
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {rooms.map((room) => (
+          {filteredRooms.map((room) => (
             <RoomCard
-              key={room.roomNumber}
+              key={`${room.reservationId}-${room.roomNumber}`}
               room={room}
               canManage={canManage}
               roomOptions={roomOptions}
+              departureDate={departureDate}
               onEdit={(id) => setEditingId(id)}
               onMove={moveRoom}
+              onHistory={(t) => setHistoryId(t.id)}
+              onDelete={deleteTraveler}
               onAddCompanion={(reservationId) =>
                 setAddTarget({ reservationId, roomNumber: room.roomNumber })
               }
@@ -451,6 +977,16 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
           canManage={canManage}
           onClose={() => setEditingId(null)}
           onSaveField={saveField}
+        />
+      )}
+
+      {/* 이력 패널 — historyTraveler 는 rooms 기준 최신값(stale version 방지) */}
+      {historyTraveler && (
+        <HistoryPanel
+          traveler={historyTraveler}
+          canManage={canManage}
+          onClose={() => setHistoryId(null)}
+          onRevert={revertField}
         />
       )}
 
@@ -471,7 +1007,7 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
 
       {/* 저장됨·되돌리기 토스트 */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+        <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2">
           <div
             className={`flex items-center gap-3 rounded-2xl px-5 py-3.5 text-base font-bold text-white shadow-xl ${
               toast.tone === 'ok' ? 'bg-gray-900' : 'bg-orange-600'
@@ -510,12 +1046,25 @@ interface RoomCardProps {
   room: BoardRoom;
   canManage: boolean;
   roomOptions: { roomNumber: number; colorHex: string }[];
+  departureDate: string;
   onEdit: (travelerId: number) => void;
   onMove: (t: BoardTraveler, currentRoom: number, targetRoom: number) => void;
+  onHistory: (t: BoardTraveler) => void;
+  onDelete: (t: BoardTraveler, currentRoom: number) => void;
   onAddCompanion: (reservationId: number) => void;
 }
 
-function RoomCard({ room, canManage, roomOptions, onEdit, onMove, onAddCompanion }: RoomCardProps) {
+function RoomCard({
+  room,
+  canManage,
+  roomOptions,
+  departureDate,
+  onEdit,
+  onMove,
+  onHistory,
+  onDelete,
+  onAddCompanion,
+}: RoomCardProps) {
   // 동행인 추가 시 연결할 reservationId: 방의 첫 번째 탑승객 기준 (없으면 추가 비활성)
   const primaryReservationId = room.travelers[0]?.reservationId ?? null;
 
@@ -541,8 +1090,11 @@ function RoomCard({ room, canManage, roomOptions, onEdit, onMove, onAddCompanion
               currentRoom={room.roomNumber}
               canManage={canManage}
               roomOptions={roomOptions}
+              departureDate={departureDate}
               onEdit={onEdit}
               onMove={onMove}
+              onHistory={onHistory}
+              onDelete={onDelete}
             />
           ))}
         </div>
@@ -571,8 +1123,11 @@ interface TravelerBlockProps {
   currentRoom: number;
   canManage: boolean;
   roomOptions: { roomNumber: number; colorHex: string }[];
+  departureDate: string;
   onEdit: (travelerId: number) => void;
   onMove: (t: BoardTraveler, currentRoom: number, targetRoom: number) => void;
+  onHistory: (t: BoardTraveler) => void;
+  onDelete: (t: BoardTraveler, currentRoom: number) => void;
 }
 
 function TravelerBlock({
@@ -580,12 +1135,23 @@ function TravelerBlock({
   currentRoom,
   canManage,
   roomOptions,
+  departureDate,
   onEdit,
   onMove,
+  onHistory,
+  onDelete,
 }: TravelerBlockProps) {
   const [moveOpen, setMoveOpen] = useState(false);
   const moveRef = useRef<HTMLDivElement | null>(null);
   const dot = dotColor(traveler);
+  const expBadge = expiryBadge(traveler, departureDate);
+
+  // 검증 경고 → 표시용 (만료는 별도 배지로 표시하므로 제외, 미완성은 빈칸 노랑 배지)
+  const warns = traveler.warnings ?? [];
+  const hasMissing = warns.includes('missing');
+  const otherWarns = warns.filter(
+    (w) => w !== 'expired' && w !== 'missing' && WARNING_META[w],
+  );
 
   useEffect(() => {
     if (!moveOpen) return;
@@ -598,8 +1164,16 @@ function TravelerBlock({
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [moveOpen]);
 
+  // 행 배경: error 연빨강 / partial 연노랑 / complete 흰색
+  const rowBg =
+    traveler.status === 'error'
+      ? 'bg-red-50/60'
+      : traveler.status === 'partial'
+        ? 'bg-yellow-50/50'
+        : '';
+
   return (
-    <div className="flex items-start justify-between gap-3 py-3">
+    <div className={`flex items-start justify-between gap-3 rounded-lg px-2 py-3 ${rowBg}`}>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -625,11 +1199,36 @@ function TravelerBlock({
               동행인
             </span>
           )}
-          {traveler.expiredPassport && (
+          {/* 만료 배지 (빨강, D-N) */}
+          {expBadge && (
             <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
-              <AlertTriangle className="h-3 w-3" /> 만료
+              <AlertTriangle className="h-3 w-3" /> {expBadge}
             </span>
           )}
+          {/* 미완성(빈칸) 노랑 배지 */}
+          {hasMissing && (
+            <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-bold text-yellow-800">
+              빈칸 있음
+            </span>
+          )}
+          {/* 기타 경고 (형식/영문분리/중복) 아이콘 + 툴팁 */}
+          {otherWarns.map((w) => {
+            const meta = WARNING_META[w];
+            return (
+              <span
+                key={w}
+                title={meta.label}
+                aria-label={meta.label}
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${
+                  meta.tone === 'red'
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-yellow-100 text-yellow-800'
+                }`}
+              >
+                <AlertTriangle className="h-3 w-3" /> {meta.label}
+              </span>
+            );
+          })}
         </div>
 
         {/* 마스킹된 핵심 정보 */}
@@ -639,59 +1238,224 @@ function TravelerBlock({
           {traveler.gender && <span>{traveler.gender}</span>}
         </div>
 
-        {/* 담당자 / 최근 수정 */}
-        <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-gray-400">
+        {/* 담당자 / 최근 수정 / 이력 */}
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
           {traveler.agentName && <span>담당 {traveler.agentName}</span>}
           {traveler.updatedByName && (
             <span>
               수정: {traveler.updatedByName} {fmtUpdated(traveler.updatedAt)}
             </span>
           )}
+          <button
+            type="button"
+            onClick={() => onHistory(traveler)}
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold text-blue-600 hover:bg-blue-50"
+            title="변경 이력 보기"
+          >
+            <History className="h-3.5 w-3.5" /> 이력
+          </button>
         </div>
       </div>
 
-      {/* 방 이동 드롭다운 (메인 동작) */}
+      {/* 우측 동작: 방 이동 + 삭제 */}
       {canManage && (
-        <div className="relative shrink-0" ref={moveRef}>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <div className="relative" ref={moveRef}>
+            <button
+              type="button"
+              onClick={() => setMoveOpen((o) => !o)}
+              className="inline-flex items-center gap-1 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
+            >
+              방 이동
+              <ChevronDown className="h-4 w-4" />
+            </button>
+            {moveOpen && (
+              <div className="absolute right-0 z-20 mt-1 max-h-64 w-44 overflow-auto rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+                {roomOptions.map((opt) => (
+                  <button
+                    key={opt.roomNumber}
+                    type="button"
+                    disabled={opt.roomNumber === currentRoom}
+                    onClick={() => {
+                      setMoveOpen(false);
+                      onMove(traveler, currentRoom, opt.roomNumber);
+                    }}
+                    className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold ${
+                      opt.roomNumber === currentRoom
+                        ? 'cursor-default bg-gray-50 text-gray-400'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span
+                      className="inline-block h-4 w-4 shrink-0 rounded"
+                      style={{ backgroundColor: opt.colorHex }}
+                    />
+                    {opt.roomNumber > 0 ? `${opt.roomNumber}번방` : '미배정'}
+                    {opt.roomNumber === currentRoom && (
+                      <span className="ml-auto text-xs">현재</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* 단건 삭제 (휴지통) */}
           <button
             type="button"
-            onClick={() => setMoveOpen((o) => !o)}
-            className="inline-flex items-center gap-1 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
+            onClick={() => onDelete(traveler, currentRoom)}
+            className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-white p-2 text-red-500 hover:bg-red-50"
+            title="이 사람 명단에서 빼기"
+            aria-label="명단에서 빼기"
           >
-            방 이동
-            <ChevronDown className="h-4 w-4" />
+            <Trash2 className="h-5 w-5" />
           </button>
-          {moveOpen && (
-            <div className="absolute right-0 z-20 mt-1 max-h-64 w-44 overflow-auto rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
-              {roomOptions.map((opt) => (
-                <button
-                  key={opt.roomNumber}
-                  type="button"
-                  disabled={opt.roomNumber === currentRoom}
-                  onClick={() => {
-                    setMoveOpen(false);
-                    onMove(traveler, currentRoom, opt.roomNumber);
-                  }}
-                  className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold ${
-                    opt.roomNumber === currentRoom
-                      ? 'cursor-default bg-gray-50 text-gray-400'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <span
-                    className="inline-block h-4 w-4 shrink-0 rounded"
-                    style={{ backgroundColor: opt.colorHex }}
-                  />
-                  {opt.roomNumber > 0 ? `${opt.roomNumber}번방` : '미배정'}
-                  {opt.roomNumber === currentRoom && (
-                    <span className="ml-auto text-xs">현재</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// 이력 패널 (변경 이력 타임라인 + 1클릭 되돌리기)
+// ─────────────────────────────────────────────────────────────
+
+interface HistoryPanelProps {
+  traveler: BoardTraveler;
+  canManage: boolean;
+  onClose: () => void;
+  onRevert: (t: BoardTraveler, key: string, oldVal: unknown) => Promise<void>;
+}
+
+function HistoryPanel({ traveler, canManage, onClose, onRevert }: HistoryPanelProps) {
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<AuditRow[]>([]);
+  const [err, setErr] = useState<string | null>(null);
+  const [reverting, setReverting] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/admin/apis/audit?travelerId=${traveler.id}`, {
+        cache: 'no-store',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setErr(data.error || '이력을 불러오지 못했습니다.');
+        setRows([]);
+        return;
+      }
+      setRows(Array.isArray(data.rows) ? data.rows : []);
+    } catch (e) {
+      logger.error('[ApisBoard] history load failed', { err: String(e) });
+      setErr('네트워크 오류로 이력을 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }, [traveler.id]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} aria-hidden />
+      <div className="relative z-10 flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+          <div className="min-w-0">
+            <h3 className="flex items-center gap-2 truncate text-xl font-bold text-gray-900">
+              <History className="h-6 w-6 text-blue-600" />
+              {travelerDisplayName(traveler)} 변경 이력
+            </h3>
+            <p className="text-sm text-gray-500">누가 언제 무엇을 바꿨는지 보여줘요.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl p-2 text-gray-500 hover:bg-gray-100"
+            aria-label="닫기"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-5">
+          {loading ? (
+            <div className="flex items-center justify-center py-16 text-gray-500">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" /> 이력을 불러오는 중…
+            </div>
+          ) : err ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-center text-base font-semibold text-red-700">
+              {err}
+              <button
+                type="button"
+                onClick={() => void load()}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700"
+              >
+                <RefreshCw className="h-4 w-4" /> 다시 시도
+              </button>
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="py-16 text-center text-base text-gray-400">
+              아직 변경 이력이 없어요.
+            </div>
+          ) : (
+            <ol className="relative space-y-4 border-l-2 border-gray-100 pl-5">
+              {rows.map((a) => {
+                // 되돌리기 가능: update 액션 + 단일 편집필드 + 화이트리스트
+                const single =
+                  a.action === 'TRAVELER_UPDATE' &&
+                  a.changedFields.length === 1 &&
+                  EDITABLE_KEYS.has(a.changedFields[0]) &&
+                  a.oldValue != null &&
+                  typeof a.oldValue === 'object';
+                const revertKey = single ? a.changedFields[0] : null;
+                const revertVal =
+                  single && a.oldValue && typeof a.oldValue === 'object'
+                    ? (a.oldValue as Record<string, unknown>)[a.changedFields[0]]
+                    : undefined;
+                return (
+                  <li key={a.id} className="relative">
+                    <span className="absolute -left-[27px] top-1.5 h-3 w-3 rounded-full border-2 border-white bg-blue-500" />
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-gray-400">
+                          {fmtUpdated(a.createdAt)} · {a.userName || '알 수 없음'}
+                        </p>
+                        <p className="mt-0.5 break-words text-sm font-semibold text-gray-800">
+                          {describeAudit(a)}
+                        </p>
+                      </div>
+                      {canManage && revertKey && (
+                        <button
+                          type="button"
+                          disabled={reverting === `${a.id}`}
+                          onClick={async () => {
+                            setReverting(`${a.id}`);
+                            await onRevert(traveler, revertKey, revertVal);
+                            setReverting(null);
+                            onClose();
+                          }}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                          title="이 변경 전 값으로 되돌리기"
+                        >
+                          {reverting === `${a.id}` ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Undo2 className="h-3.5 w-3.5" />
+                          )}
+                          되돌리기
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
