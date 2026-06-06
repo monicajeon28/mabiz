@@ -29,10 +29,12 @@ import {
 const STANDARD_INCLUDES = [
   '선박/항공기 운임', '숙박/식사료', '안내자경비', '항만세·관광기금',
   '제세금', '여행알선수수료', '관광지 입장료', '유류할증료', '여행보험료',
+  '항공기 추가 운임',
 ];
 
 const STANDARD_EXCLUDES = [
   '선상팁', '쇼핑비', '선택관광', '여권발급비', '비자발급비', '봉사료', '포터비',
+  '일본 관광 입국세', '여권·비자 개인 부담',
 ];
 
 // ─── 경쟁사 가격 행 타입 ─────────────────────────────────────────────────────
@@ -151,8 +153,16 @@ export default function ComparisonQuoteTab() {
         ourPrice: json.product.basePrice || prev.ourPrice,
         departureDate: departureDate || prev.departureDate,
         itinerary: itinerary || prev.itinerary,
+        // 상품 설정에서 자동 도출된 포함/불포함/인솔자
+        includedItems: Array.isArray(json.product.includedItems) && json.product.includedItems.length > 0
+          ? json.product.includedItems as string[]
+          : prev.includedItems,
+        excludedItems: Array.isArray(json.product.excludedItems) && json.product.excludedItems.length > 0
+          ? json.product.excludedItems as string[]
+          : prev.excludedItems,
+        hasGuide: (json.product.hasGuide as '' | 'Y' | 'N') || prev.hasGuide,
       }));
-      showSuccess('상품 정보를 불러왔습니다.');
+      showSuccess('상품 정보를 불러왔습니다. 포함/불포함 항목이 자동 반영되었습니다.');
     } catch (error) {
       showError(error instanceof Error ? error.message : '상품 정보 조회 실패');
     } finally {
