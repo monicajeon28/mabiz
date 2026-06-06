@@ -42,52 +42,61 @@ export async function PATCH(
       );
     }
 
-    const sale = await prisma.affiliateSale.findUnique({
+    // 존재 여부 + 조직 권한 사전 확인 (404 vs 403 구분용)
+    const existing = await prisma.affiliateSale.findUnique({
       where: { id: resolvedParams.id },
+      select: { organizationId: true, status: true },
     });
 
-    if (!sale) {
+    if (!existing) {
       return NextResponse.json(
         { ok: false, error: '판매 기록을 찾을 수 없습니다.' },
         { status: 404 }
       );
     }
 
-    if (sale.organizationId !== session.organizationId) {
+    if (existing.organizationId !== session.organizationId) {
       return NextResponse.json(
         { ok: false, error: '접근 권한이 없습니다.' },
         { status: 403 }
       );
     }
 
-    if (sale.status !== 'PENDING' && sale.status !== 'PENDING_APPROVAL') {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: `${sale.status} 상태에서는 승인/거절할 수 없습니다.`,
-        },
-        { status: 400 }
-      );
-    }
-
-    const updatedSale = await prisma.affiliateSale.update({
-      where: { id: resolvedParams.id },
+    // updateMany with status condition: TOCTOU 방지 (동시 승인/거절 충돌)
+    // findUnique 후 update 사이에 다른 관리자가 먼저 처리했으면 count=0 반환
+    const updateResult = await prisma.affiliateSale.updateMany({
+      where: {
+        id: resolvedParams.id,
+        organizationId: session.organizationId,
+        status: { in: ['PENDING', 'PENDING_APPROVAL'] },
+      },
       data: {
         status,
-        ...(status === 'APPROVED' && {
-          updatedAt: new Date(),
-        }),
+        updatedAt: new Date(),
         ...(status === 'REJECTED' && {
           cancelReason: rejectionReason,
           cancelledAt: new Date(),
-          updatedAt: new Date(),
         }),
       },
     });
 
+    if (updateResult.count === 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `이미 처리되었거나 승인 가능 상태가 아닙니다. (현재 상태: ${existing.status})`,
+        },
+        { status: 409 }
+      );
+    }
+
+    const updatedSale = await prisma.affiliateSale.findUnique({
+      where: { id: resolvedParams.id },
+    });
+
     logger.log('[sales-confirmation PATCH] 판매 상태 업데이트', {
       saleId: resolvedParams.id,
-      prevStatus: sale.status,
+      prevStatus: existing.status,
       newStatus: status,
       approverId: session.userId,
       ...(status === 'REJECTED' && { rejectionReason }),
