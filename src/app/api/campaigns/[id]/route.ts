@@ -334,9 +334,9 @@ export async function DELETE(req: Request, { params }: Params) {
       );
     }
 
-    // 캠페인 삭제
+    // 캠페인 삭제 (organizationId 포함: findFirst → delete 사이 TOCTOU 방지)
     await prisma.crmMarketingCampaign.delete({
-      where: { id: campaignId },
+      where: { id: campaignId, organizationId: orgId },
     });
 
     logger.log('[DELETE /api/campaigns/[id]]', { campaignId });

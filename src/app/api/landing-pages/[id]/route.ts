@@ -189,7 +189,7 @@ export async function DELETE(_req: Request, { params }: Params) {
     const existing = await prisma.crmLandingPage.findFirst({ where });
     if (!existing) return NextResponse.json({ ok: false, message: "페이지를 찾을 수 없습니다." }, { status: 404 });
 
-    await prisma.crmLandingPage.delete({ where: { id } });
+    await prisma.crmLandingPage.delete({ where });
     return NextResponse.json({ ok: true });
   } catch (err) {
     logger.error("[DELETE /api/landing-pages/[id]]", { err });
