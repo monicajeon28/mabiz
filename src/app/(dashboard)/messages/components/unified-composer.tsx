@@ -1,22 +1,22 @@
 ﻿"use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   MessageSquare,
   Mail,
   MessageCircle,
   Send,
-  ChevronDown,
   AlertCircle,
   Eye,
   Copy,
   CheckCircle2,
   Lightbulb,
   Clock,
-  BarChart3,
+  Edit2,
 } from "lucide-react";
 import { convertMessageForChannel } from "@/lib/services/multi-channel-campaign";
 import type { MessageChannel } from "@/lib/types/multi-channel";
+import { logger } from "@/lib/logger";
 
 interface UnifiedComposerProps {
   groups: Array<{ id: string; name: string; _count: { members: number } }>;
@@ -181,7 +181,9 @@ export function UnifiedComposer({
           templateId: selectedTemplate || undefined,
         });
       } catch (error) {
-        console.error("발송 실패:", error);
+        logger.error("UnifiedComposer 발송 실패", {
+          error: error instanceof Error ? error.message : String(error)
+        });
         alert("발송 중 오류가 발생했습니다.");
       } finally {
         setSubmitting(false);
@@ -469,5 +471,3 @@ export function UnifiedComposer({
     </div>
   );
 }
-
-import { Edit2 } from "lucide-react";

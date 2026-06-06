@@ -1,10 +1,13 @@
 import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { logger } from "@/lib/logger";
 
 /**
  * 결제 완료 페이지
  * PayApp returnurl → /p/[slug]/payment/complete?orderId=xxx
+ *
+ * P0-6: orderId XSS 방지 (정규식 검증)
  */
 export default async function PaymentCompletePage({
   params,
@@ -15,6 +18,12 @@ export default async function PaymentCompletePage({
 }) {
   const { slug } = await params;
   const { orderId } = await searchParams;
+
+  // P0-6: orderId 형식 검증 (XSS 방지)
+  if (orderId && !/^[a-zA-Z0-9\-_]+$/.test(orderId)) {
+    logger.warn("[PaymentComplete] 의심 orderId", { orderId: orderId.substring(0, 20) + "***" });
+    notFound();
+  }
 
   // 랜딩페이지 확인
   const page = await prisma.crmLandingPage.findFirst({
