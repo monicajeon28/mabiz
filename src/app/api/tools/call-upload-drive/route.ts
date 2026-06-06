@@ -11,10 +11,6 @@ function sanitizeName(raw: string): string {
   return raw.replace(/[/\\:*?"<>|]/g, '_').replace(/\.\./g, '_').trim().slice(0, 50);
 }
 
-function maskPhone(text: string): string {
-  return text.replace(/01[016789]-?\d{3,4}-?\d{4}/g, '010-****-****');
-}
-
 // POST /api/tools/call-upload-drive
 // 통화 내용을 Google Drive에 MD 파일로 업로드
 export async function POST(req: Request) {
@@ -38,8 +34,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: '통화 내용이 20,000자를 초과합니다.' }, { status: 400 });
     }
 
-    const maskedText = maskPhone(callText);
-    if (Buffer.byteLength(maskedText, 'utf8') > 150000) {
+    if (Buffer.byteLength(callText, 'utf8') > 150000) {
       return NextResponse.json({ ok: false, message: '파일 크기가 너무 큽니다.' }, { status: 400 });
     }
 
@@ -79,7 +74,7 @@ export async function POST(req: Request) {
       '',
       '## 통화내용',
       '',
-      maskedText.replace(/`/g, "'"),
+      callText.replace(/`/g, "'"),
     ].join('\n');
 
     const rootFolderId = process.env.GOOGLE_DRIVE_CALL_UPLOAD_FOLDER_ID;

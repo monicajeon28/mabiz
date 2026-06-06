@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
+import { getAuthContext } from '@/lib/rbac';
 
 interface SmsLog {
   id: string;
@@ -54,6 +55,15 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function GET(req: NextRequest) {
   try {
+    // 인증 체크: GLOBAL_ADMIN만 접근 허용
+    const ctx = await getAuthContext().catch(() => null);
+    if (!ctx?.userId) {
+      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 });
+    }
+    if (ctx.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json({ error: '권한이 없습니다' }, { status: 403 });
+    }
+
     const searchParams = req.nextUrl.searchParams;
     const fromDate = searchParams.get('fromDate');
     const toDate = searchParams.get('toDate');

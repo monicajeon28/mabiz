@@ -91,18 +91,17 @@ function CalculatorContent() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch('https://api.frankfurter.dev/v2/rates?from=USD&to=KRW', { signal: controller.signal })
+    fetch('/api/tools/exchange-rate', { signal: controller.signal })
       .then(r => { if (!r.ok) throw new Error('rate-fetch-failed'); return r.json(); })
-      .then((d: { rates?: { KRW?: number }; date?: string }) => {
-        const rate = d.rates?.KRW;
-        if (typeof rate === 'number' && rate > 0 && isFinite(rate)) {
-          setExchangeRate(rate);
-          setRateDate(d.date ?? '');
-          setSaleUsd((1000000 / rate).toFixed(2));
-          setCostUsd((800000 / rate).toFixed(2));
-        } else {
+      .then((d: { rate?: number; date?: string; error?: string }) => {
+        if (d.error || typeof d.rate !== 'number' || d.rate <= 0) {
           setRateError(true);
+          return;
         }
+        setExchangeRate(d.rate);
+        setRateDate(d.date ?? '');
+        setSaleUsd((1000000 / d.rate).toFixed(2));
+        setCostUsd((800000 / d.rate).toFixed(2));
       })
       .catch(e => { if (e.name !== 'AbortError') setRateError(true); });
     return () => controller.abort();
@@ -210,6 +209,7 @@ function CalculatorContent() {
   const [showPanel, setShowPanel] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(true);
+  const [detailCalc, setDetailCalc] = useState<SavedCalc | null>(null);
 
   // 목록 초기 로드
   useEffect(() => {
@@ -313,6 +313,13 @@ function CalculatorContent() {
 
   return (
     <div className="flex gap-4 items-start">
+      {detailCalc && (
+        <DetailModal
+          calc={detailCalc}
+          onClose={() => setDetailCalc(null)}
+          onLoad={(c) => { doLoad(c); setDetailCalc(null); }}
+        />
+      )}
 
       {/* ── 왼쪽: 계산기 ── */}
       <div className="flex-1 min-w-0 space-y-5 pb-12">
@@ -345,7 +352,7 @@ function CalculatorContent() {
               savedCalcs={savedCalcs} isLoading={isLoadingList} isSaving={isSaving}
               saveTitle={saveTitle} setSaveTitle={setSaveTitle}
               showSaveInput={showSaveInput} setShowSaveInput={setShowSaveInput}
-              onSave={doSave} onLoad={doLoad} onDelete={doDelete}
+              onSave={doSave} onLoad={doLoad} onDelete={doDelete} onDetail={setDetailCalc}
             />
           </div>
         )}
@@ -624,8 +631,58 @@ function CalculatorContent() {
           savedCalcs={savedCalcs} isLoading={isLoadingList} isSaving={isSaving}
           saveTitle={saveTitle} setSaveTitle={setSaveTitle}
           showSaveInput={showSaveInput} setShowSaveInput={setShowSaveInput}
-          onSave={doSave} onLoad={doLoad} onDelete={doDelete}
+          onSave={doSave} onLoad={doLoad} onDelete={doDelete} onDetail={setDetailCalc}
         />
+      </div>
+    </div>
+  );
+}
+
+// ─── 세부확인 모달 ────────────────────────────────────────────────────────────
+
+function DetailModal({ calc, onClose, onLoad }: { calc: SavedCalc; onClose: () => void; onLoad: (c: SavedCalc) => void }) {
+  const rows: { label: string; value: string; highlight?: boolean; red?: boolean }[] = [
+    { label: '판매가', value: `${Math.round(calc.salePrice).toLocaleString('ko-KR')} 원` },
+    { label: '입금가', value: `${Math.round(calc.costPrice).toLocaleString('ko-KR')} 원` },
+    { label: '세전순이익', value: `${Math.round(calc.snapshotNetProfit).toLocaleString('ko-KR')} 원`, highlight: true },
+    { label: `대리점장 수당 (${calc.agentMode === 'pct' ? calc.agentPct.toFixed(1) + '%' : '금액'})`, value: `${Math.round(calc.agentAmt).toLocaleString('ko-KR')} 원` },
+    { label: `소속판매원 수당 (${calc.memberMode === 'pct' ? calc.memberPct.toFixed(1) + '%' : '금액'})`, value: `${Math.round(calc.memberAmt).toLocaleString('ko-KR')} 원` },
+    { label: `자유판매원 수당 (${calc.freePct.toFixed(1)}%)`, value: `${Math.round(calc.freeAmt).toLocaleString('ko-KR')} 원` },
+    { label: `오버라이딩 수당 (${calc.overridingPct.toFixed(1)}%)`, value: `${Math.round(calc.overridingAmt).toLocaleString('ko-KR')} 원` },
+    { label: '본사 순이익', value: `${Math.round(calc.snapshotHqProfit).toLocaleString('ko-KR')} 원`, highlight: true, red: calc.snapshotHqProfit < 0 },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+        <div className="flex items-center justify-between px-5 py-4 border-b bg-slate-50 rounded-t-2xl">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900 line-clamp-1">{calc.title}</h2>
+            <p className="text-xs text-slate-400 mt-0.5">{new Date(calc.savedAt).toLocaleString('ko-KR')}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
+        </div>
+        <div className="px-5 py-4 divide-y divide-slate-100">
+          {rows.map(row => (
+            <div key={row.label} className={`flex justify-between items-center py-2 text-sm ${row.highlight ? 'bg-slate-50 -mx-5 px-5' : ''}`}>
+              <span className="text-slate-500">{row.label}</span>
+              <span className={`font-semibold ${row.red ? 'text-red-600' : row.highlight ? 'text-blue-700' : 'text-slate-800'}`}>{row.value}</span>
+            </div>
+          ))}
+          {calc.exchangeRateSnapshot && (
+            <div className="flex justify-between items-center py-2 text-xs text-slate-400">
+              <span>저장 당시 환율</span>
+              <span>$1 = {Math.round(calc.exchangeRateSnapshot).toLocaleString('ko-KR')} 원</span>
+            </div>
+          )}
+        </div>
+        <div className="px-5 py-4 border-t flex gap-2">
+          <button
+            onClick={() => { onLoad(calc); onClose(); }}
+            className="flex-1 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 font-medium"
+          >계산기에 불러오기</button>
+          <button onClick={onClose} className="flex-1 py-2 bg-slate-100 text-slate-600 text-sm rounded-lg hover:bg-slate-200">닫기</button>
+        </div>
       </div>
     </div>
   );
@@ -636,7 +693,7 @@ function CalculatorContent() {
 function SavedPanel({
   savedCalcs, isLoading, isSaving,
   saveTitle, setSaveTitle, showSaveInput, setShowSaveInput,
-  onSave, onLoad, onDelete,
+  onSave, onLoad, onDelete, onDetail,
 }: {
   savedCalcs: SavedCalc[];
   isLoading: boolean;
@@ -646,6 +703,7 @@ function SavedPanel({
   onSave: () => void;
   onLoad: (c: SavedCalc) => void;
   onDelete: (id: string, e: React.MouseEvent) => void;
+  onDetail: (c: SavedCalc) => void;
 }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -685,19 +743,15 @@ function SavedPanel({
         ) : (
           savedCalcs.map(c => (
             <div key={c.id} className="group relative hover:bg-slate-50 transition">
-              {/* 삭제 버튼 — 불러오기 버튼과 분리 */}
+              {/* 삭제 버튼 */}
               <button
                 type="button"
                 onClick={e => onDelete(c.id, e)}
                 className="absolute top-2 right-3 z-10 text-slate-300 hover:text-red-400 text-xs px-1 py-0.5"
                 aria-label="삭제"
               >✕</button>
-              {/* 불러오기 영역 */}
-              <button
-                type="button"
-                onClick={() => onLoad(c)}
-                className="w-full text-left px-4 py-3 pr-8"
-              >
+              {/* 요약 영역 */}
+              <div className="px-4 py-3 pr-8">
                 <p className="text-sm font-medium text-slate-800 leading-snug line-clamp-1 pr-2">{c.title}</p>
                 <p className="text-xs text-slate-400 mt-0.5">{new Date(c.savedAt).toLocaleString('ko-KR')}</p>
                 <div className="mt-1.5 space-y-0.5">
@@ -706,18 +760,26 @@ function SavedPanel({
                     <span className="text-slate-700">{Math.round(c.snapshotSale).toLocaleString('ko-KR')} 원</span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">세전순이익</span>
-                    <span className="text-slate-700">{Math.round(c.snapshotNetProfit).toLocaleString('ko-KR')} 원</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
                     <span className="text-slate-500">본사 순이익</span>
                     <span className={`font-semibold ${c.snapshotHqProfit < 0 ? 'text-red-500' : 'text-blue-600'}`}>
                       {Math.round(c.snapshotHqProfit).toLocaleString('ko-KR')} 원
                     </span>
                   </div>
                 </div>
-                <p className="text-xs text-blue-500 mt-1.5 opacity-0 group-hover:opacity-100 transition">클릭하여 불러오기 →</p>
-              </button>
+                {/* 액션 버튼 2개 */}
+                <div className="flex gap-1.5 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => onDetail(c)}
+                    className="flex-1 py-1 text-xs border border-slate-200 rounded-md text-slate-600 hover:bg-slate-100 transition"
+                  >세부확인</button>
+                  <button
+                    type="button"
+                    onClick={() => onLoad(c)}
+                    className="flex-1 py-1 text-xs border border-blue-200 rounded-md text-blue-600 hover:bg-blue-50 transition"
+                  >불러오기</button>
+                </div>
+              </div>
             </div>
           ))
         )}

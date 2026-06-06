@@ -1708,11 +1708,14 @@ model ShortLinkClick {
   id        String    @id @default(cuid())
   linkId    String
   contactId String?
-  clickedAt DateTime  @default(now())
+  clickedAt DateTime  @default(now()) @db.Timestamptz(6)
   userAgent String?
   contact   Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
   link      ShortLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
 
+  @@index([linkId, clickedAt], map: "idx_shortlinkclick_link_time")
+  @@index([contactId], map: "idx_shortlinkclick_contact")
+  @@index([clickedAt], map: "idx_shortlinkclick_time")
   @@map("ShortLinkClick")
 }
 
