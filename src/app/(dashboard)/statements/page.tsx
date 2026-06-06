@@ -212,7 +212,7 @@ function DocumentBanner({ doc }: { doc: DocumentInfo }) {
             </span>
           </div>
           <a
-            href="/settings"
+            href="/settings/documents"
             className="inline-flex items-center gap-1 text-sm font-medium text-amber-700 underline underline-offset-2 hover:text-amber-900 transition-colors"
           >
             서류 업로드하기 →
