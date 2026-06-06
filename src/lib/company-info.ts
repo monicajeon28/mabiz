@@ -28,6 +28,15 @@ export const CANCELLATION_POLICY: { label: string; value: string }[] = [
   { label: '출발 당일', value: '여행 요금의 50%' },
 ];
 
+// 크루즈 특별약관 취소료 규정 — 일반여행보다 엄격한 크루즈 전용 규정
+// (항공사·선사 비용 사전 지급으로 인한 크루즈 특별 취소료 적용)
+export const CRUISE_CANCELLATION_POLICY: { label: string; value: string }[] = [
+  { label: '여행개시 75일 전 통보 시', value: '위약금 없음' },
+  { label: '여행개시 74일 ~ 50일 전 취소 시', value: '총 경비의 30%' },
+  { label: '여행개시 49일 ~ 23일 전 취소 시', value: '총 경비의 70%' },
+  { label: '여행개시 22일 ~ 출발 당일 취소 시', value: '총 경비의 100%' },
+];
+
 // 서버 generatedData 저장용 문자열 배열 ("출발 30일 이전: 위약금 없음")
 export const CANCELLATION_POLICY_LINES = CANCELLATION_POLICY.map(
   (p) => `${p.label}: ${p.value}`,
