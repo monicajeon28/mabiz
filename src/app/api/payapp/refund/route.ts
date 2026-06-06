@@ -47,6 +47,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: '부분환불 시 금액을 입력해주세요.' }, { status: 400 });
     }
 
+    // P1-9: 부분취소 금액 범위 검증
+    if (partcancel && cancelprice) {
+      // 환불액 > 결제액 검증
+      if (cancelprice > payment.amount) {
+        return NextResponse.json(
+          { ok: false, message: `부분환불 금액이 결제금액(${payment.amount.toLocaleString()}원)을 초과할 수 없습니다.` },
+          { status: 400 }
+        );
+      }
+
+      // 누적 환불액 검증
+      const alreadyRefunded = payment.refundAmount ?? 0;
+      if (alreadyRefunded + cancelprice > payment.amount) {
+        const remainingRefundable = payment.amount - alreadyRefunded;
+        return NextResponse.json(
+          {
+            ok: false,
+            message: `이미 ${alreadyRefunded.toLocaleString()}원 환불됨. 남은 환불 가능액: ${remainingRefundable.toLocaleString()}원`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // PayApp API 호출
     const result = await cancelPayment({
       mulNo: payment.mulNo,
