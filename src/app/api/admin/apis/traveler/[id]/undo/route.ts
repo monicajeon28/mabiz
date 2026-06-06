@@ -28,6 +28,14 @@ import {
  *       (c) 대상 id 가 이미 존재하는지(재사용/중복복원)
  *     를 모두 재확인 → 동시 더블클릭/중복 복원을 차단.
  *
+ * [P1-1] 멱등 보장 한계(정직한 명세):
+ *   - (a)/(b)/(c) findFirst/findUnique 선조회는 "베스트에포트" 멱등 가드일 뿐,
+ *     동시 트랜잭션 사이의 경합 윈도우를 완전히 닫지 못한다(SELECT 시점엔 둘 다 미존재).
+ *   - 최종 방어선은 GmTraveler.id PK(@id) 의 UNIQUE 제약이다.
+ *     두 트랜잭션이 같은 id 로 create 하면 한쪽이 P2002 로 실패 → catch 에서 409 변환.
+ *   - TRAVELER_UNDO 감사로그에 대한 DB 레벨 UNIQUE 인덱스(undoOfAuditId) 추가는
+ *     prisma/schema.prisma 변경이 필요한 별도 순차작업이며 본 라우트 범위 밖이다.
+ *
  * 절차(한 트랜잭션):
  *   1) 기준 삭제 감사 재확인 + 스냅샷 파싱(화이트리스트 컬럼만).
  *   2) 이미 복원/존재 시 409 충돌.
@@ -45,13 +53,62 @@ import {
  *   - 400 / 401 / 403 / 500
  */
 
-/** 복원 가능한 스칼라 컬럼 화이트리스트 (임의 컬럼 주입 방지). */
-const RESTORABLE_FIELDS = [
-  'roomNumber', 'isSingleCharge', 'engSurname', 'engGivenName', 'korName',
-  'residentNum', 'gender', 'birthDate', 'passportNo', 'issueDate', 'expiryDate',
-  'nationality', 'notes', 'phone', 'companionGroupId', 'roomingGroupId',
-  'passportImage', 'passportDriveUrl', 'userId',
-] as const;
+/**
+ * 복원 가능한 스칼라 컬럼 화이트리스트 (임의 컬럼 주입 방지).
+ * 각 컬럼의 기대 타입을 명시해 스냅샷 → create 주입 전 값 가드를 강제한다([P2-3]).
+ *   - 'string'  : String? 컬럼
+ *   - 'int'     : Int? 컬럼 (정수만 허용)
+ *   - 'bool'    : Boolean 컬럼
+ *   - 'fk'      : Int? FK 컬럼 (존재검증 대상, [P1-2])
+ */
+const RESTORABLE_FIELDS = {
+  roomNumber: 'int',
+  isSingleCharge: 'bool',
+  engSurname: 'string',
+  engGivenName: 'string',
+  korName: 'string',
+  residentNum: 'string',
+  gender: 'string',
+  birthDate: 'string',
+  passportNo: 'string',
+  issueDate: 'string',
+  expiryDate: 'string',
+  nationality: 'string',
+  notes: 'string',
+  phone: 'string',
+  companionGroupId: 'fk',
+  roomingGroupId: 'int',
+  passportImage: 'string',
+  passportDriveUrl: 'string',
+  userId: 'fk',
+} as const;
+
+type RestorableType = (typeof RESTORABLE_FIELDS)[keyof typeof RESTORABLE_FIELDS];
+
+/**
+ * 스냅샷 원시값을 기대 타입으로 변환·검증한다([P2-3]).
+ * 부적합하면 null 을 반환해 'as unknown as' 광역 캐스팅 대신 안전한 값만 주입한다.
+ */
+function coerceRestorable(type: RestorableType, raw: unknown): string | number | boolean | null {
+  if (raw === null || raw === undefined) return null;
+  switch (type) {
+    case 'string':
+      return typeof raw === 'string' ? raw : null;
+    case 'bool':
+      return typeof raw === 'boolean' ? raw : null;
+    case 'int':
+    case 'fk': {
+      if (typeof raw === 'number' && Number.isInteger(raw)) return raw;
+      if (typeof raw === 'string' && raw.trim() !== '') {
+        const n = Number(raw);
+        if (Number.isInteger(n)) return n;
+      }
+      return null;
+    }
+    default:
+      return null;
+  }
+}
 
 /** metadata.travelerId(Int) 안전 추출 (audit route 와 동일 규칙). */
 function extractMetaTravelerId(metadata: Prisma.JsonValue): number | null {
@@ -167,7 +224,8 @@ export async function POST(
 
     // ── 복원 (단일 트랜잭션: 낙관락 재확인 + 재생성 + 싱글차지 재판정 + 감사로그) ──
     const result = await prisma.$transaction(async (tx) => {
-      // (a) 동시 더블클릭 차단: 같은 삭제 audit 을 이미 되돌렸으면 충돌
+      // (a) 동시 더블클릭 차단: 같은 삭제 audit 을 이미 되돌렸으면 충돌.
+      //     [P1-1] 선조회 멱등 가드(베스트에포트) — 경합 시 최종 방어선은 PK UNIQUE(P2002).
       const already = await tx.gmReservationAudit.findFirst({
         where: {
           action: 'TRAVELER_UNDO',
@@ -189,35 +247,67 @@ export async function POST(
         return { conflict: 'ALREADY_EXISTS' as const };
       }
 
-      // (c) 스냅샷 파싱 → 화이트리스트 컬럼만 재생성 데이터로
+      // (c) 스냅샷 파싱 → 화이트리스트 컬럼만, 기대 타입으로 가드 후 재생성 데이터로([P2-3]).
       const parsed = JSON.parse(deleteAudit.oldValue as string) as Record<string, unknown>;
       const reservationId =
-        typeof parsed.reservationId === 'number' ? parsed.reservationId : deleteAudit.reservationId;
-      const roomNumber = typeof parsed.roomNumber === 'number' ? parsed.roomNumber : 1;
+        typeof parsed.reservationId === 'number' && Number.isInteger(parsed.reservationId)
+          ? parsed.reservationId
+          : deleteAudit.reservationId;
+      const roomNumber =
+        typeof parsed.roomNumber === 'number' && Number.isInteger(parsed.roomNumber)
+          ? parsed.roomNumber
+          : 1;
 
-      const createData: Record<string, unknown> = {};
-      for (const k of RESTORABLE_FIELDS) {
-        if (k in parsed && parsed[k] !== undefined) createData[k] = parsed[k];
+      // 타입 가드된 스칼라 값만 모은다. (string/int/bool/fk → coerceRestorable)
+      const createData: Prisma.GmTravelerUncheckedCreateInput = {
+        // 기준 컬럼은 스냅샷이 덮어쓰지 못하게 고정. version/updatedBy 는 복원 시점 기준.
+        id: travelerId,
+        reservationId,
+        roomNumber,
+        version: 0,
+        updatedBy: userId,
+      };
+      for (const k of Object.keys(RESTORABLE_FIELDS) as (keyof typeof RESTORABLE_FIELDS)[]) {
+        // 기준 컬럼은 위에서 이미 고정했으므로 스냅샷 값으로 덮어쓰지 않는다.
+        if (k === 'roomNumber') continue;
+        if (!(k in parsed)) continue;
+        const value = coerceRestorable(RESTORABLE_FIELDS[k], parsed[k]);
+        if (value === null) continue; // 부적합/누락 값은 기본값(null)로 둔다.
+        (createData as Record<string, unknown>)[k] = value;
       }
-      // 기준 컬럼은 스냅샷이 덮어쓰지 못하게 고정. version/updatedBy 는 복원 시점 기준.
-      createData.id = travelerId;
-      createData.reservationId = reservationId;
-      createData.roomNumber = roomNumber;
-      createData.version = 0;
-      createData.updatedBy = userId;
 
-      const restored = await tx.gmTraveler.create({
-        data: createData as unknown as Prisma.GmTravelerUncheckedCreateInput,
-      });
+      // [P1-2] FK 고아참조 방지 — userId/companionGroupId 는 존재검증 후에만 유지.
+      //   userId        : GmUser 가 실제로 존재해야 유지, 없으면 null.
+      //   companionGroupId : 같은 방(reservationId+roomNumber)에 같은 그룹 잔존 시 유지, 없으면 null.
+      const userIdValue = createData.userId;
+      if (typeof userIdValue === 'number') {
+        const owner = await tx.gmUser.findUnique({ where: { id: userIdValue }, select: { id: true } });
+        if (!owner) createData.userId = null;
+      }
+      const companionGroupIdValue = createData.companionGroupId;
+      if (typeof companionGroupIdValue === 'number') {
+        const groupPeer = await tx.gmTraveler.findFirst({
+          where: {
+            reservationId,
+            roomNumber,
+            companionGroupId: companionGroupIdValue,
+          },
+          select: { id: true },
+        });
+        if (!groupPeer) createData.companionGroupId = null;
+      }
 
-      // (d) 복원 감사로그 — newValue = 복원된 전체 스냅샷, undoOfAuditId 로 삭제 이벤트와 연결
+      const restored = await tx.gmTraveler.create({ data: createData });
+
+      // (d) 복원 감사로그 — [P2-2] PII 평문 audit 금지: 식별자만 남긴다.
+      //     상세 스냅샷(oldValue)은 DELETE 감사에 이미 보존되어 있으므로 중복 저장하지 않는다.
       await tx.gmReservationAudit.create({
         data: {
           reservationId,
           userId,
           action: 'TRAVELER_UNDO',
           oldValue: null,
-          newValue: JSON.stringify(restored),
+          newValue: JSON.stringify({ travelerId, restored: true }),
           metadata: { travelerId, undoOfAuditId: expectedAuditId } as Prisma.InputJsonValue,
         },
       });
