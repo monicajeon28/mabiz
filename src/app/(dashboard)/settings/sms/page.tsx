@@ -254,9 +254,19 @@ export default function SmsSettingsPage() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-xl font-bold text-navy-900">SMS 설정</h1>
-          <p className="text-sm text-gray-500">Aligo API 연동 (카카오 제외)</p>
+          <h1 className="text-xl font-bold text-navy-900">문자(SMS) 설정</h1>
+          <p className="text-sm text-gray-500">알리고 문자 발송 서비스 연동</p>
         </div>
+      </div>
+
+      {/* 안내 배너 */}
+      <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+        <p className="font-semibold mb-1">📌 어떤 계정을 설정해야 하나요?</p>
+        <ul className="space-y-1 text-blue-700">
+          <li>• <strong>조직 공용 계정</strong> — 팀 전체가 같은 발신번호로 문자를 보낼 때 (아래 섹션)</li>
+          <li>• <strong>내 개인 계정</strong> — 나만의 발신번호로 문자를 보내고 싶을 때 (위 섹션)</li>
+        </ul>
+        <p className="mt-1.5 text-blue-600">개인 계정을 연결하면 내 발신번호가 우선 사용됩니다.</p>
       </div>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
