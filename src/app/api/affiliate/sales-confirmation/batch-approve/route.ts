@@ -54,23 +54,13 @@ export async function PATCH(req: NextRequest) {
       },
     });
 
-    // 일괄 업데이트 + CommissionLedger 생성 (단일 트랜잭션)
-    const [result] = await prisma.$transaction([
-      prisma.affiliateSale.updateMany({
-        where: { id: { in: saleIds } },
-        data: {
-          status: 'APPROVED',
-          updatedAt: new Date(),
-        },
-      }),
-    ]);
-
-    // CommissionLedger 생성 (승인된 건마다 커미션 원장 기록)
+    // CommissionLedger 데이터 계산 (트랜잭션 전 준비)
     const ledgerData = saleDetails.map((sale) => {
+      // commissionAmount/commissionRate가 null이면 0으로 처리해 NaN 저장 방지
       const commissionAmt =
-        sale.commissionAmount > 0
+        sale.commissionAmount != null && sale.commissionAmount > 0
           ? sale.commissionAmount
-          : Math.round((sale.saleAmount * sale.commissionRate) / 100);
+          : Math.round((sale.saleAmount * (sale.commissionRate ?? 0)) / 100);
       const withholdingAmt = Math.round(commissionAmt * 0.033); // 3.3% 원천징수
       return {
         saleId: sale.id,
@@ -85,13 +75,26 @@ export async function PATCH(req: NextRequest) {
       };
     });
 
-    if (ledgerData.length > 0) {
-      // skipDuplicates: saleId UNIQUE 인덱스에 의한 중복 방지
-      await prisma.commissionLedger.createMany({
-        data: ledgerData,
-        skipDuplicates: true,
+    // 상태 업데이트 + CommissionLedger 생성을 단일 트랜잭션으로 묶어 원자성 보장
+    // updateMany 성공 후 createMany 실패 시 APPROVED 상태지만 원장 없는 불일치 방지
+    const result = await prisma.$transaction(async (tx) => {
+      const updateResult = await tx.affiliateSale.updateMany({
+        where: { id: { in: saleIds } },
+        data: {
+          status: 'APPROVED',
+          updatedAt: new Date(),
+        },
       });
-    }
+
+      if (ledgerData.length > 0) {
+        await tx.commissionLedger.createMany({
+          data: ledgerData,
+          skipDuplicates: true,
+        });
+      }
+
+      return updateResult;
+    });
 
     logger.log('[sales-confirmation batch-approve] 일괄 승인 + CommissionLedger 생성', {
       approverId: session.userId,
