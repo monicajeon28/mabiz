@@ -173,8 +173,8 @@ export async function POST(
     });
 
     // 최신 드라이브 파일 ID 업데이트
-    await prisma.document.update({
-      where: { id },
+    await prisma.document.updateMany({
+      where: { id, organizationId: orgId },
       data: {
         driveFileId,
         fileSize: file.size,
