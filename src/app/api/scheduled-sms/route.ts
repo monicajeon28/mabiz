@@ -121,8 +121,8 @@ export async function PATCH(req: Request) {
       if (item.status !== "PENDING" && item.status !== "NIGHT_BLOCKED") {
         return NextResponse.json({ ok: false, message: `${item.status} 상태는 일시정지할 수 없습니다 (PENDING/NIGHT_BLOCKED만 가능)` }, { status: 400 });
       }
-      await prisma.scheduledSms.update({
-        where: { id: body.id },
+      await prisma.scheduledSms.updateMany({
+        where: { id: body.id, organizationId: orgId },
         data: { status: "PAUSED", pausedAt: new Date(), pausedBy: ctx.userId },
       });
       logger.log("[PATCH /api/scheduled-sms] pause", { id: body.id, orgId });
@@ -132,8 +132,8 @@ export async function PATCH(req: Request) {
       if (item.status !== "PAUSED") {
         return NextResponse.json({ ok: false, message: "일시정지 상태만 재개할 수 있습니다" }, { status: 400 });
       }
-      await prisma.scheduledSms.update({
-        where: { id: body.id },
+      await prisma.scheduledSms.updateMany({
+        where: { id: body.id, organizationId: orgId },
         data: { status: "PENDING", pausedAt: null, pausedBy: null },
       });
       logger.log("[PATCH /api/scheduled-sms] resume", { id: body.id, orgId });
@@ -144,8 +144,8 @@ export async function PATCH(req: Request) {
         return NextResponse.json({ ok: false, message: "실패한 메시지만 재발송할 수 있습니다" }, { status: 400 });
       }
       const retryAt = new Date(Date.now() + 5 * 60 * 1000); // 5분 후 재발송
-      await prisma.scheduledSms.update({
-        where: { id: body.id },
+      await prisma.scheduledSms.updateMany({
+        where: { id: body.id, organizationId: orgId },
         data: { status: "PENDING", scheduledAt: retryAt, failureReason: null },
       });
       logger.log("[PATCH /api/scheduled-sms] retry", { id: body.id, orgId, retryAt });
@@ -175,8 +175,8 @@ export async function DELETE(req: Request) {
     });
     if (!item) return NextResponse.json({ ok: false, message: "취소 가능한 예약 메시지를 찾을 수 없습니다 (PENDING/PAUSED/NIGHT_BLOCKED만 취소 가능)" }, { status: 404 });
 
-    await prisma.scheduledSms.update({
-      where: { id },
+    await prisma.scheduledSms.updateMany({
+      where: { id, organizationId: orgId },
       data:  { status: "CANCELLED" },
     });
 
