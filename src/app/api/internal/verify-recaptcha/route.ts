@@ -340,7 +340,7 @@ export async function POST(req: Request) {
     const errMsg = err instanceof Error ? err.message : String(err);
     logger.error('[VerifyRecaptcha] POST 핸들러 오류', { message: errMsg });
     return NextResponse.json(
-      { ok: false, error: 'SERVER_ERROR', details: errMsg },
+      { ok: false, error: 'SERVER_ERROR' },
       { status: 500 }
     );
   }

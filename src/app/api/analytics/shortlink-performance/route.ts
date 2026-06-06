@@ -230,7 +230,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<AnalyticsRespo
       {
         ok: false,
         data: null,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: '서버 오류가 발생했습니다.',
       },
       { status: 500 }
     )

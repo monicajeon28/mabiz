@@ -105,6 +105,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, results });
   } catch (err) {
     logger.error('[POST /api/images/batch-process]', { err });
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
+    return NextResponse.json({ ok: false, error: '서버 오류가 발생했습니다.' }, { status: 500 });
   }
 }

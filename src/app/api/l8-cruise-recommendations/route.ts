@@ -196,7 +196,7 @@ export async function POST(req: NextRequest) {
         results.push({
           contactId: contact.id,
           success: false,
-          error: String(error),
+          error: '처리 중 오류 발생',
         });
       }
     }

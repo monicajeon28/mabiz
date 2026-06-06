@@ -95,7 +95,7 @@ export async function GET(_req: Request, { params }: Params) {
     }
 
     // Risk Score 계산 (callLogs 배열 → callCount 변환, callLogs 필드 제외)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     const { callLogs: _callLogs, ...contactData } = contact;
     const riskProfile = await calculateRiskScore({
       ...contactData,
@@ -124,7 +124,7 @@ export async function GET(_req: Request, { params }: Params) {
   } catch (err) {
     logger.error('[GET /api/contacts/[id]/integrated-risk-score] Error', { err });
     return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : 'Unknown error' },
+      { ok: false, error: '서버 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

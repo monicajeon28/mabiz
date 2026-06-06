@@ -355,7 +355,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        message: err instanceof Error ? err.message : 'Internal Server Error',
+        message: '서버 오류가 발생했습니다.',
       },
       { status: 500 }
     );

@@ -643,7 +643,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        message: (err.message as string) || '예약 생성에 실패했습니다.',
+        message: '예약 생성에 실패했습니다.',
       },
       { status: 500 }
     );

@@ -240,11 +240,13 @@ export default function MembersPage() {
   // 서류 슬라이드 오버
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
-  // 임시 비밀번호 발급
-  const [resetTargetId, setResetTargetId] = useState<string | null>(null);
-  const [tempPassword, setTempPassword]   = useState<string | null>(null);
-  const [resetLoading, setResetLoading]   = useState(false);
-  const [pwCopied, setPwCopied]           = useState(false);
+  // 비밀번호 관리 (확인 + 임시 발급)
+  const [resetTargetId,   setResetTargetId]   = useState<string | null>(null);
+  const [resetTargetName, setResetTargetName] = useState<string>('');
+  const [tempPassword,    setTempPassword]    = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword] = useState<string | null>(null);
+  const [resetLoading,    setResetLoading]    = useState(false);
+  const [pwCopied,        setPwCopied]        = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -319,6 +321,19 @@ export default function MembersPage() {
 
   const deletingMember = members.find((m) => m.userId === pendingDelete);
 
+  function openPwModal(member: Member) {
+    setResetTargetId(member.id);
+    setResetTargetName(member.displayName ?? '팀원');
+    setTempPassword(null);
+    setCurrentPassword(null);
+    setPwCopied(false);
+    // 현재 비밀번호 즉시 조회
+    fetch(`/api/admin/members/${member.id}/password`)
+      .then(r => r.json())
+      .then(d => { if (d.ok) setCurrentPassword(d.passwordPlain ?? '(미설정)'); })
+      .catch(() => { setCurrentPassword('(조회 실패)'); });
+  }
+
   async function handleResetPassword(memberId: string) {
     setResetLoading(true);
     try {
@@ -326,6 +341,7 @@ export default function MembersPage() {
       const data = await res.json();
       if (!data.ok) { showError(data.message ?? '발급에 실패했습니다.'); return; }
       setTempPassword(data.tempPassword);
+      setCurrentPassword(data.tempPassword);
     } catch {
       showError('요청 중 오류가 발생했습니다.');
     } finally {
@@ -333,9 +349,8 @@ export default function MembersPage() {
     }
   }
 
-  function copyTempPassword() {
-    if (!tempPassword) return;
-    navigator.clipboard.writeText(tempPassword).then(() => {
+  function copyPassword(pw: string) {
+    navigator.clipboard.writeText(pw).then(() => {
       setPwCopied(true);
       setTimeout(() => setPwCopied(false), 3000);
     });
@@ -402,10 +417,10 @@ export default function MembersPage() {
                         서류 관리
                       </button>
                       <button
-                        onClick={() => { setResetTargetId(member.id); setTempPassword(null); }}
+                        onClick={() => openPwModal(member)}
                         className="text-sm text-orange-600 hover:underline"
                       >
-                        임시 비밀번호
+                        비밀번호 확인
                       </button>
                     </div>
                   </div>
@@ -444,53 +459,58 @@ export default function MembersPage() {
         onCancel={() => { setConfirmOpen(false); setPendingDelete(null); }}
       />
 
-      {/* 임시 비밀번호 발급 모달 */}
+      {/* 비밀번호 확인 + 임시 발급 모달 */}
       {resetTargetId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => { setResetTargetId(null); setTempPassword(null); }} />
+          <div className="absolute inset-0 bg-black/40" onClick={() => { setResetTargetId(null); }} />
           <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
-            <h3 className="font-bold text-gray-900">임시 비밀번호 발급</h3>
-            {!tempPassword ? (
-              <>
-                <p className="text-sm text-gray-600">
-                  임시 비밀번호를 발급하면 기존 비밀번호가 즉시 변경됩니다.<br />
-                  발급 후 대상자에게 직접 전달해 주세요.
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => { setResetTargetId(null); }}
-                    className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50"
-                  >
-                    취소
-                  </button>
-                  <button
-                    onClick={() => handleResetPassword(resetTargetId)}
-                    disabled={resetLoading}
-                    className="flex-1 py-2.5 bg-orange-500 text-white rounded-xl text-sm font-semibold hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center gap-1.5"
-                  >
-                    {resetLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
-                    발급
-                  </button>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-900">비밀번호 관리</h3>
+              <button onClick={() => setResetTargetId(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500">{resetTargetName}</p>
+
+            {/* 현재 비밀번호 */}
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">현재 비밀번호</p>
+              <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between gap-2">
+                {currentPassword === null ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                ) : (
+                  <>
+                    <span className="font-mono font-bold text-base tracking-widest text-gray-900">
+                      {currentPassword}
+                    </span>
+                    {currentPassword !== '(미설정)' && currentPassword !== '(조회 실패)' && (
+                      <button onClick={() => copyPassword(currentPassword)} className="shrink-0 text-gray-400 hover:text-gray-700">
+                        {pwCopied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+              {pwCopied && <p className="text-xs text-green-600">복사됐습니다.</p>}
+            </div>
+
+            {/* 임시 비밀번호 발급 */}
+            <div className="pt-2 border-t border-gray-100 space-y-2">
+              <p className="text-xs text-gray-500">새 임시 비밀번호를 발급하면 기존 비밀번호가 즉시 변경됩니다.</p>
+              {tempPassword && (
+                <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-xs text-green-800">
+                  ✓ 임시 비밀번호 발급 완료 — 위 비밀번호가 업데이트됐습니다.
                 </div>
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-gray-600">임시 비밀번호가 발급됐습니다. 이 화면을 닫으면 다시 볼 수 없습니다.</p>
-                <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between gap-2">
-                  <span className="font-mono font-bold text-lg tracking-widest text-gray-900">{tempPassword}</span>
-                  <button onClick={copyTempPassword} className="shrink-0 text-gray-500 hover:text-gray-700">
-                    {pwCopied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                  </button>
-                </div>
-                {pwCopied && <p className="text-xs text-green-600 text-center">복사됐습니다.</p>}
-                <button
-                  onClick={() => { setResetTargetId(null); setTempPassword(null); setPwCopied(false); }}
-                  className="w-full py-2.5 bg-navy-900 text-white rounded-xl text-sm font-semibold hover:bg-navy-800"
-                >
-                  확인
-                </button>
-              </>
-            )}
+              )}
+              <button
+                onClick={() => handleResetPassword(resetTargetId)}
+                disabled={resetLoading}
+                className="w-full py-2.5 bg-orange-500 text-white rounded-xl text-sm font-semibold hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {resetLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+                임시 비밀번호 발급
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -191,7 +191,7 @@ export async function GET(req: Request) {
   } catch (error) {
     logger.error("[Verify] 검증 중 오류:", { error });
     return NextResponse.json(
-      { error: "검증 중 오류가 발생했습니다", details: String(error) },
+      { error: "검증 중 오류가 발생했습니다" },
       { status: 500 }
     );
   }

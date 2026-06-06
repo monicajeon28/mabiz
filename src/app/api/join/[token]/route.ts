@@ -70,12 +70,12 @@ export async function POST(req: Request, { params }: Params) {
     }
 
     // 비밀번호 해싱 (bcrypt)
+    const plainPassword = body.password ?? '';
     let passwordHash: string;
     try {
-      passwordHash = await hashPassword(body.password ?? '');
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '비밀번호 오류';
-      return NextResponse.json({ ok: false, message: msg }, { status: 400 });
+      passwordHash = await hashPassword(plainPassword);
+    } catch {
+      return NextResponse.json({ ok: false, message: '비밀번호 처리 중 오류가 발생했습니다.' }, { status: 400 });
     }
 
     // TOCTOU 방어: atomic updateMany로 토큰 클레임
@@ -122,6 +122,7 @@ export async function POST(req: Request, { params }: Params) {
           phone:             phoneClean,
           email:             memberEmail,
           passwordHash,
+          passwordPlain:     plainPassword,
           role,
           displayName:       body.displayName?.trim() ?? null,
           isActive:          true,

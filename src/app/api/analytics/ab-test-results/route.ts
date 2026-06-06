@@ -236,7 +236,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   } catch (error) {
     console.error('[ab-test-results] Error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: '서버 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

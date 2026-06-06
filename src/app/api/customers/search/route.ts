@@ -93,8 +93,7 @@ export async function GET(request: NextRequest) {
     console.error("[Customer Search] Error:", error);
     return NextResponse.json(
       {
-        error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error",
+        error: "서버 오류가 발생했습니다.",
       },
       { status: 500 }
     );

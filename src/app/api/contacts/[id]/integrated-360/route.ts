@@ -67,7 +67,7 @@ export async function GET(_req: Request, { params }: Params) {
     return NextResponse.json(
       {
         ok: false,
-        error: err instanceof Error ? err.message : 'Unknown error'
+        error: '서버 오류가 발생했습니다.'
       },
       { status: statusCode }
     );
@@ -105,7 +105,7 @@ export async function POST(req: Request, { params }: Params) {
   } catch (err) {
     logger.error('[POST /api/contacts/[id]/integrated-360/invalidate] Error', { err });
     return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : 'Unknown error' },
+      { ok: false, error: '서버 오류가 발생했습니다.' },
       { status: 500 }
     );
   }
