@@ -584,10 +584,14 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    const updatedMessage = await prisma.crmMarketingMessage.update({
-      where: { id },
+    const updateResult = await prisma.crmMarketingMessage.updateMany({
+      where: { id, organizationId: session.organizationId },
       data: updateData
     });
+    if (updateResult.count === 0) {
+      return NextResponse.json({ ok: false, message: 'Message not found' }, { status: 404 });
+    }
+    const updatedMessage = await prisma.crmMarketingMessage.findUnique({ where: { id } });
 
     logger.log('[Message] PUT 업데이트 완료', {
       messageId: id,
@@ -655,10 +659,11 @@ export async function DELETE(req: NextRequest) {
     }
 
     // 소프트 삭제 (status = 'DELETED')
-    const deletedMessage = await prisma.crmMarketingMessage.update({
-      where: { id },
+    await prisma.crmMarketingMessage.updateMany({
+      where: { id, organizationId: session.organizationId },
       data: { status: 'DELETED' }
     });
+    const deletedMessage = await prisma.crmMarketingMessage.findUnique({ where: { id } });
 
     logger.log('[Message] DELETE 소프트 삭제 완료', {
       messageId: id,

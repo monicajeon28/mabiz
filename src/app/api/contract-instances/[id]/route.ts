@@ -223,18 +223,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // 인스턴스 업데이트
-    const updatedInstance = await prisma.contractInstance.update({
-      where: { id },
+    await prisma.contractInstance.updateMany({
+      where: { id, organizationId },
       data: {
         ...(status && { status }),
-        ...(status === "SIGNED" && {
-          signedAt: new Date(),
-        }),
-      },
-      include: {
-        template: { select: { name: true } },
+        ...(status === "SIGNED" && { signedAt: new Date() }),
       },
     });
+    const updatedInstance = await prisma.contractInstance.findUnique({
+      where: { id },
+      include: { template: { select: { name: true } } },
+    });
+    if (!updatedInstance) {
+      return NextResponse.json({ ok: false, error: "계약서를 찾을 수 없습니다" }, { status: 404 });
+    }
 
     // SIGNED 또는 COMPLETED 전환 시 Google Drive에 계약서 저장 (fire-and-forget)
     if (status === "SIGNED" || status === "COMPLETED") {
