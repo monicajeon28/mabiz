@@ -1,8 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, CheckCircle, AlertCircle, Copy, Check } from 'lucide-react';
+import {
+  ArrowLeft,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  Copy,
+  Check,
+  RefreshCw,
+  Search,
+} from 'lucide-react';
+
+/* ─────────────── Types ─────────────── */
 
 type AffiliateType = 'BRANCH_MANAGER' | 'SALES_AGENT' | 'PRE_SALES' | 'HQ';
 
@@ -13,12 +24,43 @@ const TYPE_LABELS: Record<AffiliateType, string> = {
   HQ: '본사 (HQ)',
 };
 
+const TYPE_BADGE: Record<string, string> = {
+  BRANCH_MANAGER: 'bg-purple-100 text-purple-700',
+  SALES_AGENT: 'bg-blue-100 text-blue-700',
+  PRE_SALES: 'bg-cyan-100 text-cyan-700',
+  HQ: 'bg-gray-100 text-gray-700',
+};
+
 type IssuanceResult = {
   mallUserId: string;
   affiliateCode: string;
   profileId: string;
   displayName: string;
 };
+
+type BranchManager = {
+  id: number;
+  displayName: string;
+  mallUserId: string;
+  name: string;
+};
+
+type AffiliateProfile = {
+  id: number;
+  type: string;
+  status: string;
+  affiliateCode: string;
+  displayName: string;
+  mallUserId: string;
+  name: string;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  contractStatus: string | null;
+  withholdingRate: number | null;
+  createdAt: string;
+};
+
+/* ─────────────── Shared UI ─────────────── */
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -51,7 +93,9 @@ function Field({
 const inputCls =
   'border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition';
 
-export default function AffiliateIssuancePage() {
+/* ─────────────── Tab: 발급하기 ─────────────── */
+
+function IssuanceForm() {
   const [type, setType] = useState<AffiliateType>('BRANCH_MANAGER');
   const [name, setName] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -64,15 +108,31 @@ export default function AffiliateIssuancePage() {
   const [withholdingRate, setWithholdingRate] = useState('3.3');
   const [agentCommissionRate, setAgentCommissionRate] = useState('');
   const [guarantorName, setGuarantorName] = useState('');
-  const [managerProfileId, setManagerProfileId] = useState('');
+  const [managerProfileId, setManagerProfileId] = useState<number | ''>('');
   const [initialPassword, setInitialPassword] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<IssuanceResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  // Branch manager dropdown
+  const [managers, setManagers] = useState<BranchManager[]>([]);
+  const [managersLoading, setManagersLoading] = useState(false);
 
   const needsManager = type === 'SALES_AGENT' || type === 'PRE_SALES';
+
+  useEffect(() => {
+    if (!needsManager) return;
+    setManagersLoading(true);
+    fetch('/api/affiliate-issuance/branch-managers')
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) setManagers(data.managers ?? []);
+      })
+      .catch(() => {})
+      .finally(() => setManagersLoading(false));
+  }, [needsManager]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -101,10 +161,7 @@ export default function AffiliateIssuancePage() {
           ? parseInt(agentCommissionRate, 10)
           : undefined,
         guarantorName: guarantorName.trim() || undefined,
-        managerProfileId:
-          needsManager && managerProfileId.trim()
-            ? parseInt(managerProfileId.trim(), 10)
-            : undefined,
+        managerProfileId: needsManager && managerProfileId !== '' ? managerProfileId : undefined,
         initialPassword: initialPassword.trim() || undefined,
       };
 
@@ -147,34 +204,18 @@ export default function AffiliateIssuancePage() {
     setInitialPassword('');
   }
 
-  async function handleCopy(text: string) {
+  async function handleCopy(text: string, key: string) {
     try {
       await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopied(key);
+      setTimeout(() => setCopied(null), 2000);
     } catch {
       // ignore
     }
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-4 md:p-6">
-      {/* 헤더 */}
-      <div className="flex items-center gap-3 mb-6">
-        <Link
-          href="/admin"
-          className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500"
-        >
-          <ArrowLeft size={18} />
-        </Link>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">어필리에이트 발급</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            새 어필리에이트 계정을 생성합니다 (GLOBAL_ADMIN 전용)
-          </p>
-        </div>
-      </div>
-
+    <>
       {/* 성공 결과 카드 */}
       {result && (
         <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-5">
@@ -187,14 +228,16 @@ export default function AffiliateIssuancePage() {
             <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-green-200">
               <span className="text-gray-500">로그인 ID</span>
               <div className="flex items-center gap-2">
-                <span className="font-mono font-semibold text-gray-900">
-                  {result.mallUserId}
-                </span>
+                <span className="font-mono font-semibold text-gray-900">{result.mallUserId}</span>
                 <button
-                  onClick={() => handleCopy(result.mallUserId)}
+                  onClick={() => handleCopy(result.mallUserId, 'mallUserId')}
                   className="text-gray-400 hover:text-gray-700 transition"
                 >
-                  {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                  {copied === 'mallUserId' ? (
+                    <Check size={14} className="text-green-500" />
+                  ) : (
+                    <Copy size={14} />
+                  )}
                 </button>
               </div>
             </div>
@@ -206,10 +249,14 @@ export default function AffiliateIssuancePage() {
                   {result.affiliateCode}
                 </span>
                 <button
-                  onClick={() => handleCopy(result.affiliateCode)}
+                  onClick={() => handleCopy(result.affiliateCode, 'affiliateCode')}
                   className="text-gray-400 hover:text-gray-700 transition"
                 >
-                  {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                  {copied === 'affiliateCode' ? (
+                    <Check size={14} className="text-green-500" />
+                  ) : (
+                    <Copy size={14} />
+                  )}
                 </button>
               </div>
             </div>
@@ -226,7 +273,8 @@ export default function AffiliateIssuancePage() {
           </div>
 
           <p className="text-xs text-green-700 mt-3">
-            초기 비밀번호: {initialPassword.trim() || '1101'} — 첫 로그인 후 변경을 안내해 주세요.
+            초기 비밀번호: {initialPassword.trim() || '1101'} — 첫 로그인 후 변경을 안내해
+            주세요.
           </p>
 
           <button
@@ -399,16 +447,30 @@ export default function AffiliateIssuancePage() {
               </Field>
 
               {needsManager && (
-                <Field label="소속 대리점장 Profile ID (managerProfileId)">
-                  <input
-                    type="text"
-                    value={managerProfileId}
-                    onChange={e => setManagerProfileId(e.target.value)}
-                    placeholder="대리점장 Profile ID 입력"
-                    className={inputCls}
-                  />
+                <Field label="소속 대리점장 (managerProfileId)">
+                  {managersLoading ? (
+                    <div className={inputCls + ' flex items-center gap-2 text-gray-400'}>
+                      <Loader2 size={14} className="animate-spin" />
+                      대리점장 목록 불러오는 중...
+                    </div>
+                  ) : (
+                    <select
+                      value={managerProfileId}
+                      onChange={e =>
+                        setManagerProfileId(e.target.value === '' ? '' : parseInt(e.target.value, 10))
+                      }
+                      className={inputCls + ' bg-white'}
+                    >
+                      <option value="">— 선택 안함 —</option>
+                      {managers.map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.displayName || m.name} ({m.mallUserId})
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <p className="text-xs text-gray-400 mt-1">
-                    SALES_AGENT / PRE_SALES는 소속 대리점장 지정 가능 (추후 검색 기능 추가 예정)
+                    SALES_AGENT / PRE_SALES는 소속 대리점장을 지정할 수 있습니다.
                   </p>
                 </Field>
               )}
@@ -444,6 +506,312 @@ export default function AffiliateIssuancePage() {
             )}
           </button>
         </form>
+      )}
+    </>
+  );
+}
+
+/* ─────────────── Tab: 발급 목록 ─────────────── */
+
+const STATUS_LABELS: Record<string, string> = {
+  ACTIVE: '활성',
+  INACTIVE: '비활성',
+  SUSPENDED: '정지',
+};
+
+const CONTRACT_LABELS: Record<string, string> = {
+  PENDING: '대기',
+  SIGNED: '서명완료',
+  EXPIRED: '만료',
+};
+
+function AffiliateListTab() {
+  const [profiles, setProfiles] = useState<AffiliateProfile[]>([]);
+  const [listLoading, setListLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState('');
+  const [filterStatus] = useState('ACTIVE');
+  const [q, setQ] = useState('');
+  const [resetLoadingId, setResetLoadingId] = useState<number | null>(null);
+  const [resetMsg, setResetMsg] = useState<{ id: number; msg: string; ok: boolean } | null>(null);
+
+  const fetchList = useCallback(async () => {
+    setListLoading(true);
+    setListError(null);
+    try {
+      const params = new URLSearchParams();
+      if (filterType) params.set('type', filterType);
+      if (filterStatus) params.set('status', filterStatus);
+      if (q.trim()) params.set('q', q.trim());
+
+      const res = await fetch(`/api/affiliate-issuance?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setListError(data.error ?? `오류 발생 (${res.status})`);
+        return;
+      }
+      setProfiles(data.profiles ?? []);
+    } catch {
+      setListError('네트워크 오류가 발생했습니다.');
+    } finally {
+      setListLoading(false);
+    }
+  }, [filterType, filterStatus, q]);
+
+  useEffect(() => {
+    fetchList();
+  }, [fetchList]);
+
+  async function handleResetPassword(profile: AffiliateProfile) {
+    const ok = window.confirm(
+      `"${profile.displayName || profile.name}" (${profile.mallUserId}) 의 비밀번호를 초기화하시겠습니까?\n초기 비밀번호: 1101`
+    );
+    if (!ok) return;
+
+    setResetLoadingId(profile.id);
+    setResetMsg(null);
+    try {
+      const res = await fetch(`/api/affiliate-issuance/${profile.id}/reset-password`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setResetMsg({ id: profile.id, msg: data.error ?? '초기화 실패', ok: false });
+      } else {
+        setResetMsg({ id: profile.id, msg: '비밀번호가 초기화되었습니다 (1101)', ok: true });
+      }
+    } catch {
+      setResetMsg({ id: profile.id, msg: '네트워크 오류', ok: false });
+    } finally {
+      setResetLoadingId(null);
+      setTimeout(() => setResetMsg(null), 4000);
+    }
+  }
+
+  function formatDate(iso: string) {
+    return new Date(iso).toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* 필터 바 */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-wrap gap-3 items-center">
+        <select
+          value={filterType}
+          onChange={e => setFilterType(e.target.value)}
+          className={inputCls + ' bg-white min-w-[160px]'}
+        >
+          <option value="">역할 전체</option>
+          {(Object.keys(TYPE_LABELS) as AffiliateType[]).map(k => (
+            <option key={k} value={k}>
+              {TYPE_LABELS[k]}
+            </option>
+          ))}
+        </select>
+
+        <div className="relative flex-1 min-w-[200px]">
+          <Search
+            size={14}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+          />
+          <input
+            type="text"
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && fetchList()}
+            placeholder="이름, 표시명, 코드 검색…"
+            className={inputCls + ' pl-8 w-full'}
+          />
+        </div>
+
+        <button
+          onClick={fetchList}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition"
+        >
+          <RefreshCw size={14} />
+          새로고침
+        </button>
+      </div>
+
+      {/* 토스트 메시지 */}
+      {resetMsg && (
+        <div
+          className={`rounded-xl px-4 py-3 text-sm flex items-center gap-2 ${
+            resetMsg.ok
+              ? 'bg-green-50 border border-green-200 text-green-700'
+              : 'bg-red-50 border border-red-200 text-red-700'
+          }`}
+        >
+          {resetMsg.ok ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+          {resetMsg.msg}
+        </div>
+      )}
+
+      {/* 에러 */}
+      {listError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 flex items-start gap-2">
+          <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={16} />
+          <p className="text-sm text-red-700">{listError}</p>
+        </div>
+      )}
+
+      {/* 테이블 */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {listLoading ? (
+          <div className="flex items-center justify-center py-16 text-gray-400 gap-2">
+            <Loader2 size={18} className="animate-spin" />
+            <span className="text-sm">목록 불러오는 중...</span>
+          </div>
+        ) : profiles.length === 0 ? (
+          <div className="text-center py-16 text-gray-400 text-sm">
+            조건에 맞는 어필리에이트가 없습니다.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">역할</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">이름 / 표시명</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">로그인ID</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">코드</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">상태</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">계약</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">생성일</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">작업</th>
+                </tr>
+              </thead>
+              <tbody>
+                {profiles.map((p, idx) => (
+                  <tr
+                    key={p.id}
+                    className={`border-b border-gray-100 hover:bg-gray-50 transition ${
+                      idx % 2 === 0 ? '' : 'bg-gray-50/50'
+                    }`}
+                  >
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                          TYPE_BADGE[p.type] ?? 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {p.type}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900">{p.displayName || p.name}</div>
+                      {p.displayName && (
+                        <div className="text-xs text-gray-400">{p.name}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-700">{p.mallUserId}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-blue-700">{p.affiliateCode}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                          p.status === 'ACTIVE'
+                            ? 'bg-green-100 text-green-700'
+                            : p.status === 'SUSPENDED'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {STATUS_LABELS[p.status] ?? p.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500">
+                      {p.contractStatus ? (CONTRACT_LABELS[p.contractStatus] ?? p.contractStatus) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                      {formatDate(p.createdAt)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => handleResetPassword(p)}
+                        disabled={resetLoadingId === p.id}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-50 text-xs transition whitespace-nowrap"
+                      >
+                        {resetLoadingId === p.id ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <RefreshCw size={12} />
+                        )}
+                        비밀번호 초기화
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!listLoading && profiles.length > 0 && (
+          <div className="px-4 py-2.5 border-t border-gray-100 text-xs text-gray-400">
+            총 {profiles.length}명
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── Page ─────────────── */
+
+type Tab = 'issue' | 'list';
+
+export default function AffiliateIssuancePage() {
+  const [activeTab, setActiveTab] = useState<Tab>('issue');
+
+  return (
+    <div className="max-w-5xl mx-auto p-4 md:p-6">
+      {/* 헤더 */}
+      <div className="flex items-center gap-3 mb-6">
+        <Link
+          href="/admin"
+          className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500"
+        >
+          <ArrowLeft size={18} />
+        </Link>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">어필리에이트 발급</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            어필리에이트 계정 생성 및 관리 (GLOBAL_ADMIN 전용)
+          </p>
+        </div>
+      </div>
+
+      {/* 탭 */}
+      <div className="flex border-b border-gray-200 mb-5">
+        {([
+          { key: 'issue', label: '발급하기' },
+          { key: 'list', label: '발급 목록' },
+        ] as { key: Tab; label: string }[]).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition -mb-px ${
+              activeTab === tab.key
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 탭 컨텐츠 */}
+      {activeTab === 'issue' ? (
+        <div className="max-w-2xl">
+          <IssuanceForm />
+        </div>
+      ) : (
+        <AffiliateListTab />
       )}
     </div>
   );

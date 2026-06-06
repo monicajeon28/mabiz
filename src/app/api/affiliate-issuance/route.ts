@@ -16,6 +16,96 @@ import {
 export const dynamic = "force-dynamic";
 
 /**
+ * GET /api/affiliate-issuance
+ * GLOBAL_ADMIN 전용 — 발급된 어필리에이트 목록 조회
+ *
+ * 쿼리 파라미터:
+ *   type   — BRANCH_MANAGER | SALES_AGENT | PRE_SALES | HQ (선택)
+ *   status — ACTIVE | DRAFT (선택, 기본 ACTIVE)
+ *   q      — 이름/mallUserId 검색 (선택)
+ */
+export async function GET(req: Request) {
+  try {
+    const ctx = await getAuthContext();
+    if (!ctx) {
+      return NextResponse.json({ ok: false, error: "인증이 필요합니다." }, { status: 401 });
+    }
+    if (ctx.role !== "GLOBAL_ADMIN") {
+      return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const typeFilter = searchParams.get("type") ?? undefined;
+    const statusFilter = searchParams.get("status") ?? "ACTIVE";
+    const q = searchParams.get("q") ?? undefined;
+
+    // GmAffiliateProfile 조회
+    const profiles = await prisma.gmAffiliateProfile.findMany({
+      where: {
+        ...(typeFilter ? { type: typeFilter } : {}),
+        status: statusFilter,
+      },
+      select: {
+        id: true,
+        userId: true,
+        type: true,
+        status: true,
+        affiliateCode: true,
+        displayName: true,
+        contactPhone: true,
+        contactEmail: true,
+        contractStatus: true,
+        withholdingRate: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // userId 목록으로 GmUser 일괄 조회
+    const userIds = profiles.map((p) => p.userId);
+    const users = await prisma.gmUser.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, mallUserId: true, name: true },
+    });
+    const userMap = new Map(users.map((u) => [u.id, u]));
+
+    // 검색어 필터 (이름 또는 mallUserId)
+    let result = profiles.map((p) => {
+      const u = userMap.get(p.userId);
+      return {
+        id: p.id,
+        type: p.type,
+        status: p.status,
+        affiliateCode: p.affiliateCode,
+        displayName: p.displayName,
+        mallUserId: u?.mallUserId ?? null,
+        name: u?.name ?? null,
+        contactPhone: p.contactPhone,
+        contactEmail: p.contactEmail,
+        contractStatus: p.contractStatus,
+        withholdingRate: p.withholdingRate,
+        createdAt: p.createdAt,
+      };
+    });
+
+    if (q) {
+      const lower = q.toLowerCase();
+      result = result.filter(
+        (r) =>
+          r.name?.toLowerCase().includes(lower) ||
+          r.mallUserId?.toLowerCase().includes(lower) ||
+          r.displayName?.toLowerCase().includes(lower)
+      );
+    }
+
+    return NextResponse.json({ ok: true, profiles: result });
+  } catch (err) {
+    logger.error("affiliate-issuance GET 오류", err);
+    return NextResponse.json({ ok: false, error: "서버 오류가 발생했습니다." }, { status: 500 });
+  }
+}
+
+/**
  * POST /api/affiliate-issuance
  * GLOBAL_ADMIN 전용 — 어필리에이트 발급
  *
