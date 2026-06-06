@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { CARD_FEE_RATE } from '@/lib/constants/affiliate';
 
@@ -89,6 +89,14 @@ function CalculatorContent() {
   const toUsd = (krw: number) => rateReady ? (krw / exchangeRate).toFixed(2) : '';
   const toKrw = (usd: number) => String(Math.round(usd * exchangeRate));
 
+  // 렌더링 시점의 KRW 입력값을 추적 — 환율이 나중에 도착해도 USD 필드를 올바르게 계산하기 위해
+  const inputsRef = useRef({
+    salePrice: '1000000', costPrice: '800000',
+    agentMode: 'pct' as InputMode, agentAmtInput: '',
+    memberMode: 'pct' as InputMode, memberAmtInput: '',
+    freeAgentAmtInput: '', overridingAmtInput: '',
+  });
+
   useEffect(() => {
     const controller = new AbortController();
     fetch('/api/tools/exchange-rate', { signal: controller.signal })
@@ -98,10 +106,19 @@ function CalculatorContent() {
           setRateError(true);
           return;
         }
-        setExchangeRate(d.rate);
+        const rate = d.rate;
+        setExchangeRate(rate);
         setRateDate(d.date ?? '');
-        setSaleUsd((1000000 / d.rate).toFixed(2));
-        setCostUsd((800000 / d.rate).toFixed(2));
+        // 현재 입력값 기준으로 USD 재계산 (환율 도착 전에 입력된 값 포함)
+        const inp = inputsRef.current;
+        setSaleUsd((parseFloat(inp.salePrice || '0') / rate).toFixed(2));
+        setCostUsd((parseFloat(inp.costPrice || '0') / rate).toFixed(2));
+        if (inp.agentMode === 'amount') setAgentUsd((parseFloat(inp.agentAmtInput || '0') / rate).toFixed(2));
+        if (inp.memberMode === 'amount') setMemberUsd((parseFloat(inp.memberAmtInput || '0') / rate).toFixed(2));
+        const freeVal = parseFloat(inp.freeAgentAmtInput || '0');
+        if (freeVal > 0) setFreeAgentUsd((freeVal / rate).toFixed(2));
+        const overVal = parseFloat(inp.overridingAmtInput || '0');
+        if (overVal > 0) setOverridingUsd((overVal / rate).toFixed(2));
       })
       .catch(e => { if (e.name !== 'AbortError') setRateError(true); });
     return () => controller.abort();
@@ -110,13 +127,13 @@ function CalculatorContent() {
   // ─ 판매가
   const [salePrice, setSalePrice] = useState('1000000');
   const [saleUsd, setSaleUsd] = useState('');
-  const onSaleKrw = (v: string) => { setSalePrice(v); setSaleUsd(toUsd(parseFloat(v) || 0)); };
+  const onSaleKrw = (v: string) => { setSalePrice(v); if (rateReady) setSaleUsd(toUsd(parseFloat(v) || 0)); };
   const onSaleUsd = (v: string) => { setSaleUsd(v); setSalePrice(toKrw(parseFloat(v) || 0)); };
 
   // ─ 입금가
   const [costPrice, setCostPrice] = useState('800000');
   const [costUsd, setCostUsd] = useState('');
-  const onCostKrw = (v: string) => { setCostPrice(v); setCostUsd(toUsd(parseFloat(v) || 0)); };
+  const onCostKrw = (v: string) => { setCostPrice(v); if (rateReady) setCostUsd(toUsd(parseFloat(v) || 0)); };
   const onCostUsd = (v: string) => { setCostUsd(v); setCostPrice(toKrw(parseFloat(v) || 0)); };
 
   // ─ 대리점장
@@ -125,7 +142,7 @@ function CalculatorContent() {
   const [agentUsd, setAgentUsd] = useState('');
   const [agentMode, setAgentMode] = useState<InputMode>('pct');
   const onAgentPct = (v: string) => { setAgentPctInput(v); setAgentMode('pct'); };
-  const onAgentAmt = (v: string) => { setAgentAmtInput(v); setAgentMode('amount'); setAgentUsd(toUsd(parseFloat(v) || 0)); };
+  const onAgentAmt = (v: string) => { setAgentAmtInput(v); setAgentMode('amount'); if (rateReady) setAgentUsd(toUsd(parseFloat(v) || 0)); };
   const onAgentUsd = (v: string) => { setAgentUsd(v); setAgentAmtInput(toKrw(parseFloat(v) || 0)); setAgentMode('amount'); };
 
   // ─ 소속판매원
@@ -134,20 +151,24 @@ function CalculatorContent() {
   const [memberUsd, setMemberUsd] = useState('');
   const [memberMode, setMemberMode] = useState<InputMode>('pct');
   const onMemberPct = (v: string) => { setMemberPctInput(v); setMemberMode('pct'); };
-  const onMemberAmt = (v: string) => { setMemberAmtInput(v); setMemberMode('amount'); setMemberUsd(toUsd(parseFloat(v) || 0)); };
+  const onMemberAmt = (v: string) => { setMemberAmtInput(v); setMemberMode('amount'); if (rateReady) setMemberUsd(toUsd(parseFloat(v) || 0)); };
   const onMemberUsd = (v: string) => { setMemberUsd(v); setMemberAmtInput(toKrw(parseFloat(v) || 0)); setMemberMode('amount'); };
+
 
   // ─ 자유판매원
   const [freeAgentAmtInput, setFreeAgentAmtInput] = useState('');
   const [freeAgentUsd, setFreeAgentUsd] = useState('');
-  const onFreeAmt = (v: string) => { setFreeAgentAmtInput(v); setFreeAgentUsd(toUsd(parseFloat(v) || 0)); };
+  const onFreeAmt = (v: string) => { setFreeAgentAmtInput(v); if (rateReady) setFreeAgentUsd(toUsd(parseFloat(v) || 0)); };
   const onFreeUsd = (v: string) => { setFreeAgentUsd(v); setFreeAgentAmtInput(toKrw(parseFloat(v) || 0)); };
 
   // ─ 오버라이딩
   const [overridingAmtInput, setOverridingAmtInput] = useState('');
   const [overridingUsd, setOverridingUsd] = useState('');
-  const onOverridingAmt = (v: string) => { setOverridingAmtInput(v); setOverridingUsd(toUsd(parseFloat(v) || 0)); };
+  const onOverridingAmt = (v: string) => { setOverridingAmtInput(v); if (rateReady) setOverridingUsd(toUsd(parseFloat(v) || 0)); };
   const onOverridingUsd = (v: string) => { setOverridingUsd(v); setOverridingAmtInput(toKrw(parseFloat(v) || 0)); };
+
+  // inputsRef를 렌더마다 최신값으로 동기화 (비동기 환율 콜백에서 사용)
+  inputsRef.current = { salePrice, costPrice, agentMode, agentAmtInput, memberMode, memberAmtInput, freeAgentAmtInput, overridingAmtInput };
 
   // ─ 계산
   const calc = useMemo(() => {
@@ -210,6 +231,7 @@ function CalculatorContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [detailCalc, setDetailCalc] = useState<SavedCalc | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // 목록 초기 로드
   useEffect(() => {
@@ -224,6 +246,7 @@ function CalculatorContent() {
   async function doSave() {
     const title = saveTitle.trim() || `계산 ${new Date().toLocaleDateString('ko-KR')}`;
     setIsSaving(true);
+    setSaveError(null);
     try {
       const res = await fetch('/api/tools/profit-calculations', {
         method: 'POST',
@@ -248,29 +271,36 @@ function CalculatorContent() {
           exchangeRateSnapshot: exchangeRate || null,
         }),
       });
-      if (res.ok) {
-        const data = await res.json() as { item: SavedCalc };
-        setSavedCalcs(prev => [data.item, ...prev].slice(0, 50));
+      if (!res.ok) {
+        setSaveError(res.status === 403
+          ? '저장 기능은 조직에 소속된 계정만 사용할 수 있습니다.'
+          : '저장에 실패했습니다. 다시 시도해 주세요.');
+        return;
       }
-    } catch { /* 저장 실패 무시 */ }
-    finally {
-      setIsSaving(false);
+      const data = await res.json() as { item: SavedCalc };
+      setSavedCalcs(prev => [data.item, ...prev].slice(0, 50));
       setSaveTitle('');
       setShowSaveInput(false);
+    } catch {
+      setSaveError('네트워크 오류로 저장에 실패했습니다.');
+    } finally {
+      setIsSaving(false);
     }
   }
 
   function doLoad(entry: SavedCalc) {
+    setShowPanel(false); // 모바일 패널 닫기
     // KRW 값 복원
     setSalePrice(String(Math.round(entry.salePrice)));
     setCostPrice(String(Math.round(entry.costPrice)));
-    // USD 재계산 (현재 환율 기준)
+    // USD 재계산 (현재 환율 기준; 환율 미로드 시 inputsRef 통해 나중에 재계산됨)
     setSaleUsd(toUsd(entry.salePrice));
     setCostUsd(toUsd(entry.costPrice));
     // 대리점장
     setAgentMode(entry.agentMode as InputMode);
     if (entry.agentMode === 'pct') {
       setAgentPctInput(String(entry.agentPct));
+      setAgentAmtInput('');
     } else {
       setAgentAmtInput(String(Math.round(entry.agentAmt)));
       setAgentUsd(toUsd(entry.agentAmt));
@@ -279,6 +309,7 @@ function CalculatorContent() {
     setMemberMode(entry.memberMode as InputMode);
     if (entry.memberMode === 'pct') {
       setMemberPctInput(String(entry.memberPct));
+      setMemberAmtInput('');
     } else {
       setMemberAmtInput(String(Math.round(entry.memberAmt)));
       setMemberUsd(toUsd(entry.memberAmt));
@@ -292,17 +323,14 @@ function CalculatorContent() {
 
   function doDelete(id: string, e: React.MouseEvent) {
     e.stopPropagation();
-    // Optimistic update
+    // 삭제 대상이 현재 세부확인 모달에 열려 있으면 닫기
+    if (detailCalc?.id === id) setDetailCalc(null);
+    // Optimistic update — 스냅샷 보관 후 롤백에 사용
+    const snapshot = savedCalcs;
     setSavedCalcs(prev => prev.filter(c => c.id !== id));
     fetch(`/api/tools/profit-calculations?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
       .then(r => { if (!r.ok) throw new Error(); })
-      .catch(() => {
-        // 롤백: 목록 재조회
-        fetch('/api/tools/profit-calculations')
-          .then(r => r.ok ? r.json() : null)
-          .then((d: { items: SavedCalc[] } | null) => { if (d) setSavedCalcs(d.items); })
-          .catch(() => {});
-      });
+      .catch(() => { setSavedCalcs(snapshot); }); // 롤백
   }
 
   // ─ USD 표시 (% 모드일 때 calc에서 파생)
@@ -427,7 +455,7 @@ function CalculatorContent() {
                     <input type="number" min={0}
                       value={agentMode === 'amount' ? agentAmtInput : Math.round(calc.agentAmt).toString()}
                       onChange={e => onAgentAmt(e.target.value)}
-                      onFocus={() => setAgentMode('amount')}
+                      onFocus={() => { if (agentMode !== 'amount') { setAgentAmtInput(Math.round(calc.agentAmt).toString()); setAgentMode('amount'); } }}
                       className={`w-full border rounded-lg px-2 py-2 text-sm text-right pr-8 focus:outline-none focus:ring-2 focus:ring-slate-400 ${agentMode === 'amount' ? 'border-slate-400 bg-white' : 'border-slate-200 bg-slate-50 text-slate-400'}`}
                       placeholder="0" />
                     <span className="absolute right-2 top-2 text-xs text-slate-400">원</span>
@@ -546,27 +574,30 @@ function CalculatorContent() {
 
         {/* ── 저장 버튼 ── */}
         {!inputError && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4 space-y-2">
             {showSaveInput ? (
               <div className="flex gap-2">
                 <input
                   type="text" value={saveTitle} onChange={e => setSaveTitle(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && doSave()}
+                  onKeyDown={e => e.key === 'Enter' && !isSaving && doSave()}
                   placeholder={`제목 (기본: 계산 ${new Date().toLocaleDateString('ko-KR')})`}
                   className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  autoFocus
+                  autoFocus disabled={isSaving}
                 />
-                <button onClick={doSave} className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 font-medium">저장</button>
-                <button onClick={() => setShowSaveInput(false)} className="px-3 py-2 bg-slate-100 text-slate-600 text-sm rounded-lg hover:bg-slate-200">취소</button>
+                <button onClick={doSave} disabled={isSaving} className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60">
+                  {isSaving ? '저장 중…' : '저장'}
+                </button>
+                <button onClick={() => { setShowSaveInput(false); setSaveError(null); }} disabled={isSaving} className="px-3 py-2 bg-slate-100 text-slate-600 text-sm rounded-lg hover:bg-slate-200 disabled:opacity-60">취소</button>
               </div>
             ) : (
               <button
-                onClick={() => setShowSaveInput(true)}
+                onClick={() => { setShowSaveInput(true); setSaveError(null); }}
                 className="w-full py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition"
               >
                 + 현재 계산 저장하기
               </button>
             )}
+            {saveError && <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{saveError}</p>}
           </div>
         )}
 
