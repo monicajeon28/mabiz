@@ -484,7 +484,7 @@ export function ModalShell({
         aria-labelledby={titleId}
         tabIndex={-1}
         onKeyDown={handleTrap}
-        className={`relative w-full ${maxWidth} max-h-[92vh] overflow-y-auto rounded-2xl bg-white shadow-2xl focus:outline-none`}
+        className={`relative w-full ${maxWidth} max-h-[92vh] flex flex-col rounded-2xl bg-white shadow-2xl focus:outline-none`}
       >
         <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-2xl border-b border-gray-100 bg-white px-6 py-4">
           <h2 id={titleId} className="text-lg font-bold text-gray-900">{title}</h2>
@@ -497,7 +497,7 @@ export function ModalShell({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="p-6">{children}</div>
+        <div className="flex-1 overflow-y-auto p-6">{children}</div>
         {footer && (
           <div className="sticky bottom-0 z-10 flex justify-end gap-3 rounded-b-2xl border-t border-gray-100 bg-white px-6 py-4">
             {footer}

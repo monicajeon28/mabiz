@@ -17,6 +17,8 @@ model Organization {
   plan                       String                      @default("FREE")
   status                     String                      @default("ACTIVE")
   contractRef                String?                     @unique(where: raw("(\"contractRef\" IS NOT NULL)"))
+  contractEndDate            DateTime?
+  renewalAlertSent           Boolean                     @default(false)
   adminMessages              AdminMessage[]
   aiCallLogs                 AiCallLog[]
   b2bProspects               B2BProspect[]

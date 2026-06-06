@@ -6,7 +6,7 @@ import { logger } from "@/lib/logger";
 
 type FeedItem = {
   id:        string;
-  type:      'LANDING_REG' | 'SALE_PENDING' | 'GOLD_INQUIRY' | 'B2B_LEAD' | 'NEW_CONTACT' | 'ORG_CONTRACT' | 'CALL_DUE';
+  type:      'LANDING_REG' | 'SALE_PENDING' | 'GOLD_INQUIRY' | 'B2B_LEAD' | 'NEW_CONTACT' | 'ORG_CONTRACT' | 'CALL_DUE' | 'CONTRACT_EXPIRY';
   name:      string;
   phone:     string | null;
   detail:    string | null;
@@ -22,7 +22,8 @@ const TYPE_CONFIG = {
   B2B_LEAD:     { label: 'B2B 잠재고객',  emoji: '🏢', color: 'bg-indigo-50 border-indigo-200', dot: 'bg-indigo-500' },
   NEW_CONTACT:  { label: '신규 고객',      emoji: '📋', color: 'bg-green-50 border-green-200',   dot: 'bg-green-500'  },
   ORG_CONTRACT: { label: '신규 대리점',    emoji: '🤝', color: 'bg-purple-50 border-purple-200', dot: 'bg-purple-500' },
-  CALL_DUE:     { label: '오늘 콜 예정',    emoji: '📞', color: 'bg-rose-50 border-rose-200',    dot: 'bg-rose-500'   },
+  CALL_DUE:        { label: '오늘 콜 예정',  emoji: '📞', color: 'bg-rose-50 border-rose-200',   dot: 'bg-rose-500'    },
+  CONTRACT_EXPIRY: { label: '계약 만료 임박', emoji: '⚠️', color: 'bg-amber-50 border-amber-200', dot: 'bg-amber-500'  },
 };
 
 function relativeTime(iso: string): string {

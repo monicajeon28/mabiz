@@ -134,7 +134,7 @@ export async function PATCH(
   } catch (error) {
     console.error('[declare-winner] Error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: '우승자 선택 처리 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

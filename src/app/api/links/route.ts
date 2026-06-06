@@ -1,14 +1,10 @@
 import { NextResponse } from 'next/server';
-import { randomBytes } from 'crypto';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId, resolveOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+import { generateUniqueShortlink } from '@/lib/landing-page-utils';
 
-function generateCode(): string {
-  return randomBytes(4).toString('hex').substring(0, 6);
-}
-
-export async function GET(req: Request) {
+export async function GET(_req: Request) {
   try {
     const ctx   = await getAuthContext();
     // 자기가 만든 링크만 조회 (GLOBAL_ADMIN 포함)
@@ -90,15 +86,13 @@ export async function POST(req: Request) {
       }
     } catch { return NextResponse.json({ ok: false, message: '유효하지 않은 URL' }, { status: 400 }); }
 
-    // 중복 없는 코드 확보 (최대 10회 재시도)
-    let code = generateCode();
-    for (let i = 0; i < 10; i++) {
-      const exists = await prisma.shortLink.findUnique({ where: { code } });
-      if (!exists) break;
-      if (i === 9) {
-        return NextResponse.json({ ok: false, message: '링크 생성 실패. 잠시 후 다시 시도해주세요.' }, { status: 500 });
-      }
-      code = generateCode();
+    // 중복 없는 코드 확보 (generateUniqueShortlink: 3회 재시도, nanoid(8))
+    let code: string;
+    try {
+      code = await generateUniqueShortlink();
+    } catch (err) {
+      logger.error('[Links POST] 숏링크 생성 실패', { error: err instanceof Error ? err.message : String(err) });
+      return NextResponse.json({ ok: false, message: '링크 생성 실패. 잠시 후 다시 시도해주세요.' }, { status: 500 });
     }
 
     // Race condition 방어: DB unique constraint 위반 시 새 코드로 1회 재시도
@@ -111,7 +105,11 @@ export async function POST(req: Request) {
     } catch (createErr) {
       const msg = createErr instanceof Error ? createErr.message : String(createErr);
       if (msg.includes('Unique constraint') || msg.includes('unique constraint')) {
-        code = generateCode();
+        try {
+          code = await generateUniqueShortlink();
+        } catch {
+          throw new Error('Failed to generate alternative shortlink');
+        }
         link = await prisma.shortLink.create({
           data: { organizationId: orgId, createdBy: ctx.userId, code, ...body },
           select: { id: true, code: true, targetUrl: true, title: true },

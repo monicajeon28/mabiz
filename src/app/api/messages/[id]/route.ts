@@ -99,8 +99,9 @@ export async function PUT(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const updatedMessage = await prisma.crmMarketingMessage.update({
-      where: { id },
+    // updateMany로 organizationId 포함: findUnique → update 사이 TOCTOU 방지
+    const updateResult = await prisma.crmMarketingMessage.updateMany({
+      where: { id, organizationId: session.organizationId },
       data: {
         ...(updateData.content && { content: updateData.content }),
         ...(updateData.status && { status: updateData.status }),
@@ -109,6 +110,10 @@ export async function PUT(
         updatedAt: new Date()
       }
     });
+    if (updateResult.count === 0) {
+      return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+    }
+    const updatedMessage = await prisma.crmMarketingMessage.findUnique({ where: { id } });
 
     logger.log('[Message] PUT [id] 완료', {
       id,
@@ -170,14 +175,17 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // 소프트 삭제 (status를 DELETED로 변경)
-    const deletedMessage = await prisma.crmMarketingMessage.update({
-      where: { id },
+    // updateMany로 organizationId 포함: findUnique → update 사이 TOCTOU 방지 (소프트 삭제)
+    const deleteResult = await prisma.crmMarketingMessage.updateMany({
+      where: { id, organizationId: session.organizationId },
       data: {
         status: 'DELETED',
         updatedAt: new Date()
       }
     });
+    if (deleteResult.count === 0) {
+      return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+    }
 
     logger.log('[Message] DELETE [id] 완료', {
       id,
