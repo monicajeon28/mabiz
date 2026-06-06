@@ -111,13 +111,13 @@ export async function GET(request: NextRequest) {
         const startDate = new Date(`${period}-01`);
         const endDate = new Date(parseInt(year), parseInt(month), 0);
         conditionFragments.push(
-          Prisma.sql`ss."periodStart" >= ${startDate} AND ss."periodEnd" <= ${endDate}`
+          Prisma.sql`ms."periodStart" >= ${startDate} AND ms."periodEnd" <= ${endDate}`
         );
       }
     }
 
     if (status) {
-      conditionFragments.push(Prisma.sql`ss.status = ${status}`);
+      conditionFragments.push(Prisma.sql`ms.status = ${status}`);
     }
 
     const whereCondition =
@@ -152,6 +152,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN "CommissionLedger" cl
           ON cl."settlementId" = ms.id
           AND cl."isSettled" = true
+        ${whereCondition}
         GROUP BY
           ms.id,
           ms."periodStart",
@@ -173,6 +174,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN "CommissionLedger" cl
           ON cl."settlementId" = ms.id
           AND cl."isSettled" = true
+        ${whereCondition}
       `),
     ]);
 
