@@ -197,8 +197,8 @@ export async function DELETE(req: Request) {
     });
     if (!item) return NextResponse.json({ ok: false, message: "취소 가능한 예약 메시지를 찾을 수 없습니다 (PENDING/PAUSED/NIGHT_BLOCKED만 취소 가능)" }, { status: 404 });
 
-    await prisma.scheduledEmail.update({
-      where: { id },
+    await prisma.scheduledEmail.updateMany({
+      where: { id, organizationId: orgId },
       data:  { status: "CANCELLED" },
     });
 

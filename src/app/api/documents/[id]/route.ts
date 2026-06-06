@@ -78,8 +78,8 @@ export async function PATCH(
       );
     }
 
-    const updated = await prisma.document.update({
-      where: { id },
+    await prisma.document.updateMany({
+      where: { id, organizationId: orgId },
       data: {
         title: title ?? doc.title,
         description: description ?? doc.description,
@@ -87,6 +87,9 @@ export async function PATCH(
         contactId: contactId ?? doc.contactId,
         updatedBy: ctx.userId,
       },
+    });
+    const updated = await prisma.document.findUnique({
+      where: { id },
       include: {
         versions: { orderBy: { versionNumber: 'desc' } },
         approvals: true,
@@ -135,8 +138,8 @@ export async function DELETE(
       );
     }
 
-    await prisma.document.delete({
-      where: { id },
+    await prisma.document.deleteMany({
+      where: { id, organizationId: orgId },
     });
 
     return NextResponse.json({ ok: true, message: '문서가 삭제되었습니다' });
