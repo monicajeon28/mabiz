@@ -48,19 +48,22 @@ export default function AuditLogsPage() {
 
   async function loadData() {
     try {
-      // 권한 확인
-      // const session = await getMabizSession();
-      // setCtx(session);
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (filter.action !== 'ALL') params.set('action', filter.action);
+      if (filter.status !== 'ALL') params.set('status', filter.status);
+      if (filter.startDate) params.set('startDate', filter.startDate);
+      if (filter.endDate) params.set('endDate', filter.endDate);
 
-      // if (!session || session.role !== 'GLOBAL_ADMIN') {
-      //   return;
-      // }
-
-      // API 요청 (실제 구현 필요)
-      // const response = await fetch('/api/admin/audit-logs', {
-      //   query: filter,
-      // });
-
+      const res = await fetch(`/api/admin/audit-logs?${params.toString()}`);
+      if (!res.ok) {
+        setLoading(false);
+        return;
+      }
+      const data = await res.json();
+      if (data.ok) {
+        setAuditLogs(data.data ?? []);
+      }
       setLoading(false);
     } catch (error) {
       console.error('Error loading audit logs:', error);

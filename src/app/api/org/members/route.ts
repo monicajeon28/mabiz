@@ -97,8 +97,10 @@ export async function GET(req: Request) {
       email: m.email,
       displayName: m.displayName,
       role: m.role,
-      status: m.isActive ? 'active' : 'inactive',
-      lastActivityAt: null, // 추후 확장: 로그인/활동 기록 추가
+      isActive: m.isActive,
+      isGoldMember: false,
+      goldMemberSince: null,
+      lastActivityAt: null,
     }));
 
     logger.log('[OrgMembers GET]', { orgId, page, limit, total: totalCount });
