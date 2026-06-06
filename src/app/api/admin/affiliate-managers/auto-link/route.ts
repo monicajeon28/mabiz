@@ -49,6 +49,17 @@ export async function POST(req: NextRequest) {
 
   const results: { name: string; affiliateCode: string; status: 'linked' | 'skipped' | 'error'; reason?: string }[] = [];
 
+  // N+1 방지: 미연결 프로필의 GmUser를 한 번에 배치 조회
+  const unlinkProfiles = profiles.filter(p => !linkedSet.has(`gm-${p.userId}`));
+  const gmUserIds = unlinkProfiles.map(p => p.userId);
+  const gmUserList = gmUserIds.length > 0
+    ? await prisma.gmUser.findMany({
+        where: { id: { in: gmUserIds } },
+        select: { id: true, name: true, phone: true, email: true, password: true },
+      })
+    : [];
+  const gmUserMap = new Map(gmUserList.map(u => [u.id, u]));
+
   for (const profile of profiles) {
     const gmUserId = `gm-${profile.userId}`;
 
@@ -58,8 +69,8 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    // GmUser 조회
-    const gmUser = await prisma.gmUser.findUnique({ where: { id: profile.userId } });
+    // GmUser 맵에서 O(1) 조회 (루프 내 쿼리 제거)
+    const gmUser = gmUserMap.get(profile.userId);
     if (!gmUser) {
       results.push({ name: profile.displayName ?? '-', affiliateCode: profile.affiliateCode, status: 'error', reason: 'GmUser 없음' });
       continue;
