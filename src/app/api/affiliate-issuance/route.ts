@@ -138,6 +138,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
     }
 
+    // ── IP / UserAgent 자동 캡처 ───────────────────────────────────
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      req.headers.get("x-real-ip") ??
+      "unknown";
+    const userAgent = req.headers.get("user-agent") ?? "unknown";
+
     // ── 입력값 파싱 ────────────────────────────────────────────────
     const body: IssueAffiliateInput = await req.json();
     const {
@@ -157,9 +164,7 @@ export async function POST(req: Request) {
       managerProfileId,
       contractSignedAt,
       contractSignature,
-      contractIp,
       contractVersion,
-      contractUserAgent,
       initialPassword = "1101",
     } = body;
 
@@ -235,9 +240,9 @@ export async function POST(req: Request) {
           guarantorId: guarantorId ?? null,
           contractSignedAt: contractSignedAt ? new Date(contractSignedAt) : null,
           contractSignature: contractSignature ?? null,
-          contractIp: contractIp ?? null,
+          contractIp: contractSignedAt ? ip : null,
           contractVersion: contractVersion ?? null,
-          contractUserAgent: contractUserAgent ?? null,
+          contractUserAgent: contractSignedAt ? userAgent : null,
           metadata: { source: "CRM" },
           published: true,
         },

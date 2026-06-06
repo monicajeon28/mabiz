@@ -108,6 +108,9 @@ function IssuanceForm() {
   const [withholdingRate, setWithholdingRate] = useState('3.3');
   const [agentCommissionRate, setAgentCommissionRate] = useState('');
   const [guarantorName, setGuarantorName] = useState('');
+  const [contractSignedAt, setContractSignedAt] = useState('');
+  const [contractSignature, setContractSignature] = useState('');
+  const [contractVersion, setContractVersion] = useState('');
   const [managerProfileId, setManagerProfileId] = useState<number | ''>('');
   const [initialPassword, setInitialPassword] = useState('');
 
@@ -161,6 +164,9 @@ function IssuanceForm() {
           ? parseInt(agentCommissionRate, 10)
           : undefined,
         guarantorName: guarantorName.trim() || undefined,
+        contractSignedAt: contractSignedAt || undefined,
+        contractSignature: contractSignature.trim() || undefined,
+        contractVersion: contractVersion.trim() || undefined,
         managerProfileId: needsManager && managerProfileId !== '' ? managerProfileId : undefined,
         initialPassword: initialPassword.trim() || undefined,
       };
@@ -200,6 +206,9 @@ function IssuanceForm() {
     setWithholdingRate('3.3');
     setAgentCommissionRate('');
     setGuarantorName('');
+    setContractSignedAt('');
+    setContractSignature('');
+    setContractVersion('');
     setManagerProfileId('');
     setInitialPassword('');
   }
@@ -442,6 +451,38 @@ function IssuanceForm() {
                   value={guarantorName}
                   onChange={e => setGuarantorName(e.target.value)}
                   placeholder="선택 사항"
+                  className={inputCls}
+                />
+              </Field>
+
+              <Field label="계약 서명일 (contractSignedAt)">
+                <input
+                  type="datetime-local"
+                  value={contractSignedAt}
+                  onChange={e => setContractSignedAt(e.target.value)}
+                  className={inputCls}
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  계약서에 서명한 일시를 입력하세요 (선택).
+                </p>
+              </Field>
+
+              <Field label="서명 텍스트 / 서명 ID (contractSignature)">
+                <input
+                  type="text"
+                  value={contractSignature}
+                  onChange={e => setContractSignature(e.target.value)}
+                  placeholder="예: 홍길동 (텍스트 서명) 또는 계약서 ID"
+                  className={inputCls}
+                />
+              </Field>
+
+              <Field label="계약 버전 (contractVersion)">
+                <input
+                  type="text"
+                  value={contractVersion}
+                  onChange={e => setContractVersion(e.target.value)}
+                  placeholder="예: v1.0"
                   className={inputCls}
                 />
               </Field>
