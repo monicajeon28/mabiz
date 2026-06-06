@@ -34,8 +34,8 @@ export async function PATCH(req: Request, { params }: Params) {
     const newStatus = body.action === 'approve' ? 'APPROVED' : 'REJECTED';
 
     await prisma.$transaction([
-      prisma.salesDocument.update({
-        where: { id },
+      prisma.salesDocument.updateMany({
+        where: { id, organizationId: orgId },
         data: {
           status:        newStatus,
           approvedBy:    body.action === 'approve' ? ctx.userId : undefined,

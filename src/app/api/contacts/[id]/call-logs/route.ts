@@ -245,8 +245,8 @@ export async function POST(req: Request, { params }: Params) {
     });
 
     // 마지막 연락일 업데이트
-    await prisma.contact.update({
-      where: { id },
+    await prisma.contact.updateMany({
+      where: contactWhere,
       data: { lastContactedAt: new Date() },
     });
 

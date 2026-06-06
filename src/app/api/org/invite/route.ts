@@ -226,16 +226,13 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const deleted = await prisma.orgInviteToken.delete({
-      where: { id },
-      select: { id: true, role: true, createdAt: true },
-    });
+    await prisma.orgInviteToken.deleteMany({ where: { id, organizationId: orgId } });
 
     logger.warn("[DELETE /api/org/invite] 초대 취소", {
-      orgId, inviteId: id, role: deleted.role, deletedBy: ctx.userId,
+      orgId, inviteId: id, role: token.role, deletedBy: ctx.userId,
     });
 
-    return NextResponse.json({ ok: true, deleted });
+    return NextResponse.json({ ok: true, deleted: { id: token.id, role: token.role, createdAt: token.createdAt } });
   } catch (err) {
     logger.error("[DELETE /api/org/invite]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
