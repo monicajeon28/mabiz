@@ -184,8 +184,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     });
 
     // 템플릿 업데이트
-    const updatedTemplate = await prisma.contractTemplate.update({
-      where: { id },
+    await prisma.contractTemplate.updateMany({
+      where: { id, organizationId: orgId },
       data: {
         ...(validatedData.name && { name: validatedData.name }),
         ...(validatedData.description !== undefined && {
@@ -220,6 +220,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         version: template.version + 1,
       },
     });
+     
+    const updatedTemplate = (await prisma.contractTemplate.findUnique({ where: { id } }))!;
 
     // 변경값 마스킹 후 감사 로그
     const newValues = maskSensitiveFields({

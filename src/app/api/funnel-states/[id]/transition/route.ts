@@ -93,22 +93,18 @@ export async function POST(
     }
 
     // 상태 업데이트
-    const updated = await prisma.contactFunnelState.update({
-      where: { id },
+    await prisma.contactFunnelState.updateMany({
+      where: { id, organizationId: orgId },
       data: {
         status: newState,
         metadata: updatedMetadata as unknown as Prisma.InputJsonValue,
         updatedAt: new Date(),
       },
+    });
+    const updated = await prisma.contactFunnelState.findUnique({
+      where: { id },
       include: {
-        contact: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            email: true,
-          },
-        },
+        contact: { select: { id: true, name: true, phone: true, email: true } },
       },
     });
 
