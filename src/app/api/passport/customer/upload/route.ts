@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        error: String(err.message || '여권 이미지 업로드에 실패했습니다.'),
+        error: '여권 이미지 업로드에 실패했습니다.',
       },
       { status: 500 }
     );
@@ -297,7 +297,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        error: String(err.message || '여권 이미지 조회에 실패했습니다.'),
+        error: '여권 이미지 조회에 실패했습니다.',
       },
       { status: 500 }
     );

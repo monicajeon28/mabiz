@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
       {
         ok: false,
         message: '처리 중 오류 발생',
-        error: error.message,
+        error: '처리 중 오류가 발생했습니다.',
         retryable: classification.retryable,
         dlq: classification.dlq,
       },

@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
         results.details.push({
           messageId: message.id,
           status: 'error',
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: '발송 처리 중 오류 발생'
         });
       }
 
@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Internal server error'
+        error: '서버 오류가 발생했습니다.'
       },
       { status: 500 }
     );

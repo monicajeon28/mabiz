@@ -49,7 +49,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ ok: true });
   } catch (err: any) {
     if (err.message === 'UNAUTHORIZED') return unauthorized('인증이 필요합니다.');
-    if (err.status === 400) return NextResponse.json({ ok: false, message: err.message }, { status: 400 });
+    if (err.status === 400) return NextResponse.json({ ok: false, message: '요청을 처리할 수 없습니다.' }, { status: 400 });
     logger.error('[PATCH /api/settings/password] Error', { err });
     return serverError();
   }

@@ -88,7 +88,7 @@ async function syncSubmissionGuestsBestEffort(
       select: { id: true },
     });
     if (existing) {
-      await prisma.gmPassportSubmissionGuest.update({ where: { id: existing.id }, data: guestData });
+      await prisma.gmPassportSubmissionGuest.updateMany({ where: { id: existing.id, submissionId: submission.id }, data: guestData });
     } else {
       try {
         await prisma.gmPassportSubmissionGuest.create({
@@ -356,15 +356,9 @@ export async function POST(req: NextRequest) {
       updatedCount: results.length,
     });
   } catch (error) {
-    const err = error as Record<string, unknown>;
-    logger.error('[Passport Submit] Error:', { err });
+    logger.error('[Passport Submit] Error:', { err: error });
     return NextResponse.json(
-      {
-        ok: false,
-        message: String(err.message || '여권 정보 저장에 실패했습니다.'),
-        error: String(err.message || ''),
-        code: String(err.code || ''),
-      },
+      { ok: false, message: '여권 정보 저장에 실패했습니다.' },
       { status: 500 }
     );
   }

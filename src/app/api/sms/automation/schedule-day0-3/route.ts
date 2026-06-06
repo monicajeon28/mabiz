@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error in schedule-day0-3:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: '서버 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

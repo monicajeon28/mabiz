@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           ok: false,
-          message: `이미지를 가져올 수 없습니다: ${err.message ?? '알 수 없는 오류'}`,
+          message: '이미지를 가져올 수 없습니다.',
         },
         { status: 400 },
       );
@@ -274,7 +274,7 @@ export async function POST(req: NextRequest) {
               where: { reservationId: reservation.id, passportNo },
               select: { id: true },
             });
-            if (dup) await prisma.gmTraveler.update({ where: { id: dup.id }, data: travelerData });
+            if (dup) await prisma.gmTraveler.updateMany({ where: { id: dup.id, reservationId: reservation.id }, data: travelerData });
             else throw e;
           } else {
             throw e;
@@ -341,7 +341,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           ok: false,
-          message: `APIS 데이터 저장 중 오류가 발생했습니다: ${dbErr.message ?? '알 수 없는 오류'}`,
+          message: 'APIS 데이터 저장 중 오류가 발생했습니다.',
         },
         { status: 500 },
       );

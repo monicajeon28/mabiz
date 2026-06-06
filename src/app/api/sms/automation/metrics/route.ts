@@ -176,7 +176,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error in metrics:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: '서버 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

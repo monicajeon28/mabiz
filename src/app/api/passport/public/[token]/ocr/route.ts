@@ -87,7 +87,6 @@ export async function POST(
   } catch (error) {
     const err = error as Record<string, unknown>;
     logger.error('[Public OCR] Error:', { err });
-    const errorMessage = error instanceof Error ? error.message : 'OCR 처리 중 오류가 발생했습니다.';
-    return NextResponse.json({ ok: false, error: errorMessage }, { status: 500 });
+    return NextResponse.json({ ok: false, error: 'OCR 처리 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

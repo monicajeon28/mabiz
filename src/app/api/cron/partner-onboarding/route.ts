@@ -99,7 +99,7 @@ export async function POST(req: Request) {
       } catch (err) {
         response.errors.push({
           organizationId: org.id,
-          error: String(err),
+          error: '처리 중 오류가 발생했습니다.',
         });
         logger.error('Error processing organization onboarding', {
           organizationId: org.id,
