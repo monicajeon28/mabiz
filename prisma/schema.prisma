@@ -1693,7 +1693,7 @@ model ShortLink {
   contactId      String?
   category       String?
   autoGroupId    String?
-  clickCount     Int              @default(0)
+  // [P0 FIX #5] clickCount 필드 삭제: ShortLinkClick 테이블로부터 동적 계산
   isActive       Boolean          @default(true)
   createdAt      DateTime         @default(now())
   contact        Contact?         @relation(fields: [contactId], references: [id], onDelete: SetNull)
@@ -2644,6 +2644,10 @@ model GmTraveler {
   @@index([userId])
   @@index([residentNum])
   @@map("Traveler")
+  // ⚠️ raw 부분 UNIQUE 인덱스 "Traveler_reservation_passport_partial_uq" 존재:
+  //    UNIQUE(reservationId, passportNo) WHERE passportNo IS NOT NULL AND passportNo <> ''
+  //    (Prisma @@unique로 표현 불가 — migrations/20260606120000_traveler_passport_partial_uq)
+  //    migrate 시 임의 삭제 금지.
 }
 
 model GmAffiliateLead {
@@ -2934,10 +2938,18 @@ model GmPassportSubmissionGuest {
   ocrRawData         Json?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @default(now()) @updatedAt
+  // 감사: 누가/어디서/언제 채웠나 (서버측 도출값만 기록, 클라이언트 신뢰값 금지)
+  submittedBy        Int?      // 세션 userId 또는 토큰 소유자(submission.userId)
+  source             String?   // 'public_submit' | 'admin_ocr' | 'partner_ocr' | 'admin_manual'
+  submittedAt        DateTime?
 
   @@index([name])
   @@index([submissionId, groupNumber])
   @@map("PassportSubmissionGuest")
+  // ⚠️ raw 부분 UNIQUE 인덱스 "guest_submission_passport_partial_uq" 존재:
+  //    UNIQUE(submissionId, passportNumber) WHERE passportNumber IS NOT NULL AND passportNumber <> ''
+  //    (Prisma @@unique로 표현 불가 — migrations/20260606120001_guest_passport_partial_uq)
+  //    migrate 시 임의 삭제 금지.
 }
 
 model GmPassportRequestLog {

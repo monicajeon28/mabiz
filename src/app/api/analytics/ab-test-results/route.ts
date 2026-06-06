@@ -107,22 +107,34 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Step 3: 클릭 데이터 수집
+    // Step 3: 클릭 데이터 수집 [P0 FIX #2] 테스트 시작 이후 데이터만 카운팅
     const clicksA = await prisma.shortLinkClick.count({
-      where: { linkId: test.variantA_id }
+      where: {
+        linkId: test.variantA_id,
+        clickedAt: { gte: test.createdAt } // ← 테스트 시작 이후만
+      }
     });
 
     const clicksB = await prisma.shortLinkClick.count({
-      where: { linkId: test.variantB_id }
+      where: {
+        linkId: test.variantB_id,
+        clickedAt: { gte: test.createdAt } // ← 테스트 시작 이후만
+      }
     });
 
-    // Step 4: 노출 데이터 수집
+    // Step 4: 노출 데이터 수집 [P0 FIX #2] 테스트 시작 이후 데이터만 카운팅
     const impressionsA = await prisma.shortLinkImpression.count({
-      where: { shortLinkId: test.variantA_id }
+      where: {
+        shortLinkId: test.variantA_id,
+        sentAt: { gte: test.createdAt } // ← 테스트 시작 이후만
+      }
     });
 
     const impressionsB = await prisma.shortLinkImpression.count({
-      where: { shortLinkId: test.variantB_id }
+      where: {
+        shortLinkId: test.variantB_id,
+        sentAt: { gte: test.createdAt } // ← 테스트 시작 이후만
+      }
     });
 
     // Step 5: 통계 계산 (Team 2 엔진)
@@ -136,6 +148,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // p-value 계산 (Chi-Square 분포 테이블 사용)
     const pValue = approximateChiSquarePValue(chiSquare);
 
+    // [P0 FIX #1] 반올림 일관성: summary와 details에서 동일한 반올림된 값 사용
+    const pValueRounded = Math.round(pValue * 10000) / 10000; // 4자리까지만
+    const chiSquareRounded = Math.round(chiSquare * 100) / 100;
+
     const ctrA = impressionsA > 0 ? clicksA / impressionsA : 0;
     const ctrB = impressionsB > 0 ? clicksB / impressionsB : 0;
 
@@ -145,7 +161,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     let confidence = 0;
 
     if (pValue < 0.05) {
-      // 통계적으로 유의미
+      // 통계적으로 유의미 (원본 pValue로 판정, 반올림 전)
       statusType = 'significant';
       confidence = Math.round((1 - pValue) * 100);
       statusMessage = `우승자 판정 가능! 신뢰도 ${confidence}%`;
@@ -176,7 +192,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         statusMessage,
         statusType,
         confidence,
-        pValue: Math.round(pValue * 10000) / 10000, // 4자리까지만
+        pValue: pValueRounded, // [P0 FIX #1] 일관성: 반올림된 값
       },
 
       // 세부 통계 (클릭 시 "더보기")
@@ -200,8 +216,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             : '0%',
         },
         statistics: {
-          chiSquare: Math.round(chiSquare * 100) / 100,
-          pValue,
+          chiSquare: chiSquareRounded,
+          pValue: pValueRounded, // [P0 FIX #1] 일관성: summary와 동일한 값
           isSignificant: pValue < 0.05,
         },
       },

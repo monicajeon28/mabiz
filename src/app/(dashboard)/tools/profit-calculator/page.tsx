@@ -84,6 +84,7 @@ function CalculatorContent() {
   const [exchangeRate, setExchangeRate] = useState<number>(0);
   const [rateDate, setRateDate] = useState<string>('');
   const [rateError, setRateError] = useState(false);
+  const [rateKey, setRateKey] = useState(0); // 재시도 트리거
   const rateReady = exchangeRate > 0;
 
   const toUsd = (krw: number) => rateReady ? (krw / exchangeRate).toFixed(2) : '';
@@ -99,6 +100,7 @@ function CalculatorContent() {
 
   useEffect(() => {
     const controller = new AbortController();
+    setRateError(false);
     fetch('/api/tools/exchange-rate', { signal: controller.signal })
       .then(r => { if (!r.ok) throw new Error('rate-fetch-failed'); return r.json(); })
       .then((d: { rate?: number; date?: string; error?: string }) => {
@@ -122,7 +124,7 @@ function CalculatorContent() {
       })
       .catch(e => { if (e.name !== 'AbortError') setRateError(true); });
     return () => controller.abort();
-  }, []);
+  }, [rateKey]); // rateKey 변경 시 재시도
 
   // ─ 판매가
   const [salePrice, setSalePrice] = useState('1000000');
@@ -235,12 +237,14 @@ function CalculatorContent() {
 
   // 목록 초기 로드
   useEffect(() => {
+    const controller = new AbortController();
     setIsLoadingList(true);
-    fetch('/api/tools/profit-calculations')
+    fetch('/api/tools/profit-calculations', { signal: controller.signal })
       .then(r => r.ok ? r.json() : Promise.reject())
       .then((d: { items: SavedCalc[] }) => setSavedCalcs(d.items))
-      .catch(() => { /* 목록 조회 실패는 조용히 처리 */ })
+      .catch(e => { if (e.name !== 'AbortError') { /* 목록 조회 실패는 조용히 처리 */ } })
       .finally(() => setIsLoadingList(false));
+    return () => controller.abort();
   }, []);
 
   async function doSave() {
@@ -289,35 +293,42 @@ function CalculatorContent() {
   }
 
   function doLoad(entry: SavedCalc) {
-    setShowPanel(false); // 모바일 패널 닫기
-    // KRW 값 복원
-    setSalePrice(String(Math.round(entry.salePrice)));
-    setCostPrice(String(Math.round(entry.costPrice)));
-    // USD 재계산 (현재 환율 기준; 환율 미로드 시 inputsRef 통해 나중에 재계산됨)
+    setShowPanel(false);    // 모바일 패널 닫기
+    setShowSaveInput(false); // 저장 입력창이 열려 있었으면 닫기
+
+    const salePriceStr    = String(Math.round(entry.salePrice));
+    const costPriceStr    = String(Math.round(entry.costPrice));
+    const agentModeVal    = entry.agentMode as InputMode;
+    const agentAmtStr     = entry.agentMode === 'amount' ? String(Math.round(entry.agentAmt)) : '';
+    const memberModeVal   = entry.memberMode as InputMode;
+    const memberAmtStr    = entry.memberMode === 'amount' ? String(Math.round(entry.memberAmt)) : '';
+    const freeAmtStr      = entry.freeAmt > 0 ? String(Math.round(entry.freeAmt)) : '';
+    const overridingAmtStr = entry.overridingAmt > 0 ? String(Math.round(entry.overridingAmt)) : '';
+
+    // inputsRef 즉시 갱신 — 환율 콜백이 리렌더 전에 도착해도 올바른 KRW 값 사용
+    inputsRef.current = {
+      salePrice: salePriceStr, costPrice: costPriceStr,
+      agentMode: agentModeVal, agentAmtInput: agentAmtStr,
+      memberMode: memberModeVal, memberAmtInput: memberAmtStr,
+      freeAgentAmtInput: freeAmtStr, overridingAmtInput: overridingAmtStr,
+    };
+
+    setSalePrice(salePriceStr);
+    setCostPrice(costPriceStr);
     setSaleUsd(toUsd(entry.salePrice));
     setCostUsd(toUsd(entry.costPrice));
     // 대리점장
-    setAgentMode(entry.agentMode as InputMode);
-    if (entry.agentMode === 'pct') {
-      setAgentPctInput(String(entry.agentPct));
-      setAgentAmtInput('');
-    } else {
-      setAgentAmtInput(String(Math.round(entry.agentAmt)));
-      setAgentUsd(toUsd(entry.agentAmt));
-    }
+    setAgentMode(agentModeVal);
+    if (agentModeVal === 'pct') { setAgentPctInput(String(entry.agentPct)); setAgentAmtInput(''); }
+    else { setAgentAmtInput(agentAmtStr); setAgentUsd(toUsd(entry.agentAmt)); }
     // 소속판매원
-    setMemberMode(entry.memberMode as InputMode);
-    if (entry.memberMode === 'pct') {
-      setMemberPctInput(String(entry.memberPct));
-      setMemberAmtInput('');
-    } else {
-      setMemberAmtInput(String(Math.round(entry.memberAmt)));
-      setMemberUsd(toUsd(entry.memberAmt));
-    }
+    setMemberMode(memberModeVal);
+    if (memberModeVal === 'pct') { setMemberPctInput(String(entry.memberPct)); setMemberAmtInput(''); }
+    else { setMemberAmtInput(memberAmtStr); setMemberUsd(toUsd(entry.memberAmt)); }
     // 자유판매원 / 오버라이딩
-    setFreeAgentAmtInput(entry.freeAmt > 0 ? String(Math.round(entry.freeAmt)) : '');
+    setFreeAgentAmtInput(freeAmtStr);
     setFreeAgentUsd(entry.freeAmt > 0 ? toUsd(entry.freeAmt) : '');
-    setOverridingAmtInput(entry.overridingAmt > 0 ? String(Math.round(entry.overridingAmt)) : '');
+    setOverridingAmtInput(overridingAmtStr);
     setOverridingUsd(entry.overridingAmt > 0 ? toUsd(entry.overridingAmt) : '');
   }
 
@@ -361,7 +372,10 @@ function CalculatorContent() {
             </div>
             {/* 환율 배지 */}
             <div className={`text-sm rounded-xl px-4 py-2 border font-mono ${rateError ? 'bg-red-50 border-red-200 text-red-600' : rateReady ? 'bg-white border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-400 animate-pulse'}`}>
-              {rateError ? '환율 로드 실패' : rateReady ? <>$1 = {fmt(exchangeRate)}원 <span className="text-slate-400 font-normal ml-1">({rateDate})</span></> : '환율 불러오는 중…'}
+              {rateError
+                ? <span className="flex items-center gap-2">환율 로드 실패 <button onClick={() => setRateKey(k => k + 1)} className="text-xs underline hover:text-red-800">재시도</button></span>
+                : rateReady ? <>$1 = {fmt(exchangeRate)}원 <span className="text-slate-400 font-normal ml-1">({rateDate})</span></>
+                : '환율 불러오는 중…'}
             </div>
           </div>
           {/* 모바일: 저장 목록 버튼 */}
@@ -684,8 +698,11 @@ function DetailModal({ calc, onClose, onLoad }: { calc: SavedCalc; onClose: () =
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      onClick={onClose}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b bg-slate-50 rounded-t-2xl">
           <div>
             <h2 className="text-base font-semibold text-slate-900 line-clamp-1">{calc.title}</h2>
