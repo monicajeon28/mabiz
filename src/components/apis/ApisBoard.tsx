@@ -293,7 +293,11 @@ function describeAudit(a: AuditRow): string {
     TRAVELER_MOVE_ROOM: '방 이동',
     TRAVELER_DELETE: '명단에서 삭제',
     TRAVELER_RESTORE: '삭제 되살리기',
+    TRAVELER_UNDO: '삭제 되살리기', // 실제 undo 라우트가 저장하는 action
+    TRAVELER_COMPANION_ADD: '동행인 추가',
     TRAVELER_SINGLE_CHARGE_RECHECK: '싱글차지 재판정',
+    PASSPORT_SUBMIT: '고객 여권 제출',
+    PASSPORT_SUBMIT_LATER: '고객 추후제출(이름만)',
   };
   const base = actionLabel[a.action] ?? a.action;
 

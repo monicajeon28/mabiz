@@ -5,7 +5,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { findOrCreateFolder } from '@/lib/drive-client';
 import { getMabizSession } from '@/lib/auth';
+import { decodePassportToken } from '@/lib/passport-utils';
 import { logger } from '@/lib/logger';
+
+/**
+ * 인증 해석: 세션(로그인) 또는 여권 토큰(SMS 링크로 들어온 비로그인 고객).
+ * 토큰이 유효(미만료)하면 그 submission 소유자(userId)로 권한 부여.
+ * @returns 권한 userId, 또는 null(인증 실패)
+ */
+async function resolvePassportActor(req: NextRequest, token: string | null): Promise<number | null> {
+  if (token && token.length >= 10) {
+    let decoded = token;
+    try { const d = decodePassportToken(token); if (d) decoded = d; } catch { /* 원본 사용 */ }
+    const sub = await prisma.gmPassportSubmission.findFirst({
+      where: { token: decoded, tokenExpiresAt: { gt: new Date() } },
+      select: { userId: true },
+    });
+    if (sub) return sub.userId;
+  }
+  const session = await getMabizSession();
+  if (session?.userId) return Number(session.userId);
+  return null;
+}
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
@@ -20,17 +41,19 @@ const PASSPORT_DRIVE_FOLDER_ID = process.env.PASSPORT_DRIVE_FOLDER_ID || '';
  */
 export async function POST(req: NextRequest) {
   try {
-    const session = await getMabizSession();
-    if (!session?.userId) {
+    const { searchParams } = new URL(req.url);
+    const token = searchParams.get('token');
+    const reservationId = searchParams.get('reservationId');
+    const travelerId = searchParams.get('travelerId');
+
+    // 세션 또는 토큰 인증 (SMS 링크 비로그인 고객 지원)
+    const actorUserId = await resolvePassportActor(req, token);
+    if (actorUserId == null) {
       return NextResponse.json(
         { ok: false, error: '인증이 필요합니다.' },
         { status: 401 }
       );
     }
-
-    const { searchParams } = new URL(req.url);
-    const reservationId = searchParams.get('reservationId');
-    const travelerId = searchParams.get('travelerId');
 
     if (!reservationId) {
       return NextResponse.json(
@@ -62,8 +85,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 권한 확인: 예약 소유자만 업로드 가능
-    if (reservation.mainUserId !== Number(session.userId)) {
+    // 권한 확인: 예약 소유자(세션 또는 토큰 소유자)만 업로드 가능
+    if (reservation.mainUserId !== actorUserId) {
       return NextResponse.json(
         { ok: false, error: '권한이 없습니다.' },
         { status: 403 }
