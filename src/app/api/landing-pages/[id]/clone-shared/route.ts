@@ -89,6 +89,7 @@ export async function POST(_req: Request, { params }: Params) {
           infoCollection: original.infoCollection,
           formConfig: original.formConfig ?? undefined,
           viewCount: 0,
+          createdByUserId: ctx.userId,  // ← SECURITY: 복제 사용자를 소유자로 설정
         },
         select: { id: true, title: true, slug: true, shortlink: true, isActive: true },
       });
