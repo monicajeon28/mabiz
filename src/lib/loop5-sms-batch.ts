@@ -290,44 +290,30 @@ export async function sendDayNSmsBatch(
         },
       }));
 
-      // createMany는 중복 방지를 위해 skipDuplicates를 사용할 수 있음
-      await prisma.partnerSmsLog.createMany({
-        data: logsToCreate,
-        skipDuplicates: true,
+      const contactIds = successfulSms.map((sms) => sms.contactId);
+
+      // PartnerSmsLog 생성 + Contact 플래그 업데이트를 단일 트랜잭션으로 묶어 불일치 방지
+      // (createMany 성공 후 updateMany 실패 시 중복 발송 방지)
+      await prisma.$transaction(async (tx) => {
+        await tx.partnerSmsLog.createMany({
+          data: logsToCreate,
+          skipDuplicates: true,
+        });
+
+        const dayFlag =
+          dayNumber === 0 ? { smsDay0Sent: true, smsDay0SentAt: new Date() } :
+          dayNumber === 1 ? { smsDay1Sent: true, smsDay1SentAt: new Date() } :
+          dayNumber === 2 ? { smsDay2Sent: true, smsDay2SentAt: new Date() } :
+                            { smsDay3Sent: true, smsDay3SentAt: new Date() };
+
+        await tx.contact.updateMany({
+          where: { id: { in: contactIds } },
+          data: dayFlag,
+        });
       });
 
       sentCount = successfulSms.length;
-      logger.log(`[SMS_BATCH_DAY${dayNumber}] ${sentCount}개 로그 생성`);
-    }
-
-    // 6-2: Contact 일괄 업데이트 (Raw SQL)
-    if (successfulSms.length > 0) {
-      const contactIds = successfulSms.map((sms) => sms.contactId);
-
-      // Update contacts with day-specific SMS sent flags
-      if (dayNumber === 0) {
-        await prisma.contact.updateMany({
-          where: { id: { in: contactIds } },
-          data: { smsDay0Sent: true, smsDay0SentAt: new Date() }
-        });
-      } else if (dayNumber === 1) {
-        await prisma.contact.updateMany({
-          where: { id: { in: contactIds } },
-          data: { smsDay1Sent: true, smsDay1SentAt: new Date() }
-        });
-      } else if (dayNumber === 2) {
-        await prisma.contact.updateMany({
-          where: { id: { in: contactIds } },
-          data: { smsDay2Sent: true, smsDay2SentAt: new Date() }
-        });
-      } else if (dayNumber === 3) {
-        await prisma.contact.updateMany({
-          where: { id: { in: contactIds } },
-          data: { smsDay3Sent: true, smsDay3SentAt: new Date() }
-        });
-      }
-
-      logger.log(`[SMS_BATCH_DAY${dayNumber}] ${contactIds.length}개 Contact 업데이트`);
+      logger.log(`[SMS_BATCH_DAY${dayNumber}] ${sentCount}개 로그 생성, ${contactIds.length}개 Contact 업데이트`);
     }
 
     // 7단계: 실패한 것들 로깅

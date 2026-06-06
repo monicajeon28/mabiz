@@ -387,16 +387,60 @@ export async function POST(req: Request) {
           });
         }
       } else if (mulNo) {
-        const cancelByMulResult = await prisma.payAppPayment.updateMany({
-          where: { mulNo, status: { not: "cancelled" } },
-          data: {
-            status: "cancelled",
-            refundedAt: parseCancelDate(canceldate),
-            refundReason: cancelmemo || "PayApp 취소",
-          },
+        // mulNo 경로도 orderId 경로와 동일하게 AffiliateSale 수당 원자적 취소
+        const { cancelByMulResult, affiliateSaleByMul } = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+          const cancelByMulResult = await tx.payAppPayment.updateMany({
+            where: { mulNo, status: { not: "cancelled" } },
+            data: {
+              status: "cancelled",
+              refundedAt: parseCancelDate(canceldate),
+              refundReason: cancelmemo || "PayApp 취소",
+            },
+          });
+
+          // mulNo로 연결된 AffiliateSale 수당 취소
+          const payment = await tx.payAppPayment.findFirst({
+            where: { mulNo },
+            select: { orderId: true },
+          });
+
+          let affiliateSaleByMul = null;
+          if (payment?.orderId) {
+            const sale = await tx.affiliateSale.findUnique({
+              where: { orderId: payment.orderId },
+              select: {
+                id: true,
+                saleAmount: true,
+                commissionAmount: true,
+                organizationId: true,
+              },
+            });
+            if (sale && sale.commissionAmount > 0) {
+              await tx.affiliateSale.update({
+                where: { id: sale.id },
+                data: {
+                  refundedAmount: sale.saleAmount,
+                  refundedAt: parseCancelDate(canceldate),
+                  commissionAmount: 0,
+                  status: "REFUNDED",
+                  cancelReason: "PAYMENT_CANCELLED_PAYAPP",
+                },
+              });
+              affiliateSaleByMul = sale;
+            }
+          }
+
+          return { cancelByMulResult, affiliateSaleByMul };
         });
+
         if (cancelByMulResult.count === 0) {
           logger.warn("[PayApp Webhook] 취소 대상 없음 — mulNo 미존재 또는 이미 취소됨", { mulNo });
+        }
+        if (affiliateSaleByMul) {
+          logger.log("[PayApp Webhook] mulNo 경로 AffiliateSale 수당 취소", {
+            mulNo,
+            originalCommission: affiliateSaleByMul.commissionAmount,
+          });
         }
       }
 
