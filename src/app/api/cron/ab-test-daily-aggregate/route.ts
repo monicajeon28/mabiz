@@ -316,7 +316,7 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         status: "FAILED",
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: '서버 오류가 발생했습니다.',
         executionTimeMs,
       },
       { status: 500 }

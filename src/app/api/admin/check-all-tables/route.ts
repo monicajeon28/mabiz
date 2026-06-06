@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('Error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to check tables' },
+      { error: '서버 오류가 발생했습니다.' },
       { status: 500 }
     );
   } finally {

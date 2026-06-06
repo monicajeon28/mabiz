@@ -70,8 +70,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        message: '서버 오류',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: '서버 오류가 발생했습니다.',
       },
       { status: 500 }
     );

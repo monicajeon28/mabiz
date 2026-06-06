@@ -124,8 +124,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(
       {
-        error: 'Failed to run scenario analysis',
-        message: error instanceof Error ? error.message : String(error),
+        error: '서버 오류가 발생했습니다.',
       },
       { status: 500 }
     );

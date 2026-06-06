@@ -224,8 +224,7 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         ok: false,
-        error: '통계 조회 실패',
-        details: error instanceof Error ? error.message : '알 수 없는 오류',
+        error: '통계 조회 중 오류가 발생했습니다.',
         timestamp: new Date().toISOString(),
       },
       { status: 500 }
