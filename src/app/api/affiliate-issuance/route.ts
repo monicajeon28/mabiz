@@ -1,0 +1,228 @@
+import "server-only";
+import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { getAuthContext } from "@/lib/rbac";
+import { logger } from "@/lib/logger";
+import {
+  generateMallUserId,
+  buildAffiliateCode,
+  ensureUniqueAffiliateCode,
+  isMallUserIdTaken,
+  hashAffiliatePassword,
+  type IssueAffiliateInput,
+  type IssueAffiliateResult,
+} from "@/lib/affiliate-issuance";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * POST /api/affiliate-issuance
+ * GLOBAL_ADMIN 전용 — 어필리에이트 발급
+ *
+ * 1. GmUser 생성 (phone=mallUserId=prefix+채번, password=bcrypt)
+ * 2. GmAffiliateProfile 생성
+ * 3. GmAffiliateRelation 생성 (SALES_AGENT/PRE_SALES 이고 managerProfileId 있을 때)
+ * 4. PasswordEvent 기록
+ * 5. Prisma 트랜잭션으로 1~4 묶기
+ * 6. provision API 호출 (실패해도 발급 성공 처리)
+ */
+export async function POST(req: Request) {
+  try {
+    // ── 인증/권한 ──────────────────────────────────────────────────
+    const ctx = await getAuthContext();
+    if (!ctx) {
+      return NextResponse.json({ ok: false, error: "인증이 필요합니다." }, { status: 401 });
+    }
+    if (ctx.role !== "GLOBAL_ADMIN") {
+      return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
+    }
+
+    // ── 입력값 파싱 ────────────────────────────────────────────────
+    const body: IssueAffiliateInput = await req.json();
+    const {
+      type,
+      name,
+      displayName,
+      nickname,
+      contactPhone,
+      contactEmail,
+      bankName,
+      bankAccount,
+      bankAccountHolder,
+      withholdingRate = 3.3,
+      agentCommissionRate,
+      guarantorName,
+      guarantorId,
+      managerProfileId,
+      contractSignedAt,
+      contractSignature,
+      contractIp,
+      contractVersion,
+      contractUserAgent,
+      initialPassword = "1101",
+    } = body;
+
+    if (!type || !name) {
+      return NextResponse.json({ ok: false, error: "type과 name은 필수입니다." }, { status: 400 });
+    }
+
+    // ── mallUserId 채번 (최대 5회 재시도) ────────────────────────
+    let mallUserId = "";
+    let attempts = 0;
+    while (attempts < 5) {
+      const candidate = await generateMallUserId(type);
+      const taken = await isMallUserIdTaken(candidate);
+      if (!taken) {
+        mallUserId = candidate;
+        break;
+      }
+      attempts++;
+    }
+    if (!mallUserId) {
+      logger.error("affiliate-issuance: mallUserId 채번 실패 (5회 초과)");
+      return NextResponse.json({ ok: false, error: "mallUserId 채번 실패" }, { status: 500 });
+    }
+
+    // ── affiliateCode 생성 ────────────────────────────────────────
+    const baseCode = buildAffiliateCode(name, mallUserId);
+    const affiliateCode = await ensureUniqueAffiliateCode(baseCode);
+
+    // ── 비밀번호 해시 ─────────────────────────────────────────────
+    const hashedPassword = await hashAffiliatePassword(initialPassword);
+
+    // ── SALES_AGENT/PRE_SALES 여부 (관계 생성 조건) ───────────────
+    const needsRelation =
+      (type === "SALES_AGENT" || type === "PRE_SALES") &&
+      typeof managerProfileId === "number";
+
+    // ── 트랜잭션: User + Profile + Relation + PasswordEvent ───────
+    let result: IssueAffiliateResult;
+
+    await prisma.$transaction(async (tx) => {
+      // 1. GmUser 생성
+      const user = await tx.gmUser.create({
+        data: {
+          name,
+          phone: mallUserId,
+          mallUserId,
+          password: hashedPassword,
+          mallNickname: displayName ?? name,
+          role: "community",
+          customerSource: "crm-contract",
+          isPasswordSet: true,
+        },
+      });
+
+      // 2. GmAffiliateProfile 생성
+      const profile = await tx.gmAffiliateProfile.create({
+        data: {
+          userId: user.id,
+          affiliateCode,
+          type,
+          status: "ACTIVE",
+          contractStatus: "SIGNED",
+          displayName: displayName ?? null,
+          nickname: nickname ?? null,
+          contactPhone: contactPhone ?? null,
+          contactEmail: contactEmail ?? null,
+          bankName: bankName ?? null,
+          bankAccount: bankAccount ?? null,
+          bankAccountHolder: bankAccountHolder ?? null,
+          withholdingRate,
+          agentCommissionRate: agentCommissionRate ?? null,
+          guarantorName: guarantorName ?? null,
+          guarantorId: guarantorId ?? null,
+          contractSignedAt: contractSignedAt ? new Date(contractSignedAt) : null,
+          contractSignature: contractSignature ?? null,
+          contractIp: contractIp ?? null,
+          contractVersion: contractVersion ?? null,
+          contractUserAgent: contractUserAgent ?? null,
+          metadata: { source: "CRM" },
+          published: true,
+        },
+      });
+
+      // 3. GmAffiliateRelation 생성 (조건부)
+      let relationId: number | undefined;
+      if (needsRelation && managerProfileId) {
+        const relation = await tx.gmAffiliateRelation.create({
+          data: {
+            managerId: managerProfileId,
+            agentId: profile.id,
+            status: "ACTIVE",
+            connectedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+        relationId = relation.id;
+      }
+
+      // 4. PasswordEvent 기록
+      await tx.passwordEvent.create({
+        data: {
+          userId: user.id,
+          from: "",
+          to: hashedPassword,
+          reason: "affiliate_issuance",
+        },
+      });
+
+      result = {
+        userId: user.id,
+        mallUserId,
+        profileId: profile.id,
+        affiliateCode,
+        relationId,
+      };
+    });
+
+    // ── provision API 호출 (부수효과, 실패 허용) ──────────────────
+    const provisionUrl = process.env.INTERNAL_PROVISION_URL;
+    const provisionSecret = process.env.INTERNAL_PROVISION_SECRET;
+
+    if (provisionUrl && provisionSecret) {
+      try {
+        const provisionRes = await fetch(
+          `${provisionUrl}/api/internal/affiliate/provision`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${provisionSecret}`,
+            },
+            body: JSON.stringify({
+              userId: result!.userId,
+              type,
+              managerProfileId: needsRelation ? managerProfileId : undefined,
+            }),
+          }
+        );
+        if (!provisionRes.ok) {
+          logger.warn(
+            `affiliate-issuance: provision API 응답 오류 status=${provisionRes.status} userId=${result!.userId}`
+          );
+        }
+      } catch (provErr) {
+        logger.error(
+          `affiliate-issuance: provision API 호출 실패 userId=${result!.userId}`,
+          provErr
+        );
+      }
+    } else {
+      logger.warn("affiliate-issuance: INTERNAL_PROVISION_URL 또는 INTERNAL_PROVISION_SECRET 미설정 — provision 스킵");
+    }
+
+    // ── 성공 응답 ─────────────────────────────────────────────────
+    return NextResponse.json({
+      ok: true,
+      mallUserId: result!.mallUserId,
+      profileId: result!.profileId,
+      affiliateCode: result!.affiliateCode,
+      userId: result!.userId,
+      relationId: result!.relationId,
+    });
+  } catch (err) {
+    logger.error("affiliate-issuance POST 오류", err);
+    return NextResponse.json({ ok: false, error: "서버 오류가 발생했습니다." }, { status: 500 });
+  }
+}
