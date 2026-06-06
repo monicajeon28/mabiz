@@ -114,7 +114,10 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
     }
 
     // 메시지는 onDelete: Cascade로 자동 삭제
-    await prisma.crmMarketingCampaign.delete({ where: { id } });
+    // organizationId 조건 포함: findFirst → delete 사이 TOCTOU 방지
+    await prisma.crmMarketingCampaign.delete({
+      where: { id, organizationId: ctx.organizationId ?? undefined },
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {
