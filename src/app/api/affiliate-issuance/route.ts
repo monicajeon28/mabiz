@@ -23,6 +23,8 @@ export const dynamic = "force-dynamic";
  *   type   — BRANCH_MANAGER | SALES_AGENT | PRE_SALES | HQ (선택)
  *   status — ACTIVE | DRAFT (선택, 기본 ACTIVE)
  *   q      — 이름/mallUserId 검색 (선택)
+ *   page   — 페이지 번호 (기본 1)
+ *   limit  — 페이지 크기 (기본 20, 최대 100)
  */
 export async function GET(req: Request) {
   try {
@@ -38,28 +40,37 @@ export async function GET(req: Request) {
     const typeFilter = searchParams.get("type") ?? undefined;
     const statusFilter = searchParams.get("status") ?? "ACTIVE";
     const q = searchParams.get("q") ?? undefined;
+    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10) || 20));
 
-    // GmAffiliateProfile 조회
-    const profiles = await prisma.gmAffiliateProfile.findMany({
-      where: {
-        ...(typeFilter ? { type: typeFilter } : {}),
-        status: statusFilter,
-      },
-      select: {
-        id: true,
-        userId: true,
-        type: true,
-        status: true,
-        affiliateCode: true,
-        displayName: true,
-        contactPhone: true,
-        contactEmail: true,
-        contractStatus: true,
-        withholdingRate: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const where = {
+      ...(typeFilter ? { type: typeFilter } : {}),
+      status: statusFilter,
+    };
+
+    // 전체 개수와 페이지 데이터 병렬 조회
+    const [total, profiles] = await Promise.all([
+      prisma.gmAffiliateProfile.count({ where }),
+      prisma.gmAffiliateProfile.findMany({
+        where,
+        select: {
+          id: true,
+          userId: true,
+          type: true,
+          status: true,
+          affiliateCode: true,
+          displayName: true,
+          contactPhone: true,
+          contactEmail: true,
+          contractStatus: true,
+          withholdingRate: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
 
     // userId 목록으로 GmUser 일괄 조회
     const userIds = profiles.map((p) => p.userId);
@@ -98,7 +109,7 @@ export async function GET(req: Request) {
       );
     }
 
-    return NextResponse.json({ ok: true, profiles: result });
+    return NextResponse.json({ ok: true, profiles: result, total, page, limit });
   } catch (err) {
     logger.error("affiliate-issuance GET 오류", err);
     return NextResponse.json({ ok: false, error: "서버 오류가 발생했습니다." }, { status: 500 });
@@ -186,7 +197,7 @@ export async function POST(req: Request) {
       typeof managerProfileId === "number";
 
     // ── 트랜잭션: User + Profile + Relation + PasswordEvent ───────
-    let result: IssueAffiliateResult;
+    let result: IssueAffiliateResult | undefined;
 
     await prisma.$transaction(async (tx) => {
       // 1. GmUser 생성
@@ -266,6 +277,11 @@ export async function POST(req: Request) {
       };
     });
 
+    // ── 트랜잭션 결과 guard ───────────────────────────────────────
+    if (!result) {
+      return NextResponse.json({ ok: false, error: "발급 실패" }, { status: 500 });
+    }
+
     // ── provision API 호출 (부수효과, 실패 허용) ──────────────────
     const provisionUrl = process.env.INTERNAL_PROVISION_URL;
     const provisionSecret = process.env.INTERNAL_PROVISION_SECRET;
@@ -281,7 +297,7 @@ export async function POST(req: Request) {
               Authorization: `Bearer ${provisionSecret}`,
             },
             body: JSON.stringify({
-              userId: result!.userId,
+              userId: result.userId,
               type,
               managerProfileId: needsRelation ? managerProfileId : undefined,
             }),
@@ -289,12 +305,12 @@ export async function POST(req: Request) {
         );
         if (!provisionRes.ok) {
           logger.warn(
-            `affiliate-issuance: provision API 응답 오류 status=${provisionRes.status} userId=${result!.userId}`
+            `affiliate-issuance: provision API 응답 오류 status=${provisionRes.status} userId=${result.userId}`
           );
         }
       } catch (provErr) {
         logger.error(
-          `affiliate-issuance: provision API 호출 실패 userId=${result!.userId}`,
+          `affiliate-issuance: provision API 호출 실패 userId=${result.userId}`,
           provErr
         );
       }
@@ -305,11 +321,11 @@ export async function POST(req: Request) {
     // ── 성공 응답 ─────────────────────────────────────────────────
     return NextResponse.json({
       ok: true,
-      mallUserId: result!.mallUserId,
-      profileId: result!.profileId,
-      affiliateCode: result!.affiliateCode,
-      userId: result!.userId,
-      relationId: result!.relationId,
+      mallUserId: result.mallUserId,
+      profileId: result.profileId,
+      affiliateCode: result.affiliateCode,
+      userId: result.userId,
+      relationId: result.relationId,
     });
   } catch (err) {
     logger.error("affiliate-issuance POST 오류", err);
