@@ -156,16 +156,17 @@ export async function POST(req: Request) {
     }
 
     // ── [3단계] HMAC 검증 — 필수화 ──
-    const hmacLinkkey = process.env.PAYAPP_LINKKEY;
-    if (!hmacLinkkey) {
-      logger.error('[PayApp Webhook] PAYAPP_LINKKEY 미설정 — HMAC 검증 불가', { requestIP });
-      return new Response('FAIL', { status: 503 });
-    }
-
+    // P0-2: 파라미터 검증 먼저 (클라이언트 오류 400), 환경변수 검증 나중 (서버 오류 503)
     const hmacValue = params.get('hmac');
     if (!hmacValue) {
       logger.warn('[PayApp Webhook] HMAC 파라미터 누락', { requestIP });
       return new Response('FAIL', { status: 400 });
+    }
+
+    const hmacLinkkey = process.env.PAYAPP_LINKKEY;
+    if (!hmacLinkkey) {
+      logger.warn('[PayApp Webhook] PAYAPP_LINKKEY 미설정 — HMAC 검증 불가', { requestIP });
+      return new Response('FAIL', { status: 503 });
     }
 
     const paramsObj = Object.fromEntries(params.entries());
