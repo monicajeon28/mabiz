@@ -9,9 +9,9 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { getAuthContext } from '@/lib/rbac';
 import { getTopPartners } from '@/lib/services/partner-analytics-service';
 import { getTierSummary } from '@/lib/services/partner-tier-service';
 
@@ -49,6 +49,15 @@ interface SummaryResponse {
 
 export async function GET(request: Request) {
   try {
+    // 인증 체크: GLOBAL_ADMIN 또는 OWNER만 접근 허용
+    const ctx = await getAuthContext().catch(() => null);
+    if (!ctx?.userId) {
+      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 });
+    }
+    if (ctx.role !== 'GLOBAL_ADMIN' && ctx.role !== 'OWNER') {
+      return NextResponse.json({ error: '권한이 없습니다' }, { status: 403 });
+    }
+
     // Get organization from session or header
     const searchParams = new URL(request.url).searchParams;
     const organizationId = searchParams.get('organizationId');
