@@ -289,40 +289,69 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "발급 실패" }, { status: 500 });
     }
 
-    // ── provision API 호출 (부수효과, 실패 허용) ──────────────────
-    const provisionUrl = process.env.INTERNAL_PROVISION_URL;
+    // ── 크루즈닷몰 upsert 호출 (부수효과, 실패 허용) ────────────
+    // 스펙: POST /api/integration/affiliate/upsert (cruisedot 제공)
+    const provisionUrl = process.env.INTERNAL_PROVISION_URL;   // https://www.cruisedot.co.kr
     const provisionSecret = process.env.INTERNAL_PROVISION_SECRET;
 
     if (provisionUrl && provisionSecret) {
       try {
-        const provisionRes = await fetch(
-          `${provisionUrl}/api/internal/affiliate/provision`,
+        // 소속 대리점장의 userId 조회 (managerExternalId)
+        let managerExternalId: string | undefined;
+        if (needsRelation && managerProfileId) {
+          const managerProfile = await prisma.gmAffiliateProfile.findUnique({
+            where: { id: managerProfileId },
+            select: { userId: true },
+          });
+          if (managerProfile) managerExternalId = String(managerProfile.userId);
+        }
+
+        const upsertBody = {
+          externalId:          String(result.userId),
+          mallUserId:          result.mallUserId,
+          password:            initialPassword,          // 크루즈닷이 bcrypt 해시
+          name,
+          phone:               contactPhone ?? undefined,
+          role:                type,
+          affiliateCode:       result.affiliateCode,
+          managerExternalId,
+          bankName:            bankName ?? undefined,
+          bankAccount:         bankAccount ?? undefined,
+          bankAccountHolder:   bankAccountHolder ?? undefined,
+          withholdingRate,
+          status:              "ACTIVE",
+        };
+
+        const upsertRes = await fetch(
+          `${provisionUrl}/api/integration/affiliate/upsert`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${provisionSecret}`,
             },
-            body: JSON.stringify({
-              userId: result.userId,
-              type,
-              managerProfileId: needsRelation ? managerProfileId : undefined,
-            }),
+            body: JSON.stringify(upsertBody),
           }
         );
-        if (!provisionRes.ok) {
+        if (!upsertRes.ok) {
           logger.warn(
-            `affiliate-issuance: provision API 응답 오류 status=${provisionRes.status} userId=${result.userId}`
+            `affiliate-issuance: upsert API 응답 오류 status=${upsertRes.status} userId=${result.userId}`
+          );
+        } else {
+          const upsertData = await upsertRes.json().catch(() => ({}));
+          logger.log(
+            `affiliate-issuance: upsert 완료 mallUserId=${result.mallUserId}`,
+            { shopUrl: upsertData?.shopUrl }
           );
         }
       } catch (provErr) {
         logger.error(
-          `affiliate-issuance: provision API 호출 실패 userId=${result.userId}`,
+          `affiliate-issuance: upsert API 호출 실패 userId=${result.userId}`,
           provErr
         );
       }
     } else {
-      logger.warn("affiliate-issuance: INTERNAL_PROVISION_URL 또는 INTERNAL_PROVISION_SECRET 미설정 — provision 스킵");
+      logger.warn("affiliate-issuance: INTERNAL_PROVISION_URL 또는 INTERNAL_PROVISION_SECRET 미설정 — upsert 스킵");
     }
 
     // ── 성공 응답 ─────────────────────────────────────────────────
