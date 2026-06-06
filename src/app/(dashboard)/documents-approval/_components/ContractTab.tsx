@@ -615,8 +615,8 @@ export default function ContractTab() {
                     </tr>
                   </thead>
                   <tbody>
-                    {form.refundPolicy.map((p, i) => (
-                      <tr key={i} className="border-b border-gray-100">
+                    {form.refundPolicy.map((p) => (
+                      <tr key={p.label} className="border-b border-gray-100">
                         <td className="border border-gray-100 px-2 py-1 text-gray-600">{p.label}</td>
                         <td className="border border-gray-100 px-2 py-1 text-right font-semibold text-red-600">{p.value}</td>
                       </tr>
