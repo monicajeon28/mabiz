@@ -367,6 +367,19 @@ export async function sendRedIntervention(
     throw new Error(`Partner not found: ${partnerId}`);
   }
 
+  // 중복 발송 방지: interventionTriggeredAt을 원자적으로 마킹
+  // updateMany count=0이면 이미 다른 프로세스가 처리 중
+  if (partner.riskFlags) {
+    const locked = await prisma.partnerRiskFlags.updateMany({
+      where: { partnerId, interventionTriggeredAt: null },
+      data: { interventionTriggeredAt: new Date() },
+    });
+    if (locked.count === 0) {
+      logger.warn('[RED intervention] 이미 트리거됨 — 중복 발송 방지', { partnerId });
+      return [];
+    }
+  }
+
   const actions: InterventionAction[] = [];
 
   // Send SMS immediately
@@ -434,16 +447,6 @@ export async function sendRedIntervention(
       deadline: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
     },
   });
-
-  // Mark intervention as triggered
-  if (partner.riskFlags) {
-    await prisma.partnerRiskFlags.update({
-      where: { partnerId },
-      data: {
-        interventionTriggeredAt: new Date(),
-      },
-    });
-  }
 
   return actions;
 }
