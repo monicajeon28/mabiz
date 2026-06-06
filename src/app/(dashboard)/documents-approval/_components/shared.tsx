@@ -5,7 +5,7 @@ import { Search, Loader2, User, Package, X, Phone } from 'lucide-react';
 
 // ─── 회사 에셋/정보 상수 ────────────────────────────────────────────────────────
 export const COMPANY = {
-  logo: '/logo.png',            // 가운데 정렬 로고 (4종 서류 공통)
+  logo: '/logo-cruisedot.png',   // 가운데 정렬 로고 (4종 서류 공통)
   seal: '/cruise-stamp.png',    // 좌하단 직인 (회사 도장)
   name: '크루즈닷',
   ceo: '배연성',
