@@ -39,8 +39,8 @@ export default function EmailSettingsPage() {
           }));
         }
       })
-      .catch((err) => {
-        console.error("[EmailSettings] GET 실패:", err);
+      .catch(() => {
+        // 로드 실패 시 빈 폼 유지
       });
   }, []);
 
@@ -59,9 +59,8 @@ export default function EmailSettingsPage() {
       const data = await res.json();
       setMsg({ type: data.ok ? "ok" : "err", text: data.ok ? "저장되었습니다." : (data.message ?? "저장 실패") });
       if (data.ok) setConfigured(true);
-    } catch (err) {
-      console.error("[EmailSettings] PUT 실패:", err);
-      setMsg({ type: "err", text: "설정 저장 중 오류가 발생했습니다" });
+    } catch {
+      setMsg({ type: "err", text: "설정 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." });
     }
     setSaving(false);
   };
@@ -76,10 +75,9 @@ export default function EmailSettingsPage() {
         body: JSON.stringify({ testEmail }),
       });
       const data = await res.json();
-      setMsg({ type: data.ok ? "ok" : "err", text: data.message ?? (data.ok ? "발송 성공" : "발송 실패") });
-    } catch (err) {
-      console.error("[EmailSettings] POST 실패:", err);
-      setMsg({ type: "err", text: "테스트 이메일 발송 중 오류가 발생했습니다" });
+      setMsg({ type: data.ok ? "ok" : "err", text: data.ok ? "발송 완료! 수신함 또는 스팸함을 확인해주세요." : (data.message ?? "발송 실패. 이메일 설정을 다시 확인해주세요.") });
+    } catch {
+      setMsg({ type: "err", text: "테스트 이메일 발송 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." });
     }
     setTesting(false);
   };
@@ -193,7 +191,15 @@ export default function EmailSettingsPage() {
           />
           {form.smtpHost.includes("gmail") && (
             <p className="text-sm text-gray-600 mt-1">
-              Google 계정 → 보안 → 2단계 인증 ON → 앱 비밀번호 생성
+              Gmail 일반 비밀번호는 사용 불가합니다.{" "}
+              <a
+                href="https://myaccount.google.com/apppasswords"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline"
+              >
+                Google 앱 비밀번호 만들기 →
+              </a>
             </p>
           )}
         </div>

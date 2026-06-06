@@ -18,6 +18,10 @@ const PLAN_BADGE: Record<string, string> = {
   FREE: 'bg-gray-100 text-gray-600',
   PRO: 'bg-blue-100 text-blue-700',
 };
+const PLAN_LABEL: Record<string, string> = {
+  FREE: '무료 (FREE)',
+  PRO:  '유료 (PRO)',
+};
 
 export default function OrganizationPage() {
   const [org, setOrg] = useState<OrgInfo | null>(null);
@@ -98,7 +102,7 @@ export default function OrganizationPage() {
     try {
       await navigator.clipboard.writeText(String(org.externalAffiliateProfileId));
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), 4000);
     } catch {
       showError('클립보드 복사에 실패했습니다.');
     }
@@ -206,14 +210,17 @@ export default function OrganizationPage() {
           <span className="text-sm text-gray-500 w-24 shrink-0">플랜</span>
           <div className="flex-1">
             <span className={`text-sm px-2.5 py-1 rounded-full font-semibold ${PLAN_BADGE[org.plan] ?? 'bg-gray-100 text-gray-600'}`}>
-              {org.plan}
+              {PLAN_LABEL[org.plan] ?? org.plan}
             </span>
           </div>
         </div>
 
         {/* 대리점 코드 */}
         <div className="flex items-center gap-3 p-4">
-          <span className="text-sm text-gray-500 w-24 shrink-0">대리점 코드</span>
+          <div className="w-24 shrink-0">
+            <span className="text-sm text-gray-500 block">대리점 코드</span>
+            <span className="text-xs text-gray-400">팀원 초대 시 사용</span>
+          </div>
           <div className="flex-1 flex items-center gap-2 min-w-0">
             {org.externalAffiliateProfileId !== null ? (
               <>

@@ -116,7 +116,7 @@ export default function DocumentsSettingPage() {
     const url = `${window.location.origin}/settings/documents`;
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), 4000);
     });
   };
 
