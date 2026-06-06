@@ -6178,6 +6178,7 @@ model CrmMarketingMessage {
   scheduledTime DateTime
   sentTime      DateTime?
   status        String // "pending" | "sent" | "failed" | "opened" | "clicked" | "converted"
+  channel       String   @default("SMS") // "SMS" | "EMAIL" | "KAKAO" — 채널별 성과 집계용(기존행 SMS 백필)
 
   // 콘텐츠
   content          String   @db.Text
