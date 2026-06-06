@@ -5,6 +5,25 @@ import { logger } from '@/lib/logger';
 import { requestPayment, requestSubscription } from '@/lib/payapp';
 import { normalizePhone } from '@/lib/phone-normalize';
 
+// ─── P0-5: returnUrl 도메인 화이트리스트 ───
+const ALLOWED_COMPLETION_DOMAINS = [
+  'mabizcruisedot.com',
+  'cruisedot.co.kr',
+  'localhost:3000', // 개발 환경
+];
+
+function isSafeCompletionUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+    return ALLOWED_COMPLETION_DOMAINS.some(domain =>
+      parsed.hostname.endsWith(domain) || parsed.hostname === domain
+    );
+  } catch {
+    return false;
+  }
+}
+
 const RequestSchema = z.object({
   type:          z.enum(["onetime", "subscription"]).default("onetime"),
   goodname:      z.string().min(1).max(200),
@@ -102,6 +121,16 @@ export async function POST(req: Request) {
     // 일반결제
     const orderId = `pay_${orgId.slice(0, 8)}_${Date.now()}`;
 
+    // 완료 URL 구성 및 검증
+    let completionUrl = `${baseUrl}/p/${landingPage.slug}/payment/complete?orderId=${orderId}`;
+    if (!isSafeCompletionUrl(completionUrl)) {
+      logger.warn('[Public/PayApp] 완료 URL이 유효하지 않음', { completionUrl });
+      return NextResponse.json(
+        { ok: false, message: '완료 페이지 URL이 유효하지 않습니다.' },
+        { status: 400 }
+      );
+    }
+
     const result = await requestPayment({
       goodname,
       price,
@@ -111,7 +140,7 @@ export async function POST(req: Request) {
       var2: landingPage.slug ?? '',
       recvemail: customerEmail,
       smsuse: 'n',
-      returnurl: `${baseUrl}/p/${landingPage.slug}/payment/complete?orderId=${orderId}`,
+      returnurl: completionUrl,
     });
 
     if (!result.ok) {

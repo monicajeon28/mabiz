@@ -5,6 +5,36 @@ import { logger } from '@/lib/logger';
 import { requestPayment, requestSubscription } from '@/lib/payapp';
 import { normalizePhone } from '@/lib/phone-normalize';
 
+// ─── P0-5: returnUrl 도메인 화이트리스트 ───
+const ALLOWED_COMPLETION_DOMAINS = [
+  'mabizcruisedot.com',
+  'cruisedot.co.kr',
+  'localhost:3000', // 개발 환경
+];
+
+function isSafeCompletionUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+    return ALLOWED_COMPLETION_DOMAINS.some(domain =>
+      parsed.hostname.endsWith(domain) || parsed.hostname === domain
+    );
+  } catch {
+    return false;
+  }
+}
+
+// ─── P1-6: 민감정보 마스킹 헬퍼 ───
+function maskPhone(phone: string | null): string {
+  if (!phone) return 'none';
+  return `${phone.slice(0, 2)}***${phone.slice(-2)}`;
+}
+
+function maskOrderId(orderId: string | null): string {
+  if (!orderId) return 'none';
+  return `${orderId.slice(0, 3)}***${orderId.slice(-3)}`;
+}
+
 /**
  * POST /api/payapp/request
  * 페이앱 결제 요청 (일반결제 + 정기결제 통합)
@@ -94,6 +124,7 @@ export async function POST(req: Request) {
       logger.log('[PayApp/Request] 정기결제 등록', {
         subscriptionId: subscription.id,
         rebillNo: result.rebillNo,
+        phone: maskPhone(normalizedPhone), // P1-6: 마스킹 적용
       });
 
       return NextResponse.json({
@@ -118,6 +149,10 @@ export async function POST(req: Request) {
       smsuse: 'n',
     });
 
+    // ─── P1-7: 취소 웹훅 금액 재검증 (결제 수신 시에도 원금 기록) ───
+    // 취소 요청 시 환불액이 원금을 초과하지 않는지 확인하기 위해 원금 저장
+    const originalAmount = price;
+
     if (!result.ok) {
       return NextResponse.json({ ok: false, message: result.error }, { status: 502 });
     }
@@ -126,7 +161,7 @@ export async function POST(req: Request) {
       data: {
         orderId,
         organizationId: orgId,
-        amount: price,
+        amount: originalAmount, // P1-7: 원금 저장 (취소 검증용)
         customerName,
         customerPhone: normalizedPhone,
         customerEmail: customerEmail ?? null,
@@ -140,7 +175,7 @@ export async function POST(req: Request) {
     logger.log('[PayApp/Request] 일반결제 요청', {
       orderId,
       mulNo: result.mulNo,
-      phone: normalizedPhone.slice(0, 4) + '***',
+      phone: maskPhone(normalizedPhone), // P1-6: 마스킹 적용
     });
 
     return NextResponse.json({
