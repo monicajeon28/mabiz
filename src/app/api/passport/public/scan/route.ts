@@ -425,7 +425,12 @@ export async function POST(req: NextRequest) {
 
     // 최소한 여권번호나 이름 중 하나는 있어야 함
     if (!hasMinimum) {
-      logger.error('[Passport Scan] 필수 정보 부족:', normalizedData);
+      // PII(여권번호/이름/생년월일) 평문 로깅 금지 — 누락 필드명·불리언만 기록
+      logger.error('[Passport Scan] 필수 정보 부족', {
+        missing: warnings,
+        hasPassportNo: !!normalizedData.passportNo,
+        hasName: !!(normalizedData.korName || normalizedData.engSurname),
+      });
       return NextResponse.json(
         {
           ok: false,

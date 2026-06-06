@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { decodePassportToken } from '@/lib/passport-utils';
 import { logger } from '@/lib/logger';
+import { maskPhone } from '@/lib/phone-mask';
 
 /** 세션 또는 여권 토큰(SMS 링크 비로그인 고객)으로 권한 userId 해석. 실패 시 null. */
 async function resolvePassportActor(token: string | null | undefined): Promise<number | null> {
@@ -111,9 +112,9 @@ export async function POST(req: NextRequest) {
     logger.info('────────────────────────────────────────────');
     logger.info('[알림] 여권 등록 도움 요청');
     logger.info('────────────────────────────────────────────');
-    logger.info(`고객: ${customerName} (${customerPhone})`);
+    logger.info(`고객: ${customerName} (${maskPhone(customerPhone)})`);
     if (requesterName && requesterPhone) {
-      logger.info(`신청자: ${requesterName} (${requesterPhone})`);
+      logger.info(`신청자: ${requesterName} (${maskPhone(requesterPhone)})`);
     }
     logger.info(`크루즈: ${cruiseName}`);
     logger.info(`출발일: ${departureDate}`);

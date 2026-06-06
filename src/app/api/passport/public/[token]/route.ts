@@ -6,6 +6,7 @@ import prisma from '@/lib/prisma';
 import { decodePassportToken } from '@/lib/passport-utils';
 import { logger } from '@/lib/logger';
 import { toKstDateString } from '@/lib/passport-date';
+import { maskPhone } from '@/lib/phone-mask';
 
 export async function GET(
   _req: NextRequest,
@@ -139,8 +140,8 @@ export async function GET(
         id: guest.id,
         groupNumber: guest.groupNumber,
         name: guest.name,
-        // 퍼블릭 API — 링크 유출 시 PII 노출 방지
-        phone: guest.phone ? guest.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-****-$3') : null,
+        // 퍼블릭 API — 링크 유출 시 PII 노출 방지 (형식 무관 마스킹: 하이픈/자릿수 변형 안전)
+        phone: maskPhone(guest.phone),
         passportNumber: guest.passportNumber
           ? guest.passportNumber.length >= 5
             ? `${guest.passportNumber.slice(0, 1)}****${guest.passportNumber.slice(-3)}`

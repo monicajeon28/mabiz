@@ -174,19 +174,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, message: '본인확인에 실패했습니다. 링크를 다시 확인해 주세요.' }, { status: 403 });
     }
 
-    // ── 소유권 사전 검증 (IDOR 방지) — id가 있는 모든 traveler 대상 ────────────
-    const travelerOwnershipErrors: number[] = [];
-    for (const td of travelers) {
-      if (td.id) {
-        const check = await prisma.gmTraveler.findUnique({
-          where: { id: td.id },
-          select: { reservationId: true },
-        });
-        if (!check || check.reservationId !== reservationId) {
-          logger.warn('[Passport Submit] 잘못된 traveler ID (소유권 위반)', { travelerDataId: td.id, reservationId });
-          travelerOwnershipErrors.push(td.id);
-        }
-      }
+    // 인원 수 상한 — 조작된 대량 요청으로 인한 쿼리 폭증/자원 고갈 방지 (UI 상한 10명)
+    if (travelers.length > 50) {
+      return NextResponse.json({ ok: false, message: '인원 수가 허용 범위를 초과했습니다.' }, { status: 400 });
+    }
+
+    // ── 소유권 사전 검증 (IDOR 방지) — id 있는 traveler를 1회 일괄 조회(N+1 제거) ──
+    const submittedIds = travelers.map((t) => t.id).filter((x): x is number => typeof x === 'number');
+    const owned = submittedIds.length
+      ? await prisma.gmTraveler.findMany({
+          where: { id: { in: submittedIds }, reservationId },
+          select: { id: true },
+        })
+      : [];
+    const ownedSet = new Set(owned.map((r) => r.id));
+    const travelerOwnershipErrors: number[] = submittedIds.filter((id) => !ownedSet.has(id));
+    if (travelerOwnershipErrors.length > 0) {
+      logger.warn('[Passport Submit] 잘못된 traveler ID (소유권 위반)', { ids: travelerOwnershipErrors, reservationId });
     }
 
     // 최근 수정자 = 고객 본인(예약 대표자). audit.userId/updatedBy는 FK 없는 Int? 라 안전.
