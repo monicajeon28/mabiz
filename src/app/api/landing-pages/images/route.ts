@@ -370,11 +370,11 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ ok: false, message: '랜딩페이지를 찾을 수 없습니다' }, { status: 404 });
     }
 
-    // 트랜잭션으로 전체 순서 업데이트
+    // 트랜잭션으로 전체 순서 업데이트 (landingPageId로 소유권 보장)
     await prisma.$transaction(
-      imageIds.map((id, index) =>
-        prisma.crmLandingPageImage.update({
-          where: { id },
+      imageIds.map((imgId, index) =>
+        prisma.crmLandingPageImage.updateMany({
+          where: { id: imgId, landingPageId: page.id },
           data: { sortOrder: index },
         }),
       ),
