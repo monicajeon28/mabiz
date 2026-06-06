@@ -230,8 +230,8 @@ export async function POST(req: NextRequest) {
       };
 
       if (existingTraveler) {
-        await prisma.gmTraveler.update({
-          where: { id: existingTraveler.id },
+        await prisma.gmTraveler.updateMany({
+          where: { id: existingTraveler.id, reservationId: reservation.id },
           data: travelerData,
         });
       } else {

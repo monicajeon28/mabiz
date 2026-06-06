@@ -101,7 +101,7 @@ async function syncSubmissionGuestsBestEffort(
             where: { submissionId: submission.id, passportNumber: passportNo },
             select: { id: true },
           });
-          if (dup) await prisma.gmPassportSubmissionGuest.update({ where: { id: dup.id }, data: guestData });
+          if (dup) await prisma.gmPassportSubmissionGuest.updateMany({ where: { id: dup.id, submissionId: submission.id }, data: guestData });
         } else {
           throw e;
         }
