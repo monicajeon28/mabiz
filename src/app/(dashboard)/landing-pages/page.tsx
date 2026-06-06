@@ -529,10 +529,11 @@ function PageCard({
                 )}
               </button>
               <a
-                href={page.shortlink ? `/p/${page.shortlink}` : `#`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`p-2 hover:bg-gray-100 rounded-lg ${page.shortlink ? 'text-gray-500 cursor-pointer' : 'text-gray-300 cursor-not-allowed'}`}
+                href={page.shortlink ? `/p/${page.shortlink}` : "#"}
+                target={page.shortlink ? "_blank" : undefined}
+                rel={page.shortlink ? "noopener noreferrer" : undefined}
+                onClick={(e) => !page.shortlink && e.preventDefault()}
+                className={`p-2 hover:bg-gray-100 rounded-lg ${page.shortlink ? 'text-gray-500 cursor-pointer' : 'text-gray-300 cursor-not-allowed pointer-events-none'}`}
                 title={page.shortlink ? "새 탭에서 열기" : "숏링크 없음"}
               >
                 <Globe className="w-4 h-4" />
