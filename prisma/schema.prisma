@@ -3414,6 +3414,12 @@ model public_AffiliateSale {
   sourceAgentId           Int?
   yearMonth               String?   @db.Char(7)
   buyerUserId             Int?
+  // 대리점장 구매확인(귀속 확정) 신호 — CRM이 결제관리에서 2택 확정 → 몰로 발신용.
+  // 몰=수당귀속 SSoT, CRM은 자기 UI 상태 + 발신 멱등 가드용으로만 보관.
+  commissionOwnerType      String?   // 'PRESALES' | 'BRANCH_MANAGER'
+  commissionOwnerConfirmed Boolean   @default(false) // 확정 1회 전이 가드(중복차감 방지)
+  confirmedOwnerById       Int?      // 확정자 (User.id)
+  confirmedOwnerAt         DateTime? // 확정 시각(감사)
 
   @@index([agentId, createdAt])
   @@index([agentId])
