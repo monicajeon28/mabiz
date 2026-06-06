@@ -220,10 +220,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.error('[sync] Sync failed:', error instanceof Error ? error : { error: String(error) });
     return NextResponse.json(
-      {
-        error: '동기화 중 오류가 발생했습니다.',
-        details: error instanceof Error ? error.message : '알 수 없는 오류',
-      },
+      { error: '동기화 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

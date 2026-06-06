@@ -180,10 +180,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : '플로우를 조회하는 중 오류가 발생했습니다.',
+        error: '플로우를 조회하는 중 오류가 발생했습니다.',
       },
       { status: 500 },
     );

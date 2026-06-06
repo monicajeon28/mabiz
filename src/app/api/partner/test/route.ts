@@ -86,7 +86,7 @@ export async function GET(req: Request) {
   } catch (err) {
     logger.error('[GET /api/partner/test]', { error: err instanceof Error ? err.message : String(err) });
     return NextResponse.json(
-      { ok: false, error: String(err) },
+      { ok: false, error: '서버 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

@@ -32,7 +32,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         const candidate = crypto.randomBytes(8).toString('hex');
         const exists = await prisma.contactGroup.findFirst({ where: { seq: candidate }, select: { id: true } });
         if (!exists) {
-          await prisma.contactGroup.update({ where: { id: groupId }, data: { seq: candidate } });
+          await prisma.contactGroup.update({ where: { id: groupId, organizationId: ctx.organizationId ?? undefined }, data: { seq: candidate } });
           seq = candidate;
           break;
         }
@@ -84,7 +84,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
     if (!newSeq) return NextResponse.json({ ok: false, error: 'SEQ_GEN_FAILED' }, { status: 500 });
 
-    await prisma.contactGroup.update({ where: { id: groupId }, data: { seq: newSeq } });
+    await prisma.contactGroup.update({ where: { id: groupId, organizationId: ctx.organizationId ?? undefined }, data: { seq: newSeq } });
 
     return NextResponse.json({ ok: true, seq: newSeq, groupId, groupName: group.name });
   } catch (err) {

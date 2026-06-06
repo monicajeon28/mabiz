@@ -483,9 +483,7 @@ export async function POST(req: NextRequest) {
       }
     }
   } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : '문서 생성 중 오류가 발생했습니다';
     console.error('[Document Generation] Error:', error);
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: '문서 생성 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

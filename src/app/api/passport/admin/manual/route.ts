@@ -284,12 +284,6 @@ export async function POST(req: NextRequest) {
       {
         ok: false,
         message: '여권 제출 링크를 생성하는 중 오류가 발생했습니다.',
-        error: process.env.NODE_ENV === 'development'
-          ? (error instanceof Error ? (error as Error).message : String(error))
-          : undefined,
-        details: process.env.NODE_ENV === 'development'
-          ? (error instanceof Error ? (error as Error).stack : undefined)
-          : undefined,
       },
       { status: 500 }
     );

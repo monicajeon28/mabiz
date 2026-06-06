@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
       const err = error as Record<string, unknown>;
       logger.error('[OCR to APIS] 이미지 다운로드 오류:', { message: err.message });
       return NextResponse.json(
-        { ok: false, message: `이미지를 가져올 수 없습니다: ${err.message}` },
+        { ok: false, message: '이미지를 가져올 수 없습니다.' },
         { status: 400 }
       );
     }
@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
               where: { reservationId: reservation.id, passportNo },
               select: { id: true },
             });
-            if (dup) await prisma.gmTraveler.update({ where: { id: dup.id }, data: travelerData });
+            if (dup) await prisma.gmTraveler.updateMany({ where: { id: dup.id, reservationId: reservation.id }, data: travelerData });
             else throw e;
           } else {
             throw e;
@@ -318,7 +318,7 @@ export async function POST(req: NextRequest) {
       const err = dbError as Record<string, unknown>;
       logger.error('[OCR to APIS] DB 저장 오류:', { message: err.message, code: err.code });
       return NextResponse.json(
-        { ok: false, message: `APIS 데이터 저장 중 오류가 발생했습니다: ${err.message}` },
+        { ok: false, message: 'APIS 데이터 저장 중 오류가 발생했습니다.' },
         { status: 500 }
       );
     }
@@ -326,11 +326,7 @@ export async function POST(req: NextRequest) {
     const err = error as Record<string, unknown>;
     logger.error('[OCR to APIS] POST error:', { message: err.message });
     return NextResponse.json(
-      {
-        ok: false,
-        message: 'OCR 처리 중 오류가 발생했습니다.',
-        error: process.env.NODE_ENV === 'development' ? (err.message as string) : undefined,
-      },
+      { ok: false, message: 'OCR 처리 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

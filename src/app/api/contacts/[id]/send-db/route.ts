@@ -155,7 +155,7 @@ export async function POST(req: Request, { params }: Params) {
       // OWNER/BRANCH_MANAGER 대상: 조직 전체 열람 가능 → 원본은 sender에 유지
       if (isTargetAgent) {
         await prisma.$transaction([
-          prisma.contact.update({ where: { id: contactId }, data: { assignedUserId: member.id } }),
+          prisma.contact.update({ where: { id: contactId, organizationId: contact.organizationId }, data: { assignedUserId: member.id } }),
           prisma.contactTransferLog.create({
             data: { contactId, fromOrgId: contact.organizationId, toUserId: member.id, transferType: "AGENT_ASSIGN", transferredBy: ctx.userId },
           }),
