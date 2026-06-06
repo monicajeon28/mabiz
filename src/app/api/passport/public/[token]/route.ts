@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { decodePassportToken } from '@/lib/passport-utils';
 import { logger } from '@/lib/logger';
+import { toKstDateString } from '@/lib/passport-date';
 
 export async function GET(
   _req: NextRequest,
@@ -146,8 +147,9 @@ export async function GET(
             : '****'
           : null,
         nationality: guest.nationality,
-        dateOfBirth: guest.dateOfBirth?.toISOString() ?? null,
-        passportExpiryDate: guest.passportExpiryDate?.toISOString() ?? null,
+        // 날짜-only는 KST yyyy-MM-dd 문자열로 통일 (date input/표시 계약과 일치, 시각 제거)
+        dateOfBirth: toKstDateString(guest.dateOfBirth),
+        passportExpiryDate: toKstDateString(guest.passportExpiryDate),
       })),
     });
   } catch (error) {

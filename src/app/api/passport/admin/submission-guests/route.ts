@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireCrmManager } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
+import { toKstDateString } from '@/lib/passport-date';
 
 // ── 타입 정의 ───────────────────────────────────────────────────
 
@@ -40,17 +41,7 @@ function maskPassportNumber(raw: string | null): string | null {
   return `${prefix}****${suffix}`;
 }
 
-// ── UTC DateTime → KST YYYY-MM-DD ──────────────────────────────
-function toKstDateString(dt: Date | null): string | null {
-  if (!dt) return null;
-  // UTC 기준 ms → KST(+9h) 오프셋 적용
-  const kstMs = dt.getTime() + 9 * 60 * 60 * 1000;
-  const kst = new Date(kstMs);
-  const yyyy = kst.getUTCFullYear();
-  const mm = String(kst.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(kst.getUTCDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
+// UTC DateTime → KST YYYY-MM-DD 는 공용 헬퍼 toKstDateString(@/lib/passport-date) 사용
 
 /**
  * GET /api/passport/admin/submission-guests?userId=123

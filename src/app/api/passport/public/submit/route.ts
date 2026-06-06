@@ -5,11 +5,120 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { checkRateLimitAsync } from '@/lib/rate-limit';
+import { writeTravelerWithAudit, TravelerNotFound } from '@/lib/apis-traveler-write';
+import { normalizeDateOnlyString } from '@/lib/passport-date';
+import { normalizePassportNo, isPassportDupViolation } from '@/lib/passport-match';
+import { decodePassportToken } from '@/lib/passport-utils';
+
+interface TravelerInput {
+  id?: number;
+  isSubmitLater?: boolean;
+  korName?: string;
+  engSurname?: string;
+  engGivenName?: string;
+  passportNo?: string;
+  residentNum?: string;
+  nationality?: string;
+  dateOfBirth?: string;
+  passportExpiryDate?: string;
+  roomNumber?: number;
+  phone?: string;
+}
+
+/**
+ * 정상 제출 traveler → writeTravelerWithAudit changes 매핑.
+ * EDITABLE_FIELDS 화이트리스트 키만 사용. 날짜는 KST yyyy-MM-dd String SSoT.
+ */
+function buildChanges(td: TravelerInput) {
+  return {
+    korName: td.korName as string,
+    engSurname: td.engSurname || null,
+    engGivenName: td.engGivenName || null,
+    passportNo: normalizePassportNo(td.passportNo), // 공백제거+대문자 — 매칭 키 통일
+    residentNum: td.residentNum || null,
+    nationality: td.nationality || null,
+    birthDate: normalizeDateOnlyString(td.dateOfBirth),
+    expiryDate: normalizeDateOnlyString(td.passportExpiryDate),
+    roomNumber: (td.roomNumber as number) || 0,
+  };
+}
+
+/**
+ * 관리자 표시(submission-guests)와 실제(GmTraveler) SSoT 정합용 best-effort 동기화.
+ * - passportNo 기준으로만 매칭 (이름 매칭 금지 — 동명이인 PII 교차오염 방지)
+ * - GmTraveler가 SSoT, Guest는 표시 미러. 실패해도 고객 제출은 성공시킨다(호출부 try/catch).
+ */
+async function syncSubmissionGuestsBestEffort(
+  reservation: { mainUserId: number | null; tripId: number | null },
+  travelers: TravelerInput[],
+  actorUserId: number | null,
+): Promise<void> {
+  if (!reservation.mainUserId || !reservation.tripId) return;
+  const submission = await prisma.gmPassportSubmission.findUnique({
+    where: { userId_tripId: { userId: reservation.mainUserId, tripId: reservation.tripId } },
+    select: { id: true },
+  });
+  if (!submission) return;
+
+  const seenGuestPassports = new Set<string>();
+  for (const td of travelers) {
+    if (td.isSubmitLater) continue;
+    if (!td.korName) continue;
+    const passportNo = normalizePassportNo(td.passportNo);
+    if (!passportNo) continue;
+    // 동일 페이로드 내 같은 여권번호 중복 입력 → 한 번만 반영 (덮어쓰기 유실 방지)
+    if (seenGuestPassports.has(passportNo)) continue;
+    seenGuestPassports.add(passportNo);
+
+    const birth = normalizeDateOnlyString(td.dateOfBirth);
+    const expiry = normalizeDateOnlyString(td.passportExpiryDate);
+    const guestData = {
+      name: td.korName,
+      phone: td.phone || null,
+      passportNumber: passportNo,
+      nationality: td.nationality || null,
+      dateOfBirth: birth ? new Date(birth) : null,
+      passportExpiryDate: expiry ? new Date(expiry) : null,
+      submittedBy: actorUserId,
+      source: 'public_submit',
+      submittedAt: new Date(),
+    };
+    const existing = await prisma.gmPassportSubmissionGuest.findFirst({
+      where: { submissionId: submission.id, passportNumber: passportNo },
+      select: { id: true },
+    });
+    if (existing) {
+      await prisma.gmPassportSubmissionGuest.update({ where: { id: existing.id }, data: guestData });
+    } else {
+      try {
+        await prisma.gmPassportSubmissionGuest.create({
+          data: { submissionId: submission.id, groupNumber: (td.roomNumber as number) || 1, ...guestData },
+        });
+      } catch (e) {
+        // 동시 생성 충돌(부분 UNIQUE) → 재조회 update 폴백
+        if (isPassportDupViolation(e)) {
+          const dup = await prisma.gmPassportSubmissionGuest.findFirst({
+            where: { submissionId: submission.id, passportNumber: passportNo },
+            select: { id: true },
+          });
+          if (dup) await prisma.gmPassportSubmissionGuest.update({ where: { id: dup.id }, data: guestData });
+        } else {
+          throw e;
+        }
+      }
+    }
+  }
+}
 
 /**
  * POST /api/passport/public/submit
- * 고객이 입력한 여권 정보를 저장합니다.
- * Public API — 예약ID 기반, 인증 없음
+ * 고객이 입력한 여권 정보를 저장합니다. (예약ID 기반, 인증 없음 — 점진 조립)
+ *
+ * 점진 조립 원칙:
+ *  - 매칭 3단: (1) 화면이 들고 있는 traveler.id → (2) (reservationId,passportNo) 기존행 → (3) 신규
+ *  - passportNo 없으면 절대 이름으로 합치지 않음(동명이인 PII 교차오염 방지) → 신규/추후제출
+ *  - 갱신은 writeTravelerWithAudit로 version+1·updatedBy(최근수정자)·감사로그 기록
+ *  - 동시 생성 중복은 (reservationId,passportNo) 부분 UNIQUE가 DB레벨 차단 → 충돌 시 재조회 update 폴백
  */
 export async function POST(req: NextRequest) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
@@ -20,7 +129,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { reservationId, travelers } = body;
+    const { token, reservationId, travelers } = body as { token?: string; reservationId?: number; travelers?: TravelerInput[] };
 
     if (!reservationId || !travelers || !Array.isArray(travelers)) {
       return NextResponse.json(
@@ -41,135 +150,199 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── 소유권 사전 검증 (트랜잭션 외부 — 읽기 전용) ────────────────
-    // IDOR 방지: 트랜잭션 내부에서 write 전에 미리 확인
+    // ── 본인확인 토큰 검증 (SEC: 인증 없는 PII 쓰기 차단) ─────────────────
+    // 예약ID는 순번이라 추측 가능 → 토큰으로 예약 소유자 본인임을 서버에서 확인.
+    if (!token || token.length < 10) {
+      return NextResponse.json({ ok: false, message: '본인확인 정보가 필요합니다.' }, { status: 401 });
+    }
+    let decodedToken = token;
+    try {
+      const d = decodePassportToken(token);
+      if (d) decodedToken = d;
+    } catch { /* 원본 토큰 사용 */ }
+    const submission = await prisma.gmPassportSubmission.findFirst({
+      where: { token: decodedToken },
+      select: { userId: true, tripId: true, tokenExpiresAt: true },
+    });
+    const tokenValid =
+      !!submission &&
+      submission.tokenExpiresAt.getTime() >= Date.now() &&
+      submission.userId === reservation.mainUserId &&
+      (submission.tripId == null || submission.tripId === reservation.tripId);
+    if (!tokenValid) {
+      logger.warn('[Passport Submit] 토큰 검증 실패', { reservationId });
+      return NextResponse.json({ ok: false, message: '본인확인에 실패했습니다. 링크를 다시 확인해 주세요.' }, { status: 403 });
+    }
+
+    // ── 소유권 사전 검증 (IDOR 방지) — id가 있는 모든 traveler 대상 ────────────
     const travelerOwnershipErrors: number[] = [];
-    for (const travelerData of travelers) {
-      if (travelerData.id && !travelerData.isSubmitLater) {
-        const travelerCheck = await prisma.gmTraveler.findUnique({
-          where: { id: travelerData.id },
+    for (const td of travelers) {
+      if (td.id) {
+        const check = await prisma.gmTraveler.findUnique({
+          where: { id: td.id },
           select: { reservationId: true },
         });
-        if (!travelerCheck || travelerCheck.reservationId !== reservationId) {
-          logger.warn('[Passport Submit] 잘못된 traveler ID (소유권 위반)', { travelerDataId: travelerData.id, reservationId });
-          travelerOwnershipErrors.push(travelerData.id);
+        if (!check || check.reservationId !== reservationId) {
+          logger.warn('[Passport Submit] 잘못된 traveler ID (소유권 위반)', { travelerDataId: td.id, reservationId });
+          travelerOwnershipErrors.push(td.id);
         }
       }
     }
 
-    // Traveler 정보 업데이트 (여러 DB 쓰기를 트랜잭션으로 원자 처리)
-    const updatedTravelers = await prisma.$transaction(async (tx) => {
-      const results = [];
+    // 최근 수정자 = 고객 본인(예약 대표자). audit.userId/updatedBy는 FK 없는 Int? 라 안전.
+    const actorUserId = reservation.mainUserId ?? null;
+    const results: Array<{ id: number }> = [];
+    // 동일 페이로드 내 같은 여권번호 중복 입력 추적 (덮어쓰기 유실 방지)
+    const seenPassports = new Set<string>();
 
-      for (let index = 0; index < travelers.length; index++) {
-        const travelerData = travelers[index];
-        if (travelerData.isSubmitLater) {
-          // 추후 제출인 경우: 이름만 업데이트하고 여권 정보는 건너뜀
-          if (travelerData.id) {
-            await tx.gmTraveler.update({
-              where: { id: travelerData.id },
-              data: {
-                korName: travelerData.korName || '',
-                engSurname: travelerData.engSurname || null,
-                engGivenName: travelerData.engGivenName || null,
-              },
-            });
-          } else {
-            // 새로운 Traveler 생성 (추후 제출)
-            const newTraveler = await tx.gmTraveler.create({
-              data: {
-                reservationId,
-                korName: travelerData.korName || '',
-                engSurname: travelerData.engSurname || null,
-                engGivenName: travelerData.engGivenName || null,
-                roomNumber: travelerData.roomNumber || 0,
-              },
-            });
-            results.push(newTraveler);
-          }
-        } else {
-          // 정상 제출인 경우: 유효성 검사
-          if (!travelerData.korName || !travelerData.passportNo) {
-            continue; // 필수 정보가 없으면 건너뜀
-          }
+    for (let index = 0; index < travelers.length; index++) {
+      const td = travelers[index];
+      const ownershipBlocked = !!td.id && travelerOwnershipErrors.includes(td.id);
 
-          // UTC-safe date normalization: "YYYY-MM-DD" 문자열을 Date.UTC로 파싱해 로컬 타임존 오프셋에 의한
-          // 하루 앞당김 오류를 방지하고, 다시 "YYYY-MM-DD" 형식의 문자열로 저장한다.
-          function normalizeDateString(raw: unknown): string | null {
-            if (!raw || typeof raw !== 'string') return null;
-            const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
-            if (!match) return raw; // 포맷 불일치 시 원본 반환
-            const y = parseInt(match[1], 10);
-            const m = parseInt(match[2], 10);
-            const d = parseInt(match[3], 10);
-            const utcDate = new Date(Date.UTC(y, m - 1, d));
-            return utcDate.toISOString().slice(0, 10); // "YYYY-MM-DD"
-          }
-
-          const updateData = {
-            korName: travelerData.korName as string,
-            engSurname: (travelerData.engSurname as string) || null,
-            engGivenName: (travelerData.engGivenName as string) || null,
-            passportNo: (travelerData.passportNo as string) || null,
-            residentNum: (travelerData.residentNum as string) || null,
-            nationality: (travelerData.nationality as string) || null,
-            birthDate: normalizeDateString(travelerData.dateOfBirth),
-            expiryDate: normalizeDateString(travelerData.passportExpiryDate),
-            roomNumber: (travelerData.roomNumber as number) || 0,
-          };
-
-          // 대표자(첫 번째)의 연락처를 User 테이블에 업데이트
-          if (index === 0 && travelerData.phone && reservation.mainUserId) {
-            try {
-              await tx.gmUser.update({
-                where: { id: reservation.mainUserId },
-                data: { phone: travelerData.phone },
-              });
-            } catch (userUpdateError) {
-              logger.error('[Passport Submit] User 업데이트 실패:', userUpdateError as Record<string, unknown>);
-            }
-          }
-
-          if (travelerData.id) {
-            // 소유권 검증 실패한 ID는 건너뜀 (트랜잭션 외부에서 이미 확인)
-            if (travelerOwnershipErrors.includes(travelerData.id)) {
-              continue;
-            }
-            // 기존 Traveler 업데이트
-            const updated = await tx.gmTraveler.update({
-              where: { id: travelerData.id },
-              data: updateData,
-            });
-            results.push(updated);
-          } else {
-            // 새로운 Traveler 생성
-            const newTraveler = await tx.gmTraveler.create({
-              data: {
-                reservationId,
-                ...updateData,
-              },
-            });
-            results.push(newTraveler);
-          }
+      // 대표자(첫 번째)의 연락처를 User 테이블에 업데이트 (기존 동작 유지)
+      if (index === 0 && td.phone && reservation.mainUserId) {
+        try {
+          await prisma.gmUser.update({
+            where: { id: reservation.mainUserId },
+            data: { phone: td.phone },
+          });
+        } catch (userUpdateError) {
+          logger.error('[Passport Submit] User 업데이트 실패:', userUpdateError as Record<string, unknown>);
         }
       }
 
-      // Reservation의 passportStatus 업데이트 (진행 중으로 변경)
-      await tx.gmReservation.update({
-        where: { id: reservationId },
-        data: {
-          passportStatus: reservation.passportStatus === '도움요청' ? '도움요청' : '진행중',
-        },
-      });
+      // ── 추후 제출: 이름만 갱신, 여권정보 건너뜀 ──────────────────────────
+      if (td.isSubmitLater) {
+        if (td.id) {
+          if (ownershipBlocked) continue;
+          try {
+            const updated = await writeTravelerWithAudit({
+              travelerId: td.id,
+              changes: {
+                korName: td.korName || '',
+                engSurname: td.engSurname || null,
+                engGivenName: td.engGivenName || null,
+              },
+              userId: actorUserId,
+              action: 'PASSPORT_SUBMIT_LATER',
+            });
+            if (updated) results.push({ id: updated.id });
+          } catch (e) {
+            if (!(e instanceof TravelerNotFound)) throw e;
+          }
+        } else {
+          const newTraveler = await prisma.gmTraveler.create({
+            data: {
+              reservationId,
+              korName: td.korName || '',
+              engSurname: td.engSurname || null,
+              engGivenName: td.engGivenName || null,
+              roomNumber: (td.roomNumber as number) || 0,
+              updatedBy: actorUserId,
+            },
+          });
+          results.push({ id: newTraveler.id });
+        }
+        continue;
+      }
 
-      return results;
+      // ── 정상 제출: 필수 정보 검사 ───────────────────────────────────────
+      if (!td.korName || !td.passportNo) continue;
+      if (ownershipBlocked) continue;
+
+      const changes = buildChanges(td);
+
+      // 동일 페이로드 내 중복 여권번호 → 첫 건만 반영 (둘째가 첫째를 덮어써 유실되는 것 방지)
+      if (changes.passportNo) {
+        if (seenPassports.has(changes.passportNo)) continue;
+        seenPassports.add(changes.passportNo);
+      }
+
+      // 3단 매칭으로 대상 traveler 결정
+      let targetId: number | null = null;
+      if (td.id) {
+        targetId = td.id; // 1순위: 화면이 들고 있는 칸
+      } else if (changes.passportNo) {
+        // 2순위: (reservationId, passportNo) 기존행 — 본인 칸 재제출
+        const existing = await prisma.gmTraveler.findFirst({
+          where: { reservationId, passportNo: changes.passportNo },
+          select: { id: true },
+        });
+        if (existing) targetId = existing.id;
+      }
+
+      if (targetId) {
+        try {
+          const updated = await writeTravelerWithAudit({
+            travelerId: targetId,
+            changes,
+            userId: actorUserId,
+            action: 'PASSPORT_SUBMIT',
+          });
+          if (updated) results.push({ id: updated.id });
+        } catch (e) {
+          // 경합으로 대상이 사라짐 → 신규 생성 폴백
+          if (e instanceof TravelerNotFound) {
+            const created = await prisma.gmTraveler.create({
+              data: { reservationId, ...changes, updatedBy: actorUserId },
+            });
+            results.push({ id: created.id });
+          } else {
+            throw e;
+          }
+        }
+      } else {
+        // 3순위: 신규 생성 — 동시 생성 중복은 부분 UNIQUE가 DB레벨 차단
+        try {
+          const created = await prisma.gmTraveler.create({
+            data: { reservationId, ...changes, updatedBy: actorUserId },
+          });
+          results.push({ id: created.id });
+        } catch (e) {
+          // 다른 요청이 같은 (reservationId,passportNo)를 먼저 만든 경우 → 재조회 update 폴백
+          if (isPassportDupViolation(e) && changes.passportNo) {
+            const existing = await prisma.gmTraveler.findFirst({
+              where: { reservationId, passportNo: changes.passportNo },
+              select: { id: true },
+            });
+            if (existing) {
+              const updated = await writeTravelerWithAudit({
+                travelerId: existing.id,
+                changes,
+                userId: actorUserId,
+                action: 'PASSPORT_SUBMIT',
+              });
+              if (updated) results.push({ id: updated.id });
+            } else {
+              throw e;
+            }
+          } else {
+            throw e;
+          }
+        }
+      }
+    }
+
+    // Reservation의 passportStatus 업데이트 (진행 중으로 변경)
+    await prisma.gmReservation.update({
+      where: { id: reservationId },
+      data: {
+        passportStatus: reservation.passportStatus === '도움요청' ? '도움요청' : '진행중',
+      },
     });
+
+    // 관리자 표시 SSoT 동기화 (best-effort — 실패해도 고객 제출은 성공)
+    try {
+      await syncSubmissionGuestsBestEffort(reservation, travelers, actorUserId);
+    } catch (guestSyncError) {
+      logger.warn('[Passport Submit] Guest 동기화 실패 (무시됨):', guestSyncError as Record<string, unknown>);
+    }
 
     return NextResponse.json({
       ok: true,
       message: '여권 정보가 성공적으로 저장되었습니다.',
       reservationId,
-      updatedCount: updatedTravelers.length,
+      updatedCount: results.length,
     });
   } catch (error) {
     const err = error as Record<string, unknown>;

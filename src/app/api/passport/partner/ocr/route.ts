@@ -5,15 +5,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requirePartnerContext, canAccessLead } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import {
+  extractPassportFromBuffer,
+  PassportOcrApiError,
+  PassportOcrEmptyResponse,
+  PassportOcrUnreadable,
+} from '@/lib/passport-ocr';
+import { normalizeDateOnlyString } from '@/lib/passport-date';
+import { normalizePassportNo, isPassportDupViolation } from '@/lib/passport-match';
 
 const apiKey = process.env.GEMINI_API_KEY || '';
-const genAI = new GoogleGenerativeAI(apiKey);
-
-/** Gemini 모델명 - 환경변수 우선, 없으면 기본값 */
-function resolveGeminiModelName(): string {
-  return process.env.GEMINI_MODEL_NAME || 'gemini-2.0-flash';
-}
 
 function maskPassportNo(pno: string): string {
   if (!pno || pno.length <= 4) return '****';
@@ -160,121 +161,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // OCR 처리
-    const base64String = imageBuffer.toString('base64');
-    const modelName = resolveGeminiModelName();
-    const model = genAI.getGenerativeModel({
-      model: modelName,
-      generationConfig: {
-        temperature: 0,
-        maxOutputTokens: 800,
-        topP: 0.95,
-        topK: 40,
-      },
-    });
-
-    const prompt = `This is a passport image. Please extract the information accurately even if the photo is blurry, tilted, or low quality.
-
-IMPORTANT: You MUST return ONLY a JSON object. No other text, explanation, or markdown.
-
-Extract the following information in this EXACT JSON format:
-{
-  "korName": "Korean name if visible (e.g., 홍길동), or empty string if not found",
-  "engSurname": "English surname/family name in CAPITAL LETTERS (e.g., HONG)",
-  "engGivenName": "English given name in CAPITAL LETTERS (e.g., GILDONG)",
-  "passportNo": "Passport number (e.g., M12345678)",
-  "nationality": "3-letter nationality code (e.g., KOR, USA, JPN)",
-  "sex": "Gender: M for male, F for female (single letter only)",
-  "dateOfBirth": "Date of birth in YYYY-MM-DD format (e.g., 1990-01-15)",
-  "dateOfIssue": "Passport issue date in YYYY-MM-DD format (e.g., 2020-01-15)",
-  "passportExpiryDate": "Passport expiry date in YYYY-MM-DD format (e.g., 2030-01-15)"
-}
-
-CRITICAL RULES:
-1. Return ONLY the JSON object above. No markdown code blocks, no explanations.
-2. If a field cannot be found, use empty string "".
-3. Dates MUST be in YYYY-MM-DD format. Convert from YYMMDD or DDMMMYY if needed.
-4. Passport number: Remove all spaces and special characters.
-5. English names: If format is "SURNAME/GIVEN NAME", split them correctly into surname and givenName.
-6. Korean name: Look for Hangul characters (한글), usually at the bottom of passport.
-7. Nationality: Must be exactly 3 uppercase letters (KOR, USA, CHN, JPN, etc).
-
-Return ONLY the JSON object now:`;
-
-    let ocrResult: Record<string, string>;
+    // 공용 OCR lib 호출 (경로 현 설정 보존: GEMINI_MODEL_NAME||2.0-flash / 800)
+    let normalizedData;
+    let hasMinimum: boolean;
     try {
-      const result = await model.generateContent([
-        { text: prompt },
-        {
-          inlineData: {
-            data: base64String,
-            mimeType: 'image/jpeg',
-          },
-        },
-      ]);
-
-      const text = result.response.text();
-      let cleanedText = text
-        .trim()
-        .replace(/^```json?\s*/i, '')
-        .replace(/\s*```$/i, '');
-      const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        ocrResult = JSON.parse(jsonMatch[0]);
-      } else {
-        ocrResult = JSON.parse(cleanedText);
-      }
+      const extracted = await extractPassportFromBuffer(imageBuffer, 'image/jpeg', {
+        model: process.env.GEMINI_MODEL_NAME || 'gemini-2.0-flash',
+        maxTokens: 800,
+      });
+      normalizedData = extracted.data;
+      hasMinimum = extracted.hasMinimum;
     } catch (ocrError) {
-      const ocrErr = ocrError as Record<string, unknown>;
-      logger.error('[Partner OCR to APIS] OCR 처리 오류:', ocrErr);
-      return NextResponse.json(
-        {
-          ok: false,
-          message: `OCR 처리 중 오류가 발생했습니다: ${ocrErr.message ?? '알 수 없는 오류'}`,
-        },
-        { status: 500 },
-      );
+      if (ocrError instanceof PassportOcrEmptyResponse || ocrError instanceof PassportOcrUnreadable) {
+        logger.error('[Partner OCR to APIS] OCR 판독 실패:', { message: ocrError.message });
+        return NextResponse.json(
+          { ok: false, message: '여권 정보를 읽을 수 없습니다. 더 선명한 이미지를 사용해주세요.' },
+          { status: 400 },
+        );
+      }
+      if (ocrError instanceof PassportOcrApiError) {
+        logger.error('[Partner OCR to APIS] Gemini 호출 실패:', { message: ocrError.message });
+        return NextResponse.json(
+          { ok: false, message: 'OCR 처리 중 오류가 발생했습니다.' },
+          { status: 500 },
+        );
+      }
+      throw ocrError;
     }
 
-    // 날짜 정규화
-    const normalizeDate = (dateStr: string | null | undefined): string => {
-      if (!dateStr) return '';
-      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-      const cleaned = dateStr.replace(/[^0-9]/g, '');
-      if (cleaned.length === 6) {
-        const year = parseInt(cleaned.substring(0, 2));
-        const month = cleaned.substring(2, 4);
-        const day = cleaned.substring(4, 6);
-        const fullYear =
-          year < 50
-            ? `20${year.toString().padStart(2, '0')}`
-            : `19${year.toString().padStart(2, '0')}`;
-        return `${fullYear}-${month}-${day}`;
-      }
-      if (cleaned.length === 8) {
-        return `${cleaned.substring(0, 4)}-${cleaned.substring(4, 6)}-${cleaned.substring(6, 8)}`;
-      }
-      return dateStr;
-    };
-
-    const normalizedData = {
-      korName: ocrResult.korName || '',
-      engSurname: ocrResult.engSurname || '',
-      engGivenName: ocrResult.engGivenName || '',
-      passportNo: (ocrResult.passportNo || '').replace(/\s+/g, '').toUpperCase(),
-      sex: (ocrResult.sex || '').toUpperCase().substring(0, 1),
-      dateOfBirth: normalizeDate(ocrResult.dateOfBirth),
-      dateOfIssue: normalizeDate(ocrResult.dateOfIssue),
-      passportExpiryDate: normalizeDate(ocrResult.passportExpiryDate),
-      nationality: (ocrResult.nationality || '').toUpperCase().substring(0, 3),
-    };
-
     // 최소한 여권번호나 이름 중 하나는 있어야 함
-    const hasPassportNo =
-      normalizedData.passportNo && normalizedData.passportNo.length >= 8;
-    const hasName = normalizedData.korName || normalizedData.engSurname;
-
-    if (!hasPassportNo && !hasName) {
+    if (!hasMinimum) {
       return NextResponse.json(
         {
           ok: false,
@@ -311,25 +227,34 @@ Return ONLY the JSON object now:`;
 
     // Traveler 테이블에 저장 (APIS 데이터)
     try {
-      const existingTraveler = await prisma.gmTraveler.findFirst({
-        where: {
-          reservationId: reservation.id,
-          userId: body.userId,
-        },
+      // 매칭 키·날짜·여권번호 정규화 (SSoT 통일)
+      const passportNo = normalizePassportNo(normalizedData.passportNo) || '';
+      const guestName = normalizedData.korName || submission.user.name || '';
+
+      // 기존 Traveler: userId 우선, 없으면 (reservationId,passportNo)로 보강 매칭
+      let existingTraveler = await prisma.gmTraveler.findFirst({
+        where: { reservationId: reservation.id, userId: body.userId },
+        select: { id: true },
       });
+      if (!existingTraveler && passportNo) {
+        existingTraveler = await prisma.gmTraveler.findFirst({
+          where: { reservationId: reservation.id, passportNo },
+          select: { id: true },
+        });
+      }
 
       const travelerData = {
         reservationId: reservation.id,
         userId: body.userId,
         roomNumber: 1,
-        korName: normalizedData.korName || submission.user.name || '',
+        korName: guestName,
         engSurname: normalizedData.engSurname || '',
         engGivenName: normalizedData.engGivenName || '',
         residentNum: '',
-        passportNo: normalizedData.passportNo || '',
-        birthDate: normalizedData.dateOfBirth || '',
-        issueDate: normalizedData.dateOfIssue || '',
-        expiryDate: normalizedData.passportExpiryDate || '',
+        passportNo,
+        birthDate: normalizeDateOnlyString(normalizedData.dateOfBirth) ?? '',
+        issueDate: normalizeDateOnlyString(normalizedData.dateOfIssue) ?? '',
+        expiryDate: normalizeDateOnlyString(normalizedData.passportExpiryDate) ?? '',
         nationality: normalizedData.nationality || 'KOR',
         gender: normalizedData.sex || 'M',
       };
@@ -340,58 +265,59 @@ Return ONLY the JSON object now:`;
           data: travelerData,
         });
       } else {
-        await prisma.gmTraveler.create({
-          data: travelerData,
-        });
+        try {
+          await prisma.gmTraveler.create({ data: travelerData });
+        } catch (e) {
+          // 동시 생성/사전조회 누락으로 부분 UNIQUE 충돌 → 재조회 update 폴백
+          if (isPassportDupViolation(e) && passportNo) {
+            const dup = await prisma.gmTraveler.findFirst({
+              where: { reservationId: reservation.id, passportNo },
+              select: { id: true },
+            });
+            if (dup) await prisma.gmTraveler.update({ where: { id: dup.id }, data: travelerData });
+            else throw e;
+          } else {
+            throw e;
+          }
+        }
       }
 
-      // PassportSubmissionGuest에도 저장
-      const existingGuest = await prisma.gmPassportSubmissionGuest.findFirst({
-        where: {
-          submissionId: body.submissionId,
-          name: normalizedData.korName || submission.user.name || '',
+      // PassportSubmissionGuest 동기화: 여권번호 기준 매칭(이름 매칭 금지 — 동명이인 교차오염 방지)
+      const guestUpdate = {
+        passportNumber: passportNo || null,
+        nationality: normalizedData.nationality,
+        dateOfBirth: travelerData.birthDate ? new Date(travelerData.birthDate) : null,
+        passportExpiryDate: travelerData.expiryDate ? new Date(travelerData.expiryDate) : null,
+        ocrRawData: {
+          ...normalizedData,
+          processedAt: new Date().toISOString(),
+          processedBy: profile.id,
         },
-      });
+        // 감사: 서버측 도출값 (클라이언트 신뢰값 금지)
+        submittedBy: profile.id,
+        source: 'partner_ocr',
+        submittedAt: new Date(),
+      };
+      const existingGuest = passportNo
+        ? await prisma.gmPassportSubmissionGuest.findFirst({
+            where: { submissionId: body.submissionId, passportNumber: passportNo },
+            select: { id: true },
+          })
+        : null;
 
       if (existingGuest) {
         await prisma.gmPassportSubmissionGuest.update({
           where: { id: existingGuest.id },
-          data: {
-            passportNumber: normalizedData.passportNo,
-            nationality: normalizedData.nationality,
-            dateOfBirth: normalizedData.dateOfBirth
-              ? new Date(normalizedData.dateOfBirth)
-              : null,
-            passportExpiryDate: normalizedData.passportExpiryDate
-              ? new Date(normalizedData.passportExpiryDate)
-              : null,
-            ocrRawData: {
-              ...normalizedData,
-              processedAt: new Date().toISOString(),
-              processedBy: profile.id,
-            },
-          },
+          data: guestUpdate,
         });
       } else {
         await prisma.gmPassportSubmissionGuest.create({
           data: {
             submissionId: body.submissionId,
             groupNumber: 1,
-            name: normalizedData.korName || submission.user.name || '',
+            name: guestName,
             phone: submission.user.phone,
-            passportNumber: normalizedData.passportNo,
-            nationality: normalizedData.nationality,
-            dateOfBirth: normalizedData.dateOfBirth
-              ? new Date(normalizedData.dateOfBirth)
-              : null,
-            passportExpiryDate: normalizedData.passportExpiryDate
-              ? new Date(normalizedData.passportExpiryDate)
-              : null,
-            ocrRawData: {
-              ...normalizedData,
-              processedAt: new Date().toISOString(),
-              processedBy: profile.id,
-            },
+            ...guestUpdate,
           },
         });
       }
