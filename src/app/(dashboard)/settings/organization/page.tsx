@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Pencil, Check, X, Copy, Loader2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Check, X, Copy, Loader2, AlertTriangle } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 
 type OrgInfo = {
@@ -12,6 +12,7 @@ type OrgInfo = {
   plan: string;
   externalAffiliateProfileId: number | null;
   createdAt: string;
+  contractEndDate: string | null;
 };
 
 const PLAN_BADGE: Record<string, string> = {
@@ -239,6 +240,27 @@ export default function OrganizationPage() {
             )}
           </div>
         </div>
+
+        {/* 시스템 유효기간 */}
+        {org.contractEndDate && (() => {
+          const days = Math.ceil((new Date(org.contractEndDate).getTime() - Date.now()) / 86400000);
+          return (
+            <div className="flex items-center gap-3 p-4">
+              <span className="text-sm text-gray-500 w-24 shrink-0">유효기간</span>
+              <div className="flex-1 flex items-center gap-2 min-w-0">
+                <span className={`text-sm font-semibold ${days <= 7 ? 'text-red-600' : days <= 30 ? 'text-amber-600' : 'text-gray-900'}`}>
+                  {new Date(org.contractEndDate).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </span>
+                {days <= 30 && (
+                  <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold ${days <= 7 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                    <AlertTriangle className="w-3 h-3" />
+                    {days <= 0 ? '만료됨' : `D-${days}`}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* 가입일 */}
         <div className="flex items-center gap-3 p-4">

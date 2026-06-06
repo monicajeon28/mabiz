@@ -41,13 +41,17 @@ export async function PATCH(req: Request, { params }: Params) {
       name?: string; description?: string; isActive?: boolean;
     };
 
-    const funnel = await prisma.funnel.update({
-      where: { id },
+    // updateMany로 organizationId 포함: findFirst → update 사이 TOCTOU 방지
+    await prisma.funnel.updateMany({
+      where: { id, organizationId: orgId },
       data: {
         ...(body.name        !== undefined ? { name: body.name }               : {}),
         ...(body.description !== undefined ? { description: body.description } : {}),
         ...(body.isActive    !== undefined ? { isActive: body.isActive }       : {}),
       },
+    });
+    const funnel = await prisma.funnel.findFirst({
+      where: { id, organizationId: orgId },
       include: { stages: { orderBy: { order: "asc" } } },
     });
 
@@ -76,7 +80,8 @@ export async function DELETE(_req: Request, { params }: Params) {
     });
     if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
 
-    await prisma.funnel.delete({ where: { id } });
+    // deleteMany로 organizationId 포함: findFirst → delete 사이 TOCTOU 방지
+    await prisma.funnel.deleteMany({ where: { id, organizationId: orgId } });
 
     logger.log("[DELETE /api/funnels/[id]]", { id, orgId });
 

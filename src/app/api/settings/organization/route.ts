@@ -23,6 +23,7 @@ export async function GET() {
         plan: true,
         externalAffiliateProfileId: true,
         createdAt: true,
+        contractEndDate: true,
       },
     });
 

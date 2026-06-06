@@ -29,7 +29,7 @@ export async function PATCH(req: Request, { params }: Params) {
       }
       result = await pauseSubscription(sub.rebillNo);
       if (result.ok) {
-        await prisma.payAppSubscription.update({ where: { id }, data: { status: 'paused' } });
+        await prisma.payAppSubscription.updateMany({ where: { id, organizationId: orgId }, data: { status: 'paused' } });
       }
     } else if (action === 'resume') {
       if (sub.status !== 'paused') {
@@ -37,7 +37,7 @@ export async function PATCH(req: Request, { params }: Params) {
       }
       result = await resumeSubscription(sub.rebillNo);
       if (result.ok) {
-        await prisma.payAppSubscription.update({ where: { id }, data: { status: 'active' } });
+        await prisma.payAppSubscription.updateMany({ where: { id, organizationId: orgId }, data: { status: 'active' } });
       }
     } else {
       return NextResponse.json({ ok: false, message: 'action은 pause 또는 resume만 가능합니다.' }, { status: 400 });
@@ -86,7 +86,7 @@ export async function DELETE(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: result.error }, { status: 502 });
     }
 
-    await prisma.payAppSubscription.update({ where: { id }, data: { status: 'cancelled' } });
+    await prisma.payAppSubscription.updateMany({ where: { id, organizationId: orgId }, data: { status: 'cancelled' } });
 
     logger.log('[PayApp/Subscription] 해지 완료', { id, rebillNo: sub.rebillNo, reason: cancelReason });
     return NextResponse.json({ ok: true });

@@ -201,7 +201,7 @@ export async function POST(req: Request) {
 
     logger.error('[POST /api/contacts/bulk-delete]', { message: msg, stack });
     return NextResponse.json(
-      { ok: false, message: '고객 삭제 중 오류가 발생했습니다', code: 'INTERNAL_ERROR', error: msg },
+      { ok: false, message: '고객 삭제 중 오류가 발생했습니다', code: 'INTERNAL_ERROR' },
       { status: 500 }
     );
   }

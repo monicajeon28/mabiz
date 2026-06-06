@@ -39,6 +39,18 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
   { key: 'COMPLETED', label: '완료' },
 ];
 
+/* ────────────────── Companion types ────────────────── */
+type CompanionRelation = '배우자' | '자녀' | '부모' | '형제자매' | '친구' | '기타';
+type Companion = {
+  id: string;
+  name: string;
+  birthDate: string;
+  relation: CompanionRelation;
+  phone: string;
+  pnr?: string;
+};
+const COMPANION_RELATIONS: CompanionRelation[] = ['배우자', '자녀', '부모', '형제자매', '친구', '기타'];
+
 /* ────────────────── Form data type ────────────────── */
 type ContractFormData = {
   orderId: string;
@@ -53,25 +65,29 @@ type ContractFormData = {
   hasGuide: 'Y' | 'N';
   refundPolicy: { label: string; value: string }[];
   specialTerms: string;
+  companions: Companion[];
 };
 
-const EMPTY_FORM: ContractFormData = {
-  orderId: '',
-  buyerName: '',
-  buyerTel: '',
-  productName: '',
-  departureDate: '',
-  nights: null,
-  amount: null,
-  includedItems: [
-    '선박/항공기 운임', '숙박/식사료', '항만세·관광기금',
-    '제세금', '여행알선수수료', '유류할증료', '관광지 입장료', '여행보험료',
-  ],
-  excludedItems: ['선상팁', '쇼핑비', '선택관광'],
-  hasGuide: 'Y',
-  refundPolicy: [...CRUISE_CANCELLATION_POLICY],
-  specialTerms: '',
-};
+function getEmptyForm(): ContractFormData {
+  return {
+    orderId: '',
+    buyerName: '',
+    buyerTel: '',
+    productName: '',
+    departureDate: '',
+    nights: null,
+    amount: null,
+    includedItems: [
+      '선박/항공기 운임', '숙박/식사료', '항만세·관광기금',
+      '제세금', '여행알선수수료', '유류할증료', '관광지 입장료', '여행보험료',
+    ],
+    excludedItems: ['선상팁', '쇼핑비', '선택관광'],
+    hasGuide: 'Y',
+    refundPolicy: CRUISE_CANCELLATION_POLICY.map((p) => ({ ...p })),
+    specialTerms: '',
+    companions: [],
+  };
+}
 
 /* ────────────────── Preview data type ────────────────── */
 type ContractPreviewData = {
@@ -85,6 +101,7 @@ type ContractPreviewData = {
   hasGuide?: 'Y' | 'N' | '';
   refundPolicy?: { label: string; value: string }[];
   specialTerms?: string | null;
+  companions?: Companion[];
 };
 
 /* ────────────────── generatedData helpers ────────────────── */
@@ -119,6 +136,7 @@ function formToPreview(f: ContractFormData): ContractPreviewData {
     hasGuide: f.hasGuide,
     refundPolicy: f.refundPolicy,
     specialTerms: f.specialTerms || null,
+    companions: f.companions,
   };
 }
 
@@ -136,10 +154,14 @@ export default function ContractTab() {
   const [previewData, setPreviewData] = useState<ContractPreviewData>({});
 
   // 모달 폼 상태
-  const [form, setForm] = useState<ContractFormData>(EMPTY_FORM);
+  const [form, setForm] = useState<ContractFormData>(getEmptyForm);
   const [productCode, setProductCode] = useState('');
   const [loadingProduct, setLoadingProduct] = useState(false);
   const [issuing, setIssuing] = useState(false);
+  const [addingCompanion, setAddingCompanion] = useState(false);
+  const [companionDraft, setCompanionDraft] = useState<Omit<Companion, 'id'>>({
+    name: '', birthDate: '', relation: '배우자', phone: '', pnr: '',
+  });
 
   /* ── document list ── */
   const loadDocuments = useCallback(async () => {
@@ -183,6 +205,8 @@ export default function ContractTab() {
     const exc = gdArr(gd, 'excludedItems');
     const hg = gdStr(gd, 'hasGuide') as 'Y' | 'N' | '' | null;
     const rp = gdRefundPolicy(gd);
+    const rawCompanions = gd?.companions;
+    const companions = Array.isArray(rawCompanions) ? (rawCompanions as Companion[]) : [];
     setPreviewData({
       buyerName: gdStr(gd, 'buyerName') ?? doc.contact?.name,
       buyerTel: gdStr(gd, 'buyerTel') ?? doc.contact?.phone,
@@ -194,6 +218,7 @@ export default function ContractTab() {
       hasGuide: hg ?? '',
       refundPolicy: rp,
       specialTerms: gdStr(gd, 'specialTerms'),
+      companions: companions.length > 0 ? companions : undefined,
     });
   };
 
@@ -206,12 +231,13 @@ export default function ContractTab() {
       buyerName: sale.buyerName || prev.buyerName,
       buyerTel: sale.buyerTel || sale.customerPhone || prev.buyerTel,
       productName: sale.productName || prev.productName,
-      amount: sale.saleAmount || prev.amount,
+      amount: sale.saleAmount != null ? sale.saleAmount : prev.amount,
     }));
   };
 
   /* ── 모달: 상품 코드 조회 ── */
   const handleLoadProduct = async () => {
+    if (loadingProduct) return;
     const code = productCode.trim().toUpperCase();
     if (!code) { showError('상품 코드를 입력해주세요.'); return; }
     setLoadingProduct(true);
@@ -243,6 +269,7 @@ export default function ContractTab() {
       }));
       showSuccess('상품 정보가 자동 반영되었습니다.');
     } catch (e) {
+      console.warn('[handleLoadProduct] 상품 조회 실패', e);
       showError(e instanceof Error ? e.message : '상품 정보 로드 실패');
     } finally {
       setLoadingProduct(false);
@@ -268,6 +295,7 @@ export default function ContractTab() {
           overrideExcludedItems: form.excludedItems.length > 0 ? form.excludedItems : undefined,
           overrideHasGuide: form.hasGuide,
           overrideRefundPolicy: form.refundPolicy.length > 0 ? form.refundPolicy : undefined,
+          companions: form.companions.map(({ id: _id, ...rest }) => rest),
         }),
       });
       if (res.status === 409) { showError('이미 발급된 계약서가 있습니다.'); return; }
@@ -275,8 +303,10 @@ export default function ContractTab() {
       if (!res.ok || !json.ok) { showError((json.message as string) || '발급 실패'); return; }
       showSuccess('계약서가 발급되었습니다.');
       setModalOpen(false);
-      setForm(EMPTY_FORM);
+      setForm(getEmptyForm());
       setProductCode('');
+      setAddingCompanion(false);
+      setCompanionDraft({ name: '', birthDate: '', relation: '배우자', phone: '', pnr: '' });
       await loadDocuments();
     } catch (e) {
       showError(e instanceof Error ? e.message : '발급 중 오류가 발생했습니다.');
@@ -309,7 +339,13 @@ export default function ContractTab() {
             ))}
           </div>
           <button
-            onClick={() => { setForm(EMPTY_FORM); setProductCode(''); setModalOpen(true); }}
+            onClick={() => {
+              setForm(getEmptyForm());
+              setProductCode('');
+              setAddingCompanion(false);
+              setCompanionDraft({ name: '', birthDate: '', relation: '배우자', phone: '', pnr: '' });
+              setModalOpen(true);
+            }}
             className="inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700">
             <Plus className="h-4 w-4" />계약서 보내기
           </button>
@@ -402,10 +438,18 @@ export default function ContractTab() {
           title="계약서 작성 및 발급"
           maxWidth="max-w-[90rem]"
           locked={issuing}
-          onClose={() => setModalOpen(false)}
+          onClose={() => {
+            setModalOpen(false);
+            setAddingCompanion(false);
+            setCompanionDraft({ name: '', birthDate: '', relation: '배우자', phone: '', pnr: '' });
+          }}
           footer={
             <>
-              <button onClick={() => setModalOpen(false)} disabled={issuing}
+              <button onClick={() => {
+                setModalOpen(false);
+                setAddingCompanion(false);
+                setCompanionDraft({ name: '', birthDate: '', relation: '배우자', phone: '', pnr: '' });
+              }} disabled={issuing}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40">
                 닫기
               </button>
@@ -418,7 +462,7 @@ export default function ContractTab() {
           }
         >
           {/* 2-panel flex layout */}
-          <div className="flex h-[72vh] min-h-0 gap-5 overflow-hidden">
+          <div className="flex h-full min-h-0 gap-5 overflow-hidden">
 
             {/* ─ 좌측: 입력 폼 ─────────────────────────────────────────── */}
             <div className="w-[400px] flex-shrink-0 space-y-3 overflow-y-auto pr-1">
@@ -558,7 +602,7 @@ export default function ContractTab() {
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">⑤ 환불 규정</p>
                   <button type="button"
-                    onClick={() => setForm((p) => ({ ...p, refundPolicy: [...CRUISE_CANCELLATION_POLICY] }))}
+                    onClick={() => setForm((p) => ({ ...p, refundPolicy: CRUISE_CANCELLATION_POLICY.map((rp) => ({ ...rp })) }))}
                     className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-orange-500">
                     <RefreshCcw className="h-3 w-3" />기본값
                   </button>
@@ -592,6 +636,108 @@ export default function ContractTab() {
                   rows={3}
                   className="w-full resize-none rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-orange-400 focus:outline-none"
                 />
+              </div>
+
+              {/* ⑦ 동행인 등록 */}
+              <div className="rounded-xl border border-gray-200 bg-white p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">⑦ 동행인 (1인 결제 + 복수 탑승자)</p>
+                  <button type="button" onClick={() => setAddingCompanion(true)}
+                    className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-600 hover:bg-blue-100">
+                    <Plus className="h-3 w-3" />추가
+                  </button>
+                </div>
+
+                {/* 동행인 목록 */}
+                {form.companions.length > 0 && (
+                  <div className="mb-2 space-y-1.5">
+                    {form.companions.map((c) => (
+                      <div key={c.id} className="flex items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 px-2 py-1.5 text-[11px]">
+                        <span className="flex-1 font-medium text-gray-800">{c.name}</span>
+                        <span className="text-gray-500">{c.relation}</span>
+                        <span className="text-gray-400">{c.birthDate}</span>
+                        {c.pnr && <span className="rounded bg-blue-50 px-1 text-[10px] text-blue-600">PNR:{c.pnr}</span>}
+                        <button type="button"
+                          onClick={() => setForm((p) => ({ ...p, companions: p.companions.filter((x) => x.id !== c.id) }))}
+                          className="text-gray-300 hover:text-red-400">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* 동행인 입력 폼 */}
+                {addingCompanion && (
+                  <div className="mt-1 space-y-1.5 rounded-lg border border-blue-100 bg-blue-50 p-2">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="mb-0.5 block text-[10px] text-gray-500">이름</label>
+                        <input type="text" value={companionDraft.name}
+                          onChange={(e) => setCompanionDraft((d) => ({ ...d, name: e.target.value }))}
+                          placeholder="홍길동"
+                          className="w-full rounded border border-gray-300 px-2 py-1 text-[11px] focus:border-blue-400 focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="mb-0.5 block text-[10px] text-gray-500">관계</label>
+                        <select value={companionDraft.relation}
+                          onChange={(e) => setCompanionDraft((d) => ({ ...d, relation: e.target.value as CompanionRelation }))}
+                          className="w-full rounded border border-gray-300 px-2 py-1 text-[11px] focus:border-blue-400 focus:outline-none">
+                          {COMPANION_RELATIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="mb-0.5 block text-[10px] text-gray-500">생년월일</label>
+                        <input type="date" value={companionDraft.birthDate}
+                          onChange={(e) => setCompanionDraft((d) => ({ ...d, birthDate: e.target.value }))}
+                          className="w-full rounded border border-gray-300 px-2 py-1 text-[11px] focus:border-blue-400 focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="mb-0.5 block text-[10px] text-gray-500">연락처</label>
+                        <input type="text" value={companionDraft.phone}
+                          onChange={(e) => setCompanionDraft((d) => ({ ...d, phone: e.target.value }))}
+                          placeholder="010-0000-0000"
+                          className="w-full rounded border border-gray-300 px-2 py-1 text-[11px] focus:border-blue-400 focus:outline-none" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-0.5 block text-[10px] text-gray-500">PNR (선택)</label>
+                      <input type="text" value={companionDraft.pnr ?? ''}
+                        onChange={(e) => setCompanionDraft((d) => ({ ...d, pnr: e.target.value }))}
+                        placeholder="APIS PNR 번호"
+                        className="w-full rounded border border-gray-300 px-2 py-1 text-[11px] focus:border-blue-400 focus:outline-none" />
+                    </div>
+                    <div className="flex justify-end gap-1.5">
+                      <button type="button" onClick={() => {
+                        setAddingCompanion(false);
+                        setCompanionDraft({ name: '', birthDate: '', relation: '배우자', phone: '', pnr: '' });
+                      }}
+                        className="rounded-lg border border-gray-200 px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-50">
+                        취소
+                      </button>
+                      <button type="button" onClick={() => {
+                        if (!companionDraft.name) { return; }
+                        const newCompanion: Companion = {
+                          id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+                          ...companionDraft,
+                          pnr: companionDraft.pnr || undefined,
+                        };
+                        setForm((p) => ({ ...p, companions: [...p.companions, newCompanion] }));
+                        setAddingCompanion(false);
+                        setCompanionDraft({ name: '', birthDate: '', relation: '배우자', phone: '', pnr: '' });
+                      }}
+                        className="rounded-lg bg-blue-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-blue-700">
+                        추가
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {form.companions.length === 0 && !addingCompanion && (
+                  <p className="text-[10px] text-gray-400">동행인이 없는 경우 건너뛰어도 됩니다.</p>
+                )}
               </div>
             </div>
 
@@ -692,6 +838,35 @@ function FullContractPreview({
             </tbody>
           </table>
         </div>
+
+        {/* 탑승자 명단 (동행인 있을 때만) */}
+        {data.companions && data.companions.length > 0 && (
+          <div>
+            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-orange-700">탑승자 명단</p>
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr className="bg-orange-50">
+                  <th className="border border-orange-100 px-3 py-1.5 text-left font-semibold text-orange-700">이름</th>
+                  <th className="border border-orange-100 px-3 py-1.5 text-left font-semibold text-orange-700">관계</th>
+                  <th className="border border-orange-100 px-3 py-1.5 text-left font-semibold text-orange-700">생년월일</th>
+                  <th className="border border-orange-100 px-3 py-1.5 text-left font-semibold text-orange-700">연락처</th>
+                  <th className="border border-orange-100 px-3 py-1.5 text-left font-semibold text-orange-700">PNR</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.companions.map((c, i) => (
+                  <tr key={c.id ?? i} className="border-b border-gray-100">
+                    <td className="border border-gray-100 px-3 py-1.5 font-medium text-gray-800">{c.name}</td>
+                    <td className="border border-gray-100 px-3 py-1.5 text-gray-600">{c.relation}</td>
+                    <td className="border border-gray-100 px-3 py-1.5 text-gray-600">{c.birthDate || '-'}</td>
+                    <td className="border border-gray-100 px-3 py-1.5 text-gray-600">{c.phone || '-'}</td>
+                    <td className="border border-gray-100 px-3 py-1.5 text-gray-500">{c.pnr || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* 여행요금 포함/불포함 내역 */}
         <div>

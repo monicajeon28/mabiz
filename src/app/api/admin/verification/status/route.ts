@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     logger.error("[API] 검증 상태 조회 실패", { error });
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
+      { error: '서버 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

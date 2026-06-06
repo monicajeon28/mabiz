@@ -36,6 +36,7 @@ export async function POST(req: Request) {
       overrideExcludedItems?: string[];
       overrideHasGuide?: 'Y' | 'N';
       overrideRefundPolicy?: { label: string; value: string }[];
+      companions?: Array<{ name: string; birthDate: string; relation: string; phone: string; pnr?: string }>;
     };
 
     if (!body.orderId) {
@@ -109,7 +110,7 @@ export async function POST(req: Request) {
           }
         }
       }
-    } catch { /* 패스 */ }
+    } catch (productErr) { logger.warn('[PurchaseContract] 상품 정보 조회 실패 — 기본값 사용', { error: productErr instanceof Error ? productErr.message : String(productErr) }); }
 
     const paymentMethod = payment.pgProvider
       ? `${payment.pgProvider} (온라인 결제)`
@@ -175,7 +176,7 @@ export async function POST(req: Request) {
             signToken,
             signTokenExpiresAt: signTokenExpiresAt.toISOString(),
             signStatus:    'PENDING', // PENDING | SIGNED
-            companions:    [],        // 서명 후 채워짐
+            companions:    body.companions ?? [],
             signatureImage: null,
             customerSignedAt: null,
             signedByName:  null,
