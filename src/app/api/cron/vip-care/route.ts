@@ -123,33 +123,45 @@ export async function GET(req: Request) {
 
       const ch = (log.channel || "SMS") as "SMS" | "EMAIL" | "KAKAO";
 
-      const result = await sendByChannel({
-        channel:  ch,
-        smsConfig: {
-          key:    smsConfig.aligoKey,
-          userId: smsConfig.aligoUserId,
-          sender: smsConfig.senderPhone,
-        },
-        receiver:       contact.phone,
-        email:          contact.email,
-        msg:            message,
-        organizationId: contact.organizationId,
-        contactId:      contact.id,
-      });
+      try {
+        const result = await sendByChannel({
+          channel:  ch,
+          smsConfig: {
+            key:    smsConfig.aligoKey,
+            userId: smsConfig.aligoUserId,
+            sender: smsConfig.senderPhone,
+          },
+          receiver:       contact.phone,
+          email:          contact.email,
+          msg:            message,
+          organizationId: contact.organizationId,
+          contactId:      contact.id,
+        });
 
-      const code = Number(result.result_code);
-      const finalStatus =
-        code === 1   ? "SENT"          :
-        code === -98 ? "NIGHT_BLOCKED" :
-        code === -99 ? "OPTED_OUT"     : "FAILED";
+        const code = Number(result.result_code);
+        const finalStatus =
+          code === 1   ? "SENT"          :
+          code === -98 ? "NIGHT_BLOCKED" :
+          code === -99 ? "OPTED_OUT"     : "FAILED";
 
-      await prisma.vipCareLog.update({
-        where: { id: log.id },
-        data:  { status: finalStatus, sentAt: new Date() },
-      });
+        await prisma.vipCareLog.update({
+          where: { id: log.id },
+          data:  { status: finalStatus, sentAt: new Date() },
+        });
 
-      if (finalStatus === "SENT") sentCount++;
-      else skippedCount++;
+        if (finalStatus === "SENT") sentCount++;
+        else skippedCount++;
+      } catch (sendErr) {
+        // 발송 중 예외 발생 시 SENDING → PENDING 원복 (다음 cron에서 재처리 가능)
+        logger.error("[Cron/vip-care] 발송 실패, PENDING 원복", {
+          logId: log.id, contactId: contact.id, error: sendErr,
+        });
+        await prisma.vipCareLog.update({
+          where: { id: log.id },
+          data:  { status: "PENDING" },
+        }).catch(() => {});
+        skippedCount++;
+      }
     }
 
     // 마지막 배치이면 루프 종료

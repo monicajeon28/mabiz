@@ -141,23 +141,24 @@ export async function GET(req: Request) {
           select: { id: true, affiliateSaleId: true },
         });
 
-        // Reservation finalConfirmStatus 일괄 업데이트
-        await prisma.gmReservation.updateMany({
-          where: { id: { in: autoConfirmIds } },
-          data: { finalConfirmStatus: 'CONFIRMED', finalConfirmApprovedAt: new Date() },
-        });
-
-        // AffiliateSale 상태 일괄 업데이트 (N+1 쿼리 제거)
         const saleIds = reservationsWithSales
           .filter(rv => rv.affiliateSaleId)
           .map(rv => String(rv.affiliateSaleId));
 
-        if (saleIds.length > 0) {
-          await prisma.affiliateSale.updateMany({
-            where: { orderId: { in: saleIds } },
-            data: { status: 'PENDING_APPROVAL' },
+        // 예약 확정 + 판매 상태 변경을 단일 트랜잭션으로 묶어 불일치 방지
+        await prisma.$transaction(async (tx) => {
+          await tx.gmReservation.updateMany({
+            where: { id: { in: autoConfirmIds } },
+            data: { finalConfirmStatus: 'CONFIRMED', finalConfirmApprovedAt: new Date() },
           });
-        }
+
+          if (saleIds.length > 0) {
+            await tx.affiliateSale.updateMany({
+              where: { orderId: { in: saleIds } },
+              data: { status: 'PENDING_APPROVAL' },
+            });
+          }
+        });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         const stack = error instanceof Error ? error.stack : undefined;
