@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowLeft, FileText, CheckCircle, Clock, AlertTriangle, Calendar } from 'lucide-react';
 
 type ContractInfo = {
@@ -163,9 +164,11 @@ export default function ContractPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <p className="text-sm font-semibold text-gray-700 mb-3">서명</p>
             <div className="bg-gray-50 rounded-lg p-3 flex justify-center">
-              <img
+              <Image
                 src={contract.signatureImageUrl}
                 alt="서명 이미지"
+                width={300}
+                height={128}
                 className="max-h-32 object-contain"
               />
             </div>
