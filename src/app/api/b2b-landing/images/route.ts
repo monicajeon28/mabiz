@@ -202,7 +202,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'UNAUTHORIZED', message: '인증이 필요합니다' }, { status: 401 });
     }
     logger.error('[b2b-landing-images] 업로드 실패', { message: msg, stack: err instanceof Error ? err.stack : '' });
-    return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR', message: msg || 'B2B 랜딩페이지 이미지 업로드 중 오류 발생' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR', message: 'B2B 랜딩페이지 이미지 업로드 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
 

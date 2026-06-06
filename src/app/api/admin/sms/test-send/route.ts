@@ -175,8 +175,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(
       {
-        error: 'SMS 발송 중 오류 발생',
-        details: error instanceof Error ? error.message : '알 수 없는 오류',
+        error: 'SMS 발송 중 오류가 발생했습니다.',
       },
       { status: 500 }
     );

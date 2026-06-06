@@ -59,8 +59,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(
       {
-        error: 'Failed to generate conversion forecast',
-        message: error instanceof Error ? error.message : String(error),
+        error: '서버 오류가 발생했습니다.',
       },
       { status: 500 }
     );

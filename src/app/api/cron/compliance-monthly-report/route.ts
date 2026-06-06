@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
           organizationId: org.id,
           organizationName: org.name,
           status: 'ERROR',
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: '처리 중 오류 발생',
         });
       }
     }
@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: '서버 오류가 발생했습니다.',
         timestamp: new Date().toISOString(),
       },
       { status: 500 }
