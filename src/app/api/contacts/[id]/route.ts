@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { getAuthContext, buildContactWhere, canDelete, maskContactInfo, actorDisplayName } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
@@ -174,6 +175,12 @@ export async function PATCH(req: Request, { params }: Params) {
 
     return NextResponse.json({ ok: true, contact });
   } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return NextResponse.json(
+        { ok: false, message: '이미 등록된 전화번호입니다.' },
+        { status: 409 }
+      );
+    }
     logger.error("[PATCH /api/contacts/[id]]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
   }
