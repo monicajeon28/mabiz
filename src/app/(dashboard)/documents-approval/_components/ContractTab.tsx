@@ -46,7 +46,7 @@ type SelectedBuyer = {
   amount: number;
 };
 
-// generatedData string 필드 안전 추출
+// generatedData 안전 추출 헬퍼
 function gdStr(gd: Record<string, unknown>, key: string): string | null {
   const v = gd?.[key];
   return typeof v === 'string' ? v : null;
@@ -54,6 +54,10 @@ function gdStr(gd: Record<string, unknown>, key: string): string | null {
 function gdNum(gd: Record<string, unknown>, key: string): number | null {
   const v = gd?.[key];
   return typeof v === 'number' ? v : null;
+}
+function gdArr(gd: Record<string, unknown>, key: string): string[] {
+  const v = gd?.[key];
+  return Array.isArray(v) ? (v as string[]) : [];
 }
 
 // 계약서 미리보기에 사용할 데이터 타입
@@ -63,6 +67,9 @@ type ContractPreviewData = {
   productName?: string | null;
   amount?: number | null;
   departureDate?: string | null;
+  includedItems?: string[];
+  excludedItems?: string[];
+  hasGuide?: 'Y' | 'N' | '';
 };
 
 export default function ContractTab() {
@@ -163,12 +170,18 @@ export default function ContractTab() {
   // 목록 행 클릭 → 우측 미리보기 업데이트
   const handleRowClick = (doc: SalesDocumentItem) => {
     const gd = doc.generatedData;
+    const inc = gdArr(gd, 'includedItems');
+    const exc = gdArr(gd, 'excludedItems');
+    const hg = gdStr(gd, 'hasGuide') as 'Y' | 'N' | '' | null;
     setPreviewData({
       buyerName: gdStr(gd, 'buyerName') ?? doc.contact?.name,
       buyerTel: gdStr(gd, 'buyerTel') ?? doc.contact?.phone,
       productName: gdStr(gd, 'productName'),
       amount: gdNum(gd, 'amount'),
       departureDate: gdStr(gd, 'departureDate'),
+      includedItems: inc.length > 0 ? inc : undefined,
+      excludedItems: exc.length > 0 ? exc : undefined,
+      hasGuide: hg ?? '',
     });
   };
 
@@ -358,7 +371,26 @@ export default function ContractTab() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 크루즈 여행 계약서 전체 미리보기 (더블유 계약서 기반, 로고만 크루즈닷으로 변경)
+// 전체 가능 포함/불포함 항목 목록 (체크박스 렌더링용)
+// ─────────────────────────────────────────────────────────────────────────────
+const ALL_INCLUDE_ITEMS = [
+  '선박/항공기 운임', '숙박/식사료', '안내자경비', '항만세·관광기금',
+  '제세금', '여행알선수수료', '관광지 입장료', '유류할증료', '여행보험료',
+  '항공기 추가 운임',
+];
+const ALL_EXCLUDE_ITEMS = [
+  '선상팁', '쇼핑비', '선택관광',
+  '일본 관광 입국세', '여권·비자 개인 부담', '여권발급비', '비자발급비',
+];
+
+function CheckBox({ checked }: { checked: boolean }) {
+  return checked
+    ? <span className="inline-flex h-3 w-3 items-center justify-center rounded border border-emerald-500 bg-emerald-500 text-white text-[8px] font-bold">✓</span>
+    : <span className="inline-block h-3 w-3 rounded border border-gray-300 bg-white" />;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 크루즈닷 여행계약서 전체 미리보기
 // ─────────────────────────────────────────────────────────────────────────────
 
 function FullContractPreview({
@@ -370,11 +402,16 @@ function FullContractPreview({
 }) {
   const hasData = !!(data.buyerName || data.productName);
 
+  // 체크 상태: generatedData에서 가져온 배열이 있으면 그것 기준, 없으면 기본값
+  const checkedIncludes = data.includedItems ?? [];
+  const checkedExcludes = data.excludedItems ?? [];
+  const guideRow = data.hasGuide === 'Y' ? '■ 있음  □ 없음' : data.hasGuide === 'N' ? '□ 있음  ■ 없음' : '□ 있음  □ 없음';
+
   return (
     <div className="max-h-[calc(100vh-200px)] overflow-y-auto rounded-xl border border-gray-200 bg-white text-[12px] leading-relaxed text-gray-800 shadow-sm">
       <div className="p-5 space-y-4">
         {/* 헤더 */}
-        <DocumentLetterhead title="크루즈 여행계약서" accentClass="border-orange-100" />
+        <DocumentLetterhead title="크루즈닷 여행계약서" accentClass="border-orange-100" />
 
         {/* 계약 유형 */}
         <div className="flex items-center gap-4 rounded-lg bg-gray-50 px-4 py-2 text-xs">
@@ -404,7 +441,7 @@ function FullContractPreview({
                 ['교통수단', '□ 항공기  □ 선박  □ 기차  선박명: ___'],
                 ['숙박', '□ 일정표 표시  □ 관광호텔 (___ 등급)  □ 기타'],
                 ['식사', '□ 일정표 표시  /  조식 _회, 중식 _회, 석식 _회'],
-                ['여행 인솔자', '□ 있음  □ 없음'],
+                ['여행 인솔자', guideRow],
                 ['현지 안내원', '□ 있음  □ 없음  *여행일정표 참조'],
                 ['현지 교통', '□ 버스  □ 승용차  □ 기타  □ 없음'],
                 ['현지 여행사', '□ 있음  □ 없음  *여행일정표 참조'],
@@ -420,29 +457,32 @@ function FullContractPreview({
 
         {/* 여행요금 포함내역 */}
         <div>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-orange-700">여행요금 포함내역</p>
-          <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-            <p className="mb-1.5 text-[11px] font-semibold text-gray-500">▸ 필수 포함항목</p>
-            <div className="grid grid-cols-2 gap-1">
-              {['선박/항공기 운임', '숙박/식사료', '안내자경비', '항만세·관광기금', '제세금', '여행알선수수료', '관광지 입장료', '유류할증료'].map((item) => (
-                <label key={item} className="flex items-center gap-1.5 text-[11px]">
-                  <span className="inline-block h-3 w-3 rounded border border-gray-300 bg-white" />
-                  {item}
-                </label>
-              ))}
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-orange-700">여행요금 포함/불포함 내역</p>
+          <div className="grid grid-cols-2 gap-3">
+            {/* 포함 */}
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+              <p className="mb-1.5 text-[11px] font-semibold text-emerald-700">▸ 포함 항목</p>
+              <div className="space-y-1">
+                {ALL_INCLUDE_ITEMS.map((item) => (
+                  <label key={item} className="flex items-center gap-1.5 text-[11px]">
+                    <CheckBox checked={checkedIncludes.includes(item)} />
+                    <span className={checkedIncludes.length > 0 && !checkedIncludes.includes(item) ? 'text-gray-300 line-through' : ''}>{item}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-            <p className="mb-1.5 mt-2 text-[11px] font-semibold text-gray-500">▸ 선택 항목</p>
-            <div className="grid grid-cols-2 gap-1">
-              {['여권발급비', '비자발급비', '봉사료', '포터비', '여행보험료', '쇼핑비', '선택관광'].map((item) => (
-                <label key={item} className="flex items-center gap-1.5 text-[11px]">
-                  <span className="inline-block h-3 w-3 rounded border border-gray-300 bg-white" />
-                  {item}
-                </label>
-              ))}
+            {/* 불포함 */}
+            <div className="rounded-xl border border-red-100 bg-red-50 p-3">
+              <p className="mb-1.5 text-[11px] font-semibold text-red-700">▸ 불포함 항목</p>
+              <div className="space-y-1">
+                {ALL_EXCLUDE_ITEMS.map((item) => (
+                  <label key={item} className="flex items-center gap-1.5 text-[11px]">
+                    <CheckBox checked={checkedExcludes.includes(item)} />
+                    <span className={checkedExcludes.length > 0 && !checkedExcludes.includes(item) ? 'text-gray-300 line-through' : ''}>{item}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
-          <div className="mt-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-[11px] text-gray-600">
-            <span className="font-semibold text-red-700">불포함 내역:</span> 선상팁, 쇼핑비, 선택관광, 여권발급비 (별도 안내)
           </div>
         </div>
 

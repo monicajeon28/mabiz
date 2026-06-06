@@ -59,9 +59,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: '이 조직의 판매건이 아닙니다' }, { status: 403 });
     }
 
-    // 출발일 조회 시도
+    // 출발일 + 상품 포함/불포함/인솔자 자동 도출
     let departureDate: string | null = null;
     let nights: number | null = null;
+    let includedItems: string[] = [
+      '선박/항공기 운임', '숙박/식사료', '항만세·관광기금',
+      '제세금', '여행알선수수료', '유류할증료', '관광지 입장료', '여행보험료',
+    ];
+    let excludedItems: string[] = ['선상팁', '쇼핑비', '선택관광'];
+    let hasGuide: 'Y' | 'N' = 'Y';
+
     try {
       const productCode = (payment.metadata as { productCode?: string })?.productCode ?? '';
       if (productCode) {
@@ -72,8 +79,22 @@ export async function POST(req: Request) {
           departureDate = trip[0].departureDate.toISOString().split('T')[0] ?? null;
           nights = trip[0].nights ?? null;
         }
+
+        // 크루즈 상품 정보로 포함/불포함 자동 도출
+        const cp = await prisma.cruiseProduct.findUnique({
+          where: { productCode },
+          select: { isJapan: true, isDomestic: true, tourType: true, airlineName: true },
+        }).catch(() => null);
+
+        if (cp) {
+          hasGuide = cp.tourType !== 'FREE' ? 'Y' : 'N';
+          if (hasGuide === 'Y') includedItems.push('안내자경비');
+          if (cp.airlineName) includedItems.push('항공기 추가 운임');
+          if (cp.isJapan) excludedItems.push('일본 관광 입국세');
+          if (!cp.isDomestic) excludedItems.push('여권·비자 개인 부담');
+        }
       }
-    } catch { /* Trip 없으면 패스 */ }
+    } catch { /* 패스 */ }
 
     const paymentMethod = payment.pgProvider
       ? `${payment.pgProvider} (온라인 결제)`
@@ -124,6 +145,10 @@ export async function POST(req: Request) {
             affiliateCode:  sale.affiliateCode ?? null,
             signedAt,
             specialTerms:   body.specialTerms ?? null,
+            // 상품 포함/불포함/인솔자 (미리보기·PDF 자동 체크박스용)
+            includedItems,
+            excludedItems,
+            hasGuide,
             // 취소/환불 규정 (법정 기준 요약) — 단일 출처(company-info) 사용으로 미리보기와 일치
             cancellationPolicy: CANCELLATION_POLICY_LINES,
             companyName:   COMPANY_INFO.name,
