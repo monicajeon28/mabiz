@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { logger } from "@/lib/logger";
 import { CountdownTimer } from "@/components/landing/CountdownTimer";
 import { StockGaugeWidget } from "@/components/landing/StockGaugeWidget";
 import { L6LossAnchorSection } from "@/components/landing/L6LossAnchorSection";
 import LiveSocialProof from "@/components/landing/LiveSocialProof";
+import { isB2BPage, PAGE_TYPES, B2B_CTA_TEXT, B2B_COMPLETION_MESSAGE } from '@/lib/page-types';
 
 // P0-8: URL 프로토콜 검증 헬퍼
 function isSafeUrl(url: string): boolean {
@@ -179,10 +181,10 @@ export function LandingClient({
       container.querySelectorAll<HTMLButtonElement>('form button[type="submit"], form button:not([type])').forEach((btn) => {
         btn.textContent = buttonTitle;
       });
-    } else if (slug.startsWith('b2b')) {
+    } else if (isB2BPage(slug)) {
       // B2B 페이지의 기본 버튼 문구 (Loss Aversion #5)
       container.querySelectorAll<HTMLButtonElement>('form button[type="submit"], form button:not([type])').forEach((btn) => {
-        btn.textContent = '지금 신청하기 (조조 할인 보장)';
+        btn.textContent = B2B_CTA_TEXT;
       });
     }
 
@@ -312,7 +314,7 @@ export function LandingClient({
             if (isSafeUrl(completionPageUrlRef.current)) {
               window.location.href = completionPageUrlRef.current;
             } else {
-              console.error('[Security] 안전하지 않은 completionPageUrl 차단:', completionPageUrlRef.current);
+              logger.warn("[LandingClient] Unsafe completion URL blocked");
             }
             return;
           }
@@ -378,8 +380,8 @@ export function LandingClient({
               ? "담당자가 곧 연락드릴 예정이에요."
               : payment
                 ? "결제를 진행하시면 예약이 확정됩니다."
-                : slug.startsWith('b2b')
-                  ? "조조 할인은 6월 말까지만 유효합니다. 담당자가 빠르면 1시간 이내로 연락드립니다."
+                : isB2BPage(slug)
+                  ? B2B_COMPLETION_MESSAGE
                   : "담당자가 빠르면 1시간 이내로 연락드립니다."}
           </p>
 
@@ -416,7 +418,7 @@ export function LandingClient({
                       if (isSafeUrl(data.payUrl)) {
                         window.location.href = data.payUrl;
                       } else {
-                        console.error('[Security] 안전하지 않은 payUrl 차단:', data.payUrl);
+                        logger.error("[LandingClient] Payment URL validation failed");
                         setFieldError("결제 URL이 유효하지 않습니다.");
                       }
                     } else {
@@ -442,7 +444,7 @@ export function LandingClient({
 
           <div className="mt-4 space-y-3">
             <a
-              href="https://pf.kakao.com/_cruisedot"
+              href={`https://pf.kakao.com/${process.env.NEXT_PUBLIC_KAKAO_CHANNEL_ID || "_cruisedot"}`}
               target="_blank"
               rel="noopener noreferrer"
               className="block w-full bg-yellow-400 text-gray-900 min-h-[44px] flex items-center justify-center rounded-xl text-sm font-bold hover:bg-yellow-300 transition-colors"
@@ -450,10 +452,10 @@ export function LandingClient({
               카카오톡 상담 시작하기
             </a>
             <a
-              href="tel:1899-4798"
+              href={`tel:${process.env.NEXT_PUBLIC_PHONE_NUMBER || "1899-4798"}`}
               className="block w-full bg-navy-900 text-white min-h-[44px] flex items-center justify-center rounded-xl text-sm font-bold hover:bg-navy-700 transition-colors"
             >
-              전화 상담 (1899-4798)
+              전화 상담 ({process.env.NEXT_PUBLIC_PHONE_NUMBER || "1899-4798"})
             </a>
           </div>
           {alreadyRegistered && (
@@ -522,7 +524,7 @@ export function LandingClient({
       )}
 
       {/* B2B 페이지용 SPIN + Loss Aversion 섹션 (slug이 'b2b'로 시작하는 경우) */}
-      {slug.startsWith('b2b') && (
+      {isB2BPage(slug) && (
         <div className="max-w-4xl mx-auto px-4 py-12 border-b border-gray-200">
           {/* SPIN S→P→I 섹션 */}
           <div className="mb-8">
