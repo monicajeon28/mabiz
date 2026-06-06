@@ -154,7 +154,7 @@ export async function POST(
     logger.error('[POST /api/contacts/[id]/classify]', { message: msg });
 
     return NextResponse.json(
-      { success: false, error: msg },
+      { success: false, error: '분류 처리 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

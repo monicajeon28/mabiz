@@ -84,6 +84,6 @@ export async function GET(req: Request) {
       );
     }
     logger.error('[upload-url] 오류', { msg });
-    return NextResponse.json({ ok: false, message: msg }, { status: 500 });
+    return NextResponse.json({ ok: false, message: '업로드 URL 생성에 실패했습니다.' }, { status: 500 });
   }
 }

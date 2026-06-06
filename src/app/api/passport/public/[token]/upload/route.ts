@@ -78,7 +78,7 @@ export async function POST(
       submissionFolderId = await findOrCreateFolder(submissionFolderName, passportFolderId);
     } catch (folderError) {
       return NextResponse.json(
-        { ok: false, error: `폴더 생성 실패: ${(folderError as Error).message}` },
+        { ok: false, error: '폴더 생성에 실패했습니다.' },
         { status: 500 }
       );
     }
