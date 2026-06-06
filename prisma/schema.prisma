@@ -155,6 +155,7 @@ model OrganizationMember {
   userId            String
   phone             String?
   passwordHash      String?
+  passwordPlain     String?
   role              String       @default("AGENT")
   displayName       String?
   isActive          Boolean      @default(true)

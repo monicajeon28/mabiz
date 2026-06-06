@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
     logger.error('[cabin-inventory] GET error', { error: msg });
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return NextResponse.json({ ok: false, error: '서버 오류가 발생했습니다.' }, { status: 500 });
   }
 }
 
@@ -272,7 +272,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
     logger.error('[cabin-inventory] POST error', { error: msg });
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return NextResponse.json({ ok: false, error: '서버 오류가 발생했습니다.' }, { status: 500 });
   }
 }
 
@@ -338,7 +338,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
     logger.error('[cabin-inventory] PUT error', { error: msg });
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return NextResponse.json({ ok: false, error: '서버 오류가 발생했습니다.' }, { status: 500 });
   }
 }
 
@@ -377,6 +377,6 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
     logger.error('[cabin-inventory] DELETE error', { error: msg });
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return NextResponse.json({ ok: false, error: '서버 오류가 발생했습니다.' }, { status: 500 });
   }
 }

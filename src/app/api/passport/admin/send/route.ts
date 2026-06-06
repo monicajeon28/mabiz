@@ -573,11 +573,11 @@ export async function POST(req: NextRequest) {
         logger.error(`[PassportRequest] Stage1 DB error for user ${userId}`, {
           err: error instanceof Error ? error.message : String(error),
         });
-        const message = error instanceof Error ? error.message : 'Unknown error';
+        const errorReason = error instanceof Error ? error.message : 'Unknown error';
         const errorResult: SendResultItem = {
           userId,
           success: false,
-          error: message,
+          error: '처리 중 오류 발생',
           ...(submissionId !== undefined && link ? { submissionId, link } : {}),
         };
         pendingLogs.push({
@@ -587,7 +587,7 @@ export async function POST(req: NextRequest) {
           messageBody: baseMessage,
           messageChannel,
           status: 'FAILED',
-          errorReason: message,
+          errorReason: errorReason,
           sentAt: new Date(),
         });
         results.push(errorResult);

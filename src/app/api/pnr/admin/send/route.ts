@@ -310,7 +310,6 @@ export async function POST(req: NextRequest) {
       {
         ok: false,
         message: 'PNR 요청 발송에 실패했습니다.',
-        error: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     );
@@ -401,7 +400,6 @@ export async function GET(req: NextRequest) {
       {
         ok: false,
         message: 'PNR 정보 조회에 실패했습니다.',
-        error: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     );

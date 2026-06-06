@@ -140,8 +140,7 @@ export async function POST(request: NextRequest) {
     logger.error("[Batch Lens] Error:", error);
     return NextResponse.json(
       {
-        error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error",
+        error: "서버 오류가 발생했습니다.",
       },
       { status: 500 }
     );

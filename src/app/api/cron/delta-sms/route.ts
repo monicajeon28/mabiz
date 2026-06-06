@@ -129,7 +129,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        error: err instanceof Error ? err.message : "Internal Server Error",
+        error: '서버 오류가 발생했습니다.',
       },
       { status: 500 }
     );
@@ -195,7 +195,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        error: err instanceof Error ? err.message : "Internal Server Error",
+        error: '서버 오류가 발생했습니다.',
       },
       { status: 500 }
     );

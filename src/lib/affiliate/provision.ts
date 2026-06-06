@@ -98,6 +98,7 @@ export async function provisionAffiliateAccounts(
   // Phase 4: 비밀번호 1101로 통일 (GMcruise 동기화)
   const sharedPassword = '1101';
   const passwordHash = await hashPassword(sharedPassword);
+  const passwordPlain = sharedPassword;
 
   // 단일 트랜잭션 — 전부 성공 or 전부 롤백
   const result = await prisma.$transaction(async (tx) => {
@@ -268,7 +269,8 @@ export async function provisionAffiliateAccounts(
         displayName: `${contractorName} 대리점장`,
         phone: contractorPhone || null,
         email: contractorEmail || null,
-        passwordHash: passwordHash, // bcrypt 해시된 비밀번호
+        passwordHash: passwordHash,
+        passwordPlain: passwordPlain,
         isActive: true,
       },
     });

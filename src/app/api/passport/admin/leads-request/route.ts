@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        message: error instanceof Error ? error.message : '여권 요청에 실패했습니다.',
+        message: '여권 요청에 실패했습니다.',
       },
       { status: 500 }
     );

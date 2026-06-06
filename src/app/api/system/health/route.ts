@@ -100,7 +100,7 @@ async function checkDatabase() {
     return {
       service: "Database",
       status: "FAILED",
-      message: `PostgreSQL error: ${err instanceof Error ? err.message : String(err)}`,
+      message: 'PostgreSQL 연결 실패',
       timestamp: new Date().toISOString(),
     };
   }
@@ -119,7 +119,7 @@ async function checkPrismaConnection() {
     return {
       service: "Prisma ORM",
       status: "FAILED",
-      message: `Prisma error: ${err instanceof Error ? err.message : String(err)}`,
+      message: 'Prisma ORM 연결 실패',
       timestamp: new Date().toISOString(),
     };
   }
@@ -201,7 +201,7 @@ async function checkDataIntegrity() {
     return {
       service: "Data Integrity",
       status: "FAILED",
-      message: `Check failed: ${err instanceof Error ? err.message : String(err)}`,
+      message: '데이터 무결성 검사 실패',
       timestamp: new Date().toISOString(),
     };
   }

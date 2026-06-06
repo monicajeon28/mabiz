@@ -156,7 +156,10 @@ export async function DELETE(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: '랜딩페이지를 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    await prisma.b2BLandingComment.delete({ where: { id: commentId } });
+    const deleted = await prisma.b2BLandingComment.deleteMany({ where: { id: commentId, landingPageId: id } });
+    if (deleted.count === 0) {
+      return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: '댓글을 찾을 수 없습니다.' }, { status: 404 });
+    }
 
     logger.log('[DELETE /api/b2b-landing/[id]/comments]', { landingPageId: id, commentId, orgId });
     return NextResponse.json({ ok: true });
