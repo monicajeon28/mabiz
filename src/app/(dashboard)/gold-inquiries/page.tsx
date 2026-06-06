@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronLeft, ChevronRight, Search, Loader2, MessageSquare, UserPlus } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 type GoldInquiry = {
   id: number;
@@ -69,7 +70,7 @@ export default function GoldInquiriesPage() {
       .then((d) => {
         if (d.ok) { setInquiries(d.inquiries ?? []); setTotal(d.total ?? 0); }
       })
-      .catch((e) => { if (e.name !== "AbortError") console.error("[gold-inquiries]", e); })
+      .catch((e) => { if (e.name !== "AbortError") logger.error("[gold-inquiries] 조회 실패", { error: e instanceof Error ? e.message : String(e) }); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
   }, [page, status, search]);
 
@@ -89,7 +90,7 @@ export default function GoldInquiriesPage() {
 
       // ✅ HTTP 상태 확인
       if (!r.ok) {
-        console.warn(`[gold-inquiries] 상태 변경 실패`, { id, status: r.status });
+        logger.warn(`[gold-inquiries] 상태 변경 실패`, { id, status: r.status });
         alert(`상태 변경 실패 (${r.status})`);
         setActing(null);
         return;
@@ -105,7 +106,7 @@ export default function GoldInquiriesPage() {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : '네트워크 오류';
-      console.warn("[gold-inquiries] changeStatus 네트워크 오류", { err: msg });
+      logger.warn("[gold-inquiries] changeStatus 네트워크 오류", { err: msg });
       alert(`네트워크 오류: ${msg}`);
     } finally {
       setActing(null);
@@ -124,7 +125,7 @@ export default function GoldInquiriesPage() {
       // ✅ HTTP 상태 확인
       if (!r.ok) {
         const errorMsg = await r.text().catch(() => `HTTP ${r.status}`);
-        console.warn(`[gold-inquiries] 회원 전환 실패`, { id: inq.id, status: r.status });
+        logger.warn(`[gold-inquiries] 회원 전환 실패`, { id: inq.id, status: r.status });
         alert(`요청 실패 (${r.status}): ${errorMsg}`);
         setConverting(null);
         return;
@@ -156,7 +157,7 @@ export default function GoldInquiriesPage() {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : '네트워크 오류';
-      console.warn("[gold-inquiries] convertToMember 네트워크 오류", { err: msg });
+      logger.warn("[gold-inquiries] convertToMember 네트워크 오류", { err: msg });
       alert(`네트워크 오류: ${msg}`);
     } finally {
       setConverting(null);

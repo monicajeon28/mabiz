@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useToast } from "@/lib/api/use-toast";
+import { logger } from "@/lib/logger";
 
 interface CallFeedbackProps {
   category: string;
@@ -78,7 +79,7 @@ export function CallFeedback({ category, phase, segment }: CallFeedbackProps) {
       setCallDuration("");
       setCallOutcome("interested");
     } catch (err) {
-      console.error("Error submitting feedback:", err);
+      logger.error("Feedback 제출 실패", { error: err instanceof Error ? err.message : String(err) });
       toast({
         title: "오류 발생",
         description: "피드백 저장 중 오류가 발생했습니다.",
