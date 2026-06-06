@@ -155,8 +155,8 @@ export async function PUT(req: Request, { params }: Params) {
     }
 
     // 수정
-    const updatedLog = await prisma.callLog.update({
-      where: { id: logId },
+    await prisma.callLog.updateMany({
+      where: { id: logId, contactId: id },
       data: {
         content: content ?? existingLog.content,
         result: result ?? existingLog.result,
@@ -171,6 +171,8 @@ export async function PUT(req: Request, { params }: Params) {
         recoveryTime: recoveryTime !== undefined ? parseInt(String(recoveryTime)) || null : existingLog.recoveryTime,
       },
     });
+    const updatedLog = await prisma.callLog.findUnique({ where: { id: logId } });
+    if (!updatedLog) return NextResponse.json({ ok: false }, { status: 404 });
 
     logger.log('[PUT call-logs] 수정 완료', { logId, contactId: id, updatedBy: ctx.userId });
     return NextResponse.json({ ok: true, log: updatedLog }, { status: 200 });

@@ -265,9 +265,12 @@ export async function PATCH(req: Request, { params }: Params) {
       );
     }
 
-    const updated = await prisma.crmMarketingCampaign.update({
-      where: { id: campaignId },
+    await prisma.crmMarketingCampaign.updateMany({
+      where: { id: campaignId, organizationId: orgId },
       data: updateData,
+    });
+    const updated = await prisma.crmMarketingCampaign.findUnique({
+      where: { id: campaignId },
       select: {
         id: true,
         title: true,
@@ -282,6 +285,7 @@ export async function PATCH(req: Request, { params }: Params) {
         updatedAt: true,
       },
     });
+    if (!updated) return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: '캠페인을 찾을 수 없습니다.' }, { status: 404 });
 
     logger.log('[PATCH /api/campaigns/[id]]', { campaignId, updated: Object.keys(updateData) });
 
