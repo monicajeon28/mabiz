@@ -74,7 +74,7 @@ export async function GET() {
             orgId: o.id,
             orgName: "본사",
             ownerUserId: null,
-            ownerDisplayName: adminNames || null,
+            ownerDisplayName: adminNames || "본사",
             label: adminNames ? `본사 (${adminNames})` : "본사",
             isBonsa: true,
           };
