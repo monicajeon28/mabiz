@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
-import { COMPANY_INFO, CANCELLATION_POLICY_LINES, BANK_TRANSFER_LABEL } from '@/lib/company-info';
+import { COMPANY_INFO, CANCELLATION_POLICY_LINES, BANK_TRANSFER_LABEL, CRUISE_CANCELLATION_POLICY } from '@/lib/company-info';
 
 // P0-4: HTML 이스케이프 함수
 function escHtml(s: string): string {
@@ -24,8 +24,18 @@ export async function POST(req: Request) {
 
     const body = await req.json() as {
       orderId: string;
-      specialTerms?: string;  // 특약사항
-      signedAt?: string;      // 계약 서명일 (없으면 오늘)
+      specialTerms?: string;
+      signedAt?: string;
+      // 수동 입력 override 필드 (자동 도출값 덮어쓰기)
+      overrideProductName?: string;
+      overrideDepartureDate?: string;
+      overrideNights?: number;
+      overrideHeadcount?: number;
+      overrideCabinType?: string;
+      overrideIncludedItems?: string[];
+      overrideExcludedItems?: string[];
+      overrideHasGuide?: 'Y' | 'N';
+      overrideRefundPolicy?: { label: string; value: string }[];
     };
 
     if (!body.orderId) {
@@ -68,6 +78,7 @@ export async function POST(req: Request) {
     ];
     let excludedItems: string[] = ['선상팁', '쇼핑비', '선택관광'];
     let hasGuide: 'Y' | 'N' = 'Y';
+    let productRefundPolicy: { label: string; value: string }[] = CRUISE_CANCELLATION_POLICY.slice();
 
     try {
       const productCode = (payment.metadata as { productCode?: string })?.productCode ?? '';
@@ -83,7 +94,7 @@ export async function POST(req: Request) {
         // 크루즈 상품 정보로 포함/불포함 자동 도출
         const cp = await prisma.cruiseProduct.findUnique({
           where: { productCode },
-          select: { isJapan: true, isDomestic: true, tourType: true, airlineName: true },
+          select: { isJapan: true, isDomestic: true, tourType: true, airlineName: true, refundPolicy: true },
         }).catch(() => null);
 
         if (cp) {
@@ -92,6 +103,10 @@ export async function POST(req: Request) {
           if (cp.airlineName) includedItems.push('항공기 추가 운임');
           if (cp.isJapan) excludedItems.push('일본 관광 입국세');
           if (!cp.isDomestic) excludedItems.push('여권·비자 개인 부담');
+          // 상품별 환불정책이 있으면 사용 (없으면 크루즈 기본 취소료 유지)
+          if (Array.isArray(cp.refundPolicy)) {
+            productRefundPolicy = cp.refundPolicy as { label: string; value: string }[];
+          }
         }
       }
     } catch { /* 패스 */ }
@@ -133,10 +148,10 @@ export async function POST(req: Request) {
             buyerName:      payment.buyerName,
             buyerTel:       payment.buyerTel,
             buyerEmail:     payment.buyerEmail ?? null,
-            // 상품 정보
-            productName:    payment.productName ?? '크루즈 상품',
-            departureDate,
-            nights,
+            // 상품 정보 (수동 override 우선 적용)
+            productName:    body.overrideProductName ?? payment.productName ?? '크루즈 상품',
+            departureDate:  body.overrideDepartureDate !== undefined ? body.overrideDepartureDate : departureDate,
+            nights:         body.overrideNights !== undefined ? body.overrideNights : nights,
             // 계약 금액
             amount:         payment.amount,
             paymentMethod,
@@ -145,10 +160,12 @@ export async function POST(req: Request) {
             affiliateCode:  sale.affiliateCode ?? null,
             signedAt,
             specialTerms:   body.specialTerms ?? null,
-            // 상품 포함/불포함/인솔자 (미리보기·PDF 자동 체크박스용)
-            includedItems,
-            excludedItems,
-            hasGuide,
+            // 상품 포함/불포함/인솔자 (수동 override 우선 적용)
+            includedItems:  body.overrideIncludedItems ?? includedItems,
+            excludedItems:  body.overrideExcludedItems ?? excludedItems,
+            hasGuide:       body.overrideHasGuide ?? hasGuide,
+            // 환불 규정: 수동 override > 상품별 정책 > 크루즈 기본 취소료
+            refundPolicy:   body.overrideRefundPolicy ?? productRefundPolicy,
             // 취소/환불 규정 (법정 기준 요약) — 단일 출처(company-info) 사용으로 미리보기와 일치
             cancellationPolicy: CANCELLATION_POLICY_LINES,
             companyName:   COMPANY_INFO.name,
