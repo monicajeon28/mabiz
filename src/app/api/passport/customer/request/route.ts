@@ -3,7 +3,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
+import { decodePassportToken } from '@/lib/passport-utils';
 import { logger } from '@/lib/logger';
+
+/** 세션 또는 여권 토큰(SMS 링크 비로그인 고객)으로 권한 userId 해석. 실패 시 null. */
+async function resolvePassportActor(token: string | null | undefined): Promise<number | null> {
+  if (token && token.length >= 10) {
+    let decoded = token;
+    try { const d = decodePassportToken(token); if (d) decoded = d; } catch { /* 원본 사용 */ }
+    const sub = await prisma.gmPassportSubmission.findFirst({
+      where: { token: decoded, tokenExpiresAt: { gt: new Date() } },
+      select: { userId: true },
+    });
+    if (sub) return sub.userId;
+  }
+  const session = await getMabizSession();
+  if (session?.userId) return Number(session.userId);
+  return null;
+}
 
 /**
  * 여권 도움 요청 API
@@ -14,16 +31,17 @@ import { logger } from '@/lib/logger';
  */
 export async function POST(req: NextRequest) {
   try {
-    const session = await getMabizSession();
-    if (!session?.userId) {
+    const body = await req.json();
+    const { token, reservationId, requesterName, requesterPhone } = body;
+
+    // 세션 또는 토큰 인증 (SMS 링크 비로그인 고객 지원)
+    const userId = await resolvePassportActor(token);
+    if (userId == null) {
       return NextResponse.json(
         { ok: false, message: '인증이 필요합니다.' },
         { status: 401 }
       );
     }
-
-    const body = await req.json();
-    const { reservationId, requesterName, requesterPhone } = body;
 
     // 필수 필드 검증
     if (!reservationId) {
@@ -32,8 +50,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-
-    const userId = Number(session.userId);
 
     // Reservation 존재 확인
     const reservation = await prisma.gmReservation.findUnique({

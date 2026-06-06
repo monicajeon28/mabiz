@@ -185,8 +185,86 @@ export async function GET(req: NextRequest) {
       return pn.slice(0, 2) + '****' + pn.slice(-2);
     };
 
+    // ── 페이지 프리필용 reservation 조회 (page.tsx ↔ scan GET 계약 일치) ──────────
+    // page.tsx 본인확인은 응답의 data.reservation.{id,totalPeople,user,travelers,trip}을 읽는다.
+    // 본인확인(phone 일치, 위 L90~ 통과) 시에만 비마스킹 본인 데이터를 내려 PII를 보호한다.
+    let reservation: {
+      id: number;
+      totalPeople: number;
+      passportStatus: string | null;
+      trip: Record<string, unknown> | null;
+      user: { id: number; name: string | null; phone: string | null; email: string | null };
+      travelers: Array<Record<string, unknown>>;
+    } | null = null;
+    if (phone) {
+      try {
+        const resv = await prisma.gmReservation.findFirst({
+          where: {
+            mainUserId: submission.userId,
+            ...(submission.tripId != null ? { tripId: submission.tripId } : {}),
+          },
+          orderBy: { id: 'desc' },
+          include: {
+            trip: {
+              select: {
+                id: true, cruiseName: true, reservationCode: true, departureDate: true,
+                endDate: true, shipName: true, productCode: true, status: true,
+              },
+            },
+          },
+        });
+        if (resv) {
+          const resvTravelers = await prisma.gmTraveler.findMany({
+            where: { reservationId: resv.id },
+            orderBy: [{ roomNumber: 'asc' }, { id: 'asc' }],
+            select: {
+              id: true, korName: true, engSurname: true, engGivenName: true,
+              passportNo: true, birthDate: true, expiryDate: true, nationality: true, roomNumber: true,
+            },
+          });
+          reservation = {
+            id: resv.id,
+            totalPeople: resv.totalPeople,
+            passportStatus: resv.passportStatus,
+            trip: resv.trip
+              ? {
+                  id: resv.trip.id,
+                  cruiseName: resv.trip.cruiseName,
+                  reservationCode: resv.trip.reservationCode,
+                  departureDate: resv.trip.departureDate?.toISOString() ?? null,
+                  endDate: resv.trip.endDate?.toISOString() ?? null,
+                  shipName: resv.trip.shipName,
+                  productCode: resv.trip.productCode,
+                  status: resv.trip.status,
+                }
+              : null,
+            // 프리필용 — 본인확인 통과한 '본인' 정보라 마스킹하지 않음
+            user: submission.user
+              ? { id: submission.user.id, name: submission.user.name, phone: submission.user.phone, email: submission.user.email }
+              : { id: submission.userId, name: null, phone: null, email: null },
+            travelers: resvTravelers.map((t) => ({
+              id: t.id,
+              korName: t.korName ?? '',
+              engSurname: t.engSurname,
+              engGivenName: t.engGivenName,
+              passportNo: t.passportNo,
+              birthDate: t.birthDate,
+              dateOfBirth: t.birthDate,
+              expiryDate: t.expiryDate,
+              passportExpiryDate: t.expiryDate,
+              nationality: t.nationality,
+              roomNumber: t.roomNumber,
+            })),
+          };
+        }
+      } catch (resvErr) {
+        logger.warn('[Passport Scan] reservation 조회 실패 (무시됨):', resvErr as Record<string, unknown>);
+      }
+    }
+
     return NextResponse.json({
       ok: true,
+      reservation,
       submission: {
         id: submission.id,
         // token은 클라이언트가 이미 보유 중 — 재전송 불필요, 생략

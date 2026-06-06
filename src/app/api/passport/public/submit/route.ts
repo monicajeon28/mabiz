@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
     } catch { /* 원본 토큰 사용 */ }
     const submission = await prisma.gmPassportSubmission.findFirst({
       where: { token: decodedToken },
-      select: { userId: true, tripId: true, tokenExpiresAt: true },
+      select: { id: true, userId: true, tripId: true, tokenExpiresAt: true },
     });
     const tokenValid =
       !!submission &&
@@ -330,6 +330,17 @@ export async function POST(req: NextRequest) {
         passportStatus: reservation.passportStatus === '도움요청' ? '도움요청' : '진행중',
       },
     });
+
+    // 제출 완료 표시 — 관리자 화면(submission-guests 등 isSubmitted 필터)에 노출되도록.
+    // public/submit엔 재제출 잠금이 없으므로 true 설정해도 점진 재제출은 계속 가능.
+    try {
+      await prisma.gmPassportSubmission.update({
+        where: { id: submission.id },
+        data: { isSubmitted: true, submittedAt: new Date() },
+      });
+    } catch (subErr) {
+      logger.warn('[Passport Submit] submission 상태 갱신 실패 (무시됨):', subErr as Record<string, unknown>);
+    }
 
     // 관리자 표시 SSoT 동기화 (best-effort — 실패해도 고객 제출은 성공)
     try {
